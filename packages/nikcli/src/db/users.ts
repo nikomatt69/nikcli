@@ -1,16 +1,16 @@
-import { eq, and, or, sql, desc, asc } from "drizzle-orm";
-import { createHash, randomBytes } from "node:crypto";
-import fs from "fs/promises";
-import { readFileSync } from "fs";
-import path from "path";
-import { Global } from "@/global";
-import { Database } from "@/database/database";
-import { users, userSessions, chatContacts, chatMessages } from "./users.sql";
+import { eq, and, or, sql, desc, asc } from "drizzle-orm"
+import { createHash, randomBytes } from "node:crypto"
+import fs from "fs/promises"
+import { readFileSync } from "fs"
+import path from "path"
+import { Global } from "@/global"
+import { Database } from "@/database/database"
+import { users, userSessions, chatContacts, chatMessages } from "./users.sql"
 
 /** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
-type RunResult = { changes: number; lastInsertRowid: number | bigint };
+type RunResult = { changes: number; lastInsertRowid: number | bigint }
 function getChanges(result: void | RunResult): number {
-  return (result as RunResult).changes;
+  return (result as RunResult).changes
 }
 
 export namespace UserDB {
@@ -18,17 +18,14 @@ export namespace UserDB {
   // Admin email allowlist — only these emails can hold the "admin" role
   // ============================================================================
 
-  const ADMIN_EMAILS = new Set([
-    "nicom.19@icloud.com",
-    "nicola.mattioli.95@gmail.com",
-  ]);
+  const ADMIN_EMAILS = new Set(["nicom.19@icloud.com", "nicola.mattioli.95@gmail.com"])
 
   /**
    * Check if an email address is allowed to hold the admin role.
    * This is the single source of truth for admin eligibility.
    */
   export function isAdminEmail(email: string): boolean {
-    return ADMIN_EMAILS.has(email.trim().toLowerCase());
+    return ADMIN_EMAILS.has(email.trim().toLowerCase())
   }
 
   /**
@@ -36,7 +33,7 @@ export namespace UserDB {
    * Useful for UI hints and validation messages.
    */
   export function getAdminEmails(): string[] {
-    return [...ADMIN_EMAILS];
+    return [...ADMIN_EMAILS]
   }
 
   // ============================================================================
@@ -44,34 +41,34 @@ export namespace UserDB {
   // ============================================================================
 
   export type User = {
-    id: string;
-    username: string;
-    email: string;
-    password_hash: string;
-    display_name: string | null;
-    role: "admin" | "user";
-    created_at: number;
-    updated_at: number;
-  };
+    id: string
+    username: string
+    email: string
+    password_hash: string
+    display_name: string | null
+    role: "admin" | "user"
+    created_at: number
+    updated_at: number
+  }
 
-  export type PublicUser = Omit<User, "password_hash">;
+  export type PublicUser = Omit<User, "password_hash">
 
   export type Session = {
-    id: string;
-    user_id: string;
-    token_hash: string;
-    expires_at: number | null;
-    created_at: number;
-  };
+    id: string
+    user_id: string
+    token_hash: string
+    expires_at: number | null
+    created_at: number
+  }
 
   export type ChatMessage = {
-    id: string;
-    sender_id: string;
-    receiver_id: string;
-    content: string;
-    read: number;
-    created_at: number;
-  };
+    id: string
+    sender_id: string
+    receiver_id: string
+    content: string
+    read: number
+    created_at: number
+  }
 
   // ============================================================================
   // Database access — uses the shared central Database.Service
@@ -81,31 +78,28 @@ export namespace UserDB {
    * Get the shared Drizzle database instance from the central Database.Service.
    */
   export function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
   // ============================================================================
   // Session cache — eliminates SHA-256 + 2 DB queries on every authenticated request
   // ============================================================================
 
-  const sessionCache = new Map<
-    string,
-    { user: PublicUser; expiresAt: number | null; cachedAt: number }
-  >();
-  const SESSION_CACHE_TTL = 60_000; // 1 minute
+  const sessionCache = new Map<string, { user: PublicUser; expiresAt: number | null; cachedAt: number }>()
+  const SESSION_CACHE_TTL = 60_000 // 1 minute
   // Hard cap to prevent unbounded growth from session-token bombing within the TTL window.
   // Once the cap is reached, the oldest entry is evicted on each insertion (insertion-order LRU).
-  const SESSION_CACHE_MAX_SIZE = 10_000;
+  const SESSION_CACHE_MAX_SIZE = 10_000
 
   /**
    * Invalidate session cache entries.
    * Call when sessions are revoked or users are modified.
    */
   function invalidateSessionCache(hash?: string, userId?: string) {
-    if (hash) sessionCache.delete(hash);
+    if (hash) sessionCache.delete(hash)
     if (userId) {
       for (const [key, val] of sessionCache) {
-        if (val.user.id === userId) sessionCache.delete(key);
+        if (val.user.id === userId) sessionCache.delete(key)
       }
     }
   }
@@ -115,19 +109,16 @@ export namespace UserDB {
    * Uses Map's insertion-order iteration as a cheap LRU approximation (new entries move
    * to the "most recent" position; the oldest entry is the first key when iterated).
    */
-  function sessionCacheSet(
-    key: string,
-    value: { user: PublicUser; expiresAt: number | null; cachedAt: number },
-  ) {
+  function sessionCacheSet(key: string, value: { user: PublicUser; expiresAt: number | null; cachedAt: number }) {
     if (sessionCache.has(key)) {
       // Refresh recency: delete + re-insert so the entry moves to the back.
-      sessionCache.delete(key);
+      sessionCache.delete(key)
     } else if (sessionCache.size >= SESSION_CACHE_MAX_SIZE) {
       // Evict oldest (first key in insertion order).
-      const oldest = sessionCache.keys().next().value;
-      if (oldest !== undefined) sessionCache.delete(oldest);
+      const oldest = sessionCache.keys().next().value
+      if (oldest !== undefined) sessionCache.delete(oldest)
     }
-    sessionCache.set(key, value);
+    sessionCache.set(key, value)
   }
 
   // ============================================================================
@@ -135,11 +126,11 @@ export namespace UserDB {
   // ============================================================================
 
   function hashToken(token: string): string {
-    return createHash("sha256").update(token).digest("hex");
+    return createHash("sha256").update(token).digest("hex")
   }
 
   function generateId(prefix: string): string {
-    return `${prefix}_${randomBytes(12).toString("hex")}`;
+    return `${prefix}_${randomBytes(12).toString("hex")}`
   }
 
   /** Convert a Drizzle row to the legacy PublicUser type */
@@ -152,7 +143,7 @@ export namespace UserDB {
       role: row.role as "admin" | "user",
       created_at: row.createdAt,
       updated_at: row.updatedAt,
-    };
+    }
   }
 
   /** Convert a Drizzle row to the legacy User type */
@@ -166,7 +157,7 @@ export namespace UserDB {
       role: row.role as "admin" | "user",
       created_at: row.createdAt,
       updated_at: row.updatedAt,
-    };
+    }
   }
 
   /**
@@ -174,8 +165,8 @@ export namespace UserDB {
    * Kept for backward compatibility with consumers.
    */
   export function toPublic(user: User): PublicUser {
-    const { password_hash: _, ...pub } = user;
-    return pub as PublicUser;
+    const { password_hash: _, ...pub } = user
+    return pub as PublicUser
   }
 
   // ============================================================================
@@ -183,37 +174,35 @@ export namespace UserDB {
   // ============================================================================
 
   export async function create(input: {
-    username: string;
-    email: string;
-    password: string;
-    displayName?: string;
-    role?: "admin" | "user";
+    username: string
+    email: string
+    password: string
+    displayName?: string
+    role?: "admin" | "user"
   }): Promise<PublicUser> {
-    const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedEmail = input.email.trim().toLowerCase()
 
     // Determine role: explicit override takes precedence, then email allowlist, then fallback
-    let role: "admin" | "user";
+    let role: "admin" | "user"
     if (input.role) {
       // Explicit role requested — enforce admin allowlist
       if (input.role === "admin" && !isAdminEmail(normalizedEmail)) {
-        throw new Error(
-          "This email address is not authorized to hold the admin role",
-        );
+        throw new Error("This email address is not authorized to hold the admin role")
       }
-      role = input.role;
+      role = input.role
     } else if (!hasUsers()) {
       // No users exist yet — grant admin only if email is in the allowlist
-      role = isAdminEmail(normalizedEmail) ? "admin" : "user";
+      role = isAdminEmail(normalizedEmail) ? "admin" : "user"
     } else {
-      role = "user";
+      role = "user"
     }
 
     const hash = await Bun.password.hash(input.password, {
       algorithm: "bcrypt",
       cost: 10,
-    });
-    const now = Date.now();
-    const id = generateId("usr");
+    })
+    const now = Date.now()
+    const id = generateId("usr")
 
     db()
       .insert(users)
@@ -227,9 +216,9 @@ export namespace UserDB {
         createdAt: now,
         updatedAt: now,
       })
-      .run();
+      .run()
 
-    const row = db().select().from(users).where(eq(users.id, id)).get();
+    const row = db().select().from(users).where(eq(users.id, id)).get()
     return row
       ? rowToPublic(row)
       : {
@@ -240,40 +229,28 @@ export namespace UserDB {
           role,
           created_at: now,
           updated_at: now,
-        };
+        }
   }
 
   export function findByEmail(email: string): User | null {
-    const row = db()
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .get();
-    return row ? rowToUser(row) : null;
+    const row = db().select().from(users).where(eq(users.email, email.toLowerCase())).get()
+    return row ? rowToUser(row) : null
   }
 
   export function findById(id: string): User | null {
-    const row = db().select().from(users).where(eq(users.id, id)).get();
-    return row ? rowToUser(row) : null;
+    const row = db().select().from(users).where(eq(users.id, id)).get()
+    return row ? rowToUser(row) : null
   }
 
-  export async function verifyPassword(
-    user: User,
-    password: string,
-  ): Promise<boolean> {
-    return Bun.password.verify(password, user.password_hash);
+  export async function verifyPassword(user: User, password: string): Promise<boolean> {
+    return Bun.password.verify(password, user.password_hash)
   }
 
-  export function createSession(
-    userId: string,
-    expiresInDays?: number,
-  ): string {
-    const token = `nku_${randomBytes(32).toString("base64url")}`;
-    const id = generateId("ses");
-    const now = Date.now();
-    const expiresAt = expiresInDays
-      ? now + expiresInDays * 24 * 60 * 60 * 1000
-      : null;
+  export function createSession(userId: string, expiresInDays?: number): string {
+    const token = `nku_${randomBytes(32).toString("base64url")}`
+    const id = generateId("ses")
+    const now = Date.now()
+    const expiresAt = expiresInDays ? now + expiresInDays * 24 * 60 * 60 * 1000 : null
 
     db()
       .insert(userSessions)
@@ -284,9 +261,9 @@ export namespace UserDB {
         expiresAt,
         createdAt: now,
       })
-      .run();
+      .run()
 
-    return token;
+    return token
   }
 
   /**
@@ -294,24 +271,24 @@ export namespace UserDB {
    * Uses an in-memory cache to avoid hitting the database on every request.
    */
   export function verifySession(rawToken: string): PublicUser | null {
-    if (!rawToken.startsWith("nku_")) return null;
-    const hash = hashToken(rawToken);
-    const now = Date.now();
+    if (!rawToken.startsWith("nku_")) return null
+    const hash = hashToken(rawToken)
+    const now = Date.now()
 
     // Check cache first
-    const cached = sessionCache.get(hash);
+    const cached = sessionCache.get(hash)
     if (cached) {
       if (now - cached.cachedAt < SESSION_CACHE_TTL) {
         // Cache entry is still within TTL
         if (cached.expiresAt === null || cached.expiresAt > now) {
-          return cached.user;
+          return cached.user
         }
         // Session expired — remove from cache
-        sessionCache.delete(hash);
-        return null;
+        sessionCache.delete(hash)
+        return null
       }
       // TTL expired — fall through to DB
-      sessionCache.delete(hash);
+      sessionCache.delete(hash)
     }
 
     // Cache miss — use JOIN query (1 query instead of 2)
@@ -329,18 +306,18 @@ export namespace UserDB {
       .from(userSessions)
       .innerJoin(users, eq(userSessions.userId, users.id))
       .where(eq(userSessions.tokenHash, hash))
-      .get();
+      .get()
 
     if (!row) {
       // Token not found
-      return null;
+      return null
     }
 
     if (row.expiresAt !== null && row.expiresAt <= now) {
       // Session expired — delete and return null
-      db().delete(userSessions).where(eq(userSessions.tokenHash, hash)).run();
-      sessionCache.delete(hash);
-      return null;
+      db().delete(userSessions).where(eq(userSessions.tokenHash, hash)).run()
+      sessionCache.delete(hash)
+      return null
     }
 
     const publicUser: PublicUser = {
@@ -351,39 +328,31 @@ export namespace UserDB {
       role: row.role as "admin" | "user",
       created_at: row.createdAt,
       updated_at: row.updatedAt,
-    };
+    }
 
     // Populate cache (with LRU cap)
     sessionCacheSet(hash, {
       user: publicUser,
       expiresAt: row.expiresAt,
       cachedAt: now,
-    });
-    return publicUser;
+    })
+    return publicUser
   }
 
   export function revokeSession(rawToken: string): boolean {
-    const hash = hashToken(rawToken);
-    invalidateSessionCache(hash);
-    const result = db()
-      .delete(userSessions)
-      .where(eq(userSessions.tokenHash, hash))
-      .run();
-    return getChanges(result) > 0;
+    const hash = hashToken(rawToken)
+    invalidateSessionCache(hash)
+    const result = db().delete(userSessions).where(eq(userSessions.tokenHash, hash)).run()
+    return getChanges(result) > 0
   }
 
   export function revokeAllUserSessions(userId: string): void {
-    invalidateSessionCache(undefined, userId);
-    db().delete(userSessions).where(eq(userSessions.userId, userId)).run();
+    invalidateSessionCache(undefined, userId)
+    db().delete(userSessions).where(eq(userSessions.userId, userId)).run()
   }
 
   export function listUsers(): PublicUser[] {
-    return db()
-      .select()
-      .from(users)
-      .orderBy(asc(users.createdAt))
-      .all()
-      .map(rowToPublic);
+    return db().select().from(users).orderBy(asc(users.createdAt)).all().map(rowToPublic)
   }
 
   export function hasUsers(): boolean {
@@ -391,45 +360,43 @@ export namespace UserDB {
       .select({ exists: sql`exists(select 1 from users)` })
       .from(users)
       .limit(1)
-      .get();
+      .get()
     // SQLite returns 1 or 0 for EXISTS
-    return (result as any)?.exists ? true : false;
+    return (result as any)?.exists ? true : false
   }
 
   export async function updateUser(
     id: string,
     input: { displayName?: string; password?: string; role?: "admin" | "user" },
   ): Promise<PublicUser | null> {
-    const user = findById(id);
-    if (!user) return null;
+    const user = findById(id)
+    if (!user) return null
 
     // Enforce admin email allowlist: only allowlisted emails can hold the admin role
     if (input.role === "admin" && !isAdminEmail(user.email)) {
-      throw new Error(
-        "This email address is not authorized to hold the admin role",
-      );
+      throw new Error("This email address is not authorized to hold the admin role")
     }
 
-    const updates: Partial<typeof users.$inferInsert> = {};
+    const updates: Partial<typeof users.$inferInsert> = {}
 
     if (input.displayName !== undefined) {
-      updates.displayName = input.displayName.trim() || null;
+      updates.displayName = input.displayName.trim() || null
     }
 
     if (input.password !== undefined) {
       updates.passwordHash = await Bun.password.hash(input.password, {
         algorithm: "bcrypt",
         cost: 10,
-      });
+      })
     }
 
     if (input.role !== undefined) {
-      updates.role = input.role;
+      updates.role = input.role
     }
 
-    if (Object.keys(updates).length === 0) return toPublic(user);
+    if (Object.keys(updates).length === 0) return toPublic(user)
 
-    updates.updatedAt = Date.now();
+    updates.updatedAt = Date.now()
 
     // Use RETURNING to get updated row in one query instead of read + write + read
     const [updated] = db()
@@ -445,13 +412,13 @@ export namespace UserDB {
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
-      .all();
+      .all()
 
-    if (!updated) return null;
+    if (!updated) return null
 
     // Invalidate session cache if role changed
     if (input.role !== undefined) {
-      invalidateSessionCache(undefined, id);
+      invalidateSessionCache(undefined, id)
     }
 
     return {
@@ -462,49 +429,49 @@ export namespace UserDB {
       role: updated.role as "admin" | "user",
       created_at: updated.createdAt,
       updated_at: updated.updatedAt,
-    };
+    }
   }
 
   export function deleteUser(id: string): boolean {
-    invalidateSessionCache(undefined, id);
-    const result = db().delete(users).where(eq(users.id, id)).run();
-    return getChanges(result) > 0;
+    invalidateSessionCache(undefined, id)
+    const result = db().delete(users).where(eq(users.id, id)).run()
+    return getChanges(result) > 0
   }
 
   // ============================================================================
   // Active TUI session persisted to disk
   // ============================================================================
 
-  const SESSION_FILE = path.join(Global.Path.data, "user-session.token");
+  const SESSION_FILE = path.join(Global.Path.data, "user-session.token")
 
   export async function getActiveSession(): Promise<string | null> {
     try {
-      const token = await Bun.file(SESSION_FILE).text();
-      return token.trim() || null;
+      const token = await Bun.file(SESSION_FILE).text()
+      return token.trim() || null
     } catch {
-      return null;
+      return null
     }
   }
 
   export function getActiveSessionSync(): string | null {
     try {
-      const token = readFileSync(SESSION_FILE, "utf8").trim();
-      return token || null;
+      const token = readFileSync(SESSION_FILE, "utf8").trim()
+      return token || null
     } catch {
-      return null;
+      return null
     }
   }
 
   export async function saveActiveSession(token: string): Promise<void> {
-    await Bun.write(SESSION_FILE, token);
+    await Bun.write(SESSION_FILE, token)
     // chmod is Unix-only, skip on Windows
     if (process.platform !== "win32") {
-      await fs.chmod(SESSION_FILE, 0o600).catch(() => undefined);
+      await fs.chmod(SESSION_FILE, 0o600).catch(() => undefined)
     }
   }
 
   export async function clearActiveSession(): Promise<void> {
-    await fs.unlink(SESSION_FILE).catch(() => undefined);
+    await fs.unlink(SESSION_FILE).catch(() => undefined)
   }
 
   // ============================================================================
@@ -515,17 +482,14 @@ export namespace UserDB {
    * Add a contact bidirectionally (wrapped in a transaction).
    */
   export function addContact(userId: string, contactId: string): void {
-    const now = Date.now();
+    const now = Date.now()
     db().transaction((tx) => {
-      tx.insert(chatContacts)
-        .values({ userId, contactId, createdAt: now })
-        .onConflictDoNothing()
-        .run();
+      tx.insert(chatContacts).values({ userId, contactId, createdAt: now }).onConflictDoNothing().run()
       tx.insert(chatContacts)
         .values({ userId: contactId, contactId: userId, createdAt: now })
         .onConflictDoNothing()
-        .run();
-    });
+        .run()
+    })
   }
 
   /**
@@ -536,17 +500,11 @@ export namespace UserDB {
       .delete(chatContacts)
       .where(
         or(
-          and(
-            eq(chatContacts.userId, userId),
-            eq(chatContacts.contactId, contactId),
-          ),
-          and(
-            eq(chatContacts.userId, contactId),
-            eq(chatContacts.contactId, userId),
-          ),
+          and(eq(chatContacts.userId, userId), eq(chatContacts.contactId, contactId)),
+          and(eq(chatContacts.userId, contactId), eq(chatContacts.contactId, userId)),
         ),
       )
-      .run();
+      .run()
   }
 
   export function listContacts(userId: string): PublicUser[] {
@@ -564,7 +522,7 @@ export namespace UserDB {
       .innerJoin(users, eq(chatContacts.contactId, users.id))
       .where(eq(chatContacts.userId, userId))
       .orderBy(asc(chatContacts.createdAt))
-      .all();
+      .all()
 
     return rows.map((row) => ({
       id: row.id,
@@ -574,14 +532,11 @@ export namespace UserDB {
       role: row.role as "admin" | "user",
       created_at: row.createdAt,
       updated_at: row.updatedAt,
-    }));
+    }))
   }
 
-  export function searchUsers(
-    query: string,
-    excludeUserId: string,
-  ): PublicUser[] {
-    const like = `%${query.toLowerCase()}%`;
+  export function searchUsers(query: string, excludeUserId: string): PublicUser[] {
+    const like = `%${query.toLowerCase()}%`
     const rows = db()
       .select({
         id: users.id,
@@ -604,7 +559,7 @@ export namespace UserDB {
         ),
       )
       .limit(10)
-      .all();
+      .all()
 
     return rows.map((row) => ({
       id: row.id,
@@ -614,16 +569,12 @@ export namespace UserDB {
       role: row.role as "admin" | "user",
       created_at: row.createdAt,
       updated_at: row.updatedAt,
-    }));
+    }))
   }
 
-  export function sendMessage(
-    senderId: string,
-    receiverId: string,
-    content: string,
-  ): ChatMessage {
-    const id = generateId("msg");
-    const now = Date.now();
+  export function sendMessage(senderId: string, receiverId: string, content: string): ChatMessage {
+    const id = generateId("msg")
+    const now = Date.now()
     db()
       .insert(chatMessages)
       .values({
@@ -634,7 +585,7 @@ export namespace UserDB {
         read: false,
         createdAt: now,
       })
-      .run();
+      .run()
     return {
       id,
       sender_id: senderId,
@@ -642,39 +593,25 @@ export namespace UserDB {
       content,
       read: 0,
       created_at: now,
-    };
+    }
   }
 
-  export function getMessages(
-    userId: string,
-    contactId: string,
-    limit = 100,
-  ): ChatMessage[] {
+  export function getMessages(userId: string, contactId: string, limit = 100): ChatMessage[] {
     // Use a subquery approach with Drizzle for the bidirectional conversation query
     const recentMessages = db()
       .select()
       .from(chatMessages)
       .where(
         or(
-          and(
-            eq(chatMessages.senderId, userId),
-            eq(chatMessages.receiverId, contactId),
-          ),
-          and(
-            eq(chatMessages.senderId, contactId),
-            eq(chatMessages.receiverId, userId),
-          ),
+          and(eq(chatMessages.senderId, userId), eq(chatMessages.receiverId, contactId)),
+          and(eq(chatMessages.senderId, contactId), eq(chatMessages.receiverId, userId)),
         ),
       )
       .orderBy(desc(chatMessages.createdAt))
       .limit(limit)
-      .as("recent_messages");
+      .as("recent_messages")
 
-    const rows = db()
-      .select()
-      .from(recentMessages)
-      .orderBy(asc(recentMessages.createdAt))
-      .all();
+    const rows = db().select().from(recentMessages).orderBy(asc(recentMessages.createdAt)).all()
 
     return rows.map((row) => ({
       id: row.id,
@@ -683,7 +620,7 @@ export namespace UserDB {
       content: row.content,
       read: row.read ? 1 : 0,
       created_at: row.createdAt,
-    }));
+    }))
   }
 
   export function markMessagesRead(userId: string, senderId: string): void {
@@ -691,13 +628,9 @@ export namespace UserDB {
       .update(chatMessages)
       .set({ read: true })
       .where(
-        and(
-          eq(chatMessages.receiverId, userId),
-          eq(chatMessages.senderId, senderId),
-          eq(chatMessages.read, false),
-        ),
+        and(eq(chatMessages.receiverId, userId), eq(chatMessages.senderId, senderId), eq(chatMessages.read, false)),
       )
-      .run();
+      .run()
   }
 
   export function getUnreadCount(userId: string, senderId: string): number {
@@ -705,24 +638,18 @@ export namespace UserDB {
       .select({ count: sql<number>`cast(count(*) as integer)` })
       .from(chatMessages)
       .where(
-        and(
-          eq(chatMessages.receiverId, userId),
-          eq(chatMessages.senderId, senderId),
-          eq(chatMessages.read, false),
-        ),
+        and(eq(chatMessages.receiverId, userId), eq(chatMessages.senderId, senderId), eq(chatMessages.read, false)),
       )
-      .all();
-    return result?.count ?? 0;
+      .all()
+    return result?.count ?? 0
   }
 
   export function getTotalUnreadCount(userId: string): number {
     const [result] = db()
       .select({ count: sql<number>`cast(count(*) as integer)` })
       .from(chatMessages)
-      .where(
-        and(eq(chatMessages.receiverId, userId), eq(chatMessages.read, false)),
-      )
-      .all();
-    return result?.count ?? 0;
+      .where(and(eq(chatMessages.receiverId, userId), eq(chatMessages.read, false)))
+      .all()
+    return result?.count ?? 0
   }
 }

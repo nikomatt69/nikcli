@@ -1,5 +1,5 @@
-import { Database as BunDatabase } from "bun:sqlite";
-import type { DatabaseMigration } from "../migration";
+import { Database as BunDatabase } from "bun:sqlite"
+import type { DatabaseMigration } from "../migration"
 
 export default {
   id: "20260611010000_sync_event_sequence",
@@ -25,6 +25,6 @@ export default {
         seq INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (project_id, aggregate)
       );
-    `);
+    `)
   },
-} satisfies DatabaseMigration.Migration;
+} satisfies DatabaseMigration.Migration

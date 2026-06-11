@@ -87,9 +87,12 @@ describe("InstanceScope", () => {
 
     const directory = await makeProjectDir()
     const exit = await Effect.runPromiseExit(
-      InstanceScope.with({ directory }, Effect.gen(function* () {
-        return yield* new MarkerError({ detail: "kept" })
-      })),
+      InstanceScope.with(
+        { directory },
+        Effect.gen(function* () {
+          return yield* new MarkerError({ detail: "kept" })
+        }),
+      ),
     )
 
     expect(Exit.isFailure(exit)).toBe(true)

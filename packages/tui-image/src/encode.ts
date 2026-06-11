@@ -15,10 +15,10 @@
  *                             `image-preview.tsx` already)
  *  - {@link encodeAsciiBlocks} — generic ASCII block fallback
  */
-import { crop, resize, type PixelImage } from "./pixels";
+import { crop, resize, type PixelImage } from "./pixels"
 
-const ESC = "\x1b";
-const ST = "\x1b\\";
+const ESC = "\x1b"
+const ST = "\x1b\\"
 
 /**
  * Kitty graphics escape: `ESC _G key=val,key=val;payload ESC \`. Control
@@ -27,47 +27,40 @@ const ST = "\x1b\\";
  * terminal accepts.
  */
 function apc(keys: string[], payload?: string): string {
-  const control = keys.join(",");
-  return payload === undefined
-    ? `${ESC}_G${control}${ST}`
-    : `${ESC}_G${control};${payload}${ST}`;
+  const control = keys.join(",")
+  return payload === undefined ? `${ESC}_G${control}${ST}` : `${ESC}_G${control};${payload}${ST}`
 }
 
 /** iTerm2 inline images use a different framing: `OSC 1337 ; … ST`. */
 function osc(...parts: string[]): string {
-  return `${ESC}]1337;${parts.join(";")}${ST}`;
+  return `${ESC}]1337;${parts.join(";")}${ST}`
 }
 
 function base64FromBytes(bytes: Uint8Array): string {
   if (typeof Buffer !== "undefined") {
-    return Buffer.from(
-      bytes.buffer,
-      bytes.byteOffset,
-      bytes.byteLength,
-    ).toString("base64");
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64")
   }
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++)
-    binary += String.fromCharCode(bytes[i] ?? 0);
+  let binary = ""
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i] ?? 0)
   // btoa is available in both browsers and modern Bun/Node.
-  return btoa(binary);
+  return btoa(binary)
 }
 
 /** Convert RGBA buffer to a tightly-packed RGB buffer (drops alpha). */
 function rgbaToRgb(image: PixelImage): Uint8Array {
-  const out = new Uint8Array(image.width * image.height * 3);
+  const out = new Uint8Array(image.width * image.height * 3)
   for (let i = 0, j = 0; i < image.data.length; i += 4, j += 3) {
-    const a = (image.data[i + 3] ?? 0) / 255;
-    out[j] = Math.round((image.data[i] ?? 0) * a);
-    out[j + 1] = Math.round((image.data[i + 1] ?? 0) * a);
-    out[j + 2] = Math.round((image.data[i + 2] ?? 0) * a);
+    const a = (image.data[i + 3] ?? 0) / 255
+    out[j] = Math.round((image.data[i] ?? 0) * a)
+    out[j + 1] = Math.round((image.data[i + 1] ?? 0) * a)
+    out[j + 2] = Math.round((image.data[i + 2] ?? 0) * a)
   }
-  return out;
+  return out
 }
 
 /** Convert RGBA buffer to PNG bytes. Implemented as a small dependency-free writer. */
 function rgbaToPng(image: PixelImage): Uint8Array {
-  return new U_PngEncoder(image.width, image.height).encode(image.data);
+  return new U_PngEncoder(image.width, image.height).encode(image.data)
 }
 
 /**
@@ -81,15 +74,14 @@ function rgbaToPng(image: PixelImage): Uint8Array {
  */
 class U_PngEncoder {
   private static readonly CRC_TABLE: Uint32Array = (() => {
-    const table = new Uint32Array(256);
+    const table = new Uint32Array(256)
     for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++)
-        c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      table[n] = c >>> 0;
+      let c = n
+      for (let k = 0; k < 8; k++) c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+      table[n] = c >>> 0
     }
-    return table;
-  })();
+    return table
+  })()
 
   constructor(
     private readonly width: number,
@@ -97,74 +89,67 @@ class U_PngEncoder {
   ) {}
 
   private static crc32(bytes: Uint8Array): number {
-    let crc = 0xffffffff;
+    let crc = 0xffffffff
     for (let i = 0; i < bytes.length; i++) {
-      crc =
-        U_PngEncoder.CRC_TABLE[(crc ^ (bytes[i] ?? 0)) & 0xff]! ^ (crc >>> 8);
+      crc = U_PngEncoder.CRC_TABLE[(crc ^ (bytes[i] ?? 0)) & 0xff]! ^ (crc >>> 8)
     }
-    return (crc ^ 0xffffffff) >>> 0;
+    return (crc ^ 0xffffffff) >>> 0
   }
 
   private chunk(type: string, data: Uint8Array): Uint8Array {
-    const out = new Uint8Array(4 + 4 + data.length + 4);
-    const dv = new DataView(out.buffer);
-    dv.setUint32(0, data.length);
-    out.set(new TextEncoder().encode(type), 4);
-    out.set(data, 8);
-    const crcInput = new Uint8Array(4 + data.length);
-    crcInput.set(out.subarray(4, 8 + data.length), 0);
-    dv.setUint32(8 + data.length, U_PngEncoder.crc32(crcInput));
-    return out;
+    const out = new Uint8Array(4 + 4 + data.length + 4)
+    const dv = new DataView(out.buffer)
+    dv.setUint32(0, data.length)
+    out.set(new TextEncoder().encode(type), 4)
+    out.set(data, 8)
+    const crcInput = new Uint8Array(4 + data.length)
+    crcInput.set(out.subarray(4, 8 + data.length), 0)
+    dv.setUint32(8 + data.length, U_PngEncoder.crc32(crcInput))
+    return out
   }
 
   private ihdr(): Uint8Array {
-    const buf = new Uint8Array(13);
-    const dv = new DataView(buf.buffer);
-    dv.setUint32(0, this.width);
-    dv.setUint32(4, this.height);
-    buf[8] = 8; // bit depth
-    buf[9] = 6; // color type: RGBA
-    buf[10] = 0;
-    buf[11] = 0;
-    buf[12] = 0;
-    return this.chunk("IHDR", buf);
+    const buf = new Uint8Array(13)
+    const dv = new DataView(buf.buffer)
+    dv.setUint32(0, this.width)
+    dv.setUint32(4, this.height)
+    buf[8] = 8 // bit depth
+    buf[9] = 6 // color type: RGBA
+    buf[10] = 0
+    buf[11] = 0
+    buf[12] = 0
+    return this.chunk("IHDR", buf)
   }
 
   private idat(rgba: Uint8ClampedArray): Uint8Array {
     // Filter byte (0 = None) precedes every scanline.
-    const scanline = this.width * 4;
-    const raw = new Uint8Array((scanline + 1) * this.height);
+    const scanline = this.width * 4
+    const raw = new Uint8Array((scanline + 1) * this.height)
     for (let y = 0; y < this.height; y++) {
-      raw[y * (scanline + 1)] = 0;
-      raw.set(
-        rgba.subarray(y * scanline, y * scanline + scanline),
-        y * (scanline + 1) + 1,
-      );
+      raw[y * (scanline + 1)] = 0
+      raw.set(rgba.subarray(y * scanline, y * scanline + scanline), y * (scanline + 1) + 1)
     }
-    return this.chunk("IDAT", zlibStore(raw));
+    return this.chunk("IDAT", zlibStore(raw))
   }
 
   private iend(): Uint8Array {
-    return this.chunk("IEND", new Uint8Array(0));
+    return this.chunk("IEND", new Uint8Array(0))
   }
 
   encode(rgba: Uint8ClampedArray): Uint8Array {
-    const signature = new Uint8Array([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    ]);
-    const total =
-      8 + this.ihdr().length + this.idat(rgba).length + this.iend().length;
-    const out = new Uint8Array(total);
-    let offset = 0;
+    const signature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const total = 8 + this.ihdr().length + this.idat(rgba).length + this.iend().length
+    const out = new Uint8Array(total)
+    let offset = 0
     const write = (bytes: Uint8Array) => {
-      out.set(bytes, offset);
-      offset += bytes.length;
-    };
-    write(signature);
-    write(this.ihdr());
-    write(this.idat(rgba));
-    write(this.iend());
-    return out;
+      out.set(bytes, offset)
+      offset += bytes.length
+    }
+    write(signature)
+    write(this.ihdr())
+    write(this.idat(rgba))
+    write(this.iend())
+    return out
   }
 }
 
@@ -175,60 +160,55 @@ class U_PngEncoder {
  * bundle and in the tiny TUI renderer thread.
  */
 function zlibStore(input: Uint8Array): Uint8Array {
-  const out: number[] = [];
+  const out: number[] = []
   // zlib header
-  out.push(0x78, 0x01);
+  out.push(0x78, 0x01)
 
-  const maxBlock = 0xffff;
+  const maxBlock = 0xffff
   for (let i = 0; i < input.length; i += maxBlock) {
-    const remaining = Math.min(maxBlock, input.length - i);
-    const last = i + remaining >= input.length ? 1 : 0;
+    const remaining = Math.min(maxBlock, input.length - i)
+    const last = i + remaining >= input.length ? 1 : 0
     // BTYPE=00, BFINAL=last → header byte is just `last`.
-    out.push(last);
-    out.push(remaining & 0xff, (remaining >>> 8) & 0xff);
-    const complement = ~remaining & 0xffff;
-    out.push(complement & 0xff, (complement >>> 8) & 0xff);
-    for (let j = 0; j < remaining; j++) out.push(input[i + j] ?? 0);
+    out.push(last)
+    out.push(remaining & 0xff, (remaining >>> 8) & 0xff)
+    const complement = ~remaining & 0xffff
+    out.push(complement & 0xff, (complement >>> 8) & 0xff)
+    for (let j = 0; j < remaining; j++) out.push(input[i + j] ?? 0)
   }
   // adler32
-  const adler = adler32(input);
-  out.push(
-    (adler >>> 24) & 0xff,
-    (adler >>> 16) & 0xff,
-    (adler >>> 8) & 0xff,
-    adler & 0xff,
-  );
-  return new Uint8Array(out);
+  const adler = adler32(input)
+  out.push((adler >>> 24) & 0xff, (adler >>> 16) & 0xff, (adler >>> 8) & 0xff, adler & 0xff)
+  return new Uint8Array(out)
 }
 
 function adler32(bytes: Uint8Array): number {
-  let a = 1;
-  let b = 0;
+  let a = 1
+  let b = 0
   for (let i = 0; i < bytes.length; i++) {
-    a = (a + (bytes[i] ?? 0)) % 65521;
-    b = (b + a) % 65521;
+    a = (a + (bytes[i] ?? 0)) % 65521
+    b = (b + a) % 65521
   }
-  return ((b << 16) | a) >>> 0;
+  return ((b << 16) | a) >>> 0
 }
 
 export interface KittyOptions {
   /** Source image id (defaults to a stable hash of the pixels). */
-  readonly id?: number;
+  readonly id?: number
   /** Image width in cells. Defaults to `image.width`. */
-  readonly columns?: number;
+  readonly columns?: number
   /** Image height in cells. Defaults to `image.height`. */
-  readonly rows?: number;
+  readonly rows?: number
   /** When `true`, the image is transmitted as PNG instead of raw RGBA. */
-  readonly format?: "png" | "rgba";
+  readonly format?: "png" | "rgba"
   /** Suppress the placeholder character at the cursor position. */
-  readonly quiet?: boolean;
+  readonly quiet?: boolean
   /**
    * When `true`, the image is sent as a fresh `a=T` (transmit+display)
    * command. The default of `false` uses `a=t` (transmit only) and follows
    * up with a separate `a=p` (put) command, which is the pattern OpenTUI uses
    * to update the same image in place.
    */
-  readonly fresh?: boolean;
+  readonly fresh?: boolean
 }
 
 /**
@@ -237,15 +217,12 @@ export interface KittyOptions {
  *
  * Reference: <https://sw.kovidgoyal.net/kitty/graphics-protocol/>
  */
-export function encodeKitty(
-  image: PixelImage,
-  options: KittyOptions = {},
-): string {
-  const columns = Math.max(1, options.columns ?? image.width);
-  const rows = Math.max(1, options.rows ?? image.height);
-  const id = options.id ?? 1;
-  const fresh = options.fresh ?? false;
-  const quiet = options.quiet ? "q=1" : "q=2";
+export function encodeKitty(image: PixelImage, options: KittyOptions = {}): string {
+  const columns = Math.max(1, options.columns ?? image.width)
+  const rows = Math.max(1, options.rows ?? image.height)
+  const id = options.id ?? 1
+  const fresh = options.fresh ?? false
+  const quiet = options.quiet ? "q=1" : "q=2"
 
   // Kitty caps a single transmission at 4096 bytes of base64; we chunk to be
   // safe. Empirically small preview images fit in one chunk, but we always
@@ -254,57 +231,35 @@ export function encodeKitty(
   // chunk carries every key plus `m=1`; continuation chunks carry ONLY `m`
   // (and the payload); the final chunk has `m=0`.
   const emitChunked = (head: string[], payload: string): string => {
-    const chunkSize = 4096;
-    if (payload.length <= chunkSize) return apc(head, payload);
-    const chunks: string[] = [];
+    const chunkSize = 4096
+    if (payload.length <= chunkSize) return apc(head, payload)
+    const chunks: string[] = []
     for (let i = 0; i < payload.length; i += chunkSize) {
-      const part = payload.slice(i, i + chunkSize);
-      const more = i + chunkSize < payload.length ? 1 : 0;
-      chunks.push(
-        i === 0 ? apc([...head, "m=1"], part) : apc([`m=${more}`], part),
-      );
+      const part = payload.slice(i, i + chunkSize)
+      const more = i + chunkSize < payload.length ? 1 : 0
+      chunks.push(i === 0 ? apc([...head, "m=1"], part) : apc([`m=${more}`], part))
     }
-    return chunks.join("");
-  };
-
-  if (options.format === "rgba") {
-    const rgb = rgbaToRgb(image);
-    const payload = base64FromBytes(rgb);
-    const head = [
-      fresh ? "a=T" : "a=t",
-      `f=24`,
-      `s=${image.width}`,
-      `v=${image.height}`,
-      quiet,
-      `i=${id}`,
-    ];
-    return (
-      emitChunked(head, payload) +
-      apc(["a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`, quiet])
-    );
+    return chunks.join("")
   }
 
-  const png = rgbaToPng(image);
-  const payload = base64FromBytes(png);
-  const head = [
-    fresh ? "a=T" : "a=t",
-    `f=100`,
-    `s=${image.width}`,
-    `v=${image.height}`,
-    quiet,
-    `i=${id}`,
-  ];
-  return (
-    emitChunked(head, payload) +
-    apc(["a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`, quiet])
-  );
+  if (options.format === "rgba") {
+    const rgb = rgbaToRgb(image)
+    const payload = base64FromBytes(rgb)
+    const head = [fresh ? "a=T" : "a=t", `f=24`, `s=${image.width}`, `v=${image.height}`, quiet, `i=${id}`]
+    return emitChunked(head, payload) + apc(["a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`, quiet])
+  }
+
+  const png = rgbaToPng(image)
+  const payload = base64FromBytes(png)
+  const head = [fresh ? "a=T" : "a=t", `f=100`, `s=${image.width}`, `v=${image.height}`, quiet, `i=${id}`]
+  return emitChunked(head, payload) + apc(["a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`, quiet])
 }
 
 export interface Iterm2Options {
-  readonly width?: number | string;
-  readonly height?: number | string;
+  readonly width?: number | string
+  readonly height?: number | string
   /** When `true`, the image is `inline=1` (preserves aspect ratio). */
-  readonly preserveAspectRatio?: boolean;
+  readonly preserveAspectRatio?: boolean
 }
 
 /**
@@ -313,12 +268,9 @@ export interface Iterm2Options {
  *
  * Reference: <https://iterm2.com/documentation-images.html>
  */
-export function encodeIterm2(
-  image: PixelImage,
-  options: Iterm2Options = {},
-): string {
-  const png = rgbaToPng(image);
-  return encodeIterm2Bytes(png, options);
+export function encodeIterm2(image: PixelImage, options: Iterm2Options = {}): string {
+  const png = rgbaToPng(image)
+  return encodeIterm2Bytes(png, options)
 }
 
 /**
@@ -326,18 +278,15 @@ export function encodeIterm2(
  * protocol. PNG/JPEG/GIF bytes can be forwarded directly, avoiding an
  * expensive decode/re-encode cycle and preserving the original image.
  */
-export function encodeIterm2Bytes(
-  image: Uint8Array,
-  options: Iterm2Options = {},
-): string {
-  const payload = base64FromBytes(image);
-  const width = options.width ?? "auto";
-  const height = options.height ?? "auto";
-  const preserve = options.preserveAspectRatio !== false ? "1" : "0";
+export function encodeIterm2Bytes(image: Uint8Array, options: Iterm2Options = {}): string {
+  const payload = base64FromBytes(image)
+  const width = options.width ?? "auto"
+  const height = options.height ?? "auto"
+  const preserve = options.preserveAspectRatio !== false ? "1" : "0"
   return osc(
     `file=${image.byteLength};width=${width};height=${height};preserveAspectRatio=${preserve};inline=1`,
     payload,
-  );
+  )
 }
 
 /**
@@ -347,34 +296,33 @@ export function encodeIterm2Bytes(
  * palette.
  */
 const SIXEL_PALETTE: ReadonlyArray<readonly [number, number, number]> = (() => {
-  const out: [number, number, number][] = [];
+  const out: [number, number, number][] = []
   for (let r = 0; r < 6; r++) {
     for (let g = 0; g < 6; g++) {
       for (let b = 0; b < 6; b++) {
-        out.push([(r * 255) / 5, (g * 255) / 5, (b * 255) / 5]);
+        out.push([(r * 255) / 5, (g * 255) / 5, (b * 255) / 5])
       }
     }
   }
-  for (let g = 0; g < 24; g++)
-    out.push([(g * 255) / 23, (g * 255) / 23, (g * 255) / 23]);
-  return out;
-})();
+  for (let g = 0; g < 24; g++) out.push([(g * 255) / 23, (g * 255) / 23, (g * 255) / 23])
+  return out
+})()
 
 function nearestPaletteIndex(r: number, g: number, b: number): number {
-  let best = 0;
-  let bestDist = Number.POSITIVE_INFINITY;
+  let best = 0
+  let bestDist = Number.POSITIVE_INFINITY
   for (let i = 0; i < SIXEL_PALETTE.length; i++) {
-    const entry = SIXEL_PALETTE[i]!;
-    const dr = entry[0] - r;
-    const dg = entry[1] - g;
-    const db = entry[2] - b;
-    const dist = dr * dr + dg * dg + db * db;
+    const entry = SIXEL_PALETTE[i]!
+    const dr = entry[0] - r
+    const dg = entry[1] - g
+    const db = entry[2] - b
+    const dist = dr * dr + dg * dg + db * db
     if (dist < bestDist) {
-      bestDist = dist;
-      best = i;
+      bestDist = dist
+      best = i
     }
   }
-  return best;
+  return best
 }
 
 /**
@@ -385,85 +333,83 @@ function nearestPaletteIndex(r: number, g: number, b: number): number {
  */
 export function encodeSixel(image: PixelImage): Uint8Array {
   // Initialise a 256-colour palette; we register only the colours we use.
-  const usedPalette = new Map<number, number>(); // palette index → sixel register
-  let nextRegister = 0;
-  const parts: number[] = [];
+  const usedPalette = new Map<number, number>() // palette index → sixel register
+  let nextRegister = 0
+  const parts: number[] = []
   const push = (s: string) => {
-    for (let i = 0; i < s.length; i++) parts.push(s.charCodeAt(i) & 0x7f);
-  };
-
-  push("\x1bPq"); // DECSIXEL introducer
-  push('"1;1;0;0;0'); // raster attributes: 1:1 pixel aspect, 0×0 image size hints
-  // We track the per-row run-length encoding state across columns.
-  let lastRegister = -1;
-  for (let y = 0; y < image.height; y += 6) {
-    let runStart = 0;
-    let runRegister = -1;
-    let runChar = 0;
-    const flushRun = (endX: number) => {
-      if (runRegister === -1 || endX <= runStart) return;
-      const length = endX - runStart;
-      if (length > 1) push(`!${length}`);
-      if (runRegister !== lastRegister) {
-        push(`#${runRegister}`);
-        lastRegister = runRegister;
-      }
-      push(String.fromCharCode(0x3f + runChar));
-    };
-    for (let x = 0; x < image.width; x++) {
-      let band = 0;
-      for (let dy = 0; dy < 6; dy++) {
-        const yy = y + dy;
-        if (yy >= image.height) break;
-        const i = (yy * image.width + x) * 4;
-        const a = (image.data[i + 3] ?? 0) / 255;
-        if (a < 0.5) continue;
-        const r = (image.data[i] ?? 0) * a;
-        const g = (image.data[i + 1] ?? 0) * a;
-        const b = (image.data[i + 2] ?? 0) * a;
-        const idx = nearestPaletteIndex(r, g, b);
-        const register = usedPalette.get(idx) ?? -1;
-        if (register === -1 && nextRegister < 256) {
-          usedPalette.set(idx, nextRegister);
-          const entry = SIXEL_PALETTE[idx]!;
-          push(
-            `#${nextRegister};2;${Math.round(entry[0])};${Math.round(entry[1])};${Math.round(entry[2])}`,
-          );
-          runRegister = nextRegister;
-          nextRegister += 1;
-        } else {
-          runRegister = register;
-        }
-        if (runRegister === -1) continue;
-        band |= 1 << dy;
-      }
-      if (band === runChar && runRegister !== -1) continue;
-      flushRun(x);
-      runStart = x;
-      runChar = band;
-      if (band === 0) {
-        runRegister = -1;
-        continue;
-      }
-      const idx = band >= 0x20 ? -1 : -1;
-      if (idx === -1) runRegister = runRegister;
-    }
-    flushRun(image.width);
-    push("$"); // carriage return (move to start of next band)
-    push("-"); // line feed (advance to next sixel band)
-    lastRegister = -1;
+    for (let i = 0; i < s.length; i++) parts.push(s.charCodeAt(i) & 0x7f)
   }
-  push("\x1b\\"); // ST
-  return new Uint8Array(parts);
+
+  push("\x1bPq") // DECSIXEL introducer
+  push('"1;1;0;0;0') // raster attributes: 1:1 pixel aspect, 0×0 image size hints
+  // We track the per-row run-length encoding state across columns.
+  let lastRegister = -1
+  for (let y = 0; y < image.height; y += 6) {
+    let runStart = 0
+    let runRegister = -1
+    let runChar = 0
+    const flushRun = (endX: number) => {
+      if (runRegister === -1 || endX <= runStart) return
+      const length = endX - runStart
+      if (length > 1) push(`!${length}`)
+      if (runRegister !== lastRegister) {
+        push(`#${runRegister}`)
+        lastRegister = runRegister
+      }
+      push(String.fromCharCode(0x3f + runChar))
+    }
+    for (let x = 0; x < image.width; x++) {
+      let band = 0
+      for (let dy = 0; dy < 6; dy++) {
+        const yy = y + dy
+        if (yy >= image.height) break
+        const i = (yy * image.width + x) * 4
+        const a = (image.data[i + 3] ?? 0) / 255
+        if (a < 0.5) continue
+        const r = (image.data[i] ?? 0) * a
+        const g = (image.data[i + 1] ?? 0) * a
+        const b = (image.data[i + 2] ?? 0) * a
+        const idx = nearestPaletteIndex(r, g, b)
+        const register = usedPalette.get(idx) ?? -1
+        if (register === -1 && nextRegister < 256) {
+          usedPalette.set(idx, nextRegister)
+          const entry = SIXEL_PALETTE[idx]!
+          push(`#${nextRegister};2;${Math.round(entry[0])};${Math.round(entry[1])};${Math.round(entry[2])}`)
+          runRegister = nextRegister
+          nextRegister += 1
+        } else {
+          runRegister = register
+        }
+        if (runRegister === -1) continue
+        band |= 1 << dy
+      }
+      if (band === runChar && runRegister !== -1) continue
+      flushRun(x)
+      runStart = x
+      runChar = band
+      if (band === 0) {
+        runRegister = -1
+        continue
+      }
+      const idx = band >= 0x20 ? -1 : -1
+      if (idx === -1) runRegister = runRegister
+    }
+    flushRun(image.width)
+    push("$") // carriage return (move to start of next band)
+    push("-") // line feed (advance to next sixel band)
+    lastRegister = -1
+  }
+  push("\x1b\\") // ST
+  return new Uint8Array(parts)
 }
 
 export interface HalfBlockOptions {
   /** Width in terminal cells. */
-  readonly columns: number;
+  readonly columns: number
   /** Height in terminal cells. */
-  readonly rows: number;
+  readonly rows: number
   /** When `true`, emit 24-bit color escape sequences (default). */
-  readonly truecolor?: boolean;
+  readonly truecolor?: boolean
 }
 
 /**
@@ -471,158 +417,131 @@ export interface HalfBlockOptions {
  * encodes two vertical pixels (top + bottom). The output preserves aspect
  * ratio because terminal cells are roughly twice as tall as they are wide.
  */
-export function encodeHalfblock(
-  image: PixelImage,
-  options: HalfBlockOptions,
-): string {
-  const { columns, rows } = options;
-  const truecolor = options.truecolor !== false;
-  const target = resize(image, columns, Math.max(1, rows * 2));
-  const lines: string[] = [];
-  const reset = truecolor ? "\x1b[0m" : "";
+export function encodeHalfblock(image: PixelImage, options: HalfBlockOptions): string {
+  const { columns, rows } = options
+  const truecolor = options.truecolor !== false
+  const target = resize(image, columns, Math.max(1, rows * 2))
+  const lines: string[] = []
+  const reset = truecolor ? "\x1b[0m" : ""
   for (let y = 0; y < target.height; y += 2) {
-    let line = "";
+    let line = ""
     for (let x = 0; x < target.width; x++) {
-      const top = sample(target, x, y);
-      const bottom = sample(target, x, y + 1);
+      const top = sample(target, x, y)
+      const bottom = sample(target, x, y + 1)
       if (truecolor) {
-        line += `\x1b[38;2;${top[0]};${top[1]};${top[2]}m\x1b[48;2;${bottom[0]};${bottom[1]};${bottom[2]}m\u2580`;
+        line += `\x1b[38;2;${top[0]};${top[1]};${top[2]}m\x1b[48;2;${bottom[0]};${bottom[1]};${bottom[2]}m\u2580`
       } else {
-        line += "▀";
+        line += "▀"
       }
     }
-    lines.push(line + reset);
+    lines.push(line + reset)
   }
-  return lines.join("\n");
+  return lines.join("\n")
 }
 
-function sample(
-  image: PixelImage,
-  x: number,
-  y: number,
-): [number, number, number] {
-  const yy = Math.max(0, Math.min(image.height - 1, y));
-  const xx = Math.max(0, Math.min(image.width - 1, x));
-  const i = (yy * image.width + xx) * 4;
-  const a = (image.data[i + 3] ?? 0) / 255;
+function sample(image: PixelImage, x: number, y: number): [number, number, number] {
+  const yy = Math.max(0, Math.min(image.height - 1, y))
+  const xx = Math.max(0, Math.min(image.width - 1, x))
+  const i = (yy * image.width + xx) * 4
+  const a = (image.data[i + 3] ?? 0) / 255
   return [
     Math.round((image.data[i] ?? 0) * a),
     Math.round((image.data[i + 1] ?? 0) * a),
     Math.round((image.data[i + 2] ?? 0) * a),
-  ];
+  ]
 }
 
 export interface BrailleOptions {
-  readonly columns: number;
-  readonly rows: number;
+  readonly columns: number
+  readonly rows: number
 }
 
-type RgbaColor = [r: number, g: number, b: number, a: number];
+type RgbaColor = [r: number, g: number, b: number, a: number]
 
 const BRAILLE_BITS: readonly (readonly [number, number])[] = [
   [0x01, 0x08],
   [0x02, 0x10],
   [0x04, 0x20],
   [0x40, 0x80],
-];
+]
 
 function colorDistanceSq(a: RgbaColor, b: RgbaColor): number {
-  const dr = a[0] - b[0];
-  const dg = a[1] - b[1];
-  const db = a[2] - b[2];
-  const da = a[3] - b[3];
-  return dr * dr + dg * dg + db * db + da * da;
+  const dr = a[0] - b[0]
+  const dg = a[1] - b[1]
+  const db = a[2] - b[2]
+  const da = a[3] - b[3]
+  return dr * dr + dg * dg + db * db + da * da
 }
 
 function averageColor(colors: RgbaColor[], indexes: number[]): RgbaColor {
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let a = 0;
+  let r = 0
+  let g = 0
+  let b = 0
+  let a = 0
   for (const index of indexes) {
-    const color = colors[index]!;
-    r += color[0];
-    g += color[1];
-    b += color[2];
-    a += color[3];
+    const color = colors[index]!
+    r += color[0]
+    g += color[1]
+    b += color[2]
+    a += color[3]
   }
-  const count = Math.max(1, indexes.length);
-  return [
-    Math.round(r / count),
-    Math.round(g / count),
-    Math.round(b / count),
-    Math.round(a / count),
-  ];
+  const count = Math.max(1, indexes.length)
+  return [Math.round(r / count), Math.round(g / count), Math.round(b / count), Math.round(a / count)]
 }
 
 function brailleCell(colors: RgbaColor[]): {
-  char: string;
-  fg: RgbaColor;
-  bg: RgbaColor;
+  char: string
+  fg: RgbaColor
+  bg: RgbaColor
 } {
-  let darkest = 0;
-  let brightest = 0;
-  const luminance = (color: RgbaColor) =>
-    0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2];
+  let darkest = 0
+  let brightest = 0
+  const luminance = (color: RgbaColor) => 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
 
   for (let index = 1; index < colors.length; index++) {
-    if (luminance(colors[index]!) < luminance(colors[darkest]!)) darkest = index;
-    if (luminance(colors[index]!) > luminance(colors[brightest]!))
-      brightest = index;
+    if (luminance(colors[index]!) < luminance(colors[darkest]!)) darkest = index
+    if (luminance(colors[index]!) > luminance(colors[brightest]!)) brightest = index
   }
 
-  if (
-    colorDistanceSq(colors[darkest]!, colors[brightest]!) <
-    24 * 24 * 3
-  ) {
+  if (colorDistanceSq(colors[darkest]!, colors[brightest]!) < 24 * 24 * 3) {
     const average = averageColor(
       colors,
       colors.map((_, index) => index),
-    );
-    return { char: "\u2800", fg: average, bg: average };
+    )
+    return { char: "\u2800", fg: average, bg: average }
   }
 
-  let centers: [RgbaColor, RgbaColor] = [
-    colors[darkest]!,
-    colors[brightest]!,
-  ];
-  let groups: [number[], number[]] = [[], []];
+  let centers: [RgbaColor, RgbaColor] = [colors[darkest]!, colors[brightest]!]
+  let groups: [number[], number[]] = [[], []]
   for (let iteration = 0; iteration < 4; iteration++) {
-    groups = [[], []];
+    groups = [[], []]
     for (let index = 0; index < colors.length; index++) {
-      const group =
-        colorDistanceSq(colors[index]!, centers[0]) <=
-        colorDistanceSq(colors[index]!, centers[1])
-          ? 0
-          : 1;
-      groups[group].push(index);
+      const group = colorDistanceSq(colors[index]!, centers[0]) <= colorDistanceSq(colors[index]!, centers[1]) ? 0 : 1
+      groups[group].push(index)
     }
     if (groups[0].length === 0 || groups[1].length === 0) {
       const average = averageColor(
         colors,
         colors.map((_, index) => index),
-      );
-      return { char: "\u2800", fg: average, bg: average };
+      )
+      return { char: "\u2800", fg: average, bg: average }
     }
-    centers = [
-      averageColor(colors, groups[0]),
-      averageColor(colors, groups[1]),
-    ];
+    centers = [averageColor(colors, groups[0]), averageColor(colors, groups[1])]
   }
 
-  const foregroundGroup = groups[0].length <= groups[1].length ? 0 : 1;
-  const backgroundGroup = foregroundGroup === 0 ? 1 : 0;
-  let mask = 0;
+  const foregroundGroup = groups[0].length <= groups[1].length ? 0 : 1
+  const backgroundGroup = foregroundGroup === 0 ? 1 : 0
+  let mask = 0
   for (const index of groups[foregroundGroup]) {
-    const x = index % 2;
-    const y = Math.floor(index / 2);
-    mask |= BRAILLE_BITS[y]?.[x] ?? 0;
+    const x = index % 2
+    const y = Math.floor(index / 2)
+    mask |= BRAILLE_BITS[y]?.[x] ?? 0
   }
   return {
     char: String.fromCharCode(0x2800 + mask),
     fg: centers[foregroundGroup],
     bg: centers[backgroundGroup],
-  };
+  }
 }
 
 /**
@@ -630,70 +549,61 @@ function brailleCell(colors: RgbaColor[]): {
  * clusters a 2×4 pixel block into foreground/background colors, then uses
  * the Braille dot mask to preserve edges and thin details.
  */
-export function encodeBraille(
-  image: PixelImage,
-  options: BrailleOptions,
-): string {
-  const target = resize(image, options.columns * 2, options.rows * 4);
-  const lines: string[] = [];
+export function encodeBraille(image: PixelImage, options: BrailleOptions): string {
+  const target = resize(image, options.columns * 2, options.rows * 4)
+  const lines: string[] = []
   for (let y = 0; y < target.height; y += 4) {
-    let line = "";
+    let line = ""
     for (let x = 0; x < target.width; x += 2) {
-      const colors: RgbaColor[] = [];
+      const colors: RgbaColor[] = []
       for (let dy = 0; dy < 4; dy++) {
         for (let dx = 0; dx < 2; dx++) {
-          const i = ((y + dy) * target.width + (x + dx)) * 4;
-          const a = (target.data[i + 3] ?? 0) / 255;
+          const i = ((y + dy) * target.width + (x + dx)) * 4
+          const a = (target.data[i + 3] ?? 0) / 255
           colors.push([
             Math.round((target.data[i] ?? 0) * a),
             Math.round((target.data[i + 1] ?? 0) * a),
             Math.round((target.data[i + 2] ?? 0) * a),
             Math.round(a * 255),
-          ]);
+          ])
         }
       }
-      const cell = brailleCell(colors);
-      line += `\x1b[38;2;${cell.fg[0]};${cell.fg[1]};${cell.fg[2]}m\x1b[48;2;${cell.bg[0]};${cell.bg[1]};${cell.bg[2]}m${cell.char}\x1b[0m`;
+      const cell = brailleCell(colors)
+      line += `\x1b[38;2;${cell.fg[0]};${cell.fg[1]};${cell.fg[2]}m\x1b[48;2;${cell.bg[0]};${cell.bg[1]};${cell.bg[2]}m${cell.char}\x1b[0m`
     }
-    lines.push(line);
+    lines.push(line)
   }
-  return lines.join("\n");
+  return lines.join("\n")
 }
 
 export interface AsciiBlocksOptions {
-  readonly columns: number;
-  readonly rows: number;
+  readonly columns: number
+  readonly rows: number
 }
 
 /**
  * Last-resort fallback: ASCII block characters only. Works in any terminal,
  * even when SGR/colour is disabled.
  */
-export function encodeAsciiBlocks(
-  image: PixelImage,
-  options: AsciiBlocksOptions,
-): string {
-  const target = resize(image, options.columns, options.rows);
-  const lines: string[] = [];
-  const RAMP = " .:-=+*#%@";
+export function encodeAsciiBlocks(image: PixelImage, options: AsciiBlocksOptions): string {
+  const target = resize(image, options.columns, options.rows)
+  const lines: string[] = []
+  const RAMP = " .:-=+*#%@"
   for (let y = 0; y < target.height; y++) {
-    let line = "";
+    let line = ""
     for (let x = 0; x < target.width; x++) {
-      const i = (y * target.width + x) * 4;
-      const a = (target.data[i + 3] ?? 0) / 255;
-      const r = (target.data[i] ?? 0) * a;
-      const g = (target.data[i + 1] ?? 0) * a;
-      const b = (target.data[i + 2] ?? 0) * a;
-      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      const idx = Math.min(
-        RAMP.length - 1,
-        Math.floor((lum / 255) * RAMP.length),
-      );
-      line += RAMP[idx];
+      const i = (y * target.width + x) * 4
+      const a = (target.data[i + 3] ?? 0) / 255
+      const r = (target.data[i] ?? 0) * a
+      const g = (target.data[i + 1] ?? 0) * a
+      const b = (target.data[i + 2] ?? 0) * a
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+      const idx = Math.min(RAMP.length - 1, Math.floor((lum / 255) * RAMP.length))
+      line += RAMP[idx]
     }
-    lines.push(line);
+    lines.push(line)
   }
-  return lines.join("\n");
+  return lines.join("\n")
 }
 
-export { base64FromBytes, rgbaToPng, rgbaToRgb, crop, resize };
+export { base64FromBytes, rgbaToPng, rgbaToRgb, crop, resize }
