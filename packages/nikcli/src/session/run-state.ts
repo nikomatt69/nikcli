@@ -112,11 +112,14 @@ export namespace SessionRunState {
         Effect.suspend(() => {
           const runner = get(sessionID)
           return runner
-            .startShell(work as Effect.Effect<unknown, unknown>, undefined, onInterrupt as Effect.Effect<unknown, unknown>)
-            .pipe(Effect.mapError((e: unknown) => (e instanceof Busy ? new BusyError({ sessionID }) : (e as E)))) as Effect.Effect<
-            A,
-            E | BusyError
-          >
+            .startShell(
+              work as Effect.Effect<unknown, unknown>,
+              undefined,
+              onInterrupt as Effect.Effect<unknown, unknown>,
+            )
+            .pipe(
+              Effect.mapError((e: unknown) => (e instanceof Busy ? new BusyError({ sessionID }) : (e as E))),
+            ) as Effect.Effect<A, E | BusyError>
         })
 
       return Service.of({

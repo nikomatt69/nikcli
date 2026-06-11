@@ -1,7 +1,7 @@
-import { eq, and, desc, asc } from "drizzle-orm";
-import { Database } from "@/database/database";
-import { sessionInfo } from "./session.sql";
-import type { Session } from "./index";
+import { eq, and, desc, asc } from "drizzle-orm"
+import { Database } from "@/database/database"
+import { sessionInfo } from "./session.sql"
+import type { Session } from "./index"
 
 /**
  * SQL-backed repository for Session data.
@@ -12,15 +12,15 @@ import type { Session } from "./index";
  */
 export namespace SessionRepo {
   function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
-  type SessionRow = typeof sessionInfo.$inferSelect;
+  type SessionRow = typeof sessionInfo.$inferSelect
 
   /** Extract key fields for indexed columns; store the rest as JSON in `data` */
   function rowToInfo(row: SessionRow): Session.Info {
     // The `data` column holds the full session, parse it
-    return JSON.parse(row.data) as Session.Info;
+    return JSON.parse(row.data) as Session.Info
   }
 
   /** Build a row from Session.Info for insertion */
@@ -36,16 +36,12 @@ export namespace SessionRepo {
       data: JSON.stringify(info),
       createdAt: info.time.created,
       updatedAt: info.time.updated,
-    };
+    }
   }
 
   export function get(id: string): Session.Info | undefined {
-    const row = db()
-      .select()
-      .from(sessionInfo)
-      .where(eq(sessionInfo.id, id))
-      .get();
-    return row ? rowToInfo(row) : undefined;
+    const row = db().select().from(sessionInfo).where(eq(sessionInfo.id, id)).get()
+    return row ? rowToInfo(row) : undefined
   }
 
   export function getByProject(projectId: string): Session.Info[] {
@@ -54,16 +50,16 @@ export namespace SessionRepo {
       .from(sessionInfo)
       .where(eq(sessionInfo.projectId, projectId))
       .orderBy(asc(sessionInfo.createdAt))
-      .all();
-    return rows.map(rowToInfo);
+      .all()
+    return rows.map(rowToInfo)
   }
 
   export function list(projectId: string): Session.Info[] {
-    return getByProject(projectId);
+    return getByProject(projectId)
   }
 
   export function upsert(info: Session.Info): void {
-    const row = infoToRow(info);
+    const row = infoToRow(info)
     db()
       .insert(sessionInfo)
       .values(row)
@@ -80,17 +76,14 @@ export namespace SessionRepo {
           updatedAt: row.updatedAt,
         },
       })
-      .run();
+      .run()
   }
 
-  export function update(
-    id: string,
-    editor: (session: Session.Info) => Session.Info,
-  ): Session.Info | undefined {
-    const existing = get(id);
-    if (!existing) return undefined;
-    const updated = editor(existing);
-    const row = infoToRow(updated);
+  export function update(id: string, editor: (session: Session.Info) => Session.Info): Session.Info | undefined {
+    const existing = get(id)
+    if (!existing) return undefined
+    const updated = editor(existing)
+    const row = infoToRow(updated)
     db()
       .update(sessionInfo)
       .set({
@@ -103,13 +96,13 @@ export namespace SessionRepo {
         updatedAt: row.updatedAt,
       })
       .where(eq(sessionInfo.id, id))
-      .run();
-    return updated;
+      .run()
+    return updated
   }
 
   export function remove(id: string): boolean {
-    const result = db().delete(sessionInfo).where(eq(sessionInfo.id, id)).run();
-    return (result as any).changes > 0;
+    const result = db().delete(sessionInfo).where(eq(sessionInfo.id, id)).run()
+    return (result as any).changes > 0
   }
 
   export function getChildren(parentId: string): Session.Info[] {
@@ -118,7 +111,7 @@ export namespace SessionRepo {
       .from(sessionInfo)
       .where(eq(sessionInfo.parentId, parentId))
       .orderBy(asc(sessionInfo.createdAt))
-      .all();
-    return rows.map(rowToInfo);
+      .all()
+    return rows.map(rowToInfo)
   }
 }

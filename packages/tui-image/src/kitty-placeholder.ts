@@ -19,15 +19,15 @@
  * protocol but not, as of early 2026, Unicode placeholders) — see
  * {@link supportsKittyUnicodePlaceholders}.
  */
-import type { PixelImage } from "./pixels";
-import { base64FromBytes, rgbaToPng } from "./encode";
-import type { Capabilities } from "./capabilities";
+import type { PixelImage } from "./pixels"
+import { base64FromBytes, rgbaToPng } from "./encode"
+import type { Capabilities } from "./capabilities"
 
-const ESC = "\x1b";
-const ST = "\x1b\\";
+const ESC = "\x1b"
+const ST = "\x1b\\"
 
 /** The placeholder base character (U+10EEEE). */
-export const KITTY_PLACEHOLDER = "\u{10EEEE}";
+export const KITTY_PLACEHOLDER = "\u{10EEEE}"
 
 /**
  * The official row/column diacritics table from the kitty source
@@ -65,10 +65,10 @@ export const ROW_COLUMN_DIACRITICS: readonly number[] = [
 ];
 
 /** Maximum addressable rows/columns for a single virtual placement. */
-export const MAX_PLACEHOLDER_DIMENSION = ROW_COLUMN_DIACRITICS.length;
+export const MAX_PLACEHOLDER_DIMENSION = ROW_COLUMN_DIACRITICS.length
 
 /** Largest image id that fits in the 24-bit foreground color. */
-export const MAX_PLACEHOLDER_ID = 0xffffff;
+export const MAX_PLACEHOLDER_ID = 0xffffff
 
 /**
  * Whether the terminal composites Unicode placeholders. Deliberately
@@ -77,35 +77,31 @@ export const MAX_PLACEHOLDER_ID = 0xffffff;
  */
 export function supportsKittyUnicodePlaceholders(
   capabilities: Capabilities,
-  env: Record<string, string | undefined> = typeof process !== "undefined"
-    ? process.env
-    : {},
+  env: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {},
 ): boolean {
-  if (!capabilities.kitty) return false;
-  if (env["NIKCLI_KITTY_PLACEHOLDERS"] === "0") return false;
-  if (env["NIKCLI_KITTY_PLACEHOLDERS"] === "1") return true;
-  const terminal = (capabilities.terminal ?? "").toLowerCase();
-  if (terminal.includes("kitty") || terminal.includes("ghostty")) return true;
-  if (env["KITTY_WINDOW_ID"]) return true;
-  if (env["GHOSTTY_RESOURCES_DIR"] || env["GHOSTTY_BIN_DIR"]) return true;
-  const termEnv = (env["TERM"] ?? "").toLowerCase();
-  return termEnv.includes("kitty") || termEnv.includes("ghostty");
+  if (!capabilities.kitty) return false
+  if (env["NIKCLI_KITTY_PLACEHOLDERS"] === "0") return false
+  if (env["NIKCLI_KITTY_PLACEHOLDERS"] === "1") return true
+  const terminal = (capabilities.terminal ?? "").toLowerCase()
+  if (terminal.includes("kitty") || terminal.includes("ghostty")) return true
+  if (env["KITTY_WINDOW_ID"]) return true
+  if (env["GHOSTTY_RESOURCES_DIR"] || env["GHOSTTY_BIN_DIR"]) return true
+  const termEnv = (env["TERM"] ?? "").toLowerCase()
+  return termEnv.includes("kitty") || termEnv.includes("ghostty")
 }
 
 export interface KittyVirtualOptions {
   /** Image id, 1..{@link MAX_PLACEHOLDER_ID} (encoded in the fg color). */
-  readonly id: number;
+  readonly id: number
   /** Placement width in cells. */
-  readonly columns: number;
+  readonly columns: number
   /** Placement height in cells. */
-  readonly rows: number;
+  readonly rows: number
 }
 
 function assertId(id: number) {
   if (!Number.isInteger(id) || id < 1 || id > MAX_PLACEHOLDER_ID) {
-    throw new RangeError(
-      `kitty virtual placement id must be 1..${MAX_PLACEHOLDER_ID}, got ${id}`,
-    );
+    throw new RangeError(`kitty virtual placement id must be 1..${MAX_PLACEHOLDER_ID}, got ${id}`)
   }
 }
 
@@ -117,32 +113,25 @@ function assertId(id: number) {
  * and `q=2` suppresses every response. The terminal scales the image into
  * the `columns × rows` placeholder rectangle.
  */
-export function encodeKittyVirtual(
-  image: PixelImage,
-  options: KittyVirtualOptions,
-): string {
-  assertId(options.id);
-  const columns = Math.max(1, Math.floor(options.columns));
-  const rows = Math.max(1, Math.floor(options.rows));
-  const payload = base64FromBytes(compressedPng(image));
-  const head = `a=T,U=1,q=2,f=100,i=${options.id},c=${columns},r=${rows}`;
-  const chunkSize = 4096;
+export function encodeKittyVirtual(image: PixelImage, options: KittyVirtualOptions): string {
+  assertId(options.id)
+  const columns = Math.max(1, Math.floor(options.columns))
+  const rows = Math.max(1, Math.floor(options.rows))
+  const payload = base64FromBytes(compressedPng(image))
+  const head = `a=T,U=1,q=2,f=100,i=${options.id},c=${columns},r=${rows}`
+  const chunkSize = 4096
   if (payload.length <= chunkSize) {
-    return `${ESC}_G${head};${payload}${ST}`;
+    return `${ESC}_G${head};${payload}${ST}`
   }
   // Chunked form, per spec: the first chunk carries every key plus `m=1`;
   // continuation chunks carry ONLY `m` (and the payload); the last has `m=0`.
-  const chunks: string[] = [];
+  const chunks: string[] = []
   for (let i = 0; i < payload.length; i += chunkSize) {
-    const part = payload.slice(i, i + chunkSize);
-    const more = i + chunkSize < payload.length ? 1 : 0;
-    chunks.push(
-      i === 0
-        ? `${ESC}_G${head},m=1;${part}${ST}`
-        : `${ESC}_Gm=${more};${part}${ST}`,
-    );
+    const part = payload.slice(i, i + chunkSize)
+    const more = i + chunkSize < payload.length ? 1 : 0
+    chunks.push(i === 0 ? `${ESC}_G${head},m=1;${part}${ST}` : `${ESC}_Gm=${more};${part}${ST}`)
   }
-  return chunks.join("");
+  return chunks.join("")
 }
 
 /**
@@ -150,8 +139,8 @@ export function encodeKittyVirtual(
  * remain on screen simply stop compositing.
  */
 export function deleteKittyVirtual(id: number): string {
-  assertId(id);
-  return `${ESC}_Ga=d,d=I,i=${id},q=2${ST}`;
+  assertId(id)
+  return `${ESC}_Ga=d,d=I,i=${id},q=2${ST}`
 }
 
 /**
@@ -159,8 +148,8 @@ export function deleteKittyVirtual(id: number): string {
  * the image must be rendered with exactly this foreground.
  */
 export function kittyIdColor(id: number): { r: number; g: number; b: number } {
-  assertId(id);
-  return { r: (id >> 16) & 0xff, g: (id >> 8) & 0xff, b: id & 0xff };
+  assertId(id)
+  return { r: (id >> 16) & 0xff, g: (id >> 8) & 0xff, b: id & 0xff }
 }
 
 /**
@@ -171,26 +160,23 @@ export function kittyIdColor(id: number): { r: number; g: number; b: number } {
  */
 export function kittyPlaceholderRow(row: number, columns: number): string {
   if (row < 0 || row >= MAX_PLACEHOLDER_DIMENSION) {
-    throw new RangeError(`placeholder row out of range: ${row}`);
+    throw new RangeError(`placeholder row out of range: ${row}`)
   }
-  const cols = Math.min(columns, MAX_PLACEHOLDER_DIMENSION);
-  const rowMark = String.fromCodePoint(ROW_COLUMN_DIACRITICS[row]!);
-  let out = "";
+  const cols = Math.min(columns, MAX_PLACEHOLDER_DIMENSION)
+  const rowMark = String.fromCodePoint(ROW_COLUMN_DIACRITICS[row]!)
+  let out = ""
   for (let col = 0; col < cols; col++) {
-    out +=
-      KITTY_PLACEHOLDER +
-      rowMark +
-      String.fromCodePoint(ROW_COLUMN_DIACRITICS[col]!);
+    out += KITTY_PLACEHOLDER + rowMark + String.fromCodePoint(ROW_COLUMN_DIACRITICS[col]!)
   }
-  return out;
+  return out
 }
 
 /** All placeholder rows for a `columns × rows` placement. */
 export function kittyPlaceholderGrid(columns: number, rows: number): string[] {
-  const out: string[] = [];
-  const r = Math.min(rows, MAX_PLACEHOLDER_DIMENSION);
-  for (let row = 0; row < r; row++) out.push(kittyPlaceholderRow(row, columns));
-  return out;
+  const out: string[] = []
+  const r = Math.min(rows, MAX_PLACEHOLDER_DIMENSION)
+  for (let row = 0; row < r; row++) out.push(kittyPlaceholderRow(row, columns))
+  return out
 }
 
 /**
@@ -201,106 +187,97 @@ export function kittyPlaceholderGrid(columns: number, rows: number): string[] {
  * order of magnitude smaller. Falls back to the stored form in the browser.
  */
 function compressedPng(image: PixelImage): Uint8Array {
-  const stored = rgbaToPng(image);
-  const zlib = loadZlib();
-  if (!zlib) return stored;
+  const stored = rgbaToPng(image)
+  const zlib = loadZlib()
+  if (!zlib) return stored
   try {
     // Rebuild the IDAT: filter byte 0 per scanline, then deflate.
-    const raw = new Uint8Array(image.height * (1 + image.width * 4));
+    const raw = new Uint8Array(image.height * (1 + image.width * 4))
     for (let y = 0; y < image.height; y++) {
-      const target = y * (1 + image.width * 4);
-      raw[target] = 0;
-      raw.set(
-        image.data.subarray(y * image.width * 4, (y + 1) * image.width * 4),
-        target + 1,
-      );
+      const target = y * (1 + image.width * 4)
+      raw[target] = 0
+      raw.set(image.data.subarray(y * image.width * 4, (y + 1) * image.width * 4), target + 1)
     }
-    const idat = zlib.deflateSync(raw);
-    return rebuildPng(stored, new Uint8Array(idat));
+    const idat = zlib.deflateSync(raw)
+    return rebuildPng(stored, new Uint8Array(idat))
   } catch {
-    return stored;
+    return stored
   }
 }
 
-type Zlib = { deflateSync: (data: Uint8Array) => Uint8Array };
+type Zlib = { deflateSync: (data: Uint8Array) => Uint8Array }
 
-let zlibCache: Zlib | null | undefined;
+let zlibCache: Zlib | null | undefined
 
 function loadZlib(): Zlib | null {
-  if (zlibCache !== undefined) return zlibCache;
+  if (zlibCache !== undefined) return zlibCache
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("node:zlib") as Zlib;
-    zlibCache = typeof mod.deflateSync === "function" ? mod : null;
+    const mod = require("node:zlib") as Zlib
+    zlibCache = typeof mod.deflateSync === "function" ? mod : null
   } catch {
-    zlibCache = null;
+    zlibCache = null
   }
-  return zlibCache;
+  return zlibCache
 }
 
-const PNG_SIGNATURE_LENGTH = 8;
+const PNG_SIGNATURE_LENGTH = 8
 
 /** Re-assemble a PNG keeping every non-IDAT chunk, swapping in `idat`. */
 function rebuildPng(png: Uint8Array, idat: Uint8Array): Uint8Array {
-  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
-  const parts: Uint8Array[] = [png.subarray(0, PNG_SIGNATURE_LENGTH)];
-  let offset = PNG_SIGNATURE_LENGTH;
-  let idatWritten = false;
+  const view = new DataView(png.buffer, png.byteOffset, png.byteLength)
+  const parts: Uint8Array[] = [png.subarray(0, PNG_SIGNATURE_LENGTH)]
+  let offset = PNG_SIGNATURE_LENGTH
+  let idatWritten = false
   while (offset + 8 <= png.length) {
-    const length = view.getUint32(offset);
-    const type = String.fromCharCode(
-      png[offset + 4]!,
-      png[offset + 5]!,
-      png[offset + 6]!,
-      png[offset + 7]!,
-    );
-    const total = 8 + length + 4;
+    const length = view.getUint32(offset)
+    const type = String.fromCharCode(png[offset + 4]!, png[offset + 5]!, png[offset + 6]!, png[offset + 7]!)
+    const total = 8 + length + 4
     if (type === "IDAT") {
       if (!idatWritten) {
-        parts.push(pngChunk("IDAT", idat));
-        idatWritten = true;
+        parts.push(pngChunk("IDAT", idat))
+        idatWritten = true
       }
     } else {
-      parts.push(png.subarray(offset, offset + total));
+      parts.push(png.subarray(offset, offset + total))
     }
-    offset += total;
+    offset += total
   }
-  let size = 0;
-  for (const part of parts) size += part.length;
-  const out = new Uint8Array(size);
-  let cursor = 0;
+  let size = 0
+  for (const part of parts) size += part.length
+  const out = new Uint8Array(size)
+  let cursor = 0
   for (const part of parts) {
-    out.set(part, cursor);
-    cursor += part.length;
+    out.set(part, cursor)
+    cursor += part.length
   }
-  return out;
+  return out
 }
 
 function pngChunk(type: string, data: Uint8Array): Uint8Array {
-  const out = new Uint8Array(4 + 4 + data.length + 4);
-  const dv = new DataView(out.buffer);
-  dv.setUint32(0, data.length);
-  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
-  out.set(data, 8);
-  dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
-  return out;
+  const out = new Uint8Array(4 + 4 + data.length + 4)
+  const dv = new DataView(out.buffer)
+  dv.setUint32(0, data.length)
+  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i)
+  out.set(data, 8)
+  dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)))
+  return out
 }
 
 const CRC_TABLE: Uint32Array = (() => {
-  const table = new Uint32Array(256);
+  const table = new Uint32Array(256)
   for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++)
-      c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c >>> 0;
+    let c = n
+    for (let k = 0; k < 8; k++) c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
   }
-  return table;
-})();
+  return table
+})()
 
 function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
+  let crc = 0xffffffff
   for (let i = 0; i < bytes.length; i++) {
-    crc = CRC_TABLE[(crc ^ (bytes[i] ?? 0)) & 0xff]! ^ (crc >>> 8);
+    crc = CRC_TABLE[(crc ^ (bytes[i] ?? 0)) & 0xff]! ^ (crc >>> 8)
   }
-  return (crc ^ 0xffffffff) >>> 0;
+  return (crc ^ 0xffffffff) >>> 0
 }

@@ -1,5 +1,5 @@
-import { Database as BunDatabase } from "bun:sqlite";
-import type { DatabaseMigration } from "../migration";
+import { Database as BunDatabase } from "bun:sqlite"
+import type { DatabaseMigration } from "../migration"
 
 export default {
   id: "20260611000000_session_message_todo_permission",
@@ -55,6 +55,6 @@ export default {
         project_id TEXT PRIMARY KEY NOT NULL,
         rules TEXT NOT NULL DEFAULT '[]'
       );
-    `);
+    `)
   },
-} satisfies DatabaseMigration.Migration;
+} satisfies DatabaseMigration.Migration

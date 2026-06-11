@@ -2843,13 +2843,14 @@ Italian-language comprehensive analysis of TUI subsystem. Key findings consolida
 
 **Three TUI files, distinct roles** (confirmed with file:line ranges):
 
-| File | Role | Key lines |
-|---|---|---|
-| `app.tsx` | Entry `tui()`: creates `CliRenderer`, mounts provider stack | `app.tsx:108-202` (entry), `app.tsx:237-1376` (root App component, `<Switch>/<Match>` router at `1338-1372`) |
-| `worker.ts` | Bun worker process, isolated | RPC surface + `Server.App().fetch` + SSE + install/upgrade |
-| `thread.ts` | Thread CLI command, spawns worker | `thread.ts:104-296` (registers as `TuiThreadCommand`) |
+| File        | Role                                                        | Key lines                                                                                                    |
+| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `app.tsx`   | Entry `tui()`: creates `CliRenderer`, mounts provider stack | `app.tsx:108-202` (entry), `app.tsx:237-1376` (root App component, `<Switch>/<Match>` router at `1338-1372`) |
+| `worker.ts` | Bun worker process, isolated                                | RPC surface + `Server.App().fetch` + SSE + install/upgrade                                                   |
+| `thread.ts` | Thread CLI command, spawns worker                           | `thread.ts:104-296` (registers as `TuiThreadCommand`)                                                        |
 
 **Why a separate worker process?** (`thread.ts:153-189`):
+
 1. `reload` via `SIGUSR2` → `Instance.disposeAll` without killing TUI
 2. `shutdown` with 5s timeout
 3. `server` start/stop of `Bun.Server`
@@ -2860,6 +2861,7 @@ Vantaggio (advantage): hot-restart of server isolation without terminating the T
 **IPC worker↔main**: `Rpc` utility + `Rpc.client<typeof rpc>`. Methods: `fetch`, `server`, `checkUpgrade`, `upgradeNow`, `reload`, `subscribe`/`unsubscribe` (SSE), `shutdown`. `createWorkerFetch` (`thread.ts:37-53`) intercepts HTTP, `createEventSource` (`thread.ts:55-68`) bridges SSE. When `--port`/`--hostname` NOT passed: `url="http://nikcli.local"` with direct RPC (no HTTP server at all).
 
 **OpenTUI rendering**:
+
 - `targetFps: 45`, `gatherStats: false`, `useKittyKeyboard: {}`, `useMouse` (`app.tsx:90-103`)
 - Resize via `box.on("resize")` (e.g. `bg-pulse.tsx:54`)
 - MouseUp globally on root (`app.tsx:1324-1336`) + text-selection capture
@@ -2869,66 +2871,66 @@ Vantaggio (advantage): hot-restart of server isolation without terminating the T
 - ANSI/Unicode: 256 colors + 24-bit RGB; box-drawing custom chars (`border.tsx:1-67` — `GlassBorder ╭╮╰╯│─┬┴├┤┼`, `SplitBorder ┃`); braille U+2800-U+28FF (chart-braille-line.tsx:66-72); 8-level block chars `▏▎▍▌▋▊▉█` (chart-braille-line.tsx:629)
 - `ghostty-web` integration: **no direct reference found**; renderer is OpenTUI based on Kitty keyboard protocol + SGR mouse + palette detection via `renderer.getPalette({size:16})` (`theme.tsx:492-516`)
 
-### TUI Dialog System — Complete Catalogue (component/dialog-*.tsx)
+### TUI Dialog System — Complete Catalogue (component/dialog-\*.tsx)
 
 **All dialogs in `src/cli/cmd/tui/component/` are stack-based modal overlays** (managed by `DialogContext` in `ui/dialog.tsx:93-224`: `replace`, `clear`, `setSize("medium"|"large"|"xlarge")`, `stack`, `onClose` callbacks; Esc closes top at `dialog.tsx:122-127`; Ctrl+C closes stack if top non-interactive at `dialog.tsx:132-153`).
 
-| Dialog file | Purpose | Size hint |
-|---|---|---|
-| `dialog-onboarding.tsx` | 5-step wizard: account, FS, provider, test | Large (was 4-step) |
-| `dialog-login.tsx` | Returning user login | Medium |
-| `dialog-advisor-model.tsx` | Advisor agent model selection | Medium |
-| `dialog-agent.tsx` | Switch agent (build/plan/general) | Medium |
-| `dialog-model.tsx` | Favorites/recent model picker + fuzzy search | Large |
-| `dialog-image-model.tsx` | Image generation model picker | Medium |
-| `dialog-speak-model.tsx` | TTS model picker | Medium |
-| `dialog-variant.tsx` | Model variant selector | Medium |
-| `dialog-provider.tsx` | Connect/disconnect provider (API key) | Large |
-| `dialog-mcp.tsx` | Installed MCPs + catalog | Large |
-| `dialog-skills.tsx` | Browse loaded skills | Large |
-| `dialog-routine.tsx` | Scheduled routine creation wizard | Large |
-| `dialog-theme-list.tsx` | Switch theme with live preview | Large |
-| `dialog-theme-create.tsx` | Custom theme creation | Large |
-| `dialog-workspace-list.tsx` | Workspace management | Large |
-| `dialog-workspace-create.tsx` | New workspace | Medium |
-| `dialog-workspace-unavailable.tsx` | Workspace unavailable error | Medium |
-| `dialog-workspace-file-changes.tsx` | Workspace file change review | Large |
-| `dialog-session-list.tsx` | Session list + filter | Large |
-| `dialog-session-rename.tsx` | Rename session | Medium |
-| `dialog-session-warp.tsx` | (Experimental) warp session | Large |
-| `dialog-session-delete-failed.tsx` | Delete failure error | Medium |
-| `dialog-stash.tsx` | Prompt stash | Medium |
-| `dialog-tag.tsx` | Session tag | Medium |
-| `dialog-status.tsx` | Provider/MCP/LSP status | Large |
-| `dialog-usage.tsx` | Context token usage | Large |
-| `dialog-analytics.tsx` | Session analytics | XLarge |
-| `dialog-tour.tsx` | 6-step tour | Large |
-| `dialog-support.tsx` | Quickstart/Doctor info | Large |
-| `dialog-web-preview.tsx` | Web preview browser | Large |
-| `dialog-opentui-viz.tsx` | OpenTUI visualization (1856 lines) | XLarge |
-| `dialog-config.tsx` | Config file editor | Large |
-| `dialog-remote.tsx` | Remote server connection | Large |
-| `dialog-chat.tsx` | DM contacts chat | XLarge |
-| `dialog-auth-manage.tsx` | Auth account management | Large |
-| `dialog-command.tsx` | Command palette (slash + keybind) | Large |
-| `dialog-settings/index.tsx` | Settings hub (5 categories) | Large |
-| `dialog-settings/{prompt,sidebar,spinner,ui,brain}.tsx` | Sub-dialogs of settings | Large |
-| `error-component.tsx` | ErrorBoundary fallback (`app.tsx:138`) | Medium |
-| `plugin-route-missing.tsx` | Plugin route fallback (`app.tsx:1368`) | Medium |
-| `startup-loading.tsx` | Splash before pluginReady (`app.tsx:1373`) | **Persistent overlay** (only non-modal) |
-| `image-preview.tsx` | Image attachment preview (Jimp, 40×16) | Inline persistent |
-| `logo.tsx` | ASCII logo (104 lines, static, shadow via `▀`) | Persistent (Home) |
-| `tips.tsx` | Home screen tips | Persistent |
-| `todo-item.tsx` | Single todo item | Inline |
-| `spinner.tsx` | Loading spinner | Inline |
-| `border.tsx` | Box-drawing defs (no render) | — |
-| `bg-pulse.tsx` | Animated Home background | Persistent (Home) |
-| `chart-braille-line.tsx` | Charts: `BrailleLineChart`, `BrailleAreaChart`, `BrailleSparkline`, `StackedBarChartV2`, `HBarPrecision`, `KPICard`, `ModelCard` | Inline |
-| `prompt-frames.tsx` | Prompt frame decorations | Inline |
-| `prompt-jobs-inline.tsx` | Background jobs inline status | Inline |
-| `prompt/{index,history,stash,frecency,autocomplete}.tsx` | Prompt system | Persistent |
-| `mcp-catalog.ts` | Known MCP catalog (data, no render) | — |
-| `textarea-keybindings.ts` | Textarea keybind config | — |
+| Dialog file                                              | Purpose                                                                                                                          | Size hint                               |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `dialog-onboarding.tsx`                                  | 5-step wizard: account, FS, provider, test                                                                                       | Large (was 4-step)                      |
+| `dialog-login.tsx`                                       | Returning user login                                                                                                             | Medium                                  |
+| `dialog-advisor-model.tsx`                               | Advisor agent model selection                                                                                                    | Medium                                  |
+| `dialog-agent.tsx`                                       | Switch agent (build/plan/general)                                                                                                | Medium                                  |
+| `dialog-model.tsx`                                       | Favorites/recent model picker + fuzzy search                                                                                     | Large                                   |
+| `dialog-image-model.tsx`                                 | Image generation model picker                                                                                                    | Medium                                  |
+| `dialog-speak-model.tsx`                                 | TTS model picker                                                                                                                 | Medium                                  |
+| `dialog-variant.tsx`                                     | Model variant selector                                                                                                           | Medium                                  |
+| `dialog-provider.tsx`                                    | Connect/disconnect provider (API key)                                                                                            | Large                                   |
+| `dialog-mcp.tsx`                                         | Installed MCPs + catalog                                                                                                         | Large                                   |
+| `dialog-skills.tsx`                                      | Browse loaded skills                                                                                                             | Large                                   |
+| `dialog-routine.tsx`                                     | Scheduled routine creation wizard                                                                                                | Large                                   |
+| `dialog-theme-list.tsx`                                  | Switch theme with live preview                                                                                                   | Large                                   |
+| `dialog-theme-create.tsx`                                | Custom theme creation                                                                                                            | Large                                   |
+| `dialog-workspace-list.tsx`                              | Workspace management                                                                                                             | Large                                   |
+| `dialog-workspace-create.tsx`                            | New workspace                                                                                                                    | Medium                                  |
+| `dialog-workspace-unavailable.tsx`                       | Workspace unavailable error                                                                                                      | Medium                                  |
+| `dialog-workspace-file-changes.tsx`                      | Workspace file change review                                                                                                     | Large                                   |
+| `dialog-session-list.tsx`                                | Session list + filter                                                                                                            | Large                                   |
+| `dialog-session-rename.tsx`                              | Rename session                                                                                                                   | Medium                                  |
+| `dialog-session-warp.tsx`                                | (Experimental) warp session                                                                                                      | Large                                   |
+| `dialog-session-delete-failed.tsx`                       | Delete failure error                                                                                                             | Medium                                  |
+| `dialog-stash.tsx`                                       | Prompt stash                                                                                                                     | Medium                                  |
+| `dialog-tag.tsx`                                         | Session tag                                                                                                                      | Medium                                  |
+| `dialog-status.tsx`                                      | Provider/MCP/LSP status                                                                                                          | Large                                   |
+| `dialog-usage.tsx`                                       | Context token usage                                                                                                              | Large                                   |
+| `dialog-analytics.tsx`                                   | Session analytics                                                                                                                | XLarge                                  |
+| `dialog-tour.tsx`                                        | 6-step tour                                                                                                                      | Large                                   |
+| `dialog-support.tsx`                                     | Quickstart/Doctor info                                                                                                           | Large                                   |
+| `dialog-web-preview.tsx`                                 | Web preview browser                                                                                                              | Large                                   |
+| `dialog-opentui-viz.tsx`                                 | OpenTUI visualization (1856 lines)                                                                                               | XLarge                                  |
+| `dialog-config.tsx`                                      | Config file editor                                                                                                               | Large                                   |
+| `dialog-remote.tsx`                                      | Remote server connection                                                                                                         | Large                                   |
+| `dialog-chat.tsx`                                        | DM contacts chat                                                                                                                 | XLarge                                  |
+| `dialog-auth-manage.tsx`                                 | Auth account management                                                                                                          | Large                                   |
+| `dialog-command.tsx`                                     | Command palette (slash + keybind)                                                                                                | Large                                   |
+| `dialog-settings/index.tsx`                              | Settings hub (5 categories)                                                                                                      | Large                                   |
+| `dialog-settings/{prompt,sidebar,spinner,ui,brain}.tsx`  | Sub-dialogs of settings                                                                                                          | Large                                   |
+| `error-component.tsx`                                    | ErrorBoundary fallback (`app.tsx:138`)                                                                                           | Medium                                  |
+| `plugin-route-missing.tsx`                               | Plugin route fallback (`app.tsx:1368`)                                                                                           | Medium                                  |
+| `startup-loading.tsx`                                    | Splash before pluginReady (`app.tsx:1373`)                                                                                       | **Persistent overlay** (only non-modal) |
+| `image-preview.tsx`                                      | Image attachment preview (Jimp, 40×16)                                                                                           | Inline persistent                       |
+| `logo.tsx`                                               | ASCII logo (104 lines, static, shadow via `▀`)                                                                                   | Persistent (Home)                       |
+| `tips.tsx`                                               | Home screen tips                                                                                                                 | Persistent                              |
+| `todo-item.tsx`                                          | Single todo item                                                                                                                 | Inline                                  |
+| `spinner.tsx`                                            | Loading spinner                                                                                                                  | Inline                                  |
+| `border.tsx`                                             | Box-drawing defs (no render)                                                                                                     | —                                       |
+| `bg-pulse.tsx`                                           | Animated Home background                                                                                                         | Persistent (Home)                       |
+| `chart-braille-line.tsx`                                 | Charts: `BrailleLineChart`, `BrailleAreaChart`, `BrailleSparkline`, `StackedBarChartV2`, `HBarPrecision`, `KPICard`, `ModelCard` | Inline                                  |
+| `prompt-frames.tsx`                                      | Prompt frame decorations                                                                                                         | Inline                                  |
+| `prompt-jobs-inline.tsx`                                 | Background jobs inline status                                                                                                    | Inline                                  |
+| `prompt/{index,history,stash,frecency,autocomplete}.tsx` | Prompt system                                                                                                                    | Persistent                              |
+| `mcp-catalog.ts`                                         | Known MCP catalog (data, no render)                                                                                              | —                                       |
+| `textarea-keybindings.ts`                                | Textarea keybind config                                                                                                          | —                                       |
 
 **Only `startup-loading.tsx` is non-modal** (persistent overlay). All others are stack-based modals.
 
@@ -2957,6 +2959,7 @@ Vantaggio (advantage): hot-restart of server isolation without terminating the T
 nikcli is an AI-powered development tool with two faces: headless CLI + interactive TUI (default entrypoint). Conceptually a **"coding agent runtime"**: orchestrator running AI agents (LLM) with a tool set, session persistence, permission system, multi-mode deployment (local/server/remote-attach/mobile-companion).
 
 **Five "pillars" of the core** (from `src/`):
+
 1. **Agent** — agent profiles (build, plan, ralph + subagents like explore/code-reviewer/debugger). Effect-based schema, tool permissions, modular system prompt.
 2. **Session** — conversation lifecycle, streaming, history, compaction, runner (state machine single-flight via Effect).
 3. **Provider** — 20+ LLM provider abstraction via Vercel AI SDK.
@@ -2964,6 +2967,7 @@ nikcli is an AI-powered development tool with two faces: headless CLI + interact
 5. **Server** — Hono (HTTP + SSE + WebSocket) with auto-generated OpenAPI (`hono-openapi`).
 
 **Three usage modes, same backend**:
+
 - **CLI one-shot**: `nikcli run "..."` → launches server, executes, exits
 - **TUI**: `nikcli` (default) → worker process SolidJS connects to local server via SDK
 - **Server**: `nikcli serve` → Hono bound, SSE for event stream
@@ -2982,6 +2986,7 @@ nikcli is an AI-powered development tool with two faces: headless CLI + interact
 **New package**: `tui-image` linked into `packages/nikcli` for native half-block image rendering protocol.
 
 **Integration path** (`image-preview.tsx` + `tui-image.tsx`):
+
 - `loadImagePreview()` in `image-preview.tsx` now uses the new half-block encoder from `tui-image` instead of the hand-rolled braille encoder
 - `ImagePreviewList` (legacy) delegates to new `TuiImageList` from `tui-image.tsx` when native protocol is available
 - Feature flag in route file (`routes/session/index.tsx`) lets user opt into the new renderer
@@ -3012,10 +3017,10 @@ CLI commands grouped by category (per `packages/nikcli/src/cli/cmd/`):
 
 **Open PRs against `live-main` (2026-06-10)**:
 
-| PR | Branch → live-main | Notable failures |
-|---|---|---|
-| #91 | `nikcli/mobile/nikcli/yrrz85` | Multiple failures |
-| #88 | `claude/npm-publish-error-vCzX7` | Windows smoke + test failures |
+| PR  | Branch → live-main                             | Notable failures                         |
+| --- | ---------------------------------------------- | ---------------------------------------- |
+| #91 | `nikcli/mobile/nikcli/yrrz85`                  | Multiple failures                        |
+| #88 | `claude/npm-publish-error-vCzX7`               | Windows smoke + test failures            |
 | #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures |
 
 **Recently merged PRs**: #97, #96 (most recent merges to `live-main`).

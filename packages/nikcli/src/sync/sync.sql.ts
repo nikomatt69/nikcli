@@ -1,10 +1,4 @@
-import {
-  sqliteTable,
-  text,
-  integer,
-  index,
-  primaryKey,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Sync Events — SQL backend for JSON-backed sync event storage
@@ -24,17 +18,10 @@ export const syncEvent = sqliteTable(
   },
   (table) => ({
     projectIdx: index("idx_sync_event_project").on(table.projectId),
-    aggregateIdx: index("idx_sync_event_aggregate").on(
-      table.projectId,
-      table.aggregate,
-    ),
-    seqIdx: index("idx_sync_event_seq").on(
-      table.projectId,
-      table.aggregate,
-      table.seq,
-    ),
+    aggregateIdx: index("idx_sync_event_aggregate").on(table.projectId, table.aggregate),
+    seqIdx: index("idx_sync_event_seq").on(table.projectId, table.aggregate, table.seq),
   }),
-);
+)
 
 // ============================================================================
 // Sync Sequences — SQL backend for JSON-backed sequence counter storage
@@ -50,4 +37,4 @@ export const syncSequence = sqliteTable(
   (table) => ({
     pk: primaryKey({ columns: [table.projectId, table.aggregate] }),
   }),
-);
+)

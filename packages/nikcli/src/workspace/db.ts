@@ -1,78 +1,78 @@
-import { eq } from "drizzle-orm";
-import { Database } from "@/database/database";
-import { Storage } from "@/storage/storage";
-import { Log } from "@/util/log";
-import { workspace } from "./workspace.sql";
-import type { Config } from "./config";
-import { Effect } from "effect";
-import { runPromiseWithLayer } from "@/effect";
+import { eq } from "drizzle-orm"
+import { Database } from "@/database/database"
+import { Storage } from "@/storage/storage"
+import { Log } from "@/util/log"
+import { workspace } from "./workspace.sql"
+import type { Config } from "./config"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect);
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
 }
 
 function storageRead<T>(key: string[]) {
   return runStorage(
     Effect.gen(function* () {
-      const storage = yield* Storage.Service;
-      return yield* storage.read<T>(key);
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
     }),
-  );
+  )
 }
 
 function storageList(prefix: string[]) {
   return runStorage(
     Effect.gen(function* () {
-      const storage = yield* Storage.Service;
-      return yield* storage.list(prefix);
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
     }),
-  );
+  )
 }
 
 /** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
-type RunResult = { changes: number; lastInsertRowid: number | bigint };
+type RunResult = { changes: number; lastInsertRowid: number | bigint }
 function getChanges(result: void | RunResult): number {
-  return (result as RunResult).changes;
+  return (result as RunResult).changes
 }
 
 export namespace WorkspaceDB {
-  const log = Log.create({ service: "workspace-db" });
-  export const DEFAULT_EVENT_LIMIT = 200;
+  const log = Log.create({ service: "workspace-db" })
+  export const DEFAULT_EVENT_LIMIT = 200
 
   export type Row = {
-    id: string;
-    project_id: string;
-    name: string;
-    branch: string | null;
-    config: Config;
-    status?: string;
-    events?: unknown[];
-    eventLimit?: number;
-    time_used: number;
-    created_at: number;
-    updated_at: number;
-  };
+    id: string
+    project_id: string
+    name: string
+    branch: string | null
+    config: Config
+    status?: string
+    events?: unknown[]
+    eventLimit?: number
+    time_used: number
+    created_at: number
+    updated_at: number
+  }
 
   export type Info = {
-    id: string;
-    projectID: string;
-    name: string;
-    timeUsed: number;
-    branch: string | null;
-    config: Config;
-  };
+    id: string
+    projectID: string
+    name: string
+    timeUsed: number
+    branch: string | null
+    config: Config
+  }
 
   export type State = {
-    status?: string;
-    events: unknown[];
-    eventLimit?: number;
-  };
+    status?: string
+    events: unknown[]
+    eventLimit?: number
+  }
 
   /**
    * Get the shared Drizzle database instance from the central Database.Service.
    */
   function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
   // ============================================================================
@@ -88,21 +88,18 @@ export namespace WorkspaceDB {
       timeUsed: row.timeUsed,
       branch: row.branch,
       config: JSON.parse(row.config) as Config,
-    };
+    }
   }
 
   /** Convert a Drizzle row to the legacy State type */
   function toState(
-    row:
-      | Pick<typeof workspace.$inferSelect, "status" | "events" | "eventLimit">
-      | null
-      | undefined,
+    row: Pick<typeof workspace.$inferSelect, "status" | "events" | "eventLimit"> | null | undefined,
   ): State {
     return {
       status: row?.status ?? undefined,
       events: row?.events ? ((JSON.parse(row.events) as unknown[]) ?? []) : [],
       eventLimit: row?.eventLimit ?? undefined,
-    };
+    }
   }
 
   // ============================================================================
@@ -110,16 +107,14 @@ export namespace WorkspaceDB {
   // ============================================================================
 
   export function get(id: string): Info | undefined {
-    const row = db().select().from(workspace).where(eq(workspace.id, id)).get();
-    return row ? toInfo(row) : undefined;
+    const row = db().select().from(workspace).where(eq(workspace.id, id)).get()
+    return row ? toInfo(row) : undefined
   }
 
   export function list(projectID?: string): Info[] {
-    const query = db().select().from(workspace).orderBy(workspace.id);
-    const rows = projectID
-      ? query.where(eq(workspace.projectId, projectID)).all()
-      : query.all();
-    return rows.map(toInfo);
+    const query = db().select().from(workspace).orderBy(workspace.id)
+    const rows = projectID ? query.where(eq(workspace.projectId, projectID)).all() : query.all()
+    return rows.map(toInfo)
   }
 
   export function getState(id: string): State {
@@ -131,8 +126,8 @@ export namespace WorkspaceDB {
       })
       .from(workspace)
       .where(eq(workspace.id, id))
-      .get();
-    return toState(row);
+      .get()
+    return toState(row)
   }
 
   /**
@@ -140,7 +135,7 @@ export namespace WorkspaceDB {
    * Replaces the old read-then-write pattern with a single atomic operation.
    */
   export function upsert(info: Info): Info {
-    const now = Date.now();
+    const now = Date.now()
     db()
       .insert(workspace)
       .values({
@@ -164,23 +159,20 @@ export namespace WorkspaceDB {
           updatedAt: now,
         },
       })
-      .run();
-    return info;
+      .run()
+    return info
   }
 
-  export function updateState(
-    id: string,
-    state: Partial<State>,
-  ): State | undefined {
-    const existing = get(id);
-    if (!existing) return undefined;
+  export function updateState(id: string, state: Partial<State>): State | undefined {
+    const existing = get(id)
+    if (!existing) return undefined
 
-    const current = getState(id);
+    const current = getState(id)
     const next: State = {
       status: state.status ?? current.status,
       events: state.events ?? current.events,
       eventLimit: state.eventLimit ?? current.eventLimit,
-    };
+    }
 
     db()
       .update(workspace)
@@ -191,38 +183,30 @@ export namespace WorkspaceDB {
         updatedAt: Date.now(),
       })
       .where(eq(workspace.id, id))
-      .run();
+      .run()
 
-    return next;
+    return next
   }
 
   export function touch(id: string, timeUsed = Date.now()): boolean {
-    const result = db()
-      .update(workspace)
-      .set({ timeUsed })
-      .where(eq(workspace.id, id))
-      .run();
-    return getChanges(result) > 0;
+    const result = db().update(workspace).set({ timeUsed }).where(eq(workspace.id, id)).run()
+    return getChanges(result) > 0
   }
 
-  export function applyEventLimit(
-    events: unknown[],
-    event: unknown,
-    eventLimit?: number,
-  ): unknown[] {
-    const limit = eventLimit ?? DEFAULT_EVENT_LIMIT;
-    return [...events, event].slice(-limit);
+  export function applyEventLimit(events: unknown[], event: unknown, eventLimit?: number): unknown[] {
+    const limit = eventLimit ?? DEFAULT_EVENT_LIMIT
+    return [...events, event].slice(-limit)
   }
 
   export function appendEvent(id: string, event: unknown): State | undefined {
-    const state = getState(id);
-    const events = applyEventLimit(state.events, event, state.eventLimit);
-    return updateState(id, { events });
+    const state = getState(id)
+    const events = applyEventLimit(state.events, event, state.eventLimit)
+    return updateState(id, { events })
   }
 
   export function remove(id: string): boolean {
-    const result = db().delete(workspace).where(eq(workspace.id, id)).run();
-    return getChanges(result) > 0;
+    const result = db().delete(workspace).where(eq(workspace.id, id)).run()
+    return getChanges(result) > 0
   }
 
   /**
@@ -231,20 +215,16 @@ export namespace WorkspaceDB {
    * Safe to call on every bootstrap; no-op once all JSON rows have landed in the table.
    */
   export async function migrateFromStorage(): Promise<number> {
-    let imported = 0;
+    let imported = 0
     try {
-      const keys = await storageList(["workspace"]);
+      const keys = await storageList(["workspace"])
       for (const key of keys) {
-        const row = await storageRead<Info>(key).catch(() => undefined);
-        if (!row || !row.id || !row.projectID || !row.config) continue;
+        const row = await storageRead<Info>(key).catch(() => undefined)
+        if (!row || !row.id || !row.projectID || !row.config) continue
         // Check if already migrated using Drizzle
-        const existing = db()
-          .select({ id: workspace.id })
-          .from(workspace)
-          .where(eq(workspace.id, row.id))
-          .get();
-        if (existing) continue;
-        const now = Date.now();
+        const existing = db().select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.id)).get()
+        if (existing) continue
+        const now = Date.now()
         db()
           .insert(workspace)
           .values({
@@ -259,15 +239,15 @@ export namespace WorkspaceDB {
             updatedAt: now,
           })
           .onConflictDoNothing()
-          .run();
-        imported++;
+          .run()
+        imported++
       }
       if (imported > 0) {
-        log.info("migrated workspaces from JSON to SQLite", { imported });
+        log.info("migrated workspaces from JSON to SQLite", { imported })
       }
     } catch (err) {
-      log.warn("workspace migration skipped", { error: err });
+      log.warn("workspace migration skipped", { error: err })
     }
-    return imported;
+    return imported
   }
 }

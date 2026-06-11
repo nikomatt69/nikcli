@@ -30,9 +30,7 @@ describe("Database.Service", () => {
           .query<
             { name: string },
             []
-          >(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'users', 'mobile_tokens', 'workspace', 'session_info', 'message_info', 'message_part', 'todo_info', 'permission_ruleset', 'sync_event', 'sync_sequence') ORDER BY name",
-          )
+          >("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'users', 'mobile_tokens', 'workspace', 'session_info', 'message_info', 'message_part', 'todo_info', 'permission_ruleset', 'sync_event', 'sync_sequence') ORDER BY name")
           .all()
         return { foreignKeys, journal, tables }
       }),
@@ -127,7 +125,16 @@ describe("Database.Service", () => {
       await write(["storage", "permission", "proj_legacy.json"], [{ permission: "bash", action: "allow" }])
       await write(
         ["sync", "proj_legacy.events.json"],
-        [{ id: "evt_1", aggregate: "session", seq: 3, type: "session.created", data: { id: "ses_legacy" }, timestamp: 1 }],
+        [
+          {
+            id: "evt_1",
+            aggregate: "session",
+            seq: 3,
+            type: "session.created",
+            data: { id: "ses_legacy" },
+            timestamp: 1,
+          },
+        ],
       )
       await write(["sync", "proj_legacy.sequence.json"], { session: 3 })
 

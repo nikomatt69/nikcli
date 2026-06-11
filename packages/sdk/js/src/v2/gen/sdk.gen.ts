@@ -338,8 +338,6 @@ import type {
   SessionGetErrors,
   SessionGetResponses,
   SessionGithub,
-  SessionInitErrors,
-  SessionInitResponses,
   SessionInstructionsErrors,
   SessionInstructionsResponses,
   SessionListResponses,
@@ -375,6 +373,10 @@ import type {
   SessionUnshareResponses,
   SessionUpdateErrors,
   SessionUpdateResponses,
+  SessionV2EntriesErrors,
+  SessionV2EntriesResponses,
+  SessionV2StateErrors,
+  SessionV2StateResponses,
   SubtaskPartInput,
   TextPartInput,
   ToolIdsErrors,
@@ -2419,6 +2421,72 @@ export class Background extends HeyApiClient {
   }
 }
 
+export class V2 extends HeyApiClient {
+  /**
+   * Get session v2 entries
+   *
+   * Retrieve the session as v2 entries: committed messages converted from storage plus the live in-flight assistant tail. Experimental — the v2 read model is documented in specs/v2/message-shape.md.
+   */
+  public entries<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionV2EntriesResponses, SessionV2EntriesErrors, ThrowOnError>({
+      url: "/session/{sessionID}/v2/entries",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get live session v2 state
+   *
+   * Retrieve the live v2 state for a session: `pending` holds the in-flight assistant work reduced by the v2 stepper. Entry-grade changes are announced on the bus as `session.v2.updated`. Experimental.
+   */
+  public state<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionV2StateResponses, SessionV2StateErrors, ThrowOnError>({
+      url: "/session/{sessionID}/v2/state",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Session2 extends HeyApiClient {
   /**
    * List sessions
@@ -2820,49 +2888,6 @@ export class Session2 extends HeyApiClient {
       url: "/session/{sessionID}/todo",
       ...options,
       ...params,
-    })
-  }
-
-  /**
-   * Initialize session
-   *
-   * Analyze the current application and create an AGENTS.md file with project-specific agent configurations.
-   */
-  public init<ThrowOnError extends boolean = false>(
-    parameters: {
-      sessionID: string
-      directory?: string
-      workspace?: string
-      modelID?: string
-      providerID?: string
-      messageID?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "path", key: "sessionID" },
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-            { in: "body", key: "modelID" },
-            { in: "body", key: "providerID" },
-            { in: "body", key: "messageID" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).post<SessionInitResponses, SessionInitErrors, ThrowOnError>({
-      url: "/session/{sessionID}/init",
-      ...options,
-      ...params,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-        ...params.headers,
-      },
     })
   }
 
@@ -3587,6 +3612,11 @@ export class Session2 extends HeyApiClient {
   get background2(): Background {
     return (this._background ??= new Background({ client: this.client }))
   }
+
+  private _v2?: V2
+  get v2(): V2 {
+    return (this._v2 ??= new V2({ client: this.client }))
+  }
 }
 
 export class Part extends HeyApiClient {
@@ -4237,6 +4267,70 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
+export class Command extends HeyApiClient {
+  /**
+   * List mobile commands
+   *
+   * Return command metadata safe for the mobile command palette and slash autocomplete.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
+      url: "/mobile/command",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Project2 extends HeyApiClient {
+  /**
+   * List local projects for mobile
+   *
+   * Return local projects and sandboxes visible to the connected Nikcli host.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
+      url: "/mobile/project",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -4412,70 +4506,6 @@ export class Memory extends HeyApiClient {
   private _stash?: Stash
   get stash(): Stash {
     return (this._stash ??= new Stash({ client: this.client }))
-  }
-}
-
-export class Command extends HeyApiClient {
-  /**
-   * List mobile commands
-   *
-   * Return command metadata safe for the mobile command palette and slash autocomplete.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
-      url: "/mobile/command",
-      ...options,
-      ...params,
-    })
-  }
-}
-
-export class Project2 extends HeyApiClient {
-  /**
-   * List local projects for mobile
-   *
-   * Return local projects and sandboxes visible to the connected Nikcli host.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
-      url: "/mobile/project",
-      ...options,
-      ...params,
-    })
   }
 }
 
@@ -6851,11 +6881,6 @@ export class Mobile extends HeyApiClient {
     return (this._auth ??= new Auth2({ client: this.client }))
   }
 
-  private _memory?: Memory
-  get memory(): Memory {
-    return (this._memory ??= new Memory({ client: this.client }))
-  }
-
   private _command?: Command
   get command(): Command {
     return (this._command ??= new Command({ client: this.client }))
@@ -6864,6 +6889,11 @@ export class Mobile extends HeyApiClient {
   private _project?: Project2
   get project(): Project2 {
     return (this._project ??= new Project2({ client: this.client }))
+  }
+
+  private _memory?: Memory
+  get memory(): Memory {
+    return (this._memory ??= new Memory({ client: this.client }))
   }
 
   private _github?: Github

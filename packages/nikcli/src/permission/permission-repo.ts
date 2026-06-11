@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
-import { Database } from "@/database/database";
-import { permissionRuleset } from "./permission.sql";
-import type { PermissionNext } from "./next";
+import { eq } from "drizzle-orm"
+import { Database } from "@/database/database"
+import { permissionRuleset } from "./permission.sql"
+import type { PermissionNext } from "./next"
 
 /**
  * SQL-backed repository for Permission data.
@@ -9,27 +9,20 @@ import type { PermissionNext } from "./next";
  */
 export namespace PermissionRepo {
   function db() {
-    return Database.syncDb();
+    return Database.syncDb()
   }
 
   export function get(projectId: string): PermissionNext.Ruleset {
-    const row = db()
-      .select()
-      .from(permissionRuleset)
-      .where(eq(permissionRuleset.projectId, projectId))
-      .get();
-    if (!row) return [];
+    const row = db().select().from(permissionRuleset).where(eq(permissionRuleset.projectId, projectId)).get()
+    if (!row) return []
     try {
-      return JSON.parse(row.rules) as PermissionNext.Ruleset;
+      return JSON.parse(row.rules) as PermissionNext.Ruleset
     } catch {
-      return [];
+      return []
     }
   }
 
-  export function upsert(
-    projectId: string,
-    rules: PermissionNext.Ruleset,
-  ): void {
+  export function upsert(projectId: string, rules: PermissionNext.Ruleset): void {
     db()
       .insert(permissionRuleset)
       .values({
@@ -42,14 +35,11 @@ export namespace PermissionRepo {
           rules: JSON.stringify(rules),
         },
       })
-      .run();
+      .run()
   }
 
   export function remove(projectId: string): boolean {
-    const result = db()
-      .delete(permissionRuleset)
-      .where(eq(permissionRuleset.projectId, projectId))
-      .run();
-    return (result as any).changes > 0;
+    const result = db().delete(permissionRuleset).where(eq(permissionRuleset.projectId, projectId)).run()
+    return (result as any).changes > 0
   }
 }

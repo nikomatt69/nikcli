@@ -27,44 +27,44 @@ export enum Protocol {
   ITERM2 = "iterm2",
 }
 
-export type StreamKind = "stdout" | "stderr";
+export type StreamKind = "stdout" | "stderr"
 
 export interface StreamProbe {
   /**
    * Tells `detectCapabilities` whether the stream that the bytes will be
    * written to is a TTY and what kind it is. Defaults to `stdout`.
    */
-  readonly kind?: StreamKind;
+  readonly kind?: StreamKind
   /**
    * A best-effort `isTTY` flag. When `true` the stream is treated as a real
    * terminal; when `false` or omitted the function falls back to env-var
    * detection only.
    */
-  readonly isTTY?: boolean;
+  readonly isTTY?: boolean
 }
 
 export interface Capabilities {
   /** Best available protocol, or `null` if none of the three are supported. */
-  readonly best: Protocol | null;
+  readonly best: Protocol | null
   /** All detected protocols, ordered from highest to lowest fidelity. */
-  readonly available: readonly Protocol[];
+  readonly available: readonly Protocol[]
   /** Whether Kitty Graphics Protocol is supported. */
-  readonly kitty: boolean;
+  readonly kitty: boolean
   /** Whether Sixel graphics are supported. */
-  readonly sixel: boolean;
+  readonly sixel: boolean
   /** Whether iTerm2 inline images are supported. */
-  readonly iterm2: boolean;
+  readonly iterm2: boolean
   /** Underlying terminal identifier (best guess, e.g. `iTerm.app`, `WezTerm`). */
-  readonly terminal: string | null;
+  readonly terminal: string | null
 }
 
 interface Env {
-  [key: string]: string | undefined;
+  [key: string]: string | undefined
 }
 
 function readEnv(): Env {
-  if (typeof process !== "undefined" && process.env) return process.env as Env;
-  return {};
+  if (typeof process !== "undefined" && process.env) return process.env as Env
+  return {}
 }
 
 /**
@@ -76,25 +76,25 @@ export function protocolForTerminal(
   colorterm: string | undefined,
 ): Protocol | null {
   if (!terminal) {
-    if (colorterm && /^(truecolor|24bit)$/i.test(colorterm)) return null;
-    return null;
+    if (colorterm && /^(truecolor|24bit)$/i.test(colorterm)) return null
+    return null
   }
-  const lower = terminal.toLowerCase();
-  if (lower.includes("kitty")) return Protocol.KITTY;
-  if (lower.includes("ghostty")) return Protocol.KITTY;
-  if (lower.includes("warp")) return Protocol.KITTY;
-  if (lower.includes("wezterm")) return Protocol.KITTY; // WezTerm supports all 3, prefer Kitty
-  if (lower.includes("konsole")) return Protocol.KITTY; // Konsole ≥ 22.04 supports Kitty
-  if (lower.includes("rio")) return Protocol.KITTY;
-  if (lower.includes("iterm")) return Protocol.ITERM2;
-  if (lower.includes("vscode")) return Protocol.ITERM2;
-  if (lower.includes("mintty")) return Protocol.ITERM2;
-  if (lower.includes("alacritty")) return Protocol.SIXEL; // alacritty has a Sixel shim
-  if (lower.includes("xterm")) return Protocol.SIXEL;
-  if (lower.includes("mlterm")) return Protocol.SIXEL;
-  if (lower.includes("foot")) return Protocol.SIXEL;
-  if (lower.includes("screen")) return Protocol.SIXEL;
-  return null;
+  const lower = terminal.toLowerCase()
+  if (lower.includes("kitty")) return Protocol.KITTY
+  if (lower.includes("ghostty")) return Protocol.KITTY
+  if (lower.includes("warp")) return Protocol.KITTY
+  if (lower.includes("wezterm")) return Protocol.KITTY // WezTerm supports all 3, prefer Kitty
+  if (lower.includes("konsole")) return Protocol.KITTY // Konsole ≥ 22.04 supports Kitty
+  if (lower.includes("rio")) return Protocol.KITTY
+  if (lower.includes("iterm")) return Protocol.ITERM2
+  if (lower.includes("vscode")) return Protocol.ITERM2
+  if (lower.includes("mintty")) return Protocol.ITERM2
+  if (lower.includes("alacritty")) return Protocol.SIXEL // alacritty has a Sixel shim
+  if (lower.includes("xterm")) return Protocol.SIXEL
+  if (lower.includes("mlterm")) return Protocol.SIXEL
+  if (lower.includes("foot")) return Protocol.SIXEL
+  if (lower.includes("screen")) return Protocol.SIXEL
+  return null
 }
 
 /**
@@ -104,14 +104,11 @@ export function protocolForTerminal(
  * match, falling back to a non-native renderer (halfblock ANSI) when
  * `available` is empty.
  */
-export function detectCapabilities(
-  stream?: StreamProbe,
-  env: Env = readEnv(),
-): Capabilities {
-  const term = env.TERM ?? env.TERMINAL ?? null;
-  const termProgram = env.TERM_PROGRAM ?? null;
-  const colorterm = env.COLORTERM;
-  const isStderr = stream?.kind === "stderr";
+export function detectCapabilities(stream?: StreamProbe, env: Env = readEnv()): Capabilities {
+  const term = env.TERM ?? env.TERMINAL ?? null
+  const termProgram = env.TERM_PROGRAM ?? null
+  const colorterm = env.COLORTERM
+  const isStderr = stream?.kind === "stderr"
 
   // OpenTUI renderer short-circuit: if the caller already negotiated the
   // answer, just trust it.
@@ -121,46 +118,36 @@ export function detectCapabilities(
 
   // Some terminals (notably VS Code's integrated terminal) are not detected via
   // TERM but only via TERM_PROGRAM. We merge the two into a single identifier.
-  const candidates = [
-    termProgram,
-    term,
-    env.WEZTERM_EXECUTABLE ? "wezterm" : null,
-  ].filter(
+  const candidates = [termProgram, term, env.WEZTERM_EXECUTABLE ? "wezterm" : null].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
-  );
+  )
 
-  const detected = new Set<Protocol>();
+  const detected = new Set<Protocol>()
   for (const candidate of candidates) {
-    const protocol = protocolForTerminal(candidate, colorterm);
-    if (protocol) detected.add(protocol);
+    const protocol = protocolForTerminal(candidate, colorterm)
+    if (protocol) detected.add(protocol)
   }
 
   // Kitty exposes a stable env var; honour it as an authoritative signal even
   // when the surrounding TERM is misleading.
-  if (env.KITTY_WINDOW_ID || env.KITTY_PID || env.KITTY_PUBLIC_KEY)
-    detected.add(Protocol.KITTY);
-  if (env.GHOSTTY_RESOURCES_DIR || env.GHOSTTY_BIN_DIR)
-    detected.add(Protocol.KITTY);
-  if (env.WEZTERM_EXECUTABLE || env.WEZTERM_PANE) detected.add(Protocol.KITTY);
+  if (env.KITTY_WINDOW_ID || env.KITTY_PID || env.KITTY_PUBLIC_KEY) detected.add(Protocol.KITTY)
+  if (env.GHOSTTY_RESOURCES_DIR || env.GHOSTTY_BIN_DIR) detected.add(Protocol.KITTY)
+  if (env.WEZTERM_EXECUTABLE || env.WEZTERM_PANE) detected.add(Protocol.KITTY)
   if (env.KONSOLE_VERSION) {
-    const major = Number.parseInt(env.KONSOLE_VERSION.split(".")[0] ?? "0", 10);
-    if (Number.isFinite(major) && major >= 22) detected.add(Protocol.KITTY);
-    else detected.add(Protocol.SIXEL);
+    const major = Number.parseInt(env.KONSOLE_VERSION.split(".")[0] ?? "0", 10)
+    if (Number.isFinite(major) && major >= 22) detected.add(Protocol.KITTY)
+    else detected.add(Protocol.SIXEL)
   }
-  if (env.ITERM_SESSION_ID) detected.add(Protocol.ITERM2);
-  if (env.WT_SESSION) detected.add(Protocol.SIXEL); // Windows Terminal
-  if (env.TERMINOLOGY_VERSION) detected.add(Protocol.SIXEL);
+  if (env.ITERM_SESSION_ID) detected.add(Protocol.ITERM2)
+  if (env.WT_SESSION) detected.add(Protocol.SIXEL) // Windows Terminal
+  if (env.TERMINOLOGY_VERSION) detected.add(Protocol.SIXEL)
 
   // On stderr, several terminals disable sixel/iterm2 to keep logs readable.
   // Kitty still works because the stream is kept in raw mode by the renderer.
-  if (isStderr) detected.delete(Protocol.ITERM2);
+  if (isStderr) detected.delete(Protocol.ITERM2)
 
-  const order: readonly Protocol[] = [
-    Protocol.KITTY,
-    Protocol.SIXEL,
-    Protocol.ITERM2,
-  ];
-  const available = order.filter((protocol) => detected.has(protocol));
+  const order: readonly Protocol[] = [Protocol.KITTY, Protocol.SIXEL, Protocol.ITERM2]
+  const available = order.filter((protocol) => detected.has(protocol))
 
   return {
     best: available[0] ?? null,
@@ -169,5 +156,5 @@ export function detectCapabilities(
     sixel: detected.has(Protocol.SIXEL),
     iterm2: detected.has(Protocol.ITERM2),
     terminal: termProgram ?? term,
-  };
+  }
 }

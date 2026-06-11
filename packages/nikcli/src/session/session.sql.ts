@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Session Info — SQL backend for JSON-backed session storage
@@ -24,4 +24,4 @@ export const sessionInfo = sqliteTable(
     parentIdx: index("idx_session_info_parent").on(table.parentId),
     workspaceIdx: index("idx_session_info_workspace").on(table.workspaceId),
   }),
-);
+)
