@@ -15,9 +15,7 @@ process.env.XDG_STATE_HOME = path.join(testHome, "state")
 const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
 const { Server } = await import("@/server/server")
-const { Storage } = await import("@/storage/storage")
-const { runPromiseWithLayer } = await import("@/effect")
-const { Effect } = await import("effect")
+const { MessageRepo } = await import("@/session/message-repo")
 
 const projectDirs: string[] = []
 
@@ -71,16 +69,6 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
     throw new Error(`Expected ${method} ${pathname} to return 200, got ${response.status}: ${await response.text()}`)
   }
   return response.json()
-}
-
-async function writeStorage(key: string[], value: unknown) {
-  await runPromiseWithLayer(
-    Storage.defaultLayer,
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, value)
-    }),
-  )
 }
 
 describe("Session HttpApi bridge", () => {
@@ -165,8 +153,10 @@ describe("Session HttpApi bridge", () => {
       type: "text",
       text: "hello",
     }
-    await writeStorage(["message", created.id, messageID], message)
-    await writeStorage(["part", messageID, partID], part)
+    // Messages and parts are read through the SQL repositories since the
+    // Drizzle adoption; seed them the same way the runtime writes them.
+    MessageRepo.upsertMessage(message as Parameters<typeof MessageRepo.upsertMessage>[0])
+    MessageRepo.upsertPart(part as Parameters<typeof MessageRepo.upsertPart>[0])
 
     const single = (await request(`/session/${created.id}/message/${messageID}`, directory)) as {
       info: { id: string }
@@ -205,7 +195,7 @@ describe("Session HttpApi bridge", () => {
     )) as boolean
     expect(removedPart).toBe(true)
 
-    await writeStorage(["part", messageID, partID], part)
+    MessageRepo.upsertPart(part as Parameters<typeof MessageRepo.upsertPart>[0])
     const removedMessage = (await remove(`/session/${created.id}/message/${messageID}`, directory)) as boolean
     expect(removedMessage).toBe(true)
 
