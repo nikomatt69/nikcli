@@ -3,6 +3,7 @@ import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
 import { Context, Layer } from "effect"
 import { InstanceRef, sharedMemoMap } from "@/effect"
 import { Instance } from "@/project/instance"
+import { HttpApiEvent } from "./event"
 import { PublicHttpApi } from "./public"
 
 export namespace HttpApiBridge {
@@ -28,6 +29,7 @@ export namespace HttpApiBridge {
     ["GET", /^\/file$/],
     ["GET", /^\/file\/content$/],
     ["GET", /^\/file\/status$/],
+    ["GET", /^\/event$/],
     ["GET", /^\/find$/],
     ["GET", /^\/find\/file$/],
     ["GET", /^\/find\/symbol$/],
@@ -111,6 +113,12 @@ export namespace HttpApiBridge {
   }
 
   export function handle(request: Request) {
+    // SSE is a raw streaming response, not a schema-encoded HttpApi body —
+    // serve it ahead of the router.
+    const pathname = new URL(request.url).pathname
+    if (request.method === "GET" && pathname === "/event") {
+      return Promise.resolve(HttpApiEvent.handle())
+    }
     return handler(
       request,
       Context.make(InstanceRef, {

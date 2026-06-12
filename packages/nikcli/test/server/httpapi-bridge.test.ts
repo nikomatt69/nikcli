@@ -120,6 +120,19 @@ describe("HttpApi bridge", () => {
     expect(answers).toEqual([["Yes"]])
     await runPromiseWithLayer(PermissionNext.defaultLayer, Fiber.join(permissionFiber))
   })
+
+  it("serves the /event SSE stream without Hono", async () => {
+    const directory = await makeProjectDir()
+    const response = await request("/event", directory)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/event-stream")
+
+    const reader = response.body!.getReader()
+    const { value } = await reader.read()
+    const first = new TextDecoder().decode(value)
+    expect(first).toContain("server.connected")
+    await reader.cancel()
+  })
 })
 
 afterEach(async () => {

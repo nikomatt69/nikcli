@@ -362,7 +362,7 @@ This checklist tracks bridge parity only. Checked routes are available through t
 
 ### Event Routes
 
-- [ ] `GET /event` - SSE event stream via raw Effect HTTP.
+- [x] `GET /event` - SSE event stream without Hono. Evidence: `src/server/httpapi/event.ts`, served from `bridge.ts`, covered in `test/server/httpapi-bridge.test.ts`.
 
 ### PTY Routes
 
@@ -405,7 +405,7 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 10. [x] Bridge session read routes: list, status, get, children, todo, diff, and messages are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 11. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, and abort are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 12. [x] Bridge remaining session mutation routes: share/unshare/summarize/command/shell/deprecated-permissions are bridged (2026-06-12); init was removed by design. Only the streaming prompt routes (`POST /session/:id/message`, `POST /session/:id/prompt_async`) remain, tracked with the SSE work in step 13.
-13. [ ] Replace event SSE with non-Hono Effect HTTP. The Effect backend has a raw Effect HTTP `httpapi/event.ts`; the Hono backend still uses `hono/streaming` `streamSSE`. Either port Hono `/event` to raw Effect HTTP for the fallback window, or skip and delete it together with Hono in step 15.
+13. [x] Replace event SSE with non-Hono HTTP (2026-06-12): `src/server/httpapi/event.ts` serves `GET /event` from the bridge as a web-standard ReadableStream SSE response (server.connected greeting, GlobalBus forwarding, 30s heartbeat) — no Hono dependency. The streaming prompt routes (`POST /session/:id/message`, `prompt_async`) follow the same raw-response pattern when they move.
 14. [ ] Replace pty websocket/control routes with non-Hono Effect HTTP for the Effect backend. Hono `pty.ts` remains in the Hono backend.
 15. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
 16. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
