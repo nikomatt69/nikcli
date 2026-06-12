@@ -264,8 +264,8 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `GET /provider/auth` - list provider auth methods.
 - [x] `POST /provider/:providerID/api` - store provider API key and dispose active instance.
 - [x] `DELETE /provider/:providerID/auth` - remove provider credentials and dispose active instance.
-- [ ] `POST /provider/:providerID/oauth/authorize` - start provider OAuth.
-- [ ] `POST /provider/:providerID/oauth/callback` - finish provider OAuth.
+- [x] `POST /provider/:providerID/oauth/authorize` - start provider OAuth. Evidence: `src/server/httpapi/provider.ts` `oauthAuthorize`, mounted in `bridge.ts`, covered in `test/server/httpapi-provider.test.ts`.
+- [x] `POST /provider/:providerID/oauth/callback` - finish provider OAuth. Evidence: `src/server/httpapi/provider.ts` `oauthCallback` (refreshes the provider cache without disposing, like the Hono route).
 
 ### Question Routes
 
@@ -342,23 +342,23 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `POST /session` - create session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `DELETE /session/:sessionID` - delete session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `PATCH /session/:sessionID` - update session metadata. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
-- [ ] `POST /session/:sessionID/init` - run project init command.
+- [x] `POST /session/:sessionID/init` - resolved: the dedicated route was removed by design on 2026-06-10 (`specs/v2/session.md`); the `/init` command flow is the only path.
 - [x] `POST /session/:sessionID/fork` - fork session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `POST /session/:sessionID/abort` - abort session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
-- [ ] `POST /session/:sessionID/share` - share session.
-- [ ] `DELETE /session/:sessionID/share` - unshare session.
-- [ ] `POST /session/:sessionID/summarize` - summarize session.
+- [x] `POST /session/:sessionID/share` - share session. Evidence: `src/server/httpapi/session.ts` `share` (mirrors the Hono origin handling), mounted in `bridge.ts`.
+- [x] `DELETE /session/:sessionID/share` - unshare session. Evidence: `src/server/httpapi/session.ts` `unshare`.
+- [x] `POST /session/:sessionID/summarize` - summarize session. Evidence: `src/server/httpapi/session.ts` `summarize`, declared-404 covered in `test/server/httpapi-session.test.ts`.
 - [x] `GET /session/:sessionID/message/:messageID` - get message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `DELETE /session/:sessionID/message/:messageID` - delete message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `DELETE /session/:sessionID/message/:messageID/part/:partID` - delete part. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `PATCH /session/:sessionID/message/:messageID/part/:partID` - update part. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [ ] `POST /session/:sessionID/message` - prompt with streaming response.
 - [ ] `POST /session/:sessionID/prompt_async` - async prompt.
-- [ ] `POST /session/:sessionID/command` - run command.
-- [ ] `POST /session/:sessionID/shell` - run shell command.
+- [x] `POST /session/:sessionID/command` - run command. Evidence: `src/server/httpapi/session.ts` `command` (BusyError maps to the declared 409).
+- [x] `POST /session/:sessionID/shell` - run shell command. Evidence: `src/server/httpapi/session.ts` `shell`.
 - [x] `POST /session/:sessionID/revert` - revert message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `POST /session/:sessionID/unrevert` - restore reverted messages. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
-- [ ] `POST /session/:sessionID/permissions/:permissionID` - deprecated permission response route.
+- [x] `POST /session/:sessionID/permissions/:permissionID` - deprecated permission response route. Evidence: `src/server/httpapi/session.ts` `permissionRespond` (thin alias of permission.reply, kept for SDK compatibility).
 
 ### Event Routes
 
@@ -395,16 +395,16 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 
 1. [x] Bridge `PATCH /project/:projectID`. Evidence: `src/server/httpapi/project.ts` and `bun test test/server/httpapi-project.test.ts`.
 2. [x] Bridge MCP add/connect/disconnect routes. Evidence: `src/server/httpapi/mcp.ts` and `bun test test/server/httpapi-mcp.test.ts`.
-3. [ ] Bridge MCP OAuth routes: start, callback, authenticate.
-4. [ ] Bridge experimental console switch routes. Current branch audit: console routes are listed in the historical checklist but no matching Hono registration was found in `src/server/routes/experimental.ts`.
+3. [x] Bridge MCP OAuth routes: start, callback, authenticate. Evidence: `src/server/httpapi/mcp.ts` with the declared `McpOAuthUnsupportedError` 400.
+4. [x] Resolved: experimental console routes have no Hono registration on this branch — removed from scope.
 5. [x] Bridge experimental tool/worktree/resource routes. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
-6. [ ] Bridge experimental global session list.
+6. [x] Resolved: no global session list route exists on this branch (`routes/global.ts` has only health, /event SSE, and dispose) — removed from scope.
 7. [x] Bridge read-only workspace adaptor/list routes. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 8. [x] Bridge workspace create/remove/session-restore routes. Evidence: `src/server/httpapi/workspace.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-workspace.test.ts`.
 9. [ ] Bridge sync start/replay/history routes.
 10. [x] Bridge session read routes: list, status, get, children, todo, diff, and messages are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 11. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, and abort are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
-12. [ ] Bridge remaining session mutation and prompt routes. Non-streaming message and part JSON routes plus revert/unrevert are bridged; init/share/summarize/prompt/prompt_async/command/shell/deprecated permission routes remain open.
+12. [x] Bridge remaining session mutation routes: share/unshare/summarize/command/shell/deprecated-permissions are bridged (2026-06-12); init was removed by design. Only the streaming prompt routes (`POST /session/:id/message`, `POST /session/:id/prompt_async`) remain, tracked with the SSE work in step 13.
 13. [ ] Replace event SSE with non-Hono Effect HTTP. The Effect backend has a raw Effect HTTP `httpapi/event.ts`; the Hono backend still uses `hono/streaming` `streamSSE`. Either port Hono `/event` to raw Effect HTTP for the fallback window, or skip and delete it together with Hono in step 15.
 14. [ ] Replace pty websocket/control routes with non-Hono Effect HTTP for the Effect backend. Hono `pty.ts` remains in the Hono backend.
 15. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.

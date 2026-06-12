@@ -63,6 +63,18 @@ describe("Provider HttpApi bridge", () => {
     const methods = (await authResponse.json()) as Record<string, Array<{ type: string; label: string }>>
     expect(methods).toBeObject()
 
+    // OAuth routes are bridged; authorize on a non-OAuth method yields null
+    const apiOnly = Object.entries(methods).find(([, list]) => list[0]?.type === "api")
+    if (apiOnly) {
+      const authorizeResponse = await request(`/provider/${apiOnly[0]}/oauth/authorize`, directory, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ method: 0 }),
+      })
+      expect(authorizeResponse.status).toBe(200)
+      expect(await authorizeResponse.json()).toBeNull()
+    }
+
     const apiResponse = await request(`/provider/${providerID}/api`, directory, {
       method: "POST",
       headers: { "content-type": "application/json" },

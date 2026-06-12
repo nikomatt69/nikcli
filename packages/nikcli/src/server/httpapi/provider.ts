@@ -37,6 +37,21 @@ export namespace ProviderHttpApi {
     identifier: "ProviderAuthMethods",
   })
 
+  const Authorization = Schema.Struct({
+    url: Schema.String,
+    method: Schema.Literals(["auto", "code", "auto-code"]),
+    instructions: Schema.String,
+  }).annotate({ identifier: "ProviderOAuthAuthorization" })
+  /** `authorize` yields undefined for providers without an OAuth flow — encoded as JSON null. */
+  const AuthorizeResponse = Schema.NullOr(Authorization)
+  const AuthorizePayload = Schema.Struct({
+    method: Schema.Number,
+  }).annotate({ identifier: "ProviderOAuthAuthorizeInput" })
+  const CallbackPayload = Schema.Struct({
+    method: Schema.Number,
+    code: Schema.optional(Schema.String),
+  }).annotate({ identifier: "ProviderOAuthCallbackInput" })
+
   // Provider payloads contain model metadata (e.g. cost.experimentalOver200K) that may
   // be `undefined`. Effect HttpApi rejects `undefined` JSON values, so we normalize via
   // JSON.stringify (which strips those keys) before returning.
@@ -49,6 +64,20 @@ export namespace ProviderHttpApi {
       HttpApiEndpoint.post("api", "/:providerID/api", { params: ProviderPath, payload: ApiPayload, success: Success }),
     )
     .add(HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", { params: ProviderPath, success: Success }))
+    .add(
+      HttpApiEndpoint.post("oauthAuthorize", "/:providerID/oauth/authorize", {
+        params: ProviderPath,
+        payload: AuthorizePayload,
+        success: AuthorizeResponse,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("oauthCallback", "/:providerID/oauth/callback", {
+        params: ProviderPath,
+        payload: CallbackPayload,
+        success: Schema.Boolean,
+      }),
+    )
     .prefix("/provider")
 
   export const Api = HttpApi.make("nikcli").add(Group)
@@ -108,6 +137,30 @@ export namespace ProviderHttpApi {
         yield* Effect.ignore(provider.refresh())
         return { success: true as const }
       }).pipe(Effect.orDie),
+    oauthAuthorize: ({ params, payload }: { params: { providerID: string }; payload: { method: number } }) =>
+      Effect.gen(function* () {
+        const providerAuth = yield* ProviderAuth.Service
+        const result = yield* providerAuth.authorize({
+          providerID: params.providerID,
+          method: payload.method,
+        })
+        return jsonSafe(result ?? null)
+      }).pipe(Effect.orDie),
+    oauthCallback: ({ params, payload }: { params: { providerID: string }; payload: { method: number; code?: string } }) =>
+      Effect.gen(function* () {
+        const providerAuth = yield* ProviderAuth.Service
+        yield* providerAuth.callback({
+          providerID: params.providerID,
+          method: payload.method,
+          code: payload.code,
+        })
+        // OAuth stores credentials without disposing the instance, so the
+        // provider cache must be refreshed here — otherwise the
+        // just-connected provider's models stay missing until a restart.
+        const provider = yield* Provider.Service
+        yield* Effect.ignore(provider.refresh())
+        return true
+      }).pipe(Effect.orDie),
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "provider", (builder) =>
@@ -115,7 +168,9 @@ export namespace ProviderHttpApi {
       .handle("list", handlers.list)
       .handle("auth", handlers.auth)
       .handle("api", handlers.api)
-      .handle("removeAuth", handlers.removeAuth),
+      .handle("removeAuth", handlers.removeAuth)
+      .handle("oauthAuthorize", handlers.oauthAuthorize)
+      .handle("oauthCallback", handlers.oauthCallback),
   )
 
   export const DependenciesLive = Layer.mergeAll(

@@ -123,7 +123,9 @@ export namespace PublicHttpApi {
       .handle("list", () => ProviderHttpApi.handlers.list())
       .handle("auth", () => ProviderHttpApi.handlers.auth())
       .handle("api", (request) => ProviderHttpApi.handlers.api(request))
-      .handle("removeAuth", (request) => ProviderHttpApi.handlers.removeAuth(request)),
+      .handle("removeAuth", (request) => ProviderHttpApi.handlers.removeAuth(request))
+      .handle("oauthAuthorize", (request) => ProviderHttpApi.handlers.oauthAuthorize(request))
+      .handle("oauthCallback", (request) => ProviderHttpApi.handlers.oauthCallback(request)),
   )
 
   const SessionHandlersLive = HttpApiBuilder.group(Api, "session", (handlers) =>
@@ -138,6 +140,12 @@ export namespace PublicHttpApi {
       .handle("abort", (request) => SessionHttpApi.handlers.abort(request))
       .handle("revert", (request) => SessionHttpApi.handlers.revert(request))
       .handle("unrevert", (request) => SessionHttpApi.handlers.unrevert(request))
+      .handle("share", (request) => SessionHttpApi.handlers.share(request))
+      .handle("unshare", (request) => SessionHttpApi.handlers.unshare(request))
+      .handle("summarize", (request) => SessionHttpApi.handlers.summarize(request))
+      .handle("command", (request) => SessionHttpApi.handlers.command(request))
+      .handle("shell", (request) => SessionHttpApi.handlers.shell(request))
+      .handle("permissionRespond", (request) => SessionHttpApi.handlers.permissionRespond(request))
       .handle("children", (request) => SessionHttpApi.handlers.children(request))
       .handle("todo", (request) => SessionHttpApi.handlers.todo(request))
       .handle("diff", (request) => SessionHttpApi.handlers.diff(request))

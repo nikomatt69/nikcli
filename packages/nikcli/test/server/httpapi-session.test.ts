@@ -217,6 +217,29 @@ describe("Session HttpApi bridge", () => {
     expect(String(body.data.message)).toContain("ses_does_not_exist")
   })
 
+  it("bridges share/unshare/summarize and returns the declared 404 for a missing session", async () => {
+    const directory = await makeProjectDir()
+    await request("/session", directory)
+
+    expect(HttpApiBridge.supports("/session/ses_x/share", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_x/share", "DELETE")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_x/summarize", "POST")).toBe(true)
+
+    // summarize hits session.get first — a missing session is the declared 404
+    const url = new URL("/session/ses_does_not_exist/summarize", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const response = await Server.App().fetch(
+      new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-5" }),
+      }),
+    )
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string }
+    expect(body.name).toBe("NotFoundError")
+  })
+
   it("returns the declared 404 body for a missing message", async () => {
     const directory = await makeProjectDir()
     const created = (await post("/session", directory, { title: "404 message" })) as { id: string }

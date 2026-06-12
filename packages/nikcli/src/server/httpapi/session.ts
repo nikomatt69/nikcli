@@ -1,11 +1,16 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Cause, Effect, Layer, Schema, SchemaGetter } from "effect"
+import { Agent } from "@/agent/agent"
+import { Config } from "@/config/config"
 import { Delegation } from "@/delegation/manager"
 import { InstanceState } from "@/effect"
 import { Monitor } from "@/monitor/manager"
+import { PermissionNext } from "@/permission/next"
 import { Session } from "@/session"
+import { ShareNext } from "@/share/share-next"
 import { Storage } from "@/storage/storage"
 import { MessageV2 } from "@/session/message-v2"
+import { SessionCompaction } from "@/session/compaction"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionRevert } from "@/session/revert"
 import { SessionSummary } from "@/session/summary"
@@ -57,6 +62,38 @@ export namespace SessionHttpApi {
     messageID: Schema.String,
     partID: Schema.optional(Schema.String),
   }).annotate({ identifier: "SessionRevertInput" })
+  const SummarizePayload = Schema.Struct({
+    providerID: Schema.String,
+    modelID: Schema.String,
+    auto: Schema.optional(Schema.Boolean),
+  }).annotate({ identifier: "SessionSummarizeInput" })
+  const CommandPayload = Schema.Struct({
+    messageID: Schema.optional(Schema.String),
+    agent: Schema.optional(Schema.String),
+    model: Schema.optional(Schema.String),
+    arguments: Schema.String,
+    command: Schema.String,
+    variant: Schema.optional(Schema.String),
+    parts: Schema.optional(Schema.Array(Schema.Unknown)),
+  }).annotate({ identifier: "SessionCommandInput" })
+  const ShellPayload = Schema.Struct({
+    agent: Schema.String,
+    model: Schema.optional(
+      Schema.Struct({
+        providerID: Schema.String,
+        modelID: Schema.String,
+      }),
+    ),
+    command: Schema.String,
+  }).annotate({ identifier: "SessionShellInput" })
+  const AssistantMessage = Schema.Unknown.annotate({ identifier: "AssistantMessage" })
+  const PermissionRespondPath = Schema.Struct({
+    sessionID: Schema.String,
+    permissionID: Schema.String,
+  })
+  const PermissionRespondPayload = Schema.Struct({
+    response: Schema.Literals(["once", "always", "reject"]),
+  }).annotate({ identifier: "SessionPermissionRespondInput" })
 
   const SessionList = Schema.Array(Schema.Unknown).annotate({ identifier: "SessionList" })
   const MessageList = Schema.Array(Schema.Unknown).annotate({ identifier: "MessageList" })
@@ -160,6 +197,52 @@ export namespace SessionHttpApi {
       }),
     )
     .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo, error: [NotFound, Busy] }))
+    .add(
+      HttpApiEndpoint.post("share", "/:sessionID/share", {
+        params: SessionIDPath,
+        success: SessionInfo,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("unshare", "/:sessionID/share", {
+        params: SessionIDPath,
+        success: SessionInfo,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("summarize", "/:sessionID/summarize", {
+        params: SessionIDPath,
+        payload: SummarizePayload,
+        success: BooleanResult,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("command", "/:sessionID/command", {
+        params: SessionIDPath,
+        payload: CommandPayload,
+        success: MessageWithParts,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("shell", "/:sessionID/shell", {
+        params: SessionIDPath,
+        payload: ShellPayload,
+        success: AssistantMessage,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("permissionRespond", "/:sessionID/permissions/:permissionID", {
+        params: PermissionRespondPath,
+        payload: PermissionRespondPayload,
+        success: BooleanResult,
+        error: [NotFound, Busy],
+      }),
+    )
     .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList, error: [NotFound, Busy] }))
     .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList, error: [NotFound, Busy] }))
     .add(
@@ -296,6 +379,108 @@ export namespace SessionHttpApi {
         const reverted = yield* revert.unrevert({ sessionID: params.sessionID })
         return jsonSafe(reverted)
       }).pipe(declaredErrors),
+    share: ({
+      params,
+      request,
+    }: {
+      params: typeof SessionIDPath.Type
+      request: { headers: Record<string, string | undefined> }
+    }) =>
+      Effect.gen(function* () {
+        const configService = yield* Config.Service
+        const config = yield* configService.get()
+        if (config.share === "disabled") {
+          return yield* Effect.die(new Error("Sharing is disabled in configuration"))
+        }
+        // Mirror the Hono route's origin handling: local nikcli.local hosts
+        // use the default share base URL, anything else passes its origin.
+        const host = request.headers["host"]
+        const proto = request.headers["x-forwarded-proto"] ?? "http"
+        const origin = host ? `${proto}://${host}` : undefined
+        const shareNext = yield* ShareNext.Service
+        const share = yield* shareNext.create(
+          params.sessionID,
+          origin && !/^https?:\/\/nikcli\.local(?::\d+)?$/i.test(origin) ? { baseUrl: origin } : undefined,
+        )
+        const session = yield* Session.Service
+        yield* session.update(
+          params.sessionID,
+          (draft) => {
+            draft.share = { url: share.url }
+          },
+          { touch: false },
+        )
+        return jsonSafe(yield* session.get(params.sessionID))
+      }).pipe(declaredErrors),
+    unshare: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.unshare(params.sessionID)
+        return jsonSafe(yield* session.get(params.sessionID))
+      }).pipe(declaredErrors),
+    command: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof CommandPayload.Type }) =>
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        const msg = yield* sessionPrompt.command({
+          ...payload,
+          sessionID: params.sessionID,
+        } as SessionPrompt.CommandInput)
+        return jsonSafe(msg)
+      }).pipe(declaredErrors),
+    shell: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ShellPayload.Type }) =>
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        const msg = yield* sessionPrompt.shell({
+          ...payload,
+          sessionID: params.sessionID,
+        } as SessionPrompt.ShellInput)
+        return jsonSafe(msg)
+      }).pipe(declaredErrors),
+    permissionRespond: ({
+      params,
+      payload,
+    }: {
+      params: typeof PermissionRespondPath.Type
+      payload: typeof PermissionRespondPayload.Type
+    }) =>
+      Effect.gen(function* () {
+        const permission = yield* PermissionNext.Service
+        yield* permission.reply({
+          requestID: params.permissionID,
+          reply: payload.response,
+        })
+        return true
+      }).pipe(declaredErrors),
+    summarize: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof SummarizePayload.Type }) =>
+      Effect.gen(function* () {
+        const service = yield* Session.Service
+        const session = yield* service.get(params.sessionID)
+        const msgs = yield* service.messages({ sessionID: params.sessionID })
+        const revert = yield* SessionRevert.Service
+        yield* revert.cleanup(session)
+        const agentService = yield* Agent.Service
+        let currentAgent = yield* agentService.defaultAgent()
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const info = msgs[i].info
+          if (info.role === "user") {
+            currentAgent = info.agent || currentAgent
+            break
+          }
+        }
+        const compaction = yield* SessionCompaction.Service
+        yield* compaction.create({
+          sessionID: params.sessionID,
+          agent: currentAgent,
+          model: {
+            providerID: payload.providerID,
+            modelID: payload.modelID,
+          },
+          auto: payload.auto ?? false,
+        })
+        const sessionPrompt = yield* SessionPrompt.Service
+        yield* sessionPrompt.loop(params.sessionID)
+        return true
+      }).pipe(declaredErrors),
     get: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
@@ -372,6 +557,12 @@ export namespace SessionHttpApi {
       .handle("abort", (request) => handlers.abort(request))
       .handle("revert", (request) => handlers.revert(request))
       .handle("unrevert", (request) => handlers.unrevert(request))
+      .handle("share", (request) => handlers.share(request))
+      .handle("unshare", (request) => handlers.unshare(request))
+      .handle("summarize", (request) => handlers.summarize(request))
+      .handle("command", (request) => handlers.command(request))
+      .handle("shell", (request) => handlers.shell(request))
+      .handle("permissionRespond", (request) => handlers.permissionRespond(request))
       .handle("children", (request) => handlers.children(request))
       .handle("todo", (request) => handlers.todo(request))
       .handle("diff", (request) => handlers.diff(request))
@@ -389,13 +580,23 @@ export namespace SessionHttpApi {
     SessionSummary.defaultLayer,
     SessionStatus.defaultLayer,
     Todo.defaultLayer,
+    ShareNext.defaultLayer,
+    SessionCompaction.defaultLayer,
+    Agent.defaultLayer,
+    Config.defaultLayer,
+    PermissionNext.defaultLayer,
   ) as Layer.Layer<
     | Session.Service
     | SessionPrompt.Service
     | SessionRevert.Service
     | SessionSummary.Service
     | SessionStatus.Service
-    | Todo.Service,
+    | Todo.Service
+    | ShareNext.Service
+    | SessionCompaction.Service
+    | Agent.Service
+    | Config.Service
+    | PermissionNext.Service,
     never,
     never
   >
