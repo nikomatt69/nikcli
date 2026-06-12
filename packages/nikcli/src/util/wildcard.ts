@@ -1,7 +1,16 @@
 import { sortBy, pipe } from "remeda"
 
 export namespace Wildcard {
-  export function match(str: string, pattern: string) {
+  // Patterns come from static config (permission rulesets, command routing)
+  // and are matched on every tool call, so cache the compiled regexes. The
+  // cap guards against unbounded growth if a caller ever feeds dynamic
+  // patterns; config-sized pattern sets never come close to it.
+  const compiled = new Map<string, RegExp>()
+  const COMPILED_CACHE_MAX = 2000
+
+  function regexFor(pattern: string): RegExp {
+    const cached = compiled.get(pattern)
+    if (cached) return cached
     let escaped = pattern
       .replace(/[.+^${}()|[\]\\]/g, "\\$&") // escape special regex chars
       .replace(/\*/g, ".*") // * becomes .*
@@ -13,7 +22,14 @@ export namespace Wildcard {
       escaped = escaped.slice(0, -3) + "( .*)?"
     }
 
-    return new RegExp("^" + escaped + "$", "s").test(str)
+    const regex = new RegExp("^" + escaped + "$", "s")
+    if (compiled.size >= COMPILED_CACHE_MAX) compiled.clear()
+    compiled.set(pattern, regex)
+    return regex
+  }
+
+  export function match(str: string, pattern: string) {
+    return regexFor(pattern).test(str)
   }
 
   export function all(input: string, patterns: Record<string, any>) {
@@ -42,12 +58,12 @@ export namespace Wildcard {
     return result
   }
 
-  function matchSequence(items: string[], patterns: string[]): boolean {
-    if (patterns.length === 0) return true
-    const [pattern, ...rest] = patterns
-    if (pattern === "*") return matchSequence(items, rest)
-    for (let i = 0; i < items.length; i++) {
-      if (match(items[i], pattern) && matchSequence(items.slice(i + 1), rest)) {
+  function matchSequence(items: string[], patterns: string[], itemStart = 0, patternStart = 0): boolean {
+    if (patternStart >= patterns.length) return true
+    const pattern = patterns[patternStart]
+    if (pattern === "*") return matchSequence(items, patterns, itemStart, patternStart + 1)
+    for (let i = itemStart; i < items.length; i++) {
+      if (match(items[i], pattern) && matchSequence(items, patterns, i + 1, patternStart + 1)) {
         return true
       }
     }

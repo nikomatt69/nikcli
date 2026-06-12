@@ -28,6 +28,7 @@ import { Workspace } from "@/workspace"
 import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { PromptStashStore } from "@/prompt/stash-store"
 import { Log } from "@/util/log"
+import { workMap } from "@/util/queue"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstance, withInstanceAsync } from "@/effect"
 
@@ -568,9 +569,13 @@ export async function searchPromptMemories(query: string) {
   }> = []
 
   const sessionKeys = await storageList(["session"])
-  for (const key of sessionKeys) {
-    if (key.length !== 3) continue
-    const session = await storageRead<Session.Info>(key).catch(() => undefined)
+  // Batch-load session infos up front (bounded parallelism); message loading
+  // below stays sequential so the early-exit at 40 hits keeps protecting us
+  // from reading every message of every session.
+  const sessionInfos = await workMap(10, sessionKeys, (key) =>
+    key.length === 3 ? storageRead<Session.Info>(key).catch(() => undefined) : Promise.resolve(undefined),
+  )
+  for (const session of sessionInfos) {
     if (!session) continue
     const messages = await runSessionForSession(
       session,
@@ -623,13 +628,13 @@ export async function resolveMobilePromptDefaults(session: Session.Info) {
     if (current.agent && current.model) return current
 
     const allKeys = await storageList(["session"])
-    const sessions: Session.Info[] = []
-    for (const key of allKeys) {
-      if (key.length !== 3 || key[2] === session.id) continue
-      const candidate = await storageRead<Session.Info>(key).catch(() => undefined)
-      if (!candidate || candidate.projectID !== session.projectID) continue
-      sessions.push(candidate)
-    }
+    const candidateKeys = allKeys.filter((key) => key.length === 3 && key[2] !== session.id)
+    // Batch-load candidates (bounded parallelism); the fallback scan below
+    // stays sequential so it can stop at the first usable session.
+    const candidates = await workMap(10, candidateKeys, (key) =>
+      storageRead<Session.Info>(key).catch(() => undefined),
+    )
+    const sessions = candidates.filter((c): c is Session.Info => !!c && c.projectID === session.projectID)
 
     sessions.sort((a, b) => b.time.updated - a.time.updated)
 

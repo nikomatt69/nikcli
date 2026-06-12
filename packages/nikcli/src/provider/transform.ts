@@ -22,8 +22,17 @@ export const OUTPUT_TOKEN_MAX = 32_000
 // branch that requests it stays in lockstep.
 const INCLUDE_ENCRYPTED_REASONING = ["reasoning.encrypted_content"] as const
 
+const SURROGATE_RANGE = /[\uD800-\uDFFF]/
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g
+
 export function sanitizeSurrogates(content: string) {
-  return content.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD")
+  // Fast path: this runs over every string of every message on every request,
+  // and the lookaround regex is much slower than a plain range test. Strings
+  // without any surrogate-range chars (the overwhelmingly common case) bail
+  // here and keep their identity, which also avoids churn in the in-place
+  // message sanitization pass.
+  if (!SURROGATE_RANGE.test(content)) return content
+  return content.replace(LONE_SURROGATE, "\uFFFD")
 }
 
 // Maps npm package to the key the AI SDK expects for providerOptions

@@ -1,5 +1,5 @@
-import { TextAttributes } from "@opentui/core"
-import { useTheme } from "../context/theme"
+import { TextAttributes, RGBA } from "@opentui/core"
+import { useTheme, type Theme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
 import { useAnalytics } from "../context/analytics"
@@ -10,6 +10,8 @@ import {
   mergeWithHistorical,
   mergeSessionsFromApi,
   augmentAggregatedStatsFromPersistedSessions,
+  buildActivityGrid,
+  computeActivityStats,
   type AggregatedStats,
 } from "../util/analytics-aggregator"
 import { useDialog } from "@tui/ui/dialog"
@@ -39,7 +41,10 @@ function colorToString(color: string | { r: number; g: number; b: number; a?: nu
 }
 
 // Format helpers
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+})
 
 function formatTokens(n: number): string {
   if (n < 1_000) return n.toString()
@@ -131,7 +136,10 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
             : liveStats
           const persistedSessions = analyticsCtx.sessions()
           if (persistedSessions.length > 0) {
-            stats = { ...stats, sessions: mergeSessionsFromApi(stats.sessions, persistedSessions) }
+            stats = {
+              ...stats,
+              sessions: mergeSessionsFromApi(stats.sessions, persistedSessions),
+            }
             stats = augmentAggregatedStatsFromPersistedSessions(stats, persistedSessions)
           }
           setStats(stats)
@@ -322,7 +330,210 @@ function useCollapsibleGroup<T extends string>(
 
 // ===== TAB COMPONENTS =====
 
-const OVERVIEW_SECTIONS = ["trend", "daily", "providers"] as const
+const OVERVIEW_SECTIONS = ["activity", "trend", "daily", "providers"] as const
+
+// ===== Activity Heatmap =====
+//
+// GitHub-style contribution graph: 7 rows (Mon..Sun) × N weeks. Used as the
+// first collapsible section in the Overview tab. Renders four headline KPIs
+// (Longest streak, Active days, Avg/day, Total), a 5-step quantized legend
+// (GitHub-style), and the cell grid with sparse Mon/Wed/Fri day labels and
+// month labels on top.
+//
+// The previous version interpolated continuously between `backgroundElement`
+// and `primary`, which produced a near-black ramp on dark themes and made the
+// grid indistinguishable from the terminal background. The new design uses a
+// 5-step discrete palette with a *visible* empty level (borderSubtle on dark
+// themes, just dim gray) and saturated stops, so every cell communicates
+// either "no activity" or one of 4 intensity levels at a glance.
+
+function lerpRgba(a: RGBA, b: RGBA, t: number): RGBA {
+  return RGBA.fromInts(
+    Math.round(a.r + (b.r - a.r) * t),
+    Math.round(a.g + (b.g - a.g) * t),
+    Math.round(a.b + (b.b - a.b) * t),
+    255,
+  )
+}
+
+/**
+ * 5-step activity palette (GitHub-style): [empty, low, mid, high, max].
+ *
+ * `empty` is picked to be *visibly distinct* from the terminal background on
+ * any theme, falling back to a dim gray when `backgroundElement` would be
+ * indistinguishable. Steps 1..4 are lerps of `primary` with 30/55/80/100%
+ * intensity, so each level reads as a distinct shade even in 16-color
+ * terminals (since the max stop is fully saturated).
+ */
+function activityPalette(theme: Theme): [RGBA, RGBA, RGBA, RGBA, RGBA] {
+  // Make the empty level ~20% brighter than backgroundElement so empty cells
+  // form a visible grid. backgroundElement alone (≈25/255 on a black bg) is
+  // invisible against most terminal backgrounds.
+  const base = theme.backgroundElement
+  const bright = lerpRgba(base, theme.text, 0.18)
+  return [
+    bright, // 0 — empty
+    lerpRgba(bright, theme.primary, 0.35),
+    lerpRgba(bright, theme.primary, 0.6),
+    lerpRgba(bright, theme.primary, 0.85),
+    theme.primary,
+  ]
+}
+
+/** Map a daily value to one of 5 buckets. Empty cells → bucket 0. */
+function activityBucket(value: number, max: number): 0 | 1 | 2 | 3 | 4 {
+  if (value <= 0 || max <= 0) return 0
+  const t = value / max
+  if (t <= 0.25) return 1
+  if (t <= 0.5) return 2
+  if (t <= 0.75) return 3
+  return 4
+}
+
+function ActivityStat(props: { label: string; value: string; hint?: string }) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="column" gap={0}>
+      <text fg={theme.textMuted} wrapMode="none">
+        {props.label}
+      </text>
+      <box flexDirection="row" gap={1} alignItems="baseline">
+        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+          {props.value}
+        </text>
+        <Show when={props.hint}>
+          <text fg={theme.textMuted} wrapMode="none">
+            {props.hint}
+          </text>
+        </Show>
+      </box>
+    </box>
+  )
+}
+
+function ActivityHeatmap(props: { stats: AggregatedStats }) {
+  const { theme } = useTheme()
+
+  const grid = createMemo(() => buildActivityGrid(props.stats.days, 365))
+  const stats = createMemo(() => computeActivityStats(props.stats.days))
+
+  const palette = createMemo(() => activityPalette(theme))
+
+  // 5-stop discrete legend — same palette as the cells, so each step
+  // corresponds to a visible cell tone.
+  const legendStops = createMemo(() => palette())
+
+  // 1-letter month labels (J F M A M J J A S O N D) align 1:1 with the
+  // 1-char-wide cell columns below. Compact and unambiguous on any width.
+  const monthInitial = (name: string) => name.charAt(0)
+
+  // Day-of-week labels (Mon, Wed, Fri) — short form on the gutter, matched
+  // to the row index. Slightly more legible than single letters without
+  // making the gutter too wide.
+  const dowLabels = ["Mon", "", "Wed", "", "Fri", "", ""] as const
+
+  // Pre-compute cell rows: 7 rows × N weeks of bucket indices (for rendering
+  // + for the legend swatch). Avoids re-running activityBucket in JSX.
+  const cellBuckets = createMemo(() => {
+    const g = grid()
+    return g.cells.map((row) => row.map((v) => activityBucket(v, g.maxValue)))
+  })
+
+  return (
+    <box flexDirection="column" gap={1}>
+      {/* KPI row: Longest streak · Active days · Avg/day · Total */}
+      <box flexDirection="row" gap={4} flexWrap="wrap">
+        <ActivityStat
+          label="Longest streak"
+          value={String(stats().longestStreak)}
+          hint={stats().longestStreak === 1 ? "day" : "days"}
+        />
+        <ActivityStat label="Active days" value={`${stats().activeDays} / ${stats().totalDays}`} />
+        <ActivityStat label="Avg / day" value={formatTokens(stats().avgPerActiveDay)} />
+        <ActivityStat label="Total" value={formatTokens(stats().total)} />
+      </box>
+
+      <Show
+        when={grid().weeks > 0 && stats().totalDays > 0}
+        fallback={<text fg={theme.textMuted}>No activity data in the last year</text>}
+      >
+        {/* Grid: dow gutter + (month labels + 7 rows of cells) */}
+        <box flexDirection="row" gap={1}>
+          <box flexDirection="column" gap={0} flexShrink={0}>
+            {/* Spacer to align with the month-labels row above the cells */}
+            <text> </text>
+            <For each={dowLabels}>
+              {(label) => (
+                <text fg={theme.textMuted} wrapMode="none">
+                  {(label || " ").padEnd(3, " ")}
+                </text>
+              )}
+            </For>
+          </box>
+          <box flexDirection="column" gap={0}>
+            {/* Month labels: 1 initial per week column, aligning 1:1 with the
+                1-char cell columns below. */}
+            <box flexDirection="row" gap={0}>
+              <For each={Array.from({ length: grid().weeks })}>
+                {(_, col) => {
+                  const label = createMemo(() => {
+                    const m = grid().monthLabels.find((l) => l.col === col())
+                    return m ? monthInitial(m.label) : ""
+                  })
+                  return (
+                    <text fg={theme.textMuted} width={1} wrapMode="none">
+                      {label() || " "}
+                    </text>
+                  )
+                }}
+              </For>
+            </box>
+            {/* 7 rows of cells. Each box uses backgroundColor from the
+                quantized palette so adjacent cells of the same intensity form
+                a continuous block, while intensity changes are crisp. */}
+            <For each={cellBuckets()}>
+              {(row) => (
+                <box flexDirection="row" gap={0}>
+                  <For each={row}>
+                    {(bucket) => (
+                      <box backgroundColor={palette()[bucket]} flexShrink={0}>
+                        <text> </text>
+                      </box>
+                    )}
+                  </For>
+                </box>
+              )}
+            </For>
+          </box>
+        </box>
+
+        {/* Legend: Less ─ ▢▢▢▢▢ ─ More */}
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted} wrapMode="none">
+            Less
+          </text>
+          <For each={legendStops()}>
+            {(c) => (
+              <box backgroundColor={c} flexShrink={0}>
+                <text> </text>
+              </box>
+            )}
+          </For>
+          <text fg={theme.textMuted} wrapMode="none">
+            More
+          </text>
+          <text fg={theme.border} wrapMode="none">
+            {" "}
+            ·{" "}
+          </text>
+          <text fg={theme.textMuted} wrapMode="none">
+            peak {formatTokens(grid().maxValue)} tokens/day
+          </text>
+        </box>
+      </Show>
+    </box>
+  )
+}
 
 function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.stats.days }) {
   const { theme } = useTheme()
@@ -366,6 +577,17 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           subtitle={`in:${formatTokens(g().tokens.input)} out:${formatTokens(g().tokens.output)}`}
         />
       </box>
+
+      {/* Activity Heatmap (GitHub-style) */}
+      <CollapsibleSection
+        title="Activity"
+        hint={`(last ${Math.min(365, props.stats.days.length)} days)`}
+        open={open().activity}
+        focused={focused("activity")}
+        onToggle={() => toggle("activity")}
+      >
+        <ActivityHeatmap stats={props.stats} />
+      </CollapsibleSection>
 
       {/* Braille Line Chart - Token Usage Over Time */}
       <Show when={props.last30Days.length > 0}>
@@ -429,9 +651,21 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
                   <StackedBarChartV2
                     segments={[
                       { label: "Input", value: day.input, color: viz().input },
-                      { label: "Output", value: day.output, color: viz().output },
-                      { label: "Cache", value: day.cacheRead + day.cacheWrite, color: viz().cache },
-                      { label: "Reason", value: day.reasoning, color: viz().reasoning },
+                      {
+                        label: "Output",
+                        value: day.output,
+                        color: viz().output,
+                      },
+                      {
+                        label: "Cache",
+                        value: day.cacheRead + day.cacheWrite,
+                        color: viz().cache,
+                      },
+                      {
+                        label: "Reason",
+                        value: day.reasoning,
+                        color: viz().reasoning,
+                      },
                     ]}
                     width={30}
                     showLabels={false}
@@ -854,7 +1088,11 @@ function SessionsTab(props: { stats: AggregatedStats }) {
               { label: "Completed", value: bg().completed, color: viz().cache },
               { label: "Running", value: bg().running, color: viz().input },
               { label: "Error", value: bg().error, color: viz().alert },
-              { label: "Cancelled", value: bg().cancelled, color: viz().reasoning },
+              {
+                label: "Cancelled",
+                value: bg().cancelled,
+                color: viz().reasoning,
+              },
             ]}
             width={35}
             showLabels

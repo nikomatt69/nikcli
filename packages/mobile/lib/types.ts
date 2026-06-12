@@ -806,6 +806,8 @@ export type LoopDefinition = {
   stages: LoopStage[]
   trigger: LoopTrigger
   maxRuns?: number
+  timeoutMs?: number
+  paused?: boolean
   enabled: boolean
   createdAt: number
 }
@@ -831,7 +833,7 @@ export type LoopRun = {
   startedAt: number
   endedAt?: number
   status: LoopRunStatus
-  backgroundRunID?: string
+  heartbeatAt?: number
   sessionID?: string
   error?: string
   ok: boolean

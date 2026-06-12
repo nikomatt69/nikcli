@@ -353,6 +353,7 @@ export namespace SearchBackend {
         .catch(() => "")
       if (!text) continue
       let offset = 0
+      let fileMatchCount = 0
       const lines = text.split(/\r?\n/)
       for (let index = 0; index < lines.length; index++) {
         const line = lines[index]
@@ -365,7 +366,8 @@ export namespace SearchBackend {
             absolute_offset: offset,
             submatches,
           })
-          if (input.limit && matches.filter((item) => item.path.text === file).length >= input.limit) break
+          fileMatchCount += 1
+          if (input.limit && fileMatchCount >= input.limit) break
         }
         offset += Buffer.byteLength(line, "utf8") + 1
       }

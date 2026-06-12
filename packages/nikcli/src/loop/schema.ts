@@ -25,6 +25,15 @@ export const LOOP_RUN_LEASE_MS = 15_000
  */
 export const MAX_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000
 
+/**
+ * Run timeout bounds. Every run is capped (default 60 min) so a hung stage
+ * can never hold the single-flight slot forever; `timeoutMs` on the
+ * definition overrides the default within [MIN, MAX].
+ */
+export const DEFAULT_RUN_TIMEOUT_MS = 60 * 60_000
+export const MIN_RUN_TIMEOUT_MS = 1_000
+export const MAX_RUN_TIMEOUT_MS = 24 * 60 * 60_000
+
 const log = Log.create({ service: "loop.schema" })
 
 export const LoopTriggerSchema = z.discriminatedUnion("kind", [
@@ -56,6 +65,10 @@ export const LoopDefinitionSchema = z.object({
   trigger: LoopTriggerSchema,
   /** Temporal cap for interval loops: stop after this many runs. */
   maxRuns: z.number().int().positive().optional(),
+  /** Per-run wall-clock cap in ms. Undefined => DEFAULT_RUN_TIMEOUT_MS. */
+  timeoutMs: z.number().int().positive().optional(),
+  /** Persisted pause flag; survives process restarts (unlike runtime status). */
+  paused: z.boolean().optional(),
   enabled: z.boolean(),
   createdAt: z.number().int().nonnegative(),
 })
@@ -70,13 +83,23 @@ export const LoopRunSchema = z.object({
   startedAt: z.number().int().nonnegative(),
   endedAt: z.number().int().nonnegative().optional(),
   status: LoopRunStatusSchema,
-  /** BackgroundRun id we hung on this run, for opening the source session. */
-  backgroundRunID: z.string().optional(),
+  /** Lease heartbeat, renewed while the owning process drives the run. */
+  heartbeatAt: z.number().int().nonnegative().optional(),
   sessionID: z.string().optional(),
   error: z.string().optional(),
   ok: z.boolean(),
 })
 export type LoopRun = z.infer<typeof LoopRunSchema>
+
+/**
+ * Per-loop counters, persisted separately from the definition so full-replace
+ * definition updates can't clobber them, and separately from run history so
+ * `maxRuns` keeps working past the HISTORY_LIMIT trim.
+ */
+export const LoopMetaSchema = z.object({
+  startedRuns: z.number().int().nonnegative(),
+})
+export type LoopMeta = z.infer<typeof LoopMetaSchema>
 
 /** Reserved words that collide with the `/goal` command grammar. */
 const RESERVED_OBJECTIVES = new Set(["pause", "resume", "clear", "status"])
@@ -120,6 +143,14 @@ export function validateDefinition(def: LoopDefinition): string | undefined {
   }
   if (def.maxRuns !== undefined && (!Number.isInteger(def.maxRuns) || def.maxRuns <= 0)) {
     return "Max runs must be a positive integer"
+  }
+  if (def.timeoutMs !== undefined) {
+    if (!Number.isInteger(def.timeoutMs) || def.timeoutMs < MIN_RUN_TIMEOUT_MS) {
+      return `Run timeout must be at least ${formatDuration(MIN_RUN_TIMEOUT_MS)}`
+    }
+    if (def.timeoutMs > MAX_RUN_TIMEOUT_MS) {
+      return `Run timeout cannot exceed ${formatDuration(MAX_RUN_TIMEOUT_MS)}`
+    }
   }
   return undefined
 }

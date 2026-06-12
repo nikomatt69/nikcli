@@ -429,19 +429,23 @@ ${result}
       return listCache.promise
     }
 
-    const load = (async (): Promise<Record[]> => {
-      const paths = await storageList(["background_run", Instance.project.id])
-      const results = await Promise.all(
-        paths.map(async (item) => {
-          try {
-            return await storageRead<Record>(item)
-          } catch {
-            return undefined
-          }
+    // Single Effect program: one Storage layer build for the whole batch
+    // instead of one per record.
+    const load = runPromiseWithLayer(
+      Storage.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const storage = yield* Storage.Service
+          const paths = yield* storage.list(["background_run", Instance.project.id])
+          const results = yield* Effect.forEach(
+            paths,
+            (item) => storage.read<Record>(item).pipe(Effect.catch(() => Effect.succeed(undefined))),
+            { concurrency: 10 },
+          )
+          return (results.filter(Boolean) as Record[]).sort((a, b) => a.createdAt - b.createdAt)
         }),
-      )
-      return (results.filter(Boolean) as Record[]).sort((a, b) => a.createdAt - b.createdAt)
-    })()
+      ),
+    )
 
     const records = await load
     listCache = { records, expiresAt: now + LIST_CACHE_TTL_MS, promise: load }

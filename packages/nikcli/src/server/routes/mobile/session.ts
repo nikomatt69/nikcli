@@ -10,6 +10,7 @@ import { SessionSummary } from "@/session/summary"
 import { MessageV2 } from "@/session/message-v2"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
+import { workMap } from "@/util/queue"
 import { Snapshot } from "@/snapshot"
 import { Command } from "@/command"
 import { Workspace } from "@/workspace"
@@ -67,15 +68,18 @@ export const SessionRoutes = () =>
       async (c) => {
         const query = c.req.valid("query")
         const term = query.search?.toLowerCase()
-        const sessions: z.infer<typeof MobileSessionSummary>[] = []
         // List sessions across all projects for mobile (cross-project view)
         const allKeys = await storageList(["session"])
         const seen = new Set<string>()
-        for (const key of allKeys) {
-          if (key.length !== 3) continue
-          const sessionID = key[2]
-          if (seen.has(sessionID)) continue
-          seen.add(sessionID)
+        const keys = allKeys.filter((key) => {
+          if (key.length !== 3) return false
+          if (seen.has(key[2])) return false
+          seen.add(key[2])
+          return true
+        })
+        // Read + status in bounded parallel batches instead of one-at-a-time;
+        // unreadable sessions are skipped, same as before.
+        const results = await workMap(10, keys, async (key): Promise<z.infer<typeof MobileSessionSummary> | null> => {
           try {
             const session = await storageRead<Session.Info>(key)
             if (term) {
@@ -88,13 +92,14 @@ export const SessionRoutes = () =>
                 .filter(Boolean)
                 .join(" ")
                 .toLowerCase()
-              if (!haystack.includes(term)) continue
+              if (!haystack.includes(term)) return null
             }
-            sessions.push({ info: session, status: await statusForSession(session) })
+            return { info: session, status: await statusForSession(session) }
           } catch {
-            continue
+            return null
           }
-        }
+        })
+        const sessions = results.filter((s): s is z.infer<typeof MobileSessionSummary> => s !== null)
         // Sort by most recently updated, then apply limit
         sessions.sort((a, b) => b.info.time.updated - a.info.time.updated)
         return c.json(query.limit ? sessions.slice(0, query.limit) : sessions)

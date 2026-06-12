@@ -3227,3 +3227,194 @@ Recently merged to `live-main`: #97, #96.
 ### TUI Exit Logo (still pending as of 2026-06-10)
 
 User requested nikcli to display ASCII logo on terminal kill (like OpenCode does). The `logo.tsx` static component exists, but the **kill-time** logo display path is not wired up. Two previous attempts had stability issues; needs reattempt via renderer cleanup hook.
+
+## Brain Pass (2026-06-12)
+
+### Startup Performance Investigation (`src/index.ts` — Eager Imports)
+
+Read-only audit (`ses_1427c4a0cffewkPu5TmoTKu5hp`) found the **main cold-start bottleneck**: `src/index.ts` eagerly imports every command module at the top level before yargs routing. Even `nikcli --version` and `nikcli --help` pay the full cost of the command tree.
+
+**Baseline measurements (2026-06-12, system heavily loaded, single user)**:
+
+| Command       | Median time | Range          | Notes                                              |
+| ------------- | ----------- | -------------- | -------------------------------------------------- |
+| `nikcli --version` | ~6.7s    | 3.85 – 7.18s   | Just version print; pays full import cost          |
+| `nikcli --help`    | ~6.2s    | 4.93 – 11.95s  | Loads all command builders; e.g. `web` not used    |
+
+**Heavy importers identified** (do not lazy-load naively without testing):
+
+| File                            | Why it's heavy                                                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/index.ts`                  | Aggregates all command imports — root cause                                                                                                                  |
+| `src/cli/cmd/run.ts`            | `@clack/prompts`, SDK v2, `Server`, `Provider`, `Agent`, storage/session repos, `ShareNext`, `effect`, `zod`                                                |
+| `src/cli/cmd/serve.ts`          | Top-level `server.ts` import                                                                                                                                |
+| `src/cli/cmd/web.ts`            | Top-level `server.ts` import                                                                                                                                |
+| `src/cli/cmd/mobile.ts`         | Top-level `server.ts` import                                                                                                                                |
+| `src/server/server.ts`          | Hono/OpenAPI, provider, LSP, auth, agent, skill, all route modules, mobile, workspace, share, analytics — likely **biggest single cold-start cost**           |
+| `src/cli/cmd/remote.ts`         | `@nikcli-ai/remote`, clipboard, mobile/server pieces, `../remote` barrel eagerly                                                                              |
+| `src/cli/remote/index.ts` barrel | Re-exports `RemoteService`, `SessionManager`, QR renderer, notifications, subagent hooks → pulls several remote modules per import                          |
+| `src/cli/ui.ts`                 | Imports `./remote` so even basic UI output transitively loads remote support                                                                                |
+| `src/cli/cmd/tui/app.tsx`       | OpenTUI + Solid + many dialogs/routes + provider config + DB + brain scheduler + plugin runtime + `open` + `v8` — correctly lazy-loaded from `thread.ts`      |
+
+**Optimization plan (safe, ordered)**:
+
+1. Convert `src/index.ts` command imports to **lazy yargs command modules** or thin command stubs — start with `serve`, `web`, `mobile`, `remote`, `run`, debug, model, GitHub, prompt-heavy commands
+2. Split server commands so `Server` is imported **inside** handlers, not at top level — avoids Hono/routes for `nikcli --help`, `nikcli auth`
+3. Remove remote transitive load from `src/cli/ui.ts`; dynamically import `remoteService` only inside `forwardToRemote`
+4. Avoid `../remote` barrel imports in startup-sensitive files; types static, services dynamic
+5. Keep `src/cli/cmd/tui/app.tsx` lazy (already is); consider splitting rarely-used dialogs/routes with dynamic imports after first render
+6. Review `bin/nikcli` wrapper separately — replacing parent-directory `node_modules` scans with a direct known binary path reduces npm wrapper overhead
+
+**Verification commands**:
+
+```bash
+hyperfine --warmup 3 'bun run --conditions=browser ./src/index.ts --help'
+time bun run --conditions=browser ./src/index.ts --prompt ""
+bun run --conditions=browser ./src/index.ts --help        # smoke after changes
+bun run --conditions=browser ./src/index.ts --version
+bun run typecheck
+```
+
+**Refactor pattern tried (2026-06-12)**: `lazyCommand` in `cli/cmd.ts` for self-contained command builders. Initial measurement showed only `--help` improvement (~6.2s → 4.0s) because `--version` doesn't load `web` anyway. System load confounded measurements — needs re-test under low load.
+
+### Terminal / Browser Compatibility Audit (2026-06-12)
+
+Two parallel `@explore` audits (`ses_1427c49e4…` + `ses_1427c49e7…`) identified cross-terminal/browser support gaps. Both delivered despite 10-min timeout.
+
+**Current support**:
+
+- **Native terminal**: `bin/nikcli` (Node shebang wrapper) → platform-specific Bun binary (`nikcli-ai-{platform}-{arch}` optional dep)
+- **Browser-like access**: `nikcli web` (auto-opens browser), `nikcli remote start` (`packages/remote/` web client with `ghostty-web`, canvas, WebSocket, mobile keyboard), SDK has browser-compatible client
+- **Dev/build**: `--conditions=browser` influences dep resolution, but CLI is **not actually browser-runnable** because top-level imports use `process`/`Bun`/signals/exit/fs/spawn
+
+**Key support gaps**:
+
+1. **No browser conditional exports** for `@nikcli-ai/sdk`, `@nikcli-ai/remote`, `nikcli-ai` — bundlers can resolve Node-only modules (e.g. `server.ts`) accidentally
+2. **CLI entrypoint assumes native runtime**: `process`, `Bun`, signals, fs, child processes, `process.exit`, terminal stdio used at top level
+3. **`src/cli/ui.ts` writes through `Bun.stderr` directly** — fails in non-Bun, WebContainer, browser workers
+4. **Remote terminal proxies by monkey-patching `stdout.write`** + emits `data` on `process.stdin` — fragile in non-native terminals and browser-hosted shells
+5. **`web.ts` always attempts `open(...)`** — inappropriate in SSH, Codespaces, containers, web IDE terminals, headless CI
+6. **QR/session card output uses Unicode box drawing + ANSI color unconditionally** — degrades in limited terminals (no `NO_COLOR` / `TERM=dumb` respect)
+7. **Tunnel support shells out to `npx`, `cloudflared`, `ngrok`, `ssh`** — unavailable in sandboxed/browser-like environments
+8. **`packages/remote/src/server.ts` is Node-only** — serves browser assets from filesystem/package resolution; not Worker/WebContainer friendly
+9. **Browser client WebSocket connects to `window.location.host` root** — no path-prefix/reverse-proxy configuration
+10. **Companion launches `claude` via `child_process.spawn`** — depends on native server process, not browser-executable
+
+**Practical improvements**:
+
+- Add explicit conditional exports: `browser` → fetch/WebSocket/client-only; `node` → spawn/fs/server
+- Split runtime adapters: `stdio`, `process`, `fs`, `spawn`, `clipboard`, `openBrowser`, `terminalCapabilities` — keep native features behind Node/Bun adapter
+- Keep `@nikcli-ai/sdk/client` browser-safe; mark `@nikcli-ai/sdk/server` Node-only via conditional exports
+- Add `--no-open`, `--print-url` flags to `nikcli web`; detect `CI`, missing `DISPLAY`, SSH, Codespaces/Gitpod, non-TTY before auto-opening
+- Centralize terminal capability detection: `isTTY`, color, Unicode, raw-mode, columns/rows + fallbacks for dumb terminals
+- Avoid unconditional ANSI/Unicode in QR/session displays; respect `NO_COLOR`, `FORCE_COLOR`, `TERM=dumb`
+- Replace stdout monkey-patching with explicit terminal stream abstraction (native PTY | stdio | WebSocket | WebContainer)
+- Publish `packages/remote` with separate server/client entries: `@nikcli-ai/remote/server`, `@nikcli-ai/remote/client`, `@nikcli-ai/remote/browser`
+- Allow browser terminal WebSocket path/base URL config for reverse proxies
+- Document compatibility modes: native CLI, SSH/container, web IDE, browser remote, mobile browser, SDK browser client
+
+### Analytics Dialog — Architecture Deep-Dive (2026-06-12)
+
+Two parallel `@explore` audits (`ses_1424f5698…`, `ses_1426eaa9d…`) confirmed complete architecture of the analytics dialog system. Key files:
+
+| File | Purpose |
+|---|---|
+| `packages/nikcli/src/cli/cmd/tui/component/dialog-analytics.tsx` (916 lines) | **Main analytics dialog** with 6 tabs: `Overview`, `Tokens`, `Models`, `Tools`, `Projects`, `Sessions` |
+| `packages/nikcli/src/cli/cmd/tui/context/analytics.tsx` | Solid context (`useAnalytics` / `AnalyticsProvider`) that fetches persisted global/daily/session analytics + calls server (`/analytics/global`, `/analytics/daily?days=90`, `/analytics/sessions`). Exposes signals `global()`, `daily()`, `sessions()` |
+| `packages/nikcli/src/cli/cmd/tui/util/analytics-aggregator.ts` (1262 lines) | Pure aggregation: `AggregatedStats`, `DayStats`, `aggregateAnalytics()`, `mergeWithHistorical()`, `augmentAggregatedStatsFromPersistedSessions()` |
+| `packages/nikcli/src/analytics/analytics.ts` | Backend: Zod schemas (`GlobalAnalytics`, `DailyAnalytics`, `SessionAnalytics`, `TokenBreakdown`), `recordMessage` / `recordSession` / `recordToolUse` / `recordSessionEnd` / `backfillFromExisting`, `loadPersistedAnalyticsFromDataRoot()`. 365-day retention via `retentionDate()` |
+| `packages/nikcli/src/server/routes/analytics.ts` | Hono routes: `GET /analytics/global`, `GET /analytics/daily?days=…&from&to`, `GET /analytics/session/:id`, `GET /analytics/sessions`, `GET /analytics/leaderboard` |
+| `packages/nikcli/src/cli/cmd/tui/component/chart-braille-line.tsx` | Reusable chart primitives: `BrailleLineChart`, `BrailleAreaChart`, `StackedBarChartV2`, `HBarPrecision`, `KPICard`, `ModelCard`, `getChartColors()` |
+| `packages/nikcli/src/cli/cmd/tui/app.tsx` (~1041–1052) | Registration: slash command `/analytics` (aliases `stats`) → `dialog.replace(() => <DialogAnalytics onClose={() => dialog.clear()} />)` |
+
+**Note**: `packages/studio` does NOT exist in the repo. The TUI is entirely in `packages/nikcli/src/cli/cmd/tui/`. The `AGENTS.md` reference to "studio" is outdated.
+
+**State flow in `DialogAnalytics` (lines 81–149)**:
+
+1. `useSync()` — live in-memory data (`session`, `message`, `part`, `todo`, `workspaceList`, `background_job`)
+2. `useSDK()` + `useAnalytics()` — historical/server data
+3. On mount: `dialog.setSize("xlarge")` + `loadAnalytics()`
+4. `loadAnalytics()`:
+   - Waits for sync bootstrap (`waitForSyncBootstrap`)
+   - Builds `liveStats = aggregateAnalytics({ session, message, part, todo, workspaceList, background_job })`
+   - If `sdk.url` is set, calls `analyticsCtx.refresh()` → fetches `/analytics/global`, `/analytics/daily`, `/analytics/sessions`
+   - Merges with `mergeWithHistorical(liveStats, { global, daily })` and `augmentAggregatedStatsFromPersistedSessions(stats, persistedSessions)`
+   - Final `stats` is a single `AggregatedStats` object held in a `createSignal<AggregatedStats | null>(null)`
+5. Derived memos: `last14Days`, `last30Days` from `stats()?.days.slice(-14/30)`
+6. Arrow keys cycle tabs
+
+**Overview tab current structure (lines 325–494)**:
+
+- `OVERVIEW_SECTIONS = ["trend", "daily", "providers"]` as const
+- Each section is a `<CollapsibleSection>` (focus/expand via `useCollapsibleGroup`; **up/down** = focus, **space/enter** = toggle)
+1. **KPI row** (always visible, 348–368): four `KPICard`s — `SESSIONS`, `MESSAGES`, `COST`, `TOKENS`
+2. **"trend" — Token Usage Over Time** (371–405): `BrailleLineChart` with 3 series (`Input`, `Output`, `Cache`), 30 days, width 60 × height 8
+3. **"daily" — Daily Token Breakdown** (408–463): `StackedBarChartV2` per day, segments `[Input, Output, Cache, Reasoning]`, **`r` key cycles `dailyRange` between 7/14/30 days**
+4. **"providers" — Top Providers** (466–491): top 5 from `props.stats.providers.values()`
+
+**Existing `HeatmapRenderer` is in the WRONG dialog** (the OpenTUI viz tool, `dialog-opentui-viz.tsx`, lines 1153–1260) — generic 2D `rowLabels × colLabels × values` matrix with `mono`/`diverge`/`traffic` color scales. **Not** a GitHub-contribution-style 7×52 grid.
+
+**No existing heatmap primitive** in `chart-braille-line.tsx` (only heatmap in `dialog-opentui-viz.tsx`). Zod schema for heatmap in `tool/opentui.ts:274-288`.
+
+### Activity Heatmap Feature (in progress 2026-06-12)
+
+User request: add a GitHub-style "Activity" section to the analytics Overview tab, matching a screenshot showing:
+
+- 4 stats: "Longest streak 37 days", "Avg/day 4.85M", "Avg/week 33.9M", "Total 2.55B"
+- A 7×52-ish heatmap (rows = day-of-week, columns = week) with month labels
+- Cells colored from empty → bright (`Less` → `More` legend)
+
+**Implementation in progress (session `ses_14257cc12…`)**:
+
+1. **Extended `days` array to 365**: bumped fetch in `context/analytics.tsx` from `days=90` to `days=365`; bumped internal `mergeWithHistorical` limit so the merged days array has up to 365 entries
+2. **Added helper functions** to `util/analytics-aggregator.ts`:
+   - `longestStreak(days: DayStats[])` — longest consecutive days with `total > 0`
+   - `avgPerDay(days)` — mean of daily totals
+   - `avgPerWeek(days)` — mean of weekly totals (sum of 7-day windows)
+   - `activityGrid(days)` — groups into a 7×N grid aligned to the start date
+3. **Added `ActivityHeatmap` component** in `dialog-analytics.tsx` (before `OVERVIEW_SECTIONS`):
+   - Cells: 2 chars wide × 1 line tall (GitHub-style)
+   - 5-step color gradient: `backgroundElement` → `primary`
+   - Day-of-week labels on left (M, W, F visible — only every other to save space)
+   - Month labels on top
+   - `Less ◯◯ More` legend at bottom
+4. **Added `ActivityStat` KPI** subcomponent (reuses `KPICard`)
+5. **Wired into `OverviewTab`**: new `Activity` section rendered before the existing `trend` section, uses `props.stats.days` directly (the full 365-day slice)
+
+**Known issue**: `RGBA` is imported via `import type { RGBA }` but used as a value (`RGBA.fromInts`). Fix: import as value, not type-only.
+
+**Key design decisions**:
+
+- Reuse `props.stats.days: DayStats[]` directly — already sorted, already date-padded
+- Extend API call to `days=365` (was 90) — should not break existing tabs since they slice `.slice(-30)` or `.slice(-14)`
+- Theme tokens used: `primary`, `backgroundElement` — falls back to `textMuted` if `textDim` missing
+- `RGBA` import comes from `@opentui/core`
+- Keep `getChartColors(theme)` for consistency with other charts
+
+### System Status (2026-06-12)
+
+- **System load**: high during morning session (load avg 3.72 / 8.49 / 9.28); multiple long-running `nikcli` processes from user (270min, 30min) competing for resources
+- **Startup perf measurements were confounded** by system load — initial "hanging" diagnosis was a system pause, not code issue
+- **Process `48029`** (10:24 minutes) and **`83024`** (270:25 minutes) = user-owned long-running nikcli sessions, NOT from build agent testing — do not kill without explicit user approval
+- `ps aux | grep nikcli` is the safe way to identify leftover processes before performance testing
+
+### Open PRs against `live-main` (2026-06-12)
+
+| PR  | Branch → live-main                             | Status                                                                  |
+| --- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| #99 | `claude/session-v2-live-stepper`               | 3 failing checks (Windows smoke × 2, test (windows) exit 255), 1 pending |
+| #91 | `nikcli/mobile/nikcli/yrrz85`                  | Multiple failures                                                       |
+| #88 | `claude/npm-publish-error-vCzX7`               | Windows smoke + test failures                                           |
+| #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures                                |
+
+Recently merged to `live-main`: #97, #96.
+
+### Other 2026-06-12 Sessions
+
+- `ses_1427cd423ffen4OJr8vC6Aoc4L` — Startup optimization attempts; `lazyCommand` refactor; system load confounded measurements
+- `ses_1426f2234ffeFWIx0zffdgyW1l` — Initial screenshot review; user wants GitHub-style activity heatmap in analytics overview
+- `ses_1424f5698ffeSZW3J0sqSFYNnW` — `@explore`: detailed analytics dialog architecture
+- `ses_1426eaa9dffe1qv8aTcQidVwbm` — `@explore`: analytics/stats/usage files inventory
+- `ses_14261283fffe0t4A3nSh175yCB` — `@explore`: analytics view structure + data model
+- `ses_1427c4a0cffewkPu5TmoTKu5hp` — `@explore`: startup path performance audit
+- `ses_1427c49e4ffeazneHN8QUaSR0Z` + `ses_1427c49e7ffeWKLyaUeLXhqZrL` — `@explore` × 2: terminal/browser compatibility audits (both delivered despite 10-min timeout)

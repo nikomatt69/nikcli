@@ -23,7 +23,7 @@ Usage notes:
 4. The agent's outputs should generally be trusted
 5. Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches, etc.), since it is not aware of the user's intent
 6. If the agent description mentions that it should be used proactively, then you should try your best to use it without the user having to ask for it first. Use your judgement.
-7. Set `background: true` when the task should keep running after you continue working elsewhere; this returns immediately with linked task metadata instead of waiting for the subagent to finish.
+7. Tasks ALWAYS run in background (`background` defaults to true): the call returns immediately with linked task metadata instead of waiting for the subagent to finish. Launch the task, keep working on other things, and the completion wake will arrive in this session. Never sit idle waiting for a subagent, and never set `background: false`.
 8. Use the `delegation` tool to inspect, read, count, or cancel background tasks after launching them.
 9. Background tasks automatically wake the parent session when they finish using the same primary agent/mode that launched them — you do not need to poll. A completion message with the result summary will be injected into this session, triggering you to respond. Only use `delegation(action="read")` if you need the full artifact before the wake arrives.
 

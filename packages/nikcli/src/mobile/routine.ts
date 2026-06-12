@@ -246,8 +246,19 @@ export namespace Routine {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   export async function list(): Promise<Record[]> {
-    const keys = await storageList(["routine", Instance.project.id])
-    const records = await Promise.all(keys.map((k) => storageRead<Record>(k).catch(() => null)))
+    // Single Effect program: one Storage layer build for the whole batch.
+    const records = await runPromiseWithLayer(
+      Storage.defaultLayer,
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        const keys = yield* storage.list(["routine", Instance.project.id])
+        return yield* Effect.forEach(
+          keys,
+          (k) => storage.read<Record>(k).pipe(Effect.catch(() => Effect.succeed(null))),
+          { concurrency: 10 },
+        )
+      }),
+    )
     return records.filter((r): r is Record => r !== null).sort((a, b) => b.createdAt - a.createdAt)
   }
 

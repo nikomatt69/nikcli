@@ -61,9 +61,50 @@ export namespace SystemPrompt {
     return [PROMPT_ANTHROPIC_WITHOUT_TODO]
   }
 
+  const lockfileManagers: [file: string, manager: string][] = [
+    ["bun.lock", "bun"],
+    ["bun.lockb", "bun"],
+    ["pnpm-lock.yaml", "pnpm"],
+    ["yarn.lock", "yarn"],
+    ["package-lock.json", "npm"],
+    ["deno.lock", "deno"],
+  ]
+
+  export async function detectPackageManager(directory: string, worktree: string): Promise<string | undefined> {
+    const roots = directory === worktree ? [directory] : [directory, worktree]
+    for (const root of roots) {
+      const pkg = await Bun.file(`${root}/package.json`)
+        .json()
+        .catch(() => undefined)
+      // the packageManager field (corepack) is the project's explicit choice — it wins over lockfiles
+      const declared = pkg?.packageManager
+      if (typeof declared === "string" && declared.length > 0) return declared.split("@")[0]
+      for (const [file, manager] of lockfileManagers) {
+        if (await Bun.file(`${root}/${file}`).exists()) return manager
+      }
+    }
+    return undefined
+  }
+
+  function runScriptHint(manager: string) {
+    switch (manager) {
+      case "bun":
+        return "`bun install`, `bun add`, `bun run <script>`"
+      case "pnpm":
+        return "`pnpm install`, `pnpm add`, `pnpm <script>` (or `pnpm run <script>`)"
+      case "yarn":
+        return "`yarn install`, `yarn add`, `yarn <script>`"
+      case "deno":
+        return "`deno install`, `deno task <task>`"
+      default:
+        return "`npm install`, `npm run <script>`"
+    }
+  }
+
   async function environmentImpl(ctx: InstanceContext, config: Config.Info) {
     const project = ctx.project
     const loc = resolveLocale(config.locale)
+    const packageManager = await detectPackageManager(ctx.directory, ctx.worktree).catch(() => undefined)
     const parts = [
       [
         `Here is some useful information about the environment you are running in:`,
@@ -72,6 +113,7 @@ export namespace SystemPrompt {
         `  Workspace root folder: ${ctx.worktree}`,
         `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
         `  Platform: ${process.platform}`,
+        ...(packageManager ? [`  Package manager: ${packageManager}`] : []),
         `  Today's date: ${new Date().toDateString()}`,
         `  User locale: ${loc.locale}`,
         `  User region: ${loc.region}`,
@@ -79,14 +121,25 @@ export namespace SystemPrompt {
         `</env>`,
       ].join("\n"),
       [
-        `<monitor_tool_usage>`,
-        `For typecheck, builds, test suites, dev servers, log tails, and any long-running or potentially long-running command, use the monitor tool instead of bash.`,
-        `The bash tool blocks the current turn and will hang on commands that take a while or never exit (e.g. \`bun run typecheck\`, \`bun run build\`, test runs, watchers, servers).`,
-        `The monitor tool runs the command in the background, persists its stdout/stderr to a log file, streams live status, and wakes the session when the command finishes so you can keep working.`,
-        `Only a short preview of the output is streamed back into the session. The full results live in the log file on disk (the "Log file:" path returned when the job starts).`,
-        `To read the complete output of a background job — e.g. to inspect the full typecheck or build errors — read that log file from the filesystem with the read tool once the job has produced output or finished, instead of relying on the streamed preview alone.`,
-        `Reserve bash for short, fast, clearly-bounded commands that complete in a few seconds at most.`,
-        `</monitor_tool_usage>`,
+        `<command_execution>`,
+        `Background-first policy: anything that runs for more than a few seconds runs in the background. You keep working while it runs and the session is woken when it finishes.`,
+        ``,
+        `Process commands — use the monitor tool, never bash:`,
+        `- Dev servers, watchers, log tails, and anything that never exits on its own.`,
+        `- Typecheck, builds, test suites, installs, codegen — anything long-running or potentially long-running.`,
+        `The bash tool blocks the current turn and will hang on these. The monitor tool runs the command in the background, persists stdout/stderr to a log file, streams live status, and wakes the session when the command finishes.`,
+        `Only a short preview of the output is streamed back into the session. The full results live in the log file on disk (the "Log file:" path returned when the job starts). To inspect complete output — e.g. the full list of typecheck or build errors — read that log file with the read tool instead of relying on the preview.`,
+        `Reserve bash for short, fast, clearly-bounded commands that complete in a few seconds at most (git status, ls, a quick script).`,
+        ``,
+        `Subagents — always background:`,
+        `Launch task-tool subagents in the background (the default). Never block waiting on a subagent: launch it, continue with other work, and the completion wake will arrive in this session. Launch independent subagents together so they run concurrently.`,
+        ``,
+        `Package manager:`,
+        packageManager
+          ? `This project uses ${packageManager} (see <env>). ALWAYS use it for installing dependencies and running scripts: ${runScriptHint(packageManager)}. Never mix package managers — do not run npm/npx commands in a ${packageManager} project (use the ${packageManager} equivalent).`
+          : `No package manager was detected for this project. Before installing dependencies or running scripts, check for a lockfile or the package.json "packageManager" field and use the matching tool; ask the user if it is still ambiguous.`,
+        `When the user or docs mention a script generically (e.g. "run typecheck"), run it through the active package manager (e.g. \`${packageManager ?? "npm"} run typecheck\`) via the monitor tool.`,
+        `</command_execution>`,
       ].join("\n"),
     ]
     if (loc.replyLanguage) {

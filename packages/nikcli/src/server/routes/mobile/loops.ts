@@ -378,7 +378,7 @@ export const LoopsRoutes = () =>
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
           const { id } = c.req.valid("param")
-          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          if (!(await LoopManager.setPaused(id, true))) return c.json({ error: `Loop "${id}" not found` }, 404)
           LoopEngine.disarm(id)
           LoopEngine.setRuntimeStatus(id, "paused")
           return c.json({ success: true as const })
@@ -403,7 +403,7 @@ export const LoopsRoutes = () =>
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
           const { id } = c.req.valid("param")
-          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          if (!(await LoopManager.setPaused(id, false))) return c.json({ error: `Loop "${id}" not found` }, 404)
           LoopEngine.setRuntimeStatus(id, "idle")
           await LoopEngine.sync(id)
           return c.json({ success: true as const })

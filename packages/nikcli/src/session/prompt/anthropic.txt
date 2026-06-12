@@ -34,9 +34,9 @@ assistant: I'm going to use the TodoWrite tool to write the following items to t
 - Run the build
 - Fix any type errors
 
-I'm now going to run the build using Bash.
+I'm now going to run the build in the background using the monitor tool.
 
-Looks like I found 10 type errors. I'm going to use the TodoWrite tool to write 10 items to the todo list.
+The build finished and I found 10 type errors in its log file. I'm going to use the TodoWrite tool to write 10 items to the todo list.
 
 marking the first todo as in_progress
 
@@ -78,6 +78,9 @@ The user will primarily request you perform software engineering tasks. This inc
 # Tool usage policy
 - When doing file search, prefer to use the Task tool in order to reduce context usage.
 - You should proactively use the Task tool with specialized agents when the task at hand matches the agent's description.
+- Task tool subagents ALWAYS run in background: launch them, keep working on other parts of the task, and respond to the completion wake when it arrives. Never block waiting on a subagent.
+- Commands that take more than a few seconds or never exit (dev servers, watchers, typecheck, builds, test suites, installs, log tails) run through the monitor tool, not Bash. Read the job's log file for the full output.
+- Use the project's active package manager (shown in <env>) for installing dependencies and running scripts; never mix package managers.
 
 - When WebFetch returns a message about a redirect to a different host, you should immediately make a new WebFetch request with the redirect URL provided in the response.
 - You can call multiple tools in a single response. If you intend to call multiple tools in parallel, make all independent tool calls in parallel. Maximize use of parallel tool calls where possible to increase efficiency. However, if some tool calls depend on previous calls to inform dependent values, do NOT call these tools in parallel and instead call them sequentially. For instance, if one operation must complete before another starts, run these operations sequentially instead. Never use placeholders or guess missing parameters in tool calls.

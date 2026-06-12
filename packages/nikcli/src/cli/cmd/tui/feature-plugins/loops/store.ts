@@ -400,10 +400,13 @@ export function removeById(kv: KvLike, id: string): void {
 }
 
 export function setEnabled(kv: KvLike, id: string, enabled: boolean): LoopDefinition | undefined {
-  const def = getById(kv, id)
-  if (!def) return undefined
-  const next = { ...def, enabled }
-  upsert(kv, next)
+  // Single load+save instead of getById (load) + upsert (load again).
+  const list = loadAll(kv)
+  const idx = list.findIndex((d) => d.id === id)
+  if (idx === -1) return undefined
+  const next = { ...list[idx], enabled }
+  list[idx] = next
+  saveAll(kv, list)
   return next
 }
 

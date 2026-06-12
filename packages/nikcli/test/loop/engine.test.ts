@@ -9,7 +9,7 @@ import { Scheduler } from "@/scheduler"
 import { Storage } from "@/storage/storage"
 import * as Manager from "@/loop/manager"
 import * as Engine from "@/loop/engine"
-import { generateID, type LoopDefinition } from "@/loop/schema"
+import { MAX_CONCURRENT_RUNS, MIN_RUN_TIMEOUT_MS, generateID, type LoopDefinition, type LoopRun } from "@/loop/schema"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-loop-engine-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -36,6 +36,7 @@ async function withInstance<A>(fn: () => Promise<A>): Promise<A> {
 afterEach(async () => {
   // Tear down timers + state so tests are independent. Must run inside the
   // instance context because `Engine.dispose()` resolves `Instance.directory`.
+  Engine._internalSetStageExecutor(undefined)
   await withInstance(async () => {
     Engine.dispose()
   })
@@ -46,6 +47,8 @@ afterEach(async () => {
       for (const k of loopKeys) yield* storage.remove(k)
       const runKeys = yield* storage.list(["loop_run"])
       for (const k of runKeys) yield* storage.remove(k)
+      const metaKeys = yield* storage.list(["loop_meta"])
+      for (const k of metaKeys) yield* storage.remove(k)
     }),
   )
 })
@@ -55,6 +58,16 @@ afterAll(async () => {
   await fs.rm(testHome, { recursive: true, force: true })
   await fs.rm(projectDir, { recursive: true, force: true })
 })
+
+/** Mutate a persisted run record in place (test fixture helper). */
+async function mutateRun(loopID: string, runID: string, fn: (draft: LoopRun) => void): Promise<void> {
+  await runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.update<LoopRun>(["loop_run", Instance.project.id, loopID, runID], fn)
+    }),
+  )
+}
 
 function makeDef(overrides: Partial<LoopDefinition> = {}): LoopDefinition {
   return {
@@ -230,4 +243,215 @@ describe("loop/engine · maxRuns", () => {
       expect(count).toBe(2)
     })
   })
+
+  it("enforces maxRuns beyond the history trim window via the persisted counter", async () => {
+    Engine._internalSetStageExecutor(async () => ({ ok: true }))
+    await withInstance(async () => {
+      const def = makeDef({ maxRuns: 60 })
+      await Manager.upsert(def)
+      // Simulate a long-lived loop whose history was trimmed: the counter
+      // says 59 even though no run records exist.
+      await Manager.resetRunCounter(def.id, 59)
+      await Engine.runOnce(def.id)
+      expect(await Manager.countRuns(def.id)).toBe(60)
+      const runs = await Manager.listRuns(def.id)
+      expect(runs).toHaveLength(1)
+      expect(runs[0].status).toBe("complete")
+      // Cap reached: the next tick skips and disables the loop.
+      await Engine.runOnce(def.id)
+      expect(await Manager.listRuns(def.id)).toHaveLength(1)
+      expect((await Manager.get(def.id))?.enabled).toBe(false)
+    })
+  })
+
+  it("resetRunCount clears both the persisted counter and the runtime", async () => {
+    await withInstance(async () => {
+      const def = makeDef()
+      await Manager.upsert(def)
+      await Manager.resetRunCounter(def.id, 7)
+      expect(await Manager.countRuns(def.id)).toBe(7)
+      await Engine.resetRunCount(def.id)
+      expect(await Manager.countRuns(def.id)).toBe(0)
+      expect(Engine.runtimeOf(def.id).runs).toBe(0)
+    })
+  })
+})
+
+describe("loop/engine · executeRun (stubbed stages)", () => {
+  it("runs stages in order and stops at the first failure", async () => {
+    const calls: string[] = []
+    Engine._internalSetStageExecutor(async (_def, stage) => {
+      calls.push(stage.name)
+      if (stage.name === "two") return { ok: false, error: "stage two exploded" }
+      return { ok: true }
+    })
+    await withInstance(async () => {
+      const def = makeDef({
+        stages: [
+          { name: "one", agent: "ralph", objective: "a" },
+          { name: "two", agent: "ralph", objective: "b" },
+          { name: "three", agent: "ralph", objective: "c" },
+        ],
+      })
+      await Manager.upsert(def)
+      await Engine.runOnce(def.id)
+      expect(calls).toEqual(["one", "two"])
+      const runs = await Manager.listRuns(def.id)
+      expect(runs).toHaveLength(1)
+      expect(runs[0].status).toBe("error")
+      expect(runs[0].error).toBe("stage two exploded")
+      expect(runs[0].sessionID).toBeDefined()
+      expect(Engine.runtimeOf(def.id).status).toBe("error")
+      expect(Engine._internalSnapshot().inFlight).toEqual([])
+    })
+  })
+
+  it("records a successful run and bumps the runtime counter", async () => {
+    Engine._internalSetStageExecutor(async () => ({ ok: true }))
+    await withInstance(async () => {
+      const def = makeDef()
+      await Manager.upsert(def)
+      await Engine.runOnce(def.id)
+      const runs = await Manager.listRuns(def.id)
+      expect(runs).toHaveLength(1)
+      expect(runs[0].status).toBe("complete")
+      expect(runs[0].ok).toBe(true)
+      const rt = Engine.runtimeOf(def.id)
+      expect(rt.status).toBe("idle")
+      expect(rt.runs).toBe(1)
+    })
+  })
+})
+
+describe("loop/engine · concurrency cap", () => {
+  it("never exceeds MAX_CONCURRENT_RUNS even before any runtime turns 'running'", async () => {
+    const release: Array<() => void> = []
+    Engine._internalSetStageExecutor(
+      (_def, _stage) =>
+        new Promise((resolve) => {
+          release.push(() => resolve({ ok: true }))
+        }),
+    )
+    await withInstance(async () => {
+      const defs = Array.from({ length: MAX_CONCURRENT_RUNS + 1 }, (_, i) => makeDef({ name: `loop ${i}` }))
+      for (const def of defs) await Manager.upsert(def)
+      // All claims happen synchronously in the same tick: the extra call must
+      // bail on the capacity check even though no runtime is "running" yet.
+      const settled = defs.map((def) => Engine.runOnce(def.id))
+      await Promise.resolve()
+      expect(Engine._internalSnapshot().inFlight.length).toBeLessThanOrEqual(MAX_CONCURRENT_RUNS)
+      // Unblock whatever started; wait for everything to settle.
+      const drain = setInterval(() => {
+        for (const r of release.splice(0)) r()
+      }, 25)
+      await Promise.all(settled)
+      clearInterval(drain)
+      const all = await Manager.listAllRunsAcrossLoops(100)
+      expect(all.length).toBe(MAX_CONCURRENT_RUNS)
+    })
+  }, 20_000)
+})
+
+describe("loop/engine · cancellation", () => {
+  it("cancelRun finalizes the run as cancelled and releases the slot", async () => {
+    Engine._internalSetStageExecutor(
+      (_def, _stage, _sessionID, signal) =>
+        new Promise((resolve) => {
+          signal.addEventListener("abort", () => resolve({ ok: false, error: "aborted" }), { once: true })
+        }),
+    )
+    await withInstance(async () => {
+      const def = makeDef()
+      await Manager.upsert(def)
+      const running = Engine.runOnce(def.id)
+      // Wait until the run record exists (the stage is now blocking).
+      for (let i = 0; i < 200 && (await Manager.listRuns(def.id)).length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 10))
+      }
+      await Engine.cancelRun(def.id)
+      await running
+      const runs = await Manager.listRuns(def.id)
+      expect(runs).toHaveLength(1)
+      expect(runs[0].status).toBe("cancelled")
+      expect(Engine._internalSnapshot().inFlight).toEqual([])
+      expect(Engine.runtimeOf(def.id).status).toBe("idle")
+    })
+  }, 20_000)
+})
+
+describe("loop/engine · run timeout", () => {
+  it("aborts a hung stage and finalizes the run as 'timeout'", async () => {
+    Engine._internalSetStageExecutor(
+      (_def, _stage, _sessionID, signal) =>
+        new Promise((resolve) => {
+          signal.addEventListener("abort", () => resolve({ ok: false, error: "aborted" }), { once: true })
+        }),
+    )
+    await withInstance(async () => {
+      const def = makeDef({ timeoutMs: MIN_RUN_TIMEOUT_MS })
+      await Manager.upsert(def)
+      await Engine.runOnce(def.id)
+      const runs = await Manager.listRuns(def.id)
+      expect(runs).toHaveLength(1)
+      expect(runs[0].status).toBe("timeout")
+      expect(runs[0].error).toBe("Run timed out")
+      expect(Engine._internalSnapshot().inFlight).toEqual([])
+      expect(Engine.runtimeOf(def.id).status).toBe("error")
+    })
+  }, 20_000)
+})
+
+describe("loop/engine · lease heartbeat", () => {
+  it("restore does not orphan a run with a fresh heartbeat", async () => {
+    await withInstance(async () => {
+      const def = makeDef()
+      await Manager.upsert(def)
+      const run = await Manager.startRun(def.id)
+      // Old start, fresh heartbeat: another process is still driving it.
+      await mutateRun(def.id, run.id, (draft) => {
+        draft.startedAt = Date.now() - 60_000
+        draft.heartbeatAt = Date.now()
+      })
+      await Engine.restore()
+      const runs = await Manager.listRuns(def.id)
+      expect(runs[0].status).toBe("running")
+    })
+  })
+
+  it("restore orphans a run whose heartbeat expired", async () => {
+    await withInstance(async () => {
+      const def = makeDef()
+      await Manager.upsert(def)
+      const run = await Manager.startRun(def.id)
+      await mutateRun(def.id, run.id, (draft) => {
+        draft.startedAt = Date.now() - 60_000
+        draft.heartbeatAt = Date.now() - 60_000
+      })
+      await Engine.restore()
+      const runs = await Manager.listRuns(def.id)
+      expect(runs[0].status).toBe("orphaned")
+    })
+  })
+})
+
+describe("loop/engine · persisted pause", () => {
+  it("a paused loop survives restore as paused and runOnce no-ops", async () => {
+    Engine._internalSetStageExecutor(async () => ({ ok: true }))
+    await withInstance(async () => {
+      const def = makeDef({ trigger: { kind: "interval", everyMs: 60_000 } })
+      await Manager.upsert(def)
+      await Manager.setPaused(def.id, true)
+      // Simulate a process restart: state is rebuilt from storage.
+      Engine.dispose()
+      await Engine.restore()
+      expect(Engine.runtimeOf(def.id).status).toBe("paused")
+      await Engine.runOnce(def.id)
+      expect(await Manager.listRuns(def.id)).toHaveLength(0)
+      // Resume: persisted flag cleared, runs proceed again.
+      await Manager.setPaused(def.id, false)
+      Engine.setRuntimeStatus(def.id, "idle")
+      await Engine.runOnce(def.id)
+      expect(await Manager.listRuns(def.id)).toHaveLength(1)
+    })
+  }, 20_000)
 })

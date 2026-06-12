@@ -204,15 +204,37 @@ function formatSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[index]}`
 }
 
+// shouldIgnore runs once per entry during traversal; cache the per-pattern
+// derived regex / lowercase forms so they're computed once per pattern
+// instead of once per file.
+type IgnoreMatcher = (lower: string) => boolean
+const ignoreMatchers = new Map<string, IgnoreMatcher>()
+
+function ignoreMatcherFor(pattern: string): IgnoreMatcher {
+  const cached = ignoreMatchers.get(pattern)
+  if (cached) return cached
+  let matcher: IgnoreMatcher
+  if (pattern.endsWith("/")) {
+    const needle = pattern.toLowerCase()
+    matcher = (lower) => lower.includes(needle)
+  } else if (pattern.includes("*")) {
+    const regex = new RegExp(pattern.replace(/\*/g, ".*"))
+    matcher = (lower) => regex.test(lower)
+  } else {
+    const needle = pattern.toLowerCase()
+    matcher = (lower) => lower.includes(needle)
+  }
+  ignoreMatchers.set(pattern, matcher)
+  return matcher
+}
+
 function shouldIgnore(relPath: string, extra: string[]): boolean {
-  const all = [...IGNORE_PATTERNS, ...extra]
   const lower = relPath.toLowerCase()
-  return all.some((pattern) => {
-    if (pattern.endsWith("/")) return lower.includes(pattern.toLowerCase())
-    if (pattern.includes("*")) {
-      const regex = new RegExp(pattern.replace(/\*/g, ".*"))
-      return regex.test(lower)
-    }
-    return lower.includes(pattern.toLowerCase())
-  })
+  for (const pattern of IGNORE_PATTERNS) {
+    if (ignoreMatcherFor(pattern)(lower)) return true
+  }
+  for (const pattern of extra) {
+    if (ignoreMatcherFor(pattern)(lower)) return true
+  }
+  return false
 }

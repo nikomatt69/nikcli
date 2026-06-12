@@ -68,7 +68,6 @@ const LoopRunDTOSchema = z
     ok: z.boolean(),
     error: z.string().optional(),
     sessionID: z.string().optional(),
-    backgroundRunID: z.string().optional(),
   })
   .meta({ ref: "LoopRun" })
 
@@ -303,6 +302,9 @@ export function LoopRoutes() {
         const existing = await Manager.get(id)
         if (!existing) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         const saved = await Manager.upsert(body)
+        // A manual run cap edit restarts the count, otherwise a previously
+        // exhausted loop would re-disable itself on the next tick.
+        if (saved.maxRuns !== existing.maxRuns) await Engine.resetRunCount(saved.id)
         await Engine.sync(saved.id)
         void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id })
         return c.json(saved)
@@ -394,10 +396,11 @@ export function LoopRoutes() {
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         const { id } = c.req.valid("param")
+        // Persist the pause so it survives process restarts; the runtime
+        // status mirrors it for live subscribers.
+        const def = await Manager.setPaused(id, true)
+        if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         Engine.disarm(id)
-        // Mutate runtime directly via the public resetRunCount + a synthetic patch.
-        // We re-use the engine's internal patch by importing listRuntimes/resetRunCount is not enough;
-        // expose the runtime mutator via a dedicated route helper.
         Engine.setRuntimeStatus(id, "paused")
         return c.json(true)
       },
@@ -416,7 +419,7 @@ export function LoopRoutes() {
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         const { id } = c.req.valid("param")
-        const def = await Manager.get(id)
+        const def = await Manager.setPaused(id, false)
         if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         Engine.setRuntimeStatus(id, "idle")
         await Engine.sync(id)

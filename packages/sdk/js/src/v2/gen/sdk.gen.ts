@@ -375,6 +375,8 @@ import type {
   SessionUpdateResponses,
   SessionV2EntriesErrors,
   SessionV2EntriesResponses,
+  SessionV2EventsErrors,
+  SessionV2EventsResponses,
   SessionV2StateErrors,
   SessionV2StateResponses,
   SubtaskPartInput,
@@ -663,6 +665,8 @@ export class Loop extends HeyApiClient {
             everyMs: number
           }
       maxRuns?: number
+      timeoutMs?: number
+      paused?: boolean
       enabled?: boolean
     },
     options?: Options<never, ThrowOnError>,
@@ -678,6 +682,8 @@ export class Loop extends HeyApiClient {
             { in: "body", key: "stages" },
             { in: "body", key: "trigger" },
             { in: "body", key: "maxRuns" },
+            { in: "body", key: "timeoutMs" },
+            { in: "body", key: "paused" },
             { in: "body", key: "enabled" },
           ],
         },
@@ -858,6 +864,8 @@ export class Loop extends HeyApiClient {
             everyMs: number
           }
       maxRuns?: number
+      timeoutMs?: number
+      paused?: boolean
       enabled?: boolean
       createdAt?: number
     },
@@ -884,6 +892,8 @@ export class Loop extends HeyApiClient {
             { in: "body", key: "stages" },
             { in: "body", key: "trigger" },
             { in: "body", key: "maxRuns" },
+            { in: "body", key: "timeoutMs" },
+            { in: "body", key: "paused" },
             { in: "body", key: "enabled" },
             { in: "body", key: "createdAt" },
           ],
@@ -2481,6 +2491,38 @@ export class V2 extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<SessionV2StateResponses, SessionV2StateErrors, ThrowOnError>({
       url: "/session/{sessionID}/v2/state",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get the persisted session v2 event log
+   *
+   * Retrieve the durable v2 event log for a session in replay order: step lifecycle events plus per-part coalesced updates. Replaying it through the v2 stepper reproduces the session reduction. Experimental.
+   */
+  public events<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionV2EventsResponses, SessionV2EventsErrors, ThrowOnError>({
+      url: "/session/{sessionID}/v2/events",
       ...options,
       ...params,
     })

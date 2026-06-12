@@ -5,6 +5,7 @@ import { Config } from "@/config/config"
 import { InstanceState, type InstanceContext } from "@/effect"
 import { Flag } from "@/flag/flag"
 import { Filesystem } from "@/util/filesystem"
+import { workMap } from "@/util/queue"
 import { Global } from "@/global"
 import type { MessageV2 } from "./message-v2"
 
@@ -109,25 +110,24 @@ export async function collectSystemPaths(
 }
 
 export async function readInstructionContents(paths: Set<string>): Promise<string[]> {
-  return await Promise.all(
-    Array.from(paths).map((p) =>
-      Bun.file(p)
-        .text()
-        .catch(() => "")
-        .then((x) => (x ? "Instructions from: " + p + "\n" + x : "")),
-    ),
-  ).then((r) => r.filter(Boolean))
+  // Bounded fan-out: instruction globs can match many files; don't open them all at once.
+  const results = await workMap(10, Array.from(paths), (p) =>
+    Bun.file(p)
+      .text()
+      .catch(() => "")
+      .then((x) => (x ? "Instructions from: " + p + "\n" + x : "")),
+  )
+  return results.filter(Boolean)
 }
 
 export async function fetchInstructionUrls(urls: string[]): Promise<string[]> {
-  return await Promise.all(
-    urls.map((url) =>
-      fetch(url, { signal: AbortSignal.timeout(5000) })
-        .then((res) => (res.ok ? res.text() : ""))
-        .catch(() => "")
-        .then((x) => (x ? "Instructions from: " + url + "\n" + x : "")),
-    ),
-  ).then((r) => r.filter(Boolean))
+  const results = await workMap(10, urls, (url) =>
+    fetch(url, { signal: AbortSignal.timeout(5000) })
+      .then((res) => (res.ok ? res.text() : ""))
+      .catch(() => "")
+      .then((x) => (x ? "Instructions from: " + url + "\n" + x : "")),
+  )
+  return results.filter(Boolean)
 }
 
 export interface Interface {

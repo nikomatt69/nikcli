@@ -20,6 +20,10 @@ Before executing the command, please follow these steps:
    - After ensuring proper quoting, execute the command.
    - Capture the output of the command.
 
+IMPORTANT: This tool is ONLY for short, fast, clearly-bounded commands that finish in a few seconds (git status, ls, a quick script). For anything that produces process output over time — dev servers, watchers, typecheck, builds, test suites, installs, log tails — use the `monitor` tool instead: it runs the command in the background, logs the output to a file, and wakes the session when done, while this tool would block the turn or hang.
+
+When installing dependencies or running package scripts, ALWAYS use the project's active package manager (shown as "Package manager" in <env>) — e.g. `bun run typecheck` in a bun project, never `npm run typecheck`. Do not mix package managers.
+
 Usage notes:
   - The command argument is required.
   - You can specify an optional timeout in milliseconds. If not specified, commands will time out after 120000ms (2 minutes).

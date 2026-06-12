@@ -298,7 +298,9 @@ export namespace PermissionNext {
 
   export function evaluate(permission: string, pattern: string, ...rulesets: Ruleset[]): Rule {
     const merged = merge(...rulesets)
-    log.info("evaluate", { permission, pattern, ruleset: merged })
+    // debug + count only: stringifying the full ruleset on every tool call is
+    // measurable overhead at the default INFO level.
+    log.debug("evaluate", { permission, pattern, rules: merged.length })
     const match = merged.findLast(
       (rule: Rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
     )
