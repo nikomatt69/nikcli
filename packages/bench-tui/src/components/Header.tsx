@@ -106,9 +106,7 @@ export function Header(props: HeaderProps) {
         <text
           fg={theme.textMuted}
           wrapMode="none"
-          content={
-            "r=run tests  B=benchmarks  ↵=selected  Space=toggle  Ctrl+P=palette  /=filter  Tab=view  ?=help"
-          }
+          content={"r=run tests  B=benchmarks  ↵=selected  Space=toggle  Ctrl+P=palette  /=filter  Tab=view  ?=help"}
         />
         {props.state === "running" && <text fg={theme.warning} wrapMode="none" content={"  ● live"} />}
       </box>

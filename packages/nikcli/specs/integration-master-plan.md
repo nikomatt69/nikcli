@@ -23,7 +23,7 @@ What is already integrated and must not be re-planned:
   commit `036a09f`).
 - `[x]` OpenAPI cleanup PR 1 (drift tests) and PR 2 (workspace query injection
   removal); PR 3/PR 4 concrete first targets.
-- `[x]` TUI command shim *file* removal (`command-shim.ts` deleted;
+- `[x]` TUI command shim _file_ removal (`command-shim.ts` deleted;
   `api.command` is now implemented natively in `plugin/runtime.ts`).
 - `[x]` SQL + Drizzle storage adoption (commit `50b55f9`).
 
@@ -35,8 +35,7 @@ Two parallel streams that unblock everything else.
 
 - `[x]` `ERR-4` sweep: `NamedError` has zero occurrences left in `src/`
   (inventory re-run 2026-06-12; the 6 remaining `Effect.die` sites are
-  legitimate defects — see `specs/effect/todo.md`). `ERR-5` (mcp OAuth
-  400) also done.
+  legitimate defects — see `specs/effect/todo.md`). `ERR-5` (mcp OAuth 400) also done.
 - `[x]` `RENDER-2` audit done 2026-06-12: generic tagged fallback in the
   CLI fatal formatter, `_tag` fallback in the TUI `friendlyErrorMessage`
   (findings in `specs/effect/todo.md`).

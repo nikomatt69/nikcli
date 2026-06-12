@@ -60,7 +60,9 @@ export function HelpOverlay(props: HelpOverlayProps) {
         <text fg={theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">
           Nikcli Bench TUI \u2014 Keyboard Reference
         </text>
-        <text fg={theme.textMuted} wrapMode="none"> </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {" "}
+        </text>
         <For each={CATEGORY_ORDER}>
           {(cat) => {
             const bindings = grouped().get(cat)
@@ -73,11 +75,15 @@ export function HelpOverlay(props: HelpOverlayProps) {
                 <For each={bindings}>
                   {(binding) => (
                     <text fg={theme.text} wrapMode="none">
-                      {" "}{binding.label.padEnd(18)}{binding.description}
+                      {" "}
+                      {binding.label.padEnd(18)}
+                      {binding.description}
                     </text>
                   )}
                 </For>
-                <text fg={theme.textMuted} wrapMode="none"> </text>
+                <text fg={theme.textMuted} wrapMode="none">
+                  {" "}
+                </text>
               </>
             )
           }}
