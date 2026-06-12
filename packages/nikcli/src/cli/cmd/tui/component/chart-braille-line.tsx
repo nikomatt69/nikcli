@@ -9,28 +9,104 @@ function vizRgb(r: number, g: number, b: number): RGBA {
   return RGBA.fromInts(r, g, b)
 }
 
-// Fixed dataviz RGBA (OpenTUI / theme convention) — legible on any theme.
-const ANALYTICS_VIZ = {
-  input: vizRgb(56, 189, 248),
-  output: vizRgb(251, 146, 60),
-  cache: vizRgb(74, 222, 128),
-  reasoning: vizRgb(167, 139, 250),
-  cacheWrite: vizRgb(45, 212, 191),
-  alert: vizRgb(248, 113, 113),
-  series: [
-    vizRgb(56, 189, 248),
-    vizRgb(74, 222, 128),
-    vizRgb(251, 146, 60),
-    vizRgb(167, 139, 250),
-    vizRgb(244, 114, 182),
-    vizRgb(45, 212, 191),
-    vizRgb(251, 191, 36),
-    vizRgb(96, 165, 250),
-  ],
-} as const
+/**
+ * Theme-aware fallback dataviz palette.
+ *
+ * Why this exists: the original chart palette was a set of hardcoded RGBA
+ * values that ignored the active theme, so on, say, a light "github-light"
+ * theme the chart would still paint bright cyan/orange that fought the
+ * background. The new palette is derived from the theme's semantic tokens
+ * (`primary`, `accent`, `success`, `warning`, `error`, `info`) with
+ * luminance-shifted variants for the additional series, so charts stay
+ * legible on any background while keeping enough hue variety to
+ * distinguish multi-series line charts at a glance.
+ */
+function luminance(rgba: RGBA): number {
+  // Standard ITU-R BT.601 weighting; used to decide if a derived color
+  // needs lightening or darkening for legibility.
+  return (0.299 * rgba.r + 0.587 * rgba.g + 0.114 * rgba.b) / 255
+}
 
-/** Distinct colors for analytics charts (intentionally not derived from theme accents). */
-export function getChartColors(_theme: Theme): {
+function shift(rgba: RGBA, dr: number, dg: number, db: number): RGBA {
+  return RGBA.fromInts(
+    Math.max(0, Math.min(255, Math.round(rgba.r * 255 + dr))),
+    Math.max(0, Math.min(255, Math.round(rgba.g * 255 + dg))),
+    Math.max(0, Math.min(255, Math.round(rgba.b * 255 + db))),
+  )
+}
+
+/**
+ * Derive an N-color categorical palette from a theme. The first 4 colors
+ * mirror the semantic tokens (primary, success, warning, accent) so that
+ * the most-used positions stay consistent with the rest of the UI; the
+ * remaining slots are hue-rotated shifts of `primary` so each series
+ * remains distinguishable on a chart with 5+ series.
+ */
+function themeSeriesPalette(theme: Theme): RGBA[] {
+  // Hue rotation by mixing with rotated neighbors. Each rotation shifts
+  // along the R→G→B ring so the resulting colors stay saturated.
+  const primary = theme.primary
+  const rotated = (base: RGBA, steps: number): RGBA => {
+    // 120° hue rotation via channel swap. Three steps covers the full ring.
+    let r = base.r * 255
+    let g = base.g * 255
+    let b = base.b * 255
+    const dir = steps > 0 ? 1 : -1
+    for (let i = 0; i < Math.abs(steps); i++) {
+      if (dir > 0) {
+        const nr = g
+        const ng = b
+        const nb = r
+        r = nr
+        g = ng
+        b = nb
+      } else {
+        const nr = b
+        const ng = r
+        const nb = g
+        r = nr
+        g = ng
+        b = nb
+      }
+    }
+    return RGBA.fromInts(Math.round(r), Math.round(g), Math.round(b))
+  }
+
+  // For the input/output/cache/reasoning semantic colors, derive from
+  // theme tokens instead of hardcoding RGB. If the theme's tokens are very
+  // close to the background, push them away for chart legibility.
+  const isLow = (c: RGBA) => luminance(c) < 0.15
+  const lift = (c: RGBA) => (isLow(c) ? shift(c, 60, 60, 60) : c)
+
+  return [
+    lift(theme.primary), // 0 — primary
+    lift(theme.success), // 1 — success/positive
+    lift(theme.warning), // 2 — warning/cache
+    lift(theme.accent), // 3 — accent/reasoning
+    rotated(primary, 1), // 4
+    rotated(primary, 2), // 5
+    rotated(primary, -1), // 6
+    rotated(primary, -2), // 7
+  ]
+}
+
+function themeSemanticColors(theme: Theme) {
+  return {
+    input: theme.primary,
+    output: theme.warning,
+    cache: theme.success,
+    cacheWrite: theme.info,
+    reasoning: theme.accent,
+    alert: theme.error,
+  }
+}
+
+/**
+ * Chart colors used by the analytics panel. Derived from the active theme
+ * so charts adapt to light/dark/sepia themes; falls back to a saturated
+ * palette on themes whose tokens have very low luminance.
+ */
+export function getChartColors(theme: Theme): {
   series: RGBA[]
   input: RGBA
   output: RGBA
@@ -39,14 +115,11 @@ export function getChartColors(_theme: Theme): {
   reasoning: RGBA
   alert: RGBA
 } {
+  const series = themeSeriesPalette(theme)
+  const sem = themeSemanticColors(theme)
   return {
-    series: [...ANALYTICS_VIZ.series],
-    input: ANALYTICS_VIZ.input,
-    output: ANALYTICS_VIZ.output,
-    cache: ANALYTICS_VIZ.cache,
-    cacheWrite: ANALYTICS_VIZ.cacheWrite,
-    reasoning: ANALYTICS_VIZ.reasoning,
-    alert: ANALYTICS_VIZ.alert,
+    series,
+    ...sem,
   }
 }
 
@@ -135,7 +208,10 @@ function renderBrailleGrid(data: number[], charW: number, charH: number): string
     const x = data.length === 1 ? Math.floor(pixelW / 2) : Math.round((i / (data.length - 1)) * (pixelW - 1))
     const normalized = (value - min) / range
     const y = Math.round((1 - normalized) * (pixelH - 1))
-    return { x: Math.max(0, Math.min(pixelW - 1, x)), y: Math.max(0, Math.min(pixelH - 1, y)) }
+    return {
+      x: Math.max(0, Math.min(pixelW - 1, x)),
+      y: Math.max(0, Math.min(pixelH - 1, y)),
+    }
   })
 
   // Draw lines between consecutive points using Bresenham
@@ -210,7 +286,10 @@ function renderMultiSeriesBraille(
       const x = data.length === 1 ? Math.floor(pixelW / 2) : Math.round((i / (data.length - 1)) * (pixelW - 1))
       const normalized = (value - globalMin) / range
       const y = Math.round((1 - normalized) * (pixelH - 1))
-      return { x: Math.max(0, Math.min(pixelW - 1, x)), y: Math.max(0, Math.min(pixelH - 1, y)) }
+      return {
+        x: Math.max(0, Math.min(pixelW - 1, x)),
+        y: Math.max(0, Math.min(pixelH - 1, y)),
+      }
     })
 
     // Bresenham for this series
@@ -292,7 +371,21 @@ function formatTokens(n: number): string {
 
 // ===== COMPONENTS =====
 
-// Braille Line Chart - High resolution terminal chart
+/**
+ * Multi-series line chart with per-character color segmentation.
+ *
+ * Earlier revisions colored each row by its dominant series — meaning a
+ * 3-series chart looked like a single line in one color, defeating the
+ * purpose of having multiple series. This version splits each row into
+ * runs of characters that share the same dominant series and emits one
+ * <text> per run with the matching color, so crossovers between two
+ * series render in their own distinct hues.
+ *
+ * Concretely: the 30-day token-usage chart with Input (primary),
+ * Output (warning) and Cache (success) now shows a primary-blue bulk
+ * with orange and green segments where Output or Cache cross above
+ * Input — making trends per category visible at a glance.
+ */
 export function BrailleLineChart(props: {
   series: { label: string; data: number[]; color: RGBA }[]
   width: number
@@ -309,14 +402,26 @@ export function BrailleLineChart(props: {
   const chart = createMemo(() => {
     const series = props.series
     if (series.length === 0 || series.every((s) => s.data.length === 0)) {
-      return { lines: [], xLabels: [], yLabels: [], legend: [] }
+      return {
+        lines: [],
+        xLabels: [],
+        yLabels: [],
+        legend: [],
+        rowSegments: [] as Array<Array<{ text: string; color: RGBA }>>,
+      }
     }
 
     const chartW = props.width - (props.showAxis !== false ? 7 : 0)
     const chartH = props.height
 
     if (chartW <= 0 || chartH <= 0) {
-      return { lines: [], xLabels: [], yLabels: [], legend: [] }
+      return {
+        lines: [],
+        xLabels: [],
+        yLabels: [],
+        legend: [],
+        rowSegments: [] as Array<Array<{ text: string; color: RGBA }>>,
+      }
     }
 
     // Render multi-series braille
@@ -347,13 +452,68 @@ export function BrailleLineChart(props: {
       xLabels.push({ pos: 0, label: "0" })
     }
     if (firstSeries && firstSeries.data.length >= 3) {
-      xLabels.push({ pos: Math.floor(chartW / 2), label: Math.floor(firstSeries.data.length / 2).toString() })
+      xLabels.push({
+        pos: Math.floor(chartW / 2),
+        label: Math.floor(firstSeries.data.length / 2).toString(),
+      })
     }
     if (firstSeries && firstSeries.data.length >= 2) {
-      xLabels.push({ pos: chartW - 1, label: (firstSeries.data.length - 1).toString() })
+      xLabels.push({
+        pos: chartW - 1,
+        label: (firstSeries.data.length - 1).toString(),
+      })
     }
 
-    return { lines, xLabels, yLabels, seriesMask, legend: series.map((s) => ({ label: s.label, color: s.color })) }
+    // Per-row color segmentation: walk each row left-to-right, accumulate
+    // runs of characters with the same dominant series, and emit one
+    // segment per run. Empty cells (no series) are rendered in
+    // `textMuted` so the grid keeps its background tone.
+    const rowSegments: Array<Array<{ text: string; color: RGBA }>> = []
+    for (let cy = 0; cy < lines.length; cy++) {
+      const row = lines[cy]!
+      const rowMask = seriesMask[cy] ?? []
+      const segments: Array<{ text: string; color: RGBA }> = []
+      let runText = ""
+      let runColor: RGBA | null = null
+      const flush = () => {
+        if (runText) {
+          segments.push({ text: runText, color: runColor ?? theme.text })
+        }
+        runText = ""
+        runColor = null
+      }
+      for (let cx = 0; cx < row.length; cx++) {
+        const contributing = rowMask[cx] ?? []
+        let color: RGBA
+        if (contributing.length === 0) {
+          color = theme.textMuted
+        } else {
+          // Pick the highest-indexed contributing series (matches the
+          // pixel-order used during render so segment colors line up
+          // with which line is "on top" at that character).
+          const idx = contributing[contributing.length - 1]!
+          color = series[idx]?.color ?? theme.text
+        }
+        if (runColor && colorsEqual(runColor, color)) {
+          runText += row[cx]
+        } else {
+          flush()
+          runText = row[cx] ?? ""
+          runColor = color
+        }
+      }
+      flush()
+      rowSegments.push(segments)
+    }
+
+    return {
+      lines,
+      xLabels,
+      yLabels,
+      seriesMask,
+      rowSegments,
+      legend: series.map((s) => ({ label: s.label, color: s.color })),
+    }
   })
 
   return (
@@ -392,44 +552,34 @@ export function BrailleLineChart(props: {
           </text>
         </Show>
 
-        {/* Chart area */}
+        {/* Chart area: one box per row, with per-color text segments inside */}
         <box flexDirection="column" gap={0}>
-          <For each={chart().lines}>
-            {(line, rowIdx) => {
-              // Determine color for this row based on dominant series
-              const rowMask = chart().seriesMask?.[rowIdx()] ?? []
-              const dominantSeries = createMemo(() => {
-                const counts = new Map<number, number>()
-                for (const cell of rowMask) {
-                  for (const s of cell) {
-                    counts.set(s, (counts.get(s) ?? 0) + 1)
-                  }
-                }
-                let best = 0
-                let bestCount = 0
-                for (const [s, c] of counts) {
-                  if (c > bestCount) {
-                    best = s
-                    bestCount = c
-                  }
-                }
-                return best
-              })
-              const color = createMemo(() => {
-                const s = props.series[dominantSeries()]
-                return s ? s.color : theme.text
-              })
-              return (
-                <text fg={color()} wrapMode="none">
-                  {line}
-                </text>
-              )
-            }}
+          <For each={chart().rowSegments}>
+            {(segments) => (
+              <box flexDirection="row" gap={0}>
+                <For each={segments}>
+                  {(seg) => (
+                    <text fg={seg.color} wrapMode="none">
+                      {seg.text}
+                    </text>
+                  )}
+                </For>
+              </box>
+            )}
           </For>
         </box>
       </box>
     </box>
   )
+}
+
+/**
+ * Compare two RGBA values for equality. RGBA from @opentui/core uses r/g/b
+ * as 0..1 floats; for chart-segmentation purposes exact equality is
+ * sufficient because we never mutate the color mid-segment.
+ */
+function colorsEqual(a: RGBA, b: RGBA): boolean {
+  return a.r === b.r && a.g === b.g && a.b === b.b && (a.a ?? 1) === (b.a ?? 1)
 }
 
 // Braille Area Chart - filled area below the line
@@ -440,8 +590,6 @@ export function BrailleAreaChart(props: {
   color: RGBA
   yFormat?: (v: number) => string
 }) {
-  const { theme } = useTheme()
-
   const lines = createMemo(() => {
     if (props.data.length === 0) return []
 
@@ -461,7 +609,10 @@ export function BrailleAreaChart(props: {
         props.data.length === 1 ? Math.floor(pixelW / 2) : Math.round((i / (props.data.length - 1)) * (pixelW - 1))
       const normalized = (value - min) / range
       const y = Math.round((1 - normalized) * (pixelH - 1))
-      return { x: Math.max(0, Math.min(pixelW - 1, x)), y: Math.max(0, Math.min(pixelH - 1, y)) }
+      return {
+        x: Math.max(0, Math.min(pixelW - 1, x)),
+        y: Math.max(0, Math.min(pixelH - 1, y)),
+      }
     })
 
     // Fill area below each point
@@ -534,8 +685,6 @@ export function BrailleAreaChart(props: {
 
 // Braille Sparkline - compact inline chart using braille
 export function BrailleSparkline(props: { data: number[]; width: number; color: RGBA }) {
-  const { theme } = useTheme()
-
   const lines = createMemo(() => {
     if (props.data.length === 0) return [" ".repeat(props.width)]
 
@@ -566,7 +715,11 @@ export function StackedBarChartV2(props: {
   const total = createMemo(() => props.segments.reduce((sum, s) => sum + s.value, 0))
   const bars = createMemo(() => {
     const t = total()
-    if (t === 0) return props.segments.map((s) => ({ ...s, width: Math.floor(props.width / props.segments.length) }))
+    if (t === 0)
+      return props.segments.map((s) => ({
+        ...s,
+        width: Math.floor(props.width / props.segments.length),
+      }))
 
     let remaining = props.width
     return props.segments.map((s, i) => {
@@ -652,21 +805,79 @@ export function HBarPrecision(props: {
   )
 }
 
-// KPI Card with box-drawing border
-export function KPICard(props: { label: string; value: string; color: RGBA; subtitle?: string }) {
+// KPI Card with box-drawing border, optional sparkline + delta indicator.
+//
+// The card is laid out as a 2×2 grid:
+//   ┌─────────────┐
+//   │ LABEL       │ ← muted, top
+//   │ VALUE       │ ← bold, theme color
+//   │ SUBTITLE    │ ← muted
+//   │ ▁▂▃▅▆▇ +12% │ ← sparkline + delta (when provided)
+//   └────────────┘
+//
+// The sparkline fills the full card width and is rendered with 2 rows of
+// braille (8 pixel rows), giving readable trend shapes in a compact space.
+// The delta indicator uses `theme.success` for "good" and `theme.error` for
+// "bad"; pass `deltaInverse` to flip the polarity (e.g. cost, error rate).
+export function KPICard(props: {
+  label: string
+  value: string
+  color: RGBA
+  subtitle?: string
+  sparkline?: number[]
+  /** Pct change vs the comparable preceding period. ±Infinity = "new" baseline. */
+  delta?: { pct: number; inverse?: boolean }
+  /** When true, the card uses `borderActive` instead of `border` (e.g. on hover). */
+  active?: boolean
+}) {
   const { theme } = useTheme()
 
+  const deltaInfo = createMemo(() => {
+    const d = props.delta
+    if (!d) return undefined
+    if (!Number.isFinite(d.pct)) {
+      if (d.pct === 0) return undefined
+      const good = d.pct > 0 ? !d.inverse : d.inverse
+      return { text: d.pct > 0 ? "new" : "−new", good }
+    }
+    if (d.pct === 0) return { text: "—", good: null as boolean | null }
+    const arrow = d.pct > 0 ? "↑" : "↓"
+    const text = `${arrow} ${Math.abs(d.pct).toFixed(1)}%`
+    const good = d.pct > 0 ? !d.inverse : d.inverse
+    return { text, good: good as boolean | null }
+  })
+
+  const deltaColor = createMemo<RGBA>(() => {
+    const info = deltaInfo()
+    if (!info || info.good === null) return theme.textMuted
+    return info.good ? theme.success : theme.error
+  })
+
   return (
-    <box flexDirection="column" gap={0} border borderColor={theme.border}>
-      <text fg={theme.textMuted} paddingLeft={1} paddingRight={1}>
+    <box flexDirection="column" gap={0} border borderColor={props.active ? theme.borderActive : theme.border}>
+      <text fg={theme.textMuted} paddingLeft={1} paddingRight={1} wrapMode="none">
         {props.label}
       </text>
-      <text fg={props.color} attributes={TextAttributes.BOLD} paddingLeft={1} paddingRight={1}>
+      <text fg={props.color} attributes={TextAttributes.BOLD} paddingLeft={1} paddingRight={1} wrapMode="none">
         {props.value}
       </text>
       <Show when={props.subtitle}>
-        <text fg={theme.textMuted} paddingLeft={1} paddingRight={1}>
+        <text fg={theme.textMuted} paddingLeft={1} paddingRight={1} wrapMode="none">
           {props.subtitle}
+        </text>
+      </Show>
+      <Show when={props.sparkline && props.sparkline.length > 0}>
+        <box paddingLeft={1} paddingRight={1}>
+          <BrailleSparkline
+            data={props.sparkline!}
+            width={Math.max(6, (props.value?.length ?? 4) + 4)}
+            color={props.color}
+          />
+        </box>
+      </Show>
+      <Show when={deltaInfo()}>
+        <text fg={deltaColor()} paddingLeft={1} paddingRight={1} wrapMode="none">
+          {deltaInfo()!.text}
         </text>
       </Show>
     </box>
@@ -731,6 +942,87 @@ export function ModelCard(props: {
         </text>
         <text fg={theme.textMuted}>{formatTokens(props.outputTokens)}</text>
       </box>
+    </box>
+  )
+}
+
+/**
+ * Compact horizontal bar list for ranked data.
+ *
+ * Each row shows: `name │ ████░░ │ value` with sub-cell precision (▏▎▍▌▋▊▉).
+ * `name` is truncated to `nameWidth` characters with a trailing ellipsis
+ * when needed, and the bar length is computed from `value / maxValue * barWidth`.
+ *
+ * Used for "Top Tools", "Top Agents" and any other ranked-list view in the
+ * analytics panel. Replaces the previous tools-tab implementation that
+ * used a `█`.repeat(barWidth) bar with no fractional precision and a 1/20
+ * step granularity.
+ */
+export function RankedBarList(props: {
+  items: { name: string; value: number; subValue?: string; color?: RGBA }[]
+  maxValue?: number
+  nameWidth?: number
+  barWidth?: number
+  /** When set, bars for the first `highlight` items are rendered in the
+   *  provided color; the rest use `theme.textMuted`. */
+  highlight?: number
+  /** When set, the value column is formatted with this function. */
+  formatValue?: (v: number) => string
+}) {
+  const { theme } = useTheme()
+  const nameWidth = () => props.nameWidth ?? 18
+  const barWidth = () => props.barWidth ?? 18
+  const max = createMemo(() => {
+    if (props.maxValue !== undefined) return Math.max(1, props.maxValue)
+    let m = 1
+    for (const it of props.items) if (it.value > m) m = it.value
+    return m
+  })
+  const fmt = () => props.formatValue ?? formatTokens
+
+  return (
+    <box flexDirection="column" gap={0}>
+      <For each={props.items}>
+        {(item, idx) => {
+          const isHi = () => props.highlight === undefined || idx() < props.highlight!
+          const color = (): RGBA => {
+            if (item.color) return item.color
+            return isHi() ? theme.primary : theme.textMuted
+          }
+          // 1/8 precision per cell — same encoding as HBarPrecision
+          const filled = () => Math.min(barWidth(), Math.max(0, (item.value / max()) * barWidth()))
+          const full = () => Math.floor(filled())
+          const frac = () => {
+            const f = filled() - full()
+            const chars = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▇"]
+            const i = Math.round(f * 8)
+            return chars[Math.min(i, 7)] ?? ""
+          }
+          const displayName = () => {
+            const n = item.name
+            if (n.length <= nameWidth()) return n.padEnd(nameWidth())
+            return n.slice(0, nameWidth() - 1) + "…"
+          }
+          return (
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={theme.text} width={nameWidth()} wrapMode="none">
+                {displayName()}
+              </text>
+              <text fg={color()} wrapMode="none">
+                {"█".repeat(full())}
+                {frac()}
+              </text>
+              <text fg={theme.borderSubtle} wrapMode="none">
+                {"░".repeat(Math.max(0, barWidth() - full() - (frac() ? 1 : 0)))}
+              </text>
+              <text fg={theme.textMuted} wrapMode="none">
+                {fmt()(item.value)}
+                {item.subValue ? ` ${item.subValue}` : ""}
+              </text>
+            </box>
+          )
+        }}
+      </For>
     </box>
   )
 }

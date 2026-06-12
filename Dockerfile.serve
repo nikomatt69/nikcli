@@ -32,6 +32,7 @@ COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
 COPY packages/llm/package.json /app/packages/llm/
 COPY packages/http-recorder/package.json /app/packages/http-recorder/
+COPY packages/tui-image/package.json /app/packages/tui-image/
 COPY github/package.json /app/github/
 
 # Stub package.json for workspace packages not built in this image
@@ -81,6 +82,7 @@ COPY packages/companion /app/packages/companion
 COPY packages/slack /app/packages/slack
 COPY packages/llm /app/packages/llm
 COPY packages/http-recorder /app/packages/http-recorder
+COPY packages/tui-image /app/packages/tui-image
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest

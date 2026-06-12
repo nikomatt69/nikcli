@@ -22,8 +22,19 @@ import {
   HBarPrecision,
   KPICard,
   ModelCard,
+  RankedBarList,
   getChartColors,
 } from "./chart-braille-line"
+import {
+  periodDelta,
+  sampleForSparkline,
+  formatCompact,
+  buildTabPrompt,
+  buildTabTitle,
+  type AnalyticsTabId,
+} from "../util/analytics-utils"
+import { useToast } from "@tui/ui/toast"
+import { useLocal } from "@tui/context/local"
 
 // ===== Color utilities =====
 
@@ -195,26 +206,43 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
       </Show>
 
       <Show when={!loading() && stats()}>
-        {/* Tab Bar */}
-        <box flexDirection="row" gap={2}>
-          <For each={TABS}>
-            {(tab) => (
-              <text
-                fg={activeTab() === tab.id ? theme.primary : theme.textMuted}
-                attributes={activeTab() === tab.id ? TextAttributes.BOLD : undefined}
-                onMouseUp={() => setActiveTab(tab.id)}
-              >
-                {activeTab() === tab.id ? "[" : " "}
-                {tab.label}
-                {activeTab() === tab.id ? "]" : " "}
-              </text>
-            )}
-          </For>
+        {/* Compact tab dropdown — single inline element that cycles on
+            click, mirroring the metric switcher in the Overview tab. Saves
+            a horizontal row regardless of how many tabs are added later
+            and prevents overflow on narrow terminals. */}
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted} wrapMode="none">
+            Tab:
+          </text>
+          <box
+            flexDirection="row"
+            gap={1}
+            alignItems="baseline"
+            backgroundColor={theme.backgroundElement}
+            paddingLeft={1}
+            paddingRight={1}
+            onMouseUp={() => nextTab()}
+          >
+            <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+              {TABS.find((t) => t.id === activeTab())?.label}
+            </text>
+            <text fg={theme.textMuted} wrapMode="none">
+              ▾
+            </text>
+          </box>
+          <text fg={theme.textMuted} wrapMode="none">
+            ({tabIndex() + 1}/{TABS.length} · ←/→ to switch · click to next)
+          </text>
         </box>
 
         <text fg={theme.border} wrapMode="none">
           {BOX.horizontal.repeat(60)}
         </text>
+
+        {/* Background agent bar — always visible, prompt is built from the
+            active tab. Lets the user dig deeper into the data on screen
+            without leaving the panel. */}
+        <AnalyticsAgentBar stats={stats()!} activeTab={activeTab()} />
 
         {/* Tab Content */}
         <Show when={activeTab() === "overview"}>
@@ -328,6 +356,112 @@ function useCollapsibleGroup<T extends string>(
   return { open, toggle, focused }
 }
 
+// ===== Background Agent Bar =====
+//
+// Always-visible bar that lets the user spawn a subagent on the currently
+// active tab. The agent dropdown cycles through the most useful
+// subagents for analytics work (explore / fast-explore / researcher /
+// code-reviewer / debugger); the Run button creates a new session, sends
+// the tab-specific prompt built by `buildTabPrompt`, and surfaces the
+// outcome via toast. Keeping it at the dialog level (rather than per
+// tab) keeps the panel from overflowing: the bar is one line tall
+// regardless of how many tabs exist or what data they show.
+
+const BG_AGENTS = ["explore", "fast-explore", "researcher", "code-reviewer", "debugger"] as const
+type BgAgent = (typeof BG_AGENTS)[number]
+
+function AnalyticsAgentBar(props: { stats: AggregatedStats; activeTab: AnalyticsTabId }) {
+  const { theme } = useTheme()
+  const sdk = useSDK()
+  const local = useLocal()
+  const toast = useToast()
+
+  const [agent, setAgent] = createSignal<BgAgent>("explore")
+  const [running, setRunning] = createSignal(false)
+
+  const cycle = () => {
+    const i = BG_AGENTS.indexOf(agent())
+    setAgent(BG_AGENTS[(i + 1) % BG_AGENTS.length]!)
+  }
+
+  const run = async () => {
+    if (running()) return
+    setRunning(true)
+    const tab = props.activeTab
+    const selectedAgent = agent()
+    try {
+      const created = await sdk.client.session.create({
+        title: buildTabTitle(tab),
+      })
+      const sessionID = created.data?.id
+      if (!sessionID) throw new Error("Server did not return a session id")
+      const model = local.model.current()
+      if (!model) throw new Error("No model selected — pick one in the prompt first")
+      const prompt = buildTabPrompt(tab, props.stats)
+      await sdk.client.session.prompt({
+        sessionID,
+        agent: selectedAgent,
+        model: { providerID: model.providerID, modelID: model.modelID },
+        parts: [{ id: `part_${Date.now()}`, type: "text", text: prompt }],
+      })
+      toast.show({
+        message: `Spawned ${selectedAgent} for ${tab} analysis`,
+        variant: "success",
+        duration: 4000,
+      })
+    } catch (err) {
+      toast.show({
+        title: "Failed to spawn agent",
+        message: err instanceof Error ? err.message : String(err),
+        variant: "error",
+        duration: 8000,
+      })
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <box flexDirection="row" gap={1} alignItems="center">
+      <text fg={theme.textMuted} wrapMode="none">
+        BG agent:
+      </text>
+      <box
+        flexDirection="row"
+        gap={1}
+        alignItems="baseline"
+        backgroundColor={theme.backgroundElement}
+        paddingLeft={1}
+        paddingRight={1}
+        onMouseUp={cycle}
+      >
+        <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+          {agent()}
+        </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          ▾
+        </text>
+      </box>
+      <box
+        flexDirection="row"
+        gap={1}
+        alignItems="baseline"
+        backgroundColor={running() ? theme.backgroundElement : theme.primary}
+        paddingLeft={1}
+        paddingRight={1}
+        onMouseUp={run}
+      >
+        <text fg={running() ? theme.textMuted : theme.background} attributes={TextAttributes.BOLD} wrapMode="none">
+          {running() ? "…" : "▸ Run"}
+        </text>
+      </box>
+      <text fg={theme.textMuted} wrapMode="none">
+        (sends a tab-specific prompt to the agent in a new session)
+      </text>
+    </box>
+  )
+}
+
 // ===== TAB COMPONENTS =====
 
 const OVERVIEW_SECTIONS = ["activity", "trend", "daily", "providers"] as const
@@ -414,8 +548,21 @@ function ActivityStat(props: { label: string; value: string; hint?: string }) {
 function ActivityHeatmap(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
 
-  const grid = createMemo(() => buildActivityGrid(props.stats.days, 365))
-  const stats = createMemo(() => computeActivityStats(props.stats.days))
+  // Metric switcher: 0=tokens, 1=cost, 2=messages. Lets the user pivot
+  // the heatmap between consumption (tokens), spending (cost) and engagement
+  // (messages) without leaving the panel. The numeric KPI row re-binds to
+  // the active metric so headline numbers never disagree with the grid.
+  const [metricIdx, setMetricIdx] = createSignal<0 | 1 | 2>(0)
+  const metric = createMemo<"tokens" | "cost" | "messages">(() =>
+    metricIdx() === 1 ? "cost" : metricIdx() === 2 ? "messages" : "tokens",
+  )
+  const metricLabel = () => (metric() === "cost" ? "cost" : metric() === "messages" ? "messages" : "tokens")
+  const metricSelector = (d: (typeof props.stats.days)[number]): number =>
+    metric() === "cost" ? d.cost : metric() === "messages" ? d.messages : d.tokens
+  const cycleMetric = () => setMetricIdx((m) => ((m + 1) % 3) as 0 | 1 | 2)
+
+  const grid = createMemo(() => buildActivityGrid(props.stats.days, 365, metricSelector))
+  const stats = createMemo(() => computeActivityStats(props.stats.days, metricSelector))
 
   const palette = createMemo(() => activityPalette(theme))
 
@@ -441,7 +588,7 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
 
   return (
     <box flexDirection="column" gap={1}>
-      {/* KPI row: Longest streak · Active days · Avg/day · Total */}
+      {/* KPI row: Longest streak · Active days · Avg/day · Total · metric switcher */}
       <box flexDirection="row" gap={4} flexWrap="wrap">
         <ActivityStat
           label="Longest streak"
@@ -449,8 +596,34 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
           hint={stats().longestStreak === 1 ? "day" : "days"}
         />
         <ActivityStat label="Active days" value={`${stats().activeDays} / ${stats().totalDays}`} />
-        <ActivityStat label="Avg / day" value={formatTokens(stats().avgPerActiveDay)} />
-        <ActivityStat label="Total" value={formatTokens(stats().total)} />
+        <ActivityStat
+          label="Avg / day"
+          value={metric() === "cost" ? money.format(stats().avgPerActiveDay) : formatTokens(stats().avgPerActiveDay)}
+        />
+        <ActivityStat
+          label="Total"
+          value={metric() === "cost" ? money.format(stats().total) : formatTokens(stats().total)}
+        />
+        {/* Click to cycle tokens → cost → messages → tokens. */}
+        <box
+          flexDirection="row"
+          gap={1}
+          alignItems="baseline"
+          backgroundColor={theme.backgroundElement}
+          paddingLeft={1}
+          paddingRight={1}
+          onMouseUp={() => cycleMetric()}
+        >
+          <text fg={theme.textMuted} wrapMode="none">
+            metric:
+          </text>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
+            {metricLabel()}
+          </text>
+          <text fg={theme.textMuted} wrapMode="none">
+            [tap to cycle]
+          </text>
+        </box>
       </box>
 
       <Show
@@ -527,7 +700,8 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
             ·{" "}
           </text>
           <text fg={theme.textMuted} wrapMode="none">
-            peak {formatTokens(grid().maxValue)} tokens/day
+            peak {metric() === "cost" ? money.format(grid().maxValue) : formatTokens(grid().maxValue)} {metricLabel()}
+            /day
           </text>
         </box>
       </Show>
@@ -553,28 +727,74 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
   const dailyDays = createMemo(() => props.last30Days.slice(-dailyRange()))
   const dailyMax = createMemo(() => Math.max(1, ...dailyDays().map((d) => d.tokens)))
 
+  // Per-KPI sparklines: 14 cells so the line spans roughly 2 weeks.
+  // `sampleForSparkline` down/upsamples to width regardless of history length.
+  const sessionsSpark = createMemo(() =>
+    sampleForSparkline(
+      props.last30Days.map((d) => d.sessions),
+      14,
+    ),
+  )
+  const messagesSpark = createMemo(() =>
+    sampleForSparkline(
+      props.last30Days.map((d) => d.messages),
+      14,
+    ),
+  )
+  const costSpark = createMemo(() =>
+    sampleForSparkline(
+      props.last30Days.map((d) => d.cost),
+      14,
+    ),
+  )
+  const tokensSpark = createMemo(() =>
+    sampleForSparkline(
+      props.last30Days.map((d) => d.tokens),
+      14,
+    ),
+  )
+
+  // 7-day deltas: compare the most recent 7 days against the prior 7.
+  // `deltaInverse: true` for cost (lower is better).
+  const sessionsDelta = createMemo(() => periodDelta(props.last30Days, 7, (d) => d.sessions))
+  const messagesDelta = createMemo(() => periodDelta(props.last30Days, 7, (d) => d.messages))
+  const costDelta = createMemo(() => periodDelta(props.last30Days, 7, (d) => d.cost))
+  const tokensDelta = createMemo(() => periodDelta(props.last30Days, 7, (d) => d.tokens))
+
   return (
     <box flexDirection="column" gap={2}>
-      {/* KPI Cards */}
+      {/* KPI Cards — each carries a 14-cell sparkline + 7-day delta. */}
       <box flexDirection="row" gap={2}>
         <KPICard
           label="SESSIONS"
           value={g().sessions.toString()}
           color={viz().series[0]!}
           subtitle={`${g().sessions - g().archivedSessions} active`}
+          sparkline={sessionsSpark()}
+          delta={{ pct: sessionsDelta().pct }}
         />
-        <KPICard label="MESSAGES" value={formatTokens(g().messages)} color={viz().series[1]!} />
+        <KPICard
+          label="MESSAGES"
+          value={formatTokens(g().messages)}
+          color={viz().series[1]!}
+          sparkline={messagesSpark()}
+          delta={{ pct: messagesDelta().pct }}
+        />
         <KPICard
           label="COST"
           value={money.format(g().cost)}
           color={viz().series[2]!}
           subtitle={`$${g().efficiency.costPer1kTokens.toFixed(4)}/1k tokens`}
+          sparkline={costSpark()}
+          delta={{ pct: costDelta().pct, inverse: true }}
         />
         <KPICard
           label="TOKENS"
           value={formatTokens(g().tokens.input + g().tokens.output + g().tokens.reasoning)}
           color={viz().series[3]!}
           subtitle={`in:${formatTokens(g().tokens.input)} out:${formatTokens(g().tokens.output)}`}
+          sparkline={tokensSpark()}
+          delta={{ pct: tokensDelta().pct }}
         />
       </box>
 
@@ -835,6 +1055,16 @@ function ModelsTab(props: { stats: AggregatedStats }) {
     return Math.max(...m.map((mod) => mod.tokens.input + mod.tokens.output), 1)
   })
 
+  // Per-model 14-day daily tokens used to power the inline trend sparkline.
+  // Sum input+output+reasoning across all days for this model.
+  const modelSparkline = (modelKey: string, modelID: string) => {
+    const series: number[] = props.stats.days.map((d) => {
+      const row = d.models.get(modelKey) ?? d.models.get(`${d.date}#${modelID}`)
+      return row ? row.tokens : 0
+    })
+    return sampleForSparkline(series, 14)
+  }
+
   return (
     <box flexDirection="column" gap={1}>
       <text fg={theme.text} attributes={TextAttributes.BOLD}>
@@ -858,6 +1088,68 @@ function ModelsTab(props: { stats: AggregatedStats }) {
       <Show when={props.stats.models.length === 0}>
         <text fg={theme.textMuted}>No model usage data</text>
       </Show>
+
+      {/* Compact aggregate view: 14-day daily usage per top model, with
+          input vs output split bars so the input/output ratio is visible
+          at a glance (per-model). */}
+      <Show when={models().length > 0}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Daily Usage Split
+        </text>
+        <For each={models()}>
+          {(model) => {
+            const modelKey = `${model.providerID}/${model.modelID}`
+            const spark = modelSparkline(modelKey, model.modelID)
+            const totalNonCache = model.tokens.input + model.tokens.output + model.tokens.reasoning
+            const inShare = totalNonCache > 0 ? model.tokens.input / totalNonCache : 0
+            const outShare = totalNonCache > 0 ? model.tokens.output / totalNonCache : 0
+            const reasShare = totalNonCache > 0 ? model.tokens.reasoning / totalNonCache : 0
+            const inWidth = Math.max(0, Math.round(inShare * 20))
+            const outWidth = Math.max(0, Math.round(outShare * 20))
+            const reasWidth = Math.max(0, 20 - inWidth - outWidth)
+            return (
+              <box flexDirection="row" gap={1} alignItems="center">
+                <text fg={theme.text} width={18} wrapMode="none">
+                  {(model.modelID.length > 18 ? "…" + model.modelID.slice(-17) : model.modelID).padEnd(18)}
+                </text>
+                <text fg={viz().input} wrapMode="none">
+                  {"█".repeat(inWidth)}
+                </text>
+                <text fg={viz().output} wrapMode="none">
+                  {"█".repeat(outWidth)}
+                </text>
+                <text fg={viz().reasoning} wrapMode="none">
+                  {"█".repeat(reasWidth)}
+                </text>
+                <text fg={theme.textMuted} wrapMode="none">
+                  {formatTokens(totalNonCache)}
+                </text>
+              </box>
+            )
+          }}
+        </For>
+        {/* Legend */}
+        <box flexDirection="row" gap={3}>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().input} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Input</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().output} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Output</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().reasoning} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Reasoning</text>
+          </box>
+        </box>
+      </Show>
     </box>
   )
 }
@@ -865,6 +1157,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
 function ProjectsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
   const g = () => props.stats.global
+  const viz = () => getChartColors(theme)
 
   const vcsStats = createMemo(() => {
     const git = props.stats.projects.filter((p) => p.vcs === "git").length
@@ -878,7 +1171,9 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
         Projects ({g().projects.length})
       </text>
 
-      {/* VCS Breakdown */}
+      {/* VCS Breakdown — text summary + proportional stacked bar so the
+          git-vs-local mix is visible at a glance (was a flat row of
+          numbers before). */}
       <box flexDirection="row" gap={3}>
         <box flexDirection="row" gap={1} alignItems="center">
           <text fg={theme.textMuted}>Git:</text>
@@ -899,6 +1194,16 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
           </text>
         </box>
       </box>
+
+      <Show when={vcsStats().total > 0}>
+        <StackedBarChartV2
+          segments={[
+            { label: "Git", value: vcsStats().git, color: viz().cache },
+            { label: "Local", value: vcsStats().local, color: viz().input },
+          ]}
+          width={30}
+        />
+      </Show>
 
       {/* Project Cards */}
       <box flexDirection="column" gap={0}>
@@ -936,9 +1241,12 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
 
 function ToolsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
-  const viz = () => getChartColors(theme)
   const tools = () => props.stats.toolUsage
-  const maxCount = createMemo(() => tools().mostUsed[0]?.count ?? 1)
+  const successColor = (rate: number): RGBA => {
+    if (rate >= 90) return theme.success
+    if (rate >= 70) return theme.warning
+    return theme.error
+  }
 
   return (
     <box flexDirection="column" gap={1}>
@@ -946,35 +1254,22 @@ function ToolsTab(props: { stats: AggregatedStats }) {
         Tool Usage ({tools().total} calls)
       </text>
 
-      {/* Tool List with bars */}
-      <box flexDirection="column" gap={0}>
-        <For each={tools().mostUsed.slice(0, 10)}>
-          {(tool) => {
-            const barWidth = createMemo(() => Math.floor((tool.count / maxCount()) * 20))
-            const successColor = createMemo(() => {
-              if (tool.successRate >= 90) return colorToString(theme.success)
-              if (tool.successRate >= 70) return colorToString(theme.warning)
-              return colorToString(theme.error)
-            })
-            return (
-              <box flexDirection="row" gap={1} alignItems="center">
-                <text fg={theme.text} width={16} wrapMode="none">
-                  {tool.name.slice(-16)}
-                </text>
-                <text fg={viz().input} wrapMode="none">
-                  {"█".repeat(barWidth())}
-                </text>
-                <text fg={theme.textMuted} width={5}>
-                  {tool.count}
-                </text>
-                <text fg={successColor()} width={5}>
-                  {tool.successRate.toFixed(0)}%
-                </text>
-              </box>
-            )
-          }}
-        </For>
-      </box>
+      {/* Ranked list with 1/8-cell bar precision. Each bar uses the bar's
+          color (theme.success/warning/error) so visual "danger" is encoded
+          in the bar itself, not only in the trailing percent column. */}
+      <RankedBarList
+        items={tools()
+          .mostUsed.slice(0, 10)
+          .map((t) => ({
+            name: t.name.length > 18 ? "…" + t.name.slice(-17) : t.name,
+            value: t.count,
+            subValue: `${t.successRate.toFixed(0)}%`,
+            color: successColor(t.successRate),
+          }))}
+        nameWidth={18}
+        barWidth={22}
+        formatValue={(v) => formatCompact(v)}
+      />
 
       <Show when={tools().mostUsed.length === 0}>
         <text fg={theme.textMuted}>No tool usage data</text>
@@ -1109,6 +1404,28 @@ function SessionsTab(props: { stats: AggregatedStats }) {
           </box>
         </Show>
       </CollapsibleSection>
+
+      {/* Top Agents — `bg().topAgents` was computed but never visualized. */}
+      <Show when={bg().topAgents.length > 0}>
+        <CollapsibleSection
+          title="Top Agents"
+          hint={`(${bg().topAgents.length})`}
+          open={open().background}
+          focused={focused("background")}
+          onToggle={() => toggle("background")}
+        >
+          <RankedBarList
+            items={bg().topAgents.map((a) => ({
+              name: a.agent,
+              value: a.count,
+              color: viz().input,
+            }))}
+            nameWidth={18}
+            barWidth={20}
+            formatValue={(v) => formatCompact(v)}
+          />
+        </CollapsibleSection>
+      </Show>
 
       {/* Workspaces Summary */}
       <CollapsibleSection

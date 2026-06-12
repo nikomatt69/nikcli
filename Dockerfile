@@ -19,6 +19,7 @@ COPY packages/remote/package.json packages/remote/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/companion/package.json packages/companion/
 COPY packages/slack/package.json packages/slack/
+COPY packages/tui-image/package.json packages/tui-image/
 COPY github/package.json github/
 
 # Install dependencies (resolves workspace:*)
@@ -33,6 +34,7 @@ COPY packages/remote packages/remote
 COPY packages/plugin packages/plugin
 COPY packages/companion packages/companion
 COPY packages/slack packages/slack
+COPY packages/tui-image packages/tui-image
 COPY github github
 
 # Build nikcli binary for the current platform (linux-x64)

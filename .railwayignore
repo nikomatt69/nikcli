@@ -49,6 +49,8 @@ packages/*
 packages/sdk/*
 !packages/sdk/js
 !packages/sdk/js/**
+!packages/tui-image
+!packages/tui-image/**
 packages/**/node_modules
 packages/**/dist
 packages/**/build
