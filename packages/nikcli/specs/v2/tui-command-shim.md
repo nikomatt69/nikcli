@@ -6,7 +6,7 @@
   longer exist; `api.command` is implemented natively against the host
   command dialog in `plugin/api.tsx` / `plugin/runtime.ts`.
 - The keymap surface now exists: `api.keymap.registerLayer({ commands,
-  bindings })` and `api.keymap.dispatchCommand(name)` are implemented in
+bindings })` and `api.keymap.dispatchCommand(name)` are implemented in
   `src/cli/cmd/tui/plugin/keymap.ts` (types `TuiKeymap*` in
   `packages/plugin/src/tui.ts`), with unit tests in
   `test/tui/plugin-keymap.test.ts`. `dispatchCommand("command.palette.show")`
