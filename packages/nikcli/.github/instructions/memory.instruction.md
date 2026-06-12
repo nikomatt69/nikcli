@@ -233,25 +233,25 @@ Core configuration and registry for all AI agents. Three purposes:
 
 ### Built-in Agents (18 total)
 
-| Agent                  | Mode     | Hidden | Key Traits                                                           |
-| ---------------------- | -------- | ------ | -------------------------------------------------------------------- |
-| `ralph`                | primary  | no     | Autonomous loop, allows `question`                                   |
-| `build`                | primary  | no     | Feature creation, allows `plan_enter`                                |
-| `plan`                 | primary  | no     | Planning, allows `plan_exit`, restricts `edit` to plan files         |
-| `general`              | all      | no     | General-purpose parallel execution                                   |
-| `explore`              | all      | no     | Fast explorer with bash/web tools                                    |
-| `fast-explore`         | all      | no     | Read-only: tree/grep/read only                                       |
-| `planner`              | all      | no     | Planning with web search                                             |
-| `researcher`           | subagent | yes    | Background evidence collection                                       |
-| `code-reviewer`        | all      | no     | Quality/safety focused                                               |
-| `ultrareview-reviewer` | subagent | yes    | Domain-specific parallel review (bugs/security/performance/patterns) |
-| `debugger`             | all      | no     | Failure/root cause analysis                                          |
-| `test-runner`          | all      | no     | Test execution and analysis                                          |
-| `refactor`             | all      | no     | Safe cleanup without behavior changes                                |
-| `delegator`            | subagent | yes    | Synthesizes background subagent results                              |
-| `compaction`           | primary  | yes    | Session compaction (context summarization)                           |
-| `title`                | primary  | yes    | Generates conversation titles                                        |
-| `summary`              | primary  | yes    | Summarizes conversations                                             |
+| Agent                  | Mode     | Hidden | Key Traits                                                                              |
+| ---------------------- | -------- | ------ | --------------------------------------------------------------------------------------- |
+| `ralph`                | primary  | no     | Autonomous loop, allows `question`                                                      |
+| `build`                | primary  | no     | Feature creation, allows `plan_enter`                                                   |
+| `plan`                 | primary  | no     | Planning, allows `plan_exit`, restricts `edit` to plan files                            |
+| `general`              | all      | no     | General-purpose parallel execution                                                      |
+| `explore`              | all      | no     | Fast explorer with bash/web tools                                                       |
+| `fast-explore`         | all      | no     | Read-only: tree/grep/read only                                                          |
+| `planner`              | all      | no     | Planning with web search                                                                |
+| `researcher`           | subagent | yes    | Background evidence collection                                                          |
+| `code-reviewer`        | all      | no     | Quality/safety focused                                                                  |
+| `ultrareview-reviewer` | subagent | yes    | Domain-specific parallel review (bugs/security/performance/patterns)                    |
+| `debugger`             | all      | no     | Failure/root cause analysis                                                             |
+| `test-runner`          | all      | no     | Test execution and analysis                                                             |
+| `refactor`             | all      | no     | Safe cleanup without behavior changes                                                   |
+| `delegator`            | subagent | yes    | Synthesizes background subagent results                                                 |
+| `compaction`           | primary  | yes    | Session compaction (context summarization)                                              |
+| `title`                | primary  | yes    | Generates conversation titles                                                           |
+| `summary`              | primary  | yes    | Summarizes conversations                                                                |
 | `support`              | subagent | yes    | In-app help chat — read-only, webfetch+websearch, `/support` command (added 2026-06-10) |
 
 ### Agent.Info Schema
@@ -3053,15 +3053,15 @@ Active migration of all domain SQLite modules into a single unified database und
 
 **Module migration status (2026-06-10 end)**:
 
-| Old module (lazy singleton + own DB)  | Old DB file         | New location                          | Status                |
-| ------------------------------------- | ------------------- | ------------------------------------- | --------------------- |
-| `db/users.ts` (`UserDB`)              | `users.db`          | re-exported via `Database.db`         | Re-exported, not migrated |
-| `account/db.ts` (`AccountDB`)         | `accounts.db`       | re-exported via `Database.db`         | Re-exported, not migrated |
-| `workspace/db.ts` (`WorkspaceDB`)     | `workspaces.db`     | re-exported via `Database.db`         | Re-exported, not migrated |
-| `mobile/auth.ts` (`MobileAuth`)       | `mobile_auth.db`    | re-exported via `Database.db`         | Re-exported, not migrated |
-| `storage/db.ts` (generic opener)      | n/a                 | removed; only `database/database.ts` opens SQLite | **Removed** |
-| `storage/db.bun.ts`                   | n/a                 | removed                               | **Removed** |
-| `sync/index.ts` (JSON eventsFile)     | `state/sync/*.json` | leftover dead code removed            | **Cleaned**           |
+| Old module (lazy singleton + own DB) | Old DB file         | New location                                      | Status                    |
+| ------------------------------------ | ------------------- | ------------------------------------------------- | ------------------------- |
+| `db/users.ts` (`UserDB`)             | `users.db`          | re-exported via `Database.db`                     | Re-exported, not migrated |
+| `account/db.ts` (`AccountDB`)        | `accounts.db`       | re-exported via `Database.db`                     | Re-exported, not migrated |
+| `workspace/db.ts` (`WorkspaceDB`)    | `workspaces.db`     | re-exported via `Database.db`                     | Re-exported, not migrated |
+| `mobile/auth.ts` (`MobileAuth`)      | `mobile_auth.db`    | re-exported via `Database.db`                     | Re-exported, not migrated |
+| `storage/db.ts` (generic opener)     | n/a                 | removed; only `database/database.ts` opens SQLite | **Removed**               |
+| `storage/db.bun.ts`                  | n/a                 | removed                                           | **Removed**               |
+| `sync/index.ts` (JSON eventsFile)    | `state/sync/*.json` | leftover dead code removed                        | **Cleaned**               |
 
 **Verification gates (from spec)**: `rg "new Database|drizzle\(" packages/nikcli/src` should return only the central runtime + tests; `rg "CREATE TABLE IF NOT EXISTS|ALTER TABLE" packages/nikcli/src` should be only in `migration/` files.
 
@@ -3103,7 +3103,9 @@ export function path() {
 }
 
 export const defaultLayer = Layer.unwrap(
-  Effect.gen(function* () { return layerFromPath(path()) }),
+  Effect.gen(function* () {
+    return layerFromPath(path())
+  }),
 ).pipe(Layer.provide(Global.defaultLayer))
 ```
 
@@ -3126,6 +3128,7 @@ Fix: replaced intersection with a standalone structural type that names only the
 The re-export `export { encodeHalfblock }` was left over from a previous version, but the import was removed when the component switched to the kitty virtual-placement / iTerm2 / Sixel / braille pipeline. No call sites in the repo import `encodeHalfblock` from this file (verified via grep), so the re-export was removed.
 
 **Verification**:
+
 - `bun run typecheck` in `packages/nikcli` is clean for this file. The only remaining typecheck errors are in `packages/tui-image/src/encode.ts` (a different package), outside the scope of this request.
 - `bun test test/tui/` passes 147/147 in 2.35s.
 
@@ -3143,37 +3146,39 @@ New in-app help assistant with read-only access to project docs.
 
 **Files created**:
 
-| File                                                   | Purpose                                                                  |
-| ------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `src/agent/prompt/support-docs.ts`                     | Markdown indexer for local docs (cached, ~30ms cold, 0ms cached)         |
-| `src/cli/cmd/tui/context/support-session.tsx`          | Context for persistent support session (saves sessionID to `state/support-session.json`) |
-| `specs/v2/support-dialog.md`                           | Architecture spec                                                        |
+| File                                          | Purpose                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/agent/prompt/support-docs.ts`            | Markdown indexer for local docs (cached, ~30ms cold, 0ms cached)                         |
+| `src/cli/cmd/tui/context/support-session.tsx` | Context for persistent support session (saves sessionID to `state/support-session.json`) |
+| `specs/v2/support-dialog.md`                  | Architecture spec                                                                        |
 
 **Files modified**:
 
-| File                                                | Change                                                                  |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| `src/agent/agent.ts`                                | New builtin agent `support` (hidden, read-only, webfetch+websearch)     |
-| `src/cli/cmd/tui/component/dialog-support.tsx`      | Rewritten as full chat UI with streaming SSE, welcome hints, Ctrl+L reset |
-| `src/cli/cmd/tui/app.tsx`                           | Registered `/support` command + `app_support` keybind + `SupportSessionProvider` |
-| `src/config/config.ts`                              | Added keybind `app_support` (default `<leader>z`)                       |
-| `src/cli/cmd/tui/ui/dialog-help.tsx`                | Added `/support` + shortcut to help                                     |
-| `src/cli/cmd/tui/feature-plugins/home/tips-view.tsx`| Tip mentioning `/support` and `<leader>z`                               |
+| File                                                 | Change                                                                           |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `src/agent/agent.ts`                                 | New builtin agent `support` (hidden, read-only, webfetch+websearch)              |
+| `src/cli/cmd/tui/component/dialog-support.tsx`       | Rewritten as full chat UI with streaming SSE, welcome hints, Ctrl+L reset        |
+| `src/cli/cmd/tui/app.tsx`                            | Registered `/support` command + `app_support` keybind + `SupportSessionProvider` |
+| `src/config/config.ts`                               | Added keybind `app_support` (default `<leader>z`)                                |
+| `src/cli/cmd/tui/ui/dialog-help.tsx`                 | Added `/support` + shortcut to help                                              |
+| `src/cli/cmd/tui/feature-plugins/home/tips-view.tsx` | Tip mentioning `/support` and `<leader>z`                                        |
 
 **SDK**: `packages/sdk/js/src/v2/gen/types.gen.ts` — added `app_support?: string` to `KeybindsConfig` (line ~1760).
 
 **Entry points**:
+
 - Slash: `/support` (alias `ask`, `help-me`)
 - Keybind: `<leader>z`
 - Command palette: "Chat with the support assistant" (Support category)
 
 **Verification (2026-06-10)**:
+
 - `bun run typecheck` — only 2 pre-existing errors in `tui-image/src/encode.ts` (unrelated)
 - `npx oxlint` — 0 errors, 1 pre-existing warning in `config.ts:831`
 - `bun test test/agent/` — 7 pass, 0 fail
 - Docs indexer smoke test — ~30ms cold, 0ms cached
 
-**Design intent**: Read-only by design — `support` agent cannot modify files, run destructive bash, or spawn tasks. Docs auto-refresh via live indexer (AGENTS.md, README, specs/**, docs/**, packages/*/README.md).
+**Design intent**: Read-only by design — `support` agent cannot modify files, run destructive bash, or spawn tasks. Docs auto-refresh via live indexer (AGENTS.md, README, specs/**, docs/**, packages/\*/README.md).
 
 ### PR #99 — `feat(session)!: remove the dedicated session.init route per the v2 plan` (2026-06-10)
 
@@ -3181,25 +3186,26 @@ Branch: `claude/session-v2-live-stepper` → `live-main`. Local commit `c79a7ad8
 
 **CI status (2026-06-10T22:02Z)**:
 
-| Check                           | Result   | Time    |
-| ------------------------------- | -------- | ------- |
-| `smoke (windows-latest, cmd)`   | **fail** | 10m44s  |
-| `smoke (windows-latest, pwsh)`  | **fail** | 8m9s    |
-| `test (windows)`                | **fail** | 9m39s   |
-| `test (linux)`                  | pending  | 0       |
-| `Analyze (actions)`             | pass     | 38s     |
-| `Analyze (javascript-typescript)` | pass   | 1m23s   |
-| `Analyze (rust)`                | pass     | 1m39s   |
-| `CodeQL`                        | pass     | 2s      |
-| `add-contributor-label`         | pass     | 3s      |
-| `check-compliance`              | pass     | 3s      |
-| `check-duplicates`              | pass     | 6s      |
-| `check-standards`               | pass     | 3s      |
-| `nix-eval`                      | pass     | 38s     |
-| `typecheck`                     | pass     | 1m23s   |
-| `validate`                      | pass     | 1m24s   |
+| Check                             | Result   | Time   |
+| --------------------------------- | -------- | ------ |
+| `smoke (windows-latest, cmd)`     | **fail** | 10m44s |
+| `smoke (windows-latest, pwsh)`    | **fail** | 8m9s   |
+| `test (windows)`                  | **fail** | 9m39s  |
+| `test (linux)`                    | pending  | 0      |
+| `Analyze (actions)`               | pass     | 38s    |
+| `Analyze (javascript-typescript)` | pass     | 1m23s  |
+| `Analyze (rust)`                  | pass     | 1m39s  |
+| `CodeQL`                          | pass     | 2s     |
+| `add-contributor-label`           | pass     | 3s     |
+| `check-compliance`                | pass     | 3s     |
+| `check-duplicates`                | pass     | 6s     |
+| `check-standards`                 | pass     | 3s     |
+| `nix-eval`                        | pass     | 38s    |
+| `typecheck`                       | pass     | 1m23s  |
+| `validate`                        | pass     | 1m24s  |
 
 **Root cause of smoke failures** (same in both cmd + pwsh): `packages/nikcli/test/session/prompt-effect-service.test.ts:27` expects `file://${path.join(directory, "notes.md")}` which produces backslash file URLs on Windows. The code under test uses `pathToFileURL` which produces RFC-8089 file URLs (`file:///C:/...`) and percent-encodes `RUNNER~1` → `RUNNER%7E1`. Two fixes needed:
+
 1. Build expected URL via `pathToFileURL(directory) + "notes.md"` instead of `file://${path.join(...)}`
 2. Decide whether the resolver should drop unresolved `read @notes.md` text when emitting a file part, or whether the test should assert both parts (test currently receives a `text` part AND a `file` part — resolver is falling through)
 
@@ -3207,12 +3213,12 @@ Branch: `claude/session-v2-live-stepper` → `live-main`. Local commit `c79a7ad8
 
 ### Open PRs against `live-main` (updated 2026-06-10T22:02Z)
 
-| PR  | Branch → live-main                             | Status                                                                  |
-| --- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| PR  | Branch → live-main                             | Status                                                                   |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------------ |
 | #99 | `claude/session-v2-live-stepper`               | 3 failing checks (Windows smoke × 2, test (windows) exit 255), 1 pending |
-| #91 | `nikcli/mobile/nikcli/yrrz85`                  | Multiple failures                                                       |
-| #88 | `claude/npm-publish-error-vCzX7`               | Windows smoke + test failures                                           |
-| #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures                                |
+| #91 | `nikcli/mobile/nikcli/yrrz85`                  | Multiple failures                                                        |
+| #88 | `claude/npm-publish-error-vCzX7`               | Windows smoke + test failures                                            |
+| #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures                                 |
 
 Recently merged to `live-main`: #97, #96.
 
