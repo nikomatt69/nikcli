@@ -397,7 +397,8 @@ describe("buildTabPrompt", () => {
     const p = buildTabPrompt("overview", makeStats())
     expect(p).toContain("Total sessions: 12")
     expect(p).toContain("Total messages: 240")
-    expect(p).toContain("Total non-cache tokens: 160.0k")
+    // 160_000 ≥ 10_000 so formatCompact drops the decimal: "160k".
+    expect(p).toMatch(/Total non-cache tokens: 160k/)
     expect(p).toContain("Total cost: $4.20")
     expect(p).toContain("anthropic ($3.50)")
     expect(p).toMatch(/Identify: \(1\)/)
