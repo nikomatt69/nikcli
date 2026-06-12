@@ -556,7 +556,7 @@ export function DialogSupport() {
 // =============================================================================
 
 function MessageRow(props: { msg: ChatMessage }) {
-  const { theme } = useTheme()
+  const { theme, syntax } = useTheme()
   const m = props.msg
   return (
     <box paddingBottom={1} flexDirection="column" gap={0}>
@@ -572,9 +572,29 @@ function MessageRow(props: { msg: ChatMessage }) {
           <text fg={theme.error}>! {m.error}</text>
         </Show>
       </box>
-      <text fg={theme.text} wrapMode="word">
-        {m.text || (m.pending ? " " : "")}
-      </text>
+      <Show
+        when={m.role === "assistant" && m.text}
+        fallback={
+          <text fg={theme.text} wrapMode="word">
+            {m.text || (m.pending ? " " : "")}
+          </text>
+        }
+      >
+        <markdown
+          streaming={m.pending === true}
+          syntaxStyle={syntax()}
+          content={m.text}
+          fg={theme.text}
+          tableOptions={{
+            widthMode: "full",
+            wrapMode: "word",
+            cellPadding: 0,
+            borders: true,
+            outerBorder: false,
+            borderColor: theme.borderSubtle,
+          }}
+        />
+      </Show>
     </box>
   )
 }

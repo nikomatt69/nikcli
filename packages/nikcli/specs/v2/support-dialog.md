@@ -147,7 +147,8 @@ Lives in `src/cli/cmd/tui/component/dialog-support.tsx`.
 
 ## Open questions / future work
 
-- [ ] Markdown rendering of assistant messages (currently plain `text`).
+- [x] Markdown rendering of assistant messages (2026-06-12 — `<markdown>`
+      element with the theme's syntax style; user messages stay plain text).
 - [ ] Copy-to-clipboard on message hover.
 - [ ] Attach a file via the prompt (drag-and-drop / `@`-mention).
 - [ ] Allow the user to pick a different model for the support session
