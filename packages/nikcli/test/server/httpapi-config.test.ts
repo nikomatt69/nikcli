@@ -64,6 +64,27 @@ describe("Config HttpApi bridge", () => {
     expect(providers.providers.every((provider) => typeof provider.id === "string")).toBe(true)
     expect(providers.default).toBeObject()
   })
+
+  it("returns the declared 400 body when the existing config file is unparsable", async () => {
+    const directory = await makeProjectDir()
+
+    // boot the instance with a valid (absent) config first — a broken file
+    // at bootstrap would fail instance creation before the route runs
+    const bootResponse = await request("/config", directory)
+    expect(bootResponse.status).toBe(200)
+
+    await fs.writeFile(path.join(directory, "nikcli.json"), "{ not json", "utf8")
+
+    const response = await request("/config", directory, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ theme: "httpapi-config-test" }),
+    })
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { name: string; data: Record<string, unknown> }
+    expect(body.name).toBe("ConfigJsonError")
+    expect(String(body.data.path)).toContain("nikcli.json")
+  })
 })
 
 afterEach(async () => {

@@ -38,15 +38,35 @@ export namespace ConfigHttpApi {
     default: Schema.Record(Schema.String, Schema.String),
   }).annotate({ identifier: "ConfigProviders" })
 
+  /**
+   * Declared 400 for config writes that fail on an invalid or unparsable
+   * existing config file. Body mirrors the legacy `{ name, data }` error
+   * contract (`ConfigJsonError` / `ConfigInvalidError`), so the SDK shape
+   * is identical to the Hono error chain — but declared on the endpoint
+   * instead of synthesized by a catch-all.
+   */
+  export const UpdateError = Schema.Struct({
+    name: Schema.String,
+    data: Schema.Record(Schema.String, Schema.Unknown),
+  }).annotate({ identifier: "ConfigUpdateError", httpApiStatus: 400 })
+
   export const Group = HttpApiGroup.make("config")
     .add(HttpApiEndpoint.get("get", "/", { success: Info }))
-    .add(HttpApiEndpoint.patch("update", "/", { payload: Info, success: Info }))
+    .add(HttpApiEndpoint.patch("update", "/", { payload: Info, success: Info, error: UpdateError }))
     .add(HttpApiEndpoint.get("providers", "/providers", { success: ProviderSummary }))
     .prefix("/config")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
   export const ApiLive = HttpApiBuilder.layer(Api)
+
+  function asUpdateError(cause: unknown) {
+    if (cause instanceof Config.JsonError || cause instanceof Config.InvalidError) {
+      const { _tag: _ignored, ...data } = cause
+      return Effect.fail({ name: cause._tag, data: { ...data } as Record<string, unknown> })
+    }
+    return Effect.die(cause)
+  }
 
   export const handlers = {
     get: () =>
@@ -60,7 +80,14 @@ export namespace ConfigHttpApi {
         yield* config.update(payload as Config.Info)
         yield* Effect.promise(() => Instance.dispose())
         return payload
-      }).pipe(Effect.orDie),
+      }).pipe(
+        // failures first — converting defects afterwards keeps the converted
+        // failure from being re-killed by the failure handler
+        Effect.catch(asUpdateError),
+        // Config.Service.update wraps the async impl with Effect.promise, so
+        // ConfigJsonError / ConfigInvalidError arrive as defects, not failures
+        Effect.catchDefect(asUpdateError),
+      ),
     providers: () =>
       Effect.gen(function* () {
         const provider = yield* Provider.Service

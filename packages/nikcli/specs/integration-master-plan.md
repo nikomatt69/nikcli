@@ -55,17 +55,16 @@ Two parallel streams that unblock everything else.
 
 ### E4: OpenAPI/SDK flip
 
-- `[~]` Translate cleanup PRs 3–4: remove remaining query/path overrides
-  (`specs/openapi-translation-cleanup.md`). First targets done; residual
-  overrides (`GET /find/file limit`, diff/message `limit`) remain.
-- `[ ]` PR 5: declared API errors per route group instead of
-  `normalizeLegacyErrorResponses()` (first target: `groups/config.ts`).
-- `[ ]` PR 6: decide on auth/security spec rewrites (keep-and-document or
-  remove with SDK expectations update).
-- `[ ]` PR 7: component shape rewrites, one at a time.
-- `[ ]` Upstream `effect-smol` middleware query schema support, then drop
-  `WorkspaceRoutingQueryFields` spreads.
-- `[ ]` Flip the SDK generator default to the Effect-generated spec (Phase L).
+- `[x]` Translate cleanup PRs 1–4 and 7: superseded — the rewritten
+  `src/server/httpapi/` layer has no post-generation transform at all
+  (see the status header in `specs/openapi-translation-cleanup.md`).
+- `[~]` PR 5 (declared API errors per endpoint): first endpoint done —
+  `PATCH /config` declares `ConfigUpdateError` (400, legacy
+  `{ name, data }` body). Sweep the remaining groups together with the
+  `HTTP-2` error-contract work.
+- `[ ]` PR 6: decide whether the SDK exposes auth metadata at flip time.
+- `[ ]` Flip the SDK generator default to the Effect-generated spec
+  (Phase L) once E3 parity holds.
 
 ### E5: Hono deletion
 

@@ -1,5 +1,34 @@
 # OpenAPI Translation Cleanup Plan
 
+## Status (2026-06-12): premise superseded by the httpapi rebuild
+
+This plan targeted `src/server/routes/instance/httpapi/public.ts` and its
+`OpenApi.annotations({ transform })` spec-surgery hook. That file and the
+whole rewrite layer (`normalizeLegacyErrorResponses`, `QueryNumberParameters`,
+`PathParameterSchemas`, component-shape rewrites) **no longer exist**: the
+Effect HttpApi was rebuilt as flat per-group modules in `src/server/httpapi/`
+(`config.ts`, `session.ts`, …, composed in `public.ts`) with no
+post-generation transform at all — which is this plan's end state by
+construction.
+
+What carries over:
+
+- PR 1–2 (drift tests, query injection removal) were done against the old
+  layer and are moot now.
+- PR 5's intent (declared per-endpoint errors instead of catch-all
+  synthesis) applies to the new layer: first endpoint done —
+  `PATCH /config` declares `ConfigUpdateError` (400, legacy `{ name, data }`
+  body) in `httpapi/config.ts`, with `errors.ts` helpers available for the
+  remaining groups. Sweep the other groups as they grow error contracts
+  (tracked as `HTTP-2` in `specs/effect/todo.md` and E2/E4 of
+  `specs/integration-master-plan.md`).
+- PR 6's question (whether the SDK exposes auth metadata) moves to the SDK
+  flip decision (E4).
+- The Hono server (`server/server.ts`) is still what generates the SDK;
+  the flip to the Effect-generated spec is E4 of the master plan.
+
+The original plan below is kept for historical context.
+
 ## Goal
 
 Trim `packages/nikcli/src/server/routes/instance/httpapi/public.ts` until OpenAPI generation is mostly a direct projection of the `HttpApi` route declarations, without breaking the generated SDK surface.
