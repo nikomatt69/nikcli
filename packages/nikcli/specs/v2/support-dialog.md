@@ -156,6 +156,6 @@ Lives in `src/cli/cmd/tui/component/dialog-support.tsx`.
       (2026-06-12 — Ctrl+O opens the model picker; the choice persists in
       `support-session.json` and overrides the app model for support
       prompts; reset keeps the preference).
-- [ ] A `quickstart` variant of the welcome screen that adapts to the
-      user's setup (e.g. "no provider connected" → "let me help you
-      connect one").
+- [x] A `quickstart` variant of the welcome screen that adapts to the
+      user's setup (2026-06-12 — when no provider is connected the
+      welcome switches to setup-oriented copy and hints).

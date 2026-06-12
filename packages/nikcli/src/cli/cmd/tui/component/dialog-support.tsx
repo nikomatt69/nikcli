@@ -9,7 +9,7 @@ import { useSync } from "@tui/context/sync"
 import { useSupportSession } from "@tui/context/support-session"
 import { useToast } from "@tui/ui/toast"
 import { Clipboard } from "@tui/util/clipboard"
-import { DialogModel } from "@tui/component/dialog-model"
+import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { buildSupportDocsIndex } from "@/agent/prompt/support-docs"
 import type { Part, TextPart } from "@nikcli-ai/sdk/v2"
 
@@ -122,6 +122,15 @@ type ChatMessage = {
   /** Set if sending or streaming failed for this message. */
   error?: string
 }
+
+/** Quickstart hints shown when no provider is connected yet — getting set
+ * up matters more than feature questions at that point. */
+const SETUP_HINTS: ReadonlyArray<{ title: string; prompt: string }> = [
+  { title: "Connect a provider", prompt: "How do I connect a model provider?" },
+  { title: "Use an API key", prompt: "How do I configure an API key for Anthropic or OpenAI?" },
+  { title: "Free models", prompt: "Are there free models I can start with?" },
+  { title: "First session", prompt: "How do I start my first session once a provider is connected?" },
+]
 
 const WELCOME_HINTS: ReadonlyArray<{ title: string; prompt: string }> = [
   { title: "Change model", prompt: "How do I change the default model?" },
@@ -632,18 +641,29 @@ function MessageRow(props: { msg: ChatMessage }) {
 
 function WelcomeHints(props: { onPick: (prompt: string) => void }) {
   const { theme } = useTheme()
+  const connected = useConnected()
   return (
     <box gap={1} flexDirection="column" paddingBottom={1}>
       <text fg={theme.text}>
         Hi! I'm <span style={{ fg: theme.accent }}>Support</span>, nikcli's documentation assistant.
       </text>
-      <text fg={theme.textMuted}>
-        I can answer questions about commands, configuration, agents, MCP, keybinds, workflows, and troubleshooting.
-      </text>
+      <Show
+        when={connected()}
+        fallback={
+          <text fg={theme.textMuted}>
+            No model provider is connected yet — let me help you get set up. Open{" "}
+            <span style={{ fg: theme.primary }}>/providers</span> to connect one, or ask me how:
+          </text>
+        }
+      >
+        <text fg={theme.textMuted}>
+          I can answer questions about commands, configuration, agents, MCP, keybinds, workflows, and troubleshooting.
+        </text>
+      </Show>
       <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
         Examples:
       </text>
-      <For each={WELCOME_HINTS}>
+      <For each={connected() ? WELCOME_HINTS : SETUP_HINTS}>
         {(hint) => (
           <box
             flexDirection="row"
