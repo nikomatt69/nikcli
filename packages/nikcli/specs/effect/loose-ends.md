@@ -19,7 +19,8 @@ Small follow-ups that do not fit neatly into the main facade, route, tool, or sc
   - `directories(...)`
   - `readFile(...)`
   - `parseText(...)`
-- [ ] `config/config.ts` - switch internal config loading from `Effect.promise(() => ConfigPaths.*(...))` to `yield* paths.*(...)` once the service exists.
+- [x] `config/config.ts` - switch internal config loading from `Effect.promise(() => ConfigPaths.*(...))` to `yield* paths.*(...)` once the service exists.
+      Done by attrition (verified 2026-06-12): `makeScopedState` consumes `ConfigPaths.Service` via `yield* paths.directories(...)`, and `git grep "Effect.promise(() => ConfigPaths"` has zero hits across `src/`. `loadState` itself no longer touches ConfigPaths (it uses the plain async `loadFile`).
 - [x] `config/tui.ts` - switch TUI config loading from async `ConfigPaths.*` wrappers to the `ConfigPaths.Service`.
 - [x] `config/migrate-tui-config.ts` - decision: leave as plain async. Reason: it is a one-shot migration helper called from `TuiConfig.loadState` exactly once per project; effectifying would require either threading a `ConfigPaths.Service` Effect through the migration body or wrapping every line in `Effect.runPromise`. Current shape (plain async + `Filesystem.*` + legacy `ConfigPaths.projectFiles` compat wrapper) is correct for a one-shot migration utility.
 
