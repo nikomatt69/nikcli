@@ -9,6 +9,7 @@ import { useSync } from "@tui/context/sync"
 import { useSupportSession } from "@tui/context/support-session"
 import { useToast } from "@tui/ui/toast"
 import { Clipboard } from "@tui/util/clipboard"
+import { DialogModel } from "@tui/component/dialog-model"
 import { buildSupportDocsIndex } from "@/agent/prompt/support-docs"
 import type { Part, TextPart } from "@nikcli-ai/sdk/v2"
 
@@ -373,7 +374,7 @@ export function DialogSupport() {
       setInitError("Support session not ready — try again in a moment.")
       return
     }
-    const model = local.model.current()
+    const model = support.model ?? local.model.current()
     if (!model) {
       toast.show({
         message: "No provider connected. Connect one in /providers first.",
@@ -459,6 +460,21 @@ export function DialogSupport() {
       evt.preventDefault()
       return
     }
+    // Ctrl+O — pick the model used for support replies (persisted)
+    if (evt.ctrl && evt.name === "o") {
+      evt.preventDefault()
+      dialog.replace(() => (
+        <DialogModel
+          onSelect={(model) => {
+            support.setModel(model).catch(() => {})
+            // DialogModel clears the stack right after onSelect — reopen on
+            // the next tick so the support conversation comes back up
+            setTimeout(() => dialog.replace(() => <DialogSupport />), 0)
+          }}
+        />
+      ))
+      return
+    }
     // Ctrl+Y — copy the last assistant reply (hover is not a thing in a TUI)
     if (evt.ctrl && evt.name === "y") {
       evt.preventDefault()
@@ -478,6 +494,8 @@ export function DialogSupport() {
     return a?.name ?? "support"
   })
   const modelName = createMemo(() => {
+    const override = support.model
+    if (override) return `${override.providerID} / ${override.modelID}`
     const m = local.model.parsed()
     return `${m.provider} / ${m.model}`
   })
@@ -554,8 +572,9 @@ export function DialogSupport() {
           cursorColor={theme.text}
         />
         <text fg={theme.textMuted}>
-          <span style={{ fg: theme.primary }}>enter</span> send · <span style={{ fg: theme.primary }}>ctrl+y</span>{" "}
-          copy reply · <span style={{ fg: theme.primary }}>ctrl+l</span> new conversation ·{" "}
+          <span style={{ fg: theme.primary }}>enter</span> send · <span style={{ fg: theme.primary }}>ctrl+o</span>{" "}
+          model · <span style={{ fg: theme.primary }}>ctrl+y</span> copy reply ·{" "}
+          <span style={{ fg: theme.primary }}>ctrl+l</span> new conversation ·{" "}
           <span style={{ fg: theme.primary }}>esc</span> close
         </text>
       </box>

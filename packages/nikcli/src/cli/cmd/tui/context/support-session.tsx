@@ -5,9 +5,13 @@ import { Global } from "@/global"
 import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"
 
+type SupportModel = { providerID: string; modelID: string }
+
 type State = {
   sessionID?: string
   createdAt?: number
+  /** Model override for the support conversation; falls back to the app model. */
+  model?: SupportModel
 }
 
 const STATE_FILE = path.join(Global.Path.state, "support-session.json")
@@ -43,6 +47,9 @@ export const { use: useSupportSession, provider: SupportSessionProvider } = crea
           batch(() => {
             setState("sessionID", raw.sessionID)
             setState("createdAt", typeof raw.createdAt === "number" ? raw.createdAt : Date.now())
+            if (raw.model && typeof raw.model.providerID === "string" && typeof raw.model.modelID === "string") {
+              setState("model", { providerID: raw.model.providerID, modelID: raw.model.modelID })
+            }
           })
         }
       })
@@ -56,6 +63,7 @@ export const { use: useSupportSession, provider: SupportSessionProvider } = crea
         const payload: Persisted = {
           sessionID: state.sessionID,
           createdAt: state.createdAt,
+          model: state.model,
         }
         await Bun.write(STATE_FILE, JSON.stringify(payload, null, 2))
       } catch (err) {
@@ -83,6 +91,14 @@ export const { use: useSupportSession, provider: SupportSessionProvider } = crea
       },
       get ready() {
         return ready.value
+      },
+      get model() {
+        return state.model
+      },
+      /** Pick (or clear) the model used for support prompts. Persisted. */
+      async setModel(model: SupportModel | undefined): Promise<void> {
+        setState("model", model)
+        await persist()
       },
       /**
        * Return the current sessionID, creating a new one if needed.

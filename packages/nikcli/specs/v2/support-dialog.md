@@ -152,8 +152,10 @@ Lives in `src/cli/cmd/tui/component/dialog-support.tsx`.
 - [x] Copy-to-clipboard (2026-06-12 — Ctrl+Y copies the last assistant
       reply; hover isn't practical in a terminal).
 - [ ] Attach a file via the prompt (drag-and-drop / `@`-mention).
-- [ ] Allow the user to pick a different model for the support session
-      (currently uses the active session model).
+- [x] Allow the user to pick a different model for the support session
+      (2026-06-12 — Ctrl+O opens the model picker; the choice persists in
+      `support-session.json` and overrides the app model for support
+      prompts; reset keeps the preference).
 - [ ] A `quickstart` variant of the welcome screen that adapts to the
       user's setup (e.g. "no provider connected" → "let me help you
       connect one").
