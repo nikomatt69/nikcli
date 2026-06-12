@@ -96,8 +96,10 @@ Two parallel streams that unblock everything else.
   (`session_v2_event` log + `SessionV2.events/replay`, see
   `specs/v2/message-shape.md`); the native v2 write path (engine swap)
   and Option 2 prompt mutators for hooks remain.
-- `[ ]` Support dialog follow-ups: markdown rendering, copy-to-clipboard,
-  file attach, per-session model pick, adaptive quickstart
+- `[~]` Support dialog follow-ups: markdown rendering, copy-to-clipboard
+  (Ctrl+Y), per-session model pick (Ctrl+O), and adaptive quickstart are
+  done; only file attach (drag-and-drop / @-mention) remains — it wants
+  the real prompt component instead of the dialog's plain textarea
   (`specs/v2/support-dialog.md`).
 - `[ ]` Embedded library API sketch (`specs/v2/api.ts`) — depends on E5/E6;
   do not start before the server/instance layers settle.
