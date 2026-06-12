@@ -121,6 +121,29 @@ describe("HttpApi bridge", () => {
     await runPromiseWithLayer(PermissionNext.defaultLayer, Fiber.join(permissionFiber))
   })
 
+  it("serves the prompt routes without Hono", async () => {
+    const directory = await makeProjectDir()
+
+    // invalid payload mirrors the @hono/standard-validator 400 contract
+    const invalid = await request("/session/ses_bridge_prompt/message", directory, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ parts: "not-an-array" }),
+    })
+    expect(invalid.status).toBe(400)
+    const failure = (await invalid.json()) as { success: boolean; error: unknown }
+    expect(failure.success).toBe(false)
+    expect(failure.error).toBeDefined()
+
+    // prompt_async validates, then returns 204 before the prompt resolves
+    const accepted = await request("/session/ses_bridge_prompt/prompt_async", directory, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ parts: [{ type: "text", text: "hi" }] }),
+    })
+    expect(accepted.status).toBe(204)
+  })
+
   it("serves the /event SSE stream without Hono", async () => {
     const directory = await makeProjectDir()
     const response = await request("/event", directory)

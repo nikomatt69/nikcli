@@ -352,8 +352,8 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `DELETE /session/:sessionID/message/:messageID` - delete message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `DELETE /session/:sessionID/message/:messageID/part/:partID` - delete part. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 - [x] `PATCH /session/:sessionID/message/:messageID/part/:partID` - update part. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
-- [ ] `POST /session/:sessionID/message` - prompt with streaming response.
-- [ ] `POST /session/:sessionID/prompt_async` - async prompt.
+- [x] `POST /session/:sessionID/message` - prompt with streaming response. Evidence: `src/server/httpapi/prompt.ts` (chunked 200 opened immediately, final message JSON written at completion; validator-compatible 400), served from `bridge.ts`.
+- [x] `POST /session/:sessionID/prompt_async` - async prompt. Evidence: `src/server/httpapi/prompt.ts` (validates, fires in background, returns 204).
 - [x] `POST /session/:sessionID/command` - run command. Evidence: `src/server/httpapi/session.ts` `command` (BusyError maps to the declared 409).
 - [x] `POST /session/:sessionID/shell` - run shell command. Evidence: `src/server/httpapi/session.ts` `shell`.
 - [x] `POST /session/:sessionID/revert` - revert message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.

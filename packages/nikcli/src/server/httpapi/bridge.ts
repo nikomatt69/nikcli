@@ -4,6 +4,7 @@ import { Context, Layer } from "effect"
 import { InstanceRef, sharedMemoMap } from "@/effect"
 import { Instance } from "@/project/instance"
 import { HttpApiEvent } from "./event"
+import { HttpApiPrompt } from "./prompt"
 import { PublicHttpApi } from "./public"
 
 export namespace HttpApiBridge {
@@ -90,6 +91,8 @@ export namespace HttpApiBridge {
     ["POST", /^\/session\/[^/]+\/command$/],
     ["POST", /^\/session\/[^/]+\/shell$/],
     ["POST", /^\/session\/[^/]+\/permissions\/[^/]+$/],
+    ["POST", /^\/session\/[^/]+\/message$/],
+    ["POST", /^\/session\/[^/]+\/prompt_async$/],
     ["PUT", /^\/file\/content$/],
     ["DELETE", /^\/mcp\/[^/]+\/auth$/],
     ["POST", /^\/mcp\/[^/]+\/auth$/],
@@ -113,11 +116,17 @@ export namespace HttpApiBridge {
   }
 
   export function handle(request: Request) {
-    // SSE is a raw streaming response, not a schema-encoded HttpApi body —
-    // serve it ahead of the router.
+    // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
+    // of the router — they are not schema-encoded HttpApi bodies.
     const pathname = new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/event") {
       return Promise.resolve(HttpApiEvent.handle())
+    }
+    if (request.method === "POST") {
+      const prompt = pathname.match(/^\/session\/([^/]+)\/message$/)
+      if (prompt) return HttpApiPrompt.prompt(request, decodeURIComponent(prompt[1]))
+      const promptAsync = pathname.match(/^\/session\/([^/]+)\/prompt_async$/)
+      if (promptAsync) return HttpApiPrompt.promptAsync(request, decodeURIComponent(promptAsync[1]))
     }
     return handler(
       request,
