@@ -15,9 +15,7 @@ process.env.XDG_STATE_HOME = path.join(testHome, "state")
 const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
 const { Server } = await import("@/server/server")
-const { Storage } = await import("@/storage/storage")
-const { runPromiseWithLayer } = await import("@/effect")
-const { Effect } = await import("effect")
+const { MessageRepo } = await import("@/session/message-repo")
 
 const projectDirs: string[] = []
 
@@ -71,16 +69,6 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
     throw new Error(`Expected ${method} ${pathname} to return 200, got ${response.status}: ${await response.text()}`)
   }
   return response.json()
-}
-
-async function writeStorage(key: string[], value: unknown) {
-  await runPromiseWithLayer(
-    Storage.defaultLayer,
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, value)
-    }),
-  )
 }
 
 describe("Session HttpApi bridge", () => {
@@ -165,8 +153,10 @@ describe("Session HttpApi bridge", () => {
       type: "text",
       text: "hello",
     }
-    await writeStorage(["message", created.id, messageID], message)
-    await writeStorage(["part", messageID, partID], part)
+    // message reads go through the SQL repo since the Drizzle adoption, so
+    // the fixture must be written there, not into legacy JSON storage
+    MessageRepo.upsertMessage(message as never)
+    MessageRepo.upsertPart(part as never)
 
     const single = (await request(`/session/${created.id}/message/${messageID}`, directory)) as {
       info: { id: string }
@@ -205,12 +195,38 @@ describe("Session HttpApi bridge", () => {
     )) as boolean
     expect(removedPart).toBe(true)
 
-    await writeStorage(["part", messageID, partID], part)
+    MessageRepo.upsertPart(part as never)
     const removedMessage = (await remove(`/session/${created.id}/message/${messageID}`, directory)) as boolean
     expect(removedMessage).toBe(true)
 
     const todos = (await request(`/session/${created.id}/todo`, directory)) as unknown[]
     expect(todos).toEqual([])
+  })
+
+  it("returns the declared 404 body for a missing session", async () => {
+    const directory = await makeProjectDir()
+    // boot the instance so the failure comes from the route, not bootstrap
+    await request("/session", directory)
+
+    const url = new URL("/session/ses_does_not_exist", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const response = await Server.App().fetch(new Request(url))
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string; data: Record<string, unknown> }
+    expect(body.name).toBe("NotFoundError")
+    expect(String(body.data.message)).toContain("ses_does_not_exist")
+  })
+
+  it("returns the declared 404 body for a missing message", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, { title: "404 message" })) as { id: string }
+
+    const url = new URL(`/session/${created.id}/message/msg_does_not_exist`, "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const response = await Server.App().fetch(new Request(url))
+    expect(response.status).toBe(404)
+    const body = (await response.json()) as { name: string; data: Record<string, unknown> }
+    expect(body.name).toBe("NotFoundError")
   })
 })
 

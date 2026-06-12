@@ -4,6 +4,7 @@ import { Delegation } from "@/delegation/manager"
 import { InstanceState } from "@/effect"
 import { Monitor } from "@/monitor/manager"
 import { Session } from "@/session"
+import { Storage } from "@/storage/storage"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionRevert } from "@/session/revert"
@@ -81,6 +82,45 @@ export namespace SessionHttpApi {
   const MessageWithParts = Schema.Unknown.annotate({ identifier: "MessageWithParts" })
   const MessagePart = Schema.Unknown.annotate({ identifier: "MessagePart" })
 
+  /**
+   * Declared error contracts, mirroring the legacy Hono `{ name, data }`
+   * bodies byte-for-byte. `name` is a literal so the response encoder can
+   * discriminate union members (404 vs 409) by value instead of falling
+   * back to declaration order.
+   */
+  const NotFound = Schema.Struct({
+    name: Schema.Literal("NotFoundError"),
+    data: Schema.Record(Schema.String, Schema.Unknown),
+  }).annotate({ identifier: "SessionNotFoundError", httpApiStatus: 404 })
+  const Busy = Schema.Struct({
+    name: Schema.Literal("SessionBusyError"),
+    data: Schema.Record(Schema.String, Schema.Unknown),
+  }).annotate({ identifier: "SessionBusyErrorBody", httpApiStatus: 409 })
+
+  type DeclaredError = typeof NotFound.Type | typeof Busy.Type
+
+  /** Expected boundary failures → declared errors; everything else is a defect. */
+  function asSessionError(cause: unknown): Effect.Effect<never, DeclaredError> {
+    if (cause instanceof Storage.NotFoundError) {
+      return Effect.fail({
+        name: "NotFoundError" as const,
+        data: { message: cause.message } as Record<string, unknown>,
+      })
+    }
+    if (cause instanceof Session.BusyError) {
+      return Effect.fail({
+        name: "SessionBusyError" as const,
+        data: { sessionID: cause.sessionID, message: cause.message } as Record<string, unknown>,
+      })
+    }
+    return Effect.die(cause)
+  }
+
+  /** Failure first, defect second — services still wrap async impls with
+   * Effect.promise, so expected errors can arrive on either channel. */
+  const declaredErrors = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.catch(asSessionError), Effect.catchDefect(asSessionError))
+
   // Session/message objects often carry `undefined` properties (parentID, workspaceID, ...).
   // Effect HttpApi rejects those when encoding `Schema.Unknown` because `undefined` is not a
   // valid JSON value. Round-tripping through JSON.stringify normalizes the payload by
@@ -92,13 +132,14 @@ export namespace SessionHttpApi {
     .add(HttpApiEndpoint.get("list", "/", { query: ListQuery, success: SessionList }))
     .add(HttpApiEndpoint.post("create", "/", { payload: CreatePayload, success: SessionInfo }))
     .add(HttpApiEndpoint.get("status", "/status", { success: SessionStatusMap }))
-    .add(HttpApiEndpoint.get("get", "/:sessionID", { params: SessionIDPath, success: SessionInfo }))
-    .add(HttpApiEndpoint.delete("remove", "/:sessionID", { params: SessionIDPath, success: BooleanResult }))
+    .add(HttpApiEndpoint.get("get", "/:sessionID", { params: SessionIDPath, success: SessionInfo, error: [NotFound, Busy] }))
+    .add(HttpApiEndpoint.delete("remove", "/:sessionID", { params: SessionIDPath, success: BooleanResult, error: [NotFound, Busy] }))
     .add(
       HttpApiEndpoint.patch("update", "/:sessionID", {
         params: SessionIDPath,
         payload: UpdatePayload,
         success: SessionInfo,
+        error: [NotFound, Busy],
       }),
     )
     .add(
@@ -106,6 +147,7 @@ export namespace SessionHttpApi {
         params: SessionIDPath,
         payload: ForkPayload,
         success: SessionInfo,
+        error: [NotFound, Busy],
       }),
     )
     .add(HttpApiEndpoint.post("abort", "/:sessionID/abort", { params: SessionIDPath, success: BooleanResult }))
@@ -114,16 +156,18 @@ export namespace SessionHttpApi {
         params: SessionIDPath,
         payload: RevertPayload,
         success: SessionInfo,
+        error: [NotFound, Busy],
       }),
     )
-    .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo }))
-    .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList }))
-    .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList }))
+    .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo, error: [NotFound, Busy] }))
+    .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList, error: [NotFound, Busy] }))
+    .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList, error: [NotFound, Busy] }))
     .add(
       HttpApiEndpoint.get("diff", "/:sessionID/diff", {
         params: SessionIDPath,
         query: DiffQuery,
         success: FileDiffList,
+        error: [NotFound, Busy],
       }),
     )
     .add(
@@ -131,24 +175,28 @@ export namespace SessionHttpApi {
         params: SessionIDPath,
         query: MessagesQuery,
         success: MessageList,
+        error: [NotFound, Busy],
       }),
     )
     .add(
       HttpApiEndpoint.get("message", "/:sessionID/message/:messageID", {
         params: MessagePath,
         success: MessageWithParts,
+        error: [NotFound, Busy],
       }),
     )
     .add(
       HttpApiEndpoint.delete("messageRemove", "/:sessionID/message/:messageID", {
         params: MessagePath,
         success: BooleanResult,
+        error: [NotFound, Busy],
       }),
     )
     .add(
       HttpApiEndpoint.delete("partRemove", "/:sessionID/message/:messageID/part/:partID", {
         params: PartPath,
         success: BooleanResult,
+        error: [NotFound, Busy],
       }),
     )
     .add(
@@ -156,6 +204,7 @@ export namespace SessionHttpApi {
         params: PartPath,
         payload: MessagePart,
         success: MessagePart,
+        error: [NotFound, Busy],
       }),
     )
     .prefix("/session")
@@ -200,7 +249,7 @@ export namespace SessionHttpApi {
         const session = yield* Session.Service
         yield* session.remove(params.sessionID)
         return true
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     update: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof UpdatePayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
@@ -213,13 +262,13 @@ export namespace SessionHttpApi {
           { touch: false },
         )
         return jsonSafe(updated)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         const forked = yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID })
         return jsonSafe(forked)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         yield* Effect.gen(function* () {
@@ -240,62 +289,62 @@ export namespace SessionHttpApi {
         const revert = yield* SessionRevert.Service
         const reverted = yield* revert.revert({ sessionID: params.sessionID, ...payload })
         return jsonSafe(reverted)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     unrevert: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
         const reverted = yield* revert.unrevert({ sessionID: params.sessionID })
         return jsonSafe(reverted)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     get: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         const info = yield* session.get(params.sessionID)
         return jsonSafe(info)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     children: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         const children = yield* session.children(params.sessionID)
         return jsonSafe(children)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     todo: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const todo = yield* Todo.Service
         return yield* todo.get(params.sessionID)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     diff: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof DiffQuery.Type }) =>
       Effect.gen(function* () {
         const summary = yield* SessionSummary.Service
         return yield* summary.diff({ sessionID: params.sessionID, messageID: query.messageID })
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     messages: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof MessagesQuery.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         const msgs = yield* session.messages({ sessionID: params.sessionID, limit: query.limit })
         return jsonSafe(msgs)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     message: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
         const msg = yield* Effect.promise(() => MessageV2.get(params))
         return jsonSafe(msg)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     messageRemove: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
         yield* session.removeMessage({ sessionID: params.sessionID, messageID: params.messageID })
         return true
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     partRemove: ({ params }: { params: typeof PartPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
         yield* session.removePart(params)
         return true
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
     partUpdate: ({ params, payload }: { params: typeof PartPath.Type; payload: unknown }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
@@ -308,7 +357,7 @@ export namespace SessionHttpApi {
         }
         yield* Effect.promise(() => MessageV2.get({ sessionID: params.sessionID, messageID: params.messageID }))
         return yield* session.updatePart(part)
-      }).pipe(Effect.orDie),
+      }).pipe(declaredErrors),
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "session", (builder) =>
