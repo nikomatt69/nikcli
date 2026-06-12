@@ -21,7 +21,7 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
   const failedCases = createMemo(() => lr()?.cases.filter((c) => c.status === "fail") ?? [])
   const history = createMemo(() => file()?.history ?? [])
   const durations = createMemo(() => history().map((h) => h.durationMs))
-  const passRates = createMemo(() => history().map((h) => h.totalTests > 0 ? h.passed / h.totalTests : 0))
+  const passRates = createMemo(() => history().map((h) => (h.totalTests > 0 ? h.passed / h.totalTests : 0)))
 
   return (
     <scrollbox
@@ -31,32 +31,66 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
       contentOptions={{ flexDirection: "column", gap: 0 }}
       scrollbarOptions={{ visible: true }}
     >
-      <Show when={file()} fallback={
-        <text fg={theme.textMuted} wrapMode="none">Select a test file in the tree.</text>
-      }>
+      <Show
+        when={file()}
+        fallback={
+          <text fg={theme.textMuted} wrapMode="none">
+            Select a test file in the tree.
+          </text>
+        }
+      >
         <text fg={theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">
           {suiteStatusIcon((lr()?.status as never) ?? "notrun")} {file()!.fileName}
         </text>
-        <text fg={theme.textMuted} wrapMode="none">{short(file()!.relativePath, props.width - 4)}</text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {short(file()!.relativePath, props.width - 4)}
+        </text>
 
-        <text fg={theme.textMuted} wrapMode="none"> </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {" "}
+        </text>
 
-        <Show when={lr()} fallback={
-          <text fg={theme.textMuted} wrapMode="none">Never run. Press Enter to run.</text>
-        }>
-          <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">Last Run</text>
-          <text fg={theme.success} wrapMode="none">  ✓ {lr()!.passed} pass</text>
+        <Show
+          when={lr()}
+          fallback={
+            <text fg={theme.textMuted} wrapMode="none">
+              Never run. Press Enter to run.
+            </text>
+          }
+        >
+          <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+            Last Run
+          </text>
+          <text fg={theme.success} wrapMode="none">
+            {" "}
+            ✓ {lr()!.passed} pass
+          </text>
           <Show when={lr()!.failed > 0}>
-            <text fg={theme.error} wrapMode="none">  ✗ {lr()!.failed} fail</text>
+            <text fg={theme.error} wrapMode="none">
+              {" "}
+              ✗ {lr()!.failed} fail
+            </text>
           </Show>
           <Show when={lr()!.skipped > 0}>
-            <text fg={theme.textMuted} wrapMode="none">  ○ {lr()!.skipped} skip</text>
+            <text fg={theme.textMuted} wrapMode="none">
+              {" "}
+              ○ {lr()!.skipped} skip
+            </text>
           </Show>
           <Show when={lr()!.todo > 0}>
-            <text fg={theme.purple} wrapMode="none">  ◇ {lr()!.todo} todo</text>
+            <text fg={theme.purple} wrapMode="none">
+              {" "}
+              ◇ {lr()!.todo} todo
+            </text>
           </Show>
-          <text fg={theme.textMuted} wrapMode="none">  ⌛ {fmtDuration(lr()!.durationMs)}</text>
-          <text fg={theme.textMuted} wrapMode="none">  {relativeTime(new Date(lr()!.startedAt).toISOString())} ago</text>
+          <text fg={theme.textMuted} wrapMode="none">
+            {" "}
+            ⌛ {fmtDuration(lr()!.durationMs)}
+          </text>
+          <text fg={theme.textMuted} wrapMode="none">
+            {" "}
+            {relativeTime(new Date(lr()!.startedAt).toISOString())} ago
+          </text>
           <Show when={lr()!.totalTests > 0}>
             <text fg={theme.success} wrapMode="none">
               {progressBar(lr()!.passed, lr()!.totalTests, Math.min(20, props.width - 4))}
@@ -64,7 +98,9 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
           </Show>
         </Show>
 
-        <text fg={theme.textMuted} wrapMode="none"> </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {" "}
+        </text>
 
         <text
           fg={theme.error}
@@ -84,7 +120,9 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
           </For>
         </Show>
 
-        <text fg={theme.textMuted} wrapMode="none"> </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {" "}
+        </text>
 
         <text
           fg={theme.text}
@@ -108,7 +146,9 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
           </For>
         </Show>
 
-        <text fg={theme.textMuted} wrapMode="none"> </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {" "}
+        </text>
 
         <text
           fg={theme.purple}
@@ -119,8 +159,14 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
           {showHistory() ? "▼" : "▶"} History ({history().length})
         </text>
         <Show when={showHistory() && history().length >= 2}>
-          <text fg={theme.purple} wrapMode="none">  dur:  {sparklineChars(durations(), Math.min(20, props.width - 8))}</text>
-          <text fg={theme.success} wrapMode="none">  pass: {sparklineChars(passRates(), Math.min(20, props.width - 8))}</text>
+          <text fg={theme.purple} wrapMode="none">
+            {" "}
+            dur: {sparklineChars(durations(), Math.min(20, props.width - 8))}
+          </text>
+          <text fg={theme.success} wrapMode="none">
+            {" "}
+            pass: {sparklineChars(passRates(), Math.min(20, props.width - 8))}
+          </text>
         </Show>
         <Show when={showHistory()}>
           <For each={history().slice(-5).reverse()}>
@@ -128,14 +174,17 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
               const color = h.status === "fail" ? theme.error : h.status === "pass" ? theme.success : theme.textMuted
               return (
                 <text fg={color} wrapMode="none">
-                  {suiteStatusIcon(h.status)} {relativeTime(new Date(h.startedAt).toISOString()).padStart(4)} {fmtDuration(h.durationMs).padStart(7)} {h.passed}p/{h.failed}f
+                  {suiteStatusIcon(h.status)} {relativeTime(new Date(h.startedAt).toISOString()).padStart(4)}{" "}
+                  {fmtDuration(h.durationMs).padStart(7)} {h.passed}p/{h.failed}f
                 </text>
               )
             }}
           </For>
         </Show>
 
-        <text fg={theme.textMuted} wrapMode="none"> </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          {" "}
+        </text>
         <text
           fg={theme.accent}
           attributes={TextAttributes.BOLD}
@@ -144,11 +193,7 @@ export function SuiteDetailPanel(props: SuiteDetailPanelProps) {
         >
           [ ↵ Run File ]
         </text>
-        <text
-          fg={theme.warning}
-          wrapMode="none"
-          onMouseUp={props.onClearHistory}
-        >
+        <text fg={theme.warning} wrapMode="none" onMouseUp={props.onClearHistory}>
           [ ⌫ Clear History ]
         </text>
       </Show>

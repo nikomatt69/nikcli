@@ -236,7 +236,7 @@ Command behavior:
   and key bindings as one disposable layer and returns an unregister
   function.
 - Layer commands are `{ name, title, description?, namespace?, slashName?,
-  slashAliases?, suggested?, hidden?, enabled?, run }`. `name` is the
+slashAliases?, suggested?, hidden?, enabled?, run }`. `name` is the
   dispatchable id, `namespace` maps to the palette category, `slashName`
   registers `/<slashName>`.
 - Bindings are `{ key, cmd, description? }` where `key` supports layered

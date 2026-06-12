@@ -33,13 +33,20 @@ interface SuiteTreeSidebarProps {
 
 function statusColor(s: SuiteExecStatus | undefined) {
   switch (s) {
-    case "pass": return theme.success
-    case "fail": return theme.error
-    case "running": return theme.warning
-    case "skip": return theme.textMuted
-    case "todo": return theme.purple
-    case "mixed": return theme.orange
-    default: return theme.textMuted
+    case "pass":
+      return theme.success
+    case "fail":
+      return theme.error
+    case "running":
+      return theme.warning
+    case "skip":
+      return theme.textMuted
+    case "todo":
+      return theme.purple
+    case "mixed":
+      return theme.orange
+    default:
+      return theme.textMuted
   }
 }
 
@@ -78,11 +85,7 @@ export function SuiteTreeSidebar(props: SuiteTreeSidebarProps) {
         props.onScroll(event.scroll?.direction === "up" ? -1 : 1)
       }}
     >
-      <text
-        fg={props.focused ? theme.accent : theme.blue}
-        attributes={TextAttributes.BOLD}
-        wrapMode="none"
-      >
+      <text fg={props.focused ? theme.accent : theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">
         Test Suites ({props.groups.length})
       </text>
       <text fg={theme.textMuted} wrapMode="none">
@@ -96,9 +99,7 @@ export function SuiteTreeSidebar(props: SuiteTreeSidebarProps) {
               const realIdx = props.treeScrollOff + i()
               const isSel = realIdx === props.treeIdx
               const isFocusedRow = isSel && props.focused
-              const cur = row.kind === "group"
-                ? row.counts!
-                : { pass: 0, fail: 0, total: 0, running: 0, notRun: 0 }
+              const cur = row.kind === "group" ? row.counts! : { pass: 0, fail: 0, total: 0, running: 0, notRun: 0 }
               const groupHasFail = row.kind === "group" && cur.fail > 0
               const groupHasRun = row.kind === "group" && cur.running > 0
 
@@ -106,12 +107,12 @@ export function SuiteTreeSidebar(props: SuiteTreeSidebarProps) {
                 const fg = isFocusedRow
                   ? theme.bg
                   : groupHasRun
-                  ? theme.warning
-                  : groupHasFail
-                  ? theme.error
-                  : cur.pass > 0
-                  ? theme.success
-                  : theme.text
+                    ? theme.warning
+                    : groupHasFail
+                      ? theme.error
+                      : cur.pass > 0
+                        ? theme.success
+                        : theme.text
                 const bg = isFocusedRow ? theme.accent : isSel ? theme.surfaceActive : undefined
                 const summary = `${cur.pass}✓ ${cur.fail}✗`.padStart(8)
                 return (
@@ -127,7 +128,9 @@ export function SuiteTreeSidebar(props: SuiteTreeSidebarProps) {
                       else props.onToggleGroup(row.group)
                     }}
                   >
-                    {isSel ? "▸" : " "}{row.icon} {short(row.label, props.width - 14).padEnd(props.width - 14)}{summary}
+                    {isSel ? "▸" : " "}
+                    {row.icon} {short(row.label, props.width - 14).padEnd(props.width - 14)}
+                    {summary}
                   </text>
                 )
               }
@@ -153,7 +156,8 @@ export function SuiteTreeSidebar(props: SuiteTreeSidebarProps) {
                     }
                   }}
                 >
-                  {isSel ? "▸" : " "}  {icon} {short(row.label, props.width - 12).padEnd(props.width - 12)}{durStr}
+                  {isSel ? "▸" : " "} {icon} {short(row.label, props.width - 12).padEnd(props.width - 12)}
+                  {durStr}
                 </text>
               )
             }}

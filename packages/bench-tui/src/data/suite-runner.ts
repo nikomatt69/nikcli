@@ -24,10 +24,7 @@ function sanitize(line: string): string {
     .replace(/\x1b\][0-9;]*[^\x1b]*(\x1b\\|\x07)/g, "")
 }
 
-async function pipe(
-  stream: ReadableStream<Uint8Array> | null,
-  onChunk: (s: string) => void,
-): Promise<string> {
+async function pipe(stream: ReadableStream<Uint8Array> | null, onChunk: (s: string) => void): Promise<string> {
   if (!stream) return ""
   const reader = stream.getReader()
   const dec = new TextDecoder()
@@ -100,7 +97,10 @@ function parseBunTestOutput(stdout: string, stderr: string): ParsedOutput {
   let cur: string[] = []
   for (const raw of lines) {
     if (/^\s*(error:|Expected|Received|at\s)/.test(raw)) cur.push(raw)
-    else if (cur.length > 0 && raw.trim() === "") { errBlocks.push(cur.join("\n")); cur = [] }
+    else if (cur.length > 0 && raw.trim() === "") {
+      errBlocks.push(cur.join("\n"))
+      cur = []
+    }
   }
   if (cur.length > 0) errBlocks.push(cur.join("\n"))
 
@@ -129,10 +129,7 @@ function deriveStatus(p: ParsedOutput, exitCode: number): SuiteExecStatus {
   return "notrun"
 }
 
-export async function runTestFile(
-  filePath: string,
-  callbacks: SuiteRunnerCallbacks,
-): Promise<SuiteRunResult> {
+export async function runTestFile(filePath: string, callbacks: SuiteRunnerCallbacks): Promise<SuiteRunResult> {
   const rel = filePath.replace(TARGET_PACKAGE_ROOT, "").replace(/^\//, "")
   const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}__${rel.replace(/[^a-z0-9]+/gi, "-").slice(0, 80)}`
   const startedAt = Date.now()
@@ -147,10 +144,7 @@ export async function runTestFile(
     env: { ...process.env, FORCE_COLOR: "0" },
   })
 
-  const [stdout, stderr] = await Promise.all([
-    pipe(proc.stdout, callbacks.onLog),
-    pipe(proc.stderr, callbacks.onLog),
-  ])
+  const [stdout, stderr] = await Promise.all([pipe(proc.stdout, callbacks.onLog), pipe(proc.stderr, callbacks.onLog)])
   const exitCode = await proc.exited
   const durationMs = Date.now() - startedAt
 
@@ -173,7 +167,9 @@ export async function runTestFile(
     errorOutput: parsed.errorOutput,
   }
 
-  callbacks.onLog(`\n${status === "pass" ? "✓" : status === "fail" ? "✗" : "•"} ${rel} — ${parsed.passed}p / ${parsed.failed}f / ${parsed.skipped}s in ${durationMs}ms\n`)
+  callbacks.onLog(
+    `\n${status === "pass" ? "✓" : status === "fail" ? "✗" : "•"} ${rel} — ${parsed.passed}p / ${parsed.failed}f / ${parsed.skipped}s in ${durationMs}ms\n`,
+  )
   callbacks.onStateChange(status === "fail" ? "error" : "success", exitCode)
   callbacks.onResult(result)
   callbacks.onDone()
