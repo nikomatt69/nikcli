@@ -6,6 +6,7 @@ import z from "zod"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
 import { SessionEvent } from "./event"
+import { SessionV2EventRepo } from "./event-repo"
 import { Stepper } from "./stepper"
 
 /**
@@ -29,6 +30,12 @@ import { Stepper } from "./stepper"
  * `message.part.updated` events; `session.v2.updated` fires only on
  * entry-grade changes (message lifecycle, tool state transitions, retries,
  * part removal) to stay quiet during text streaming.
+ *
+ * The translated events are also written to the durable event log
+ * (`SessionV2EventRepo`) at the same entry-grade cadence: lifecycle events
+ * immediately, part updates coalesced per part and flushed on grade changes
+ * and at completion (sealed with a synthesized `step.ended`). Persistence
+ * failures are logged and never break the live reduction.
  */
 export namespace SessionProjector {
   const log = Log.create({ service: "session.v2.projector" })
@@ -48,6 +55,10 @@ export namespace SessionProjector {
     inflight?: string
     /** partID → last entry-grade signature, to publish only on grade changes */
     seen: Map<string, string>
+    /** partID → latest translated part.updated event, flushed to the log on
+     * grade changes and on completion (per-delta writes would reintroduce
+     * the per-token disk write problem) */
+    latest: Map<string, SessionEvent.Event>
   }
 
   interface State {
@@ -72,20 +83,31 @@ export namespace SessionProjector {
       const live = (sessionID: string): Live => {
         let target = s.sessions.get(sessionID)
         if (!target) {
-          target = { state: empty(), seen: new Map() }
+          target = { state: empty(), seen: new Map(), latest: new Map() }
           s.sessions.set(sessionID, target)
         }
         return target
       }
 
       const step = (target: Live, sessionID: string, draft: SessionEvent.Draft) => {
-        target.state = Stepper.stepWith(target.state, memoryAdapter, sessionID, SessionEvent.create(draft))
+        const event = SessionEvent.create(draft)
+        target.state = Stepper.stepWith(target.state, memoryAdapter, sessionID, event)
+        return event
+      }
+
+      const persist = (event: SessionEvent.Event) => {
+        try {
+          SessionV2EventRepo.append(event)
+        } catch (error) {
+          log.error("failed to persist v2 event", { type: event.type, error })
+        }
       }
 
       const drop = (target: Live) => {
         target.state = empty()
         target.inflight = undefined
         target.seen.clear()
+        target.latest.clear()
       }
 
       s.unsubscribes.push(
@@ -95,6 +117,20 @@ export namespace SessionProjector {
           const target = live(info.sessionID)
           if (info.time.completed) {
             if (target.inflight !== info.id) return
+            // flush the coalesced part rows and seal the step in the event
+            // log before storage becomes authoritative for the message
+            for (const event of target.latest.values()) persist(event)
+            persist(
+              SessionEvent.create({
+                type: "step.ended",
+                sessionID: info.sessionID,
+                messageID: info.id,
+                reason: "completed",
+                cost: info.cost,
+                tokens: info.tokens,
+                finish: info.finish,
+              }),
+            )
             // storage is authoritative from here on: drop the live tail
             drop(target)
             publish(info.sessionID)
@@ -104,14 +140,16 @@ export namespace SessionProjector {
           // a new assistant message went in flight: restart the reduction
           drop(target)
           target.inflight = info.id
-          step(target, info.sessionID, {
-            type: "step.started",
-            sessionID: info.sessionID,
-            messageID: info.id,
-            providerID: info.providerID,
-            modelID: info.modelID,
-            agent: info.agent,
-          })
+          persist(
+            step(target, info.sessionID, {
+              type: "step.started",
+              sessionID: info.sessionID,
+              messageID: info.id,
+              providerID: info.providerID,
+              modelID: info.modelID,
+              agent: info.agent,
+            }),
+          )
           publish(info.sessionID)
         }),
         Bus.subscribe(MessageV2.Event.PartUpdated, (event) => {
@@ -122,32 +160,45 @@ export namespace SessionProjector {
             // retries are terminal per attempt — translate once
             if (target.seen.has(part.id)) return
             target.seen.set(part.id, "retry")
-            step(target, part.sessionID, {
-              type: "retry.error",
-              sessionID: part.sessionID,
-              messageID: part.messageID,
-              attempt: part.attempt,
-              error: part.error,
-            })
+            persist(
+              step(target, part.sessionID, {
+                type: "retry.error",
+                sessionID: part.sessionID,
+                messageID: part.messageID,
+                attempt: part.attempt,
+                error: part.error,
+              }),
+            )
             publish(part.sessionID)
             return
           }
           const grade = part.type === "tool" ? part.state.status : "·"
           const before = target.seen.get(part.id)
           target.seen.set(part.id, grade)
-          step(target, part.sessionID, {
+          const translated = step(target, part.sessionID, {
             type: "part.updated",
             sessionID: part.sessionID,
             part,
           })
-          if (before === undefined || before !== grade) publish(part.sessionID)
+          target.latest.set(part.id, translated)
+          if (before === undefined || before !== grade) {
+            persist(translated)
+            publish(part.sessionID)
+          }
         }),
         Bus.subscribe(MessageV2.Event.PartRemoved, (event) => {
           const { sessionID, messageID, partID } = event.properties
           const target = s.sessions.get(sessionID)
           if (!target || target.inflight !== messageID) return
           target.seen.delete(partID)
+          target.latest.delete(partID)
           step(target, sessionID, { type: "part.removed", sessionID, messageID, partID })
+          // a removed part un-happened: its coalesced row goes with it
+          try {
+            SessionV2EventRepo.removePart(partID)
+          } catch (error) {
+            log.error("failed to remove v2 event row", { partID, error })
+          }
           publish(sessionID)
         }),
         Bus.subscribe(MessageV2.Event.Removed, (event) => {
@@ -155,10 +206,20 @@ export namespace SessionProjector {
           const target = s.sessions.get(sessionID)
           if (!target || target.inflight !== messageID) return
           drop(target)
+          try {
+            SessionV2EventRepo.removeMessage(messageID)
+          } catch (error) {
+            log.error("failed to remove v2 event rows", { messageID, error })
+          }
           publish(sessionID)
         }),
         Bus.subscribe(Session.Event.Deleted, (event) => {
           s.sessions.delete(event.properties.info.id)
+          try {
+            SessionV2EventRepo.clear(event.properties.info.id)
+          } catch (error) {
+            log.error("failed to clear v2 event rows", { sessionID: event.properties.info.id, error })
+          }
         }),
       )
 

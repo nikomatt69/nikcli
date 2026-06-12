@@ -161,9 +161,32 @@ migrated by strangler over the v1 engine:
   conversion of storage + live pending tail; `state()`/`pending()` =
   projector snapshot. Writes (`create`, `prompt`) still delegate to the v1
   Session/SessionPrompt services (v1 stays the only writer).
-- Server: `GET /session/:id/v2/entries` and `GET /session/:id/v2/state`
-  (server/routes/session.ts); `session.v2.updated` reaches clients through
-  the existing bus → SSE forwarding.
+- Server: `GET /session/:id/v2/entries`, `GET /session/:id/v2/state` and
+  `GET /session/:id/v2/events` (server/routes/session.ts);
+  `session.v2.updated` reaches clients through the existing bus → SSE
+  forwarding.
 
-Not done yet: native v2 write path (engine swap), persistence of v2 events.
-Tests: `test/session/v2-conversion.test.ts`, `test/session/v2-projector.test.ts`.
+## Event persistence (2026-06-12)
+
+The v2 event stream is durable: `SessionV2EventRepo` (event-repo.ts) writes
+the projector's translated events into the `session_v2_event` table
+(event.sql.ts, migration `20260612000000_session_v2_event`).
+
+- Lifecycle events (`step.started`, `retry.error`) persist immediately;
+  completion seals the step with a synthesized `step.ended` carrying
+  cost/tokens/finish from the v1 assistant info.
+- `part.updated` rows coalesce per originating v1 part id (live streams
+  re-emit a part once per token — an append-only log would be one row per
+  delta, the per-token disk write problem again). Rows flush on
+  entry-grade changes and at completion; `sortKey` keeps the first-seen
+  position so replay order is stable.
+- `SessionV2.events(id)` returns the log; `SessionV2.replay(id)` rebuilds
+  the Stepper reduction from it — a step without a sealing `step.ended`
+  (crash, in flight) replays as `pending`, which is the crash-recovery
+  shape for the future native engine.
+- Removed parts/messages delete their rows; session delete clears the log.
+- Persistence failures are logged and never break the live reduction.
+
+Not done yet: native v2 write path (engine swap) — v1 stays the only writer.
+Tests: `test/session/v2-conversion.test.ts`,
+`test/session/v2-projector.test.ts`, `test/session/v2-persistence.test.ts`.

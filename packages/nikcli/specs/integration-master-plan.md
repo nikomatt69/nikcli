@@ -86,9 +86,10 @@ Two parallel streams that unblock everything else.
 - `[~]` `api.keymap` layered command/binding API for TUI plugins;
   `api.command` becomes a deprecated alias (`specs/v2/tui-command-shim.md`,
   `specs/v2/keymappings.md`).
-- `[ ]` Message shape: native v2 write path (engine swap) + persistence of
-  v2 events (`specs/v2/message-shape.md`, Option 2 prompt mutators for
-  hooks).
+- `[~]` Message shape: persistence of v2 events is done
+  (`session_v2_event` log + `SessionV2.events/replay`, see
+  `specs/v2/message-shape.md`); the native v2 write path (engine swap)
+  and Option 2 prompt mutators for hooks remain.
 - `[ ]` Support dialog follow-ups: markdown rendering, copy-to-clipboard,
   file attach, per-session model pick, adaptive quickstart
   (`specs/v2/support-dialog.md`).

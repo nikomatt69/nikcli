@@ -6,6 +6,7 @@ import { Session } from "../../session"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionV2 } from "../../session/v2"
 import { SessionEntry } from "../../session/v2/entry"
+import { SessionEvent } from "../../session/v2/event"
 import { SessionPrompt } from "../../session/prompt"
 import { SessionContext } from "../../session/context-breakdown"
 import { SessionCompaction } from "../../session/compaction"
@@ -1219,6 +1220,42 @@ export const SessionRoutes = lazy(() =>
           }),
         )
         return c.json(SessionV2.state(sessionID))
+      },
+    )
+    .get(
+      "/:sessionID/v2/events",
+      describeRoute({
+        summary: "Get the persisted session v2 event log",
+        description:
+          "Retrieve the durable v2 event log for a session in replay order: step lifecycle events plus per-part coalesced updates. Replaying it through the v2 stepper reproduces the session reduction. Experimental.",
+        operationId: "session.v2.events",
+        responses: {
+          200: {
+            description: "List of persisted v2 events",
+            content: {
+              "application/json": {
+                schema: resolver(SessionEvent.Event.array()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(sessionID)
+          }),
+        )
+        return c.json(SessionV2.events(sessionID))
       },
     )
     .delete(

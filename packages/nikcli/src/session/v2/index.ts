@@ -3,6 +3,8 @@ import { Identifier } from "@/id/id"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
+import type { SessionEvent } from "./event"
+import { SessionV2EventRepo } from "./event-repo"
 import { SessionProjector } from "./projector"
 import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
@@ -180,6 +182,22 @@ export namespace SessionV2 {
    */
   export function clear(sessionID: string): void {
     SessionProjector.clear(sessionID)
+  }
+
+  /**
+   * Persisted v2 event log for a session, in replay order.
+   */
+  export function events(sessionID: string): SessionEvent.Event[] {
+    return SessionV2EventRepo.list(sessionID)
+  }
+
+  /**
+   * Rebuild the Stepper reduction of a session from the persisted event
+   * log. Completed steps land in `entries`; a step without a sealing
+   * `step.ended` (crash, still in flight) stays in `pending`.
+   */
+  export function replay(sessionID: string): Stepper.MemoryState {
+    return SessionV2EventRepo.replay(sessionID)
   }
 
   // ============================================================================
