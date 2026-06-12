@@ -1,5 +1,22 @@
 # TUI Command Shim Removal
 
+## Status (2026-06-12)
+
+- The runtime shim is gone: `command-shim.ts` and `createCommandShim` no
+  longer exist; `api.command` is implemented natively against the host
+  command dialog in `plugin/api.tsx` / `plugin/runtime.ts`.
+- The keymap surface now exists: `api.keymap.registerLayer({ commands,
+  bindings })` and `api.keymap.dispatchCommand(name)` are implemented in
+  `src/cli/cmd/tui/plugin/keymap.ts` (types `TuiKeymap*` in
+  `packages/plugin/src/tui.ts`), with unit tests in
+  `test/tui/plugin-keymap.test.ts`. `dispatchCommand("command.palette.show")`
+  opens the host palette.
+- Decision change vs. the plan below: `TuiPluginApi.command` is kept as a
+  **deprecated** alias (JSDoc `@deprecated`) instead of being deleted,
+  because external plugins and `specs/tui-plugins.md` still document it.
+  Delete it (and `TuiCommand` from the public surface) in the next plugin
+  API major.
+
 Problem:
 
 - v1 keeps a deprecated `api.command` TUI plugin shim so older plugins do not fail during initialization

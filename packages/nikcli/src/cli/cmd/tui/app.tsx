@@ -1318,13 +1318,13 @@ function App() {
       }),
       sdk.event.on("permission.asked", () => {
         const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined
-        if (!tuiCfg?.sound) return
+        if (tuiCfg?.sound === false) return
         if (attention.focus() === "focused") return
         Sound.pulse(1.3)
       }),
       sdk.event.on("session.idle", () => {
         const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined
-        if (!tuiCfg?.sound) return
+        if (tuiCfg?.sound === false) return
         if (attention.focus() === "focused") return
         Sound.pulse(0.8)
       }),

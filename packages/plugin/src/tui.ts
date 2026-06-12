@@ -56,6 +56,42 @@ export type TuiCommand = {
   onSelect?: () => void
 }
 
+export type TuiKeymapCommand = {
+  /** Unique command id, e.g. "plugin.command". Dispatchable via keymap.dispatchCommand. */
+  name: string
+  title: string
+  description?: string
+  /** Command palette category. */
+  namespace?: string
+  /** Registers the command as /<slashName>. */
+  slashName?: string
+  slashAliases?: string[]
+  suggested?: boolean
+  hidden?: boolean
+  enabled?: boolean
+  run: () => void
+}
+
+export type TuiKeymapBinding = {
+  /** Key syntax, including layered sequences like "<leader>x". */
+  key: string
+  /** Command name to dispatch, or an inline handler. */
+  cmd: string | (() => void)
+  description?: string
+}
+
+export type TuiKeymapLayer = {
+  commands?: TuiKeymapCommand[]
+  bindings?: TuiKeymapBinding[]
+}
+
+export type TuiKeymapApi = {
+  /** Registers commands and key bindings as one disposable layer. Returns unregister. */
+  registerLayer: (layer: TuiKeymapLayer) => () => void
+  /** Runs a command by name. "command.palette.show" opens the host command palette. */
+  dispatchCommand: (name: string) => void
+}
+
 export type TuiKeybind = {
   name: string
   ctrl: boolean
@@ -366,10 +402,13 @@ export type TuiPluginInstallResult =
 
 export type TuiPluginApi = {
   app: TuiApp
+  /** @deprecated Use `keymap.registerLayer` / `keymap.dispatchCommand` instead. */
   command: {
     register: (cb: () => TuiCommand[]) => () => void
     trigger: (value: string) => void
+    show: () => void
   }
+  keymap: TuiKeymapApi
   route: {
     register: (routes: TuiRouteDefinition[]) => () => void
     navigate: (name: string, params?: Record<string, unknown>) => void

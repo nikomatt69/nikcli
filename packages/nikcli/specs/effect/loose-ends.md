@@ -6,7 +6,7 @@ Small follow-ups that do not fit neatly into the main facade, route, tool, or sc
 
 - [x] `config/tui.ts` - finish the internal Effect migration.
       Current branch path is `src/config/tui.ts`; `loadState`, `mergeFile`, `loadFile`, and `load` are `Effect.fn(...)` helpers, and TUI config loading uses `ConfigPaths.Service`. Covered by `bun run typecheck` and `bun test test/tui/util/scroll.test.ts`.
-- [ ] `config/tui.ts` callers - merged into Phase F (entry boundaries) of MASTER-PLAN.md. Reason: the active callers are `cli/cmd/tui/plugin/runtime.ts` `TuiConfig.get()` / `TuiConfig.waitForDependencies()` calls inside `Instance.provide({ fn: async () => ... })` blocks; they will flip when the surrounding TUI entrypoint moves to the unified `withInstance(...)` helper, not as a stand-alone migration.
+- [ ] `config/tui.ts` callers - merged into Phase F (entry boundaries; see `specs/integration-master-plan.md`). Reason: the active callers are `cli/cmd/tui/plugin/runtime.ts` `TuiConfig.get()` / `TuiConfig.waitForDependencies()` calls inside `Instance.provide({ fn: async () => ... })` blocks; they will flip when the surrounding TUI entrypoint moves to the unified `withInstance(...)` helper, not as a stand-alone migration.
 - [x] `env/index.ts` - direct `Instance.state` removed. Reason: `process.env` is process-global and `Env.set` mutates it directly, so the per-instance ALS wrapper added no behavioural isolation. The module is now a thin wrapper around `process.env` and remains sync (the 24 callers in `provider/provider.ts` are themselves still plain `async function` impls, so a full `Env.Service` migration is deferred until those caller chains effectify in Phase F).
 
 ## ConfigPaths

@@ -194,7 +194,8 @@ That is what makes local config-scoped plugins able to import `@nikcli-ai/plugin
 Top-level API groups exposed to `tui(api, options, meta)`:
 
 - `api.app.version`
-- `api.command.register(cb)` / `api.command.trigger(value)` / `api.command.show()`
+- `api.command.register(cb)` / `api.command.trigger(value)` / `api.command.show()` (deprecated; use `api.keymap`)
+- `api.keymap.registerLayer({ commands, bindings })` / `api.keymap.dispatchCommand(name)`
 - `api.route.register(routes)` / `api.route.navigate(name, params?)` / `api.route.current`
 - `api.ui.Dialog`, `DialogAlert`, `DialogConfirm`, `DialogPrompt`, `DialogSelect`, `Slot`, `Prompt`, `ui.toast`, `ui.dialog`
 - `api.keybind.match`, `print`, `create`
@@ -226,6 +227,25 @@ Command behavior:
 - Later registrations win for duplicate `value` and for keybind handling.
 - Hidden commands are removed from the command dialog and slash list, but still respond to keybinds and `command.trigger(value)` if `enabled !== false`.
 - `api.command.show()` opens the host command dialog directly.
+
+### Keymap
+
+`api.keymap` is the v2 replacement for `api.command`:
+
+- `api.keymap.registerLayer({ commands?, bindings? })` registers commands
+  and key bindings as one disposable layer and returns an unregister
+  function.
+- Layer commands are `{ name, title, description?, namespace?, slashName?,
+  slashAliases?, suggested?, hidden?, enabled?, run }`. `name` is the
+  dispatchable id, `namespace` maps to the palette category, `slashName`
+  registers `/<slashName>`.
+- Bindings are `{ key, cmd, description? }` where `key` supports layered
+  sequences like `<leader>x` and `cmd` is either a command name (from this
+  layer, the host, or another layer) or an inline function.
+- The first binding for a layer command becomes its visible palette
+  keybind; additional or foreign bindings become hidden alias rows.
+- `api.keymap.dispatchCommand(name)` runs a command by name;
+  `dispatchCommand("command.palette.show")` opens the host palette.
 
 ### Routes
 

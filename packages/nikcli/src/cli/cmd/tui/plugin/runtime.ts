@@ -34,6 +34,7 @@ import {
 import { PluginMeta } from "@/plugin/meta"
 import { installPlugin as installModulePlugin, patchPluginConfig, readPluginManifest } from "@/plugin/install"
 import { addTheme, hasTheme } from "../context/theme"
+import { createKeymapApi } from "./keymap"
 import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
 import { Process } from "@/util/process"
@@ -520,7 +521,11 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
     trigger(value) {
       api.command.trigger(value)
     },
+    show() {
+      api.command.show()
+    },
   }
+  const keymap = createKeymapApi(command)
 
   const route: TuiPluginApi["route"] = {
     register(list) {
@@ -559,6 +564,7 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
   return {
     app: api.app,
     command,
+    keymap,
     route,
     ui: api.ui,
     keybind: api.keybind,

@@ -9,6 +9,7 @@ import type { useTheme } from "@tui/context/theme"
 import { Dialog as DialogUI, type useDialog } from "@tui/ui/dialog"
 import type { TuiConfig } from "@/config/tui"
 import { createPluginKeybind } from "../context/plugin-keybinds"
+import { createKeymapApi } from "./keymap"
 import { hasTheme } from "../context/theme"
 import type { useKV } from "../context/kv"
 import { DialogAlert } from "../ui/dialog-alert"
@@ -301,16 +302,22 @@ export function createTuiApi(input: Input): TuiPluginApi {
     },
   }
 
+  const command: TuiPluginApi["command"] = {
+    register(cb) {
+      return input.command.register(() => cb())
+    },
+    trigger(value) {
+      input.command.trigger(value)
+    },
+    show() {
+      input.command.show()
+    },
+  }
+
   return {
     app: appApi(),
-    command: {
-      register(cb) {
-        return input.command.register(() => cb())
-      },
-      trigger(value) {
-        input.command.trigger(value)
-      },
-    },
+    command,
+    keymap: createKeymapApi(command),
     route: {
       register(list) {
         return routeRegister(input.routes, list, input.bump)
