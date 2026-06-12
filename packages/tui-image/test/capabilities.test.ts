@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { detectCapabilities, Protocol, protocolForTerminal } from "../src/capabilities"
+import { applyLiveCapabilities, detectCapabilities, Protocol, protocolForTerminal } from "../src/capabilities"
 
 describe("protocolForTerminal", () => {
   test("recognises kitty", () => {
@@ -78,5 +78,60 @@ describe("detectCapabilities", () => {
     })
     expect(caps.available[0]).toBe(Protocol.KITTY)
     expect(caps.available).toContain(Protocol.ITERM2)
+  })
+})
+
+describe("applyLiveCapabilities", () => {
+  test("passthrough when live answer is unavailable", () => {
+    const detected = detectCapabilities(undefined, { TERM: "xterm-256color" })
+    expect(applyLiveCapabilities(detected, null, {})).toBe(detected)
+  })
+
+  test("negotiated DA1 without sixel drops the TERM=xterm guess", () => {
+    const detected = detectCapabilities(undefined, { TERM: "xterm-256color" })
+    expect(detected.best).toBe(Protocol.SIXEL)
+    const merged = applyLiveCapabilities(detected, { sixel: false }, {})
+    expect(merged.sixel).toBe(false)
+    expect(merged.best).toBeNull()
+  })
+
+  test("negotiated sixel keeps the sixel protocol", () => {
+    const detected = detectCapabilities(undefined, { TERM: "xterm-256color" })
+    const merged = applyLiveCapabilities(detected, { sixel: true }, {})
+    expect(merged.best).toBe(Protocol.SIXEL)
+  })
+
+  test("vscode iterm2 guess requires the image addon (sixel in DA1)", () => {
+    const env = { TERM: "xterm-256color", TERM_PROGRAM: "vscode" }
+    const detected = detectCapabilities(undefined, env)
+    expect(detected.iterm2).toBe(true)
+    const disabled = applyLiveCapabilities(detected, { sixel: false }, env)
+    expect(disabled.iterm2).toBe(false)
+    expect(disabled.best).toBeNull()
+    const enabled = applyLiveCapabilities(detected, { sixel: true }, env)
+    expect(enabled.iterm2).toBe(true)
+    expect(enabled.best).toBe(Protocol.SIXEL)
+  })
+
+  test("real iTerm2 keeps iterm2 even without sixel in DA1", () => {
+    const env = { TERM: "xterm-256color", TERM_PROGRAM: "iTerm.app", ITERM_SESSION_ID: "abc" }
+    const detected = detectCapabilities(undefined, env)
+    const merged = applyLiveCapabilities(detected, { sixel: false }, env)
+    expect(merged.iterm2).toBe(true)
+    expect(merged.best).toBe(Protocol.ITERM2)
+  })
+
+  test("negotiated kitty graphics augments the env answer", () => {
+    const detected = detectCapabilities(undefined, { TERM: "xterm-256color" })
+    const merged = applyLiveCapabilities(detected, { kitty_graphics: true, sixel: false }, {})
+    expect(merged.kitty).toBe(true)
+    expect(merged.best).toBe(Protocol.KITTY)
+  })
+
+  test("explicit kitty env survives a lost graphics query", () => {
+    const env = { KITTY_WINDOW_ID: "1" }
+    const detected = detectCapabilities(undefined, env)
+    const merged = applyLiveCapabilities(detected, { kitty_graphics: false, sixel: false }, env)
+    expect(merged.kitty).toBe(true)
   })
 })

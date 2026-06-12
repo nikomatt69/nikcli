@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Sw
 import { BoxRenderable, type CliRenderer, RGBA } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
 import {
+  applyLiveCapabilities,
   detectCapabilities,
   encodeIterm2Bytes,
   encodeKittyVirtual,
@@ -13,6 +14,7 @@ import {
   renderImage,
   resize,
   supportsKittyUnicodePlaceholders,
+  type LiveCapabilities,
   type RendererKind,
 } from "@nikcli-ai/tui-image"
 import { useTheme } from "@tui/context/theme"
@@ -358,11 +360,14 @@ async function loadTuiImage(
   url: string,
   maxColumns: number,
   maxRows: number,
+  live: LiveCapabilities | null,
   signal: AbortSignal,
 ): Promise<TuiImageData> {
   const bytes = await readImageBytes(url, signal)
   if (signal.aborted) throw new Error("aborted")
-  const capabilities = detectCapabilities()
+  // Env detection over-reports native protocols (TERM=xterm-256color implies
+  // sixel almost everywhere); the renderer's negotiated DA1 answer decides.
+  const capabilities = applyLiveCapabilities(detectCapabilities(), live)
   const bounds = previewBounds(maxColumns, maxRows)
 
   if (supportsKittyUnicodePlaceholders(capabilities)) {
@@ -447,12 +452,20 @@ async function loadTuiImage(
   }
 }
 
-function cachedTuiImage(url: string, maxColumns: number, maxRows: number, signal: AbortSignal) {
+function cachedTuiImage(
+  url: string,
+  maxColumns: number,
+  maxRows: number,
+  live: LiveCapabilities | null,
+  signal: AbortSignal,
+) {
   const bounds = previewBounds(maxColumns, maxRows)
-  const key = `${bounds.columns}x${bounds.rows}\n${url}`
+  // Negotiated capabilities arrive shortly after renderer startup; keying on
+  // them keeps an early env-only result from pinning the protocol choice.
+  const key = `${bounds.columns}x${bounds.rows}\n${live ? "live" : "env"}\n${url}`
   const cached = previewCache.get(key)
   if (cached) return cached
-  const promise = loadTuiImage(url, bounds.columns, bounds.rows, signal).catch((error) => {
+  const promise = loadTuiImage(url, bounds.columns, bounds.rows, live, signal).catch((error) => {
     previewCache.delete(key)
     throw error
   })
@@ -470,7 +483,8 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
     const controller = new AbortController()
     const url = props.url
     setState({ status: "loading" })
-    void cachedTuiImage(url, props.maxColumns, props.maxRows, controller.signal)
+    const live = (renderer.capabilities ?? null) as LiveCapabilities | null
+    void cachedTuiImage(url, props.maxColumns, props.maxRows, live, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           // The kitty transmission is drawless (a=T,U=1) — written once per

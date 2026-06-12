@@ -231,7 +231,7 @@ Core configuration and registry for all AI agents. Three purposes:
 - **`subagent`** — only callable via `task` tool (researcher, delegator, ultrareview-reviewer)
 - **`all`** — works in both roles (explore, fast-explore, planner, code-reviewer, debugger, test-runner, refactor, general)
 
-### Built-in Agents (17 total)
+### Built-in Agents (18 total)
 
 | Agent                  | Mode     | Hidden | Key Traits                                                           |
 | ---------------------- | -------- | ------ | -------------------------------------------------------------------- |
@@ -252,6 +252,7 @@ Core configuration and registry for all AI agents. Three purposes:
 | `compaction`           | primary  | yes    | Session compaction (context summarization)                           |
 | `title`                | primary  | yes    | Generates conversation titles                                        |
 | `summary`              | primary  | yes    | Summarizes conversations                                             |
+| `support`              | subagent | yes    | In-app help chat — read-only, webfetch+websearch, `/support` command (added 2026-06-10) |
 
 ### Agent.Info Schema
 
@@ -2468,13 +2469,17 @@ Three distinct files often confused in the TUI subsystem:
 
 **`Provider.Service` Effect API** (`:1021-1043`): `list`, `getProvider`, `getModel`, `getLanguage`, `getImageModel`, `getModelRef`, `getSmallModel`, `defaultModel`, `closest`, `refresh`.
 
-### Storage Backend
+### Storage Backend (updated 2026-06-10)
 
-Hybrid: **filesystem JSON + SQLite (Drizzle ORM, Bun driver)**.
+Hybrid: **filesystem JSON + central SQLite (Drizzle ORM, Bun driver)** — migration to single `nikcli.db` in progress.
 
 - `Storage` namespace (`src/storage/storage.ts:62-86`) — JSON file ops with `["collection", "id", ...]` key format
-- `src/storage/db.ts` — SQLite with Drizzle, PRAGMAs: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`
-- **DB tables** (from `src/db/` schema): `users`, `account`, `workspace`, `mobile_tokens`, `chat`
+- `Database` namespace (`src/database/database.ts`) — Effect service for single unified SQLite; `defaultLayer` and `layerFromPath(filename)` for testing
+- `src/database/schema.ts` — re-exports all tables from per-module `.sql.ts` files
+- `DatabaseMigration` namespace (`src/database/migration.ts`) — applies migrations in transactions, tracks in `migration(id, time_completed)` table
+- **Old** `src/storage/db.ts` and `src/storage/db.bun.ts` — being removed (no imports after migration)
+- **DB tables** (from `src/database/schema.ts`): `users`, `user_sessions`, `chat_contacts`, `chat_messages`, `account`, `config`, `mobile_tokens`, `workspace`
+- PRAGMAs: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`, `wal_checkpoint(PASSIVE)`
 - `BUNDLED_PROVIDERS` map in `src/provider/provider.ts:385`
 
 ### Config Loading Precedence (lowest → highest)
@@ -2979,7 +2984,7 @@ nikcli is an AI-powered development tool with two faces: headless CLI + interact
 - **Core runtime**: `agent/`, `session/` (processor, runner, llm, message-v2, compaction, revert, retry, mode, goal, todo, stats, summary), `session/llm/` (ai-sdk, native-request, native-runtime), `session/v2/`, `provider/` (registry, llm-client, transform, models), `tool/` (~40+ tools with .txt system prompts), `bus/`
 - **Interfaces**: `cli/cmd/` (~40 yargs commands, some in `tui/`, `debug/`), `cli/cmd/tui/` (SolidJS app, 40+ dialogs), `server/` (Hono, routes, SSE, mDNS, WebSocket, OpenAPI), `acp/`
 - **Integrations**: `mcp/`, `lsp/`, `connectors/` (Discord, Slack, GitHub, Linear, Teams, GChat via `@chat-adapter/*`), `chatbot/`, `companion/`, `mobile/`, `plugin/`, `scheduler/`, `share/`
-- **Internal services**: `permission/` (PermissionNext), `storage/`, `db/` (Drizzle), `config/`, `project/` (Instance, bootstrap, vcs), `workspace/`, `worktree/`, `filesystem/`, `file/`, `git/`, `shell/`, `pty/`, `snapshot/`, `patch/`, `sandbox/` (Vercel sandbox), `account/`, `auth/`, `installation/`, `delegation/`, `effect/`, `global/`, `env/`, `flag/`, `id/`, `image/`, `brain/`, `audio.d.ts`, `wasm.d.ts`, `interaction/`, `question/`, `locale/`, `loop/`, `format/`, `prompt/`, `skill/`, `sync/`, `monitor/`, `command/`, `util/`, `ide/`, `background/`
+- **Internal services**: `permission/` (PermissionNext), `storage/` (JSON), `database/` (central SQLite — Drizzle, `nikcli.db`), `db/` (legacy per-domain SQL modules, being merged), `config/`, `project/` (Instance, bootstrap, vcs), `workspace/`, `worktree/`, `filesystem/`, `file/`, `git/`, `shell/`, `pty/`, `snapshot/`, `patch/`, `sandbox/` (Vercel sandbox), `account/`, `auth/`, `installation/`, `delegation/`, `effect/`, `global/`, `env/`, `flag/`, `id/`, `image/`, `brain/`, `audio.d.ts`, `wasm.d.ts`, `interaction/`, `question/`, `locale/`, `loop/`, `format/`, `prompt/`, `skill/`, `sync/`, `monitor/`, `command/`, `util/`, `ide/`, `background/`
 
 ### Image Preview System — `tui-image` Integration (2026-06-10)
 
@@ -3027,6 +3032,198 @@ CLI commands grouped by category (per `packages/nikcli/src/cli/cmd/`):
 
 ### Outstanding TODO from 2026-06-10
 
-- **TUI exit logo**: User requested nikcli to display ASCII logo on terminal kill (like OpenCode does) — added 2026-05-20, still not implemented
-- **tui-image typecheck**: Needs re-run with longer timeout to confirm integration compiles cleanly
-- **CI babysit resolution**: PR #91 (most recent open) has multiple failures; needs investigation
+- **TUI exit logo**: User requested nikcli to display ASCII logo on terminal kill (like OpenCode does) — added 2026-05-20, still not implemented (re-attempt via renderer cleanup hook)
+- **tui-image typecheck**: Needs re-run with longer timeout to confirm integration compiles cleanly (`zig.d.ts` `writeOut` integration)
+- **CI babysit resolution**: PR #91 (mobile) and PR #88 (npm-publish) and PR #86 (effect-skill-integration) have unaddressed failures; PR #99 (session.init removal) has 3 Windows failures + 1 pending — root causes and fixes documented in new Brain Pass section below
+- **Database centralization**: domain modules still re-export their own tables; need full migration to central `Database` service (cleanup of `storage/db.ts`, `storage/db.bun.ts`, per-domain openers)
+
+## Brain Pass (2026-06-10 evening / 2026-06-11)
+
+### Database Centralization (in progress, 2026-06-10)
+
+Active migration of all domain SQLite modules into a single unified database under `src/database/`. New namespace `Database` replaces per-domain singletons.
+
+**Target state** (per `specs/storage/database.md` + exploration session `ses_14c21e877ffeNnwEosLVtEkvOB`):
+
+- Single SQLite file: `<Global.Path.data>/nikcli.db` (overridable via `NIKCLI_DB` env var)
+- One Drizzle client shared across all domain modules
+- One `DatabaseMigration` runner tracks applied migrations in a `migration(id, time_completed)` table
+- PRAGMAs applied at startup: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`, `wal_checkpoint(PASSIVE)`
+- Files re-exporting per-module tables: `src/database/schema.ts` re-exports from `account.sql`, `users.sql`, `auth.sql`, `workspace.sql`
+
+**Module migration status (2026-06-10 end)**:
+
+| Old module (lazy singleton + own DB)  | Old DB file         | New location                          | Status                |
+| ------------------------------------- | ------------------- | ------------------------------------- | --------------------- |
+| `db/users.ts` (`UserDB`)              | `users.db`          | re-exported via `Database.db`         | Re-exported, not migrated |
+| `account/db.ts` (`AccountDB`)         | `accounts.db`       | re-exported via `Database.db`         | Re-exported, not migrated |
+| `workspace/db.ts` (`WorkspaceDB`)     | `workspaces.db`     | re-exported via `Database.db`         | Re-exported, not migrated |
+| `mobile/auth.ts` (`MobileAuth`)       | `mobile_auth.db`    | re-exported via `Database.db`         | Re-exported, not migrated |
+| `storage/db.ts` (generic opener)      | n/a                 | removed; only `database/database.ts` opens SQLite | **Removed** |
+| `storage/db.bun.ts`                   | n/a                 | removed                               | **Removed** |
+| `sync/index.ts` (JSON eventsFile)     | `state/sync/*.json` | leftover dead code removed            | **Cleaned**           |
+
+**Verification gates (from spec)**: `rg "new Database|drizzle\(" packages/nikcli/src` should return only the central runtime + tests; `rg "CREATE TABLE IF NOT EXISTS|ALTER TABLE" packages/nikcli/src` should be only in `migration/` files.
+
+**Open typecheck errors post-migration (2026-06-10)**: `session/context-breakdown.ts:102,120,121,124` (`Property 'parts'/'info' does not exist on type '{}'`), `session/message-v2.ts:942,980` (`Object is possibly 'undefined'` + `.catch` on `{}`), `session/prompt.ts:665,698` (`AsyncGenerator<{}, void>` not assignable to `AsyncIterable<{info, parts}>`). Root cause: v2 session stream typing — generator yields `{}` instead of the expected `{info, parts}` shape.
+
+### OpenCode Reference Patterns (studied 2026-06-10)
+
+`anomalyco/opencode` (branch `dev`) is the reference implementation. Key patterns (`packages/core/src/database/`):
+
+```ts
+// database.ts — Effect-based DB service
+const makeDatabase = EffectDrizzleSqlite.makeWithDefaults()
+type DatabaseShape = Effect.Success<typeof makeDatabase>
+
+export class Service extends Context.Service<Service, Interface>()("@opencode/v2/storage/Database") {}
+
+export const layer = Layer.effect(
+  Service,
+  Effect.gen(function* () {
+    const db = yield* makeDatabase
+    yield* db.run("PRAGMA journal_mode = WAL")
+    yield* db.run("PRAGMA synchronous = NORMAL")
+    // ... more PRAGMAs ...
+    yield* DatabaseMigration.apply(db)
+    return { db }
+  }).pipe(Effect.orDie),
+)
+
+export function layerFromPath(filename: string) {
+  return layer.pipe(Layer.provide(sqliteLayer({ filename })))
+}
+
+export function path() {
+  if (Flag.OPENCODE_DB) {
+    if (Flag.OPENCODE_DB === ":memory:" || isAbsolute(Flag.OPENCODE_DB)) return Flag.OPENCODE_DB
+    return join(Global.Path.data, Flag.OPENCODE_DB)
+  }
+  // channel-based DB names: "opencode.db" or "opencode-<channel>.db"
+}
+
+export const defaultLayer = Layer.unwrap(
+  Effect.gen(function* () { return layerFromPath(path()) }),
+).pipe(Layer.provide(Global.defaultLayer))
+```
+
+`sqlite.bun.ts` defines a custom `SqliteClient` (extends `Client.SqlClient`) backed by `bun:sqlite` + `drizzle-orm/bun-sqlite`, with `export: Effect.Effect<Uint8Array, SqlError>` and `loadExtension: (path) => Effect.Effect<void, SqlError>` for backup/restore.
+
+**Adoption decision (nikcli)**: Use the same pattern but with our existing `EffectDrizzleSqlite` adapter if available, or hand-roll like opencode if not. The single-file `nikcli.db` is the destination.
+
+### TUI Image Component Fix (2026-06-10)
+
+Two TypeScript errors fixed in `packages/nikcli/src/cli/cmd/tui/component/tui-image.tsx`:
+
+**1. `OverlayRenderer` intersection collapsed to `never`** (lines ~255-286):
+
+The original type was `type OverlayRenderer = CliRenderer & { renderNative, writeOut, renderOffset }`. `renderOffset` is declared `private` on the upstream `CliRenderer` class, so the intersection reduces to `never`, breaking all five property accesses inside `registerNativeOverlay`.
+
+Fix: replaced intersection with a standalone structural type that names only the public members (`requestRender`, `terminalWidth`, `terminalHeight`) plus the three privates, and changed the boundary cast to `renderer as unknown as OverlayRenderer` (TS rejects direct casts when types don't sufficiently overlap).
+
+**2. `Cannot find name 'encodeHalfblock'`** (line 598):
+
+The re-export `export { encodeHalfblock }` was left over from a previous version, but the import was removed when the component switched to the kitty virtual-placement / iTerm2 / Sixel / braille pipeline. No call sites in the repo import `encodeHalfblock` from this file (verified via grep), so the re-export was removed.
+
+**Verification**:
+- `bun run typecheck` in `packages/nikcli` is clean for this file. The only remaining typecheck errors are in `packages/tui-image/src/encode.ts` (a different package), outside the scope of this request.
+- `bun test test/tui/` passes 147/147 in 2.35s.
+
+**Other `tui-image` integration notes (2026-06-10)**:
+
+- `zig.d.ts` exposes `writeOut` on `RenderLib` (not directly on `CliRenderer`); `CliRenderer.writeOut` is private — use `process.stdout.write` for now or pass writer callback
+- `Bun.link()` completed: `tui-image` is now linked into nikcli workspace
+- `loadImagePreview()` in `image-preview.tsx` uses the new half-block encoder from `tui-image` instead of the hand-rolled braille encoder
+- `ImagePreviewList` (legacy) delegates to new `TuiImageList` from `tui-image.tsx` when native protocol is available
+- Feature flag in route file (`routes/session/index.tsx`) lets user opt into the new renderer
+
+### `/support` Chat Feature (added 2026-06-10, session `ses_14c617056ffe5JIjDH54FvxwP7`)
+
+New in-app help assistant with read-only access to project docs.
+
+**Files created**:
+
+| File                                                   | Purpose                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `src/agent/prompt/support-docs.ts`                     | Markdown indexer for local docs (cached, ~30ms cold, 0ms cached)         |
+| `src/cli/cmd/tui/context/support-session.tsx`          | Context for persistent support session (saves sessionID to `state/support-session.json`) |
+| `specs/v2/support-dialog.md`                           | Architecture spec                                                        |
+
+**Files modified**:
+
+| File                                                | Change                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| `src/agent/agent.ts`                                | New builtin agent `support` (hidden, read-only, webfetch+websearch)     |
+| `src/cli/cmd/tui/component/dialog-support.tsx`      | Rewritten as full chat UI with streaming SSE, welcome hints, Ctrl+L reset |
+| `src/cli/cmd/tui/app.tsx`                           | Registered `/support` command + `app_support` keybind + `SupportSessionProvider` |
+| `src/config/config.ts`                              | Added keybind `app_support` (default `<leader>z`)                       |
+| `src/cli/cmd/tui/ui/dialog-help.tsx`                | Added `/support` + shortcut to help                                     |
+| `src/cli/cmd/tui/feature-plugins/home/tips-view.tsx`| Tip mentioning `/support` and `<leader>z`                               |
+
+**SDK**: `packages/sdk/js/src/v2/gen/types.gen.ts` — added `app_support?: string` to `KeybindsConfig` (line ~1760).
+
+**Entry points**:
+- Slash: `/support` (alias `ask`, `help-me`)
+- Keybind: `<leader>z`
+- Command palette: "Chat with the support assistant" (Support category)
+
+**Verification (2026-06-10)**:
+- `bun run typecheck` — only 2 pre-existing errors in `tui-image/src/encode.ts` (unrelated)
+- `npx oxlint` — 0 errors, 1 pre-existing warning in `config.ts:831`
+- `bun test test/agent/` — 7 pass, 0 fail
+- Docs indexer smoke test — ~30ms cold, 0ms cached
+
+**Design intent**: Read-only by design — `support` agent cannot modify files, run destructive bash, or spawn tasks. Docs auto-refresh via live indexer (AGENTS.md, README, specs/**, docs/**, packages/*/README.md).
+
+### PR #99 — `feat(session)!: remove the dedicated session.init route per the v2 plan` (2026-06-10)
+
+Branch: `claude/session-v2-live-stepper` → `live-main`. Local commit `c79a7ad80` on `live-main` matches PR 99's title.
+
+**CI status (2026-06-10T22:02Z)**:
+
+| Check                           | Result   | Time    |
+| ------------------------------- | -------- | ------- |
+| `smoke (windows-latest, cmd)`   | **fail** | 10m44s  |
+| `smoke (windows-latest, pwsh)`  | **fail** | 8m9s    |
+| `test (windows)`                | **fail** | 9m39s   |
+| `test (linux)`                  | pending  | 0       |
+| `Analyze (actions)`             | pass     | 38s     |
+| `Analyze (javascript-typescript)` | pass   | 1m23s   |
+| `Analyze (rust)`                | pass     | 1m39s   |
+| `CodeQL`                        | pass     | 2s      |
+| `add-contributor-label`         | pass     | 3s      |
+| `check-compliance`              | pass     | 3s      |
+| `check-duplicates`              | pass     | 6s      |
+| `check-standards`               | pass     | 3s      |
+| `nix-eval`                      | pass     | 38s     |
+| `typecheck`                     | pass     | 1m23s   |
+| `validate`                      | pass     | 1m24s   |
+
+**Root cause of smoke failures** (same in both cmd + pwsh): `packages/nikcli/test/session/prompt-effect-service.test.ts:27` expects `file://${path.join(directory, "notes.md")}` which produces backslash file URLs on Windows. The code under test uses `pathToFileURL` which produces RFC-8089 file URLs (`file:///C:/...`) and percent-encodes `RUNNER~1` → `RUNNER%7E1`. Two fixes needed:
+1. Build expected URL via `pathToFileURL(directory) + "notes.md"` instead of `file://${path.join(...)}`
+2. Decide whether the resolver should drop unresolved `read @notes.md` text when emitting a file part, or whether the test should assert both parts (test currently receives a `text` part AND a `file` part — resolver is falling through)
+
+**`test (windows)` failure** (run 27306248383 / job 80664732295): aborted with exit code 255 in the "Run" step, after `Set OS-specific paths` and before `Seed nikcli data` completed. Same shape of failure appears on PRs 91, 88, 86 — looks like runner/seed instability on `windows-latest` rather than a code regression, but it's still flagged failing on PR 99.
+
+### Open PRs against `live-main` (updated 2026-06-10T22:02Z)
+
+| PR  | Branch → live-main                             | Status                                                                  |
+| --- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| #99 | `claude/session-v2-live-stepper`               | 3 failing checks (Windows smoke × 2, test (windows) exit 255), 1 pending |
+| #91 | `nikcli/mobile/nikcli/yrrz85`                  | Multiple failures                                                       |
+| #88 | `claude/npm-publish-error-vCzX7`               | Windows smoke + test failures                                           |
+| #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures                                |
+
+Recently merged to `live-main`: #97, #96.
+
+### Other 2026-06-10 Sessions
+
+- `ses_14c7fda31ffeykKYasAN0YceBO` — Screenshot review request (image path, ambiguous)
+- `ses_14c77c22affeXGgD0IJb7mfhrp` — Loop "babysit PR" run; identified PR 99 via title-match against `live-main` HEAD
+- `ses_14c2b6be2ffen1JEDqNco7eZKQ` — Loop run on branch with no open PR; `goal "fixa incoerenze o errori"` aborted early
+- `ses_14c21e877ffeNnwEosLVtEkvOB` — `@explore`: comprehensive DB/storage module dump
+- `ses_14c21e1b3ffe6yOwU6l1xEfcOJ` — `@researcher`: opencode reference implementation fetch (4 webfetches failed, then discovered default branch is `dev`; all 6 files retrieved from `https://raw.githubusercontent.com/anomalyco/opencode/dev/...`)
+
+### TUI Exit Logo (still pending as of 2026-06-10)
+
+User requested nikcli to display ASCII logo on terminal kill (like OpenCode does). The `logo.tsx` static component exists, but the **kill-time** logo display path is not wired up. Two previous attempts had stability issues; needs reattempt via renderer cleanup hook.

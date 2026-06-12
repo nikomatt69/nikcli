@@ -24,6 +24,10 @@ type TuiRequest = z.infer<typeof TuiRequest>
 const request = new AsyncQueue<TuiRequest>()
 const response = new AsyncQueue<any>()
 
+/** Shared with the Effect backend (`httpapi/tui.ts`): both backends must
+ * drain the same control queues during the fallback window. */
+export const TuiControlQueues = { request, response }
+
 export async function callTui(ctx: Context) {
   const body = await ctx.req.json()
   request.push({

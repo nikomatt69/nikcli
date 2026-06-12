@@ -104,6 +104,60 @@ export function protocolForTerminal(
  * match, falling back to a non-native renderer (halfblock ANSI) when
  * `available` is empty.
  */
+/**
+ * Subset of OpenTUI's negotiated terminal capabilities
+ * (`CliRenderer.capabilities`), filled in from the live DA1 / kitty graphics
+ * query responses at renderer startup.
+ */
+export interface LiveCapabilities {
+  readonly kitty_graphics?: boolean
+  readonly sixel?: boolean
+  readonly terminal?: { readonly name?: string } | null
+}
+
+/**
+ * Merge the env-based heuristic with the answer the terminal actually gave at
+ * startup (surfaced by OpenTUI as `renderer.capabilities`).
+ *
+ * - Sixel: the DA1 response is authoritative in both directions. Nearly every
+ *   terminal sets `TERM=xterm-256color`, so the env heuristic alone yields
+ *   false positives — the sixel bytes are then swallowed silently and the
+ *   preview renders as a blank box.
+ * - Kitty: a negotiated `true` augments the env answer; a negotiated `false`
+ *   keeps explicit env signals (`KITTY_WINDOW_ID`, …) intact, since the query
+ *   can be lost behind multiplexers.
+ * - iTerm2: not queryable. Explicit env signals (real iTerm2, WezTerm,
+ *   mintty, …) are trusted; for xterm.js-based terminals (VS Code & friends,
+ *   where images are an opt-in addon) support is only assumed when the addon
+ *   advertises sixel in DA1.
+ */
+export function applyLiveCapabilities(
+  detected: Capabilities,
+  live: LiveCapabilities | null | undefined,
+  env: Env = readEnv(),
+): Capabilities {
+  if (!live) return detected
+  const kitty = detected.kitty || live.kitty_graphics === true
+  const sixel = live.sixel === true
+  const liveName = typeof live.terminal === "object" && live.terminal ? (live.terminal.name ?? "") : ""
+  const identifier = `${detected.terminal ?? ""} ${liveName}`.toLowerCase()
+  const explicitIterm2 = Boolean(env.ITERM_SESSION_ID) || /iterm|wezterm|mintty|rio|konsole/.test(identifier)
+  const iterm2 = detected.iterm2 && (explicitIterm2 || sixel)
+  const available = [
+    kitty ? Protocol.KITTY : null,
+    sixel ? Protocol.SIXEL : null,
+    iterm2 ? Protocol.ITERM2 : null,
+  ].filter((protocol): protocol is Protocol => protocol !== null)
+  return {
+    best: available[0] ?? null,
+    available,
+    kitty,
+    sixel,
+    iterm2,
+    terminal: detected.terminal ?? (liveName || null),
+  }
+}
+
 export function detectCapabilities(stream?: StreamProbe, env: Env = readEnv()): Capabilities {
   const term = env.TERM ?? env.TERMINAL ?? null
   const termProgram = env.TERM_PROGRAM ?? null
