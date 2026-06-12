@@ -8,6 +8,7 @@ import { useLocal } from "@tui/context/local"
 import { useSync } from "@tui/context/sync"
 import { useSupportSession } from "@tui/context/support-session"
 import { useToast } from "@tui/ui/toast"
+import { Clipboard } from "@tui/util/clipboard"
 import { buildSupportDocsIndex } from "@/agent/prompt/support-docs"
 import type { Part, TextPart } from "@nikcli-ai/sdk/v2"
 
@@ -122,21 +123,21 @@ type ChatMessage = {
 }
 
 const WELCOME_HINTS: ReadonlyArray<{ title: string; prompt: string }> = [
-  { title: "Cambio modello", prompt: "Come cambio il modello predefinito?" },
+  { title: "Change model", prompt: "How do I change the default model?" },
   {
-    title: "Agent vs sessione",
-    prompt: "Cos'è un agent in nikcli e come ne scelgo uno?",
+    title: "Agent vs session",
+    prompt: "What is an agent in nikcli and how do I choose one?",
   },
   {
-    title: "Keybind utili",
-    prompt: "Quali sono le scorciatoie da tastiera principali?",
+    title: "Useful keybinds",
+    prompt: "What are the main keyboard shortcuts?",
   },
   {
     title: "Slash commands",
-    prompt: "Quali slash command esistono e cosa fanno?",
+    prompt: "What slash commands exist and what do they do?",
   },
-  { title: "MCP server", prompt: "Come aggiungo un MCP server?" },
-  { title: "Skills", prompt: "Cosa sono le skill e come le uso?" },
+  { title: "MCP server", prompt: "How do I add an MCP server?" },
+  { title: "Skills", prompt: "What are skills and how do I use them?" },
 ]
 
 function timeLabel(ts: number): string {
@@ -458,6 +459,16 @@ export function DialogSupport() {
       evt.preventDefault()
       return
     }
+    // Ctrl+Y — copy the last assistant reply (hover is not a thing in a TUI)
+    if (evt.ctrl && evt.name === "y") {
+      evt.preventDefault()
+      const last = messages().findLast((m) => m.role === "assistant" && m.text)
+      if (!last) return
+      Clipboard.copy(last.text)
+        .then(() => toast.show({ message: "Reply copied to clipboard.", variant: "info", duration: 2000 }))
+        .catch(() => toast.show({ message: "Could not copy to clipboard.", variant: "warning", duration: 3000 }))
+      return
+    }
   })
 
   // Render -------------------------------------------------------------------
@@ -484,7 +495,7 @@ export function DialogSupport() {
             <text fg={theme.textMuted}>·</text>
             <text fg={theme.textMuted}>{modelName()}</text>
           </box>
-          <text fg={theme.textMuted}>{streaming() ? "● risponde" : busy() ? "● invio" : "esc close"}</text>
+          <text fg={theme.textMuted}>{streaming() ? "● responding" : busy() ? "● sending" : "esc close"}</text>
         </box>
       </box>
 
@@ -499,7 +510,7 @@ export function DialogSupport() {
         paddingRight={2}
       >
         <Show when={!ready()}>
-          <text fg={theme.textMuted}>Caricamento della sessione support…</text>
+          <text fg={theme.textMuted}>Loading support session…</text>
         </Show>
         <Show when={ready() && messages().length === 0}>
           <WelcomeHints onPick={(p) => send(p)} />
@@ -515,7 +526,7 @@ export function DialogSupport() {
             <text fg={theme.accent} attributes={TextAttributes.BOLD}>
               support
             </text>
-            <text fg={theme.textMuted}>sta scrivendo…</text>
+            <text fg={theme.textMuted}>is typing…</text>
           </box>
         </Show>
       </scrollbox>
@@ -536,15 +547,16 @@ export function DialogSupport() {
             textarea = r
           }}
           placeholder={
-            busy() ? "Support sta rispondendo — attendi..." : "Chiedi a Support… (es. 'come cambio modello?')"
+            busy() ? "Support is responding — please wait..." : "Ask Support… (e.g. 'how do I change the model?')"
           }
           textColor={theme.text}
           focusedTextColor={theme.text}
           cursorColor={theme.text}
         />
         <text fg={theme.textMuted}>
-          <span style={{ fg: theme.primary }}>enter</span> invia · <span style={{ fg: theme.primary }}>ctrl+l</span>{" "}
-          nuova conversazione · <span style={{ fg: theme.primary }}>esc</span> chiudi
+          <span style={{ fg: theme.primary }}>enter</span> send · <span style={{ fg: theme.primary }}>ctrl+y</span>{" "}
+          copy reply · <span style={{ fg: theme.primary }}>ctrl+l</span> new conversation ·{" "}
+          <span style={{ fg: theme.primary }}>esc</span> close
         </text>
       </box>
     </box>
@@ -562,7 +574,7 @@ function MessageRow(props: { msg: ChatMessage }) {
     <box paddingBottom={1} flexDirection="column" gap={0}>
       <box flexDirection="row" gap={1}>
         <text fg={m.role === "user" ? theme.primary : theme.accent} attributes={TextAttributes.BOLD}>
-          {m.role === "user" ? "tu" : "support"}
+          {m.role === "user" ? "you" : "support"}
         </text>
         <text fg={theme.textMuted}>{timeLabel(m.time)}</text>
         <Show when={m.pending}>
@@ -604,14 +616,13 @@ function WelcomeHints(props: { onPick: (prompt: string) => void }) {
   return (
     <box gap={1} flexDirection="column" paddingBottom={1}>
       <text fg={theme.text}>
-        Ciao! Sono <span style={{ fg: theme.accent }}>Support</span>, l'assistente documentazione di nikcli.
+        Hi! I'm <span style={{ fg: theme.accent }}>Support</span>, nikcli's documentation assistant.
       </text>
       <text fg={theme.textMuted}>
-        Posso rispondere a domande su comandi, configurazione, agent, MCP, keybind, flussi di lavoro e troubleshooting.
-        Rispondo in italiano o inglese a seconda della tua lingua.
+        I can answer questions about commands, configuration, agents, MCP, keybinds, workflows, and troubleshooting.
       </text>
       <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-        Esempi:
+        Examples:
       </text>
       <For each={WELCOME_HINTS}>
         {(hint) => (
