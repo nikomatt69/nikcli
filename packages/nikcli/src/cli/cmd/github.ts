@@ -350,11 +350,17 @@ on:
 jobs:
   nikcli:
     if: |
-      contains(github.event.comment.body, ' /nik') ||
-      startsWith(github.event.comment.body, '/nik') ||
-      contains(github.event.comment.body, ' /nikcli') ||
-      startsWith(github.event.comment.body, '/nikcli')
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      (
+        contains(github.event.comment.body, ' /nik ') ||
+        startsWith(github.event.comment.body, '/nik ') ||
+        github.event.comment.body == '/nik' ||
+        contains(github.event.comment.body, ' /nikcli ') ||
+        startsWith(github.event.comment.body, '/nikcli ') ||
+        github.event.comment.body == '/nikcli'
+      )
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write
       contents: write
@@ -364,6 +370,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Run nikcli

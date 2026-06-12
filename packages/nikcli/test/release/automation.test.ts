@@ -9,6 +9,17 @@ async function readRoot(relative: string) {
 }
 
 describe("release automation", () => {
+  it("keeps the GitHub comment runner executable and mention filters exact", async () => {
+    const action = await readRoot("github/action.yml")
+    const command = await readRoot("packages/nikcli/src/cli/cmd/github.ts")
+
+    expect(action).toContain('bun "$GITHUB_ACTION_PATH/index.ts"')
+    expect(action).not.toContain("nikcli github run")
+    expect(command).toContain("github.event.comment.body == '/nik'")
+    expect(command).toContain("github.event.comment.body == '/nikcli'")
+    expect(command).toContain("github.event.comment.author_association")
+  })
+
   it("publishes production releases automatically from live-main", async () => {
     const workflow = await readRoot(".github/workflows/publish.yml")
 
