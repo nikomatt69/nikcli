@@ -2365,7 +2365,7 @@ export type Config = {
      */
     mouse?: boolean
     /**
-     * Enable or disable ambient sound feedback (default: false)
+     * Enable or disable ambient sound feedback (default: true)
      */
     sound?: boolean
     /**
@@ -3141,6 +3141,139 @@ export type SessionEntryAssistantRetry = {
   attempt: number
   error: ApiError
 }
+
+export type SessionEventFileAttachment = {
+  uri: string
+  mime: string
+  name?: string
+  description?: string
+  source?: {
+    start: number
+    end: number
+    text: string
+  }
+}
+
+export type SessionEventAgentAttachment = {
+  name: string
+  source?: {
+    start: number
+    end: number
+    text: string
+  }
+}
+
+export type SessionEventPrompt = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "prompt"
+  messageID: string
+  text: string
+  files?: Array<SessionEventFileAttachment>
+  agents?: Array<SessionEventAgentAttachment>
+}
+
+export type SessionEventSynthetic = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "synthetic"
+  messageID: string
+  text: string
+  role?: "system" | "user" | "assistant"
+}
+
+export type SessionEventStepStarted = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "step.started"
+  messageID: string
+  providerID: string
+  modelID: string
+  agent: string
+  snapshot?: string
+}
+
+export type SessionEventStepEnded = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "step.ended"
+  messageID: string
+  reason: string
+  cost?: number
+  tokens: {
+    total?: number
+    input: number
+    output: number
+    reasoning: number
+    cache: {
+      read: number
+      write: number
+    }
+  }
+  finish?: string
+}
+
+export type SessionEventRetryError = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "retry.error"
+  messageID: string
+  attempt: number
+  error: ApiError
+}
+
+export type SessionEventPartUpdated = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "part.updated"
+  part: Part
+  delta?: string
+}
+
+export type SessionEventPartRemoved = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "part.removed"
+  messageID: string
+  partID: string
+}
+
+export type SessionEvent =
+  | SessionEventPrompt
+  | SessionEventSynthetic
+  | SessionEventStepStarted
+  | SessionEventStepEnded
+  | SessionEventRetryError
+  | SessionEventPartUpdated
+  | SessionEventPartRemoved
 
 export type TextPartInput = {
   id?: string
@@ -6446,6 +6579,43 @@ export type SessionV2StateResponses = {
 }
 
 export type SessionV2StateResponse = SessionV2StateResponses[keyof SessionV2StateResponses]
+
+export type SessionV2EventsData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/v2/events"
+}
+
+export type SessionV2EventsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionV2EventsError = SessionV2EventsErrors[keyof SessionV2EventsErrors]
+
+export type SessionV2EventsResponses = {
+  /**
+   * List of persisted v2 events
+   */
+  200: Array<SessionEvent>
+}
+
+export type SessionV2EventsResponse = SessionV2EventsResponses[keyof SessionV2EventsResponses]
 
 export type PartDeleteData = {
   body?: never

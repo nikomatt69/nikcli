@@ -146,7 +146,13 @@ export namespace ProviderHttpApi {
         })
         return jsonSafe(result ?? null)
       }).pipe(Effect.orDie),
-    oauthCallback: ({ params, payload }: { params: { providerID: string }; payload: { method: number; code?: string } }) =>
+    oauthCallback: ({
+      params,
+      payload,
+    }: {
+      params: { providerID: string }
+      payload: { method: number; code?: string }
+    }) =>
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
         yield* providerAuth.callback({

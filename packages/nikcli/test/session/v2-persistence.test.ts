@@ -92,9 +92,9 @@ describe("SessionV2 event persistence", () => {
 
         // the coalesced text row carries the final content
         const persistedText = events.find((e) => e.type === "part.updated" && e.part.type === "text")
-        expect(persistedText && persistedText.type === "part.updated" && (persistedText.part as { text: string }).text).toBe(
-          "partial answer, final",
-        )
+        expect(
+          persistedText && persistedText.type === "part.updated" && (persistedText.part as { text: string }).text,
+        ).toBe("partial answer, final")
 
         // replay reproduces the completed step from the log alone
         const replayed = SessionV2.replay(sessionID)
