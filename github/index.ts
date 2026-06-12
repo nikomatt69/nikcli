@@ -658,11 +658,51 @@ async function chat(text: string, files: PromptFiles = []) {
     },
   })
 
-  // @ts-ignore
-  const match = chat.data.parts.findLast((p) => p.type === "text")
-  if (!match) throw new Error("Failed to parse the text response")
+  if (chat.data.info.error) {
+    throw new Error(formatAssistantError(chat.data.info.error))
+  }
 
-  return match.text
+  const textParts = chat.data.parts.filter((part) => part.type === "text")
+  const match = textParts.findLast((part) => part.text.trim())
+  if (match) return match.text
+
+  const toolParts = chat.data.parts.filter((part) => part.type === "tool")
+  const toolError = toolParts.findLast((part) => part.state.status === "error")
+  if (toolError?.state.status === "error") {
+    throw new Error(`Tool "${toolError.tool}" failed: ${toolError.state.error}`)
+  }
+
+  const partTypes = chat.data.parts.map((part) => part.type)
+  if (partTypes.length > 0) {
+    console.warn(`Nikcli completed without a textual response. Part types: [${partTypes.join(", ")}]`)
+    return "Nikcli completed the task without a textual response."
+  }
+
+  const finish = chat.data.info.finish ? ` Finish reason: ${chat.data.info.finish}.` : ""
+  throw new Error(`Nikcli returned an empty response.${finish}`)
+}
+
+function formatAssistantError(error: unknown) {
+  if (!error || typeof error !== "object") return String(error)
+
+  const value = error as {
+    name?: unknown
+    data?: {
+      message?: unknown
+      statusCode?: unknown
+      responseBody?: unknown
+    }
+  }
+  const name = typeof value.name === "string" ? value.name : "AssistantError"
+  const message = typeof value.data?.message === "string" ? value.data.message.trim() : ""
+  const status = typeof value.data?.statusCode === "number" ? ` (status ${value.data.statusCode})` : ""
+
+  if (message) return `${name}: ${message}${status}`
+  if (name === "MessageOutputLengthError") return "MessageOutputLengthError: The model reached its output limit."
+
+  const responseBody = typeof value.data?.responseBody === "string" ? value.data.responseBody.trim() : ""
+  if (responseBody) return `${name}: ${responseBody.slice(0, 500)}${status}`
+  return `${name}${status}`
 }
 
 async function configureGit(appToken: string) {
