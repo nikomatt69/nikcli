@@ -163,8 +163,16 @@ shapes and sometimes collapse rich errors into opaque strings.
       "MCP server does not support OAuth": `startAuth` / `authenticate`
       declare `McpOAuthUnsupportedError` (400, legacy `{ error }` body)
       and fail with it on the error channel.
-- [ ] `RENDER-2` Audit CLI and TUI surfaces for any remaining opaque
-      `Error: Name` rendering of typed errors.
+- [x] `RENDER-2` Audited 2026-06-12. Findings: the CLI fatal path
+      (`cli/error.ts` `FormatError`) had 11 dedicated formatters out of
+      ~75 `TaggedErrorClass` tags — every unrecognized tagged error fell
+      through to the opaque "Unexpected error, check log file" path.
+      Fixed with a generic tagged fallback that renders
+      `Tag: message (scalar fields)`, so new tagged classes are never
+      opaque by default; dedicated formatters remain the way to add
+      polish. The TUI's `friendlyErrorMessage` already handled
+      message-carrying shapes; it now also falls back to the `_tag`
+      before the generic "Something went wrong".
 
 ## P1: Tests
 

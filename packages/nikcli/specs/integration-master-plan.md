@@ -37,7 +37,9 @@ Two parallel streams that unblock everything else.
   (inventory re-run 2026-06-12; the 6 remaining `Effect.die` sites are
   legitimate defects — see `specs/effect/todo.md`). `ERR-5` (mcp OAuth
   400) also done.
-- `[ ]` `RENDER-2` audit CLI and TUI surfaces for opaque error rendering.
+- `[x]` `RENDER-2` audit done 2026-06-12: generic tagged fallback in the
+  CLI fatal formatter, `_tag` fallback in the TUI `friendlyErrorMessage`
+  (findings in `specs/effect/todo.md`).
 - `[ ]` Session domain schemas (Phase P of the former MASTER-PLAN; see
   `specs/effect/schema.md` for the schema inventory).
 

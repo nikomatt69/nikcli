@@ -103,6 +103,24 @@ export function FormatError(input: unknown): string | undefined {
     if (typeof tag === "string" && tag in formatters) {
       return formatters[tag](input)
     }
+    // Tagged errors are expected failures by design — even without a
+    // dedicated formatter, the tag plus its scalar fields beat the opaque
+    // "Unexpected error" path.
+    if (typeof tag === "string") {
+      const record = input as Record<string, unknown>
+      const message = typeof record.message === "string" && record.message ? record.message : undefined
+      const fields = Object.entries(record)
+        .filter(
+          ([key, value]) =>
+            key !== "_tag" &&
+            key !== "message" &&
+            (typeof value === "string" || typeof value === "number" || typeof value === "boolean"),
+        )
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(", ")
+      log.debug("Formatting tagged error without dedicated formatter", { tag })
+      return [message ? `${tag}: ${message}` : tag, fields ? `(${fields})` : undefined].filter(Boolean).join(" ")
+    }
   }
 
   // Safety net: keep `UserFacingError.format()` working for any path that

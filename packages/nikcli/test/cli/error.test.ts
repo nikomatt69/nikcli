@@ -97,6 +97,17 @@ describe("FormatError", () => {
     expect(FormatError("string")).toBeUndefined()
     expect(FormatError(null)).toBeUndefined()
   })
+
+  it("renders tag, message, and scalar fields for tagged errors without a dedicated formatter", () => {
+    const out = FormatError({ _tag: "AuthNotFound", message: "no stored credentials", providerID: "anthropic" })!
+    expect(out).toContain("AuthNotFound")
+    expect(out).toContain("no stored credentials")
+    expect(out).toContain("providerID: anthropic")
+  })
+
+  it("renders the tag alone when a tagged error has no message or scalar fields", () => {
+    expect(FormatError({ _tag: "FFFNotReadyError", nested: { deep: true } })).toBe("FFFNotReadyError")
+  })
 })
 
 describe("FormatUnknownError", () => {

@@ -36,6 +36,9 @@ export function friendlyErrorMessage(error: unknown, fallback = "Something went 
       }
       return message.trim()
     }
+    // Tagged errors without a message: the tag still beats the generic
+    // fallback ("NotFoundError" over "Something went wrong").
+    if (typeof value._tag === "string" && value._tag) return value._tag
   }
 
   return fallback
