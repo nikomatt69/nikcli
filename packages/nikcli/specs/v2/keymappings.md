@@ -16,6 +16,6 @@ accepts exactly this shape — `bindings: [{ key, cmd: string | function,
 description }]` decoupled from `commands` — and `<leader>`-layered key
 syntax already works (`keybind.match` falls back to `Keybind.parse` for
 raw sequences, and the leader state machine lives in
-`context/keybind.tsx`). Remaining: migrate the *host* app's own
+`context/keybind.tsx`). Remaining: migrate the _host_ app's own
 keybinding table to the same `{ key, cmd }` model and expose active
 layers/scopes so a which-key view can enumerate them.
