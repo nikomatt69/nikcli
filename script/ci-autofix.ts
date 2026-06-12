@@ -62,8 +62,8 @@ function shouldSkip(): { skip: boolean; reason: string } {
   }
 
   // Require API key for LLM access
-  if (!process.env.NIKCLI_API_KEY) {
-    return { skip: true, reason: "Missing NIKCLI_API_KEY secret" }
+  if (!process.env.MINIMAX_API_KEY) {
+    return { skip: true, reason: "Missing MINIMAX_API_KEY secret" }
   }
 
   // Only run on nikomatt69/nikcli
@@ -146,7 +146,7 @@ async function main() {
     stderr: "pipe",
     env: {
       ...process.env,
-      NIKCLI_API_KEY: process.env.NIKCLI_API_KEY,
+      MINIMAX_API_KEY: process.env.MINIMAX_API_KEY,
       TERM: "dumb",
       CI: "true",
     },

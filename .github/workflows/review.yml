@@ -17,12 +17,10 @@ jobs:
     steps:
       - name: Get PR number
         id: pr-number
+        env:
+          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-          else
-            echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-          fi
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -36,25 +34,33 @@ jobs:
 
       - name: Get PR details
         id: pr-details
-        run: |
-          gh api /repos/${{ github.repository }}/pulls/${{ steps.pr-number.outputs.number }} > pr_data.json
-          echo "title=$(jq -r .title pr_data.json)" >> $GITHUB_OUTPUT
-          echo "sha=$(jq -r .head.sha pr_data.json)" >> $GITHUB_OUTPUT
         env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr-number.outputs.number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "/repos/$REPO/pulls/$PR_NUMBER" > pr_data.json
+          {
+            echo "title=$(jq -r .title pr_data.json)"
+            echo "sha=$(jq -r .head.sha pr_data.json)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check PR guidelines compliance
         env:
-          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NIKCLI_PERMISSION: '{ "bash": {  "*": "deny", "gh*": "allow", "gh pr review*": "deny" } }'
           PR_TITLE: ${{ steps.pr-details.outputs.title }}
+          PR_NUMBER: ${{ steps.pr-number.outputs.number }}
+          PR_SHA: ${{ steps.pr-details.outputs.sha }}
+          REPO: ${{ github.repository }}
         run: |
-          PR_BODY=$(jq -r .body pr_data.json)
+          PR_BODY=$(jq -r '.body // ""' pr_data.json)
           nikcli run -m minimax-coding-plan/MiniMax-M3 "A new pull request has been created: '${PR_TITLE}'
 
           <pr-number>
-          ${{ steps.pr-number.outputs.number }}
+          $PR_NUMBER
           </pr-number>
 
           <pr-description>
@@ -76,8 +82,8 @@ jobs:
             --method POST \
             -H \"Accept: application/vnd.github+json\" \
             -H \"X-GitHub-Api-Version: 2022-11-28\" \
-            /repos/${{ github.repository }}/pulls/${{ steps.pr-number.outputs.number }}/comments \
-            -f 'body=[summary of issue]' -f 'commit_id=${{ steps.pr-details.outputs.sha }}' -f 'path=[path-to-file]' -F \"line=[line]\" -f 'side=RIGHT'
+            /repos/$REPO/pulls/$PR_NUMBER/comments \
+            -f 'body=[summary of issue]' -f 'commit_id=$PR_SHA' -f 'path=[path-to-file]' -F \"line=[line]\" -f 'side=RIGHT'
           \`\`\`
 
           Only create comments for actual violations. If the code follows all guidelines, comment on the issue using gh cli: 'lgtm' AND NOTHING ELSE!!!!."

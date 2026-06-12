@@ -40,11 +40,11 @@ describe("ci-autofix script", () => {
     expect(script).toContain("!== REPO")
   })
 
-  it("requires NIKCLI_API_KEY to attempt autofix", async () => {
+  it("requires MINIMAX_API_KEY to attempt autofix", async () => {
     const script = await readRoot("script/ci-autofix.ts")
 
-    expect(script).toContain("NIKCLI_API_KEY")
-    expect(script).toContain("Missing NIKCLI_API_KEY")
+    expect(script).toContain("MINIMAX_API_KEY")
+    expect(script).toContain("Missing MINIMAX_API_KEY")
   })
 
   it("does not push when there are no file changes", async () => {

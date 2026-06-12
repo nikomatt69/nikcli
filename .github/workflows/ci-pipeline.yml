@@ -157,9 +157,10 @@ jobs:
         id: autofix
         run: bun run script/ci-autofix.ts
         env:
-          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           NIKCLI_AUTOFIX_MODEL: ${{ vars.NIKCLI_AUTOFIX_MODEL || 'minimax-coding-plan/MiniMax-M3' }}
           GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SHA: ${{ github.sha }}

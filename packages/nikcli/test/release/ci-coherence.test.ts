@@ -90,7 +90,7 @@ describe("autofix env handshake", () => {
     const ts = await read(AUTOFIX_TS)
     const yml = await read(PIPELINE_YML)
     const consumed = [
-      "NIKCLI_API_KEY",
+      "MINIMAX_API_KEY",
       "NIKCLI_AUTOFIX_MODEL",
       "GITHUB_REPOSITORY",
       "GITHUB_EVENT_NAME",
@@ -267,7 +267,7 @@ describe("secret reference coherence", () => {
   it("ci-pipeline.yml references the required secrets", async () => {
     const yml = await read(PIPELINE_YML)
     expect(yml).toContain("secrets.SST_GITHUB_TOKEN")
-    expect(yml).toContain("secrets.NIKCLI_API_KEY")
+    expect(yml).toContain("secrets.MINIMAX_API_KEY")
   })
 
   it("ci-pipeline.yml never echoes secret values", async () => {

@@ -33,6 +33,7 @@ jobs:
       - name: Build prompt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           {
@@ -50,6 +51,7 @@ jobs:
         env:
           NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           COMMENT=$(bun script/duplicate-pr.ts -f pr_info.txt "Check the attached file for PR details and search for duplicates")

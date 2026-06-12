@@ -41,7 +41,7 @@ describe("release automation", () => {
     const nixWorkflow = await readRoot(".github/workflows/update-nix-hashes.yml")
 
     expect(docsWorkflow).toContain("continue-on-error: true")
-    expect(docsWorkflow).toContain("nikomatt69/nikcli/github@latest")
+    expect(docsWorkflow).toContain("src/index.ts run")
     expect(docsWorkflow).toContain("MINIMAX_API_KEY")
     expect(statsWorkflow).toContain("continue-on-error: true")
     expect(statsWorkflow).toContain("oven-sh/setup-bun@v2")
@@ -252,8 +252,8 @@ describe("CI pipeline", () => {
     // Must check repository trust
     expect(script).toContain("nikomatt69/nikcli")
 
-    // Must check for NIKCLI_API_KEY
-    expect(script).toContain("NIKCLI_API_KEY")
+    // Must check for the provider key used by the default MiniMax model
+    expect(script).toContain("MINIMAX_API_KEY")
 
     // Must not push without validation passing
     expect(script).toContain("revalidateExit")

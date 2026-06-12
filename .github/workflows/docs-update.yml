@@ -37,29 +37,27 @@ jobs:
           COMMITS=$(git log --since="${{ env.LOOKBACK_HOURS }} hours ago" --pretty=format:"- %h %s" 2>/dev/null || echo "")
           if [ -z "$COMMITS" ]; then
             echo "No commits in the last ${{ env.LOOKBACK_HOURS }} hours"
-            echo "has_commits=false" >> $GITHUB_OUTPUT
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
           else
-            echo "has_commits=true" >> $GITHUB_OUTPUT
+            echo "has_commits=true" >> "$GITHUB_OUTPUT"
             {
-              echo "list<<EOF"
+              echo "list<<COMMITS_EOF"
               echo "$COMMITS"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
+              echo "COMMITS_EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run nikcli
         if: steps.commits.outputs.has_commits == 'true'
-        uses: nikomatt69/nikcli/github@latest
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-        with:
-          model: minimax-coding-plan/MiniMax-M3
-          agent: docs
-          prompt: |
+          RECENT_COMMITS: ${{ steps.commits.outputs.list }}
+        run: |
+          PROMPT=$(cat <<EOF
             Review the following commits from the last ${{ env.LOOKBACK_HOURS }} hours and identify any new features that may need documentation.
 
             <recent_commits>
-            ${{ steps.commits.outputs.list }}
+            $RECENT_COMMITS
             </recent_commits>
 
             Steps:
@@ -76,3 +74,33 @@ jobs:
             Focus on user-facing features and API changes. Skip internal refactors, bug fixes, and test updates unless they affect user-facing behavior.
             Don't feel the need to document every little thing. It is perfectly okay to make 0 changes at all.
             Try to keep documentation only for large features or changes that already have a good spot to be documented.
+          EOF
+          )
+          bun run --cwd packages/nikcli --conditions=browser src/index.ts run \
+            --agent docs \
+            --model minimax-coding-plan/MiniMax-M3 \
+            "$PROMPT"
+
+      - name: Open documentation pull request
+        if: steps.commits.outputs.has_commits == 'true'
+        env:
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No documentation changes to publish"
+            exit 0
+          fi
+
+          BRANCH="nikcli/docs-update-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add packages/web/src/content/docs packages/web/astro.config.mjs
+          git commit -m "docs: update documentation from recent changes"
+          git push origin "HEAD:$BRANCH"
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$BRANCH" \
+            --title "docs: update documentation from recent changes" \
+            --body "Automated documentation updates based on recent user-facing changes."

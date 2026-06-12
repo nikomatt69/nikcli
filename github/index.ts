@@ -112,7 +112,8 @@ type IssueQueryResponse = {
   }
 }
 
-const { client, server } = createNikcli()
+let client!: ReturnType<typeof createNikcli>["client"]
+let server: ReturnType<typeof createNikcli>["server"] | undefined
 let accessToken: string
 let octoRest: Octokit
 let octoGraph: typeof graphql
@@ -126,9 +127,13 @@ type PromptFiles = Awaited<ReturnType<typeof getUserPrompt>>["promptFiles"]
 try {
   assertContextEvent("issue_comment", "pull_request_review_comment")
   assertPayloadKeyword()
-  await assertNikcliConnected()
 
   accessToken = await getAccessToken()
+  process.env.GH_TOKEN = accessToken
+  process.env.GITHUB_TOKEN ??= accessToken
+  ;({ client, server } = createNikcli())
+  await assertNikcliConnected()
+
   octoRest = new Octokit({ auth: accessToken })
   octoGraph = graphql.defaults({
     headers: { authorization: `token ${accessToken}` },
@@ -221,7 +226,7 @@ try {
   // Also output the clean error message for the action to capture
   //core.setOutput("prepare_error", e.message);
 } finally {
-  server.close()
+  server?.close()
   await restoreGitConfig()
   await revokeAppToken()
 }

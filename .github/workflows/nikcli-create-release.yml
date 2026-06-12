@@ -69,9 +69,11 @@ jobs:
           else
             NOTES="Release ${TAG}"
           fi
-          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$NOTES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
 
@@ -79,17 +81,17 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.value }}"
           DIST="packages/nikcli/dist"
-          FILES=$(find "$DIST" -maxdepth 1 \( -name "*.tar.gz" -o -name "*.zip" \) | tr '\n' ' ')
+          mapfile -t FILES < <(find "$DIST" -maxdepth 1 \( -name "*.tar.gz" -o -name "*.zip" \))
 
           if gh release view "$TAG" &>/dev/null; then
-            echo "Release $TAG already exists — uploading assets only"
-            gh release upload "$TAG" $FILES --clobber
+            echo "Release $TAG already exists; uploading assets only"
+            gh release upload "$TAG" "${FILES[@]}" --clobber
           else
             gh release create "$TAG" \
               --title "$TAG" \
               --notes "${{ steps.notes.outputs.notes }}" \
               --draft \
-              $FILES
+              "${FILES[@]}"
             echo "Draft release $TAG created"
           fi
         env:

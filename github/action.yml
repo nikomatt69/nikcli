@@ -41,34 +41,22 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Get nikcli version
-      id: version
-      shell: bash
-      run: |
-        VERSION=$(curl -sf https://api.github.com/repos/nikomatt69/nikcli/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
-        echo "version=${VERSION:-latest}" >> $GITHUB_OUTPUT
-
-    - name: Cache nikcli
-      id: cache
-      uses: actions/cache@v4
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       with:
-        path: ~/.nikcli/bin
-        key: nikcli-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
+        bun-version-file: ${{ github.action_path }}/../package.json
 
-    - name: Install nikcli
-      if: steps.cache.outputs.cache-hit != 'true'
+    - name: Install action dependencies
       shell: bash
-      run: curl -fsSL https://nikcli.store/install | bash
-
-    - name: Add nikcli to PATH
-      shell: bash
-      run: echo "$HOME/.nikcli/bin" >> $GITHUB_PATH
+      env:
+        ACTION_ROOT: ${{ github.action_path }}/..
+      run: bun install --cwd "$ACTION_ROOT" --frozen-lockfile
 
     - name: Run nikcli
       shell: bash
       id: run_nikcli
-      run: nikcli github run
       env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
         MODEL: ${{ inputs.model }}
         AGENT: ${{ inputs.agent }}
         SHARE: ${{ inputs.share }}
@@ -77,3 +65,7 @@ runs:
         MENTIONS: ${{ inputs.mentions }}
         VARIANT: ${{ inputs.variant }}
         OIDC_BASE_URL: ${{ inputs.oidc_base_url }}
+        TOKEN: ${{ inputs.use_github_token == 'true' && github.token || '' }}
+        GITHUB_TOKEN: ${{ inputs.use_github_token == 'true' && github.token || '' }}
+        GH_TOKEN: ${{ inputs.use_github_token == 'true' && github.token || '' }}
+      run: bun "$GITHUB_ACTION_PATH/index.ts"

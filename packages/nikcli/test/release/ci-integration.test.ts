@@ -155,10 +155,10 @@ describe("ci-autofix.ts", () => {
       expect(content).toContain("!== REPO")
     })
 
-    it("requires NIKCLI_API_KEY secret", async () => {
+    it("requires MINIMAX_API_KEY secret", async () => {
       const content = await fs.readFile(path.join(scriptsDir, "ci-autofix.ts"), "utf8")
-      expect(content).toContain("NIKCLI_API_KEY")
-      expect(content).toContain("Missing NIKCLI_API_KEY")
+      expect(content).toContain("MINIMAX_API_KEY")
+      expect(content).toContain("Missing MINIMAX_API_KEY")
     })
 
     it("uses MiniMax model as default (not costly providers)", async () => {
@@ -206,7 +206,7 @@ describe("ci-autofix.ts", () => {
         GITHUB_ACTOR: "github-actions[bot]",
         GITHUB_EVENT_NAME: "push",
         GITHUB_REPOSITORY: "nikomatt69/nikcli",
-        NIKCLI_API_KEY: "sk-test",
+        MINIMAX_API_KEY: "sk-test",
         GITHUB_SHA: "abc123",
         GITHUB_REF: "refs/heads/live-main",
         GITHUB_REF_NAME: "live-main",
@@ -223,7 +223,7 @@ describe("ci-autofix.ts", () => {
         GITHUB_ACTOR: "nikomatt69",
         GITHUB_EVENT_NAME: "push",
         GITHUB_REPOSITORY: "nikomatt69/nikcli",
-        NIKCLI_API_KEY: "sk-test",
+        MINIMAX_API_KEY: "sk-test",
         GITHUB_SHA: "abc123",
         GITHUB_REF: "refs/heads/live-main",
         GITHUB_REF_NAME: "live-main",
@@ -240,7 +240,7 @@ describe("ci-autofix.ts", () => {
         GITHUB_ACTOR: "nikomatt69",
         GITHUB_EVENT_NAME: "push",
         GITHUB_REPOSITORY: "nikomatt69/nikcli",
-        NIKCLI_API_KEY: "sk-test",
+        MINIMAX_API_KEY: "sk-test",
         GITHUB_SHA: "abc123",
         GITHUB_REF: "refs/heads/live-main",
         GITHUB_REF_NAME: "live-main",
@@ -257,7 +257,7 @@ describe("ci-autofix.ts", () => {
         GITHUB_ACTOR: "nikomatt69",
         GITHUB_EVENT_NAME: "push",
         GITHUB_REPOSITORY: "nikomatt69/nikcli",
-        NIKCLI_API_KEY: "sk-test",
+        MINIMAX_API_KEY: "sk-test",
         GITHUB_SHA: "abc123",
         GITHUB_REF: "refs/heads/live-main",
         GITHUB_REF_NAME: "live-main",
@@ -274,7 +274,7 @@ describe("ci-autofix.ts", () => {
         GITHUB_ACTOR: "nikomatt69",
         GITHUB_EVENT_NAME: "push",
         GITHUB_REPOSITORY: "nikomatt69/nikcli",
-        NIKCLI_API_KEY: "sk-test",
+        MINIMAX_API_KEY: "sk-test",
         GITHUB_SHA: "abc123",
         GITHUB_REF: "refs/heads/live-main",
         GITHUB_REF_NAME: "live-main",
@@ -286,7 +286,7 @@ describe("ci-autofix.ts", () => {
       expect(result.stdout).toContain("Autofix skipped")
     })
 
-    it("skips when missing NIKCLI_API_KEY", async () => {
+    it("skips when missing MINIMAX_API_KEY", async () => {
       const result = await runScript(path.join(scriptsDir, "ci-autofix.ts"), [], {
         GITHUB_ACTOR: "nikomatt69",
         GITHUB_EVENT_NAME: "push",
@@ -307,7 +307,7 @@ describe("ci-autofix.ts", () => {
         GITHUB_ACTOR: "nikomatt69",
         GITHUB_EVENT_NAME: "push",
         GITHUB_REPOSITORY: "some-user/nikcli",
-        NIKCLI_API_KEY: "sk-test",
+        MINIMAX_API_KEY: "sk-test",
         GITHUB_SHA: "abc123",
         GITHUB_REF: "refs/heads/feature",
         GITHUB_REF_NAME: "feature",
@@ -456,7 +456,7 @@ describe("workflow YAML integration", () => {
   it("autofix uses SST_GITHUB_TOKEN for push (not GITHUB_TOKEN)", async () => {
     const content = await readRoot(".github/workflows/ci-pipeline.yml")
     expect(content).toContain("secrets.SST_GITHUB_TOKEN")
-    expect(content).toContain("secrets.NIKCLI_API_KEY")
+    expect(content).toContain("secrets.MINIMAX_API_KEY")
   })
 
   it("publish uses workflow_call to publish.yml with secrets: inherit", async () => {

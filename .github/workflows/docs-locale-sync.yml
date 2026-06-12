@@ -9,8 +9,7 @@ on:
 
 jobs:
   sync-locales:
-    if: false
-    #if: github.actor != 'nikcli-agent[bot]'
+    if: vars.ENABLE_DOCS_LOCALE_SYNC == 'true' && github.actor != 'nikcli-agent[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -55,7 +54,7 @@ jobs:
       - name: Sync locale docs with nikcli
         if: steps.changes.outputs.has_changes == 'true'
         env:
-          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           NIKCLI_CONFIG_CONTENT: |
             {
               "permission": {
