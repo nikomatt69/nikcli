@@ -143,11 +143,26 @@ shapes and sometimes collapse rich errors into opaque strings.
 
 ### First PR Candidates
 
-- [ ] `HTTP-2` Audit one route group for explicit error contracts and
-      decide which mappings stay inline vs. shared helper.
-- [ ] `ERR-4` Sweep remaining `NamedError.create(...)` and
-      `Effect.die(...)` callsites for expected failures — re-run `git
-grep` to build a current inventory.
+- [x] `HTTP-2` Audited (2026-06-12) on the rebuilt `server/httpapi/`
+      layer: `PATCH /config` declares `ConfigUpdateError` (400) and every
+      session-scoped endpoint declares `NotFound` (404) / `Busy` (409)
+      with the legacy `{ name, data }` bodies, name as a literal so the
+      encoder discriminates by value. Decision: per-group inline
+      converters (`asUpdateError`, `asSessionError`) catching both the
+      failure and the defect channel (services still wrap async impls
+      with `Effect.promise`); `httpapi/errors.ts` `__http` helpers remain
+      Hono-only. Remaining groups follow the same pattern as they grow
+      contracts.
+- [x] `ERR-4` Inventory re-run 2026-06-12: `NamedError` has **zero**
+      occurrences in `src/` (fully gone by attrition — the legacy class
+      no longer exists in `util/error.ts` either). `Effect.die(...)`
+      callsites: 6 total — the two httpapi boundary converters and the
+      runner cancellation sentinels are legitimate defects; the one
+      expected failure left is below.
+- [x] `ERR-5` (2026-06-12) `server/httpapi/mcp.ts` no longer dies on
+      "MCP server does not support OAuth": `startAuth` / `authenticate`
+      declare `McpOAuthUnsupportedError` (400, legacy `{ error }` body)
+      and fail with it on the error channel.
 - [ ] `RENDER-2` Audit CLI and TUI surfaces for any remaining opaque
       `Error: Name` rendering of typed errors.
 

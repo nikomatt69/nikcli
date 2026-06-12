@@ -33,8 +33,10 @@ What is already integrated and must not be re-planned:
 
 Two parallel streams that unblock everything else.
 
-- `[ ]` `ERR-4` sweep remaining `NamedError.create(...)` to
-  `TaggedErrorClass` (`specs/effect/todo.md` P0).
+- `[x]` `ERR-4` sweep: `NamedError` has zero occurrences left in `src/`
+  (inventory re-run 2026-06-12; the 6 remaining `Effect.die` sites are
+  legitimate defects — see `specs/effect/todo.md`). `ERR-5` (mcp OAuth
+  400) also done.
 - `[ ]` `RENDER-2` audit CLI and TUI surfaces for opaque error rendering.
 - `[ ]` Session domain schemas (Phase P of the former MASTER-PLAN; see
   `specs/effect/schema.md` for the schema inventory).
@@ -43,8 +45,11 @@ Two parallel streams that unblock everything else.
 
 - `[ ]` `Sync.Service` + `Workspace.Service` (Phase I).
 - `[ ]` ScopedCache boot cache (Phase G).
-- `[ ]` `HTTP-2` audit one route group for explicit error contracts and
-  shrink the catch-all error boundary (`specs/effect/todo.md` P0).
+- `[x]` `HTTP-2` audit (2026-06-12): config, session, and mcp groups on
+  the httpapi layer declare their error contracts (400/404/409) with
+  per-group inline converters; decision recorded in
+  `specs/effect/todo.md`. Remaining groups follow the same pattern as
+  they grow contracts.
 
 ### E3: HttpApi route parity
 

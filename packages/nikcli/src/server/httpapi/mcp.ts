@@ -77,6 +77,14 @@ export namespace McpHttpApi {
   const StatusMap = Schema.Record(Schema.String, Status).annotate({ identifier: "MCPStatusMap" })
   type StatusMap = typeof StatusMap.Type
 
+  /** Declared 400 for OAuth flows on servers without OAuth support —
+   * mirrors the legacy Hono `{ error }` body. */
+  const OAuthUnsupported = Schema.Struct({
+    error: Schema.String,
+  }).annotate({ identifier: "McpOAuthUnsupportedError", httpApiStatus: 400 })
+
+  const oauthUnsupported = (name: string) => ({ error: `MCP server ${name} does not support OAuth` })
+
   function isMcpStatus(value: Record<string, MCP.Status> | MCP.Status): value is MCP.Status {
     return (
       typeof value === "object" &&
@@ -93,7 +101,13 @@ export namespace McpHttpApi {
   export const Group = HttpApiGroup.make("mcp")
     .add(HttpApiEndpoint.get("status", "/", { success: StatusMap }))
     .add(HttpApiEndpoint.post("add", "/", { payload: AddPayload, success: StatusMap }))
-    .add(HttpApiEndpoint.post("startAuth", "/:name/auth", { params: NamePath, success: StartAuthResponse }))
+    .add(
+      HttpApiEndpoint.post("startAuth", "/:name/auth", {
+        params: NamePath,
+        success: StartAuthResponse,
+        error: OAuthUnsupported,
+      }),
+    )
     .add(
       HttpApiEndpoint.post("authCallback", "/:name/auth/callback", {
         params: NamePath,
@@ -101,7 +115,13 @@ export namespace McpHttpApi {
         success: Status,
       }),
     )
-    .add(HttpApiEndpoint.post("authenticate", "/:name/auth/authenticate", { params: NamePath, success: Status }))
+    .add(
+      HttpApiEndpoint.post("authenticate", "/:name/auth/authenticate", {
+        params: NamePath,
+        success: Status,
+        error: OAuthUnsupported,
+      }),
+    )
     .add(HttpApiEndpoint.delete("removeAuth", "/:name/auth", { params: NamePath, success: Success }))
     .add(HttpApiEndpoint.post("connect", "/:name/connect", { params: NamePath, success: Schema.Boolean }))
     .add(HttpApiEndpoint.post("disconnect", "/:name/disconnect", { params: NamePath, success: Schema.Boolean }))
@@ -133,12 +153,13 @@ export namespace McpHttpApi {
     startAuth: ({ params }: { params: { name: string } }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
-        const supports = yield* mcp.supportsOAuth(params.name)
+        const supports = yield* Effect.orDie(mcp.supportsOAuth(params.name))
         if (!supports) {
-          return yield* Effect.die(new Error(`MCP server ${params.name} does not support OAuth`))
+          // expected failure, not a defect: the declared 400 contract
+          return yield* Effect.fail(oauthUnsupported(params.name))
         }
-        return yield* mcp.startAuth(params.name)
-      }).pipe(Effect.orDie),
+        return yield* Effect.orDie(mcp.startAuth(params.name))
+      }),
     authCallback: ({ params, payload }: { params: { name: string }; payload: typeof AuthCallbackPayload.Type }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
@@ -147,12 +168,13 @@ export namespace McpHttpApi {
     authenticate: ({ params }: { params: { name: string } }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
-        const supports = yield* mcp.supportsOAuth(params.name)
+        const supports = yield* Effect.orDie(mcp.supportsOAuth(params.name))
         if (!supports) {
-          return yield* Effect.die(new Error(`MCP server ${params.name} does not support OAuth`))
+          // expected failure, not a defect: the declared 400 contract
+          return yield* Effect.fail(oauthUnsupported(params.name))
         }
-        return yield* mcp.authenticate(params.name)
-      }).pipe(Effect.orDie),
+        return yield* Effect.orDie(mcp.authenticate(params.name))
+      }),
     removeAuth: ({ params }: { params: { name: string } }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
