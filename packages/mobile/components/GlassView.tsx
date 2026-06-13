@@ -1,27 +1,76 @@
-import { type StyleProp, View, type ViewStyle } from "react-native"
+import { BlurView, type BlurTint } from "expo-blur"
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect"
+import { Platform, type StyleProp, type ViewStyle } from "react-native"
 
 type AdaptiveBlurProps = {
-  /** Unused — kept for API compatibility so call sites don't need updating. */
   tint?: "light" | "dark" | "default" | "extraLight" | "regular" | "prominent" | string
-  /** Unused — kept for API compatibility. */
   intensity?: number
   style?: StyleProp<ViewStyle>
-  /** Background color rendered instead of a native blur layer. */
   fallbackColor: string
   children?: React.ReactNode
   pointerEvents?: "none" | "auto" | "box-none" | "box-only"
+  interactive?: boolean
 }
 
-/**
- * Glass surface without native blur dependency.
- * Renders a semi-transparent View using the provided fallbackColor.
- * Drop-in replacement: accepts the same tint/intensity props as expo-blur
- * BlurView so call sites remain unchanged.
- */
-export function AdaptiveBlur({ style, fallbackColor, children, pointerEvents }: AdaptiveBlurProps) {
+const blurTints = new Set<BlurTint>([
+  "light",
+  "dark",
+  "default",
+  "extraLight",
+  "regular",
+  "prominent",
+  "systemUltraThinMaterial",
+  "systemThinMaterial",
+  "systemMaterial",
+  "systemThickMaterial",
+  "systemChromeMaterial",
+  "systemUltraThinMaterialLight",
+  "systemThinMaterialLight",
+  "systemMaterialLight",
+  "systemThickMaterialLight",
+  "systemChromeMaterialLight",
+  "systemUltraThinMaterialDark",
+  "systemThinMaterialDark",
+  "systemMaterialDark",
+  "systemThickMaterialDark",
+  "systemChromeMaterialDark",
+])
+
+function resolveBlurTint(tint: AdaptiveBlurProps["tint"]): BlurTint {
+  return tint && blurTints.has(tint as BlurTint) ? (tint as BlurTint) : "systemMaterial"
+}
+
+export function AdaptiveBlur({
+  style,
+  fallbackColor,
+  children,
+  pointerEvents,
+  tint,
+  intensity = 72,
+  interactive = false,
+}: AdaptiveBlurProps) {
+  if (Platform.OS === "ios" && isLiquidGlassAvailable()) {
+    return (
+      <GlassView
+        glassEffectStyle="regular"
+        isInteractive={interactive}
+        style={[style, { backgroundColor: fallbackColor }]}
+        pointerEvents={pointerEvents}
+      >
+        {children}
+      </GlassView>
+    )
+  }
+
   return (
-    <View style={[style, { backgroundColor: fallbackColor }]} pointerEvents={pointerEvents}>
+    <BlurView
+      tint={resolveBlurTint(tint)}
+      intensity={intensity}
+      blurMethod="dimezisBlurViewSdk31Plus"
+      style={[style, { backgroundColor: fallbackColor }]}
+      pointerEvents={pointerEvents}
+    >
       {children}
-    </View>
+    </BlurView>
   )
 }

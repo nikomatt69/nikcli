@@ -312,7 +312,7 @@ export default function SessionScreen() {
   const composerPreferences = useUIStore((state) => state.composer)
   const promptPresets = useUIStore((state) => state.promptPresets)
   const listRef = useRef<FlatList<MessageWithParts>>(null)
-  const statusRef = useRef<SessionDetail["status"]>()
+  const statusRef = useRef<SessionDetail["status"]>(undefined)
   const permissionIDsRef = useRef<Set<string>>(new Set())
   const questionIDsRef = useRef<Set<string>>(new Set())
   const followTranscriptRef = useRef(true)
@@ -1246,7 +1246,7 @@ export default function SessionScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      <View className="border-b border-border px-4 pb-3" style={{ paddingTop: top + 8 }}>
+      <View className="px-4 pb-3" style={{ paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
           <Pressable
             onPress={() => router.back()}

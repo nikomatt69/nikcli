@@ -133,14 +133,15 @@ export const ActionSheet = React.forwardRef<
             opacity,
             transform: [{ translateY }],
             height: contentHeight,
-            backgroundColor: isDark ? palette.surface : palette.surface, // required for iOS shadow
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
+            borderCurve: "continuous",
             shadowColor: palette.shadow,
-            shadowOpacity: isDark ? 0.5 : 0.18,
-            shadowRadius: 24,
-            shadowOffset: { width: 0, height: -8 },
-            elevation: 24,
+            shadowOpacity: isDark ? 0.28 : 0.12,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: -5 },
+            elevation: 16,
           }}
         >
           {/* Glass fill — clipped to border radius */}
@@ -157,19 +158,12 @@ export const ActionSheet = React.forwardRef<
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "rgba(17,17,17,0.58)" : "rgba(255,255,255,0.52)" },
-              ]}
-            />
-            {/* Top border */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
                 {
                   borderTopLeftRadius: 28,
                   borderTopRightRadius: 28,
                   borderWidth: 1,
                   borderBottomWidth: 0,
-                  borderColor: isDark ? "rgba(255,255,255,0.11)" : "rgba(255,255,255,0.82)",
+                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.64)",
                 },
               ]}
             />

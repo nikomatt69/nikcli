@@ -1,34 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { FlatList, RefreshControl, View, useWindowDimensions } from "react-native"
+import { FlatList, RefreshControl, View } from "react-native"
 import { router, useRootNavigationState } from "expo-router"
 import { SessionListItem } from "@/components/SessionListItem"
 import { SessionListSkeleton } from "@/components/SessionListSkeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
-import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
+import { AppHeader } from "@/components/layout/AppHeader"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
-import { MOBILE_DEFAULT_MODEL_ID, MOBILE_DEFAULT_PROVIDER_ID, type SessionSummary } from "@/lib/types"
-
-function currentProjectLabel(name?: string, worktree?: string) {
-  if (name) return name
-  if (!worktree) return "No active workspace"
-  return worktree.split("/").filter(Boolean).pop() || worktree
-}
-
-function currentSessionModelLabel(providerID?: string, modelID?: string) {
-  return {
-    providerID: providerID ?? MOBILE_DEFAULT_PROVIDER_ID,
-    modelID: modelID ?? MOBILE_DEFAULT_MODEL_ID,
-  }
-}
+import type { SessionSummary } from "@/lib/types"
 
 export default function SessionsScreen() {
   const { palette } = useAppTheme()
-  const { width } = useWindowDimensions()
   const { client, loading, bootstrapLoading, config, bootstrap } = useServer()
   const rootNavigationState = useRootNavigationState()
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -108,52 +93,33 @@ export default function SessionsScreen() {
   }
 
   const busyCount = useMemo(() => sessions.filter((item) => item.status?.type === "busy").length, [sessions])
-  const githubCount = useMemo(() => sessions.filter((item) => item.info.github).length, [sessions])
-  const containerCount = useMemo(() => sessions.filter((item) => item.info.workspaceID).length, [sessions])
   const retryCount = useMemo(() => sessions.filter((item) => item.status?.type === "retry").length, [sessions])
-  const sessionModel = useMemo(
-    () => currentSessionModelLabel(config?.modelProviderID, config?.modelID),
-    [config?.modelID, config?.modelProviderID],
-  )
-  const compactHero = width < 430
 
   const hero = (
-    <View className="pb-5">
-      <SurfaceCard
-        eyebrow="Operations board"
-        title="Track live runs, approvals, and publish readiness."
-        description="Use this board to triage in-flight sessions, inspect repo-backed work, and jump straight into the execution timeline that needs your attention."
-      >
-        <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={`${sessions.length} sessions`} tone="accent" />
-          <InfoChip label={`${busyCount} busy`} tone={busyCount ? "accent" : "neutral"} />
-          <InfoChip label={`${retryCount} retry`} tone={retryCount ? "warn" : "neutral"} />
-          <InfoChip label={`${githubCount} GitHub-linked`} />
-          <InfoChip label={`${containerCount} container`} tone={containerCount ? "accent" : "neutral"} />
-          <InfoChip label={sessionModel.providerID} />
-          <InfoChip label={sessionModel.modelID} tone="accent" />
-          <InfoChip label={currentProjectLabel(bootstrap?.currentProject?.name, bootstrap?.currentProject?.worktree)} />
+    <AppHeader
+      chips={[
+        { label: `${sessions.length} sessions`, tone: "accent" },
+        { label: `${busyCount} busy`, tone: busyCount ? "accent" : "neutral" },
+        retryCount ? { label: `${retryCount} need attention`, tone: "warn" } : null,
+      ]}
+    >
+      <View className="flex-row items-start gap-3">
+        <View className="flex-1">
+          <TextField
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search sessions"
+            autoCapitalize="none"
+          />
         </View>
-        <View className={`mt-4 gap-3 ${compactHero ? "" : "flex-row items-center"}`}>
-          <View className={compactHero ? "w-full" : "flex-1"}>
-            <TextField
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search sessions, repos, or branches"
-              autoCapitalize="none"
-            />
-          </View>
-          <View className={compactHero ? "w-full" : "w-[152px]"}>
-            <ActionButton label="New session" loading={creating} onPress={() => void createSession()} />
-          </View>
+        <View className="w-[132px]">
+          <ActionButton label="New session" loading={creating} onPress={() => void createSession()} />
         </View>
-      </SurfaceCard>
+      </View>
       {error ? (
-        <View className="mt-4">
-          <ErrorBanner message={error} />
-        </View>
+        <ErrorBanner message={error} />
       ) : null}
-    </View>
+    </AppHeader>
   )
 
   if ((loading || bootstrapLoading) && sessions.length === 0) {
@@ -203,7 +169,7 @@ export default function SessionsScreen() {
         ListEmptyComponent={
           <EmptyState
             title="No sessions yet"
-            description="Create your first mobile session to monitor tool execution, review diffs, and answer permission prompts from a single enterprise console."
+            description="Create a session to run work, review diffs, and answer permission prompts."
             action={
               <ActionButton label="Create local session" loading={creating} onPress={() => void createSession()} />
             }

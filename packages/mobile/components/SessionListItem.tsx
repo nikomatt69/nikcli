@@ -134,7 +134,7 @@ function SectionDivider() {
 }
 
 type SessionActionsSheetProps = {
-  sheetRef: React.RefObject<ActionSheetRef>
+  sheetRef: React.RefObject<ActionSheetRef | null>
   title: string
   isBusy: boolean
   onStop(): void
@@ -241,13 +241,6 @@ export function SessionListItem(props: {
   const changedFiles = (summary?.additions ?? 0) + (summary?.deletions ?? 0)
   const isBusy = status === "busy"
 
-  const footerLabel =
-    status === "busy"
-      ? "Execution is active and streaming new output"
-      : status === "retry"
-        ? "Needs attention before the next run can continue"
-        : "Ready for transcript, approvals, and publish review"
-
   const statusColors =
     status === "busy"
       ? {
@@ -311,20 +304,19 @@ export function SessionListItem(props: {
         delayLongPress={380}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        className="overflow-hidden rounded-[8px] border border-border bg-surface p-4"
+        className="overflow-hidden border border-border bg-surface p-4"
         style={{
+          borderRadius: 18,
+          borderCurve: "continuous",
           shadowColor: palette.shadow,
-          shadowOpacity: isDark ? 0.24 : 0.14,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: isDark ? 0.12 : 0.05,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
         }}
       >
         <View className="flex-row items-start justify-between gap-4">
           <View className="flex-1 gap-2">
-            <View className="flex-row flex-wrap items-center gap-2">
-              <Text className="text-[11px] font-semibold uppercase tracking-[1.9px] text-accent-light">Execution</Text>
-              <Text className="text-[11px] text-muted">Updated {relativeTime(props.item.info.time.updated)}</Text>
-            </View>
+            <Text className="text-[12px] text-muted">Updated {relativeTime(props.item.info.time.updated)}</Text>
             <Text selectable className="text-[17px] font-semibold leading-[22px] text-ink" numberOfLines={2}>
               {props.item.info.title || "Untitled session"}
             </Text>
@@ -337,12 +329,12 @@ export function SessionListItem(props: {
               flexDirection: "row",
               alignItems: "center",
               gap: 6,
-              borderRadius: 8,
+              borderRadius: 999,
               borderWidth: 1,
               borderColor: statusColors.borderColor,
               backgroundColor: statusColors.backgroundColor,
               paddingHorizontal: 10,
-              paddingVertical: 7,
+              paddingVertical: 6,
             }}
           >
             <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: statusColors.dotColor }} />
@@ -360,26 +352,19 @@ export function SessionListItem(props: {
           {containerBacked ? <InfoChip label="Container sandbox" tone="accent" /> : null}
           {badge ? <InfoChip label={badge} tone="accent" /> : null}
         </View>
-        <View className="mt-4 flex-row items-center justify-between border-t border-border/80 pt-3">
-          <Text selectable className="text-xs text-soft">
-            {footerLabel}
-          </Text>
-          <View className="flex-row items-center gap-2">
-            <View className="flex-row items-center gap-1 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2">
-              <Text className="text-[11px] font-semibold uppercase tracking-[1.2px] text-accent-light">Open</Text>
-              <ArrowRight size={13} color={palette.accentLight} strokeWidth={2.1} />
-            </View>
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation()
-                openSheet()
-              }}
-              hitSlop={10}
-              className="rounded-[8px] border border-border/70 bg-background/80 px-3 py-2"
-            >
-              <Text style={{ fontSize: 13, color: palette.muted, letterSpacing: 0.4 }}>···</Text>
-            </Pressable>
-          </View>
+        <View className="mt-3 flex-row justify-end">
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation()
+              openSheet()
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open session actions"
+            hitSlop={10}
+            className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5"
+          >
+            <Text style={{ fontSize: 13, color: palette.muted, letterSpacing: 0.4 }}>•••</Text>
+          </Pressable>
         </View>
       </Pressable>
 

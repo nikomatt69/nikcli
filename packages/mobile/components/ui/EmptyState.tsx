@@ -7,8 +7,10 @@ export function EmptyState(props: { title: string; description: string; action?:
 
   return (
     <View
-      className="items-center overflow-hidden rounded-[8px] border border-dashed px-6 py-8"
+      className="items-center overflow-hidden border border-dashed px-6 py-8"
       style={{
+        borderRadius: 20,
+        borderCurve: "continuous",
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
         backgroundColor: palette.surfaceRaised,
       }}

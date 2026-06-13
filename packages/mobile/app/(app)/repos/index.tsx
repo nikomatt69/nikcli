@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { RefreshControl, ScrollView, Text, View } from "react-native"
+import { FlatList, RefreshControl, Text, View } from "react-native"
 import { router, useFocusEffect, useRootNavigationState } from "expo-router"
 import { GithubRepoCard, LocalRepoCard } from "@/components/RepoCard"
 import { RepoCardSkeleton } from "@/components/RepoCardSkeleton"
@@ -9,9 +9,12 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
+import { AppHeader } from "@/components/layout/AppHeader"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
+
+const EMPTY_ROWS: never[] = []
 
 function safeOwner(fullName?: string): string | null {
   if (!fullName) return null
@@ -244,37 +247,38 @@ export default function ReposScreen() {
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 28 }}
-      refreshControl={useMemo(
-        () => (
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
-        ),
-        [refreshing, load, palette.accent],
-      )}
-    >
-      <SurfaceCard
-        eyebrow="Workspace portfolio"
-        title="Direct sandboxes and source repos from your phone."
-        description="Create disposable worktrees, import GitHub repos into the hosted server, pick a base branch, and launch a PR-ready execution session without leaving the mobile control plane."
-      >
-        <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={`${projects.length} server repos`} tone="accent" />
-          <InfoChip label={`${repos.length} GitHub repos`} />
-          <InfoChip label={currentProjectLabel(selectedProject)} />
-          <InfoChip label={executionTarget === "container" ? "GitHub target: container" : "GitHub target: local"} />
-          {bootstrap?.github?.user?.login ? <InfoChip label={`@${bootstrap.github.user.login}`} tone="good" /> : null}
-        </View>
-      </SurfaceCard>
+    <View className="flex-1 bg-background px-4 pt-4">
+      <FlatList
+        contentInsetAdjustmentBehavior="automatic"
+        data={EMPTY_ROWS}
+        keyExtractor={() => "_"}
+        renderItem={() => null}
+        contentContainerStyle={{ paddingBottom: 28 }}
+        refreshControl={useMemo(
+          () => (
+            <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
+          ),
+          [refreshing, load, palette.accent],
+        )}
+        ListHeaderComponent={
+          <View style={{ gap: 20 }}>
+            <AppHeader
+        className=""
+        chips={[
+          { label: `${projects.length} server repos`, tone: "accent" },
+          { label: `${repos.length} GitHub repos` },
+          { label: currentProjectLabel(selectedProject) },
+          { label: executionTarget === "container" ? "Container" : "Local" },
+          bootstrap?.github?.user?.login ? { label: `@${bootstrap.github.user.login}`, tone: "good" } : null,
+        ]}
+      />
 
       {error ? <ErrorBanner message={error} /> : null}
 
       <SurfaceCard
         eyebrow="New sandbox"
-        title="Create a disposable execution branch"
-        description="Provision a fresh server worktree before you start a new mobile task so session history and publish flow stay isolated."
+        title="Create an isolated worktree"
+        description="Start new work without changing the selected repository."
         tone="panel"
       >
         <TextField
@@ -483,6 +487,9 @@ export default function ReposScreen() {
           </View>
         ))}
       </View>
-    </ScrollView>
+          </View>
+        }
+      />
+    </View>
   )
 }

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
+import { AppHeader } from "@/components/layout/AppHeader"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { Routine } from "@/lib/types"
@@ -91,33 +92,23 @@ export default function RoutinesScreen() {
   }
 
   const hero = (
-    <View className="pb-5">
-      <SurfaceCard
-        eyebrow="Automation"
-        title="Scheduled & triggered workflows"
-        description="Create routines with prompts that run on a schedule, via API webhook, or on demand. Each run spawns a new session."
-      >
-        <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={`${routines.length} routines`} tone="accent" />
-          <InfoChip
-            label={`${routines.filter((r) => !r.paused).length} active`}
-            tone={routines.some((r) => !r.paused) ? "good" : "neutral"}
-          />
-          <InfoChip
-            label={`${routines.filter((r) => r.paused).length} paused`}
-            tone={routines.some((r) => r.paused) ? "warn" : "neutral"}
-          />
-        </View>
-        <View className="mt-4">
-          <ActionButton label="New routine" onPress={() => router.push("/routines/new" as Href)} />
-        </View>
-      </SurfaceCard>
+    <AppHeader
+      chips={[
+        { label: `${routines.length} routines`, tone: "accent" },
+        {
+          label: `${routines.filter((r) => !r.paused).length} active`,
+          tone: routines.some((r) => !r.paused) ? "good" : "neutral",
+        },
+        routines.some((r) => r.paused)
+          ? { label: `${routines.filter((r) => r.paused).length} paused`, tone: "warn" }
+          : null,
+      ]}
+    >
+      <ActionButton label="New routine" onPress={() => router.push("/routines/new" as Href)} />
       {error ? (
-        <View className="mt-4">
-          <ErrorBanner message={error} />
-        </View>
+        <ErrorBanner message={error} />
       ) : null}
-    </View>
+    </AppHeader>
   )
 
   return (
@@ -133,7 +124,7 @@ export default function RoutinesScreen() {
         ListEmptyComponent={
           <EmptyState
             title="No routines yet"
-            description="Create your first routine to automate recurring AI tasks. Run on a cron schedule, via API webhook, or trigger manually."
+            description="Create a routine for work that runs on a schedule, through the API, or on demand."
             action={<ActionButton label="Create routine" onPress={() => router.push("/routines/new" as Href)} />}
           />
         }

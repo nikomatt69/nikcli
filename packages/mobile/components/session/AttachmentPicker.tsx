@@ -10,7 +10,7 @@ import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 
 type Props = {
-  sheetRef: RefObject<ActionSheetRef>
+  sheetRef: RefObject<ActionSheetRef | null>
   onFile(mime: string, filename: string, base64: string): void
 }
 

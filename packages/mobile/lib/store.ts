@@ -10,19 +10,7 @@ import type {
   ThemeMode,
 } from "@/lib/types"
 
-export type AppShellRoute = "sessions" | "repos" | "settings" | "routines" | "loops" | "terminal"
-
-export type RouteLabelMeta = {
-  label: string
-  subtitle?: string
-}
-
-type RouteLabelState = Partial<Record<AppShellRoute, RouteLabelMeta>>
-
 export interface AppShellState {
-  drawerOpen: boolean
-  activeRoute: AppShellRoute
-  routeLabels: RouteLabelState
   themeMode: ThemeMode
   visibleSettingsSections: Record<SettingsSectionID, boolean>
   notifications: NotificationPreferences
@@ -31,12 +19,6 @@ export interface AppShellState {
   composer: ComposerPreferences
   promptPresets: PromptPreset[]
   preferencesReady: boolean
-  openDrawer(): void
-  closeDrawer(): void
-  toggleDrawer(): void
-  setActiveRoute(route: AppShellRoute): void
-  setRouteLabel(route: AppShellRoute, meta: RouteLabelMeta): void
-  resetRouteLabel(route: AppShellRoute): void
   hydratePreferences(preferences: AppPreferences): void
   setThemeMode(mode: ThemeMode): void
   setSettingsSectionVisible(section: SettingsSectionID, visible: boolean): void
@@ -45,15 +27,6 @@ export interface AppShellState {
   setGesturePreference<K extends keyof GesturePreferences>(key: K, value: GesturePreferences[K]): void
   setComposerPreference<K extends keyof ComposerPreferences>(key: K, value: ComposerPreferences[K]): void
   setPromptPresets(presets: PromptPreset[]): void
-}
-
-const defaultRouteLabels: RouteLabelState = {
-  sessions: { label: "Sessions", subtitle: "Monitor active work" },
-  repos: { label: "Repos", subtitle: "Manage connected codebases" },
-  settings: { label: "Settings", subtitle: "Configure host access" },
-  routines: { label: "Routines", subtitle: "Scheduled & triggered automations" },
-  loops: { label: "Loops", subtitle: "Autonomous goal workflows" },
-  terminal: { label: "Terminal", subtitle: "Shell on your nikcli server" },
 }
 
 const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
@@ -123,9 +96,6 @@ const defaultPromptPresets: PromptPreset[] = [
 ]
 
 export const useUIStore = create<AppShellState>((set) => ({
-  drawerOpen: false,
-  activeRoute: "sessions",
-  routeLabels: defaultRouteLabels,
   themeMode: "system",
   visibleSettingsSections: defaultVisibleSettingsSections,
   notifications: defaultNotifications,
@@ -134,24 +104,6 @@ export const useUIStore = create<AppShellState>((set) => ({
   composer: defaultComposer,
   promptPresets: defaultPromptPresets,
   preferencesReady: false,
-  openDrawer: () => set({ drawerOpen: true }),
-  closeDrawer: () => set({ drawerOpen: false }),
-  toggleDrawer: () => set((state) => ({ drawerOpen: !state.drawerOpen })),
-  setActiveRoute: (route) => set({ activeRoute: route }),
-  setRouteLabel: (route, meta) =>
-    set((state) => ({
-      routeLabels: {
-        ...state.routeLabels,
-        [route]: meta,
-      },
-    })),
-  resetRouteLabel: (route) =>
-    set((state) => ({
-      routeLabels: {
-        ...state.routeLabels,
-        [route]: defaultRouteLabels[route],
-      },
-    })),
   hydratePreferences: (preferences) =>
     set({
       themeMode: preferences.themeMode,

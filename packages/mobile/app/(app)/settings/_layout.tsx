@@ -10,10 +10,12 @@ export default function SettingsLayout() {
         headerStyle: { backgroundColor: palette.background },
         headerTintColor: palette.ink,
         headerShadowVisible: false,
+        headerBackButtonDisplayMode: "minimal",
         contentStyle: { backgroundColor: palette.background },
+        animation: "slide_from_right",
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: "Settings", headerLargeTitle: true }} />
     </Stack>
   )
 }

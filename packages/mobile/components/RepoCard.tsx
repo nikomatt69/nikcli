@@ -35,8 +35,10 @@ export function LocalRepoCard(props: {
   return (
     <Pressable
       onPress={props.onSelect}
-      className="overflow-hidden rounded-[8px] border p-4"
+      className="overflow-hidden border p-4"
       style={{
+        borderRadius: 18,
+        borderCurve: "continuous",
         borderColor: props.selected
           ? isDark
             ? "rgba(255,255,255,0.16)"
@@ -46,14 +48,14 @@ export function LocalRepoCard(props: {
             : "rgba(193,208,223,0.9)",
         backgroundColor: props.selected ? palette.panel : palette.surface,
         shadowColor: palette.shadow,
-        shadowOpacity: isDark ? 0.24 : 0.12,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: isDark ? 0.12 : 0.05,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
       }}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
-          <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+          <Text selectable className="text-[12px] font-semibold text-accent-light">
             {props.project.current ? "Live workspace" : "Available workspace"}
           </Text>
           <Text selectable className="text-base font-semibold text-ink">
@@ -88,15 +90,17 @@ export function GithubRepoCard(props: { repo: GitHubRepo }) {
 
   return (
     <View
-      className="overflow-hidden rounded-[8px] border p-4"
+      className="overflow-hidden border p-4"
       style={{
+        borderRadius: 18,
+        borderCurve: "continuous",
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
         backgroundColor: isDark ? "rgba(0,0,0,0.55)" : "rgba(241,246,251,0.65)",
       }}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
-          <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+          <Text selectable className="text-[12px] font-semibold text-accent-light">
             GitHub source
           </Text>
           <Text selectable className="text-base font-semibold text-ink">

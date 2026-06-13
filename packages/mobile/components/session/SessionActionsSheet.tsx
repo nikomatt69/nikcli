@@ -7,7 +7,7 @@ import { useAppTheme } from "@/lib/theme"
 import { useRef } from "react"
 
 type Props = {
-  sheetRef: RefObject<ActionSheetRef>
+  sheetRef: RefObject<ActionSheetRef | null>
   title: string
   onRename(): void
   onExportMarkdown(): void

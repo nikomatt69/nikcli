@@ -1,43 +1,69 @@
-import { useEffect } from "react"
-import { View } from "react-native"
-import { Tabs, useSegments } from "expo-router"
-import { AppHeader } from "@/components/layout/AppHeader"
-import { AppTabBar } from "@/components/layout/AppTabBar"
-import { NetworkBanner } from "@/components/NetworkBanner"
-import { useUIStore } from "@/lib/store"
-import { useAppTheme } from "@/lib/theme"
+import { View } from "react-native";
+import { useSegments } from "expo-router";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { NetworkBanner } from "@/components/NetworkBanner";
+import { useAppTheme } from "@/lib/theme";
 
 export default function AppLayout() {
-  const segments = useSegments()
-  const routeSegments = segments.filter((segment) => !segment.startsWith("("))
-  const [root, child] = routeSegments
-  const hideChrome = (root === "sessions" && Boolean(child)) || (root === "settings" && Boolean(child))
-  const closeDrawer = useUIStore((state) => state.closeDrawer)
-  const { palette } = useAppTheme()
-
-  useEffect(() => {
-    if (hideChrome) closeDrawer()
-  }, [closeDrawer, hideChrome])
+  const segments = useSegments();
+  const routeSegments = segments.filter((segment) => !segment.startsWith("("));
+  const [root, child] = routeSegments;
+  const hideChrome =
+    (root === "sessions" && Boolean(child)) ||
+    (root === "settings" && Boolean(child));
+  const { palette } = useAppTheme();
 
   return (
     <View style={{ flex: 1 }}>
       <NetworkBanner />
-      <Tabs
-        tabBar={(props) => (hideChrome ? null : <AppTabBar {...props} />)}
-        screenOptions={{
-          headerShown: !hideChrome,
-          header: ({ route }) => <AppHeader routeName={route.name} />,
-          sceneStyle: { backgroundColor: palette.background },
-        }}
+      <NativeTabs
+        hidden={hideChrome}
+        minimizeBehavior="onScrollDown"
+        sidebarAdaptable
+        tintColor={palette.accent}
+        iconColor={{ default: palette.textMuted, selected: palette.accent }}
+        tabBarRespectsIMEInsets
       >
-        <Tabs.Screen name="sessions" options={{ title: "Sessions" }} />
-        <Tabs.Screen name="repos" options={{ title: "Repos" }} />
-        <Tabs.Screen name="settings" options={{ title: "Settings", href: null }} />
-        <Tabs.Screen name="routines" options={{ title: "Routines" }} />
-        <Tabs.Screen name="loops" options={{ title: "Loops" }} />
-        <Tabs.Screen name="terminal" options={{ title: "Terminal" }} />
-        <Tabs.Screen name="user" options={{ title: "Profile", href: null }} />
-      </Tabs>
+        <NativeTabs.Trigger name="sessions">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "terminal", selected: "terminal.fill" }}
+            md="terminal"
+          />
+          <NativeTabs.Trigger.Label>Sessions</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="repos">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "folder", selected: "folder.fill" }}
+            md="folder"
+          />
+          <NativeTabs.Trigger.Label>Projects</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="terminal">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "apple.terminal", selected: "apple.terminal.fill" }}
+            md="code"
+          />
+          <NativeTabs.Trigger.Label>Terminal</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="routines">
+          <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" md="schedule" />
+          <NativeTabs.Trigger.Label>Routines</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="loops">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "repeat", selected: "repeat.circle.fill" }}
+            md="repeat"
+          />
+          <NativeTabs.Trigger.Label>Loops</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="settings">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "gearshape", selected: "gearshape.fill" }}
+            md="settings"
+          />
+          <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
     </View>
-  )
+  );
 }

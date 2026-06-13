@@ -10,13 +10,23 @@ const config = getDefaultConfig(projectRoot)
 // Include workspace root so Metro can see packages hoisted by Bun
 config.watchFolders = [workspaceRoot]
 
-// Force every import of react / react-native to resolve to THIS package's copy,
-// preventing multiple React instances when workspace deps require them too.
+// Force every import of react / react-dom / react-native to resolve to THIS
+// package's copy, preventing multiple React instances when workspace deps
+// require different majors (companion/web use 18.x, mobile uses 19.x). Without
+// deduping react-dom (and subpaths) too, web/SSR rendering throws
+// "Invalid hook call / more than one copy of React".
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  const deduplicated = ["react", "react-native", "react/jsx-runtime", "react/jsx-dev-runtime"]
-  if (deduplicated.includes(moduleName)) {
-    const resolved = path.resolve(projectRoot, "node_modules", moduleName)
-    return { filePath: require.resolve(resolved), type: "sourceFile" }
+  const isReactModule =
+    moduleName === "react" ||
+    moduleName === "react-dom" ||
+    moduleName === "react-native" ||
+    moduleName.startsWith("react/") ||
+    moduleName.startsWith("react-dom/")
+  if (isReactModule) {
+    return {
+      filePath: require.resolve(moduleName, { paths: [path.join(projectRoot, "node_modules")] }),
+      type: "sourceFile",
+    }
   }
   return context.resolveRequest(context, moduleName, platform)
 }

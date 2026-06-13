@@ -7,8 +7,10 @@ export function ErrorBanner(props: { message: string }) {
 
   return (
     <View
-      className="overflow-hidden rounded-[8px] border p-4"
+      className="overflow-hidden border p-4"
       style={{
+        borderRadius: 16,
+        borderCurve: "continuous",
         borderColor: isDark ? "rgba(251,113,133,0.24)" : "rgba(239,68,68,0.24)",
         backgroundColor: isDark ? "rgba(251,113,133,0.10)" : "rgba(239,68,68,0.08)",
       }}

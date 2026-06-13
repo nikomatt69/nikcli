@@ -63,8 +63,8 @@ export function InfoChip({ label, tone = "neutral" }: InfoChipProps) {
         borderWidth: 1,
         borderColor,
         backgroundColor,
-        paddingHorizontal: 11,
-        paddingVertical: 7,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
       }}
     >
       {tone !== "neutral" ? (
@@ -81,9 +81,8 @@ export function InfoChip({ label, tone = "neutral" }: InfoChipProps) {
         selectable
         style={{
           color: textColor,
-          fontSize: 11,
-          fontWeight: "700",
-          letterSpacing: 0.15,
+          fontSize: 12,
+          fontWeight: "600",
           fontVariant: ["tabular-nums"],
         }}
       >

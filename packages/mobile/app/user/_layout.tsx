@@ -10,10 +10,11 @@ export default function UserLayout() {
         headerStyle: { backgroundColor: palette.background },
         headerTintColor: palette.ink,
         headerShadowVisible: false,
+        headerBackButtonDisplayMode: "minimal",
         contentStyle: { backgroundColor: palette.background },
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: "Profile", headerLargeTitle: true }} />
     </Stack>
   )
 }

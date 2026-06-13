@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
 import { Link, useFocusEffect } from "expo-router"
 import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
@@ -27,6 +27,8 @@ import {
   type MobileExecutionTarget,
   type ProviderCatalog,
 } from "@/lib/types"
+
+const EMPTY_ROWS: never[] = []
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -833,41 +835,40 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 36 }}
-    >
-      <SurfaceCard
-        eyebrow="Operator trust"
-        title="Harden host access and GitHub identity."
-        description="Keep the control plane clean: one trusted host, one verified GitHub identity, and one clear path from prompt to pull request."
-      >
-        <View className="absolute bottom-0 left-0 h-20 w-full bg-panel/25" />
-        <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={config ? "Host linked" : "Host offline"} tone={config ? "good" : "warn"} />
-          <InfoChip
-            label={
-              githubConnected ? `GitHub @${bootstrap?.github?.user?.login || "connected"}` : "GitHub not connected"
-            }
-            tone={githubConnected ? "good" : "warn"}
-          />
-          <InfoChip
-            label={selectedExecutionTarget === "container" ? "GitHub target: container" : "GitHub target: local"}
-            tone={selectedExecutionTarget === "container" ? "accent" : "neutral"}
-          />
-          <InfoChip label={bootstrapLoading ? "Refreshing control plane" : "Control plane ready"} />
-        </View>
-      </SurfaceCard>
+    <View className="flex-1 bg-background px-4 pt-4">
+      <FlatList
+        contentInsetAdjustmentBehavior="automatic"
+        data={EMPTY_ROWS}
+        keyExtractor={() => "_"}
+        renderItem={() => null}
+        contentContainerStyle={{ paddingBottom: 36 }}
+        ListHeaderComponent={
+          <View style={{ gap: 20 }}>
+            <View className="flex-row flex-wrap gap-2">
+        <InfoChip label={config ? "Host linked" : "Host offline"} tone={config ? "good" : "warn"} />
+        <InfoChip
+          label={githubConnected ? `GitHub @${bootstrap?.github?.user?.login || "connected"}` : "GitHub offline"}
+          tone={githubConnected ? "good" : "warn"}
+        />
+        <InfoChip label={selectedExecutionTarget === "container" ? "Container" : "Local"} tone="accent" />
+        {bootstrapLoading ? <InfoChip label="Refreshing" /> : null}
+      </View>
 
       {maybeHandle(message)}
 
-      <SurfaceCard
-        eyebrow="Control surfaces"
-        title="Dedicated command and memory workspaces"
-        description="Open focused settings pages for custom commands, reusable presets, host prompt history, and saved snippets without losing the broader control plane below."
-      >
+      <View className="gap-3">
+        <Text className="text-lg font-semibold text-ink">Manage</Text>
         <View className="gap-3">
+          {visibleSettingsSections.profile ? (
+            <Link href="/user" asChild>
+              <SettingsNavCard
+                eyebrow="Profile"
+                title="Users and access"
+                description="Manage the current account and other server users."
+                badges={[currentUser?.username || "Current user"]}
+              />
+            </Link>
+          ) : null}
           {visibleSettingsSections.commands ? (
             <Link href="/settings/commands" asChild>
               <SettingsNavCard
@@ -976,7 +977,7 @@ export default function SettingsScreen() {
             </Link>
           ) : null}
         </View>
-      </SurfaceCard>
+      </View>
 
       {visibleSettingsSections.profile ? (
         <SurfaceCard
@@ -1890,6 +1891,9 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+          </View>
+        }
+      />
+    </View>
   )
 }

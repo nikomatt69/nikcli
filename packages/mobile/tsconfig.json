@@ -14,9 +14,10 @@
     "verbatimModuleSyntax": true,
     "types": ["node", "react-native"],
     "paths": {
-      "@/*": ["./*"]
-    },
-    "baseUrl": "."
+      "@/*": ["./*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts", ".expo/types/**/*.ts", "expo-env.d.ts"],
   "exclude": ["node_modules"],

@@ -24,14 +24,11 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       ) : null}
       <View
         style={{
-          borderRadius: 8,
-          borderWidth: 1,
+          borderRadius: 14,
+          borderCurve: "continuous",
+          borderWidth: focused ? 1.5 : 1,
           borderColor: focused ? palette.focusRing : isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.82)",
           backgroundColor: focused ? palette.surfaceRaised : isDark ? palette.surfaceMuted : "rgba(241,246,251,0.88)",
-          shadowColor: focused ? palette.accent : palette.shadow,
-          shadowOpacity: focused ? (isDark ? 0.22 : 0.12) : 0,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
         }}
       >
         <TextInput
@@ -51,7 +48,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           accessibilityLabel={props.accessibilityLabel ?? label}
           style={[
             {
-              minHeight: props.multiline ? 132 : 48,
+              minHeight: props.multiline ? 132 : 46,
               paddingHorizontal: 16,
               paddingVertical: props.multiline ? 14 : 15,
               fontSize: 15,
