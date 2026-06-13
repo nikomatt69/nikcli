@@ -2,6 +2,7 @@ import path from "path"
 import z from "zod"
 import { Project } from "@/project/project"
 import { Session } from "@/session"
+import { SessionRepo } from "@/session/repo"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
@@ -28,7 +29,6 @@ import { Workspace } from "@/workspace"
 import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { PromptStashStore } from "@/prompt/stash-store"
 import { Log } from "@/util/log"
-import { workMap } from "@/util/queue"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstance, withInstanceAsync } from "@/effect"
 
@@ -420,8 +420,12 @@ export const MobileMemorySearchHit = z
   .meta({ ref: "MobileMemorySearchHit" })
 
 export const MobileRoutine = Routine.Record.meta({ ref: "MobileRoutine" })
-export const MobileRoutineCreateInput = Routine.CreateInput.meta({ ref: "MobileRoutineCreateInput" })
-export const MobileRoutineUpdateInput = Routine.UpdateInput.meta({ ref: "MobileRoutineUpdateInput" })
+export const MobileRoutineCreateInput = Routine.CreateInput.meta({
+  ref: "MobileRoutineCreateInput",
+})
+export const MobileRoutineUpdateInput = Routine.UpdateInput.meta({
+  ref: "MobileRoutineUpdateInput",
+})
 export const MobileRoutineRunInput = z.object({ text: z.string().optional() }).meta({ ref: "MobileRoutineRunInput" })
 export const MobileRoutineTriggerInput = z
   .object({ text: z.string().optional() })
@@ -439,7 +443,10 @@ export const MobileLoopRuntime = z
   .meta({ ref: "MobileLoopRuntime" })
 export const MobileLoop = LoopDefinitionSchema.meta({ ref: "MobileLoop" })
 export const MobileLoopRun = LoopRunSchema.meta({ ref: "MobileLoopRun" })
-export const MobileLoopWriteInput = LoopDefinitionSchema.omit({ id: true, createdAt: true }).meta({
+export const MobileLoopWriteInput = LoopDefinitionSchema.omit({
+  id: true,
+  createdAt: true,
+}).meta({
   ref: "MobileLoopWriteInput",
 })
 export const MobileLoopGenerateInput = z
@@ -568,15 +575,11 @@ export async function searchPromptMemories(query: string) {
     preview: string
   }> = []
 
-  const sessionKeys = await storageList(["session"])
-  // Batch-load session infos up front (bounded parallelism); message loading
-  // below stays sequential so the early-exit at 40 hits keeps protecting us
-  // from reading every message of every session.
-  const sessionInfos = await workMap(10, sessionKeys, (key) =>
-    key.length === 3 ? storageRead<Session.Info>(key).catch(() => undefined) : Promise.resolve(undefined),
-  )
-  for (const session of sessionInfos) {
-    if (!session) continue
+  // Sessions live in SQL (repo.ts) since the database migration in 50b55f9a4,
+  // so we use SessionRepo.listAll() instead of the obsolete file-based
+  // storageList(["session"]) walk.
+  const allSessions = SessionRepo.listAll()
+  for (const session of allSessions) {
     const messages = await runSessionForSession(
       session,
       Effect.gen(function* () {
@@ -627,16 +630,12 @@ export async function resolveMobilePromptDefaults(session: Session.Info) {
     const current = await latestPromptDefaults(session.id)
     if (current.agent && current.model) return current
 
-    const allKeys = await storageList(["session"])
-    const candidateKeys = allKeys.filter((key) => key.length === 3 && key[2] !== session.id)
-    // Batch-load candidates (bounded parallelism); the fallback scan below
-    // stays sequential so it can stop at the first usable session.
-    const candidates = await workMap(10, candidateKeys, (key) =>
-      storageRead<Session.Info>(key).catch(() => undefined),
-    )
-    const sessions = candidates.filter((c): c is Session.Info => !!c && c.projectID === session.projectID)
-
-    sessions.sort((a, b) => b.time.updated - a.time.updated)
+    // Sibling candidates come from the SQL store (SessionRepo), sorted
+    // newest-updated first. We filter to the same project because prompt
+    // defaults only make sense within the same context.
+    const sessions = SessionRepo.listAll()
+      .filter((c) => c.id !== session.id && c.projectID === session.projectID)
+      .sort((a, b) => b.time.updated - a.time.updated)
 
     for (const candidate of sessions) {
       const fallback = await latestPromptDefaults(candidate.id)
@@ -688,7 +687,10 @@ export function extractSessionIDs(value: unknown): string[] {
   return [...result]
 }
 
-export type GithubConnectorEntry = { key: string; connector: Config.ConnectorGithub }
+export type GithubConnectorEntry = {
+  key: string
+  connector: Config.ConnectorGithub
+}
 
 export function isGithubConnector(value: unknown): value is Config.ConnectorGithub {
   return typeof value === "object" && value !== null && "type" in value && value.type === "github"

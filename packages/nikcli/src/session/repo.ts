@@ -58,6 +58,21 @@ export namespace SessionRepo {
     return getByProject(projectId)
   }
 
+  /**
+   * List every session across all projects, newest-updated first.
+   *
+   * Used by server-wide routes (e.g. the mobile `/mobile/session` list) that
+   * intentionally do not scope to a single project. The SQL migration in
+   * commit 50b55f9a4 moved sessions out of the JSON file store, so the old
+   * `Storage.list(["session"])` traversal in those routes now returns
+   * nothing — the list screen therefore showed "0 sessions" until this
+   * method was wired in.
+   */
+  export function listAll(): Session.Info[] {
+    const rows = db().select().from(sessionInfo).orderBy(desc(sessionInfo.updatedAt)).all()
+    return rows.map(rowToInfo)
+  }
+
   export function upsert(info: Session.Info): void {
     const row = infoToRow(info)
     db()

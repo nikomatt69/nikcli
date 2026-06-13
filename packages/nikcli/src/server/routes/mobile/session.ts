@@ -4,13 +4,13 @@ import z from "zod"
 import { Bus } from "@/bus"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
+import { SessionRepo } from "@/session/repo"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
 import { MessageV2 } from "@/session/message-v2"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
-import { workMap } from "@/util/queue"
 import { Snapshot } from "@/snapshot"
 import { Command } from "@/command"
 import { Workspace } from "@/workspace"
@@ -30,8 +30,6 @@ import {
   runSession,
   runSessionForSession,
   runSummary,
-  storageRead,
-  storageList,
   MobileSessionSummary,
   MobileSessionDetail,
   MobileSessionCreateInput,
@@ -54,7 +52,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Sessions",
-            content: { "application/json": { schema: resolver(MobileSessionSummary.array()) } },
+            content: {
+              "application/json": {
+                schema: resolver(MobileSessionSummary.array()),
+              },
+            },
           },
         },
       }),
@@ -68,40 +70,34 @@ export const SessionRoutes = () =>
       async (c) => {
         const query = c.req.valid("query")
         const term = query.search?.toLowerCase()
-        // List sessions across all projects for mobile (cross-project view)
-        const allKeys = await storageList(["session"])
-        const seen = new Set<string>()
-        const keys = allKeys.filter((key) => {
-          if (key.length !== 3) return false
-          if (seen.has(key[2])) return false
-          seen.add(key[2])
-          return true
-        })
-        // Read + status in bounded parallel batches instead of one-at-a-time;
-        // unreadable sessions are skipped, same as before.
-        const results = await workMap(10, keys, async (key): Promise<z.infer<typeof MobileSessionSummary> | null> => {
-          try {
-            const session = await storageRead<Session.Info>(key)
-            if (term) {
-              const haystack = [
-                session.title,
-                session.github?.fullName,
-                session.github?.baseBranch,
-                session.github?.headBranch,
-              ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase()
-              if (!haystack.includes(term)) return null
-            }
-            return { info: session, status: await statusForSession(session) }
-          } catch {
-            return null
+        const sessions: z.infer<typeof MobileSessionSummary>[] = []
+        // List sessions across all projects for mobile (cross-project view).
+        // Sessions live in the SQL store (see session/repo.ts) since the
+        // database migration in 50b55f9a4 — the old `storageList(["session"])`
+        // file-tree walk no longer finds them and would return an empty list.
+        for (const session of SessionRepo.listAll()) {
+          if (term) {
+            const haystack = [
+              session.title,
+              session.github?.fullName,
+              session.github?.baseBranch,
+              session.github?.headBranch,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase()
+            if (!haystack.includes(term)) continue
           }
-        })
-        const sessions = results.filter((s): s is z.infer<typeof MobileSessionSummary> => s !== null)
-        // Sort by most recently updated, then apply limit
-        sessions.sort((a, b) => b.info.time.updated - a.info.time.updated)
+          try {
+            sessions.push({
+              info: session,
+              status: await statusForSession(session),
+            })
+          } catch {
+            // skip sessions whose status cannot be resolved (e.g. missing
+            // instance directory); the next request will retry them.
+          }
+        }
         return c.json(query.limit ? sessions.slice(0, query.limit) : sessions)
       },
     )
@@ -174,7 +170,9 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Session detail",
-            content: { "application/json": { schema: resolver(MobileSessionDetail) } },
+            content: {
+              "application/json": { schema: resolver(MobileSessionDetail) },
+            },
           },
           ...errors(404),
         },
@@ -241,7 +239,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Message diff",
-            content: { "application/json": { schema: resolver(Snapshot.FileDiff.array()) } },
+            content: {
+              "application/json": {
+                schema: resolver(Snapshot.FileDiff.array()),
+              },
+            },
           },
         },
       }),
@@ -258,7 +260,10 @@ export const SessionRoutes = () =>
           return runSummary(
             Effect.gen(function* () {
               const summary = yield* SessionSummary.Service
-              return yield* summary.diff({ sessionID: params.sessionID, messageID: params.messageID })
+              return yield* summary.diff({
+                sessionID: params.sessionID,
+                messageID: params.messageID,
+              })
             }),
           )
         })
@@ -274,7 +279,9 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Commands",
-            content: { "application/json": { schema: resolver(MobileCommand.array()) } },
+            content: {
+              "application/json": { schema: resolver(MobileCommand.array()) },
+            },
           },
           ...errors(404),
         },
@@ -357,7 +364,11 @@ export const SessionRoutes = () =>
         responses: {
           202: {
             description: "Message accepted",
-            content: { "application/json": { schema: resolver(z.object({ accepted: z.literal(true) })) } },
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ accepted: z.literal(true) })),
+              },
+            },
           },
           ...errors(400, 404),
         },
@@ -448,7 +459,9 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Command result",
-            content: { "application/json": { schema: resolver(MessageV2.WithParts) } },
+            content: {
+              "application/json": { schema: resolver(MessageV2.WithParts) },
+            },
           },
           ...errors(400, 404),
         },
@@ -518,7 +531,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Session aborted",
-            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
           },
         },
       }),
@@ -569,7 +586,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Session deleted",
-            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
           },
           ...errors(400, 404),
         },
@@ -595,7 +616,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Permission processed",
-            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
           },
         },
       }),
@@ -635,7 +660,10 @@ export const SessionRoutes = () =>
         await runPermission(
           Effect.gen(function* () {
             const permission = yield* PermissionNext.Service
-            yield* permission.reply({ requestID: params.permissionID, reply: c.req.valid("json").response })
+            yield* permission.reply({
+              requestID: params.permissionID,
+              reply: c.req.valid("json").response,
+            })
           }),
         )
         return c.json({ success: true as const })
@@ -650,7 +678,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Question answered",
-            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
           },
         },
       }),
@@ -690,7 +722,10 @@ export const SessionRoutes = () =>
         await runQuestion(
           Effect.gen(function* () {
             const question = yield* Question.Service
-            yield* question.reply({ requestID: params.requestID, answers: c.req.valid("json").answers })
+            yield* question.reply({
+              requestID: params.requestID,
+              answers: c.req.valid("json").answers,
+            })
           }),
         )
         return c.json({ success: true as const })
@@ -705,7 +740,11 @@ export const SessionRoutes = () =>
         responses: {
           200: {
             description: "Question rejected",
-            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
           },
         },
       }),

@@ -27,6 +27,24 @@ export type EventProjectUpdated = {
   properties: Project
 }
 
+export type EventTelemetryRecord = {
+  type: "telemetry.record"
+  properties: {
+    id: string
+    traceId: string
+    parentId?: string
+    name: string
+    kind: string
+    startTime: number
+    durationMs: number
+    statusCode?: number
+    statusMessage?: string
+    attributes?: {
+      [key: string]: string
+    }
+  }
+}
+
 export type EventServerInstanceDisposed = {
   type: "server.instance.disposed"
   properties: {
@@ -1107,6 +1125,76 @@ export type EventLoopAborted = {
   }
 }
 
+export type EventMissionUpserted = {
+  type: "mission.upserted"
+  properties: {
+    missionID: string
+  }
+}
+
+export type EventMissionRemoved = {
+  type: "mission.removed"
+  properties: {
+    missionID: string
+  }
+}
+
+export type EventMissionStarted = {
+  type: "mission.started"
+  properties: {
+    missionID: string
+  }
+}
+
+export type EventMissionFinished = {
+  type: "mission.finished"
+  properties: {
+    missionID: string
+    status: "complete" | "error" | "paused" | "frozen"
+    error?: string
+  }
+}
+
+export type EventMissionExecStarted = {
+  type: "mission.exec.started"
+  properties: {
+    missionID: string
+    execID: string
+    kind: "feature" | "validation"
+    targetID: string
+    targetName: string
+    sessionID: string
+  }
+}
+
+export type EventMissionExecFinished = {
+  type: "mission.exec.finished"
+  properties: {
+    missionID: string
+    execID: string
+    kind: "feature" | "validation"
+    targetID: string
+    status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+    ok: boolean
+    error?: string
+  }
+}
+
+export type EventMissionRuntimeChanged = {
+  type: "mission.runtime.changed"
+  properties: {
+    missionID: string
+  }
+}
+
+export type EventMissionAborted = {
+  type: "mission.aborted"
+  properties: {
+    missionID: string
+    reason: string
+  }
+}
+
 export type EventSessionV2Updated = {
   type: "session.v2.updated"
   properties: {
@@ -1155,6 +1243,7 @@ export type EventPtyDeleted = {
 
 export type Event =
   | EventProjectUpdated
+  | EventTelemetryRecord
   | EventServerInstanceDisposed
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
@@ -1204,6 +1293,14 @@ export type Event =
   | EventLoopRunFinished
   | EventLoopRuntimeChanged
   | EventLoopAborted
+  | EventMissionUpserted
+  | EventMissionRemoved
+  | EventMissionStarted
+  | EventMissionFinished
+  | EventMissionExecStarted
+  | EventMissionExecFinished
+  | EventMissionRuntimeChanged
+  | EventMissionAborted
   | EventSessionV2Updated
   | EventPtyCreated
   | EventPtyUpdated
@@ -1285,6 +1382,70 @@ export type LoopTemplate = {
 export type LoopRun = {
   id: string
   loopID: string
+  startedAt: number
+  endedAt?: number
+  status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  ok: boolean
+  error?: string
+  sessionID?: string
+}
+
+export type MissionDefinition = {
+  id: string
+  name: string
+  brief: string
+  milestones: Array<{
+    id: string
+    name: string
+    features: Array<{
+      id: string
+      name: string
+      objective: string
+      agent: string
+      model?: string
+      tokenBudget?: number
+      dependsOn?: Array<string>
+      status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+      error?: string
+    }>
+    validation?: "scrutiny" | "user-test" | "none"
+    status?: "pending" | "running" | "validating" | "done" | "blocked"
+  }>
+  models?: {
+    worker?: string
+    validation?: string
+    orchestrator?: string
+  }
+  timeoutMs?: number
+  status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
+  createdAt: number
+}
+
+export type MissionRuntime = {
+  missionID: string
+  status: "idle" | "running" | "paused" | "error" | "cancelling"
+  sessionID?: string
+  currentMilestoneID?: string
+  currentFeatureID?: string
+  doneFeatures: number
+  totalFeatures: number
+  lastError?: string
+  lastRunAt?: number
+}
+
+export type MissionTemplate = {
+  id: string
+  title: string
+  description: string
+  brief: string
+}
+
+export type MissionExec = {
+  id: string
+  missionID: string
+  kind: "feature" | "validation"
+  targetID: string
+  targetName: string
   startedAt: number
   endedAt?: number
   status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
@@ -2576,7 +2737,7 @@ export type Config = {
      */
     batch_tool?: boolean
     /**
-     * Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)
+     * Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag). Enabled by default; set to false to opt out. Spans are only exported when OTEL_EXPORTER_OTLP_ENDPOINT is set.
      */
     openTelemetry?: boolean
     /**
@@ -3403,17 +3564,6 @@ export type MobileBootstrap = {
   mobileProject?: MobileProjectType
 }
 
-export type MobileCommand = {
-  name: string
-  description?: string
-  agent?: string
-  model?: string
-  mcp?: boolean
-  skill?: boolean
-  subtask?: boolean
-  hints: Array<string>
-}
-
 export type MobilePromptHistoryEntry = {
   id: string
   input: string
@@ -3440,6 +3590,17 @@ export type MobilePromptStashEntry = {
 
 export type MobilePromptStashCreateInput = {
   input: string
+}
+
+export type MobileCommand = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  mcp?: boolean
+  skill?: boolean
+  subtask?: boolean
+  hints: Array<string>
 }
 
 export type MobileGithubBranch = {
@@ -4519,6 +4680,427 @@ export type LoopRecentRunsResponses = {
 }
 
 export type LoopRecentRunsResponse = LoopRecentRunsResponses[keyof LoopRecentRunsResponses]
+
+export type MissionListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission"
+}
+
+export type MissionListResponses = {
+  /**
+   * All missions with runtime status
+   */
+  200: {
+    missions: Array<MissionDefinition>
+    runtimes: Array<MissionRuntime>
+  }
+}
+
+export type MissionListResponse = MissionListResponses[keyof MissionListResponses]
+
+export type MissionUpsertData = {
+  body?: {
+    name: string
+    brief: string
+    milestones: Array<{
+      id: string
+      name: string
+      features: Array<{
+        id: string
+        name: string
+        objective: string
+        agent: string
+        model?: string
+        tokenBudget?: number
+        dependsOn?: Array<string>
+        status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+        error?: string
+      }>
+      validation?: "scrutiny" | "user-test" | "none"
+      status?: "pending" | "running" | "validating" | "done" | "blocked"
+    }>
+    models?: {
+      worker?: string
+      validation?: string
+      orchestrator?: string
+    }
+    timeoutMs?: number
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission"
+}
+
+export type MissionUpsertErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MissionUpsertError = MissionUpsertErrors[keyof MissionUpsertErrors]
+
+export type MissionUpsertResponses = {
+  /**
+   * Persisted mission
+   */
+  200: MissionDefinition
+}
+
+export type MissionUpsertResponse = MissionUpsertResponses[keyof MissionUpsertResponses]
+
+export type MissionTemplatesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/templates"
+}
+
+export type MissionTemplatesResponses = {
+  /**
+   * Templates
+   */
+  200: {
+    templates: Array<MissionTemplate>
+  }
+}
+
+export type MissionTemplatesResponse = MissionTemplatesResponses[keyof MissionTemplatesResponses]
+
+export type MissionGenerateData = {
+  body?: {
+    /**
+     * Natural-language description of the mission
+     */
+    description: string
+    /**
+     * Optional model override (providerID/modelID)
+     */
+    model?: string
+    /**
+     * Default agent if the model doesn't pick one
+     */
+    agent?: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/generate"
+}
+
+export type MissionGenerateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MissionGenerateError = MissionGenerateErrors[keyof MissionGenerateErrors]
+
+export type MissionGenerateResponses = {
+  /**
+   * Generated mission definition
+   */
+  200: MissionDefinition
+}
+
+export type MissionGenerateResponse = MissionGenerateResponses[keyof MissionGenerateResponses]
+
+export type MissionDeleteData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}"
+}
+
+export type MissionDeleteErrors = {
+  /**
+   * Mission not found
+   */
+  404: unknown
+}
+
+export type MissionDeleteResponses = {
+  /**
+   * Deleted
+   */
+  200: unknown
+}
+
+export type MissionGetData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}"
+}
+
+export type MissionGetErrors = {
+  /**
+   * Mission not found
+   */
+  404: unknown
+}
+
+export type MissionGetResponses = {
+  /**
+   * The mission
+   */
+  200: {
+    mission: MissionDefinition
+    runtime: MissionRuntime
+  }
+}
+
+export type MissionGetResponse = MissionGetResponses[keyof MissionGetResponses]
+
+export type MissionUpdateData = {
+  body?: {
+    id: string
+    name: string
+    brief: string
+    milestones: Array<{
+      id: string
+      name: string
+      features: Array<{
+        id: string
+        name: string
+        objective: string
+        agent: string
+        model?: string
+        tokenBudget?: number
+        dependsOn?: Array<string>
+        status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+        error?: string
+      }>
+      validation?: "scrutiny" | "user-test" | "none"
+      status?: "pending" | "running" | "validating" | "done" | "blocked"
+    }>
+    models?: {
+      worker?: string
+      validation?: string
+      orchestrator?: string
+    }
+    timeoutMs?: number
+    status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
+    createdAt: number
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}"
+}
+
+export type MissionUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MissionUpdateError = MissionUpdateErrors[keyof MissionUpdateErrors]
+
+export type MissionUpdateResponses = {
+  /**
+   * Updated mission
+   */
+  200: MissionDefinition
+}
+
+export type MissionUpdateResponse = MissionUpdateResponses[keyof MissionUpdateResponses]
+
+export type MissionStartData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}/start"
+}
+
+export type MissionStartErrors = {
+  /**
+   * Mission not found
+   */
+  404: unknown
+}
+
+export type MissionStartResponses = {
+  /**
+   * Orchestration started
+   */
+  200: unknown
+}
+
+export type MissionPauseData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}/pause"
+}
+
+export type MissionPauseErrors = {
+  /**
+   * Mission not found
+   */
+  404: unknown
+}
+
+export type MissionPauseResponses = {
+  /**
+   * Paused
+   */
+  200: unknown
+}
+
+export type MissionCancelData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}/cancel"
+}
+
+export type MissionCancelErrors = {
+  /**
+   * Mission not found
+   */
+  404: unknown
+}
+
+export type MissionCancelResponses = {
+  /**
+   * Cancelled
+   */
+  200: unknown
+}
+
+export type MissionFeatureMutateData = {
+  body?: {
+    status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+    error?: string
+    appendDependsOn?: Array<string>
+  }
+  path: {
+    id: string
+    featureID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mission/{id}/feature/{featureID}"
+}
+
+export type MissionFeatureMutateErrors = {
+  /**
+   * Invalid mutation
+   */
+  400: unknown
+  /**
+   * Mission or feature not found
+   */
+  404: unknown
+}
+
+export type MissionFeatureMutateResponses = {
+  /**
+   * Updated mission
+   */
+  200: unknown
+}
+
+export type MissionExecsData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/mission/{id}/execs"
+}
+
+export type MissionExecsResponses = {
+  /**
+   * Execs
+   */
+  200: {
+    execs: Array<MissionExec>
+  }
+}
+
+export type MissionExecsResponse = MissionExecsResponses[keyof MissionExecsResponses]
+
+export type MissionRecentExecsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/mission/execs/recent"
+}
+
+export type MissionRecentExecsResponses = {
+  /**
+   * Recent execs
+   */
+  200: {
+    execs: Array<MissionExec>
+  }
+}
+
+export type MissionRecentExecsResponse = MissionRecentExecsResponses[keyof MissionRecentExecsResponses]
 
 export type PtyListData = {
   body?: never
@@ -7639,44 +8221,6 @@ export type MobileBootstrapResponses = {
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
 
-export type MobileCommandListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/command"
-}
-
-export type MobileCommandListResponses = {
-  /**
-   * Commands
-   */
-  200: Array<MobileCommand>
-}
-
-export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
-
-export type MobileProjectListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/project"
-}
-
-export type MobileProjectListResponses = {
-  /**
-   * Projects
-   */
-  200: Array<MobileProject>
-}
-
-export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
-
 export type MobileMemoryHistoryData = {
   body?: never
   path?: never
@@ -7794,6 +8338,44 @@ export type MobileMemoryStashDeleteResponses = {
 }
 
 export type MobileMemoryStashDeleteResponse = MobileMemoryStashDeleteResponses[keyof MobileMemoryStashDeleteResponses]
+
+export type MobileCommandListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/command"
+}
+
+export type MobileCommandListResponses = {
+  /**
+   * Commands
+   */
+  200: Array<MobileCommand>
+}
+
+export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
+
+export type MobileProjectListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/project"
+}
+
+export type MobileProjectListResponses = {
+  /**
+   * Projects
+   */
+  200: Array<MobileProject>
+}
+
+export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
 
 export type MobileGithubReposData = {
   body?: never
@@ -8509,31 +9091,6 @@ export type MobileSessionStreamResponses = {
   200: unknown
 }
 
-export type MobileSessionRenameData = {
-  body?: {
-    title: string
-  }
-  path: {
-    sessionID: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/session/{sessionID}/rename"
-}
-
-export type MobileSessionRenameResponses = {
-  /**
-   * Session renamed
-   */
-  200: {
-    success: true
-  }
-}
-
-export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
-
 export type MobileWorktreeRemoveData = {
   body?: WorktreeRemoveInput
   path?: never
@@ -8603,6 +9160,31 @@ export type MobileWorktreeResetResponses = {
 }
 
 export type MobileWorktreeResetResponse = MobileWorktreeResetResponses[keyof MobileWorktreeResetResponses]
+
+export type MobileSessionRenameData = {
+  body?: {
+    title: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/rename"
+}
+
+export type MobileSessionRenameResponses = {
+  /**
+   * Session renamed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
 export type MobileGitStatusData = {
   body?: never

@@ -131,6 +131,28 @@ import type {
   McpStatusResponses,
   McpToggleErrors,
   McpToggleResponses,
+  MissionCancelErrors,
+  MissionCancelResponses,
+  MissionDeleteErrors,
+  MissionDeleteResponses,
+  MissionExecsResponses,
+  MissionFeatureMutateErrors,
+  MissionFeatureMutateResponses,
+  MissionGenerateErrors,
+  MissionGenerateResponses,
+  MissionGetErrors,
+  MissionGetResponses,
+  MissionListResponses,
+  MissionPauseErrors,
+  MissionPauseResponses,
+  MissionRecentExecsResponses,
+  MissionStartErrors,
+  MissionStartResponses,
+  MissionTemplatesResponses,
+  MissionUpdateErrors,
+  MissionUpdateResponses,
+  MissionUpsertErrors,
+  MissionUpsertResponses,
   MobileAuthTokenCreateResponses,
   MobileAuthTokenListResponses,
   MobileAuthTokenRevokeResponses,
@@ -1111,6 +1133,537 @@ export class Loop extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+}
+
+export class Feature extends HeyApiClient {
+  /**
+   * Mutate a single feature (skip / mark-done / reset / add deps)
+   *
+   * Power-user lever: re-plan mid-flight by skipping a stuck feature, marking it done to advance, or resetting it to retry. Status transitions are coerced to the legal subset.
+   */
+  public mutate<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      featureID: string
+      directory?: string
+      workspace?: string
+      status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+      error?: string
+      appendDependsOn?: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "path", key: "featureID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "status" },
+            { in: "body", key: "error" },
+            { in: "body", key: "appendDependsOn" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MissionFeatureMutateResponses,
+      MissionFeatureMutateErrors,
+      ThrowOnError
+    >({
+      url: "/mission/{id}/feature/{featureID}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Mission extends HeyApiClient {
+  /**
+   * List missions
+   *
+   * List all missions defined for the current project, with live runtime status.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MissionListResponses, unknown, ThrowOnError>({
+      url: "/mission",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create or update a mission
+   *
+   * Persist a mission definition. Generates the id, createdAt, and default status for new missions.
+   */
+  public upsert<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+      brief?: string
+      milestones?: Array<{
+        id: string
+        name: string
+        features: Array<{
+          id: string
+          name: string
+          objective: string
+          agent: string
+          model?: string
+          tokenBudget?: number
+          dependsOn?: Array<string>
+          status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+          error?: string
+        }>
+        validation?: "scrutiny" | "user-test" | "none"
+        status?: "pending" | "running" | "validating" | "done" | "blocked"
+      }>
+      models?: {
+        worker?: string
+        validation?: string
+        orchestrator?: string
+      }
+      timeoutMs?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "brief" },
+            { in: "body", key: "milestones" },
+            { in: "body", key: "models" },
+            { in: "body", key: "timeoutMs" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<MissionUpsertResponses, MissionUpsertErrors, ThrowOnError>({
+      url: "/mission",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List mission templates
+   *
+   * Built-in starter briefs the user can instantiate from the wizard.
+   */
+  public templates<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MissionTemplatesResponses, unknown, ThrowOnError>({
+      url: "/mission/templates",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Generate a mission plan from a description
+   *
+   * Send a natural-language description to an AI and parse the response back into a fully-formed mission definition (brief + milestones + features). The response is a draft — the user still confirms before persistence.
+   */
+  public generate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      description?: string
+      model?: string
+      agent?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "description" },
+            { in: "body", key: "model" },
+            { in: "body", key: "agent" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MissionGenerateResponses, MissionGenerateErrors, ThrowOnError>({
+      url: "/mission/generate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete a mission
+   *
+   * Remove a mission and its execution history. Cancels any in-flight orchestration first.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MissionDeleteResponses, MissionDeleteErrors, ThrowOnError>({
+      url: "/mission/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get a mission
+   *
+   * Fetch a single mission definition by id, including its live runtime status.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MissionGetResponses, MissionGetErrors, ThrowOnError>({
+      url: "/mission/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update a mission
+   *
+   * Replace a mission definition. Status field is preserved unless the body changes it explicitly (so updates from the wizard don't accidentally restart orchestration).
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      path_id: string
+      directory?: string
+      workspace?: string
+      body_id?: string
+      name?: string
+      brief?: string
+      milestones?: Array<{
+        id: string
+        name: string
+        features: Array<{
+          id: string
+          name: string
+          objective: string
+          agent: string
+          model?: string
+          tokenBudget?: number
+          dependsOn?: Array<string>
+          status?: "pending" | "running" | "done" | "blocked" | "skipped" | "error"
+          error?: string
+        }>
+        validation?: "scrutiny" | "user-test" | "none"
+        status?: "pending" | "running" | "validating" | "done" | "blocked"
+      }>
+      models?: {
+        worker?: string
+        validation?: string
+        orchestrator?: string
+      }
+      timeoutMs?: number
+      status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
+      createdAt?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            {
+              in: "path",
+              key: "path_id",
+              map: "id",
+            },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            {
+              in: "body",
+              key: "body_id",
+              map: "id",
+            },
+            { in: "body", key: "name" },
+            { in: "body", key: "brief" },
+            { in: "body", key: "milestones" },
+            { in: "body", key: "models" },
+            { in: "body", key: "timeoutMs" },
+            { in: "body", key: "status" },
+            { in: "body", key: "createdAt" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MissionUpdateResponses, MissionUpdateErrors, ThrowOnError>({
+      url: "/mission/{id}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Start (or resume) orchestration of a mission
+   *
+   * Drive the mission forward: pick the current milestone, run its ready features, validate, then advance. Resumes a paused or frozen mission; returns immediately if already in flight.
+   */
+  public start<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MissionStartResponses, MissionStartErrors, ThrowOnError>({
+      url: "/mission/{id}/start",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Pause a mission
+   *
+   * Persist the paused flag and abort the current worker. Resume with /:id/start.
+   */
+  public pause<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MissionPauseResponses, MissionPauseErrors, ThrowOnError>({
+      url: "/mission/{id}/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel and freeze a mission
+   *
+   * Freeze the mission for reassessment. The orchestrator aborts, the persisted status becomes 'frozen', and the user can edit the plan before resuming.
+   */
+  public cancel<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MissionCancelResponses, MissionCancelErrors, ThrowOnError>({
+      url: "/mission/{id}/cancel",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List a mission's execution history
+   *
+   * Most-recent-first feature/validation execution records for a mission, capped server-side.
+   */
+  public execs<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MissionExecsResponses, unknown, ThrowOnError>({
+      url: "/mission/{id}/execs",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List recent mission executions across all missions
+   *
+   * Most-recent-first execution records from every mission in the project.
+   */
+  public recentExecs<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MissionRecentExecsResponses, unknown, ThrowOnError>({
+      url: "/mission/execs/recent",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _feature?: Feature
+  get feature(): Feature {
+    return (this._feature ??= new Feature({ client: this.client }))
   }
 }
 
@@ -4309,70 +4862,6 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
-export class Command extends HeyApiClient {
-  /**
-   * List mobile commands
-   *
-   * Return command metadata safe for the mobile command palette and slash autocomplete.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
-      url: "/mobile/command",
-      ...options,
-      ...params,
-    })
-  }
-}
-
-export class Project2 extends HeyApiClient {
-  /**
-   * List local projects for mobile
-   *
-   * Return local projects and sandboxes visible to the connected Nikcli host.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
-      url: "/mobile/project",
-      ...options,
-      ...params,
-    })
-  }
-}
-
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -4548,6 +5037,70 @@ export class Memory extends HeyApiClient {
   private _stash?: Stash
   get stash(): Stash {
     return (this._stash ??= new Stash({ client: this.client }))
+  }
+}
+
+export class Command extends HeyApiClient {
+  /**
+   * List mobile commands
+   *
+   * Return command metadata safe for the mobile command palette and slash autocomplete.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
+      url: "/mobile/command",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Project2 extends HeyApiClient {
+  /**
+   * List local projects for mobile
+   *
+   * Return local projects and sandboxes visible to the connected Nikcli host.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
+      url: "/mobile/project",
+      ...options,
+      ...params,
+    })
   }
 }
 
@@ -6923,6 +7476,11 @@ export class Mobile extends HeyApiClient {
     return (this._auth ??= new Auth2({ client: this.client }))
   }
 
+  private _memory?: Memory
+  get memory(): Memory {
+    return (this._memory ??= new Memory({ client: this.client }))
+  }
+
   private _command?: Command
   get command(): Command {
     return (this._command ??= new Command({ client: this.client }))
@@ -6931,11 +7489,6 @@ export class Mobile extends HeyApiClient {
   private _project?: Project2
   get project(): Project2 {
     return (this._project ??= new Project2({ client: this.client }))
-  }
-
-  private _memory?: Memory
-  get memory(): Memory {
-    return (this._memory ??= new Memory({ client: this.client }))
   }
 
   private _github?: Github
@@ -9217,6 +9770,11 @@ export class NikcliClient extends HeyApiClient {
   private _loop?: Loop
   get loop(): Loop {
     return (this._loop ??= new Loop({ client: this.client }))
+  }
+
+  private _mission?: Mission
+  get mission(): Mission {
+    return (this._mission ??= new Mission({ client: this.client }))
   }
 
   private _pty?: Pty

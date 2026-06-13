@@ -11,6 +11,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CTX="/tmp/nikcli-railway-ctx"
 DETACH="${1:-}"
+# The Railway project has multiple services, so `railway up` cannot pick a
+# default. We must pass --service explicitly. Override with RAILWAY_SERVICE=...
+# (the CI workflow also sets this from a repo variable).
+SERVICE="${RAILWAY_SERVICE:-nikcli-mobile}"
 
 echo "→ Cleaning previous Railway deploy context"
 rm -rf "$CTX"
@@ -143,9 +147,9 @@ cd "$CTX"
 RETRIES=3
 for attempt in $(seq 1 $RETRIES); do
   if [ "$DETACH" = "--detach" ] || [ "$DETACH" = "-d" ]; then
-    railway up --detach && echo "✓ Deploy triggered (detached). Check status: railway logs" && exit 0
+    railway up --service "$SERVICE" --detach && echo "✓ Deploy triggered (detached, service=$SERVICE). Check status: railway logs" && exit 0
   else
-    railway up && exit 0
+    railway up --service "$SERVICE" && exit 0
   fi
   if [ $attempt -lt $RETRIES ]; then
     echo "→ Upload failed (attempt $attempt/$RETRIES), retrying in 10s..."
