@@ -33,6 +33,13 @@ export namespace Flag {
   export const NIKCLI_SERVER_TAILSCALE_AUTH = truthy("NIKCLI_SERVER_TAILSCALE_AUTH")
   export const NIKCLI_SERVER_TAILSCALE_USERS = process.env["NIKCLI_SERVER_TAILSCALE_USERS"]
 
+  // OpenTelemetry (OTLP) — standard env vars. Setting an endpoint enables export.
+  export const OTEL_EXPORTER_OTLP_ENDPOINT = process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]
+  export const OTEL_EXPORTER_OTLP_HEADERS = process.env["OTEL_EXPORTER_OTLP_HEADERS"]
+  // Live telemetry capture (spans streamed to the TUI panel) is on by default;
+  // set this to opt out of the in-process span capture entirely.
+  export const NIKCLI_DISABLE_OTEL_LIVE = truthy("NIKCLI_DISABLE_OTEL_LIVE")
+
   // SSH Server
   export const NIKCLI_SERVER_SSH_ENABLED = truthy("NIKCLI_SERVER_SSH_ENABLED")
   export const NIKCLI_SERVER_SSH_PORT = parseInt(process.env["NIKCLI_SERVER_SSH_PORT"] ?? "2222")

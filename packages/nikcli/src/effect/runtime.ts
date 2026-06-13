@@ -1,4 +1,5 @@
 import { Instance } from "@/project/instance"
+import { Observability } from "@/observability"
 import { Effect, Layer, ManagedRuntime, Option } from "effect"
 import { InstanceRef, locallyInstance, type InstanceContext } from "./instance-ref"
 
@@ -6,7 +7,10 @@ export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
 const runtimes = new WeakMap<Layer.Layer<any, any, never>, ManagedRuntime.ManagedRuntime<any, any>>()
 
 export function makeRuntime<R, E>(layer: Layer.Layer<R, E, never>) {
-  return ManagedRuntime.make(layer, { memoMap: sharedMemoMap })
+  // Merge OTLP observability into every runtime base. Memoised via the shared
+  // memo map, so a single exporter/HttpClient is built and reused. No-op when
+  // no OTEL endpoint is configured.
+  return ManagedRuntime.make(Layer.mergeAll(layer, Observability.layer), { memoMap: sharedMemoMap })
 }
 
 export const AppRuntime = makeRuntime(Layer.empty)

@@ -496,7 +496,7 @@ export namespace LLM {
           extractReasoningMiddleware({ tagName: "think", startWithReasoning: false }),
         ],
       }),
-      experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
+      experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry ?? true },
     })
     // Suppress unhandled NoContentGeneratedError when model produces only tool calls (no text).
     // processor.ts consumes fullStream only; stream.text rejects if no text is generated.

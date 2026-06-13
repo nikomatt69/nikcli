@@ -963,7 +963,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
 
             const params = {
               experimental_telemetry: {
-                isEnabled: cfg.experimental?.openTelemetry,
+                isEnabled: cfg.experimental?.openTelemetry ?? true,
                 metadata: {
                   userId: cfg.username ?? "unknown",
                 },

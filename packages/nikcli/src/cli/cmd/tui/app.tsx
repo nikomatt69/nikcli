@@ -24,6 +24,7 @@ import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider } from "@tui/context/server"
 import { SyncProvider, useSync } from "@tui/context/sync"
 import { AnalyticsProvider } from "@tui/context/analytics"
+import { TelemetryProvider } from "@tui/context/telemetry"
 import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
@@ -33,6 +34,7 @@ import { DialogUsage } from "@tui/component/dialog-usage"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogSettings } from "@tui/component/dialog-settings"
 import { DialogConfig } from "@tui/component/dialog-config"
+import { DialogOpenTelemetry } from "@tui/component/dialog-opentelemetry"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogTour } from "@tui/component/dialog-tour"
 import { DialogQuickstartInfo, DialogDoctorInfo, DialogSupport, openExternal } from "@tui/component/dialog-support"
@@ -158,6 +160,7 @@ export function tui(input: {
                               <ProjectProvider>
                                 <SyncProvider>
                                   <AnalyticsProvider>
+                                    <TelemetryProvider>
                                     <ThemeProvider mode={mode}>
                                       <LocalProvider>
                                         <KeybindProvider>
@@ -183,6 +186,7 @@ export function tui(input: {
                                         </KeybindProvider>
                                       </LocalProvider>
                                     </ThemeProvider>
+                                    </TelemetryProvider>
                                   </AnalyticsProvider>
                                 </SyncProvider>
                               </ProjectProvider>
@@ -999,6 +1003,15 @@ function App() {
       slash: { name: "config" },
       onSelect: () => {
         dialog.replace(() => <DialogConfig />)
+      },
+      category: "System",
+    },
+    {
+      title: "OpenTelemetry",
+      value: "otel.settings",
+      slash: { name: "otel", aliases: ["telemetry", "opentelemetry"] },
+      onSelect: () => {
+        dialog.replace(() => <DialogOpenTelemetry />)
       },
       category: "System",
     },

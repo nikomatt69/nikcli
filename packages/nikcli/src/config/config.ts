@@ -1518,7 +1518,9 @@ export namespace Config {
           openTelemetry: z
             .boolean()
             .optional()
-            .describe("Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)"),
+            .describe(
+              "Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag). Enabled by default; set to false to opt out. Spans are only exported when OTEL_EXPORTER_OTLP_ENDPOINT is set.",
+            ),
           primary_tools: z
             .array(z.string())
             .optional()
