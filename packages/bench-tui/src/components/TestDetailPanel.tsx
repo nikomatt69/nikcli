@@ -23,18 +23,23 @@ export function TestDetailPanel(props: TestDetailPanelProps) {
 
   return (
     <box flexDirection="column" gap={0}>
-      <text fg={theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">{test()!.suite}</text>
-      <text fg={theme.cyan} wrapMode="none" attributes={TextAttributes.BOLD}>{test()!.module}</text>
-      <text fg={theme.text} wrapMode="none">{test()!.scenario}</text>
-      <text fg={theme.textMuted} wrapMode="none">{test()!.unit}</text>
-      <text fg={theme.textMuted} wrapMode="none"> </text>
+      <text fg={theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">
+        {test()!.suite}
+      </text>
+      <text fg={theme.cyan} wrapMode="none" attributes={TextAttributes.BOLD}>
+        {test()!.module}
+      </text>
+      <text fg={theme.text} wrapMode="none">
+        {test()!.scenario}
+      </text>
+      <text fg={theme.textMuted} wrapMode="none">
+        {test()!.unit}
+      </text>
+      <text fg={theme.textMuted} wrapMode="none">
+        {" "}
+      </text>
 
-      <text
-        fg={theme.text}
-        attributes={TextAttributes.BOLD}
-        wrapMode="none"
-        onMouseUp={() => setShowAll((v) => !v)}
-      >
+      <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none" onMouseUp={() => setShowAll((v) => !v)}>
         {showAll() ? "\u25bc" : "\u25b6"} Stats
       </text>
       <Show when={showAll()}>
@@ -63,20 +68,19 @@ export function TestDetailPanel(props: TestDetailPanelProps) {
 
       <Show when={!showAll()}>
         <text fg={theme.success} wrapMode="none">
-          {"\u2605"} {fmt(test()!.bestValue, 4)} {"\u2248"}{fmt(test()!.avgValue, 4)} {"\u25bc"}{fmt(test()!.worstValue, 4)}
+          {"\u2605"} {fmt(test()!.bestValue, 4)} {"\u2248"}
+          {fmt(test()!.avgValue, 4)} {"\u25bc"}
+          {fmt(test()!.worstValue, 4)}
         </text>
         <text fg={valueTrendColor(test()!.trend)} wrapMode="none">
           {trendIcon(test()!.trend)} {test()!.trend} | \u00b1{cv()}%
         </text>
       </Show>
 
-      <text fg={theme.textMuted} wrapMode="none"> </text>
-      <text
-        fg={theme.blue}
-        attributes={TextAttributes.BOLD}
-        wrapMode="none"
-        onMouseUp={() => setShowRuns((v) => !v)}
-      >
+      <text fg={theme.textMuted} wrapMode="none">
+        {" "}
+      </text>
+      <text fg={theme.blue} attributes={TextAttributes.BOLD} wrapMode="none" onMouseUp={() => setShowRuns((v) => !v)}>
         {showRuns() ? "\u25bc" : "\u25b6"} Runs ({test()!.runs.length})
       </text>
       <Show when={showRuns()}>
@@ -100,11 +104,7 @@ export function TestDetailPanel(props: TestDetailPanelProps) {
           }}
         </For>
         <Show when={!showAll() && test()!.runs.length > 6}>
-          <text
-            fg={theme.textMuted}
-            wrapMode="none"
-            onMouseUp={() => setShowAll(true)}
-          >
+          <text fg={theme.textMuted} wrapMode="none" onMouseUp={() => setShowAll(true)}>
             ... {test()!.runs.length - 6} more
           </text>
         </Show>

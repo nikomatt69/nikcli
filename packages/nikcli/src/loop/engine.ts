@@ -463,7 +463,10 @@ export async function runOnce(id: string): Promise<void> {
     // Cap the run's wall-clock time so a hung stage can never hold the
     // single-flight slot forever. The "timeout" reason lets executeRun
     // distinguish this abort from a user cancel.
-    const timeoutMs = Math.min(Math.max(def.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS, MIN_RUN_TIMEOUT_MS), MAX_RUN_TIMEOUT_MS)
+    const timeoutMs = Math.min(
+      Math.max(def.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS, MIN_RUN_TIMEOUT_MS),
+      MAX_RUN_TIMEOUT_MS,
+    )
     timeout = setTimeout(() => ctrl.abort("timeout"), timeoutMs)
     // Renew the run's lease while we drive it, so restore() in another
     // process doesn't orphan a legitimately running run.

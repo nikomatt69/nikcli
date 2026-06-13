@@ -80,7 +80,9 @@ export async function listNewRuns(): Promise<LoadedRun[]> {
         }
         if (validateLoadedRun(loaded, filePath)) runs.push(loaded)
       } catch (parseErr) {
-        console.warn(`Skipping unparseable file ${entry.name}: ${parseErr instanceof Error ? parseErr.message : parseErr}`)
+        console.warn(
+          `Skipping unparseable file ${entry.name}: ${parseErr instanceof Error ? parseErr.message : parseErr}`,
+        )
         continue
       }
     }

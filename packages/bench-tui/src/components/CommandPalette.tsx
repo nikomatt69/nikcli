@@ -22,13 +22,20 @@ function statusOf(file: SuiteFileState, running: Set<string>): SuiteExecStatus {
 
 function statusColor(s: SuiteExecStatus) {
   switch (s) {
-    case "pass": return theme.success
-    case "fail": return theme.error
-    case "running": return theme.warning
-    case "skip": return theme.textMuted
-    case "todo": return theme.purple
-    case "mixed": return theme.orange
-    default: return theme.textMuted
+    case "pass":
+      return theme.success
+    case "fail":
+      return theme.error
+    case "running":
+      return theme.warning
+    case "skip":
+      return theme.textMuted
+    case "todo":
+      return theme.purple
+    case "mixed":
+      return theme.orange
+    default:
+      return theme.textMuted
   }
 }
 
@@ -53,9 +60,7 @@ export function fuzzyScore(query: string, target: string): number {
 }
 
 export function rankFiles(query: string, files: SuiteFileState[], limit = 30): SuiteFileState[] {
-  const scored = files
-    .map((f) => ({ file: f, score: fuzzyScore(query, f.relativePath) }))
-    .filter((x) => x.score > 0)
+  const scored = files.map((f) => ({ file: f, score: fuzzyScore(query, f.relativePath) })).filter((x) => x.score > 0)
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, limit).map((x) => x.file)
 }
@@ -92,18 +97,23 @@ export function CommandPalette(props: CommandPaletteProps) {
         onMouseUp={(event) => event.stopPropagation()}
       >
         <box flexDirection="row" gap={1}>
-          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">{">"}</text>
-          <text fg={theme.text} wrapMode="none">{props.query}</text>
-          <text fg={theme.accent} wrapMode="none" attributes={TextAttributes.BOLD}>_</text>
+          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+            {">"}
+          </text>
+          <text fg={theme.text} wrapMode="none">
+            {props.query}
+          </text>
+          <text fg={theme.accent} wrapMode="none" attributes={TextAttributes.BOLD}>
+            _
+          </text>
         </box>
         <text fg={theme.textMuted} wrapMode="none">
           {matches().length} match · ↑↓ select · ↵ run · esc close
         </text>
-        <text fg={theme.border} wrapMode="none">{"─".repeat(Math.max(0, w - 4))}</text>
-        <Show
-          when={matches().length > 0}
-          fallback={<text fg={theme.textMuted}>No test files match.</text>}
-        >
+        <text fg={theme.border} wrapMode="none">
+          {"─".repeat(Math.max(0, w - 4))}
+        </text>
+        <Show when={matches().length > 0} fallback={<text fg={theme.textMuted}>No test files match.</text>}>
           <For each={matches().slice(0, h - 5)}>
             {(file, i) => {
               const isSel = i() === props.cursor
@@ -119,7 +129,8 @@ export function CommandPalette(props: CommandPaletteProps) {
                   onMouseOver={() => props.onSelectCursor(i())}
                   onMouseUp={() => props.onActivate(file)}
                 >
-                  {isSel ? "▸ " : "  "}{suiteStatusIcon(st)} {short(file.relativePath, w - 8)}
+                  {isSel ? "▸ " : "  "}
+                  {suiteStatusIcon(st)} {short(file.relativePath, w - 8)}
                 </text>
               )
             }}

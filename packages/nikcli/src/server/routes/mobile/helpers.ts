@@ -631,9 +631,7 @@ export async function resolveMobilePromptDefaults(session: Session.Info) {
     const candidateKeys = allKeys.filter((key) => key.length === 3 && key[2] !== session.id)
     // Batch-load candidates (bounded parallelism); the fallback scan below
     // stays sequential so it can stop at the first usable session.
-    const candidates = await workMap(10, candidateKeys, (key) =>
-      storageRead<Session.Info>(key).catch(() => undefined),
-    )
+    const candidates = await workMap(10, candidateKeys, (key) => storageRead<Session.Info>(key).catch(() => undefined))
     const sessions = candidates.filter((c): c is Session.Info => !!c && c.projectID === session.projectID)
 
     sessions.sort((a, b) => b.time.updated - a.time.updated)

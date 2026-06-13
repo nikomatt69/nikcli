@@ -27,6 +27,24 @@ export type EventProjectUpdated = {
   properties: Project
 }
 
+export type EventTelemetryRecord = {
+  type: "telemetry.record"
+  properties: {
+    id: string
+    traceId: string
+    parentId?: string
+    name: string
+    kind: string
+    startTime: number
+    durationMs: number
+    statusCode?: number
+    statusMessage?: string
+    attributes?: {
+      [key: string]: string
+    }
+  }
+}
+
 export type EventServerInstanceDisposed = {
   type: "server.instance.disposed"
   properties: {
@@ -1155,6 +1173,7 @@ export type EventPtyDeleted = {
 
 export type Event =
   | EventProjectUpdated
+  | EventTelemetryRecord
   | EventServerInstanceDisposed
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
@@ -2576,7 +2595,7 @@ export type Config = {
      */
     batch_tool?: boolean
     /**
-     * Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)
+     * Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag). Enabled by default; set to false to opt out. Spans are only exported when OTEL_EXPORTER_OTLP_ENDPOINT is set.
      */
     openTelemetry?: boolean
     /**

@@ -35,13 +35,17 @@ export function LogPanel(props: LogPanelProps) {
 
   return (
     <box
-      paddingLeft={2} paddingRight={2}
+      paddingLeft={2}
+      paddingRight={2}
       border={["top"]}
       borderColor={props.focused ? theme.borderFocus : theme.border}
       backgroundColor={theme.surfaceHover}
       flexDirection="column"
       maxHeight={maxVisible + 2}
-      onMouseOver={() => { props.onFocus(); setScrollOffset(0) }}
+      onMouseOver={() => {
+        props.onFocus()
+        setScrollOffset(0)
+      }}
       onMouseScroll={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -50,7 +54,11 @@ export function LogPanel(props: LogPanelProps) {
     >
       <Show
         when={totalLines() > 0}
-        fallback={<text fg={theme.textMuted} wrapMode="none">No output yet. Press r to run the target package tests.</text>}
+        fallback={
+          <text fg={theme.textMuted} wrapMode="none">
+            No output yet. Press r to run the target package tests.
+          </text>
+        }
       >
         <Show when={!atBottom()}>
           <text
@@ -69,12 +77,7 @@ export function LogPanel(props: LogPanelProps) {
             const isRunning = line.includes("\u25b6") || line.includes("RUNNING")
             return (
               <text
-                fg={
-                  isError ? theme.error
-                    : isSuccess ? theme.success
-                      : isRunning ? theme.warning
-                        : theme.textMuted
-                }
+                fg={isError ? theme.error : isSuccess ? theme.success : isRunning ? theme.warning : theme.textMuted}
                 attributes={isError ? TextAttributes.BOLD : TextAttributes.NONE}
                 wrapMode="none"
                 onMouseUp={() => {}}
