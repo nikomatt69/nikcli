@@ -6,8 +6,8 @@
  * the three modern graphics protocols the connected terminal advertises:
  *
  *  - {@link Protocol.KITTY}  — Kitty Graphics Protocol (Kitty, Ghostty, WezTerm ≥ 20230712, Konsole ≥ 22.04, Rio, Warp).
- *  - {@link Protocol.SIXEL}  — DEC Sixel (xterm, mlterm, WezTerm, Konsole, foot, Rio, VS Code ≥ 1.80, mintty).
- *  - {@link Protocol.ITERM2} — iTerm2 inline images (iTerm2 ≥ 2.9, WezTerm, Konsole, VS Code, mintty, Rio).
+ *  - {@link Protocol.SIXEL}  — DEC Sixel (mlterm, foot, Terminology, and terminals that report Sixel through OpenTUI).
+ *  - {@link Protocol.ITERM2} — iTerm2 inline images (iTerm2 ≥ 2.9, WezTerm, Konsole, mintty, Rio).
  *
  * Detection is *purely* synchronous and side-effect free; it never probes the
  * terminal by writing escape sequences. The OpenTUI `CliRenderer` already
@@ -58,6 +58,8 @@ export interface Capabilities {
   readonly terminal: string | null
 }
 
+export type OverlayProtocol = Protocol.SIXEL | Protocol.ITERM2
+
 interface Env {
   [key: string]: string | undefined
 }
@@ -87,13 +89,10 @@ export function protocolForTerminal(
   if (lower.includes("konsole")) return Protocol.KITTY // Konsole ≥ 22.04 supports Kitty
   if (lower.includes("rio")) return Protocol.KITTY
   if (lower.includes("iterm")) return Protocol.ITERM2
-  if (lower.includes("vscode")) return Protocol.ITERM2
+  if (lower.includes("vscode")) return null
   if (lower.includes("mintty")) return Protocol.ITERM2
-  if (lower.includes("alacritty")) return Protocol.SIXEL // alacritty has a Sixel shim
-  if (lower.includes("xterm")) return Protocol.SIXEL
   if (lower.includes("mlterm")) return Protocol.SIXEL
   if (lower.includes("foot")) return Protocol.SIXEL
-  if (lower.includes("screen")) return Protocol.SIXEL
   return null
 }
 
@@ -119,17 +118,13 @@ export interface LiveCapabilities {
  * Merge the env-based heuristic with the answer the terminal actually gave at
  * startup (surfaced by OpenTUI as `renderer.capabilities`).
  *
- * - Sixel: the DA1 response is authoritative in both directions. Nearly every
- *   terminal sets `TERM=xterm-256color`, so the env heuristic alone yields
- *   false positives — the sixel bytes are then swallowed silently and the
- *   preview renders as a blank box.
+ * - Sixel: the DA1 response is authoritative. Generic identifiers such as
+ *   `TERM=xterm-256color` are deliberately not treated as proof of support.
  * - Kitty: a negotiated `true` augments the env answer; a negotiated `false`
  *   keeps explicit env signals (`KITTY_WINDOW_ID`, …) intact, since the query
  *   can be lost behind multiplexers.
- * - iTerm2: not queryable. Explicit env signals (real iTerm2, WezTerm,
- *   mintty, …) are trusted; for xterm.js-based terminals (VS Code & friends,
- *   where images are an opt-in addon) support is only assumed when the addon
- *   advertises sixel in DA1.
+ * - iTerm2: not queryable through DA1. Only explicit terminal identifiers
+ *   (real iTerm2, WezTerm, mintty, …) are trusted.
  */
 export function applyLiveCapabilities(
   detected: Capabilities,
@@ -180,20 +175,25 @@ export function detectCapabilities(stream?: StreamProbe, env: Env = readEnv()): 
   for (const candidate of candidates) {
     const protocol = protocolForTerminal(candidate, colorterm)
     if (protocol) detected.add(protocol)
+    if (candidate.toLowerCase().includes("wezterm")) {
+      detected.add(Protocol.ITERM2)
+    }
   }
 
   // Kitty exposes a stable env var; honour it as an authoritative signal even
   // when the surrounding TERM is misleading.
   if (env.KITTY_WINDOW_ID || env.KITTY_PID || env.KITTY_PUBLIC_KEY) detected.add(Protocol.KITTY)
   if (env.GHOSTTY_RESOURCES_DIR || env.GHOSTTY_BIN_DIR) detected.add(Protocol.KITTY)
-  if (env.WEZTERM_EXECUTABLE || env.WEZTERM_PANE) detected.add(Protocol.KITTY)
+  if (env.WEZTERM_EXECUTABLE || env.WEZTERM_PANE) {
+    detected.add(Protocol.KITTY)
+    detected.add(Protocol.ITERM2)
+  }
   if (env.KONSOLE_VERSION) {
     const major = Number.parseInt(env.KONSOLE_VERSION.split(".")[0] ?? "0", 10)
     if (Number.isFinite(major) && major >= 22) detected.add(Protocol.KITTY)
     else detected.add(Protocol.SIXEL)
   }
   if (env.ITERM_SESSION_ID) detected.add(Protocol.ITERM2)
-  if (env.WT_SESSION) detected.add(Protocol.SIXEL) // Windows Terminal
   if (env.TERMINOLOGY_VERSION) detected.add(Protocol.SIXEL)
 
   // On stderr, several terminals disable sixel/iterm2 to keep logs readable.
@@ -211,4 +211,14 @@ export function detectCapabilities(stream?: StreamProbe, env: Env = readEnv()): 
     iterm2: detected.has(Protocol.ITERM2),
     terminal: termProgram ?? term,
   }
+}
+
+/**
+ * Pick a cursor-addressed protocol for renderers that cannot use Kitty
+ * Unicode placeholders. Sixel wins when both overlay protocols are available.
+ */
+export function bestOverlayProtocol(capabilities: Capabilities): OverlayProtocol | null {
+  if (capabilities.available.includes(Protocol.SIXEL)) return Protocol.SIXEL
+  if (capabilities.available.includes(Protocol.ITERM2)) return Protocol.ITERM2
+  return null
 }

@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { applyLiveCapabilities, detectCapabilities, Protocol, protocolForTerminal } from "../src/capabilities"
+import {
+  applyLiveCapabilities,
+  bestOverlayProtocol,
+  detectCapabilities,
+  Protocol,
+  protocolForTerminal,
+} from "../src/capabilities"
 
 describe("protocolForTerminal", () => {
   test("recognises kitty", () => {
@@ -18,12 +24,12 @@ describe("protocolForTerminal", () => {
     expect(protocolForTerminal("iTerm.app", undefined)).toBe(Protocol.ITERM2)
   })
 
-  test("recognises vscode", () => {
-    expect(protocolForTerminal("vscode", undefined)).toBe(Protocol.ITERM2)
+  test("does not guess image support for vscode", () => {
+    expect(protocolForTerminal("vscode", undefined)).toBeNull()
   })
 
-  test("recognises xterm (sixel)", () => {
-    expect(protocolForTerminal("xterm-256color", undefined)).toBe(Protocol.SIXEL)
+  test("does not guess sixel for generic xterm", () => {
+    expect(protocolForTerminal("xterm-256color", undefined)).toBeNull()
   })
 
   test("returns null on unknown", () => {
@@ -51,9 +57,25 @@ describe("detectCapabilities", () => {
     expect(caps.iterm2).toBe(true)
   })
 
-  test("honours WT_SESSION as sixel", () => {
+  test("detects both Kitty and iTerm2 in WezTerm", () => {
+    const caps = detectCapabilities(undefined, { TERM_PROGRAM: "WezTerm" })
+    expect(caps.kitty).toBe(true)
+    expect(caps.iterm2).toBe(true)
+    expect(caps.best).toBe(Protocol.KITTY)
+    expect(caps.available).toContain(Protocol.ITERM2)
+  })
+
+  test("detects both protocols from WezTerm environment variables", () => {
+    const caps = detectCapabilities(undefined, {
+      WEZTERM_EXECUTABLE: "C:\\Program Files\\WezTerm\\wezterm-gui.exe",
+    })
+    expect(caps.kitty).toBe(true)
+    expect(caps.iterm2).toBe(true)
+  })
+
+  test("does not guess sixel from WT_SESSION", () => {
     const caps = detectCapabilities(undefined, { WT_SESSION: "abc" })
-    expect(caps.sixel).toBe(true)
+    expect(caps.sixel).toBe(false)
   })
 
   test("honours KONSOLE_VERSION >= 22 for kitty, < 22 for sixel", () => {
@@ -85,11 +107,11 @@ describe("applyLiveCapabilities", () => {
   test("passthrough when live answer is unavailable", () => {
     const detected = detectCapabilities(undefined, { TERM: "xterm-256color" })
     expect(applyLiveCapabilities(detected, null, {})).toBe(detected)
+    expect(detected.best).toBeNull()
   })
 
-  test("negotiated DA1 without sixel drops the TERM=xterm guess", () => {
+  test("negotiated DA1 without sixel keeps generic xterm disabled", () => {
     const detected = detectCapabilities(undefined, { TERM: "xterm-256color" })
-    expect(detected.best).toBe(Protocol.SIXEL)
     const merged = applyLiveCapabilities(detected, { sixel: false }, {})
     expect(merged.sixel).toBe(false)
     expect(merged.best).toBeNull()
@@ -101,20 +123,24 @@ describe("applyLiveCapabilities", () => {
     expect(merged.best).toBe(Protocol.SIXEL)
   })
 
-  test("vscode iterm2 guess requires the image addon (sixel in DA1)", () => {
+  test("vscode only enables the protocol negotiated by OpenTUI", () => {
     const env = { TERM: "xterm-256color", TERM_PROGRAM: "vscode" }
     const detected = detectCapabilities(undefined, env)
-    expect(detected.iterm2).toBe(true)
+    expect(detected.iterm2).toBe(false)
     const disabled = applyLiveCapabilities(detected, { sixel: false }, env)
     expect(disabled.iterm2).toBe(false)
     expect(disabled.best).toBeNull()
     const enabled = applyLiveCapabilities(detected, { sixel: true }, env)
-    expect(enabled.iterm2).toBe(true)
+    expect(enabled.iterm2).toBe(false)
     expect(enabled.best).toBe(Protocol.SIXEL)
   })
 
   test("real iTerm2 keeps iterm2 even without sixel in DA1", () => {
-    const env = { TERM: "xterm-256color", TERM_PROGRAM: "iTerm.app", ITERM_SESSION_ID: "abc" }
+    const env = {
+      TERM: "xterm-256color",
+      TERM_PROGRAM: "iTerm.app",
+      ITERM_SESSION_ID: "abc",
+    }
     const detected = detectCapabilities(undefined, env)
     const merged = applyLiveCapabilities(detected, { sixel: false }, env)
     expect(merged.iterm2).toBe(true)
@@ -133,5 +159,25 @@ describe("applyLiveCapabilities", () => {
     const detected = detectCapabilities(undefined, env)
     const merged = applyLiveCapabilities(detected, { kitty_graphics: false, sixel: false }, env)
     expect(merged.kitty).toBe(true)
+  })
+})
+
+describe("bestOverlayProtocol", () => {
+  test("uses iTerm2 when Kitty placeholders are unavailable", () => {
+    const caps = detectCapabilities(undefined, { TERM_PROGRAM: "WezTerm" })
+    expect(bestOverlayProtocol(caps)).toBe(Protocol.ITERM2)
+  })
+
+  test("prefers Sixel over iTerm2", () => {
+    const caps = detectCapabilities(undefined, {
+      TERM_PROGRAM: "WezTerm",
+      TERMINOLOGY_VERSION: "1",
+    })
+    expect(bestOverlayProtocol(caps)).toBe(Protocol.SIXEL)
+  })
+
+  test("returns null when only Kitty is available", () => {
+    const caps = detectCapabilities(undefined, { KITTY_WINDOW_ID: "1" })
+    expect(bestOverlayProtocol(caps)).toBeNull()
   })
 })
