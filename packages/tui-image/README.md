@@ -42,6 +42,7 @@ the iTerm2 path, so images are rendered as pixels even when the shell is
 PowerShell.
 
 Terminals that expose none of these native protocols, including Windows
-Terminal, use the Braille or half-block renderer inside the OpenTUI grid.
-NikCLI's integration is in
+Terminal, use the truecolor ANSI half-block renderer inside the OpenTUI grid.
+The Braille renderer remains available when higher geometric resolution is
+more important than color fidelity. NikCLI's integration is in
 `packages/nikcli/src/cli/cmd/tui/component/tui-image.tsx`.
