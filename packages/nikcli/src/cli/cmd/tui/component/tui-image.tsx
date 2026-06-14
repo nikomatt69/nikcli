@@ -3,6 +3,7 @@ import { BoxRenderable, type CliRenderer, RGBA } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
 import {
   applyLiveCapabilities,
+  bestOverlayProtocol,
   detectCapabilities,
   encodeIterm2Bytes,
   encodeKittyVirtual,
@@ -30,10 +31,9 @@ import { useTheme } from "@tui/context/theme"
  * inside OpenTUI's grid. The terminal overlays the image wherever those
  * cells land, so scrolling and repaints just work.
  *
- * Every other terminal renders through the grid with the colored Braille
- * fallback. Raw protocol bytes are never written to stdout for display:
- * cursor-addressed output (classic kitty, iTerm2, Sixel) is clobbered by
- * the next OpenTUI frame and lands wherever the cursor happens to be.
+ * Terminals with iTerm2 or Sixel support receive a cursor-positioned overlay
+ * during OpenTUI's native render pass. Every other terminal renders through
+ * the grid with the truecolor ANSI half-block fallback.
  */
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
 const MAX_PREVIEW_COLUMNS = 120
@@ -404,13 +404,14 @@ async function loadTuiImage(
     }
   }
 
-  if (capabilities.best === Protocol.ITERM2 || capabilities.best === Protocol.SIXEL) {
+  const overlayProtocol = bestOverlayProtocol(capabilities)
+  if (overlayProtocol) {
     const decoder = await pickDecoder()
     const image = await decoder(bytes)
     if (image.width <= 0 || image.height <= 0) throw new Error("decoder produced a zero-sized image")
     const { columns, rows } = fitNativeCells(image.width, image.height, bounds)
     const output =
-      capabilities.best === Protocol.ITERM2
+      overlayProtocol === Protocol.ITERM2
         ? encodeIterm2Bytes(bytes, {
             width: columns,
             height: rows,
@@ -425,7 +426,7 @@ async function loadTuiImage(
       columns,
       rows: [],
       overlay: { bytes: output, columns, rows },
-      renderer: capabilities.best === Protocol.ITERM2 ? "iterm2" : "sixel",
+      renderer: overlayProtocol === Protocol.ITERM2 ? "iterm2" : "sixel",
     }
   }
 
@@ -438,7 +439,7 @@ async function loadTuiImage(
     columns: bounds.columns,
     rows: bounds.rows,
     capabilities,
-    renderer: "braille",
+    renderer: "halfblock",
   })
   const fallback = result.output as string
   return {
@@ -448,7 +449,7 @@ async function loadTuiImage(
     height: 0,
     columns: result.columns,
     rows: toCellGrid(fallback, result.columns),
-    renderer: "braille",
+    renderer: "halfblock",
   }
 }
 
@@ -561,7 +562,7 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
                   flexShrink={0}
                 />
               </Show>
-              <Show when={data().renderer === "braille" && data().rows.length > 0}>
+              <Show when={data().rows.length > 0}>
                 <box marginTop={1} flexDirection="column" flexShrink={0}>
                   <For each={data().rows}>
                     {(row) => (

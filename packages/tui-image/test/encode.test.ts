@@ -34,16 +34,18 @@ describe("encodeIterm2", () => {
   test("emits an OSC 1337 file payload", () => {
     const image = checkeredImage(4, 4)
     const out = encodeIterm2(image, { width: 4, height: 4 })
-    expect(out.startsWith("\x1b]1337;")).toBe(true)
-    expect(out).toMatch(/file=\d+/)
+    expect(out.startsWith("\x1b]1337;File=")).toBe(true)
+    expect(out).toMatch(/File=size=\d+/)
     expect(out).toMatch(/inline=1/)
+    expect(out).toContain(":")
   })
 
   test("forwards compressed image bytes without re-encoding", () => {
     const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
     const out = encodeIterm2Bytes(bytes, { width: 20, height: 10 })
-    expect(out).toContain("file=4;width=20;height=10")
-    expect(out).toContain(Buffer.from(bytes).toString("base64"))
+    const payload = Buffer.from(bytes).toString("base64")
+    expect(out).toContain("File=size=4;width=20;height=10")
+    expect(out).toContain(`inline=1:${payload}`)
   })
 })
 
@@ -56,6 +58,16 @@ describe("encodeSixel", () => {
     expect(out[2]).toBe(0x71) // 'q'
     expect(out[out.length - 2]).toBe(0x1b)
     expect(out[out.length - 1]).toBe(0x5c)
+  })
+
+  test("encodes multiple colours as separate planes with 0..100 RGB values", () => {
+    const image = solidImage(1, 2, 255, 0, 0)
+    setPixel(image, 0, 1, [0, 0, 255, 255])
+    const out = Buffer.from(encodeSixel(image)).toString("ascii")
+    expect(out).toContain('"1;1;1;2')
+    expect(out).toMatch(/#0;2;100;0;0/)
+    expect(out).toMatch(/#1;2;0;0;100/)
+    expect(out).toContain("#0@$#1A")
   })
 })
 

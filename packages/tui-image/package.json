@@ -5,11 +5,13 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "WASM-compatible image rendering for TUI / OpenTUI terminals — auto-detects Kitty Graphics, Sixel, iTerm2 and falls back to Unicode half-blocks. Single dependency-free public API; image decoding delegated to a host-supplied decoder (jimp, photon-node WASM, sharp, …) so the package works in Node, Bun and the browser.",
+  "description": "Image rendering primitives for TUI / OpenTUI terminals with Kitty, Sixel, iTerm2 and Unicode fallbacks.",
   "exports": {
     ".": "./src/index.ts",
     "./capabilities": "./src/capabilities.ts",
+    "./decode": "./src/decode.ts",
     "./encode": "./src/encode.ts",
+    "./kitty-placeholder": "./src/kitty-placeholder.ts",
     "./render": "./src/render.ts",
     "./pixels": "./src/pixels.ts"
   },

@@ -31,11 +31,6 @@ function apc(keys: string[], payload?: string): string {
   return payload === undefined ? `${ESC}_G${control}${ST}` : `${ESC}_G${control};${payload}${ST}`
 }
 
-/** iTerm2 inline images use a different framing: `OSC 1337 ; … ST`. */
-function osc(...parts: string[]): string {
-  return `${ESC}]1337;${parts.join(";")}${ST}`
-}
-
 function base64FromBytes(bytes: Uint8Array): string {
   if (typeof Buffer !== "undefined") {
     return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64")
@@ -283,10 +278,14 @@ export function encodeIterm2Bytes(image: Uint8Array, options: Iterm2Options = {}
   const width = options.width ?? "auto"
   const height = options.height ?? "auto"
   const preserve = options.preserveAspectRatio !== false ? "1" : "0"
-  return osc(
-    `file=${image.byteLength};width=${width};height=${height};preserveAspectRatio=${preserve};inline=1`,
-    payload,
-  )
+  const arguments_ = [
+    `size=${image.byteLength}`,
+    `width=${width}`,
+    `height=${height}`,
+    `preserveAspectRatio=${preserve}`,
+    "inline=1",
+  ].join(";")
+  return `${ESC}]1337;File=${arguments_}:${payload}${ST}`
 }
 
 /**
@@ -332,72 +331,81 @@ function nearestPaletteIndex(r: number, g: number, b: number): number {
  * Reference: <https://vt100.net/docs/vt3xx-gp/chapter14.html>
  */
 export function encodeSixel(image: PixelImage): Uint8Array {
-  // Initialise a 256-colour palette; we register only the colours we use.
-  const usedPalette = new Map<number, number>() // palette index → sixel register
-  let nextRegister = 0
+  const pixels = new Int16Array(image.width * image.height)
+  pixels.fill(-1)
+  const usedPalette = new Map<number, number>()
+
+  for (let y = 0; y < image.height; y++) {
+    for (let x = 0; x < image.width; x++) {
+      const offset = (y * image.width + x) * 4
+      const alpha = (image.data[offset + 3] ?? 0) / 255
+      if (alpha < 0.5) continue
+      const paletteIndex = nearestPaletteIndex(
+        (image.data[offset] ?? 0) * alpha,
+        (image.data[offset + 1] ?? 0) * alpha,
+        (image.data[offset + 2] ?? 0) * alpha,
+      )
+      let register = usedPalette.get(paletteIndex)
+      if (register === undefined) {
+        register = usedPalette.size
+        usedPalette.set(paletteIndex, register)
+      }
+      pixels[y * image.width + x] = register
+    }
+  }
+
   const parts: number[] = []
   const push = (s: string) => {
     for (let i = 0; i < s.length; i++) parts.push(s.charCodeAt(i) & 0x7f)
   }
+  const pushRun = (value: number, length: number) => {
+    const char = String.fromCharCode(0x3f + value)
+    push(length >= 4 ? `!${length}${char}` : char.repeat(length))
+  }
 
   push("\x1bPq") // DECSIXEL introducer
-  push('"1;1;0;0;0') // raster attributes: 1:1 pixel aspect, 0×0 image size hints
-  // We track the per-row run-length encoding state across columns.
-  let lastRegister = -1
+  push(`"1;1;${image.width};${image.height}`)
+  for (const [paletteIndex, register] of usedPalette) {
+    const [r, g, b] = SIXEL_PALETTE[paletteIndex]!
+    push(`#${register};2;${Math.round((r / 255) * 100)};${Math.round((g / 255) * 100)};${Math.round((b / 255) * 100)}`)
+  }
+
   for (let y = 0; y < image.height; y += 6) {
-    let runStart = 0
-    let runRegister = -1
-    let runChar = 0
-    const flushRun = (endX: number) => {
-      if (runRegister === -1 || endX <= runStart) return
-      const length = endX - runStart
-      if (length > 1) push(`!${length}`)
-      if (runRegister !== lastRegister) {
-        push(`#${runRegister}`)
-        lastRegister = runRegister
-      }
-      push(String.fromCharCode(0x3f + runChar))
-    }
+    const bandRegisters = new Set<number>()
     for (let x = 0; x < image.width; x++) {
-      let band = 0
       for (let dy = 0; dy < 6; dy++) {
         const yy = y + dy
         if (yy >= image.height) break
-        const i = (yy * image.width + x) * 4
-        const a = (image.data[i + 3] ?? 0) / 255
-        if (a < 0.5) continue
-        const r = (image.data[i] ?? 0) * a
-        const g = (image.data[i + 1] ?? 0) * a
-        const b = (image.data[i + 2] ?? 0) * a
-        const idx = nearestPaletteIndex(r, g, b)
-        const register = usedPalette.get(idx) ?? -1
-        if (register === -1 && nextRegister < 256) {
-          usedPalette.set(idx, nextRegister)
-          const entry = SIXEL_PALETTE[idx]!
-          push(`#${nextRegister};2;${Math.round(entry[0])};${Math.round(entry[1])};${Math.round(entry[2])}`)
-          runRegister = nextRegister
-          nextRegister += 1
-        } else {
-          runRegister = register
-        }
-        if (runRegister === -1) continue
-        band |= 1 << dy
+        const register = pixels[yy * image.width + x] ?? -1
+        if (register >= 0) bandRegisters.add(register)
       }
-      if (band === runChar && runRegister !== -1) continue
-      flushRun(x)
-      runStart = x
-      runChar = band
-      if (band === 0) {
-        runRegister = -1
-        continue
-      }
-      const idx = band >= 0x20 ? -1 : -1
-      if (idx === -1) runRegister = runRegister
     }
-    flushRun(image.width)
-    push("$") // carriage return (move to start of next band)
-    push("-") // line feed (advance to next sixel band)
-    lastRegister = -1
+
+    const registers = [...bandRegisters]
+    for (let registerIndex = 0; registerIndex < registers.length; registerIndex++) {
+      const register = registers[registerIndex]!
+      push(`#${register}`)
+      let runValue = -1
+      let runLength = 0
+      for (let x = 0; x < image.width; x++) {
+        let value = 0
+        for (let dy = 0; dy < 6; dy++) {
+          const yy = y + dy
+          if (yy >= image.height) break
+          if (pixels[yy * image.width + x] === register) value |= 1 << dy
+        }
+        if (value === runValue) {
+          runLength += 1
+          continue
+        }
+        if (runLength > 0) pushRun(runValue, runLength)
+        runValue = value
+        runLength = 1
+      }
+      if (runLength > 0) pushRun(runValue, runLength)
+      if (registerIndex < registers.length - 1) push("$")
+    }
+    if (y + 6 < image.height) push("-")
   }
   push("\x1b\\") // ST
   return new Uint8Array(parts)
