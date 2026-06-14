@@ -196,6 +196,11 @@ intro "Install"
 INSTALL_DIR=$HOME/.nikcli/bin
 mkdir -p "$INSTALL_DIR"
 
+binary_name=$APP
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) binary_name="$APP.exe" ;;
+esac
+
 # ────────────────────────────────────────────────────────────────────────────
 # Platform detection / version resolution
 # ────────────────────────────────────────────────────────────────────────────
@@ -358,6 +363,80 @@ check_version() {
 # Download & install
 # ────────────────────────────────────────────────────────────────────────────
 
+install_deferred=false
+
+windows_path() {
+    if command -v cygpath >/dev/null 2>&1; then
+        cygpath -w "$1"
+    else
+        printf "%s\n" "$1"
+    fi
+}
+
+install_binary() {
+    local source=$1
+    local destination="$INSTALL_DIR/$binary_name"
+
+    if [ "$binary_name" != "$APP.exe" ] || [ ! -f "$destination" ]; then
+        mv -f "$source" "$destination"
+        chmod 755 "$destination"
+        return
+    fi
+
+    if mv -f "$source" "$destination" 2>/dev/null; then
+        chmod 755 "$destination"
+        return
+    fi
+
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        fail "Cannot replace the running nikcli.exe because powershell.exe is unavailable"
+        outro "Aborted"
+        exit 1
+    fi
+
+    local pending="${destination}.new.$$"
+    local helper="${INSTALL_DIR}/.${APP}-update-$$.ps1"
+    mv -f "$source" "$pending"
+    chmod 755 "$pending"
+
+    cat > "$helper" <<'POWERSHELL'
+param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Destination,
+    [Parameter(Mandatory = $true)][string]$Helper
+)
+
+$deadline = [DateTime]::UtcNow.AddMinutes(10)
+while ([DateTime]::UtcNow -lt $deadline) {
+    try {
+        Move-Item -LiteralPath $Source -Destination $Destination -Force -ErrorAction Stop
+        Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue
+        exit 0
+    } catch {
+        Start-Sleep -Milliseconds 200
+    }
+}
+
+Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue
+exit 1
+POWERSHELL
+
+    local pending_windows
+    local destination_windows
+    local helper_windows
+    pending_windows=$(windows_path "$pending")
+    destination_windows=$(windows_path "$destination")
+    helper_windows=$(windows_path "$helper")
+
+    powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden \
+        -File "$helper_windows" \
+        -Source "$pending_windows" \
+        -Destination "$destination_windows" \
+        -Helper "$helper_windows" \
+        >/dev/null 2>&1 &
+    install_deferred=true
+}
+
 download_and_install() {
     local tmp_dir="${TMPDIR:-/tmp}/nikcli_install_$$"
     mkdir -p "$tmp_dir"
@@ -394,9 +473,9 @@ download_and_install() {
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
 
-    local extracted_binary="$tmp_dir/bin/$APP"
+    local extracted_binary="$tmp_dir/bin/$binary_name"
     if [ ! -f "$extracted_binary" ]; then
-        extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$APP"
+        extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$binary_name"
     fi
     if [ ! -f "$extracted_binary" ]; then
         spinner_stop err "Binary not found in archive at expected path"
@@ -405,17 +484,25 @@ download_and_install() {
         exit 1
     fi
 
-    mv "$extracted_binary" "$INSTALL_DIR/$APP"
-    chmod 755 "${INSTALL_DIR}/$APP"
+    install_binary "$extracted_binary"
     rm -rf "$tmp_dir"
-    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${APP}${NC}"
+    if [ "$install_deferred" = true ]; then
+        spinner_stop ok "Update staged; restart nikcli to finish"
+    else
+        spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${binary_name}${NC}"
+    fi
 }
 
 install_from_binary() {
     spinner_start "Installing from local binary"
-    cp "$binary_path" "${INSTALL_DIR}/nikcli"
-    chmod 755 "${INSTALL_DIR}/nikcli"
-    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${APP}${NC}"
+    local staged_binary="${INSTALL_DIR}/.${binary_name}.local.$$"
+    cp "$binary_path" "$staged_binary"
+    install_binary "$staged_binary"
+    if [ "$install_deferred" = true ]; then
+        spinner_stop ok "Update staged; restart nikcli to finish"
+    else
+        spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${binary_name}${NC}"
+    fi
 }
 
 if [ -n "$binary_path" ]; then
@@ -503,7 +590,11 @@ fi
 # Done
 # ────────────────────────────────────────────────────────────────────────────
 
-outro "${GREEN}${APP} ${specific_version} installed${NC}"
+if [ "$install_deferred" = true ]; then
+    outro "${GREEN}${APP} ${specific_version} will finish installing after nikcli exits${NC}"
+else
+    outro "${GREEN}${APP} ${specific_version} installed${NC}"
+fi
 ui ""
 ui "   ${DIM}Next steps${NC}"
 ui "   ${BOLD}cd${NC} <project>          ${DIM}# open your project${NC}"

@@ -96,6 +96,19 @@ describe("release automation", () => {
     expect(installer).not.toContain("releases/download/${requested_version}/$filename")
   })
 
+  it("installs Windows executables and defers replacement while nikcli.exe is running", async () => {
+    const installer = await readRoot("install")
+
+    expect(installer).toContain('MINGW*|MSYS*|CYGWIN*) binary_name="$APP.exe"')
+    expect(installer).toContain('local extracted_binary="$tmp_dir/bin/$binary_name"')
+    expect(installer).toContain('extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$binary_name"')
+    expect(installer).toContain('local destination="$INSTALL_DIR/$binary_name"')
+    expect(installer).toContain("powershell.exe -NoProfile -NonInteractive")
+    expect(installer).toContain("Move-Item -LiteralPath $Source -Destination $Destination -Force")
+    expect(installer).toContain("Start-Sleep -Milliseconds 200")
+    expect(installer).toContain("install_deferred=true")
+  })
+
   it("does not bypass release safety checks or expose token output", async () => {
     const workflow = await readRoot(".github/workflows/publish.yml")
     const publishStart = await readRoot("script/publish-start.ts")
