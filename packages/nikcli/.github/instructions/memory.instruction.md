@@ -3418,3 +3418,142 @@ Recently merged to `live-main`: #97, #96.
 - `ses_14261283fffe0t4A3nSh175yCB` — `@explore`: analytics view structure + data model
 - `ses_1427c4a0cffewkPu5TmoTKu5hp` — `@explore`: startup path performance audit
 - `ses_1427c49e4ffeazneHN8QUaSR0Z` + `ses_1427c49e7ffeWKLyaUeLXhqZrL` — `@explore` × 2: terminal/browser compatibility audits (both delivered despite 10-min timeout)
+
+## Brain Pass (2026-06-14)
+
+### Four-Report Audit: Whole-Package Walkthrough
+
+Today's session (`ses_13a97771affewPYi1kM50BEnzM`, "Greeting") launched 4 parallel `@explore` agents to produce a complete structural walkthrough of `packages/nikcli`. All 4 reports were collected to `/tmp/nikcli-reports.md` (1,797 lines / 131,825 bytes) by a follow-up `@general` agent (session `ses_13a83cc7cffeoHVFIG6udQRoXy`).
+
+**Discovery**: session_diff files at `~/.local/share/nikcli/storage/session_diff/` are empty 2-byte stubs (`[]`). The actual transcript content lives in the **SQLite database** at `~/.local/share/nikcli/nikcli.db`, in the `message_info` and `message_part` tables. To retrieve a long report: identify the final assistant message in `message_info` for the target session, then extract the `text` JSON field from the corresponding `message_part` row (filter by `role="assistant"`, `type="text"`, max `created_at`).
+
+**Report topics and worker sessions**:
+
+| # | Topic | Worker session | Supervisor session |
+|---|-------|----------------|-------------------|
+| 1 | Entry / CLI Analysis | `ses_13a95f4b6ffezdGtiDumljNzzc` | `ses_13a95f4b1ffeG3poIHv5p2gaZ8` |
+| 2 | Core Domain (server, sessions, auth, providers, DB) | `ses_13a95d77affejCvIw0cBaHqnGP` | `ses_13a95d776ffd7xajtH4WJX41oH` |
+| 3 | Tools / Agents / Plugins / Extensions | `ses_13a95b65bffeS7oVpLtLSIaVDL` | `ses_13a95b659ffd5NahlBCw084UiC` |
+| 4 | SDK & Monorepo Interop | `ses_13a958aadffeTQsxT3J6XvIRGP` | `ses_13a958aa7ffepUOjIFuXXX30P3` |
+
+**Key consolidated findings**:
+
+#### Report 1 — Entry / CLI Analysis (26 KB)
+
+- **Package metadata**: `nikcli-ai` v1.64.0, Bun + TypeScript ESM, 12 platform target triples
+- **Bin shim**: `bin/nikcli` (85 lines, Node) — locates native binary from `optionalDependencies` and re-spawns it
+- **36 top-level CLI commands** grouped by: agent/run, TUI, server/daemon, auth, integrations, config, install
+- **Bootstrap sequence**: `src/index.ts` (204 lines) yargs router → `src/cli/cmd/cmd.ts` command registration → unhandledRejection/SIGHUP handlers
+- **Build pipeline**: `script/build.ts` (180 lines) → `Bun.build({ compile: { target, outfile }, conditions: ["browser"], define: { NIKCLI_VERSION, NIKCLI_CHANNEL, ... } })` per triple → 264 MB darwin-arm64 binary
+- **Test organization**: 57 subdirs mirroring `src/` (Bun test, 1:1 layout)
+- **Spec layout**: `specs/` for design docs (v2, effect, etc.)
+- **Configs**: `drizzle.config.ts`, `sst-env.d.ts`, `AGENTS.md` at package root
+- **Secret reference**: `VERCEL_OIDC_TOKEN` discovered in build/publish scripts
+
+#### Report 2 — Core Domain (49 KB, largest)
+
+- **Server layer**: Hono + Bun, 18 route prefixes, full middleware chain (onError → share → user auth → server auth → CORS → workspace context → HttpApi bridge → routes)
+- **Session/message model**: `Session.Info` Zod, `MessageV2.Info`/`Part` discriminated unions, **v2 read-model strangler** pattern (v2 entries derived from v1 messages via `toEntries()`)
+- **Auth separation**: 3 distinct auth layers — provider auth (LLM credentials), user auth (cloud account), mobile auth (bearer tokens for app)
+- **Provider registry**: 2,043-line `provider.ts`, 25+ LLM providers, 3 resolution pathways (AI SDK direct, @nikcli-ai/llm route-based, buildState construction)
+- **Database**: Drizzle ORM, 7 migrations, unified schema via `src/database/schema.ts` re-exports
+- **Concurrency**: `SessionRunState` single-flight runtime, abort cascade, token/cost tracking
+- **Routes table** confirms: `/global`, `/project`, `/loop`, `/mission`, `/pty`, `/config`, `/experimental`, `/session`, `/permission`, `/question`, `/provider`, `/companion`, `/user`, `/mobile`, `/`, `/connectors`, `/chatbot`, `/mcp`, `/tui`, `/analytics`
+
+#### Report 3 — Tools / Agents / Plugins
+
+- **Tool base contract** (`src/tool/tool.ts`): `Tool.Info`, `Tool.Def`, `Tool.Context`, `Tool.Result`, `Tool.define()` factory
+- **Complete tool inventory** by category:
+  - **Filesystem/editor**: `bash`, `monitor`, `read`, `write`, `edit`, `multiedit`, `apply_patch`, `glob`, `grep`, `ls`, `tree`, `invalid`
+  - **Web/research**: `webfetch`, `websearch`, `codesearch`, `repo_clone`, `repo_overview`
+  - **Delegation/multi-agent**: `task`, `delegation`, `delegator`, `advisor`
+  - **Todo/goal/session**: `todowrite`, `todoread`, `create_goal`/`get_goal`/`update_goal`
+  - **Context/memory**: `context_collect`, `context_related`, `context_diagnostics`, `context_search`, `memory_search`
+  - **Skills/questions/batch**: `skill`, `question`, `batch`, `exec_code`, `search_tools`, `lsp`
+  - **Plan mode**: `plan_enter`, `plan_exit`
+  - **Voice/media**: `speak` (ElevenLabs + OpenRouter TTS), `voice` (Whisper STT)
+- **Agent system**: Built-in agents in `Agent.buildState`, invocation by name via `task` tool or `--agent` flag
+- **Permission model**: `PermissionNext` rule engine + `assertExternalDirectory` for cross-worktree access
+- **Plugin loader**: scans `plugins/` directories, supports hooks for tool/auth/event/chat
+- **Custom slash commands**: Markdown templates in commands/ directory
+- **MCP integration**: 3 transports, OAuth 2.0 with dynamic client registration
+- **Skill system**: Markdown skill files with auto-discovery
+- **Prompt assembly**: system prompt layers + project context (AGENTS.md, CLAUDE.md, .nikcli/instructions)
+- **UI pointer**: TUI in `src/cli/cmd/tui/`, mobile in `packages/mobile/`
+
+#### Report 4 — SDK & Monorepo Interop (27 KB)
+
+- **JavaScript SDK build** (`packages/sdk/js/script/build.ts`): 3-stage pipeline
+  1. Spec gen: `bun dev --print-logs generate` → `openapi.json` (26,148 lines)
+  2. Codegen: `@hey-api/openapi-ts` v0.90.4 → `types.gen.ts` (9,914 lines) + `sdk.gen.ts` + `client.gen.ts`
+  3. Post-process: `prettier --write`, `tsc` compile, cleanup
+- **SDK public API** (`@nikcli-ai/sdk` v1.64.0): 8 subpath exports (`.`, `./client`, `./server`, `./crypto`, `./cloud`, `./v2`, `./v2/client`, `./v2/server`)
+- **NikcliClient resources** (29 lazy `get`-ters): `global`, `project`, `loop`, `mission`, `pty`, `config`, `tool`, `worktree`, `experimental`, `managedWorktree`, `session`, `part`, `permission`, `question`, `provider`, `mobile`, `find`, `file`, `connectors`, `mcp`, `tui`, `analytics`, `instance`, `path`, `vcs`, `command`, `app`, `lsp`, `formatter`, `auth`, `event`
+- **Self-consuming OpenAPI pattern**: nikcli runtime has NO direct HTTP calls to its own server — all communication via the regenerated `@nikcli-ai/sdk/v2`
+- **~20 import sites** in `packages/nikcli/src` for the SDK
+- **Python SDK**: **Not present** (no `pyproject.toml` / `setup.py` in `packages/sdk/`)
+- **Sibling packages**:
+  - `@nikcli-ai/companion` — Standalone Bun WebSocket bridge (port 3456) that spawns `claude` CLI as child process; React SPA frontend; deployable to Cloudflare Workers. **Unused by nikcli proper** — nikcli ships its own embedded `CompanionRoutes()` mounted at `/companion`
+  - `@nikcli-ai/remote` — Remote terminal with ghostty-web, QR code, tunnels (localtunnel, cloudflared, ngrok)
+  - `@nikcli-ai/desktop` — Tauri v2 desktop app (16 languages), spawns nikcli CLI as Tauri sidecar
+  - `@nikcli-ai/plugin` — Plugin system core (11 built-in plugins)
+- **Negative findings**:
+  - No Python SDK
+  - No telemetry/queue system
+  - No `packages/studio` (AGENTS.md reference is outdated)
+  - No direct `ghostty-web` reference in TUI (renderer is OpenTUI based)
+- **External integrations** touched at runtime:
+  - Vercel AI SDK adapters (16+ providers)
+  - Effect 4.0.0-beta.65 (dependency injection, services)
+  - Persistence: Drizzle, bun:sqlite, Cloudflare D1
+  - MCP/agent SDKs: `@modelcontextprotocol/sdk` 1.25.2, `@agentclientprotocol/sdk` 0.5.1
+  - Chat platform adapters: Discord, Slack, GitHub, Linear, Teams, GChat (via `@chat-adapter/*`)
+  - TUI: `@opentui/solid`, SolidJS 1.9.10
+  - VCS: git CLI + `simple-git`
+  - Cloud: Cloudflare Workers, SST 3.17.38
+  - Auth: `ssh2` 1.17.0, `bonjour-service` (mDNS)
+
+### Babysit PR Session (2026-06-14)
+
+Session `ses_13a60f998ffee72O9edy8uxUq4` ran a `/goal` command to check CI status on the current PR. After investigating, found that:
+- Current branch is `live-main` (clean working tree)
+- No open PR for the current branch (all `live-main` PRs are merged)
+- Most recent open PR is #102 (opened 2 hours before "today")
+- "Current PR" is ambiguous — the agent asked the user to clarify
+
+### Updated Open PRs (2026-06-14)
+
+| PR  | Branch → live-main | Status |
+| --- | ------------------ | ------ |
+| #102 | (newest) | Status unknown |
+| #99 | `claude/session-v2-live-stepper` | 3 failing checks (Windows smoke × 2, test (windows) exit 255), 1 pending |
+| #91 | `nikcli/mobile/nikcli/yrrz85` | Multiple failures |
+| #88 | `claude/npm-publish-error-vCzX7` | Windows smoke + test failures |
+| #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures |
+
+Recently merged to `live-main`: #97, #96.
+
+### Key Architectural Insights from 2026-06-14 Audit
+
+1. **Single-file distribution**: nikcli ships as a 264 MB native binary per platform triple (12 targets total), using `Bun.build({ compile: ... })`. The `bin/nikcli` shim is 85 lines of Node code that re-spawns the native binary.
+
+2. **Self-consuming OpenAPI**: The server contract (Hono routes with `hono-openapi` Zod schemas) is the single source of truth. The SDK is auto-generated from the OpenAPI spec and is the **only** way the CLI/TUI talks to its own server. No file in `packages/nikcli/src` directly implements HTTP calls to its own server.
+
+3. **v1/v2 session coexistence**: Production path is v1 (`MessageV2`/`Session`), v2 is a parallel event-log/reducer (`Stepper.reduce`) with read-side shim (`toEntries()`) that has not yet replaced v1 in the main code path.
+
+4. **Three auth layers** (distinct, not merged):
+   - Provider auth — LLM credentials (API keys, OAuth tokens)
+   - User auth — Cloud account via `Authorization: Bearer nku_*`
+   - Mobile auth — Bearer tokens for mobile app access
+
+5. **Effect as backbone**: `Effect 4.0.0-beta.65` is the DI/service runtime. All storage/config/provider operations return `Effect<A, E>` values. `withCurrentInstance()` provides instance context within Effect fibers.
+
+6. **TUI worker process isolation**: The TUI runs in a separate Bun Worker process so that `SIGUSR2` hot-reload can restart the server without killing the TUI renderer. Three connection modes: direct RPC (default), HTTP server (`--port`/`--hostname`), attach mode (`nikcli attach <url>`).
+
+7. **Database centralization in progress**: Domain modules (`db/users.ts`, `account/db.ts`, `workspace/db.ts`, `mobile/auth.ts`) re-export their tables via `Database.db` but have not been fully migrated. Target: single `nikcli.db` file with `DatabaseMigration` runner.
+
+8. **companion package is dead code** (from nikcli's perspective): The standalone `@nikcli-ai/companion` package is for driving raw Claude Code sessions, not nikcli TUI. Nikcli has its own much smaller companion UI embedded as `CompanionRoutes()`.
+
+9. **Terminal/browser compat gaps**: CLI is not actually browser-runnable (top-level imports use `process`/`Bun`/signals/exit/fs/spawn). No conditional exports for `browser` vs `node` in SDK. Needs runtime adapter layer for true cross-environment support.
+
+10. **OpenCode reference patterns studied**: The OpenCode project (`anomalyco/opencode` `dev` branch) uses similar Effect-based DB service pattern with `EffectDrizzleSqlite` + custom `sqlite.bun.ts` `SqliteClient`. Nikcli adopts the same pattern but with hand-rolled SQLite adapter.

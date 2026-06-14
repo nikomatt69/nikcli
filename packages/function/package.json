@@ -3,7 +3,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/api.ts",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "hono": "catalog:",

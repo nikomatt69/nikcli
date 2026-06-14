@@ -44,6 +44,7 @@ describe("Database.Service", () => {
       { id: "20260611020000_import_legacy_databases" },
       { id: "20260611030000_import_json_storage" },
       { id: "20260611040000_import_sync_json" },
+      { id: "20260612000000_session_v2_event" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",
@@ -89,7 +90,9 @@ describe("Database.Service", () => {
     try {
       // Legacy accounts.db
       const { Database: BunDatabase } = await import("bun:sqlite")
-      const accounts = new BunDatabase(path.join(legacyDir, "accounts.db"), { create: true })
+      const accounts = new BunDatabase(path.join(legacyDir, "accounts.db"), {
+        create: true,
+      })
       accounts.exec(`
         CREATE TABLE account (
           id TEXT PRIMARY KEY, email TEXT NOT NULL, url TEXT NOT NULL,
@@ -117,9 +120,20 @@ describe("Database.Service", () => {
         time: { created: 100, updated: 200 },
       }
       await write(["storage", "session", "proj_legacy", "ses_legacy.json"], session)
-      const message = { id: "msg_legacy", sessionID: "ses_legacy", role: "user", time: { created: 150 } }
+      const message = {
+        id: "msg_legacy",
+        sessionID: "ses_legacy",
+        role: "user",
+        time: { created: 150 },
+      }
       await write(["storage", "message", "ses_legacy", "msg_legacy.json"], message)
-      const part = { id: "prt_legacy", messageID: "msg_legacy", sessionID: "ses_legacy", type: "text", text: "hi" }
+      const part = {
+        id: "prt_legacy",
+        messageID: "msg_legacy",
+        sessionID: "ses_legacy",
+        type: "text",
+        text: "hi",
+      }
       await write(["storage", "part", "msg_legacy", "prt_legacy.json"], part)
       await write(["storage", "todo", "ses_legacy.json"], [{ id: "todo-1", content: "do it", status: "pending" }])
       await write(["storage", "permission", "proj_legacy.json"], [{ permission: "bash", action: "allow" }])

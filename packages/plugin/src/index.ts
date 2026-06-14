@@ -212,6 +212,15 @@ export interface Hooks {
     output: { temperature: number; topP: number; topK: number; options: Record<string, any> },
   ) => Promise<void>
   "permission.ask"?: (input: PermissionRequest, output: { status: "ask" | "deny" | "allow" }) => Promise<void>
+  /**
+   * Augment the environment variables applied when a PTY/shell is created.
+   *
+   * The server merges values written to `output.env` over the caller-provided
+   * environment, before re-applying forced terminal invariants (such as `TERM`
+   * and `NIKCLI_TERMINAL`). `input.cwd` is the resolved working directory the
+   * PTY will spawn in.
+   */
+  "shell.env"?: (input: { cwd: string }, output: { env: Record<string, string> }) => Promise<void>
   "command.execute.before"?: (
     input: { command: string; sessionID: string; arguments: string },
     output: { parts: Part[] },

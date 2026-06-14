@@ -242,7 +242,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         {/* Background agent bar — always visible, prompt is built from the
             active tab. Lets the user dig deeper into the data on screen
             without leaving the panel. */}
-        <AnalyticsAgentBar stats={stats()!} activeTab={activeTab()} />
+        
 
         {/* Tab Content */}
         <Show when={activeTab() === "overview"}>
@@ -367,100 +367,6 @@ function useCollapsibleGroup<T extends string>(
 // tab) keeps the panel from overflowing: the bar is one line tall
 // regardless of how many tabs exist or what data they show.
 
-const BG_AGENTS = ["explore", "fast-explore", "researcher", "code-reviewer", "debugger"] as const
-type BgAgent = (typeof BG_AGENTS)[number]
-
-function AnalyticsAgentBar(props: { stats: AggregatedStats; activeTab: AnalyticsTabId }) {
-  const { theme } = useTheme()
-  const sdk = useSDK()
-  const local = useLocal()
-  const toast = useToast()
-
-  const [agent, setAgent] = createSignal<BgAgent>("explore")
-  const [running, setRunning] = createSignal(false)
-
-  const cycle = () => {
-    const i = BG_AGENTS.indexOf(agent())
-    setAgent(BG_AGENTS[(i + 1) % BG_AGENTS.length]!)
-  }
-
-  const run = async () => {
-    if (running()) return
-    setRunning(true)
-    const tab = props.activeTab
-    const selectedAgent = agent()
-    try {
-      const created = await sdk.client.session.create({
-        title: buildTabTitle(tab),
-      })
-      const sessionID = created.data?.id
-      if (!sessionID) throw new Error("Server did not return a session id")
-      const model = local.model.current()
-      if (!model) throw new Error("No model selected — pick one in the prompt first")
-      const prompt = buildTabPrompt(tab, props.stats)
-      await sdk.client.session.prompt({
-        sessionID,
-        agent: selectedAgent,
-        model: { providerID: model.providerID, modelID: model.modelID },
-        parts: [{ id: `part_${Date.now()}`, type: "text", text: prompt }],
-      })
-      toast.show({
-        message: `Spawned ${selectedAgent} for ${tab} analysis`,
-        variant: "success",
-        duration: 4000,
-      })
-    } catch (err) {
-      toast.show({
-        title: "Failed to spawn agent",
-        message: err instanceof Error ? err.message : String(err),
-        variant: "error",
-        duration: 8000,
-      })
-    } finally {
-      setRunning(false)
-    }
-  }
-
-  return (
-    <box flexDirection="row" gap={1} alignItems="center">
-      <text fg={theme.textMuted} wrapMode="none">
-        BG agent:
-      </text>
-      <box
-        flexDirection="row"
-        gap={1}
-        alignItems="baseline"
-        backgroundColor={theme.backgroundElement}
-        paddingLeft={1}
-        paddingRight={1}
-        onMouseUp={cycle}
-      >
-        <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
-          {agent()}
-        </text>
-        <text fg={theme.textMuted} wrapMode="none">
-          ▾
-        </text>
-      </box>
-      <box
-        flexDirection="row"
-        gap={1}
-        alignItems="baseline"
-        backgroundColor={running() ? theme.backgroundElement : theme.primary}
-        paddingLeft={1}
-        paddingRight={1}
-        onMouseUp={run}
-      >
-        <text fg={running() ? theme.textMuted : theme.background} attributes={TextAttributes.BOLD} wrapMode="none">
-          {running() ? "…" : "▸ Run"}
-        </text>
-      </box>
-      <text fg={theme.textMuted} wrapMode="none">
-        (sends a tab-specific prompt to the agent in a new session)
-      </text>
-    </box>
-  )
-}
 
 // ===== TAB COMPONENTS =====
 

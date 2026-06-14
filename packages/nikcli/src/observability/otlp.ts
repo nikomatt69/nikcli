@@ -2,7 +2,6 @@ import { Cause, Effect, Exit, Layer, Logger, Option, Tracer } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
 import { OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/unstable/observability"
 import { Flag } from "../flag/flag"
-import { runID } from "./shared"
 import { TelemetryRecord } from "./telemetry-bus"
 
 // Build version/channel from the globals injected at compile time, mirroring
@@ -49,7 +48,11 @@ function resourceAttributes(): Record<string, string> {
   }
 }
 
-export function resource(): { serviceName: string; serviceVersion: string; attributes: Record<string, string> } {
+export function resource(runID: string): {
+  serviceName: string
+  serviceVersion: string
+  attributes: Record<string, string>
+} {
   return {
     serviceName: "nikcli",
     serviceVersion: version,
@@ -201,24 +204,26 @@ function wrapTracer(base: Tracer.Tracer): Tracer.Tracer {
 
 // Effect logs exported over OTLP. nikcli's primary logging is the custom `Log`
 // namespace, so this only carries Effect-emitted logs (Effect.log*).
-function loggers() {
+function loggers(runID: string) {
   if (!endpoint) return []
-  return [OtlpLogger.make({ url: `${endpoint}/v1/logs`, resource: resource(), headers })]
+  return [OtlpLogger.make({ url: `${endpoint}/v1/logs`, resource: resource(runID), headers })]
 }
 
 // The active tracer: when an OTLP endpoint is set, Effect's native OtlpTracer
 // (pure Effect — no @opentelemetry) exports spans, wrapped to also feed the live
 // panel; otherwise a bus-only tracer for live capture.
-const tracerLayer: Layer.Layer<never, never, never> = !active
-  ? Layer.empty
-  : endpoint
-    ? Layer.unwrap(
-        Effect.gen(function* () {
-          const base = yield* OtlpTracer.make({ url: `${endpoint}/v1/traces`, resource: resource(), headers })
-          return Layer.succeed(Tracer.Tracer, live ? wrapTracer(base) : base)
-        }),
-      ).pipe(Layer.provide(OtlpSerialization.layerJson), Layer.provide(FetchHttpClient.layer), Layer.orDie)
-    : Layer.succeed(Tracer.Tracer, makeBusTracer())
+function tracerLayer(runID: string): Layer.Layer<never, never, never> {
+  return !active
+    ? Layer.empty
+    : endpoint
+      ? Layer.unwrap(
+          Effect.gen(function* () {
+            const base = yield* OtlpTracer.make({ url: `${endpoint}/v1/traces`, resource: resource(runID), headers })
+            return Layer.succeed(Tracer.Tracer, live ? wrapTracer(base) : base)
+          }),
+        ).pipe(Layer.provide(OtlpSerialization.layerJson), Layer.provide(FetchHttpClient.layer), Layer.orDie)
+      : Layer.succeed(Tracer.Tracer, makeBusTracer())
+}
 
 // Combined observability layer. Captures spans for the live TUI panel (default
 // on) and exports traces/logs over OTLP when an endpoint is configured. No-op
@@ -226,14 +231,19 @@ const tracerLayer: Layer.Layer<never, never, never> = !active
 export const layer: Layer.Layer<never, never, never> = active
   ? Layer.unwrap(
       Effect.gen(function* () {
+        // Per-run correlation id, generated when the observability layer is
+        // built rather than at module load. This keeps the module free of an
+        // import-time global side effect (so the core can run in constrained
+        // runtimes) and gives each runtime/isolate its own run id.
+        const runID = crypto.randomUUID().slice(0, 8)
         const logs = endpoint
-          ? Logger.layer(loggers(), { mergeWithExisting: true }).pipe(
+          ? Logger.layer(loggers(runID), { mergeWithExisting: true }).pipe(
               Layer.provide(OtlpSerialization.layerJson),
               Layer.provide(FetchHttpClient.layer),
               Layer.orDie,
             )
           : Layer.empty
-        return Layer.mergeAll(logs, tracerLayer)
+        return Layer.mergeAll(logs, tracerLayer(runID))
       }),
     )
   : Layer.empty

@@ -811,6 +811,20 @@ export namespace Session {
       },
     }
 
+    // OpenRouter reports the actual billed cost via usage accounting
+    // (providerMetadata.openrouter.usage.cost). Prefer it when present — it is
+    // authoritative and covers meta-models like `openrouter/fusion` that have
+    // no fixed catalog price (catalog computation would yield 0 for them).
+    const reportedCost = (input.metadata?.["openrouter"] as any)?.["usage"]?.["cost"]
+    if (
+      input.model.api.npm === "@openrouter/ai-sdk-provider" &&
+      typeof reportedCost === "number" &&
+      Number.isFinite(reportedCost) &&
+      reportedCost > 0
+    ) {
+      return { cost: reportedCost, tokens }
+    }
+
     const costInfo =
       input.model.cost?.experimentalOver200K && tokens.input + tokens.cache.read > 200_000
         ? input.model.cost.experimentalOver200K

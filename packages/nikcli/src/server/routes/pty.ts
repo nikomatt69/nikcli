@@ -3,6 +3,7 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import { upgradeWebSocket } from "hono/bun"
 import z from "zod"
 import { Pty } from "@/pty"
+import { PluginPtyEnvironment } from "@/plugin/pty-environment"
 import { Storage } from "../../storage/storage"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
@@ -13,7 +14,7 @@ import { Log } from "@/util/log"
 const log = Log.create({ service: "pty-routes" })
 
 function runPty<A, E>(effect: Effect.Effect<A, E, Pty.Service>) {
-  return runPromiseWithLayer(Pty.defaultLayer, withCurrentInstance(effect))
+  return runPromiseWithLayer(PluginPtyEnvironment.ptyLayer, withCurrentInstance(effect))
 }
 
 export const PtyRoutes = lazy(() =>

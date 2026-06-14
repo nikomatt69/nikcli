@@ -668,6 +668,11 @@ export namespace Provider {
         autoload: false,
         options: {
           ...(apiKey && { apiKey }),
+          // Enable OpenRouter usage accounting so responses include the actual
+          // billed cost (providerMetadata.openrouter.usage.cost), used by
+          // Session.getUsage — notably for meta-models like `openrouter/fusion`
+          // that have no fixed catalog price.
+          extraBody: { usage: { include: true } },
           headers: {
             "HTTP-Referer": "https://nikcli.store/",
             "X-Title": "nikcli",

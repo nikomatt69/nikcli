@@ -2,6 +2,7 @@ import path from "path";
 import z from "zod";
 import { Project } from "@/project/project";
 import { Pty } from "@/pty";
+import { PluginPtyEnvironment } from "@/plugin/pty-environment";
 import { Session } from "@/session";
 import { SessionRepo } from "@/session/repo";
 import { SessionPrompt } from "@/session/prompt";
@@ -63,7 +64,10 @@ export function runCommand<A, E>(effect: Effect.Effect<A, E, Command.Service>) {
 }
 
 export function runPty<A, E>(effect: Effect.Effect<A, E, Pty.Service>) {
-  return runPromiseWithLayer(Pty.defaultLayer, withCurrentInstance(effect));
+  return runPromiseWithLayer(
+    PluginPtyEnvironment.ptyLayer,
+    withCurrentInstance(effect),
+  );
 }
 
 export function runCommandForSession<A, E>(

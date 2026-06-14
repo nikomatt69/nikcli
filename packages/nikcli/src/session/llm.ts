@@ -394,6 +394,18 @@ export namespace LLM {
       isCodex || provider.id.includes("github-copilot") ? undefined : ProviderTransform.maxOutputTokens(input.model)
 
     const tools = await resolveTools(input)
+    const providerOptions = ProviderTransform.providerOptions(input.model, params.options)
+    const openrouterOptions = providerOptions.openrouter
+    const fusionPlugin = Array.isArray(openrouterOptions?.plugins)
+      ? openrouterOptions.plugins.find((plugin: any) => plugin?.id === "fusion")
+      : undefined
+    if (fusionPlugin && process.env.NIKCLI_DEBUG_OPENROUTER_FUSION === "1") {
+      l.info("openrouter fusion request options", {
+        modelID: input.model.api.id,
+        variant: input.user.variant,
+        openrouterOptions,
+      })
+    }
 
     // LiteLLM and some Anthropic proxies require the tools parameter to be present
     // when message history contains tool calls, even if no tools are being used.
@@ -463,7 +475,7 @@ export namespace LLM {
       temperature: params.temperature,
       topP: params.topP,
       topK: params.topK,
-      providerOptions: ProviderTransform.providerOptions(input.model, params.options),
+      providerOptions,
       activeTools: Object.keys(tools).filter((x) => x !== "invalid" && x !== "_noop"),
       tools,
       toolChoice: input.toolChoice,

@@ -9,6 +9,7 @@ import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
+import { PtyEnvironment } from "./environment"
 
 export namespace Pty {
   const log = Log.create({ service: "pty" })
@@ -126,6 +127,7 @@ export namespace Pty {
       )
 
       const cachedSpawn = yield* Effect.cached(loadSpawn)
+      const environment = yield* PtyEnvironment.Service
 
       const list: Interface["list"] = Effect.fn("Pty.list")(function* () {
         return Array.from((yield* InstanceState.get(state)).values()).map((session) => session.info)
@@ -146,9 +148,12 @@ export namespace Pty {
         }
 
         const cwd = input.cwd || directory
+        // Precedence: process env < caller env < plugin overlay < forced terminal invariants.
+        const overlay = yield* environment.get({ directory, cwd })
         const env = {
           ...process.env,
           ...input.env,
+          ...overlay,
           TERM: "xterm-256color",
           NIKCLI_TERMINAL: "1",
         } as Record<string, string>
@@ -302,5 +307,10 @@ export namespace Pty {
     }),
   )
 
-  export const defaultLayer = layer
+  /**
+   * Self-contained layer with an empty PTY environment overlay. Used by tests
+   * and standalone servers; the full app provides a plugin-backed overlay via
+   * `PluginPtyEnvironment.ptyLayer`.
+   */
+  export const defaultLayer = layer.pipe(Layer.provide(PtyEnvironment.defaultLayer))
 }

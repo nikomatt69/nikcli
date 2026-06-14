@@ -2,3 +2,24 @@ name = "nikcli-function"
 main = "src/api.ts"
 compatibility_date = "2025-01-25"
 compatibility_flags = ["nodejs_compat"]
+
+# Public web origin used to build share URLs (override per environment).
+[vars]
+WEB_DOMAIN = "nikcli.store"
+
+# Share/sync hub: one Durable Object instance per shared session.
+[[durable_objects.bindings]]
+name = "SYNC_SERVER"
+class_name = "SyncServer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SyncServer"]
+
+# Durable storage for shared session JSON (survives DO eviction).
+[[r2_buckets]]
+binding = "Bucket"
+bucket_name = "nikcli-share"
+
+# ADMIN_SECRET is a secret; set it with `wrangler secret put ADMIN_SECRET`.
+# (Under SST it is linked via infra/app.ts instead.)

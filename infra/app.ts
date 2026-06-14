@@ -16,6 +16,9 @@ const NIKCLI_GITHUB_TOKEN = new sst.Secret("NIKCLI_GITHUB_TOKEN")
 const NIKCLI_SLACK_BOT_TOKEN = new sst.Secret("NIKCLI_SLACK_BOT_TOKEN")
 const NIKCLI_SLACK_CHANNEL = new sst.Secret("NIKCLI_SLACK_CHANNEL")
 
+// Durable storage for shared session JSON (survives Durable Object eviction).
+const bucket = new sst.cloudflare.Bucket("Bucket")
+
 export const api = new sst.cloudflare.Worker("Api", {
   domain: `api.${domain}`,
   handler: "packages/function/src/api.ts",
@@ -24,6 +27,7 @@ export const api = new sst.cloudflare.Worker("Api", {
   },
   url: true,
   link: [
+    bucket,
     GITHUB_APP_ID,
     GITHUB_APP_PRIVATE_KEY,
     ADMIN_SECRET,
@@ -41,6 +45,20 @@ export const api = new sst.cloudflare.Worker("Api", {
     worker: (args) => {
       if (process.env.CLOUDFLARE_ENABLE_LOGPUSH === "1") {
         args.logpush = true
+      }
+      // Bind the share/sync Durable Object (one instance per shared session).
+      args.bindings = $resolve(args.bindings).apply((bindings) => [
+        ...bindings,
+        {
+          name: "SYNC_SERVER",
+          type: "durable_object_namespace",
+          className: "SyncServer",
+        },
+      ])
+      // First migration for the brand-new SQLite-backed DO class.
+      args.migrations = {
+        newTag: "v1",
+        newSqliteClasses: ["SyncServer"],
       }
     },
   },
