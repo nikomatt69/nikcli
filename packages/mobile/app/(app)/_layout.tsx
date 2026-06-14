@@ -1,17 +1,15 @@
-import { View } from "react-native";
-import { useSegments } from "expo-router";
-import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { NetworkBanner } from "@/components/NetworkBanner";
-import { useAppTheme } from "@/lib/theme";
+import { View } from "react-native"
+import { useSegments } from "expo-router"
+import { NativeTabs } from "expo-router/unstable-native-tabs"
+import { NetworkBanner } from "@/components/NetworkBanner"
+import { useAppTheme } from "@/lib/theme"
 
 export default function AppLayout() {
-  const segments = useSegments();
-  const routeSegments = segments.filter((segment) => !segment.startsWith("("));
-  const [root, child] = routeSegments;
-  const hideChrome =
-    (root === "sessions" && Boolean(child)) ||
-    (root === "settings" && Boolean(child));
-  const { palette } = useAppTheme();
+  const segments = useSegments()
+  const routeSegments = segments.filter((segment) => !segment.startsWith("("))
+  const [root, child] = routeSegments
+  const hideChrome = (root === "sessions" && Boolean(child)) || (root === "settings" && Boolean(child))
+  const { palette } = useAppTheme()
 
   return (
     <View style={{ flex: 1 }}>
@@ -25,24 +23,15 @@ export default function AppLayout() {
         tabBarRespectsIMEInsets
       >
         <NativeTabs.Trigger name="sessions">
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "terminal", selected: "terminal.fill" }}
-            md="terminal"
-          />
+          <NativeTabs.Trigger.Icon sf={{ default: "terminal", selected: "terminal.fill" }} md="terminal" />
           <NativeTabs.Trigger.Label>Sessions</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="repos">
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "folder", selected: "folder.fill" }}
-            md="folder"
-          />
+          <NativeTabs.Trigger.Icon sf={{ default: "folder", selected: "folder.fill" }} md="folder" />
           <NativeTabs.Trigger.Label>Projects</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="terminal">
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "apple.terminal", selected: "apple.terminal.fill" }}
-            md="code"
-          />
+          <NativeTabs.Trigger.Icon sf={{ default: "apple.terminal", selected: "apple.terminal.fill" }} md="code" />
           <NativeTabs.Trigger.Label>Terminal</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="routines">
@@ -50,20 +39,14 @@ export default function AppLayout() {
           <NativeTabs.Trigger.Label>Routines</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="loops">
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "repeat", selected: "repeat.circle.fill" }}
-            md="repeat"
-          />
+          <NativeTabs.Trigger.Icon sf={{ default: "repeat", selected: "repeat.circle.fill" }} md="repeat" />
           <NativeTabs.Trigger.Label>Loops</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="settings">
-          <NativeTabs.Trigger.Icon
-            sf={{ default: "gearshape", selected: "gearshape.fill" }}
-            md="settings"
-          />
+          <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
           <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     </View>
-  );
+  )
 }

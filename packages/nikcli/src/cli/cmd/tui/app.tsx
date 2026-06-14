@@ -161,31 +161,31 @@ export function tui(input: {
                                 <SyncProvider>
                                   <AnalyticsProvider>
                                     <TelemetryProvider>
-                                    <ThemeProvider mode={mode}>
-                                      <LocalProvider>
-                                        <KeybindProvider>
-                                          <PromptStashProvider>
-                                            <EditorContextProvider>
-                                              <DialogProvider>
-                                                <CommandProvider>
-                                                  <FrecencyProvider>
-                                                    <PromptHistoryProvider>
-                                                      <PromptRefProvider>
-                                                        <UpgradeProvider upgradeNow={input.upgradeNow}>
-                                                          <AttentionProvider renderer={renderer}>
-                                                            <App />
-                                                          </AttentionProvider>
-                                                        </UpgradeProvider>
-                                                      </PromptRefProvider>
-                                                    </PromptHistoryProvider>
-                                                  </FrecencyProvider>
-                                                </CommandProvider>
-                                              </DialogProvider>
-                                            </EditorContextProvider>
-                                          </PromptStashProvider>
-                                        </KeybindProvider>
-                                      </LocalProvider>
-                                    </ThemeProvider>
+                                      <ThemeProvider mode={mode}>
+                                        <LocalProvider>
+                                          <KeybindProvider>
+                                            <PromptStashProvider>
+                                              <EditorContextProvider>
+                                                <DialogProvider>
+                                                  <CommandProvider>
+                                                    <FrecencyProvider>
+                                                      <PromptHistoryProvider>
+                                                        <PromptRefProvider>
+                                                          <UpgradeProvider upgradeNow={input.upgradeNow}>
+                                                            <AttentionProvider renderer={renderer}>
+                                                              <App />
+                                                            </AttentionProvider>
+                                                          </UpgradeProvider>
+                                                        </PromptRefProvider>
+                                                      </PromptHistoryProvider>
+                                                    </FrecencyProvider>
+                                                  </CommandProvider>
+                                                </DialogProvider>
+                                              </EditorContextProvider>
+                                            </PromptStashProvider>
+                                          </KeybindProvider>
+                                        </LocalProvider>
+                                      </ThemeProvider>
                                     </TelemetryProvider>
                                   </AnalyticsProvider>
                                 </SyncProvider>

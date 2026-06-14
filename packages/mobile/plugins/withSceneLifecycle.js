@@ -142,5 +142,4 @@ const withPodDeploymentTarget = (config) =>
     },
   ])
 
-module.exports = (config) =>
-  withPodDeploymentTarget(withSceneDelegateInPbxproj(withSceneDelegateFile(config)))
+module.exports = (config) => withPodDeploymentTarget(withSceneDelegateInPbxproj(withSceneDelegateFile(config)))

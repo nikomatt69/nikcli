@@ -185,7 +185,10 @@ function View(props: { api: TuiPluginApi }) {
 
   async function finishCreate(name: string, models: string[], primary: string) {
     setBusy(true)
-    api.kv.set(KV_REMOVED, kvList(api, KV_REMOVED).filter((n) => n !== name))
+    api.kv.set(
+      KV_REMOVED,
+      kvList(api, KV_REMOVED).filter((n) => n !== name),
+    )
     const value = { ...fusionPreset(models, primary), disabled: false }
     const ok = await writeVariants(api, { [name]: value }).finally(() => setBusy(false))
     if (ok) {
@@ -232,7 +235,9 @@ function show(api: TuiPluginApi) {
 // the plugin off snapshots the currently-enabled presets and disables them all
 // (hiding the variants from the model picker); turning it back on restores them.
 async function applyMasterOff(api: TuiPluginApi) {
-  const enabled = listPresets(api, {}).filter((p) => p.enabled).map((p) => p.name)
+  const enabled = listPresets(api, {})
+    .filter((p) => p.enabled)
+    .map((p) => p.name)
   if (!enabled.length) return
   api.kv.set(KV_SNAPSHOT, enabled)
   await writeVariants(api, Object.fromEntries(enabled.map((n) => [n, { disabled: true }])))

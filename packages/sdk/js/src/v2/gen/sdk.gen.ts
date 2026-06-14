@@ -236,6 +236,17 @@ import type {
   MobilePermissionRespondResponses,
   MobileProjectListResponses,
   MobilePromptStashCreateInput,
+  MobilePtyConnectErrors,
+  MobilePtyConnectResponses,
+  MobilePtyCreateErrors,
+  MobilePtyCreateResponses,
+  MobilePtyGetErrors,
+  MobilePtyGetResponses,
+  MobilePtyListResponses,
+  MobilePtyRemoveErrors,
+  MobilePtyRemoveResponses,
+  MobilePtyUpdateErrors,
+  MobilePtyUpdateResponses,
   MobileQuestionRejectResponses,
   MobileQuestionRespondResponses,
   MobileRoutineCreateErrors,
@@ -4862,6 +4873,70 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
+export class Command extends HeyApiClient {
+  /**
+   * List mobile commands
+   *
+   * Return command metadata safe for the mobile command palette and slash autocomplete.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
+      url: "/mobile/command",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Project2 extends HeyApiClient {
+  /**
+   * List local projects for mobile
+   *
+   * Return local projects and sandboxes visible to the connected Nikcli host.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
+      url: "/mobile/project",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -5037,70 +5112,6 @@ export class Memory extends HeyApiClient {
   private _stash?: Stash
   get stash(): Stash {
     return (this._stash ??= new Stash({ client: this.client }))
-  }
-}
-
-export class Command extends HeyApiClient {
-  /**
-   * List mobile commands
-   *
-   * Return command metadata safe for the mobile command palette and slash autocomplete.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
-      url: "/mobile/command",
-      ...options,
-      ...params,
-    })
-  }
-}
-
-export class Project2 extends HeyApiClient {
-  /**
-   * List local projects for mobile
-   *
-   * Return local projects and sandboxes visible to the connected Nikcli host.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
-      url: "/mobile/project",
-      ...options,
-      ...params,
-    })
   }
 }
 
@@ -7440,6 +7451,225 @@ export class Routine extends HeyApiClient {
   }
 }
 
+export class Pty2 extends HeyApiClient {
+  /**
+   * List PTY sessions for mobile
+   *
+   * Get a list of all active pseudo-terminal (PTY) sessions managed by Nikcli.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobilePtyListResponses, unknown, ThrowOnError>({
+      url: "/mobile/pty",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create PTY session for mobile
+   *
+   * Create a new pseudo-terminal (PTY) session for running shell commands and processes.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      command?: string
+      args?: Array<string>
+      cwd?: string
+      title?: string
+      env?: {
+        [key: string]: string
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "command" },
+            { in: "body", key: "args" },
+            { in: "body", key: "cwd" },
+            { in: "body", key: "title" },
+            { in: "body", key: "env" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobilePtyCreateResponses, MobilePtyCreateErrors, ThrowOnError>({
+      url: "/mobile/pty",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove PTY session for mobile
+   *
+   * Remove and terminate a specific pseudo-terminal (PTY) session.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      ptyID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "ptyID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobilePtyRemoveResponses, MobilePtyRemoveErrors, ThrowOnError>({
+      url: "/mobile/pty/{ptyID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get PTY session for mobile
+   *
+   * Retrieve detailed information about a specific pseudo-terminal (PTY) session.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      ptyID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "ptyID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobilePtyGetResponses, MobilePtyGetErrors, ThrowOnError>({
+      url: "/mobile/pty/{ptyID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update PTY session for mobile
+   *
+   * Update properties of an existing pseudo-terminal (PTY) session.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      ptyID: string
+      directory?: string
+      workspace?: string
+      title?: string
+      size?: {
+        rows: number
+        cols: number
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "ptyID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "title" },
+            { in: "body", key: "size" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<MobilePtyUpdateResponses, MobilePtyUpdateErrors, ThrowOnError>({
+      url: "/mobile/pty/{ptyID}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Connect to PTY session for mobile
+   *
+   * Establish a WebSocket connection to interact with a pseudo-terminal (PTY) session in real-time.
+   */
+  public connect<ThrowOnError extends boolean = false>(
+    parameters: {
+      ptyID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "ptyID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobilePtyConnectResponses, MobilePtyConnectErrors, ThrowOnError>({
+      url: "/mobile/pty/{ptyID}/connect",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Mobile extends HeyApiClient {
   /**
    * Get mobile bootstrap payload
@@ -7476,11 +7706,6 @@ export class Mobile extends HeyApiClient {
     return (this._auth ??= new Auth2({ client: this.client }))
   }
 
-  private _memory?: Memory
-  get memory(): Memory {
-    return (this._memory ??= new Memory({ client: this.client }))
-  }
-
   private _command?: Command
   get command(): Command {
     return (this._command ??= new Command({ client: this.client }))
@@ -7489,6 +7714,11 @@ export class Mobile extends HeyApiClient {
   private _project?: Project2
   get project(): Project2 {
     return (this._project ??= new Project2({ client: this.client }))
+  }
+
+  private _memory?: Memory
+  get memory(): Memory {
+    return (this._memory ??= new Memory({ client: this.client }))
   }
 
   private _github?: Github
@@ -7529,6 +7759,11 @@ export class Mobile extends HeyApiClient {
   private _routine?: Routine
   get routine(): Routine {
     return (this._routine ??= new Routine({ client: this.client }))
+  }
+
+  private _pty?: Pty2
+  get pty(): Pty2 {
+    return (this._pty ??= new Pty2({ client: this.client }))
   }
 }
 

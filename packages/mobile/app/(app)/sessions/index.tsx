@@ -105,20 +105,13 @@ export default function SessionsScreen() {
     >
       <View className="flex-row items-start gap-3">
         <View className="flex-1">
-          <TextField
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search sessions"
-            autoCapitalize="none"
-          />
+          <TextField value={search} onChangeText={setSearch} placeholder="Search sessions" autoCapitalize="none" />
         </View>
         <View className="w-[132px]">
           <ActionButton label="New session" loading={creating} onPress={() => void createSession()} />
         </View>
       </View>
-      {error ? (
-        <ErrorBanner message={error} />
-      ) : null}
+      {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
 

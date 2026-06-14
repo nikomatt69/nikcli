@@ -242,7 +242,6 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         {/* Background agent bar — always visible, prompt is built from the
             active tab. Lets the user dig deeper into the data on screen
             without leaving the panel. */}
-        
 
         {/* Tab Content */}
         <Show when={activeTab() === "overview"}>
@@ -366,7 +365,6 @@ function useCollapsibleGroup<T extends string>(
 // outcome via toast. Keeping it at the dialog level (rather than per
 // tab) keeps the panel from overflowing: the bar is one line tall
 // regardless of how many tabs exist or what data they show.
-
 
 // ===== TAB COMPONENTS =====
 

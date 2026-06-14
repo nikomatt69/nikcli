@@ -3564,6 +3564,17 @@ export type MobileBootstrap = {
   mobileProject?: MobileProjectType
 }
 
+export type MobileCommand = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  mcp?: boolean
+  skill?: boolean
+  subtask?: boolean
+  hints: Array<string>
+}
+
 export type MobilePromptHistoryEntry = {
   id: string
   input: string
@@ -3590,17 +3601,6 @@ export type MobilePromptStashEntry = {
 
 export type MobilePromptStashCreateInput = {
   input: string
-}
-
-export type MobileCommand = {
-  name: string
-  description?: string
-  agent?: string
-  model?: string
-  mcp?: boolean
-  skill?: boolean
-  subtask?: boolean
-  hints: Array<string>
 }
 
 export type MobileGithubBranch = {
@@ -8221,6 +8221,44 @@ export type MobileBootstrapResponses = {
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
 
+export type MobileCommandListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/command"
+}
+
+export type MobileCommandListResponses = {
+  /**
+   * Commands
+   */
+  200: Array<MobileCommand>
+}
+
+export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
+
+export type MobileProjectListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/project"
+}
+
+export type MobileProjectListResponses = {
+  /**
+   * Projects
+   */
+  200: Array<MobileProject>
+}
+
+export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
+
 export type MobileMemoryHistoryData = {
   body?: never
   path?: never
@@ -8338,44 +8376,6 @@ export type MobileMemoryStashDeleteResponses = {
 }
 
 export type MobileMemoryStashDeleteResponse = MobileMemoryStashDeleteResponses[keyof MobileMemoryStashDeleteResponses]
-
-export type MobileCommandListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/command"
-}
-
-export type MobileCommandListResponses = {
-  /**
-   * Commands
-   */
-  200: Array<MobileCommand>
-}
-
-export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
-
-export type MobileProjectListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/project"
-}
-
-export type MobileProjectListResponses = {
-  /**
-   * Projects
-   */
-  200: Array<MobileProject>
-}
-
-export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
 
 export type MobileGithubReposData = {
   body?: never
@@ -9091,6 +9091,31 @@ export type MobileSessionStreamResponses = {
   200: unknown
 }
 
+export type MobileSessionRenameData = {
+  body?: {
+    title: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/rename"
+}
+
+export type MobileSessionRenameResponses = {
+  /**
+   * Session renamed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
+
 export type MobileWorktreeRemoveData = {
   body?: WorktreeRemoveInput
   path?: never
@@ -9160,31 +9185,6 @@ export type MobileWorktreeResetResponses = {
 }
 
 export type MobileWorktreeResetResponse = MobileWorktreeResetResponses[keyof MobileWorktreeResetResponses]
-
-export type MobileSessionRenameData = {
-  body?: {
-    title: string
-  }
-  path: {
-    sessionID: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/session/{sessionID}/rename"
-}
-
-export type MobileSessionRenameResponses = {
-  /**
-   * Session renamed
-   */
-  200: {
-    success: true
-  }
-}
-
-export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
 export type MobileGitStatusData = {
   body?: never
@@ -10315,6 +10315,187 @@ export type MobileRoutineTriggerResponses = {
 }
 
 export type MobileRoutineTriggerResponse = MobileRoutineTriggerResponses[keyof MobileRoutineTriggerResponses]
+
+export type MobilePtyListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/pty"
+}
+
+export type MobilePtyListResponses = {
+  /**
+   * List of sessions
+   */
+  200: Array<Pty>
+}
+
+export type MobilePtyListResponse = MobilePtyListResponses[keyof MobilePtyListResponses]
+
+export type MobilePtyCreateData = {
+  body?: {
+    command?: string
+    args?: Array<string>
+    cwd?: string
+    title?: string
+    env?: {
+      [key: string]: string
+    }
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/pty"
+}
+
+export type MobilePtyCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobilePtyCreateError = MobilePtyCreateErrors[keyof MobilePtyCreateErrors]
+
+export type MobilePtyCreateResponses = {
+  /**
+   * Created session
+   */
+  200: Pty
+}
+
+export type MobilePtyCreateResponse = MobilePtyCreateResponses[keyof MobilePtyCreateResponses]
+
+export type MobilePtyRemoveData = {
+  body?: never
+  path: {
+    ptyID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/pty/{ptyID}"
+}
+
+export type MobilePtyRemoveErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobilePtyRemoveError = MobilePtyRemoveErrors[keyof MobilePtyRemoveErrors]
+
+export type MobilePtyRemoveResponses = {
+  /**
+   * Session removed
+   */
+  200: boolean
+}
+
+export type MobilePtyRemoveResponse = MobilePtyRemoveResponses[keyof MobilePtyRemoveResponses]
+
+export type MobilePtyGetData = {
+  body?: never
+  path: {
+    ptyID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/pty/{ptyID}"
+}
+
+export type MobilePtyGetErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobilePtyGetError = MobilePtyGetErrors[keyof MobilePtyGetErrors]
+
+export type MobilePtyGetResponses = {
+  /**
+   * Session info
+   */
+  200: Pty
+}
+
+export type MobilePtyGetResponse = MobilePtyGetResponses[keyof MobilePtyGetResponses]
+
+export type MobilePtyUpdateData = {
+  body?: {
+    title?: string
+    size?: {
+      rows: number
+      cols: number
+    }
+  }
+  path: {
+    ptyID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/pty/{ptyID}"
+}
+
+export type MobilePtyUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobilePtyUpdateError = MobilePtyUpdateErrors[keyof MobilePtyUpdateErrors]
+
+export type MobilePtyUpdateResponses = {
+  /**
+   * Updated session
+   */
+  200: Pty
+}
+
+export type MobilePtyUpdateResponse = MobilePtyUpdateResponses[keyof MobilePtyUpdateResponses]
+
+export type MobilePtyConnectData = {
+  body?: never
+  path: {
+    ptyID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/pty/{ptyID}/connect"
+}
+
+export type MobilePtyConnectErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobilePtyConnectError = MobilePtyConnectErrors[keyof MobilePtyConnectErrors]
+
+export type MobilePtyConnectResponses = {
+  /**
+   * Connected session
+   */
+  200: boolean
+}
+
+export type MobilePtyConnectResponse = MobilePtyConnectResponses[keyof MobilePtyConnectResponses]
 
 export type FindTextData = {
   body?: never

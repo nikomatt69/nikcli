@@ -42,9 +42,7 @@ export async function runBenchmarks(callbacks: RunnerCallbacks, baselinePath?: s
   callbacks.onStateChange("running")
 
   const cmd =
-    USER_ARGS.length > 0
-      ? [process.execPath, "test", ...TEST_PATTERNS]
-      : [process.execPath, "run", "test:bench:run"]
+    USER_ARGS.length > 0 ? [process.execPath, "test", ...TEST_PATTERNS] : [process.execPath, "run", "test:bench:run"]
   callbacks.onLog(`\u25b6 ${cmd.slice(1).join(" ")}`)
 
   await fs.mkdir(OUTPUT_DIR, { recursive: true })

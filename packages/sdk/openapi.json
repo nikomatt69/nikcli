@@ -553,6 +553,14 @@
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
                   },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "paused": {
+                    "type": "boolean"
+                  },
                   "enabled": {
                     "type": "boolean"
                   }
@@ -905,6 +913,14 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "paused": {
+                    "type": "boolean"
                   },
                   "enabled": {
                     "type": "boolean"
@@ -1285,6 +1301,1016 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.loop.recentRuns({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission": {
+      "get": {
+        "operationId": "mission.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List missions",
+        "description": "List all missions defined for the current project, with live runtime status.",
+        "responses": {
+          "200": {
+            "description": "All missions with runtime status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "missions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MissionDefinition"
+                      }
+                    },
+                    "runtimes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MissionRuntime"
+                      }
+                    }
+                  },
+                  "required": ["missions", "runtimes"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.list({\n  ...\n})"
+          }
+        ]
+      },
+      "put": {
+        "operationId": "mission.upsert",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Create or update a mission",
+        "description": "Persist a mission definition. Generates the id, createdAt, and default status for new missions.",
+        "responses": {
+          "200": {
+            "description": "Persisted mission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "brief": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "milestones": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "features": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "objective": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "agent": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "model": {
+                                "type": "string",
+                                "pattern": "^[^/]+\\/[^/]+$"
+                              },
+                              "tokenBudget": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "dependsOn": {
+                                "default": [],
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "status": {
+                                "default": "pending",
+                                "type": "string",
+                                "enum": ["pending", "running", "done", "blocked", "skipped", "error"]
+                              },
+                              "error": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id", "name", "objective", "agent"]
+                          }
+                        },
+                        "validation": {
+                          "default": "scrutiny",
+                          "type": "string",
+                          "enum": ["scrutiny", "user-test", "none"]
+                        },
+                        "status": {
+                          "default": "pending",
+                          "type": "string",
+                          "enum": ["pending", "running", "validating", "done", "blocked"]
+                        }
+                      },
+                      "required": ["id", "name", "features"]
+                    }
+                  },
+                  "models": {
+                    "default": {},
+                    "type": "object",
+                    "properties": {
+                      "worker": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      },
+                      "validation": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      },
+                      "orchestrator": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      }
+                    }
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["name", "brief", "milestones"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.upsert({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/templates": {
+      "get": {
+        "operationId": "mission.templates",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List mission templates",
+        "description": "Built-in starter briefs the user can instantiate from the wizard.",
+        "responses": {
+          "200": {
+            "description": "Templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templates": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MissionTemplate"
+                      }
+                    }
+                  },
+                  "required": ["templates"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.templates({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/generate": {
+      "post": {
+        "operationId": "mission.generate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Generate a mission plan from a description",
+        "description": "Send a natural-language description to an AI and parse the response back into a fully-formed mission definition (brief + milestones + features). The response is a draft — the user still confirms before persistence.",
+        "responses": {
+          "200": {
+            "description": "Generated mission definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "description": "Natural-language description of the mission",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "model": {
+                    "description": "Optional model override (providerID/modelID)",
+                    "type": "string",
+                    "pattern": "^[^/]+\\/[^/]+$"
+                  },
+                  "agent": {
+                    "description": "Default agent if the model doesn't pick one",
+                    "type": "string"
+                  }
+                },
+                "required": ["description"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.generate({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/{id}": {
+      "get": {
+        "operationId": "mission.get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Get a mission",
+        "description": "Fetch a single mission definition by id, including its live runtime status.",
+        "responses": {
+          "200": {
+            "description": "The mission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mission": {
+                      "$ref": "#/components/schemas/MissionDefinition"
+                    },
+                    "runtime": {
+                      "$ref": "#/components/schemas/MissionRuntime"
+                    }
+                  },
+                  "required": ["mission", "runtime"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Mission not found"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.get({\n  ...\n})"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "mission.update",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Update a mission",
+        "description": "Replace a mission definition. Status field is preserved unless the body changes it explicitly (so updates from the wizard don't accidentally restart orchestration).",
+        "responses": {
+          "200": {
+            "description": "Updated mission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "brief": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "milestones": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "features": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "objective": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "agent": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "model": {
+                                "type": "string",
+                                "pattern": "^[^/]+\\/[^/]+$"
+                              },
+                              "tokenBudget": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "dependsOn": {
+                                "default": [],
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "status": {
+                                "default": "pending",
+                                "type": "string",
+                                "enum": ["pending", "running", "done", "blocked", "skipped", "error"]
+                              },
+                              "error": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id", "name", "objective", "agent"]
+                          }
+                        },
+                        "validation": {
+                          "default": "scrutiny",
+                          "type": "string",
+                          "enum": ["scrutiny", "user-test", "none"]
+                        },
+                        "status": {
+                          "default": "pending",
+                          "type": "string",
+                          "enum": ["pending", "running", "validating", "done", "blocked"]
+                        }
+                      },
+                      "required": ["id", "name", "features"]
+                    }
+                  },
+                  "models": {
+                    "default": {},
+                    "type": "object",
+                    "properties": {
+                      "worker": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      },
+                      "validation": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      },
+                      "orchestrator": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      }
+                    }
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "status": {
+                    "default": "ready",
+                    "type": "string",
+                    "enum": ["planning", "ready", "running", "paused", "frozen", "complete", "error"]
+                  },
+                  "createdAt": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["id", "name", "brief", "milestones", "createdAt"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.update({\n  ...\n})"
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "mission.delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Delete a mission",
+        "description": "Remove a mission and its execution history. Cancels any in-flight orchestration first.",
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Mission not found"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.delete({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/{id}/start": {
+      "post": {
+        "operationId": "mission.start",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Start (or resume) orchestration of a mission",
+        "description": "Drive the mission forward: pick the current milestone, run its ready features, validate, then advance. Resumes a paused or frozen mission; returns immediately if already in flight.",
+        "responses": {
+          "200": {
+            "description": "Orchestration started"
+          },
+          "404": {
+            "description": "Mission not found"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.start({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/{id}/pause": {
+      "post": {
+        "operationId": "mission.pause",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Pause a mission",
+        "description": "Persist the paused flag and abort the current worker. Resume with /:id/start.",
+        "responses": {
+          "200": {
+            "description": "Paused"
+          },
+          "404": {
+            "description": "Mission not found"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.pause({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/{id}/cancel": {
+      "post": {
+        "operationId": "mission.cancel",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Cancel and freeze a mission",
+        "description": "Freeze the mission for reassessment. The orchestrator aborts, the persisted status becomes 'frozen', and the user can edit the plan before resuming.",
+        "responses": {
+          "200": {
+            "description": "Cancelled"
+          },
+          "404": {
+            "description": "Mission not found"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.cancel({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/{id}/feature/{featureID}": {
+      "post": {
+        "operationId": "mission.feature.mutate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "featureID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Mutate a single feature (skip / mark-done / reset / add deps)",
+        "description": "Power-user lever: re-plan mid-flight by skipping a stuck feature, marking it done to advance, or resetting it to retry. Status transitions are coerced to the legal subset.",
+        "responses": {
+          "200": {
+            "description": "Updated mission"
+          },
+          "400": {
+            "description": "Invalid mutation"
+          },
+          "404": {
+            "description": "Mission or feature not found"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["pending", "running", "done", "blocked", "skipped", "error"]
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "appendDependsOn": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.feature.mutate({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/{id}/execs": {
+      "get": {
+        "operationId": "mission.execs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 500
+            }
+          }
+        ],
+        "summary": "List a mission's execution history",
+        "description": "Most-recent-first feature/validation execution records for a mission, capped server-side.",
+        "responses": {
+          "200": {
+            "description": "Execs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MissionExec"
+                      }
+                    }
+                  },
+                  "required": ["execs"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.execs({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mission/execs/recent": {
+      "get": {
+        "operationId": "mission.recentExecs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 500
+            }
+          }
+        ],
+        "summary": "List recent mission executions across all missions",
+        "description": "Most-recent-first execution records from every mission in the project.",
+        "responses": {
+          "200": {
+            "description": "Recent execs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MissionExec"
+                      }
+                    }
+                  },
+                  "required": ["execs"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mission.recentExecs({\n  ...\n})"
           }
         ]
       }
@@ -6015,6 +7041,79 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.v2.state({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/v2/events": {
+      "get": {
+        "operationId": "session.v2.events",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID"
+          }
+        ],
+        "summary": "Get the persisted session v2 event log",
+        "description": "Retrieve the durable v2 event log for a session in replay order: step lifecycle events plus per-part coalesced updates. Replaying it through the v2 stepper reproduces the session reduction. Experimental.",
+        "responses": {
+          "200": {
+            "description": "List of persisted v2 events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionEvent"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.v2.events({\n  ...\n})"
           }
         ]
       }
@@ -13391,6 +14490,395 @@
         ]
       }
     },
+    "/mobile/pty": {
+      "get": {
+        "operationId": "mobile.pty.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List PTY sessions for mobile",
+        "description": "Get a list of all active pseudo-terminal (PTY) sessions managed by Nikcli.",
+        "responses": {
+          "200": {
+            "description": "List of sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pty"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.pty.list({\n  ...\n})"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "mobile.pty.create",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Create PTY session for mobile",
+        "description": "Create a new pseudo-terminal (PTY) session for running shell commands and processes.",
+        "responses": {
+          "200": {
+            "description": "Created session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "cwd": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "env": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.pty.create({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mobile/pty/{ptyID}": {
+      "get": {
+        "operationId": "mobile.pty.get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ptyID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Get PTY session for mobile",
+        "description": "Retrieve detailed information about a specific pseudo-terminal (PTY) session.",
+        "responses": {
+          "200": {
+            "description": "Session info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pty"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.pty.get({\n  ...\n})"
+          }
+        ]
+      },
+      "put": {
+        "operationId": "mobile.pty.update",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ptyID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Update PTY session for mobile",
+        "description": "Update properties of an existing pseudo-terminal (PTY) session.",
+        "responses": {
+          "200": {
+            "description": "Updated session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "size": {
+                    "type": "object",
+                    "properties": {
+                      "rows": {
+                        "type": "number"
+                      },
+                      "cols": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["rows", "cols"],
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.pty.update({\n  ...\n})"
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "mobile.pty.remove",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ptyID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Remove PTY session for mobile",
+        "description": "Remove and terminate a specific pseudo-terminal (PTY) session.",
+        "responses": {
+          "200": {
+            "description": "Session removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.pty.remove({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mobile/pty/{ptyID}/connect": {
+      "get": {
+        "operationId": "mobile.pty.connect",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ptyID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Connect to PTY session for mobile",
+        "description": "Establish a WebSocket connection to interact with a pseudo-terminal (PTY) session in real-time.",
+        "responses": {
+          "200": {
+            "description": "Connected session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.pty.connect({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/find": {
       "get": {
         "operationId": "find.text",
@@ -16631,6 +18119,58 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.telemetry.record": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "telemetry.record"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "traceId": {
+                "type": "string"
+              },
+              "parentId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "startTime": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "statusCode": {
+                "type": "number"
+              },
+              "statusMessage": {
+                "type": "string"
+              },
+              "attributes": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["id", "traceId", "name", "kind", "startTime", "durationMs"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.server.instance.disposed": {
         "type": "object",
         "properties": {
@@ -19772,15 +21312,6 @@
               },
               "error": {
                 "type": "string"
-              },
-              "additions": {
-                "type": "number"
-              },
-              "deletions": {
-                "type": "number"
-              },
-              "files": {
-                "type": "number"
               }
             },
             "required": ["loopID", "runID", "status", "ok"]
@@ -19828,6 +21359,204 @@
               }
             },
             "required": ["loopID", "reason"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.upserted": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.upserted"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.removed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.removed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.started": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.started"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.finished": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.finished"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["complete", "error", "paused", "frozen"]
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID", "status"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.exec.started": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.exec.started"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              },
+              "execID": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["feature", "validation"]
+              },
+              "targetID": {
+                "type": "string"
+              },
+              "targetName": {
+                "type": "string"
+              },
+              "sessionID": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID", "execID", "kind", "targetID", "targetName", "sessionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.exec.finished": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.exec.finished"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              },
+              "execID": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["feature", "validation"]
+              },
+              "targetID": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["running", "complete", "error", "timeout", "cancelled", "orphaned"]
+              },
+              "ok": {
+                "type": "boolean"
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID", "execID", "kind", "targetID", "status", "ok"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.runtime.changed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.runtime.changed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mission.aborted": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mission.aborted"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "missionID": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": ["missionID", "reason"]
           }
         },
         "required": ["type", "properties"]
@@ -19979,6 +21708,9 @@
             "$ref": "#/components/schemas/Event.project.updated"
           },
           {
+            "$ref": "#/components/schemas/Event.telemetry.record"
+          },
+          {
             "$ref": "#/components/schemas/Event.server.instance.disposed"
           },
           {
@@ -20124,6 +21856,30 @@
           },
           {
             "$ref": "#/components/schemas/Event.loop.aborted"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.upserted"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.removed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.finished"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.exec.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.exec.finished"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.runtime.changed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.mission.aborted"
           },
           {
             "$ref": "#/components/schemas/Event.session.v2.updated"
@@ -20272,6 +22028,14 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "timeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "paused": {
+            "type": "boolean"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -20389,12 +22153,231 @@
           },
           "sessionID": {
             "type": "string"
-          },
-          "backgroundRunID": {
-            "type": "string"
           }
         },
         "required": ["id", "loopID", "startedAt", "status", "ok"]
+      },
+      "MissionDefinition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "brief": {
+            "type": "string",
+            "minLength": 1
+          },
+          "milestones": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "features": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "objective": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "agent": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "model": {
+                        "type": "string",
+                        "pattern": "^[^/]+\\/[^/]+$"
+                      },
+                      "tokenBudget": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "dependsOn": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "status": {
+                        "default": "pending",
+                        "type": "string",
+                        "enum": ["pending", "running", "done", "blocked", "skipped", "error"]
+                      },
+                      "error": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "name", "objective", "agent"]
+                  }
+                },
+                "validation": {
+                  "default": "scrutiny",
+                  "type": "string",
+                  "enum": ["scrutiny", "user-test", "none"]
+                },
+                "status": {
+                  "default": "pending",
+                  "type": "string",
+                  "enum": ["pending", "running", "validating", "done", "blocked"]
+                }
+              },
+              "required": ["id", "name", "features"]
+            }
+          },
+          "models": {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "worker": {
+                "type": "string",
+                "pattern": "^[^/]+\\/[^/]+$"
+              },
+              "validation": {
+                "type": "string",
+                "pattern": "^[^/]+\\/[^/]+$"
+              },
+              "orchestrator": {
+                "type": "string",
+                "pattern": "^[^/]+\\/[^/]+$"
+              }
+            }
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "default": "ready",
+            "type": "string",
+            "enum": ["planning", "ready", "running", "paused", "frozen", "complete", "error"]
+          },
+          "createdAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["id", "name", "brief", "milestones", "createdAt"]
+      },
+      "MissionRuntime": {
+        "type": "object",
+        "properties": {
+          "missionID": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["idle", "running", "paused", "error", "cancelling"]
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "currentMilestoneID": {
+            "type": "string"
+          },
+          "currentFeatureID": {
+            "type": "string"
+          },
+          "doneFeatures": {
+            "type": "number"
+          },
+          "totalFeatures": {
+            "type": "number"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "lastRunAt": {
+            "type": "number"
+          }
+        },
+        "required": ["missionID", "status", "doneFeatures", "totalFeatures"]
+      },
+      "MissionTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "brief": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "title", "description", "brief"]
+      },
+      "MissionExec": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "missionID": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["feature", "validation"]
+          },
+          "targetID": {
+            "type": "string"
+          },
+          "targetName": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "number"
+          },
+          "endedAt": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["running", "complete", "error", "timeout", "cancelled", "orphaned"]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "missionID", "kind", "targetID", "targetName", "startedAt", "status", "ok"]
       },
       "KeybindsConfig": {
         "description": "Custom keybind configurations",
@@ -22139,7 +24122,7 @@
                 "type": "boolean"
               },
               "sound": {
-                "description": "Enable or disable ambient sound feedback (default: false)",
+                "description": "Enable or disable ambient sound feedback (default: true)",
                 "type": "boolean"
               },
               "bg_pulse": {
@@ -22636,7 +24619,7 @@
                 "type": "boolean"
               },
               "openTelemetry": {
-                "description": "Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)",
+                "description": "Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag). Enabled by default; set to false to opt out. Spans are only exported when OTEL_EXPORTER_OTLP_ENDPOINT is set.",
                 "type": "boolean"
               },
               "primary_tools": {
@@ -24084,6 +26067,397 @@
         },
         "required": ["id", "sessionID", "timestamp", "role", "sub", "attempt", "error"]
       },
+      "SessionEvent.FileAttachment": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "end": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": ["start", "end", "text"]
+          }
+        },
+        "required": ["uri", "mime"]
+      },
+      "SessionEvent.AgentAttachment": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "end": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": ["start", "end", "text"]
+          }
+        },
+        "required": ["name"]
+      },
+      "SessionEvent.Prompt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "prompt"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "files": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent.FileAttachment"
+            }
+          },
+          "agents": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent.AgentAttachment"
+            }
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID", "text"]
+      },
+      "SessionEvent.Synthetic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "synthetic"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "role": {
+            "default": "assistant",
+            "type": "string",
+            "enum": ["system", "user", "assistant"]
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID", "text"]
+      },
+      "SessionEvent.StepStarted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "step.started"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "providerID": {
+            "type": "string"
+          },
+          "modelID": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID", "providerID", "modelID", "agent"]
+      },
+      "SessionEvent.StepEnded": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "step.ended"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "cost": {
+            "default": 0,
+            "type": "number"
+          },
+          "tokens": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "number"
+              },
+              "input": {
+                "type": "number"
+              },
+              "output": {
+                "type": "number"
+              },
+              "reasoning": {
+                "type": "number"
+              },
+              "cache": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "type": "number"
+                  },
+                  "write": {
+                    "type": "number"
+                  }
+                },
+                "required": ["read", "write"]
+              }
+            },
+            "required": ["input", "output", "reasoning", "cache"]
+          },
+          "finish": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID", "reason", "tokens"]
+      },
+      "SessionEvent.RetryError": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "retry.error"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "error": {
+            "$ref": "#/components/schemas/APIError"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID", "attempt", "error"]
+      },
+      "SessionEvent.PartUpdated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "part.updated"
+          },
+          "part": {
+            "$ref": "#/components/schemas/Part"
+          },
+          "delta": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "part"]
+      },
+      "SessionEvent.PartRemoved": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "part.removed"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "partID": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID", "partID"]
+      },
+      "SessionEvent": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SessionEvent.Prompt"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.Synthetic"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.StepStarted"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.StepEnded"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.RetryError"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.PartUpdated"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.PartRemoved"
+          }
+        ]
+      },
       "TextPartInput": {
         "type": "object",
         "properties": {
@@ -25056,6 +27430,14 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "timeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "paused": {
+            "type": "boolean"
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -25189,8 +27571,10 @@
             "type": "string",
             "enum": ["running", "complete", "error", "timeout", "cancelled", "orphaned"]
           },
-          "backgroundRunID": {
-            "type": "string"
+          "heartbeatAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "sessionID": {
             "type": "string"
@@ -25275,6 +27659,14 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "paused": {
+            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"

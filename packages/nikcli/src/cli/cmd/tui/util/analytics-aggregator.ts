@@ -1,66 +1,53 @@
-import type {
-  Session,
-  Message,
-  Part,
-  Todo,
-  Workspace,
-} from "@nikcli-ai/sdk/v2";
-import type { SessionAnalytics } from "@/analytics/analytics";
+import type { Session, Message, Part, Todo, Workspace } from "@nikcli-ai/sdk/v2"
+import type { SessionAnalytics } from "@/analytics/analytics"
 
 export interface BackgroundJob {
-  jobID: string;
-  rootDelegationID: string;
-  parentSessionID: string;
-  title: string;
-  agent: string;
-  status:
-    | "running"
-    | "synthesizing"
-    | "complete"
-    | "error"
-    | "timeout"
-    | "cancelled"
-    | "orphaned";
-  source?: string;
-  workerSessionID?: string;
-  delegatorID?: string;
-  delegatorSessionID?: string;
-  createdAt: number;
-  updatedAt: number;
-  completedAt?: number;
-  lastActivityAt?: number;
-  progressSummary?: string;
-  resultSummary?: string;
-  error?: string;
+  jobID: string
+  rootDelegationID: string
+  parentSessionID: string
+  title: string
+  agent: string
+  status: "running" | "synthesizing" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  source?: string
+  workerSessionID?: string
+  delegatorID?: string
+  delegatorSessionID?: string
+  createdAt: number
+  updatedAt: number
+  completedAt?: number
+  lastActivityAt?: number
+  progressSummary?: string
+  resultSummary?: string
+  error?: string
 }
 
 export interface SyncData {
-  session: Session[];
-  message: Record<string, Message[]>;
-  part: Record<string, Part[]>;
-  todo: Record<string, Todo[]>;
-  workspaceList: Workspace[];
-  background_job: Record<string, BackgroundJob[]>;
+  session: Session[]
+  message: Record<string, Message[]>
+  part: Record<string, Part[]>
+  todo: Record<string, Todo[]>
+  workspaceList: Workspace[]
+  background_job: Record<string, BackgroundJob[]>
 }
 
 export interface SessionStats {
-  sessionID: string;
-  title: string;
-  directory: string;
-  messages: number;
+  sessionID: string
+  title: string
+  directory: string
+  messages: number
   tokens: {
-    input: number;
-    output: number;
-    reasoning: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
-  cost: number;
-  model: string;
-  provider: string;
-  updated: number;
-  created: number;
-  duration: number;
+    input: number
+    output: number
+    reasoning: number
+    cacheRead: number
+    cacheWrite: number
+  }
+  cost: number
+  model: string
+  provider: string
+  updated: number
+  created: number
+  duration: number
 }
 
 function sessionAnalyticsToStats(s: SessionAnalytics): SessionStats {
@@ -82,23 +69,20 @@ function sessionAnalyticsToStats(s: SessionAnalytics): SessionStats {
     updated: s.time.completed,
     created: s.time.created,
     duration: s.duration,
-  };
+  }
 }
 
 /** Fill gaps from GET /analytics/sessions; same id uses per-field max (live vs persisted). */
-export function mergeSessionsFromApi(
-  live: SessionStats[],
-  fromApi: SessionAnalytics[],
-): SessionStats[] {
-  const byId = new Map<string, SessionStats>();
+export function mergeSessionsFromApi(live: SessionStats[], fromApi: SessionAnalytics[]): SessionStats[] {
+  const byId = new Map<string, SessionStats>()
   for (const row of live) {
-    byId.set(row.sessionID, { ...row });
+    byId.set(row.sessionID, { ...row })
   }
   for (const a of fromApi) {
-    const apiRow = sessionAnalyticsToStats(a);
-    const ex = byId.get(a.sessionID);
+    const apiRow = sessionAnalyticsToStats(a)
+    const ex = byId.get(a.sessionID)
     if (!ex) {
-      byId.set(a.sessionID, apiRow);
+      byId.set(a.sessionID, apiRow)
     } else {
       byId.set(a.sessionID, {
         ...ex,
@@ -118,156 +102,153 @@ export function mergeSessionsFromApi(
         directory: ex.directory || apiRow.directory,
         model: ex.model || apiRow.model,
         provider: ex.provider || apiRow.provider,
-      });
+      })
     }
   }
   return Array.from(byId.values()).sort((a, b) => {
-    const at = a.tokens.input + a.tokens.output + a.tokens.reasoning;
-    const bt = b.tokens.input + b.tokens.output + b.tokens.reasoning;
-    return bt - at;
-  });
+    const at = a.tokens.input + a.tokens.output + a.tokens.reasoning
+    const bt = b.tokens.input + b.tokens.output + b.tokens.reasoning
+    return bt - at
+  })
 }
 
 export interface ProviderStats {
-  providerID: string;
-  sessions: number;
-  messages: number;
-  tokens: { input: number; output: number; reasoning: number; cache: number };
-  cost: number;
-  models: Set<string>;
+  providerID: string
+  sessions: number
+  messages: number
+  tokens: { input: number; output: number; reasoning: number; cache: number }
+  cost: number
+  models: Set<string>
 }
 
 export interface ModelStats {
-  key: string;
-  providerID: string;
-  modelID: string;
-  sessions: number;
-  messages: number;
+  key: string
+  providerID: string
+  modelID: string
+  sessions: number
+  messages: number
   tokens: {
-    input: number;
-    output: number;
-    reasoning: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
-  cost: number;
-  firstUsed: number;
-  lastUsed: number;
+    input: number
+    output: number
+    reasoning: number
+    cacheRead: number
+    cacheWrite: number
+  }
+  cost: number
+  firstUsed: number
+  lastUsed: number
 }
 
 export interface GlobalStats {
-  sessions: number;
-  archivedSessions: number;
-  messages: number;
+  sessions: number
+  archivedSessions: number
+  messages: number
   tokens: {
-    input: number;
-    output: number;
-    reasoning: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
-  cost: number;
-  projects: ProjectStats[];
-  workspaces: WorkspaceStats;
-  backgroundRuns: BackgroundRunStats;
-  toolUsage: ToolUsageStats;
-  todos: TodoStats;
-  efficiency: EfficiencyMetrics;
+    input: number
+    output: number
+    reasoning: number
+    cacheRead: number
+    cacheWrite: number
+  }
+  cost: number
+  projects: ProjectStats[]
+  workspaces: WorkspaceStats
+  backgroundRuns: BackgroundRunStats
+  toolUsage: ToolUsageStats
+  todos: TodoStats
+  efficiency: EfficiencyMetrics
 }
 
 export interface ProjectStats {
-  id: string;
-  name: string;
-  vcs: "git" | "local" | "unknown";
-  sessionCount: number;
-  workspaceCount: number;
-  totalCost: number;
-  totalTokens: number;
-  created: number;
-  lastActive: number;
+  id: string
+  name: string
+  vcs: "git" | "local" | "unknown"
+  sessionCount: number
+  workspaceCount: number
+  totalCost: number
+  totalTokens: number
+  created: number
+  lastActive: number
 }
 
 export interface WorkspaceStats {
-  total: number;
-  active: number;
-  disconnected: number;
-  byType: Record<string, number>;
+  total: number
+  active: number
+  disconnected: number
+  byType: Record<string, number>
 }
 
 export interface BackgroundRunStats {
-  total: number;
-  running: number;
-  completed: number;
-  error: number;
-  cancelled: number;
-  successRate: number;
-  avgDuration: number;
-  topAgents: { agent: string; count: number }[];
+  total: number
+  running: number
+  completed: number
+  error: number
+  cancelled: number
+  successRate: number
+  avgDuration: number
+  topAgents: { agent: string; count: number }[]
 }
 
 export interface ToolUsageStats {
-  total: number;
-  tools: { name: string; count: number; successRate: number }[];
-  mostUsed: { name: string; count: number; successRate: number }[];
+  total: number
+  tools: { name: string; count: number; successRate: number }[]
+  mostUsed: { name: string; count: number; successRate: number }[]
 }
 
 export interface TodoStats {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  cancelled: number;
-  completionRate: number;
-  byPriority: { priority: string; count: number }[];
+  total: number
+  pending: number
+  inProgress: number
+  completed: number
+  cancelled: number
+  completionRate: number
+  byPriority: { priority: string; count: number }[]
 }
 
 export interface EfficiencyMetrics {
-  costPer1kTokens: number;
-  costPerSession: number;
-  avgTokensPerSession: number;
-  avgCostPerDay: number;
+  costPer1kTokens: number
+  costPerSession: number
+  avgTokensPerSession: number
+  avgCostPerDay: number
 }
 
 export interface DayStats {
-  date: string;
-  sessions: number;
-  tokens: number;
-  input: number;
-  output: number;
-  reasoning: number;
-  cacheRead: number;
-  cacheWrite: number;
-  cost: number;
-  messages: number;
+  date: string
+  sessions: number
+  tokens: number
+  input: number
+  output: number
+  reasoning: number
+  cacheRead: number
+  cacheWrite: number
+  cost: number
+  messages: number
   // Map<modelKey, modelRow> for O(1) lookups during aggregation; preserved as Map in the
   // public type since no external consumer mutates it (they only iterate / map / clone).
-  models: Map<
-    string,
-    { modelKey: string; tokens: number; cost: number; messages: number }
-  >;
+  models: Map<string, { modelKey: string; tokens: number; cost: number; messages: number }>
 }
 
 export interface AggregatedStats {
-  global: GlobalStats;
-  projects: ProjectStats[];
-  workspaces: WorkspaceStats;
-  sessions: SessionStats[];
-  providers: Map<string, ProviderStats>;
-  models: ModelStats[];
-  days: DayStats[];
-  backgroundRuns: BackgroundRunStats;
-  toolUsage: ToolUsageStats;
-  todos: TodoStats;
+  global: GlobalStats
+  projects: ProjectStats[]
+  workspaces: WorkspaceStats
+  sessions: SessionStats[]
+  providers: Map<string, ProviderStats>
+  models: ModelStats[]
+  days: DayStats[]
+  backgroundRuns: BackgroundRunStats
+  toolUsage: ToolUsageStats
+  todos: TodoStats
 }
 
 function dateKey(timestamp: number): string {
-  return new Date(timestamp).toISOString().split("T")[0];
+  return new Date(timestamp).toISOString().split("T")[0]
 }
 
 function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
+  const next = new Date(date)
+  next.setUTCDate(next.getUTCDate() + days)
+  return next
 }
 
 function emptyDayStats(date: string): DayStats {
@@ -283,27 +264,27 @@ function emptyDayStats(date: string): DayStats {
     cost: 0,
     messages: 0,
     models: new Map(),
-  };
+  }
 }
 
 function getDayStats(dayMap: Map<string, DayStats>, date: string): DayStats {
-  return dayMap.get(date) || emptyDayStats(date);
+  return dayMap.get(date) || emptyDayStats(date)
 }
 
 function fillDailyRange(days: DayStats[], limit: number): DayStats[] {
-  if (days.length === 0) return [];
+  if (days.length === 0) return []
 
-  const last = new Date(`${days[days.length - 1].date}T00:00:00.000Z`);
-  const first = addDays(last, -(limit - 1));
-  const existing = new Map(days.map((day) => [day.date, day]));
-  const result: DayStats[] = [];
+  const last = new Date(`${days[days.length - 1].date}T00:00:00.000Z`)
+  const first = addDays(last, -(limit - 1))
+  const existing = new Map(days.map((day) => [day.date, day]))
+  const result: DayStats[] = []
 
   for (let cursor = first; cursor <= last; cursor = addDays(cursor, 1)) {
-    const key = dateKey(cursor.getTime());
-    result.push(existing.get(key) || emptyDayStats(key));
+    const key = dateKey(cursor.getTime())
+    result.push(existing.get(key) || emptyDayStats(key))
   }
 
-  return result;
+  return result
 }
 
 export function aggregateAnalytics(data: SyncData): AggregatedStats {
@@ -314,123 +295,120 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
     todo: todosBySession,
     workspaceList,
     background_job: bgJobsBySession,
-  } = data;
+  } = data
 
   // Accumulators
-  let totalInput = 0;
-  let totalOutput = 0;
-  let totalReasoning = 0;
-  let totalCacheRead = 0;
-  let totalCacheWrite = 0;
-  let totalCost = 0;
-  let totalMessages = 0;
-  let archivedSessions = 0;
+  let totalInput = 0
+  let totalOutput = 0
+  let totalReasoning = 0
+  let totalCacheRead = 0
+  let totalCacheWrite = 0
+  let totalCost = 0
+  let totalMessages = 0
+  let archivedSessions = 0
 
-  const sessionStatsMap = new Map<string, SessionStats>();
-  const providerMap = new Map<string, ProviderStats>();
-  const dayMap = new Map<string, DayStats>();
-  const modelMap = new Map<string, ModelStats>();
-  const projectMap = new Map<string, ProjectStats>();
-  const toolUsageMap = new Map<
-    string,
-    { count: number; success: number; error: number }
-  >();
-  const bgRunList: BackgroundJob[] = [];
+  const sessionStatsMap = new Map<string, SessionStats>()
+  const providerMap = new Map<string, ProviderStats>()
+  const dayMap = new Map<string, DayStats>()
+  const modelMap = new Map<string, ModelStats>()
+  const projectMap = new Map<string, ProjectStats>()
+  const toolUsageMap = new Map<string, { count: number; success: number; error: number }>()
+  const bgRunList: BackgroundJob[] = []
 
   // Todo accumulators
-  let todosTotal = 0;
-  let todosPending = 0;
-  let todosInProgress = 0;
-  let todosCompleted = 0;
-  let todosCancelled = 0;
-  const todosByPriority = new Map<string, number>();
+  let todosTotal = 0
+  let todosPending = 0
+  let todosInProgress = 0
+  let todosCompleted = 0
+  let todosCancelled = 0
+  const todosByPriority = new Map<string, number>()
 
   // Workspace accumulators
-  let workspacesActive = 0;
-  let workspacesDisconnected = 0;
-  const workspacesByType = new Map<string, number>();
+  let workspacesActive = 0
+  let workspacesDisconnected = 0
+  const workspacesByType = new Map<string, number>()
 
   // Process workspaces
   for (const ws of workspaceList) {
-    const wsAny = ws as any;
+    const wsAny = ws as any
     if (wsAny.status === "active" || wsAny.status === "connected") {
-      workspacesActive++;
+      workspacesActive++
     } else {
-      workspacesDisconnected++;
+      workspacesDisconnected++
     }
-    const type = wsAny.config?.type ?? "unknown";
-    workspacesByType.set(type, (workspacesByType.get(type) ?? 0) + 1);
+    const type = wsAny.config?.type ?? "unknown"
+    workspacesByType.set(type, (workspacesByType.get(type) ?? 0) + 1)
   }
 
   // Process todos
   for (const sessionTodos of Object.values(todosBySession)) {
     for (const todo of sessionTodos) {
-      todosTotal++;
+      todosTotal++
       switch (todo.status) {
         case "pending":
-          todosPending++;
-          break;
+          todosPending++
+          break
         case "in_progress":
-          todosInProgress++;
-          break;
+          todosInProgress++
+          break
         case "completed":
-          todosCompleted++;
-          break;
+          todosCompleted++
+          break
         case "cancelled":
-          todosCancelled++;
-          break;
+          todosCancelled++
+          break
       }
-      const priority = todo.priority ?? "none";
-      todosByPriority.set(priority, (todosByPriority.get(priority) ?? 0) + 1);
+      const priority = todo.priority ?? "none"
+      todosByPriority.set(priority, (todosByPriority.get(priority) ?? 0) + 1)
     }
   }
 
   // Process sessions
   for (const session of sessions) {
-    const messages = messagesBySession[session.id] ?? [];
-    const assistantMessages = messages.filter((m) => m.role === "assistant");
+    const messages = messagesBySession[session.id] ?? []
+    const assistantMessages = messages.filter((m) => m.role === "assistant")
 
     // Check if archived
-    if (session.time.archived) archivedSessions++;
+    if (session.time.archived) archivedSessions++
 
-    let sessionInput = 0;
-    let sessionOutput = 0;
-    let sessionReasoning = 0;
-    let sessionCacheRead = 0;
-    let sessionCacheWrite = 0;
-    let sessionCost = 0;
-    let lastModel = "unknown";
-    let lastProvider = "unknown";
+    let sessionInput = 0
+    let sessionOutput = 0
+    let sessionReasoning = 0
+    let sessionCacheRead = 0
+    let sessionCacheWrite = 0
+    let sessionCost = 0
+    let lastModel = "unknown"
+    let lastProvider = "unknown"
 
     // Process messages for tokens/cost
     for (const msg of assistantMessages) {
-      totalMessages++;
+      totalMessages++
       if (msg.tokens) {
-        sessionInput += msg.tokens.input || 0;
-        sessionOutput += msg.tokens.output || 0;
-        sessionReasoning += msg.tokens.reasoning || 0;
-        sessionCacheRead += msg.tokens.cache?.read || 0;
-        sessionCacheWrite += msg.tokens.cache?.write || 0;
+        sessionInput += msg.tokens.input || 0
+        sessionOutput += msg.tokens.output || 0
+        sessionReasoning += msg.tokens.reasoning || 0
+        sessionCacheRead += msg.tokens.cache?.read || 0
+        sessionCacheWrite += msg.tokens.cache?.write || 0
       }
       if (msg.cost) {
-        sessionCost += msg.cost;
-        totalCost += msg.cost;
+        sessionCost += msg.cost
+        totalCost += msg.cost
       }
-      if (msg.modelID) lastModel = msg.modelID;
-      if (msg.providerID) lastProvider = msg.providerID;
+      if (msg.modelID) lastModel = msg.modelID
+      if (msg.providerID) lastProvider = msg.providerID
     }
 
-    totalInput += sessionInput;
-    totalOutput += sessionOutput;
-    totalReasoning += sessionReasoning;
-    totalCacheRead += sessionCacheRead;
-    totalCacheWrite += sessionCacheWrite;
+    totalInput += sessionInput
+    totalOutput += sessionOutput
+    totalReasoning += sessionReasoning
+    totalCacheRead += sessionCacheRead
+    totalCacheWrite += sessionCacheWrite
 
-    const sessionTokens = sessionInput + sessionOutput + sessionReasoning;
-    const sessionDateKey = dateKey(session.time.updated);
+    const sessionTokens = sessionInput + sessionOutput + sessionReasoning
+    const sessionDateKey = dateKey(session.time.updated)
 
     // Session stats
-    const duration = session.time.updated - session.time.created;
+    const duration = session.time.updated - session.time.created
     sessionStatsMap.set(session.id, {
       sessionID: session.id,
       title: session.title || session.id.slice(-8),
@@ -449,10 +427,10 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
       updated: session.time.updated,
       created: session.time.created,
       duration,
-    });
+    })
 
     // Project aggregation (by directory)
-    const projectID = session.directory || "default";
+    const projectID = session.directory || "default"
     const proj = projectMap.get(projectID) || {
       id: projectID,
       name: projectID.split("/").pop() || projectID,
@@ -463,19 +441,19 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
       totalTokens: 0,
       created: session.time.created,
       lastActive: session.time.updated,
-    };
-    proj.sessionCount++;
-    proj.totalCost += sessionCost;
-    proj.totalTokens += sessionTokens;
-    proj.created = Math.min(proj.created, session.time.created);
-    proj.lastActive = Math.max(proj.lastActive, session.time.updated);
-    if (session.workspaceID) {
-      proj.workspaceCount++;
     }
-    projectMap.set(projectID, proj);
+    proj.sessionCount++
+    proj.totalCost += sessionCost
+    proj.totalTokens += sessionTokens
+    proj.created = Math.min(proj.created, session.time.created)
+    proj.lastActive = Math.max(proj.lastActive, session.time.updated)
+    if (session.workspaceID) {
+      proj.workspaceCount++
+    }
+    projectMap.set(projectID, proj)
 
     // Provider stats
-    const pKey = lastProvider;
+    const pKey = lastProvider
     const pStats = providerMap.get(pKey) || {
       providerID: pKey,
       sessions: 0,
@@ -483,42 +461,41 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
       tokens: { input: 0, output: 0, reasoning: 0, cache: 0 },
       cost: 0,
       models: new Set<string>(),
-    };
-    pStats.sessions++;
-    pStats.messages += assistantMessages.length;
-    pStats.tokens.input += sessionInput;
-    pStats.tokens.output += sessionOutput;
-    pStats.tokens.reasoning += sessionReasoning;
-    pStats.tokens.cache += sessionCacheRead + sessionCacheWrite;
-    pStats.cost += sessionCost;
-    pStats.models.add(lastModel);
-    providerMap.set(pKey, pStats);
+    }
+    pStats.sessions++
+    pStats.messages += assistantMessages.length
+    pStats.tokens.input += sessionInput
+    pStats.tokens.output += sessionOutput
+    pStats.tokens.reasoning += sessionReasoning
+    pStats.tokens.cache += sessionCacheRead + sessionCacheWrite
+    pStats.cost += sessionCost
+    pStats.models.add(lastModel)
+    providerMap.set(pKey, pStats)
 
     // Day stats
-    const sessionDay = getDayStats(dayMap, sessionDateKey);
-    sessionDay.sessions++;
-    dayMap.set(sessionDateKey, sessionDay);
+    const sessionDay = getDayStats(dayMap, sessionDateKey)
+    sessionDay.sessions++
+    dayMap.set(sessionDateKey, sessionDay)
 
-    const sessionModelKeys = new Set<string>();
+    const sessionModelKeys = new Set<string>()
     for (const msg of assistantMessages) {
-      const tokens = msg.tokens;
-      if (!tokens) continue;
+      const tokens = msg.tokens
+      if (!tokens) continue
 
-      const input = tokens.input || 0;
-      const output = tokens.output || 0;
-      const reasoning = tokens.reasoning || 0;
-      const cacheRead = tokens.cache?.read || 0;
-      const cacheWrite = tokens.cache?.write || 0;
-      const total = input + output + reasoning;
-      const timestamp =
-        msg.time?.completed ?? msg.time?.created ?? session.time.updated;
-      const msgDateKey = dateKey(timestamp);
-      const providerID = msg.providerID || "unknown";
-      const modelID = msg.modelID || "unknown";
-      const modelKey = `${providerID}/${modelID}`;
-      const cost = msg.cost || 0;
+      const input = tokens.input || 0
+      const output = tokens.output || 0
+      const reasoning = tokens.reasoning || 0
+      const cacheRead = tokens.cache?.read || 0
+      const cacheWrite = tokens.cache?.write || 0
+      const total = input + output + reasoning
+      const timestamp = msg.time?.completed ?? msg.time?.created ?? session.time.updated
+      const msgDateKey = dateKey(timestamp)
+      const providerID = msg.providerID || "unknown"
+      const modelID = msg.modelID || "unknown"
+      const modelKey = `${providerID}/${modelID}`
+      const cost = msg.cost || 0
 
-      sessionModelKeys.add(modelKey);
+      sessionModelKeys.add(modelKey)
 
       const modelStats = modelMap.get(modelKey) || {
         key: modelKey,
@@ -536,182 +513,166 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
         cost: 0,
         firstUsed: timestamp,
         lastUsed: timestamp,
-      };
-      modelStats.messages++;
-      modelStats.tokens.input += input;
-      modelStats.tokens.output += output;
-      modelStats.tokens.reasoning += reasoning;
-      modelStats.tokens.cacheRead += cacheRead;
-      modelStats.tokens.cacheWrite += cacheWrite;
-      modelStats.cost += cost;
-      modelStats.firstUsed = Math.min(modelStats.firstUsed, timestamp);
-      modelStats.lastUsed = Math.max(modelStats.lastUsed, timestamp);
-      modelMap.set(modelKey, modelStats);
+      }
+      modelStats.messages++
+      modelStats.tokens.input += input
+      modelStats.tokens.output += output
+      modelStats.tokens.reasoning += reasoning
+      modelStats.tokens.cacheRead += cacheRead
+      modelStats.tokens.cacheWrite += cacheWrite
+      modelStats.cost += cost
+      modelStats.firstUsed = Math.min(modelStats.firstUsed, timestamp)
+      modelStats.lastUsed = Math.max(modelStats.lastUsed, timestamp)
+      modelMap.set(modelKey, modelStats)
 
-      const dStats = getDayStats(dayMap, msgDateKey);
-      dStats.tokens += total;
-      dStats.input += input;
-      dStats.output += output;
-      dStats.reasoning += reasoning;
-      dStats.cacheRead += cacheRead;
-      dStats.cacheWrite += cacheWrite;
-      dStats.cost += cost;
-      dStats.messages++;
+      const dStats = getDayStats(dayMap, msgDateKey)
+      dStats.tokens += total
+      dStats.input += input
+      dStats.output += output
+      dStats.reasoning += reasoning
+      dStats.cacheRead += cacheRead
+      dStats.cacheWrite += cacheWrite
+      dStats.cost += cost
+      dStats.messages++
 
-      const existingModelDay = dStats.models.get(modelKey);
+      const existingModelDay = dStats.models.get(modelKey)
       if (existingModelDay) {
-        existingModelDay.tokens += total;
-        existingModelDay.cost += cost;
-        existingModelDay.messages++;
+        existingModelDay.tokens += total
+        existingModelDay.cost += cost
+        existingModelDay.messages++
       } else {
         dStats.models.set(modelKey, {
           modelKey,
           tokens: total,
           cost,
           messages: 1,
-        });
+        })
       }
-      dayMap.set(msgDateKey, dStats);
+      dayMap.set(msgDateKey, dStats)
     }
 
     for (const modelKey of sessionModelKeys) {
-      const modelStats = modelMap.get(modelKey);
-      if (modelStats) modelStats.sessions++;
+      const modelStats = modelMap.get(modelKey)
+      if (modelStats) modelStats.sessions++
     }
 
     // Process message parts for tool usage
     for (const msg of assistantMessages) {
-      const parts = partsByMessage[msg.id] ?? [];
+      const parts = partsByMessage[msg.id] ?? []
       for (const part of parts) {
         if (part.type === "tool" && part.tool) {
-          const toolName = part.tool;
+          const toolName = part.tool
           const toolStats = toolUsageMap.get(toolName) || {
             count: 0,
             success: 0,
             error: 0,
-          };
-          toolStats.count++;
+          }
+          toolStats.count++
           // Check state for success/error
           if (part.state && typeof part.state === "object") {
-            const stateObj = part.state as { status?: string };
-            if (
-              stateObj.status === "success" ||
-              stateObj.status === "complete"
-            ) {
-              toolStats.success++;
-            } else if (
-              stateObj.status === "error" ||
-              stateObj.status === "failed"
-            ) {
-              toolStats.error++;
+            const stateObj = part.state as { status?: string }
+            if (stateObj.status === "success" || stateObj.status === "complete") {
+              toolStats.success++
+            } else if (stateObj.status === "error" || stateObj.status === "failed") {
+              toolStats.error++
             }
           }
-          toolUsageMap.set(toolName, toolStats);
+          toolUsageMap.set(toolName, toolStats)
         }
       }
     }
 
     // Collect background jobs
-    const sessionJobs = bgJobsBySession[session.id] ?? [];
-    bgRunList.push(...sessionJobs);
+    const sessionJobs = bgJobsBySession[session.id] ?? []
+    bgRunList.push(...sessionJobs)
   }
 
   // Process background runs
-  let bgRunning = 0;
-  let bgCompleted = 0;
-  let bgError = 0;
-  let bgCancelled = 0;
-  let bgTotalDuration = 0;
-  const bgAgentCounts = new Map<string, number>();
+  let bgRunning = 0
+  let bgCompleted = 0
+  let bgError = 0
+  let bgCancelled = 0
+  let bgTotalDuration = 0
+  const bgAgentCounts = new Map<string, number>()
 
   for (const job of bgRunList) {
     switch (job.status) {
       case "running":
       case "synthesizing":
-        bgRunning++;
-        break;
+        bgRunning++
+        break
       case "complete":
-        bgCompleted++;
-        break;
+        bgCompleted++
+        break
       case "error":
       case "orphaned":
-        bgError++;
-        break;
+        bgError++
+        break
       case "cancelled":
       case "timeout":
-        bgCancelled++;
-        break;
+        bgCancelled++
+        break
     }
 
     if (job.completedAt && job.createdAt) {
-      bgTotalDuration += job.completedAt - job.createdAt;
+      bgTotalDuration += job.completedAt - job.createdAt
     }
 
     if (job.agent) {
-      bgAgentCounts.set(job.agent, (bgAgentCounts.get(job.agent) ?? 0) + 1);
+      bgAgentCounts.set(job.agent, (bgAgentCounts.get(job.agent) ?? 0) + 1)
     }
   }
 
-  const bgTotal = bgRunList.length;
-  const bgSuccessRate = bgTotal > 0 ? (bgCompleted / bgTotal) * 100 : 0;
-  const bgAvgDuration = bgCompleted > 0 ? bgTotalDuration / bgCompleted : 0;
+  const bgTotal = bgRunList.length
+  const bgSuccessRate = bgTotal > 0 ? (bgCompleted / bgTotal) * 100 : 0
+  const bgAvgDuration = bgCompleted > 0 ? bgTotalDuration / bgCompleted : 0
 
   const bgTopAgents = Array.from(bgAgentCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([agent, count]) => ({ agent, count }));
+    .map(([agent, count]) => ({ agent, count }))
 
   // Tool usage aggregation
-  const toolUsageTotal = Array.from(toolUsageMap.values()).reduce(
-    (sum, t) => sum + t.count,
-    0,
-  );
+  const toolUsageTotal = Array.from(toolUsageMap.values()).reduce((sum, t) => sum + t.count, 0)
   const toolUsageList = Array.from(toolUsageMap.entries())
     .map(([name, stats]) => ({
       name,
       count: stats.count,
       successRate: stats.count > 0 ? (stats.success / stats.count) * 100 : 0,
     }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.count - a.count)
 
-  const mostUsedTools = toolUsageList.slice(0, 10);
+  const mostUsedTools = toolUsageList.slice(0, 10)
 
   // Calculate totals
-  const totalNonCacheTokens = totalInput + totalOutput + totalReasoning;
-  const totalAllTokens = totalNonCacheTokens + totalCacheRead + totalCacheWrite;
-  const costPer1kTokens =
-    totalNonCacheTokens > 0 ? (totalCost / totalNonCacheTokens) * 1000 : 0;
-  const costPerSession = sessions.length > 0 ? totalCost / sessions.length : 0;
-  const avgTokensPerSession =
-    sessions.length > 0 ? totalNonCacheTokens / sessions.length : 0;
+  const totalNonCacheTokens = totalInput + totalOutput + totalReasoning
+  const totalAllTokens = totalNonCacheTokens + totalCacheRead + totalCacheWrite
+  const costPer1kTokens = totalNonCacheTokens > 0 ? (totalCost / totalNonCacheTokens) * 1000 : 0
+  const costPerSession = sessions.length > 0 ? totalCost / sessions.length : 0
+  const avgTokensPerSession = sessions.length > 0 ? totalNonCacheTokens / sessions.length : 0
 
   // Day stats sorted, last 30 days
   const sortedDays = fillDailyRange(
     Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
     30,
-  );
+  )
 
-  const avgCostPerDay =
-    sortedDays.length > 0
-      ? sortedDays.reduce((sum, d) => sum + d.cost, 0) / sortedDays.length
-      : 0;
+  const avgCostPerDay = sortedDays.length > 0 ? sortedDays.reduce((sum, d) => sum + d.cost, 0) / sortedDays.length : 0
 
   // Sessions sorted by tokens
   const sortedSessions = Array.from(sessionStatsMap.values()).sort((a, b) => {
-    const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning;
-    const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning;
-    return bTokens - aTokens;
-  });
+    const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning
+    const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning
+    return bTokens - aTokens
+  })
 
   // Projects sorted by last activity
-  const sortedProjects = Array.from(projectMap.values()).sort(
-    (a, b) => b.lastActive - a.lastActive,
-  );
+  const sortedProjects = Array.from(projectMap.values()).sort((a, b) => b.lastActive - a.lastActive)
   const sortedModels = Array.from(modelMap.values()).sort((a, b) => {
-    const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning;
-    const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning;
-    return bTokens - aTokens;
-  });
+    const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning
+    const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning
+    return bTokens - aTokens
+  })
 
   return {
     global: {
@@ -754,8 +715,7 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
         inProgress: todosInProgress,
         completed: todosCompleted,
         cancelled: todosCancelled,
-        completionRate:
-          todosTotal > 0 ? (todosCompleted / todosTotal) * 100 : 0,
+        completionRate: todosTotal > 0 ? (todosCompleted / todosTotal) * 100 : 0,
         byPriority: Array.from(todosByPriority.entries())
           .map(([priority, count]) => ({ priority, count }))
           .sort((a, b) => b.count - a.count),
@@ -804,65 +764,59 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
         .map(([priority, count]) => ({ priority, count }))
         .sort((a, b) => b.count - a.count),
     },
-  };
+  }
 }
 
 // ===== Historical Data Merge =====
 
 export interface HistoricalGlobalData {
-  version: number;
-  updatedAt: number;
+  version: number
+  updatedAt: number
   totals: {
-    sessions: number;
-    messages: number;
+    sessions: number
+    messages: number
     tokens: {
-      input: number;
-      output: number;
-      reasoning: number;
-      cacheRead: number;
-      cacheWrite: number;
-    };
-    cost: number;
-    toolCalls: number;
-  };
-  byProvider: Record<
-    string,
-    { sessions: number; messages: number; tokens: number; cost: number }
-  >;
+      input: number
+      output: number
+      reasoning: number
+      cacheRead: number
+      cacheWrite: number
+    }
+    cost: number
+    toolCalls: number
+  }
+  byProvider: Record<string, { sessions: number; messages: number; tokens: number; cost: number }>
   byModel: Record<
     string,
     {
-      sessions: number;
-      messages: number;
-      tokens: { input: number; output: number; reasoning: number };
-      cost: number;
-      firstUsed: number;
-      lastUsed: number;
+      sessions: number
+      messages: number
+      tokens: { input: number; output: number; reasoning: number }
+      cost: number
+      firstUsed: number
+      lastUsed: number
     }
-  >;
-  byProject: Record<
-    string,
-    { sessions: number; tokens: number; cost: number; lastActive: number }
-  >;
+  >
+  byProject: Record<string, { sessions: number; tokens: number; cost: number; lastActive: number }>
 }
 
 export interface HistoricalDailyData {
-  date: string;
-  sessions: number;
-  messages: number;
+  date: string
+  sessions: number
+  messages: number
   tokens: {
-    input: number;
-    output: number;
-    reasoning: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
-  cost: number;
-  toolCalls: number;
-  tools: Record<string, { calls: number; success: number; error: number }>;
-  providers: Record<string, { messages: number; tokens: number; cost: number }>;
-  models: Record<string, { messages: number; tokens: number; cost: number }>;
-  recordedAt: number;
+    input: number
+    output: number
+    reasoning: number
+    cacheRead: number
+    cacheWrite: number
+  }
+  cost: number
+  toolCalls: number
+  tools: Record<string, { calls: number; success: number; error: number }>
+  providers: Record<string, { messages: number; tokens: number; cost: number }>
+  models: Record<string, { messages: number; tokens: number; cost: number }>
+  recordedAt: number
 }
 
 function historicalDailyToDayStats(hd: HistoricalDailyData): DayStats {
@@ -888,30 +842,24 @@ function historicalDailyToDayStats(hd: HistoricalDailyData): DayStats {
         },
       ]),
     ),
-  };
+  }
 }
 
-function mergeDayModelRows(
-  a: DayStats["models"],
-  b: DayStats["models"],
-): DayStats["models"] {
-  const m = new Map<
-    string,
-    { modelKey: string; tokens: number; cost: number; messages: number }
-  >();
+function mergeDayModelRows(a: DayStats["models"], b: DayStats["models"]): DayStats["models"] {
+  const m = new Map<string, { modelKey: string; tokens: number; cost: number; messages: number }>()
   for (const [key, row] of a) {
-    m.set(key, { ...row });
+    m.set(key, { ...row })
   }
   for (const [key, row] of b) {
-    const ex = m.get(key);
-    if (!ex) m.set(key, { ...row });
+    const ex = m.get(key)
+    if (!ex) m.set(key, { ...row })
     else {
-      ex.tokens = Math.max(ex.tokens, row.tokens);
-      ex.cost = Math.max(ex.cost, row.cost);
-      ex.messages = Math.max(ex.messages, row.messages);
+      ex.tokens = Math.max(ex.tokens, row.tokens)
+      ex.cost = Math.max(ex.cost, row.cost)
+      ex.messages = Math.max(ex.messages, row.messages)
     }
   }
-  return m;
+  return m
 }
 
 /** When a date exists in both TUI (subset of messages loaded) and storage, take per-metric max. */
@@ -928,7 +876,7 @@ function mergeOverlappingDayStats(hist: DayStats, live: DayStats): DayStats {
     cost: Math.max(hist.cost, live.cost),
     messages: Math.max(hist.messages, live.messages),
     models: mergeDayModelRows(hist.models, live.models),
-  };
+  }
 }
 
 /**
@@ -939,118 +887,76 @@ function mergeOverlappingDayStats(hist: DayStats, live: DayStats): DayStats {
 export function mergeWithHistorical(
   live: AggregatedStats,
   historical: {
-    global: HistoricalGlobalData;
-    daily: HistoricalDailyData[];
+    global: HistoricalGlobalData
+    daily: HistoricalDailyData[]
   },
 ): AggregatedStats {
-  const mergedDayMap = new Map<string, DayStats>();
+  const mergedDayMap = new Map<string, DayStats>()
 
   for (const hd of historical.daily) {
-    mergedDayMap.set(hd.date, historicalDailyToDayStats(hd));
+    mergedDayMap.set(hd.date, historicalDailyToDayStats(hd))
   }
 
   for (const ld of live.days) {
-    const prev = mergedDayMap.get(ld.date);
-    if (!prev) mergedDayMap.set(ld.date, ld);
-    else mergedDayMap.set(ld.date, mergeOverlappingDayStats(prev, ld));
+    const prev = mergedDayMap.get(ld.date)
+    if (!prev) mergedDayMap.set(ld.date, ld)
+    else mergedDayMap.set(ld.date, mergeOverlappingDayStats(prev, ld))
   }
 
   // Sort merged days
-  const mergedDays = Array.from(mergedDayMap.values()).sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
+  const mergedDays = Array.from(mergedDayMap.values()).sort((a, b) => a.date.localeCompare(b.date))
 
   // Use historical global totals as the baseline, but prefer live totals
   // if they're higher (to avoid going backwards during a session)
   const mergedNonCache =
     Math.max(live.global.tokens.input, historical.global.totals.tokens.input) +
-    Math.max(
-      live.global.tokens.output,
-      historical.global.totals.tokens.output,
-    ) +
-    Math.max(
-      live.global.tokens.reasoning,
-      historical.global.totals.tokens.reasoning,
-    );
-  const mergedSessions = Math.max(
-    live.global.sessions,
-    historical.global.totals.sessions,
-  );
-  const mergedMessages = Math.max(
-    live.global.messages,
-    historical.global.totals.messages,
-  );
-  const mergedCost = Math.max(live.global.cost, historical.global.totals.cost);
-  const dayWindow = mergedDays.slice(-30);
+    Math.max(live.global.tokens.output, historical.global.totals.tokens.output) +
+    Math.max(live.global.tokens.reasoning, historical.global.totals.tokens.reasoning)
+  const mergedSessions = Math.max(live.global.sessions, historical.global.totals.sessions)
+  const mergedMessages = Math.max(live.global.messages, historical.global.totals.messages)
+  const mergedCost = Math.max(live.global.cost, historical.global.totals.cost)
+  const dayWindow = mergedDays.slice(-30)
   const mergedAvgCostPerDay =
-    dayWindow.length > 0
-      ? dayWindow.reduce((sum, d) => sum + d.cost, 0) / dayWindow.length
-      : 0;
+    dayWindow.length > 0 ? dayWindow.reduce((sum, d) => sum + d.cost, 0) / dayWindow.length : 0
 
   const mergedGlobal: GlobalStats = {
     ...live.global,
     sessions: mergedSessions,
     messages: mergedMessages,
     tokens: {
-      input: Math.max(
-        live.global.tokens.input,
-        historical.global.totals.tokens.input,
-      ),
-      output: Math.max(
-        live.global.tokens.output,
-        historical.global.totals.tokens.output,
-      ),
-      reasoning: Math.max(
-        live.global.tokens.reasoning,
-        historical.global.totals.tokens.reasoning,
-      ),
-      cacheRead: Math.max(
-        live.global.tokens.cacheRead,
-        historical.global.totals.tokens.cacheRead,
-      ),
-      cacheWrite: Math.max(
-        live.global.tokens.cacheWrite,
-        historical.global.totals.tokens.cacheWrite,
-      ),
+      input: Math.max(live.global.tokens.input, historical.global.totals.tokens.input),
+      output: Math.max(live.global.tokens.output, historical.global.totals.tokens.output),
+      reasoning: Math.max(live.global.tokens.reasoning, historical.global.totals.tokens.reasoning),
+      cacheRead: Math.max(live.global.tokens.cacheRead, historical.global.totals.tokens.cacheRead),
+      cacheWrite: Math.max(live.global.tokens.cacheWrite, historical.global.totals.tokens.cacheWrite),
     },
     cost: mergedCost,
     efficiency: {
-      costPer1kTokens:
-        mergedNonCache > 0 ? (mergedCost / mergedNonCache) * 1000 : 0,
+      costPer1kTokens: mergedNonCache > 0 ? (mergedCost / mergedNonCache) * 1000 : 0,
       costPerSession: mergedSessions > 0 ? mergedCost / mergedSessions : 0,
-      avgTokensPerSession:
-        mergedSessions > 0 ? mergedNonCache / mergedSessions : 0,
+      avgTokensPerSession: mergedSessions > 0 ? mergedNonCache / mergedSessions : 0,
       avgCostPerDay: mergedAvgCostPerDay,
     },
-  };
+  }
 
   // Merge model data from historical
-  const mergedModels = new Map<string, ModelStats>();
+  const mergedModels = new Map<string, ModelStats>()
   for (const model of live.models) {
-    mergedModels.set(model.key, model);
+    mergedModels.set(model.key, model)
   }
   for (const [key, hModel] of Object.entries(historical.global.byModel)) {
-    const existing = mergedModels.get(key);
+    const existing = mergedModels.get(key)
     if (existing) {
-      existing.sessions = Math.max(existing.sessions, hModel.sessions);
-      existing.messages = Math.max(existing.messages, hModel.messages);
-      existing.tokens.input = Math.max(
-        existing.tokens.input,
-        hModel.tokens.input,
-      );
-      existing.tokens.output = Math.max(
-        existing.tokens.output,
-        hModel.tokens.output,
-      );
-      existing.tokens.reasoning = Math.max(
-        existing.tokens.reasoning,
-        hModel.tokens.reasoning,
-      );
-      existing.cost = Math.max(existing.cost, hModel.cost);
-      existing.firstUsed = Math.min(existing.firstUsed, hModel.firstUsed);
-      existing.lastUsed = Math.max(existing.lastUsed, hModel.lastUsed);
-      existing.tokens.cacheRead = existing.tokens.cacheRead || 0;
-      existing.tokens.cacheWrite = existing.tokens.cacheWrite || 0;
+      existing.sessions = Math.max(existing.sessions, hModel.sessions)
+      existing.messages = Math.max(existing.messages, hModel.messages)
+      existing.tokens.input = Math.max(existing.tokens.input, hModel.tokens.input)
+      existing.tokens.output = Math.max(existing.tokens.output, hModel.tokens.output)
+      existing.tokens.reasoning = Math.max(existing.tokens.reasoning, hModel.tokens.reasoning)
+      existing.cost = Math.max(existing.cost, hModel.cost)
+      existing.firstUsed = Math.min(existing.firstUsed, hModel.firstUsed)
+      existing.lastUsed = Math.max(existing.lastUsed, hModel.lastUsed)
+      existing.tokens.cacheRead = existing.tokens.cacheRead || 0
+      existing.tokens.cacheWrite = existing.tokens.cacheWrite || 0
     } else {
       mergedModels.set(key, {
         key,
@@ -1068,14 +974,14 @@ export function mergeWithHistorical(
         cost: hModel.cost,
         firstUsed: hModel.firstUsed,
         lastUsed: hModel.lastUsed,
-      });
+      })
     }
   }
 
   // Merge provider data from historical
-  const mergedProviders = new Map(live.providers);
+  const mergedProviders = new Map(live.providers)
   for (const [key, hProv] of Object.entries(historical.global.byProvider)) {
-    const existing = mergedProviders.get(key);
+    const existing = mergedProviders.get(key)
     if (!existing) {
       mergedProviders.set(key, {
         providerID: key,
@@ -1084,18 +990,15 @@ export function mergeWithHistorical(
         tokens: { input: 0, output: 0, reasoning: 0, cache: hProv.tokens },
         cost: hProv.cost,
         models: new Set(),
-      });
+      })
     } else {
-      existing.sessions = Math.max(existing.sessions, hProv.sessions);
-      existing.messages = Math.max(existing.messages, hProv.messages);
-      existing.cost = Math.max(existing.cost, hProv.cost);
+      existing.sessions = Math.max(existing.sessions, hProv.sessions)
+      existing.messages = Math.max(existing.messages, hProv.messages)
+      existing.cost = Math.max(existing.cost, hProv.cost)
       const liveTokenSum =
-        existing.tokens.input +
-        existing.tokens.output +
-        existing.tokens.reasoning +
-        existing.tokens.cache;
+        existing.tokens.input + existing.tokens.output + existing.tokens.reasoning + existing.tokens.cache
       if (hProv.tokens > liveTokenSum) {
-        existing.tokens.cache += hProv.tokens - liveTokenSum;
+        existing.tokens.cache += hProv.tokens - liveTokenSum
       }
     }
   }
@@ -1104,13 +1007,13 @@ export function mergeWithHistorical(
     ...live,
     global: mergedGlobal,
     models: Array.from(mergedModels.values()).sort((a, b) => {
-      const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning;
-      const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning;
-      return bTokens - aTokens;
+      const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning
+      const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning
+      return bTokens - aTokens
     }),
     providers: mergedProviders,
     days: mergedDays,
-  };
+  }
 }
 
 /**
@@ -1121,45 +1024,45 @@ export function augmentAggregatedStatsFromPersistedSessions(
   stats: AggregatedStats,
   sessions: SessionAnalytics[],
 ): AggregatedStats {
-  if (sessions.length === 0) return stats;
+  if (sessions.length === 0) return stats
 
-  const sessionDays = new Map<string, DayStats>();
-  const modelAgg = new Map<string, ModelStats>();
+  const sessionDays = new Map<string, DayStats>()
+  const modelAgg = new Map<string, ModelStats>()
   type ProvAgg = {
-    sessions: number;
-    messages: number;
-    input: number;
-    output: number;
-    reasoning: number;
-    cache: number;
-    cost: number;
-    models: Set<string>;
-  };
-  const provAgg = new Map<string, ProvAgg>();
-  const projAgg = new Map<string, ProjectStats>();
+    sessions: number
+    messages: number
+    input: number
+    output: number
+    reasoning: number
+    cache: number
+    cost: number
+    models: Set<string>
+  }
+  const provAgg = new Map<string, ProvAgg>()
+  const projAgg = new Map<string, ProjectStats>()
 
-  let sumMessages = 0;
-  let sumCost = 0;
-  let sumIn = 0;
-  let sumOut = 0;
-  let sumRe = 0;
-  let sumCr = 0;
-  let sumCw = 0;
-  let sumToolCalls = 0;
+  let sumMessages = 0
+  let sumCost = 0
+  let sumIn = 0
+  let sumOut = 0
+  let sumRe = 0
+  let sumCr = 0
+  let sumCw = 0
+  let sumToolCalls = 0
 
   for (const s of sessions) {
-    sumMessages += s.messages;
-    sumCost += s.cost;
-    sumIn += s.tokens.input;
-    sumOut += s.tokens.output;
-    sumRe += s.tokens.reasoning;
-    sumCr += s.tokens.cacheRead;
-    sumCw += s.tokens.cacheWrite;
-    sumToolCalls += s.toolCalls ?? 0;
+    sumMessages += s.messages
+    sumCost += s.cost
+    sumIn += s.tokens.input
+    sumOut += s.tokens.output
+    sumRe += s.tokens.reasoning
+    sumCr += s.tokens.cacheRead
+    sumCw += s.tokens.cacheWrite
+    sumToolCalls += s.toolCalls ?? 0
 
-    const mk = `${s.providerID}/${s.modelID}`;
-    const ts = s.time.completed || s.time.created;
-    const mPrev = modelAgg.get(mk);
+    const mk = `${s.providerID}/${s.modelID}`
+    const ts = s.time.completed || s.time.created
+    const mPrev = modelAgg.get(mk)
     if (!mPrev) {
       modelAgg.set(mk, {
         key: mk,
@@ -1177,23 +1080,23 @@ export function augmentAggregatedStatsFromPersistedSessions(
         cost: s.cost,
         firstUsed: ts,
         lastUsed: ts,
-      });
+      })
     } else {
-      mPrev.sessions++;
-      mPrev.messages += s.messages;
-      mPrev.tokens.input += s.tokens.input;
-      mPrev.tokens.output += s.tokens.output;
-      mPrev.tokens.reasoning += s.tokens.reasoning;
-      mPrev.tokens.cacheRead += s.tokens.cacheRead;
-      mPrev.tokens.cacheWrite += s.tokens.cacheWrite;
-      mPrev.cost += s.cost;
-      mPrev.firstUsed = Math.min(mPrev.firstUsed, ts);
-      mPrev.lastUsed = Math.max(mPrev.lastUsed, ts);
+      mPrev.sessions++
+      mPrev.messages += s.messages
+      mPrev.tokens.input += s.tokens.input
+      mPrev.tokens.output += s.tokens.output
+      mPrev.tokens.reasoning += s.tokens.reasoning
+      mPrev.tokens.cacheRead += s.tokens.cacheRead
+      mPrev.tokens.cacheWrite += s.tokens.cacheWrite
+      mPrev.cost += s.cost
+      mPrev.firstUsed = Math.min(mPrev.firstUsed, ts)
+      mPrev.lastUsed = Math.max(mPrev.lastUsed, ts)
     }
 
-    const pk = s.providerID || "unknown";
-    const cacheAdd = s.tokens.cacheRead + s.tokens.cacheWrite;
-    const pPrev = provAgg.get(pk);
+    const pk = s.providerID || "unknown"
+    const cacheAdd = s.tokens.cacheRead + s.tokens.cacheWrite
+    const pPrev = provAgg.get(pk)
     if (!pPrev) {
       provAgg.set(pk, {
         sessions: 1,
@@ -1204,22 +1107,21 @@ export function augmentAggregatedStatsFromPersistedSessions(
         cache: cacheAdd,
         cost: s.cost,
         models: new Set(s.modelID ? [s.modelID] : []),
-      });
+      })
     } else {
-      pPrev.sessions++;
-      pPrev.messages += s.messages;
-      pPrev.input += s.tokens.input;
-      pPrev.output += s.tokens.output;
-      pPrev.reasoning += s.tokens.reasoning;
-      pPrev.cache += cacheAdd;
-      pPrev.cost += s.cost;
-      if (s.modelID) pPrev.models.add(s.modelID);
+      pPrev.sessions++
+      pPrev.messages += s.messages
+      pPrev.input += s.tokens.input
+      pPrev.output += s.tokens.output
+      pPrev.reasoning += s.tokens.reasoning
+      pPrev.cache += cacheAdd
+      pPrev.cost += s.cost
+      if (s.modelID) pPrev.models.add(s.modelID)
     }
 
-    const projKey = s.projectID || s.directory || "default";
-    const projName =
-      (s.directory || s.projectID || "default").split("/").pop() || projKey;
-    const prPrev = projAgg.get(projKey);
+    const projKey = s.projectID || s.directory || "default"
+    const projName = (s.directory || s.projectID || "default").split("/").pop() || projKey
+    const prPrev = projAgg.get(projKey)
     if (!prPrev) {
       projAgg.set(projKey, {
         id: projKey,
@@ -1231,106 +1133,97 @@ export function augmentAggregatedStatsFromPersistedSessions(
         totalTokens: s.tokens.input + s.tokens.output + s.tokens.reasoning,
         created: ts,
         lastActive: ts,
-      });
+      })
     } else {
-      prPrev.sessionCount++;
-      prPrev.totalCost += s.cost;
-      prPrev.totalTokens +=
-        s.tokens.input + s.tokens.output + s.tokens.reasoning;
-      prPrev.created = Math.min(prPrev.created, ts);
-      prPrev.lastActive = Math.max(prPrev.lastActive, ts);
+      prPrev.sessionCount++
+      prPrev.totalCost += s.cost
+      prPrev.totalTokens += s.tokens.input + s.tokens.output + s.tokens.reasoning
+      prPrev.created = Math.min(prPrev.created, ts)
+      prPrev.lastActive = Math.max(prPrev.lastActive, ts)
     }
 
-    const dayDate = dateKey(ts);
-    const cur = sessionDays.get(dayDate) || emptyDayStats(dayDate);
-    cur.sessions++;
-    cur.messages += s.messages;
-    cur.input += s.tokens.input;
-    cur.output += s.tokens.output;
-    cur.reasoning += s.tokens.reasoning;
-    cur.cacheRead += s.tokens.cacheRead;
-    cur.cacheWrite += s.tokens.cacheWrite;
-    cur.cost += s.cost;
-    cur.tokens = cur.input + cur.output + cur.reasoning;
-    const dayModelKey = mk;
-    const t = s.tokens.input + s.tokens.output + s.tokens.reasoning;
-    const prevModel = cur.models.get(dayModelKey);
+    const dayDate = dateKey(ts)
+    const cur = sessionDays.get(dayDate) || emptyDayStats(dayDate)
+    cur.sessions++
+    cur.messages += s.messages
+    cur.input += s.tokens.input
+    cur.output += s.tokens.output
+    cur.reasoning += s.tokens.reasoning
+    cur.cacheRead += s.tokens.cacheRead
+    cur.cacheWrite += s.tokens.cacheWrite
+    cur.cost += s.cost
+    cur.tokens = cur.input + cur.output + cur.reasoning
+    const dayModelKey = mk
+    const t = s.tokens.input + s.tokens.output + s.tokens.reasoning
+    const prevModel = cur.models.get(dayModelKey)
     if (prevModel) {
-      prevModel.tokens += t;
-      prevModel.cost += s.cost;
-      prevModel.messages += s.messages;
+      prevModel.tokens += t
+      prevModel.cost += s.cost
+      prevModel.messages += s.messages
     } else {
       cur.models.set(dayModelKey, {
         modelKey: dayModelKey,
         tokens: t,
         cost: s.cost,
         messages: s.messages,
-      });
+      })
     }
-    sessionDays.set(dayDate, cur);
+    sessionDays.set(dayDate, cur)
   }
 
-  const dayMap = new Map<string, DayStats>();
+  const dayMap = new Map<string, DayStats>()
   for (const d of stats.days) {
     dayMap.set(d.date, {
       ...d,
       models: new Map(Array.from(d.models, ([k, v]) => [k, { ...v }])),
-    });
+    })
   }
   for (const [date, sd] of sessionDays) {
-    const ex = dayMap.get(date);
+    const ex = dayMap.get(date)
     if (!ex) {
       dayMap.set(date, {
         ...sd,
         models: new Map(Array.from(sd.models, ([k, v]) => [k, { ...v }])),
-      });
+      })
     } else {
-      dayMap.set(date, mergeOverlappingDayStats(ex, sd));
+      dayMap.set(date, mergeOverlappingDayStats(ex, sd))
     }
   }
 
-  const sortedDays = Array.from(dayMap.values()).sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
+  const sortedDays = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date))
   // Bumped from 90 → 365 so the activity heatmap in the Overview tab can render a full year
   // of history. Memory cost is negligible (one DayStats row per day, ~200 bytes).
-  const filledDays = fillDailyRange(
-    sortedDays.length > 0 ? sortedDays : stats.days,
-    365,
-  );
+  const filledDays = fillDailyRange(sortedDays.length > 0 ? sortedDays : stats.days, 365)
 
   const mergedModelsMap = new Map<string, ModelStats>(
     stats.models.map((m) => [m.key, { ...m, tokens: { ...m.tokens } }]),
-  );
+  )
   for (const [k, agg] of modelAgg) {
-    const ex = mergedModelsMap.get(k);
+    const ex = mergedModelsMap.get(k)
     if (!ex) {
-      mergedModelsMap.set(k, { ...agg, tokens: { ...agg.tokens } });
+      mergedModelsMap.set(k, { ...agg, tokens: { ...agg.tokens } })
     } else {
-      ex.sessions = Math.max(ex.sessions, agg.sessions);
-      ex.messages = Math.max(ex.messages, agg.messages);
-      ex.tokens.input = Math.max(ex.tokens.input, agg.tokens.input);
-      ex.tokens.output = Math.max(ex.tokens.output, agg.tokens.output);
-      ex.tokens.reasoning = Math.max(ex.tokens.reasoning, agg.tokens.reasoning);
-      ex.tokens.cacheRead = Math.max(ex.tokens.cacheRead, agg.tokens.cacheRead);
-      ex.tokens.cacheWrite = Math.max(
-        ex.tokens.cacheWrite,
-        agg.tokens.cacheWrite,
-      );
-      ex.cost = Math.max(ex.cost, agg.cost);
-      ex.firstUsed = Math.min(ex.firstUsed, agg.firstUsed);
-      ex.lastUsed = Math.max(ex.lastUsed, agg.lastUsed);
+      ex.sessions = Math.max(ex.sessions, agg.sessions)
+      ex.messages = Math.max(ex.messages, agg.messages)
+      ex.tokens.input = Math.max(ex.tokens.input, agg.tokens.input)
+      ex.tokens.output = Math.max(ex.tokens.output, agg.tokens.output)
+      ex.tokens.reasoning = Math.max(ex.tokens.reasoning, agg.tokens.reasoning)
+      ex.tokens.cacheRead = Math.max(ex.tokens.cacheRead, agg.tokens.cacheRead)
+      ex.tokens.cacheWrite = Math.max(ex.tokens.cacheWrite, agg.tokens.cacheWrite)
+      ex.cost = Math.max(ex.cost, agg.cost)
+      ex.firstUsed = Math.min(ex.firstUsed, agg.firstUsed)
+      ex.lastUsed = Math.max(ex.lastUsed, agg.lastUsed)
     }
   }
   const mergedModels = Array.from(mergedModelsMap.values()).sort((a, b) => {
-    const at = a.tokens.input + a.tokens.output + a.tokens.reasoning;
-    const bt = b.tokens.input + b.tokens.output + b.tokens.reasoning;
-    return bt - at;
-  });
+    const at = a.tokens.input + a.tokens.output + a.tokens.reasoning
+    const bt = b.tokens.input + b.tokens.output + b.tokens.reasoning
+    return bt - at
+  })
 
-  const mergedProviders = new Map(stats.providers);
+  const mergedProviders = new Map(stats.providers)
   for (const [pid, agg] of provAgg) {
-    const ex = mergedProviders.get(pid);
+    const ex = mergedProviders.get(pid)
     if (!ex) {
       mergedProviders.set(pid, {
         providerID: pid,
@@ -1344,41 +1237,37 @@ export function augmentAggregatedStatsFromPersistedSessions(
         },
         cost: agg.cost,
         models: new Set(agg.models),
-      });
+      })
     } else {
-      ex.sessions = Math.max(ex.sessions, agg.sessions);
-      ex.messages = Math.max(ex.messages, agg.messages);
-      ex.cost = Math.max(ex.cost, agg.cost);
-      ex.tokens.input = Math.max(ex.tokens.input, agg.input);
-      ex.tokens.output = Math.max(ex.tokens.output, agg.output);
-      ex.tokens.reasoning = Math.max(ex.tokens.reasoning, agg.reasoning);
-      const liveCache = ex.tokens.cache;
-      const sumCache = agg.cache;
-      ex.tokens.cache = Math.max(liveCache, sumCache);
-      for (const mid of agg.models) ex.models.add(mid);
+      ex.sessions = Math.max(ex.sessions, agg.sessions)
+      ex.messages = Math.max(ex.messages, agg.messages)
+      ex.cost = Math.max(ex.cost, agg.cost)
+      ex.tokens.input = Math.max(ex.tokens.input, agg.input)
+      ex.tokens.output = Math.max(ex.tokens.output, agg.output)
+      ex.tokens.reasoning = Math.max(ex.tokens.reasoning, agg.reasoning)
+      const liveCache = ex.tokens.cache
+      const sumCache = agg.cache
+      ex.tokens.cache = Math.max(liveCache, sumCache)
+      for (const mid of agg.models) ex.models.add(mid)
     }
   }
 
-  const mergedProjectsMap = new Map(
-    stats.projects.map((p) => [p.id, { ...p }]),
-  );
+  const mergedProjectsMap = new Map(stats.projects.map((p) => [p.id, { ...p }]))
   for (const [id, agg] of projAgg) {
-    const ex = mergedProjectsMap.get(id);
+    const ex = mergedProjectsMap.get(id)
     if (!ex) {
-      mergedProjectsMap.set(id, { ...agg });
+      mergedProjectsMap.set(id, { ...agg })
     } else {
-      ex.sessionCount = Math.max(ex.sessionCount, agg.sessionCount);
-      ex.totalTokens = Math.max(ex.totalTokens, agg.totalTokens);
-      ex.totalCost = Math.max(ex.totalCost, agg.totalCost);
-      ex.created = Math.min(ex.created, agg.created);
-      ex.lastActive = Math.max(ex.lastActive, agg.lastActive);
+      ex.sessionCount = Math.max(ex.sessionCount, agg.sessionCount)
+      ex.totalTokens = Math.max(ex.totalTokens, agg.totalTokens)
+      ex.totalCost = Math.max(ex.totalCost, agg.totalCost)
+      ex.created = Math.min(ex.created, agg.created)
+      ex.lastActive = Math.max(ex.lastActive, agg.lastActive)
     }
   }
-  const mergedProjects = Array.from(mergedProjectsMap.values()).sort(
-    (a, b) => b.lastActive - a.lastActive,
-  );
+  const mergedProjects = Array.from(mergedProjectsMap.values()).sort((a, b) => b.lastActive - a.lastActive)
 
-  const mergedToolTotal = Math.max(stats.toolUsage.total, sumToolCalls);
+  const mergedToolTotal = Math.max(stats.toolUsage.total, sumToolCalls)
   const mergedToolUsage =
     stats.toolUsage.mostUsed.length > 0
       ? { ...stats.toolUsage, total: mergedToolTotal }
@@ -1400,26 +1289,23 @@ export function augmentAggregatedStatsFromPersistedSessions(
               },
             ],
           }
-        : { ...stats.toolUsage, total: mergedToolTotal };
+        : { ...stats.toolUsage, total: mergedToolTotal }
 
-  const g = stats.global;
-  const mergedMessages = Math.max(g.messages, sumMessages);
-  const mergedCost = Math.max(g.cost, sumCost);
+  const g = stats.global
+  const mergedMessages = Math.max(g.messages, sumMessages)
+  const mergedCost = Math.max(g.cost, sumCost)
   const mergedTokens = {
     input: Math.max(g.tokens.input, sumIn),
     output: Math.max(g.tokens.output, sumOut),
     reasoning: Math.max(g.tokens.reasoning, sumRe),
     cacheRead: Math.max(g.tokens.cacheRead, sumCr),
     cacheWrite: Math.max(g.tokens.cacheWrite, sumCw),
-  };
-  const mergedSessions = Math.max(g.sessions, sessions.length);
-  const nonCache =
-    mergedTokens.input + mergedTokens.output + mergedTokens.reasoning;
-  const dayWin = filledDays.slice(-30);
+  }
+  const mergedSessions = Math.max(g.sessions, sessions.length)
+  const nonCache = mergedTokens.input + mergedTokens.output + mergedTokens.reasoning
+  const dayWin = filledDays.slice(-30)
   const avgCostPerDay =
-    dayWin.length > 0
-      ? dayWin.reduce((sum, d) => sum + d.cost, 0) / dayWin.length
-      : g.efficiency.avgCostPerDay;
+    dayWin.length > 0 ? dayWin.reduce((sum, d) => sum + d.cost, 0) / dayWin.length : g.efficiency.avgCostPerDay
 
   return {
     ...stats,
@@ -1443,7 +1329,7 @@ export function augmentAggregatedStatsFromPersistedSessions(
       },
     },
     days: filledDays.length > 0 ? filledDays : stats.days,
-  };
+  }
 }
 
 // ===== Activity Heatmap Helpers =====
@@ -1454,43 +1340,30 @@ export function augmentAggregatedStatsFromPersistedSessions(
 // activity" view could reuse `buildActivityGrid(days, 365, d => d.cost)`.
 
 export interface ActivityStats {
-  totalDays: number;
-  activeDays: number;
-  longestStreak: number;
-  currentStreak: number;
-  avgPerActiveDay: number;
-  avgPerWeek: number;
-  total: number;
-  maxDay: number;
+  totalDays: number
+  activeDays: number
+  longestStreak: number
+  currentStreak: number
+  avgPerActiveDay: number
+  avgPerWeek: number
+  total: number
+  maxDay: number
 }
 
 export interface ActivityGrid {
   /** 7 rows (0=Mon .. 6=Sun) × N weeks. Each cell holds the metric value, or 0 if empty. */
-  cells: number[][];
+  cells: number[][]
   /** First column where each month label should appear, plus the abbreviated month name. */
-  monthLabels: { col: number; label: string }[];
-  maxValue: number;
-  weeks: number;
+  monthLabels: { col: number; label: string }[]
+  maxValue: number
+  weeks: number
   /** ISO date (YYYY-MM-DD) of the first day in the rendered window. */
-  startDate: string;
+  startDate: string
   /** ISO date of the last day in the rendered window. */
-  endDate: string;
+  endDate: string
 }
 
-const MONTH_NAMES = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const
 
 /**
  * Compute summary statistics for the activity heatmap: active days, longest
@@ -1512,29 +1385,29 @@ export function computeActivityStats(
       avgPerWeek: 0,
       total: 0,
       maxDay: 0,
-    };
-  }
-
-  let activeDays = 0;
-  let longestStreak = 0;
-  let runStreak = 0;
-  let total = 0;
-  let maxDay = 0;
-
-  for (const d of days) {
-    const v = metric(d);
-    if (v > 0) {
-      activeDays++;
-      runStreak++;
-      total += v;
-      if (v > maxDay) maxDay = v;
-      if (runStreak > longestStreak) longestStreak = runStreak;
-    } else {
-      runStreak = 0;
     }
   }
 
-  const totalWeeks = Math.max(1, Math.ceil(days.length / 7));
+  let activeDays = 0
+  let longestStreak = 0
+  let runStreak = 0
+  let total = 0
+  let maxDay = 0
+
+  for (const d of days) {
+    const v = metric(d)
+    if (v > 0) {
+      activeDays++
+      runStreak++
+      total += v
+      if (v > maxDay) maxDay = v
+      if (runStreak > longestStreak) longestStreak = runStreak
+    } else {
+      runStreak = 0
+    }
+  }
+
+  const totalWeeks = Math.max(1, Math.ceil(days.length / 7))
   return {
     totalDays: days.length,
     activeDays,
@@ -1544,7 +1417,7 @@ export function computeActivityStats(
     avgPerWeek: total / totalWeeks,
     total,
     maxDay,
-  };
+  }
 }
 
 /**
@@ -1570,46 +1443,44 @@ export function buildActivityGrid(
       weeks: 0,
       startDate: "",
       endDate: "",
-    };
+    }
   }
 
   // Use only the most recent `lookbackDays` entries.
-  const slice = days.length > lookbackDays ? days.slice(-lookbackDays) : days;
+  const slice = days.length > lookbackDays ? days.slice(-lookbackDays) : days
 
-  const first = parseDateKey(slice[0]!.date);
-  const firstDow = (first.getUTCDay() + 6) % 7; // 0=Mon .. 6=Sun
-  const totalDays = slice.length + firstDow;
-  const weeks = Math.max(1, Math.ceil(totalDays / 7));
+  const first = parseDateKey(slice[0]!.date)
+  const firstDow = (first.getUTCDay() + 6) % 7 // 0=Mon .. 6=Sun
+  const totalDays = slice.length + firstDow
+  const weeks = Math.max(1, Math.ceil(totalDays / 7))
 
-  const cells: number[][] = Array.from({ length: 7 }, () =>
-    new Array(weeks).fill(0),
-  );
-  let maxValue = 0;
+  const cells: number[][] = Array.from({ length: 7 }, () => new Array(weeks).fill(0))
+  let maxValue = 0
 
   for (let i = 0; i < slice.length; i++) {
-    const d = slice[i]!;
-    const v = metric(d);
-    if (v > maxValue) maxValue = v;
-    const cellIndex = i + firstDow;
-    const row = cellIndex % 7;
-    const col = Math.floor(cellIndex / 7);
-    cells[row]![col] = v;
+    const d = slice[i]!
+    const v = metric(d)
+    if (v > maxValue) maxValue = v
+    const cellIndex = i + firstDow
+    const row = cellIndex % 7
+    const col = Math.floor(cellIndex / 7)
+    cells[row]![col] = v
   }
 
   // Month labels: emit the first column of each month, but skip if too close
   // to the previous label (avoid overlap with truncated 2-char-wide labels).
-  const monthLabels: { col: number; label: string }[] = [];
-  let prevMonth = -1;
+  const monthLabels: { col: number; label: string }[] = []
+  let prevMonth = -1
   for (let i = 0; i < slice.length; i++) {
-    const d = slice[i]!;
-    const month = parseDateKey(d.date).getUTCMonth();
-    if (month === prevMonth) continue;
-    prevMonth = month;
-    const cellIndex = i + firstDow;
-    const col = Math.floor(cellIndex / 7);
-    const last = monthLabels[monthLabels.length - 1];
+    const d = slice[i]!
+    const month = parseDateKey(d.date).getUTCMonth()
+    if (month === prevMonth) continue
+    prevMonth = month
+    const cellIndex = i + firstDow
+    const col = Math.floor(cellIndex / 7)
+    const last = monthLabels[monthLabels.length - 1]
     if (!last || col - last.col >= 2) {
-      monthLabels.push({ col, label: MONTH_NAMES[month]! });
+      monthLabels.push({ col, label: MONTH_NAMES[month]! })
     }
   }
 
@@ -1620,9 +1491,9 @@ export function buildActivityGrid(
     weeks,
     startDate: slice[0]!.date,
     endDate: slice[slice.length - 1]!.date,
-  };
+  }
 }
 
 function parseDateKey(date: string): Date {
-  return new Date(`${date}T00:00:00.000Z`);
+  return new Date(`${date}T00:00:00.000Z`)
 }

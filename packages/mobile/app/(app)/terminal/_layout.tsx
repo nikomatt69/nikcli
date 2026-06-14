@@ -1,9 +1,9 @@
-import { Stack } from "expo-router";
-import { SettingsHeaderButton } from "@/components/layout/AppHeader";
-import { useAppTheme } from "@/lib/theme";
+import { Stack } from "expo-router"
+import { SettingsHeaderButton } from "@/components/layout/AppHeader"
+import { useAppTheme } from "@/lib/theme"
 
 export default function TerminalLayout() {
-  const { palette } = useAppTheme();
+  const { palette } = useAppTheme()
 
   return (
     <Stack
@@ -25,5 +25,5 @@ export default function TerminalLayout() {
         }}
       />
     </Stack>
-  );
+  )
 }
