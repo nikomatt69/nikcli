@@ -105,9 +105,7 @@ export default function RoutinesScreen() {
       ]}
     >
       <ActionButton label="New routine" onPress={() => router.push("/routines/new" as Href)} />
-      {error ? (
-        <ErrorBanner message={error} />
-      ) : null}
+      {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
 

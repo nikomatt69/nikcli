@@ -155,9 +155,7 @@ export default function LoopsScreen() {
       ]}
     >
       <ActionButton label="New loop" onPress={() => router.push("/loops/new" as Href)} />
-      {error ? (
-        <ErrorBanner message={error} />
-      ) : null}
+      {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
 

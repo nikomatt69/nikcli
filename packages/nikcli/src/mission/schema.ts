@@ -256,7 +256,9 @@ export function currentMilestone(def: MissionDefinition): MissionMilestone | und
 
 /** Features in a milestone whose deps are all `done`/`skipped` and which are still `pending`. */
 export function readyFeatures(milestone: MissionMilestone): MissionFeature[] {
-  const settled = new Set(milestone.features.filter((f) => f.status === "done" || f.status === "skipped").map((f) => f.id))
+  const settled = new Set(
+    milestone.features.filter((f) => f.status === "done" || f.status === "skipped").map((f) => f.id),
+  )
   return milestone.features.filter((f) => f.status === "pending" && f.dependsOn.every((d) => settled.has(d)))
 }
 
@@ -322,7 +324,8 @@ export const MISSION_TEMPLATES: MissionTemplate[] = [
     id: "research-synthesis",
     title: "Research & synthesis",
     description: "Explore several approaches, then synthesize a recommendation",
-    brief: "Investigate the problem from multiple angles, prototype the promising ones, and synthesize a recommendation.",
+    brief:
+      "Investigate the problem from multiple angles, prototype the promising ones, and synthesize a recommendation.",
   },
 ]
 
@@ -445,7 +448,9 @@ export function definitionFromGeneratedText(text: string): MissionDefinition {
           ...(typeof f.agent === "string" && f.agent.trim() ? { agent: f.agent } : {}),
           ...(typeof f.model === "string" && isValidModel(f.model) ? { model: f.model } : {}),
           ...(typeof f.tokenBudget === "number" ? { tokenBudget: f.tokenBudget } : {}),
-          ...(Array.isArray(f.dependsOn) ? { dependsOn: f.dependsOn.filter((d): d is string => typeof d === "string") } : {}),
+          ...(Array.isArray(f.dependsOn)
+            ? { dependsOn: f.dependsOn.filter((d): d is string => typeof d === "string") }
+            : {}),
         }))
       return {
         features,
@@ -455,8 +460,7 @@ export function definitionFromGeneratedText(text: string): MissionDefinition {
           : {}),
       }
     })
-  const models =
-    typeof v.models === "object" && v.models !== null ? (v.models as Record<string, unknown>) : undefined
+  const models = typeof v.models === "object" && v.models !== null ? (v.models as Record<string, unknown>) : undefined
   return definitionFromGenerated({
     brief: typeof v.brief === "string" ? v.brief : "",
     milestones,

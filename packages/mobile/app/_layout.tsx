@@ -1,104 +1,92 @@
-import "react-native-gesture-handler";
-import "@/global.css";
-import { useEffect, useRef } from "react";
-import {
-  Stack,
-  router,
-  usePathname,
-  useRootNavigationState,
-} from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "nativewind";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppState } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
-import { ServerProvider } from "@/lib/server-provider";
-import { useServer } from "@/lib/server-context";
-import { setupOfflineDrainOnForeground } from "@/lib/offline";
+import "react-native-gesture-handler"
+import "@/global.css"
+import { useEffect, useRef } from "react"
+import { Stack, router, usePathname, useRootNavigationState } from "expo-router"
+import { StatusBar } from "expo-status-bar"
+import { useColorScheme } from "nativewind"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { AppState } from "react-native"
+import { SafeAreaProvider } from "react-native-safe-area-context"
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary"
+import { ServerProvider } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
+import { setupOfflineDrainOnForeground } from "@/lib/offline"
 import {
   addNotificationNavigationListener,
   consumeInitialNotificationHref,
   reconcilePersistedLiveActivities,
-} from "@/lib/notifications";
-import { getAppPreferences } from "@/lib/storage";
-import { useUIStore } from "@/lib/store";
-import { ThemeProvider, useTheme } from "@/lib/theme";
+} from "@/lib/notifications"
+import { getAppPreferences } from "@/lib/storage"
+import { useUIStore } from "@/lib/store"
+import { ThemeProvider, useTheme } from "@/lib/theme"
 
-let pendingNotificationHref: string | null = null;
+let pendingNotificationHref: string | null = null
 
 function AuthGuard() {
-  const { config, ready, userToken, userLoading } = useServer();
-  const pathname = usePathname();
-  const rootNavigationState = useRootNavigationState();
+  const { config, ready, userToken, userLoading } = useServer()
+  const pathname = usePathname()
+  const rootNavigationState = useRootNavigationState()
 
   useEffect(() => {
-    if (!rootNavigationState?.key) return;
-    if (!ready || userLoading) return;
-    if (!config) return; // no server — index.tsx (connect screen) handles this
+    if (!rootNavigationState?.key) return
+    if (!ready || userLoading) return
+    if (!config) return // no server — index.tsx (connect screen) handles this
     // Don't redirect if already on login or connect screen
-    if (pathname === "/login" || pathname === "/" || pathname === "") return;
+    if (pathname === "/login" || pathname === "/" || pathname === "") return
     if (!userToken) {
-      router.replace("/login");
+      router.replace("/login")
     }
-  }, [
-    ready,
-    rootNavigationState?.key,
-    userLoading,
-    config,
-    userToken,
-    pathname,
-  ]);
+  }, [ready, rootNavigationState?.key, userLoading, config, userToken, pathname])
 
-  return null;
+  return null
 }
 
 function LiveActivityCoordinator() {
-  const { client } = useServer();
+  const { client } = useServer()
 
   useEffect(() => {
-    if (!client) return;
+    if (!client) return
 
-    let active = true;
+    let active = true
 
     const reconcile = () => {
-      if (!active) return;
+      if (!active) return
 
       void reconcilePersistedLiveActivities(async (sessionID) => {
-        if (!active) return null;
+        if (!active) return null
 
         try {
-          return await client.getSession(sessionID);
+          return await client.getSession(sessionID)
         } catch {
-          return null;
+          return null
         }
-      });
-    };
+      })
+    }
 
-    reconcile();
+    reconcile()
 
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") reconcile();
-    });
+      if (state === "active") reconcile()
+    })
 
     return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, [client]);
+      active = false
+      subscription.remove()
+    }
+  }, [client])
 
-  return null;
+  return null
 }
 
 function NotificationCoordinator() {
-  const { config, ready, userToken, userLoading } = useServer();
-  const rootNavigationState = useRootNavigationState();
+  const { config, ready, userToken, userLoading } = useServer()
+  const rootNavigationState = useRootNavigationState()
   const authStateRef = useRef({
     config,
     ready,
     userToken,
     userLoading,
-  });
+  })
 
   useEffect(() => {
     authStateRef.current = {
@@ -106,16 +94,16 @@ function NotificationCoordinator() {
       ready,
       userToken,
       userLoading,
-    };
-  }, [config, ready, userLoading, userToken]);
+    }
+  }, [config, ready, userLoading, userToken])
 
   useEffect(() => {
-    let active = true;
+    let active = true
 
     const navigateToNotification = (href: string) => {
-      if (!active || !href) return;
+      if (!active || !href) return
 
-      const authState = authStateRef.current;
+      const authState = authStateRef.current
       if (
         !rootNavigationState?.key ||
         !authState.ready ||
@@ -123,69 +111,62 @@ function NotificationCoordinator() {
         !authState.config ||
         !authState.userToken
       ) {
-        pendingNotificationHref = href;
-        return;
+        pendingNotificationHref = href
+        return
       }
 
-      pendingNotificationHref = null;
-      router.push(href as never);
-    };
+      pendingNotificationHref = null
+      router.push(href as never)
+    }
 
     void consumeInitialNotificationHref().then((href) => {
-      if (href) navigateToNotification(href);
-    });
+      if (href) navigateToNotification(href)
+    })
 
-    const cleanup = addNotificationNavigationListener(navigateToNotification);
+    const cleanup = addNotificationNavigationListener(navigateToNotification)
     return () => {
-      active = false;
-      cleanup();
-    };
-  }, [rootNavigationState?.key]);
+      active = false
+      cleanup()
+    }
+  }, [rootNavigationState?.key])
 
   useEffect(() => {
-    if (!rootNavigationState?.key) return;
-    if (
-      !pendingNotificationHref ||
-      !ready ||
-      userLoading ||
-      !config ||
-      !userToken
-    )
-      return;
+    if (!rootNavigationState?.key) return
+    if (!pendingNotificationHref || !ready || userLoading || !config || !userToken) return
 
-    const href = pendingNotificationHref;
-    pendingNotificationHref = null;
-    router.push(href as never);
-  }, [config, ready, rootNavigationState?.key, userLoading, userToken]);
+    const href = pendingNotificationHref
+    pendingNotificationHref = null
+    router.push(href as never)
+  }, [config, ready, rootNavigationState?.key, userLoading, userToken])
 
-  return null;
+  return null
 }
 
 export default function RootLayout() {
-  const { setColorScheme } = useColorScheme();
-  const hydratePreferences = useUIStore((state) => state.hydratePreferences);
-  const themeMode = useUIStore((state) => state.themeMode);
+  const { setColorScheme } = useColorScheme()
+  const hydratePreferences = useUIStore((state) => state.hydratePreferences)
+  const themeMode = useUIStore((state) => state.themeMode)
 
   useEffect(() => {
     getAppPreferences()
       .then(hydratePreferences)
-      .catch(() => undefined);
-    return setupOfflineDrainOnForeground();
-  }, [hydratePreferences]);
+      .catch(() => undefined)
+    return setupOfflineDrainOnForeground()
+  }, [hydratePreferences])
 
   useEffect(() => {
-    setColorScheme(themeMode);
-  }, [setColorScheme, themeMode]);
+    setColorScheme(themeMode)
+  }, [setColorScheme, themeMode])
 
   return (
     <ThemeProvider>
       <RootLayoutInner />
     </ThemeProvider>
-  );
+  )
 }
 
 function RootLayoutInner() {
-  const { colorScheme, palette } = useTheme();
+  const { colorScheme, palette } = useTheme()
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -214,14 +195,11 @@ function RootLayoutInner() {
               />
               <Stack.Screen name="(app)" options={{ headerShown: false }} />
               <Stack.Screen name="user" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="+not-found"
-                options={{ title: "Not found" }}
-              />
+              <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
             </Stack>
           </ServerProvider>
         </GlobalErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
-  );
+  )
 }

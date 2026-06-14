@@ -1,26 +1,21 @@
-import {
-  HttpApi,
-  HttpApiBuilder,
-  HttpApiEndpoint,
-  HttpApiGroup,
-} from "effect/unstable/httpapi";
-import { Effect, Layer, Schema } from "effect";
-import z from "zod";
-import { Bus } from "@/bus";
-import { Session } from "@/session";
-import { Storage } from "@/storage/storage";
-import { TuiEvent } from "@/cli/cmd/tui/event";
-import { TuiControlQueues } from "../routes/tui";
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { Effect, Layer, Schema } from "effect"
+import z from "zod"
+import { Bus } from "@/bus"
+import { Session } from "@/session"
+import { Storage } from "@/storage/storage"
+import { TuiEvent } from "@/cli/cmd/tui/event"
+import { TuiControlQueues } from "../routes/tui"
 
 export namespace TuiHttpApi {
   const BooleanResult = Schema.Boolean.annotate({
     identifier: "TuiBooleanResult",
-  });
-  const AnyPayload = Schema.Unknown;
+  })
+  const AnyPayload = Schema.Unknown
   const TuiRequest = Schema.Struct({
     path: Schema.String,
     body: Schema.Unknown,
-  }).annotate({ identifier: "TuiControlRequest" });
+  }).annotate({ identifier: "TuiControlRequest" })
 
   /** Payload validation failures mirror @hono/standard-validator: 400 with
    * `{ data, error, success: false }`. */
@@ -28,21 +23,21 @@ export namespace TuiHttpApi {
     data: Schema.Unknown,
     error: Schema.Unknown,
     success: Schema.Literal(false),
-  }).annotate({ identifier: "TuiValidationError", httpApiStatus: 400 });
+  }).annotate({ identifier: "TuiValidationError", httpApiStatus: 400 })
 
   const NotFound = Schema.Struct({
     name: Schema.Literal("NotFoundError"),
     data: Schema.Record(Schema.String, Schema.Unknown),
-  }).annotate({ identifier: "TuiNotFoundError", httpApiStatus: 404 });
+  }).annotate({ identifier: "TuiNotFoundError", httpApiStatus: 404 })
 
   function parseWith<T>(schema: z.ZodType<T>, payload: unknown) {
-    const parsed = schema.safeParse(payload);
-    if (parsed.success) return Effect.succeed(parsed.data);
+    const parsed = schema.safeParse(payload)
+    if (parsed.success) return Effect.succeed(parsed.data)
     return Effect.fail({
       data: payload,
       error: parsed.error.issues as unknown,
       success: false as const,
-    });
+    })
   }
 
   /** The execute-command alias table from the Hono route, kept verbatim. */
@@ -60,12 +55,10 @@ export namespace TuiHttpApi {
     messages_first: "session.first",
     messages_last: "session.last",
     agent_cycle: "agent.cycle",
-  };
+  }
 
   const publishCommand = (command: string) =>
-    Effect.promise(() =>
-      Bus.publish(TuiEvent.CommandExecute, { command: command as never }),
-    );
+    Effect.promise(() => Bus.publish(TuiEvent.CommandExecute, { command: command as never }))
 
   export const Group = HttpApiGroup.make("tui")
     .add(
@@ -144,79 +137,59 @@ export namespace TuiHttpApi {
         success: BooleanResult,
       }),
     )
-    .prefix("/tui");
+    .prefix("/tui")
 
-  export const Api = HttpApi.make("nikcli").add(Group);
+  export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.layer(Api);
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     appendPrompt: ({ payload }: { payload: unknown }) =>
       Effect.gen(function* () {
-        const body = yield* parseWith(
-          TuiEvent.PromptAppend.properties,
-          payload,
-        );
-        yield* Effect.promise(() => Bus.publish(TuiEvent.PromptAppend, body));
-        return true;
+        const body = yield* parseWith(TuiEvent.PromptAppend.properties, payload)
+        yield* Effect.promise(() => Bus.publish(TuiEvent.PromptAppend, body))
+        return true
       }),
-    openHelp: () =>
-      publishCommand("help.show").pipe(Effect.as(true), Effect.orDie),
-    openSessions: () =>
-      publishCommand("session.list").pipe(Effect.as(true), Effect.orDie),
-    openThemes: () =>
-      publishCommand("theme.switch").pipe(Effect.as(true), Effect.orDie),
-    openModels: () =>
-      publishCommand("model.list").pipe(Effect.as(true), Effect.orDie),
-    submitPrompt: () =>
-      publishCommand("prompt.submit").pipe(Effect.as(true), Effect.orDie),
-    clearPrompt: () =>
-      publishCommand("prompt.clear").pipe(Effect.as(true), Effect.orDie),
+    openHelp: () => publishCommand("help.show").pipe(Effect.as(true), Effect.orDie),
+    openSessions: () => publishCommand("session.list").pipe(Effect.as(true), Effect.orDie),
+    openThemes: () => publishCommand("theme.switch").pipe(Effect.as(true), Effect.orDie),
+    openModels: () => publishCommand("model.list").pipe(Effect.as(true), Effect.orDie),
+    submitPrompt: () => publishCommand("prompt.submit").pipe(Effect.as(true), Effect.orDie),
+    clearPrompt: () => publishCommand("prompt.clear").pipe(Effect.as(true), Effect.orDie),
     executeCommand: ({ payload }: { payload: unknown }) =>
       Effect.gen(function* () {
-        const body = yield* parseWith(
-          z.object({ command: z.string() }),
-          payload,
-        );
-        yield* publishCommand(commandAliases[body.command] as string);
-        return true;
+        const body = yield* parseWith(z.object({ command: z.string() }), payload)
+        yield* publishCommand(commandAliases[body.command] as string)
+        return true
       }),
     showToast: ({ payload }: { payload: unknown }) =>
       Effect.gen(function* () {
-        const body = yield* parseWith(TuiEvent.ToastShow.properties, payload);
-        yield* Effect.promise(() => Bus.publish(TuiEvent.ToastShow, body));
-        return true;
+        const body = yield* parseWith(TuiEvent.ToastShow.properties, payload)
+        yield* Effect.promise(() => Bus.publish(TuiEvent.ToastShow, body))
+        return true
       }),
     publish: ({ payload }: { payload: unknown }) =>
       Effect.gen(function* () {
         const record = payload as {
-          type?: unknown;
-          properties?: unknown;
-        } | null;
-        const def = Object.values(TuiEvent).find(
-          (item) => item.type === record?.type,
-        );
+          type?: unknown
+          properties?: unknown
+        } | null
+        const def = Object.values(TuiEvent).find((item) => item.type === record?.type)
         if (!def) {
           return yield* Effect.fail({
             data: payload,
             error: "unknown event type" as unknown,
             success: false as const,
-          });
+          })
         }
-        const body = yield* parseWith(
-          def.properties as z.ZodType<any>,
-          record?.properties,
-        );
-        yield* Effect.promise(() => Bus.publish(def, body as never));
-        return true;
+        const body = yield* parseWith(def.properties as z.ZodType<any>, record?.properties)
+        yield* Effect.promise(() => Bus.publish(def, body as never))
+        return true
       }),
     selectSession: ({ payload }: { payload: unknown }) =>
       Effect.gen(function* () {
-        const body = yield* parseWith(
-          TuiEvent.SessionSelect.properties,
-          payload,
-        );
-        const session = yield* Session.Service;
+        const body = yield* parseWith(TuiEvent.SessionSelect.properties, payload)
+        const session = yield* Session.Service
         yield* session.get(body.sessionID).pipe(
           Effect.catch((error) =>
             error instanceof Storage.NotFoundError
@@ -234,19 +207,17 @@ export namespace TuiHttpApi {
                 })
               : Effect.die(defect),
           ),
-        );
-        yield* Effect.promise(() =>
-          Bus.publish(TuiEvent.SessionSelect, { sessionID: body.sessionID }),
-        );
-        return true;
+        )
+        yield* Effect.promise(() => Bus.publish(TuiEvent.SessionSelect, { sessionID: body.sessionID }))
+        return true
       }),
     controlNext: () => Effect.promise(() => TuiControlQueues.request.next()),
     controlResponse: ({ payload }: { payload: unknown }) =>
       Effect.sync(() => {
-        TuiControlQueues.response.push(payload);
-        return true;
+        TuiControlQueues.response.push(payload)
+        return true
       }),
-  };
+  }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "tui", (builder) =>
     builder
@@ -262,15 +233,10 @@ export namespace TuiHttpApi {
       .handle("publish", (request) => handlers.publish(request))
       .handle("selectSession", (request) => handlers.selectSession(request))
       .handle("controlNext", () => handlers.controlNext())
-      .handle("controlResponse", (request) =>
-        handlers.controlResponse(request),
-      ),
-  );
+      .handle("controlResponse", (request) => handlers.controlResponse(request)),
+  )
 
-  export const DependenciesLive = Session.defaultLayer;
+  export const DependenciesLive = Session.defaultLayer
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  );
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

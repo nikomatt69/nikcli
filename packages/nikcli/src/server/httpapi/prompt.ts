@@ -45,7 +45,9 @@ export namespace HttpApiPrompt {
     )
   }
 
-  async function parse(request: Request): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; response: Response }> {
+  async function parse(
+    request: Request,
+  ): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; response: Response }> {
     const raw = await request.json().catch(() => undefined)
     const parsed = PromptBody.safeParse(raw)
     if (!parsed.success) {

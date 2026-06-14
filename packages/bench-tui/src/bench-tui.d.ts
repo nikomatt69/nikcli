@@ -1,1 +1,1 @@
-export function runBenchTUI(): Promise<number>;
+export function runBenchTUI(): Promise<number>

@@ -169,8 +169,20 @@ export namespace SessionHttpApi {
     .add(HttpApiEndpoint.get("list", "/", { query: ListQuery, success: SessionList }))
     .add(HttpApiEndpoint.post("create", "/", { payload: CreatePayload, success: SessionInfo }))
     .add(HttpApiEndpoint.get("status", "/status", { success: SessionStatusMap }))
-    .add(HttpApiEndpoint.get("get", "/:sessionID", { params: SessionIDPath, success: SessionInfo, error: [NotFound, Busy] }))
-    .add(HttpApiEndpoint.delete("remove", "/:sessionID", { params: SessionIDPath, success: BooleanResult, error: [NotFound, Busy] }))
+    .add(
+      HttpApiEndpoint.get("get", "/:sessionID", {
+        params: SessionIDPath,
+        success: SessionInfo,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("remove", "/:sessionID", {
+        params: SessionIDPath,
+        success: BooleanResult,
+        error: [NotFound, Busy],
+      }),
+    )
     .add(
       HttpApiEndpoint.patch("update", "/:sessionID", {
         params: SessionIDPath,
@@ -196,7 +208,13 @@ export namespace SessionHttpApi {
         error: [NotFound, Busy],
       }),
     )
-    .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo, error: [NotFound, Busy] }))
+    .add(
+      HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", {
+        params: SessionIDPath,
+        success: SessionInfo,
+        error: [NotFound, Busy],
+      }),
+    )
     .add(
       HttpApiEndpoint.post("share", "/:sessionID/share", {
         params: SessionIDPath,
@@ -243,8 +261,20 @@ export namespace SessionHttpApi {
         error: [NotFound, Busy],
       }),
     )
-    .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList, error: [NotFound, Busy] }))
-    .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList, error: [NotFound, Busy] }))
+    .add(
+      HttpApiEndpoint.get("children", "/:sessionID/children", {
+        params: SessionIDPath,
+        success: SessionList,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("todo", "/:sessionID/todo", {
+        params: SessionIDPath,
+        success: TodoList,
+        error: [NotFound, Busy],
+      }),
+    )
     .add(
       HttpApiEndpoint.get("diff", "/:sessionID/diff", {
         params: SessionIDPath,
