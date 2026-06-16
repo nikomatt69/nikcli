@@ -153,6 +153,9 @@ export namespace SessionProcessor {
 
   function createImpl(input: CreateInput) {
     const toolcalls: Record<string, MessageV2.ToolPart> = {}
+    // Last raw length we published a live generative-TUI update for, per tool call.
+    // Throttles `opentui` tool-input streaming so we don't republish every token.
+    const vizPublishedLen: Record<string, number> = {}
     let snapshot: string | undefined
     let blocked = false
     let attempt = 0
@@ -248,7 +251,10 @@ export namespace SessionProcessor {
               input.abort.throwIfAborted()
               switch (value.type) {
                 case "start":
-                  await setStatus(input.sessionID, { type: "busy", since: Date.now() })
+                  await setStatus(input.sessionID, {
+                    type: "busy",
+                    since: Date.now(),
+                  })
                   break
 
                 case "reasoning-start":
@@ -288,7 +294,10 @@ export namespace SessionProcessor {
                     }
                     if (value.providerMetadata) part.metadata = value.providerMetadata
                     // Flush and publish update so UI can stop spinner
-                    Bus.publish(MessageV2.Event.PartUpdated, { part, delta: "" })
+                    Bus.publish(MessageV2.Event.PartUpdated, {
+                      part,
+                      delta: "",
+                    })
                     await coalescer.flushNow(["part", part.messageID, part.id]).catch(() => {})
                     delete reasoningMap[value.id]
                   }
@@ -314,11 +323,58 @@ export namespace SessionProcessor {
                   break
                 }
 
-                case "tool-input-delta":
+                case "tool-input-delta": {
+                  // Real-time generative TUI: stream the partial JSON of the
+                  // `opentui` tool args so the UI can render components as they
+                  // complete. Strictly gated to that one tool — every other tool
+                  // keeps the cheap no-op path, so normal streaming is untouched.
+                  // We clone (never mutate the live part), skip the disk write
+                  // entirely (the v2 projector only persists tool parts on status
+                  // changes, so all "pending"-state publishes ride the bus without
+                  // hitting the DB), and throttle publishes to avoid a per-token
+                  // storm.
+                  const existing = toolcalls[value.id]
+                  if (existing && existing.tool === "opentui" && existing.state.status === "pending") {
+                    const raw = (existing.state.raw ?? "") + (value.delta ?? "")
+                    const next = {
+                      ...existing,
+                      state: { ...existing.state, raw },
+                    } as MessageV2.ToolPart
+                    toolcalls[value.id] = next
+                    // Publish at most once per ~24 chars of growth — smooth enough
+                    // for incremental rendering, cheap enough to never thrash.
+                    if (raw.length - (vizPublishedLen[value.id] ?? 0) >= 24) {
+                      vizPublishedLen[value.id] = raw.length
+                      Bus.publish(MessageV2.Event.PartUpdated, {
+                        part: next,
+                        delta: "",
+                      })
+                    }
+                  }
                   break
+                }
 
-                case "tool-input-end":
+                case "tool-input-end": {
+                  // Flush the final partial state for the opentui tool so the
+                  // last few streamed components are visible before the tool
+                  // transitions to "running" — the throttled publish above only
+                  // fires on ~24-char boundaries, so a short tail can otherwise
+                  // be swallowed and the user sees a static snapshot freeze.
+                  const existing = toolcalls[value.id]
+                  if (
+                    existing &&
+                    existing.tool === "opentui" &&
+                    existing.state.status === "pending" &&
+                    (vizPublishedLen[value.id] ?? 0) < existing.state.raw.length
+                  ) {
+                    vizPublishedLen[value.id] = existing.state.raw.length
+                    Bus.publish(MessageV2.Event.PartUpdated, {
+                      part: existing,
+                      delta: "",
+                    })
+                  }
                   break
+                }
 
                 case "tool-call": {
                   const match = toolcalls[value.toolCallId]
@@ -485,7 +541,10 @@ export namespace SessionProcessor {
                     await runCompaction(
                       Effect.gen(function* () {
                         const compaction = yield* SessionCompaction.Service
-                        return yield* compaction.isOverflow({ tokens: usage.tokens, model: input.model })
+                        return yield* compaction.isOverflow({
+                          tokens: usage.tokens,
+                          model: input.model,
+                        })
                       }),
                     )
                   ) {
@@ -541,7 +600,10 @@ export namespace SessionProcessor {
                     }
                     if (value.providerMetadata) textPart.metadata = value.providerMetadata
                     // Flush and publish update so UI can update stats
-                    Bus.publish(MessageV2.Event.PartUpdated, { part: textPart, delta: "" })
+                    Bus.publish(MessageV2.Event.PartUpdated, {
+                      part: textPart,
+                      delta: "",
+                    })
                     await coalescer.flushNow(["part", textPart.messageID, textPart.id]).catch(() => {})
                   }
                   currentText = undefined
@@ -559,7 +621,9 @@ export namespace SessionProcessor {
               if (needsCompaction) break
             }
           } catch (e: any) {
-            const error = MessageV2.fromError(e, { providerID: input.model.providerID })
+            const error = MessageV2.fromError(e, {
+              providerID: input.model.providerID,
+            })
             if (input.abort.aborted || isAbortError(e)) {
               input.assistantMessage.error = error
               break

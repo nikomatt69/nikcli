@@ -57,7 +57,7 @@ import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
 import type { MonitorTool } from "@/tool/monitor"
 import type { QuestionTool } from "@/tool/question"
-import type { OpenTUIVizTool } from "@/tool/opentui"
+import { normalizeVizComponents, type OpenTUIVizTool } from "@/tool/opentui"
 import type { LSP } from "@/lsp"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
@@ -91,7 +91,8 @@ import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
-import { DialogOpenTUIViz } from "@tui/component/dialog-opentui-viz"
+import { DialogOpenTUIViz, Renderer as VizRenderer } from "@tui/component/dialog-opentui-viz"
+import { compilePartialSpec } from "@tui/util/spec-stream"
 import { TuiImageList } from "@tui/component/tui-image"
 import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
@@ -2529,6 +2530,43 @@ function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
     return Array.isArray(c) ? c.length : 0
   })
 
+  // Real-time generative TUI: while the tool arguments are still streaming, the
+  // raw JSON accumulates on the pending part. Compile it into a best-effort spec
+  // so completed components render incrementally as the model emits them. We also
+  // bridge the brief "running" window (after tool-call, before tool-result) by
+  // using the now-parsed input — otherwise the user sees the streamed components
+  // disappear into a generic "Generating visualization…" placeholder for the
+  // lifetime of the tool.
+  const live = createMemo(() => {
+    if (props.output !== undefined) return undefined
+    const state = props.part.state as {
+      status: string
+      raw?: string
+      input?: unknown
+    }
+    if (state.status === "pending") {
+      const raw = state.raw
+      if (!raw) return undefined
+      const partial = compilePartialSpec(raw)
+      return partial.components.length > 0 || partial.title ? partial : undefined
+    }
+    if (state.status === "running") {
+      const parsed = (state.input ?? props.input) as
+        | { title?: string; subtitle?: string; components?: unknown }
+        | undefined
+      if (!parsed) return undefined
+      const components = normalizeVizComponents(parsed.components)
+      if (components.length === 0 && !parsed.title) return undefined
+      return {
+        title: typeof parsed.title === "string" ? parsed.title : "",
+        subtitle: typeof parsed.subtitle === "string" ? parsed.subtitle : undefined,
+        components,
+        streaming: false,
+      }
+    }
+    return undefined
+  })
+
   const openViz = () => {
     const s = spec()
     if (!s) return
@@ -2557,6 +2595,40 @@ function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
             </text>
           </box>
         </BlockTool>
+      </Match>
+      <Match when={live()}>
+        {(partial) => (
+          <box
+            border
+            borderColor={theme.accent ?? theme.primary}
+            paddingLeft={1}
+            paddingRight={1}
+            gap={1}
+            flexDirection="column"
+          >
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={theme.accent ?? theme.primary} attributes={TextAttributes.BOLD} flexGrow={1}>
+                ◈ {partial().title || "Visualization"}
+              </text>
+              <text fg={theme.warning ?? theme.accent}>● {partial().streaming ? "generating" : "rendering"}</text>
+            </box>
+            <VizRenderer spec={partial()} loading={partial().streaming} />
+            <Show
+              when={partial().streaming}
+              fallback={
+                <text fg={theme.textMuted}>
+                  {partial().components.length} component
+                  {partial().components.length === 1 ? "" : "s"} ready…
+                </text>
+              }
+            >
+              <text fg={theme.textMuted}>
+                {partial().components.length} component
+                {partial().components.length === 1 ? "" : "s"} streamed…
+              </text>
+            </Show>
+          </box>
+        )}
       </Match>
       <Match when={true}>
         <InlineTool icon="◈" pending="Generating visualization..." complete={input?.title} part={props.part}>

@@ -1291,6 +1291,30 @@ dialog.setSize("medium" | "large" | "xlarge")  // max 60/88/116 chars
 | `<spinner>`   | Loading animation    | `frames`, `interval`, `color`                                                                         |
 | `<flex>`      | Flex row helper      | `gap`, `alignItems`, `justifyContent`                                                                 |
 
+### Generative TUI (json-render for OpenTUI)
+
+A faithful port of [json-render](https://json-render.dev/docs)'s three layers onto
+OpenTUI — the model emits a visualization spec and the TUI assembles itself as it
+streams. Full design in `specs/generative-tui.md`.
+
+| json-render | nikcli | Where |
+| --- | --- | --- |
+| **Catalog** (`defineCatalog` → `prompt`/`validate`/`zodSchema`/`jsonSchema`/`componentNames`) | `VizCatalog` (+ `VIZ_COMPONENT_TYPES`, `VizSpecZod`, `decodeVizComponent`, `normalizeVizComponents`) | `src/tool/opentui.ts` |
+| **Registry / Renderer** (`defineRegistry`, `createRenderer`, `<Renderer spec registry loading />`) | `VizRegistry`, `defaultVizRegistry`, `createVizRenderer`, `<Renderer>`, `ComponentRenderer` (registry lookup via context + per-component `ErrorBoundary`) | `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` |
+| **SpecStream compiler** (`push`/`getResult`/`getPatches`/`reset`) | `createSpecStreamCompiler` (adds `pushObject`/`finalize`/`snapshot`; emits RFC-6902-flavored `VizPatch[]`) | `src/cli/cmd/tui/util/spec-stream.ts` |
+
+- **20 catalog components** (text, markdown, code, diff, alert, table, key_value,
+  tree, stat, stat_grid, bar_chart, line_chart, histogram, heatmap, gauge,
+  progress_bars, timeline, status_grid, section, grid).
+- **Two drive paths**: (1) the agent's `opentui` tool — `session/processor.ts`
+  accumulates streaming tool-input JSON onto `part.state.raw` (gated to `opentui`,
+  no disk write, throttled ~24 chars), rendered live by `OpenTUIViz` in
+  `routes/session/index.tsx`; (2) standalone `streamGenerativeTui` +
+  `<LiveViz />` (`util/generate-viz.ts`).
+- **Crash-safety**: `ComponentRenderer` wraps each render in an `ErrorBoundary`
+  so a half-streamed component degrades to a `⚠ <type> unavailable` placeholder,
+  never crashing the TUI.
+
 ### TUI State Management Patterns
 
 **Pattern 1: `createSimpleContext` factory (context/helper.tsx)**
@@ -3565,3 +3589,431 @@ Recently merged to `live-main`: #97, #96.
 9. **Terminal/browser compat gaps**: CLI is not actually browser-runnable (top-level imports use `process`/`Bun`/signals/exit/fs/spawn). No conditional exports for `browser` vs `node` in SDK. Needs runtime adapter layer for true cross-environment support.
 
 10. **OpenCode reference patterns studied**: The OpenCode project (`anomalyco/opencode` `dev` branch) uses similar Effect-based DB service pattern with `EffectDrizzleSqlite` + custom `sqlite.bun.ts` `SqliteClient`. Nikcli adopts the same pattern but with hand-rolled SQLite adapter.
+
+## Brain Pass (2026-06-15)
+
+### Four Parallel Deep-Dives: Tool, Agent, Server/Storage/SDK, TUI Debugging
+
+Today's main session `ses_1337a40a8ffeQ50QP331G9bLvg` (and the parallel analysis `ses_1339d8a9cffem7Eh39qYb0ANd1`) launched 3-4 parallel `@explore` agents for exhaustive read-only audits of the major subsystems. The intent was a follow-up to the 2026-06-14 four-report walkthrough with deeper, more focused investigation per area.
+
+**Worker sessions**:
+
+| #   | Topic                                            | Worker session                   |
+| --- | ------------------------------------------------ | -------------------------------- |
+| 1   | Tool System (define, registry, execution flow)   | `ses_1339cdbefffe4k0w6P0B2MpM4q` |
+| 2   | Agent System (subagents, task, dispatch)         | `ses_1339c7decffe3gfDhIYpCua1uv` |
+| 3   | Server + Storage + SDK (Hono, Bus, SDK build)    | `ses_1339c4b74ffdw0oiWXRG5thzk4` |
+| 4   | TUI debugging (opentui tool schema bug)          | `ses_1337a40a8ffeQ50QP331G9bLvg` |
+
+**Supervisor finalization notes**: All 4 reports delivered via `Action: finalize` despite 10-minute timeouts. Two follow-up `@explore` agents (`ses_13388ac0effeBmfkr3XBE558pu`, `ses_133842e8affeekNHppG0oX6LId`) retrieved truncated tail sections of the Agent and Server reports from disk artifacts at `~/.local/share/nikcli/tool-output/tool_ecc7*`.
+
+### Real-Time Codebase Numbers (as of 2026-06-15)
+
+Confirmed via direct file count + line count:
+
+```
+44 tools  ·  19 agents  ·  260 endpoints  ·  99 unique paths
+66 bus events  ·  21 route files
+```
+
+**Note on count correction**: The 2026-06-14 audit reported "319 endpoints / 99 paths" — the more recent 2026-06-15 report says **260 unique operations across 99 unique paths**. The discrepancy is unverified but the 2026-06-15 measurement is more recent and explicitly cites `openapi.json` (811 KB).
+
+### Tool System — Deep-Dive Findings (2026-06-15)
+
+**File tree `src/tool/`** (consolidated, one-line per file):
+
+```
+src/tool/
+├── tool.ts                # Tool namespace: define()/Info/Def/Context types, Effect→Promise wrapper, validation + truncation
+├── registry.ts            # ToolRegistry Effect service: list/resolve/init tools, plugin/folder discovery, model-gated filtering
+├── external-directory.ts  # assertExternalDirectory(ctx, target) — gates paths outside Instance.worktree behind a permission ask
+├── truncation.ts          # Truncate service: head/tail truncate >MAX_LINES(2000)/MAX_BYTES(50KB), spills to disk; 7-day retention
+├── truncation-dir.ts      # DIR + GLOB constants + outputPath() for truncated tool output files
+├── invalid.ts             # "invalid" sink tool — emitted when AI SDK repairToolCall fails
+│
+├── bash.ts                # bash: shell-spawn (Bun.spawn via spawn()), tree-sitter parse for permission signals, timeout/abort
+├── monitor.ts             # monitor: persistent background-job runner (long-running typecheck/builds/tests/dev servers)
+├── edit.ts                # edit: string→string file replace with diff + 3-replacer fallback (exact/line-trimmed/levenshtein)
+├── write.ts               # write: full file overwrite, runs LSP diagnostics post-write
+├── multiedit.ts           # multiedit: sequential edit() calls in one tool_use
+├── apply_patch.ts         # apply_patch: Anthropic-style `*** Begin Patch`; only enabled for non-OSS gpt-* models
+├── read.ts                # read: file/dir read, line-numbered output, image/PDF base64 attach, binary detection
+├── ls.ts                  # list: directory listing w/ ignore globs (exports IGNORE_PATTERNS)
+├── tree.ts                # tree: hierarchical tree output with size/depth/hide controls
+├── glob.ts                # glob: bun.Glob pattern matching
+├── grep.ts                # grep: FFF/SearchBackend regex search with hit formatting
+│
+├── webfetch.ts            # HTTP fetch + Turndown HTML→Markdown; 5MB cap, 30s/120s timeout
+├── websearch.ts           # Exa MCP wrapper (web_search_exa); gated on nikcli provider or NIKCLI_ENABLE_EXA
+├── codesearch.ts          # Exa MCP get_code_context_exa; same gating as websearch
+├── mcp-exa.ts             # callTool(): raw JSON-RPC client to https://mcp.exa.ai/mcp
+│
+├── task.ts                # delegates to subagents (foreground/background), Semaphore(5), Delegation manager
+├── delegation.ts          # list/read/cancel/count running subagent jobs in current session
+├── delegator.ts           # status/progress/summarize for a delegation id
+├── advisor.ts             # fire-and-forget strategic guidance via separate "advisor" model
+│
+├── context_collect.ts     # collect file contents + LSP symbols/diagnostics
+├── context_related.ts     # parse imports, resolve related files
+├── context_diagnostics.ts # LSP errors across the project
+├── memory_search.ts       # full-text + recency search across past session messages
+├── generate_image.ts      # experimental_generateImage (gpt-5-image, nano-banana)
+│
+├── batch.ts               # parallel multi-tool dispatcher (max 25 calls); plan-mode read-only enforcement
+├── exec_code.ts           # in-sandbox JS/TS execution with auto-bridged tool globals
+│
+├── skill.ts               # discover + load named skills, mutate session.skills[]
+├── plan.ts                # plan_enter / plan_exit: switch primary agent between build and plan
+├── question.ts            # in-stream multi-choice Q&A (gated to non-CLI clients)
+├── lsp.ts                 # goToDefinition/findReferences/hover/… LSP operations (experimental flag)
+│
+├── repo_clone.ts          # clone or update a github/ssh/local repo
+├── repo_overview.ts       # top-level entries + sample files of a repo
+├── search_tools.ts        # substring-search the registered tool id list
+│
+├── speak.ts               # TTS via openrouter / elevenlabs providers
+├── voice.ts               # STT transcription via openrouter
+├── opentui.ts             # render OpenTUI/JSX components (text, chart, table, panel, ...)
+│
+├── speak/                 # speak provider registry (elevenlabs, openrouter)
+└── *.txt                  # tool description strings; loaded via `import DESCRIPTION from "./<name>.txt"`
+```
+
+**`Tool.define()` signature** (`src/tool/tool.ts:9-179`):
+
+```ts
+export namespace Tool {
+  export function define<Parameters extends z.ZodType, M extends Metadata>(
+    id: string,
+    init:
+      | ((ctx?: InitContext) => Promise<AuthoredDef<Parameters, M>>)  // factory form
+      | AuthoredDef<Parameters, M>,                                  // literal form
+  ): Info<Parameters, M>
+}
+```
+
+Type hierarchy:
+
+| Type                | File:line       | What it is                                                                          |
+| ------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `Tool.Info`         | `tool.ts:81`    | Registry entry: `{ id: string; init(ctx?) => Promise<Def> }`                        |
+| `Tool.AuthoredDef`  | `tool.ts:74`    | Tool author body: `{ description, parameters, execute, formatValidationError? }`     |
+| `Tool.Def`          | `tool.ts:51`    | Wrapped (Effect-native): `{ description, parameters, execute → Effect, executeAsync → Promise }` |
+| `Tool.Context`      | `tool.ts:28`    | `{ sessionID, messageID, agent, abort: AbortSignal, callID?, extra?, messages?, metadata, ask }` |
+| `Tool.Result`       | `tool.ts:40`    | `{ title, metadata, output, attachments? }`                                         |
+| `Tool.InitContext`  | `tool.ts:24`    | `{ agent?: Agent.Info }`                                                            |
+
+**Tool registry initialization flow** (`src/tool/registry.ts`):
+
+- `ToolRegistry.Service` is an Effect `Service` (`@nikcli/ToolRegistry`) backed by `InstanceState`
+- `all()` (lines 223-271) hardcodes the order: `InvalidTool, ...{conditionals}`
+- `all()` returns the **complete built-in tool list** — MCP tools merged in at `tools.ts:203-208` via `MCP.Service.tools()`
+- **Model-gated filtering** (`registry.ts:300-303`):
+  - `apply_patch` vs `edit`/`write` decided per-model: GPT (except `oss` and `gpt-4`) get `apply_patch`; others get `edit`/`write`
+  - `codesearch` and `websearch` only enabled for `nikcli` provider or when `Flag.NIKCLI_ENABLE_EXA` is true
+  - `slim` mode: only `["bash", "read", "glob", "grep", "tree", "edit", "write", "task", "search_tools"]` (line 279)
+- Plugin tool discovery + custom tools from `{tool,tools}/*.{js,ts}` in config dirs
+
+### Agent System — Deep-Dive Findings (2026-06-15)
+
+**File**: `src/agent/agent.ts` (now 1026 lines — was 919 in 2026-06-08, +107 lines)
+
+**Key facts** (newly confirmed or expanded):
+
+- **No `Agent.define()`** — unlike `Tool.define()`, there is no factory function. Built-in agents are plain object literals in `buildState()` (lines 157-883). Closest "runtime registration" is `ToolRegistry.register` for tools, not agents.
+- **Dual prompt system**: inline strings for most agents (`ralph`, `build`, `plan`, `general`, `planner`, `debugger`, `refactor`, `support`, `test-runner`, `code-reviewer`, `fast-explore`, `researcher`); external `prompt/*.txt` files for content-heavy ones (`compaction`, `explore`, `scout`, `summary`, `title`, `delegation`, `delegator`, `ultrareview-reviewer`). No "prompt.md" convention.
+- **Agent config layering** (precedence low→high): defaults → `cfg.default_agent` → `--agent` CLI flag → per-agent `cfg.agent.<name>` overrides
+- **`SUBAGENT_TOOLSETS`** (lines 98-139) is documentation only — tests assert against it (`test/agent/schema.test.ts:25-43`) but runtime tool gating comes from each agent's `permission` array and `ToolRegistry.tools()` (line 281). The two are not always in sync (e.g., `scout` and `general`).
+
+**Primary agents** (3 visible + 3 hidden):
+
+| Agent          | Mode     | Hidden | Notes                                                                                   |
+| -------------- | -------- | ------ | --------------------------------------------------------------------------------------- |
+| `ralph`        | primary  | no     | Autonomous loop, full permissions, allows `question`                                    |
+| `build`        | primary  | no     | All tools, allows `plan_enter`, `question`. Inline prompt with `MONITOR_TOOL_AWARENESS`  |
+| `plan`         | primary  | no     | Edit denied except `.nikcli/plans/*.md` + `Global.Path.data/plans/`. Allows `plan_exit`  |
+| `compaction`   | primary  | yes    | `compaction.txt`. `*`: deny                                                             |
+| `title`        | primary  | yes    | `title.txt`. temperature 0.5. `*`: deny                                                 |
+| `summary`      | primary  | yes    | `summary.txt`. `*`: deny                                                                |
+
+**`task` tool quirks** (10.1–10.15 from the Agent report, preserved verbatim):
+
+1. **No `Agent.define()`** (confirmed again at 2026-06-15).
+2. **`SUBAGENT_TOOLSETS` is documentation only**.
+3. **Nested delegation limits**: `task` filters out `mode: "primary"` at line 1128 → `ralph`/`build`/`plan`/`compaction`/`title`/`summary` can't be invoked via `task`. `delegator` has `task: "allow"` in permission but its `prompt` sets `task: false` (line 745) — the LLM never sees the `task` tool; follow-up spawning is done by the dispatcher in `launchBackgroundSubtask` (lines 762-815), not by the delegator LLM. `researcher` can only delegate to `fast-explore` and `planner`; recursively to `researcher` is denied (line 432-437).
+4. **All subagent sessions** get `todowrite` and `todoread: deny` from `buildSubtaskPermission` (line 380-389).
+5. **Concurrency bound**: `Semaphore(5)` (`MAX_CONCURRENT_BACKGROUND_AGENTS = 5`, line 26). 6th simultaneous `task` waits.
+6. **Model inheritance**: subagents don't have their own `model`; inherit parent via `task.ts:973` (`agent.model ?? msg.info.modelID/providerID`). `cfg.agent.<name>.model` overrides. `compaction` and `title` agents have implicit special handling (`compaction.ts:236-238`, `prompt.ts:2286-2293` for title's `providerGetSmallModel`).
+7. **Default primary agent**: `Agent.defaultAgent()` (line 925-942) picks `cfg.default_agent` if set, visible, not subagent. Otherwise the first non-subagent, non-hidden agent, with `build` sorted to the top (line 917: `sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"])`).
+8. **Researcher dedup**: a 2nd `researcher` task while one is running for the same parent returns the first's metadata with `reused: true` (line 910-935).
+9. **`task.txt` description replacement**: the `{agents}` placeholder in `src/tool/task.txt:3` is dynamically replaced at tool init (line 1135-1140), filtered by caller's permissions.
+10. **`bypassAgentCheck` is a security boundary** (comment at `task.ts:881-883`): only set by internal system code, never derived from user-controllable data. Set in `session/prompt.ts:810` when a `task` tool call comes from a model's tool-use part (model-subtask).
+11. **Background default + foreground path exists**: `background` defaults to `true` (line 39). Foreground path (`background: false`) at lines 1040-1124 still implemented, blocks until subagent finishes, subscribes to `MessageV2.Event.PartUpdated` for live tool UI.
+12. **Wake-up via synthetic user message**: `wakeParentSession` (line 575-626) directly calls `SessionPrompt.prompt()` on parent (line 610-615). The `delegation` tool's `read` action is for getting the full artifact *before* the wake arrives.
+13. **Timeouts per source**: `Delegation.TIMEOUTS` (line 118-128) — `research` 20 min, `advisor` 5 min, `delegator`/`delegator-followup` 10 min, `model-subtask` 10 min, others 15 min. Heartbeat refreshes lease every `LEASE_TIMEOUT_MS / 3` (line 358).
+14. **MCP tools also registered**: beyond `ToolRegistry.all()`, MCP tools merged in at `tools.ts:203-208` via `MCP.Service.tools()`.
+15. **`Tool.Context` is per-call**: built fresh by `context(args, options)` factory in `tools.ts:106-138` with the current `sessionID`, `messageID`, `callID`, `agent`, `model`, `bypassAgentCheck`, `metadata()`, `ask()`.
+
+**Defaults** (`src/agent/agent.ts:157-175`):
+
+```ts
+const defaults = PermissionNext.fromConfig({
+  "*": "allow",
+  doom_loop: "ask",
+  external_directory: { "*": "ask", [Truncate.DIR]: "allow", [Truncate.GLOB]: "allow" },
+  question: "deny",
+  plan_enter: "deny",
+  plan_exit: "deny",
+  read: { "*": "allow", "*.env": "ask", "*.env.*": "ask", "*.env.example": "allow" },
+})
+```
+
+### Server + Storage + SDK — Confirmed Architecture (2026-06-15)
+
+**Server** (`packages/nikcli/src/server/server.ts`, 1192 lines):
+
+- **HTTP framework**: Hono with `websocket`, `cors`, `basicAuth`, `streamSSE`, `hono/proxy`, `hono-openapi` (`describeRoute`, `generateSpecs`, `validator`, `resolver`, `openAPIRouteHandler`)
+- **Runtime**: Bun. `Bun.serve({ hostname, port, idleTimeout: 0, fetch: App().fetch, websocket })` (`server.ts:1137-1149`)
+- **Default port**: `4096` (`server.ts:177` `new URL("http://localhost:4096")`). When `opts.port === 0` tries 4096 first, then 0.
+- **App construction** wrapped in `lazy()` (`server.ts:181`) — breaks import cycle with route files.
+- **CORS** (`server.ts:355-402`): loopback + `http://*.local` + Tauri/Capacitor/Expo schemes + `https://*.ts.net` (Tailscale) + `https://*.nikcli.store` + `NIKCLI_SERVER_CORS_ORIGINS` env + opts
+- **Auth chain** (`server.ts:285-337`):
+  - Public bypass: `/user/login`, `/user/register`, `/user/status`, `GET /global/health`, OPTIONS
+  - **Bearer + query-token** (mobile): `MobileAuth.bearer(c.req.raw) || c.req.query("token")` (`server.ts:303`)
+  - **Tailscale**: only trusted if bound to loopback; honors `Tailscale-User-Login` header + `NIKCLI_SERVER_TAILSCALE_USERS` csv
+  - **Basic auth**: `basicAuth({ username, password })` where `password = Flag.NIKCLI_SERVER_PASSWORD`
+- **Request logging** middleware: `log.info("request", ...)` + `log.time("request", ...)` for every path except `/log` (`server.ts:338-354`)
+- **Instance/workspace context** middleware (`server.ts:404-444`): resolves `directory` from `?directory` → `x-nikcli-directory` header → `process.cwd()`; resolves `workspace` similarly; if workspace is `remote`, **proxies the request** via `ServerProxy.http()` / `ServerProxy.websocket()` (`server.ts:428-432`); otherwise `WorkspaceContext.provide({ ...})` + `withInstanceAsync({ directory, init: InstanceBootstrap }, ...)`
+- **HTTP API bridge** (experimental, opt-in via `Flag.NIKCLI_EXPERIMENTAL_HTTPAPI`): `server.ts:467-472` forwards through `HttpApiBridge.handle()`. Effect-schema alternative backend in `server/httpapi/`.
+- **OpenAPI**: GET `/doc` returns generated `openapi.json` (lines 445-457 + `openapi()` line 1107-1120)
+- **Wildcard fallback**: `app.all("/*", ...)` proxies unmatched paths to `https://app.nikcli.store{path}` with relaxed CSP (line 1089-1103)
+- **mDNS**: `MDNS.publish(server.port!)` when `opts.mdns === true` and not loopback (`server.ts:1155-1165`); unpublish hooked into wrapped `server.stop` (`server.ts:1182-1187`)
+
+**Storage layer** (`packages/nikcli/src/storage/storage.ts`, 444 lines):
+
+- **Hybrid backend**: filesystem JSON (legacy, still in use) + **central SQLite via Drizzle ORM (Bun driver)** — confirmed for sessions (`Database.syncDb`)
+- **Storage namespace** operations: `read`, `write`, `update`, `remove`, `list`
+- **Key format**: `["collection", "id1", "id2"]` → `storage/collection/id1/id2.json`
+- **Read-through cache**: 5s TTL (`DEFAULT_TTL_MS = 5000`); `Cache.get()` returns undefined on miss/expired, auto-deletes; `Cache.set()` with optional TTL; `invalidate(key)` / `invalidatePrefix(prefix)`
+- **Write-through**: all write/update calls `Cache.set()` after file write
+- **`update()` uses `structuredClone`** for draft copy (handles circular refs, BigInt, Date, Typed arrays)
+- **Two lock types**: `Lock` (in-memory reader-writer, single-process), `Flock` (file-based distributed with lease, for cross-process)
+- **`Storage.NotFoundError`**: thrown via `withErrorHandling` on ENOENT; other errors propagate as-is
+- **Migrations**: tracked in `<data>/storage/migration` marker file (JSON migrations 0 and 1); DB migrations in `migration/` (timestamped subdirs, applied via `DatabaseMigration`)
+
+**Project + Config**:
+
+- `Project.Info` includes git root SHA, worktree, time created/updated, icon
+- `projectID` derived from git root SHA (for repos) or directory hash
+- `Config.Info` massive Zod schema; 1847 lines; precedence (lowest→highest): remote → global user → `NIKCLI_CONFIG` env → project `nikcli.json` → `NIKCLI_CONFIG_CONTENT` env → config directories (`agent/`, `command/`, `plugin/`) → CLI flags
+- Supports JSONC + variable substitution (`{env:VAR}`, `{file:path}`)
+- `mergeDeep` from `remeda` for array concatenation on `plugin`/`instructions` fields
+
+**SDK** (`packages/sdk/js/`) — confirmed structure:
+
+- **Build pipeline** (`script/build.ts`): 3-stage:
+  1. Spec gen: `bun dev --print-logs generate` → `openapi.json` (26,148 lines)
+  2. Codegen: `@hey-api/openapi-ts` v0.90.4 → `types.gen.ts` (9,914 lines) + `sdk.gen.ts` + `client.gen.ts`
+  3. Post-process: `prettier --write`, `tsc` compile, cleanup
+- **Public API** (`@nikcli-ai/sdk` v1.64.0): 8 subpath exports — `.`, `./client`, `./server`, `./crypto`, `./cloud`, `./v2`, `./v2/client`, `./v2/server`
+- **29 lazy `get`-ters** on `NikcliClient`: `global, project, loop, mission, pty, config, tool, worktree, experimental, managedWorktree, session, part, permission, question, provider, mobile, find, file, connectors, mcp, tui, analytics, instance, path, vcs, command, app, lsp, formatter, auth, event`
+- **Self-consuming pattern**: nikcli runtime has NO direct HTTP calls to its own server — all via regenerated `@nikcli-ai/sdk/v2`
+- **~20 import sites** in `packages/nikcli/src` for the SDK
+- **Python SDK**: not present
+- **`x-nikcli-directory` header** set automatically by SDK client from `directory` option (`packages/sdk/js/src/v2/client.ts:21-27`)
+
+**Event bus / pubsub**:
+
+- **Two layers**: per-instance `Bus` (typed callbacks, wildcard `*`, local-only) + process-wide `GlobalBus` (Node EventEmitter, cross-instance forwarding)
+- **40+ event types** catalogued (no explicit backpressure; `await Promise.all` on local subscribers)
+- **Transport**: SSE (`/event` for per-instance, `/global/event` for cross-instance) + WebSocket for PTY + workspace proxying
+- **30s heartbeat** on both SSE endpoints
+- **No polling** — TUI uses SSE exclusively
+
+**CLI entrypoint** (`packages/nikcli/src/index.ts`, 199 lines):
+
+- Built on `yargs/hideBin`. Middleware: `await initialize()` (resolves `Global.Path` and friends), `Log.init(...)` with `--print-logs` and `--log-level`, then sets `process.env.AGENT = "1"` and `process.env.NIKCLI = "1"` (`index.ts:85-105`)
+- **Process guards**: `unhandledRejection`/`uncaughtException` → `Log.Default`; `SIGHUP` → `process.exit()` (`index.ts:51-66`)
+- **Registered yargs commands** (`index.ts:108-145`): `acp, mcp, ads, tui.thread, attach, run, goal, generate, debug, auth, account, agent, upgrade, quickstart, doctor, uninstall, serve, workspaceServe, web, heap, models, locale, stats, export, import, github, pr, session, imageModel, speakModel, brainModel, remote, companion, mobile, routine, mission, usage, plugin`
+- **Fail handler** (`index.ts:146-157`): renders help on `Unknown argument`/`Not enough non-option arguments`/`Invalid values`; otherwise re-throws and exits 1
+- **Final `try/finally`** (`index.ts:160-198`): `process.exit()` in the `finally` so docker-container-based MCP servers that don't honor SIGTERM don't leave orphans
+
+**`serve` command** (`packages/nikcli/src/cli/cmd/serve.ts`, 55 lines):
+
+- Resolves network options via `resolveNetworkOptions` (from `cli/network.ts`)
+- Warns if `NIKCLI_SERVER_PASSWORD` unset + Tailscale auth inactive
+- Calls `Server.listen(opts)` → `Bun.serve(...)`
+- For local installs, kicks off `Workspace.startSyncing(project)` for every project
+- `await new Promise(() => {})` keeps the process alive
+
+**Bootstrap (in-process startup)** (`project/bootstrap.ts`, 187 lines):
+
+- Runs once per directory when `Instance.provide` creates the context
+- Awaits `Plugin.init()` + `LSP.init()`
+- Fire-and-forget inits: `ShareNext, Format, FileWatcher, File, Vcs, Snapshot, Truncate, Todo`, the v2 projector (`SessionV2.init()`), `Delegation.init()`, `Monitor.reconcile()`, `LoopEngine.restore()`, `MissionOrchestrator.restore()`
+- Subscribes to `Command.Event.Executed` to call `Project.setInitialized` on default `init` command
+
+**Multi-tenant model** (per-directory, not per-user):
+
+- `Instance` cache (`project/instance.ts:22`) deduplicates per-directory
+- Every HTTP request scopes services to `directory`/`workspace`
+- **Workspace proxying**: if `workspace === "remote"`, the server proxies the request (`ServerProxy.http/websocket`)
+
+**Server startup + event flow** (ASCII diagram):
+
+```
+                                  ┌─────────────────────────────────────────────┐
+                                  │ packages/nikcli/src/index.ts (yargs CLI)    │
+                                  │   middleware: initialize() + Log.init()    │
+                                  └──────────────────────┬──────────────────────┘
+                                                         │
+                ┌────────────────────┬───────────────────┼────────────┬─────────────────────┐
+                ▼                    ▼                   ▼            ▼                     ▼
+       run/goal/generate/...     serve (headless)    attach       tui/thread          acp/web/...
+       (in-process)             (HTTP server)       (HTTP client) (worker)            (in-process)
+                │                    │ Server.listen    │            │                     │
+                │                    ▼                  │            │                     │
+                │         ┌───────────────────────┐      │            │                     │
+                │         │ Bun.serve({           │      │            │                     │
+                │         │   fetch: App().fetch, │      │            │                     │
+                │         │   websocket,          │      │            │                     │
+                │         │   idleTimeout: 0 })   │      │            │                     │
+                │         └──────────┬────────────┘      │            │                     │
+                │                    │                  │            │                     │
+                │                    ▼                  │            │                     │
+                │         ┌───────────────────────┐      │            │                     │
+                │         │ Hono app (lazy-built) │      │            │                     │
+                │         │   onError, public auth│      │            │                     │
+                │         │   userAuth, req log   │      │            │                     │
+                │         │   CORS, workspace+inst│      │            │                     │
+                │         │   httpapi bridge      │      │            │                     │
+                │         │   260 endpoints (.route, .all proxy)
+                │         └──────────┬────────────┘      │            │                     │
+                │                    │ per request:     │            │                     │
+                │                    │   WorkspaceContext           │                     │
+                │                    │   Instance.provide({       │                     │
+                │                    │       directory, init:       │                     │
+                │                    │       InstanceBootstrap})    │                     │
+                │                    │   withCurrentInstance(eff)  │                     │
+                │                    │                  │            │                     │
+                │                    ▼                  │            │                     │
+                │   ┌────────────────────────────────────────┐       │                     │
+                │   │ Bus.publish(def, properties)            │       │                     │
+                │   │   - subs[type] + subs['*']              │       │                     │
+                │   │   - emits to GlobalBus                  │       │                     │
+                │   └────────┬───────────────────┬───────────┘       │                     │
+                │            │                   │                   │                     │
+                │   ┌────────▼─────────┐ ┌───────▼──────────┐        │                     │
+                │   │ per-instance SSE │ │ GlobalBus        │        │                     │
+                │   │  GET /event      │ │  GET /global/    │        │                     │
+                │   │  Bus.subscribeAll│ │   event          │        │                     │
+                │   │  30s heartbeat   │ │  30s heartbeat   │        │                     │
+                │   └────────┬─────────┘ └───────┬──────────┘        │                     │
+                │            │                   │                   │                     │
+                └────────────┼───────────────────┼───────────────────┼─────────────────────┘
+                             │                   │                   │
+                             ▼                   ▼                   ▼
+                     SDK client:        SDK client:           SDK client:
+                     client.event       client.event          client.event
+                     .subscribe()       .subscribe()          .subscribe()
+                     (SSE per-inst)     (SSE cross-inst)     (SSE per-inst)
+```
+
+### Opentui Tool Bug — Detailed Reproduction (2026-06-15)
+
+The `opentui` tool bug investigation (`ses_1337a40a8ffeQ50QP331G9bLvg`) confirmed the previously-suspected schema validation issue with a specific reproducible error pattern. **Plain `text` components work**; **components with array fields (`items`, `nodes`, `headers`, `rows`) consistently fail**.
+
+**What works** (confirmed at 2026-06-15):
+
+```json
+{ "type": "text", "title": "hello", "content": "world" }
+```
+
+Passes validation, renders correctly.
+
+**What fails** (confirmed at 2026-06-15):
+
+```json
+{ "type": "stat_grid", "title": "X", "columns": 3, "items": [{ "label": "A", "value": 1 }] }
+```
+
+Error pattern: `code: "invalid_type", path: ["items"], message: "Invalid input: expected array, received object"` — even though the input is a valid 1-element array.
+
+Same error pattern repeats for:
+
+- `stat_grid.items` — "expected array, received object"
+- `key_value.items` — same
+- `tree.nodes` — same (even with 2 elements)
+- `table.headers` + `table.rows` — same
+- `bar_chart.items` — same
+- `status_grid.items` — same
+- `progress_bars.items` — same
+- `gauge` (no array but): `value` and `max` reported as "received string" when passed as numbers; suggests the JSON encoding step is treating numbers as strings
+
+**Diagnosis so far**: The error messages are consistent regardless of array length (1, 2, 3 elements all fail identically). The discriminator (`type`) check appears to work correctly — the `type` value is accepted, but the array fields underneath are being misinterpreted as objects. The bug appears to be in the **input transformation/coercion step** between the LLM's JSON output and the Zod validator, not in the Zod schema itself.
+
+**Attempted workarounds** (all failed in 2026-06-15):
+
+- Wrapping in `{"item": {...}}` — unrecognized key
+- Passing values as strings instead of numbers — still rejected
+- Using a single primitive component (`alert`, `text`) — works (so the issue is specifically with collection-of-component types)
+- Using `progress_bars` with single item — same "received object" error
+
+**Confirmed working components** (2026-06-15):
+
+- `text` ✅
+- `alert` ✅
+- `markdown` (not tested directly but no collection fields)
+- `code` (not tested directly)
+- `key_value` (with `key`, `value` flat object) ✅ (the `items` array still fails)
+
+**Renderer/parser files to investigate for the fix**:
+
+- `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` (1856 lines, the dialog renderer)
+- `src/tool/opentui.ts:422-434` (the Effect Schema)
+- `src/tool/opentui.ts:438` (`zod(Parameters)` call)
+- `src/util/effect-zod.ts:489` (the walker)
+- `src/util/effect-zod.ts:372` (the `Schema.Union` → `z.union` flattening — weak point)
+- `src/util/effect-zod.ts:421-433` (`Schema.check` cross-field refinement fallback)
+- `src/session/tools.ts:147` (the `z.toJSONSchema` conversion)
+- `src/provider/transform.ts:1312` (the `ProviderTransform.schema` sanitizer)
+
+**Fix path status (unchanged from 2026-06-07)**:
+
+- **A**: Convert to `z.discriminatedUnion("type", [...])` — produces `oneOf+discriminator` JSON Schema; Zod returns single issue on error. Zod 4.1.8 supports this. **Status**: not yet attempted.
+- **B**: Improve `formatValidationError` to surface actionable messages. **Status**: not yet attempted.
+- **C**: User-design workstream for "vere e proppie interfacce" (AI-generated mini-app TUIs). **Status**: design only.
+
+### TUI Realtime Visualization (Out-of-Repo, 2026-06-15)
+
+Session `ses_1339d8a9cffem7Eh39qYb0ANd1` generated a **standalone Bun-based TUI at `/tmp/nikcli-tui.mjs`** (1172 lines) that renders in an alt-screen with:
+
+- **Hero stats** color-coded per flow (44 tools, 19 agents, 260 endpoints, 21 route files, 66 bus events, 29 files, 119,343 LOC)
+- **4 analysis sections** with file:line citations from the deep-dive reports
+- **End-to-end ASCII diagram** of the entire flow (user → server → session/prompt → processor → tool → bus → TUI)
+- **Permission section** showing the 3-layer gating (PermissionNext, ask(ctx), external_directory)
+- **3 live simulators** (different per frame):
+  - tool activity (read/edit/bash/webfetch/task/...)
+  - message stream (text/reasoning/tool/step/compaction/subtask)
+  - bus event ticker (server.connected → session.* → message.* → permission.* → ...)
+- **Animated header** with braille ticker, uptime, frame counter, current time
+
+Launch: `REFRESH_MS=120 bun /tmp/nikcli-tui.mjs`
+
+**Notes**:
+
+- No files in `packages/nikcli` were modified by this work — analysis is read-only
+- The TUI script lives in `/tmp/` so it doesn't pollute the repo
+- Reports from the 4 background agents persisted as artifacts, available via `delegation(action="read", delegationId=...)`
+- A static ANSI-stripped capture is at `/tmp/tui-capture.txt` (490 lines) — full frame
+- TUI has known padding issues with ANSI escape codes inside table cells — initial render was buggy, then a `padL` → visual-width aware padding fix was applied
+- For long-running TUI capture, can use `script` or `unbuffer` to allocate a pseudo-tty
+
+### Other 2026-06-15 Sessions
+
+- `ses_1339c4b78ffeWftlXtfrckaEOk` — `@explore`: server/storage/SDK deep-read (4 sections: 11/12/13/15 + file index)
+- `ses_1339cdbf5ffeyPSYxFup1Cy2K9` — `@explore`: tool system (44 tools grouped by category, registry init flow, permissions, execution lifecycle)
+- `ses_1339c7df4ffeWPoejXJLRWZPx2` — `@explore`: agent subsystem (agent.ts:73-96 schema, 21 agents inventory, task dispatch, 15 quirks)
+- `ses_13388ac0effeBmfkr3XBE558pu` — `@explore`: retrieved Sections 10-15 of agent report from tool-output file
+- `ses_133842e8affeekNHppG0oX6LId` — `@explore`: retrieved Sections 11-15 of server report from tool-output file
+- `ses_1337a40a8ffeQ50QP331G9bLvg` — Primary session: investigated opentui tool bug end-to-end, then user directed to use the tool, multiple failure modes documented

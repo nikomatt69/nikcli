@@ -1,6 +1,19 @@
 import { TextAttributes, RGBA } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { createMemo, createSignal, For, onMount, Show, Switch, Match } from "solid-js"
+import {
+  createContext,
+  createMemo,
+  createSignal,
+  For,
+  onMount,
+  Show,
+  Switch,
+  Match,
+  ErrorBoundary,
+  useContext,
+  type Component,
+} from "solid-js"
+import { Dynamic } from "solid-js/web"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme, type Theme } from "@tui/context/theme"
 import { Clipboard } from "@tui/util/clipboard"
@@ -18,6 +31,8 @@ import type {
 
 export type DialogOpenTUIVizProps = {
   spec: OpenTUIVizSpecType
+  /** When true, the spec is still streaming in — shows a live indicator. */
+  streaming?: boolean
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1568,74 +1583,116 @@ function GridRenderer(props: { comp: Of<"grid"> }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Registry — json-render's catalog→component map, for OpenTUI
+// ──────────────────────────────────────────────────────────────────────────
+
+/** Props every component renderer receives (json-render: `ComponentRenderProps`). */
+export type VizComponentProps<T extends VizComponent["type"]> = { comp: Of<T> }
+
+/**
+ * Maps each catalog component `type` to the OpenTUI Solid component that renders
+ * it — nikcli's analogue to json-render's `Registry`. Supply a partial override
+ * to `createVizRenderer` / `<Renderer>` to swap or extend renderers without
+ * touching the dispatcher.
+ */
+export type VizRegistry = {
+  [K in VizComponent["type"]]: Component<VizComponentProps<K>>
+}
+
+/** The built-in registry covering every catalog component one-to-one. */
+export const defaultVizRegistry: VizRegistry = {
+  text: TextRenderer,
+  markdown: MarkdownRenderer,
+  code: CodeRenderer,
+  diff: DiffRenderer,
+  alert: AlertRenderer,
+  table: TableRenderer,
+  key_value: KeyValueRenderer,
+  tree: TreeRenderer,
+  stat: StatRenderer,
+  stat_grid: StatGridRenderer,
+  bar_chart: BarChartRenderer,
+  line_chart: LineChartRenderer,
+  histogram: HistogramRenderer,
+  heatmap: HeatmapRenderer,
+  gauge: GaugeRenderer,
+  progress_bars: ProgressBarsRenderer,
+  timeline: TimelineRenderer,
+  status_grid: StatusGridRenderer,
+  section: SectionRenderer,
+  grid: GridRenderer,
+}
+
+// Threaded through context so nested containers (section/grid) inherit the
+// active registry without prop-drilling — exactly how json-render's <Renderer>
+// makes its registry available to the whole subtree.
+const VizRegistryContext = createContext<VizRegistry>(defaultVizRegistry)
+
+// ──────────────────────────────────────────────────────────────────────────
 // Dispatcher
 // ──────────────────────────────────────────────────────────────────────────
 
-function ComponentRenderer(props: { component: VizComponent }) {
-  return (
-    <Switch>
-      <Match when={props.component.type === "text"}>
-        <TextRenderer comp={props.component as Of<"text">} />
-      </Match>
-      <Match when={props.component.type === "markdown"}>
-        <MarkdownRenderer comp={props.component as Of<"markdown">} />
-      </Match>
-      <Match when={props.component.type === "code"}>
-        <CodeRenderer comp={props.component as Of<"code">} />
-      </Match>
-      <Match when={props.component.type === "diff"}>
-        <DiffRenderer comp={props.component as Of<"diff">} />
-      </Match>
-      <Match when={props.component.type === "alert"}>
-        <AlertRenderer comp={props.component as Of<"alert">} />
-      </Match>
-      <Match when={props.component.type === "table"}>
-        <TableRenderer comp={props.component as Of<"table">} />
-      </Match>
-      <Match when={props.component.type === "key_value"}>
-        <KeyValueRenderer comp={props.component as Of<"key_value">} />
-      </Match>
-      <Match when={props.component.type === "tree"}>
-        <TreeRenderer comp={props.component as Of<"tree">} />
-      </Match>
-      <Match when={props.component.type === "stat"}>
-        <StatRenderer comp={props.component as Of<"stat">} />
-      </Match>
-      <Match when={props.component.type === "stat_grid"}>
-        <StatGridRenderer comp={props.component as Of<"stat_grid">} />
-      </Match>
-      <Match when={props.component.type === "bar_chart"}>
-        <BarChartRenderer comp={props.component as Of<"bar_chart">} />
-      </Match>
-      <Match when={props.component.type === "line_chart"}>
-        <LineChartRenderer comp={props.component as Of<"line_chart">} />
-      </Match>
-      <Match when={props.component.type === "histogram"}>
-        <HistogramRenderer comp={props.component as Of<"histogram">} />
-      </Match>
-      <Match when={props.component.type === "heatmap"}>
-        <HeatmapRenderer comp={props.component as Of<"heatmap">} />
-      </Match>
-      <Match when={props.component.type === "gauge"}>
-        <GaugeRenderer comp={props.component as Of<"gauge">} />
-      </Match>
-      <Match when={props.component.type === "progress_bars"}>
-        <ProgressBarsRenderer comp={props.component as Of<"progress_bars">} />
-      </Match>
-      <Match when={props.component.type === "timeline"}>
-        <TimelineRenderer comp={props.component as Of<"timeline">} />
-      </Match>
-      <Match when={props.component.type === "status_grid"}>
-        <StatusGridRenderer comp={props.component as Of<"status_grid">} />
-      </Match>
-      <Match when={props.component.type === "section"}>
-        <SectionRenderer comp={props.component as Of<"section">} />
-      </Match>
-      <Match when={props.component.type === "grid"}>
-        <GridRenderer comp={props.component as Of<"grid">} />
-      </Match>
-    </Switch>
+export function ComponentRenderer(props: { component: VizComponent }) {
+  const { theme } = useTheme()
+  const registry = useContext(VizRegistryContext)
+  const renderer = createMemo(
+    () => registry[props.component.type] as Component<{ comp: VizComponent }> | undefined,
   )
+  // Generative specs can stream in half-formed or cross-field-inconsistent
+  // (e.g. a table whose rows are shorter than its headers mid-stream). A render
+  // throw must degrade to a placeholder, not trip the app-level ErrorBoundary
+  // and crash the whole TUI.
+  return (
+    <ErrorBoundary
+      fallback={(err) => (
+        <text fg={theme.textMuted}>
+          ⚠ {props.component.type} unavailable{err?.message ? ` — ${String(err.message).slice(0, 60)}` : ""}
+        </text>
+      )}
+    >
+      <Show
+        when={renderer()}
+        fallback={<text fg={theme.textMuted}>⚠ {props.component.type} unavailable</text>}
+      >
+        {(comp) => <Dynamic component={comp()} comp={props.component} />}
+      </Show>
+    </ErrorBoundary>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Renderer — json-render's <Renderer spec registry loading />, for OpenTUI
+// ──────────────────────────────────────────────────────────────────────────
+
+export type VizRendererProps = {
+  /** The render-safe spec (any object exposing `components`). */
+  spec: { components: ReadonlyArray<VizComponent> }
+  /** Swap or extend the component map. Defaults to {@link defaultVizRegistry}. */
+  registry?: VizRegistry
+  /** Mark the spec as still streaming (drives the optional trailing indicator). */
+  loading?: boolean
+}
+
+/**
+ * Walk a spec's components through a registry — nikcli's `<Renderer>`. Provides
+ * the registry on context so nested `section`/`grid` containers resolve their
+ * children against the same map. Mirrors `@json-render/solid`'s `Renderer`.
+ */
+export function Renderer(props: VizRendererProps) {
+  return (
+    <VizRegistryContext.Provider value={props.registry ?? defaultVizRegistry}>
+      <For each={props.spec.components}>{(comp) => <ComponentRenderer component={comp} />}</For>
+    </VizRegistryContext.Provider>
+  )
+}
+
+/**
+ * Bind a (possibly partial) registry once and return a ready `<Renderer>` — the
+ * OpenTUI analogue to json-render's `createRenderer(catalog, components)`.
+ */
+export function createVizRenderer(overrides: Partial<VizRegistry> = {}) {
+  const registry: VizRegistry = { ...defaultVizRegistry, ...overrides }
+  return (props: Omit<VizRendererProps, "registry">) => <Renderer {...props} registry={registry} />
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1771,9 +1828,14 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
     <box paddingLeft={2} paddingRight={2} gap={1}>
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
         <box flexDirection="column" gap={0}>
-          <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-            ◈ {props.spec.title}
-          </text>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+              ◈ {props.spec.title}
+            </text>
+            <Show when={props.streaming}>
+              <text fg={theme.warning ?? theme.accent}>● live</text>
+            </Show>
+          </box>
           <Show when={props.spec.subtitle}>
             <text fg={theme.textMuted}>{props.spec.subtitle}</text>
           </Show>
@@ -1812,7 +1874,11 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
       <box border borderColor={theme.border} height={contentHeight()} flexShrink={0}>
         <scrollbox height={contentHeight() - 2} focused={true}>
           <box paddingTop={1} paddingBottom={1} paddingLeft={1} paddingRight={1} gap={1}>
-            <ComponentRenderer component={active()} />
+            {/* `keyed` remounts on tab change so a per-component ErrorBoundary that
+                latched on one tab doesn't stay stuck when switching to another. */}
+            <Show when={active()} keyed>
+              {(comp) => <ComponentRenderer component={comp} />}
+            </Show>
           </box>
         </scrollbox>
       </box>

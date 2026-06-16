@@ -579,6 +579,85 @@ You do not need to instruct the user about these — they are surfaced in the di
 
 ---
 
+## Robust calling patterns (learned from real-world testing)
+
+Some JSON shapes are fragile when round-tripped through the tool-call parser. The patterns below are guaranteed to render reliably; prefer them when in doubt.
+
+### Prefer `grid` + `children` over direct-array components
+
+Array-of-object fields with these names are sometimes received by the schema validator as a plain object instead of an array, even when the JSON you emit is correct:
+
+| Fragile array field | Affected component | Safe replacement |
+|---|---|---|
+| `items` | `stat_grid`, `bar_chart`, `progress_bars`, `key_value`, `status_grid` | `grid` of `stat` / `text` / `markdown` cells |
+| `nodes` | `tree` | `markdown` with ASCII / fenced `text` block, or `code` (filetype `text`) |
+| `series` | `line_chart` | `markdown` with table + sparkline-styled `stat` row |
+| `events` | `timeline` | `code` (filetype `text`) with an ASCII timeline |
+| `bins` | `histogram` | `bar_chart` (but also uses `items` — fall back to `markdown` table) |
+| `rowLabels` · `colLabels` · `values` | `heatmap` | `markdown` table with status-colored cells |
+| `headers` · `rows` | `table` | `markdown` table — it renders with real borders anyway |
+| `rowColors` · `align` · `totals` | `table` extras | not used in the safe `markdown` path |
+
+**Safe rule**: any time you would reach for a component whose array payload uses one of the names above, reach for `grid` + `children` (or `markdown`) instead. The `grid` component is verified to receive its `children` array correctly and renders `stat` cards in a clean KPI row.
+
+### Avoid nesting `grid` inside `section`
+
+A `section` whose `children` contains a `grid` (i.e. `section > grid > stat`) fails validation in some tool-call paths. Two safe patterns:
+
+- Use `grid` as a **top-level** component (siblings of `section` and `alert`), not as a child of `section`.
+- Inside `section`, use only leaf components: `text`, `markdown`, `code`, `alert`. The rich markdown tables replace any lost visual structure.
+
+### `section` shape
+
+`section` accepts `title` (optional) and `children` (required, 1–12 items). Do **not** add a `description` field at the section level — the runtime treats it as unrecognized even though the static schema permits it. If you need a description, fold it into the first `markdown` child instead.
+
+### `alert` shape
+
+`alert` only takes `severity` (`info` / `success` / `warning` / `error`), `title` (optional), and `message` (required). No extra keys.
+
+### Flat is better than deep
+
+Prefer this structure for 8–12 tab dashboards:
+
+```jsonc
+{
+  "title": "...",
+  "components": [
+    { "type": "alert", "severity": "info",   "title": "...", "message": "..." },
+    { "type": "section", "title": "1 · ...",  "children": [{ "type": "markdown", "content": "..." }] },
+    { "type": "section", "title": "2 · ...",  "children": [{ "type": "code", "filetype": "text", "content": "..." }] },
+    { "type": "section", "title": "3 · ...",  "children": [{ "type": "markdown", "content": "..." }] },
+    { "type": "alert", "severity": "success", "title": "...", "message": "..." }
+  ]
+}
+```
+
+One `markdown` or `code` child per `section` keeps the validator happy and the dashboard scannable. Reach for 2 children only when you genuinely need a callout (`alert`) **after** a body of text inside the same logical block.
+
+### Component-to-replacement cheat sheet
+
+| You want | Robust path |
+|---|---|
+| KPI hero (5–8 numbers) | top-level `grid` of `stat` |
+| Grouped KPIs by category | sibling `section`s, each with one `markdown` table inside |
+| Status fleet board | `markdown` with status icons (✓ ⚠ ✗ ℹ) in a table |
+| Hierarchy / dependency graph | `code` (filetype `text`) with a fenced ASCII tree |
+| Process / pipeline timeline | `code` (filetype `text`) with ASCII timeline |
+| Tabular data | `markdown` with a real-bordered table |
+| Single-callout block | `section` with a `markdown` child (or top-level `alert`) |
+| Multi-callout block | top-level `alert`s or `section` of `markdown` |
+
+### When you *must* use a fragile component
+
+If the task genuinely calls for `tree` (e.g. user asked for a navigable hierarchy) or `timeline` (long sequenced events) and the runtime rejects the call:
+
+1. Retry once with a smaller payload (≤ 4 items, 2 levels deep for `tree`).
+2. If it still fails, fall back to `markdown` + `code` (filetype `text`) — the user gets the same information rendered as a text block.
+
+These patterns are the minimum-surprise path. The full catalogue above is correct for the schema; the patterns above are correct for the **tool-call parser** that sits between you and the schema.
+
+---
+
 ## When NOT to use this tool
 
 - For a single sentence answer — just respond in prose.
