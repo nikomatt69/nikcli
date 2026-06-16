@@ -196,10 +196,21 @@ intro "Install"
 INSTALL_DIR=$HOME/.nikcli/bin
 mkdir -p "$INSTALL_DIR"
 
-binary_name=$APP
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) binary_name="$APP.exe" ;;
+# Detect raw OS once and reuse. The derived `binary_name` (with .exe on
+# Windows) is assigned only after the platform-detection block below so the
+# `--binary` flow stays consistent with `os=windows` for the install path.
+raw_os=$(uname -s)
+os=$(echo "$raw_os" | tr '[:upper:]' '[:lower:]')
+case "$raw_os" in
+  Darwin*) os="darwin" ;;
+  Linux*) os="linux" ;;
+  MINGW*|MSYS*|CYGWIN*) os="windows" ;;
 esac
+
+binary_name=$APP
+if [ "$os" = "windows" ]; then
+    binary_name="$APP.exe"
+fi
 
 # ────────────────────────────────────────────────────────────────────────────
 # Platform detection / version resolution
@@ -214,13 +225,6 @@ if [ -n "$binary_path" ]; then
     specific_version="local"
     step "Using local binary: ${BOLD}${binary_path}${NC}"
 else
-    raw_os=$(uname -s)
-    os=$(echo "$raw_os" | tr '[:upper:]' '[:lower:]')
-    case "$raw_os" in
-      Darwin*) os="darwin" ;;
-      Linux*) os="linux" ;;
-      MINGW*|MSYS*|CYGWIN*) os="windows" ;;
-    esac
 
     arch=$(uname -m)
     if [[ "$arch" == "aarch64" ]]; then
@@ -365,11 +369,25 @@ check_version() {
 
 install_deferred=false
 
+# Translate a POSIX path (as seen by bash on MSYS/MINGW) to a Windows path
+# suitable for native tooling like powershell.exe. Without cygpath, MSYS POSIX
+# paths are not understood by powershell.exe and the helper silently fails.
 windows_path() {
     if command -v cygpath >/dev/null 2>&1; then
         cygpath -w "$1"
     else
-        printf "%s\n" "$1"
+        printf '%s' "$1"
+    fi
+}
+
+# Verify PowerShell is available before mutating the user's filesystem. The
+# deferred-replace path stages files first and would otherwise set
+# install_deferred=true even when the helper cannot actually launch.
+require_powershell() {
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        fail "Cannot replace the running ${APP}.exe: powershell.exe is unavailable"
+        outro "Aborted"
+        exit 1
     fi
 }
 
@@ -377,29 +395,40 @@ install_binary() {
     local source=$1
     local destination="$INSTALL_DIR/$binary_name"
 
+    # Non-Windows installs (or first-time Windows installs without a running
+    # binary) take the direct-replace path. Surface mv/chmod failures so a
+    # broken staged source doesn't masquerade as a successful install.
     if [ "$binary_name" != "$APP.exe" ] || [ ! -f "$destination" ]; then
-        mv -f "$source" "$destination"
+        if ! mv -f "$source" "$destination"; then
+            fail "Failed to install ${APP} to ${destination}"
+            outro "Aborted"
+            exit 1
+        fi
         chmod 755 "$destination"
         return
     fi
 
+    # Windows with a running binary: try a direct replace first (works when
+    # the file is unlocked or the rename happens to succeed) and bail out of
+    # the deferred path with a clear error if it fails for non-lock reasons.
     if mv -f "$source" "$destination" 2>/dev/null; then
         chmod 755 "$destination"
         return
     fi
 
-    if ! command -v powershell.exe >/dev/null 2>&1; then
-        fail "Cannot replace the running nikcli.exe because powershell.exe is unavailable"
+    # Require PowerShell before staging so we don't leave a stranded
+    # ${destination}.new.PID file behind on hosts that lack it.
+    require_powershell
+
+    local pending="${destination}.new.$$"
+    local helper="${destination}.update.$$.ps1"
+    if ! mv -f "$source" "$pending"; then
+        fail "Failed to stage pending ${APP} binary at ${pending}"
         outro "Aborted"
         exit 1
     fi
 
-    local pending="${destination}.new.$$"
-    local helper="${INSTALL_DIR}/.${APP}-update-$$.ps1"
-    mv -f "$source" "$pending"
-    chmod 755 "$pending"
-
-    cat > "$helper" <<'POWERSHELL'
+    if ! cat > "$helper" <<'POWERSHELL'
 param(
     [Parameter(Mandatory = $true)][string]$Source,
     [Parameter(Mandatory = $true)][string]$Destination,
@@ -417,9 +446,30 @@ while ([DateTime]::UtcNow -lt $deadline) {
     }
 }
 
+# Deadline reached without a successful move. Clean up the helper and the
+# pending source so the install dir does not accumulate stale files. Surface
+# a non-zero exit so external monitors can detect the failure.
 Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $Source) {
+    Remove-Item -LiteralPath $Source -Force -ErrorAction SilentlyContinue
+}
 exit 1
 POWERSHELL
+    then
+        rm -f "$pending"
+        fail "Failed to write deferred-replace helper at ${helper}"
+        outro "Aborted"
+        exit 1
+    fi
+
+    # Guard against a 0-byte helper (e.g. interrupted heredoc) that would
+    # otherwise succeed silently and never move the binary.
+    if [ ! -s "$helper" ]; then
+        rm -f "$pending" "$helper"
+        fail "Deferred-replace helper ${helper} is empty"
+        outro "Aborted"
+        exit 1
+    fi
 
     local pending_windows
     local destination_windows
@@ -428,6 +478,10 @@ POWERSHELL
     destination_windows=$(windows_path "$destination")
     helper_windows=$(windows_path "$helper")
 
+    # Launch PowerShell detached so installer exit does not abort it. The
+    # process is intentionally backgrounded; the user's "Update staged;
+    # restart nikcli to finish" message documents that finalization happens
+    # asynchronously once nikcli.exe releases its lock.
     powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden \
         -File "$helper_windows" \
         -Source "$pending_windows" \
@@ -495,9 +549,17 @@ download_and_install() {
 
 install_from_binary() {
     spinner_start "Installing from local binary"
-    local staged_binary="${INSTALL_DIR}/.${binary_name}.local.$$"
-    cp "$binary_path" "$staged_binary"
+    local staged_binary="${INSTALL_DIR}/${binary_name}.local.$$"
+    if ! cp "$binary_path" "$staged_binary"; then
+        spinner_stop err "Failed to stage ${binary_path} to ${staged_binary}"
+        outro "Aborted"
+        exit 1
+    fi
     install_binary "$staged_binary"
+    # install_binary only consumes the staged copy for the non-deferred path;
+    # the deferred path moves it to ${destination}.new.$$ itself. In all cases
+    # the staged file should be gone — guard against accidental leftovers.
+    rm -f "$staged_binary"
     if [ "$install_deferred" = true ]; then
         spinner_stop ok "Update staged; restart nikcli to finish"
     else

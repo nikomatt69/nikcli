@@ -99,7 +99,7 @@ describe("release automation", () => {
   it("installs Windows executables and defers replacement while nikcli.exe is running", async () => {
     const installer = await readRoot("install")
 
-    expect(installer).toContain('MINGW*|MSYS*|CYGWIN*) binary_name="$APP.exe"')
+    expect(installer).toContain('binary_name="$APP.exe"')
     expect(installer).toContain('local extracted_binary="$tmp_dir/bin/$binary_name"')
     expect(installer).toContain('extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$binary_name"')
     expect(installer).toContain('local destination="$INSTALL_DIR/$binary_name"')
@@ -107,6 +107,82 @@ describe("release automation", () => {
     expect(installer).toContain("Move-Item -LiteralPath $Source -Destination $Destination -Force")
     expect(installer).toContain("Start-Sleep -Milliseconds 200")
     expect(installer).toContain("install_deferred=true")
+  })
+
+  it("checks for powershell.exe before staging the deferred-replace binary", async () => {
+    const installer = await readRoot("install")
+
+    // The require_powershell helper must be called before any pending file is
+    // written, otherwise the installer reports success while leaving a stale
+    // nikcli.exe.new.PID file behind on hosts without PowerShell.
+    const requireIndex = installer.indexOf("require_powershell()")
+    expect(requireIndex).toBeGreaterThan(-1)
+    const pendingIndex = installer.indexOf('local pending="${destination}.new.$$"')
+    expect(pendingIndex).toBeGreaterThan(requireIndex)
+  })
+
+  it("rejects PowerShell paths that cannot be translated to Windows form", async () => {
+    const installer = await readRoot("install")
+
+    // windows_path must use cygpath when available and emit no trailing newline
+    // when falling back (PowerShell argument parsing tolerates a newline, but
+    // paths with embedded spaces become ambiguous when split on whitespace).
+    expect(installer).toMatch(/windows_path\(\)\s*\{[^}]*cygpath -w "\$1"/)
+    expect(installer).not.toMatch(/windows_path[^}]*printf "%s\\n" "\$1"/)
+  })
+
+  it("surfaces install_binary failures instead of masking them with deferred state", async () => {
+    const installer = await readRoot("install")
+
+    // Both the direct-replace branch and the staging branch must check the
+    // return code of mv and abort with fail/exit 1 on failure. Without these
+    // checks a read-only install directory would print "Installed to ...".
+    expect(installer).toContain("Failed to install ${APP} to ${destination}")
+    expect(installer).toContain("Failed to stage pending ${APP} binary at ${pending}")
+  })
+
+  it("refuses to launch a 0-byte deferred-replace helper", async () => {
+    const installer = await readRoot("install")
+
+    expect(installer).toContain('[ ! -s "$helper" ]')
+    expect(installer).toContain("is empty")
+  })
+
+  it("cleans the pending and helper files when the helper cannot be written", async () => {
+    const installer = await readRoot("install")
+
+    // If the heredoc write fails, the installer must not leave the staged
+    // pending binary on disk: a future `nikcli` run would try to load it.
+    const writeFailureBlock = installer.match(
+      /then\s*\n\s*rm -f "\$pending"\s*\n\s*fail "Failed to write deferred-replace helper[^\n]*"/,
+    )
+    expect(writeFailureBlock).not.toBeNull()
+  })
+
+  it("derives binary_name from os=windows, not from uname before platform detection", async () => {
+    const installer = await readRoot("install")
+
+    // regression #6: binary_name was being set from `uname -s` before the
+    // platform-detection block had a chance to normalize `os`. The fix moves
+    // the assignment below the `os=...` derivation.
+    const osAssignment = installer.indexOf('os=$(echo "$raw_os"')
+    const binaryNameAssignment = installer.indexOf("binary_name=$APP")
+    expect(osAssignment).toBeGreaterThan(-1)
+    expect(binaryNameAssignment).toBeGreaterThan(osAssignment)
+
+    // The assignment must be guarded by `os=windows`, not by an uname case
+    // statement that fires for any MSYS-style shell (e.g. on macOS hosts
+    // running inside an MSYS2 sub-shell).
+    expect(installer).toContain('if [ "$os" = "windows" ]; then\n    binary_name="$APP.exe"')
+  })
+
+  it("uses the platform-correct binary name when reading from archives", async () => {
+    const installer = await readRoot("install")
+
+    // After the regression #6 fix, the archive extraction must use
+    // `$binary_name` (which is APP.exe on Windows) instead of the bare `$APP`.
+    expect(installer).toContain('local extracted_binary="$tmp_dir/bin/$binary_name"')
+    expect(installer).not.toContain('local extracted_binary="$tmp_dir/bin/$APP"')
   })
 
   it("does not bypass release safety checks or expose token output", async () => {
