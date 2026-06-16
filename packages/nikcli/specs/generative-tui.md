@@ -11,11 +11,11 @@ abstractions — **Catalog**, **Registry/Renderer**, **SpecStream compiler** —
 OpenTUI. Where json-render targets the DOM via `@json-render/solid`, nikcli targets
 the terminal via `@opentui/solid`, but the API shapes line up one-to-one.
 
-| json-render concept | nikcli implementation |
-| --- | --- |
-| **Catalog** — `defineCatalog(schema, config)` → a `Catalog` with `prompt()`, `validate()`, `zodSchema()`, `jsonSchema()`, `componentNames` | `src/tool/opentui.ts` — 20 Effect-Schema components (text, table, tree, charts, gauges, timeline…). The `VizCatalog` object exposes the exact same surface: `VizCatalog.prompt()`, `.validate(spec)`, `.zodSchema()`, `.jsonSchema()`, `.componentNames`, `.decodeComponent`. Also exports `VizComponentZod`, `VizSpecZod`, `VIZ_COMPONENT_TYPES`, `decodeVizComponent`. |
-| **Registry / Renderer** — `defineRegistry` / `createRenderer(catalog, components)` / `<Renderer spec registry loading />` | `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` — `VizRegistry` maps each catalog `type` → an OpenTUI Solid component; `defaultVizRegistry` covers all 20; `<Renderer spec registry loading />` and `createVizRenderer(overrides)` walk a spec through a (swappable) registry, threaded via context so nested `section`/`grid` inherit it. `ComponentRenderer` is the per-component dispatcher (registry lookup + `ErrorBoundary`). |
-| **SpecStream compiler** — `createSpecStreamCompiler()` with `push`, `getResult`, `getPatches`, `reset` | `src/cli/cmd/tui/util/spec-stream.ts` — `createSpecStreamCompiler` exposes `push`/`pushObject`/`finalize`/`getResult`/`getPatches`/`reset`/`snapshot` and emits RFC-6902-flavored `VizPatch[]`. |
+| json-render concept                                                                                                                        | nikcli implementation                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Catalog** — `defineCatalog(schema, config)` → a `Catalog` with `prompt()`, `validate()`, `zodSchema()`, `jsonSchema()`, `componentNames` | `src/tool/opentui.ts` — 20 Effect-Schema components (text, table, tree, charts, gauges, timeline…). The `VizCatalog` object exposes the exact same surface: `VizCatalog.prompt()`, `.validate(spec)`, `.zodSchema()`, `.jsonSchema()`, `.componentNames`, `.decodeComponent`. Also exports `VizComponentZod`, `VizSpecZod`, `VIZ_COMPONENT_TYPES`, `decodeVizComponent`.                                                               |
+| **Registry / Renderer** — `defineRegistry` / `createRenderer(catalog, components)` / `<Renderer spec registry loading />`                  | `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` — `VizRegistry` maps each catalog `type` → an OpenTUI Solid component; `defaultVizRegistry` covers all 20; `<Renderer spec registry loading />` and `createVizRenderer(overrides)` walk a spec through a (swappable) registry, threaded via context so nested `section`/`grid` inherit it. `ComponentRenderer` is the per-component dispatcher (registry lookup + `ErrorBoundary`). |
+| **SpecStream compiler** — `createSpecStreamCompiler()` with `push`, `getResult`, `getPatches`, `reset`                                     | `src/cli/cmd/tui/util/spec-stream.ts` — `createSpecStreamCompiler` exposes `push`/`pushObject`/`finalize`/`getResult`/`getPatches`/`reset`/`snapshot` and emits RFC-6902-flavored `VizPatch[]`.                                                                                                                                                                                                                                        |
 
 ## Crash-safety (rendering half-formed specs)
 
@@ -64,7 +64,7 @@ stream) and `getPatches()` — a cumulative `VizPatch[]` of RFC-6902-flavored
 operations (`add`/`replace`/`remove` at `/components/<i>`, `/title`, …). Where
 json-render streams JSON-Patch lines from the model, nikcli derives equivalent
 patches by diffing successive render-safe projections, so a consumer can react
-to incremental component *adds* without re-diffing the whole list.
+to incremental component _adds_ without re-diffing the whole list.
 
 ## The registry — pluggable renderers (`dialog-opentui-viz.tsx`)
 
