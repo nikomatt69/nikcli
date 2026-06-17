@@ -145,7 +145,9 @@ function SettingsPageInner() {
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
           Connection
         </p>
-        <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">Server &amp; pairing token</h2>
+        <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">
+          Server &amp; pairing token
+        </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
           The Studio reads your sessions, config, MCP servers, skills and more from your nikcli server using the shared
           pairing token — the same credential used by the CLI, mobile, and web app.
@@ -191,7 +193,9 @@ function SettingsPageInner() {
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">Email</span>
+                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">
+                  Email
+                </span>
                 <input
                   value={user?.email || ""}
                   disabled
@@ -199,7 +203,9 @@ function SettingsPageInner() {
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">Role</span>
+                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">
+                  Role
+                </span>
                 <input
                   value={user?.role || "user"}
                   disabled
@@ -293,7 +299,9 @@ function SettingsPageInner() {
           </button>
         </div>
         <label className="block space-y-1.5">
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">Server URL</span>
+          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">
+            Server URL
+          </span>
           <input
             type="url"
             value={serverUrlInput}

@@ -1,8 +1,8 @@
 export type CatalogPlugin = {
-  pkg: string;
-  name: string;
-  description: string;
-};
+  pkg: string
+  name: string
+  description: string
+}
 
 export const PLUGIN_CATALOG: CatalogPlugin[] = [
   {
@@ -53,7 +53,6 @@ export const PLUGIN_CATALOG: CatalogPlugin[] = [
   {
     pkg: "opencode-snip",
     name: "Snip",
-    description:
-      "Reduce LLM token consumption by 60-90% via shell command prefix",
+    description: "Reduce LLM token consumption by 60-90% via shell command prefix",
   },
-];
+]
