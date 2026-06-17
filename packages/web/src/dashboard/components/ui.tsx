@@ -110,7 +110,12 @@ export function PageSpinner() {
 
 /** Animated skeleton bar for value placeholders. */
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-[var(--radius-sm)] bg-terminal-border/60", className)} aria-hidden="true" />
+  return (
+    <div
+      className={cn("animate-pulse rounded-[var(--radius-sm)] bg-terminal-border/60", className)}
+      aria-hidden="true"
+    />
+  )
 }
 
 export function StatCard({
@@ -156,9 +161,7 @@ export function Badge({
     error: "bg-terminal-error/10 text-terminal-error",
     muted: "bg-terminal-muted/10 text-terminal-muted",
   }
-  return (
-    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", tones[tone])}>{children}</span>
-  )
+  return <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", tones[tone])}>{children}</span>
 }
 
 /** Empty / not-connected / unavailable state. Icon renders in an accent-tinted tile. */
@@ -209,7 +212,9 @@ function emptyIcon(d: string) {
 export const emptyIcons = {
   lock: emptyIcon("M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4"),
   bolt: emptyIcon("M13 2L3 14h9l-1 8 10-12h-9l1-8z"),
-  brain: emptyIcon("M12 2a4 4 0 0 0-4 4 4 4 0 0 0-2 7 4 4 0 0 0 4 5 4 4 0 0 0 4-1 4 4 0 0 0 4 1 4 4 0 0 0 4-5 4 4 0 0 0-2-7 4 4 0 0 0-4-4 4 4 0 0 0-4 0z M12 6v12"),
+  brain: emptyIcon(
+    "M12 2a4 4 0 0 0-4 4 4 4 0 0 0-2 7 4 4 0 0 0 4 5 4 4 0 0 0 4-1 4 4 0 0 0 4 1 4 4 0 0 0 4-5 4 4 0 0 0-2-7 4 4 0 0 0-4-4 4 4 0 0 0-4 0z M12 6v12",
+  ),
   robot: emptyIcon("M9 15h.01M15 15h.01M12 3v4M5 7h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"),
   chat: emptyIcon("M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"),
   disk: emptyIcon("M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8"),
