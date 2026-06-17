@@ -8,7 +8,7 @@ export default function AppLayout() {
   const segments = useSegments()
   const routeSegments = segments.filter((segment) => !segment.startsWith("("))
   const [root, child] = routeSegments
-  const hideChrome = (root === "sessions" && Boolean(child)) || (root === "settings" && Boolean(child))
+  const hideChrome = root === "sessions" && Boolean(child)
   const { palette } = useAppTheme()
 
   return (
@@ -38,13 +38,9 @@ export default function AppLayout() {
           <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" md="schedule" />
           <NativeTabs.Trigger.Label>Routines</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="loops">
-          <NativeTabs.Trigger.Icon sf={{ default: "repeat", selected: "repeat.circle.fill" }} md="repeat" />
-          <NativeTabs.Trigger.Label>Loops</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="settings">
-          <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
-          <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger name="more">
+          <NativeTabs.Trigger.Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} md="more_horiz" />
+          <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     </View>

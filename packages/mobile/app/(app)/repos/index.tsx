@@ -320,7 +320,7 @@ export default function ReposScreen() {
                 <EmptyState
                   title="Connect GitHub first"
                   description="Open Settings to enable OAuth or install a server token, then come back here to browse repositories and launch branch-native sessions."
-                  action={<ActionButton label="Open GitHub controls" onPress={() => router.push("/settings")} />}
+                  action={<ActionButton label="Open GitHub controls" onPress={() => router.push("/more/settings")} />}
                 />
               ) : (
                 <SurfaceCard

@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native"
 import * as DocumentPicker from "expo-document-picker"
-import * as FileSystem from "expo-file-system"
+import { File } from "expo-file-system"
 import * as ImagePicker from "expo-image-picker"
 import { Camera, ChevronRight, FileText, FolderOpen, Image, Search, X } from "lucide-react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -141,7 +141,7 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
     })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
-    const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: "base64" })
+    const base64 = await new File(asset.uri).base64()
     handleFileSelected(asset.mimeType ?? "application/octet-stream", asset.name, base64)
   }
 
@@ -151,7 +151,7 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
     })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
-    const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: "base64" })
+    const base64 = await new File(asset.uri).base64()
     handleFileSelected(asset.mimeType ?? "application/octet-stream", asset.name, base64)
   }
 
@@ -384,7 +384,9 @@ function AnimatedItemCard({
         damping: 20,
         stiffness: 280,
         mass: 0.8,
-        useNativeDriver: true,
+        // Must match borderGlowAnim's JS driver: both animate the same
+        // Animated.View, and borderColor cannot run on the native driver.
+        useNativeDriver: false,
       }),
       Animated.spring(borderGlowAnim, {
         toValue: 1,
@@ -403,7 +405,8 @@ function AnimatedItemCard({
         damping: 20,
         stiffness: 280,
         mass: 0.8,
-        useNativeDriver: true,
+        // Must match borderGlowAnim's JS driver (see handlePressIn).
+        useNativeDriver: false,
       }),
       Animated.spring(borderGlowAnim, {
         toValue: 0,

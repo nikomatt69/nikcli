@@ -232,7 +232,7 @@ export default function LoopDetailScreen() {
       const input = buildInput()
       if (isNew) {
         const created = await client.createLoop(input)
-        router.replace(`/loops/${created.id}` as Href)
+        router.replace(`/more/loops/${created.id}` as Href)
       } else if (loopId) {
         const updated = await client.updateLoop(loopId, input)
         applyDefinition(updated)
@@ -282,7 +282,7 @@ export default function LoopDetailScreen() {
               setAction("delete")
               setError(null)
               await client.deleteLoop(definition.id)
-              router.replace("/loops" as Href)
+              router.replace("/more/loops" as Href)
             } catch (cause) {
               setError(cause instanceof Error ? cause.message : String(cause))
             } finally {
@@ -309,7 +309,7 @@ export default function LoopDetailScreen() {
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}
       keyboardShouldPersistTaps="handled"
     >
-      <ActionButton label="Back to loops" onPress={() => router.replace("/loops" as Href)} variant="secondary" />
+      <ActionButton label="Back to loops" onPress={() => router.replace("/more/loops" as Href)} variant="secondary" />
       {error ? <ErrorBanner message={error} /> : null}
 
       {!isNew && definition && runtime ? (

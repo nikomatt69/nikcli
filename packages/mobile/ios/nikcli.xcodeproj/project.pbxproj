@@ -7,45 +7,45 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0CEB26B245B04681983552EC /* Image+dynamic.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD830D2FA5B4F4280940CE5 /* Image+dynamic.swift */; };
+		0792E57FC20F4B91B8F65D70 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678EC13D5AF04F86A9157FD2 /* SceneDelegate.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		17AE74F319CB42CDBEA3DC61 /* Date+toTimerInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1285A977FDCB4311A090F2BB /* Date+toTimerInterval.swift */; };
-		3286AFD271844D048CF777A3 /* LiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2FF5D91A9B134EFE98D5DB88 /* LiveActivity.appex */; };
+		184A69CF17EA49009A6C2148 /* Date+toTimerInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A05AFFB25646BBBD541F0E /* Date+toTimerInterval.swift */; };
+		24EFA7E5188A45F7B3940156 /* Color+hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23EA0456D8341429C9F3FCE /* Color+hex.swift */; };
+		3A3DA588C9EE44B2B3ACF5EF /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DBE0FF250C410792BEABA3 /* LiveActivityWidget.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		528F1C6E03554AC99FA747E7 /* LiveActivityWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836F336BA2D9408CBA166372 /* LiveActivityWidgetBundle.swift */; };
-		7BEF84B20652495B8A4464FE /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BCE115CF9C044CEBE949674 /* ViewHelpers.swift */; };
-		7C01301761E846A6A829227C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1B45F7FA7EC849B2A5800643 /* Assets.xcassets */; };
-		85A2FBBC8B1D4490B383E9E6 /* View+applyWidgetURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DA6F904C3FC4FBFB125F371 /* View+applyWidgetURL.swift */; };
-		8E443ACBA3AD4619A4690CA2 /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43583B19D4FE4F0CB69A8A26 /* LiveActivityView.swift */; };
+		64F2E7A827FB41ED9EC4C1A9 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6287DC1C6E4CBDA0A90FD8 /* ViewHelpers.swift */; };
+		67F055BDCE97439397C80B16 /* Image+dynamic.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23986C7D6EB4BC48380111B /* Image+dynamic.swift */; };
+		6A5A84D4543B4A51A7515291 /* View+applyWidgetURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FAE77E0D07451BB4747BC9 /* View+applyWidgetURL.swift */; };
+		8500CFA0EE76482BB49824E1 /* LiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AAD93E5C4A6E497A9EC0D8C7 /* LiveActivity.appex */; };
+		853D8666070D8D8F3C769064 /* libPods-nikcli.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D6188FDBDA9CF9351BFCC89D /* libPods-nikcli.a */; };
+		8B5BA87C0AB8811E9DA9F7A2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B79D0E9888B24A8ACFBD5F9F /* ExpoModulesProvider.swift */; };
+		9C1E7BC7ECE545D7BADF265A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 47E6CDA3BCD5476A99D8EC9C /* Assets.xcassets */; };
+		B1B972129D644FCE82D96CBA /* View+applyIfPresent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6599C47666BB48A492673D4D /* View+applyIfPresent.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C49B58A2DAAC4B828D6A73B8 /* View+applyIfPresent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23AE4013AAB942759C36E2BF /* View+applyIfPresent.swift */; };
-		C62BB8531D1B39804D7A883F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6743330DCD91982C7C2334CE /* PrivacyInfo.xcprivacy */; };
-		D0DE5DF10A854BE198DE2C16 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4CCDC70189D4B0DA3366795 /* LiveActivityWidget.swift */; };
-		D3D7E9FBDE35EEC93C8BF7DD /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01BFE74239B933848A316E1 /* ExpoModulesProvider.swift */; };
-		D959DDED03D043B7A1990E1A /* Color+hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E11A693B2A464780EBD34B /* Color+hex.swift */; };
-		E45121D173904E45A5061616 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F3D05D6D2448C3AB854615 /* SceneDelegate.swift */; };
+		BE745BB24B2640D487262CEC /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44BBECF8F1AE487F862E17E4 /* LiveActivityView.swift */; };
+		C6AD95DE27CED279B8C36516 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 19ABB6D79F9BB4154233DA5E /* PrivacyInfo.xcprivacy */; };
+		E73E9EAE64604972BEA85C50 /* LiveActivityWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82055261FD144C7696716410 /* LiveActivityWidgetBundle.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		FD069BCCC5C7A0BE1263450F /* libPods-nikcli.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E357C119F2E9B84CD8AFC0FB /* libPods-nikcli.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		E8FF750EB50A477F8A463E2B /* PBXContainerItemProxy */ = {
+		F0F8DA1C3A734D9FADD720A8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 3CBEA0A649C6492A85D573D2;
+			remoteGlobalIDString = EFFF26546ECF46C6A131A536;
 			remoteInfo = LiveActivity;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		FE5F1C8D108D476C91B2FC2C /* Embed Foundation Extensions */ = {
+		53543EE4A01842A5AD2D9043 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				3286AFD271844D048CF777A3 /* LiveActivity.appex in Embed Foundation Extensions */,
+				8500CFA0EE76482BB49824E1 /* LiveActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -53,31 +53,31 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1285A977FDCB4311A090F2BB /* Date+toTimerInterval.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "Date+toTimerInterval.swift"; path = "Date+toTimerInterval.swift"; sourceTree = "<group>"; };
+		12A05AFFB25646BBBD541F0E /* Date+toTimerInterval.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Date+toTimerInterval.swift"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* nikcli.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = nikcli.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = nikcli/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = nikcli/Info.plist; sourceTree = "<group>"; };
-		1B45F7FA7EC849B2A5800643 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Assets.xcassets; sourceTree = "<group>"; };
-		23AE4013AAB942759C36E2BF /* View+applyIfPresent.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "View+applyIfPresent.swift"; path = "View+applyIfPresent.swift"; sourceTree = "<group>"; };
-		2FF5D91A9B134EFE98D5DB88 /* LiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = undefined; name = LiveActivity.appex; path = LiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		35F3D05D6D2448C3AB854615 /* SceneDelegate.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = nikcli/SceneDelegate.swift; sourceTree = "<group>"; };
-		43583B19D4FE4F0CB69A8A26 /* LiveActivityView.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = LiveActivityView.swift; path = LiveActivityView.swift; sourceTree = "<group>"; };
-		5BCE115CF9C044CEBE949674 /* ViewHelpers.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = ViewHelpers.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
-		6743330DCD91982C7C2334CE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = nikcli/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		836F336BA2D9408CBA166372 /* LiveActivityWidgetBundle.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = LiveActivityWidgetBundle.swift; path = LiveActivityWidgetBundle.swift; sourceTree = "<group>"; };
-		8DA6F904C3FC4FBFB125F371 /* View+applyWidgetURL.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "View+applyWidgetURL.swift"; path = "View+applyWidgetURL.swift"; sourceTree = "<group>"; };
-		8E5D2C10B5004F9EB8217809 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
-		918634BCD2C02DD7CAC030A5 /* Pods-nikcli.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-nikcli.release.xcconfig"; path = "Target Support Files/Pods-nikcli/Pods-nikcli.release.xcconfig"; sourceTree = "<group>"; };
+		19ABB6D79F9BB4154233DA5E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = nikcli/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		44BBECF8F1AE487F862E17E4 /* LiveActivityView.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityView.swift; sourceTree = "<group>"; };
+		47E6CDA3BCD5476A99D8EC9C /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 515889299993; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5A258AAC2DB34CDAB00B30F0 /* LiveActivity.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 515889299993; includeInIndex = 0; lastKnownFileType = unknown; path = LiveActivity.entitlements; sourceTree = "<group>"; };
+		6599C47666BB48A492673D4D /* View+applyIfPresent.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyIfPresent.swift"; sourceTree = "<group>"; };
+		678EC13D5AF04F86A9157FD2 /* SceneDelegate.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = nikcli/SceneDelegate.swift; sourceTree = "<group>"; };
+		82055261FD144C7696716410 /* LiveActivityWidgetBundle.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidgetBundle.swift; sourceTree = "<group>"; };
+		87780C232EA0244F33A0C1D2 /* Pods-nikcli.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-nikcli.release.xcconfig"; path = "Target Support Files/Pods-nikcli/Pods-nikcli.release.xcconfig"; sourceTree = "<group>"; };
+		87FAE77E0D07451BB4747BC9 /* View+applyWidgetURL.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyWidgetURL.swift"; sourceTree = "<group>"; };
+		A23EA0456D8341429C9F3FCE /* Color+hex.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Color+hex.swift"; sourceTree = "<group>"; };
+		A8B283FA3534CE9683DC3AD7 /* Pods-nikcli.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-nikcli.debug.xcconfig"; path = "Target Support Files/Pods-nikcli/Pods-nikcli.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = nikcli/SplashScreen.storyboard; sourceTree = "<group>"; };
+		AAD93E5C4A6E497A9EC0D8C7 /* LiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 515889299993; includeInIndex = 0; path = LiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACCB92D0C38647A48A35A3D3 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B3DBE0FF250C410792BEABA3 /* LiveActivityWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		B79D0E9888B24A8ACFBD5F9F /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-nikcli/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		BF1BD9F9E802DDB79989EFF5 /* Pods-nikcli.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-nikcli.debug.xcconfig"; path = "Target Support Files/Pods-nikcli/Pods-nikcli.debug.xcconfig"; sourceTree = "<group>"; };
-		BFD830D2FA5B4F4280940CE5 /* Image+dynamic.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "Image+dynamic.swift"; path = "Image+dynamic.swift"; sourceTree = "<group>"; };
-		C30EE674B5874B149BE7C622 /* LiveActivity.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = LiveActivity.entitlements; path = LiveActivity.entitlements; sourceTree = "<group>"; };
-		E357C119F2E9B84CD8AFC0FB /* libPods-nikcli.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-nikcli.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		E3E11A693B2A464780EBD34B /* Color+hex.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "Color+hex.swift"; path = "Color+hex.swift"; sourceTree = "<group>"; };
-		E4CCDC70189D4B0DA3366795 /* LiveActivityWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = LiveActivityWidget.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		BB6287DC1C6E4CBDA0A90FD8 /* ViewHelpers.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
+		D23986C7D6EB4BC48380111B /* Image+dynamic.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Image+dynamic.swift"; sourceTree = "<group>"; };
+		D6188FDBDA9CF9351BFCC89D /* libPods-nikcli.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-nikcli.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F01BFE74239B933848A316E1 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-nikcli/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = nikcli/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* nikcli-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "nikcli-Bridging-Header.h"; path = "nikcli/nikcli-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -87,11 +87,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FD069BCCC5C7A0BE1263450F /* libPods-nikcli.a in Frameworks */,
+				853D8666070D8D8F3C769064 /* libPods-nikcli.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		834A368527284C98A0160DD7 /* Frameworks */ = {
+		B148E036D3F542AB95CB4752 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -110,8 +110,8 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				35F3D05D6D2448C3AB854615 /* SceneDelegate.swift */,
-				6743330DCD91982C7C2334CE /* PrivacyInfo.xcprivacy */,
+				678EC13D5AF04F86A9157FD2 /* SceneDelegate.swift */,
+				19ABB6D79F9BB4154233DA5E /* PrivacyInfo.xcprivacy */,
 			);
 			name = nikcli;
 			sourceTree = "<group>";
@@ -120,55 +120,44 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				E357C119F2E9B84CD8AFC0FB /* libPods-nikcli.a */,
+				D6188FDBDA9CF9351BFCC89D /* libPods-nikcli.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		4B7C2C4830F3163F6D808BE5 /* nikcli */ = {
+		34587BFFA764C2C568041B6D /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				F01BFE74239B933848A316E1 /* ExpoModulesProvider.swift */,
+				750C86F6B964F8F3551EEF9D /* nikcli */,
 			);
-			name = nikcli;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
-		660038ECE80DF97766DCE92A /* Pods */ = {
+		6634A63B9B7849C393CC3F39 /* LiveActivity */ = {
 			isa = PBXGroup;
 			children = (
-				BF1BD9F9E802DDB79989EFF5 /* Pods-nikcli.debug.xcconfig */,
-				918634BCD2C02DD7CAC030A5 /* Pods-nikcli.release.xcconfig */,
+				A23EA0456D8341429C9F3FCE /* Color+hex.swift */,
+				12A05AFFB25646BBBD541F0E /* Date+toTimerInterval.swift */,
+				D23986C7D6EB4BC48380111B /* Image+dynamic.swift */,
+				44BBECF8F1AE487F862E17E4 /* LiveActivityView.swift */,
+				B3DBE0FF250C410792BEABA3 /* LiveActivityWidget.swift */,
+				82055261FD144C7696716410 /* LiveActivityWidgetBundle.swift */,
+				6599C47666BB48A492673D4D /* View+applyIfPresent.swift */,
+				87FAE77E0D07451BB4747BC9 /* View+applyWidgetURL.swift */,
+				BB6287DC1C6E4CBDA0A90FD8 /* ViewHelpers.swift */,
+				ACCB92D0C38647A48A35A3D3 /* Info.plist */,
+				47E6CDA3BCD5476A99D8EC9C /* Assets.xcassets */,
+				5A258AAC2DB34CDAB00B30F0 /* LiveActivity.entitlements */,
 			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
-		6CE7E059E2594CED84EF2D26 /* LiveActivity */ = {
-			isa = PBXGroup;
-			children = (
-				E3E11A693B2A464780EBD34B /* Color+hex.swift */,
-				1285A977FDCB4311A090F2BB /* Date+toTimerInterval.swift */,
-				BFD830D2FA5B4F4280940CE5 /* Image+dynamic.swift */,
-				43583B19D4FE4F0CB69A8A26 /* LiveActivityView.swift */,
-				E4CCDC70189D4B0DA3366795 /* LiveActivityWidget.swift */,
-				836F336BA2D9408CBA166372 /* LiveActivityWidgetBundle.swift */,
-				23AE4013AAB942759C36E2BF /* View+applyIfPresent.swift */,
-				8DA6F904C3FC4FBFB125F371 /* View+applyWidgetURL.swift */,
-				5BCE115CF9C044CEBE949674 /* ViewHelpers.swift */,
-				8E5D2C10B5004F9EB8217809 /* Info.plist */,
-				1B45F7FA7EC849B2A5800643 /* Assets.xcassets */,
-				C30EE674B5874B149BE7C622 /* LiveActivity.entitlements */,
-			);
-			name = LiveActivity;
 			path = LiveActivity;
 			sourceTree = "<group>";
 		};
-		7EDC5BBB86E2FA7616A4816E /* ExpoModulesProviders */ = {
+		750C86F6B964F8F3551EEF9D /* nikcli */ = {
 			isa = PBXGroup;
 			children = (
-				4B7C2C4830F3163F6D808BE5 /* nikcli */,
+				B79D0E9888B24A8ACFBD5F9F /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = nikcli;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -185,9 +174,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				6CE7E059E2594CED84EF2D26 /* LiveActivity */,
-				660038ECE80DF97766DCE92A /* Pods */,
-				7EDC5BBB86E2FA7616A4816E /* ExpoModulesProviders */,
+				6634A63B9B7849C393CC3F39 /* LiveActivity */,
+				95882C4E37E58FF644FAFFA7 /* Pods */,
+				34587BFFA764C2C568041B6D /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -198,9 +187,18 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* nikcli.app */,
-				2FF5D91A9B134EFE98D5DB88 /* LiveActivity.appex */,
+				AAD93E5C4A6E497A9EC0D8C7 /* LiveActivity.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		95882C4E37E58FF644FAFFA7 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				A8B283FA3534CE9683DC3AD7 /* Pods-nikcli.debug.xcconfig */,
+				87780C232EA0244F33A0C1D2 /* Pods-nikcli.release.xcconfig */,
+			);
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -220,32 +218,32 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "nikcli" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				24F494B794406FB2052A0323 /* [Expo] Configure project */,
+				5343E0E88248A1AFFEAB2388 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				FE5F1C8D108D476C91B2FC2C /* Embed Foundation Extensions */,
-				92C06AD27A28F399E8A1DB03 /* [CP] Embed Pods Frameworks */,
+				53543EE4A01842A5AD2D9043 /* Embed Foundation Extensions */,
+				1680960275DCC6B04916437F /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				2EE8B98418D841B08BC29E6F /* PBXTargetDependency */,
+				9DE830A793E34D848CA4200E /* PBXTargetDependency */,
 			);
 			name = nikcli;
 			productName = nikcli;
 			productReference = 13B07F961A680F5B00A75B9A /* nikcli.app */;
 			productType = "com.apple.product-type.application";
 		};
-		3CBEA0A649C6492A85D573D2 /* LiveActivity */ = {
+		EFFF26546ECF46C6A131A536 /* LiveActivity */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A27143C739164725B9B2AA49 /* Build configuration list for PBXNativeTarget "LiveActivity" */;
+			buildConfigurationList = 6CBF0BC394D84CB6A6AE8B31 /* Build configuration list for PBXNativeTarget "LiveActivity" */;
 			buildPhases = (
-				377F4EE11E304007B9A22AC4 /* Sources */,
-				834A368527284C98A0160DD7 /* Frameworks */,
-				5C6D849FC4E24DD0B01706BF /* Resources */,
+				7C4FF343D328407287042394 /* Sources */,
+				B148E036D3F542AB95CB4752 /* Frameworks */,
+				AC0200CBD2134B97BB6EA171 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -253,7 +251,7 @@
 			);
 			name = LiveActivity;
 			productName = LiveActivity;
-			productReference = 2FF5D91A9B134EFE98D5DB88 /* LiveActivity.appex */;
+			productReference = AAD93E5C4A6E497A9EC0D8C7 /* LiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -267,7 +265,7 @@
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
 					};
-					3CBEA0A649C6492A85D573D2 = {
+					EFFF26546ECF46C6A131A536 = {
 						LastSwiftMigration = 1250;
 					};
 				};
@@ -286,7 +284,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* nikcli */,
-				3CBEA0A649C6492A85D573D2 /* LiveActivity */,
+				EFFF26546ECF46C6A131A536 /* LiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -299,15 +297,15 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				C62BB8531D1B39804D7A883F /* PrivacyInfo.xcprivacy in Resources */,
+				C6AD95DE27CED279B8C36516 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		5C6D849FC4E24DD0B01706BF /* Resources */ = {
+		AC0200CBD2134B97BB6EA171 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7C01301761E846A6A829227C /* Assets.xcassets in Resources */,
+				9C1E7BC7ECE545D7BADF265A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -353,7 +351,51 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		24F494B794406FB2052A0323 /* [Expo] Configure project */ = {
+		1680960275DCC6B04916437F /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-nikcli/Pods-nikcli-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem.framework/ExpoFileSystem",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFont/ExpoFont.framework/ExpoFont",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/ExpoImage.framework/ExpoImage",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImage.framework/SDWebImage",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImageAVIFCoder.framework/SDWebImageAVIFCoder",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImageSVGCoder.framework/SDWebImageSVGCoder",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImageWebPCoder.framework/SDWebImageWebPCoder",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/libavif.framework/libavif",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesCore/ExpoModulesCore.framework/ExpoModulesCore",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesWorklets/ExpoModulesWorklets.framework/ExpoModulesWorklets",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFileSystem.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFont.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoImage.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImage.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImageAVIFCoder.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImageSVGCoder.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImageWebPCoder.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libavif.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesCore.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesJSI.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesWorklets.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-nikcli/Pods-nikcli-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		5343E0E88248A1AFFEAB2388 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -411,50 +453,6 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-nikcli/Pods-nikcli-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		92C06AD27A28F399E8A1DB03 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-nikcli/Pods-nikcli-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem.framework/ExpoFileSystem",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFont/ExpoFont.framework/ExpoFont",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/ExpoImage.framework/ExpoImage",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImage.framework/SDWebImage",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImageAVIFCoder.framework/SDWebImageAVIFCoder",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImageSVGCoder.framework/SDWebImageSVGCoder",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/SDWebImageWebPCoder.framework/SDWebImageWebPCoder",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoImage/libavif.framework/libavif",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesCore/ExpoModulesCore.framework/ExpoModulesCore",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesWorklets/ExpoModulesWorklets.framework/ExpoModulesWorklets",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFileSystem.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFont.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoImage.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImage.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImageAVIFCoder.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImageSVGCoder.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SDWebImageWebPCoder.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libavif.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesJSI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesWorklets.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-nikcli/Pods-nikcli-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -463,46 +461,47 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				E45121D173904E45A5061616 /* SceneDelegate.swift in Sources */,
-				D3D7E9FBDE35EEC93C8BF7DD /* ExpoModulesProvider.swift in Sources */,
+				0792E57FC20F4B91B8F65D70 /* SceneDelegate.swift in Sources */,
+				8B5BA87C0AB8811E9DA9F7A2 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		377F4EE11E304007B9A22AC4 /* Sources */ = {
+		7C4FF343D328407287042394 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D959DDED03D043B7A1990E1A /* Color+hex.swift in Sources */,
-				17AE74F319CB42CDBEA3DC61 /* Date+toTimerInterval.swift in Sources */,
-				0CEB26B245B04681983552EC /* Image+dynamic.swift in Sources */,
-				8E443ACBA3AD4619A4690CA2 /* LiveActivityView.swift in Sources */,
-				D0DE5DF10A854BE198DE2C16 /* LiveActivityWidget.swift in Sources */,
-				528F1C6E03554AC99FA747E7 /* LiveActivityWidgetBundle.swift in Sources */,
-				C49B58A2DAAC4B828D6A73B8 /* View+applyIfPresent.swift in Sources */,
-				85A2FBBC8B1D4490B383E9E6 /* View+applyWidgetURL.swift in Sources */,
-				7BEF84B20652495B8A4464FE /* ViewHelpers.swift in Sources */,
+				24EFA7E5188A45F7B3940156 /* Color+hex.swift in Sources */,
+				184A69CF17EA49009A6C2148 /* Date+toTimerInterval.swift in Sources */,
+				67F055BDCE97439397C80B16 /* Image+dynamic.swift in Sources */,
+				BE745BB24B2640D487262CEC /* LiveActivityView.swift in Sources */,
+				3A3DA588C9EE44B2B3ACF5EF /* LiveActivityWidget.swift in Sources */,
+				E73E9EAE64604972BEA85C50 /* LiveActivityWidgetBundle.swift in Sources */,
+				B1B972129D644FCE82D96CBA /* View+applyIfPresent.swift in Sources */,
+				6A5A84D4543B4A51A7515291 /* View+applyWidgetURL.swift in Sources */,
+				64F2E7A827FB41ED9EC4C1A9 /* ViewHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		2EE8B98418D841B08BC29E6F /* PBXTargetDependency */ = {
+		9DE830A793E34D848CA4200E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3CBEA0A649C6492A85D573D2 /* LiveActivity */;
-			targetProxy = E8FF750EB50A477F8A463E2B /* PBXContainerItemProxy */;
+			target = EFFF26546ECF46C6A131A536 /* LiveActivity */;
+			targetProxy = F0F8DA1C3A734D9FADD720A8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BF1BD9F9E802DDB79989EFF5 /* Pods-nikcli.debug.xcconfig */;
+			baseConfigurationReference = A8B283FA3534CE9683DC3AD7 /* Pods-nikcli.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = nikcli/nikcli.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -534,12 +533,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 918634BCD2C02DD7CAC030A5 /* Pods-nikcli.release.xcconfig */;
+			baseConfigurationReference = 87780C232EA0244F33A0C1D2 /* Pods-nikcli.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = nikcli/nikcli.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				INFOPLIST_FILE = nikcli/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -562,27 +562,6 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
-		};
-		72E062CB87F042BF95FB15B6 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = LiveActivity/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 1.0.0;
-				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.mobile.LiveActivity;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -718,12 +697,13 @@
 			};
 			name = Release;
 		};
-		E569F0030E0747F7814D65F1 /* Release */ = {
+		CF0F875BDEA74C1ABB0D458B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
@@ -739,6 +719,28 @@
 			};
 			name = Release;
 		};
+		E208DE8382FB44B0B01A8536 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.mobile.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -751,20 +753,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		6CBF0BC394D84CB6A6AE8B31 /* Build configuration list for PBXNativeTarget "LiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E208DE8382FB44B0B01A8536 /* Debug */,
+				CF0F875BDEA74C1ABB0D458B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "nikcli" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		A27143C739164725B9B2AA49 /* Build configuration list for PBXNativeTarget "LiveActivity" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				72E062CB87F042BF95FB15B6 /* Debug */,
-				E569F0030E0747F7814D65F1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

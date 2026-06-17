@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { TerminalSquare, Plus, Trash2 } from "lucide-react-native"
 import { Copy, ClipboardPaste } from "lucide-react-native"
 import { Asset } from "expo-asset"
-import * as FileSystem from "expo-file-system"
+import { File } from "expo-file-system"
 import * as Clipboard from "expo-clipboard"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
@@ -36,7 +36,7 @@ async function loadTerminalHtml(): Promise<string> {
     const [asset] = await Asset.loadAsync(TERMINAL_HTML_MODULE)
     const uri = asset.localUri ?? asset.uri
     if (!uri) throw new Error("Terminal asset URI is unavailable")
-    return FileSystem.readAsStringAsync(uri)
+    return new File(uri).text()
   })()
   return terminalHtmlPromise
 }

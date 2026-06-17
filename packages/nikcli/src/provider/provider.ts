@@ -108,7 +108,7 @@ function configGet(ctx?: InstanceContext): Promise<Config.Info> {
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
-  const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
+  const OPENAI_HEADER_TIMEOUT_DEFAULT = 60_000
 
   function normalizeBaseURL(baseURL: string): string {
     return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL
@@ -424,7 +424,7 @@ export namespace Provider {
     autoload: boolean
     getModel?: CustomModelLoader
     options?: Record<string, unknown>
-  }>
+  } | undefined>
 
   const CUSTOM_LOADERS = {
     async anthropic() {
@@ -486,6 +486,16 @@ export namespace Provider {
           return shouldUseCopilotResponsesApi(modelID) ? sdk.responses(modelID) : sdk.chat(modelID)
         },
         options: {},
+      }
+    },
+    xai: async (input: { id: string }) => {
+      const auth = await authGet(input.id)
+      if (auth?.type !== "oauth") return undefined
+      return {
+        autoload: false,
+        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+          return sdk.responses(modelID)
+        },
       }
     },
     azure: async () => {

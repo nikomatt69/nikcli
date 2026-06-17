@@ -20,7 +20,11 @@ export default function TerminalLayout() {
         name="index"
         options={{
           title: "Terminal",
-          headerLargeTitle: true,
+          // The terminal is a full-bleed, non-scrolling tool screen. A large title
+          // header is translucent and expects scroll content underneath it, which
+          // made the terminal render *behind* the header. A standard header reserves
+          // its own height so the terminal starts directly below it.
+          headerLargeTitle: false,
           headerRight: () => <SettingsHeaderButton />,
         }}
       />

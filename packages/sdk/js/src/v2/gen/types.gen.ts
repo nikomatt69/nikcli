@@ -1347,6 +1347,7 @@ export type LoopDefinition = {
       }
   maxRuns?: number
   timeoutMs?: number
+  createPR?: boolean
   paused?: boolean
   enabled: boolean
   createdAt: number
@@ -1379,6 +1380,15 @@ export type LoopTemplate = {
   }
 }
 
+export type LoopRunPullRequestRef = {
+  number: number
+  url: string
+  branch: string
+  base: string
+  title?: string
+  action: "created" | "updated"
+}
+
 export type LoopRun = {
   id: string
   loopID: string
@@ -1388,6 +1398,7 @@ export type LoopRun = {
   ok: boolean
   error?: string
   sessionID?: string
+  pullRequest?: LoopRunPullRequestRef
 }
 
 export type MissionDefinition = {
@@ -3746,6 +3757,7 @@ export type MobileLoop = {
       }
   maxRuns?: number
   timeoutMs?: number
+  createPR?: boolean
   paused?: boolean
   enabled: boolean
   createdAt: number
@@ -3794,6 +3806,14 @@ export type MobileLoopRun = {
   sessionID?: string
   error?: string
   ok: boolean
+  pullRequest?: {
+    number: number
+    url: string
+    branch: string
+    base: string
+    title?: string
+    action: "created" | "updated"
+  }
 }
 
 export type MobileLoopWriteInput = {
@@ -3815,6 +3835,7 @@ export type MobileLoopWriteInput = {
       }
   maxRuns?: number
   timeoutMs?: number
+  createPR?: boolean
   paused?: boolean
   enabled: boolean
 }
@@ -4327,6 +4348,7 @@ export type LoopUpsertData = {
         }
     maxRuns?: number
     timeoutMs?: number
+    createPR?: boolean
     paused?: boolean
     enabled: boolean
   }
@@ -4500,6 +4522,7 @@ export type LoopUpdateData = {
         }
     maxRuns?: number
     timeoutMs?: number
+    createPR?: boolean
     paused?: boolean
     enabled: boolean
     createdAt: number

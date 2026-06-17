@@ -699,6 +699,7 @@ export class Loop extends HeyApiClient {
           }
       maxRuns?: number
       timeoutMs?: number
+      createPR?: boolean
       paused?: boolean
       enabled?: boolean
     },
@@ -716,6 +717,7 @@ export class Loop extends HeyApiClient {
             { in: "body", key: "trigger" },
             { in: "body", key: "maxRuns" },
             { in: "body", key: "timeoutMs" },
+            { in: "body", key: "createPR" },
             { in: "body", key: "paused" },
             { in: "body", key: "enabled" },
           ],
@@ -898,6 +900,7 @@ export class Loop extends HeyApiClient {
           }
       maxRuns?: number
       timeoutMs?: number
+      createPR?: boolean
       paused?: boolean
       enabled?: boolean
       createdAt?: number
@@ -926,6 +929,7 @@ export class Loop extends HeyApiClient {
             { in: "body", key: "trigger" },
             { in: "body", key: "maxRuns" },
             { in: "body", key: "timeoutMs" },
+            { in: "body", key: "createPR" },
             { in: "body", key: "paused" },
             { in: "body", key: "enabled" },
             { in: "body", key: "createdAt" },

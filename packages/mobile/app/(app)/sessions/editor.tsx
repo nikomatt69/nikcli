@@ -759,7 +759,7 @@ export default function EditorScreen() {
                   ) : (
                     highlightedLines?.map((lineSegs, lineIndex) => (
                       <Text
-                        key={lineSegs.map((s) => s.text).join("")}
+                        key={`line-${lineIndex}`}
                         selectable
                         style={{
                           fontFamily: MONO,
@@ -769,7 +769,7 @@ export default function EditorScreen() {
                         }}
                       >
                         {lineSegs.map((seg, i) => (
-                          <Text key={`${seg.text}-${seg.color}`} style={{ color: seg.color }}>
+                          <Text key={`${lineIndex}:${i}`} style={{ color: seg.color }}>
                             {seg.text}
                           </Text>
                         ))}

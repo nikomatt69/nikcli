@@ -67,7 +67,7 @@ function LoopRow({
           />
         </View>
         <View className="flex-1">
-          <ActionButton label="Manage" variant="secondary" onPress={() => router.push(`/loops/${loop.id}` as Href)} />
+          <ActionButton label="Manage" variant="secondary" onPress={() => router.push(`/more/loops/${loop.id}` as Href)} />
         </View>
       </View>
     </SurfaceCard>
@@ -154,7 +154,7 @@ export default function LoopsScreen() {
         runningCount > 0 ? { label: `${runningCount} running`, tone: "accent" } : null,
       ]}
     >
-      <ActionButton label="New loop" onPress={() => router.push("/loops/new" as Href)} />
+      <ActionButton label="New loop" onPress={() => router.push("/more/loops/new" as Href)} />
       {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
@@ -175,7 +175,7 @@ export default function LoopsScreen() {
           <EmptyState
             title="No loops yet"
             description="Create a loop to run one or more goal-driven stages manually or on an interval."
-            action={<ActionButton label="Create loop" onPress={() => router.push("/loops/new" as Href)} />}
+            action={<ActionButton label="Create loop" onPress={() => router.push("/more/loops/new" as Href)} />}
           />
         }
         contentContainerStyle={{ paddingBottom: 28 }}

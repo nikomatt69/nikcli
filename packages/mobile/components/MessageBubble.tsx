@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { Animated, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
@@ -164,13 +164,13 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         <View>
           {lineHighlights.map((lineHighlighted, lineIndex) => (
             <Text
-              key={lineHighlighted.map((s) => s.text).join("")}
+              key={`line-${lineIndex}`}
               selectable
               className="text-[11px] leading-[18px]"
               style={{ fontFamily: "Menlo" }}
             >
               {lineHighlighted.map((seg, i) => (
-                <Text key={`${seg.text}-${seg.color}`} style={{ color: seg.color }}>
+                <Text key={`${lineIndex}:${i}`} style={{ color: seg.color }}>
                   {seg.text}
                 </Text>
               ))}
@@ -239,18 +239,20 @@ function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; m
   )
 }
 
-export function MessageBubble(props: {
+type MessageBubbleProps = {
   message: MessageWithParts
   diffs?: FileDiff[]
   diffLoaded?: boolean
   diffLoading?: boolean
   onLoadDiff?(messageID: string): void
-  onCopy?: () => void
-  onFork?: () => void
+  onCopy?: (message: MessageWithParts) => void
+  onFork?: (message: MessageWithParts) => void
   onDismiss?: () => void
-  onActivate?(): void
+  onActivate?(messageID: string): void
   isActive?: boolean
-}) {
+}
+
+function MessageBubbleImpl(props: MessageBubbleProps) {
   const { palette, isDark } = useAppTheme()
   const gestures = useUIStore((state) => state.gestures)
   const [showReasoning, setShowReasoning] = useState(false)
@@ -259,9 +261,12 @@ export function MessageBubble(props: {
   const reasoningRotation = reasoningRotationRef.current
   const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
   const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
-  const patch = patchPart(props.message.parts)
-  const tools = toolParts(props.message.parts)
+  const patch = useMemo(() => patchPart(props.message.parts), [props.message.parts])
+  const tools = useMemo(() => toolParts(props.message.parts), [props.message.parts])
   const isUser = props.message.info.role === "user"
+  const hasReusableText = Boolean(text.trim())
+  const canCopy = hasReusableText && props.onCopy
+  const canFork = hasReusableText && props.onFork
 
   const assistantInfo = !isUser ? (props.message.info as AssistantMessage) : null
   const assistantError = assistantInfo?.error?.data?.message
@@ -329,7 +334,7 @@ export function MessageBubble(props: {
       accessibilityHint="Long press to show message actions"
       onLongPress={() => {
         if (!gestures.bubbleLongPressActions) return
-        props.onActivate?.()
+        props.onActivate?.(props.message.info.id)
         void triggerHaptic("selection")
       }}
       delayLongPress={180}
@@ -580,10 +585,12 @@ export function MessageBubble(props: {
             </View>
           ) : null}
 
-          {props.isActive && (props.onCopy || props.onFork || props.onDismiss) ? (
+          {props.isActive && (canCopy || canFork || props.onDismiss) ? (
             <View className="flex-row flex-wrap gap-2 border-t border-border/80 px-3.5 py-3">
-              {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
-              {props.onFork ? <ActionChip label="Reuse" onPress={props.onFork} icon={GitBranch} /> : null}
+              {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
+              {canFork ? (
+                <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} />
+              ) : null}
               {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
             </View>
           ) : null}
@@ -592,7 +599,7 @@ export function MessageBubble(props: {
     </Pressable>
   )
 
-  if (!gestures.bubbleSwipeActions || (!props.onCopy && !props.onFork && !props.onDismiss)) {
+  if (!gestures.bubbleSwipeActions || (!canCopy && !canFork && !props.onDismiss)) {
     return bubble
   }
 
@@ -601,13 +608,13 @@ export function MessageBubble(props: {
       overshootRight={false}
       renderRightActions={() => (
         <View className="mb-3 ml-2 flex-row items-center gap-2 self-stretch">
-          {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
-          {props.onFork ? <ActionChip label="Reuse" onPress={props.onFork} icon={GitBranch} /> : null}
+          {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
+          {canFork ? <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} /> : null}
           {props.onDismiss ? <ActionChip label="Hide" onPress={props.onDismiss} icon={X} muted /> : null}
         </View>
       )}
       onSwipeableWillOpen={() => {
-        props.onActivate?.()
+        props.onActivate?.(props.message.info.id)
         void triggerHaptic("selection")
       }}
     >
@@ -615,3 +622,23 @@ export function MessageBubble(props: {
     </Swipeable>
   )
 }
+
+function messageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): boolean {
+  // `upsertMessage`/`upsertPart` preserve the object reference of untouched
+  // messages, so a reference check on `message` is enough to skip re-renders of
+  // bubbles that did not change during streaming.
+  return (
+    prev.message === next.message &&
+    prev.diffs === next.diffs &&
+    prev.diffLoaded === next.diffLoaded &&
+    prev.diffLoading === next.diffLoading &&
+    prev.isActive === next.isActive &&
+    prev.onLoadDiff === next.onLoadDiff &&
+    prev.onCopy === next.onCopy &&
+    prev.onFork === next.onFork &&
+    prev.onDismiss === next.onDismiss &&
+    prev.onActivate === next.onActivate
+  )
+}
+
+export const MessageBubble = memo(MessageBubbleImpl, messageBubblePropsEqual)

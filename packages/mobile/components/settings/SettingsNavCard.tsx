@@ -1,6 +1,6 @@
 import { forwardRef, useRef, type ComponentProps } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
-import { ChevronRight } from "lucide-react-native"
+import { ChevronRight, type LucideIcon } from "lucide-react-native"
 import { useAppTheme } from "@/lib/theme"
 import { PRESS_SPRING } from "@/lib/animation"
 
@@ -10,10 +10,12 @@ type SettingsNavCardProps = {
   description: string
   badges?: string[]
   shimmer?: boolean
+  /** Optional leading icon rendered in a tinted tile to the left of the copy. */
+  icon?: LucideIcon
 } & ComponentProps<typeof Pressable>
 
 export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function SettingsNavCard(
-  { eyebrow, title, description, badges = [], shimmer = false, onPressIn, onPressOut, ...props },
+  { eyebrow, title, description, badges = [], shimmer = false, icon: Icon, onPressIn, onPressOut, ...props },
   ref,
 ) {
   const { palette } = useAppTheme()
@@ -45,6 +47,14 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
         })}
       >
         <View className="flex-row items-center justify-between gap-3">
+          {Icon ? (
+            <View
+              className="h-11 w-11 items-center justify-center rounded-2xl border border-border bg-surface"
+              style={{ borderCurve: "continuous" }}
+            >
+              <Icon size={20} color={palette.accent} strokeWidth={2.1} />
+            </View>
+          ) : null}
           <View className="min-w-0 flex-1 gap-1">
             <Text className="text-[12px] font-semibold text-accent-light">{eyebrow}</Text>
             <Text className="text-base font-semibold text-ink">{title}</Text>

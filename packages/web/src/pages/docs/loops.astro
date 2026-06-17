@@ -10,6 +10,7 @@ const toc = [
   { title: "Loop schema", href: "#schema", depth: 2 },
   { title: "Engine lifecycle", href: "#lifecycle", depth: 2 },
   { title: "Triggers and stages", href: "#triggers-stages", depth: 2 },
+  { title: "Auto-PR on completion", href: "#auto-pr", depth: 2 },
   { title: "CLI subcommands", href: "#cli", depth: 2 },
   { title: "Bus events", href: "#bus-events", depth: 2 },
   { title: "TUI surface", href: "#tui", depth: 2 },
@@ -119,6 +120,7 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
         <tr><td><code>trigger</code></td><td><code>LoopTrigger</code></td><td>Manual or interval.</td></tr>
         <tr><td><code>maxRuns</code></td><td><code>number</code></td><td>Optional temporal cap (interval loops stop after <code>maxRuns</code>).</td></tr>
         <tr><td><code>timeoutMs</code></td><td><code>number</code></td><td>Per-run wall-clock cap. Defaults to <code>DEFAULT_RUN_TIMEOUT_MS = 60min</code>.</td></tr>
+        <tr><td><code>createPR</code></td><td><code>boolean</code></td><td>Optional. When true, the engine pushes the worktree to <code>loop/&lt;id&gt;</code> and runs <code>gh pr create</code> (or updates the existing PR) on every run that finishes with <code>status: "complete"</code>. Best-effort: missing git/gh/auth or no diffs are logged as warnings, the run still counts as <code>complete</code>. Default: <code>false</code>.</td></tr>
         <tr><td><code>paused</code></td><td><code>boolean</code></td><td>Persisted pause flag; survives restarts.</td></tr>
         <tr><td><code>enabled</code></td><td><code>boolean</code></td><td>Disabled loops never fire.</td></tr>
         <tr><td><code>createdAt</code></td><td><code>number</code></td><td>Epoch ms.</td></tr>
@@ -136,6 +138,7 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
         <tr><td><code>sessionID</code></td><td><code>string</code></td><td>Session id of the active stage worker, if any.</td></tr>
         <tr><td><code>error</code></td><td><code>string</code></td><td>Surfaced error, if any.</td></tr>
         <tr><td><code>ok</code></td><td><code>boolean</code></td><td>True when the run reached <code>complete</code>.</td></tr>
+        <tr><td><code>pullRequest</code></td><td><code>LoopPullRequestRef</code></td><td>Optional. Set when the engine successfully opened or updated a GitHub PR (only present if the definition has <code>createPR: true</code> and the hook succeeded).</td></tr>
       </tbody>
     </table>
     <h3>Operational bounds</h3>
@@ -210,6 +213,30 @@ stages:
     objective: "Pick the top issue and draft a fix as a draft PR."
     depends_on_run: triage
     </DocCode>
+  </section>
+
+  <section id="auto-pr" class="mb-16 scroll-mt-24">
+    <h2>Auto-PR on completion</h2>
+    <p>
+      Set <code>createPR: true</code> on a loop definition to have the engine push the worktree
+      and open (or update) a GitHub pull request every time a run finishes with
+      <code>status: "complete"</code>. The engine reuses one branch per loop (<code>loop/&lt;id&gt;</code>),
+      so a long-running loop accumulates its work on a single PR instead of opening a fresh one
+      each tick.
+    </p>
+    <DocCallout type="info" title="Best-effort">
+      <p>
+        The hook is intentionally best-effort: a missing <code>git</code> binary, a missing
+        <code>gh</code> CLI, an unauthenticated <code>gh</code>, a non-GitHub remote, or an empty
+        working tree all log a warning and let the run count as <code>complete</code> without a
+        <code>pullRequest</code> on the run record.
+      </p>
+    </DocCallout>
+    <p>
+      When the hook succeeds, the run record is updated with a <code>pullRequest</code> block
+      (number, url, branch, base, action: <code>created</code> or <code>updated</code>) and the
+      TUI/mobile history view deep-links straight to the PR.
+    </p>
   </section>
 
   <section id="cli" class="mb-16 scroll-mt-24">
@@ -298,6 +325,7 @@ nikcli loop delete lop_abc123 --yes
         <tr><td>Stage never starts</td><td>Global cap of <code>MAX_CONCURRENT_RUNS = 3</code> is saturated.</td><td>Wait for in-flight runs to finish, or cancel one.</td></tr>
         <tr><td>Single-flight slot held by an aborted run</td><td>Earlier process crashed without releasing the slot.</td><td>The lease reaper releases the slot after <code>LOOP_RUN_LEASE_MS</code> (15s). If it persists, restart the host.</td></tr>
         <tr><td>Stage stays in <code>running</code> forever</td><td>Stage worker exceeded <code>timeoutMs</code>.</td><td>The engine aborts the worker via <code>prompt.cancel</code> and marks the run <code>timeout</code>. Inspect the worker session and re-run.</td></tr>
+        <tr><td><code>createPR</code> is set but the run finishes with no <code>pullRequest</code> field</td><td>Missing git/gh, unauthenticated <code>gh</code>, non-GitHub remote, or no working-tree diff.</td><td>Check the engine logs for the warning; the run still counts as <code>complete</code>. Install/authenticate <code>gh</code>, point <code>origin</code> at a GitHub repo, or commit changes before the run ends.</td></tr>
       </tbody>
     </table>
   </section>
@@ -309,7 +337,8 @@ nikcli loop delete lop_abc123 --yes
       <tbody>
         <tr><td><code>packages/nikcli/src/loop/schema.ts</code></td><td>Zod schemas for <code>LoopDefinition</code>, <code>LoopStage</code>, <code>LoopTrigger</code>, <code>LoopRun</code>, and the operational bounds.</td></tr>
         <tr><td><code>packages/nikcli/src/loop/manager.ts</code></td><td>CRUD and run-record persistence.</td></tr>
-        <tr><td><code>packages/nikcli/src/loop/engine.ts</code></td><td>Headless engine: <code>Scheduler</code> integration, single-flight, concurrency cap, lease/heartbeat, bus events.</td></tr>
+        <tr><td><code>packages/nikcli/src/loop/engine.ts</code></td><td>Headless engine: <code>Scheduler</code> integration, single-flight, concurrency cap, lease/heartbeat, bus events, auto-PR hook.</td></tr>
+        <tr><td><code>packages/nikcli/src/loop/pr.ts</code></td><td>Best-effort GitHub PR creation: branch naming, push, <code>gh pr create</code> / <code>gh pr edit</code>.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
         <tr><td><code>packages/mobile/app/(app)/loops/</code></td><td>Mobile Loops tab and detail screen.</td></tr>
         <tr><td><code>specs/10-loops.md</code></td><td>Long-form design document for the loops system.</td></tr>

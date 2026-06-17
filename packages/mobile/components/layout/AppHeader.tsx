@@ -53,7 +53,7 @@ export function SettingsHeaderButton() {
       accessibilityRole="button"
       accessibilityLabel="Open settings"
       hitSlop={12}
-      onPress={() => router.push("/settings")}
+      onPress={() => router.push("/more/settings")}
     >
       <Settings size={20} color={palette.accent} strokeWidth={2.2} />
     </Pressable>

@@ -4,7 +4,6 @@ import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import {
   ActivityIndicator,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native"
+import { FlashList, type FlashListRef } from "@shopify/flash-list"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -311,7 +311,7 @@ export default function SessionScreen() {
   const { client, config, save } = useServer()
   const composerPreferences = useUIStore((state) => state.composer)
   const promptPresets = useUIStore((state) => state.promptPresets)
-  const listRef = useRef<FlatList<MessageWithParts>>(null)
+  const listRef = useRef<FlashListRef<MessageWithParts>>(null)
   const statusRef = useRef<SessionDetail["status"]>(undefined)
   const permissionIDsRef = useRef<Set<string>>(new Set())
   const questionIDsRef = useRef<Set<string>>(new Set())
@@ -328,6 +328,10 @@ export default function SessionScreen() {
   const [diffs, setDiffs] = useState<Record<string, FileDiff[]>>({})
   const [diffLoading, setDiffLoading] = useState<Record<string, boolean>>({})
   const [diffLoaded, setDiffLoaded] = useState<Record<string, boolean>>({})
+  const diffLoadedRef = useRef(diffLoaded)
+  diffLoadedRef.current = diffLoaded
+  const diffLoadingRef = useRef(diffLoading)
+  diffLoadingRef.current = diffLoading
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishTitle, setPublishTitle] = useState("")
   const [publishBody, setPublishBody] = useState("")
@@ -648,6 +652,12 @@ export default function SessionScreen() {
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
+  // FlashList recycles rows, so changes that don't come from the `data` array
+  // (active highlight, lazily loaded diffs) must be signalled via `extraData`.
+  const listExtraData = useMemo(
+    () => ({ activeMessageID, diffs, diffLoaded, diffLoading }),
+    [activeMessageID, diffs, diffLoaded, diffLoading],
+  )
   const previews = useMemo(() => extractSessionPreviews(messages, config?.url), [config?.url, messages])
   const hasUserPrompt = useMemo(() => messages.some((item) => item.info.role === "user"), [messages])
   const sessionBlocked = detail?.status?.type === "busy" || detail?.status?.type === "retry"
@@ -970,36 +980,42 @@ export default function SessionScreen() {
     followTranscriptRef.current = distanceFromBottom < 96
   }
 
-  async function copyMessage(message: MessageWithParts) {
+  const copyMessage = useCallback(async (message: MessageWithParts) => {
     const value = messagePlainText(message)
     if (!value) return
     await Clipboard.setStringAsync(value)
     setActiveMessageID(null)
     void triggerHaptic("selection")
-  }
+  }, [])
 
-  function reuseMessage(message: MessageWithParts) {
+  const reuseMessage = useCallback((message: MessageWithParts) => {
     const value = messagePlainText(message)
     if (!value) return
     setInput(message.info.role === "assistant" ? `Follow up on this result:\n\n${value}` : value)
     setActiveMessageID(null)
     void triggerHaptic("selection")
-  }
+  }, [])
 
-  async function loadDiff(messageID: string) {
-    if (!client || !sessionId || diffLoaded[messageID] || diffLoading[messageID]) return
-    try {
-      setDiffLoading((current) => ({ ...current, [messageID]: true }))
-      setError(null)
-      const next = await client.getDiff(sessionId, messageID)
-      setDiffs((current) => ({ ...current, [messageID]: next }))
-      setDiffLoaded((current) => ({ ...current, [messageID]: true }))
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setDiffLoading((current) => ({ ...current, [messageID]: false }))
-    }
-  }
+  const dismissActiveMessage = useCallback(() => setActiveMessageID(null), [])
+  const activateMessage = useCallback((messageID: string) => setActiveMessageID(messageID), [])
+
+  const loadDiff = useCallback(
+    async (messageID: string) => {
+      if (!client || !sessionId || diffLoadedRef.current[messageID] || diffLoadingRef.current[messageID]) return
+      try {
+        setDiffLoading((current) => ({ ...current, [messageID]: true }))
+        setError(null)
+        const next = await client.getDiff(sessionId, messageID)
+        setDiffs((current) => ({ ...current, [messageID]: next }))
+        setDiffLoaded((current) => ({ ...current, [messageID]: true }))
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error))
+      } finally {
+        setDiffLoading((current) => ({ ...current, [messageID]: false }))
+      }
+    },
+    [client, sessionId],
+  )
 
   async function respond(permissionID: string, response: "once" | "always" | "reject") {
     if (!client || !sessionId) return
@@ -1314,9 +1330,15 @@ export default function SessionScreen() {
         </View>
       </View>
 
-      <FlatList
+      {/*
+        FlashList v2 enables maintainVisibleContentPosition by default; it is disabled
+        here to keep the existing manual scroll-to-latest logic authoritative.
+      */}
+      <FlashList
         ref={listRef}
-        className="flex-1 px-4 pt-4"
+        style={{ flex: 1 }}
+        maintainVisibleContentPosition={{ disabled: true }}
+        getItemType={(item) => item.info.role}
         contentInsetAdjustmentBehavior="automatic"
         onLayout={() => {
           if (detail && !initialScrollDoneRef.current) {
@@ -1338,26 +1360,22 @@ export default function SessionScreen() {
         onScroll={updateTranscriptFollow}
         scrollEventThrottle={16}
         data={messages}
+        extraData={listExtraData}
         keyExtractor={(item) => item.info.id}
-        renderItem={({ item }) => {
-          const messageText = messagePlainText(item)
-          const hasReusableText = Boolean(messageText)
-
-          return (
-            <MessageBubble
-              message={item}
-              diffs={diffs[item.info.id]}
-              diffLoaded={Boolean(diffLoaded[item.info.id])}
-              diffLoading={Boolean(diffLoading[item.info.id])}
-              onLoadDiff={loadDiff}
-              isActive={activeMessageID === item.info.id}
-              onCopy={hasReusableText ? () => void copyMessage(item) : undefined}
-              onFork={hasReusableText ? () => reuseMessage(item) : undefined}
-              onDismiss={() => setActiveMessageID(null)}
-              onActivate={() => setActiveMessageID(item.info.id)}
-            />
-          )
-        }}
+        renderItem={({ item }) => (
+          <MessageBubble
+            message={item}
+            diffs={diffs[item.info.id]}
+            diffLoaded={Boolean(diffLoaded[item.info.id])}
+            diffLoading={Boolean(diffLoading[item.info.id])}
+            onLoadDiff={loadDiff}
+            isActive={activeMessageID === item.info.id}
+            onCopy={copyMessage}
+            onFork={reuseMessage}
+            onDismiss={dismissActiveMessage}
+            onActivate={activateMessage}
+          />
+        )}
         ListHeaderComponent={
           <>
             <SessionSummaryCard
@@ -1386,7 +1404,7 @@ export default function SessionScreen() {
             description="Send the first instruction to start this execution timeline, stream tool activity, and capture approvals here."
           />
         }
-        contentContainerStyle={{ paddingBottom: 16, paddingTop: 10 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 }}
       />
 
       <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>

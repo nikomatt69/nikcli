@@ -870,7 +870,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.commands ? (
-                  <Link href="/settings/commands" asChild>
+                  <Link href="/more/settings/commands" asChild>
                     <SettingsNavCard
                       eyebrow="Commands"
                       title="Custom commands and presets"
@@ -883,7 +883,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.memories ? (
-                  <Link href="/settings/memories" asChild>
+                  <Link href="/more/settings/memories" asChild>
                     <SettingsNavCard
                       eyebrow="Memories"
                       title="Prompt history and reusable snippets"
@@ -893,7 +893,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.providers ? (
-                  <Link href="/settings/providers" asChild>
+                  <Link href="/more/settings/providers" asChild>
                     <SettingsNavCard
                       eyebrow="Models"
                       title="Providers and default models"
@@ -903,7 +903,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.github ? (
-                  <Link href="/settings/github" asChild>
+                  <Link href="/more/settings/github" asChild>
                     <SettingsNavCard
                       eyebrow="GitHub"
                       title="OAuth and account trust"
@@ -917,7 +917,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.mcp ? (
-                  <Link href="/settings/mcp" asChild>
+                  <Link href="/more/settings/mcp" asChild>
                     <SettingsNavCard
                       eyebrow="MCP"
                       title="Automation endpoints"
@@ -927,7 +927,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.connectors ? (
-                  <Link href="/settings/connectors" asChild>
+                  <Link href="/more/settings/connectors" asChild>
                     <SettingsNavCard
                       eyebrow="Integrations"
                       title="Connectors"
@@ -937,7 +937,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.skills ? (
-                  <Link href="/settings/skills" asChild>
+                  <Link href="/more/settings/skills" asChild>
                     <SettingsNavCard
                       eyebrow="Skills"
                       title="Discovered skill catalog"
@@ -947,7 +947,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.agents ? (
-                  <Link href="/settings/agents" asChild>
+                  <Link href="/more/settings/agents" asChild>
                     <SettingsNavCard
                       eyebrow="Automation"
                       title="Agents"
@@ -957,7 +957,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.tokens ? (
-                  <Link href="/settings/tokens" asChild>
+                  <Link href="/more/settings/tokens" asChild>
                     <SettingsNavCard
                       eyebrow="Security"
                       title="Access Tokens"
@@ -967,7 +967,7 @@ export default function SettingsScreen() {
                   </Link>
                 ) : null}
                 {visibleSettingsSections.plugins ? (
-                  <Link href="/settings/plugins" asChild>
+                  <Link href="/more/settings/plugins" asChild>
                     <SettingsNavCard
                       eyebrow="Plugins"
                       title="Codex, Cursor and Copilot"
