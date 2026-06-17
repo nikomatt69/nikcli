@@ -24,10 +24,10 @@ const toc = [
 <DocsLayout
   title="Server API"
   subtitle="How the nikcli Hono server exposes CLI, TUI, mobile, workspace, and generated Effect HttpApi routes."
-  description="Reference for Nikcli’s Hono server routes, SDK boundary, mobile auth, and generated Effect HttpApi routes."
+  description="Reference for nikcli’s Hono server routes, SDK boundary, mobile auth, and generated Effect HttpApi routes."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       The server in <code>packages/nikcli/src/server/server.ts</code> is the shared HTTP surface for
@@ -40,7 +40,7 @@ const toc = [
       <code>packages/nikcli/src/server/httpapi</code> and is activated by
       <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> through <code>HttpApiBridge</code>.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Classic Hono routes" eyebrow="Default">
         <p><code>/session</code>, <code>/mobile</code>, <code>/provider</code>, <code>/mcp</code>, <code>/connectors</code>, <code>/analytics</code>, and other route groups mounted directly in <code>server.ts</code>.</p>
       </DocCard>
@@ -56,7 +56,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="start" class="mb-16 scroll-mt-24">
+  <section id="start" class="doc-section">
     <h2>Start a server</h2>
     <p>
       Use <code>nikcli serve</code> for the general API server, <code>nikcli web</code> for the
@@ -83,7 +83,7 @@ NIKCLI_SERVER_PASSWORD=secret \
     </table>
   </section>
 
-  <section id="pipeline" class="mb-16 scroll-mt-24">
+  <section id="pipeline" class="doc-section">
     <h2>Request pipeline</h2>
     <p>The mounted app in <code>Server.App</code> processes requests in this order:</p>
     <ol>
@@ -107,7 +107,7 @@ NIKCLI_SERVER_PASSWORD=secret \
     </DocCallout>
   </section>
 
-  <section id="auth" class="mb-16 scroll-mt-24">
+  <section id="auth" class="doc-section">
     <h2>Auth layers</h2>
     <p>
       Server auth is layered so browser user sessions, mobile device tokens, Tailscale identity, and
@@ -134,7 +134,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </DocCode>
   </section>
 
-  <section id="workspace-context" class="mb-16 scroll-mt-24">
+  <section id="workspace-context" class="doc-section">
     <h2>Workspace context</h2>
     <p>
       After auth, non-user routes run inside an instance context. The server chooses the directory
@@ -158,7 +158,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </table>
   </section>
 
-  <section id="routes" class="mb-16 scroll-mt-24">
+  <section id="routes" class="doc-section">
     <h2>Route groups</h2>
     <p>The classic Hono route groups are mounted in <code>server.ts</code> after workspace context.</p>
     <table class="doc-table">
@@ -184,7 +184,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </table>
   </section>
 
-  <section id="session-api" class="mb-16 scroll-mt-24">
+  <section id="session-api" class="doc-section">
     <h2>Session API</h2>
     <p>
       The typed session API in <code>server/httpapi/session.ts</code> is the compact source for the
@@ -208,7 +208,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </table>
   </section>
 
-  <section id="mobile-api" class="mb-16 scroll-mt-24">
+  <section id="mobile-api" class="doc-section">
     <h2>Mobile API</h2>
     <p>
       <code>routes/mobile.ts</code> is intentionally larger than the base API because it exposes
@@ -237,7 +237,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </DocCallout>
   </section>
 
-  <section id="httpapi" class="mb-16 scroll-mt-24">
+  <section id="httpapi" class="doc-section">
     <h2>Effect HttpApi bridge</h2>
     <p>
       The typed API groups use <code>effect/unstable/httpapi</code>. They are mounted through
@@ -258,7 +258,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </table>
   </section>
 
-  <section id="streaming" class="mb-16 scroll-mt-24">
+  <section id="streaming" class="doc-section">
     <h2>Events and streaming</h2>
     <p>
       The server uses two event styles. Hono routes stream server-sent events where a client needs
@@ -273,7 +273,7 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
     </ul>
   </section>
 
-  <section id="openapi" class="mb-16 scroll-mt-24">
+  <section id="openapi" class="doc-section">
     <h2>OpenAPI docs</h2>
     <p>
       <code>GET /doc</code> uses <code>openAPIRouteHandler</code> from <code>hono-openapi</code>
@@ -292,7 +292,7 @@ curl http://127.0.0.1:4096/doc
     </DocCallout>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Check</th></tr></thead>
@@ -307,7 +307,7 @@ curl http://127.0.0.1:4096/doc
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

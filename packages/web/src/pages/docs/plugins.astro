@@ -22,10 +22,10 @@ const toc = [
 <DocsLayout
   title="Plugins"
   subtitle="How nikcli installs plugins, patches server/TUI config, loads built-ins, and exposes plugin hooks."
-  description="Guide to Nikcli plugins, installation, built-in hooks, server/TUI patching, and plugin configuration."
+  description="Guide to nikcli plugins, installation, built-in hooks, server/TUI patching, and plugin configuration."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       Plugins extend server-side agent behavior and TUI behavior. Server plugin loading is in
@@ -33,7 +33,7 @@ const toc = [
       in <code>packages/nikcli/src/plugin/install.ts</code>. TUI plugin runtime lives under
       <code>packages/nikcli/src/cli/cmd/tui/plugin</code>.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Server hooks" eyebrow="Runtime">
         <p>Provider auth, tool hooks, event hooks, notifications, and session behavior load in the server plugin service.</p>
       </DocCard>
@@ -49,7 +49,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="install" class="mb-16 scroll-mt-24">
+  <section id="install" class="doc-section">
     <h2>Install a plugin</h2>
     <DocCode language="bash">
 nikcli plugin @scope/my-plugin
@@ -73,7 +73,7 @@ nikcli plugin @scope/my-plugin@1.2.3 --force
     </table>
   </section>
 
-  <section id="patching" class="mb-16 scroll-mt-24">
+  <section id="patching" class="doc-section">
     <h2>Config patching</h2>
     <p>
       <code>patchPluginConfig</code> uses <code>jsonc-parser</code> edits instead of string hacks.
@@ -97,7 +97,7 @@ nikcli plugin @scope/my-plugin@1.2.3 --force
     </DocCode>
   </section>
 
-  <section id="server-runtime" class="mb-16 scroll-mt-24">
+  <section id="server-runtime" class="doc-section">
     <h2>Server runtime</h2>
     <p>
       Server plugin loading starts with internal plugins that are imported directly. Then configured
@@ -116,7 +116,7 @@ nikcli plugin @scope/my-plugin@1.2.3 --force
     </ol>
   </section>
 
-  <section id="tui-runtime" class="mb-16 scroll-mt-24">
+  <section id="tui-runtime" class="doc-section">
     <h2>TUI runtime</h2>
     <p>
       TUI plugin APIs are built in <code>cli/cmd/tui/plugin/api.tsx</code> and loaded by
@@ -135,7 +135,7 @@ nikcli plugin @scope/my-plugin@1.2.3 --force
     </table>
   </section>
 
-  <section id="built-ins" class="mb-16 scroll-mt-24">
+  <section id="built-ins" class="doc-section">
     <h2>Built-in plugins</h2>
     <p>
       Internal built-ins are directly imported and do not depend on package installation. They include
@@ -158,7 +158,7 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     </DocCode>
   </section>
 
-  <section id="manifest" class="mb-16 scroll-mt-24">
+  <section id="manifest" class="doc-section">
     <h2>Plugin manifest</h2>
     <p>
       The installer reads package metadata with <code>readPluginPackage</code>. Target detection
@@ -185,7 +185,7 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     </DocCallout>
   </section>
 
-  <section id="skills" class="mb-16 scroll-mt-24">
+  <section id="skills" class="doc-section">
     <h2>Skills</h2>
     <p>
       Skills are related but not the same as plugins. Skills are prompt/context assets discovered by
@@ -203,7 +203,7 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     </table>
   </section>
 
-  <section id="notifications" class="mb-16 scroll-mt-24">
+  <section id="notifications" class="doc-section">
     <h2>Notifications</h2>
     <p>
       Notifications are implemented as an internal plugin created by <code>createNotifyPlugin</code>.
@@ -229,7 +229,7 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     </DocCode>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -244,7 +244,7 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

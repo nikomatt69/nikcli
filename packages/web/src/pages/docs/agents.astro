@@ -2,24 +2,32 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCard from "../../components/docs/DocCard.astro";
+import DocRelated from "../../components/docs/DocRelated.astro";
 
 const toc = [
   { title: "Primary Agents", href: "#primary-agents", depth: 2 },
   { title: "Delegated Agents", href: "#delegated-agents", depth: 2 },
+  { title: "Internal & support", href: "#internal-support", depth: 2 },
   { title: "Modes & Permissions", href: "#modes-permissions", depth: 2 },
   { title: "Customization", href: "#customization", depth: 2 },
+];
+
+const related = [
+  { title: "Tools", href: "/docs/tools", description: "Tool registry and per-agent tool gating." },
+  { title: "Permissions", href: "/docs/permissions", description: "How permission rules merge with agent defaults." },
+  { title: "Configuration", href: "/docs/configuration", description: "config.agent overlays and model selection." },
 ];
 ---
 
 <DocsLayout
   title="Agents"
   subtitle="Agents are defined in packages/nikcli/src/agent/agent.ts and configured through nikcli config overlays."
-  description="Reference for Nikcli agents, subagent profiles, permissions, and config overlays."
+  description="Reference for nikcli agents, subagent profiles, the support assistant, permissions, and config overlays."
   toc={toc}
 >
-  <section id="primary-agents" class="mb-16 scroll-mt-24">
+  <section id="primary-agents" class="doc-section">
     <h2>Primary Agents</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="ralph" eyebrow="Primary">
         <p>Conversational primary agent intended for lighter interactive work.</p>
       </DocCard>
@@ -32,9 +40,9 @@ const toc = [
     </div>
   </section>
 
-  <section id="delegated-agents" class="mb-16 scroll-mt-24">
+  <section id="delegated-agents" class="doc-section">
     <h2>Delegated Agents</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="general"><p>General-purpose agent for researching complex questions and executing multiple units of work in parallel.</p></DocCard>
       <DocCard title="explore"><p>Exploration agent optimized for codebase discovery with read, grep, glob, bash, webfetch, and search access.</p></DocCard>
       <DocCard title="fast-explore"><p>Faster read-only exploration profile limited to read, grep, glob, list, and tree.</p></DocCard>
@@ -50,7 +58,26 @@ const toc = [
     </div>
   </section>
 
-  <section id="modes-permissions" class="mb-16 scroll-mt-24">
+  <section id="internal-support" class="doc-section">
+    <h2>Internal & support</h2>
+    <div class="doc-grid not-prose">
+      <DocCard title="support" eyebrow="Hidden · read-only">
+        <p>
+          Documentation and how-to assistant for nikcli features, commands, configuration, and
+          troubleshooting. Read-only: it does not edit the workspace. Invoked from the TUI support
+          dialog (<code>/support</code>, leader keybind), not from the primary agent picker.
+        </p>
+      </DocCard>
+    </div>
+    <DocCallout type="info" title="Why support is hidden">
+      <p>
+        Exposing <code>support</code> as a primary agent would let users start a session that cannot
+        apply edits. Keeping it behind the support dialog makes the read-only scope obvious.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="modes-permissions" class="doc-section">
     <h2>Modes & Permissions</h2>
     <table class="doc-table">
       <thead>
@@ -63,7 +90,7 @@ const toc = [
         <tr><td><code>primary</code></td><td>Available as a top-level agent for normal sessions.</td></tr>
         <tr><td><code>subagent</code></td><td>Available only for delegated work.</td></tr>
         <tr><td><code>all</code></td><td>Can be used as both a primary and delegated agent.</td></tr>
-        <tr><td><code>hidden</code></td><td>Internal helpers such as <code>compaction</code>, <code>title</code>, and <code>summary</code>.</td></tr>
+        <tr><td><code>hidden</code></td><td>Internal helpers such as <code>compaction</code>, <code>title</code>, <code>summary</code>, and <code>support</code>.</td></tr>
       </tbody>
     </table>
 
@@ -75,7 +102,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="customization" class="mb-16 scroll-mt-24">
+  <section id="customization" class="doc-section">
     <h2>Customization</h2>
     <p>
       Agents can be added, disabled, or overridden in <code>config.agent</code>. Common fields
@@ -84,4 +111,6 @@ const toc = [
       <code>hidden</code>, and <code>permission</code>.
     </p>
   </section>
+
+  <DocRelated links={related} />
 </DocsLayout>

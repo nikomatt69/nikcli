@@ -14,6 +14,62 @@ html {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Doc layout primitives
+───────────────────────────────────────────────────────────── */
+
+.doc-section {
+  margin-bottom: 4rem;
+  scroll-margin-top: 6rem;
+}
+
+@media (min-width: 640px) {
+  .doc-section {
+    margin-bottom: 5rem;
+    scroll-margin-top: 7rem;
+  }
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-block: 2rem;
+}
+
+@media (min-width: 768px) {
+  .doc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+  }
+}
+
+/* Alias used across doc pages (prose tables already styled via .prose table) */
+.prose .doc-table {
+  width: 100%;
+}
+
+.docs-nav-group-anim {
+  animation: docs-nav-group-in 0.35s ease both;
+}
+
+@keyframes docs-nav-group-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-nav-group-anim {
+    animation: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
    Scrollbar (narrow)
 ───────────────────────────────────────────────────────────── */
 

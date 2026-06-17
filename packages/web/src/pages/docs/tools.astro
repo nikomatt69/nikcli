@@ -2,6 +2,13 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCard from "../../components/docs/DocCard.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocRelated from "../../components/docs/DocRelated.astro";
+
+const related = [
+  { title: "Agents", href: "/docs/agents", description: "Which agents can call which tools." },
+  { title: "Permissions", href: "/docs/permissions", description: "Tool execution approval rules." },
+  { title: "Plugins & Skills", href: "/docs/plugins", description: "Custom tools from plugins and skills." },
+];
 
 const toc = [
   { title: "Tool Registry", href: "#tool-registry", depth: 2 },
@@ -58,27 +65,30 @@ const toolIndex = [
 <DocsLayout
   title="Tools"
   subtitle="Public tools registered in packages/nikcli/src/tool/registry.ts plus tool-gating behavior."
-  description="Reference for Nikcli public tools, tool registry, permissions, model gating, and agent tool access."
+  description="Reference for nikcli public tools, tool registry, permissions, model gating, and agent tool access."
   toc={toc}
 >
-  <section id="tool-registry" class="mb-16 scroll-mt-24">
+  <section id="tool-registry" class="doc-section">
     <h2>Tool Registry</h2>
     <p>
       Tools are registered in <code>packages/nikcli/src/tool/registry.ts</code>. The registry filters
       them based on model capabilities, client type, and experimental flags.
     </p>
-    <DocCallout type="info" title="Model gating">
+    <DocCallout type="info" title="Gating">
       <p>
         Some GPT-family models use <code>apply_patch</code> instead of <code>edit</code> and
-        <code>write</code>. Search tools like <code>websearch</code> and <code>codesearch</code> are
-        also gated behind provider or env checks.
+        <code>write</code>. <code>websearch</code> and <code>codesearch</code> require provider or env
+        setup. <code>lsp</code> needs <code>NIKCLI_EXPERIMENTAL_LSP_TOOL</code>;
+        <code>batch</code> needs <code>experimental.batch_tool</code> in config;
+        <code>plan_enter</code> / <code>plan_exit</code> need experimental plan mode on the CLI client.
+        <code>question</code> is available on app, CLI, and desktop clients.
       </p>
     </DocCallout>
   </section>
 
-  <section id="files-search" class="mb-16 scroll-mt-24">
+  <section id="files-search" class="doc-section">
     <h2>Files & Search</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="read / tree / glob / grep" eyebrow="Discovery">
         <p>Read files, inspect directory structure, and search local content quickly.</p>
       </DocCard>
@@ -91,9 +101,9 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="orchestration" class="mb-16 scroll-mt-24">
+  <section id="orchestration" class="doc-section">
     <h2>Orchestration</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="bash / monitor" eyebrow="Execution">
         <p>Run shell commands directly or keep them alive in the background with persisted logs.</p>
       </DocCard>
@@ -112,9 +122,9 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="context-memory" class="mb-16 scroll-mt-24">
+  <section id="context-memory" class="doc-section">
     <h2>Context & Memory</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="context_* / memory_search" eyebrow="Workspace context">
         <p>Collect repo context, related files, diagnostics, and prior-session memory.</p>
       </DocCard>
@@ -133,9 +143,9 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="integrations-media" class="mb-16 scroll-mt-24">
+  <section id="integrations-media" class="doc-section">
     <h2>Integrations & Media</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="generate_image / speak" eyebrow="Generative media">
         <p>Create images and play text-to-speech output using the configured providers.</p>
       </DocCard>
@@ -145,7 +155,7 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="full-tool-index" class="mb-16 scroll-mt-24">
+  <section id="full-tool-index" class="doc-section">
     <h2>Full Tool Index</h2>
     <table class="doc-table">
       <thead>
@@ -166,4 +176,6 @@ const toolIndex = [
       </tbody>
     </table>
   </section>
+
+  <DocRelated links={related} />
 </DocsLayout>

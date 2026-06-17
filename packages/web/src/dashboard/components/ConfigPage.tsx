@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
 import { studioApi, type NikcliConfig, type ConfigPathsData } from "../lib/studio-api"
+import {
+  Card,
+  EmptyState,
+  ErrorBanner,
+  NoticeBanner,
+  PageHeader,
+  PageSpinner,
+  emptyIcons,
+  inputClass,
+  labelClass,
+  selectClass,
+} from "./ui"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -45,96 +57,96 @@ function ConfigPageInner() {
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
-        <div className="mb-4 text-4xl">🔒</div>
-        <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings</p>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-terminal-border border-t-terminal-accent" />
-      </div>
+      <EmptyState
+        icon={emptyIcons.lock}
+        title="Not connected"
+        description="Configure server connection in Settings to edit this user's config."
+      />
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-terminal-muted">Configure your nikcli server settings</p>
-        {saved && <span className="text-sm text-terminal-success">✓ Saved</span>}
-      </div>
+      <PageHeader
+        eyebrow="Configuration"
+        title="Server config"
+        description="Edit default models, theme, auto-update behavior, and inspect the resolved config path."
+        actions={
+          <span className="text-sm text-terminal-muted">
+            {saving ? "Saving…" : saved ? <span className="text-terminal-success">✓ Saved</span> : " "}
+          </span>
+        }
+      />
 
-      {error && (
-        <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
-          {error}
-        </div>
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
+      {loading ? (
+        <PageSpinner />
+      ) : (
+        <>
+          <Card>
+            <h3 className="mb-4 font-display text-xl font-semibold text-terminal-text">General</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className={labelClass}>Default Model</label>
+                <input
+                  defaultValue={config?.model ?? ""}
+                  onBlur={(e) => save({ model: e.target.value || undefined })}
+                  placeholder="e.g. anthropic/claude-sonnet-4-6"
+                  className={inputClass}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Small Model</label>
+                <input
+                  defaultValue={config?.small_model ?? ""}
+                  onBlur={(e) => save({ small_model: e.target.value || undefined })}
+                  placeholder="e.g. anthropic/claude-haiku-4-5"
+                  className={inputClass}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Theme</label>
+                <select
+                  value={config?.theme ?? "default"}
+                  onChange={(e) => save({ theme: e.target.value })}
+                  className={selectClass}
+                >
+                  <option value="default">Default</option>
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Auto-update</label>
+                <select
+                  value={String(config?.autoupdate ?? true)}
+                  onChange={(e) =>
+                    save({ autoupdate: e.target.value === "true" ? true : e.target.value === "false" ? false : "notify" })
+                  }
+                  className={selectClass}
+                >
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                  <option value="notify">Notify only</option>
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="mb-4 font-display text-xl font-semibold text-terminal-text">Config Path</h3>
+            <input
+              value={config?._path ?? paths?.detected ?? "Not found"}
+              readOnly
+              className={`${inputClass} cursor-default font-mono text-terminal-muted`}
+            />
+            {(paths?.candidates ?? []).length > 1 && (
+              <p className="mt-2 text-xs text-terminal-muted">Searched: {paths?.candidates.join(", ")}</p>
+            )}
+          </Card>
+        </>
       )}
-
-      <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6">
-        <h3 className="mb-4 text-lg font-semibold text-terminal-text">General</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-terminal-text">Default Model</label>
-            <input
-              defaultValue={config?.model ?? ""}
-              onBlur={(e) => save({ model: e.target.value || undefined })}
-              placeholder="e.g. anthropic/claude-sonnet-4-6"
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-terminal-text">Small Model</label>
-            <input
-              defaultValue={config?.small_model ?? ""}
-              onBlur={(e) => save({ small_model: e.target.value || undefined })}
-              placeholder="e.g. anthropic/claude-haiku-4-5"
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-terminal-text">Theme</label>
-            <select
-              value={config?.theme ?? "default"}
-              onChange={(e) => save({ theme: e.target.value })}
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
-            >
-              <option value="default">Default</option>
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-terminal-text">Auto-update</label>
-            <select
-              value={String(config?.autoupdate ?? true)}
-              onChange={(e) =>
-                save({ autoupdate: e.target.value === "true" ? true : e.target.value === "false" ? false : "notify" })
-              }
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
-            >
-              <option value="true">Enabled</option>
-              <option value="false">Disabled</option>
-              <option value="notify">Notify only</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6">
-        <h3 className="mb-4 text-lg font-semibold text-terminal-text">Config Path</h3>
-        <input
-          value={config?._path ?? paths?.detected ?? "Not found"}
-          readOnly
-          className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 font-mono text-sm text-terminal-muted cursor-default"
-        />
-        {(paths?.candidates ?? []).length > 1 && (
-          <p className="mt-2 text-xs text-terminal-muted">Searched: {paths?.candidates.join(", ")}</p>
-        )}
-      </div>
     </div>
   )
 }

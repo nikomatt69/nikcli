@@ -16,10 +16,10 @@ const toc = [
 <DocsLayout
   title="Getting Started"
   subtitle="A source-of-truth overview of nikcli across the CLI, server, connectors, and mobile app."
-  description="Nikcli getting started guide covering the CLI, TUI, session engine, server, connectors, and mobile app."
+  description="nikcli getting started guide covering the CLI, TUI, session engine, server, connectors, and mobile app."
   toc={toc}
 >
-  <section id="install-run" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
+  <section id="install-run" class="doc-section">
     <h2>Install & Run</h2>
     <p>
       nikcli is a Bun-based coding agent with a terminal UI, HTTP server, connector system, a
@@ -42,9 +42,9 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="architecture-snapshot" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
+  <section id="architecture-snapshot" class="doc-section">
     <h2>Architecture Snapshot</h2>
-    <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+    <div class="doc-grid not-prose my-2">
       <DocCard title="CLI + TUI" eyebrow="Interface">
         <p>
           Commands are registered in <code>packages/nikcli/src/index.ts</code>. The default TUI and
@@ -84,9 +84,9 @@ const toc = [
     </div>
   </section>
 
-  <section id="platform-surfaces" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
+  <section id="platform-surfaces" class="doc-section">
     <h2>Platform Surfaces</h2>
-    <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+    <div class="doc-grid not-prose my-2">
       <DocCard title="CLI Reference" eyebrow="Commands" href="/docs/cli">
         <p>
           Covers the default TUI flow plus <code>goal</code>, <code>routine</code>, <code>serve</code>,
@@ -115,14 +115,14 @@ const toc = [
     </div>
   </section>
 
-  <section id="codebase-roadmap" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
+  <section id="codebase-roadmap" class="doc-section">
     <h2>Codebase Roadmap</h2>
     <p>
       The runtime surface is split across three main packages: <code>packages/nikcli</code> for the
       CLI and server, <code>packages/mobile</code> for the Expo app, and <code>packages/web</code>
       for this documentation site.
     </p>
-    <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+    <div class="doc-grid not-prose my-2">
       <DocCard title="Core runtime" eyebrow="packages/nikcli" href="/docs/architecture">
         <p>
           Commands, agents, sessions, tools, connectors, sharing, storage, and HTTP routes.
@@ -136,7 +136,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="next-steps" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
+  <section id="next-steps" class="doc-section">
     <h2>Next Steps</h2>
     <DocCallout type="success" title="Ready to roll">
       <p>

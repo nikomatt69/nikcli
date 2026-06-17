@@ -27,10 +27,10 @@ const toc = [
 <DocsLayout
   title="TUI"
   subtitle="Terminal UI entrypoint, worker RPC, OpenTUI renderer, command registry, routes, event streams, and remote control wiring."
-  description="Guide to Nikcli’s terminal UI, worker RPC, OpenTUI renderer, command routes, event streams, and remote control."
+  description="Guide to nikcli’s terminal UI, worker RPC, OpenTUI renderer, command routes, event streams, and remote control."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       The nikcli terminal UI is the default command registered by
@@ -39,7 +39,7 @@ const toc = [
       local process lifecycle, while a Bun worker owns the server app, project instances, SDK fetches,
       event streams, upgrades, and cleanup.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Default route" eyebrow="$0 [project]">
         <p>The bare <code>nikcli</code> command starts the TUI, resolves the working directory, validates any requested session, and passes initial args into the renderer.</p>
       </DocCard>
@@ -55,7 +55,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="default-command" class="mb-16 scroll-mt-24">
+  <section id="default-command" class="doc-section">
     <h2>Default command</h2>
     <p>
       <code>TuiThreadCommand</code> is registered in <code>packages/nikcli/src/index.ts</code> before
@@ -84,7 +84,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="worker-model" class="mb-16 scroll-mt-24">
+  <section id="worker-model" class="doc-section">
     <h2>Worker model</h2>
     <p>
       The main process chooses <code>NIKCLI_WORKER_PATH</code>, the built worker file, or the local
@@ -115,7 +115,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="transport-modes" class="mb-16 scroll-mt-24">
+  <section id="transport-modes" class="doc-section">
     <h2>Transport modes</h2>
     <p>
       The TUI has two runtime transports. Both use the generated SDK surface, but they differ in how
@@ -137,7 +137,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="renderer-tree" class="mb-16 scroll-mt-24">
+  <section id="renderer-tree" class="doc-section">
     <h2>Renderer tree</h2>
     <p>
       <code>packages/nikcli/src/cli/cmd/tui/app.tsx</code> creates an OpenTUI renderer with a 45 FPS
@@ -159,7 +159,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="feature-plugins" class="mb-16 scroll-mt-24">
+  <section id="feature-plugins" class="doc-section">
     <h2>Feature plugins</h2>
     <p>
       TUI surfaces for the major orchestration subsystems live as feature plugins under
@@ -180,7 +180,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="dialogs" class="mb-16 scroll-mt-24">
+  <section id="dialogs" class="doc-section">
     <h2>Dialogs</h2>
     <p>
       All dialogs live in <code>packages/nikcli/src/cli/cmd/tui/component/</code> and are
@@ -206,7 +206,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="routes" class="mb-16 scroll-mt-24">
+  <section id="routes" class="doc-section">
     <h2>Routes</h2>
     <p>
       The TUI route state lives in <code>context/route.tsx</code>. It is a Solid store initialized
@@ -230,7 +230,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="commands-keybinds" class="mb-16 scroll-mt-24">
+  <section id="commands-keybinds" class="doc-section">
     <h2>Commands and keybinds</h2>
     <p>
       <code>CommandProvider</code> owns the command registry. Components register command options with
@@ -250,7 +250,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="event-flow" class="mb-16 scroll-mt-24">
+  <section id="event-flow" class="doc-section">
     <h2>Event flow</h2>
     <p>
       <code>SDKProvider</code> creates a generated SDK client and an event emitter keyed by event
@@ -275,7 +275,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="http-control" class="mb-16 scroll-mt-24">
+  <section id="http-control" class="doc-section">
     <h2>HTTP control routes</h2>
     <p>
       <code>packages/nikcli/src/server/routes/tui.ts</code> exposes routes that remote clients,
@@ -303,7 +303,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="config-plugins" class="mb-16 scroll-mt-24">
+  <section id="config-plugins" class="doc-section">
     <h2>Config and plugins</h2>
     <p>
       TUI-specific configuration is loaded by <code>packages/nikcli/src/config/tui.ts</code>. The
@@ -330,7 +330,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="remote-attach" class="mb-16 scroll-mt-24">
+  <section id="remote-attach" class="doc-section">
     <h2>Remote and attach</h2>
     <p>
       The TUI can either host its own local server for external access or attach to an existing
@@ -354,7 +354,7 @@ curl -X POST http://127.0.0.1:4096/tui/execute-command -H 'content-type: applica
     </DocCallout>
   </section>
 
-  <section id="operational-checks" class="mb-16 scroll-mt-24">
+  <section id="operational-checks" class="doc-section">
     <h2>Operational checks</h2>
     <p>Use these checks when debugging TUI startup, remote control, or event delivery.</p>
     <DocCode language="bash">
@@ -377,7 +377,7 @@ curl -i -X POST http://127.0.0.1:4096/tui/open-help
     </table>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -393,7 +393,7 @@ curl -i -X POST http://127.0.0.1:4096/tui/open-help
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>

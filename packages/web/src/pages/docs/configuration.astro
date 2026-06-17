@@ -3,6 +3,13 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
 import DocCard from "../../components/docs/DocCard.astro";
+import DocRelated from "../../components/docs/DocRelated.astro";
+
+const related = [
+  { title: "CLI Reference", href: "/docs/cli", description: "Commands that read and write config." },
+  { title: "Providers", href: "/docs/providers", description: "Model and API provider keys in config." },
+  { title: "Permissions", href: "/docs/permissions", description: "Permission rules in config overlays." },
+];
 
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
@@ -27,10 +34,10 @@ const toc = [
 <DocsLayout
   title="Configuration"
   subtitle="How nikcli discovers, parses, merges, validates, and applies config across global, project, and runtime sources."
-  description="Guide to Nikcli configuration discovery, parsing, merging, validation, and per-environment overrides."
+  description="Guide to nikcli configuration discovery, parsing, merging, validation, and per-environment overrides."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       Config is resolved by <code>packages/nikcli/src/config/config.ts</code> with path discovery
@@ -38,7 +45,7 @@ const toc = [
       against <code>Config.Info</code>. Arrays for <code>plugin</code> and <code>instructions</code>
       are concatenated and deduplicated instead of simply replaced.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Global config" eyebrow="User">
         <p>Loaded from <code>Global.Path.config/nikcli.json</code> and used for user-wide defaults.</p>
       </DocCard>
@@ -54,7 +61,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="resolution-order" class="mb-16 scroll-mt-24">
+  <section id="resolution-order" class="doc-section">
     <h2>Resolution order</h2>
     <p>The current source order is precise and matters:</p>
     <ol>
@@ -79,7 +86,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="files" class="mb-16 scroll-mt-24">
+  <section id="files" class="doc-section">
     <h2>Where files live</h2>
     <table class="doc-table">
       <thead><tr><th>Location</th><th>How found</th><th>Purpose</th></tr></thead>
@@ -98,7 +105,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCode>
   </section>
 
-  <section id="tokens" class="mb-16 scroll-mt-24">
+  <section id="tokens" class="doc-section">
     <h2>Config tokens</h2>
     <p>
       Config text supports <code>&#123;env:VAR&#125;</code> and <code>&#123;file:path&#125;</code>
@@ -129,7 +136,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCallout>
   </section>
 
-  <section id="minimal" class="mb-16 scroll-mt-24">
+  <section id="minimal" class="doc-section">
     <h2>Minimal config</h2>
     <DocCode language="json" title="nikcli.json">
 &#123;
@@ -155,7 +162,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCode>
   </section>
 
-  <section id="top-level-fields" class="mb-16 scroll-mt-24">
+  <section id="top-level-fields" class="doc-section">
     <h2>Top-level fields</h2>
     <table class="doc-table">
       <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
@@ -179,7 +186,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </table>
   </section>
 
-  <section id="providers" class="mb-16 scroll-mt-24">
+  <section id="providers" class="doc-section">
     <h2>Providers</h2>
     <p>
       Provider entries are partial models.dev providers plus nikcli-specific options. Use
@@ -206,7 +213,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCode>
   </section>
 
-  <section id="agents-commands" class="mb-16 scroll-mt-24">
+  <section id="agents-commands" class="doc-section">
     <h2>Agents and commands</h2>
     <p>
       <code>agent</code> config controls primary, subagent, and specialized agents. Deprecated
@@ -225,7 +232,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </table>
   </section>
 
-  <section id="mcp-connectors" class="mb-16 scroll-mt-24">
+  <section id="mcp-connectors" class="doc-section">
     <h2>MCP and connectors</h2>
     <DocCode language="json" title="external tools">
 &#123;
@@ -256,7 +263,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </table>
   </section>
 
-  <section id="lsp-formatter" class="mb-16 scroll-mt-24">
+  <section id="lsp-formatter" class="doc-section">
     <h2>LSP and formatter</h2>
     <p>
       <code>lsp</code> can be <code>false</code>, can disable a built-in server by id, or can define
@@ -284,7 +291,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCode>
   </section>
 
-  <section id="permissions" class="mb-16 scroll-mt-24">
+  <section id="permissions" class="doc-section">
     <h2>Permissions</h2>
     <p>
       Permission config accepts either a single action for all permissions, a tool-to-action map, or
@@ -307,7 +314,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCode>
   </section>
 
-  <section id="tui-keybinds" class="mb-16 scroll-mt-24">
+  <section id="tui-keybinds" class="doc-section">
     <h2>TUI and keybinds</h2>
     <table class="doc-table">
       <thead><tr><th>Field</th><th>Behavior</th></tr></thead>
@@ -327,7 +334,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </table>
   </section>
 
-  <section id="notifications-mobile" class="mb-16 scroll-mt-24">
+  <section id="notifications-mobile" class="doc-section">
     <h2>Notifications and mobile</h2>
     <p>
       Notification config is read by built-in notification plugins. Mobile config currently focuses
@@ -357,7 +364,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </DocCode>
   </section>
 
-  <section id="env-flags" class="mb-16 scroll-mt-24">
+  <section id="env-flags" class="doc-section">
     <h2>Environment flags</h2>
     <table class="doc-table">
       <thead><tr><th>Flag</th><th>Effect</th></tr></thead>
@@ -382,7 +389,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </table>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -396,7 +403,7 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>
@@ -411,4 +418,6 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
       </tbody>
     </table>
   </section>
+
+  <DocRelated links={related} />
 </DocsLayout>

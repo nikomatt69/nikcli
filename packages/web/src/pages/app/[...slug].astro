@@ -10,3 +10,18 @@ const initialPath = Astro.url.pathname
   <Navbar />
   <AppShell client:load initialPath={initialPath} />
 </Layout>
+
+{/* Webapp shell: keep page scroll functional but hide the visible scrollbar (scoped to /app routes) */}
+<style is:global>
+  html,
+  body {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* legacy Edge/IE */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* WebKit/Blink */
+  }
+</style>

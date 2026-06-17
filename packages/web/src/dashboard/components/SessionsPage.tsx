@@ -40,7 +40,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       </p>
       <button
         onClick={onCreate}
-        className="mt-6 rounded-[var(--radius-md)] bg-terminal-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+        className="mt-6 rounded-[var(--radius-md)] bg-terminal-accent px-5 py-2.5 text-sm font-semibold text-terminal-bg transition-colors hover:bg-terminal-accent/90"
       >
         Create Cloud Session
       </button>
@@ -188,7 +188,7 @@ function SessionsPageInner() {
           <button
             onClick={createCloudSession}
             disabled={creating}
-            className="rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
+            className="rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-terminal-bg transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
           >
             {creating ? "Creating..." : "New Cloud Session"}
           </button>
@@ -270,7 +270,7 @@ function SessionsPageInner() {
                           />
                           <button
                             onClick={() => saveTitle(session.id)}
-                            className="rounded-[var(--radius-sm)] bg-terminal-accent px-3 text-xs font-semibold text-white"
+                            className="rounded-[var(--radius-sm)] bg-terminal-accent px-3 text-xs font-semibold text-terminal-bg"
                           >
                             Save
                           </button>

@@ -26,10 +26,10 @@ const toc = [
 <DocsLayout
   title="Architecture"
   subtitle="Source-oriented map of the nikcli monorepo, CLI lifecycle, server stack, session runtime, storage model, integrations, mobile host, and SDK boundary."
-  description="Source-oriented architecture map of Nikcli’s monorepo, runtime boundaries, server stack, mobile host, and SDK integration."
+  description="Source-oriented architecture map of nikcli’s monorepo, runtime boundaries, server stack, mobile host, and SDK integration."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       nikcli is a Bun monorepo centered on <code>packages/nikcli</code>. The CLI process initializes
@@ -39,7 +39,7 @@ const toc = [
       Most of those surfaces converge on the same session, provider, tool, permission, storage, and
       event services.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Single runtime core" eyebrow="packages/nikcli">
         <p>CLI, TUI, server routes, mobile host, remote control, providers, tools, permissions, and storage live in the main package.</p>
       </DocCard>
@@ -63,14 +63,14 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="package-map" class="mb-16 scroll-mt-24">
+  <section id="package-map" class="doc-section">
     <h2>Package map</h2>
     <p>
       The repository is a Bun workspace. The most important boundary is that
       <code>packages/nikcli</code> owns the executable runtime, while sibling packages provide clients,
       UI shells, plugins, remote services, and companion surfaces.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Main CLI" eyebrow="packages/nikcli">
         <p>Command registry, TUI, server app, session engine, provider registry, tools, permissions, config, storage, connectors, MCP, LSP, mobile host, and remote control.</p>
       </DocCard>
@@ -99,7 +99,7 @@ bun run --cwd packages/nikcli dev
     </DocCode>
   </section>
 
-  <section id="cli-lifecycle" class="mb-16 scroll-mt-24">
+  <section id="cli-lifecycle" class="doc-section">
     <h2>CLI lifecycle</h2>
     <p>
       <code>packages/nikcli/src/index.ts</code> is the executable entrypoint. It builds the yargs CLI,
@@ -123,7 +123,7 @@ bun run --cwd packages/nikcli dev
     </DocCallout>
   </section>
 
-  <section id="instance-model" class="mb-16 scroll-mt-24">
+  <section id="instance-model" class="doc-section">
     <h2>Instance model</h2>
     <p>
       Runtime services are scoped to project instances rather than process globals wherever possible.
@@ -144,7 +144,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="server-stack" class="mb-16 scroll-mt-24">
+  <section id="server-stack" class="doc-section">
     <h2>Server stack</h2>
     <p>
       <code>packages/nikcli/src/server/server.ts</code> builds the Hono app and request order. Public
@@ -168,7 +168,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="session-runtime" class="mb-16 scroll-mt-24">
+  <section id="session-runtime" class="doc-section">
     <h2>Session runtime</h2>
     <p>
       Sessions are the main execution unit. The session layer persists metadata, messages, message
@@ -188,7 +188,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="llm-providers" class="mb-16 scroll-mt-24">
+  <section id="llm-providers" class="doc-section">
     <h2>LLM and providers</h2>
     <p>
       Provider configuration is split from the session hot path. <code>provider/provider.ts</code>
@@ -208,7 +208,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="tools-permissions" class="mb-16 scroll-mt-24">
+  <section id="tools-permissions" class="doc-section">
     <h2>Tools and permissions</h2>
     <p>
       Tools are available to agents through the tool registry and are guarded by the permission
@@ -228,7 +228,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="storage-state" class="mb-16 scroll-mt-24">
+  <section id="storage-state" class="doc-section">
     <h2>Storage and state</h2>
     <p>
       Durable state uses two storage families. The JSON object store under
@@ -247,7 +247,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="events-sync" class="mb-16 scroll-mt-24">
+  <section id="events-sync" class="doc-section">
     <h2>Events and sync</h2>
     <p>
       The server publishes typed events through bus definitions and exposes event streams to SDK
@@ -263,7 +263,7 @@ bun run --cwd packages/nikcli dev
     </ol>
   </section>
 
-  <section id="integrations" class="mb-16 scroll-mt-24">
+  <section id="integrations" class="doc-section">
     <h2>Integrations</h2>
     <p>
       nikcli has three integration families: MCP servers, first-party connector registry entries, and
@@ -282,7 +282,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="mobile-remote" class="mb-16 scroll-mt-24">
+  <section id="mobile-remote" class="doc-section">
     <h2>Mobile and remote</h2>
     <p>
       Mobile hosting is a server route family, not the same feature as terminal remote control. The
@@ -310,7 +310,7 @@ bun run --cwd packages/nikcli dev
     </DocCallout>
   </section>
 
-  <section id="sdk-boundary" class="mb-16 scroll-mt-24">
+  <section id="sdk-boundary" class="doc-section">
     <h2>SDK boundary</h2>
     <p>
       The generated JavaScript SDK is the contract between server routes and clients. The TUI imports
@@ -328,7 +328,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="operational-map" class="mb-16 scroll-mt-24">
+  <section id="operational-map" class="doc-section">
     <h2>Operational map</h2>
     <p>Use this map to decide where to start for common architecture questions.</p>
     <table class="doc-table">
@@ -346,7 +346,7 @@ bun run --cwd packages/nikcli dev
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>File or directory</th><th>What to inspect</th></tr></thead>

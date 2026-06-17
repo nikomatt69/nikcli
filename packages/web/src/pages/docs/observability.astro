@@ -19,10 +19,10 @@ const toc = [
 <DocsLayout
   title="Observability"
   subtitle="OpenTelemetry (OTLP) trace export and live in-process telemetry for the TUI panel. Source: packages/nikcli/src/observability/."
-  description="Guide to Nikcli observability, OpenTelemetry export, live telemetry, resource attributes, and Effect spans."
+  description="Guide to nikcli observability, OpenTelemetry export, live telemetry, resource attributes, and Effect spans."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       nikcli ships a small observability layer that wires the Effect runtime to
@@ -35,7 +35,7 @@ const toc = [
       There is no separate <code>nikcli telemetry</code> command. The whole subsystem is
       configured by environment variables and turned on or off from the TUI.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="OTLP export" eyebrow="Backend">
         <p>
           When <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> is set, spans and logs are exported to
@@ -66,7 +66,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="modes" class="mb-16 scroll-mt-24">
+  <section id="modes" class="doc-section">
     <h2>Two modes</h2>
     <table class="doc-table">
       <thead><tr><th>Mode</th><th>Enabled by</th><th>What it does</th></tr></thead>
@@ -81,7 +81,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="otlp" class="mb-16 scroll-mt-24">
+  <section id="otlp" class="doc-section">
     <h2>OTLP export</h2>
     <p>
       OTLP export uses the
@@ -121,7 +121,7 @@ nikcli serve --port 4096
     </DocCode>
   </section>
 
-  <section id="live" class="mb-16 scroll-mt-24">
+  <section id="live" class="doc-section">
     <h2>Live telemetry panel</h2>
     <p>
       The live panel is on by default. Each completed span is published on the
@@ -159,7 +159,7 @@ export const TelemetryRecord = BusEvent.define(
     </DocCallout>
   </section>
 
-  <section id="config" class="mb-16 scroll-mt-24">
+  <section id="config" class="doc-section">
     <h2>Configuration</h2>
     <p>
       All configuration is read from environment variables in
@@ -188,7 +188,7 @@ export const TelemetryRecord = BusEvent.define(
     </p>
   </section>
 
-  <section id="tui" class="mb-16 scroll-mt-24">
+  <section id="tui" class="doc-section">
     <h2>TUI surface</h2>
     <p>
       The TUI exposes two dialogs that consume the same span stream:
@@ -208,7 +208,7 @@ export const TelemetryRecord = BusEvent.define(
     </p>
   </section>
 
-  <section id="effect" class="mb-16 scroll-mt-24">
+  <section id="effect" class="doc-section">
     <h2>Effect integration</h2>
     <p>
       The observability layer is merged into the Effect runtime base in
@@ -228,7 +228,7 @@ const program = Effect.gen(function* () &lbrace;
     </p>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>

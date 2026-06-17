@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "deploy": "echo '_worker.js' > dist/.assetsignore && wrangler deploy"
+    "deploy": "echo '_worker.js' > dist/.assetsignore && wrangler deploy",
+    "check:docs-tools": "bun run script/check-docs-tool-index.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.0.0",

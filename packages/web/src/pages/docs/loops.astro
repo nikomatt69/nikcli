@@ -23,10 +23,10 @@ const toc = [
 <DocsLayout
   title="Loops"
   subtitle="Server-side, headless Loops engine: a thin orchestrator that composes Scheduler + Goal. Source: packages/nikcli/src/loop/."
-  description="Guide to Nikcli’s headless loop engine, scheduled workflows, stages, triggers, and orchestration events."
+  description="Guide to nikcli’s headless loop engine, scheduled workflows, stages, triggers, and orchestration events."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       A <strong>Loop</strong> is a named, persisted workflow that runs an ordered list of
@@ -41,7 +41,7 @@ const toc = [
       the SDK: it subscribes to bus events for live status, and uses the SDK to create, run, pause,
       resume, and delete loops.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Composition over reinvention" eyebrow="Primitives">
         <p>
           A Loop does not reimplement iteration, budgets, or autonomy. The interval trigger is a
@@ -72,7 +72,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="concepts" class="mb-16 scroll-mt-24">
+  <section id="concepts" class="doc-section">
     <h2>Concepts</h2>
     <table class="doc-table">
       <thead><tr><th>Term</th><th>Definition</th></tr></thead>
@@ -87,7 +87,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="schema" class="mb-16 scroll-mt-24">
+  <section id="schema" class="doc-section">
     <h2>Loop schema</h2>
     <p>
       All persisted types live in <code>packages/nikcli/src/loop/schema.ts</code> as zod schemas.
@@ -157,7 +157,7 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
     </table>
   </section>
 
-  <section id="lifecycle" class="mb-16 scroll-mt-24">
+  <section id="lifecycle" class="doc-section">
     <h2>Engine lifecycle</h2>
     <ol>
       <li><strong>Register</strong> — the TUI/CLI calls <code>LoopEngine.upsert(def)</code> which persists the definition in <code>Storage</code> and arms (or re-arms) the interval timer in the core <code>Scheduler</code>.</li>
@@ -175,7 +175,7 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
     </DocCallout>
   </section>
 
-  <section id="triggers-stages" class="mb-16 scroll-mt-24">
+  <section id="triggers-stages" class="doc-section">
     <h2>Triggers and stages</h2>
     <h3>Manual trigger</h3>
     <p>
@@ -215,7 +215,7 @@ stages:
     </DocCode>
   </section>
 
-  <section id="auto-pr" class="mb-16 scroll-mt-24">
+  <section id="auto-pr" class="doc-section">
     <h2>Auto-PR on completion</h2>
     <p>
       Set <code>createPR: true</code> on a loop definition to have the engine push the worktree
@@ -239,7 +239,7 @@ stages:
     </p>
   </section>
 
-  <section id="cli" class="mb-16 scroll-mt-24">
+  <section id="cli" class="doc-section">
     <h2>CLI subcommands</h2>
     <p>
       The CLI surface is part of the same headless engine and is the recommended way to manage
@@ -271,7 +271,7 @@ nikcli loop delete lop_abc123 --yes
     </DocCode>
   </section>
 
-  <section id="bus-events" class="mb-16 scroll-mt-24">
+  <section id="bus-events" class="doc-section">
     <h2>Bus events</h2>
     <p>
       The engine publishes typed bus events for clients to subscribe to. They live next to the
@@ -289,7 +289,7 @@ nikcli loop delete lop_abc123 --yes
     </table>
   </section>
 
-  <section id="tui" class="mb-16 scroll-mt-24">
+  <section id="tui" class="doc-section">
     <h2>TUI surface</h2>
     <p>
       The TUI loop feature-plugin lives in
@@ -304,7 +304,7 @@ nikcli loop delete lop_abc123 --yes
     </ul>
   </section>
 
-  <section id="mobile" class="mb-16 scroll-mt-24">
+  <section id="mobile" class="doc-section">
     <h2>Mobile surface</h2>
     <p>
       The mobile app exposes the same surface as a dedicated <strong>Loops</strong> tab. The
@@ -315,7 +315,7 @@ nikcli loop delete lop_abc123 --yes
     <p>See <a href="/docs/mobile">Mobile</a> for the full mobile walkthrough.</p>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -330,7 +330,7 @@ nikcli loop delete lop_abc123 --yes
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>

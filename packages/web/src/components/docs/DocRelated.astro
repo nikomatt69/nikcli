@@ -1,0 +1,35 @@
+---
+interface Link {
+  title: string;
+  href: string;
+  description?: string;
+}
+
+interface Props {
+  title?: string;
+  links: Link[];
+}
+
+const { title = "Related", links } = Astro.props;
+---
+
+<nav class="doc-related not-prose mt-16 border-t border-terminal-border/60 pt-10" aria-label="Related documentation">
+  <h2 class="font-display text-lg font-bold tracking-tight text-terminal-text mb-6">{title}</h2>
+  <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    {links.map((link) => (
+      <li>
+        <a
+          href={link.href}
+          class="group flex h-full flex-col rounded-lg border border-terminal-border/60 bg-terminal-panel/50 px-4 py-3.5 transition-[border-color,background-color] duration-150 hover:border-terminal-accent/35 hover:bg-terminal-accent/5"
+        >
+          <span class="font-semibold text-[14px] text-terminal-text group-hover:text-terminal-accent transition-colors">
+            {link.title}
+          </span>
+          {link.description && (
+            <span class="mt-1.5 text-[13px] leading-relaxed text-terminal-muted">{link.description}</span>
+          )}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>

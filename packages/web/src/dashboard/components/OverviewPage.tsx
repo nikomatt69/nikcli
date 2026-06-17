@@ -7,22 +7,13 @@ import {
   type NikcliConfig,
   type ProfilesData,
 } from "../lib/studio-api"
-
-function StatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-terminal-muted">{label}</div>
-      <div className="mt-2 text-3xl font-bold text-terminal-text">{value}</div>
-      <div className="mt-2 text-xs text-terminal-muted">{detail}</div>
-    </div>
-  )
-}
+import { Card, ErrorBanner, PageHeader, StatCard, btnPrimary, cardClass } from "./ui"
 
 function QuickAction({ label, href, description }: { label: string; href: string; description: string }) {
   return (
     <a
       href={href}
-      className="group rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 transition-colors hover:border-terminal-accent/50"
+      className={`group ${cardClass} p-5 transition-colors hover:border-terminal-accent/50`}
     >
       <div className="font-semibold text-terminal-text group-hover:text-terminal-accent">{label}</div>
       <div className="mt-1 text-sm leading-6 text-terminal-muted">{description}</div>
@@ -68,49 +59,32 @@ function OverviewPageInner() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 border-b border-terminal-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
-            Studio overview
-          </p>
-          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">Welcome back, {displayName}</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
-            Manage Cloud Sessions, MCP servers, profiles, skills, agents, and configuration for this authenticated user.
-          </p>
-        </div>
-        <a
-          href="/dashboard/sessions"
-          className="w-fit rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90"
-        >
-          New Cloud Session
-        </a>
-      </div>
+      <PageHeader
+        eyebrow="Studio overview"
+        title={`Welcome back, ${displayName}`}
+        description="Manage Cloud Sessions, MCP servers, profiles, skills, agents, and configuration for this authenticated user."
+        actions={
+          <a href="/dashboard/sessions" className={btnPrimary}>
+            New Cloud Session
+          </a>
+        }
+      />
 
-      {error && (
-        <div className="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Cloud Sessions"
-          value={loading ? "..." : String(stats.active)}
-          detail={`${stats.archived} archived`}
-        />
-        <StatCard
-          label="MCP Servers"
-          value={loading ? "..." : String(stats.enabledMcp)}
-          detail={`${stats.mcpCount} configured`}
-        />
+        <StatCard label="Cloud Sessions" loading={loading} value={stats.active} detail={`${stats.archived} archived`} />
+        <StatCard label="MCP Servers" loading={loading} value={stats.enabledMcp} detail={`${stats.mcpCount} configured`} />
         <StatCard
           label="Profiles"
-          value={loading ? "..." : String(stats.profileCount)}
+          loading={loading}
+          value={stats.profileCount}
           detail={`Active: ${profiles?.activeProfile ?? "default"}`}
         />
         <StatCard
           label="Messages"
-          value={loading ? "..." : stats.messages.toLocaleString()}
+          loading={loading}
+          value={stats.messages.toLocaleString()}
           detail="Across loaded Cloud Sessions"
         />
       </div>
@@ -148,7 +122,7 @@ function OverviewPageInner() {
         />
       </div>
 
-      <div className="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-6">
+      <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-display text-xl font-semibold text-terminal-text">Recent Cloud Sessions</h3>
@@ -176,7 +150,7 @@ function OverviewPageInner() {
             <div className="py-8 text-center text-sm text-terminal-muted">No Cloud Sessions yet.</div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

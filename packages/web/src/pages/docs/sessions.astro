@@ -24,17 +24,17 @@ const toc = [
 <DocsLayout
   title="Sessions"
   subtitle="How nikcli creates, stores, streams, forks, reverts, and resumes agent sessions across CLI, TUI, mobile, and API clients."
-  description="Guide to Nikcli sessions, storage, streaming, forks, reverts, resumes, and API control."
+  description="Guide to nikcli sessions, storage, streaming, forks, reverts, resumes, and API control."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       A session is the durable unit of work for an agent run. It owns the user and assistant message
       timeline, tool parts, status, permissions, questions, diffs, todo state, background children,
       workspace metadata, and share/export data.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Storage" eyebrow="Durable">
         <p>Session info is stored through <code>Storage.Service</code> under the project-aware JSON store. Messages and parts use <code>MessageV2</code>.</p>
       </DocCard>
@@ -50,7 +50,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="create-continue" class="mb-16 scroll-mt-24">
+  <section id="create-continue" class="doc-section">
     <h2>Create or continue</h2>
     <p>
       Sessions can be created from the root TUI command, <code>nikcli run</code>, mobile, the web
@@ -75,7 +75,7 @@ nikcli run "fix the failing test"
     </table>
   </section>
 
-  <section id="session-record" class="mb-16 scroll-mt-24">
+  <section id="session-record" class="doc-section">
     <h2>Session record</h2>
     <p>
       The session info object is defined in <code>packages/nikcli/src/session/index.ts</code>. It
@@ -94,7 +94,7 @@ nikcli run "fix the failing test"
     </table>
   </section>
 
-  <section id="messages-parts" class="mb-16 scroll-mt-24">
+  <section id="messages-parts" class="doc-section">
     <h2>Messages and parts</h2>
     <p>
       Messages are split from parts so streaming tool calls, text, reasoning, files, diffs, and
@@ -120,7 +120,7 @@ nikcli run "fix the failing test"
     </DocCallout>
   </section>
 
-  <section id="prompt-execution" class="mb-16 scroll-mt-24">
+  <section id="prompt-execution" class="doc-section">
     <h2>Prompt execution</h2>
     <p>
       Prompt execution combines agent config, system prompts, message history, tool registry, MCP
@@ -138,7 +138,7 @@ nikcli run "fix the failing test"
     </ol>
   </section>
 
-  <section id="status-events" class="mb-16 scroll-mt-24">
+  <section id="status-events" class="doc-section">
     <h2>Status and events</h2>
     <p>
       <code>SessionStatus</code> exposes busy, idle, and retry state. The typed API returns a status
@@ -158,7 +158,7 @@ curl "http://127.0.0.1:4096/session/status?directory=$PWD"
     </DocCode>
   </section>
 
-  <section id="permissions-questions" class="mb-16 scroll-mt-24">
+  <section id="permissions-questions" class="doc-section">
     <h2>Permissions and questions</h2>
     <p>
       Pending permissions and questions are session-scoped live prompts. The TUI aggregates pending
@@ -177,7 +177,7 @@ curl "http://127.0.0.1:4096/session/status?directory=$PWD"
     </table>
   </section>
 
-  <section id="fork-background" class="mb-16 scroll-mt-24">
+  <section id="fork-background" class="doc-section">
     <h2>Fork, children, background</h2>
     <p>
       A fork creates a new child session from an existing session and optional message boundary.
@@ -196,7 +196,7 @@ curl "http://127.0.0.1:4096/session/status?directory=$PWD"
     </table>
   </section>
 
-  <section id="diff-revert" class="mb-16 scroll-mt-24">
+  <section id="diff-revert" class="doc-section">
     <h2>Diff, revert, unrevert</h2>
     <p>
       Diffs are produced from snapshots, VCS state, and message/tool output. The summary diff route
@@ -220,7 +220,7 @@ curl -X POST http://127.0.0.1:4096/session/ses_example/unrevert
     </DocCallout>
   </section>
 
-  <section id="sharing-export" class="mb-16 scroll-mt-24">
+  <section id="sharing-export" class="doc-section">
     <h2>Sharing and export</h2>
     <p>
       Sharing is controlled by config and environment flags. New root sessions may auto-share when
@@ -238,7 +238,7 @@ curl -X POST http://127.0.0.1:4096/session/ses_example/unrevert
     </table>
   </section>
 
-  <section id="mobile-workspace" class="mb-16 scroll-mt-24">
+  <section id="mobile-workspace" class="doc-section">
     <h2>Mobile and workspace sessions</h2>
     <p>
       Mobile sessions use the same core session services but route through <code>/mobile/*</code>
@@ -254,7 +254,7 @@ curl -X POST http://127.0.0.1:4096/session/ses_example/unrevert
     </ul>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -268,7 +268,7 @@ curl -X POST http://127.0.0.1:4096/session/ses_example/unrevert
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

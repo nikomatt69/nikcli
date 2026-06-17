@@ -23,10 +23,10 @@ const toc = [
 <DocsLayout
   title="Providers"
   subtitle="How nikcli builds its model catalog, resolves credentials, selects runtime adapters, and streams requests."
-  description="Reference for Nikcli model providers, credentials, adapters, model filtering, and streaming behavior."
+  description="Reference for nikcli model providers, credentials, adapters, model filtering, and streaming behavior."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       Providers are resolved by <code>packages/nikcli/src/provider/provider.ts</code>. The service
@@ -34,7 +34,7 @@ const toc = [
       and saved auth, lets plugins modify providers, filters models, then caches SDK instances and
       model loaders.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Catalog" eyebrow="Models">
         <p><code>ModelsDev.get</code> provides the default provider/model database and API package metadata.</p>
       </DocCard>
@@ -50,7 +50,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="resolution" class="mb-16 scroll-mt-24">
+  <section id="resolution" class="doc-section">
     <h2>Provider resolution</h2>
     <p>The provider service constructs the final catalog in this order:</p>
     <ol>
@@ -71,7 +71,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="configure" class="mb-16 scroll-mt-24">
+  <section id="configure" class="doc-section">
     <h2>Configure a provider</h2>
     <p>
       Provider config is stored under <code>provider</code> in <code>nikcli.json</code>. The schema is
@@ -117,7 +117,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="bundled" class="mb-16 scroll-mt-24">
+  <section id="bundled" class="doc-section">
     <h2>Bundled SDK adapters</h2>
     <p>
       These provider packages are imported directly in <code>provider/provider.ts</code>, so they do
@@ -144,7 +144,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="dynamic" class="mb-16 scroll-mt-24">
+  <section id="dynamic" class="doc-section">
     <h2>Dynamic providers</h2>
     <p>
       nikcli also creates providers that are not just copied from <code>models.dev</code>.
@@ -161,7 +161,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="auth" class="mb-16 scroll-mt-24">
+  <section id="auth" class="doc-section">
     <h2>Auth and credentials</h2>
     <p>
       Provider credentials can come from three places: environment variables read from model metadata
@@ -188,7 +188,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     </table>
   </section>
 
-  <section id="models" class="mb-16 scroll-mt-24">
+  <section id="models" class="doc-section">
     <h2>Model selection</h2>
     <p>
       The active model is a <code>provider/model</code> string. It can come from CLI flags,
@@ -214,7 +214,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     </DocCallout>
   </section>
 
-  <section id="runtime" class="mb-16 scroll-mt-24">
+  <section id="runtime" class="doc-section">
     <h2>Runtime streaming</h2>
     <p>
       Runtime ownership starts in <code>session/llm.ts</code>. It builds headers, normalizes messages,
@@ -234,7 +234,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     </table>
   </section>
 
-  <section id="media" class="mb-16 scroll-mt-24">
+  <section id="media" class="doc-section">
     <h2>Images and speech</h2>
     <p>
       Image generation and speech use separate config sections so they can choose different providers
@@ -266,7 +266,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     </table>
   </section>
 
-  <section id="refresh" class="mb-16 scroll-mt-24">
+  <section id="refresh" class="doc-section">
     <h2>Refresh and cache</h2>
     <p>
       Provider service state is cached per instance. After writes that change auth or
@@ -284,7 +284,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     </table>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Check</th></tr></thead>
@@ -299,7 +299,7 @@ export NIKCLI_INFERENCE_KEY=nik-...
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

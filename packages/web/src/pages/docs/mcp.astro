@@ -25,14 +25,14 @@ const toc = [
   description="Guide to configuring local and remote MCP servers, OAuth authentication, and MCP tool exposure."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       MCP support is implemented in <code>packages/nikcli/src/mcp/index.ts</code>. The service reads
       <code>config.mcp</code>, creates local stdio or remote HTTP/SSE clients, records status,
       converts server tools into AI SDK dynamic tools, and exposes prompts/resources to sessions.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Local" eyebrow="stdio">
         <p>Runs a command in the current instance directory with environment from the config entry.</p>
       </DocCard>
@@ -48,7 +48,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="add-server" class="mb-16 scroll-mt-24">
+  <section id="add-server" class="doc-section">
     <h2>Add a server</h2>
     <p>
       Use <code>nikcli mcp add</code> for interactive config patching, or edit
@@ -76,7 +76,7 @@ nikcli mcp debug remote-docs
     </table>
   </section>
 
-  <section id="local" class="mb-16 scroll-mt-24">
+  <section id="local" class="doc-section">
     <h2>Local stdio servers</h2>
     <p>
       Local servers use <code>StdioClientTransport</code>. The command runs with cwd set to the
@@ -110,7 +110,7 @@ nikcli mcp debug remote-docs
     </table>
   </section>
 
-  <section id="remote" class="mb-16 scroll-mt-24">
+  <section id="remote" class="doc-section">
     <h2>Remote servers</h2>
     <p>
       Remote servers use two transports in sequence. nikcli tries
@@ -144,7 +144,7 @@ nikcli mcp debug remote-docs
     </table>
   </section>
 
-  <section id="oauth" class="mb-16 scroll-mt-24">
+  <section id="oauth" class="doc-section">
     <h2>OAuth</h2>
     <p>
       Remote MCP OAuth is on by default unless <code>oauth</code> is <code>false</code>. The
@@ -175,7 +175,7 @@ nikcli mcp debug remote-docs
     </DocCallout>
   </section>
 
-  <section id="status" class="mb-16 scroll-mt-24">
+  <section id="status" class="doc-section">
     <h2>Status model</h2>
     <table class="doc-table">
       <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
@@ -193,7 +193,7 @@ nikcli mcp debug remote-docs
     </p>
   </section>
 
-  <section id="capabilities" class="mb-16 scroll-mt-24">
+  <section id="capabilities" class="doc-section">
     <h2>Tools, prompts, resources</h2>
     <p>
       Connected MCP servers can contribute tools, prompts, and resources. Tool input schemas are
@@ -213,7 +213,7 @@ nikcli mcp debug remote-docs
     </table>
   </section>
 
-  <section id="api" class="mb-16 scroll-mt-24">
+  <section id="api" class="doc-section">
     <h2>API routes</h2>
     <p>MCP has both classic Hono routes and typed HttpApi handlers.</p>
     <table class="doc-table">
@@ -241,7 +241,7 @@ curl -X POST http://127.0.0.1:4096/mcp/remote-docs/toggle \
     </DocCode>
   </section>
 
-  <section id="timeouts" class="mb-16 scroll-mt-24">
+  <section id="timeouts" class="doc-section">
     <h2>Timeouts and headers</h2>
     <p>
       The default MCP timeout is 30000 ms. A server-specific <code>timeout</code> overrides connect,
@@ -256,7 +256,7 @@ curl -X POST http://127.0.0.1:4096/mcp/remote-docs/toggle \
     </DocCallout>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -270,7 +270,7 @@ curl -X POST http://127.0.0.1:4096/mcp/remote-docs/toggle \
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

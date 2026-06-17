@@ -48,7 +48,7 @@ function RegisterFormInner() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
+        <div className="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
           {error}
         </div>
       )}
@@ -62,11 +62,11 @@ function RegisterFormInner() {
             onChange={(e) => setUrlInput(e.target.value)}
             required
             placeholder="http://localhost:4096"
-            className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+            className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
           />
           <button
             type="submit"
-            className="w-full rounded-xl bg-terminal-accent px-4 py-3 font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+            className="w-full rounded-[var(--radius-md)] bg-terminal-accent px-4 py-3 font-semibold text-terminal-bg transition-colors hover:bg-terminal-accent/90"
           >
             Connect to Server
           </button>
@@ -74,7 +74,7 @@ function RegisterFormInner() {
       ) : (
         <>
           {!isDev && serverUrl && (
-            <div className="flex items-center justify-between rounded-xl border border-terminal-border bg-terminal-panel px-4 py-2">
+            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-2">
               <span className="text-xs text-terminal-muted">{serverUrl}</span>
               <button
                 type="button"
@@ -98,7 +98,7 @@ function RegisterFormInner() {
                 required
                 minLength={2}
                 placeholder="johndoe"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
               />
             </div>
             <div className="space-y-2">
@@ -112,7 +112,7 @@ function RegisterFormInner() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
               />
             </div>
             <div className="space-y-2">
@@ -127,14 +127,14 @@ function RegisterFormInner() {
                 required
                 minLength={8}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
               />
             </div>
           </div>
           <button
             type="submit"
             disabled={loading || busy}
-            className="w-full rounded-xl bg-terminal-accent px-4 py-3 font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
+            className="w-full rounded-[var(--radius-md)] bg-terminal-accent px-4 py-3 font-semibold text-terminal-bg transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
           >
             {busy || loading ? "Creating account..." : "Create account"}
           </button>

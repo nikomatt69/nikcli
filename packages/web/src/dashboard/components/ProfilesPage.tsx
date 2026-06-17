@@ -96,7 +96,7 @@ function ProfilesPageInner() {
           <button
             onClick={create}
             disabled={busy || !newName.trim()}
-            className="rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
+            className="rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-terminal-bg transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
           >
             {busy ? "Creating..." : "Create profile"}
           </button>

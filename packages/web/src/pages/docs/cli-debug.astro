@@ -1,21 +1,52 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocRelated from "../../components/docs/DocRelated.astro";
 
 const toc = [
+  { title: "When to use", href: "#when-to-use", depth: 2 },
   { title: "Debug Commands", href: "#debug-commands", depth: 2 },
   { title: "LSP Debug", href: "#lsp-debug", depth: 2 },
   { title: "File + RG", href: "#file-rg", depth: 2 },
   { title: "Snapshots", href: "#snapshots", depth: 2 },
 ];
+
+const related = [
+  { title: "CLI Reference", href: "/docs/cli", description: "User-facing commands including doctor and diagnostics." },
+  { title: "LSP", href: "/docs/lsp", description: "Language server setup and agent LSP tool behavior." },
+  { title: "Configuration", href: "/docs/configuration", description: "Config keys that debug config prints." },
+];
 ---
 
 <DocsLayout
   title="CLI Debug"
-  subtitle="Debugging utilities under packages/nikcli/src/cli/cmd/debug."
-  description="Guide to Nikcli CLI debug utilities, runtime diagnostics, and troubleshooting commands."
+  subtitle="Low-level debugging utilities under packages/nikcli/src/cli/cmd/debug — for contributors and support, not everyday use."
+  description="Guide to nikcli CLI debug utilities, LSP diagnostics commands, file/ripgrep probes, and snapshot inspection."
   toc={toc}
 >
-  <section id="debug-commands" class="mb-16 scroll-mt-24">
+  <section id="when-to-use" class="doc-section">
+    <h2>When to use</h2>
+    <p>
+      The <code>nikcli debug …</code> tree exposes internal probes: resolved config, global paths, agent
+      tool access, LSP round-trips, and ripgrep-backed file helpers. For install health and common fixes,
+      prefer <code>nikcli doctor</code> (see <a href="/docs/cli">CLI Reference</a>).
+    </p>
+    <DocCallout type="info" title="debug config vs doctor">
+      <p>
+        Use <code>debug config</code> when you need the full merged JSONC config and paths as the runtime
+        sees them. Use <code>doctor</code> when you want guided checks (providers, MCP, disk, versions)
+        without dumping raw internals.
+      </p>
+    </DocCallout>
+    <DocCode language="bash" title="Examples">
+nikcli debug config
+nikcli debug agent build
+nikcli debug paths
+    </DocCode>
+  </section>
+
+  <section id="debug-commands" class="doc-section">
     <h2>Debug Commands</h2>
     <table class="doc-table">
       <tbody>
@@ -47,8 +78,12 @@ const toc = [
     </table>
   </section>
 
-  <section id="lsp-debug" class="mb-16 scroll-mt-24">
+  <section id="lsp-debug" class="doc-section">
     <h2>LSP Debug</h2>
+    <p>
+      These commands call the same LSP stack documented on <a href="/docs/lsp">LSP</a>. Use them when
+      agent <code>context_diagnostics</code> or the <code>lsp</code> tool misbehaves for a given file.
+    </p>
     <table class="doc-table">
       <tbody>
         <tr>
@@ -67,8 +102,14 @@ const toc = [
     </table>
   </section>
 
-  <section id="file-rg" class="mb-16 scroll-mt-24">
+  <section id="file-rg" class="doc-section">
     <h2>File + RG</h2>
+    <DocCallout type="warn" title="Not a substitute for agent tools">
+      <p>
+        These mirror file/search behavior used by tools like <code>read</code>, <code>glob</code>, and
+        <code>grep</code>, but return JSON for scripting. Agents should still use the public tool surface.
+      </p>
+    </DocCallout>
     <table class="doc-table">
       <tbody>
         <tr>
@@ -103,7 +144,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="snapshots" class="mb-16 scroll-mt-24">
+  <section id="snapshots" class="doc-section">
     <h2>Snapshots</h2>
     <table class="doc-table">
       <tbody>
@@ -122,4 +163,6 @@ const toc = [
       </tbody>
     </table>
   </section>
+
+  <DocRelated links={related} />
 </DocsLayout>

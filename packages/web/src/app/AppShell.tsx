@@ -392,7 +392,7 @@ function Button(props: {
       className={cn(
         "inline-flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-semibold transition duration-150",
         variant === "primary" &&
-          "border-terminal-accent/20 bg-terminal-accent text-white shadow-glow hover:bg-terminal-accent/90 disabled:bg-terminal-accent/40",
+          "border-terminal-accent/20 bg-terminal-accent text-terminal-bg shadow-glow hover:bg-terminal-accent/90 disabled:bg-terminal-accent/40",
         variant === "secondary" &&
           "border-terminal-border bg-terminal-panel text-terminal-text hover:bg-surface-hover disabled:opacity-50",
         variant === "ghost" &&
@@ -543,7 +543,7 @@ function Modal(props: { open: boolean; title: string; children: ReactNode; onClo
   if (!props.open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 py-3 backdrop-blur-sm sm:items-center sm:px-4 sm:py-8">
-      <div className="max-h-[calc(100vh-0.75rem)] w-full max-w-2xl overflow-y-auto rounded-[28px] rounded-b-[28px] rounded-t-[30px] border border-terminal-border bg-terminal-panel p-4 shadow-strong sm:max-h-[calc(100vh-2rem)] sm:rounded-[28px] sm:p-5">
+      <div className="max-h-[calc(100vh-0.75rem)] w-full max-w-2xl overflow-y-auto no-scrollbar rounded-[28px] rounded-b-[28px] rounded-t-[30px] border border-terminal-border bg-terminal-panel p-4 shadow-strong sm:max-h-[calc(100vh-2rem)] sm:rounded-[28px] sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-4">
           <h3 className="text-xl font-semibold text-terminal-text">{props.title}</h3>
           <Button variant="ghost" onClick={props.onClose}>
@@ -926,7 +926,7 @@ function PermissionCard(props: {
         {path ? <Chip label="Path scoped" tone="neutral" /> : null}
       </div>
       {command ? (
-        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3 font-mono text-xs leading-6 text-terminal-text">
+        <pre className="mt-3 overflow-x-auto no-scrollbar whitespace-pre-wrap break-words rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3 font-mono text-xs leading-6 text-terminal-text">
           {command}
         </pre>
       ) : null}
@@ -977,7 +977,7 @@ function DiffViewer(props: { diffs: FileDiff[] }) {
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-terminal-muted">
                 Before
               </div>
-              <pre className="w-full max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-xs leading-6 text-terminal-text">
+              <pre className="w-full max-w-full overflow-x-auto no-scrollbar whitespace-pre-wrap break-words rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-xs leading-6 text-terminal-text">
                 {diff.before}
               </pre>
             </div>
@@ -985,7 +985,7 @@ function DiffViewer(props: { diffs: FileDiff[] }) {
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-terminal-muted">
                 After
               </div>
-              <pre className="w-full max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-xs leading-6 text-terminal-text">
+              <pre className="w-full max-w-full overflow-x-auto no-scrollbar whitespace-pre-wrap break-words rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-xs leading-6 text-terminal-text">
                 {diff.after}
               </pre>
             </div>
@@ -1022,7 +1022,7 @@ function ToolCard(props: { part: ReturnType<typeof toolParts>[number] }) {
         {state.input ? (
           <div>
             <div className="mb-2 font-semibold uppercase tracking-[0.16em] text-terminal-muted">Input</div>
-            <pre className="overflow-x-auto rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-terminal-text whitespace-pre-wrap">
+            <pre className="overflow-x-auto no-scrollbar rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-terminal-text whitespace-pre-wrap">
               {safeJson(state.input)}
             </pre>
           </div>
@@ -1030,7 +1030,7 @@ function ToolCard(props: { part: ReturnType<typeof toolParts>[number] }) {
         {state.output ? (
           <div>
             <div className="mb-2 font-semibold uppercase tracking-[0.16em] text-terminal-muted">Output</div>
-            <pre className="overflow-x-auto rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-terminal-text whitespace-pre-wrap">
+            <pre className="overflow-x-auto no-scrollbar rounded-2xl border border-terminal-border/70 bg-terminal-panel px-3 py-3 text-terminal-text whitespace-pre-wrap">
               {state.output}
             </pre>
           </div>
@@ -1102,7 +1102,7 @@ function MessageCard(props: {
       </div>
 
       {text ? (
-        <pre className="mt-4 overflow-x-auto whitespace-pre-wrap break-words text-sm leading-7 text-terminal-text">
+        <pre className="mt-4 overflow-x-auto no-scrollbar whitespace-pre-wrap break-words text-sm leading-7 text-terminal-text">
           {text}
         </pre>
       ) : null}
@@ -1141,7 +1141,7 @@ function MessageCard(props: {
               </Button>
             )}
           </div>
-          <div className="mt-4 max-h-72 overflow-y-auto pr-1">
+          <div className="mt-4 max-h-72 overflow-y-auto no-scrollbar pr-1">
             <div className="grid gap-2 sm:grid-cols-2">
               {patch.files.map((file) => (
                 <PathBadge key={file} path={file} />
@@ -1533,7 +1533,7 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
           description="Live output, tool activity, reasoning, and diffs stream into this timeline from the same mobile session route."
           className="xl:min-h-[calc(100vh-18rem)]"
         >
-          <div ref={transcriptRef} className="space-y-4 xl:max-h-[calc(100vh-24rem)] xl:overflow-y-auto xl:pr-1">
+          <div ref={transcriptRef} className="space-y-4 xl:max-h-[calc(100vh-24rem)] xl:overflow-y-auto no-scrollbar xl:pr-1">
             {detail.messages.length === 0 ? (
               <EmptyState
                 title="No transcript yet"
@@ -1597,7 +1597,7 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
                     </div>
                     {commandsLoading ? <Spinner /> : null}
                   </div>
-                  <div className="max-h-44 overflow-y-auto">
+                  <div className="max-h-44 overflow-y-auto no-scrollbar">
                     <div className="flex flex-wrap gap-2">
                       {slashSuggestions.length ? (
                         slashSuggestions.map((command) => (
@@ -2664,7 +2664,7 @@ function ClientApp(props: { initialPath: string }) {
       <div className="pointer-events-none absolute right-0 top-20 h-72 w-72 rounded-full bg-terminal-border/50 blur-3xl dark:bg-terminal-accent/5" />
 
       <div className="relative mx-auto flex w-full max-w-[var(--app-max)] flex-col gap-4 px-[var(--page-gutter)] py-4 xl:grid xl:min-h-screen xl:grid-cols-[280px_minmax(0,1fr)] xl:gap-6 xl:px-6">
-        <aside className="relative rounded-[28px] border border-terminal-border bg-terminal-panel/85 p-4 shadow-strong backdrop-blur sm:p-5 xl:sticky xl:top-[calc(var(--topbar-height)+1rem)] xl:z-20 xl:h-[calc(100vh-var(--topbar-height)-2rem)] xl:overflow-y-auto">
+        <aside className="relative rounded-[28px] border border-terminal-border bg-terminal-panel/85 p-4 shadow-strong backdrop-blur sm:p-5 xl:sticky xl:top-[calc(var(--topbar-height)+1rem)] xl:z-20 xl:h-[calc(100vh-var(--topbar-height)-2rem)] xl:overflow-y-auto no-scrollbar">
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-terminal-accent">

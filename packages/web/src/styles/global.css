@@ -407,6 +407,21 @@ select:focus-visible {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Hidden scrollbar — scrolling stays functional, no visible track/thumb
+───────────────────────────────────────────────────────────── */
+
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* WebKit/Blink */
+}
+
+/* ─────────────────────────────────────────────────────────────
    Reduced motion
 ───────────────────────────────────────────────────────────── */
 

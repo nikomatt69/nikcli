@@ -115,7 +115,7 @@ const packages = [
   toc={toc}
   description="Overview of every package in the nikcli monorepo, with detailed documentation for @nikcli-ai/llm and @nikcli-ai/http-recorder."
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       The nikcli monorepo lives under <code>packages/</code>. The base product is
@@ -132,7 +132,7 @@ const packages = [
     </DocCallout>
   </section>
 
-  <section id="llm" class="mb-16 scroll-mt-24">
+  <section id="llm" class="doc-section">
     <h2>@nikcli-ai/llm</h2>
     <p>
       <code>packages/llm</code> is the multi-provider LLM client library that handles every
@@ -143,7 +143,7 @@ const packages = [
       which backend is in use.
     </p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Route system" eyebrow="packages/llm/src/route">
         <p>
           A <em>Route</em> composes four orthogonal axes — Protocol, Endpoint, Auth, and
@@ -257,7 +257,7 @@ export const defaultLayer = Layer.suspend(() =>
     </table>
   </section>
 
-  <section id="http-recorder" class="mb-16 scroll-mt-24">
+  <section id="http-recorder" class="doc-section">
     <h2>@nikcli-ai/http-recorder</h2>
     <p>
       <code>packages/http-recorder</code> is a record-and-replay HTTP fixture library written
@@ -270,7 +270,7 @@ export const defaultLayer = Layer.suspend(() =>
       <code>http</code> and <code>websocket</code> interaction records in the same file.
     </p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Cassette storage" eyebrow="packages/http-recorder/src/cassette.ts">
         <p>
           Effect <code>Service</code> and <code>Layer</code> for reading, writing, appending,
@@ -353,7 +353,7 @@ export const defaultLayer = Layer.suspend(() =>
     </DocCallout>
   </section>
 
-  <section id="package-table" class="mb-16 scroll-mt-24">
+  <section id="package-table" class="doc-section">
     <h2>Full Package Table</h2>
     <p>
       Packages without a <code>package.json</code> at their root (e.g.

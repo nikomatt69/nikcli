@@ -16,10 +16,10 @@ const toc = [
 <DocsLayout
   title="Localization"
   subtitle="Language, region, timezone, and model reply-language settings via nikcli locale. Source: packages/nikcli/src/cli/cmd/locale.ts."
-  description="Reference for Nikcli locale settings, language, region, timezone, and model reply-language behavior."
+  description="Reference for nikcli locale settings, language, region, timezone, and model reply-language behavior."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       The <code>locale</code> command controls the language and regional settings used by nikcli
@@ -41,7 +41,7 @@ const toc = [
     </DocCode>
   </section>
 
-  <section id="actions" class="mb-16 scroll-mt-24">
+  <section id="actions" class="doc-section">
     <h2>Actions</h2>
     <table class="doc-table">
       <thead>
@@ -67,7 +67,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="flags" class="mb-16 scroll-mt-24">
+  <section id="flags" class="doc-section">
     <h2>Flags</h2>
     <p>All flags apply to the <code>set</code> action. Unrecognised values are stored as-is and resolved at runtime.</p>
     <table class="doc-table">
@@ -123,7 +123,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="reply-language" class="mb-16 scroll-mt-24">
+  <section id="reply-language" class="doc-section">
     <h2>Reply Language</h2>
     <p>
       <code>--reply-language</code> controls the language in which the underlying model responds.
@@ -170,7 +170,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="env-overrides" class="mb-16 scroll-mt-24">
+  <section id="env-overrides" class="doc-section">
     <h2>Environment Variable Overrides</h2>
     <p>
       Three environment variables override the stored config for a single invocation. They take
@@ -208,7 +208,7 @@ const toc = [
     </DocCode>
   </section>
 
-  <section id="examples" class="mb-16 scroll-mt-24">
+  <section id="examples" class="doc-section">
     <h2>Examples</h2>
     <DocCode language="bash">
       # Show the current resolved locale

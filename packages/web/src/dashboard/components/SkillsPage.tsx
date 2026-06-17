@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
 import { studioApi, type SkillSummary } from "../lib/studio-api"
+import {
+  Badge,
+  Card,
+  EmptyState,
+  ErrorBanner,
+  PageHeader,
+  PageSpinner,
+  btnDangerSm,
+  btnPrimary,
+  emptyIcons,
+  inputClass,
+} from "./ui"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -65,112 +77,82 @@ function SkillsPageInner() {
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
-        <div className="mb-4 text-4xl">🔒</div>
-        <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings</p>
-      </div>
+      <EmptyState
+        icon={emptyIcons.lock}
+        title="Not connected"
+        description="Configure server connection in Settings to manage skills."
+      />
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-terminal-muted">Create and manage reusable skill prompts</p>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="rounded-xl bg-terminal-accent px-4 py-2 text-sm font-semibold text-white hover:bg-terminal-accent/90"
-        >
-          {showCreate ? "Cancel" : "+ New Skill"}
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Skills"
+        title="Reusable skills"
+        description="Create and manage reusable skill prompts that nikcli agents can invoke."
+        actions={
+          <button onClick={() => setShowCreate(!showCreate)} className={btnPrimary}>
+            {showCreate ? "Cancel" : "+ New Skill"}
+          </button>
+        }
+      />
 
-      {error && (
-        <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {showCreate && (
-        <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6 space-y-4">
+        <Card className="space-y-4">
           <h3 className="font-semibold text-terminal-text">New Skill</h3>
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Skill name"
-            className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+            className={inputClass}
           />
           <input
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             placeholder="Description (optional)"
-            className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+            className={inputClass}
           />
           <textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             rows={8}
             placeholder="Skill content (Markdown)..."
-            className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-3 font-mono text-sm text-terminal-text focus:border-terminal-accent focus:outline-none"
+            className={`${inputClass} font-mono`}
           />
-          <button
-            onClick={createSkill}
-            disabled={busy}
-            className="rounded-xl bg-terminal-accent px-6 py-2 text-sm font-semibold text-white hover:bg-terminal-accent/90 disabled:opacity-50"
-          >
+          <button onClick={createSkill} disabled={busy} className={btnPrimary}>
             {busy ? "Creating…" : "Create Skill"}
           </button>
-        </div>
+        </Card>
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-terminal-border border-t-terminal-accent" />
-        </div>
+        <PageSpinner />
       ) : skills.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
-          <div className="mb-4 text-4xl">🧠</div>
-          <h3 className="text-lg font-semibold text-terminal-text">No skills</h3>
-          <p className="mt-2 text-sm text-terminal-muted">Create a skill to get started</p>
-        </div>
+        <EmptyState icon={emptyIcons.brain} title="No skills" description="Create a skill to get started." />
       ) : (
         <div className="space-y-3">
           {skills.map((skill) => (
-            <div
-              key={skill.name}
-              className={`rounded-2xl border bg-terminal-panel p-5 ${skill.disabled ? "opacity-50" : "border-terminal-border"}`}
-            >
+            <Card key={skill.name} className={`p-5 ${skill.disabled ? "opacity-50" : ""}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-terminal-text">{skill.name}</span>
-                    {skill.category && (
-                      <span className="rounded-full bg-terminal-border/50 px-2 py-0.5 text-xs text-terminal-muted">
-                        {skill.category}
-                      </span>
-                    )}
-                    {skill.tags?.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-terminal-border/50 px-2 py-0.5 text-xs text-terminal-muted"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                    {skill.category && <Badge>{skill.category}</Badge>}
+                    {skill.tags?.map((tag) => <Badge key={tag}>{tag}</Badge>)}
                   </div>
                   {skill.description && <p className="mt-1 text-sm text-terminal-muted">{skill.description}</p>}
                   {skill.path && <code className="mt-1 block text-xs text-terminal-muted">{skill.path}</code>}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => deleteSkill(skill.name)}
-                    className="rounded-lg border border-terminal-error/30 px-3 py-1.5 text-xs font-medium text-terminal-error hover:bg-terminal-error/10"
-                  >
+                <div className="flex shrink-0 items-center gap-2">
+                  <button onClick={() => deleteSkill(skill.name)} className={btnDangerSm}>
                     Delete
                   </button>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

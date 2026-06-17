@@ -30,10 +30,10 @@ const toc = [
 <DocsLayout
   title="Mobile App"
   subtitle="A complete guide to running and managing nikcli from the Expo app in packages/mobile against a host server."
-  description="Guide to the Nikcli mobile app, sessions, terminal, routines, loops, settings, and host-server integration."
+  description="Guide to the nikcli mobile app, sessions, terminal, routines, loops, settings, and host-server integration."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       The nikcli mobile app is an Expo / React Native client that drives a running
@@ -43,7 +43,7 @@ const toc = [
       routines and loops, and open interactive terminals.
     </p>
     <p>The app is organized into six tabs plus Settings and Profile:</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Sessions" eyebrow="Core"><p>Create and resume agent sessions with live SSE streaming, plan/code modes, approvals, and diffs.</p></DocCard>
       <DocCard title="Repos" eyebrow="Workspaces"><p>Server worktrees and GitHub repos — import, sandbox, and launch GitHub-backed sessions.</p></DocCard>
       <DocCard title="Terminal" eyebrow="Shell"><p>Fully interactive PTYs running on the host, with multiple tabs and copy/paste.</p></DocCard>
@@ -53,7 +53,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="host-setup" class="mb-16 scroll-mt-24">
+  <section id="host-setup" class="doc-section">
     <h2>Host setup</h2>
     <p>
       The app connects to a host process exposing the mobile API. Two commands cover the common
@@ -114,7 +114,7 @@ nikcli mobile token revoke &lt;id&gt;     # revoke a token by ID
     </DocCallout>
   </section>
 
-  <section id="connect" class="mb-16 scroll-mt-24">
+  <section id="connect" class="doc-section">
     <h2>Connect the app</h2>
     <p>
       With no saved server, the app opens the <strong>Connect</strong> screen (root route
@@ -138,7 +138,7 @@ nikcli mobile token revoke &lt;id&gt;     # revoke a token by ID
     </p>
   </section>
 
-  <section id="deep-link" class="mb-16 scroll-mt-24">
+  <section id="deep-link" class="doc-section">
     <h2>Deep link & QR</h2>
     <p>
       Scanning the pairing QR opens a <code>nikcli://</code> URL that pre-fills the Connect fields.
@@ -162,7 +162,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="login" class="mb-16 scroll-mt-24">
+  <section id="login" class="doc-section">
     <h2>Login & accounts</h2>
     <p>
       After connecting, the app shows the <strong>Login</strong> screen. This is a second auth layer:
@@ -189,7 +189,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </DocCallout>
   </section>
 
-  <section id="sessions" class="mb-16 scroll-mt-24">
+  <section id="sessions" class="doc-section">
     <h2>Sessions list</h2>
     <p>
       The Sessions tab is the landing screen. A hero "Operations board" card doubles as the create
@@ -205,7 +205,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </ul>
   </section>
 
-  <section id="chat" class="mb-16 scroll-mt-24">
+  <section id="chat" class="doc-section">
     <h2>Chat & composer</h2>
     <p>
       Inside a session the screen is a scrollable transcript above a fixed composer. The transcript
@@ -238,7 +238,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="tool-calls" class="mb-16 scroll-mt-24">
+  <section id="tool-calls" class="doc-section">
     <h2>Tool calls</h2>
     <p>
       Each tool call renders as a collapsible card whose status dot cycles pending → running →
@@ -253,7 +253,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="approvals" class="mb-16 scroll-mt-24">
+  <section id="approvals" class="doc-section">
     <h2>Approvals & permissions</h2>
     <p>
       The app surfaces two approval flows that map to the host permission system: tool-execution
@@ -277,7 +277,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="files-diffs" class="mb-16 scroll-mt-24">
+  <section id="files-diffs" class="doc-section">
     <h2>Files & diffs</h2>
     <h3>Patch diffs</h3>
     <p>
@@ -302,7 +302,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="repos" class="mb-16 scroll-mt-24">
+  <section id="repos" class="doc-section">
     <h2>Repos & GitHub</h2>
     <p>
       The Repos tab is a unified workspace portfolio: the <em>server worktrees</em> the host knows
@@ -334,7 +334,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="routines" class="mb-16 scroll-mt-24">
+  <section id="routines" class="doc-section">
     <h2>Routines</h2>
     <p>
       The Routines tab is a full create/read/update/delete interface for saved prompts that run as
@@ -359,7 +359,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </DocCallout>
   </section>
 
-  <section id="loops" class="mb-16 scroll-mt-24">
+  <section id="loops" class="doc-section">
     <h2>Loops</h2>
     <p>
       The Loops tab exposes the headless <a href="/docs/loops">Loop engine</a> from the phone.
@@ -395,7 +395,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </DocCallout>
   </section>
 
-  <section id="terminal" class="mb-16 scroll-mt-24">
+  <section id="terminal" class="doc-section">
     <h2>Terminal</h2>
     <p>
       The Terminal tab opens <strong>fully interactive PTYs</strong> running on the host — you can
@@ -417,7 +417,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </DocCallout>
   </section>
 
-  <section id="settings" class="mb-16 scroll-mt-24">
+  <section id="settings" class="doc-section">
     <h2>Settings</h2>
     <p>
       Settings is a single scrollable control plane; each section can be shown or hidden per device
@@ -443,7 +443,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </table>
   </section>
 
-  <section id="profile" class="mb-16 scroll-mt-24">
+  <section id="profile" class="doc-section">
     <h2>Profile & account</h2>
     <p>
       The Profile screen shows your identity (avatar, display name, <code>@username</code>, email,
@@ -456,7 +456,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </DocCallout>
   </section>
 
-  <section id="notifications" class="mb-16 scroll-mt-24">
+  <section id="notifications" class="doc-section">
     <h2>Notifications & Live Activities</h2>
     <p>
       Notifications are <strong>off by default</strong>. Enable them in Settings → Interaction →
@@ -480,7 +480,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="offline" class="mb-16 scroll-mt-24">
+  <section id="offline" class="doc-section">
     <h2>Offline behavior</h2>
     <p>
       When a send can't reach the host, the message is queued locally (in secure storage) and replayed
@@ -490,7 +490,7 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </p>
   </section>
 
-  <section id="themes" class="mb-16 scroll-mt-24">
+  <section id="themes" class="doc-section">
     <h2>Themes & preferences</h2>
     <p>
       Settings → Appearance offers a color mode (System, Light, Dark) and a color theme picker with

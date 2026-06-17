@@ -22,17 +22,17 @@ const toc = [
 <DocsLayout
   title="Permissions"
   subtitle="How nikcli evaluates allow, deny, and ask rules for tools, stores always approvals, and exposes pending requests to TUI and mobile."
-  description="Reference for Nikcli permission rules, approval persistence, tool gating, and pending request flows."
+  description="Reference for nikcli permission rules, approval persistence, tool gating, and pending request flows."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       Permissions are implemented by <code>packages/nikcli/src/permission/next.ts</code>. The
       service combines config rules with persisted project approvals, evaluates wildcard matches,
       publishes pending requests, and resolves tool execution only after the user replies.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Config rules" eyebrow="Static">
         <p>Rules come from <code>config.permission</code> and legacy <code>tools</code> conversion.</p>
       </DocCard>
@@ -48,7 +48,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="actions-rules" class="mb-16 scroll-mt-24">
+  <section id="actions-rules" class="doc-section">
     <h2>Actions and rules</h2>
     <table class="doc-table">
       <thead><tr><th>Action</th><th>Behavior</th></tr></thead>
@@ -65,7 +65,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="config-forms" class="mb-16 scroll-mt-24">
+  <section id="config-forms" class="doc-section">
     <h2>Config forms</h2>
     <p>The schema accepts three useful forms:</p>
     <DocCode language="json" title="permission config">
@@ -108,7 +108,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="evaluation" class="mb-16 scroll-mt-24">
+  <section id="evaluation" class="doc-section">
     <h2>Evaluation order</h2>
     <p>
       <code>PermissionNext.evaluate</code> merges all rulesets and uses the last matching rule.
@@ -132,7 +132,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="lifecycle" class="mb-16 scroll-mt-24">
+  <section id="lifecycle" class="doc-section">
     <h2>Ask and reply lifecycle</h2>
     <ol>
       <li>A tool calls <code>ctx.ask</code> or directly reaches <code>PermissionNext.ask</code>.</li>
@@ -153,7 +153,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="always" class="mb-16 scroll-mt-24">
+  <section id="always" class="doc-section">
     <h2>Always approvals</h2>
     <p>
       Always approvals are scoped to the current project id. They are not written into
@@ -168,7 +168,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="tools" class="mb-16 scroll-mt-24">
+  <section id="tools" class="doc-section">
     <h2>Tool integration</h2>
     <p>Different tools provide different patterns and always scopes.</p>
     <table class="doc-table">
@@ -185,7 +185,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="api-mobile" class="mb-16 scroll-mt-24">
+  <section id="api-mobile" class="doc-section">
     <h2>API and mobile approvals</h2>
     <p>
       Pending permissions are exposed by classic routes and typed HttpApi routes. Mobile routes
@@ -209,7 +209,7 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
     </DocCode>
   </section>
 
-  <section id="policies" class="mb-16 scroll-mt-24">
+  <section id="policies" class="doc-section">
     <h2>Common policies</h2>
     <table class="doc-table">
       <thead><tr><th>Goal</th><th>Policy</th></tr></thead>
@@ -224,7 +224,7 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
     </table>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -238,7 +238,7 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

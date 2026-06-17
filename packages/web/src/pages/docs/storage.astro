@@ -22,10 +22,10 @@ const toc = [
 <DocsLayout
   title="Storage"
   subtitle="Persistent data layout, migrations, locks, caches, and SQLite stores used by nikcli."
-  description="Reference for Nikcli persistent storage, data roots, SQLite databases, migrations, locks, and caches."
+  description="Reference for nikcli persistent storage, data roots, SQLite databases, migrations, locks, and caches."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       nikcli storage is split across a JSON object store and several SQLite databases under the
@@ -33,7 +33,7 @@ const toc = [
       goal, routine, and similar structured records. SQLite is used where indexes, uniqueness,
       credentials, or high-frequency authentication lookups are a better fit.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Data root" eyebrow="Global.Path.data">
         <p>Primary persistent root. It can be overridden with <code>NIKCLI_DATA_DIR</code> or isolated in tests with <code>NIKCLI_TEST_HOME</code>.</p>
       </DocCard>
@@ -49,7 +49,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="path-roots" class="mb-16 scroll-mt-24">
+  <section id="path-roots" class="doc-section">
     <h2>Path roots</h2>
     <p>
       <code>packages/nikcli/src/global/index.ts</code> owns the global directory model. On startup,
@@ -73,7 +73,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </DocCode>
   </section>
 
-  <section id="json-store" class="mb-16 scroll-mt-24">
+  <section id="json-store" class="doc-section">
     <h2>JSON object store</h2>
     <p>
       <code>Storage.Service</code> maps a string-key array to a JSON file below
@@ -96,7 +96,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </table>
   </section>
 
-  <section id="session-layout" class="mb-16 scroll-mt-24">
+  <section id="session-layout" class="doc-section">
     <h2>Session layout</h2>
     <p>
       Session storage is intentionally normalized. Session metadata lives by project id, messages
@@ -125,7 +125,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </DocCallout>
   </section>
 
-  <section id="sqlite" class="mb-16 scroll-mt-24">
+  <section id="sqlite" class="doc-section">
     <h2>SQLite stores</h2>
     <p>
       The SQLite layer uses <code>bun:sqlite</code>, Drizzle schemas, and startup migrations. Generic
@@ -150,7 +150,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </p>
   </section>
 
-  <section id="flow" class="mb-16 scroll-mt-24">
+  <section id="flow" class="doc-section">
     <h2>Read and write flow</h2>
     <p>
       Most runtime modules do not import filesystem helpers directly. They build small wrappers
@@ -168,7 +168,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </ol>
   </section>
 
-  <section id="migrations" class="mb-16 scroll-mt-24">
+  <section id="migrations" class="doc-section">
     <h2>Migrations</h2>
     <p>
       JSON migrations live in the <code>MIGRATIONS</code> array inside
@@ -192,7 +192,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </DocCallout>
   </section>
 
-  <section id="locks-cache" class="mb-16 scroll-mt-24">
+  <section id="locks-cache" class="doc-section">
     <h2>Locks and cache</h2>
     <p>
       The JSON store uses an in-memory read-through cache with a default five-second TTL. Writes and
@@ -211,7 +211,7 @@ NIKCLI_TEST_HOME=/tmp/nikcli-test bun test test/path/file.test.ts
     </table>
   </section>
 
-  <section id="operational-checks" class="mb-16 scroll-mt-24">
+  <section id="operational-checks" class="doc-section">
     <h2>Operational checks</h2>
     <p>Use these checks before deleting data, moving a data root, or debugging missing sessions.</p>
     <DocCode language="bash">
@@ -227,7 +227,7 @@ sqlite3 "$HOME/.local/share/nikcli/mobile_auth.db" "select id, name, expires_at 
     </p>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -242,7 +242,7 @@ sqlite3 "$HOME/.local/share/nikcli/mobile_auth.db" "select id, name, expires_at 
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>

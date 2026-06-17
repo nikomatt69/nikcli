@@ -73,10 +73,10 @@ const directories = [
 <DocsLayout
   title="Source Map"
   subtitle="A practical map for finding the real implementation behind CLI commands, API routes, TUI views, mobile flows, providers, plugins, and storage."
-  description="Practical source map for finding Nikcli CLI, API, TUI, mobile, provider, plugin, and storage implementations."
+  description="Practical source map for finding nikcli CLI, API, TUI, mobile, provider, plugin, and storage implementations."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       The main runtime lives in <code>packages/nikcli/src</code>. The repo is a Bun monorepo, so
@@ -91,7 +91,7 @@ const directories = [
     </p>
   </section>
 
-  <section id="top-level-entry" class="mb-16 scroll-mt-24">
+  <section id="top-level-entry" class="doc-section">
     <h2>Top-level entry</h2>
     <p>
       <code>packages/nikcli/src/index.ts</code> registers every CLI command with yargs, initializes
@@ -114,9 +114,9 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="runtime-domains" class="mb-16 scroll-mt-24">
+  <section id="runtime-domains" class="doc-section">
     <h2>Runtime domains</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="CLI and TUI" eyebrow="Entry">
         <p><code>src/cli/cmd</code> contains commands. <code>src/cli/cmd/tui</code> contains the OpenTUI/Solid renderer, worker RPC, routes, dialogs, plugins, and contexts.</p>
       </DocCard>
@@ -132,7 +132,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </div>
   </section>
 
-  <section id="cli-command-map" class="mb-16 scroll-mt-24">
+  <section id="cli-command-map" class="doc-section">
     <h2>CLI command map</h2>
     <p>Every public command is imported and registered in <code>src/index.ts</code>.</p>
     <table class="doc-table">
@@ -154,7 +154,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="server-map" class="mb-16 scroll-mt-24">
+  <section id="server-map" class="doc-section">
     <h2>Server map</h2>
     <p>
       Server behavior starts in <code>src/server/server.ts</code>. The exact route order matters:
@@ -178,7 +178,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="session-llm-map" class="mb-16 scroll-mt-24">
+  <section id="session-llm-map" class="doc-section">
     <h2>Session and LLM map</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th><th>What to look for</th></tr></thead>
@@ -195,7 +195,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="storage-config-map" class="mb-16 scroll-mt-24">
+  <section id="storage-config-map" class="doc-section">
     <h2>Storage and config map</h2>
     <p>
       Config and storage are separate. Config is resolved from well-known remote config, global
@@ -216,7 +216,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="extension-map" class="mb-16 scroll-mt-24">
+  <section id="extension-map" class="doc-section">
     <h2>Extension map</h2>
     <table class="doc-table">
       <thead><tr><th>Extension type</th><th>Source</th><th>Runtime hook</th></tr></thead>
@@ -231,7 +231,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="tui-map" class="mb-16 scroll-mt-24">
+  <section id="tui-map" class="doc-section">
     <h2>TUI map</h2>
     <p>
       The TUI starts in <code>cli/cmd/tui/thread.ts</code>, creates a worker from
@@ -252,7 +252,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="mobile-map" class="mb-16 scroll-mt-24">
+  <section id="mobile-map" class="doc-section">
     <h2>Mobile map</h2>
     <p>
       The Expo app lives in <code>packages/mobile</code>, while the host API lives in
@@ -272,7 +272,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="package-map" class="mb-16 scroll-mt-24">
+  <section id="package-map" class="doc-section">
     <h2>Generated and package map</h2>
     <table class="doc-table">
       <thead><tr><th>Package</th><th>Purpose</th><th>When to inspect</th></tr></thead>
@@ -289,7 +289,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
     </table>
   </section>
 
-  <section id="trace-feature" class="mb-16 scroll-mt-24">
+  <section id="trace-feature" class="doc-section">
     <h2>How to trace a feature</h2>
     <ol>
       <li>Find the entry: command in <code>src/index.ts</code>, route in <code>server.ts</code>, or UI route in <code>tui/context/route.tsx</code>.</li>
@@ -305,7 +305,7 @@ rg -n "Config\\.Service|Provider\\.Service|Session\\.Service" packages/nikcli/sr
     </DocCode>
   </section>
 
-  <section id="directory-table" class="mb-16 scroll-mt-24">
+  <section id="directory-table" class="doc-section">
     <h2>Directory table</h2>
     <table class="doc-table">
       <thead><tr><th>Directory</th><th>Purpose</th></tr></thead>

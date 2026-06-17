@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
 import { DashboardApiError, getErrorMessage, requestJson } from "../lib/studio-api"
+import {
+  Badge,
+  Card,
+  EmptyState,
+  ErrorBanner,
+  PageHeader,
+  PageSpinner,
+  btnDangerSm,
+  btnGhostSm,
+  btnPrimary,
+  emptyIcons,
+  inputClass,
+} from "./ui"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -109,96 +122,89 @@ function UsersManagementPageInner() {
 
   if (!token || (!isDev && !serverUrl)) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
-        <div className="mb-4 text-4xl">🔒</div>
-        <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings</p>
-      </div>
+      <EmptyState
+        icon={emptyIcons.lock}
+        title="Not connected"
+        description="Configure server connection in Settings to manage users."
+      />
     )
   }
 
   if (currentUser?.role !== "admin") {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
-        <div className="mb-4 text-4xl">🔒</div>
-        <h3 className="text-lg font-semibold text-terminal-text">Admin only</h3>
-        <p className="mt-2 text-sm text-terminal-muted">You need admin privileges to manage users</p>
-      </div>
+      <EmptyState
+        icon={emptyIcons.lock}
+        title="Admin only"
+        description="You need admin privileges to manage users."
+      />
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-terminal-muted">Manage server users and permissions</p>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="rounded-xl bg-terminal-accent px-4 py-2 text-sm font-semibold text-white hover:bg-terminal-accent/90"
-        >
-          {showCreate ? "Cancel" : "+ New User"}
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Users"
+        title="Manage users"
+        description="Manage server users and their permissions."
+        actions={
+          <button onClick={() => setShowCreate(!showCreate)} className={btnPrimary}>
+            {showCreate ? "Cancel" : "+ New User"}
+          </button>
+        }
+      />
 
-      {error && (
-        <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {showCreate && (
-        <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6 space-y-4">
+        <Card className="space-y-4">
           <h3 className="font-semibold text-terminal-text">Create User</h3>
           <div className="grid gap-4 md:grid-cols-2">
             <input
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
               placeholder="Username"
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+              className={inputClass}
             />
             <input
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               type="email"
               placeholder="Email"
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+              className={inputClass}
             />
             <input
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               type="password"
               placeholder="Password (min 8 chars)"
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+              className={inputClass}
             />
             <input
               value={newDisplay}
               onChange={(e) => setNewDisplay(e.target.value)}
               placeholder="Display name (optional)"
-              className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+              className={inputClass}
             />
           </div>
-          <button
-            onClick={create}
-            disabled={busy}
-            className="rounded-xl bg-terminal-accent px-6 py-2 text-sm font-semibold text-white hover:bg-terminal-accent/90 disabled:opacity-50"
-          >
+          <button onClick={create} disabled={busy} className={btnPrimary}>
             {busy ? "Creating…" : "Create User"}
           </button>
-        </div>
+        </Card>
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-terminal-border border-t-terminal-accent" />
-        </div>
+        <PageSpinner />
+      ) : users.length === 0 ? (
+        <EmptyState title="No users found" />
       ) : (
         <div className="space-y-3">
           {users.map((u) => (
-            <div
+            <Card
               key={u.id}
-              className="flex flex-col gap-3 rounded-2xl border border-terminal-border bg-terminal-panel px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex min-w-0 items-center gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terminal-accent/20 text-sm font-semibold text-terminal-accent">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-terminal-accent/20 bg-terminal-accent/15 text-sm font-semibold text-terminal-accent">
                   {(u.displayName || u.display_name || u.username)[0].toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -209,37 +215,23 @@ function UsersManagementPageInner() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    u.role === "admin"
-                      ? "bg-terminal-accent/10 text-terminal-accent"
-                      : "bg-terminal-border/50 text-terminal-muted"
-                  }`}
-                >
-                  {u.role}
-                </span>
+                <Badge tone={u.role === "admin" ? "accent" : "neutral"}>{u.role}</Badge>
                 {u.id !== currentUser?.id && (
                   <>
                     <button
                       onClick={() => changeRole(u.id, u.role === "admin" ? "user" : "admin")}
-                      className="rounded-lg border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-text hover:bg-terminal-border/50"
+                      className={btnGhostSm}
                     >
                       {u.role === "admin" ? "→ User" : "→ Admin"}
                     </button>
-                    <button
-                      onClick={() => deleteUser(u.id)}
-                      className="rounded-lg border border-terminal-error/30 px-3 py-1.5 text-xs font-medium text-terminal-error hover:bg-terminal-error/10"
-                    >
+                    <button onClick={() => deleteUser(u.id)} className={btnDangerSm}>
                       Delete
                     </button>
                   </>
                 )}
               </div>
-            </div>
+            </Card>
           ))}
-          {!loading && users.length === 0 && (
-            <div className="py-8 text-center text-sm text-terminal-muted">No users found.</div>
-          )}
         </div>
       )}
     </div>

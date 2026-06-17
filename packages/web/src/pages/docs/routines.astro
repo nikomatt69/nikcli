@@ -16,10 +16,10 @@ const toc = [
 <DocsLayout
   title="Routines"
   subtitle="Saved prompts with schedule or API triggers, scoped per project. Source: packages/nikcli/src/cli/cmd/routine.ts."
-  description="Guide to Nikcli routines, scheduled prompts, API triggers, cron parsing, and project-scoped automation."
+  description="Guide to nikcli routines, scheduled prompts, API triggers, cron parsing, and project-scoped automation."
   toc={toc}
 >
-  <section id="what-are-routines" class="mb-16 scroll-mt-24">
+  <section id="what-are-routines" class="doc-section">
     <h2>What Are Routines</h2>
     <p>
       A routine pairs a saved prompt with one or more triggers. When a trigger fires, nikcli runs
@@ -38,7 +38,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="triggers" class="mb-16 scroll-mt-24">
+  <section id="triggers" class="doc-section">
     <h2>Triggers</h2>
 
     <h3>Schedule trigger</h3>
@@ -85,7 +85,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="subcommands" class="mb-16 scroll-mt-24">
+  <section id="subcommands" class="doc-section">
     <h2>Subcommands</h2>
     <table class="doc-table">
       <thead>
@@ -135,7 +135,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="creating-a-routine" class="mb-16 scroll-mt-24">
+  <section id="creating-a-routine" class="doc-section">
     <h2>Creating a Routine</h2>
     <p>
       Run <code>nikcli routine create</code> without flags to go through an interactive prompt for
@@ -177,7 +177,7 @@ const toc = [
     </DocCode>
   </section>
 
-  <section id="api-trigger" class="mb-16 scroll-mt-24">
+  <section id="api-trigger" class="doc-section">
     <h2>API Trigger</h2>
     <p>
       After creating a routine with <code>--api</code> or <code>--api-token</code>, nikcli prints
@@ -198,7 +198,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="lifecycle" class="mb-16 scroll-mt-24">
+  <section id="lifecycle" class="doc-section">
     <h2>Lifecycle</h2>
     <p>
       A routine moves through the following states:

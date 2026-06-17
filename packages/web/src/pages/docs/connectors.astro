@@ -22,10 +22,10 @@ const toc = [
 <DocsLayout
   title="Connectors"
   subtitle="How nikcli connects external services, stores credentials, exposes connector tools, and receives bot webhooks."
-  description="Documentation for Nikcli connectors, credential storage, connector tools, webhooks, and auth flows."
+  description="Documentation for nikcli connectors, credential storage, connector tools, webhooks, and auth flows."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       Connectors are service-specific integrations configured under <code>connectors</code> in
@@ -33,7 +33,7 @@ const toc = [
       It checks credentials, runs health checks, creates AI SDK tools for services with operations,
       exposes prompts, and caches status/tool results.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Tool connectors" eyebrow="Agent">
         <p>Figma, Slack, GitHub, and Lovable expose operations as dynamic agent tools.</p>
       </DocCard>
@@ -49,7 +49,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="types" class="mb-16 scroll-mt-24">
+  <section id="types" class="doc-section">
     <h2>Connector types</h2>
     <table class="doc-table">
       <thead><tr><th>Type</th><th>Credential</th><th>Health check</th><th>Agent tools</th></tr></thead>
@@ -66,7 +66,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="add-auth" class="mb-16 scroll-mt-24">
+  <section id="add-auth" class="doc-section">
     <h2>Add and authenticate</h2>
     <p>
       <code>nikcli connectors add</code> patches either the current project config or global config.
@@ -90,7 +90,7 @@ nikcli connectors logout github
     </table>
   </section>
 
-  <section id="credentials" class="mb-16 scroll-mt-24">
+  <section id="credentials" class="doc-section">
     <h2>Credential resolution</h2>
     <p>
       <code>resolveCredential</code> uses a strict order: environment flag, config inline credential,
@@ -113,7 +113,7 @@ nikcli connectors logout github
     </DocCallout>
   </section>
 
-  <section id="tools" class="mb-16 scroll-mt-24">
+  <section id="tools" class="doc-section">
     <h2>Tool operations</h2>
     <p>
       Tool-capable connectors generate names by prefixing the configured connector name and operation
@@ -135,7 +135,7 @@ nikcli connectors logout github
     </p>
   </section>
 
-  <section id="bots" class="mb-16 scroll-mt-24">
+  <section id="bots" class="doc-section">
     <h2>Bot connectors</h2>
     <p>
       Bot/webhook platforms are mounted under <code>/chatbot</code>. The route file exposes webhook
@@ -155,7 +155,7 @@ nikcli connectors logout github
     </table>
   </section>
 
-  <section id="api" class="mb-16 scroll-mt-24">
+  <section id="api" class="doc-section">
     <h2>API routes</h2>
     <table class="doc-table">
       <thead><tr><th>Route</th><th>Behavior</th></tr></thead>
@@ -177,7 +177,7 @@ curl -X POST http://127.0.0.1:4096/connectors/github/invalidate
     </DocCode>
   </section>
 
-  <section id="cache" class="mb-16 scroll-mt-24">
+  <section id="cache" class="doc-section">
     <h2>Caches and invalidation</h2>
     <p>
       Connector status and tool creation are cached based on the active config. Auth writes,
@@ -194,7 +194,7 @@ curl -X POST http://127.0.0.1:4096/connectors/github/invalidate
     </table>
   </section>
 
-  <section id="config" class="mb-16 scroll-mt-24">
+  <section id="config" class="doc-section">
     <h2>Config examples</h2>
     <DocCode language="json" title="connectors config">
 &#123;
@@ -225,7 +225,7 @@ curl -X POST http://127.0.0.1:4096/connectors/github/invalidate
     </p>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -239,7 +239,7 @@ curl -X POST http://127.0.0.1:4096/connectors/github/invalidate
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>Need</th><th>File</th></tr></thead>

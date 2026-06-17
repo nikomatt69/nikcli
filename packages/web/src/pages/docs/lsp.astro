@@ -22,10 +22,10 @@ const toc = [
 <DocsLayout
   title="LSP"
   subtitle="A practical reference for nikcli language-server discovery, startup, diagnostics, and the gated LSP tool."
-  description="Reference for Nikcli language-server discovery, startup, diagnostics, and the gated LSP tool."
+  description="Reference for nikcli language-server discovery, startup, diagnostics, and the gated LSP tool."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
+  <section id="overview" class="doc-section">
     <h2>Overview</h2>
     <p>
       nikcli uses Language Server Protocol servers as an optional code-intelligence layer for tools,
@@ -34,7 +34,7 @@ const toc = [
       Effect service, so every project instance gets its own LSP state, root detection, client list,
       and shutdown finalizer.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+    <div class="doc-grid not-prose">
       <DocCard title="Lazy by file" eyebrow="Startup">
         <p>Servers are not launched globally at boot. A file touch or operation selects matching servers by extension and then starts the needed client.</p>
       </DocCard>
@@ -50,7 +50,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="lifecycle" class="mb-16 scroll-mt-24">
+  <section id="lifecycle" class="doc-section">
     <h2>Runtime lifecycle</h2>
     <p>
       The service state is created from the current instance context and current config. If
@@ -77,7 +77,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="servers" class="mb-16 scroll-mt-24">
+  <section id="servers" class="doc-section">
     <h2>Supported servers</h2>
     <p>
       The built-in catalog is declared in <code>packages/nikcli/src/lsp/server.ts</code>. Each entry
@@ -95,7 +95,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="roots" class="mb-16 scroll-mt-24">
+  <section id="roots" class="doc-section">
     <h2>Root detection</h2>
     <p>
       Root selection is server-specific. Most entries use <code>NearestRoot</code>, which walks upward
@@ -114,7 +114,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="agent-tool" class="mb-16 scroll-mt-24">
+  <section id="agent-tool" class="doc-section">
     <h2>Agent tool</h2>
     <p>
       The <code>lsp</code> tool in <code>packages/nikcli/src/tool/lsp.ts</code> exposes editor-like
@@ -145,7 +145,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="debug" class="mb-16 scroll-mt-24">
+  <section id="debug" class="doc-section">
     <h2>Debug commands</h2>
     <p>
       The debug command group touches files and prints raw LSP JSON responses. Use it to check
@@ -163,7 +163,7 @@ nikcli debug lsp document-symbols file:///absolute/path/to/file.ts
     </p>
   </section>
 
-  <section id="configuration" class="mb-16 scroll-mt-24">
+  <section id="configuration" class="doc-section">
     <h2>Configuration</h2>
     <p>
       The <code>lsp</code> config field accepts <code>false</code> to disable all language servers, or
@@ -191,7 +191,7 @@ lsp.my-language.initialization.workspaceMode = full
     </DocCode>
   </section>
 
-  <section id="downloads" class="mb-16 scroll-mt-24">
+  <section id="downloads" class="doc-section">
     <h2>Downloads and binaries</h2>
     <p>
       Some servers require a system binary in PATH. Others install language-server packages or
@@ -210,7 +210,7 @@ lsp.my-language.initialization.workspaceMode = full
     </table>
   </section>
 
-  <section id="diagnostics" class="mb-16 scroll-mt-24">
+  <section id="diagnostics" class="doc-section">
     <h2>Diagnostics and symbols</h2>
     <p>
       When a file is opened, nikcli sends <code>workspace/didChangeWatchedFiles</code> and
@@ -226,7 +226,7 @@ lsp.my-language.initialization.workspaceMode = full
     </ul>
   </section>
 
-  <section id="failure-modes" class="mb-16 scroll-mt-24">
+  <section id="failure-modes" class="doc-section">
     <h2>Failure modes</h2>
     <table class="doc-table">
       <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
@@ -241,7 +241,7 @@ lsp.my-language.initialization.workspaceMode = full
     </table>
   </section>
 
-  <section id="source-anchors" class="mb-16 scroll-mt-24">
+  <section id="source-anchors" class="doc-section">
     <h2>Source anchors</h2>
     <table class="doc-table">
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
