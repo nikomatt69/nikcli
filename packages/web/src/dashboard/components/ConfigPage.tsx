@@ -122,7 +122,9 @@ function ConfigPageInner() {
                 <select
                   value={String(config?.autoupdate ?? true)}
                   onChange={(e) =>
-                    save({ autoupdate: e.target.value === "true" ? true : e.target.value === "false" ? false : "notify" })
+                    save({
+                      autoupdate: e.target.value === "true" ? true : e.target.value === "false" ? false : "notify",
+                    })
                   }
                   className={selectClass}
                 >

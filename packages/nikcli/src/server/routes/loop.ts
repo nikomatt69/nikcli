@@ -10,16 +10,16 @@
  * so live TUI subscribers stay in sync.
  */
 
-import { Hono } from "hono";
-import { describeRoute, resolver, validator } from "hono-openapi";
-import z from "zod";
-import { Effect } from "effect";
-import { Bus } from "../../bus";
-import { Session } from "../../session";
-import { SessionPrompt } from "../../session/prompt";
-import { runPromiseWithLayer, withCurrentInstance } from "../../effect";
-import * as Engine from "../../loop/engine";
-import * as Manager from "../../loop/manager";
+import { Hono } from "hono"
+import { describeRoute, resolver, validator } from "hono-openapi"
+import z from "zod"
+import { Effect } from "effect"
+import { Bus } from "../../bus"
+import { Session } from "../../session"
+import { SessionPrompt } from "../../session/prompt"
+import { runPromiseWithLayer, withCurrentInstance } from "../../effect"
+import * as Engine from "../../loop/engine"
+import * as Manager from "../../loop/manager"
 import {
   LOOP_TEMPLATES,
   LoopDefinitionSchema,
@@ -29,23 +29,18 @@ import {
   definitionFromGeneratedText,
   generateID,
   validateDefinition,
-} from "../../loop/schema";
-import { Log } from "../../util/log";
-import { errors } from "../error";
+} from "../../loop/schema"
+import { Log } from "../../util/log"
+import { errors } from "../error"
 
-const log = Log.create({ service: "loop.routes" });
+const log = Log.create({ service: "loop.routes" })
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect));
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
-function runSessionPrompt<A, E>(
-  effect: Effect.Effect<A, E, SessionPrompt.Service>,
-) {
-  return runPromiseWithLayer(
-    SessionPrompt.defaultLayer,
-    withCurrentInstance(effect),
-  );
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
 
 const LoopRuntimeSchema = z
@@ -57,11 +52,11 @@ const LoopRuntimeSchema = z
     lastError: z.string().optional(),
     sessionID: z.string().optional(),
   })
-  .meta({ ref: "LoopRuntime" });
+  .meta({ ref: "LoopRuntime" })
 
 const LoopDefinitionDTOSchema = LoopDefinitionSchema.meta({
   ref: "LoopDefinition",
-});
+})
 
 const LoopRunPullRequestRefDTOSchema = z
   .object({
@@ -72,7 +67,7 @@ const LoopRunPullRequestRefDTOSchema = z
     title: z.string().optional(),
     action: z.enum(["created", "updated"]),
   })
-  .meta({ ref: "LoopRunPullRequestRef" });
+  .meta({ ref: "LoopRunPullRequestRef" })
 
 const LoopRunDTOSchema = z
   .object({
@@ -86,7 +81,7 @@ const LoopRunDTOSchema = z
     sessionID: z.string().optional(),
     pullRequest: LoopRunPullRequestRefDTOSchema.optional(),
   })
-  .meta({ ref: "LoopRun" });
+  .meta({ ref: "LoopRun" })
 
 const LoopTemplateDTOSchema = z
   .object({
@@ -108,10 +103,10 @@ const LoopTemplateDTOSchema = z
       maxRuns: z.number().optional(),
     }),
   })
-  .meta({ ref: "LoopTemplate" });
+  .meta({ ref: "LoopTemplate" })
 
-const CreateInput = LoopDefinitionSchema.omit({ id: true, createdAt: true });
-const UpdateInput = LoopDefinitionSchema;
+const CreateInput = LoopDefinitionSchema.omit({ id: true, createdAt: true })
+const UpdateInput = LoopDefinitionSchema
 
 export function LoopRoutes() {
   return new Hono()
@@ -119,8 +114,7 @@ export function LoopRoutes() {
       "/",
       describeRoute({
         summary: "List loops",
-        description:
-          "List all loops defined for the current project, with live runtime status.",
+        description: "List all loops defined for the current project, with live runtime status.",
         operationId: "loop.list",
         responses: {
           200: {
@@ -140,36 +134,33 @@ export function LoopRoutes() {
         },
       }),
       async (c) => {
-        const loops = await Manager.list();
+        const loops = await Manager.list()
         const runtimes = loops.map((loop) => ({
           loopID: loop.id,
           ...Engine.getRuntime(loop.id),
-        }));
-        return c.json({ loops, runtimes });
+        }))
+        return c.json({ loops, runtimes })
       },
     )
     .get(
       "/templates",
       describeRoute({
         summary: "List loop templates",
-        description:
-          "Built-in starter pipelines the user can instantiate from the wizard.",
+        description: "Built-in starter pipelines the user can instantiate from the wizard.",
         operationId: "loop.templates",
         responses: {
           200: {
             description: "Templates",
             content: {
               "application/json": {
-                schema: resolver(
-                  z.object({ templates: z.array(LoopTemplateDTOSchema) }),
-                ),
+                schema: resolver(z.object({ templates: z.array(LoopTemplateDTOSchema) })),
               },
             },
           },
         },
       }),
       async (c) => {
-        return c.json({ templates: LOOP_TEMPLATES });
+        return c.json({ templates: LOOP_TEMPLATES })
       },
     )
     .post(
@@ -194,10 +185,7 @@ export function LoopRoutes() {
       validator(
         "json",
         z.object({
-          description: z
-            .string()
-            .min(1)
-            .meta({ description: "Natural-language description of the loop" }),
+          description: z.string().min(1).meta({ description: "Natural-language description of the loop" }),
           model: z
             .string()
             .regex(/^[^/]+\/[^/]+$/)
@@ -211,20 +199,19 @@ export function LoopRoutes() {
         }),
       ),
       async (c) => {
-        const { description, model, agent } = c.req.valid("json");
+        const { description, model, agent } = c.req.valid("json")
         const generated = await generateFromDescription(description, {
           model,
           agent,
-        });
-        return c.json(generated);
+        })
+        return c.json(generated)
       },
     )
     .get(
       "/:id",
       describeRoute({
         summary: "Get a loop",
-        description:
-          "Fetch a single loop definition by id, including its live runtime status.",
+        description: "Fetch a single loop definition by id, including its live runtime status.",
         operationId: "loop.get",
         responses: {
           200: {
@@ -245,25 +232,20 @@ export function LoopRoutes() {
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const loop = await Manager.get(id);
-        if (!loop)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
+        const { id } = c.req.valid("param")
+        const loop = await Manager.get(id)
+        if (!loop) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         return c.json({
           loop,
           runtime: { loopID: id, ...Engine.getRuntime(id) },
-        });
+        })
       },
     )
     .put(
       "/",
       describeRoute({
         summary: "Create or update a loop",
-        description:
-          "Persist a loop definition. Generates the id and createdAt for new loops.",
+        description: "Persist a loop definition. Generates the id and createdAt for new loops.",
         operationId: "loop.upsert",
         responses: {
           200: {
@@ -279,32 +261,27 @@ export function LoopRoutes() {
       }),
       validator("json", CreateInput),
       async (c) => {
-        const body = c.req.valid("json");
-        const id = generateID();
+        const body = c.req.valid("json")
+        const id = generateID()
         const def: LoopDefinition = {
           ...body,
           id,
           createdAt: Date.now(),
           enabled: body.enabled ?? true,
-        };
-        const err = validateDefinition(def);
-        if (err)
-          return c.json(
-            { name: "ValidationError", data: { message: err } },
-            400,
-          );
-        const saved = await Manager.upsert(def);
-        await Engine.sync(saved.id);
-        void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id });
-        return c.json(saved);
+        }
+        const err = validateDefinition(def)
+        if (err) return c.json({ name: "ValidationError", data: { message: err } }, 400)
+        const saved = await Manager.upsert(def)
+        await Engine.sync(saved.id)
+        void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id })
+        return c.json(saved)
       },
     )
     .post(
       "/:id",
       describeRoute({
         summary: "Update a loop",
-        description:
-          "Replace a loop definition. Re-arms its scheduler entry if trigger/enabled changed.",
+        description: "Replace a loop definition. Re-arms its scheduler entry if trigger/enabled changed.",
         operationId: "loop.update",
         responses: {
           200: {
@@ -321,8 +298,8 @@ export function LoopRoutes() {
       validator("param", z.object({ id: z.string() })),
       validator("json", UpdateInput),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
+        const { id } = c.req.valid("param")
+        const body = c.req.valid("json")
         if (body.id !== id) {
           return c.json(
             {
@@ -330,28 +307,19 @@ export function LoopRoutes() {
               data: { message: "Path id and body id do not match" },
             },
             400,
-          );
+          )
         }
-        const err = validateDefinition(body);
-        if (err)
-          return c.json(
-            { name: "ValidationError", data: { message: err } },
-            400,
-          );
-        const existing = await Manager.get(id);
-        if (!existing)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
-        const saved = await Manager.upsert(body);
+        const err = validateDefinition(body)
+        if (err) return c.json({ name: "ValidationError", data: { message: err } }, 400)
+        const existing = await Manager.get(id)
+        if (!existing) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
+        const saved = await Manager.upsert(body)
         // A manual run cap edit restarts the count, otherwise a previously
         // exhausted loop would re-disable itself on the next tick.
-        if (saved.maxRuns !== existing.maxRuns)
-          await Engine.resetRunCount(saved.id);
-        await Engine.sync(saved.id);
-        void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id });
-        return c.json(saved);
+        if (saved.maxRuns !== existing.maxRuns) await Engine.resetRunCount(saved.id)
+        await Engine.sync(saved.id)
+        void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id })
+        return c.json(saved)
       },
     )
     .delete(
@@ -368,35 +336,26 @@ export function LoopRoutes() {
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const def = await Manager.get(id);
-        if (!def)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
+        const { id } = c.req.valid("param")
+        const def = await Manager.get(id)
+        if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         // Cancel any in-flight run *before* removing the definition so no
         // orphan `LoopRun` is written for a loop the user just deleted.
         await Engine.cancelRun(id).catch((error) => {
-          log.warn("cancelRun on delete failed", { id, error });
-        });
-        const removed = await Manager.remove(id);
-        if (!removed)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
-        Engine.disarm(id);
-        void Bus.publish(Engine.LoopEvent.Removed, { loopID: id });
-        return c.json(true);
+          log.warn("cancelRun on delete failed", { id, error })
+        })
+        const removed = await Manager.remove(id)
+        if (!removed) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
+        Engine.disarm(id)
+        void Bus.publish(Engine.LoopEvent.Removed, { loopID: id })
+        return c.json(true)
       },
     )
     .post(
       "/:id/toggle",
       describeRoute({
         summary: "Enable or disable a loop",
-        description:
-          "Set the loop's enabled flag. Disarmed timers are removed when disabling.",
+        description: "Set the loop's enabled flag. Disarmed timers are removed when disabling.",
         operationId: "loop.toggle",
         responses: {
           200: { description: "Updated loop" },
@@ -406,25 +365,20 @@ export function LoopRoutes() {
       validator("param", z.object({ id: z.string() })),
       validator("json", z.object({ enabled: z.boolean() })),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const { enabled } = c.req.valid("json");
-        const next = await Manager.setEnabled(id, enabled);
-        if (!next)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
-        await Engine.sync(id);
-        void Bus.publish(Engine.LoopEvent.Upserted, { loopID: id });
-        return c.json(next);
+        const { id } = c.req.valid("param")
+        const { enabled } = c.req.valid("json")
+        const next = await Manager.setEnabled(id, enabled)
+        if (!next) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
+        await Engine.sync(id)
+        void Bus.publish(Engine.LoopEvent.Upserted, { loopID: id })
+        return c.json(next)
       },
     )
     .post(
       "/:id/run",
       describeRoute({
         summary: "Run a loop once",
-        description:
-          "Trigger an immediate run of the loop, ignoring its schedule.",
+        description: "Trigger an immediate run of the loop, ignoring its schedule.",
         operationId: "loop.run",
         responses: {
           200: { description: "Run started" },
@@ -433,24 +387,19 @@ export function LoopRoutes() {
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const def = await Manager.get(id);
-        if (!def)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
+        const { id } = c.req.valid("param")
+        const def = await Manager.get(id)
+        if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         // Fire and forget: the engine writes its own run record and publishes events.
-        void Engine.runOnce(id);
-        return c.json(true);
+        void Engine.runOnce(id)
+        return c.json(true)
       },
     )
     .post(
       "/:id/pause",
       describeRoute({
         summary: "Pause a loop",
-        description:
-          "Set runtime status to paused; the scheduler entry is removed until resumed.",
+        description: "Set runtime status to paused; the scheduler entry is removed until resumed.",
         operationId: "loop.pause",
         responses: {
           200: { description: "Paused" },
@@ -458,26 +407,21 @@ export function LoopRoutes() {
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        const { id } = c.req.valid("param");
+        const { id } = c.req.valid("param")
         // Persist the pause so it survives process restarts; the runtime
         // status mirrors it for live subscribers.
-        const def = await Manager.setPaused(id, true);
-        if (!def)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
-        Engine.disarm(id);
-        Engine.setRuntimeStatus(id, "paused");
-        return c.json(true);
+        const def = await Manager.setPaused(id, true)
+        if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
+        Engine.disarm(id)
+        Engine.setRuntimeStatus(id, "paused")
+        return c.json(true)
       },
     )
     .post(
       "/:id/resume",
       describeRoute({
         summary: "Resume a loop",
-        description:
-          "Clear the paused state and re-arm the scheduler entry if the loop has an interval trigger.",
+        description: "Clear the paused state and re-arm the scheduler entry if the loop has an interval trigger.",
         operationId: "loop.resume",
         responses: {
           200: { description: "Resumed" },
@@ -486,24 +430,19 @@ export function LoopRoutes() {
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const def = await Manager.setPaused(id, false);
-        if (!def)
-          return c.json(
-            { name: "NotFound", data: { message: `Loop "${id}" not found` } },
-            404,
-          );
-        Engine.setRuntimeStatus(id, "idle");
-        await Engine.sync(id);
-        return c.json(true);
+        const { id } = c.req.valid("param")
+        const def = await Manager.setPaused(id, false)
+        if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
+        Engine.setRuntimeStatus(id, "idle")
+        await Engine.sync(id)
+        return c.json(true)
       },
     )
     .get(
       "/:id/runs",
       describeRoute({
         summary: "List a loop's runs",
-        description:
-          "Most-recent-first run history for a loop, capped server-side.",
+        description: "Most-recent-first run history for a loop, capped server-side.",
         operationId: "loop.runs",
         responses: {
           200: {
@@ -524,18 +463,17 @@ export function LoopRoutes() {
         }),
       ),
       async (c) => {
-        const { id } = c.req.valid("param");
-        const { limit } = c.req.valid("query");
-        const runs = await Manager.listRuns(id, limit ?? 50);
-        return c.json({ runs });
+        const { id } = c.req.valid("param")
+        const { limit } = c.req.valid("query")
+        const runs = await Manager.listRuns(id, limit ?? 50)
+        return c.json({ runs })
       },
     )
     .get(
       "/runs/recent",
       describeRoute({
         summary: "List recent loop runs across all loops",
-        description:
-          "Most-recent-first runs from every loop in the project, useful for a global activity view.",
+        description: "Most-recent-first runs from every loop in the project, useful for a global activity view.",
         operationId: "loop.recentRuns",
         responses: {
           200: {
@@ -555,11 +493,11 @@ export function LoopRoutes() {
         }),
       ),
       async (c) => {
-        const { limit } = c.req.valid("query");
-        const runs = await Manager.listAllRunsAcrossLoops(limit ?? 100);
-        return c.json({ runs });
+        const { limit } = c.req.valid("query")
+        const runs = await Manager.listAllRunsAcrossLoops(limit ?? 100)
+        return c.json({ runs })
       },
-    );
+    )
 }
 
 // ── Generate-from-description helper ─────────────────────────────────────────
@@ -583,7 +521,7 @@ const GENERATE_SYSTEM_PROMPT = [
   `}`,
   "",
   "Output exactly one JSON object.",
-].join("\n");
+].join("\n")
 
 export async function generateFromDescription(
   description: string,
@@ -592,107 +530,104 @@ export async function generateFromDescription(
   // Create a throwaway session to ask the configured model to author the pipeline.
   const session = await runSession(
     Effect.gen(function* () {
-      const service = yield* Session.Service;
+      const service = yield* Session.Service
       return yield* service.create({
         title: "loop: generate from description",
-      });
+      })
     }),
-  );
-  const modelID = opts.model ?? "";
-  const agent = opts.agent ?? "general";
+  )
+  const modelID = opts.model ?? ""
+  const agent = opts.agent ?? "general"
 
   // Compose the prompt: we use the "goal" command so the model is guided into a
   // single, well-formed response. The model is asked to "declare complete" once
   // it has output the JSON.
-  const userMessage = `${description}\n\nRespond with the JSON object and nothing else. When the JSON is fully emitted, call the update_goal tool with status="complete" and your one-line summary.`;
+  const userMessage = `${description}\n\nRespond with the JSON object and nothing else. When the JSON is fully emitted, call the update_goal tool with status="complete" and your one-line summary.`
 
-  let text = "";
+  let text = ""
   try {
     const result = await runSessionPrompt(
       Effect.gen(function* () {
-        const prompt = yield* SessionPrompt.Service;
+        const prompt = yield* SessionPrompt.Service
         return yield* prompt.command({
           sessionID: session.id,
           command: "goal",
           arguments: userMessage,
           agent,
           ...(modelID ? { model: modelID } : {}),
-        });
+        })
       }),
-    );
+    )
     // The goal command returns the first assistant turn; the model may iterate.
     // We don't wait for full iteration here — the first turn is usually enough
     // to extract the JSON, and the user can re-roll if the schema is incomplete.
-    const parts = result.parts as Array<{ type: string; text?: string }>;
+    const parts = result.parts as Array<{ type: string; text?: string }>
     text = parts
       .filter((p) => p.type === "text" && typeof p.text === "string")
       .map((p) => p.text)
-      .join("\n");
+      .join("\n")
   } catch (error) {
-    log.warn("generate failed", { error });
+    log.warn("generate failed", { error })
     // Fall through to parsing whatever we got; if empty, throw.
   }
 
-  if (!text.trim()) throw new Error("The model returned no text");
+  if (!text.trim()) throw new Error("The model returned no text")
   try {
-    return definitionFromGeneratedText(text);
+    return definitionFromGeneratedText(text)
   } catch (jsonError) {
     // Last-ditch: try parsing a more lenient shape.
     try {
-      const lenient = parseLenient(text);
-      return definitionFromGenerated(lenient);
+      const lenient = parseLenient(text)
+      return definitionFromGenerated(lenient)
     } catch {
-      throw jsonError;
+      throw jsonError
     }
   }
 }
 
-function parseLenient(
-  text: string,
-): Parameters<typeof definitionFromGenerated>[0] {
+function parseLenient(text: string): Parameters<typeof definitionFromGenerated>[0] {
   // Try a quick & dirty regex extraction if the strict path failed.
-  const nameMatch = text.match(/"name"\s*:\s*"([^"]+)"/);
-  const stagesMatch = text.match(/"stages"\s*:\s*\[([\s\S]*?)\]\s*[,\}]/);
-  const intervalMatch = text.match(/"intervalMs"\s*:\s*(\d+)/);
-  const maxRunsMatch = text.match(/"maxRuns"\s*:\s*(\d+)/);
-  if (!stagesMatch)
-    throw new Error("Could not extract stages from model output");
+  const nameMatch = text.match(/"name"\s*:\s*"([^"]+)"/)
+  const stagesMatch = text.match(/"stages"\s*:\s*\[([\s\S]*?)\]\s*[,\}]/)
+  const intervalMatch = text.match(/"intervalMs"\s*:\s*(\d+)/)
+  const maxRunsMatch = text.match(/"maxRuns"\s*:\s*(\d+)/)
+  if (!stagesMatch) throw new Error("Could not extract stages from model output")
   const stages: Array<{
-    name?: string;
-    agent?: string;
-    model?: string;
-    objective: string;
-    tokenBudget?: number;
-  }> = [];
-  const stageRe = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+    name?: string
+    agent?: string
+    model?: string
+    objective: string
+    tokenBudget?: number
+  }> = []
+  const stageRe = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g
   for (const m of stagesMatch[1].matchAll(stageRe)) {
-    const obj = m[0];
-    const objMatch = obj.match(/"objective"\s*:\s*"([^"]+)"/);
-    if (!objMatch) continue;
+    const obj = m[0]
+    const objMatch = obj.match(/"objective"\s*:\s*"([^"]+)"/)
+    if (!objMatch) continue
     const stage: {
-      name?: string;
-      agent?: string;
-      model?: string;
-      objective: string;
-      tokenBudget?: number;
+      name?: string
+      agent?: string
+      model?: string
+      objective: string
+      tokenBudget?: number
     } = {
       objective: objMatch[1],
-    };
-    const n = obj.match(/"name"\s*:\s*"([^"]+)"/);
-    if (n) stage.name = n[1];
-    const a = obj.match(/"agent"\s*:\s*"([^"]+)"/);
-    if (a) stage.agent = a[1];
-    const m2 = obj.match(/"model"\s*:\s*"([^"]+)"/);
-    if (m2) stage.model = m2[1];
-    const tb = obj.match(/"tokenBudget"\s*:\s*(\d+)/);
-    if (tb) stage.tokenBudget = Number(tb[1]);
-    stages.push(stage);
+    }
+    const n = obj.match(/"name"\s*:\s*"([^"]+)"/)
+    if (n) stage.name = n[1]
+    const a = obj.match(/"agent"\s*:\s*"([^"]+)"/)
+    if (a) stage.agent = a[1]
+    const m2 = obj.match(/"model"\s*:\s*"([^"]+)"/)
+    if (m2) stage.model = m2[1]
+    const tb = obj.match(/"tokenBudget"\s*:\s*(\d+)/)
+    if (tb) stage.tokenBudget = Number(tb[1])
+    stages.push(stage)
   }
-  if (stages.length === 0) throw new Error("No stages could be extracted");
+  if (stages.length === 0) throw new Error("No stages could be extracted")
   return {
     stages,
     ...(nameMatch ? { name: nameMatch[1] } : {}),
     ...(intervalMatch ? { intervalMs: Number(intervalMatch[1]) } : {}),
     ...(maxRunsMatch ? { maxRuns: Number(maxRunsMatch[1]) } : {}),
-  };
+  }
 }
