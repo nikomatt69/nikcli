@@ -2193,6 +2193,8 @@ function BlockTool(props: {
   children: JSX.Element
   onClick?: () => void
   part?: ToolPart
+  /** Skip the accent background tint — keep accent only on border/title. */
+  transparent?: boolean
 }) {
   const { theme } = useTheme()
   const renderer = useRenderer()
@@ -2200,6 +2202,8 @@ function BlockTool(props: {
   const error = createMemo(() => (props.part?.state.status === "error" ? props.part.state.error : undefined))
 
   const backgroundColor = createMemo(() => {
+    // Fully transparent: paint nothing, let the session background show through.
+    if (props.transparent) return hover() ? theme.backgroundMenu : undefined
     const base = hover() ? theme.backgroundMenu : theme.backgroundPanel
     const accent = props.accentColor
     if (!accent) return base
@@ -2582,16 +2586,21 @@ function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
           titleColor={theme.accent ?? theme.primary}
           onClick={openViz}
           part={props.part}
+          transparent
         >
-          <box gap={0}>
+          <box gap={1}>
             <box flexDirection="row" justifyContent="space-between" alignItems="center">
               <text fg={theme.accent ?? theme.primary} attributes={TextAttributes.BOLD} flexGrow={1}>
-                {title()}
+                ◈ {title()}
               </text>
-              <text fg={theme.textMuted}>open visualization</text>
+              <text fg={theme.textMuted}>open in TUI ↵</text>
             </box>
+            <Show when={spec()?.subtitle}>
+              <text fg={theme.textMuted}>{String(spec()?.subtitle)}</text>
+            </Show>
+            <VizRenderer spec={spec()} />
             <text fg={theme.textMuted}>
-              {count()} component{count() === 1 ? "" : "s"} · Click to view in TUI
+              {count()} component{count() === 1 ? "" : "s"} · Click to expand in TUI
             </text>
           </box>
         </BlockTool>
