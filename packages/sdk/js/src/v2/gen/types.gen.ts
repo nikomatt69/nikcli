@@ -710,13 +710,6 @@ export type EventSessionError = {
   }
 }
 
-export type EventFileEdited = {
-  type: "file.edited"
-  properties: {
-    file: string
-  }
-}
-
 export type EventFileWatcherUpdated = {
   type: "file.watcher.updated"
   properties: {
@@ -1042,6 +1035,59 @@ export type EventMonitorCompleted = {
   }
 }
 
+export type EventSessionV2Updated = {
+  type: "session.v2.updated"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type Pty = {
+  id: string
+  title: string
+  command: string
+  args: Array<string>
+  cwd: string
+  status: "running" | "exited"
+  pid: number
+}
+
+export type EventPtyCreated = {
+  type: "pty.created"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyUpdated = {
+  type: "pty.updated"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyExited = {
+  type: "pty.exited"
+  properties: {
+    id: string
+    exitCode: number
+  }
+}
+
+export type EventPtyDeleted = {
+  type: "pty.deleted"
+  properties: {
+    id: string
+  }
+}
+
+export type EventFileEdited = {
+  type: "file.edited"
+  properties: {
+    file: string
+  }
+}
+
 export type EventWorkspaceReady = {
   type: "workspace.ready"
   properties: {
@@ -1195,52 +1241,6 @@ export type EventMissionAborted = {
   }
 }
 
-export type EventSessionV2Updated = {
-  type: "session.v2.updated"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type Pty = {
-  id: string
-  title: string
-  command: string
-  args: Array<string>
-  cwd: string
-  status: "running" | "exited"
-  pid: number
-}
-
-export type EventPtyCreated = {
-  type: "pty.created"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyUpdated = {
-  type: "pty.updated"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyExited = {
-  type: "pty.exited"
-  properties: {
-    id: string
-    exitCode: number
-  }
-}
-
-export type EventPtyDeleted = {
-  type: "pty.deleted"
-  properties: {
-    id: string
-  }
-}
-
 export type Event =
   | EventProjectUpdated
   | EventTelemetryRecord
@@ -1262,7 +1262,6 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
-  | EventFileEdited
   | EventFileWatcherUpdated
   | EventTuiPromptAppend
   | EventTuiCommandExecute
@@ -1283,6 +1282,12 @@ export type Event =
   | EventMonitorUpdated
   | EventMonitorOutput
   | EventMonitorCompleted
+  | EventSessionV2Updated
+  | EventPtyCreated
+  | EventPtyUpdated
+  | EventPtyExited
+  | EventPtyDeleted
+  | EventFileEdited
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventWorkspaceStatus
@@ -1301,11 +1306,6 @@ export type Event =
   | EventMissionExecFinished
   | EventMissionRuntimeChanged
   | EventMissionAborted
-  | EventSessionV2Updated
-  | EventPtyCreated
-  | EventPtyUpdated
-  | EventPtyExited
-  | EventPtyDeleted
 
 export type GlobalEvent = {
   directory: string
