@@ -420,11 +420,14 @@ export namespace Provider {
       models: Record<string, unknown>
     },
     ctx: InstanceContext,
-  ) => Promise<{
-    autoload: boolean
-    getModel?: CustomModelLoader
-    options?: Record<string, unknown>
-  } | undefined>
+  ) => Promise<
+    | {
+        autoload: boolean
+        getModel?: CustomModelLoader
+        options?: Record<string, unknown>
+      }
+    | undefined
+  >
 
   const CUSTOM_LOADERS = {
     async anthropic() {

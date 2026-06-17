@@ -386,7 +386,17 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
             aria-expanded={navOpen}
             className="-ml-1.5 mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-terminal-border text-terminal-muted transition-colors hover:bg-terminal-border/40 hover:text-terminal-text lg:hidden"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               {navOpen ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M4 6h16M4 12h16M4 18h16" />}
             </svg>
           </button>

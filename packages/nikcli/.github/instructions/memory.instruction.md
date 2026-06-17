@@ -1297,11 +1297,11 @@ A faithful port of [json-render](https://json-render.dev/docs)'s three layers on
 OpenTUI — the model emits a visualization spec and the TUI assembles itself as it
 streams. Full design in `specs/generative-tui.md`.
 
-| json-render | nikcli | Where |
-| --- | --- | --- |
-| **Catalog** (`defineCatalog` → `prompt`/`validate`/`zodSchema`/`jsonSchema`/`componentNames`) | `VizCatalog` (+ `VIZ_COMPONENT_TYPES`, `VizSpecZod`, `decodeVizComponent`, `normalizeVizComponents`) | `src/tool/opentui.ts` |
+| json-render                                                                                        | nikcli                                                                                                                                                    | Where                                              |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Catalog** (`defineCatalog` → `prompt`/`validate`/`zodSchema`/`jsonSchema`/`componentNames`)      | `VizCatalog` (+ `VIZ_COMPONENT_TYPES`, `VizSpecZod`, `decodeVizComponent`, `normalizeVizComponents`)                                                      | `src/tool/opentui.ts`                              |
 | **Registry / Renderer** (`defineRegistry`, `createRenderer`, `<Renderer spec registry loading />`) | `VizRegistry`, `defaultVizRegistry`, `createVizRenderer`, `<Renderer>`, `ComponentRenderer` (registry lookup via context + per-component `ErrorBoundary`) | `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` |
-| **SpecStream compiler** (`push`/`getResult`/`getPatches`/`reset`) | `createSpecStreamCompiler` (adds `pushObject`/`finalize`/`snapshot`; emits RFC-6902-flavored `VizPatch[]`) | `src/cli/cmd/tui/util/spec-stream.ts` |
+| **SpecStream compiler** (`push`/`getResult`/`getPatches`/`reset`)                                  | `createSpecStreamCompiler` (adds `pushObject`/`finalize`/`snapshot`; emits RFC-6902-flavored `VizPatch[]`)                                                | `src/cli/cmd/tui/util/spec-stream.ts`              |
 
 - **20 catalog components** (text, markdown, code, diff, alert, table, key_value,
   tree, stat, stat_grid, bar_chart, line_chart, histogram, heatmap, gauge,
@@ -3598,12 +3598,12 @@ Today's main session `ses_1337a40a8ffeQ50QP331G9bLvg` (and the parallel analysis
 
 **Worker sessions**:
 
-| #   | Topic                                            | Worker session                   |
-| --- | ------------------------------------------------ | -------------------------------- |
-| 1   | Tool System (define, registry, execution flow)   | `ses_1339cdbefffe4k0w6P0B2MpM4q` |
-| 2   | Agent System (subagents, task, dispatch)         | `ses_1339c7decffe3gfDhIYpCua1uv` |
-| 3   | Server + Storage + SDK (Hono, Bus, SDK build)    | `ses_1339c4b74ffdw0oiWXRG5thzk4` |
-| 4   | TUI debugging (opentui tool schema bug)          | `ses_1337a40a8ffeQ50QP331G9bLvg` |
+| #   | Topic                                          | Worker session                   |
+| --- | ---------------------------------------------- | -------------------------------- |
+| 1   | Tool System (define, registry, execution flow) | `ses_1339cdbefffe4k0w6P0B2MpM4q` |
+| 2   | Agent System (subagents, task, dispatch)       | `ses_1339c7decffe3gfDhIYpCua1uv` |
+| 3   | Server + Storage + SDK (Hono, Bus, SDK build)  | `ses_1339c4b74ffdw0oiWXRG5thzk4` |
+| 4   | TUI debugging (opentui tool schema bug)        | `ses_1337a40a8ffeQ50QP331G9bLvg` |
 
 **Supervisor finalization notes**: All 4 reports delivered via `Action: finalize` despite 10-minute timeouts. Two follow-up `@explore` agents (`ses_13388ac0effeBmfkr3XBE558pu`, `ses_133842e8affeekNHppG0oX6LId`) retrieved truncated tail sections of the Agent and Server reports from disk artifacts at `~/.local/share/nikcli/tool-output/tool_ecc7*`.
 
@@ -3686,22 +3686,22 @@ export namespace Tool {
   export function define<Parameters extends z.ZodType, M extends Metadata>(
     id: string,
     init:
-      | ((ctx?: InitContext) => Promise<AuthoredDef<Parameters, M>>)  // factory form
-      | AuthoredDef<Parameters, M>,                                  // literal form
+      | ((ctx?: InitContext) => Promise<AuthoredDef<Parameters, M>>) // factory form
+      | AuthoredDef<Parameters, M>, // literal form
   ): Info<Parameters, M>
 }
 ```
 
 Type hierarchy:
 
-| Type                | File:line       | What it is                                                                          |
-| ------------------- | --------------- | ----------------------------------------------------------------------------------- |
-| `Tool.Info`         | `tool.ts:81`    | Registry entry: `{ id: string; init(ctx?) => Promise<Def> }`                        |
-| `Tool.AuthoredDef`  | `tool.ts:74`    | Tool author body: `{ description, parameters, execute, formatValidationError? }`     |
-| `Tool.Def`          | `tool.ts:51`    | Wrapped (Effect-native): `{ description, parameters, execute → Effect, executeAsync → Promise }` |
-| `Tool.Context`      | `tool.ts:28`    | `{ sessionID, messageID, agent, abort: AbortSignal, callID?, extra?, messages?, metadata, ask }` |
-| `Tool.Result`       | `tool.ts:40`    | `{ title, metadata, output, attachments? }`                                         |
-| `Tool.InitContext`  | `tool.ts:24`    | `{ agent?: Agent.Info }`                                                            |
+| Type               | File:line    | What it is                                                                                       |
+| ------------------ | ------------ | ------------------------------------------------------------------------------------------------ |
+| `Tool.Info`        | `tool.ts:81` | Registry entry: `{ id: string; init(ctx?) => Promise<Def> }`                                     |
+| `Tool.AuthoredDef` | `tool.ts:74` | Tool author body: `{ description, parameters, execute, formatValidationError? }`                 |
+| `Tool.Def`         | `tool.ts:51` | Wrapped (Effect-native): `{ description, parameters, execute → Effect, executeAsync → Promise }` |
+| `Tool.Context`     | `tool.ts:28` | `{ sessionID, messageID, agent, abort: AbortSignal, callID?, extra?, messages?, metadata, ask }` |
+| `Tool.Result`      | `tool.ts:40` | `{ title, metadata, output, attachments? }`                                                      |
+| `Tool.InitContext` | `tool.ts:24` | `{ agent?: Agent.Info }`                                                                         |
 
 **Tool registry initialization flow** (`src/tool/registry.ts`):
 
@@ -3727,14 +3727,14 @@ Type hierarchy:
 
 **Primary agents** (3 visible + 3 hidden):
 
-| Agent          | Mode     | Hidden | Notes                                                                                   |
-| -------------- | -------- | ------ | --------------------------------------------------------------------------------------- |
-| `ralph`        | primary  | no     | Autonomous loop, full permissions, allows `question`                                    |
-| `build`        | primary  | no     | All tools, allows `plan_enter`, `question`. Inline prompt with `MONITOR_TOOL_AWARENESS`  |
-| `plan`         | primary  | no     | Edit denied except `.nikcli/plans/*.md` + `Global.Path.data/plans/`. Allows `plan_exit`  |
-| `compaction`   | primary  | yes    | `compaction.txt`. `*`: deny                                                             |
-| `title`        | primary  | yes    | `title.txt`. temperature 0.5. `*`: deny                                                 |
-| `summary`      | primary  | yes    | `summary.txt`. `*`: deny                                                                |
+| Agent        | Mode    | Hidden | Notes                                                                                   |
+| ------------ | ------- | ------ | --------------------------------------------------------------------------------------- |
+| `ralph`      | primary | no     | Autonomous loop, full permissions, allows `question`                                    |
+| `build`      | primary | no     | All tools, allows `plan_enter`, `question`. Inline prompt with `MONITOR_TOOL_AWARENESS` |
+| `plan`       | primary | no     | Edit denied except `.nikcli/plans/*.md` + `Global.Path.data/plans/`. Allows `plan_exit` |
+| `compaction` | primary | yes    | `compaction.txt`. `*`: deny                                                             |
+| `title`      | primary | yes    | `title.txt`. temperature 0.5. `*`: deny                                                 |
+| `summary`    | primary | yes    | `summary.txt`. `*`: deny                                                                |
 
 **`task` tool quirks** (10.1–10.15 from the Agent report, preserved verbatim):
 
@@ -3749,7 +3749,7 @@ Type hierarchy:
 9. **`task.txt` description replacement**: the `{agents}` placeholder in `src/tool/task.txt:3` is dynamically replaced at tool init (line 1135-1140), filtered by caller's permissions.
 10. **`bypassAgentCheck` is a security boundary** (comment at `task.ts:881-883`): only set by internal system code, never derived from user-controllable data. Set in `session/prompt.ts:810` when a `task` tool call comes from a model's tool-use part (model-subtask).
 11. **Background default + foreground path exists**: `background` defaults to `true` (line 39). Foreground path (`background: false`) at lines 1040-1124 still implemented, blocks until subagent finishes, subscribes to `MessageV2.Event.PartUpdated` for live tool UI.
-12. **Wake-up via synthetic user message**: `wakeParentSession` (line 575-626) directly calls `SessionPrompt.prompt()` on parent (line 610-615). The `delegation` tool's `read` action is for getting the full artifact *before* the wake arrives.
+12. **Wake-up via synthetic user message**: `wakeParentSession` (line 575-626) directly calls `SessionPrompt.prompt()` on parent (line 610-615). The `delegation` tool's `read` action is for getting the full artifact _before_ the wake arrives.
 13. **Timeouts per source**: `Delegation.TIMEOUTS` (line 118-128) — `research` 20 min, `advisor` 5 min, `delegator`/`delegator-followup` 10 min, `model-subtask` 10 min, others 15 min. Heartbeat refreshes lease every `LEASE_TIMEOUT_MS / 3` (line 358).
 14. **MCP tools also registered**: beyond `ToolRegistry.all()`, MCP tools merged in at `tools.ts:203-208` via `MCP.Service.tools()`.
 15. **`Tool.Context` is per-call**: built fresh by `context(args, options)` factory in `tools.ts:106-138` with the current `sessionID`, `messageID`, `callID`, `agent`, `model`, `bypassAgentCheck`, `metadata()`, `ask()`.
@@ -3995,7 +3995,7 @@ Session `ses_1339d8a9cffem7Eh39qYb0ANd1` generated a **standalone Bun-based TUI 
 - **3 live simulators** (different per frame):
   - tool activity (read/edit/bash/webfetch/task/...)
   - message stream (text/reasoning/tool/step/compaction/subtask)
-  - bus event ticker (server.connected → session.* → message.* → permission.* → ...)
+  - bus event ticker (server.connected → session._ → message._ → permission.\* → ...)
 - **Animated header** with braille ticker, uptime, frame counter, current time
 
 Launch: `REFRESH_MS=120 bun /tmp/nikcli-tui.mjs`

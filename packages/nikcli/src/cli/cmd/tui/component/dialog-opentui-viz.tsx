@@ -1635,9 +1635,7 @@ const VizRegistryContext = createContext<VizRegistry>(defaultVizRegistry)
 export function ComponentRenderer(props: { component: VizComponent }) {
   const { theme } = useTheme()
   const registry = useContext(VizRegistryContext)
-  const renderer = createMemo(
-    () => registry[props.component.type] as Component<{ comp: VizComponent }> | undefined,
-  )
+  const renderer = createMemo(() => registry[props.component.type] as Component<{ comp: VizComponent }> | undefined)
   // Generative specs can stream in half-formed or cross-field-inconsistent
   // (e.g. a table whose rows are shorter than its headers mid-stream). A render
   // throw must degrade to a placeholder, not trip the app-level ErrorBoundary
@@ -1650,10 +1648,7 @@ export function ComponentRenderer(props: { component: VizComponent }) {
         </text>
       )}
     >
-      <Show
-        when={renderer()}
-        fallback={<text fg={theme.textMuted}>⚠ {props.component.type} unavailable</text>}
-      >
+      <Show when={renderer()} fallback={<text fg={theme.textMuted}>⚠ {props.component.type} unavailable</text>}>
         {(comp) => <Dynamic component={comp()} comp={props.component} />}
       </Show>
     </ErrorBoundary>

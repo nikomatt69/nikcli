@@ -79,7 +79,9 @@ function ProfilesPageInner() {
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
             Profiles
           </p>
-          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">Manage configuration profiles</h2>
+          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">
+            Manage configuration profiles
+          </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
             Save and switch isolated nikcli configurations, including MCP servers, providers, plugins, and model
             defaults.
