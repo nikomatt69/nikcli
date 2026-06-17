@@ -20,7 +20,7 @@
         <!-- Badge -->
         <a
           href="/docs"
-          class="hero-anim mb-7 inline-flex items-center gap-2 rounded-full border border-terminal-border bg-terminal-panel/80 px-3 py-1.5 text-[12.5px] font-semibold text-terminal-muted transition-all duration-200 hover:border-terminal-accent/40 hover:text-terminal-text hover:bg-terminal-panel active:scale-[0.97] group"
+          class="hero-anim mb-7 inline-flex items-center gap-2 rounded-full border border-terminal-border bg-terminal-panel/80 px-3 py-1.5 text-[12.5px] font-semibold text-terminal-muted transition-[transform,border-color,background-color,color] duration-200 ease-out hover:border-terminal-accent/40 hover:text-terminal-text hover:bg-terminal-panel active:scale-[0.97] group"
           style="animation-delay: 0ms"
         >
           <span class="relative flex h-2 w-2 shrink-0">
@@ -35,7 +35,7 @@
 
         <!-- Headline -->
         <h1
-          class="hero-anim font-display font-extrabold text-terminal-text leading-[0.97] tracking-[-0.04em] text-[clamp(2.8rem,7vw,5.5rem)] mb-6 sm:mb-7"
+          class="hero-anim font-display font-extrabold text-terminal-text leading-[0.97] tracking-[-0.04em] text-[clamp(2.3rem,7vw,5.5rem)] mb-6 sm:mb-7"
           style="animation-delay: 80ms"
         >
           The&nbsp;
@@ -54,18 +54,18 @@
           class="hero-anim mb-8 max-w-[480px] text-[clamp(1rem,1.5vw,1.15rem)] font-normal leading-[1.65] text-terminal-muted"
           style="animation-delay: 160ms"
         >
-          Open source. Provider agnostic. Built for developers who demand
-          absolute perfection from their terminal&nbsp;tools.
+          Open source. Provider agnostic. Built for developers who want capable
+          automation without losing precise terminal control.
         </p>
 
         <!-- CTAs -->
         <div
-          class="hero-anim flex flex-col sm:flex-row items-start sm:items-center gap-3"
+          class="hero-anim flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto"
           style="animation-delay: 240ms"
         >
           <a
-            href="/docs#installation"
-            class="hero-cta inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-terminal-accent text-terminal-bg text-[14px] font-bold tracking-[0.01em] transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_4px_20px_-3px_rgb(var(--terminal-accent)/0.55)]"
+            href="/docs#install-run"
+            class="hero-cta inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-terminal-accent text-terminal-bg text-[14px] font-bold tracking-[0.01em] transition-[transform,opacity,box-shadow] duration-150 ease-out hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_4px_20px_-3px_rgb(var(--terminal-accent)/0.55)]"
             data-cta-label="start_building"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -75,7 +75,7 @@
           </a>
           <a
             href="/docs"
-            class="hero-cta inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-transparent border border-terminal-border text-terminal-text text-[14px] font-semibold transition-all duration-150 hover:border-terminal-accent/50 hover:bg-surface-hover active:scale-[0.97]"
+            class="hero-cta inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-transparent border border-terminal-border text-terminal-text text-[14px] font-semibold transition-[transform,background-color,border-color] duration-150 ease-out hover:border-terminal-accent/50 hover:bg-surface-hover active:scale-[0.97]"
             data-cta-label="documentation"
           >
             Documentation
@@ -87,7 +87,7 @@
 
         <!-- Stats row -->
         <div
-          class="hero-anim mt-10 flex items-center gap-6 border-t border-terminal-border/50 pt-6"
+          class="hero-anim mt-10 flex items-center gap-4 sm:gap-6 border-t border-terminal-border/50 pt-6"
           style="animation-delay: 320ms"
         >
           <div>
@@ -101,7 +101,7 @@
           </div>
           <div class="w-px h-8 bg-terminal-border/60"></div>
           <div>
-            <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">42</div>
+            <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">40+</div>
             <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">Built-in Tools</div>
           </div>
         </div>
@@ -198,6 +198,14 @@
   @keyframes slideUpFade {
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Flatten the 3D tilt below lg, where the terminal stacks full-width —
+     the rotateY looks clipped/awkward and risks subpixel overflow on small screens. */
+  @media (max-width: 1023px) {
+    #hero-terminal {
+      transform: none !important;
+    }
   }
 
   @media (hover: hover) and (pointer: fine) {

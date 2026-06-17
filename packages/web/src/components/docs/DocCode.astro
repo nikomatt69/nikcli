@@ -50,7 +50,7 @@ const lineCount = code.split("\n").length;
 const isShell = language === "bash" || language === "sh" || language === "shell" || language === "zsh";
 ---
 
-<div class="doc-code-block group relative my-7 overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border bg-terminal-window-bg shadow-soft not-prose transition-all duration-200 hover:border-terminal-border hover:shadow-strong">
+<div class="doc-code-block group relative my-7 overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border bg-terminal-window-bg shadow-soft not-prose transition-[border-color,box-shadow] duration-200 ease-out hover:border-terminal-border hover:shadow-strong">
 
   <!-- Window chrome -->
   <div class="flex items-center justify-between gap-3 border-b border-terminal-window-border px-4 py-2.5 sm:px-5">
@@ -87,7 +87,7 @@ const isShell = language === "bash" || language === "sh" || language === "shell"
       <!-- Copy button -->
       <button
         type="button"
-        class="doc-copy-btn flex items-center gap-1.5 rounded-md border border-terminal-border/40 bg-surface-hover/60 px-2 py-0.5 font-mono text-[10.5px] font-medium text-terminal-muted transition-all duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent hover:bg-terminal-accent/8 active:scale-[0.94]"
+        class="doc-copy-btn flex items-center gap-1.5 rounded-md border border-terminal-border/40 bg-surface-hover/60 px-2 py-0.5 font-mono text-[10.5px] font-medium text-terminal-muted transition-[transform,border-color,background-color,color] duration-150 ease-out hover:border-terminal-accent/40 hover:text-terminal-accent hover:bg-terminal-accent/8 active:scale-[0.97]"
         aria-label="Copy code"
         aria-live="polite"
       >

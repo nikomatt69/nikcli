@@ -10,6 +10,8 @@ const toc = [
   { title: "Worker model", href: "#worker-model", depth: 2 },
   { title: "Transport modes", href: "#transport-modes", depth: 2 },
   { title: "Renderer tree", href: "#renderer-tree", depth: 2 },
+  { title: "Feature plugins", href: "#feature-plugins", depth: 2 },
+  { title: "Dialogs", href: "#dialogs", depth: 2 },
   { title: "Routes", href: "#routes", depth: 2 },
   { title: "Commands and keybinds", href: "#commands-keybinds", depth: 2 },
   { title: "Event flow", href: "#event-flow", depth: 2 },
@@ -25,6 +27,7 @@ const toc = [
 <DocsLayout
   title="TUI"
   subtitle="Terminal UI entrypoint, worker RPC, OpenTUI renderer, command registry, routes, event streams, and remote control wiring."
+  description="Guide to Nikcli’s terminal UI, worker RPC, OpenTUI renderer, command routes, event streams, and remote control."
   toc={toc}
 >
   <section id="overview" class="mb-16 scroll-mt-24">
@@ -152,6 +155,53 @@ const toc = [
         <tr><td><code>DialogProvider</code>, <code>CommandProvider</code>, <code>ToastProvider</code></td><td>Manage dialogs, slash commands, keyboard command triggers, and toast rendering.</td></tr>
         <tr><td><code>PromptHistoryProvider</code>, <code>PromptStashProvider</code>, <code>PromptRefProvider</code></td><td>Power prompt history, frecency, stash, and imperative prompt operations.</td></tr>
         <tr><td><code>EditorContextProvider</code>, <code>UpgradeProvider</code></td><td>Expose editor integration state and interactive upgrade actions.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="feature-plugins" class="mb-16 scroll-mt-24">
+    <h2>Feature plugins</h2>
+    <p>
+      TUI surfaces for the major orchestration subsystems live as feature plugins under
+      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code>. Each plugin follows the same
+      layout — <code>store.ts</code> for reactive state, <code>sdk.ts</code> for typed SDK
+      bindings, <code>runner.ts</code> for the local control plane, and <code>dialogs.tsx</code>
+      for the Solid components.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Plugin</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>home</code></td><td>Home-route tips and onboarding prompts. Provides <code>tips.tsx</code> and <code>tips-view.tsx</code>.</td></tr>
+        <tr><td><code>loops</code></td><td><a href="/docs/loops">Loops</a> home and detail views, draft dialog, run dialog. Mirrors the loop SDK contract.</td></tr>
+        <tr><td><code>mission</code></td><td><a href="/docs/missions">Missions</a> home and detail views, draft dialog, validation review dialog. Mirrors the mission SDK contract.</td></tr>
+        <tr><td><code>sidebar</code></td><td>Sidebar slots shared across the home, session, and workspace routes.</td></tr>
+        <tr><td><code>system</code></td><td>System chrome: status bar, attention handling, command palette entries.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="dialogs" class="mb-16 scroll-mt-24">
+    <h2>Dialogs</h2>
+    <p>
+      All dialogs live in <code>packages/nikcli/src/cli/cmd/tui/component/</code> and are
+      registered through the <code>DialogProvider</code> and the command palette. The full list
+      (in addition to those in the top-level README):
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Dialog</th><th>Source</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>dialog-telemetry-live</code></td><td><code>dialog-telemetry-live.tsx</code></td><td>Scrolling, filterable list of live OpenTelemetry spans (see <a href="/docs/observability">Observability</a>).</td></tr>
+        <tr><td><code>dialog-opentelemetry</code></td><td><code>dialog-opentelemetry.tsx</code></td><td>OTLP configuration dialog: shows the resolved endpoint, the resource block, and a "Copy as env" action.</td></tr>
+        <tr><td><code>dialog-advisor-model</code></td><td><code>dialog-advisor-model.tsx</code></td><td>Pick the model used by the <code>advisor</code> tool.</td></tr>
+        <tr><td><code>dialog-routine</code></td><td><code>dialog-routine.tsx</code></td><td>Routine create/edit dialog backed by the routine SDK.</td></tr>
+        <tr><td><code>dialog-session-warp</code></td><td><code>dialog-session-warp.tsx</code></td><td>Quick-jump to another session by fuzzy match.</td></tr>
+        <tr><td><code>dialog-session-rename</code></td><td><code>dialog-session-rename.tsx</code></td><td>Rename the active session.</td></tr>
+        <tr><td><code>dialog-session-delete-failed</code></td><td><code>dialog-session-delete-failed.tsx</code></td><td>Confirmation when a session delete failed and the local cache is stale.</td></tr>
+        <tr><td><code>dialog-workspace-create</code></td><td><code>dialog-workspace-create.tsx</code></td><td>Create a new multi-project workspace.</td></tr>
+        <tr><td><code>dialog-workspace-list</code></td><td><code>dialog-workspace-list.tsx</code></td><td>Switch between workspaces.</td></tr>
+        <tr><td><code>dialog-workspace-unavailable</code></td><td><code>dialog-workspace-unavailable.tsx</code></td><td>Show the error that prevents entering a workspace.</td></tr>
+        <tr><td><code>dialog-workspace-file-changes</code></td><td><code>dialog-workspace-file-changes.tsx</code></td><td>Aggregate file changes across the workspace's projects.</td></tr>
+        <tr><td><code>plugin-route-missing</code></td><td><code>plugin-route-missing.tsx</code></td><td>Rendered when a TUI plugin navigates to a route id that is not registered. Offers a "go home" action instead of crashing.</td></tr>
       </tbody>
     </table>
   </section>

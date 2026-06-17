@@ -10,7 +10,7 @@ interface Props {
 
 const { 
   title = 'nikcli', 
-  description = 'Nikcli is the ultimate AI development agent built for developers who demand perfection from their terminal tools.' 
+  description = 'Nikcli is an open-source, provider-agnostic AI development agent for developers who want capable automation without losing terminal control.' 
 } = Astro.props;
 
 const ogImage = "https://nikcli.store/og.png";
@@ -81,7 +81,7 @@ const pathname = Astro.url.pathname;
             &copy; {new Date().getFullYear()} <span class="font-display font-bold text-terminal-text uppercase tracking-[0.06em] text-[12px]">nikcli</span>. MIT License.
           </span>
         </div>
-        <nav class="flex gap-5" aria-label="Footer">
+        <nav class="flex flex-wrap justify-center gap-x-5 gap-y-2 sm:justify-end" aria-label="Footer">
           <a href="https://github.com/nikomatt69/nikcli" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100" rel="noreferrer" target="_blank">GitHub</a>
           <a href="/docs" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100">Docs</a>
           <a href="/dashboard" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100">Studio</a>
@@ -89,30 +89,5 @@ const pathname = Astro.url.pathname;
         </nav>
       </div>
     </footer>
-    
-    <!-- Global Framer Motion Page Transition Initialization -->
-    <script>
-      const initAnimations = async () => {
-        if (typeof window === 'undefined') return;
-        const { animate, stagger } = await import("framer-motion");
-        animate(
-          ".animate-fade-in-up",
-          { opacity: [0, 1], y: [25, 0] },
-          { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
-        );
-        
-        const cards = document.querySelectorAll(".feature-card, .doc-card");
-        if(cards.length > 0) {
-           animate(
-             cards,
-             { opacity: [0, 1], y: [15, 0] },
-             { delay: stagger(0.1, { startDelay: 0.2 }), duration: 0.5, ease: "easeOut" }
-           );
-        }
-      };
-
-      initAnimations();
-      document.addEventListener('astro:page-load', initAnimations);
-    </script>
   </body>
 </html>

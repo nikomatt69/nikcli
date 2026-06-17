@@ -13,9 +13,9 @@ const Element = href ? 'a' : 'div';
   href={href}
   class={[
     "doc-card card-surface group relative block overflow-hidden border border-terminal-border/60 bg-terminal-panel not-prose",
-    "transition-all duration-200",
+    "transition-[transform,border-color,box-shadow,background-color] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-terminal-accent/40",
     href
-      ? "cursor-pointer hover:-translate-y-[2px] hover:border-terminal-accent/40 hover:shadow-strong"
+      ? "cursor-pointer hover:-translate-y-[2px] hover:border-terminal-accent/40 hover:shadow-strong active:scale-[0.985]"
       : "",
     "p-5 sm:p-6",
   ].join(" ")}
@@ -50,7 +50,7 @@ const Element = href ? 'a' : 'div';
       </div>
 
       {href && (
-        <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-150 group-hover:border-terminal-accent/40 group-hover:bg-terminal-accent/10 group-hover:text-terminal-accent" aria-hidden="true">
+        <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-terminal-border/60 bg-surface-active text-terminal-muted transition-[transform,border-color,background-color,color] duration-150 ease-out group-hover:border-terminal-accent/40 group-hover:bg-terminal-accent/10 group-hover:text-terminal-accent" aria-hidden="true">
           <svg class="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
           </svg>

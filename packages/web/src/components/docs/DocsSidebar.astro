@@ -1,0 +1,44 @@
+---
+import { docsSidebar } from "../../data/docsSidebar";
+
+const pathname = Astro.url.pathname.replace(/\/$/, "");
+---
+
+<aside
+  id="docs-sidebar"
+  class="hidden w-full shrink-0 overflow-y-auto overflow-x-hidden custom-scrollbar border-terminal-border/60 bg-terminal-bg xl:block xl:w-[280px] xl:border-r xl:bg-transparent xl:sticky xl:top-[var(--topbar-height)] xl:max-h-[calc(100vh-var(--topbar-height))] xl:self-start z-30 dark:border-white/5"
+>
+  <div class="flex flex-col gap-8 py-6 xl:py-10 xl:pr-8">
+    <!-- Search Bar -->
+    <div class="rounded-xl border border-terminal-border/60 bg-surface-hover px-4 py-3 shadow-inner">
+      <div class="font-mono text-eyebrow uppercase text-terminal-muted">Search</div>
+      <p class="mt-2 text-body-sm leading-relaxed text-terminal-muted">Use the navigation groups for topics; use browser search for exact strings.</p>
+    </div>
+
+    <!-- Navigation Links -->
+    <nav class="flex flex-col gap-8 text-sm" aria-label="Documentation">
+      {docsSidebar.map((group) => (
+        <div class="flex flex-col gap-3 docs-nav-group-anim">
+          <h4 class="font-display font-bold text-terminal-muted tracking-[0.18em] uppercase text-[10.5px] mb-2">{group.title}</h4>
+          <ul class="flex flex-col gap-1">
+            {group.items.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <li>
+                  <a
+                    href={item.href}
+                    data-mobile-docs-link
+                    aria-current={isActive ? "page" : undefined}
+                    class={`flex min-h-[44px] items-center px-3.5 py-2.5 rounded-[8px] text-[14px] transition-colors duration-100 relative xl:block xl:min-h-0 xl:py-[7px] xl:text-[13.5px] ${isActive ? "docs-nav-active" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover font-normal"}`}
+                  >
+                    {item.title}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  </div>
+</aside>

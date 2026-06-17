@@ -1,0 +1,307 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Concepts", href: "#concepts", depth: 2 },
+  { title: "Mission schema", href: "#schema", depth: 2 },
+  { title: "Lifecycle", href: "#lifecycle", depth: 2 },
+  { title: "Validation policy", href: "#validation", depth: 2 },
+  { title: "CLI subcommands", href: "#cli", depth: 2 },
+  { title: "Bus events", href: "#bus-events", depth: 2 },
+  { title: "TUI surface", href: "#tui", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Missions"
+  subtitle="High-altitude workflows: decompose a goal into milestones, each holding a DAG of features, with a validation checkpoint per milestone. Source: packages/nikcli/src/mission/."
+  description="Guide to Nikcli missions, milestones, feature DAGs, validation workers, and long-running workflows."
+  toc={toc}
+>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      A <strong>Mission</strong> is a higher-altitude workflow than a <a href="/docs/loops">Loop</a>:
+      instead of a flat list of stages, it decomposes work into <strong>milestones</strong>, each
+      holding a directed acyclic graph of <strong>features</strong>, with a <strong>validation</strong>
+      checkpoint at the end of every milestone. The orchestrator drives one feature at a time
+      through the same <code>goal</code> worker the Loop engine uses, then runs a validation worker
+      before advancing to the next milestone.
+    </p>
+    <p>
+      Like Loops, missions are persisted on disk and run on the headless server. They keep working
+      while the TUI is closed, survive process restarts (via lease/heartbeat), and emit bus events
+      for the TUI to subscribe to.
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Reuses primitives" eyebrow="Composition">
+        <p>
+          The orchestrator does not reimplement iteration, budgets, persistence, or autonomy — it
+          reuses the existing <code>goal</code> worker, <code>Session</code> runtime, and
+          <code>Scheduler</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Per-project scoping" eyebrow="Isolation">
+        <p>
+          All per-instance state lives in <code>Instance.state</code> so missions in different
+          projects cannot collide. Definitions and execution records are persisted in
+          <code>Storage</code> under the active project.
+        </p>
+      </DocCard>
+      <DocCard title="Crash-safe" eyebrow="Persistence">
+        <p>
+          Feature and milestone status is persisted on the definition after every step. A restart
+          resumes exactly where it left off. Orphaned runs are reconciled on the next boot
+          through a lease/heartbeat (<code>MISSION_EXEC_LEASE_MS = 15s</code>).
+        </p>
+      </DocCard>
+      <DocCard title="Concurrency cap" eyebrow="Back-pressure">
+        <p>
+          A synchronous single-flight claim per mission prevents overlapping runs of the same
+          mission. A global cap of <code>MAX_CONCURRENT_MISSIONS = 2</code> keeps the host from
+          spawning unbounded workers.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="concepts" class="mb-16 scroll-mt-24">
+    <h2>Concepts</h2>
+    <table class="doc-table">
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Mission</strong></td><td>The top-level unit: a name, a brief, an ordered list of milestones, and a record of execution state.</td></tr>
+        <tr><td><strong>Milestone</strong></td><td>An ordered checkpoint that groups one or more features and applies a validation policy when they are all settled.</td></tr>
+        <tr><td><strong>Feature</strong></td><td>A leaf unit of work: name, objective, agent, optional model, optional token budget, optional <code>dependsOn</code> list of sibling features in the same milestone.</td></tr>
+        <tr><td><strong>Validation</strong></td><td>The policy that runs after every milestone's features are settled — <code>scrutiny</code>, <code>user-test</code>, or <code>none</code>.</td></tr>
+        <tr><td><strong>Worker</strong></td><td>The <code>goal</code> command driving a single feature. The validation policy drives a separate validation worker per milestone.</td></tr>
+        <tr><td><strong>Exec / lease</strong></td><td>A <code>MissionExec</code> record carries a lease/heartbeat so a crashed orchestrator can be reconciled by the next boot.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="schema" class="mb-16 scroll-mt-24">
+    <h2>Mission schema</h2>
+    <p>
+      All persisted types are defined in <code>packages/nikcli/src/mission/schema.ts</code> as
+      zod schemas. The shape is deliberately close to the Loop schema so the two engines can share
+      tooling.
+    </p>
+    <h3>Feature</h3>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td><code>string</code></td><td>Unique within the milestone.</td></tr>
+        <tr><td><code>name</code></td><td><code>string</code></td><td>Display label.</td></tr>
+        <tr><td><code>objective</code></td><td><code>string</code></td><td>The prompt fed to the <code>goal</code> worker.</td></tr>
+        <tr><td><code>agent</code></td><td><code>string</code></td><td>Agent name (e.g. <code>build</code>, <code>plan</code>).</td></tr>
+        <tr><td><code>model</code></td><td><code>"provider/model"</code></td><td>Optional. Defaults to the session default.</td></tr>
+        <tr><td><code>tokenBudget</code></td><td><code>number</code></td><td>Optional per-feature cap.</td></tr>
+        <tr><td><code>dependsOn</code></td><td><code>string[]</code></td><td>Sibling feature IDs in the same milestone that must reach <code>done</code> first.</td></tr>
+        <tr><td><code>status</code></td><td><code>FeatureStatus</code></td><td><code>pending | running | done | blocked | skipped | error</code>.</td></tr>
+        <tr><td><code>error</code></td><td><code>string</code></td><td>Last surfaced error, if any.</td></tr>
+      </tbody>
+    </table>
+    <h3>Milestone</h3>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td><code>string</code></td><td>Unique within the mission.</td></tr>
+        <tr><td><code>name</code></td><td><code>string</code></td><td>Display label.</td></tr>
+        <tr><td><code>features</code></td><td><code>Feature[]</code></td><td>One or more features per milestone.</td></tr>
+        <tr><td><code>validation</code></td><td><code>"scrutiny" | "user-test" | "none"</code></td><td>Policy applied when features settle.</td></tr>
+        <tr><td><code>status</code></td><td><code>MilestoneStatus</code></td><td><code>pending | running | validating | done | blocked</code>.</td></tr>
+      </tbody>
+    </table>
+    <h3>Mission</h3>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td><code>string</code></td><td>Stable identifier.</td></tr>
+        <tr><td><code>name</code></td><td><code>string</code></td><td>Display label.</td></tr>
+        <tr><td><code>brief</code></td><td><code>string</code></td><td>High-level description of the mission's intent.</td></tr>
+        <tr><td><code>milestones</code></td><td><code>Milestone[]</code></td><td>Ordered list of milestones.</td></tr>
+        <tr><td><code>models</code></td><td><code>MissionModels</code></td><td>Per-role model overrides (<code>worker</code>, <code>validation</code>, <code>orchestrator</code>).</td></tr>
+        <tr><td><code>status</code></td><td><code>MissionStatus</code></td><td><code>pending | running | paused | complete | error | cancelled</code>.</td></tr>
+        <tr><td><code>createdAt</code></td><td><code>number</code></td><td>Epoch ms.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="lifecycle" class="mb-16 scroll-mt-24">
+    <h2>Lifecycle</h2>
+    <p>
+      A mission moves through these states as the orchestrator walks it:
+    </p>
+    <ol>
+      <li><strong>pending</strong> — created but not yet started.</li>
+      <li><strong>running</strong> — the orchestrator is actively driving features and validation.</li>
+      <li><strong>paused</strong> — held by user request. No new features start; in-flight work is not aborted.</li>
+      <li><strong>complete</strong> — every milestone reached <code>done</code> and the final validation (if any) passed.</li>
+      <li><strong>error</strong> — a feature or the validation worker surfaced an unrecoverable error.</li>
+      <li><strong>cancelled</strong> — the user requested cancellation; in-flight workers are aborted via <code>prompt.cancel</code>.</li>
+    </ol>
+    <h3>Per-feature timeouts</h3>
+    <p>
+      A hung feature can never hold the single-flight slot forever. Each feature run is capped
+      (<code>DEFAULT_FEATURE_TIMEOUT_MS = 60min</code>), bridged to <code>prompt.cancel</code> on
+      expiry. Bounds:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Constant</th><th>Value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>MIN_FEATURE_TIMEOUT_MS</code></td><td><code>1_000</code></td><td>Smallest accepted override.</td></tr>
+        <tr><td><code>DEFAULT_FEATURE_TIMEOUT_MS</code></td><td><code>60 * 60_000</code></td><td>Default cap when the feature omits one.</td></tr>
+        <tr><td><code>MAX_FEATURE_TIMEOUT_MS</code></td><td><code>24 * 60 * 60_000</code></td><td>Largest accepted override.</td></tr>
+        <tr><td><code>MISSION_EXEC_LEASE_MS</code></td><td><code>15_000</code></td><td>Lease/heartbeat for orphan detection.</td></tr>
+        <tr><td><code>MAX_CONCURRENT_MISSIONS</code></td><td><code>2</code></td><td>Global cap on simultaneously orchestrating missions.</td></tr>
+        <tr><td><code>HISTORY_LIMIT</code></td><td><code>100</code></td><td>How many historical exec records to retain per mission.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="validation" class="mb-16 scroll-mt-24">
+    <h2>Validation policy</h2>
+    <p>
+      When every feature in a milestone has settled, the orchestrator runs a
+      <strong>validation worker</strong> according to the milestone's <code>validation</code>
+      policy. The validation worker is itself a <code>goal</code> command targeting the
+      mission's validation model (or the worker model if unset).
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Policy</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>scrutiny</code></td><td>Default. The validation worker reviews the milestone's outputs and either confirms <code>done</code> or marks the milestone <code>blocked</code>.</td></tr>
+        <tr><td><code>user-test</code></td><td>The milestone is marked <code>validating</code> and held until a human (via TUI/CLI) approves or rejects it.</td></tr>
+        <tr><td><code>none</code></td><td>Skip the validation worker. The milestone moves directly to <code>done</code> when all its features are <code>done</code>.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="What the validation worker can do">
+      <p>
+        The validation worker has the same tool surface as any other session. It is given the
+        milestone's name, the brief, and a list of feature outcomes. A <code>user-test</code>
+        milestone pauses until you reply from the TUI mission dialog.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="cli" class="mb-16 scroll-mt-24">
+    <h2>CLI subcommands</h2>
+    <p>
+      <code>nikcli mission</code> is a thin headless wrapper over the orchestrator. It accepts
+      a brief from a file or flag, generates a draft plan, and lets you start, pause, resume,
+      or cancel execution.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Subcommand</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>nikcli mission</code></td><td>Open the headless mission manager: list, status, quick actions.</td></tr>
+        <tr><td><code>nikcli mission new [-f file] [--model …] [--agent …]</code></td><td>Create a mission from a brief. With <code>-f</code>, the brief is read from a Markdown or text file; otherwise it is read from <code>--brief</code> or stdin.</td></tr>
+        <tr><td><code>nikcli mission start &lt;id&gt;</code></td><td>Begin orchestrating the mission. The mission moves from <code>pending</code> to <code>running</code>.</td></tr>
+        <tr><td><code>nikcli mission pause &lt;id&gt;</code></td><td>Pause a running mission. In-flight features finish; no new features start.</td></tr>
+        <tr><td><code>nikcli mission resume &lt;id&gt;</code></td><td>Resume a paused mission.</td></tr>
+        <tr><td><code>nikcli mission cancel &lt;id&gt;</code></td><td>Cancel a mission. In-flight workers are aborted via <code>prompt.cancel</code>.</td></tr>
+        <tr><td><code>nikcli mission get &lt;id&gt;</code></td><td>Show progress, current milestone, current feature, statuses, and last error.</td></tr>
+        <tr><td><code>nikcli mission list</code></td><td>List all missions in the current project with their runtime status.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+# Draft a mission from a brief file and start it
+nikcli mission new -f ./brief.md --agent build --model anthropic/claude-sonnet-4.5
+nikcli mission start mss_abc123
+
+# Watch progress
+nikcli mission get mss_abc123
+
+# Pause and resume
+nikcli mission pause mss_abc123
+nikcli mission resume mss_abc123
+
+# Cancel
+nikcli mission cancel mss_abc123
+    </DocCode>
+    <DocCallout type="info" title="Reserved objectives">
+      <p>
+        The strings <code>pause</code>, <code>resume</code>, <code>clear</code>, and
+        <code>status</code> are reserved feature objectives. Pick distinctive objectives for
+        your features so the orchestrator never confuses them with a control command.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="bus-events" class="mb-16 scroll-mt-24">
+    <h2>Bus events</h2>
+    <p>
+      The orchestrator publishes typed bus events for the TUI, mobile, and SDK clients to
+      subscribe to. They live next to the orchestrator in
+      <code>packages/nikcli/src/mission/orchestrator.ts</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Event</th><th>Payload</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td><code>mission.upserted</code></td><td><code>&#123; missionID &#125;</code></td><td>Definition created or replaced.</td></tr>
+        <tr><td><code>mission.removed</code></td><td><code>&#123; missionID &#125;</code></td><td>Definition deleted.</td></tr>
+        <tr><td><code>mission.started</code></td><td><code>&#123; missionID &#125;</code></td><td>Orchestration started.</td></tr>
+        <tr><td><code>mission.finished</code></td><td><code>&#123; missionID, status, error? &#125;</code></td><td>Orchestration ended (<code>complete | error | paused | frozen</code>).</td></tr>
+        <tr><td><code>mission.exec.started</code></td><td><code>&#123; missionID, execID, kind, targetID, targetName, sessionID &#125;</code></td><td>A feature or validation worker started. <code>kind</code> is <code>feature</code> or <code>validation</code>.</td></tr>
+        <tr><td><code>mission.exec.finished</code></td><td><code>&#123; missionID, execID, kind, status, sessionID?, error? &#125;</code></td><td>Worker ended.</td></tr>
+        <tr><td><code>mission.feature.updated</code></td><td><code>&#123; missionID, milestoneID, featureID, status, error? &#125;</code></td><td>Single feature state changed.</td></tr>
+        <tr><td><code>mission.milestone.updated</code></td><td><code>&#123; missionID, milestoneID, status &#125;</code></td><td>Milestone moved into <code>validating</code>, <code>done</code>, or <code>blocked</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tui" class="mb-16 scroll-mt-24">
+    <h2>TUI surface</h2>
+    <p>
+      The TUI mission feature-plugin lives in
+      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/mission/</code>. It mirrors the
+      loop plugin and exposes:
+    </p>
+    <ul>
+      <li><strong>Mission home view</strong> — list of all missions with status chips, last run time, and quick actions (start, pause, resume, cancel).</li>
+      <li><strong>Mission detail view</strong> — per-milestone tree, per-feature rows, current feature highlight, validation status, and the live session id of the active worker.</li>
+      <li><strong>Draft dialog</strong> — paste a brief, pick an agent and a model, and create a mission without leaving the TUI.</li>
+      <li><strong>Validation review dialog</strong> — approve or reject <code>user-test</code> milestones. Approval advances the mission; rejection marks the milestone <code>blocked</code>.</li>
+    </ul>
+    <p>
+      The plugin subscribes to the bus events above and batches updates into Solid signals. The
+      same source of truth is consumed by the mobile app and the web app.
+    </p>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Mission stuck in <code>running</code> after a crash</td><td>The orchestrator process died; the lease has expired.</td><td>Restart the host. <code>restore()</code> reconciles orphaned runs to <code>error</code> and you can resume the mission from the failed feature.</td></tr>
+        <tr><td>Feature stays in <code>running</code> forever</td><td>The feature worker exceeded the per-feature timeout.</td><td>The orchestrator aborts the worker via <code>prompt.cancel</code> and marks the feature <code>error</code>. Inspect the worker session and resume the mission.</td></tr>
+        <tr><td>Milestone stays in <code>validating</code></td><td>The <code>user-test</code> policy is waiting for human approval.</td><td>Open the mission detail view in the TUI and approve or reject the milestone.</td></tr>
+        <tr><td>Single-flight slot held by a previous run</td><td>An earlier process crashed without releasing the slot.</td><td>The lease/heartbeat reaper releases the slot after <code>MISSION_EXEC_LEASE_MS</code>. If it persists, restart the host.</td></tr>
+        <tr><td>Model validation rejected at create time</td><td>The <code>model</code> field on a feature or the <code>models</code> field on the mission does not match <code>"provider/model"</code>.</td><td>Use the canonical <code>provider/model</code> form, or omit the field to fall back to the session default.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
+      <tbody>
+        <tr><td><code>packages/nikcli/src/mission/schema.ts</code></td><td>Zod schemas and pure helpers for <code>Mission</code>, <code>Milestone</code>, <code>Feature</code>, <code>MissionModels</code>, <code>ValidationPolicy</code>.</td></tr>
+        <tr><td><code>packages/nikcli/src/mission/manager.ts</code></td><td>CRUD and execution-record persistence.</td></tr>
+        <tr><td><code>packages/nikcli/src/mission/orchestrator.ts</code></td><td>Headless engine, lease/heartbeat, single-flight, bus events.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/mission.ts</code></td><td>CLI surface (<code>nikcli mission …</code>).</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/mission/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
+        <tr><td><code>packages/nikcli/src/loop/engine.ts</code></td><td>The Loop engine whose operational guarantees the orchestrator reuses verbatim.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

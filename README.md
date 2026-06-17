@@ -42,12 +42,15 @@ Nikcli is not just a CLI to chat with a model: it is a **complete agentic platfo
 
 - **Interactive TUI** — a full-screen terminal application built on [OpenTUI](https://github.com/sst/opentui) and Solid.js: sessions, turn queues, history, autocomplete, permissions, modal dialogs, remote attach.
 - **Headless server** — HTTP + SSE + WebSocket built on [Hono](https://hono.dev) with automatic OpenAPI spec generation and a regenerated TypeScript/JavaScript SDK.
-- **One-shot CLI** — non-interactive execution (`run`, `goal`, `agent`, `generate`, `github`, `pr`, `stats`, `export` / `import`).
+- **One-shot CLI** — non-interactive execution (`run`, `goal`, `mission`, `agent`, `generate`, `github`, `pr`, `stats`, `export` / `import`).
 - **Web companion** — SolidStart/Cloudflare UI for sessions and sharing (`nikcli web`, `nikcli companion serve`).
 - **Mobile companion** — Expo / React Native app in `packages/mobile` with QR pairing and `nikcli://` deep links.
 - **Multi-platform bots** — unified adapter for Slack, Discord, Microsoft Teams, Google Chat, GitHub Issues, Linear.
 - **Plugin runtime** — plugin installation with hot-reload for TUI, agents and tools (`nikcli plug install <mod>`).
 - **ACP server** — implements the [Agent Client Protocol](https://github.com/zed-industries/acp) to integrate with external editors and IDEs (`nikcli acp`).
+- **Missions** — high-altitude workflows that decompose a goal into milestones, each holding a DAG of features with a validation checkpoint per milestone (`nikcli mission`). Headless, server-side orchestrator.
+- **Loops** — named, persisted workflows that run an ordered list of stages, each driven by a single `goal` command (`nikcli loop`). The headless LoopEngine keeps firing on schedule even when the TUI is closed.
+- **Observability** — OpenTelemetry (OTLP) trace export and a live in-process telemetry panel (configurable through `OTEL_EXPORTER_OTLP_ENDPOINT` and `NIKCLI_DISABLE_OTEL_LIVE`).
 
 Everything is orchestrated by an internal **event bus**, a **SQLite/Drizzle persistence** layer, and a service architecture built with `Effect` (typed schema validation, dependency injection, layer composition).
 
@@ -176,6 +179,7 @@ delegation/     # background subagent runs
 effect/         # Effect runtime, layer helpers
 file/           # file abstraction (read/write/patch/tree)
 filesystem/     # fs helpers
+flag/           # environment-variable flags (incl. OTEL/NIKCLI_*)
 format/         # formatter (prettier, biome, oxc, …)
 git/            # local git operations (status, diff, worktree)
 global/         # global paths (~/.config/nikcli)
@@ -183,10 +187,14 @@ ide/            # editor integrations (VSCode, Cursor, Zed)
 image/          # image tools
 installation/   # version, install method, upgrade
 interaction/    # user interactions (prompt, confirm, select)
+locale/         # localization (language, region, timezone, currency)
+loop/           # headless Loop engine (Scheduler + Goal composition)
 lsp/            # LSP client for diagnostics and goto
 mcp/            # Model Context Protocol (server + client)
+mission/        # headless Mission orchestrator (milestones / features / validation)
 mobile/         # mobile routines, auth, project detect
 monitor/        # background command runner (persistent output)
+observability/  # OpenTelemetry (OTLP) export + live telemetry panel
 patch/          # unified patch engine
 permission/     # permission system (rules, evaluate, ask)
 plugin/         # plugin loader and contract
@@ -221,6 +229,9 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli`                                                                      | Default: opens the TUI.                                                                               |
 | `nikcli run [message..]`                                                      | Runs a one-shot prompt non-interactively; supports model variants, agent, session, fork, attachments. |
 | `nikcli goal [condition..]`                                                   | Works autonomously until a verifiable condition holds (Goal engine with budget and persistent state). |
+| `nikcli mission`                                                              | Headless Mission orchestrator: new, start, pause, resume, cancel, get, list.                          |
+| `nikcli loop`                                                                 | Headless Loop engine: create, list, get, run, pause, resume, cancel, delete.                          |
+| `nikcli routine`                                                              | Create / list / get / run / pause / resume / delete routines (cron + API trigger).                    |
 | `nikcli generate`                                                             | Prints the server OpenAPI spec with JS SDK samples.                                                   |
 | `nikcli acp`                                                                  | Starts an ACP (Agent Client Protocol) server for external editors.                                    |
 | `nikcli mcp`                                                                  | Manage MCP servers: add, OAuth auth, list, status, debug.                                             |
@@ -246,12 +257,24 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli share` (via TUI)                                                      | Generate a public/enterprise URL for the session.                                                     |
 | `nikcli github install` · `nikcli github run`                                 | Install and manage a GitHub App for automations.                                                      |
 | `nikcli pr <number>`                                                          | Check out a PR and auto-start a review session.                                                       |
-| `nikcli routine`                                                              | Create / list / get / run / pause / resume / delete routines (cron + API trigger).                    |
 | `nikcli plug` (`plugin`)                                                      | Install and manage plugins (npm mod or local path) with config patching.                              |
 | `nikcli connectors`                                                           | Manage connectors (Linear, GitHub, Slack, Notion, …) with dedicated auth.                             |
 | `nikcli quickstart` · `nikcli doctor` · `nikcli upgrade` · `nikcli uninstall` | Onboarding, diagnostics, upgrade, uninstall.                                                          |
 | `nikcli completion`                                                           | Generate shell completion scripts.                                                                    |
 | Global flags                                                                  | `--print-logs`, `--log-level DEBUG\|INFO\|WARN\|ERROR`, `--help/-h`, `--version/-v`.                  |
+
+### OpenTelemetry / observability flags
+
+These environment variables configure the observability layer described in the
+[Observability docs](https://nikcli.store/docs/observability). They are read at process start
+and are not hot-reloadable.
+
+| Variable                          | Default       | Purpose                                                            |
+| --------------------------------- | ------------- | ------------------------------------------------------------------ |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`     | unset         | OTLP/HTTP endpoint. Setting it enables export.                    |
+| `OTEL_EXPORTER_OTLP_HEADERS`      | unset         | Comma-separated `key=value` pairs (e.g. `Authorization=Bearer%20…`) |
+| `OTEL_RESOURCE_ATTRIBUTES`        | unset         | Comma-separated `key=value` pairs merged into every span resource. |
+| `NIKCLI_DISABLE_OTEL_LIVE`        | `false`       | Opt out of the in-process span capture (live panel).              |
 
 ---
 
@@ -271,7 +294,7 @@ The TUI (`packages/nikcli/src/cli/cmd/tui`) runs in a dedicated worker (`worker.
 
 ### Main dialogs
 
-`dialog-model`, `dialog-mcp`, `dialog-routine`, `dialog-status`, `dialog-usage`, `dialog-theme-list` / `create`, `dialog-settings`, `dialog-config`, `dialog-help`, `dialog-tour`, `dialog-support`, `dialog-command` (command palette), `dialog-agent`, `dialog-advisor-model`, `dialog-skills`, `dialog-session-list` / `warp` / `delete-failed` / `rename`, `dialog-workspace-list` / `create` / `file-changes` / `unavailable`, `dialog-variant` (model effort selection), `dialog-stash` (prompt queue), `dialog-tag`, `dialog-login`, `dialog-onboarding`, `dialog-auth-manage`, `dialog-chat` (quick chat), `dialog-analytics`, `dialog-web-preview`, `dialog-image-model`, `dialog-speak-model`, `dialog-status`.
+`dialog-model`, `dialog-mcp`, `dialog-routine`, `dialog-status`, `dialog-usage`, `dialog-theme-list` / `create`, `dialog-settings`, `dialog-config`, `dialog-help`, `dialog-tour`, `dialog-support`, `dialog-command` (command palette), `dialog-agent`, `dialog-advisor-model`, `dialog-skills`, `dialog-session-list` / `warp` / `delete-failed` / `rename`, `dialog-workspace-list` / `create` / `file-changes` / `unavailable`, `dialog-variant` (model effort selection), `dialog-stash` (prompt queue), `dialog-tag`, `dialog-login`, `dialog-onboarding`, `dialog-auth-manage`, `dialog-chat` (quick chat), `dialog-analytics`, `dialog-web-preview`, `dialog-image-model`, `dialog-speak-model`, `dialog-status`, `dialog-telemetry-live` (live OpenTelemetry spans), `dialog-opentelemetry` (OTLP configuration), `dialog-remote` (tunnel status), `dialog-provider` (provider picker), `plugin-route-missing` (fallback for missing plugin routes).
 
 ### Cross-cutting features
 
@@ -376,12 +399,13 @@ Each tool has a description in `tool/<name>.txt` consulted by the primary agent 
 
 ---
 
-## Loops, Goal, Routines
+## Loops, Goal, Routines, Missions
 
-Nikcli ships three continuous-orchestration primitives:
+Nikcli ships four continuous-orchestration primitives:
 
 - **Goal** (`session/goal.ts`, `nikcli goal` command) — the agent works **until** a verifiable condition holds, with state `active | paused | blocked | usage_limited | budget_limited | complete`, token budget and iteration count (`MAX_ITERATIONS = 50`).
-- **Loops** (`loop/engine.ts` + TUI `feature-plugins/loops`) — a loop is a temporal trigger (cron via `Scheduler` with `scope: "instance"`) that kicks off a Goal. It keeps running even when the TUI is closed thanks to the server-side engine. The user defines objective + trigger + stop conditions once.
+- **Loops** (`loop/engine.ts` + TUI `feature-plugins/loops`) — a loop is a named, persisted workflow that runs an ordered list of stages, each driven by a single `goal` command. Triggers are manual or interval (`Scheduler` with `scope: "instance"`). It keeps running even when the TUI is closed thanks to the server-side engine. The user defines objective + trigger + stop conditions once.
+- **Missions** (`mission/orchestrator.ts` + TUI `feature-plugins/mission`) — a higher-altitude workflow that decomposes a goal into milestones, each holding a DAG of features, with a validation checkpoint at the end of every milestone (`scrutiny`, `user-test`, or `none`). The orchestrator drives one feature at a time as a `goal` command, then runs a validation worker before advancing.
 - **Routines** (`mobile/routine.ts`, `nikcli routine` command) — workflows scheduled (cron) or triggerable via API/HTTP, with auth tokens. They expose nikcli procedures as endpoints.
 
 > These primitives compose existing tools (`Scheduler`, Goal, `task`, `delegation`): nothing is reinvented, only orchestrated.

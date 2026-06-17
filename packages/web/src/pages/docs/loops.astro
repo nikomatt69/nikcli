@@ -1,0 +1,319 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Concepts", href: "#concepts", depth: 2 },
+  { title: "Loop schema", href: "#schema", depth: 2 },
+  { title: "Engine lifecycle", href: "#lifecycle", depth: 2 },
+  { title: "Triggers and stages", href: "#triggers-stages", depth: 2 },
+  { title: "CLI subcommands", href: "#cli", depth: 2 },
+  { title: "Bus events", href: "#bus-events", depth: 2 },
+  { title: "TUI surface", href: "#tui", depth: 2 },
+  { title: "Mobile surface", href: "#mobile", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Loops"
+  subtitle="Server-side, headless Loops engine: a thin orchestrator that composes Scheduler + Goal. Source: packages/nikcli/src/loop/."
+  description="Guide to Nikcli’s headless loop engine, scheduled workflows, stages, triggers, and orchestration events."
+  toc={toc}
+>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      A <strong>Loop</strong> is a named, persisted workflow that runs an ordered list of
+      <strong>stages</strong>, each of which is a single <code>goal</code> command executed by a
+      worker agent. A <strong>trigger</strong> — manual or interval — decides when the loop fires.
+    </p>
+    <p>
+      The headless <code>LoopEngine</code> (<code>packages/nikcli/src/loop/engine.ts</code>) owns the
+      interval timers via the core <code>Scheduler</code> with <code>scope: "instance"</code>, so
+      scheduled loops keep firing when the TUI is closed. The TUI feature plugin
+      (<code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code>) is a thin client over
+      the SDK: it subscribes to bus events for live status, and uses the SDK to create, run, pause,
+      resume, and delete loops.
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Composition over reinvention" eyebrow="Primitives">
+        <p>
+          A Loop does not reimplement iteration, budgets, or autonomy. The interval trigger is a
+          <code>Scheduler.register</code> call; each run is a <code>SessionPrompt.command</code>
+          invocation of <code>goal</code>. The existing <code>Goal</code> engine does the rest.
+        </p>
+      </DocCard>
+      <DocCard title="Headless by design" eyebrow="No TUI required">
+        <p>
+          Definitions are persisted in <code>Storage</code>; timers live in the server process.
+          Loops fire on schedule regardless of whether a TUI is connected. A TUI that connects
+          later syncs the live state through bus events.
+        </p>
+      </DocCard>
+      <DocCard title="Crash-safe" eyebrow="Persistence">
+        <p>
+          A loop and its run history are persisted after every step. Stale <code>running</code> runs
+          are reconciled to <code>orphaned</code> on the next boot by a lease/heartbeat
+          (<code>LOOP_RUN_LEASE_MS = 15s</code>).
+        </p>
+      </DocCard>
+      <DocCard title="Concurrency cap" eyebrow="Back-pressure">
+        <p>
+          A global cap of <code>MAX_CONCURRENT_RUNS = 3</code> prevents runaway workers. A
+          per-loop single-flight claim prevents overlapping runs of the same loop.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="concepts" class="mb-16 scroll-mt-24">
+    <h2>Concepts</h2>
+    <table class="doc-table">
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Loop</strong></td><td>Named, persisted unit: a trigger, a list of stages, optional <code>maxRuns</code> and <code>timeoutMs</code>.</td></tr>
+        <tr><td><strong>Stage</strong></td><td>One unit of work within a run: name, agent, optional model, objective, optional token budget.</td></tr>
+        <tr><td><strong>Trigger</strong></td><td><code>&#123; kind: "manual" &#125;</code> or <code>&#123; kind: "interval", everyMs &#125;</code>.</td></tr>
+        <tr><td><strong>Run</strong></td><td>A single execution of the loop's stages. Carries lease/heartbeat and a session id per stage.</td></tr>
+        <tr><td><strong>Runtime</strong></td><td>Live, in-memory status of a loop (idle | running | paused | error | cancelling), updated by the engine on every bus event.</td></tr>
+        <tr><td><strong>Template</strong></td><td>A named, parameterised loop draft the user can clone and customize.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="schema" class="mb-16 scroll-mt-24">
+    <h2>Loop schema</h2>
+    <p>
+      All persisted types live in <code>packages/nikcli/src/loop/schema.ts</code> as zod schemas.
+    </p>
+    <h3>Trigger</h3>
+    <DocCode language="ts" title="packages/nikcli/src/loop/schema.ts">
+export const LoopTriggerSchema = z.discriminatedUnion("kind", [
+  z.object(&lbrace; kind: z.literal("manual") &rbrace;),
+  z.object(&lbrace; kind: z.literal("interval"), everyMs: z.number().int().positive() &rbrace;),
+])
+    </DocCode>
+    <h3>Stage</h3>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>name</code></td><td><code>string</code></td><td>Display label.</td></tr>
+        <tr><td><code>agent</code></td><td><code>string</code></td><td>Agent name (e.g. <code>build</code>, <code>plan</code>).</td></tr>
+        <tr><td><code>model</code></td><td><code>"provider/model"</code></td><td>Optional. Defaults to the session default.</td></tr>
+        <tr><td><code>objective</code></td><td><code>string</code></td><td>The prompt fed to the <code>goal</code> worker.</td></tr>
+        <tr><td><code>tokenBudget</code></td><td><code>number</code></td><td>Optional per-stage cap.</td></tr>
+      </tbody>
+    </table>
+    <h3>Definition</h3>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td><code>string</code></td><td>Stable identifier.</td></tr>
+        <tr><td><code>name</code></td><td><code>string</code></td><td>Display label.</td></tr>
+        <tr><td><code>stages</code></td><td><code>Stage[]</code></td><td>At least one stage. Stages run in order.</td></tr>
+        <tr><td><code>trigger</code></td><td><code>LoopTrigger</code></td><td>Manual or interval.</td></tr>
+        <tr><td><code>maxRuns</code></td><td><code>number</code></td><td>Optional temporal cap (interval loops stop after <code>maxRuns</code>).</td></tr>
+        <tr><td><code>timeoutMs</code></td><td><code>number</code></td><td>Per-run wall-clock cap. Defaults to <code>DEFAULT_RUN_TIMEOUT_MS = 60min</code>.</td></tr>
+        <tr><td><code>paused</code></td><td><code>boolean</code></td><td>Persisted pause flag; survives restarts.</td></tr>
+        <tr><td><code>enabled</code></td><td><code>boolean</code></td><td>Disabled loops never fire.</td></tr>
+        <tr><td><code>createdAt</code></td><td><code>number</code></td><td>Epoch ms.</td></tr>
+      </tbody>
+    </table>
+    <h3>Run</h3>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td><code>string</code></td><td>Unique run id.</td></tr>
+        <tr><td><code>loopID</code></td><td><code>string</code></td><td>Owning loop.</td></tr>
+        <tr><td><code>startedAt</code> / <code>endedAt</code></td><td><code>number</code></td><td>Epoch ms.</td></tr>
+        <tr><td><code>status</code></td><td><code>LoopRunStatus</code></td><td><code>running | complete | error | timeout | cancelled | orphaned</code>.</td></tr>
+        <tr><td><code>heartbeatAt</code></td><td><code>number</code></td><td>Lease heartbeat, renewed while the owning process drives the run.</td></tr>
+        <tr><td><code>sessionID</code></td><td><code>string</code></td><td>Session id of the active stage worker, if any.</td></tr>
+        <tr><td><code>error</code></td><td><code>string</code></td><td>Surfaced error, if any.</td></tr>
+        <tr><td><code>ok</code></td><td><code>boolean</code></td><td>True when the run reached <code>complete</code>.</td></tr>
+      </tbody>
+    </table>
+    <h3>Operational bounds</h3>
+    <table class="doc-table">
+      <thead><tr><th>Constant</th><th>Value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>MIN_INTERVAL_MS</code></td><td><code>30_000</code></td><td>Smallest accepted interval.</td></tr>
+        <tr><td><code>MAX_INTERVAL_MS</code></td><td><code>30 days</code></td><td>Largest accepted interval (anti-abuse).</td></tr>
+        <tr><td><code>MAX_CONCURRENT_RUNS</code></td><td><code>3</code></td><td>Global cap on simultaneously running loops.</td></tr>
+        <tr><td><code>MIN_RUN_TIMEOUT_MS</code></td><td><code>1_000</code></td><td>Smallest accepted <code>timeoutMs</code>.</td></tr>
+        <tr><td><code>DEFAULT_RUN_TIMEOUT_MS</code></td><td><code>60min</code></td><td>Default per-run cap.</td></tr>
+        <tr><td><code>MAX_RUN_TIMEOUT_MS</code></td><td><code>24h</code></td><td>Largest accepted <code>timeoutMs</code>.</td></tr>
+        <tr><td><code>LOOP_RUN_LEASE_MS</code></td><td><code>15_000</code></td><td>Lease/heartbeat for orphan detection.</td></tr>
+        <tr><td><code>HISTORY_LIMIT</code></td><td><code>50</code></td><td>How many historical run records to retain per loop.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="lifecycle" class="mb-16 scroll-mt-24">
+    <h2>Engine lifecycle</h2>
+    <ol>
+      <li><strong>Register</strong> — the TUI/CLI calls <code>LoopEngine.upsert(def)</code> which persists the definition in <code>Storage</code> and arms (or re-arms) the interval timer in the core <code>Scheduler</code>.</li>
+      <li><strong>Fire</strong> — the <code>Scheduler</code> calls the engine's <code>run</code> callback. The engine claims the per-loop single-flight slot and a slot in the global <code>MAX_CONCURRENT_RUNS = 3</code> pool.</li>
+      <li><strong>Drive</strong> — the engine runs the stages in order. Each stage is a single <code>SessionPrompt.command(&lbrace; command: "goal" &rbrace;)</code> call. The agent's own goal loop (<code>src/session/goal.ts</code>) does the until-done iteration.</li>
+      <li><strong>Persist</strong> — every stage transition renews the lease/heartbeat and writes a <code>LoopRun</code> record. Status flips to <code>complete</code>, <code>error</code>, or <code>timeout</code> when the run ends.</li>
+      <li><strong>Reconcile</strong> — on next boot, <code>restore()</code> finds every <code>running</code> run whose lease is older than <code>LOOP_RUN_LEASE_MS</code> and reconciles it to <code>orphaned</code>, then re-arms every interval loop.</li>
+    </ol>
+    <DocCallout type="info" title="Single-flight guarantees">
+      <p>
+        The same loop can never run twice in parallel: a per-loop claim is held for the entire
+        run. A second trigger that fires while the first is still active is dropped and counted
+        in the run history as a fast skip.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="triggers-stages" class="mb-16 scroll-mt-24">
+    <h2>Triggers and stages</h2>
+    <h3>Manual trigger</h3>
+    <p>
+      Manual loops never fire on a timer. They are started by the user through
+      <code>nikcli loop run &lt;id&gt;</code>, the TUI loop dialog, or the SDK. Use a manual loop
+      when the work is infrequent or you want the user to opt in every time.
+    </p>
+    <h3>Interval trigger</h3>
+    <p>
+      Interval loops fire every <code>everyMs</code> milliseconds. The smallest accepted
+      interval is 30s; the largest is 30 days. The engine re-arms the timer on every run start
+      and after every run finish.
+    </p>
+    <DocCallout type="warn" title="maxRuns">
+      <p>
+        An interval loop with <code>maxRuns</code> set will stop firing once the counter is
+        reached. The loop stays in the list (paused) and you can resume it by clearing
+        <code>maxRuns</code>.
+      </p>
+    </DocCallout>
+    <h3>Stages</h3>
+    <p>
+      Stages run sequentially inside a single run. A stage's <code>objective</code> is the prompt
+      fed to a fresh <code>goal</code> session. Stages share the loop's run id but each spawns its
+      own session, so the previous stage's session is referenced by id but not reused.
+    </p>
+    <DocCode language="text">
+# A simple two-stage loop that triages issues then drafts a fix
+stages:
+  - name: triage
+    agent: plan
+    objective: "Triage the open issues in this repo and rank by impact."
+  - name: draft-fix
+    agent: build
+    objective: "Pick the top issue and draft a fix as a draft PR."
+    depends_on_run: triage
+    </DocCode>
+  </section>
+
+  <section id="cli" class="mb-16 scroll-mt-24">
+    <h2>CLI subcommands</h2>
+    <p>
+      The CLI surface is part of the same headless engine and is the recommended way to manage
+      loops from a script or cron.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Subcommand</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>nikcli loop list</code></td><td>List all loops for the current project.</td></tr>
+        <tr><td><code>nikcli loop create</code></td><td>Create a loop interactively or with flags.</td></tr>
+        <tr><td><code>nikcli loop get &lt;id&gt;</code></td><td>Show full definition, runtime status, and the last few runs.</td></tr>
+        <tr><td><code>nikcli loop run &lt;id&gt;</code></td><td>Trigger an immediate run (manual or interval loops).</td></tr>
+        <tr><td><code>nikcli loop pause &lt;id&gt;</code></td><td>Stop firing triggers. In-flight runs are not aborted.</td></tr>
+        <tr><td><code>nikcli loop resume &lt;id&gt;</code></td><td>Re-enable the loop's triggers.</td></tr>
+        <tr><td><code>nikcli loop cancel &lt;run-id&gt;</code></td><td>Cancel an in-flight run.</td></tr>
+        <tr><td><code>nikcli loop delete &lt;id&gt;</code></td><td>Delete the loop and its run history. Prompts for confirmation unless <code>--yes</code> is passed.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+nikcli loop create --name "triage-and-fix" \
+  --stage "triage:plan:Triage open issues and rank by impact" \
+  --stage "draft-fix:build:Open a draft PR for the top issue" \
+  --every 30m
+
+nikcli loop run lop_abc123
+nikcli loop pause lop_abc123
+nikcli loop resume lop_abc123
+nikcli loop delete lop_abc123 --yes
+    </DocCode>
+  </section>
+
+  <section id="bus-events" class="mb-16 scroll-mt-24">
+    <h2>Bus events</h2>
+    <p>
+      The engine publishes typed bus events for clients to subscribe to. They live next to the
+      engine in <code>packages/nikcli/src/loop/engine.ts</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Event</th><th>Payload</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td><code>loop.upserted</code></td><td><code>&#123; loopID &#125;</code></td><td>Definition created or replaced.</td></tr>
+        <tr><td><code>loop.removed</code></td><td><code>&#123; loopID &#125;</code></td><td>Definition deleted.</td></tr>
+        <tr><td><code>loop.run.started</code></td><td><code>&#123; loopID, runID, sessionID &#125;</code></td><td>A new run started.</td></tr>
+        <tr><td><code>loop.run.finished</code></td><td><code>&#123; loopID, runID, status, ok, error? &#125;</code></td><td>Run ended.</td></tr>
+        <tr><td><code>loop.runtime.changed</code></td><td><code>&#123; loopID, status, lastRunAt?, lastError? &#125;</code></td><td>Live runtime status flipped (idle, running, paused, error, cancelling).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tui" class="mb-16 scroll-mt-24">
+    <h2>TUI surface</h2>
+    <p>
+      The TUI loop feature-plugin lives in
+      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code>. It mirrors the mission
+      plugin and exposes:
+    </p>
+    <ul>
+      <li><strong>Loop home view</strong> — list of all loops with status chips, last run time, and quick actions (run, pause, resume, delete).</li>
+      <li><strong>Loop detail view</strong> — per-stage list, current run highlight, run history (last 50), and the live session id of the active stage.</li>
+      <li><strong>Draft dialog</strong> — pick a template, edit stages, and create a loop without leaving the TUI.</li>
+      <li><strong>Run dialog</strong> — trigger an immediate run with optional one-off context (<code>--text</code>).</li>
+    </ul>
+  </section>
+
+  <section id="mobile" class="mb-16 scroll-mt-24">
+    <h2>Mobile surface</h2>
+    <p>
+      The mobile app exposes the same surface as a dedicated <strong>Loops</strong> tab. The
+      screen lists every loop with a status chip, schedule summary, last-run timestamp, and
+      quick actions. The detail screen edits the definition, fires manual runs, and pages
+      through run history.
+    </p>
+    <p>See <a href="/docs/mobile">Mobile</a> for the full mobile walkthrough.</p>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Run stuck in <code>running</code> after a crash</td><td>The orchestrator process died; the lease has expired.</td><td>Restart the host. <code>restore()</code> reconciles the run to <code>orphaned</code> and you can trigger a fresh run.</td></tr>
+        <tr><td>Trigger never fires</td><td>The loop is <code>paused</code> or <code>disabled</code>, or <code>maxRuns</code> has been reached.</td><td>Inspect <code>nikcli loop get &lt;id&gt;</code>; resume or re-create.</td></tr>
+        <tr><td>Stage never starts</td><td>Global cap of <code>MAX_CONCURRENT_RUNS = 3</code> is saturated.</td><td>Wait for in-flight runs to finish, or cancel one.</td></tr>
+        <tr><td>Single-flight slot held by an aborted run</td><td>Earlier process crashed without releasing the slot.</td><td>The lease reaper releases the slot after <code>LOOP_RUN_LEASE_MS</code> (15s). If it persists, restart the host.</td></tr>
+        <tr><td>Stage stays in <code>running</code> forever</td><td>Stage worker exceeded <code>timeoutMs</code>.</td><td>The engine aborts the worker via <code>prompt.cancel</code> and marks the run <code>timeout</code>. Inspect the worker session and re-run.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
+      <tbody>
+        <tr><td><code>packages/nikcli/src/loop/schema.ts</code></td><td>Zod schemas for <code>LoopDefinition</code>, <code>LoopStage</code>, <code>LoopTrigger</code>, <code>LoopRun</code>, and the operational bounds.</td></tr>
+        <tr><td><code>packages/nikcli/src/loop/manager.ts</code></td><td>CRUD and run-record persistence.</td></tr>
+        <tr><td><code>packages/nikcli/src/loop/engine.ts</code></td><td>Headless engine: <code>Scheduler</code> integration, single-flight, concurrency cap, lease/heartbeat, bus events.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/</code></td><td>TUI feature plugin: store, SDK, runner, dialogs.</td></tr>
+        <tr><td><code>packages/mobile/app/(app)/loops/</code></td><td>Mobile Loops tab and detail screen.</td></tr>
+        <tr><td><code>specs/10-loops.md</code></td><td>Long-form design document for the loops system.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

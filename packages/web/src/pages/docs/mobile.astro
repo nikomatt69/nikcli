@@ -17,6 +17,7 @@ const toc = [
   { title: "Files & diffs", href: "#files-diffs", depth: 2 },
   { title: "Repos & GitHub", href: "#repos", depth: 2 },
   { title: "Routines", href: "#routines", depth: 2 },
+  { title: "Loops", href: "#loops", depth: 2 },
   { title: "Terminal", href: "#terminal", depth: 2 },
   { title: "Settings", href: "#settings", depth: 2 },
   { title: "Profile & account", href: "#profile", depth: 2 },
@@ -29,6 +30,7 @@ const toc = [
 <DocsLayout
   title="Mobile App"
   subtitle="A complete guide to running and managing nikcli from the Expo app in packages/mobile against a host server."
+  description="Guide to the Nikcli mobile app, sessions, terminal, routines, loops, settings, and host-server integration."
   toc={toc}
 >
   <section id="overview" class="mb-16 scroll-mt-24">
@@ -38,14 +40,15 @@ const toc = [
       <strong>nikcli mobile host</strong> over its <code>/mobile/*</code> HTTP + SSE API. You start a
       host on your machine (or a cloud platform), pair the app with a token, and then work from your
       phone: run agent sessions, approve tool actions, review diffs, import GitHub repos, manage
-      routines, and open interactive terminals.
+      routines and loops, and open interactive terminals.
     </p>
-    <p>The app is organized into five tabs plus Settings and Profile:</p>
+    <p>The app is organized into six tabs plus Settings and Profile:</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="Sessions" eyebrow="Core"><p>Create and resume agent sessions with live SSE streaming, plan/code modes, approvals, and diffs.</p></DocCard>
       <DocCard title="Repos" eyebrow="Workspaces"><p>Server worktrees and GitHub repos — import, sandbox, and launch GitHub-backed sessions.</p></DocCard>
-      <DocCard title="Routines" eyebrow="Automation"><p>Create, run, pause, and resume scheduled or API-triggered routines.</p></DocCard>
       <DocCard title="Terminal" eyebrow="Shell"><p>Fully interactive PTYs running on the host, with multiple tabs and copy/paste.</p></DocCard>
+      <DocCard title="Routines" eyebrow="Automation"><p>Create, run, pause, and resume scheduled or API-triggered routines.</p></DocCard>
+      <DocCard title="Loops" eyebrow="Orchestration"><p>Create, run, pause, and resume multi-stage <a href="/docs/loops">Loops</a> that fire on a schedule or on demand.</p></DocCard>
       <DocCard title="Settings & Profile" eyebrow="Management"><p>Providers, connectors, MCP, skills, agents, commands, memories, tokens, plugins, and account.</p></DocCard>
     </div>
   </section>
@@ -352,6 +355,42 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
         The API trigger token is assigned by the host when the routine is created with
         <code>--api</code> / <code>--api-token</code>. Everything here is also available via
         <code>nikcli routine</code> — see <a href="/docs/routines">Routines</a>.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="loops" class="mb-16 scroll-mt-24">
+    <h2>Loops</h2>
+    <p>
+      The Loops tab exposes the headless <a href="/docs/loops">Loop engine</a> from the phone.
+      A loop is a named, persisted workflow that runs an ordered list of stages, each driven by
+      a single <code>goal</code> command. Loops keep running when the app is closed; the engine
+      lives in the host process.
+    </p>
+    <p>The list view shows every loop with:</p>
+    <ul>
+      <li><strong>Status chip</strong> — idle, running, paused, error, or cancelling, mirrored from the host bus event.</li>
+      <li><strong>Schedule summary</strong> — <code>Every 30m</code>, <code>Every 1h</code>, … for interval loops; <code>Manual</code> for trigger-only loops.</li>
+      <li><strong>Stage chain</strong> — <code>triage → draft-fix → review</code> preview of the ordered stages.</li>
+      <li><strong>Last run</strong> — relative time of the previous run, or <code>Never run</code>.</li>
+      <li><strong>Quick actions</strong> — Run now, Pause/Resume, Edit, Delete.</li>
+    </ul>
+    <h3>Detail screen</h3>
+    <p>
+      Tap a loop to open the detail screen. It edits everything in the definition:
+    </p>
+    <ul>
+      <li><strong>Name</strong> and per-stage <strong>objective</strong>, <strong>agent</strong>, <strong>model</strong>, and <strong>token budget</strong>.</li>
+      <li><strong>Schedule</strong> — interval string (<code>30s</code>, <code>10m</code>, <code>1h</code>, <code>1h30m</code>, <code>1d</code>) or <code>manual</code>, with an enable/disable toggle.</li>
+      <li><strong>Per-stage editor</strong> — add, remove, and reorder stages with an inline form.</li>
+      <li><strong>Run history</strong> — the last 50 runs with status, duration, and a deep link to the active stage's session.</li>
+      <li><strong>Run now / Pause / Resume / Delete</strong>, with confirmation sheets for destructive actions.</li>
+    </ul>
+    <DocCallout type="info" title="Schedule parsing">
+      <p>
+        The duration parser accepts bare numbers (treated as minutes) and <code>Nd/Nh/Nm/Ns</code>
+        tokens, including combinations such as <code>1h30m</code>. The same parser is used by the
+        loop detail editor and the <code>nikcli loop create --every</code> flag.
       </p>
     </DocCallout>
   </section>

@@ -1,20 +1,24 @@
 export const SERVER_CONFIG_KEY = "nikcli_server_config"
+// Shared pairing-token storage — the SAME keys the web app (src/app/api.ts) and the
+// mobile/CLI pairing flow use, so the dashboard authenticates with the one bearer
+// token that the nikcli server's global middleware accepts (Authorization: Bearer nkm_…).
+export const SERVER_TOKEN_KEY = "nikcli_server_token"
+// Legacy dashboard-only token key (email/password era) — still read for back-compat.
 export const USER_TOKEN_KEY = "nikcli_dashboard_token"
 export const DASHBOARD_USER_KEY = "nikcli_dashboard_user"
-const DEFAULT_SERVER_URL = (typeof import.meta !== "undefined" && (import.meta as any).env?.PROD_SERVER_URL) || ""
+// Production nikcli server deployed on Railway, reachable at the s.nikcli.store subdomain.
+// This is the default backend for every dashboard (hosted or local) unless overridden.
+const PROD_SERVER_URL = "https://s.nikcli.store"
+const DEFAULT_SERVER_URL =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.PROD_SERVER_URL) || PROD_SERVER_URL
 
-type StoredServerConfig = { url?: string }
+// Local nikcli server (e.g. `nikcli serve`) for development.
+const LOCAL_SERVER_URL = "http://localhost:4096"
+
+type StoredServerConfig = { url?: string; token?: string; directory?: string; [k: string]: unknown }
 
 function isLoopbackHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]"
-}
-
-function sameOriginFallback(): string {
-  if (typeof window === "undefined") return ""
-  const hostname = window.location.hostname
-  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") return ""
-  if (hostname === "nikcli.store" || hostname.endsWith(".nikcli.store")) return ""
-  return window.location.origin.replace(/\/$/, "")
 }
 
 export function normalizeServerUrl(input: string): string {
@@ -48,12 +52,28 @@ function loadStoredServerUrl(): string {
   }
 }
 
+function readStoredConfig(): StoredServerConfig {
+  if (typeof localStorage === "undefined") return {}
+  try {
+    const raw = localStorage.getItem(SERVER_CONFIG_KEY)
+    return raw ? (JSON.parse(raw) as StoredServerConfig) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStoredConfig(patch: Partial<StoredServerConfig>) {
+  if (typeof localStorage === "undefined") return
+  // Merge so we never clobber fields the web app / mobile pairing also store
+  // under nikcli_server_config (token, directory, model preferences, …).
+  const next = { ...readStoredConfig(), ...patch }
+  localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify(next))
+}
+
 export function saveServerConfig(url: string): string {
   const normalized = normalizeServerUrl(url)
   assertBrowserSafeServerUrl(normalized)
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify({ url: normalized }))
-  }
+  writeStoredConfig({ url: normalized })
   return normalized
 }
 
@@ -62,18 +82,59 @@ export function clearServerConfig() {
   localStorage.removeItem(SERVER_CONFIG_KEY)
 }
 
+/**
+ * Resolve the shared nikcli pairing token (Authorization: Bearer nkm_…).
+ * Reads the SAME locations the web app uses so the dashboard, the web app, and
+ * the mobile/CLI pairing flow all share one credential:
+ *   1. sessionStorage[nikcli_server_token]  (web app primary)
+ *   2. nikcli_server_config.token           (web app fallback / pairing link)
+ *   3. localStorage[nikcli_server_token]     (cross-tab persistence)
+ *   4. localStorage[nikcli_dashboard_token]  (legacy dashboard token)
+ */
+export function getSharedToken(): string | null {
+  if (typeof window === "undefined") return null
+  const fromSession = window.sessionStorage?.getItem(SERVER_TOKEN_KEY)
+  if (fromSession) return fromSession
+  const cfgToken = readStoredConfig().token
+  if (typeof cfgToken === "string" && cfgToken) return cfgToken
+  const fromLocal = window.localStorage?.getItem(SERVER_TOKEN_KEY)
+  if (fromLocal) return fromLocal
+  return window.localStorage?.getItem(USER_TOKEN_KEY) || null
+}
+
+/** Persist the shared pairing token everywhere the ecosystem looks for it. */
+export function saveSharedToken(token: string) {
+  if (typeof window === "undefined") return
+  const value = token.trim()
+  if (!value) {
+    clearDashboardSession()
+    return
+  }
+  window.sessionStorage?.setItem(SERVER_TOKEN_KEY, value)
+  window.localStorage?.setItem(SERVER_TOKEN_KEY, value)
+  writeStoredConfig({ token: value })
+}
+
 export function clearDashboardSession() {
+  if (typeof window === "undefined") return
+  window.sessionStorage?.removeItem(SERVER_TOKEN_KEY)
+  window.localStorage?.removeItem(SERVER_TOKEN_KEY)
+  window.localStorage?.removeItem(USER_TOKEN_KEY)
+  window.localStorage?.removeItem(DASHBOARD_USER_KEY)
+  const { token: _drop, ...rest } = readStoredConfig()
   if (typeof localStorage !== "undefined") {
-    localStorage.removeItem(USER_TOKEN_KEY)
-    localStorage.removeItem(DASHBOARD_USER_KEY)
+    localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify(rest))
   }
 }
 
 export function resolveServerBase(override?: string | null): string {
-  if (import.meta.env.DEV) return ""
+  // Every dashboard (hosted on nikcli.store or run locally) targets the nikcli
+  // server — defaulting to the Railway deployment at s.nikcli.store — and
+  // authenticates with the shared pairing token. An explicit override or a stored
+  // server URL always wins (e.g. pointing at a local `nikcli serve`).
   const candidate = override
     ? normalizeServerUrl(override)
-    : loadStoredServerUrl() || sameOriginFallback() || DEFAULT_SERVER_URL
+    : loadStoredServerUrl() || DEFAULT_SERVER_URL || LOCAL_SERVER_URL
   if (!candidate) return ""
   assertBrowserSafeServerUrl(candidate)
   return candidate
@@ -81,7 +142,7 @@ export function resolveServerBase(override?: string | null): string {
 
 export function buildApiUrl(path: string, serverUrl?: string | null): string {
   const base = resolveServerBase(serverUrl)
-  if (!base && !import.meta.env.DEV) {
+  if (!base) {
     throw new Error("No server configured. Connect to a nikcli server first.")
   }
   return `${base}${path}`
@@ -163,8 +224,7 @@ function getServerBase(): string {
 }
 
 function getToken(): string | null {
-  if (typeof localStorage === "undefined") return null
-  return localStorage.getItem(USER_TOKEN_KEY)
+  return getSharedToken()
 }
 
 function handle401() {
@@ -315,10 +375,11 @@ export const studioApi = {
   },
 
   profiles: {
-    list: () => request<ProfilesData>("/profiles"),
-    create: (name: string) => request<{ success: boolean }>("/profiles", { method: "POST", ...json({ name }) }),
+    // Profiles live under the config router on the server: /config/profiles
+    list: () => request<ProfilesData>("/config/profiles"),
+    create: (name: string) => request<{ success: boolean }>("/config/profiles", { method: "POST", ...json({ name }) }),
     activate: (name: string) =>
-      request<{ success: boolean }>(`/profiles/activate/${encodeURIComponent(name)}`, { method: "POST" }),
+      request<{ success: boolean }>(`/config/profiles/activate/${encodeURIComponent(name)}`, { method: "POST" }),
   },
 
   sessions: {

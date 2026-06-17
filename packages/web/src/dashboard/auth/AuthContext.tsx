@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
-  DASHBOARD_USER_KEY,
-  USER_TOKEN_KEY,
   clearDashboardSession,
   clearServerConfig,
   getErrorMessage,
+  getSharedToken,
   requestJson,
   resolveServerBase,
   saveServerConfig,
+  saveSharedToken,
 } from "../lib/studio-api"
 
 export interface User {
@@ -26,8 +26,13 @@ interface AuthContextValue {
   user: User | null
   token: string | null
   serverUrl: string | null
+  /** True once a server URL + a token that the server accepts are present. */
+  connected: boolean
   loading: boolean
   error: string | null
+  /** Connect with the shared nikcli pairing token (Authorization: Bearer nkm_…). */
+  connect(token: string): Promise<void>
+  /** Legacy email/password sign-in (kept for back-compat; the server still supports it). */
   login(email: string, password: string): Promise<void>
   logout(): Promise<void>
   setServerUrl(url: string): void
@@ -35,41 +40,28 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
-
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem(USER_TOKEN_KEY)
-}
-
-function getStoredUser(): User | null {
-  if (typeof window === "undefined") return null
-  try {
-    const data = localStorage.getItem(DASHBOARD_USER_KEY)
-    return data ? (JSON.parse(data) as User) : null
-  } catch {
-    return null
-  }
-}
-
 function getStoredServerUrl(): string | null {
   const base = resolveServerBase()
   return base || null
 }
 
-function saveSession(token: string, user: User) {
-  if (typeof window === "undefined") return
-  localStorage.setItem(USER_TOKEN_KEY, token)
-  localStorage.setItem(DASHBOARD_USER_KEY, JSON.stringify(user))
-}
-
-function clearSession() {
-  clearDashboardSession()
+/** A lightweight identity derived from the active connection (the pairing token
+ *  carries no user account), so display code that expects a `user` keeps working. */
+function connectionIdentity(serverUrl: string | null): User {
+  let label = "nikcli server"
+  if (serverUrl) {
+    try {
+      label = new URL(serverUrl).host
+    } catch {
+      label = serverUrl
+    }
+  }
+  return { id: "self", username: "nikcli", email: label, displayName: undefined, role: "user" }
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // Start null on both server and client to prevent SSR hydration mismatch.
-  // localStorage is read in the mount effect below.
+  // Storage is read in the mount effect below.
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [serverUrl, setServerUrlState] = useState<string | null>(null)
@@ -80,19 +72,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const normalized = url.trim()
     if (!normalized) {
       clearServerConfig()
+      clearDashboardSession()
       setServerUrlState(null)
-    } else {
-      setServerUrlState(saveServerConfig(normalized))
+      setUser(null)
+      setToken(null)
+      return
     }
-    clearSession()
-    setUser(null)
-    setToken(null)
+    setServerUrlState(saveServerConfig(normalized))
   }, [])
+
+  // Validate the shared pairing token against an authorized endpoint (/config).
+  const connect = useCallback(
+    async (rawToken: string) => {
+      const value = rawToken.trim()
+      const baseUrl = resolveServerBase(serverUrl)
+      if (!baseUrl) {
+        setError("No server configured")
+        throw new Error("No server configured")
+      }
+      if (!value) {
+        setError("Paste your nikcli pairing token")
+        throw new Error("Missing token")
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        // /config requires auth — a 200 proves the token is accepted by the server.
+        await requestJson<unknown>("/config", { token: value, serverUrl: baseUrl })
+        saveSharedToken(value)
+        setToken(value)
+        setUser(connectionIdentity(baseUrl))
+        window.posthog?.capture("studio_connected")
+      } catch (err) {
+        window.posthog?.captureException(err)
+        setError(getErrorMessage(err) || "Could not connect with that token")
+        throw err
+      } finally {
+        setLoading(false)
+      }
+    },
+    [serverUrl],
+  )
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const baseUrl = isDev ? "" : resolveServerBase(serverUrl)
-      if (!baseUrl && !isDev) {
+      const baseUrl = resolveServerBase(serverUrl)
+      if (!baseUrl) {
         setError("No server configured")
         throw new Error("No server configured")
       }
@@ -104,7 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           body: JSON.stringify({ email, password }),
           serverUrl: baseUrl,
         })
-        saveSession(data.token, data.user)
+        saveSharedToken(data.token)
         setUser(data.user)
         setToken(data.token)
         window.posthog?.identify(data.user.id, {
@@ -127,7 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(async () => {
     setLoading(true)
     try {
-      const baseUrl = isDev ? "" : resolveServerBase(serverUrl)
+      const baseUrl = resolveServerBase(serverUrl)
       if (baseUrl && token) {
         await requestJson<{ ok: boolean }>("/user/logout", {
           method: "POST",
@@ -138,7 +163,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       window.posthog?.capture("user_signed_out")
       window.posthog?.reset()
-      clearSession()
+      clearDashboardSession()
       setUser(null)
       setToken(null)
       setLoading(false)
@@ -146,44 +171,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [serverUrl, token])
 
   useEffect(() => {
-    // Read from localStorage only on the client (after mount)
-    const storedToken = getStoredToken()
+    // Read from storage only on the client (after mount)
+    const storedToken = getSharedToken()
     const storedUrl = getStoredServerUrl()
-    const storedUser = getStoredUser()
+    setServerUrlState(storedUrl)
 
-    if (!storedToken || storedUrl === null) {
-      // No session — state stays null, DashboardShell will redirect to login/setup
-      setServerUrlState(storedUrl)
+    if (!storedToken || !storedUrl) {
+      // Not connected — DashboardShell will show setup / connect
       return
     }
 
-    // Restore immediately so UI doesn't flash to "not connected"
+    // Restore immediately so the UI doesn't flash "not connected"
     setToken(storedToken)
-    setServerUrlState(storedUrl)
-    if (storedUser) setUser(storedUser)
+    setUser(connectionIdentity(storedUrl))
 
-    // Validate the token against the server in the background
-    const baseUrl = isDev ? "" : storedUrl
-    if (!baseUrl && !isDev) return
-    requestJson<User>("/user/me", { token: storedToken, serverUrl: baseUrl })
-      .then((user) => {
-        setUser(user)
-        localStorage.setItem(DASHBOARD_USER_KEY, JSON.stringify(user))
-      })
+    const statusOf = (err: unknown) =>
+      typeof err === "object" && err && "status" in err ? Number((err as { status?: unknown }).status) : 0
+
+    // Validate in the background. Both credential types live in the SAME server DB:
+    //   • an account session (nku_) resolves a real user via /user/me;
+    //   • a pairing token (nkm_) has no user account, so fall back to /config.
+    requestJson<User>("/user/me", { token: storedToken, serverUrl: storedUrl })
+      .then((u) => setUser(u))
       .catch((err) => {
-        const status =
-          typeof err === "object" && err && "status" in err ? Number((err as { status?: unknown }).status) : 0
-        if (status === 401 || status === 403) {
-          clearSession()
-          setUser(null)
-          setToken(null)
-        }
-      }) // network/server error — keep existing session
+        if (statusOf(err) !== 401 && statusOf(err) !== 403) return // network error — keep session
+        requestJson<unknown>("/config", { token: storedToken, serverUrl: storedUrl })
+          .then(() => setUser(connectionIdentity(storedUrl)))
+          .catch((err2) => {
+            if (statusOf(err2) === 401 || statusOf(err2) === 403) {
+              clearDashboardSession()
+              setUser(null)
+              setToken(null)
+            }
+          })
+      })
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, serverUrl, loading, error, login, logout, setServerUrl }),
-    [user, token, serverUrl, loading, error, login, logout, setServerUrl],
+    () => ({ user, token, serverUrl, connected: !!token, loading, error, connect, login, logout, setServerUrl }),
+    [user, token, serverUrl, loading, error, connect, login, logout, setServerUrl],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

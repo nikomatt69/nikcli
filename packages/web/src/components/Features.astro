@@ -65,7 +65,7 @@ const features = [
       {features.map((feature, index) => (
         <div
           class={[
-            "feature-card group relative overflow-hidden rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-panel transition-all duration-200",
+            "feature-card group relative overflow-hidden rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-panel transition-[transform,border-color,box-shadow,opacity] duration-200 ease-out",
             feature.size === 'wide' ? 'lg:col-span-2' : '',
           ].join(" ")}
           style={`animation-delay: ${index * 60}ms`}
@@ -80,14 +80,14 @@ const features = [
 
           <!-- Hover bg gradient -->
           <div
-            class="absolute inset-0 bg-gradient-to-br from-terminal-accent/4 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none -z-0"
+            class="absolute inset-0 bg-gradient-to-br from-terminal-accent/4 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out pointer-events-none -z-0"
             aria-hidden="true"
           />
 
           <!-- Content -->
           <div class={["relative z-10 p-6 sm:p-7", feature.size === 'wide' ? 'md:flex md:gap-8 md:items-start' : ''].join(" ")}>
             <!-- Icon -->
-            <div class="mb-5 md:mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-200 group-hover:border-terminal-accent/40 group-hover:text-terminal-accent group-hover:bg-terminal-accent/8">
+            <div class="mb-5 md:mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-border/60 bg-surface-active text-terminal-muted transition-[transform,border-color,background-color,color] duration-200 ease-out group-hover:border-terminal-accent/40 group-hover:text-terminal-accent group-hover:bg-terminal-accent/8">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" set:html={feature.icon} />
             </div>
 

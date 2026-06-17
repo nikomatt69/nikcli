@@ -7,6 +7,8 @@ const toc = [
   { title: "Entry Point", href: "#entry-point", depth: 2 },
   { title: "Interactive Workflows", href: "#interactive-workflows", depth: 2 },
   { title: "Autonomous & Scheduled", href: "#autonomous-scheduled", depth: 2 },
+  { title: "Missions", href: "#missions", depth: 2 },
+  { title: "Loops", href: "#loops", depth: 2 },
   { title: "Services & Remote", href: "#services-remote", depth: 2 },
   { title: "Integration & Automation", href: "#integration-automation", depth: 2 },
   { title: "Models, Locale & Config", href: "#models-locale-config", depth: 2 },
@@ -17,6 +19,7 @@ const toc = [
 <DocsLayout
   title="CLI Reference"
   subtitle="Command surface defined in packages/nikcli/src/index.ts and packages/nikcli/src/cli/cmd."
+  description="Reference for the Nikcli CLI command surface, default TUI mode, flags, and command execution behavior."
   toc={toc}
 >
   <section id="entry-point" class="mb-16 scroll-mt-24">
@@ -142,6 +145,120 @@ const toc = [
       nikcli goal --token-budget 50000 "fix the failing integration test"
       nikcli routine create --name "daily review" --prompt "summarize recent changes" --cron @daily
       nikcli routine run rtn_abc123
+    </DocCode>
+  </section>
+
+  <section id="missions" class="mb-16 scroll-mt-24">
+    <h2>Missions</h2>
+    <p>
+      A <a href="/docs/missions">Mission</a> is a high-altitude workflow that decomposes a goal
+      into milestones, each holding a DAG of features, with a validation checkpoint per
+      milestone. <code>nikcli mission</code> is a thin headless wrapper over the mission
+      orchestrator (<code>packages/nikcli/src/mission/</code>).
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>nikcli mission</code></td>
+          <td>Open the headless mission manager: list, status, quick actions.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission new [-f file] [--brief …] [--model …] [--agent …]</code></td>
+          <td>
+            Create a mission from a brief. With <code>-f</code> the brief is read from a file;
+            otherwise it is read from <code>--brief</code> or stdin. <code>--model</code> and
+            <code>--agent</code> set the worker defaults.
+          </td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission start &lt;id&gt;</code></td>
+          <td>Begin orchestrating the mission. The mission moves from <code>pending</code> to <code>running</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission pause &lt;id&gt;</code></td>
+          <td>Pause a running mission. In-flight features finish; no new features start.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission resume &lt;id&gt;</code></td>
+          <td>Resume a paused mission.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission cancel &lt;id&gt;</code></td>
+          <td>Cancel the mission. In-flight workers are aborted via <code>prompt.cancel</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission get &lt;id&gt;</code></td>
+          <td>Show progress, current milestone, current feature, statuses, and last error.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mission list</code></td>
+          <td>List all missions in the current project with their runtime status.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      # Draft a mission from a brief file and start it
+      nikcli mission new -f ./brief.md --agent build --model anthropic/claude-sonnet-4.5
+      nikcli mission start mss_abc123
+      nikcli mission get mss_abc123
+    </DocCode>
+  </section>
+
+  <section id="loops" class="mb-16 scroll-mt-24">
+    <h2>Loops</h2>
+    <p>
+      A <a href="/docs/loops">Loop</a> is a named, persisted workflow that runs an ordered list
+      of stages, each of which is a single <code>goal</code> command. The headless LoopEngine
+      owns the interval timers, so loops keep running when the TUI is closed.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>nikcli loop list</code></td>
+          <td>List all loops for the current project.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop create</code></td>
+          <td>Create a loop interactively or with flags. Flags: <code>--name</code>, <code>--stage</code> (repeatable), <code>--every</code>, <code>--max-runs</code>, <code>--timeout</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop get &lt;id&gt;</code></td>
+          <td>Show full definition, runtime status, and the last few runs.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop run &lt;id&gt;</code></td>
+          <td>Trigger an immediate run. Accepts <code>--text</code> to append one-off context to this run.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop pause &lt;id&gt;</code></td>
+          <td>Stop firing triggers. In-flight runs are not aborted.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop resume &lt;id&gt;</code></td>
+          <td>Re-enable the loop's triggers.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop cancel &lt;run-id&gt;</code></td>
+          <td>Cancel an in-flight run.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli loop delete &lt;id&gt;</code></td>
+          <td>Delete the loop and its run history. Prompts for confirmation unless <code>--yes</code> is passed.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      # Two-stage loop that triages issues then drafts a fix every 30 minutes
+      nikcli loop create --name "triage-and-fix" \
+        --stage "triage:plan:Triage open issues and rank by impact" \
+        --stage "draft-fix:build:Open a draft PR for the top issue" \
+        --every 30m
+
+      nikcli loop run lop_abc123
+      nikcli loop pause lop_abc123
+      nikcli loop delete lop_abc123 --yes
     </DocCode>
   </section>
 
@@ -454,6 +571,21 @@ const toc = [
         </tr>
       </tbody>
     </table>
+    <h3>OpenTelemetry (OTLP) and live telemetry</h3>
+    <p>
+      nikcli ships a small observability layer that exports Effect spans over OTLP and publishes
+      them on the bus for the live TUI panel. See <a href="/docs/observability">Observability</a>
+      for the full reference. Quick reference:
+    </p>
+    <DocCode language="bash">
+      # Export to a local Jaeger collector
+      OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 nikcli run "summarize this repo"
+
+      # Disable the live panel but keep OTLP export
+      OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+      NIKCLI_DISABLE_OTEL_LIVE=1 \
+      nikcli serve --port 4096
+    </DocCode>
     <DocCode language="bash">
       nikcli doctor
       nikcli doctor --json

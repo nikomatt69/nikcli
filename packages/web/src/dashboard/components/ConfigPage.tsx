@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
-import { studioApi, type NikcliConfig, type GitHubStatus, type ConfigPathsData } from "../lib/studio-api"
+import { studioApi, type NikcliConfig, type ConfigPathsData } from "../lib/studio-api"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -8,7 +8,6 @@ function ConfigPageInner() {
   const { token, serverUrl } = useAuth()
   const isConnected = isDev || (!!token && !!serverUrl)
   const [config, setConfig] = useState<NikcliConfig | null>(null)
-  const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null)
   const [paths, setPaths] = useState<ConfigPathsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -20,14 +19,9 @@ function ConfigPageInner() {
       setLoading(false)
       return
     }
-    Promise.all([
-      studioApi.config.get(),
-      studioApi.github.status().catch(() => null),
-      studioApi.config.paths().catch(() => null),
-    ])
-      .then(([cfg, gh, p]) => {
+    Promise.all([studioApi.config.get(), studioApi.config.paths().catch(() => null)])
+      .then(([cfg, p]) => {
         setConfig(cfg)
-        setGhStatus(gh)
         setPaths(p)
       })
       .catch((e) => setError(e.message))
@@ -46,14 +40,6 @@ function ConfigPageInner() {
       setError(e instanceof Error ? e.message : "Save failed")
     } finally {
       setSaving(false)
-    }
-  }
-
-  const pushToGist = async () => {
-    try {
-      await studioApi.github.push()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Push failed")
     }
   }
 
@@ -77,7 +63,7 @@ function ConfigPageInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-terminal-muted">Configure your nikcli server settings</p>
         {saved && <span className="text-sm text-terminal-success">✓ Saved</span>}
       </div>
@@ -136,34 +122,6 @@ function ConfigPageInner() {
             </select>
           </div>
         </div>
-      </div>
-
-      <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-terminal-text">GitHub Sync</h3>
-          <div className="flex items-center gap-2">
-            {ghStatus?.available && (
-              <span className="rounded-full bg-terminal-success/10 px-2.5 py-0.5 text-xs text-terminal-success">
-                gh CLI available
-              </span>
-            )}
-            {ghStatus?.authenticated && (
-              <span className="rounded-full bg-terminal-success/10 px-2.5 py-0.5 text-xs text-terminal-success">
-                {ghStatus.username}
-              </span>
-            )}
-          </div>
-        </div>
-        <p className="mb-4 text-sm text-terminal-muted">
-          Sync your nikcli config to a GitHub Gist for backup and portability.
-        </p>
-        <button
-          onClick={pushToGist}
-          disabled={!ghStatus?.available}
-          className="rounded-xl border border-terminal-border px-5 py-2 text-sm font-medium text-terminal-text transition-colors hover:bg-terminal-border/50 disabled:opacity-40"
-        >
-          Push to Gist
-        </button>
       </div>
 
       <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6">

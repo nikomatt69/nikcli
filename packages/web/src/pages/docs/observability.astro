@@ -1,0 +1,247 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Two modes", href: "#modes", depth: 2 },
+  { title: "OTLP export", href: "#otlp", depth: 2 },
+  { title: "Live telemetry panel", href: "#live", depth: 2 },
+  { title: "Configuration", href: "#config", depth: 2 },
+  { title: "TUI surface", href: "#tui", depth: 2 },
+  { title: "Effect integration", href: "#effect", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Observability"
+  subtitle="OpenTelemetry (OTLP) trace export and live in-process telemetry for the TUI panel. Source: packages/nikcli/src/observability/."
+  description="Guide to Nikcli observability, OpenTelemetry export, live telemetry, resource attributes, and Effect spans."
+  toc={toc}
+>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      nikcli ships a small observability layer that wires the Effect runtime to
+      <a href="https://opentelemetry.io" target="_blank" rel="noopener">OpenTelemetry</a> and
+      publishes a stream of captured spans on the internal bus. The layer is merged into every
+      Effect runtime base (<code>packages/nikcli/src/effect/runtime.ts</code>) so the same spans
+      power the live TUI panel, the OTLP export, and the on-disk log file.
+    </p>
+    <p>
+      There is no separate <code>nikcli telemetry</code> command. The whole subsystem is
+      configured by environment variables and turned on or off from the TUI.
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="OTLP export" eyebrow="Backend">
+        <p>
+          When <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> is set, spans and logs are exported to
+          any OTLP/HTTP collector (Grafana, Honeycomb, Jaeger, Datadog, …) using
+          <code>effect/unstable/observability</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Live panel" eyebrow="In-process">
+        <p>
+          On by default, the layer captures spans and publishes them on the
+          <code>telemetry.record</code> bus event. The TUI renders them in the live telemetry
+          dialog. Disable with <code>NIKCLI_DISABLE_OTEL_LIVE=1</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Resource attributes" eyebrow="Identity">
+        <p>
+          Every span carries <code>service.name</code>, <code>service.version</code>, and
+          <code>deployment.environment</code> derived from <code>NIKCLI_VERSION</code>,
+          <code>NIKCLI_CHANNEL</code>, and the <code>OTEL_RESOURCE_ATTRIBUTES</code> env var.
+        </p>
+      </DocCard>
+      <DocCard title="No-op when idle" eyebrow="Zero cost">
+        <p>
+          If neither an OTLP endpoint is set nor the live panel is enabled, the layer is a
+          pass-through and adds no measurable overhead.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="modes" class="mb-16 scroll-mt-24">
+    <h2>Two modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Mode</th><th>Enabled by</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><strong>OTLP export</strong></td><td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code> is set to a URL.</td><td>Spans and logs are POSTed to the OTLP/HTTP endpoint. Headers can be passed through <code>OTEL_EXPORTER_OTLP_HEADERS</code>.</td></tr>
+        <tr><td><strong>Live panel</strong></td><td>Default ON. Disabled with <code>NIKCLI_DISABLE_OTEL_LIVE=1</code>.</td><td>Each completed span is published on the <code>telemetry.record</code> bus event so the TUI can render it in real time.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Both modes can run at the same time. Disabling both fully deactivates the layer (no spans
+      are even captured).
+    </p>
+  </section>
+
+  <section id="otlp" class="mb-16 scroll-mt-24">
+    <h2>OTLP export</h2>
+    <p>
+      OTLP export uses the
+      <a href="https://effect.website" target="_blank" rel="noopener">Effect</a>
+      <code>OtlpTracer</code> and <code>OtlpLogger</code> modules. The HTTP client is the
+      standard <code>FetchHttpClient</code> from <code>effect/unstable/http</code>.
+    </p>
+    <h3>Environment variables</h3>
+    <table class="doc-table">
+      <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code></td><td>unset</td><td>OTLP/HTTP endpoint (for example <code>http://localhost:4318</code> or <code>https://otlp.grafana.net</code>). Setting it enables export.</td></tr>
+        <tr><td><code>OTEL_EXPORTER_OTLP_HEADERS</code></td><td>unset</td><td>Comma-separated <code>key=value</code> pairs, URL-decoded. Useful for auth headers (<code>Authorization=Bearer%20…</code>).</td></tr>
+        <tr><td><code>OTEL_RESOURCE_ATTRIBUTES</code></td><td>unset</td><td>Comma-separated <code>key=value</code> pairs merged into every span's resource (URL-decoded).</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_OTEL_LIVE</code></td><td><code>false</code></td><td>Disable the live telemetry panel even when OTLP is enabled.</td></tr>
+      </tbody>
+    </table>
+    <h3>Headers</h3>
+    <p>
+      The header parser is permissive: a header is split on the first <code>=</code> only, so
+      values may contain <code>=</code>. Keys and values are not URL-decoded automatically; the
+      collector's <code>OTEL_EXPORTER_OTLP_HEADERS</code> semantics match the OpenTelemetry spec.
+    </p>
+    <DocCode language="bash">
+# Export to a local Jaeger collector
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 nikcli run "summarize this repo"
+
+# Export to a hosted backend with auth
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.grafana.net \
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer%20xxx" \
+nikcli serve --port 4096
+
+# Disable the live panel but keep OTLP export
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+NIKCLI_DISABLE_OTEL_LIVE=1 \
+nikcli serve --port 4096
+    </DocCode>
+  </section>
+
+  <section id="live" class="mb-16 scroll-mt-24">
+    <h2>Live telemetry panel</h2>
+    <p>
+      The live panel is on by default. Each completed span is published on the
+      <code>telemetry.record</code> bus event with the payload defined in
+      <code>packages/nikcli/src/observability/telemetry-bus.ts</code>:
+    </p>
+    <DocCode language="ts" title="packages/nikcli/src/observability/telemetry-bus.ts">
+export const TelemetryRecord = BusEvent.define(
+  "telemetry.record",
+  z.object(&lbrace;
+    id: z.string(),
+    traceId: z.string(),
+    parentId: z.string().optional(),
+    name: z.string(),
+    kind: z.string(),
+    startTime: z.number(),
+    durationMs: z.number(),
+    statusCode: z.number().optional(),
+    statusMessage: z.string().optional(),
+    attributes: z.record(z.string(), z.string()).optional(),
+  &rbrace;),
+)
+    </DocCode>
+    <p>
+      The TUI subscribes to this event in
+      <code>packages/nikcli/src/cli/cmd/tui/component/dialog-telemetry-live.tsx</code> and renders a
+      scrolling, searchable list of spans with filter by name, kind, and status.
+    </p>
+    <DocCallout type="info" title="Cycle-safe">
+      <p>
+        The <code>TelemetryRecord</code> schema is defined in a module that imports only
+        <code>bus-event</code> so the observability layer can be merged into the Effect runtime
+        base without creating an import cycle.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="config" class="mb-16 scroll-mt-24">
+    <h2>Configuration</h2>
+    <p>
+      All configuration is read from environment variables in
+      <code>packages/nikcli/src/flag/flag.ts</code> and consumed by
+      <code>packages/nikcli/src/observability/otlp.ts</code>. There is no <code>nikcli.json</code>
+      field for telemetry — the values are deliberately env-only so container images can be
+      reconfigured without rebuilding.
+    </p>
+    <h3>Resource attributes</h3>
+    <p>
+      Every span is decorated with a resource block. The base attributes are:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Attribute</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td><code>service.name</code></td><td>Constant: <code>"nikcli"</code>.</td></tr>
+        <tr><td><code>service.version</code></td><td>Compile-time <code>NIKCLI_VERSION</code> (or <code>"local"</code> when running from source).</td></tr>
+        <tr><td><code>deployment.environment</code></td><td>Compile-time <code>NIKCLI_CHANNEL</code> (or <code>"local"</code>).</td></tr>
+        <tr><td>User-defined</td><td>Parsed from <code>OTEL_RESOURCE_ATTRIBUTES</code>.</td></tr>
+      </tbody>
+    </table>
+    <h3>Disabling the live panel</h3>
+    <p>
+      Set <code>NIKCLI_DISABLE_OTEL_LIVE=1</code> to opt out of the in-process span capture. This
+      is useful when you only want the OTLP export and want to skip the bus traffic.
+    </p>
+  </section>
+
+  <section id="tui" class="mb-16 scroll-mt-24">
+    <h2>TUI surface</h2>
+    <p>
+      The TUI exposes two dialogs that consume the same span stream:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Dialog</th><th>What it shows</th></tr></thead>
+      <tbody>
+        <tr><td><code>dialog-telemetry-live.tsx</code></td><td>Scrolling, filterable list of captured spans with name, kind, duration, and status code. Updates live as spans complete.</td></tr>
+        <tr><td><code>dialog-opentelemetry.tsx</code></td><td>Configuration dialog: shows the resolved OTLP endpoint, the current resource block, and a "Copy as env" button to copy the current configuration to the clipboard.</td></tr>
+        <tr><td><code>dialog-advisor-model.tsx</code></td><td>Selects the model used by the <code>advisor</code> tool. The advisor emits spans on every invocation, so the choice is visible in the live panel.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The dialogs are registered in
+      <code>packages/nikcli/src/cli/cmd/tui/component/dialog-command.tsx</code> and opened from
+      the command palette (Ctrl+P) or by their keybind.
+    </p>
+  </section>
+
+  <section id="effect" class="mb-16 scroll-mt-24">
+    <h2>Effect integration</h2>
+    <p>
+      The observability layer is merged into the Effect runtime base in
+      <code>packages/nikcli/src/effect/runtime.ts</code>. Application code that needs to emit a
+      span can use the standard Effect combinators:
+    </p>
+    <DocCode language="ts" title="Effect runtime span example">
+// Any service that uses the Effect runtime automatically gets an OTLP-capable tracer.
+const program = Effect.gen(function* () &lbrace;
+  yield* Effect.logInfo("doing work").pipe(Effect.withSpan("session.run"))
+  return yield* someOperation
+&rbrace;)
+    </DocCode>
+    <p>
+      The same span is published on the bus (so the TUI sees it) and exported over OTLP (when an
+      endpoint is set). No extra wiring is needed per call site.
+    </p>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
+      <tbody>
+        <tr><td><code>packages/nikcli/src/observability/index.ts</code></td><td>Public <code>Observability</code> namespace: <code>layer</code>, <code>isEnabled</code>, <code>isLiveEnabled</code>, <code>resourceInfo</code>.</td></tr>
+        <tr><td><code>packages/nikcli/src/observability/otlp.ts</code></td><td>OTLP layer built from <code>effect/unstable/observability</code>; reads flags and resource attributes.</td></tr>
+        <tr><td><code>packages/nikcli/src/observability/telemetry-bus.ts</code></td><td><code>TelemetryRecord</code> bus event and zod schema.</td></tr>
+        <tr><td><code>packages/nikcli/src/effect/runtime.ts</code></td><td>Where the observability layer is merged into the runtime base.</td></tr>
+        <tr><td><code>packages/nikcli/src/flag/flag.ts</code></td><td>OTLP / OTel environment variable definitions.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-telemetry-live.tsx</code></td><td>Live TUI panel.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-opentelemetry.tsx</code></td><td>OTLP configuration dialog.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-advisor-model.tsx</code></td><td>Advisor model picker (drives advisor spans).</td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

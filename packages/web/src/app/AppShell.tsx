@@ -862,15 +862,15 @@ function SessionsScreen(props: { navigate(path: string): void }) {
               >
                 <div className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-terminal-accent/10 blur-2xl" />
                 <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2">
+                  <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-terminal-muted">
                       <span>Execution</span>
                       <span>Updated {formatRelativeTime(session.info.time.updated)}</span>
                     </div>
-                    <div className="text-xl font-semibold text-terminal-text">
+                    <div className="break-words text-xl font-semibold text-terminal-text">
                       {session.info.title || "Untitled session"}
                     </div>
-                    <div className="text-sm text-terminal-muted">{sessionLocation(session.info)}</div>
+                    <div className="break-words text-sm text-terminal-muted">{sessionLocation(session.info)}</div>
                   </div>
                   <StatusPill status={session.status} />
                 </div>
@@ -926,11 +926,11 @@ function PermissionCard(props: {
         {path ? <Chip label="Path scoped" tone="neutral" /> : null}
       </div>
       {command ? (
-        <div className="mt-3 rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3 font-mono text-xs leading-6 text-terminal-text">
+        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3 font-mono text-xs leading-6 text-terminal-text">
           {command}
-        </div>
+        </pre>
       ) : null}
-      {path ? <div className="mt-2 text-xs text-terminal-muted">Path: {path}</div> : null}
+      {path ? <div className="mt-2 break-all text-xs text-terminal-muted">Path: {path}</div> : null}
       {props.item.patterns.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {props.item.patterns.map((pattern) => (
@@ -2105,13 +2105,13 @@ function ReposScreen(props: { navigate(path: string): void }) {
                           className="rounded-[24px] border border-terminal-border bg-terminal-panel px-4 py-4 shadow-soft"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div className="space-y-2">
+                            <div className="min-w-0 space-y-2">
                               <div className="flex flex-wrap gap-2">
                                 <Chip label={repo.private ? "Private" : "Public"} tone="neutral" />
                                 {repo.language ? <Chip label={repo.language} tone="neutral" /> : null}
                                 {imported ? <Chip label="Imported" tone="good" /> : null}
                               </div>
-                              <div className="text-lg font-semibold text-terminal-text">{fullName}</div>
+                              <div className="break-words text-lg font-semibold text-terminal-text">{fullName}</div>
                               {repo.description ? (
                                 <div className="text-sm leading-6 text-terminal-muted">{repo.description}</div>
                               ) : null}
@@ -2595,8 +2595,8 @@ function SettingsScreen() {
                   tokens.map((item) => (
                     <div key={item.id} className="rounded-2xl border border-terminal-border bg-terminal-code px-4 py-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-terminal-text">{item.name || item.id}</div>
+                        <div className="min-w-0">
+                          <div className="break-all font-semibold text-terminal-text">{item.name || item.id}</div>
                           <div className="mt-1 text-xs text-terminal-muted">
                             Created {formatRelativeTime(item.createdAt)}
                           </div>

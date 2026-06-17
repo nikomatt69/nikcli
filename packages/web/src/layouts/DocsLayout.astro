@@ -3,7 +3,7 @@ import "../styles/global.css";
 import "../styles/docs.css";
 import Navbar from "../components/Navbar.astro";
 import DocToc from "../components/docs/DocToc.astro";
-import { docsSidebar } from "../data/docsSidebar";
+import DocsSidebar from "../components/docs/DocsSidebar.astro";
 import { ClientRouter } from 'astro:transitions';
 
 interface Props {
@@ -21,7 +21,7 @@ const {
 } = Astro.props;
 
 const pathname = Astro.url.pathname;
-const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
+const ogImage = "https://nikcli.store/og.png";
 ---
 
 <!doctype html>
@@ -74,53 +74,19 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
     <a class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[100] px-5 py-2.5 bg-terminal-text text-terminal-bg font-semibold rounded-lg shadow-xl" href="#main-content">Skip to content</a>
     <Navbar />
     
-    <div class="page-shell relative flex w-full flex-1 flex-col xl:flex-row">
-      
+    <div class="page-shell relative flex w-full flex-1 min-h-0 flex-col xl:flex-row">
+
       <!-- Mobile Docs Menu Toggle -->
        <div class="sticky top-[var(--topbar-height)] z-40 flex min-h-[var(--docs-mobilebar-height)] items-center justify-between border-b border-terminal-border/60 bg-terminal-bg/90 px-0 py-3 shadow-sm backdrop-blur-xl dark:border-white/5 dark:bg-terminal-bg/80 xl:hidden">
           <span class="text-sm font-semibold text-terminal-text">Docs</span>
-         <button id="mobile-docs-toggle" type="button" class="inline-flex items-center gap-2 rounded-full border border-terminal-border/60 bg-terminal-panel/90 px-3 py-2 text-sm font-semibold text-terminal-text shadow-sm transition-all hover:bg-surface-hover active:scale-95" aria-label="Open docs navigation" aria-controls="docs-sidebar" aria-expanded="false">
+          <button id="mobile-docs-toggle" type="button" class="inline-flex items-center gap-2 rounded-full border border-terminal-border/60 bg-terminal-panel/90 px-3 py-2 text-sm font-semibold text-terminal-text shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-surface-hover active:scale-[0.97]" aria-label="Open docs navigation" aria-controls="docs-sidebar" aria-expanded="false">
            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h6M4 12h6M4 18h6M14 5h6v14h-6z"></path></svg>
            <span>Browse</span>
          </button>
        </div>
 
       <!-- Sidebar Navigation -->
-      <aside id="docs-sidebar" class="hidden w-full shrink-0 overflow-y-auto border-terminal-border/60 bg-terminal-bg xl:block xl:w-[280px] xl:border-r xl:bg-transparent xl:sticky xl:top-[var(--topbar-height)] xl:h-[calc(100vh-var(--topbar-height))] custom-scrollbar z-30 transition-transform duration-300 dark:border-white/5">
-        <div class="flex flex-col gap-8 py-6 xl:py-10 xl:pr-8">
-          
-          <!-- Search Bar -->
-          <div class="rounded-xl border border-terminal-border/60 bg-surface-hover px-4 py-3 shadow-inner">
-            <div class="font-mono text-eyebrow uppercase text-terminal-muted">Search</div>
-            <p class="mt-2 text-body-sm text-terminal-muted">Use the sidebar or browser find while docs search is being refined.</p>
-          </div>
-
-          <!-- Navigation Links -->
-          <nav class="flex flex-col gap-8 text-sm">
-            {docsSidebar.map((group) => (
-              <div class="flex flex-col gap-3 docs-nav-group-anim">
-                <h4 class="font-display font-bold text-terminal-muted tracking-[0.18em] uppercase text-[10.5px] mb-2">{group.title}</h4>
-                <ul class="flex flex-col gap-1">
-                  {group.items.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <li>
-                        <a
-                          href={item.href}
-                          data-mobile-docs-link
-                          class={`block px-3.5 py-[7px] rounded-[8px] text-[13.5px] transition-colors duration-100 relative ${isActive ? "bg-terminal-accent/10 text-terminal-accent font-semibold border border-terminal-accent/20 pl-4 before:absolute before:left-0 before:inset-y-2 before:w-[3px] before:bg-terminal-accent before:rounded-full" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover font-normal"}`}
-                        >
-                          {item.title}
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </nav>
-        </div>
-      </aside>
+      <DocsSidebar />
 
       <!-- Main Content Area -->
       <main id="main-content" class="min-w-0 flex-1 py-8 pb-24 outline-none sm:py-10 lg:py-14 lg:pb-28 xl:px-10" tabindex="-1">
@@ -141,8 +107,8 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
 
       <!-- Table of Contents (Right Sidebar) -->
       {toc.length > 0 && (
-        <div class="hidden xl:block w-72 shrink-0 pl-6">
-          <div class="sticky top-[var(--topbar-height)] h-[calc(100vh-var(--topbar-height))] overflow-y-auto pt-12 pb-24 custom-scrollbar">
+        <div class="hidden xl:block w-72 shrink-0 pl-6 self-start">
+          <div class="sticky top-[var(--topbar-height)] max-h-[calc(100vh-var(--topbar-height))] overflow-y-auto pt-12 pb-24 custom-scrollbar">
              <DocToc items={toc} />
           </div>
         </div>
@@ -174,7 +140,6 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
     <script>
       const initDocs = async () => {
         if (typeof window === 'undefined') return;
-        const { animate, stagger } = await import("framer-motion");
         (window as Window & { __nikcliDocsCleanup?: () => void }).__nikcliDocsCleanup?.();
 
         const cleanups: Array<() => void> = [];
@@ -198,12 +163,7 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
           'backdrop-blur-xl',
         ];
 
-        const newBtn = mobileBtn?.cloneNode(true) as HTMLElement | null;
-        const docsBtn = newBtn instanceof HTMLElement ? newBtn : null;
-        if (mobileBtn && docsBtn && mobileBtn.parentNode) {
-          mobileBtn.parentNode.replaceChild(docsBtn, mobileBtn);
-        }
-
+        const docsBtn = mobileBtn;
         let sidebarOpen = false;
 
         const renderButton = (open: boolean) => {
@@ -271,22 +231,37 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
           cleanups.push(() => link.removeEventListener('click', closeSidebar));
         });
 
-        const navGroups = document.querySelectorAll('.docs-nav-group-anim');
-        if (navGroups.length > 0 && window.innerWidth > 768) {
-          animate(
-            navGroups,
-            { opacity: [0, 1], x: [-15, 0] },
-            { delay: stagger(0.08), duration: 0.5, ease: 'easeOut' }
-          );
-        }
+        const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.doc-toc-link'));
+        const sections = tocLinks
+          .map((link) => document.querySelector(link.getAttribute('href') ?? ''))
+          .filter((section): section is Element => section instanceof Element);
 
-        const cards = document.querySelectorAll('.doc-card');
-        if (cards.length > 0) {
-          animate(
-            cards,
-            { opacity: [0, 1], y: [10, 0] },
-            { delay: stagger(0.1, { startDelay: 0.2 }), duration: 0.4, ease: 'easeOut' }
+        if ('IntersectionObserver' in window && tocLinks.length > 0 && sections.length > 0) {
+          const tocObserver = new IntersectionObserver(
+            (entries) => {
+              const visible = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+              if (!visible) return;
+
+              tocLinks.forEach((link) => {
+                const isActive = link.getAttribute('href') === `#${visible.target.id}`;
+                link.classList.toggle('active', isActive);
+                if (isActive) {
+                  link.setAttribute('aria-current', 'location');
+                } else {
+                  link.removeAttribute('aria-current');
+                }
+              });
+            },
+            {
+              rootMargin: '-24% 0px -62% 0px',
+              threshold: [0, 0.15, 0.35, 0.6],
+            }
           );
+
+          sections.forEach((section) => tocObserver.observe(section));
+          cleanups.push(() => tocObserver.disconnect());
         }
 
         (window as Window & { __nikcliDocsCleanup?: () => void }).__nikcliDocsCleanup = () => {

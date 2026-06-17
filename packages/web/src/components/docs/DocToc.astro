@@ -23,10 +23,12 @@ const filteredItems = items.filter(item => (item.depth ?? 2) <= 3 && (item.depth
       const depth = item.depth ?? 2;
       const isH3 = depth === 3;
       return (
-        <a 
-          class={`text-sm py-1.5 leading-snug text-terminal-muted hover:text-terminal-text transition-colors relative block truncate w-full group
-                 ${isH3 ? 'pl-4 text-[13px] opacity-80' : 'pl-0 font-medium'} 
-                 before:absolute before:inset-y-0 before:-left-4 before:w-[2px] before:bg-transparent hover:before:bg-terminal-accent before:transition-colors before:rounded-r-md`} 
+        <a
+          class={[
+            "doc-toc-link text-sm py-1.5 leading-snug text-terminal-muted hover:text-terminal-text transition-colors relative block truncate w-full group",
+            "before:absolute before:inset-y-0 before:-left-4 before:w-[2px] before:bg-transparent hover:before:bg-terminal-accent before:transition-colors before:rounded-r-md",
+            isH3 ? "pl-4 text-[13px] opacity-80" : "pl-0 font-medium",
+          ].join(" ")}
           href={item.href}
           title={item.title}
         >

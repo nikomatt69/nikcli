@@ -2,7 +2,7 @@ import React, { type ReactNode, useState, useEffect } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
 import { getErrorMessage, requestJson } from "../lib/studio-api"
 
-const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
+const DEFAULT_SERVER_URL = "https://s.nikcli.store"
 
 interface DashboardShellProps {
   title: string
@@ -121,7 +121,7 @@ const icons = {
 
 function ServerSetup() {
   const { setServerUrl } = useAuth()
-  const [url, setUrl] = useState("http://localhost:4096")
+  const [url, setUrl] = useState(DEFAULT_SERVER_URL)
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
 
@@ -130,7 +130,8 @@ function ServerSetup() {
     setError(null)
     setChecking(true)
     try {
-      await requestJson<{ hasUsers: boolean }>("/user/status", {
+      // /global/health is public — proves the server is reachable before we ask for a token.
+      await requestJson<unknown>("/global/health", {
         serverUrl: url,
         signal: AbortSignal.timeout(5000),
       })
@@ -182,7 +183,7 @@ function ServerSetup() {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="http://localhost:4096"
+              placeholder={DEFAULT_SERVER_URL}
               required
               className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg px-4 py-2.5 text-[13px] text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20 transition-colors duration-150"
             />
@@ -239,23 +240,43 @@ const navSections: Array<{ heading: string; items: NavItem[] }> = [
 ]
 
 function DashboardShellInner({ title, children }: DashboardShellProps) {
-  const { user, loading, logout, serverUrl } = useAuth()
+  const { user, loading, logout, serverUrl, connected } = useAuth()
   const [mounted, setMounted] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Lock body scroll while the mobile nav drawer is open
   useEffect(() => {
-    if (mounted && !loading && !user && (serverUrl || isDev)) {
+    if (typeof document === "undefined") return
+    document.body.style.overflow = navOpen ? "hidden" : ""
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [navOpen])
+
+  // Close the drawer on Escape
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavOpen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [navOpen])
+
+  useEffect(() => {
+    if (mounted && !loading && !connected && serverUrl) {
       window.location.href = "/dashboard/login"
     }
-  }, [mounted, loading, user, serverUrl])
+  }, [mounted, loading, connected, serverUrl])
 
   if (!mounted) return <Spinner />
-  if (!serverUrl && !isDev) return <ServerSetup />
-  if (loading) return <Spinner />
-  if (!user) return null
+  if (!serverUrl) return <ServerSetup />
+  if (loading && !connected) return <Spinner />
+  if (!connected || !user) return null
 
   const pathname = typeof window !== "undefined" ? window.location.pathname : ""
   const isActive = (href: string, exact?: boolean) =>
@@ -263,9 +284,24 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
 
   return (
     <div className="flex">
-      {/* Sidebar — positioned below the main Navbar */}
+      {/* Mobile drawer backdrop */}
+      {navOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden"
+          style={{ top: "var(--topbar-height)" }}
+        />
+      )}
+
+      {/* Sidebar — positioned below the main Navbar; off-canvas drawer on mobile */}
       <aside
-        className="fixed left-0 bottom-0 z-40 w-64 border-r border-terminal-border bg-terminal-panel flex flex-col"
+        className={[
+          "fixed left-0 bottom-0 z-40 w-64 max-w-[82vw] border-r border-terminal-border bg-terminal-panel flex flex-col",
+          "transition-transform duration-200 ease-out lg:translate-x-0 lg:shadow-none",
+          navOpen ? "translate-x-0 shadow-strong" : "-translate-x-full",
+        ].join(" ")}
         style={{ top: "var(--topbar-height)" }}
       >
         {/* Nav sections */}
@@ -281,8 +317,9 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
                   <a
                     key={href}
                     href={href}
+                    onClick={() => setNavOpen(false)}
                     className={[
-                      "relative flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-[13px] font-medium transition-colors duration-100",
+                      "relative flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-[13px] font-medium transition-colors duration-100",
                       active
                         ? "bg-terminal-accent/10 text-terminal-accent"
                         : "text-terminal-muted hover:bg-terminal-border/30 hover:text-terminal-text",
@@ -329,24 +366,33 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
           </div>
 
           {/* Server status */}
-          {(serverUrl || isDev) && (
+          {serverUrl && (
             <div className="mt-2.5 flex items-center gap-2 px-1">
               <div className="h-1.5 w-1.5 rounded-full bg-terminal-success shrink-0" />
-              <span className="font-mono text-[10.5px] text-terminal-muted/60 truncate">
-                {serverUrl || "dev proxy"}
-              </span>
+              <span className="font-mono text-[10.5px] text-terminal-muted/60 truncate">{serverUrl}</span>
             </div>
           )}
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="ml-64 flex-1 min-h-[calc(100vh-4rem)]">
-        {/* Subtle page breadcrumb */}
-        <div className="sticky top-[var(--topbar-height)] z-20 flex items-center h-11 px-8 border-b border-terminal-border/40 bg-terminal-bg/80 backdrop-blur-sm">
-          <span className="text-[12.5px] font-medium text-terminal-muted/70">Studio</span>
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-[calc(100vh-4rem)]">
+        {/* Subtle page breadcrumb + mobile nav toggle */}
+        <div className="sticky top-[var(--topbar-height)] z-20 flex items-center gap-1.5 h-12 px-4 sm:px-6 lg:px-8 border-b border-terminal-border/40 bg-terminal-bg/80 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={() => setNavOpen((v) => !v)}
+            aria-label={navOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={navOpen}
+            className="-ml-1.5 mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-terminal-border text-terminal-muted transition-colors hover:bg-terminal-border/40 hover:text-terminal-text lg:hidden"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {navOpen ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M4 6h16M4 12h16M4 18h16" />}
+            </svg>
+          </button>
+          <span className="hidden text-[12.5px] font-medium text-terminal-muted/70 sm:inline">Studio</span>
           <svg
-            className="mx-1.5 w-3 h-3 text-terminal-muted/40"
+            className="mx-1.5 hidden w-3 h-3 text-terminal-muted/40 sm:block"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -354,9 +400,9 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-[12.5px] font-medium text-terminal-text">{title}</span>
+          <span className="truncate text-[12.5px] font-medium text-terminal-text">{title}</span>
         </div>
-        <div className="p-8">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   )

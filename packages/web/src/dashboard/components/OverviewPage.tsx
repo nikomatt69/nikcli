@@ -73,7 +73,7 @@ function OverviewPageInner() {
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
             Studio overview
           </p>
-          <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Welcome back, {displayName}</h2>
+          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">Welcome back, {displayName}</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
             Manage Cloud Sessions, MCP servers, profiles, skills, agents, and configuration for this authenticated user.
           </p>

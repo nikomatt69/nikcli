@@ -172,7 +172,7 @@ function SessionsPageInner() {
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
             Cloud Sessions
           </p>
-          <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Manage Cloud Sessions</h2>
+          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">Manage Cloud Sessions</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
             Create, rename, archive, delete, and inspect the authenticated Cloud Sessions attached to this nikcli
             server.
@@ -243,7 +243,7 @@ function SessionsPageInner() {
       ) : visibleSessions.length === 0 ? (
         <EmptyState onCreate={createCloudSession} />
       ) : (
-        <div className="overflow-hidden rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel">
+        <div className="overflow-x-auto rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="border-b border-terminal-border bg-terminal-bg/60 text-left text-[11px] uppercase tracking-[0.16em] text-terminal-muted">
               <tr>

@@ -56,18 +56,18 @@ import Navbar from "../../components/Navbar.astro"
       </div>
 
       <!-- Right panel — form -->
-      <div class="flex w-full items-center justify-center px-8 lg:w-1/2">
+      <div class="flex w-full items-center justify-center px-5 py-10 sm:px-8 lg:w-1/2">
         <div class="w-full max-w-sm space-y-8">
           <div>
-            <h1 class="font-display text-[1.6rem] font-extrabold tracking-tight text-terminal-text">Welcome back</h1>
-            <p class="mt-2 text-[14px] text-terminal-muted">Sign in to access your studio</p>
+            <h1 class="font-display text-[1.6rem] font-extrabold tracking-tight text-terminal-text">Connect your server</h1>
+            <p class="mt-2 text-[14px] text-terminal-muted">Pair the Studio with your nikcli server using your token</p>
           </div>
 
           <LoginForm client:load />
 
           <p class="text-center text-[13px] text-terminal-muted">
-            Don't have an account?{" "}
-            <a href="/dashboard/register" class="font-semibold text-terminal-accent hover:underline underline-offset-3">Create one</a>
+            Need a token? Run{" "}
+            <code class="rounded bg-terminal-panel px-1.5 py-0.5 font-mono text-[12px] text-terminal-accent">nikcli mobile pair</code>
           </p>
         </div>
       </div>

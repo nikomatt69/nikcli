@@ -51,13 +51,14 @@ const toolIndex = [
   { id: "create_goal", file: "src/tool/goal.ts", desc: "Create a session goal with an objective and optional token budget." },
   { id: "get_goal", file: "src/tool/goal.ts", desc: "Read the current goal state for this session." },
   { id: "update_goal", file: "src/tool/goal.ts", desc: "Mark the session goal as complete or blocked." },
-  { id: "invalid", file: "src/tool/invalid.ts", desc: "Placeholder for invalid tool calls." },
+  { id: "invalid", file: "src/tool/invalid.ts", desc: "Rejected invalid tool-call shape." },
 ];
 ---
 
 <DocsLayout
   title="Tools"
   subtitle="Public tools registered in packages/nikcli/src/tool/registry.ts plus tool-gating behavior."
+  description="Reference for Nikcli public tools, tool registry, permissions, model gating, and agent tool access."
   toc={toc}
 >
   <section id="tool-registry" class="mb-16 scroll-mt-24">

@@ -21,6 +21,8 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "Providers", href: "/docs/providers" },
       { title: "Connectors", href: "/docs/connectors" },
       { title: "Routines", href: "/docs/routines" },
+      { title: "Loops", href: "/docs/loops" },
+      { title: "Missions", href: "/docs/missions" },
       { title: "Localization", href: "/docs/localization" },
       { title: "Sessions", href: "/docs/sessions" },
       { title: "Permissions", href: "/docs/permissions" },
@@ -37,6 +39,7 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "LSP", href: "/docs/lsp" },
       { title: "Storage", href: "/docs/storage" },
       { title: "TUI", href: "/docs/tui" },
+      { title: "Observability", href: "/docs/observability" },
     ],
   },
   {

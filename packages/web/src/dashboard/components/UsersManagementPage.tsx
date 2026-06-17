@@ -195,20 +195,20 @@ function UsersManagementPageInner() {
           {users.map((u) => (
             <div
               key={u.id}
-              className="flex items-center justify-between rounded-2xl border border-terminal-border bg-terminal-panel px-5 py-4"
+              className="flex flex-col gap-3 rounded-2xl border border-terminal-border bg-terminal-panel px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-terminal-accent/20 text-sm font-semibold text-terminal-accent">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terminal-accent/20 text-sm font-semibold text-terminal-accent">
                   {(u.displayName || u.display_name || u.username)[0].toUpperCase()}
                 </div>
-                <div>
-                  <div className="font-semibold text-terminal-text">
+                <div className="min-w-0">
+                  <div className="truncate font-semibold text-terminal-text">
                     {u.displayName || u.display_name || u.username}
                   </div>
-                  <div className="text-xs text-terminal-muted">{u.email}</div>
+                  <div className="truncate text-xs text-terminal-muted">{u.email}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     u.role === "admin"

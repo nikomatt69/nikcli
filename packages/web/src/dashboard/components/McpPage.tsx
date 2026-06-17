@@ -126,7 +126,7 @@ function McpPageInner() {
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
             User MCP
           </p>
-          <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Manage MCP servers</h2>
+          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-bold text-terminal-text">Manage MCP servers</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
             Add, edit, enable, disable, or remove MCP servers from the connected nikcli user configuration.
           </p>
@@ -231,7 +231,7 @@ function McpPageInner() {
                         onChange={(e) =>
                           server.type === "local" ? setEditCommand(e.target.value) : setEditUrl(e.target.value)
                         }
-                        className="mt-2 w-full min-w-[280px] rounded-[var(--radius-sm)] border border-terminal-border bg-terminal-bg px-3 py-2 font-mono text-xs text-terminal-text outline-none focus:border-terminal-accent"
+                        className="mt-2 w-full min-w-0 sm:min-w-[280px] rounded-[var(--radius-sm)] border border-terminal-border bg-terminal-bg px-3 py-2 font-mono text-xs text-terminal-text outline-none focus:border-terminal-accent"
                       />
                     ) : (
                       <div className="mt-0.5 truncate font-mono text-xs text-terminal-muted">
