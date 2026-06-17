@@ -269,12 +269,12 @@ These environment variables configure the observability layer described in the
 [Observability docs](https://nikcli.store/docs/observability). They are read at process start
 and are not hot-reloadable.
 
-| Variable                          | Default       | Purpose                                                            |
-| --------------------------------- | ------------- | ------------------------------------------------------------------ |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`     | unset         | OTLP/HTTP endpoint. Setting it enables export.                    |
-| `OTEL_EXPORTER_OTLP_HEADERS`      | unset         | Comma-separated `key=value` pairs (e.g. `Authorization=Bearer%20…`) |
-| `OTEL_RESOURCE_ATTRIBUTES`        | unset         | Comma-separated `key=value` pairs merged into every span resource. |
-| `NIKCLI_DISABLE_OTEL_LIVE`        | `false`       | Opt out of the in-process span capture (live panel).              |
+| Variable                      | Default | Purpose                                                             |
+| ----------------------------- | ------- | ------------------------------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset   | OTLP/HTTP endpoint. Setting it enables export.                      |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | unset   | Comma-separated `key=value` pairs (e.g. `Authorization=Bearer%20…`) |
+| `OTEL_RESOURCE_ATTRIBUTES`    | unset   | Comma-separated `key=value` pairs merged into every span resource.  |
+| `NIKCLI_DISABLE_OTEL_LIVE`    | `false` | Opt out of the in-process span capture (live panel).                |
 
 ---
 

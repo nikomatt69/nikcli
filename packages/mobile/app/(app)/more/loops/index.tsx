@@ -67,7 +67,11 @@ function LoopRow({
           />
         </View>
         <View className="flex-1">
-          <ActionButton label="Manage" variant="secondary" onPress={() => router.push(`/more/loops/${loop.id}` as Href)} />
+          <ActionButton
+            label="Manage"
+            variant="secondary"
+            onPress={() => router.push(`/more/loops/${loop.id}` as Href)}
+          />
         </View>
       </View>
     </SurfaceCard>

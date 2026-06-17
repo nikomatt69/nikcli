@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "1.76.0",
+  "version": "1.81.0",
   "name": "nikcli-ai",
   "type": "module",
   "license": "MIT",
