@@ -543,7 +543,7 @@ function Modal(props: { open: boolean; title: string; children: ReactNode; onClo
   if (!props.open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 py-3 backdrop-blur-sm sm:items-center sm:px-4 sm:py-8">
-      <div className="max-h-[calc(100vh-0.75rem)] w-full max-w-2xl overflow-y-auto no-scrollbar rounded-[28px] rounded-b-[28px] rounded-t-[30px] border border-terminal-border bg-terminal-panel p-4 shadow-strong sm:max-h-[calc(100vh-2rem)] sm:rounded-[28px] sm:p-5">
+      <div className="max-h-[calc(100vh-0.75rem)] w-full max-w-2xl overflow-y-auto no-scrollbar rounded-[28px] border border-terminal-border bg-terminal-panel p-4 shadow-strong sm:max-h-[calc(100vh-2rem)] sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-4">
           <h3 className="text-xl font-semibold text-terminal-text">{props.title}</h3>
           <Button variant="ghost" onClick={props.onClose}>
@@ -911,7 +911,7 @@ function PermissionCard(props: {
     typeof metadata.path === "string" ? metadata.path : typeof metadata.file === "string" ? metadata.file : ""
 
   return (
-    <div className="rounded-[26px] border border-terminal-accent/20 bg-terminal-panel px-4 py-4 shadow-soft">
+    <div className="rounded-[28px] border border-terminal-accent/20 bg-terminal-panel px-4 py-4 shadow-soft">
       <div className="space-y-2">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-terminal-accent">
           Permission required
@@ -1444,7 +1444,7 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-6">
       <Surface
         eyebrow="Execution timeline"
         title={detail.info.title || "Session"}
@@ -1555,7 +1555,7 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
           </div>
         </Surface>
 
-        <div className="space-y-5 xl:sticky xl:top-6">
+        <div className="space-y-6 xl:sticky xl:top-6">
           <Surface
             eyebrow="Composer"
             title="Send the next instruction"
@@ -2722,7 +2722,7 @@ function ClientApp(props: { initialPath: string }) {
             />
           </div>
 
-          <details className="mt-4 rounded-[22px] border border-terminal-border bg-terminal-code/80 px-4 py-3 xl:hidden">
+          <details className="mt-4 rounded-[24px] border border-terminal-border bg-terminal-code/80 px-4 py-3 xl:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-left">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-terminal-muted">
