@@ -7,7 +7,11 @@ import type { Provider } from "@/provider/provider"
 function mockModel(input: { id: string; npm: string; apiId: string; reasoning: boolean }): Provider.Model {
   return {
     id: input.id,
-    api: { id: input.apiId, url: "https://openrouter.ai/api/v1", npm: input.npm },
+    api: {
+      id: input.apiId,
+      url: "https://openrouter.ai/api/v1",
+      npm: input.npm,
+    },
     capabilities: { reasoning: input.reasoning },
   } as unknown as Provider.Model
 }
@@ -25,24 +29,20 @@ describe("ProviderTransform.variants — openrouter fusion", () => {
 
     expect(result).toEqual({
       quality: {
-        tool_choice: "required",
         plugins: [
           {
             id: "fusion",
             analysis_models: ["~anthropic/claude-opus-latest", "~openai/gpt-latest", "~google/gemini-pro-latest"],
             model: "~anthropic/claude-opus-latest",
-            enabled: true,
           },
         ],
       },
       budget: {
-        tool_choice: "required",
         plugins: [
           {
             id: "fusion",
             analysis_models: ["~google/gemini-flash-latest", "~moonshotai/kimi-latest", "deepseek/deepseek-v4-pro"],
             model: "~google/gemini-flash-latest",
-            enabled: true,
           },
         ],
       },

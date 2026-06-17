@@ -57,8 +57,7 @@ describe("computeActivityStats", () => {
     // 3 active, 1 inactive, 5 active, 2 inactive, 1 active
     const values = [10, 10, 10, 0, 5, 5, 5, 5, 5, 0, 0, 7]
     const s = computeActivityStats(days("2026-01-01", values))
-    expect(s.activeDays).toBe(10) // 3 + 5 + 1 + ... wait: 3 + 5 + 1 = 9; let me recount
-    // Actually: 10,10,10,0,5,5,5,5,5,0,0,7 → active days = 3+5+1 = 9
+    // 10,10,10,0,5,5,5,5,5,0,0,7 → active days = 3+5+1 = 9
     expect(s.activeDays).toBe(9)
     expect(s.longestStreak).toBe(5)
     expect(s.currentStreak).toBe(1) // last value is 7
@@ -171,19 +170,22 @@ describe("buildActivityGrid", () => {
     // 10 days, but ask for lookback=5 → only the last 5 should drive the grid.
     const values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     const g = buildActivityGrid(days("2026-01-05", values), 5)
-    expect(g.startDate).toBe("2026-01-09")
-    expect(g.endDate).toBe("2026-01-13")
+    expect(g.startDate).toBe("2026-01-10")
+    expect(g.endDate).toBe("2026-01-14")
     // maxValue comes from the trimmed window: 10
     expect(g.maxValue).toBe(10)
   })
 
   it("supports a custom metric (cost-based grid)", () => {
-    const daysWithCost: DayStats[] = [5, 0, 0, 10, 0, 0, 7].map((c, i) => ({
-      ...day(`2026-01-0${i + 1}`, 0),
-      cost: c,
-    }))
+    const costs = [5, 0, 0, 10, 0, 0, 7]
+    const daysWithCost: DayStats[] = costs.map((c, i) => {
+      const start = new Date("2026-01-05T00:00:00.000Z")
+      const d = new Date(start)
+      d.setUTCDate(d.getUTCDate() + i)
+      return { ...day(d.toISOString().split("T")[0]!, 0), cost: c }
+    })
     const g = buildActivityGrid(daysWithCost, 7, (d) => d.cost)
-    // Mon:5, Tue:0, Wed:0, Thu:10, Fri:0, Sat:0, Sun:7
+    // Week starting Mon 2026-01-05: Mon:5, Tue:0, Wed:0, Thu:10, Fri:0, Sat:0, Sun:7
     expect(g.cells[0]?.[0]).toBe(5)
     expect(g.cells[3]?.[0]).toBe(10)
     expect(g.cells[6]?.[0]).toBe(7)
