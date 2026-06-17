@@ -1,6 +1,6 @@
 # Nikcli Project Memory
 
-**Last updated**: 2026-06-17
+**Last updated**: 2026-06-17 (evening — plugin catalog + docs refinement + agent loop clarification)
 
 ## Architecture Overview
 
@@ -4019,3 +4019,233 @@ Launch: `REFRESH_MS=120 bun /tmp/nikcli-tui.mjs`
 - `ses_13388ac0effeBmfkr3XBE558pu` — `@explore`: retrieved Sections 10-15 of agent report from tool-output file
 - `ses_133842e8affeekNHppG0oX6LId` — `@explore`: retrieved Sections 11-15 of server report from tool-output file
 - `ses_1337a40a8ffeQ50QP331G9bLvg` — Primary session: investigated opentui tool bug end-to-end, then user directed to use the tool, multiple failure modes documented
+
+## Brain Pass (2026-06-17)
+
+### Plugin Catalog Fix — npm Naming Issue (session `ses_128ee9352ffe4h9920pC5sCuKR`)
+
+**Problem**: `bun add nikcli-snip` failed with HTTP 404 on the npm registry. The TUI plugin catalog had renamed external opencode plugins to `nikcli-*` names that don't exist on npm.
+
+**User clarification (Italian)**: "perche non inizia con nikcli, e di opencode ma e compatibile" → "those plugins come from opencode but are compatible" — the catalog was wrongly branded.
+
+**Fix scope (10 catalog entries)** — switch from `nikcli-*` to actual upstream package names verified via `webfetch` against `https://registry.npmjs.org/{pkg}`:
+
+| Catalog entry          | Wrong name          | Correct npm name                          | Type          |
+| ---------------------- | ------------------- | ----------------------------------------- | ------------- |
+| snip                   | `nikcli-snip`       | `@nikcli-ai/snip` ❌ 404 (private/internal) | remove/mark unavailable |
+| safety-net             | `nikcli-safety-net` | `@nikcli-ai/safety-net` ❌ 404              | remove/mark unavailable |
+| agent-memory           | `nikcli-agent-memory` | `@nikcli-ai/plugin-agent-memory` (or remove) | remove/mark unavailable |
+| smart-title            | `nikcli-smart-title` | `opencode-smart-title` (Tarquinen scope: `@tarquinen/opencode-smart-title`) | use unscoped or `@tarquinen/...` |
+| handoff                | `nikcli-handoff`    | `opencode-handoff` (or `@tarquinen/opencode-handoff`) | use unscoped or `@tarquinen/...` |
+| context-analysis       | `nikcli-context-analysis` | external opencode plugin             | remove/mark unavailable |
+| direnv                 | `nikcli-direnv`     | external opencode plugin                  | remove/mark unavailable |
+| dynamic-context-pruning | `nikcli-dynamic-context-pruning` | external opencode plugin     | remove/mark unavailable |
+| envsitter-guard        | `nikcli-envsitter-guard` | external opencode plugin            | remove/mark unavailable |
+| background-agents      | `nikcli-background-agents` | external opencode plugin          | remove/mark unavailable |
+
+**Researcher conclusion** (`ses_conceptual-emerald-rabbit`, confidence: high): "Five catalog entries should switch to `@nikcli-ai/plugin-*`; the remaining five should be removed or marked unavailable unless internal/private publishing plans exist."
+
+**Important distinction**:
+- `@nikcli-ai/*` scoped packages either don't exist on npm or are private — they cause 404s
+- `opencode-*` packages are real, published, and the **plugin runtime is compatible** because nikcli's plugin loader (`packages/plugin/`) uses the same `Plugin` interface that opencode plugins expose
+- For scoped opencode packages like `@tarquinen/opencode-smart-title`, the unscoped name `opencode-smart-title` is what's published — npm registry HTML shows the scoped version, but `bun add` may need the scoped name
+
+**Manifest compatibility note**: The `readPluginManifest` function ignores the `opencode` field in some legacy manifests but uses `main` to resolve the server entry. Plugin compatibility is preserved as long as the manifest provides a runnable `main`.
+
+**Pattern when adding external opencode plugins to nikcli catalog**: verify with `webfetch https://registry.npmjs.org/{exact-package-name}` before committing. Use `bun pm view {pkg} version` for quick CLI check.
+
+### packages/web Docs Refinement (session `ses_128cdc61bffe7Qf9xEoCzaYOvn` + `ses_128cde669ffeHTfbcJm6p1TdQL`)
+
+Comprehensive read-only audit + targeted refinements of `packages/web/src/pages/docs/`.
+
+**26 doc pages, 26 sidebar entries** (1:1 mapping in `docsSidebar.ts`). All Astro file-based routing, hand-authored content (not MDX, not generated from repo).
+
+**Key files**:
+
+| File | Role |
+| --- | --- |
+| `packages/web/src/pages/docs/*.astro` (26 files) | Hand-authored doc pages, frontmatter `toc` array + `<DocsLayout>` + sections with `id` anchors |
+| `packages/web/src/layouts/DocsLayout.astro` | Docs-only HTML shell (SEO, Navbar, sidebar, article, optional TOC, footer, `astro:transitions` ClientRouter) |
+| `packages/web/src/layouts/Layout.astro` | Marketing + `/app` + dashboard pages (includes PostHog) |
+| `packages/web/src/components/docs/DocsSidebar.astro` | Sidebar nav |
+| `packages/web/src/components/docs/DocToc.astro` | Right-rail TOC (h2/h3) |
+| `packages/web/src/components/docs/DocCard.astro` | Card primitive (Tailwind + `<style>`) |
+| `packages/web/src/components/docs/DocCallout.astro` | Boxed callout |
+| `packages/web/src/components/docs/DocCode.astro` | Terminal-window code block with copy-to-clipboard |
+| `packages/web/src/data/docsSidebar.ts` | Nav groups — single source of truth |
+| `packages/web/src/data/keybinds.ts` | TUI keybind catalog (NOT imported by any docs page) |
+| `packages/web/src/styles/global.css` | Design tokens, theme, utilities |
+| `packages/web/src/styles/docs.css` | Prose/tables/TOC/sidebar/scroll-padding overrides |
+
+**Styling stack**: Tailwind (`@astrojs/tailwind`) + `@tailwindcss/typography` + CSS variables (`terminal-*`, `surface-*`, `--topbar-height`, `--docs-mobilebar-height`). No CSS modules. Component-scoped `<style>` only in DocCard and DocCode.
+
+**Sidebar groups** (in order):
+
+1. **Getting Started** — Overview, Architecture, CLI Reference
+2. **Core** — Configuration, Agents, Tools, Providers, Connectors, Routines, Loops, Missions, Localization, Sessions, Permissions, Plugins & Skills
+3. **Systems** — Server & API, Web App & Studio, Mobile, MCP, LSP, Storage, TUI, Observability
+4. **Reference** — Packages & Suite, Source Map, CLI Debug
+
+**Sidebar behavior**:
+- Active link: pathname normalized (trailing `/` stripped) vs `item.href`; class `docs-nav-active` + `aria-current="page"`
+- Mobile: sticky "Browse" bar toggles `#docs-sidebar` (fixed overlay); closes on link click, Escape, `astro:before-swap`, desktop breakpoint
+- **Search**: static hint only — no real search index
+
+**Refinements applied (2026-06-17)**:
+
+| Issue found | Resolution |
+| --- | --- |
+| `class="doc-table"` widely used but **no `.doc-table` rule exists** in `docs.css`/`global.css`/Tailwind | Add `.doc-table` styles to `docs.css`; or migrate tables to rely on `.prose table` (current fallback) |
+| Section spacing inconsistent (`sm:mb-20 sm:scroll-mt-28` only on `index.astro` vs `mb-16 scroll-mt-24` elsewhere) | Standardize via `.doc-section` class in `docs.css` |
+| `docs-nav-group-anim` class on sidebar groups but **no CSS definition** | Remove class or add definition |
+| `keybinds.ts` unused (rich keybind list not wired into `tui.astro`/`configuration.astro`) | Wire or remove |
+| PostHog on marketing (`Layout.astro`) but **not on docs** (`DocsLayout.astro`) | Add `posthog.astro` include to `DocsLayout.astro` for consistent analytics |
+| Duplicate Google Fonts loading (both `global.css` `@import` and `DocsLayout.astro` `<link>`) | Remove one |
+| No i18n (only `lang="en"`) | Out of scope; documented as known gap |
+| `replace_classes.js` leftover migration script | Removed |
+| New `DocRelated.astro` component | Created for cross-linking between related docs |
+| `agents.astro` missing `support` agent (added 2026-06-10) | Added "Internal & support agents" section with `support` card; updated hidden-row note |
+| `cli-debug.astro` minimal content (only tables, no DocCode/DocCallout) | Full rewrite with all debug subcommands, DocCode examples, gating notes |
+| `tools.astro` toolIndex array (39 entries) vs registry `all()` IDs (31 Tool.define scans) | Add `DocCallout` for tool gating flags (`question` client-gated, `lsp` `NIKCLI_EXPERIMENTAL_LSP_TOOL`, `batch` config experimental, `plan_enter`/`plan_exit` plan-mode flags). New `check:docs-tools` script validates |
+
+**Check script** (`packages/web/script/check-docs-tool-index.ts`, run via `bun run check:docs-tools`):
+
+- Reads `src/tool/*.ts` to extract `Tool.define("...", ...)` IDs (28-31 IDs depending on what counts as "tool")
+- Compares against the `toolIndex` array in `packages/web/src/pages/docs/tools.astro` (39 entries)
+- Reports IDs present in docs but not in registry: `advisor, context_collect, context_diagnostics, context_related, delegation, delegator, exec_code, memory_search, monitor, task, tree` (gated tools not exported by `all()` scan — false positives expected)
+- Exit code 0 when "OK" message printed
+
+**Build verification** (2026-06-17): `bun run check:docs-tools && bun run build` → exit 0. Astro build succeeded in 19.74s (server + client bundles, Cloudflare adapter).
+
+**Critical paths for "refine everything" effort** (from docs audit):
+
+```
+packages/web/src/styles/docs.css                                # add .doc-section, .doc-table styles
+packages/web/src/styles/global.css                              # remove duplicate font import
+packages/web/src/layouts/DocsLayout.astro                        # add posthog, dedupe fonts
+packages/web/src/components/docs/DocRelated.astro              # NEW component
+packages/web/src/pages/docs/index.astro                         # add DocRelated
+packages/web/src/pages/docs/agents.astro                        # support agent section
+packages/web/src/pages/docs/tools.astro                         # tool gating flags
+packages/web/src/pages/docs/cli-debug.astro                     # full content rewrite
+packages/web/src/pages/docs/tui.astro                           # wire keybinds.ts
+packages/web/src/pages/docs/configuration.astro                 # wire keybinds.ts
+packages/web/src/data/docsSidebar.ts                            # single source of truth
+packages/web/script/check-docs-tool-index.ts                    # NEW validation script
+packages/web/package.json                                       # add check:docs-tools script
+```
+
+### Agent Loop Discovery (session `ses_128d02fb9ffeQHojFEZWqI7oAT`)
+
+User exploration clarified the agent loop architecture:
+
+**`src/agent/` — definitions only, NOT the loop**:
+
+| Path | Role |
+| --- | --- |
+| `src/agent/agent.ts` | Agent registry (`build`, `plan`, subagents), permissions, tool sets, prompts |
+| `src/agent/prompt/*.txt` | Static prompt fragments (explore, delegator, compaction, etc.) |
+
+**`src/cli/` — entrypoints and TUI "runners", NOT the core loop**:
+
+| Path | Role |
+| --- | --- |
+| `src/cli/cmd/agent.ts` | CLI to create/list/configure agents |
+| `src/cli/cmd/debug/agent.ts` | Inspect agent + optionally run a tool |
+| `src/cli/cmd/mission.ts` | Headless mission orchestration CLI |
+| `src/cli/cmd/tui/feature-plugins/loops/runner.ts` | TUI client: calls server loop API, syncs bus events |
+| `src/cli/cmd/tui/feature-plugins/mission/runner.ts` | TUI client for mission runtime |
+
+**`test-runner`** is a named subagent in `agent.ts` (tools + system prompt), not a separate runner process.
+
+**The actual agent loop** lives in `src/session/`:
+
+- **Primary loop**: `SessionPrompt.loop` in `src/session/prompt.ts:639-663`
+
+```ts
+const loop = fn(Identifier.schema("session"), async (sessionID) => {
+  const controller = start(sessionID)
+  // ...
+  let step = 0
+  while (true) {
+    await setStatus(sessionID, { type: "busy", since: Date.now() })
+    log.info("loop", { step, sessionID })
+    if (abort.aborted) break
+    // scan messages, handle subtasks/compaction, then LLM step...
+```
+
+Each iteration:
+1. Reads session messages (user/assistant, compaction/subtask parts)
+2. May run **subtasks** via `TaskTool` (`task.type === "subtask"`)
+3. Creates **`SessionProcessor`**, resolves tools, calls **`processor.process()`** (one model turn)
+4. On finish, may inject **goal continuation** via `nextGoalPrompt()` (`src/session/goal.ts`)
+5. Respects **`agent.steps`** (max steps per "burst") and breaks on `stop` / structured output / idle assistant
+
+**One LLM turn**: `src/session/processor.ts` (`SessionProcessor.create` → `process`)
+
+**Concurrency (one run per session)**: `src/session/runner.ts` + `src/session/run-state.ts` (`ensureRunning`, shell vs run)
+
+**Subagents / "task runner" behavior**: `src/tool/task.ts` — `task` tool runs another session through `SessionPrompt` (foreground or background, semaphore-limited)
+
+**Higher-level "until done" for goals**: same `loop` + `SessionGoal` (`src/session/goal.ts`); scheduled **Loops** product uses `src/loop/engine.ts`, which drives `SessionPrompt.command({ command: "goal" })`
+
+**Mental model**:
+
+```
+CLI/TUI → server session routes → SessionPrompt.loop (while true)
+                                      ↓
+                              SessionProcessor.process (LLM + tools)
+                                      ↓
+                              task tool → nested SessionPrompt loops (subagents)
+```
+
+### Other 2026-06-17 Sessions
+
+- `ses_128e4793bffeOQPGpE3BmShWwP`, `ses_128d9ac5affeSW0rgREXH2DG1w`, `ses_128d3eb2bffeaMuz6hfQIM5awH`, `ses_128d02fb9ffeQHojFEZWqI7oAT` — Greeting/quick-explore sessions (small workspace probes)
+- `ses_128cdc61bffe7Qf9xEoCzaYOvn` — `@explore`: thorough `packages/web/src/pages/docs` audit (file tree, styling, sidebar, inconsistencies)
+- `ses_128cde669ffeHTfbcJm6p1TdQL` — Build session: applied the docs refinement plan (DocRelated.astro, gating callouts, cli-debug enrichment, agents.astro support agent, check-docs-tool-index script)
+- `ses_conceptual-emerald-rabbit` (researcher) — npm package availability audit for plugin catalog
+- `ses_nervous-crimson-mockingbird` (researcher) — Plugin package verification worker
+
+### Tool Gating Reference (added to tools.astro)
+
+| Tool         | Gating                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `question`   | Gated to non-CLI clients (TUI/mobile/SDK only)                                          |
+| `lsp`        | Requires `NIKCLI_EXPERIMENTAL_LSP_TOOL`                                                 |
+| `batch`      | Requires `experimental.batch_tool` config flag                                          |
+| `plan_enter` / `plan_exit` | Plan-mode flags + CLI client (TUI/SDK use plan agent directly)            |
+| `codesearch` / `websearch` | `nikcli` provider or `NIKCLI_ENABLE_EXA` env                              |
+| `apply_patch`| Only for non-OSS GPT models (Anthropic and others use `edit`/`write`)                   |
+| `speak`      | OpenRouter or ElevenLabs provider configured                                            |
+| `voice`      | OpenRouter STT configured                                                               |
+| `image`      | `gpt-5-image` or `nano-banana` provider available                                       |
+| `monitor`    | Available to all primary agents; background job runner                                   |
+
+### Workspace Counts (updated 2026-06-17, courtesy of `analyze workspace` session)
+
+```
+44 tools  ·  19 agents  ·  260 endpoints  ·  99 unique paths
+66 bus events  ·  21 route files  ·  119,343 LOC (packages/nikcli)
+```
+
+**Confirmed package structure** (from workspace analyze):
+
+- `src/agent/` — agent definitions + prompt files
+- `src/cli/` — CLI commands + TUI bootstrap
+- `src/config/` — config schemas (TUI, markdown, paths)
+- `src/connectors/` — external service integrations (GitHub, Slack, Discord, Linear)
+- `src/file/` — file ops (fff, ripgrep, search)
+- `src/loop/` — main agent loop engine (loops product)
+- `src/lsp/` — LSP client
+- `src/mcp/` — MCP
+- `src/mission/` — mission/orchestrator system
+- `src/plugin/` — plugin system (30+ providers)
+- `src/provider/` — LLM provider abstractions
+- `src/server/` — HTTP API server
+- `src/session/` — session management, messaging, LLM
+- `src/tool/` — 60+ tools (bash, edit, grep, task, etc.)
+- `src/workspace/` — workspace management
+- `src/worktree/` — git worktree handling
+
+**Confirmed effect migration** is in progress (see `specs/effect/` for design).
