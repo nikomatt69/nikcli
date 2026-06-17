@@ -553,7 +553,7 @@ The hero pattern: one tab, several sections, mixed components.
 
 ## Limits & defaults
 
-- Top-level: 1–12 components. The dialog shows tabs when there are 2+; tabs accept keys 1–9 for direct jump.
+- Top-level: 1–30 components. The dialog shows tabs when there are 2+; keys 1–9 jump to tabs 1–9, **0** jumps to tab 10; use tab/shift+tab for tabs 11–30.
 - `bar_chart.barWidth` / `progress_bars.barWidth`: 10–60 chars. Default 40.
 - `line_chart.height`: 4–20 rows. Default 8. `line_chart.series`: 1–6.
 - `stat_grid.columns` / `grid.columns`: 1–4. Default auto (3–4 on wide terminals, 2 on narrow, 1 on tight).
@@ -570,7 +570,7 @@ The rendered dialog supports, automatically:
 
 - **j / k / ↑ / ↓** — scroll content
 - **tab / shift+tab** — next / previous component when there are 2+ top-level components
-- **1 – 9** — jump directly to component N
+- **1 – 9** — jump to tabs 1–9; **0** — jump to tab 10; **tab / shift+tab** — all tabs (including 11–30)
 - **e** — export the visualization as markdown to the clipboard
 - **?** — toggle keybind help
 - **esc** — close the dialog
@@ -600,16 +600,20 @@ Array-of-object fields with these names are sometimes received by the schema val
 
 **Safe rule**: any time you would reach for a component whose array payload uses one of the names above, reach for `grid` + `children` (or `markdown`) instead. The `grid` component is verified to receive its `children` array correctly and renders `stat` cards in a clean KPI row.
 
-### Avoid nesting `grid` inside `section`
+### `section` and nested `grid`
 
-A `section` whose `children` contains a `grid` (i.e. `section > grid > stat`) fails validation in some tool-call paths. Two safe patterns:
+The schema **allows** `section > grid > stat` (and other leaf children inside the grid). `SafeVizSpecZod` unwraps `{item:…}` envelopes through that tree.
 
-- Use `grid` as a **top-level** component (siblings of `section` and `alert`), not as a child of `section`.
-- Inside `section`, use only leaf components: `text`, `markdown`, `code`, `alert`. The rich markdown tables replace any lost visual structure.
+Some **tool-call parsers** still break on deeply nested or wrapped `section > grid` payloads. If validation fails:
+
+- Prefer **`grid` as a top-level** tab (sibling of `section` / `alert`) for KPI rows.
+- Or keep **`section` children** to leaves only: `text`, `markdown`, `code`, `alert`.
+
+When nesting works, use it to group a titled block with a multi-column layout inside one tab.
 
 ### `section` shape
 
-`section` accepts `title` (optional) and `children` (required, 1–12 items). Do **not** add a `description` field at the section level — the runtime treats it as unrecognized even though the static schema permits it. If you need a description, fold it into the first `markdown` child instead.
+`section` accepts `title` (optional) and `children` (required, 1–30 items). Each child may be any **leaf** component or a **`grid`** (not another `section`). Do **not** add a `description` field at the section level — the runtime treats it as unrecognized even though the static schema permits it. If you need a description, fold it into the first `markdown` child instead.
 
 ### `alert` shape
 
@@ -617,7 +621,7 @@ A `section` whose `children` contains a `grid` (i.e. `section > grid > stat`) fa
 
 ### Flat is better than deep
 
-Prefer this structure for 8–12 tab dashboards:
+Prefer this structure for multi-tab dashboards (up to **30** top-level components):
 
 ```jsonc
 {
@@ -639,6 +643,7 @@ One `markdown` or `code` child per `section` keeps the validator happy and the d
 | You want | Robust path |
 |---|---|
 | KPI hero (5–8 numbers) | top-level `grid` of `stat` |
+| KPI block under a titled section | `section` with one `grid` child of `stat`s (schema-valid; fallback to top-level `grid` if parser rejects) |
 | Grouped KPIs by category | sibling `section`s, each with one `markdown` table inside |
 | Status fleet board | `markdown` with status icons (✓ ⚠ ✗ ℹ) in a table |
 | Hierarchy / dependency graph | `code` (filetype `text`) with a fenced ASCII tree |

@@ -416,20 +416,23 @@ const LeafComponent = Schema.Union([
 // Layout containers
 // ──────────────────────────────────────────────────────────────────────────
 
-const SectionComponent = Schema.Struct({
-  type: Schema.Literal("section"),
-  title: Schema.optional(Schema.String),
-  description: Schema.optional(Schema.String),
-  children: Schema.Array(LeafComponent).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(12))),
-})
-
 const GridComponent = Schema.Struct({
   type: Schema.Literal("grid"),
   title: Schema.optional(Schema.String),
   columns: Schema.optional(
     Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)), Schema.check(Schema.isLessThanOrEqualTo(4))),
   ).annotate({ description: "1–4. Default auto." }),
-  children: Schema.Array(LeafComponent).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(12))),
+  children: Schema.Array(LeafComponent).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(30))),
+})
+
+/** Children inside a section: leaf components or a nested grid (not full section nesting). */
+const SectionChild = Schema.Union([LeafComponent, GridComponent])
+
+const SectionComponent = Schema.Struct({
+  type: Schema.Literal("section"),
+  title: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  children: Schema.Array(SectionChild).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(30))),
 })
 
 const VisualizationComponent = Schema.Union([LeafComponent, SectionComponent, GridComponent])
@@ -460,10 +463,10 @@ const Parameters = Schema.Struct({
     description: "Optional one-line subtitle under the title (e.g. environment, timestamp, source).",
   }),
   components: Schema.Array(VisualizationComponent)
-    .pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(12)))
+    .pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(30)))
     .annotate({
       description:
-        "Top-level components. Tabs appear when there are 2+ — users can jump with keys 1-9. " +
+        "Top-level components. Tabs appear when there are 2+ — keys 1-9 jump to tabs 1-9, 0 jumps to tab 10; use tab/shift+tab for all tabs. " +
         "Use `section` and `grid` to compose richer single-tab dashboards.",
     }),
 })

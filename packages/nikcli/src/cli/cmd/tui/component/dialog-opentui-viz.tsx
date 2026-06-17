@@ -1635,9 +1635,7 @@ const VizRegistryContext = createContext<VizRegistry>(defaultVizRegistry)
 export function ComponentRenderer(props: { component: VizComponent }) {
   const { theme } = useTheme()
   const registry = useContext(VizRegistryContext)
-  const renderer = createMemo(
-    () => registry[props.component.type] as Component<{ comp: VizComponent }> | undefined,
-  )
+  const renderer = createMemo(() => registry[props.component.type] as Component<{ comp: VizComponent }> | undefined)
   // Generative specs can stream in half-formed or cross-field-inconsistent
   // (e.g. a table whose rows are shorter than its headers mid-stream). A render
   // throw must degrade to a placeholder, not trip the app-level ErrorBoundary
@@ -1646,14 +1644,12 @@ export function ComponentRenderer(props: { component: VizComponent }) {
     <ErrorBoundary
       fallback={(err) => (
         <text fg={theme.textMuted}>
-          ⚠ {props.component.type} unavailable{err?.message ? ` — ${String(err.message).slice(0, 60)}` : ""}
+          ⚠ {props.component.type} unavailable
+          {err?.message ? ` — ${String(err.message).slice(0, 60)}` : ""}
         </text>
       )}
     >
-      <Show
-        when={renderer()}
-        fallback={<text fg={theme.textMuted}>⚠ {props.component.type} unavailable</text>}
-      >
+      <Show when={renderer()} fallback={<text fg={theme.textMuted}>⚠ {props.component.type} unavailable</text>}>
         {(comp) => <Dynamic component={comp()} comp={props.component} />}
       </Show>
     </ErrorBoundary>
@@ -1786,10 +1782,10 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
   })
 
   useKeyboard((evt) => {
-    // Number keys 1-9: jump to tab
-    if (multiTab() && /^[1-9]$/.test(evt.name)) {
-      const target = parseInt(evt.name, 10) - 1
-      if (target < components().length) {
+    // Number keys 1-9 → tabs 1-9; 0 → tab 10 (index 9)
+    if (multiTab() && /^[0-9]$/.test(evt.name)) {
+      const target = evt.name === "0" ? 9 : parseInt(evt.name, 10) - 1
+      if (target >= 0 && target < components().length) {
         setActiveIdx(target)
         evt.preventDefault()
         evt.stopPropagation()
@@ -1811,7 +1807,12 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
     if (evt.name === "e" && !evt.ctrl && !evt.shift && !evt.meta) {
       const md = specToMarkdown(props.spec)
       void Clipboard.copy(md)
-        .then(() => toast.show({ variant: "success", message: "Visualization exported as markdown" }))
+        .then(() =>
+          toast.show({
+            variant: "success",
+            message: "Visualization exported as markdown",
+          }),
+        )
         .catch(toast.error)
       evt.preventDefault()
       evt.stopPropagation()
@@ -1889,7 +1890,7 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
           <box flexDirection="row" gap={2} flexShrink={0}>
             <text fg={theme.textMuted}>j/k scroll</text>
             <Show when={multiTab()}>
-              <text fg={theme.textMuted}>tab · 1-9 jump</text>
+              <text fg={theme.textMuted}>tab · 1-9 · 0 (tab 10)</text>
             </Show>
             <text fg={theme.textMuted}>e export</text>
             <text fg={theme.textMuted}>? help</text>
@@ -1910,7 +1911,7 @@ export function DialogOpenTUIViz(props: DialogOpenTUIVizProps) {
           <text fg={theme.textMuted}>j / k or arrows · scroll content</text>
           <Show when={multiTab()}>
             <text fg={theme.textMuted}>tab / shift+tab · next / prev tab</text>
-            <text fg={theme.textMuted}>1 - 9 · jump to tab N</text>
+            <text fg={theme.textMuted}>1 - 9 · tabs 1-9 · 0 · tab 10 · tab cycles 11-30</text>
           </Show>
           <text fg={theme.textMuted}>e · copy visualization as markdown</text>
           <text fg={theme.textMuted}>? · toggle this help</text>

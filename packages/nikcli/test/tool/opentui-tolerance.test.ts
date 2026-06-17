@@ -110,6 +110,25 @@ describe("opentui tool input tolerance", () => {
     expect(parsed.success).toBe(true)
   })
 
+  it("SafeVizSpecZod accepts up to 30 top-level components", () => {
+    const components = Array.from({ length: 30 }, (_, i) => ({
+      type: "text" as const,
+      content: `tab ${i + 1}`,
+    }))
+    const parsed = SafeVizSpecZod.safeParse({ title: "Max tabs", components })
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data.components).toHaveLength(30)
+  })
+
+  it("SafeVizSpecZod rejects more than 30 top-level components", () => {
+    const components = Array.from({ length: 31 }, (_, i) => ({
+      type: "text" as const,
+      content: `tab ${i + 1}`,
+    }))
+    const parsed = SafeVizSpecZod.safeParse({ title: "Too many", components })
+    expect(parsed.success).toBe(false)
+  })
+
   it("SafeVizSpecZod preserves the strict object mode for real errors", () => {
     // Real errors (e.g. unknown component type) must still surface — the
     // preprocess only unwraps, it does not silently accept garbage.

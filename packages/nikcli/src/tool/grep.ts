@@ -5,7 +5,7 @@ import { Tool } from "./tool"
 import DESCRIPTION from "./grep.txt"
 import { FFF } from "../file/fff"
 import { SearchBackend } from "../file/searchBackend"
-import type { GrepMode, GrepMatch as FFFGrepMatch } from "@ff-labs/fff-bun"
+import type { GrepMode, GrepMatch as FFFGrepMatch } from "#fff"
 import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
 

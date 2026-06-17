@@ -3,14 +3,15 @@ import fs from "fs/promises"
 import crypto from "crypto"
 import { Context, Effect, Layer, Schema } from "effect"
 import {
-  FileFinder,
+  Fff,
   type GrepMatch,
   type GrepOptions,
   type GrepResult,
   type MixedSearchResult,
+  type Picker,
   type SearchOptions,
   type SearchResult,
-} from "@ff-labs/fff-bun"
+} from "#fff"
 import { minimatch } from "minimatch"
 import { Instance } from "../project/instance"
 import { Global } from "../global"
@@ -34,7 +35,7 @@ export namespace FFF {
 
   export class FFFNotReadyError extends Schema.TaggedErrorClass<FFFNotReadyError>()("FFFNotReadyError", {}) {
     override get message() {
-      return "FFF FileFinder is not ready"
+      return "FFF Picker is not ready"
     }
   }
 
@@ -86,7 +87,7 @@ export namespace FFF {
   type Handle =
     | {
         available: true
-        finder: FileFinder
+        finder: Picker
       }
     | {
         available: false
@@ -127,7 +128,7 @@ export namespace FFF {
       const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
       await fs.mkdir(dbDir, { recursive: true })
 
-      const created = FileFinder.create({
+      const created = Fff.create({
         basePath: dir,
         frecencyDbPath: path.join(dbDir, "frecency.mdb"),
         historyDbPath: path.join(dbDir, "history.mdb"),
@@ -135,13 +136,13 @@ export namespace FFF {
       })
 
       if (!created.ok) {
-        log.warn("FileFinder.create failed", { error: created.error })
+        log.warn("Picker.create failed", { error: created.error })
         // Check if it's an LMDB corruption error - reset cache and retry once
         if (isLMDBError(created.error)) {
           log.warn("lmdb corruption detected, retrying with fresh cache")
           await resetCorruptedDB(dbDir)
           await fs.mkdir(dbDir, { recursive: true })
-          const retry = FileFinder.create({
+          const retry = Fff.create({
             basePath: dir,
             frecencyDbPath: path.join(dbDir, "frecency.mdb"),
             historyDbPath: path.join(dbDir, "history.mdb"),
@@ -246,7 +247,7 @@ export namespace FFF {
 
         waitForScan: (timeoutMs = 5000) =>
           Effect.sync(() => {
-            const result = finder.waitForScan(timeoutMs)
+            const result = finder.waitForScanBlocking(timeoutMs)
             return result.ok && result.value
           }),
 
@@ -397,7 +398,7 @@ export namespace FFF {
         const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
         await fs.mkdir(dbDir, { recursive: true })
 
-        const created = FileFinder.create({
+        const created = Fff.create({
           basePath: dir,
           frecencyDbPath: path.join(dbDir, "frecency.mdb"),
           historyDbPath: path.join(dbDir, "history.mdb"),
@@ -405,12 +406,12 @@ export namespace FFF {
         })
 
         if (!created.ok) {
-          log.warn("FileFinder.create failed", { error: created.error })
+          log.warn("Picker.create failed", { error: created.error })
           if (isLMDBError(created.error)) {
             log.warn("lmdb corruption detected, retrying with fresh cache")
             await resetCorruptedDB(dbDir)
             await fs.mkdir(dbDir, { recursive: true })
-            const retry = FileFinder.create({
+            const retry = Fff.create({
               basePath: dir,
               frecencyDbPath: path.join(dbDir, "frecency.mdb"),
               historyDbPath: path.join(dbDir, "history.mdb"),
@@ -452,13 +453,13 @@ export namespace FFF {
     },
   )
 
-  async function ready(): Promise<{ available: true; finder: FileFinder } | undefined> {
+  async function ready(): Promise<{ available: true; finder: Picker } | undefined> {
     const handle = await state()
     return handle.available ? handle : undefined
   }
 
   // During the initial background scan results can be partial
-  function isScanning(finder: FileFinder): boolean {
+  function isScanning(finder: Picker): boolean {
     return finder.isScanning()
   }
 
@@ -469,7 +470,7 @@ export namespace FFF {
   export async function waitForScan(timeoutMs: number = 5000): Promise<boolean> {
     const r = await ready()
     if (!r) return false
-    const result = r.finder.waitForScan(timeoutMs)
+    const result = r.finder.waitForScanBlocking(timeoutMs)
     if (!result.ok) {
       log.warn("waitForScan failed", { error: result.error })
       return false
