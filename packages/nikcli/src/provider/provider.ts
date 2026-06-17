@@ -424,7 +424,7 @@ export namespace Provider {
     autoload: boolean
     getModel?: CustomModelLoader
     options?: Record<string, unknown>
-  } | undefined>
+  }>
 
   const CUSTOM_LOADERS = {
     async anthropic() {
@@ -470,6 +470,25 @@ export namespace Provider {
         options: { headerTimeout: OPENAI_HEADER_TIMEOUT_DEFAULT },
       }
     },
+    xai: async () => {
+      return {
+        autoload: false,
+        // xAI: the Responses API is the recommended path for every grok model and
+        // Chat Completions is deprecated; for SuperGrok / multi-agent models it's
+        // the *only* supported path ("Multi Agent requests are not allowed on chat
+        // completions"). Route all xai models through `sdk.responses()` regardless
+        // of auth type — equivalent to the AI SDK migration `xai()` -> `xai.responses()`.
+        // https://docs.x.ai/developers/model-capabilities/text/multi-agent
+        //
+        // `options: {}` is intentional: an empty object merges cleanly, whereas an
+        // absent `options` is ignored by the loader merge (so it can never wipe the
+        // OAuth `apiKey`/`fetch` merged earlier by the xai auth plugin).
+        options: {},
+        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+          return sdk.responses(modelID)
+        },
+      }
+    },
     "github-copilot": async () => {
       return {
         autoload: false,
@@ -486,16 +505,6 @@ export namespace Provider {
           return shouldUseCopilotResponsesApi(modelID) ? sdk.responses(modelID) : sdk.chat(modelID)
         },
         options: {},
-      }
-    },
-    xai: async (input: { id: string }) => {
-      const auth = await authGet(input.id)
-      if (auth?.type !== "oauth") return undefined
-      return {
-        autoload: false,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
-          return sdk.responses(modelID)
-        },
       }
     },
     azure: async () => {
@@ -1324,10 +1333,14 @@ export namespace Provider {
       const result = await fn(data, ctx)
       if (result && (result.autoload || providers[providerID])) {
         if (result.getModel) modelLoaders[providerID] = result.getModel
-        mergeProvider(providerID, {
-          source: "custom",
-          options: result.options,
-        })
+        // Only forward `options` when the loader actually returned them.
+        // mergeDeep treats an explicit `options: undefined` as an overwrite,
+        // which would wipe options already merged by env/auth/plugin loaders
+        // (e.g. the OAuth `apiKey` + Bearer-injecting `fetch`) — leaving the SDK
+        // with no credentials and surfacing a spurious "API key is missing".
+        const partial: Partial<Info> = { source: "custom" }
+        if (result.options) partial.options = result.options
+        mergeProvider(providerID, partial)
       }
     }
 

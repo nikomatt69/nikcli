@@ -1,5 +1,7 @@
 # Nikcli Project Memory
 
+**Last updated**: 2026-06-17
+
 ## Architecture Overview
 
 ### Monorepo Structure (`/Volumes/SSD/Projects/nikcli/`)

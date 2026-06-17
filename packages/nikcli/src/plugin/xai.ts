@@ -452,15 +452,23 @@ export async function XAIAuthPlugin(input: PluginInput): Promise<Hooks> {
           ]),
         )
 
-        // Inject Cursor's composer-2.5 model into the xAI provider's model list
-        // for users who configure xAI OAuth. This is an override intended for
-        // test/staging workflows — the model is not actually served by xAI.
-        // Family "cursor" lets the cursor plugin's family/context heuristics
-        // pick up the right metadata (200k context, 32k output).
+        // xAI now serves the Cursor Composer model through its own OAuth API, so
+        // expose it in the xAI provider's model list for SuperGrok users. It's a
+        // real, billable xAI-served model (not a test/staging stub). Because it
+        // lives under the `xai` provider it inherits the Responses-API routing
+        // from the `xai` custom loader; and since it's a tool-using coding model
+        // (not a multi-agent variant) it keeps client-side tools — the transform's
+        // `isMultiAgent` check leaves `composer-*` untouched.
+        // Family "cursor" lets the family/context heuristics pick up the right
+        // metadata (200k context, 32k output).
         const composerModel = Object.values(baseModels)[0]
         if (composerModel) {
           baseModels["composer-2.5"] = {
             ...composerModel,
+            // Override api.id too — the template is a grok model, so without this
+            // the request would be sent to xAI as `responses("grok-…")` instead of
+            // the composer model the user actually selected.
+            api: { ...composerModel.api, id: "composer-2.5" },
             name: "Cursor Composer 2.5",
             family: "cursor",
             limit: { ...composerModel.limit, context: 200_000, output: 32_000 },

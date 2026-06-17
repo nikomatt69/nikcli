@@ -1330,12 +1330,46 @@ export function supportsMediaInToolResults(model: Provider.Model): boolean {
   return nativeProviders.includes(model.api.npm)
 }
 
+// xAI multi-agent / "Build" models (e.g. grok-4.20-multi-agent-0309) run their
+// own agent orchestration on xAI's servers. They have two hard constraints that
+// no header/flag can lift:
+//   1. They reject chat completions ("Multi Agent requests are not allowed on
+//      chat completions") — they must go through the Responses API (handled by
+//      the `xai` custom loader's `sdk.responses(modelID)`).
+//   2. They reject client-side function tools ("Client-side tools for
+//      multi-agent models require beta access") — only xAI's built-in
+//      server-side tools (web_search, x_search, code_execution, mcp_server…)
+//      are accepted.
+// Both limits are documented at https://docs.x.ai/developers/model-capabilities/text/multi-agent
+const MULTI_AGENT_RE = /multi-?agent/i
+
+export function isMultiAgent(model: Provider.Model): boolean {
+  if (model.providerID !== "xai" && !model.api.id.toLowerCase().includes("grok")) return false
+  return MULTI_AGENT_RE.test(model.api.id) || MULTI_AGENT_RE.test(model.id)
+}
+
+// Strips client-side (function) tool definitions for models that reject them.
+// Currently only xAI multi-agent models: they only accept xAI's built-in
+// server-side tools, so sending any client-side tool 400s the request. Returning
+// an empty set lets these models run as research/orchestration models instead of
+// crashing the session.
+export function tools<T extends Record<string, unknown>>(model: Provider.Model, tools: T): T {
+  if (isMultiAgent(model)) return {} as T
+  return tools
+}
+
 // Transforms API errors into user-friendly messages with provider-specific handling
 export function error(
   providerID: string,
   error: { message?: string; statusCode?: number; responseBody?: string },
 ): string {
   const msg = error.message || ""
+
+  // xAI multi-agent models don't accept client-side tools or chat completions.
+  // Translate the cryptic API errors into an actionable hint.
+  if (providerID === "xai" && MULTI_AGENT_RE.test(msg)) {
+    return `${msg}. xAI multi-agent models don't support client-side tools and only run on the Responses API — use a standard grok model (e.g. grok-4, grok-code-fast) for tool-using sessions.`
+  }
 
   // GitHub Copilot: 403 means need to reauthenticate
   if (providerID.includes("github-copilot") && error.statusCode === 403) {

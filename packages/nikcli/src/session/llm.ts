@@ -393,7 +393,18 @@ export namespace LLM {
     const maxOutputTokens =
       isCodex || provider.id.includes("github-copilot") ? undefined : ProviderTransform.maxOutputTokens(input.model)
 
-    const tools = await resolveTools(input)
+    const resolvedTools = await resolveTools(input)
+    // xAI multi-agent models reject client-side function tools ("Client-side tools
+    // for multi-agent models require beta access") — they only run xAI's built-in
+    // server-side tools. Drop client-side tools for them so the session doesn't 400.
+    const tools = ProviderTransform.tools(input.model, resolvedTools)
+    if (Object.keys(resolvedTools).length > 0 && Object.keys(tools).length === 0) {
+      l.warn("dropping client-side tools (model does not support them)", {
+        modelID: input.model.api.id,
+        providerID: input.model.providerID,
+        dropped: Object.keys(resolvedTools).length,
+      })
+    }
     const providerOptions = ProviderTransform.providerOptions(input.model, params.options)
     const openrouterOptions = providerOptions.openrouter
     const fusionPlugin = Array.isArray(openrouterOptions?.plugins)
