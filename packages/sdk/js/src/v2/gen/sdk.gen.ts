@@ -133,6 +133,7 @@ import type {
   McpStatusResponses,
   McpToggleErrors,
   McpToggleResponses,
+  Message,
   MissionCancelErrors,
   MissionCancelResponses,
   MissionDeleteErrors,
@@ -292,6 +293,8 @@ import type {
   MobileSessionMessageResponses,
   MobileSessionRenameResponses,
   MobileSessionStreamResponses,
+  MobileSessionTeleportErrors,
+  MobileSessionTeleportResponses,
   MobileWorktreeCreateErrors,
   MobileWorktreeCreateResponses,
   MobileWorktreeRemoveResponses,
@@ -6074,6 +6077,56 @@ export class Session4 extends HeyApiClient {
     )
     return (options?.client ?? this.client).post<MobileSessionRenameResponses, unknown, ThrowOnError>({
       url: "/mobile/session/{sessionID}/rename",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Teleport a session to this server
+   *
+   * Recreate a session transcript captured on another machine so it can be continued from the mobile app.
+   */
+  public teleport<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      title?: string
+      origin?: string
+      permission?: PermissionRuleset
+      messages?: Array<{
+        info: Message
+        parts: Array<Part2>
+      }>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "title" },
+            { in: "body", key: "origin" },
+            { in: "body", key: "permission" },
+            { in: "body", key: "messages" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileSessionTeleportResponses,
+      MobileSessionTeleportErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/teleport",
       ...options,
       ...params,
       headers: {

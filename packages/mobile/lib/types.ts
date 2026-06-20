@@ -517,6 +517,12 @@ export type SessionDetail = {
   questions: QuestionRequest[]
 }
 
+export type TeleportResult = {
+  sessionID: string
+  title?: string
+  messageCount: number
+}
+
 export type GitHubRepo = {
   id: number
   name: string

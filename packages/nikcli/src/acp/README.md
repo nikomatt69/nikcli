@@ -1,55 +1,114 @@
 # ACP (Agent Client Protocol) Implementation
 
-This directory contains a clean, protocol-compliant implementation of the [Agent Client Protocol](https://agentclientprotocol.com/) for nikcli.
+This directory contains an exemplary, protocol-compliant implementation of
+the [Agent Client Protocol](https://agentclientprotocol.com/) for nikcli.
+The structure mirrors opencode's `packages/opencode/src/acp` package so
+that anyone familiar with opencode can navigate nikcli's ACP code (and
+vice-versa) without re-learning the layout.
+
+The implementation uses `@agentclientprotocol/sdk` v0.21 — the same
+major line opencode uses — so the wire-level behaviour is identical for
+any client that already speaks opencode (Zed, JetBrains, etc.).
 
 ## Architecture
 
-The implementation follows a clean separation of concerns:
+Each module in `src/acp/` owns a single concern. The protocol surface
+(initialize / newSession / prompt / etc.) lives in `service.ts` and is
+exposed by a thin `Agent` wrapper in `agent.ts` so it can plug straight
+into the JSON-RPC `AgentSideConnection`.
 
-### Core Components
+| File               | Responsibility                                                                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent.ts`         | `Agent` class that implements the SDK's `Agent` interface; delegates every method to the `service` layer and converts typed errors into JSON-RPC `RequestError`.                                   |
+| `service.ts`       | Async service object that owns one ACP connection's lifecycle. Holds the session store, the directory snapshot cache, the event subscription, the permission handler, and the per-method handlers. |
+| `session.ts`       | `Store` for live ACP sessions: create/load/get/set/remove + the `knownParts` metadata map the event subscription uses to route streamed deltas.                                                    |
+| `directory.ts`     | Builds a per-directory snapshot of providers, modes, commands, and the default model by pulling from the Effect services via `withInstance`.                                                       |
+| `config-option.ts` | Builds the `SessionConfigOption[]` payload (model + effort + mode) plus `parseModelSelection` and the stable stringify helpers used for MCP-registration keys.                                     |
+| `content.ts`       | Bidirectional conversion between ACP `ContentBlock`s and nikcli `PromptPart`s; lossless for text/image/resource with `audience` annotation round-trip.                                             |
+| `tool.ts`          | Maps nikcli tool names to ACP `ToolKind`s / locations; builds the canonical pending / running / completed / errored `ToolCall` updates; renders diff blocks and image attachments.                 |
+| `event.ts`         | `Subscription` that consumes the nikcli global event stream and projects `message.part.updated` / `permission.asked` into ACP `session/update` notifications.                                      |
+| `permission.ts`    | `Handler` that serializes concurrent permission requests per session, prompts the client via `requestPermission`, applies edit diffs, and replies to the SDK.                                      |
+| `usage.ts`         | Token-usage tracking — pulls the latest assistant message, resolves the model's context limit, and emits `usage_update` notifications.                                                             |
+| `error.ts`         | Tagged ACP error family (`SessionNotFound`, `InvalidModel`, `InvalidMode`, …) plus `toRequestError` mapping them to the right JSON-RPC code.                                                       |
+| `profile.ts`       | Disabled-by-default timing helpers (set `NIKCLI_ACP_PROFILE=1`); output goes to stderr so it doesn't pollute the JSON-RPC stream.                                                                  |
+| `types.ts`         | `ACPConfig` type passed by `cmd/acp.ts`; small enough that it doesn't justify a separate `index.ts`.                                                                                               |
 
-- **`agent.ts`** - Implements the `Agent` interface from `@agentclientprotocol/sdk`
-  - Handles initialization and capability negotiation
-  - Manages session lifecycle (`session/new`, `session/load`)
-  - Processes prompts and returns responses
-  - Properly implements ACP protocol v1
+### Request flow
 
-- **`client.ts`** - Implements the `Client` interface for client-side capabilities
-  - File operations (`readTextFile`, `writeTextFile`)
-  - Permission requests (auto-approves for now)
-  - Terminal support (stub implementation)
+```
+cmd/acp.ts
+  └─ new AgentSideConnection((conn) => factory.create(conn, { sdk }), stream)
+       └─ src/acp/agent.ts → Agent implements ACP SDK's Agent
+            └─ src/acp/service.ts → make(options)
+                 ├─ Store         (session lifecycle)
+                 ├─ Subscription  (event → session/update)
+                 ├─ Handler       (permission.asked → requestPermission)
+                 └─ Snapshot map  (per-directory snapshot cache)
+```
 
-- **`session.ts`** - Session state management
-  - Creates and tracks ACP sessions
-  - Maps ACP sessions to internal nikcli sessions
-  - Maintains working directory context
-  - Handles MCP server configurations
+## Protocol Coverage
 
-- **`server.ts`** - ACP server startup and lifecycle
-  - Sets up JSON-RPC over stdio using the official library
-  - Manages graceful shutdown on SIGTERM/SIGINT
-  - Provides Instance context for the agent
+Implemented methods:
 
-- **`types.ts`** - Type definitions for internal use
+- `initialize` — negotiates protocol v1, advertises loadSession,
+  mcpCapabilities (http+sse), promptCapabilities (embeddedContext+image),
+  sessionCapabilities (close/fork/list/resume), and the
+  `terminal-auth`-aware login method.
+- `authenticate` — accepts only the configured `nikcli-login` method.
+- `session/new` — creates a new nikcli session, snapshots the directory,
+  registers the client's MCP servers, and pushes an
+  `available_commands_update`.
+- `session/load` — restores a saved session, replays the message
+  history through the same projection as the live stream, and returns
+  the current model/variant/mode as config options.
+- `session/list` — merges nikcli's server-side session list with the
+  in-memory store and supports cursor-based pagination.
+- `session/resume` — same as load but uses a small history window for
+  faster cold-starts.
+- `session/fork` — calls `session.fork`, restores the fork's metadata,
+  and replays its history.
+- `session/close` — removes the live session and best-effort aborts
+  the backing nikcli session.
+- `session/cancel` — cancels the in-flight turn on the backing session.
+- `session/set_model` / `session/set_mode` — mutates the session store
+  and re-emits the canonical `configOptions` payload.
+- `session/set_config_option` — single entry point for `model` /
+  `effort` / `mode` changes via the unified selector.
+- `session/prompt` — converts ACP content blocks to nikcli parts,
+  detects slash commands (`/compact`, `/<command>`), and forwards the
+  rest to `session.prompt`. Emits a `usage_update` after every turn.
+
+Planned / not yet implemented (extensions via the SDK's `extMethod`):
+
+- terminal creation (`createTerminal`, `terminalOutput`,
+  `waitForTerminalExit`, `killTerminal`, `releaseTerminal`)
+- document notifications (`unstable_didOpenDocument` et al.)
+- NES (next-edit-suggestions) endpoints
 
 ## Usage
 
-### Command Line
+### As a CLI
 
 ```bash
 # Start the ACP server in the current directory
 nikcli acp
 
-# Start in a specific directory
+# Start in a specific directory (overrides --cwd)
 nikcli acp --cwd /path/to/project
 ```
 
-### Programmatic
+### As a library
 
-```typescript
-import { ACPServer } from "./acp/server"
+```ts
+import { ACP } from "@/acp/agent"
+import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk"
+import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 
-await ACPServer.start()
+const sdk = createNikcliClient({ baseUrl: "http://127.0.0.1:4096" })
+const stream = ndJsonStream(stdout, stdin)
+
+const factory = await ACP.init({ sdk })
+new AgentSideConnection((conn) => factory.create(conn, { sdk }), stream)
 ```
 
 ### Integration with Zed
@@ -67,98 +126,73 @@ Add to your Zed configuration (`~/.config/zed/settings.json`):
 }
 ```
 
-## Protocol Compliance
+## Configuration
 
-This implementation follows the ACP specification v1:
+`ACPConfig` (`./types.ts`) is the typed boundary between the protocol
+layer and the rest of nikcli:
 
-✅ **Initialization**
-
-- Proper `initialize` request/response with protocol version negotiation
-- Capability advertisement (`agentCapabilities`)
-- Authentication support (stub)
-
-✅ **Session Management**
-
-- `session/new` - Create new conversation sessions
-- `session/load` - Resume existing sessions (basic support)
-- Working directory context (`cwd`)
-- MCP server configuration support
-
-✅ **Prompting**
-
-- `session/prompt` - Process user messages
-- Content block handling (text, resources)
-- Response with stop reasons
-
-✅ **Client Capabilities**
-
-- File read/write operations
-- Permission requests
-- Terminal support (stub for future)
-
-## Current Limitations
-
-### Not Yet Implemented
-
-1. **Streaming Responses** - Currently returns complete responses instead of streaming via `session/update` notifications
-2. **Tool Call Reporting** - Doesn't report tool execution progress
-3. **Session Modes** - No mode switching support yet
-4. **Authentication** - No actual auth implementation
-5. **Terminal Support** - Placeholder only
-6. **Session Persistence** - `session/load` doesn't restore actual conversation history
-
-### Future Enhancements
-
-- **Real-time Streaming**: Implement `session/update` notifications for progressive responses
-- **Tool Call Visibility**: Report tool executions as they happen
-- **Session Persistence**: Save and restore full conversation history
-- **Mode Support**: Implement different operational modes (ask, code, etc.)
-- **Enhanced Permissions**: More sophisticated permission handling
-- **Terminal Integration**: Full terminal support via nikcli's bash tool
+```ts
+interface ACPConfig {
+  sdk: NikcliClient
+  defaultModel?: { providerID: string; modelID: string }
+  cwd?: string
+}
+```
 
 ## Testing
 
 ```bash
-# Run ACP tests
-bun test test/acp.test.ts
+# Unit + integration tests for the ACP module
+bun test test/acp
 
-# Test manually with stdio
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}' | nikcli acp
+# Smoke-test the CLI directly
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"smoke","version":"0.1.0"}}}' \
+  | bun run src/index.ts acp
 ```
+
+The test suite covers:
+
+- `error.test.ts` — tagged errors and `toRequestError` mapping
+- `tool.test.ts` — tool kind, location, attachment, diff, shell snapshot
+- `content.test.ts` — content block conversion (text/image/resource/file://)
+- `config-option.test.ts` — model/effort/mode selectors and parsing
+- `session.test.ts` — session store lifecycle and metadata
+- `agent.test.ts` — JSON-RPC handshake against the Agent
 
 ## Design Decisions
 
-### Why the Official Library?
+### Effect services where they help, plain async where they don't
 
-We use `@agentclientprotocol/sdk` instead of implementing JSON-RPC ourselves because:
+opencode leans heavily on Effect for every ACP method. We adopted the
+shape of the service layer (a single object exposing async methods per
+ACP request) but kept the internals on plain async/await with a single
+Effect call (`withInstance`) to bridge into the directory scope. The
+result is a protocol boundary that's easy to read and unit-test without
+spinning up the Effect runtime.
 
-- Ensures protocol compliance
-- Handles edge cases and future protocol versions
-- Reduces maintenance burden
-- Works with other ACP clients automatically
+### `Store` instead of `Ref<State>`
 
-### Clean Architecture
+opencode uses `Effect.Ref` for the session map; we use a plain
+`Map`-backed class. Session mutations are serialized per-connection by
+the JSON-RPC layer's request handler, and the store only lives for one
+connection's lifetime, so contention is not a concern.
 
-Each component has a single responsibility:
+### Backwards-compatible aliases
 
-- **Agent** = Protocol interface
-- **Client** = Client-side operations
-- **Session** = State management
-- **Server** = Lifecycle and I/O
+`ACPSessionManager` is still exported from `session.ts` so any caller
+that imported it from the pre-refactor implementation keeps working.
+`ACP.init({ sdk })` + `factory.create(conn, { sdk })` is also preserved
+so `cmd/acp.ts` and external scripts need no changes.
 
-This makes the codebase maintainable and testable.
+### Modular file structure mirrors opencode
 
-### Mapping to Nikcli
-
-ACP sessions map cleanly to nikcli's internal session model:
-
-- ACP `session/new` → creates internal Session
-- ACP `session/prompt` → enters SessionPrompt.Service
-- Working directory context preserved per-session
-- Tool execution uses existing ToolRegistry
+Anyone who already knows opencode's ACP layout can navigate nikcli's
+package in seconds. Each module is small enough to review in isolation,
+and the protocol boundary is enforced by the service layer's typed
+errors.
 
 ## References
 
 - [ACP Specification](https://agentclientprotocol.com/)
-- [TypeScript Library](https://github.com/agentclientprotocol/typescript-sdk)
-- [Protocol Examples](https://github.com/agentclientprotocol/typescript-sdk/tree/main/src/examples)
+- [TypeScript SDK](https://github.com/agentclientprotocol/typescript-sdk)
+- [opencode ACP implementation](https://github.com/anomalyco/opencode/tree/dev/packages/opencode/src/acp)

@@ -6,6 +6,7 @@ import { MemoryRoutes } from "./memory"
 import { GithubRoutes } from "./github"
 import { SessionRoutes } from "./session"
 import { SessionLifecycleRoutes } from "./session-lifecycle"
+import { TeleportRoutes } from "./teleport"
 import { WorkspaceRoutes } from "./workspace"
 import { GitRoutes } from "./git"
 import { LoopsRoutes } from "./loops"
@@ -19,6 +20,7 @@ export const MobileRoutes = lazy(() =>
     .route("", GithubRoutes())
     .route("", SessionRoutes())
     .route("", SessionLifecycleRoutes())
+    .route("", TeleportRoutes())
     .route("", WorkspaceRoutes())
     .route("", GitRoutes())
     .route("", LoopsRoutes())

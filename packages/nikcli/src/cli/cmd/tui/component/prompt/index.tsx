@@ -51,6 +51,7 @@ import { DialogThemeCreate } from "../dialog-theme-create"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
+import { DialogTeleport } from "../dialog-teleport"
 import { DialogWebPreview } from "../dialog-web-preview"
 import os from "os"
 import path from "path"
@@ -1391,6 +1392,17 @@ export function Prompt(props: PromptProps) {
       slash: { name: "remote" },
       onSelect: (dialog) => {
         dialog.replace(() => <DialogRemote />)
+      },
+    },
+    {
+      title: "Teleport Session",
+      value: "teleport",
+      category: "Session",
+      slash: { name: "teleport" },
+      enabled: !!props.sessionID,
+      onSelect: (dialog) => {
+        if (!props.sessionID) return
+        dialog.replace(() => <DialogTeleport sessionID={props.sessionID!} />)
       },
     },
   ])

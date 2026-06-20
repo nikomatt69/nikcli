@@ -2015,6 +2015,20 @@ export type RemoteConfig = {
   askOnExistingSession?: boolean
 }
 
+/**
+ * Teleport server defaults for sending sessions to a remote server
+ */
+export type TeleportConfig = {
+  /**
+   * Last used teleport server base URL (e.g. a Railway deploy)
+   */
+  url?: string
+  /**
+   * Last used teleport mobile Bearer token
+   */
+  token?: string
+}
+
 export type ReferenceConfig =
   | {
       type: "git"
@@ -2568,6 +2582,7 @@ export type Config = {
   ads?: AdsConfig
   server?: ServerConfig
   remote?: RemoteConfig
+  teleport?: TeleportConfig
   /**
    * Command configuration, see https://nikcli.store/docs/commands
    */
@@ -2806,9 +2821,21 @@ export type Config = {
      */
     mcp_timeout?: number
     /**
-     * Enable native @nikcli-ai/llm runtime (AI SDK fallback)
+     * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.
      */
     nativeLlm?: boolean
+    tui?: {
+      /**
+       * Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.
+       */
+      cacheEviction?: boolean
+    }
+    requests?: {
+      /**
+       * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.
+       */
+      latestOnlyLspRefresh?: boolean
+    }
   }
   rag?: RagConfig
   image?: ImageConfig
@@ -9225,6 +9252,49 @@ export type MobileSessionRenameResponses = {
 }
 
 export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
+
+export type MobileSessionTeleportData = {
+  body?: {
+    title?: string
+    /**
+     * Identifier of the machine the session was teleported from
+     */
+    origin?: string
+    permission?: PermissionRuleset
+    messages: Array<{
+      info: Message
+      parts: Array<Part>
+    }>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/teleport"
+}
+
+export type MobileSessionTeleportErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileSessionTeleportError = MobileSessionTeleportErrors[keyof MobileSessionTeleportErrors]
+
+export type MobileSessionTeleportResponses = {
+  /**
+   * Teleported session
+   */
+  200: {
+    sessionID: string
+    title?: string
+    messageCount: number
+  }
+}
+
+export type MobileSessionTeleportResponse = MobileSessionTeleportResponses[keyof MobileSessionTeleportResponses]
 
 export type MobileWorktreeRemoveData = {
   body?: WorktreeRemoveInput

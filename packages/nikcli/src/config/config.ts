@@ -1136,6 +1136,17 @@ export namespace Config {
     })
   export type Remote = z.infer<typeof Remote>
 
+  export const Teleport = z
+    .object({
+      url: z.string().optional().describe("Last used teleport server base URL (e.g. a Railway deploy)"),
+      token: z.string().optional().describe("Last used teleport mobile Bearer token"),
+    })
+    .strict()
+    .meta({
+      ref: "TeleportConfig",
+    })
+  export type Teleport = z.infer<typeof Teleport>
+
   export const Layout = z.enum(["auto", "stretch"]).meta({
     ref: "LayoutConfig",
   })
@@ -1309,6 +1320,7 @@ export namespace Config {
       ads: Ads.optional().describe("User-defined ads shown in the TUI tips area"),
       server: Server.optional().describe("Server configuration for nikcli serve and web commands"),
       remote: Remote.optional().describe("Remote Control defaults and behavior"),
+      teleport: Teleport.optional().describe("Teleport server defaults for sending sessions to a remote server"),
       command: z
         .record(z.string(), Command)
         .optional()

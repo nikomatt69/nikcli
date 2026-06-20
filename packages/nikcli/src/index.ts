@@ -35,6 +35,7 @@ import { ImageModelCommand } from "./cli/cmd/image-model"
 import { SpeakModelCommand } from "./cli/cmd/speak-model"
 import { BrainModelCommand } from "./cli/cmd/brain-model"
 import { RemoteCommand } from "./cli/cmd/remote"
+import { TeleportCommand } from "./cli/cmd/teleport"
 
 import { AdsCommand } from "./cli/cmd/ads"
 
@@ -137,6 +138,7 @@ const cli = yargs(hideBin(process.argv))
   .command(SpeakModelCommand)
   .command(BrainModelCommand)
   .command(RemoteCommand)
+  .command(TeleportCommand)
   .command(CompanionCommand)
   .command(MobileCommand)
   .command(RoutineCommand)
