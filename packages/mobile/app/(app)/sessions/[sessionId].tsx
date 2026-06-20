@@ -28,6 +28,8 @@ import { SessionComposer } from "@/components/session/SessionComposer"
 import { ComposerToolbar } from "@/components/session/ComposerToolbar"
 import { type ComposerTab } from "@/components/session/ComposerToolDrawer"
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
+import { SessionTeleportSheet } from "@/components/session/SessionTeleportSheet"
+import { setTeleportTarget } from "@/lib/storage"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
 import {
@@ -354,6 +356,8 @@ export default function SessionScreen() {
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const [teleportOpen, setTeleportOpen] = useState(false)
+  const [teleporting, setTeleporting] = useState(false)
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false)
   const [gitState, setGitState] = useState<GitState | null>(null)
@@ -812,6 +816,22 @@ export default function SessionScreen() {
       setError(error instanceof Error ? error.message : String(error))
     } finally {
       setRenaming(false)
+    }
+  }
+
+  async function handleTeleport(target: { url: string; token: string }) {
+    if (!client || !sessionId) return
+    try {
+      setTeleporting(true)
+      await client.teleport(sessionId, target)
+      await setTeleportTarget(target)
+      setTeleportOpen(false)
+      void triggerHaptic("success")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+      void triggerHaptic("error")
+    } finally {
+      setTeleporting(false)
     }
   }
 
@@ -1528,6 +1548,10 @@ export default function SessionScreen() {
           if (sessionId) void Clipboard.setStringAsync(sessionId)
           void triggerHaptic("selection")
         }}
+        onTeleport={() => {
+          actionsSheetRef.current?.dismiss()
+          setTimeout(() => setTeleportOpen(true), 220)
+        }}
         onOpenPreview={() => {
           previewSheetRef.current?.present()
           void triggerHaptic("selection")
@@ -1547,6 +1571,13 @@ export default function SessionScreen() {
         saving={renaming}
         onClose={() => setRenameOpen(false)}
         onSave={(title) => void handleRename(title)}
+      />
+
+      <SessionTeleportSheet
+        visible={teleportOpen}
+        busy={teleporting}
+        onClose={() => setTeleportOpen(false)}
+        onTeleport={(target) => void handleTeleport(target)}
       />
 
       <GitReviewModal

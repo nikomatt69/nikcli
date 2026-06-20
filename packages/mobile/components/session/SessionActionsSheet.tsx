@@ -1,6 +1,15 @@
 import type { RefObject } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
-import { Braces, Copy, FileText, MonitorPlay, PencilLine, TerminalSquare, type LucideIcon } from "lucide-react-native"
+import {
+  Braces,
+  Copy,
+  FileText,
+  MonitorPlay,
+  PencilLine,
+  Rocket,
+  TerminalSquare,
+  type LucideIcon,
+} from "lucide-react-native"
 import { router } from "expo-router"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { useAppTheme } from "@/lib/theme"
@@ -13,6 +22,7 @@ type Props = {
   onExportMarkdown(): void
   onExportJSON(): void
   onCopyID(): void
+  onTeleport?(): void
   onOpenTerminal?(): void
   onOpenPreview?(): void
 }
@@ -140,6 +150,7 @@ export function SessionActionsSheet({
   onExportMarkdown,
   onExportJSON,
   onCopyID,
+  onTeleport,
   onOpenTerminal,
   onOpenPreview,
 }: Props) {
@@ -177,6 +188,15 @@ export function SessionActionsSheet({
           onPress={onRename}
           tone="accent"
         />
+        {onTeleport ? (
+          <SheetRow
+            Icon={Rocket}
+            label="Teleport session"
+            description="Copy this session to another nikcli server"
+            onPress={onTeleport}
+            tone="accent"
+          />
+        ) : null}
 
         <SectionDivider />
         <SectionLabel label="Export" />

@@ -9254,18 +9254,7 @@ export type MobileSessionRenameResponses = {
 export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
 export type MobileSessionTeleportData = {
-  body?: {
-    title?: string
-    /**
-     * Identifier of the machine the session was teleported from
-     */
-    origin?: string
-    permission?: PermissionRuleset
-    messages: Array<{
-      info: Message
-      parts: Array<Part>
-    }>
-  }
+  body?: never
   path?: never
   query?: {
     directory?: string
@@ -9291,6 +9280,8 @@ export type MobileSessionTeleportResponses = {
     sessionID: string
     title?: string
     messageCount: number
+    directory?: string
+    workspace: boolean
   }
 }
 

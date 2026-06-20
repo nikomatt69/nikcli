@@ -133,7 +133,6 @@ import type {
   McpStatusResponses,
   McpToggleErrors,
   McpToggleResponses,
-  Message,
   MissionCancelErrors,
   MissionCancelResponses,
   MissionDeleteErrors,
@@ -6090,19 +6089,12 @@ export class Session4 extends HeyApiClient {
   /**
    * Teleport a session to this server
    *
-   * Recreate a session transcript captured on another machine so it can be continued from the mobile app.
+   * Recreate a session transcript captured on another machine — optionally cloning its working directory — so it can be continued from the mobile app. Accepts JSON (transcript only) or multipart/form-data with a `payload` field and a `archive` tarball.
    */
   public teleport<ThrowOnError extends boolean = false>(
     parameters?: {
       directory?: string
       workspace?: string
-      title?: string
-      origin?: string
-      permission?: PermissionRuleset
-      messages?: Array<{
-        info: Message
-        parts: Array<Part2>
-      }>
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -6113,10 +6105,6 @@ export class Session4 extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
-            { in: "body", key: "title" },
-            { in: "body", key: "origin" },
-            { in: "body", key: "permission" },
-            { in: "body", key: "messages" },
           ],
         },
       ],
@@ -6129,11 +6117,6 @@ export class Session4 extends HeyApiClient {
       url: "/mobile/teleport",
       ...options,
       ...params,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-        ...params.headers,
-      },
     })
   }
 

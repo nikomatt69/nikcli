@@ -10,6 +10,7 @@ import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { createWorkspaceArchive } from "@/util/teleport-archive"
 import type { MessageV2 } from "@/session/message-v2"
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
@@ -72,6 +73,11 @@ export const TeleportCommand = cmd({
         alias: ["t"],
         describe: "mobile Bearer token for the remote server",
         type: "string",
+      })
+      .option("content", {
+        describe: "clone the working directory (working tree + .git) to the server",
+        type: "boolean",
+        default: true,
       })
       .option("save", {
         describe: "remember the server URL and token for next time",
@@ -169,24 +175,48 @@ export const TeleportCommand = cmd({
         process.exit(1)
       }
 
-      process.stderr.write(`Teleporting "${info.title}" (${messages.length} messages) to ${new URL(base).host}...${os.EOL}`)
+      const payload = JSON.stringify({
+        title: info.title,
+        origin: `${os.hostname()}:${info.directory}`,
+        permission: info.permission,
+        messages,
+      })
 
-      const response = await fetch(`${base}/mobile/teleport`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: info.title,
-          origin: `${os.hostname()}:${info.directory}`,
-          permission: info.permission,
-          messages,
-        }),
-      }).catch((error) => {
+      // Build a tarball of the working directory (working tree + .git, minus
+      // gitignored paths) unless the user opted out with --no-content.
+      let archive: { path: string; cleanup: () => Promise<void> } | null = null
+      if (args.content !== false) {
+        process.stderr.write(`Archiving working directory ${info.directory}...${os.EOL}`)
+        archive = await createWorkspaceArchive(info.directory).catch((error) => {
+          process.stderr.write(`Could not archive working directory: ${error instanceof Error ? error.message : String(error)}${os.EOL}`)
+          return null
+        })
+      }
+
+      process.stderr.write(
+        `Teleporting "${info.title}" (${messages.length} messages${archive ? " + workspace" : ""}) to ${new URL(base).host}...${os.EOL}`,
+      )
+
+      let response: Response
+      try {
+        const init: RequestInit = { method: "POST", headers: { authorization: `Bearer ${token}` } }
+        if (archive) {
+          const form = new FormData()
+          form.append("payload", payload)
+          form.append("archive", Bun.file(archive.path), "workspace.tar.gz")
+          init.body = form
+        } else {
+          ;(init.headers as Record<string, string>)["content-type"] = "application/json"
+          init.body = payload
+        }
+        response = await fetch(`${base}/mobile/teleport`, init)
+      } catch (error) {
+        await archive?.cleanup()
         UI.error(`Failed to reach ${base}: ${error instanceof Error ? error.message : String(error)}`)
         process.exit(1)
-      })
+      } finally {
+        await archive?.cleanup()
+      }
 
       if (!response.ok) {
         const detail = await response.text().catch(() => "")
@@ -199,7 +229,7 @@ export const TeleportCommand = cmd({
       }
 
       const result = (await response.json().catch(() => null)) as
-        | { sessionID?: string; messageCount?: number }
+        | { sessionID?: string; messageCount?: number; directory?: string; workspace?: boolean }
         | null
 
       if (args.save !== false) {
@@ -211,6 +241,7 @@ export const TeleportCommand = cmd({
         UI.println(`  remote session: ${result.sessionID}`)
       }
       UI.println(`  messages:       ${result?.messageCount ?? messages.length}`)
+      UI.println(`  workspace:      ${result?.workspace ? `cloned → ${result.directory ?? "(remote)"}` : "not sent"}`)
       UI.println(`  server:         ${base}`)
       UI.println("")
       UI.println(UI.Style.TEXT_DIM + "  Open the nikcli mobile app to continue this session." + UI.Style.TEXT_NORMAL)

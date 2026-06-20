@@ -17,6 +17,9 @@ const REMEMBERED_USER_KEY = "nikcli_remembered_user"
 const LIVE_ACTIVITY_REGISTRY_KEY = "nikcli_live_activity_registry"
 const THEME_ID_KEY = "nikcli_theme_id"
 const COLOR_SCHEME_KEY = "nikcli_color_scheme"
+const TELEPORT_TARGET_KEY = "nikcli_teleport_target"
+
+export type TeleportTarget = { url: string; token: string }
 
 export type StoredColorScheme = "light" | "dark" | "system"
 
@@ -181,6 +184,24 @@ export async function setServerConfig(config: ServerConfig): Promise<void> {
 
 export async function clearServerConfig(): Promise<void> {
   await SecureStore.deleteItemAsync(SERVER_CONFIG_KEY)
+}
+
+export async function getTeleportTarget(): Promise<TeleportTarget | null> {
+  const raw = await SecureStore.getItemAsync(TELEPORT_TARGET_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<TeleportTarget>
+    if (typeof parsed.url === "string" && typeof parsed.token === "string") {
+      return { url: parsed.url, token: parsed.token }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function setTeleportTarget(target: TeleportTarget): Promise<void> {
+  await SecureStore.setItemAsync(TELEPORT_TARGET_KEY, JSON.stringify(target))
 }
 
 export async function getAppPreferences(): Promise<AppPreferences> {

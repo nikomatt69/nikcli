@@ -7,6 +7,7 @@ import { useDialog } from "../ui/dialog"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
+import { createWorkspaceArchive } from "@/util/teleport-archive"
 
 interface TeleportConfig {
   url?: string
@@ -100,20 +101,33 @@ export function DialogTeleport(props: { sessionID: string }) {
         return
       }
 
-      setStore("status", `Teleporting ${messages.length} messages…`)
-      const response = await fetch(`${base}/mobile/teleport`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: info.title,
-          origin: sdk.directory,
-          permission: info.permission,
-          messages,
-        }),
+      const payload = JSON.stringify({
+        title: info.title,
+        origin: sdk.directory,
+        permission: info.permission,
+        messages,
       })
+
+      // Clone the working directory (working tree + .git, minus gitignored paths)
+      // so the session is resumable with its content on the remote server.
+      let archive: { path: string; cleanup: () => Promise<void> } | null = null
+      if (info.directory) {
+        setStore("status", "Archiving workspace…")
+        archive = await createWorkspaceArchive(info.directory).catch(() => null)
+      }
+
+      setStore("status", `Teleporting ${messages.length} messages${archive ? " + workspace" : ""}…`)
+      const init: RequestInit = { method: "POST", headers: { authorization: `Bearer ${token}` } }
+      if (archive) {
+        const form = new FormData()
+        form.append("payload", payload)
+        form.append("archive", Bun.file(archive.path), "workspace.tar.gz")
+        init.body = form
+      } else {
+        ;(init.headers as Record<string, string>)["content-type"] = "application/json"
+        init.body = payload
+      }
+      const response = await fetch(`${base}/mobile/teleport`, init).finally(() => void archive?.cleanup())
 
       if (!response.ok) {
         const detail = await response.text().catch(() => "")
