@@ -10,7 +10,7 @@ import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { createWorkspaceArchive } from "@/util/teleport-archive"
+import { createWorkspaceArchive, uploadWorkspaceArchive } from "@/util/teleport-archive"
 import type { MessageV2 } from "@/session/message-v2"
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
@@ -43,6 +43,18 @@ function normalizeBaseUrl(raw: string): string | null {
   } catch {
     return null
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ["KB", "MB", "GB", "TB"]
+  let value = bytes / 1024
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`
 }
 
 async function saveTeleportDefaults(url: string, token: string) {
@@ -175,47 +187,63 @@ export const TeleportCommand = cmd({
         process.exit(1)
       }
 
-      const payload = JSON.stringify({
-        title: info.title,
-        origin: `${os.hostname()}:${info.directory}`,
-        permission: info.permission,
-        messages,
-      })
-
       // Build a tarball of the working directory (working tree + .git, minus
-      // gitignored paths) unless the user opted out with --no-content.
+      // gitignored paths) unless the user opted out with --no-content, then
+      // stream it to the server in chunks so large repos don't blow the body limit.
       let archive: { path: string; cleanup: () => Promise<void> } | null = null
+      let uploadID: string | undefined
       if (args.content !== false) {
         process.stderr.write(`Archiving working directory ${info.directory}...${os.EOL}`)
         archive = await createWorkspaceArchive(info.directory).catch((error) => {
           process.stderr.write(`Could not archive working directory: ${error instanceof Error ? error.message : String(error)}${os.EOL}`)
           return null
         })
+        if (archive) {
+          const size = Bun.file(archive.path).size
+          process.stderr.write(`Workspace archive: ${formatBytes(size)}${os.EOL}`)
+          try {
+            uploadID = await uploadWorkspaceArchive({
+              base,
+              token,
+              archivePath: archive.path,
+              onProgress: (sent, total) => {
+                const pct = total ? Math.floor((sent / total) * 100) : 100
+                process.stderr.write(`\rUploading workspace… ${pct}% (${(sent / 1e6).toFixed(1)}/${(total / 1e6).toFixed(1)} MB)`)
+              },
+            })
+            process.stderr.write(os.EOL)
+          } catch (error) {
+            await archive.cleanup()
+            UI.error(`Workspace upload failed: ${error instanceof Error ? error.message : String(error)}`)
+            process.exit(1)
+          } finally {
+            await archive.cleanup()
+          }
+        }
       }
 
+      const payload = JSON.stringify({
+        title: info.title,
+        origin: `${os.hostname()}:${info.directory}`,
+        permission: info.permission,
+        messages,
+        uploadID,
+      })
+
       process.stderr.write(
-        `Teleporting "${info.title}" (${messages.length} messages${archive ? " + workspace" : ""}) to ${new URL(base).host}...${os.EOL}`,
+        `Teleporting "${info.title}" (${messages.length} messages${uploadID ? " + workspace" : ""}) to ${new URL(base).host}...${os.EOL}`,
       )
 
       let response: Response
       try {
-        const init: RequestInit = { method: "POST", headers: { authorization: `Bearer ${token}` } }
-        if (archive) {
-          const form = new FormData()
-          form.append("payload", payload)
-          form.append("archive", Bun.file(archive.path), "workspace.tar.gz")
-          init.body = form
-        } else {
-          ;(init.headers as Record<string, string>)["content-type"] = "application/json"
-          init.body = payload
-        }
-        response = await fetch(`${base}/mobile/teleport`, init)
+        response = await fetch(`${base}/mobile/teleport`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: payload,
+        })
       } catch (error) {
-        await archive?.cleanup()
         UI.error(`Failed to reach ${base}: ${error instanceof Error ? error.message : String(error)}`)
         process.exit(1)
-      } finally {
-        await archive?.cleanup()
       }
 
       if (!response.ok) {

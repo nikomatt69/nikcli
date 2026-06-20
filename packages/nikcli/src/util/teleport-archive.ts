@@ -59,6 +59,42 @@ export async function createWorkspaceArchive(
   return { path: archivePath, cleanup }
 }
 
+/**
+ * Stream a workspace tarball to a remote nikcli server in chunks, so a large
+ * archive (working tree + .git) is never sent as one oversized request body.
+ * Returns the server's `uploadID`, to be passed to `POST /mobile/teleport`.
+ */
+export async function uploadWorkspaceArchive(opts: {
+  base: string
+  token: string
+  archivePath: string
+  chunkSize?: number
+  onProgress?: (sent: number, total: number) => void
+}): Promise<string> {
+  const auth = { authorization: `Bearer ${opts.token}` }
+  const begin = await fetch(`${opts.base}/mobile/teleport/upload`, { method: "POST", headers: auth })
+  if (!begin.ok) throw new Error(`upload init failed (${begin.status})`)
+  const { uploadID } = (await begin.json()) as { uploadID: string }
+
+  const file = Bun.file(opts.archivePath)
+  const total = file.size
+  const chunkSize = opts.chunkSize ?? 6 * 1024 * 1024
+  let offset = 0
+  while (offset < total) {
+    const end = Math.min(offset + chunkSize, total)
+    const body = await file.slice(offset, end).arrayBuffer()
+    const res = await fetch(`${opts.base}/mobile/teleport/upload/${encodeURIComponent(uploadID)}`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/octet-stream" },
+      body,
+    })
+    if (!res.ok) throw new Error(`chunk upload failed (${res.status})`)
+    offset = end
+    opts.onProgress?.(offset, total)
+  }
+  return uploadID
+}
+
 async function isGitRepo(dir: string): Promise<boolean> {
   try {
     const out = await runCaptureText(["git", "-C", dir, "rev-parse", "--is-inside-work-tree"], dir)

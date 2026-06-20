@@ -1137,6 +1137,10 @@ export namespace Server {
     const args = {
       hostname: opts.hostname,
       idleTimeout: 0,
+      // Raise Bun's 128MB default so large teleport uploads (working tree + .git)
+      // go through. Override with NIKCLI_SERVER_MAX_BODY. Chunked teleport uploads
+      // keep individual requests small, but transcript JSON can still be large.
+      maxRequestBodySize: Flag.NIKCLI_SERVER_MAX_BODY ?? 2 * 1024 * 1024 * 1024,
       fetch: App().fetch,
       websocket: websocket,
     } as const

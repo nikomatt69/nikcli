@@ -30,6 +30,11 @@ export namespace Flag {
   export const NIKCLI_CLIENT = process.env["NIKCLI_CLIENT"] ?? "cli"
   export const NIKCLI_SERVER_PASSWORD = process.env["NIKCLI_SERVER_PASSWORD"]
   export const NIKCLI_SERVER_USERNAME = process.env["NIKCLI_SERVER_USERNAME"]
+  // Max HTTP request body in bytes (defaults applied at the serve site). Lets
+  // large teleport uploads through Bun's 128MB default when needed.
+  export const NIKCLI_SERVER_MAX_BODY = process.env["NIKCLI_SERVER_MAX_BODY"]
+    ? parseInt(process.env["NIKCLI_SERVER_MAX_BODY"]!, 10)
+    : undefined
   export const NIKCLI_SERVER_TAILSCALE_AUTH = truthy("NIKCLI_SERVER_TAILSCALE_AUTH")
   export const NIKCLI_SERVER_TAILSCALE_USERS = process.env["NIKCLI_SERVER_TAILSCALE_USERS"]
 

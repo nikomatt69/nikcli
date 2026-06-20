@@ -294,6 +294,9 @@ import type {
   MobileSessionStreamResponses,
   MobileSessionTeleportErrors,
   MobileSessionTeleportResponses,
+  MobileSessionTeleportUploadBeginResponses,
+  MobileSessionTeleportUploadChunkErrors,
+  MobileSessionTeleportUploadChunkResponses,
   MobileWorktreeCreateErrors,
   MobileWorktreeCreateResponses,
   MobileWorktreeRemoveResponses,
@@ -5700,6 +5703,81 @@ export class Command2 extends HeyApiClient {
   }
 }
 
+export class Upload extends HeyApiClient {
+  /**
+   * Begin a teleport workspace upload
+   *
+   * Allocate a chunked upload slot for a working-directory tarball. Returns an uploadID.
+   */
+  public begin<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileSessionTeleportUploadBeginResponses, unknown, ThrowOnError>({
+      url: "/mobile/teleport/upload",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Append a teleport upload chunk
+   *
+   * Append raw bytes to a chunked working-directory upload.
+   */
+  public chunk<ThrowOnError extends boolean = false>(
+    parameters: {
+      uploadID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "uploadID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileSessionTeleportUploadChunkResponses,
+      MobileSessionTeleportUploadChunkErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/teleport/upload/{uploadID}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Teleport extends HeyApiClient {
+  private _upload?: Upload
+  get upload(): Upload {
+    return (this._upload ??= new Upload({ client: this.client }))
+  }
+}
+
 export class Session4 extends HeyApiClient {
   /**
    * List mobile sessions
@@ -6089,7 +6167,7 @@ export class Session4 extends HeyApiClient {
   /**
    * Teleport a session to this server
    *
-   * Recreate a session transcript captured on another machine — optionally cloning its working directory — so it can be continued from the mobile app. Accepts JSON (transcript only) or multipart/form-data with a `payload` field and a `archive` tarball.
+   * Recreate a session transcript captured on another machine — optionally cloning its working directory via a previously uploaded `uploadID` — so it can be continued from the mobile app.
    */
   public teleport<ThrowOnError extends boolean = false>(
     parameters?: {
@@ -6123,6 +6201,11 @@ export class Session4 extends HeyApiClient {
   private _command?: Command2
   get command2(): Command2 {
     return (this._command ??= new Command2({ client: this.client }))
+  }
+
+  private _teleport?: Teleport
+  get teleport2(): Teleport {
+    return (this._teleport ??= new Teleport({ client: this.client }))
   }
 }
 

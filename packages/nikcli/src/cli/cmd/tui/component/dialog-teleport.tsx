@@ -7,7 +7,7 @@ import { useDialog } from "../ui/dialog"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
-import { createWorkspaceArchive } from "@/util/teleport-archive"
+import { createWorkspaceArchive, uploadWorkspaceArchive } from "@/util/teleport-archive"
 
 interface TeleportConfig {
   url?: string
@@ -32,6 +32,18 @@ function normalizeBaseUrl(raw: string): string | null {
   } catch {
     return null
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ["KB", "MB", "GB", "TB"]
+  let value = bytes / 1024
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`
 }
 
 /**
@@ -101,33 +113,50 @@ export function DialogTeleport(props: { sessionID: string }) {
         return
       }
 
+      // Clone the working directory (working tree + .git, minus gitignored paths)
+      // and stream it to the server in chunks so large repos don't blow the body
+      // limit. The session is then resumable with its content on the remote.
+      let uploadID: string | undefined
+      if (info.directory) {
+        setStore("status", "Archiving workspace…")
+        const archive = await createWorkspaceArchive(info.directory).catch(() => null)
+        if (archive) {
+          const size = formatBytes(Bun.file(archive.path).size)
+          try {
+            uploadID = await uploadWorkspaceArchive({
+              base,
+              token,
+              archivePath: archive.path,
+              onProgress: (sent, total) => {
+                const pct = total ? Math.floor((sent / total) * 100) : 100
+                setStore("status", `Uploading workspace ${size}… ${pct}%`)
+              },
+            })
+          } catch (error) {
+            await archive.cleanup()
+            setStore("busy", false)
+            setStore("status", `Workspace upload failed: ${error instanceof Error ? error.message : String(error)}`)
+            return
+          } finally {
+            await archive.cleanup()
+          }
+        }
+      }
+
       const payload = JSON.stringify({
         title: info.title,
         origin: sdk.directory,
         permission: info.permission,
         messages,
+        uploadID,
       })
 
-      // Clone the working directory (working tree + .git, minus gitignored paths)
-      // so the session is resumable with its content on the remote server.
-      let archive: { path: string; cleanup: () => Promise<void> } | null = null
-      if (info.directory) {
-        setStore("status", "Archiving workspace…")
-        archive = await createWorkspaceArchive(info.directory).catch(() => null)
-      }
-
-      setStore("status", `Teleporting ${messages.length} messages${archive ? " + workspace" : ""}…`)
-      const init: RequestInit = { method: "POST", headers: { authorization: `Bearer ${token}` } }
-      if (archive) {
-        const form = new FormData()
-        form.append("payload", payload)
-        form.append("archive", Bun.file(archive.path), "workspace.tar.gz")
-        init.body = form
-      } else {
-        ;(init.headers as Record<string, string>)["content-type"] = "application/json"
-        init.body = payload
-      }
-      const response = await fetch(`${base}/mobile/teleport`, init).finally(() => void archive?.cleanup())
+      setStore("status", `Teleporting ${messages.length} messages${uploadID ? " + workspace" : ""}…`)
+      const response = await fetch(`${base}/mobile/teleport`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: payload,
+      })
 
       if (!response.ok) {
         const detail = await response.text().catch(() => "")

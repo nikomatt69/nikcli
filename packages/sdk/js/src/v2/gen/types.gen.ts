@@ -9253,6 +9253,62 @@ export type MobileSessionRenameResponses = {
 
 export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
+export type MobileSessionTeleportUploadBeginData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/teleport/upload"
+}
+
+export type MobileSessionTeleportUploadBeginResponses = {
+  /**
+   * Upload slot
+   */
+  200: {
+    uploadID: string
+  }
+}
+
+export type MobileSessionTeleportUploadBeginResponse =
+  MobileSessionTeleportUploadBeginResponses[keyof MobileSessionTeleportUploadBeginResponses]
+
+export type MobileSessionTeleportUploadChunkData = {
+  body?: never
+  path: {
+    uploadID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/teleport/upload/{uploadID}"
+}
+
+export type MobileSessionTeleportUploadChunkErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionTeleportUploadChunkError =
+  MobileSessionTeleportUploadChunkErrors[keyof MobileSessionTeleportUploadChunkErrors]
+
+export type MobileSessionTeleportUploadChunkResponses = {
+  /**
+   * Chunk stored
+   */
+  200: {
+    ok: true
+  }
+}
+
+export type MobileSessionTeleportUploadChunkResponse =
+  MobileSessionTeleportUploadChunkResponses[keyof MobileSessionTeleportUploadChunkResponses]
+
 export type MobileSessionTeleportData = {
   body?: never
   path?: never
