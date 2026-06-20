@@ -2,20 +2,62 @@ import { mkdtemp, rm } from "fs/promises"
 import { tmpdir } from "os"
 import path from "path"
 
+/** File extensions skipped by default — binaries/media that aren't needed to keep coding. */
+const BINARY_EXTENSIONS = new Set([
+  // images
+  "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif", "ico", "icns", "heic", "heif", "avif",
+  // video
+  "mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v", "mpg", "mpeg",
+  // audio
+  "mp3", "wav", "flac", "ogg", "m4a", "aac", "wma", "opus",
+  // fonts
+  "woff", "woff2", "ttf", "otf", "eot",
+  // archives
+  "zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar", "zst", "lz4",
+  // compiled / native
+  "exe", "dll", "so", "dylib", "bin", "wasm", "o", "a", "node", "class", "jar", "obj", "lib", "pdb",
+  // design / docs
+  "pdf", "psd", "ai", "sketch", "fig", "xcf",
+  // data / db / packed
+  "sqlite", "sqlite3", "db", "mdb", "dat", "pack", "idx",
+  // disk / mobile artifacts
+  "apk", "ipa", "dmg", "iso", "img", "aab",
+])
+
+const DEFAULT_MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB: skip anything bigger by default
+
+export interface WorkspaceArchiveOptions {
+  /** Include the full `.git` directory (history). Off by default — it's usually huge. */
+  includeGit?: boolean
+  /** Skip files larger than this many bytes (default 2MB). */
+  maxFileSize?: number
+}
+
+export interface WorkspaceArchiveResult {
+  path: string
+  bytes: number
+  fileCount: number
+  skipped: number
+  includedGit: boolean
+  cleanup: () => Promise<void>
+}
+
 /**
- * Build a gzipped tarball of a session working directory so it can be teleported
- * to a remote server. Includes the full `.git` directory plus every non-ignored
- * working-tree file (tracked + untracked), selected via `git ls-files` so that
- * ignored paths like `node_modules` are never even walked — keeping the archive
- * small and the operation fast. For non-git directories it falls back to taring
- * the whole tree minus `node_modules`.
+ * Build a gzipped tarball of a session working directory to teleport to a remote
+ * server. By design it ships only what's needed to keep coding: non-ignored
+ * source/text files (tracked + untracked via `git ls-files`, so `node_modules`
+ * and gitignored paths are never walked), skipping binary/media files and files
+ * larger than `maxFileSize`. The heavy `.git` history is excluded unless
+ * `includeGit` is set. For non-git dirs it walks the tree applying the same
+ * binary/size filters.
  *
- * Returns the path to a temp `.tar.gz` and a `cleanup()` to remove it, or `null`
- * if the directory does not exist.
+ * Returns the archive path, its size, and a `cleanup()`, or `null` if the
+ * directory doesn't exist or no eligible files were found.
  */
 export async function createWorkspaceArchive(
   directory: string,
-): Promise<{ path: string; cleanup: () => Promise<void> } | null> {
+  options: WorkspaceArchiveOptions = {},
+): Promise<WorkspaceArchiveResult | null> {
   try {
     const { stat } = await import("fs/promises")
     if (!(await stat(directory)).isDirectory()) return null
@@ -23,6 +65,7 @@ export async function createWorkspaceArchive(
     return null
   }
 
+  const maxFileSize = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE
   const work = await mkdtemp(path.join(tmpdir(), "nikcli-teleport-"))
   const archivePath = path.join(work, "workspace.tar.gz")
   const cleanup = () => rm(work, { recursive: true, force: true }).catch(() => undefined)
@@ -31,32 +74,71 @@ export async function createWorkspaceArchive(
   const isGit = root === directory && (await isGitRepo(directory))
 
   try {
+    // Candidate files relative to root.
+    let candidates: string[]
     if (isGit) {
-      // Null-separated list of non-ignored working-tree files (tracked + untracked),
-      // with the full `.git` directory prepended so history travels along too.
-      const listed = await runCapture(
+      const listed = await runCaptureText(
         ["git", "-C", root, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         root,
       )
-      const listFile = path.join(work, "files.txt")
-      const gitEntry = new TextEncoder().encode(".git\0")
-      const fileList = new Uint8Array(gitEntry.length + listed.length)
-      fileList.set(gitEntry, 0)
-      fileList.set(listed, gitEntry.length)
-      await Bun.write(listFile, fileList)
-      await runOk(["tar", "-czf", archivePath, "--null", "-C", root, "-T", listFile], root)
+      candidates = listed.split("\0").filter(Boolean)
     } else {
-      await runOk(
-        ["tar", "-czf", archivePath, "-C", root, "--exclude=node_modules", "--exclude=.DS_Store", "."],
+      const found = await runCaptureText(
+        ["find", ".", "-type", "f", "-not", "-path", "./node_modules/*", "-not", "-path", "./.git/*", "-print0"],
         root,
       )
+      candidates = found.split("\0").filter(Boolean).map((p) => (p.startsWith("./") ? p.slice(2) : p))
+    }
+
+    // Filter out binaries and oversized files.
+    const { stat } = await import("fs/promises")
+    const included: string[] = []
+    let skipped = 0
+    await Promise.all(
+      candidates.map(async (rel) => {
+        const ext = path.extname(rel).slice(1).toLowerCase()
+        if (BINARY_EXTENSIONS.has(ext)) {
+          skipped++
+          return
+        }
+        try {
+          const s = await stat(path.join(root, rel))
+          if (s.size > maxFileSize) {
+            skipped++
+            return
+          }
+        } catch {
+          skipped++
+          return
+        }
+        included.push(rel)
+      }),
+    )
+
+    if (included.length === 0 && !options.includeGit) {
+      await cleanup()
+      return null
+    }
+
+    // Optionally prepend the full .git directory (history) when explicitly requested.
+    const entries = options.includeGit && isGit ? [".git", ...included] : included
+    const listFile = path.join(work, "files.txt")
+    await Bun.write(listFile, entries.join("\0") + "\0")
+    await runOk(["tar", "-czf", archivePath, "--null", "-C", root, "-T", listFile], root)
+
+    const bytes = Bun.file(archivePath).size
+    return {
+      path: archivePath,
+      bytes,
+      fileCount: included.length,
+      skipped,
+      includedGit: Boolean(options.includeGit && isGit),
+      cleanup,
     }
   } catch (error) {
     await cleanup()
     throw error
   }
-
-  return { path: archivePath, cleanup }
 }
 
 /**

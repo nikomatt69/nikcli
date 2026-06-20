@@ -87,9 +87,14 @@ export const TeleportCommand = cmd({
         type: "string",
       })
       .option("content", {
-        describe: "clone the working directory (working tree + .git) to the server",
+        describe: "clone the working directory (source files, no binaries) to the server",
         type: "boolean",
         default: true,
+      })
+      .option("git", {
+        describe: "also include the full .git history (large — off by default)",
+        type: "boolean",
+        default: false,
       })
       .option("save", {
         describe: "remember the server URL and token for next time",
@@ -187,20 +192,21 @@ export const TeleportCommand = cmd({
         process.exit(1)
       }
 
-      // Build a tarball of the working directory (working tree + .git, minus
-      // gitignored paths) unless the user opted out with --no-content, then
-      // stream it to the server in chunks so large repos don't blow the body limit.
-      let archive: { path: string; cleanup: () => Promise<void> } | null = null
+      // Archive only what's needed to keep coding: non-ignored source/text files,
+      // skipping binaries and (by default) the heavy .git history. Streamed in
+      // chunks so it never blows the request body limit. Opt out with --no-content.
+      let archive: Awaited<ReturnType<typeof createWorkspaceArchive>> = null
       let uploadID: string | undefined
       if (args.content !== false) {
         process.stderr.write(`Archiving working directory ${info.directory}...${os.EOL}`)
-        archive = await createWorkspaceArchive(info.directory).catch((error) => {
+        archive = await createWorkspaceArchive(info.directory, { includeGit: Boolean(args.git) }).catch((error) => {
           process.stderr.write(`Could not archive working directory: ${error instanceof Error ? error.message : String(error)}${os.EOL}`)
           return null
         })
         if (archive) {
-          const size = Bun.file(archive.path).size
-          process.stderr.write(`Workspace archive: ${formatBytes(size)}${os.EOL}`)
+          process.stderr.write(
+            `Workspace archive: ${formatBytes(archive.bytes)} — ${archive.fileCount} files${archive.skipped ? `, ${archive.skipped} binary/large skipped` : ""}${archive.includedGit ? ", incl. .git" : ""}${os.EOL}`,
+          )
           try {
             uploadID = await uploadWorkspaceArchive({
               base,

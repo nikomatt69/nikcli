@@ -113,15 +113,15 @@ export function DialogTeleport(props: { sessionID: string }) {
         return
       }
 
-      // Clone the working directory (working tree + .git, minus gitignored paths)
-      // and stream it to the server in chunks so large repos don't blow the body
-      // limit. The session is then resumable with its content on the remote.
+      // Archive only what's needed to keep coding: non-ignored source/text files,
+      // skipping binaries and the heavy .git history. Streamed in chunks so it
+      // never blows the body limit. The session resumes with its content remotely.
       let uploadID: string | undefined
       if (info.directory) {
         setStore("status", "Archiving workspace…")
         const archive = await createWorkspaceArchive(info.directory).catch(() => null)
         if (archive) {
-          const size = formatBytes(Bun.file(archive.path).size)
+          const size = formatBytes(archive.bytes)
           try {
             uploadID = await uploadWorkspaceArchive({
               base,
