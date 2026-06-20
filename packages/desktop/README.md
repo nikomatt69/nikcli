@@ -8,15 +8,22 @@ From the repo root:
 
 ```bash
 bun install
-bun run --cwd packages/desktop tauri dev
+bun run desktop:dev
 ```
 
-This starts the Vite dev server on http://localhost:1420 and opens the native window.
+This builds the current-platform nikcli sidecar, starts the Vite WebGUI on http://localhost:1420,
+and opens it in the native Tauri window.
 
-If you only want the web dev server (no native shell):
+If you only want the shared WebGUI (no native shell):
 
 ```bash
-bun run --cwd packages/desktop dev
+bun run webgui:dev
+```
+
+The shared WebGUI connects to a nikcli server. Start one separately when needed:
+
+```bash
+bun run --cwd packages/nikcli dev serve --hostname 127.0.0.1 --port 4096
 ```
 
 ## Build
@@ -24,8 +31,11 @@ bun run --cwd packages/desktop dev
 To create a production `dist/` and build the native app bundle:
 
 ```bash
-bun run --cwd packages/desktop tauri build
+bun run desktop:build
 ```
+
+The build command uses `src-tauri/tauri.prod.conf.json`, prepares the bundled CLI sidecar from the
+current source tree, enables updater artifacts, and uses the production application icons.
 
 ## Prerequisites
 

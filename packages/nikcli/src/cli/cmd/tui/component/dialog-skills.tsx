@@ -2,7 +2,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
-import { createMemo, createResource, createSignal, onMount } from "solid-js"
+import { createMemo, createResource, createSignal, Match, onMount, Switch } from "solid-js"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
 import { Skill } from "@/skill"
@@ -104,23 +104,22 @@ function DialogSkillCreate() {
 
   async function submit(value: string) {
     if (step() === "name") {
-      setName(value)
+      const trimmed = value.trim()
+      setName(trimmed)
       setStep("description")
-      dialog.replace(() => <DialogSkillCreate />)
       return
     }
 
     if (step() === "description") {
-      setDescription(value)
+      const trimmed = value.trim()
+      setDescription(trimmed)
       setStep("scope")
-      dialog.replace(() => <DialogSkillCreate />)
       return
     }
 
     if (step() === "scope") {
       const scope = value.trim().toLowerCase() === "global" ? ("global" as const) : ("workspace" as const)
       setBusy(true)
-      dialog.replace(() => <DialogSkillCreate />)
       try {
         await sdk.client.app.skill.create({
           name: name(),
@@ -131,38 +130,45 @@ function DialogSkillCreate() {
         dialog.replace(() => <DialogSkills />)
       } catch (err: any) {
         setBusy(false)
-        dialog.replace(() => <DialogSkillCreate />)
+        setStep("name")
         toast.show({ message: `Failed: ${err.message}`, variant: "error" })
       }
     }
   }
 
-  const title = () => {
-    if (step() === "name") return "Create Skill - Name"
-    if (step() === "description") return `Create Skill - Description (${name()})`
-    return `Create Skill - Scope (${name()})`
-  }
-
-  const placeholder = () => {
-    if (step() === "name") return "e.g. my-skill"
-    if (step() === "description") return "Short description of what this skill does"
-    return "workspace or global (default: workspace)"
-  }
-
-  const defaultValue = () => {
-    if (step() === "scope") return "workspace"
-    return undefined
-  }
-
   return (
-    <DialogPrompt
-      title={title()}
-      placeholder={placeholder()}
-      value={defaultValue()}
-      busy={busy()}
-      busyText="Creating skill..."
-      onConfirm={submit}
-    />
+    <Switch>
+      <Match when={step() === "name"}>
+        <DialogPrompt
+          title="Create Skill - Name"
+          placeholder="e.g. my-skill"
+          value={name()}
+          busy={busy()}
+          busyText="Creating skill..."
+          onConfirm={submit}
+        />
+      </Match>
+      <Match when={step() === "description"}>
+        <DialogPrompt
+          title={`Create Skill - Description (${name()})`}
+          placeholder="Short description of what this skill does"
+          value={description()}
+          busy={busy()}
+          busyText="Creating skill..."
+          onConfirm={submit}
+        />
+      </Match>
+      <Match when={step() === "scope"}>
+        <DialogPrompt
+          title={`Create Skill - Scope (${name()})`}
+          placeholder="workspace or global (default: workspace)"
+          value="workspace"
+          busy={busy()}
+          busyText="Creating skill..."
+          onConfirm={submit}
+        />
+      </Match>
+    </Switch>
   )
 }
 

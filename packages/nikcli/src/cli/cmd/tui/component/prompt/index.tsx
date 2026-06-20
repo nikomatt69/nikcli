@@ -14,6 +14,7 @@ import {
 } from "solid-js"
 import "opentui-spinner/solid"
 import { useLocal } from "@tui/context/local"
+import { useLanguage } from "@tui/context/language"
 import { useTheme } from "@tui/context/theme"
 import { EmptyBorder, SplitBorder } from "@tui/component/border"
 import { useSDK } from "@tui/context/sdk"
@@ -85,8 +86,9 @@ export type PromptRef = {
   submit(): void
 }
 
-const PLACEHOLDERS = ["Find a TODO comment and fix it", "What is the tech stack of this project?", "Fix broken tests"]
-const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
+// i18n keys for the rotating placeholder examples (see specs/opencode-parity/06-tui-i18n.md).
+const PLACEHOLDER_KEYS = ["prompt.example.todo", "prompt.example.techStack", "prompt.example.tests"] as const
+const SHELL_PLACEHOLDER_KEYS = ["prompt.shellExample.ls", "prompt.shellExample.gitStatus", "prompt.shellExample.pwd"] as const
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -186,6 +188,7 @@ export function Prompt(props: PromptProps) {
   const dimensions = useTerminalDimensions()
   const { theme, syntax } = useTheme()
   const kv = useKV()
+  const lang = useLanguage()
   const editor = useEditorContext()
   const editorContextVisible = createMemo(() => kv.get("editor_context_visibility", true) as boolean)
   const editorPath = createMemo(() => editor.selection()?.filePath)
@@ -950,7 +953,7 @@ export function Prompt(props: PromptProps) {
     placeholder: number
     currentAdIndex: number
   }>({
-    placeholder: Math.floor(Math.random() * PLACEHOLDERS.length),
+    placeholder: Math.floor(Math.random() * PLACEHOLDER_KEYS.length),
     prompt: {
       input: "",
       parts: [],
@@ -965,7 +968,7 @@ export function Prompt(props: PromptProps) {
     on(
       () => props.sessionID,
       () => {
-        setStore("placeholder", Math.floor(Math.random() * PLACEHOLDERS.length))
+        setStore("placeholder", Math.floor(Math.random() * PLACEHOLDER_KEYS.length))
         setStore("interrupt", 0)
       },
       { defer: true },
@@ -1782,10 +1785,11 @@ export function Prompt(props: PromptProps) {
   const placeholderText = createMemo(() => {
     if (props.sessionID) return undefined
     if (store.mode === "shell") {
-      const example = SHELL_PLACEHOLDERS[store.placeholder % SHELL_PLACEHOLDERS.length]
-      return `Run a command... "${example}"`
+      const example = lang.t(SHELL_PLACEHOLDER_KEYS[store.placeholder % SHELL_PLACEHOLDER_KEYS.length])
+      return lang.t("prompt.placeholder.shell", { example })
     }
-    return `Ask anything... "${PLACEHOLDERS[store.placeholder % PLACEHOLDERS.length]}"`
+    const example = lang.t(PLACEHOLDER_KEYS[store.placeholder % PLACEHOLDER_KEYS.length])
+    return lang.t("prompt.placeholder.ask", { example })
   })
 
   return (
@@ -1897,7 +1901,7 @@ export function Prompt(props: PromptProps) {
                   return
                 }
                 if (e.name === "!" && input.visualCursor.offset === 0) {
-                  setStore("placeholder", Math.floor(Math.random() * SHELL_PLACEHOLDERS.length))
+                  setStore("placeholder", Math.floor(Math.random() * SHELL_PLACEHOLDER_KEYS.length))
                   setStore("mode", "shell")
                   e.preventDefault()
                   return
@@ -2042,7 +2046,7 @@ export function Prompt(props: PromptProps) {
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
               <Show when={kv.get("show_agent", true)}>
                 <text fg={highlight()}>
-                  {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
+                  {store.mode === "shell" ? lang.t("prompt.shell") : Locale.titlecase(local.agent.current().name)}{" "}
                 </text>
               </Show>
               <Show when={store.mode === "normal" && kv.get("show_model", true)}>
@@ -2209,7 +2213,7 @@ export function Prompt(props: PromptProps) {
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
-                    {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
+                    {store.interrupt > 0 ? lang.t("prompt.interruptAgain") : lang.t("prompt.interrupt")}
                   </span>
                 </text>
                 <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
@@ -2294,14 +2298,15 @@ export function Prompt(props: PromptProps) {
                         </Match>
                         <Match when={true}>
                           <text fg={theme.text}>
-                            {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
+                            {keybind.print("command_list")}{" "}
+                            <span style={{ fg: theme.textMuted }}>{lang.t("prompt.commands")}</span>
                           </text>
                         </Match>
                       </Switch>
                     </Match>
                     <Match when={store.mode === "shell"}>
                       <text fg={theme.text}>
-                        esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
+                        esc <span style={{ fg: theme.textMuted }}>{lang.t("prompt.exitShellMode")}</span>
                       </text>
                     </Match>
                   </Switch>

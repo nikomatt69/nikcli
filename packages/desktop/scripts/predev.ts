@@ -8,6 +8,6 @@ const sidecarConfig = getCurrentSidecar(RUST_TARGET)
 
 const binaryPath = windowsify(`../nikcli/dist/${sidecarConfig.ocBinary}/bin/nikcli`)
 
-await $`cd ../nikcli && bun run build --single`
+await $`cd ../nikcli && bun run build --single --skip-install`
 
 await copyBinaryToSidecarFolder(binaryPath, RUST_TARGET)

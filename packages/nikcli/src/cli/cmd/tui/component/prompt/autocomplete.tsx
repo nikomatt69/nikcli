@@ -13,6 +13,7 @@ import { useCommandDialog } from "@tui/component/dialog-command"
 import { useTerminalDimensions } from "@opentui/solid"
 import { useEditorContext } from "@tui/context/editor"
 import { Locale } from "@/util/locale"
+import { createDebouncedSignal, createLatestOnlyAsync } from "../../util/signal"
 import type { PromptInfo } from "./history"
 import { useFrecency } from "./frecency"
 
@@ -139,6 +140,23 @@ export function Autocomplete(props: {
 
     return props.input().getTextRange(store.index + 1, props.input().cursorOffset)
   })
+
+  // Debounce the query that drives the file-search resource so fast typing collapses into
+  // at most one request per quiet window instead of one per keystroke.
+  // See specs/opencode-parity/03-request-throttling.md.
+  const [debouncedFilter, setDebouncedFilter] = createDebouncedSignal<string | undefined>(undefined, 180)
+  createEffect(
+    on(
+      () => filter(),
+      (value) => setDebouncedFilter(value),
+    ),
+  )
+
+  // Latest-only wrapper: a new query aborts the previous in-flight `find.files` and stale
+  // responses are dropped, so out-of-order results can never overwrite newer ones.
+  const findFilesLatest = createLatestOnlyAsync<[string], Awaited<ReturnType<typeof sdk.client.find.files>>>(
+    ({ input: [query], signal }) => sdk.client.find.files({ query }, { signal }),
+  )
 
   // When the filter changes due to how TUI works, the mousemove might still be triggered
   // via a synthetic event as the layout moves underneath the cursor. This is a workaround to make sure the input mode remains keyboard so
@@ -287,22 +305,26 @@ export function Autocomplete(props: {
     insertPart(filename, part)
   }
 
+  // Last good file-search options, so a stale/aborted request keeps the current list
+  // instead of flashing empty.
+  let lastFileOptions: AutocompleteOption[] = []
   const [files] = createResource(
-    () => filter(),
+    () => debouncedFilter(),
     async (query) => {
       if (!store.visible || store.visible === "/") return []
 
       const { lineRange, baseQuery } = extractLineRange(query ?? "")
 
-      // Get files from SDK
-      const result = await sdk.client.find.files({
-        query: baseQuery,
-      })
+      // Get files from SDK (debounced source + latest-only/abort coordinator)
+      const result = await findFilesLatest(baseQuery)
 
       const options: AutocompleteOption[] = []
 
+      // Stale/aborted request -> keep current options rather than flashing empty.
+      if (!result) return lastFileOptions
+
       // Add file options
-      if (!result.error && result.data) {
+      if (result.data) {
         const sortedFiles = result.data.sort((a, b) => {
           const aScore = frecency.getFrecency(a)
           const bScore = frecency.getFrecency(b)
@@ -332,6 +354,7 @@ export function Autocomplete(props: {
         )
       }
 
+      lastFileOptions = options
       return options
     },
     {

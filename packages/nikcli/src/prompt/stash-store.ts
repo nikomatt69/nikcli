@@ -2,6 +2,7 @@ import path from "path"
 import { appendFile, writeFile } from "fs/promises"
 import { Global } from "@/global"
 import type { PromptInfo } from "@/cli/cmd/tui/component/prompt/history"
+import { capPromptEntryBytes, dehydratePromptEntry } from "@/cli/cmd/tui/util/prompt-blob"
 
 export type StashEntry = {
   id: string
@@ -41,8 +42,14 @@ async function read() {
     .slice(-MAX_STASH_ENTRIES)
 }
 
+async function persistLine(entry: StashEntry): Promise<string> {
+  const dehydrated = capPromptEntryBytes(await dehydratePromptEntry(entry))
+  return JSON.stringify(dehydrated)
+}
+
 async function rewrite(entries: StashEntry[]) {
-  const content = entries.length ? `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n` : ""
+  const lines = await Promise.all(entries.map((entry) => persistLine(entry)))
+  const content = lines.length ? `${lines.join("\n")}\n` : ""
   await writeFile(filePath(), content)
 }
 
@@ -60,7 +67,12 @@ export namespace PromptStashStore {
     return read()
   }
 
-  export async function push(entry: Omit<StashEntry, "id" | "timestamp"> & { id?: string; timestamp?: number }) {
+  export async function push(
+    entry: Omit<StashEntry, "id" | "timestamp"> & {
+      id?: string
+      timestamp?: number
+    },
+  ) {
     return enqueue(async () => {
       const current = await read()
       const next: StashEntry = {
@@ -70,8 +82,9 @@ export namespace PromptStashStore {
         timestamp: entry.timestamp ?? Date.now(),
       }
       const entries = [...current, next].slice(-MAX_STASH_ENTRIES)
+      const line = await persistLine(next)
       if (current.length + 1 === entries.length) {
-        await appendFile(filePath(), `${JSON.stringify(next)}\n`).catch(async () => {
+        await appendFile(filePath(), `${line}\n`).catch(async () => {
           await rewrite(entries)
         })
       } else {

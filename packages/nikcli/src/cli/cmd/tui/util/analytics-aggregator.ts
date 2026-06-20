@@ -568,12 +568,15 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
             error: 0,
           }
           toolStats.count++
-          // Check state for success/error
+          // Check state for success/error. ToolPart.state.status uses the
+          // discriminated union from session/message-v2.ts: "pending" |
+          // "running" | "completed" | "error". "completed" counts as success;
+          // anything else (including "error") is counted as a failure.
           if (part.state && typeof part.state === "object") {
             const stateObj = part.state as { status?: string }
-            if (stateObj.status === "success" || stateObj.status === "complete") {
+            if (stateObj.status === "completed") {
               toolStats.success++
-            } else if (stateObj.status === "error" || stateObj.status === "failed") {
+            } else if (stateObj.status === "error") {
               toolStats.error++
             }
           }

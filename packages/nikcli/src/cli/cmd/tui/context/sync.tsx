@@ -28,8 +28,21 @@ import { createSimpleContext } from "./helper"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
+import { debounce } from "@solid-primitives/scheduled"
 import { Log } from "@/util/log"
+import { createLru } from "@tui/util/lru-cache"
+import { createLatestOnlyAsync } from "@tui/util/signal"
 import type { Path } from "@nikcli-ai/sdk/v2"
+
+/** Parity flags in server Zod config; SDK client types may lag until SDK regen. */
+function experimentalParityFlags(config: Config) {
+  return config.experimental as
+    | (NonNullable<Config["experimental"]> & {
+        tui?: { cacheEviction?: boolean }
+        requests?: { latestOnlyLspRefresh?: boolean }
+      })
+    | undefined
+}
 
 type BackgroundJob = {
   jobID: string
@@ -138,6 +151,19 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     const sdk = useSDK()
     const backgroundRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+    const refreshLspLatest = createLatestOnlyAsync<[], Awaited<ReturnType<typeof sdk.client.lsp.status>>>(async () =>
+      sdk.client.lsp.status(),
+    )
+    // Debounce rapid lsp.updated bursts (typing / file switches) so only the latest applies.
+    // See specs/opencode-parity/03-request-throttling.md.
+    const applyLspRefresh = () =>
+      refreshLspLatest()
+        .then((x) => {
+          if (x?.data) setStore("lsp", reconcile(x.data))
+        })
+        .catch(() => {})
+    const refreshLspDebounced = debounce(applyLspRefresh, 300)
 
     async function refreshBackgroundJobs(sessionID: string) {
       const result = await sdk.client.session.background({ sessionID }).catch(() => undefined)
@@ -308,6 +334,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "session.deleted": {
           syncedSessions.delete(event.properties.info.id)
+          sessionLru.forget(event.properties.info.id)
           const messageIDs = (store.message[event.properties.info.id] ?? []).map((message) => message.id)
           const result = Binary.search(store.session, event.properties.info.id, (s) => s.id)
           if (result.found) {
@@ -506,10 +533,14 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "lsp.updated": {
-          void sdk.client.lsp
-            .status()
-            .then((x) => setStore("lsp", x.data!))
-            .catch(() => {})
+          if (experimentalParityFlags(store.config)?.requests?.latestOnlyLspRefresh === true) {
+            refreshLspDebounced()
+          } else {
+            void sdk.client.lsp
+              .status()
+              .then((x) => setStore("lsp", x.data!))
+              .catch(() => {})
+          }
           break
         }
 
@@ -540,6 +571,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     async function bootstrap() {
       syncedSessions.clear()
+      sessionLru.clear()
       setStore(
         produce((draft) => {
           draft.message = {}
@@ -621,6 +653,52 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     })
 
     const syncedSessions = new Map<string, "partial" | "full">()
+
+    // Bound the heavy per-session maps the store accumulates during long session-hopping.
+    // See specs/opencode-parity/02-tui-cache-eviction.md. The session being opened is touched
+    // first (MRU) so it can never be a victim; sessions with active work, background jobs, or
+    // that parent the active one are pinned. Re-opening an evicted session just re-runs sync().
+    const sessionLru = createLru({ maxEntries: 25, ttlMs: 30 * 60_000 })
+    function reapSessions(activeSessionID: string) {
+      if (experimentalParityFlags(store.config)?.tui?.cacheEviction !== true) return
+
+      sessionLru.touch(activeSessionID)
+
+      const pinned = new Set<string>([activeSessionID])
+      const parentID = getSessionByID(activeSessionID)?.parentID
+      if (parentID) pinned.add(parentID)
+      for (const [sid, status] of Object.entries(store.session_status)) {
+        if (status && status.type !== "idle") pinned.add(sid)
+      }
+      for (const sid of Object.keys(store.background_job)) {
+        if ((store.background_job[sid] ?? []).length > 0) pinned.add(sid)
+      }
+      for (const sid of Object.keys(store.monitor)) {
+        if ((store.monitor[sid] ?? []).some((m) => m.status === "running")) pinned.add(sid)
+      }
+
+      // evictExpired() is not pinning-aware, so re-touch any pinned-but-expired session to keep
+      // it resident (e.g. a long-running streaming session with sparse events) and exclude all
+      // pinned sessions from the final eviction set.
+      const expired = sessionLru.evictExpired()
+      for (const sid of expired) if (pinned.has(sid)) sessionLru.touch(sid)
+      const evicted = [...new Set([...expired, ...sessionLru.evictOverflow(pinned)])].filter(
+        (sid) => !pinned.has(sid),
+      )
+      if (evicted.length === 0) return
+      setStore(
+        produce((draft) => {
+          for (const sid of evicted) {
+            for (const message of draft.message[sid] ?? []) delete draft.part[message.id]
+            delete draft.message[sid]
+            delete draft.session_diff[sid]
+            delete draft.todo[sid]
+          }
+        }),
+      )
+      for (const sid of evicted) syncedSessions.delete(sid)
+    }
+
     const result = {
       data: store,
       set: setStore,
@@ -647,6 +725,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           return last.time.completed ? "idle" : "working"
         },
         async sync(sessionID: string, options?: { full?: boolean }) {
+          // Refresh recency for the session being viewed (even on cache hit) and evict
+          // least-recently-used sessions beyond the cap. The active session is MRU -> safe.
+          reapSessions(sessionID)
           const mode = options?.full ? "full" : "partial"
           const existing = syncedSessions.get(sessionID)
           if (existing === "full" || existing === mode) return result.session.get(sessionID)

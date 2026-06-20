@@ -447,5 +447,5 @@ export function persisted<T>(
     { initialValue: !isAsync },
   )
 
-  return [state, setState, init, () => ready() === true]
+  return [state, setState, init, () => (ready.loading ? false : ready.latest === true)]
 }

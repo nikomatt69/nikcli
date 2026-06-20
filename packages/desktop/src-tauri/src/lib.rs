@@ -13,14 +13,15 @@ use futures::{
 };
 #[cfg(windows)]
 use job_object::*;
+#[cfg(target_os = "windows")]
+use std::process::Command;
 use std::{
     collections::VecDeque,
     env,
     net::TcpListener,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
-    process::Command,
 };
 use tauri::{AppHandle, Manager, RunEvent, State, ipc::Channel};
 #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
@@ -150,53 +151,198 @@ fn check_app_exists(app_name: &str) -> bool {
     {
         check_windows_app(app_name)
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         check_macos_app(app_name)
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         check_linux_app(app_name)
     }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        false
+    }
+}
+
+fn app_command_candidates(app_name: &str) -> Vec<String> {
+    let app_name = app_name.trim().trim_matches('"');
+    if app_name.is_empty() {
+        return Vec::new();
+    }
+
+    let mut result = Vec::new();
+    let mut push = |candidate: String| {
+        let candidate = candidate.trim().trim_matches('"').to_string();
+        if candidate.is_empty()
+            || result
+                .iter()
+                .any(|current: &String| current.eq_ignore_ascii_case(&candidate))
+        {
+            return;
+        }
+        result.push(candidate);
+    };
+
+    push(app_name.to_string());
+
+    let lower = app_name.to_ascii_lowercase();
+    push(lower.replace(' ', "-"));
+    push(lower.replace(' ', "_"));
+    push(lower.replace(' ', ""));
+
+    match lower.as_str() {
+        "visual studio code" | "vscode" | "code" => push("code".to_string()),
+        "cursor" => push("cursor".to_string()),
+        "zed" => push("zed".to_string()),
+        "powershell" | "pwsh" => {
+            push("powershell".to_string());
+            push("pwsh".to_string());
+        }
+        "sublime text" | "sublime-text" | "sublime_text" => {
+            push("subl".to_string());
+            push("sublime_text".to_string());
+        }
+        _ => {}
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let base = result.clone();
+        for candidate in base {
+            if !candidate.to_ascii_lowercase().ends_with(".exe") {
+                push(format!("{candidate}.exe"));
+            }
+        }
+    }
+
+    result
+}
+
+#[cfg(unix)]
+fn resolve_command_in_path(command: &str) -> Option<PathBuf> {
+    let direct = Path::new(command);
+    if direct.components().count() > 1 && direct.is_file() {
+        return Some(direct.to_path_buf());
+    }
+
+    let path = env::var_os("PATH")?;
+    env::split_paths(&path)
+        .map(|directory| directory.join(command))
+        .find(|candidate| {
+            use std::os::unix::fs::PermissionsExt;
+
+            candidate
+                .metadata()
+                .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false)
+        })
 }
 
 #[cfg(target_os = "windows")]
 fn check_windows_app(app_name: &str) -> bool {
-    // Check if command exists in PATH, including .exe
-    return true;
+    resolve_windows_app_path(app_name).is_some()
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_app_path(app_name: &str) -> Option<String> {
+    let app_name = app_name.trim().trim_matches('"');
+    if app_name.is_empty() {
+        return None;
+    }
+
+    let direct = Path::new(app_name);
+    if direct.is_file() {
+        return Some(direct.to_string_lossy().to_string());
+    }
+
+    for candidate in app_command_candidates(app_name) {
+        let output = Command::new("where.exe").arg(&candidate).output().ok()?;
+        if !output.status.success() {
+            continue;
+        }
+
+        if let Some(path) = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(PathBuf::from)
+            .find(|path| {
+                path.is_file()
+                    && path
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
+            })
+        {
+            return Some(path.to_string_lossy().to_string());
+        }
+    }
+
+    let key = app_name.to_ascii_lowercase();
+    let relative_paths: &[&str] = match key.as_str() {
+        "visual studio code" | "vscode" | "code" => &[
+            "Programs/Microsoft VS Code/Code.exe",
+            "Microsoft VS Code/Code.exe",
+        ],
+        "cursor" => &["Programs/cursor/Cursor.exe", "Cursor/Cursor.exe"],
+        "zed" => &["Programs/Zed/Zed.exe", "Zed/Zed.exe"],
+        "sublime text" | "sublime-text" | "sublime_text" => &["Sublime Text/sublime_text.exe"],
+        _ => &[],
+    };
+
+    ["LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)"]
+        .into_iter()
+        .filter_map(env::var_os)
+        .flat_map(|root| {
+            relative_paths
+                .iter()
+                .map(move |relative| PathBuf::from(&root).join(relative))
+        })
+        .find(|path| path.is_file())
+        .map(|path| path.to_string_lossy().to_string())
 }
 
 #[cfg(target_os = "macos")]
 fn check_macos_app(app_name: &str) -> bool {
-    // Check common installation locations
+    let bundle_name = app_name.trim().trim_matches('"').trim_end_matches(".app");
+    if bundle_name.is_empty() {
+        return false;
+    }
+
     let mut app_locations = vec![
-        format!("/Applications/{}.app", app_name),
-        format!("/System/Applications/{}.app", app_name),
+        PathBuf::from("/Applications").join(format!("{bundle_name}.app")),
+        PathBuf::from("/System/Applications").join(format!("{bundle_name}.app")),
     ];
 
-    if let Ok(home) = std::env::var("HOME") {
-        app_locations.push(format!("{}/Applications/{}.app", home, app_name));
+    if let Some(home) = dirs::home_dir() {
+        app_locations.push(home.join("Applications").join(format!("{bundle_name}.app")));
     }
-    
-    for location in app_locations {
-        if std::path::Path::new(&location).exists() {
-            return true;
-        }
-    }
-    
-    // Also check if command exists in PATH
-    Command::new("which")
-        .arg(app_name)
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+
+    app_locations.into_iter().any(|path| path.is_dir())
+        || app_command_candidates(app_name)
+            .iter()
+            .any(|candidate| resolve_command_in_path(candidate).is_some())
 }
 
 #[cfg(target_os = "linux")]
 fn check_linux_app(app_name: &str) -> bool {
-    return true;
+    app_command_candidates(app_name)
+        .iter()
+        .any(|candidate| resolve_command_in_path(candidate).is_some())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn open_path(path: String, app_name: Option<String>) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let app_name = app_name.and_then(|name| resolve_windows_app_path(&name).or(Some(name)));
+
+    tauri_plugin_opener::open_path(path, app_name.as_deref())
+        .map_err(|error| format!("Failed to open path: {error}"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -210,7 +356,8 @@ pub fn run() {
             server::get_default_server_url,
             server::set_default_server_url,
             markdown::parse_markdown_command,
-            check_app_exists
+            check_app_exists,
+            open_path
         ])
         .events(tauri_specta::collect_events![LoadingWindowComplete])
         .error_handling(tauri_specta::ErrorHandlingMode::Throw);
@@ -537,5 +684,29 @@ fn event_once_fut<T: tauri_specta::Event + serde::de::DeserializeOwned>(
     });
     async {
         let _ = rx.await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::app_command_candidates;
+    #[cfg(unix)]
+    use super::resolve_command_in_path;
+
+    #[test]
+    fn editor_command_candidates_include_known_aliases() {
+        let vscode = app_command_candidates("Visual Studio Code");
+        assert!(vscode.iter().any(|candidate| candidate == "code"));
+
+        let sublime = app_command_candidates("Sublime Text");
+        assert!(sublime.iter().any(|candidate| candidate == "subl"));
+        assert!(sublime.iter().any(|candidate| candidate == "sublime_text"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolves_executables_from_path() {
+        assert!(resolve_command_in_path("sh").is_some());
+        assert!(resolve_command_in_path("nikcli-command-that-does-not-exist").is_none());
     }
 }

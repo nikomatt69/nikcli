@@ -1552,7 +1552,30 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
-          nativeLlm: z.boolean().optional().describe("Enable native @nikcli-ai/llm runtime (AI SDK fallback)"),
+          nativeLlm: z
+            .boolean()
+            .optional()
+            .describe(
+              "Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.",
+            ),
+          tui: z
+            .object({
+              cacheEviction: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.",
+                ),
+            })
+            .optional(),
+          requests: z
+            .object({
+              latestOnlyLspRefresh: z
+                .boolean()
+                .optional()
+                .describe("Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off."),
+            })
+            .optional(),
         })
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),

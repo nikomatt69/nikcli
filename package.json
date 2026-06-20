@@ -14,7 +14,11 @@
     "hello": "echo 'Hello World!'",
     "test": "echo 'do not run tests from root' && exit 1",
     "web:dev": "bun run --cwd packages/web dev",
-    "web:preview": "bun run --cwd packages/web dev"
+    "web:preview": "bun run --cwd packages/web dev",
+    "webgui:dev": "bun run --cwd packages/app dev",
+    "webgui:build": "bun run --cwd packages/app build",
+    "desktop:dev": "bun run --cwd packages/desktop native:dev",
+    "desktop:build": "bun run --cwd packages/desktop native:build"
   },
   "workspaces": {
     "packages": [

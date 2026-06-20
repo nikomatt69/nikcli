@@ -64,6 +64,7 @@ import { Usage } from "./util/usage"
 import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
+import { LanguageProvider } from "./context/language"
 import { Provider } from "@/provider/provider"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
@@ -149,7 +150,8 @@ export function tui(input: {
                   <ServerProvider startServer={input.startServer}>
                     <KVProvider>
                       <ToastProvider>
-                        <RouteProvider>
+                        <LanguageProvider>
+                          <RouteProvider>
                           <SDKProvider
                             url={input.url}
                             directory={input.directory}
@@ -193,6 +195,7 @@ export function tui(input: {
                             </SupportSessionProvider>
                           </SDKProvider>
                         </RouteProvider>
+                        </LanguageProvider>
                       </ToastProvider>
                     </KVProvider>
                   </ServerProvider>

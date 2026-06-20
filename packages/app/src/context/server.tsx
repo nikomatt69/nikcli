@@ -28,6 +28,7 @@ function projectsKey(url: string) {
 
 export const { use: useServer, provider: ServerProvider } = createSimpleContext({
   name: "Server",
+  gate: false,
   init: (props: { defaultUrl: string }) => {
     const platform = usePlatform()
 
@@ -41,7 +42,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     )
 
     const [state, setState] = createStore({
-      active: "",
+      active: normalizeServerUrl(props.defaultUrl) ?? "",
       healthy: undefined as boolean | undefined,
     })
 

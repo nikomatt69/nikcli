@@ -4,12 +4,17 @@
   "version": "1.76.0",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://nikcli.ai",
+  "author": "Nikcli",
   "scripts": {
     "typecheck": "tsgo -b",
-    "predev": "bun ./scripts/predev.ts",
+    "prepare:sidecar": "bun ./scripts/predev.ts",
     "dev": "vite",
     "build": "bun run typecheck && vite build",
     "preview": "vite preview",
+    "native:dev": "tauri dev",
+    "native:build": "tauri build --config src-tauri/tauri.prod.conf.json",
+    "native:check": "cargo check --manifest-path src-tauri/Cargo.toml --locked",
     "tauri": "tauri"
   },
   "dependencies": {

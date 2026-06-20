@@ -5,9 +5,9 @@
   "mainBinaryName": "Nikcli",
   "version": "../package.json",
   "build": {
-    "beforeDevCommand": "bun run dev",
+    "beforeDevCommand": "bun run prepare:sidecar && bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run build",
+    "beforeBuildCommand": "bun run prepare:sidecar && bun run build",
     "frontendDist": "../dist"
   },
   "app": {

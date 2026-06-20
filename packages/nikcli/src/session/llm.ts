@@ -39,6 +39,8 @@ import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { LLMNativeRuntime } from "./llm/native-runtime"
+import { suppressEmptyTextResult, toProcessorStream } from "./llm/llm-event-adapter"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -181,7 +183,9 @@ export namespace LLM {
     for (const message of messages) {
       for (const part of message.parts) {
         if (!part.type.startsWith("tool-")) continue
-        tools[part.type.slice("tool-".length)] = { toModelOutput: uiToolOutput }
+        tools[part.type.slice("tool-".length)] = {
+          toModelOutput: uiToolOutput,
+        }
       }
     }
     return tools
@@ -215,7 +219,10 @@ export namespace LLM {
       // UIMessage gets routed through the same convertToModelMessages path
       // by repairing the role to user.
       if (looksLikeUIMessage(message)) {
-        const candidate = message as { role?: unknown; parts: UIMessage["parts"] }
+        const candidate = message as {
+          role?: unknown
+          parts: UIMessage["parts"]
+        }
         const role: UIMessage["role"] = candidate.role === "assistant" ? "assistant" : "user"
         uiRun.push({ ...(message as object), role } as UIMessage)
         continue
@@ -270,7 +277,10 @@ export namespace LLM {
       ),
     ])
     if (!provider) {
-      throw new Provider.ModelNotFoundError({ providerID: input.model.providerID, modelID: input.model.id })
+      throw new Provider.ModelNotFoundError({
+        providerID: input.model.providerID,
+        modelID: input.model.id,
+      })
     }
     if (modelRef) {
       l.debug("model ref resolved", {
@@ -358,12 +368,10 @@ export namespace LLM {
       }),
     )
 
-    // Run the request through @nikcli-ai/llm's route-based provider stack to
-    // compile a provider-native body. This exercises the route registered by
-    // @nikcli-ai/llm/providers end-to-end (body.from + transport.prepare) — proving
-    // the route resolves even though the actual HTTP dispatch still goes through
-    // the AI SDK path below.
-    if (modelRef) {
+    const nativeLlmEnabled = cfg.experimental?.nativeLlm === true
+
+    // Debug-only route compile when native runtime is off (AI SDK still handles HTTP).
+    if (modelRef && !nativeLlmEnabled) {
       try {
         const llmRequest = buildLLMRequest(
           input,
@@ -455,6 +463,53 @@ export namespace LLM {
       ...input.messages,
     ])
 
+    const requestHeaders = buildRequestHeaders(
+      input.model.providerID,
+      input.sessionID,
+      input.user.id,
+      isCodex,
+      input.model.headers,
+    )
+
+    if (nativeLlmEnabled && modelRef) {
+      const nativeStatus = LLMNativeRuntime.status({
+        model: input.model,
+        provider,
+        auth,
+        modelRef,
+      })
+      if (nativeStatus.type === "supported") {
+        l.debug("llm.runtime", { runtime: "native", route: modelRef.route })
+        try {
+          const nativeResult = await streamNative({
+            streamInput: input,
+            modelRef,
+            provider,
+            auth,
+            params,
+            providerOptions,
+            maxOutputTokens,
+            messages,
+            tools,
+            headers: requestHeaders,
+            isCodex,
+            l,
+          })
+          if (nativeResult) return nativeResult
+        } catch (e) {
+          l.warn("native llm stream failed, falling back to ai-sdk", {
+            error: String(e),
+          })
+        }
+      } else {
+        l.debug("native llm ineligible, using ai-sdk", {
+          reason: nativeStatus.reason,
+        })
+      }
+    }
+
+    l.debug("llm.runtime", { runtime: "ai-sdk" })
+
     const result = LLMCore.stream({
       onError(error) {
         l.error("stream error", {
@@ -493,13 +548,7 @@ export namespace LLM {
       maxOutputTokens,
       abortSignal: input.abort,
       maxRetries: input.retries ?? 0,
-      headers: buildRequestHeaders(
-        input.model.providerID,
-        input.sessionID,
-        input.user.id,
-        isCodex,
-        input.model.headers,
-      ),
+      headers: requestHeaders,
       messages,
       model: wrapLanguageModel({
         model: language,
@@ -516,10 +565,15 @@ export namespace LLM {
               return args.params
             },
           },
-          extractReasoningMiddleware({ tagName: "think", startWithReasoning: false }),
+          extractReasoningMiddleware({
+            tagName: "think",
+            startWithReasoning: false,
+          }),
         ],
       }),
-      experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry ?? true },
+      experimental_telemetry: {
+        isEnabled: cfg.experimental?.openTelemetry ?? true,
+      },
     })
     // Suppress unhandled NoContentGeneratedError when model produces only tool calls (no text).
     // processor.ts consumes fullStream only; stream.text rejects if no text is generated.
@@ -564,10 +618,18 @@ export namespace LLM {
       case "image": {
         const p = part as any
         if (typeof p.image === "string") {
-          return { type: "media" as const, mediaType: p.mimeType ?? "image/png", data: p.image }
+          return {
+            type: "media" as const,
+            mediaType: p.mimeType ?? "image/png",
+            data: p.image,
+          }
         }
         return p.image instanceof Uint8Array
-          ? { type: "media" as const, mediaType: p.mimeType ?? "image/png", data: p.image }
+          ? {
+              type: "media" as const,
+              mediaType: p.mimeType ?? "image/png",
+              data: p.image,
+            }
           : undefined
       }
       case "file": {
@@ -581,7 +643,11 @@ export namespace LLM {
           }
         }
         return p.data instanceof Uint8Array
-          ? { type: "media" as const, mediaType: p.mimeType ?? "application/octet-stream", data: p.data }
+          ? {
+              type: "media" as const,
+              mediaType: p.mimeType ?? "application/octet-stream",
+              data: p.data,
+            }
           : undefined
       }
       default:
@@ -693,18 +759,27 @@ export namespace LLM {
   export function buildLLMRequest(
     input: StreamInput,
     modelRef: ModelRef,
-    genParams: { temperature?: number; topP?: number; topK?: number; options?: Record<string, unknown> },
+    genParams: {
+      temperature?: number
+      topP?: number
+      topK?: number
+      maxOutputTokens?: number
+      providerOptions?: Record<string, Record<string, unknown>>
+      options?: Record<string, unknown>
+    },
     headers?: Record<string, string>,
+    messagesOverride?: ModelMessage[],
   ): LLMRequestClass {
     // System parts
     const system = SystemPart.content(input.system.join("\n\n"))
 
     // Messages
-    const messages = modelMessagesToLLMMessages(input.messages)
+    const messages = modelMessagesToLLMMessages(messagesOverride ?? input.messages)
 
     // Generation options
+    const maxTokens = genParams.maxOutputTokens ?? (genParams.options?.["maxOutputTokens"] as number | undefined)
     const generation = new GenerationOptions({
-      maxTokens: genParams.options?.["maxOutputTokens"] as number | undefined,
+      maxTokens,
       temperature: genParams.temperature,
       topP: genParams.topP,
       topK: genParams.topK,
@@ -723,6 +798,7 @@ export namespace LLM {
       messages,
       tools,
       generation: hasGen ? generation : undefined,
+      providerOptions: genParams.providerOptions,
       http: httpOptions,
       toolChoice:
         input.toolChoice === "required"
@@ -731,5 +807,73 @@ export namespace LLM {
             ? ToolChoice.make("none")
             : undefined,
     })
+  }
+
+  function providerOptionsForLLM(providerOptions: Record<string, unknown>): Record<string, Record<string, unknown>> {
+    const out: Record<string, Record<string, unknown>> = {}
+    for (const [key, value] of Object.entries(providerOptions)) {
+      if (value !== undefined && typeof value === "object" && value !== null && !Array.isArray(value)) {
+        out[key] = value as Record<string, unknown>
+      }
+    }
+    return out
+  }
+
+  async function streamNative(input: {
+    streamInput: StreamInput
+    modelRef: ModelRef
+    provider: Provider.Info
+    auth: Auth.Info | undefined
+    params: {
+      temperature?: number
+      topP?: number
+      topK?: number
+      options?: Record<string, unknown>
+    }
+    providerOptions: Record<string, unknown>
+    maxOutputTokens: number | undefined
+    messages: ModelMessage[]
+    tools: Record<string, Tool>
+    headers: Record<string, string> | undefined
+    isCodex: boolean
+    l: ReturnType<typeof log.clone>
+  }) {
+    const llmRequest = buildLLMRequest(
+      { ...input.streamInput, tools: input.tools },
+      input.modelRef,
+      {
+        temperature: input.params.temperature,
+        topP: input.params.topP,
+        topK: input.params.topK,
+        maxOutputTokens: input.maxOutputTokens,
+        providerOptions: providerOptionsForLLM(input.providerOptions),
+        options: input.params.options,
+      },
+      input.headers,
+      input.messages,
+    )
+
+    const native = LLMNativeRuntime.streamRequestOnly({
+      model: input.streamInput.model,
+      provider: input.provider,
+      auth: input.auth,
+      modelRef: input.modelRef,
+      llmRequest,
+      messages: input.messages,
+      abort: input.streamInput.abort,
+    })
+
+    if (native.type === "unsupported") {
+      input.l.debug("native llm unsupported, falling back to ai-sdk", {
+        reason: native.reason,
+      })
+      return undefined
+    }
+
+    const fullStream = toProcessorStream(native.events)
+    return suppressEmptyTextResult({
+      fullStream,
+      text: Promise.resolve(""),
+    }) as unknown as StreamOutput
   }
 }

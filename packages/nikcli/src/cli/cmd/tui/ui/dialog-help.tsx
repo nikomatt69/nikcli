@@ -1,9 +1,9 @@
 import { TextAttributes } from "@opentui/core"
 import { useTheme } from "@tui/context/theme"
 import { useDialog } from "./dialog"
-import { useKeyboard } from "@opentui/solid"
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
-import { For } from "solid-js"
+import { For, createMemo, onMount } from "solid-js"
 
 const SHORTCUTS: Array<{ key: string; description: string }> = [
   { key: "command_list", description: "Open the command palette" },
@@ -49,6 +49,21 @@ export function DialogHelp() {
   const dialog = useDialog()
   const { theme } = useTheme()
   const keybind = useKeybind()
+  const dimensions = useTerminalDimensions()
+
+  // Reserve rows for header (2) + footer hint (2) + OK button (2) + outer
+  // gaps/padding (~3) so the body never pushes the footer off-screen.
+  // Floor at 6 so the columns are at least partially visible; cap so very
+  // tall terminals still get a bounded panel.
+  const bodyHeight = createMemo(() => Math.max(6, Math.min(22, dimensions().height - 9)))
+
+  onMount(() => {
+    // Default dialog width is `medium` = 60 cols, way too narrow for the
+    // three columns side by side. Bump to `large` (88) or `xlarge` (116)
+    // based on the actual terminal width so the columns fit (or overflow
+    // gracefully into horizontal scroll inside the scrollbox).
+    dialog.setSize(dimensions().width >= 100 ? "xlarge" : "large")
+  })
 
   useKeyboard((evt) => {
     if (evt.name === "return" || evt.name === "escape") {
@@ -56,60 +71,78 @@ export function DialogHelp() {
     }
   })
 
-  const columnWidth = 36
-
   return (
     <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} gap={1} flexDirection="column">
       <box flexDirection="row" justifyContent="space-between">
         <text attributes={TextAttributes.BOLD} fg={theme.text}>
           Help
         </text>
-        <text fg={theme.textMuted}>esc/enter to close</text>
+        <text fg={theme.textMuted}>esc/enter to close · ↑↓ scroll</text>
       </box>
 
-      <box flexDirection="row" gap={3}>
-        <box flexDirection="column" gap={1} width={columnWidth}>
-          <text attributes={TextAttributes.BOLD} fg={theme.primary}>
-            Shortcuts
-          </text>
-          <For each={SHORTCUTS}>
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text fg={theme.accent}>{keybind.print(item.key)}</text>
-                <text fg={theme.textMuted}>— {item.description}</text>
-              </box>
-            )}
-          </For>
-        </box>
+      {/* Scrollable body — keeps the footer and OK button anchored on
+          screen even when the 31 rows of content don't fit vertically.
+          `focused={true}` so ↑↓/PageUp/PageDown/mouse-wheel scroll without
+          having to click first. `wrapMode="none"` on each row prevents
+          descriptions like "Open configuration" from wrapping mid-line and
+          bleeding into the next column's layout. */}
+      <scrollbox height={bodyHeight()} focused={true} scrollbarOptions={{ visible: true }}>
+        <box flexDirection="row" gap={3}>
+          <box flexDirection="column" gap={1}>
+            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+              Shortcuts
+            </text>
+            <For each={SHORTCUTS}>
+              {(item) => (
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.accent} wrapMode="none">
+                    {keybind.print(item.key)}
+                  </text>
+                  <text fg={theme.textMuted} wrapMode="none">
+                    — {item.description}
+                  </text>
+                </box>
+              )}
+            </For>
+          </box>
 
-        <box flexDirection="column" gap={1} width={columnWidth}>
-          <text attributes={TextAttributes.BOLD} fg={theme.primary}>
-            Slash commands
-          </text>
-          <For each={SLASH_COMMANDS}>
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text fg={theme.accent}>{item.name}</text>
-                <text fg={theme.textMuted}>— {item.description}</text>
-              </box>
-            )}
-          </For>
-        </box>
+          <box flexDirection="column" gap={1}>
+            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+              Slash commands
+            </text>
+            <For each={SLASH_COMMANDS}>
+              {(item) => (
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.accent} wrapMode="none">
+                    {item.name}
+                  </text>
+                  <text fg={theme.textMuted} wrapMode="none">
+                    — {item.description}
+                  </text>
+                </box>
+              )}
+            </For>
+          </box>
 
-        <box flexDirection="column" gap={1} width={columnWidth}>
-          <text attributes={TextAttributes.BOLD} fg={theme.primary}>
-            CLI
-          </text>
-          <For each={CLI_COMMANDS}>
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text fg={theme.accent}>{item.name}</text>
-                <text fg={theme.textMuted}>— {item.description}</text>
-              </box>
-            )}
-          </For>
+          <box flexDirection="column" gap={1}>
+            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+              CLI
+            </text>
+            <For each={CLI_COMMANDS}>
+              {(item) => (
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.accent} wrapMode="none">
+                    {item.name}
+                  </text>
+                  <text fg={theme.textMuted} wrapMode="none">
+                    — {item.description}
+                  </text>
+                </box>
+              )}
+            </For>
+          </box>
         </box>
-      </box>
+      </scrollbox>
 
       <box paddingTop={1} flexDirection="row" justifyContent="space-between">
         <text fg={theme.textMuted}>
