@@ -81,13 +81,13 @@ export type TuiKeymapBinding = {
 }
 
 export type TuiKeymapLayer = {
-  commands?: TuiKeymapCommand[]
-  bindings?: TuiKeymapBinding[]
+  commands?: TuiKeymapCommand[] | (() => TuiKeymapCommand[])
+  bindings?: TuiKeymapBinding[] | (() => TuiKeymapBinding[])
 }
 
 export type TuiKeymapApi = {
   /** Registers commands and key bindings as one disposable layer. Returns unregister. */
-  registerLayer: (layer: TuiKeymapLayer) => () => void
+  registerLayer: (layer: TuiKeymapLayer | (() => TuiKeymapLayer)) => () => void
   /** Runs a command by name. "command.palette.show" opens the host command palette. */
   dispatchCommand: (name: string) => void
 }

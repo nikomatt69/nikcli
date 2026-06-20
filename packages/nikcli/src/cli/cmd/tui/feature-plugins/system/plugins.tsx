@@ -23,7 +23,11 @@ function state(api: TuiPluginApi, item: TuiPluginStatus) {
   }
 
   return (
-    <span style={{ fg: item.active ? api.theme.current.success : api.theme.current.error }}>
+    <span
+      style={{
+        fg: item.active ? api.theme.current.success : api.theme.current.error,
+      }}
+    >
       {item.active ? "active" : "inactive"}
     </span>
   )
@@ -220,13 +224,22 @@ function View(props: { api: TuiPluginApi }) {
         if (!out.ok) {
           props.api.ui.toast({ variant: "error", message: out.message })
           if (out.missing) {
-            props.api.ui.toast({ variant: "info", message: "Check npm registry/auth settings and try again." })
+            props.api.ui.toast({
+              variant: "info",
+              message: "Check npm registry/auth settings and try again.",
+            })
           }
           return
         }
-        props.api.ui.toast({ variant: "success", message: `Installed ${pkg} (local: ${out.dir})` })
+        props.api.ui.toast({
+          variant: "success",
+          message: `Installed ${pkg} (local: ${out.dir})`,
+        })
         if (!out.tui) {
-          props.api.ui.toast({ variant: "info", message: `${pkg} has no TUI target.` })
+          props.api.ui.toast({
+            variant: "info",
+            message: `${pkg} has no TUI target.`,
+          })
           return
         }
         return props.api.plugins.add(pkg).then((ok) => {
@@ -237,7 +250,10 @@ function View(props: { api: TuiPluginApi }) {
             })
             return
           }
-          props.api.ui.toast({ variant: "success", message: `${pkg} loaded in current session.` })
+          props.api.ui.toast({
+            variant: "success",
+            message: `${pkg} loaded in current session.`,
+          })
           setRefresh((r) => r + 1)
           setCur({ kind: "installed", id: pkg })
         })
@@ -321,25 +337,27 @@ function show(api: TuiPluginApi) {
 }
 
 const tui: TuiPlugin = async (api) => {
-  api.command.register(() => [
-    {
-      title: "Plugins",
-      value: "plugins.list",
-      keybind: "plugin_manager",
-      category: "System",
-      onSelect() {
-        show(api)
+  api.keymap.registerLayer({
+    commands: [
+      {
+        name: "plugins.list",
+        title: "Plugins",
+        namespace: "System",
+        run() {
+          show(api)
+        },
       },
-    },
-    {
-      title: "Install plugin",
-      value: "plugins.install",
-      category: "System",
-      onSelect() {
-        showInstall(api)
+      {
+        name: "plugins.install",
+        title: "Install plugin",
+        namespace: "System",
+        run() {
+          showInstall(api)
+        },
       },
-    },
-  ])
+    ],
+    bindings: [{ key: "plugin_manager", cmd: "plugins.list" }],
+  })
 }
 
 const plugin: TuiPluginModule & { id: string } = {

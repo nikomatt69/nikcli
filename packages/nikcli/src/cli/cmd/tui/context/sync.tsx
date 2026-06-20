@@ -51,6 +51,19 @@ type BackgroundJob = {
   error?: string
 }
 
+type GoalState = {
+  sessionID: string
+  goalID: string
+  objective: string
+  status: "active" | "paused" | "blocked" | "usage_limited" | "budget_limited" | "complete"
+  tokenBudget?: number
+  tokensUsed: number
+  timeUsedSeconds: number
+  iterationCount: number
+  timeCreated: number
+  timeUpdated: number
+}
+
 type MonitorSnapshot = {
   id: string
   title: string
@@ -78,6 +91,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: Record<string, QuestionRequest[]>
       session: Session[]
       session_status: Record<string, SessionStatus>
+      session_goal: Record<string, GoalState>
       background_job: Record<string, BackgroundJob[]>
       monitor: Record<string, MonitorSnapshot[]>
       session_diff: Record<string, FileDiff[]>
@@ -105,6 +119,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: {},
       session: [],
       session_status: {},
+      session_goal: {},
       background_job: {},
       monitor: {},
       session_diff: {},
@@ -311,6 +326,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               delete draft.monitor[event.properties.info.id]
               delete draft.session_diff[event.properties.info.id]
               delete draft.session_status[event.properties.info.id]
+              delete draft.session_goal[event.properties.info.id]
               for (const messageID of messageIDs) {
                 delete draft.part[messageID]
               }
@@ -337,6 +353,20 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           setStore("session_status", event.properties.sessionID, event.properties.status)
           const parentID = getSessionByID(event.properties.sessionID)?.parentID
           scheduleBackgroundRefresh(parentID)
+          break
+        }
+
+        case "session.goal": {
+          const { sessionID, goal } = event.properties
+          if (goal) {
+            setStore("session_goal", sessionID, reconcile(goal as GoalState))
+          } else {
+            setStore(
+              produce((draft) => {
+                delete draft.session_goal[sessionID]
+              }),
+            )
+          }
           break
         }
 
@@ -519,6 +549,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           draft.monitor = {}
           draft.session_diff = {}
           draft.session_status = {}
+          draft.session_goal = {}
         }),
       )
       const start = Date.now() - 30 * 24 * 60 * 60 * 1000
@@ -619,12 +650,13 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const mode = options?.full ? "full" : "partial"
           const existing = syncedSessions.get(sessionID)
           if (existing === "full" || existing === mode) return result.session.get(sessionID)
-          const [session, messages, todo, diff, backgroundJobs] = await Promise.all([
+          const [session, messages, todo, diff, backgroundJobs, goal] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
             sdk.client.session.diff({ sessionID }),
             sdk.client.session.background({ sessionID }).catch(() => undefined),
+            sdk.client.session.goal({ sessionID }).catch(() => undefined),
           ])
           setStore(
             produce((draft) => {
@@ -638,6 +670,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                 draft.part[message.info.id] = message.parts
               }
               draft.session_diff[sessionID] = diff.data ?? []
+              if (goal?.data) draft.session_goal[sessionID] = goal.data as GoalState
+              else delete draft.session_goal[sessionID]
             }),
           )
           syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")

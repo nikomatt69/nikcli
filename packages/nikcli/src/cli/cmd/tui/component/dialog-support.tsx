@@ -1,4 +1,4 @@
-import { TextAttributes, type ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core"
+import { TextAttributes, type PasteEvent, type ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js"
 import { useTheme } from "@tui/context/theme"
@@ -12,6 +12,11 @@ import { Clipboard } from "@tui/util/clipboard"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { buildSupportDocsIndex } from "@/agent/prompt/support-docs"
 import type { Part, TextPart } from "@nikcli-ai/sdk/v2"
+import {
+  buildSupportPromptParts,
+  supportPartFromPaste,
+  type SupportAttachment,
+} from "@tui/component/support-prompt-parts"
 
 /**
  * Cross-platform "open URL in the user's default browser" helper. Falls back
@@ -127,9 +132,15 @@ type ChatMessage = {
  * up matters more than feature questions at that point. */
 const SETUP_HINTS: ReadonlyArray<{ title: string; prompt: string }> = [
   { title: "Connect a provider", prompt: "How do I connect a model provider?" },
-  { title: "Use an API key", prompt: "How do I configure an API key for Anthropic or OpenAI?" },
+  {
+    title: "Use an API key",
+    prompt: "How do I configure an API key for Anthropic or OpenAI?",
+  },
   { title: "Free models", prompt: "Are there free models I can start with?" },
-  { title: "First session", prompt: "How do I start my first session once a provider is connected?" },
+  {
+    title: "First session",
+    prompt: "How do I start my first session once a provider is connected?",
+  },
 ]
 
 const WELCOME_HINTS: ReadonlyArray<{ title: string; prompt: string }> = [
@@ -175,6 +186,7 @@ export function DialogSupport() {
   const [streaming, setStreaming] = createSignal(false)
   /** The current assistant messageID we are appending to (null if not streaming). */
   const [streamingID, setStreamingID] = createSignal<string | null>(null)
+  const [attachments, setAttachments] = createSignal<SupportAttachment[]>([])
 
   let scroll: ScrollBoxRenderable | undefined
   let textarea: TextareaRenderable | undefined
@@ -375,9 +387,10 @@ export function DialogSupport() {
 
   // Send ---------------------------------------------------------------------
 
-  async function send(text: string) {
+  async function send(text: string, fileAttachments?: SupportAttachment[]) {
+    const pending = fileAttachments ?? attachments()
     const trimmed = text.trim()
-    if (!trimmed || busy()) return
+    if ((!trimmed && pending.length === 0) || busy()) return
     const sessionID = support.id
     if (!sessionID) {
       setInitError("Support session not ready — try again in a moment.")
@@ -399,10 +412,12 @@ export function DialogSupport() {
 
     // Optimistic user message
     const localId = `local-${Date.now()}`
+    const displayText =
+      trimmed + (pending.length > 0 ? (trimmed ? "\n" : "") + pending.map((a) => a.label).join(" ") : "")
     appendOrUpdateMessage({
       id: localId,
       role: "user",
-      text: trimmed,
+      text: displayText,
       time: Date.now(),
     })
     batch(() => {
@@ -417,7 +432,7 @@ export function DialogSupport() {
           agent: "support",
           model,
           system: docsIndex || undefined,
-          parts: [{ type: "text", text: trimmed }],
+          parts: buildSupportPromptParts(trimmed, pending),
         })
         .catch((err) => {
           throw err
@@ -425,6 +440,7 @@ export function DialogSupport() {
       // The actual assistant text arrives via SSE "message.part.updated" events.
       // We don't await here because the call returns once the user message is
       // accepted; the assistant streams asynchronously.
+      setAttachments([])
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setMessages((prev) => {
@@ -447,6 +463,7 @@ export function DialogSupport() {
     if (busy()) return
     await support.reset()
     setMessages([])
+    setAttachments([])
     setInitError(null)
     toast.show({
       message: "Support conversation reset.",
@@ -490,8 +507,20 @@ export function DialogSupport() {
       const last = messages().findLast((m) => m.role === "assistant" && m.text)
       if (!last) return
       Clipboard.copy(last.text)
-        .then(() => toast.show({ message: "Reply copied to clipboard.", variant: "info", duration: 2000 }))
-        .catch(() => toast.show({ message: "Could not copy to clipboard.", variant: "warning", duration: 3000 }))
+        .then(() =>
+          toast.show({
+            message: "Reply copied to clipboard.",
+            variant: "info",
+            duration: 2000,
+          }),
+        )
+        .catch(() =>
+          toast.show({
+            message: "Could not copy to clipboard.",
+            variant: "warning",
+            duration: 3000,
+          }),
+        )
       return
     }
   })
@@ -560,30 +589,44 @@ export function DialogSupport() {
 
       {/* Input */}
       <box paddingLeft={2} paddingRight={2} gap={1} paddingTop={1}>
+        <Show when={attachments().length > 0}>
+          <For each={attachments()}>{(item) => <text fg={theme.primary}>{item.label}</text>}</For>
+        </Show>
         <textarea
           height={3}
           keyBindings={[{ name: "return", action: "submit" }]}
           onSubmit={() => {
             const value = textarea?.plainText ?? ""
-            if (value.trim() && !busy()) {
+            if ((value.trim() || attachments().length > 0) && !busy()) {
               send(value)
               textarea?.clear()
             }
           }}
+          onPaste={async (event: PasteEvent) => {
+            if (busy()) {
+              event.preventDefault()
+              return
+            }
+            const text = new TextDecoder().decode(event.bytes)
+            const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim()
+            if (!normalized) return
+            const attached = await supportPartFromPaste(normalized)
+            if (!attached) return
+            event.preventDefault()
+            setAttachments((prev) => [...prev, attached])
+          }}
           ref={(r: TextareaRenderable) => {
             textarea = r
           }}
-          placeholder={
-            busy() ? "Support is responding — please wait..." : "Ask Support… (e.g. 'how do I change the model?')"
-          }
+          placeholder={busy() ? "Support is responding — please wait..." : "Ask Support… paste a file path to attach"}
           textColor={theme.text}
           focusedTextColor={theme.text}
           cursorColor={theme.text}
         />
         <text fg={theme.textMuted}>
-          <span style={{ fg: theme.primary }}>enter</span> send · <span style={{ fg: theme.primary }}>ctrl+o</span>{" "}
-          model · <span style={{ fg: theme.primary }}>ctrl+y</span> copy reply ·{" "}
-          <span style={{ fg: theme.primary }}>ctrl+l</span> new conversation ·{" "}
+          <span style={{ fg: theme.primary }}>enter</span> send · paste file path to attach ·{" "}
+          <span style={{ fg: theme.primary }}>ctrl+o</span> model · <span style={{ fg: theme.primary }}>ctrl+y</span>{" "}
+          copy reply · <span style={{ fg: theme.primary }}>ctrl+l</span> new conversation ·{" "}
           <span style={{ fg: theme.primary }}>esc</span> close
         </text>
       </box>

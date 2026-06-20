@@ -52,6 +52,14 @@ Use this tool whenever the user would benefit from *seeing* structured informati
 - `timeline` — Ordered events with `status` icons (`done` ✓ / `active` ● / `pending` ○ / `error` ✗ / `skipped` ∅). Optional `duration` shows how long each step took. Use for pipelines, incident timelines, deploys.
 - `status_grid` — A grid of cells, each `label` + `status` + optional `detail`. Use for "fleet at a glance": services × environments, regions, agents.
 
+### Dense content (use for maximum information per tab)
+
+- `card` — Bordered hero panel: `title`, `subtitle`, severity `badge`, long `body`, up to 8 inline `metrics`, `footer`. Best for incident summaries or feature overviews in one block.
+- `list` — Up to 80 rows with `primary` / `secondary` / `tertiary`, optional `icon`, `status`, `ordered` or bullets, `dense` spacing. Action items, checklists, release notes.
+- `accordion` — Up to 20 collapsible `sections` (default `open` per section), each with `content` plus up to 24 key/value rows. FAQ, runbook chapters, spec breakdowns.
+- `compare` — Side-by-side matrix: `leftLabel` / `rightLabel` and up to 40 `rows` (`label`, `left`, `right`, `winner`, `note`). Benchmarks, before/after, A/B configs.
+- `sparkline_row` — Up to 24 labeled mini-series (2–80 points each), optional `current`, `delta`, colors. Fleet metrics at a glance without a full `line_chart`.
+
 ### Layout
 
 - `section` — A titled container with optional `description`. Wrap a coherent set of components in it.

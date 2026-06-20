@@ -16,6 +16,7 @@ import { SessionRevert } from "@/session/revert"
 import { SessionSummary } from "@/session/summary"
 import { SessionStatus } from "@/session/status"
 import { Todo } from "@/session/todo"
+import { SessionV2 } from "@/session/v2"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 
 export namespace SessionHttpApi {
@@ -86,7 +87,9 @@ export namespace SessionHttpApi {
     ),
     command: Schema.String,
   }).annotate({ identifier: "SessionShellInput" })
-  const AssistantMessage = Schema.Unknown.annotate({ identifier: "AssistantMessage" })
+  const AssistantMessage = Schema.Unknown.annotate({
+    identifier: "AssistantMessage",
+  })
   const PermissionRespondPath = Schema.Struct({
     sessionID: Schema.String,
     permissionID: Schema.String,
@@ -95,15 +98,25 @@ export namespace SessionHttpApi {
     response: Schema.Literals(["once", "always", "reject"]),
   }).annotate({ identifier: "SessionPermissionRespondInput" })
 
-  const SessionList = Schema.Array(Schema.Unknown).annotate({ identifier: "SessionList" })
-  const MessageList = Schema.Array(Schema.Unknown).annotate({ identifier: "MessageList" })
-  const FileDiffList = Schema.Array(Schema.Unknown).annotate({ identifier: "FileDiffList" })
+  const SessionList = Schema.Array(Schema.Unknown).annotate({
+    identifier: "SessionList",
+  })
+  const MessageList = Schema.Array(Schema.Unknown).annotate({
+    identifier: "MessageList",
+  })
+  const FileDiffList = Schema.Array(Schema.Unknown).annotate({
+    identifier: "FileDiffList",
+  })
   const SessionInfo = Schema.Unknown.annotate({ identifier: "SessionInfo" })
   const SessionStatusMap = Schema.Record(Schema.String, Schema.Unknown).annotate({
     identifier: "SessionStatusMap",
   })
-  const TodoList = Schema.Array(Schema.Unknown).annotate({ identifier: "TodoList" })
-  const BooleanResult = Schema.Boolean.annotate({ identifier: "BooleanResult" })
+  const TodoList = Schema.Array(Schema.Unknown).annotate({
+    identifier: "TodoList",
+  })
+  const BooleanResult = Schema.Boolean.annotate({
+    identifier: "BooleanResult",
+  })
   const SessionIDPath = Schema.Struct({
     sessionID: Schema.String,
   })
@@ -116,8 +129,19 @@ export namespace SessionHttpApi {
     messageID: Schema.String,
     partID: Schema.String,
   })
-  const MessageWithParts = Schema.Unknown.annotate({ identifier: "MessageWithParts" })
+  const MessageWithParts = Schema.Unknown.annotate({
+    identifier: "MessageWithParts",
+  })
   const MessagePart = Schema.Unknown.annotate({ identifier: "MessagePart" })
+  const SessionV2EntryList = Schema.Array(Schema.Unknown).annotate({
+    identifier: "SessionV2EntryList",
+  })
+  const SessionV2State = Schema.Unknown.annotate({
+    identifier: "SessionV2State",
+  })
+  const SessionV2EventList = Schema.Array(Schema.Unknown).annotate({
+    identifier: "SessionV2EventList",
+  })
 
   /**
    * Declared error contracts, mirroring the legacy Hono `{ name, data }`
@@ -166,8 +190,18 @@ export namespace SessionHttpApi {
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   export const Group = HttpApiGroup.make("session")
-    .add(HttpApiEndpoint.get("list", "/", { query: ListQuery, success: SessionList }))
-    .add(HttpApiEndpoint.post("create", "/", { payload: CreatePayload, success: SessionInfo }))
+    .add(
+      HttpApiEndpoint.get("list", "/", {
+        query: ListQuery,
+        success: SessionList,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("create", "/", {
+        payload: CreatePayload,
+        success: SessionInfo,
+      }),
+    )
     .add(HttpApiEndpoint.get("status", "/status", { success: SessionStatusMap }))
     .add(
       HttpApiEndpoint.get("get", "/:sessionID", {
@@ -199,7 +233,12 @@ export namespace SessionHttpApi {
         error: [NotFound, Busy],
       }),
     )
-    .add(HttpApiEndpoint.post("abort", "/:sessionID/abort", { params: SessionIDPath, success: BooleanResult }))
+    .add(
+      HttpApiEndpoint.post("abort", "/:sessionID/abort", {
+        params: SessionIDPath,
+        success: BooleanResult,
+      }),
+    )
     .add(
       HttpApiEndpoint.post("revert", "/:sessionID/revert", {
         params: SessionIDPath,
@@ -320,6 +359,27 @@ export namespace SessionHttpApi {
         error: [NotFound, Busy],
       }),
     )
+    .add(
+      HttpApiEndpoint.get("v2Entries", "/:sessionID/v2/entries", {
+        params: SessionIDPath,
+        success: SessionV2EntryList,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("v2State", "/:sessionID/v2/state", {
+        params: SessionIDPath,
+        success: SessionV2State,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("v2Events", "/:sessionID/v2/events", {
+        params: SessionIDPath,
+        success: SessionV2EventList,
+        error: [NotFound, Busy],
+      }),
+    )
     .prefix("/session")
 
   export const Api = HttpApi.make("nikcli").add(Group)
@@ -379,7 +439,10 @@ export namespace SessionHttpApi {
     fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        const forked = yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID })
+        const forked = yield* session.fork({
+          sessionID: params.sessionID,
+          messageID: payload.messageID,
+        })
         return jsonSafe(forked)
       }).pipe(declaredErrors),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
@@ -400,13 +463,18 @@ export namespace SessionHttpApi {
     revert: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof RevertPayload.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
-        const reverted = yield* revert.revert({ sessionID: params.sessionID, ...payload })
+        const reverted = yield* revert.revert({
+          sessionID: params.sessionID,
+          ...payload,
+        })
         return jsonSafe(reverted)
       }).pipe(declaredErrors),
     unrevert: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
-        const reverted = yield* revert.unrevert({ sessionID: params.sessionID })
+        const reverted = yield* revert.unrevert({
+          sessionID: params.sessionID,
+        })
         return jsonSafe(reverted)
       }).pipe(declaredErrors),
     share: ({
@@ -531,12 +599,18 @@ export namespace SessionHttpApi {
     diff: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof DiffQuery.Type }) =>
       Effect.gen(function* () {
         const summary = yield* SessionSummary.Service
-        return yield* summary.diff({ sessionID: params.sessionID, messageID: query.messageID })
+        return yield* summary.diff({
+          sessionID: params.sessionID,
+          messageID: query.messageID,
+        })
       }).pipe(declaredErrors),
     messages: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof MessagesQuery.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        const msgs = yield* session.messages({ sessionID: params.sessionID, limit: query.limit })
+        const msgs = yield* session.messages({
+          sessionID: params.sessionID,
+          limit: query.limit,
+        })
         return jsonSafe(msgs)
       }).pipe(declaredErrors),
     message: ({ params }: { params: typeof MessagePath.Type }) =>
@@ -550,7 +624,10 @@ export namespace SessionHttpApi {
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        yield* session.removeMessage({ sessionID: params.sessionID, messageID: params.messageID })
+        yield* session.removeMessage({
+          sessionID: params.sessionID,
+          messageID: params.messageID,
+        })
         return true
       }).pipe(declaredErrors),
     partRemove: ({ params }: { params: typeof PartPath.Type }) =>
@@ -570,8 +647,33 @@ export namespace SessionHttpApi {
             `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
-        yield* Effect.promise(() => MessageV2.get({ sessionID: params.sessionID, messageID: params.messageID }))
+        yield* Effect.promise(() =>
+          MessageV2.get({
+            sessionID: params.sessionID,
+            messageID: params.messageID,
+          }),
+        )
         return yield* session.updatePart(part)
+      }).pipe(declaredErrors),
+    v2Entries: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.get(params.sessionID)
+        const entries = yield* Effect.promise(() => SessionV2.entries(params.sessionID))
+        return jsonSafe(entries)
+      }).pipe(declaredErrors),
+    v2State: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.get(params.sessionID)
+        const live = SessionV2.state(params.sessionID)
+        return jsonSafe({ entries: live.entries, pending: live.pending })
+      }).pipe(declaredErrors),
+    v2Events: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.get(params.sessionID)
+        return jsonSafe(SessionV2.events(params.sessionID))
       }).pipe(declaredErrors),
   }
 
@@ -600,7 +702,10 @@ export namespace SessionHttpApi {
       .handle("message", (request) => handlers.message(request))
       .handle("messageRemove", (request) => handlers.messageRemove(request))
       .handle("partRemove", (request) => handlers.partRemove(request))
-      .handle("partUpdate", (request) => handlers.partUpdate(request)),
+      .handle("partUpdate", (request) => handlers.partUpdate(request))
+      .handle("v2Entries", (request) => handlers.v2Entries(request))
+      .handle("v2State", (request) => handlers.v2State(request))
+      .handle("v2Events", (request) => handlers.v2Events(request)),
   )
 
   export const DependenciesLive = Layer.mergeAll(

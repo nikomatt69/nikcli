@@ -14,6 +14,7 @@ const { Instance } = await import("@/project/instance")
 const { InstanceBootstrap } = await import("@/project/bootstrap")
 const { PermissionNext } = await import("@/permission/next")
 const { Question } = await import("@/question")
+const { HttpApiBridge } = await import("@/server/httpapi/bridge")
 const { Server } = await import("@/server/server")
 
 const projectDirs: string[] = []
@@ -43,6 +44,20 @@ async function waitForList<T>(pathname: string, directory: string) {
 }
 
 describe("HttpApi bridge", () => {
+  it("supports TuiHttpApi paths when experimental HttpApi is enabled", () => {
+    expect(HttpApiBridge.supports("/tui/append-prompt", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/tui/control/next", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/tui/select-session", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_1/v2/entries", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_1/v2/state", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_1/v2/events", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_1/message", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/session/ses_1/prompt_async", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/loop", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/loop/templates", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/loop/loop_1/abort", "POST")).toBe(true)
+  })
+
   it("serves implemented question and permission routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
     const directory = await makeProjectDir()
 
@@ -131,7 +146,10 @@ describe("HttpApi bridge", () => {
       body: JSON.stringify({ parts: "not-an-array" }),
     })
     expect(invalid.status).toBe(400)
-    const failure = (await invalid.json()) as { success: boolean; error: unknown }
+    const failure = (await invalid.json()) as {
+      success: boolean
+      error: unknown
+    }
     expect(failure.success).toBe(false)
     expect(failure.error).toBeDefined()
 
@@ -142,6 +160,18 @@ describe("HttpApi bridge", () => {
       body: JSON.stringify({ parts: [{ type: "text", text: "hi" }] }),
     })
     expect(accepted.status).toBe(204)
+  })
+
+  it("serves GET /loop via HttpApi when experimental flag is on", async () => {
+    const directory = await makeProjectDir()
+    const response = await request("/loop", directory)
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      loops: unknown[]
+      runtimes: unknown[]
+    }
+    expect(Array.isArray(body.loops)).toBe(true)
+    expect(Array.isArray(body.runtimes)).toBe(true)
   })
 
   it("serves the /event SSE stream without Hono", async () => {

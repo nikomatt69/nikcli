@@ -74,8 +74,12 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
 describe("Session HttpApi bridge", () => {
   it("serves session list and status routes", async () => {
     const directory = await makeProjectDir()
-    const created = (await post("/session", directory, { title: "Bridge session" })) as { id: string; title: string }
-    const deleted = (await post("/session", directory, { title: "Delete me" })) as { id: string; title: string }
+    const created = (await post("/session", directory, {
+      title: "Bridge session",
+    })) as { id: string; title: string }
+    const deleted = (await post("/session", directory, {
+      title: "Delete me",
+    })) as { id: string; title: string }
 
     expect(HttpApiBridge.supports("/session", "POST")).toBe(true)
     expect(HttpApiBridge.supports("/session", "GET")).toBe(true)
@@ -95,21 +99,52 @@ describe("Session HttpApi bridge", () => {
     expect(HttpApiBridge.supports(`/session/${created.id}/message/msg_httpapi/part/prt_httpapi`, "DELETE")).toBe(true)
     expect(HttpApiBridge.supports(`/session/${created.id}/message/msg_httpapi/part/prt_httpapi`, "PATCH")).toBe(true)
     expect(HttpApiBridge.supports(`/session/${created.id}/todo`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/v2/entries`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/v2/state`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/v2/events`, "GET")).toBe(true)
 
-    const sessions = (await request("/session", directory, { roots: "true", limit: "10" })) as unknown[]
+    const v2Entries = (await request(`/session/${created.id}/v2/entries`, directory)) as unknown[]
+    expect(Array.isArray(v2Entries)).toBe(true)
+    const v2State = (await request(`/session/${created.id}/v2/state`, directory)) as {
+      entries: unknown[]
+      pending: unknown[]
+    }
+    expect(v2State).toEqual(
+      expect.objectContaining({
+        entries: expect.any(Array),
+        pending: expect.any(Array),
+      }),
+    )
+    const v2Events = (await request(`/session/${created.id}/v2/events`, directory)) as unknown[]
+    expect(Array.isArray(v2Events)).toBe(true)
+
+    const sessions = (await request("/session", directory, {
+      roots: "true",
+      limit: "10",
+    })) as unknown[]
     expect(sessions).toContainEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
 
     const statuses = (await request("/session/status", directory)) as Record<string, unknown>
     expect(statuses).toEqual({})
 
-    const session = (await request(`/session/${created.id}`, directory)) as { id: string; title: string }
-    expect(session).toEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
-
-    const updated = (await patch(`/session/${created.id}`, directory, { title: "Updated bridge session" })) as {
+    const session = (await request(`/session/${created.id}`, directory)) as {
       id: string
       title: string
     }
-    expect(updated).toEqual(expect.objectContaining({ id: created.id, title: "Updated bridge session" }))
+    expect(session).toEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
+
+    const updated = (await patch(`/session/${created.id}`, directory, {
+      title: "Updated bridge session",
+    })) as {
+      id: string
+      title: string
+    }
+    expect(updated).toEqual(
+      expect.objectContaining({
+        id: created.id,
+        title: "Updated bridge session",
+      }),
+    )
 
     const removed = (await remove(`/session/${deleted.id}`, directory)) as boolean
     expect(removed).toBe(true)
@@ -171,7 +206,9 @@ describe("Session HttpApi bridge", () => {
     })) as { id: string; text: string }
     expect(updatedPart).toEqual(expect.objectContaining({ id: partID, text: "updated" }))
 
-    const reverted = (await post(`/session/${created.id}/revert`, directory, { messageID })) as {
+    const reverted = (await post(`/session/${created.id}/revert`, directory, {
+      messageID,
+    })) as {
       id: string
       revert?: { messageID: string }
     }
@@ -212,7 +249,10 @@ describe("Session HttpApi bridge", () => {
     url.searchParams.set("directory", directory)
     const response = await Server.App().fetch(new Request(url))
     expect(response.status).toBe(404)
-    const body = (await response.json()) as { name: string; data: Record<string, unknown> }
+    const body = (await response.json()) as {
+      name: string
+      data: Record<string, unknown>
+    }
     expect(body.name).toBe("NotFoundError")
     expect(String(body.data.message)).toContain("ses_does_not_exist")
   })
@@ -242,13 +282,18 @@ describe("Session HttpApi bridge", () => {
 
   it("returns the declared 404 body for a missing message", async () => {
     const directory = await makeProjectDir()
-    const created = (await post("/session", directory, { title: "404 message" })) as { id: string }
+    const created = (await post("/session", directory, {
+      title: "404 message",
+    })) as { id: string }
 
     const url = new URL(`/session/${created.id}/message/msg_does_not_exist`, "http://nikcli.local")
     url.searchParams.set("directory", directory)
     const response = await Server.App().fetch(new Request(url))
     expect(response.status).toBe(404)
-    const body = (await response.json()) as { name: string; data: Record<string, unknown> }
+    const body = (await response.json()) as {
+      name: string
+      data: Record<string, unknown>
+    }
     expect(body.name).toBe("NotFoundError")
   })
 })

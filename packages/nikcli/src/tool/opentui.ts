@@ -102,9 +102,11 @@ const TableComponent = Schema.Struct({
   type: Schema.Literal("table"),
   title: Schema.optional(Schema.String),
   headers: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
-  rows: Schema.Array(Schema.Array(Schema.String)).annotate({
-    description: "2D array of cell values. Each inner array must match headers length.",
-  }),
+  rows: Schema.Array(Schema.Array(Schema.String))
+    .pipe(Schema.check(Schema.isMaxLength(100)))
+    .annotate({
+      description: "2D array of cell values (up to 100 rows). Each inner array must match headers length.",
+    }),
   align: Schema.optional(Schema.Array(Align)).annotate({
     description: "Per-column alignment. Length should match headers; missing entries default to left.",
   }),
@@ -224,7 +226,7 @@ const StatGridComponent = Schema.Struct({
   ).annotate({
     description: "1–4. Default auto-picks based on terminal width.",
   }),
-  items: Schema.Array(StatItem).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(12))),
+  items: Schema.Array(StatItem).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(16))),
 })
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -244,7 +246,7 @@ const BarChartComponent = Schema.Struct({
       unit: Schema.optional(Schema.String),
       color: Schema.optional(ColorToken),
     }),
-  ).pipe(Schema.check(Schema.isMinLength(1))),
+  ).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(40))),
   maxValue: Schema.optional(Schema.Number).annotate({
     description: "Override the 100% ceiling. Defaults to max(items.value).",
   }),
@@ -369,7 +371,7 @@ const TimelineComponent = Schema.Struct({
       }),
       detail: Schema.optional(Schema.String),
     }),
-  ).pipe(Schema.check(Schema.isMinLength(1))),
+  ).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(50))),
 })
 
 const StatusGridComponent = Schema.Struct({
@@ -381,10 +383,132 @@ const StatusGridComponent = Schema.Struct({
       status: Severity,
       detail: Schema.optional(Schema.String),
     }),
-  ).pipe(Schema.check(Schema.isMinLength(1))),
+  ).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(48))),
   columns: Schema.optional(
     Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)), Schema.check(Schema.isLessThanOrEqualTo(6))),
   ).annotate({ description: "1–6. Default auto." }),
+})
+
+// ──────────────────────────────────────────────────────────────────────────
+// Extended display (catalog expansion — dense terminal layouts)
+// ──────────────────────────────────────────────────────────────────────────
+
+const CardMetric = Schema.Struct({
+  label: Schema.String,
+  value: Schema.Union([Schema.String, Schema.Number]),
+  unit: Schema.optional(Schema.String),
+  format: Schema.optional(NumberFormat),
+  status: Schema.optional(StatusKind),
+})
+
+const CardComponent = Schema.Struct({
+  type: Schema.Literal("card"),
+  title: Schema.optional(Schema.String),
+  subtitle: Schema.optional(Schema.String),
+  badge: Schema.optional(
+    Schema.Struct({
+      label: Schema.String,
+      status: Severity,
+    }),
+  ),
+  body: Schema.optional(Schema.String).annotate({
+    description: "Primary narrative; wrap long runbooks or summaries here.",
+  }),
+  footer: Schema.optional(Schema.String),
+  metrics: Schema.optional(
+    Schema.Array(CardMetric)
+      .pipe(Schema.check(Schema.isMaxLength(8)))
+      .annotate({
+        description: "Inline KPI strip inside the card (label/value pairs).",
+      }),
+  ),
+})
+
+const ListItem = Schema.Struct({
+  primary: Schema.String,
+  secondary: Schema.optional(Schema.String),
+  tertiary: Schema.optional(Schema.String),
+  icon: Schema.optional(Schema.String).annotate({
+    description: "Single glyph prefix (e.g. ✓, ●, →).",
+  }),
+  status: Schema.optional(StatusKind),
+})
+
+const ListComponent = Schema.Struct({
+  type: Schema.Literal("list"),
+  title: Schema.optional(Schema.String),
+  ordered: Schema.optional(Schema.Boolean).annotate({
+    description: "true = numbered list, false/omit = bullets.",
+  }),
+  dense: Schema.optional(Schema.Boolean).annotate({
+    description: "Tighter vertical spacing when true.",
+  }),
+  items: Schema.Array(ListItem).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(80))),
+})
+
+const AccordionSection = Schema.Struct({
+  title: Schema.String,
+  subtitle: Schema.optional(Schema.String),
+  open: Schema.optional(Schema.Boolean).annotate({
+    description: "Render expanded by default when true.",
+  }),
+  content: Schema.optional(Schema.String).annotate({
+    description: "Markdown-friendly body for this panel.",
+  }),
+  items: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        key: Schema.String,
+        value: Schema.String,
+        status: Schema.optional(StatusKind),
+      }),
+    ).pipe(Schema.check(Schema.isMaxLength(24))),
+  ),
+})
+
+const AccordionComponent = Schema.Struct({
+  type: Schema.Literal("accordion"),
+  title: Schema.optional(Schema.String),
+  sections: Schema.Array(AccordionSection).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(20)),
+  ),
+})
+
+const CompareRow = Schema.Struct({
+  label: Schema.String,
+  left: Schema.String,
+  right: Schema.String,
+  winner: Schema.optional(Schema.Literals(["left", "right", "tie", "none"])),
+  note: Schema.optional(Schema.String),
+})
+
+const CompareComponent = Schema.Struct({
+  type: Schema.Literal("compare"),
+  title: Schema.optional(Schema.String),
+  leftLabel: Schema.String,
+  rightLabel: Schema.String,
+  rows: Schema.Array(CompareRow).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(40))),
+})
+
+const SparklineRowItem = Schema.Struct({
+  label: Schema.String,
+  values: Schema.Array(Schema.Number).pipe(Schema.check(Schema.isMinLength(2)), Schema.check(Schema.isMaxLength(80))),
+  unit: Schema.optional(Schema.String),
+  format: Schema.optional(NumberFormat),
+  color: Schema.optional(ColorToken),
+  current: Schema.optional(Schema.Union([Schema.String, Schema.Number])),
+  delta: Schema.optional(Schema.Number),
+  deltaUnit: Schema.optional(Schema.String),
+})
+
+const SparklineRowComponent = Schema.Struct({
+  type: Schema.Literal("sparkline_row"),
+  title: Schema.optional(Schema.String),
+  showValues: Schema.optional(Schema.Boolean).annotate({
+    description: "Append latest numeric value after each sparkline.",
+  }),
+  rows: Schema.Array(SparklineRowItem).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(24))),
 })
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -410,6 +534,11 @@ const LeafComponent = Schema.Union([
   ProgressBarsComponent,
   TimelineComponent,
   StatusGridComponent,
+  CardComponent,
+  ListComponent,
+  AccordionComponent,
+  CompareComponent,
+  SparklineRowComponent,
 ])
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -570,6 +699,11 @@ export const VIZ_COMPONENT_TYPES = [
   "progress_bars",
   "timeline",
   "status_grid",
+  "card",
+  "list",
+  "accordion",
+  "compare",
+  "sparkline_row",
   "section",
   "grid",
 ] as const satisfies ReadonlyArray<VizComponent["type"]>
@@ -660,6 +794,11 @@ function countFlatComponents(components: VizComponent[]): number {
     if (c.type === "section" || c.type === "grid") {
       n += c.children.length
     }
+    if (c.type === "accordion") n += c.sections.length
+    if (c.type === "list") n += c.items.length
+    if (c.type === "compare") n += c.rows.length
+    if (c.type === "sparkline_row") n += c.rows.length
+    if (c.type === "card" && c.metrics) n += c.metrics.length
   }
   return n
 }

@@ -26,17 +26,21 @@ describe("SessionPrompt.Service", () => {
       )
 
       // resolvePromptParts echoes the original template as a text part and
-      // appends a file part per `@name` reference. Build the expected URL via
-      // pathToFileURL so the assertion holds on Windows (where
-      // `file://${path.join(...)}` would produce backslashes and miss the
-      // RFC-8089 percent-encoded username).
+      // appends a file part per `@name` reference. Build the expected URL by
+      // converting `directory` with pathToFileURL and appending the basename,
+      // matching the resolver's own `pathToFileURL(filepath).href` construction.
+      // Calling pathToFileURL on the joined path (as the source does via
+      // `path.resolve(ctx.worktree, name)`) would in turn be encoded the same
+      // way on every platform; using the directory directly avoids the
+      // Windows-specific backslash encoding that pathToFileURL emits on some
+      // runtimes when the input already contains backslashes.
       expect(parts).toContainEqual({
         type: "text",
         text: "read @notes.md",
       })
       expect(parts).toContainEqual({
         type: "file",
-        url: pathToFileURL(path.join(directory, "notes.md")).href,
+        url: pathToFileURL(directory).href + "notes.md",
         filename: "notes.md",
         mime: "text/plain",
       })

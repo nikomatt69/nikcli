@@ -1656,6 +1656,27 @@ export function Prompt(props: PromptProps) {
     return !!current
   })
 
+  // Active goal indicator: green = attivo, yellow = in corso (working),
+  // red = errore / fail (blocked or hit a budget/usage limit).
+  const goal = createMemo(() => {
+    if (!props.sessionID) return undefined
+    return sync.data.session_goal?.[props.sessionID]
+  })
+
+  const goalDisplay = createMemo(() => {
+    const g = goal()
+    if (!g) return undefined
+    if (g.status === "blocked") return { color: theme.error, status: "failed" }
+    if (g.status === "usage_limited" || g.status === "budget_limited") {
+      return { color: theme.error, status: "limited" }
+    }
+    if (g.status === "complete") return { color: theme.success, status: "done" }
+    // active / paused: yellow while the agent is actively working it, green otherwise
+    const working = status().type === "busy" || status().type === "retry"
+    if (working) return { color: theme.warning, status: "running" }
+    return { color: theme.success, status: g.status === "paused" ? "paused" : "active" }
+  })
+
   const spinnerDef = createMemo(() => {
     const style = kv.get("settings.spinner.style", "knight_rider_blocks") as SpinnerStyle
     const enabled = kv.get("settings.spinner.enabled", true)
@@ -2038,6 +2059,16 @@ export function Prompt(props: PromptProps) {
                   </Show>
                 </box>
               </Show>
+              <Show when={goalDisplay()}>
+                {(g) => (
+                  <box flexDirection="row" gap={1} flexShrink={0}>
+                    <text fg={theme.textMuted}>·</text>
+                    <text fg={g().color} wrapMode="none">
+                      <span style={{ bold: true }}>goal</span> <span style={{ fg: theme.textMuted }}>{g().status}</span>
+                    </text>
+                  </box>
+                )}
+              </Show>
             </box>
           </box>
         </box>
@@ -2194,7 +2225,10 @@ export function Prompt(props: PromptProps) {
             </box>
           </Show>
           <Show when={status().type !== "retry"}>
-            <box gap={2} flexDirection="row">
+            {/* alignItems center so the colored rec/web chips never stretch to
+                the row height when a sibling (shortcuts) wraps on a narrow
+                terminal — they kept their bg fill but grew several rows tall. */}
+            <box gap={2} flexDirection="row" alignItems="center">
               <box
                 onMouseDown={() => {
                   void handleVoiceButtonDown()
@@ -2207,7 +2241,7 @@ export function Prompt(props: PromptProps) {
                 paddingRight={0.5}
                 flexShrink={0}
               >
-                <text fg={theme.background}>
+                <text fg={theme.background} wrapMode="none">
                   <span style={{ bold: voiceStatus() === "recording" }}>
                     {voiceStatus() === "recording"
                       ? "release to send"
@@ -2237,7 +2271,7 @@ export function Prompt(props: PromptProps) {
                 paddingRight={1}
                 flexShrink={0}
               >
-                <text fg={theme.background}>
+                <text fg={theme.background} wrapMode="none">
                   ⊕ <span style={{ fg: theme.background }}>web</span>
                 </text>
               </box>

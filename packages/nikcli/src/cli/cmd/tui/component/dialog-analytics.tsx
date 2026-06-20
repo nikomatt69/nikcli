@@ -1,10 +1,10 @@
-import { TextAttributes, RGBA } from "@opentui/core"
+import { TextAttributes, RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { useTheme, type Theme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
 import { useAnalytics } from "../context/analytics"
-import { useKeyboard } from "@opentui/solid"
-import { For, Show, createSignal, createMemo, onMount, type ParentProps } from "solid-js"
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
+import { For, Show, createSignal, createMemo, onMount, onCleanup, type ParentProps } from "solid-js"
 import {
   aggregateAnalytics,
   mergeWithHistorical,
@@ -23,18 +23,11 @@ import {
   KPICard,
   ModelCard,
   RankedBarList,
+  Gauge,
+  VerticalBarChart,
   getChartColors,
 } from "./chart-braille-line"
-import {
-  periodDelta,
-  sampleForSparkline,
-  formatCompact,
-  buildTabPrompt,
-  buildTabTitle,
-  type AnalyticsTabId,
-} from "../util/analytics-utils"
-import { useToast } from "@tui/ui/toast"
-import { useLocal } from "@tui/context/local"
+import { periodDelta, sampleForSparkline, formatCompact } from "../util/analytics-utils"
 
 // ===== Color utilities =====
 
@@ -69,30 +62,40 @@ function formatDuration(ms: number): string {
   return `${(ms / 3600000).toFixed(1)}h`
 }
 
-// Box drawing characters
-const BOX = {
-  topLeft: "┌",
-  topRight: "┐",
-  bottomLeft: "└",
-  bottomRight: "┘",
-  horizontal: "─",
-  vertical: "│",
-  cross: "┼",
-  teeDown: "┬",
-} as const
+// Usable content width inside the scrollable area, in columns. Accounts for
+// every layer of chrome between the terminal edge and the chart:
+//   dialog width = min(116, term-8)
+//   − dialog box padding (2+2)  − root box padding (3+3)
+//   − scroll border (1+1)       − inner box padding (2+2)  − scrollbar (1)
+//   − collapsible-section indent (2, applied to most charts)
+// ≈ dialog − 19. Charts must never exceed this or they wrap/overflow.
+function useContentWidth() {
+  const dims = useTerminalDimensions()
+  return createMemo(() => Math.max(20, Math.min(116, Math.max(1, dims().width - 8)) - 19))
+}
+
+// Responsive chart width capped so charts don't get comically wide on
+// ultra-wide terminals. `cap` is the maximum drawn width.
+function useChartWidth(cap = 72) {
+  const content = useContentWidth()
+  return createMemo(() => Math.max(24, Math.min(cap, content())))
+}
 
 // ===== MAIN DIALOG =====
 
 type TabId = "overview" | "tokens" | "models" | "tools" | "projects" | "sessions"
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "tokens", label: "Tokens" },
-  { id: "models", label: "Models" },
-  { id: "tools", label: "Tools" },
-  { id: "projects", label: "Projects" },
-  { id: "sessions", label: "Sessions" },
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "overview", label: "Overview", icon: "◈" },
+  { id: "tokens", label: "Tokens", icon: "▦" },
+  { id: "models", label: "Models", icon: "◆" },
+  { id: "tools", label: "Tools", icon: "✦" },
+  { id: "projects", label: "Projects", icon: "▣" },
+  { id: "sessions", label: "Sessions", icon: "⊞" },
 ]
+
+// Animated braille spinner frames for the loading state.
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const
 
 export function DialogAnalytics(_props: { onClose: () => void }) {
   const { theme } = useTheme()
@@ -100,14 +103,79 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
   const sdk = useSDK()
   const analyticsCtx = useAnalytics()
   const dialog = useDialog()
+  const dimensions = useTerminalDimensions()
 
   const [loading, setLoading] = createSignal(true)
   const [stats, setStats] = createSignal<AggregatedStats | null>(null)
   const [activeTab, setActiveTab] = createSignal<TabId>("overview")
 
+  // Cap the scrollable content area to the visible terminal so the panel
+  // never spills below the viewport. Header (2) + tab strip (2) + scroll bar
+  // (1) + gaps/border/padding reserve ~12 rows; the rest scrolls inside.
+  const contentHeight = createMemo(() => {
+    const h = dimensions().height
+    return Math.max(10, Math.min(h - 12, Math.floor(h * 0.82)))
+  })
+
+  // Animated spinner frame, advanced on a timer only while loading.
+  const [spinner, setSpinner] = createSignal(0)
+  // Scroll position of the content box: { top, max } in rows. Polled from the
+  // scrollbox ref since opentui doesn't emit a scroll event we can bind to.
+  const [scrollPos, setScrollPos] = createSignal<{ top: number; max: number }>({
+    top: 0,
+    max: 0,
+  })
+  let scrollRef: ScrollBoxRenderable | undefined
+
   onMount(async () => {
     dialog.setSize("xlarge")
+
+    const spin = setInterval(() => {
+      if (loading()) setSpinner((f) => (f + 1) % SPINNER_FRAMES.length)
+    }, 90)
+    // Lightweight scroll poll (~12fps) — cheap, and only while the dialog is
+    // mounted. Drives the ▲/▼ + percentage indicator on the content frame.
+    const poll = setInterval(() => {
+      const s = scrollRef
+      if (!s || s.isDestroyed) return
+      const max = Math.max(0, (s.scrollHeight ?? 0) - (s.height ?? 0))
+      const top = Math.max(0, Math.min(max, s.scrollTop ?? 0))
+      const prev = scrollPos()
+      if (prev.top !== top || prev.max !== max) setScrollPos({ top, max })
+    }, 80)
+    onCleanup(() => {
+      clearInterval(spin)
+      clearInterval(poll)
+    })
+
     await loadAnalytics()
+  })
+
+  // Scroll indicator state derived from the polled position.
+  const scrollInfo = createMemo(() => {
+    const { top, max } = scrollPos()
+    if (max <= 0) return { scrollable: false, pct: 0, up: false, down: false }
+    return {
+      scrollable: true,
+      pct: Math.round((top / max) * 100),
+      up: top > 0,
+      down: top < max,
+    }
+  })
+
+  // Headline numbers for the header subtitle.
+  const headerSummary = createMemo(() => {
+    const s = stats()
+    if (!s) return undefined
+    const days = s.days
+    const firstDay = days.find((d) => d.tokens > 0 || d.cost > 0)?.date
+    const lastDay = [...days].reverse().find((d) => d.tokens > 0 || d.cost > 0)?.date
+    return {
+      range: firstDay && lastDay ? `${firstDay} → ${lastDay}` : "all time",
+      sessions: s.global.sessions,
+      cost: s.global.cost,
+      tokens: s.global.tokens.input + s.global.tokens.output + s.global.tokens.reasoning,
+    }
   })
 
   async function waitForSyncBootstrap() {
@@ -182,92 +250,199 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
     if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1]!.id)
   }
 
+  // Tab navigation. The content scrollbox is focused (so ↑↓/wheel scroll),
+  // and it swallows the arrow keys for its own horizontal/vertical scroll —
+  // so tab switching is bound to Tab/Shift+Tab and the number keys, mirroring
+  // the OpenTUI dashboard. Handled keys are stopped so the scrollbox doesn't
+  // also act on them. Arrows are kept as a best-effort fallback.
   useKeyboard((evt) => {
-    if (evt.name === "arrow-left") prevTab()
-    else if (evt.name === "arrow-right") nextTab()
+    if (/^[1-6]$/.test(evt.name)) {
+      const idx = parseInt(evt.name, 10) - 1
+      if (idx >= 0 && idx < TABS.length) {
+        setActiveTab(TABS[idx]!.id)
+        evt.preventDefault?.()
+        evt.stopPropagation?.()
+      }
+      return
+    }
+    if (evt.name === "tab" && !evt.shift) {
+      nextTab()
+      evt.preventDefault?.()
+      evt.stopPropagation?.()
+      return
+    }
+    if (evt.name === "tab" && evt.shift) {
+      prevTab()
+      evt.preventDefault?.()
+      evt.stopPropagation?.()
+      return
+    }
+    if (evt.name === "arrow-left" || evt.name === "left") prevTab()
+    else if (evt.name === "arrow-right" || evt.name === "right") nextTab()
   })
 
   return (
-    <box paddingLeft={3} paddingRight={3} gap={2} paddingBottom={1}>
-      {/* Header */}
-      <box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-          ◈ ANALYTICS
-        </text>
-        <text fg={theme.textMuted}>
-          {activeTab() === "overview"
-            ? "←→ tabs · ↑↓ focus · space toggle · esc close"
-            : "←→ or click tabs · esc close"}
+    <box paddingLeft={3} paddingRight={3} gap={1} paddingBottom={1}>
+      {/* Header: title + live summary on the left, controls hint on the right */}
+      <box flexDirection="row" justifyContent="space-between" alignItems="flex-start">
+        <box flexDirection="column" gap={0}>
+          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+            ◈ ANALYTICS
+          </text>
+          <Show when={headerSummary()}>
+            <text fg={theme.textMuted} wrapMode="none">
+              {headerSummary()!.range} · {headerSummary()!.sessions} sessions · {formatTokens(headerSummary()!.tokens)}{" "}
+              tokens · {money.format(headerSummary()!.cost)}
+            </text>
+          </Show>
+        </box>
+        <text fg={theme.textMuted} wrapMode="none">
+          tab/1-6 · ↑↓ scroll · esc
         </text>
       </box>
 
+      {/* Loading: animated spinner + skeleton hint */}
       <Show when={loading()}>
-        <text fg={theme.textMuted}>Loading analytics...</text>
+        <box height={contentHeight()} alignItems="center" justifyContent="center" flexShrink={0}>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.accent} wrapMode="none">
+              {SPINNER_FRAMES[spinner()]}
+            </text>
+            <text fg={theme.textMuted} wrapMode="none">
+              Crunching analytics…
+            </text>
+          </box>
+        </box>
       </Show>
 
       <Show when={!loading() && stats()}>
-        {/* Compact tab dropdown — single inline element that cycles on
-            click, mirroring the metric switcher in the Overview tab. Saves
-            a horizontal row regardless of how many tabs are added later
-            and prevents overflow on narrow terminals. */}
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted} wrapMode="none">
-            Tab:
-          </text>
-          <box
-            flexDirection="row"
-            gap={1}
-            alignItems="baseline"
-            backgroundColor={theme.backgroundElement}
-            paddingLeft={1}
-            paddingRight={1}
-            onMouseUp={() => nextTab()}
-          >
-            <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
-              {TABS.find((t) => t.id === activeTab())?.label}
-            </text>
-            <text fg={theme.textMuted} wrapMode="none">
-              ▾
-            </text>
-          </box>
-          <text fg={theme.textMuted} wrapMode="none">
-            ({tabIndex() + 1}/{TABS.length} · ←/→ to switch · click to next)
-          </text>
+        {/* Tab strip — full chip row: icon + number + label, active chip
+            highlighted with an accent background, underline bar, and border.
+            Each chip is clickable; numbers map to the 1-6 shortcuts. */}
+        <box flexDirection="row" gap={1} flexWrap="wrap" flexShrink={0}>
+          <For each={TABS}>
+            {(tab, i) => {
+              const isActive = createMemo(() => tab.id === activeTab())
+              return (
+                <box flexDirection="column" gap={0} flexShrink={0} onMouseUp={() => setActiveTab(tab.id)}>
+                  <box
+                    flexDirection="row"
+                    gap={1}
+                    alignItems="center"
+                    paddingLeft={1}
+                    paddingRight={1}
+                    backgroundColor={isActive() ? theme.backgroundElement : undefined}
+                  >
+                    <text
+                      fg={isActive() ? theme.accent : theme.textMuted}
+                      attributes={isActive() ? TextAttributes.BOLD : undefined}
+                      wrapMode="none"
+                    >
+                      {tab.icon}
+                    </text>
+                    <text
+                      fg={isActive() ? theme.primary : theme.textMuted}
+                      attributes={isActive() ? TextAttributes.BOLD : undefined}
+                      wrapMode="none"
+                    >
+                      {i() + 1} {tab.label}
+                    </text>
+                  </box>
+                  {/* active underline — matches the chip's inner width
+                      (padding 2 + icon 1 + gap 1 + "N "(2) + label). */}
+                  <text fg={isActive() ? theme.accent : theme.backgroundPanel} wrapMode="none">
+                    {"─".repeat(tab.label.length + 6)}
+                  </text>
+                </box>
+              )
+            }}
+          </For>
         </box>
 
-        <text fg={theme.border} wrapMode="none">
-          {BOX.horizontal.repeat(60)}
-        </text>
+        {/* Scrollable content area — height-capped to the viewport so the
+            panel can never grow past the bottom of the terminal. The
+            scrollbox is focused so ↑↓/PageUp/PageDown and the mouse wheel
+            scroll the active tab; tab/1-6 switch tabs and section headers
+            toggle on click. `keyed` on the tab id remounts content per tab so
+            scroll offset resets when you switch. */}
+        <box border borderColor={theme.border} height={contentHeight()} flexShrink={0}>
+          <scrollbox
+            ref={(r: ScrollBoxRenderable) => (scrollRef = r)}
+            height={contentHeight() - 2}
+            focused={true}
+            scrollbarOptions={{ visible: true }}
+          >
+            <box paddingTop={1} paddingBottom={1} paddingLeft={2} paddingRight={2}>
+              <Show when={activeTab()} keyed>
+                {(tab) => (
+                  <>
+                    <Show when={tab === "overview"}>
+                      <OverviewTab stats={stats()!} last30Days={last30Days()} />
+                    </Show>
+                    <Show when={tab === "tokens"}>
+                      <TokensTab stats={stats()!} last14Days={last14Days()} />
+                    </Show>
+                    <Show when={tab === "models"}>
+                      <ModelsTab stats={stats()!} />
+                    </Show>
+                    <Show when={tab === "tools"}>
+                      <ToolsTab stats={stats()!} />
+                    </Show>
+                    <Show when={tab === "projects"}>
+                      <ProjectsTab stats={stats()!} />
+                    </Show>
+                    <Show when={tab === "sessions"}>
+                      <SessionsTab stats={stats()!} />
+                    </Show>
+                  </>
+                )}
+              </Show>
+            </box>
+          </scrollbox>
+        </box>
 
-        {/* Background agent bar — always visible, prompt is built from the
-            active tab. Lets the user dig deeper into the data on screen
-            without leaving the panel. */}
-
-        {/* Tab Content */}
-        <Show when={activeTab() === "overview"}>
-          <OverviewTab stats={stats()!} last30Days={last30Days()} />
-        </Show>
-        <Show when={activeTab() === "tokens"}>
-          <TokensTab stats={stats()!} last14Days={last14Days()} />
-        </Show>
-        <Show when={activeTab() === "models"}>
-          <ModelsTab stats={stats()!} />
-        </Show>
-        <Show when={activeTab() === "tools"}>
-          <ToolsTab stats={stats()!} />
-        </Show>
-        <Show when={activeTab() === "projects"}>
-          <ProjectsTab stats={stats()!} />
-        </Show>
-        <Show when={activeTab() === "sessions"}>
-          <SessionsTab stats={stats()!} />
-        </Show>
+        {/* Scroll indicator — shows there's more above/below and how far
+            through the tab you are. Only when the content overflows. */}
+        <box flexDirection="row" justifyContent="space-between" alignItems="center" flexShrink={0}>
+          <text fg={theme.textMuted} wrapMode="none">
+            {TABS.find((t) => t.id === activeTab())?.label} · {tabIndex() + 1}/{TABS.length}
+          </text>
+          <Show when={scrollInfo().scrollable}>
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={scrollInfo().up ? theme.accent : theme.borderSubtle} wrapMode="none">
+                ▲
+              </text>
+              <text fg={theme.textMuted} wrapMode="none">
+                {scrollInfo().pct}%
+              </text>
+              <text fg={scrollInfo().down ? theme.accent : theme.borderSubtle} wrapMode="none">
+                ▼
+              </text>
+            </box>
+          </Show>
+        </box>
       </Show>
     </box>
   )
 }
 
 // ===== SHARED UI =====
+
+// Centered empty-state placeholder with an icon, used wherever a section has
+// no data yet — reads as intentional rather than a stray left-aligned string.
+function EmptyState(props: { icon?: string; message: string }) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="row" gap={1} alignItems="center" paddingTop={1} paddingBottom={1} justifyContent="center">
+      <text fg={theme.borderSubtle} wrapMode="none">
+        {props.icon ?? "○"}
+      </text>
+      <text fg={theme.textMuted} wrapMode="none">
+        {props.message}
+      </text>
+    </box>
+  )
+}
 
 function LegendDot(props: { color: ReturnType<typeof getChartColors>["input"]; label: string }) {
   const { theme } = useTheme()
@@ -287,7 +462,6 @@ function CollapsibleSection(
   props: ParentProps<{
     title: string
     open: boolean
-    focused?: boolean
     hint?: string
     onToggle: () => void
   }>,
@@ -295,17 +469,12 @@ function CollapsibleSection(
   const { theme } = useTheme()
   return (
     <box flexDirection="column" gap={1}>
-      <box
-        flexDirection="row"
-        gap={1}
-        alignItems="center"
-        backgroundColor={props.focused ? theme.backgroundElement : undefined}
-        onMouseUp={() => props.onToggle()}
-      >
-        <text fg={props.focused ? theme.primary : theme.textMuted} wrapMode="none">
+      <box flexDirection="row" gap={1} alignItems="center" onMouseUp={() => props.onToggle()}>
+        {/* Accent chevron = the clickable affordance for the section. */}
+        <text fg={theme.accent} wrapMode="none">
           {props.open ? "▾" : "▶"}
         </text>
-        <text fg={props.focused ? theme.primary : theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
           {props.title}
         </text>
         <Show when={props.hint}>
@@ -323,48 +492,17 @@ function CollapsibleSection(
   )
 }
 
-// Keyboard-navigable collapsible group: ↑↓ moves focus, space/enter toggles the
-// focused section. `extraKeys` lets a tab handle section-specific keys (returns
-// true when handled). Mounted one-at-a-time per tab, so handlers never overlap.
-function useCollapsibleGroup<T extends string>(
-  sections: readonly T[],
-  extraKeys?: (evt: { name?: string; preventDefault?: () => void }, focusedId: T) => boolean,
-) {
+// Collapsible group state. Sections start open and toggle on click. Vertical
+// keyboard navigation lives on the focused scrollbox (↑↓/space scroll), so the
+// sections are mouse-toggle only to avoid fighting it.
+function useCollapsibleGroup<T extends string>(sections: readonly T[]) {
   const [open, setOpen] = createSignal<Record<T, boolean>>(
     Object.fromEntries(sections.map((s) => [s, true])) as Record<T, boolean>,
   )
-  const [focus, setFocus] = createSignal(0)
   const toggle = (id: T) => setOpen((o) => ({ ...o, [id]: !o[id] }))
-  const focused = (id: T) => sections[focus()] === id
 
-  useKeyboard((evt) => {
-    if (evt.name === "up" || evt.name === "arrow-up") {
-      evt.preventDefault?.()
-      setFocus((f) => Math.max(0, f - 1))
-    } else if (evt.name === "down" || evt.name === "arrow-down") {
-      evt.preventDefault?.()
-      setFocus((f) => Math.min(sections.length - 1, f + 1))
-    } else if (evt.name === "space" || evt.name === " " || evt.name === "return") {
-      evt.preventDefault?.()
-      toggle(sections[focus()]!)
-    } else {
-      extraKeys?.(evt, sections[focus()]!)
-    }
-  })
-
-  return { open, toggle, focused }
+  return { open, toggle }
 }
-
-// ===== Background Agent Bar =====
-//
-// Always-visible bar that lets the user spawn a subagent on the currently
-// active tab. The agent dropdown cycles through the most useful
-// subagents for analytics work (explore / fast-explore / researcher /
-// code-reviewer / debugger); the Run button creates a new session, sends
-// the tab-specific prompt built by `buildTabPrompt`, and surfaces the
-// outcome via toast. Keeping it at the dialog level (rather than per
-// tab) keeps the panel from overflowing: the bar is one line tall
-// regardless of how many tabs exist or what data they show.
 
 // ===== TAB COMPONENTS =====
 
@@ -532,7 +670,7 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
 
       <Show
         when={grid().weeks > 0 && stats().totalDays > 0}
-        fallback={<text fg={theme.textMuted}>No activity data in the last year</text>}
+        fallback={<EmptyState icon="▦" message="No activity in the last year" />}
       >
         {/* Grid: dow gutter + (month labels + 7 rows of cells) */}
         <box flexDirection="row" gap={1}>
@@ -618,15 +756,22 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
   const g = () => props.stats.global
   const viz = () => getChartColors(theme)
 
+  const chartW = useChartWidth(72)
+  // Two gauges side-by-side: each gets half the width minus the row gap.
+  const gaugeW = createMemo(() => Math.max(16, Math.min(26, Math.floor((chartW() - 4) / 2))))
+  // Daily breakdown row reserves: date(6) + tokens(8) + cost(9) + 3 gaps(6).
+  const dailyBarW = createMemo(() => Math.max(12, chartW() - 30))
+  // Four KPI cards share the full content width; min 20 so subtitles fit.
+  // When the terminal is too narrow for 4-up the row wraps to 2×2.
+  const contentW = useContentWidth()
+  const cardW = createMemo(() => Math.max(20, Math.min(26, Math.floor((contentW() - 6) / 4))))
+  // Date labels for the trend chart's X axis.
+  const trendDates = createMemo(() => props.last30Days.map((d) => d.date.slice(5)))
   const [dailyRange, setDailyRange] = createSignal<7 | 14 | 30>(7)
   const cycleRange = () => setDailyRange((r) => (r === 7 ? 14 : r === 14 ? 30 : 7))
-  const { open, toggle, focused } = useCollapsibleGroup(OVERVIEW_SECTIONS, (evt, id) => {
-    if (id === "daily" && evt.name === "r") {
-      evt.preventDefault?.()
-      cycleRange()
-      return true
-    }
-    return false
+  const { open, toggle } = useCollapsibleGroup(OVERVIEW_SECTIONS)
+  useKeyboard((evt) => {
+    if (evt.name === "r" && !evt.ctrl && !evt.meta) cycleRange()
   })
   const dailyDays = createMemo(() => props.last30Days.slice(-dailyRange()))
   const dailyMax = createMemo(() => Math.max(1, ...dailyDays().map((d) => d.tokens)))
@@ -665,10 +810,33 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
   const costDelta = createMemo(() => periodDelta(props.last30Days, 7, (d) => d.cost))
   const tokensDelta = createMemo(() => periodDelta(props.last30Days, 7, (d) => d.tokens))
 
+  // Headline ratios surfaced as gauges so the cache/output balance is
+  // glanceable rather than buried in the Tokens tab.
+  const tk = () => g().tokens
+  const cacheHit = createMemo(() => {
+    const t = tk()
+    const denom = t.cacheRead + t.input
+    return denom > 0 ? (t.cacheRead / denom) * 100 : 0
+  })
+  const outputRatio = createMemo(() => {
+    const t = tk()
+    const denom = t.input + t.output
+    return denom > 0 ? (t.output / denom) * 100 : 0
+  })
+  // 30-day volume histogram: first/last day labelled for the axis caption.
+  const volumeBars = createMemo(() =>
+    props.last30Days.map((d, i, arr) => ({
+      value: d.tokens,
+      label: i === 0 ? d.date.slice(5) : i === arr.length - 1 ? d.date.slice(5) : undefined,
+    })),
+  )
+
   return (
     <box flexDirection="column" gap={2}>
-      {/* KPI Cards — each carries a 14-cell sparkline + 7-day delta. */}
-      <box flexDirection="row" gap={2}>
+      {/* KPI Cards — each carries a 14-cell sparkline + 7-day delta. Wrap so
+          the four cards reflow to 2×2 instead of overflowing on narrow
+          terminals. */}
+      <box flexDirection="row" gap={2} flexWrap="wrap">
         <KPICard
           label="SESSIONS"
           value={g().sessions.toString()}
@@ -676,6 +844,7 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           subtitle={`${g().sessions - g().archivedSessions} active`}
           sparkline={sessionsSpark()}
           delta={{ pct: sessionsDelta().pct }}
+          width={cardW()}
         />
         <KPICard
           label="MESSAGES"
@@ -683,22 +852,56 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           color={viz().series[1]!}
           sparkline={messagesSpark()}
           delta={{ pct: messagesDelta().pct }}
+          width={cardW()}
         />
         <KPICard
           label="COST"
           value={money.format(g().cost)}
           color={viz().series[2]!}
-          subtitle={`$${g().efficiency.costPer1kTokens.toFixed(4)}/1k tokens`}
+          subtitle={`${g().efficiency.costPer1kTokens.toFixed(4)}/1k`}
           sparkline={costSpark()}
           delta={{ pct: costDelta().pct, inverse: true }}
+          width={cardW()}
         />
         <KPICard
           label="TOKENS"
           value={formatTokens(g().tokens.input + g().tokens.output + g().tokens.reasoning)}
           color={viz().series[3]!}
-          subtitle={`in:${formatTokens(g().tokens.input)} out:${formatTokens(g().tokens.output)}`}
+          subtitle={`in ${formatTokens(g().tokens.input)} · out ${formatTokens(g().tokens.output)}`}
           sparkline={tokensSpark()}
           delta={{ pct: tokensDelta().pct }}
+          width={cardW()}
+        />
+      </box>
+
+      {/* 30-day volume histogram + headline ratio gauges — an at-a-glance
+          graphical summary above the collapsible deep-dives. */}
+      <Show when={volumeBars().length > 1}>
+        <box flexDirection="column" gap={1}>
+          <text fg={theme.textMuted} wrapMode="none">
+            Tokens / day · last {volumeBars().length} days
+          </text>
+          <VerticalBarChart bars={volumeBars()} height={6} color={viz().input} highlightMax showAxis />
+        </box>
+      </Show>
+      <box flexDirection="row" gap={4} flexWrap="wrap">
+        <Gauge
+          label="Cache hit ratio"
+          value={cacheHit()}
+          max={100}
+          width={gaugeW()}
+          color={viz().cache}
+          format={(v) => v.toFixed(0)}
+          unit="%"
+        />
+        <Gauge
+          label="Output / (in+out)"
+          value={outputRatio()}
+          max={100}
+          width={gaugeW()}
+          color={viz().output}
+          format={(v) => v.toFixed(0)}
+          unit="%"
         />
       </box>
 
@@ -707,7 +910,6 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
         title="Activity"
         hint={`(last ${Math.min(365, props.stats.days.length)} days)`}
         open={open().activity}
-        focused={focused("activity")}
         onToggle={() => toggle("activity")}
       >
         <ActivityHeatmap stats={props.stats} />
@@ -719,7 +921,6 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           title="Token Usage Over Time"
           hint="(30 days)"
           open={open().trend}
-          focused={focused("trend")}
           onToggle={() => toggle("trend")}
         >
           <BrailleLineChart
@@ -739,8 +940,14 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
                 data: props.last30Days.map((d) => d.cacheRead + d.cacheWrite),
                 color: viz().cache,
               },
+              {
+                label: "Reasoning",
+                data: props.last30Days.map((d) => d.reasoning),
+                color: viz().reasoning,
+              },
             ]}
-            width={60}
+            xLabels={trendDates()}
+            width={chartW()}
             height={8}
             showGrid
             showLegend
@@ -756,7 +963,6 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           title="Daily Token Breakdown"
           hint={`(last ${dailyRange()} days · r to cycle)`}
           open={open().daily}
-          focused={focused("daily")}
           onToggle={() => toggle("daily")}
         >
           <For each={dailyDays()}>
@@ -791,21 +997,21 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
                         color: viz().reasoning,
                       },
                     ]}
-                    width={30}
+                    width={dailyBarW()}
                     showLabels={false}
                   />
-                  <text fg={theme.textMuted} width={7} wrapMode="none">
-                    {formatTokens(day.tokens)}
+                  <text fg={theme.textMuted} width={8} wrapMode="none">
+                    {formatTokens(day.tokens).padStart(8)}
                   </text>
-                  <text fg={theme.success} wrapMode="none">
-                    {day.cost > 0 ? money.format(day.cost) : ""}
+                  <text fg={theme.success} width={9} wrapMode="none">
+                    {(day.cost > 0 ? money.format(day.cost) : "—").padStart(9)}
                   </text>
                 </box>
               )
             }}
           </For>
           <Show when={dailyDays().every((d) => d.tokens === 0)}>
-            <text fg={theme.textMuted}>No usage in this range</text>
+            <EmptyState icon="▦" message="No usage in this range" />
           </Show>
           {/* Legend + range control */}
           <box flexDirection="row" gap={3} alignItems="center">
@@ -825,7 +1031,6 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
         title="Top Providers"
         hint={`(${props.stats.providers.size})`}
         open={open().providers}
-        focused={focused("providers")}
         onToggle={() => toggle("providers")}
       >
         <For each={Array.from(props.stats.providers.values()).slice(0, 5)}>
@@ -843,8 +1048,27 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
             </box>
           )}
         </For>
+        {/* Cost share across providers as one proportional bar. */}
+        <Show when={props.stats.providers.size > 1}>
+          <box paddingTop={1} flexDirection="column" gap={1}>
+            <text fg={theme.textMuted} wrapMode="none">
+              Cost share
+            </text>
+            <StackedBarChartV2
+              segments={Array.from(props.stats.providers.values())
+                .slice(0, 6)
+                .map((p, i) => ({
+                  label: p.providerID,
+                  value: p.cost,
+                  color: viz().series[i % viz().series.length]!,
+                }))}
+              width={Math.max(20, chartW() - 6)}
+              showLabels
+            />
+          </box>
+        </Show>
         <Show when={props.stats.providers.size === 0}>
-          <text fg={theme.textMuted}>No provider data</text>
+          <EmptyState message="No provider data" />
         </Show>
       </CollapsibleSection>
     </box>
@@ -860,24 +1084,41 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
   const tokens = () => g().tokens
   const total = createMemo(() => tokens().input + tokens().output + tokens().reasoning)
   const totalWithCache = createMemo(() => total() + tokens().cacheRead + tokens().cacheWrite)
-  const { open, toggle, focused } = useCollapsibleGroup(TOKENS_SECTIONS)
+  const { open, toggle } = useCollapsibleGroup(TOKENS_SECTIONS)
+  const chartW = useChartWidth(64)
+  // HBarPrecision draws label(10) + bar + value + pct columns, so leave ~26
+  // cols of headroom around the bar itself.
+  const barW = createMemo(() => Math.max(14, Math.min(30, chartW() - 26)))
+  const cacheHit = createMemo(() => {
+    const t = tokens()
+    const denom = t.cacheRead + t.input
+    return denom > 0 ? (t.cacheRead / denom) * 100 : 0
+  })
+  const tokenBars = createMemo(() =>
+    props.last14Days.map((d, i, arr) => ({
+      value: d.tokens,
+      label: i === 0 ? d.date.slice(5) : i === arr.length - 1 ? d.date.slice(5) : undefined,
+    })),
+  )
 
   return (
     <box flexDirection="column" gap={2}>
       {/* Token Breakdown Bars with 8-level precision */}
-      <CollapsibleSection
-        title="Token Breakdown"
-        open={open().breakdown}
-        focused={focused("breakdown")}
-        onToggle={() => toggle("breakdown")}
-      >
-        <HBarPrecision label="input" value={tokens().input} max={total()} width={25} color={viz().input} showPct />
-        <HBarPrecision label="output" value={tokens().output} max={total()} width={25} color={viz().output} showPct />
+      <CollapsibleSection title="Token Breakdown" open={open().breakdown} onToggle={() => toggle("breakdown")}>
+        <HBarPrecision label="input" value={tokens().input} max={total()} width={barW()} color={viz().input} showPct />
+        <HBarPrecision
+          label="output"
+          value={tokens().output}
+          max={total()}
+          width={barW()}
+          color={viz().output}
+          showPct
+        />
         <HBarPrecision
           label="reasoning"
           value={tokens().reasoning}
           max={total()}
-          width={25}
+          width={barW()}
           color={viz().reasoning}
           showPct
         />
@@ -885,7 +1126,7 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
           label="cache-read"
           value={tokens().cacheRead}
           max={totalWithCache()}
-          width={25}
+          width={barW()}
           color={viz().cache}
           showPct
         />
@@ -893,31 +1134,41 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
           label="cache-write"
           value={tokens().cacheWrite}
           max={totalWithCache()}
-          width={25}
+          width={barW()}
           color={viz().cacheWrite}
           showPct
         />
+        {/* Cache effectiveness gauge — cache reads vs fresh input. */}
+        <box paddingTop={1}>
+          <Gauge
+            label="Cache hit ratio"
+            value={cacheHit()}
+            max={100}
+            width={barW()}
+            color={viz().cache}
+            format={(v) => v.toFixed(0)}
+            unit="%"
+          />
+        </box>
       </CollapsibleSection>
 
-      {/* Braille Area Chart for token trend */}
+      {/* Braille Area Chart + column histogram for token trend */}
       <Show when={props.last14Days.length > 0}>
-        <CollapsibleSection
-          title="14-Day Token Trend"
-          open={open().trend}
-          focused={focused("trend")}
-          onToggle={() => toggle("trend")}
-        >
-          <BrailleAreaChart data={props.last14Days.map((d) => d.tokens)} width={50} height={4} color={viz().input} />
+        <CollapsibleSection title="14-Day Token Trend" open={open().trend} onToggle={() => toggle("trend")}>
+          <BrailleAreaChart
+            data={props.last14Days.map((d) => d.tokens)}
+            width={chartW()}
+            height={4}
+            color={viz().input}
+          />
+          <box paddingTop={1}>
+            <VerticalBarChart bars={tokenBars()} height={6} color={viz().input} highlightMax showAxis />
+          </box>
         </CollapsibleSection>
       </Show>
 
       {/* Efficiency Metrics */}
-      <CollapsibleSection
-        title="Efficiency Metrics"
-        open={open().efficiency}
-        focused={focused("efficiency")}
-        onToggle={() => toggle("efficiency")}
-      >
+      <CollapsibleSection title="Efficiency Metrics" open={open().efficiency} onToggle={() => toggle("efficiency")}>
         <box flexDirection="row" gap={3}>
           <box flexDirection="column" gap={0}>
             <text fg={theme.textMuted}>Cost/1K tokens</text>
@@ -952,28 +1203,34 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
 function ModelsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
   const viz = () => getChartColors(theme)
+  const chartW = useChartWidth(64)
   const models = createMemo(() => props.stats.models.slice(0, 8))
-  const maxTokens = createMemo(() => {
-    const m = models()
-    if (m.length === 0) return 1
-    return Math.max(...m.map((mod) => mod.tokens.input + mod.tokens.output), 1)
-  })
-
-  // Per-model 14-day daily tokens used to power the inline trend sparkline.
-  // Sum input+output+reasoning across all days for this model.
-  const modelSparkline = (modelKey: string, modelID: string) => {
-    const series: number[] = props.stats.days.map((d) => {
-      const row = d.models.get(modelKey) ?? d.models.get(`${d.date}#${modelID}`)
-      return row ? row.tokens : 0
-    })
-    return sampleForSparkline(series, 14)
-  }
+  const shareSegments = createMemo(() =>
+    models().map((m, i) => ({
+      label: m.modelID.length > 12 ? m.modelID.slice(-12) : m.modelID,
+      value: m.tokens.input + m.tokens.output + m.tokens.reasoning,
+      color: viz().series[i % viz().series.length]!,
+    })),
+  )
+  // Split-bar total width: name(18) + value(8) + 4 gaps leave the rest.
+  const nameW = 18
+  const splitW = createMemo(() => Math.max(16, Math.min(30, chartW() - 30)))
 
   return (
     <box flexDirection="column" gap={1}>
       <text fg={theme.text} attributes={TextAttributes.BOLD}>
         Model Usage ({props.stats.models.length} models)
       </text>
+
+      {/* Token share across top models — one proportional bar. */}
+      <Show when={models().length > 1}>
+        <box flexDirection="column" gap={1}>
+          <text fg={theme.textMuted} wrapMode="none">
+            Token share
+          </text>
+          <StackedBarChartV2 segments={shareSegments()} width={Math.max(20, chartW())} showLabels />
+        </box>
+      </Show>
 
       <For each={models()}>
         {(model) => (
@@ -983,14 +1240,16 @@ function ModelsTab(props: { stats: AggregatedStats }) {
             requests={model.messages}
             inputTokens={model.tokens.input}
             outputTokens={model.tokens.output}
-            maxTokens={maxTokens()}
+            reasoningTokens={model.tokens.reasoning}
+            cacheReadTokens={model.tokens.cacheRead}
+            cacheWriteTokens={model.tokens.cacheWrite}
             color={viz().series[4]!}
           />
         )}
       </For>
 
       <Show when={props.stats.models.length === 0}>
-        <text fg={theme.textMuted}>No model usage data</text>
+        <EmptyState icon="◆" message="No model usage data" />
       </Show>
 
       {/* Compact aggregate view: 14-day daily usage per top model, with
@@ -1002,19 +1261,19 @@ function ModelsTab(props: { stats: AggregatedStats }) {
         </text>
         <For each={models()}>
           {(model) => {
-            const modelKey = `${model.providerID}/${model.modelID}`
-            const spark = modelSparkline(modelKey, model.modelID)
             const totalNonCache = model.tokens.input + model.tokens.output + model.tokens.reasoning
+            const w = splitW()
             const inShare = totalNonCache > 0 ? model.tokens.input / totalNonCache : 0
             const outShare = totalNonCache > 0 ? model.tokens.output / totalNonCache : 0
-            const reasShare = totalNonCache > 0 ? model.tokens.reasoning / totalNonCache : 0
-            const inWidth = Math.max(0, Math.round(inShare * 20))
-            const outWidth = Math.max(0, Math.round(outShare * 20))
-            const reasWidth = Math.max(0, 20 - inWidth - outWidth)
+            const inWidth = Math.max(0, Math.round(inShare * w))
+            const outWidth = Math.max(0, Math.round(outShare * w))
+            const reasWidth = Math.max(0, w - inWidth - outWidth)
             return (
               <box flexDirection="row" gap={1} alignItems="center">
-                <text fg={theme.text} width={18} wrapMode="none">
-                  {(model.modelID.length > 18 ? "…" + model.modelID.slice(-17) : model.modelID).padEnd(18)}
+                <text fg={theme.text} width={nameW} wrapMode="none">
+                  {(model.modelID.length > nameW ? "…" + model.modelID.slice(-(nameW - 1)) : model.modelID).padEnd(
+                    nameW,
+                  )}
                 </text>
                 <text fg={viz().input} wrapMode="none">
                   {"█".repeat(inWidth)}
@@ -1025,8 +1284,8 @@ function ModelsTab(props: { stats: AggregatedStats }) {
                 <text fg={viz().reasoning} wrapMode="none">
                   {"█".repeat(reasWidth)}
                 </text>
-                <text fg={theme.textMuted} wrapMode="none">
-                  {formatTokens(totalNonCache)}
+                <text fg={theme.textMuted} width={8} wrapMode="none">
+                  {formatTokens(totalNonCache).padStart(8)}
                 </text>
               </box>
             )
@@ -1063,11 +1322,19 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
   const g = () => props.stats.global
   const viz = () => getChartColors(theme)
 
+  const chartW = useChartWidth(60)
   const vcsStats = createMemo(() => {
     const git = props.stats.projects.filter((p) => p.vcs === "git").length
     const local = props.stats.projects.filter((p) => p.vcs === "local" || p.vcs === "unknown").length
     return { git, local, total: props.stats.projects.length }
   })
+  // Top projects by token volume, ranked, for the bar list.
+  const topProjects = createMemo(() =>
+    [...props.stats.projects]
+      .sort((a, b) => b.totalTokens - a.totalTokens)
+      .slice(0, 8)
+      .map((p) => ({ name: p.name.slice(-18), value: p.totalTokens })),
+  )
 
   return (
     <box flexDirection="column" gap={1}>
@@ -1105,8 +1372,24 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
             { label: "Git", value: vcsStats().git, color: viz().cache },
             { label: "Local", value: vcsStats().local, color: viz().input },
           ]}
-          width={30}
+          width={Math.max(20, chartW())}
+          showLabels
         />
+      </Show>
+
+      {/* Top projects by token volume — ranked bars. */}
+      <Show when={topProjects().length > 1}>
+        <box flexDirection="column" gap={1} paddingTop={1}>
+          <text fg={theme.textMuted} wrapMode="none">
+            Top projects · tokens
+          </text>
+          <RankedBarList
+            items={topProjects()}
+            nameWidth={18}
+            barWidth={Math.max(14, chartW() - 30)}
+            formatValue={(v) => formatTokens(v)}
+          />
+        </box>
       </Show>
 
       {/* Project Cards */}
@@ -1137,7 +1420,7 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
       </box>
 
       <Show when={props.stats.projects.length === 0}>
-        <text fg={theme.textMuted}>No projects yet</text>
+        <EmptyState icon="▣" message="No projects yet" />
       </Show>
     </box>
   )
@@ -1146,17 +1429,39 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
 function ToolsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
   const tools = () => props.stats.toolUsage
+  const chartW = useChartWidth(60)
   const successColor = (rate: number): RGBA => {
     if (rate >= 90) return theme.success
     if (rate >= 70) return theme.warning
     return theme.error
   }
+  // Call-weighted overall success rate across every tracked tool.
+  const overallSuccess = createMemo(() => {
+    const list = tools().tools
+    const total = list.reduce((s, t) => s + t.count, 0)
+    if (total === 0) return 0
+    return list.reduce((s, t) => s + t.count * t.successRate, 0) / total
+  })
 
   return (
     <box flexDirection="column" gap={1}>
       <text fg={theme.text} attributes={TextAttributes.BOLD}>
         Tool Usage ({tools().total} calls)
       </text>
+
+      {/* Overall call-weighted success gauge — recolors warning/error as the
+          aggregate reliability drops. */}
+      <Show when={tools().total > 0}>
+        <Gauge
+          label="Overall success rate"
+          value={overallSuccess()}
+          max={100}
+          width={Math.max(20, chartW())}
+          format={(v) => v.toFixed(1)}
+          unit="%"
+          color={successColor(overallSuccess())}
+        />
+      </Show>
 
       {/* Ranked list with 1/8-cell bar precision. Each bar uses the bar's
           color (theme.success/warning/error) so visual "danger" is encoded
@@ -1171,12 +1476,12 @@ function ToolsTab(props: { stats: AggregatedStats }) {
             color: successColor(t.successRate),
           }))}
         nameWidth={18}
-        barWidth={22}
+        barWidth={Math.max(14, chartW() - 34)}
         formatValue={(v) => formatCompact(v)}
       />
 
       <Show when={tools().mostUsed.length === 0}>
-        <text fg={theme.textMuted}>No tool usage data</text>
+        <EmptyState icon="✦" message="No tool usage data" />
       </Show>
 
       {/* Legend */}
@@ -1204,7 +1509,7 @@ function ToolsTab(props: { stats: AggregatedStats }) {
   )
 }
 
-const SESSIONS_SECTIONS = ["sessions", "top", "background", "workspaces"] as const
+const SESSIONS_SECTIONS = ["sessions", "top", "background", "agents", "workspaces"] as const
 
 function SessionsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
@@ -1213,7 +1518,8 @@ function SessionsTab(props: { stats: AggregatedStats }) {
   const ws = () => props.stats.workspaces
   const topSessions = createMemo(() => props.stats.sessions.slice(0, 5))
   const bg = () => props.stats.backgroundRuns
-  const { open, toggle, focused } = useCollapsibleGroup(SESSIONS_SECTIONS)
+  const chartW = useChartWidth(48)
+  const { open, toggle } = useCollapsibleGroup(SESSIONS_SECTIONS)
 
   return (
     <box flexDirection="column" gap={2}>
@@ -1222,7 +1528,6 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         title="Sessions"
         hint={`(${g().sessions})`}
         open={open().sessions}
-        focused={focused("sessions")}
         onToggle={() => toggle("sessions")}
       >
         <box flexDirection="row" gap={3}>
@@ -1248,12 +1553,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
       </CollapsibleSection>
 
       {/* Top Sessions */}
-      <CollapsibleSection
-        title="Top by Tokens"
-        open={open().top}
-        focused={focused("top")}
-        onToggle={() => toggle("top")}
-      >
+      <CollapsibleSection title="Top by Tokens" open={open().top} onToggle={() => toggle("top")}>
         <For each={topSessions()}>
           {(session) => {
             const total = session.tokens.input + session.tokens.output + session.tokens.reasoning
@@ -1269,7 +1569,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
           }}
         </For>
         <Show when={topSessions().length === 0}>
-          <text fg={theme.textMuted}>No sessions yet</text>
+          <EmptyState message="No sessions yet" />
         </Show>
       </CollapsibleSection>
 
@@ -1278,10 +1578,9 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         title="Background Runs"
         hint={`(${bg().total})`}
         open={open().background}
-        focused={focused("background")}
         onToggle={() => toggle("background")}
       >
-        <Show when={bg().total > 0} fallback={<text fg={theme.textMuted}>No background runs</text>}>
+        <Show when={bg().total > 0} fallback={<EmptyState message="No background runs" />}>
           <StackedBarChartV2
             segments={[
               { label: "Completed", value: bg().completed, color: viz().cache },
@@ -1293,7 +1592,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
                 color: viz().reasoning,
               },
             ]}
-            width={35}
+            width={Math.max(20, chartW())}
             showLabels
           />
           <box flexDirection="row" gap={3}>
@@ -1314,9 +1613,8 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         <CollapsibleSection
           title="Top Agents"
           hint={`(${bg().topAgents.length})`}
-          open={open().background}
-          focused={focused("background")}
-          onToggle={() => toggle("background")}
+          open={open().agents}
+          onToggle={() => toggle("agents")}
         >
           <RankedBarList
             items={bg().topAgents.map((a) => ({
@@ -1325,7 +1623,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
               color: viz().input,
             }))}
             nameWidth={18}
-            barWidth={20}
+            barWidth={Math.max(14, chartW() - 30)}
             formatValue={(v) => formatCompact(v)}
           />
         </CollapsibleSection>
@@ -1336,7 +1634,6 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         title="Workspaces"
         hint={`(${ws().total})`}
         open={open().workspaces}
-        focused={focused("workspaces")}
         onToggle={() => toggle("workspaces")}
       >
         <box flexDirection="row" gap={3}>

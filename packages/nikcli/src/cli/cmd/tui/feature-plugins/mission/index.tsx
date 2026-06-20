@@ -68,27 +68,30 @@ const tui: TuiPlugin = async (api) => {
     unsubscribeBus()
   })
 
-  api.command.register(() => [
-    {
-      title: "Missions",
-      value: "missions.manage",
-      category: "Missions",
-      description: "Create & manage multi-milestone autonomous missions",
-      slash: { name: "mission", aliases: ["missions"] },
-      onSelect() {
-        openManager(api)
+  api.keymap.registerLayer({
+    commands: [
+      {
+        name: "missions.manage",
+        title: "Missions",
+        namespace: "Missions",
+        description: "Create & manage multi-milestone autonomous missions",
+        slashName: "mission",
+        slashAliases: ["missions"],
+        run() {
+          openManager(api)
+        },
       },
-    },
-    {
-      title: "New mission",
-      value: "missions.new",
-      category: "Missions",
-      description: "Plan a new mission (template, LLM-generated, or blank brief)",
-      onSelect() {
-        openManager(api)
+      {
+        name: "missions.new",
+        title: "New mission",
+        namespace: "Missions",
+        description: "Plan a new mission (template, LLM-generated, or blank brief)",
+        run() {
+          openManager(api)
+        },
       },
-    },
-  ])
+    ],
+  })
 
   api.slots.register({
     order: 240, // before Loops (250) so Missions wins the bottom of the sidebar.

@@ -151,7 +151,8 @@ Lives in `src/cli/cmd/tui/component/dialog-support.tsx`.
       element with the theme's syntax style; user messages stay plain text).
 - [x] Copy-to-clipboard (2026-06-12 — Ctrl+Y copies the last assistant
       reply; hover isn't practical in a terminal).
-- [ ] Attach a file via the prompt (drag-and-drop / `@`-mention).
+- [x] Attach a file via the prompt (paste a workspace file path; images and text files).
+      Drag-and-drop / `@`-mention in the main session Prompt remain future work.
 - [x] Allow the user to pick a different model for the support session
       (2026-06-12 — Ctrl+O opens the model picker; the choice persists in
       `support-session.json` and overrides the app model for support

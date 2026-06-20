@@ -12,6 +12,7 @@ import { SessionContext } from "../../session/context-breakdown"
 import { SessionCompaction } from "../../session/compaction"
 import { SessionRevert } from "../../session/revert"
 import { SessionStatus } from "@/session/status"
+import { SessionGoal } from "@/session/goal"
 import { SessionSummary } from "@/session/summary"
 import { Todo } from "../../session/todo"
 import { Agent } from "../../agent/agent"
@@ -39,6 +40,10 @@ function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>
 
 function runStatus<A, E>(effect: Effect.Effect<A, E, SessionStatus.Service>) {
   return runPromiseWithLayer(SessionStatus.defaultLayer, withCurrentInstance(effect))
+}
+
+function runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>) {
+  return runPromiseWithLayer(SessionGoal.defaultLayer, withCurrentInstance(effect))
 }
 
 function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
@@ -501,6 +506,41 @@ export const SessionRoutes = lazy(() =>
           }),
         )
         return c.json(todos)
+      },
+    )
+    .get(
+      "/:sessionID/goal",
+      describeRoute({
+        summary: "Get session goal",
+        description: "Retrieve the active goal state for a session, or null when no goal is set.",
+        operationId: "session.goal",
+        responses: {
+          200: {
+            description: "Goal state",
+            content: {
+              "application/json": {
+                schema: resolver(SessionGoal.StateSchema.nullable()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        const goal = await runGoal(
+          Effect.gen(function* () {
+            const service = yield* SessionGoal.Service
+            return yield* service.get(sessionID)
+          }),
+        )
+        return c.json(goal ?? null)
       },
     )
     .post(

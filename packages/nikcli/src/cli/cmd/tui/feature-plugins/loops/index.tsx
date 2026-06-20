@@ -69,27 +69,30 @@ const tui: TuiPlugin = async (api) => {
     unsubscribeBus()
   })
 
-  api.command.register(() => [
-    {
-      title: "Loops",
-      value: "loops.manage",
-      category: "Loops",
-      description: "Create & manage autonomous loops",
-      slash: { name: "loops", aliases: ["loop"] },
-      onSelect() {
-        openManager(api)
+  api.keymap.registerLayer({
+    commands: [
+      {
+        name: "loops.manage",
+        title: "Loops",
+        namespace: "Loops",
+        description: "Create & manage autonomous loops",
+        slashName: "loops",
+        slashAliases: ["loop"],
+        run() {
+          openManager(api)
+        },
       },
-    },
-    {
-      title: "New loop",
-      value: "loops.new",
-      category: "Loops",
-      description: "Define a new autonomous loop (template, blank, or AI-generated)",
-      onSelect() {
-        openWizard(api)
+      {
+        name: "loops.new",
+        title: "New loop",
+        namespace: "Loops",
+        description: "Define a new autonomous loop (template, blank, or AI-generated)",
+        run() {
+          openWizard(api)
+        },
       },
-    },
-  ])
+    ],
+  })
 
   api.slots.register({
     order: 250,

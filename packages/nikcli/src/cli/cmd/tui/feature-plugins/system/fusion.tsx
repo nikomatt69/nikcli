@@ -22,7 +22,12 @@ const removeKey = Keybind.parse("shift+d").at(0)
 const KV_REMOVED = "fusion.removed"
 const KV_SNAPSHOT = "fusion.snapshot"
 
-type PresetRow = { name: string; builtin: boolean; enabled: boolean; models: string[] }
+type PresetRow = {
+  name: string
+  builtin: boolean
+  enabled: boolean
+  models: string[]
+}
 
 function kvList(api: TuiPluginApi, key: string): string[] {
   const value = api.kv.get<string[]>(key, [])
@@ -65,10 +70,17 @@ function listPresets(api: TuiPluginApi, overrides: Record<string, Partial<Preset
 
 async function writeVariants(api: TuiPluginApi, variants: Record<string, any>): Promise<boolean> {
   const { error } = await api.client.config.update({
-    config: { provider: { [OPENROUTER]: { models: { [FUSION_MODEL_ID]: { variants } } } } },
+    config: {
+      provider: {
+        [OPENROUTER]: { models: { [FUSION_MODEL_ID]: { variants } } },
+      },
+    },
   } as any)
   if (error) {
-    api.ui.toast({ variant: "error", message: "Failed to update fusion presets" })
+    api.ui.toast({
+      variant: "error",
+      message: "Failed to update fusion presets",
+    })
     return false
   }
   return true
@@ -88,7 +100,11 @@ function View(props: { api: TuiPluginApi }) {
       category: p.builtin ? "Built-in" : "Custom",
       description: p.models.join(", ") || "no analysis models",
       footer: (
-        <span style={{ fg: p.enabled ? api.theme.current.success : api.theme.current.textMuted }}>
+        <span
+          style={{
+            fg: p.enabled ? api.theme.current.success : api.theme.current.textMuted,
+          }}
+        >
           {p.enabled ? "enabled" : "disabled"}
         </span>
       ),
@@ -107,14 +123,23 @@ function View(props: { api: TuiPluginApi }) {
     const next = !current.enabled
     setBusy(true)
     setOverride(name, { enabled: next })
-    const ok = await writeVariants(api, { [name]: { disabled: !next } }).finally(() => setBusy(false))
-    if (ok) api.ui.toast({ variant: "success", message: `${name} ${next ? "enabled" : "disabled"}` })
+    const ok = await writeVariants(api, {
+      [name]: { disabled: !next },
+    }).finally(() => setBusy(false))
+    if (ok)
+      api.ui.toast({
+        variant: "success",
+        message: `${name} ${next ? "enabled" : "disabled"}`,
+      })
   }
 
   function remove(name: string) {
     if (busy()) return
     if (BUILTIN_NAMES.includes(name)) {
-      api.ui.toast({ variant: "info", message: "Built-in presets can be disabled but not removed" })
+      api.ui.toast({
+        variant: "info",
+        message: "Built-in presets can be disabled but not removed",
+      })
       return
     }
     setBusy(true)
@@ -137,11 +162,17 @@ function View(props: { api: TuiPluginApi }) {
         onConfirm={(rawName) => {
           const name = rawName.trim()
           if (!name) {
-            api.ui.toast({ variant: "error", message: "Preset name is required" })
+            api.ui.toast({
+              variant: "error",
+              message: "Preset name is required",
+            })
             return
           }
           if (BUILTIN_NAMES.includes(name)) {
-            api.ui.toast({ variant: "error", message: `"${name}" is a built-in preset name` })
+            api.ui.toast({
+              variant: "error",
+              message: `"${name}" is a built-in preset name`,
+            })
             return
           }
           promptModels(name)
@@ -163,7 +194,10 @@ function View(props: { api: TuiPluginApi }) {
             .map((m) => m.trim())
             .filter(Boolean)
           if (!models.length) {
-            api.ui.toast({ variant: "error", message: "At least one analysis model is required" })
+            api.ui.toast({
+              variant: "error",
+              message: "At least one analysis model is required",
+            })
             return
           }
           pickPrimary(name, models)
@@ -176,7 +210,11 @@ function View(props: { api: TuiPluginApi }) {
     api.ui.dialog.replace(() => (
       <DialogSelect
         title={`Primary model for "${name}"`}
-        options={models.map((m) => ({ title: m, value: m, description: "primary (analysis) model" }))}
+        options={models.map((m) => ({
+          title: m,
+          value: m,
+          description: "primary (analysis) model",
+        }))}
         current={models[0]}
         onSelect={(item) => void finishCreate(name, models, item.value)}
       />
@@ -265,16 +303,18 @@ const tui: TuiPlugin = async (api) => {
   api.lifecycle.onDispose(() => {
     if (userDisabledPlugin(api)) return applyMasterOff(api)
   })
-  api.command.register(() => [
-    {
-      title: "Fusion presets",
-      value: "fusion.presets",
-      category: "System",
-      onSelect() {
-        show(api)
+  api.keymap.registerLayer({
+    commands: [
+      {
+        name: "fusion.presets",
+        title: "Fusion presets",
+        namespace: "System",
+        run() {
+          show(api)
+        },
       },
-    },
-  ])
+    ],
+  })
 }
 
 const plugin: TuiPluginModule & { id: string } = {

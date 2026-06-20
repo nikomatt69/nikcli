@@ -190,7 +190,10 @@ describe("opentui tool input tolerance", () => {
 describe("VizCatalog (json-render Catalog parity)", () => {
   it("exposes the component vocabulary as componentNames", () => {
     expect(VizCatalog.componentNames).toBe(VIZ_COMPONENT_TYPES)
+    expect(VizCatalog.componentNames).toHaveLength(25)
     expect(VizCatalog.componentNames).toContain("stat_grid")
+    expect(VizCatalog.componentNames).toContain("card")
+    expect(VizCatalog.componentNames).toContain("sparkline_row")
     expect(VizCatalog.componentNames).toContain("grid")
   })
 

@@ -1,24 +1,49 @@
 import { Context, Effect, Layer } from "effect"
+import z from "zod"
 import { Identifier } from "@/id/id"
 import { Storage } from "@/storage/storage"
 import { runPromiseWithLayer } from "@/effect"
+import { BusEvent } from "@/bus/bus-event"
+import { Bus } from "@/bus"
 
 export namespace SessionGoal {
   export const MAX_ITERATIONS = 50
 
-  export type Status = "active" | "paused" | "blocked" | "usage_limited" | "budget_limited" | "complete"
+  export const StatusSchema = z.enum([
+    "active",
+    "paused",
+    "blocked",
+    "usage_limited",
+    "budget_limited",
+    "complete",
+  ])
+  export type Status = z.infer<typeof StatusSchema>
 
-  export type State = {
-    sessionID: string
-    goalID: string
-    objective: string
-    status: Status
-    tokenBudget?: number
-    tokensUsed: number
-    timeUsedSeconds: number
-    iterationCount: number
-    timeCreated: number
-    timeUpdated: number
+  export const StateSchema = z
+    .object({
+      sessionID: z.string(),
+      goalID: z.string(),
+      objective: z.string(),
+      status: StatusSchema,
+      tokenBudget: z.number().optional(),
+      tokensUsed: z.number(),
+      timeUsedSeconds: z.number(),
+      iterationCount: z.number(),
+      timeCreated: z.number(),
+      timeUpdated: z.number(),
+    })
+    .meta({ ref: "SessionGoalState" })
+  export type State = z.infer<typeof StateSchema>
+
+  /** Broadcast whenever a session's goal state is created, updated, or cleared. */
+  export const Event = {
+    Updated: BusEvent.define(
+      "session.goal",
+      z.object({
+        sessionID: z.string(),
+        goal: StateSchema.nullable(),
+      }),
+    ),
   }
 
   export type ParsedArguments =
@@ -103,6 +128,10 @@ export namespace SessionGoal {
     )
   }
 
+  function publishGoal(sessionID: string, state: State | undefined) {
+    void Bus.publish(Event.Updated, { sessionID, goal: state ?? null })
+  }
+
   async function getImpl(sessionID: string) {
     return storageRead<State>(key(sessionID)).catch((error) => {
       if (isStorageNotFound(error)) return undefined
@@ -125,22 +154,25 @@ export namespace SessionGoal {
       timeUpdated: now,
     }
     await storageWrite(key(sessionID), state)
+    publishGoal(sessionID, state)
     return state
   }
 
   async function updateStatusImpl(sessionID: string, status: Status) {
     const existing = await getImpl(sessionID)
     if (!existing) return undefined
-    return storageUpdate<State>(key(sessionID), (draft) => {
+    const updated = await storageUpdate<State>(key(sessionID), (draft) => {
       draft.status = status
       draft.timeUpdated = Date.now()
     })
+    publishGoal(sessionID, updated)
+    return updated
   }
 
   async function accountUsageImpl(sessionID: string, tokensDelta: number, timeDeltaSeconds: number) {
     const existing = await getImpl(sessionID)
     if (!existing) return undefined
-    return storageUpdate<State>(key(sessionID), (draft) => {
+    const updated = await storageUpdate<State>(key(sessionID), (draft) => {
       draft.tokensUsed += Math.max(0, Math.floor(tokensDelta))
       draft.timeUsedSeconds += Math.max(0, Math.floor(timeDeltaSeconds))
       if (draft.status === "active" && draft.tokenBudget !== undefined && draft.tokensUsed >= draft.tokenBudget) {
@@ -148,15 +180,24 @@ export namespace SessionGoal {
       }
       draft.timeUpdated = Date.now()
     })
+    publishGoal(sessionID, updated)
+    return updated
   }
 
   async function incrementIterationImpl(sessionID: string) {
     const existing = await getImpl(sessionID)
     if (!existing) return undefined
-    return storageUpdate<State>(key(sessionID), (draft) => {
+    const updated = await storageUpdate<State>(key(sessionID), (draft) => {
       draft.iterationCount += 1
       draft.timeUpdated = Date.now()
     })
+    publishGoal(sessionID, updated)
+    return updated
+  }
+
+  async function clearImpl(sessionID: string) {
+    await storageRemove(key(sessionID)).catch(() => undefined)
+    publishGoal(sessionID, undefined)
   }
 
   function isGoalContinueNeeded(state: State) {
@@ -262,7 +303,7 @@ export namespace SessionGoal {
       pause: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "paused")),
       resume: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "active")),
       usageLimit: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "usage_limited")),
-      clear: (sessionID) => Effect.tryPromise(() => storageRemove(key(sessionID)).catch(() => undefined)),
+      clear: (sessionID) => Effect.tryPromise(() => clearImpl(sessionID)),
       isGoalContinueNeeded,
       isIterationLimitReached,
       continuationPrompt,

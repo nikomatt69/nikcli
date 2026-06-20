@@ -60,6 +60,11 @@ const TYPE_LABEL: Record<VizComponent["type"], string> = {
   progress_bars: "Progress",
   timeline: "Timeline",
   status_grid: "Status",
+  card: "Card",
+  list: "List",
+  accordion: "Accordion",
+  compare: "Compare",
+  sparkline_row: "Sparklines",
   section: "Section",
   grid: "Grid",
 }
@@ -83,6 +88,11 @@ const TYPE_ICON: Record<VizComponent["type"], string> = {
   progress_bars: "▰",
   timeline: "⋮",
   status_grid: "⊞",
+  card: "▣",
+  list: "☰",
+  accordion: "≡",
+  compare: "⇔",
+  sparkline_row: "▁",
   section: "§",
   grid: "▦▦",
 }
@@ -1512,6 +1522,322 @@ function StatusGridRenderer(props: { comp: Of<"status_grid"> }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Renderer: Card
+// ──────────────────────────────────────────────────────────────────────────
+
+function statusKindFg(theme: Theme, status?: string): RGBA {
+  switch (status) {
+    case "success":
+      return theme.success
+    case "warning":
+      return theme.warning
+    case "error":
+      return theme.error
+    case "info":
+      return theme.info
+    default:
+      return theme.text
+  }
+}
+
+function CardRenderer(props: { comp: Of<"card"> }) {
+  const { theme } = useTheme()
+  const badgeColor = createMemo(() =>
+    props.comp.badge ? severityColor(theme, props.comp.badge.status) : theme.primary,
+  )
+  return (
+    <box border borderColor={theme.borderActive} paddingLeft={1} paddingRight={1} gap={1} flexDirection="column">
+      <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
+        <Show when={props.comp.title}>
+          <text fg={theme.accent} attributes={TextAttributes.BOLD} flexGrow={1}>
+            {props.comp.title}
+          </text>
+        </Show>
+        <Show when={props.comp.badge}>
+          <text fg={badgeColor()} attributes={TextAttributes.BOLD}>
+            [{props.comp.badge!.label}]
+          </text>
+        </Show>
+      </box>
+      <Show when={props.comp.subtitle}>
+        <text fg={theme.textMuted}>{props.comp.subtitle}</text>
+      </Show>
+      <Show when={props.comp.body}>
+        <text fg={theme.text} wrapMode="word">
+          {props.comp.body}
+        </text>
+      </Show>
+      <Show when={props.comp.metrics && props.comp.metrics.length > 0}>
+        <box flexDirection="row" gap={2} flexWrap="wrap">
+          <For each={props.comp.metrics}>
+            {(m) => (
+              <box flexDirection="column" gap={0} minWidth={14}>
+                <text fg={theme.textMuted}>{m.label}</text>
+                <text fg={statusKindFg(theme, m.status)} attributes={TextAttributes.BOLD}>
+                  {formatValue(m.value, m.format, m.unit)}
+                </text>
+              </box>
+            )}
+          </For>
+        </box>
+      </Show>
+      <Show when={props.comp.footer}>
+        <text fg={theme.textMuted} wrapMode="word">
+          ─ {props.comp.footer}
+        </text>
+      </Show>
+    </box>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Renderer: List
+// ──────────────────────────────────────────────────────────────────────────
+
+function ListRenderer(props: { comp: Of<"list"> }) {
+  const { theme } = useTheme()
+  const gap = () => (props.comp.dense ? 0 : 0)
+  return (
+    <box gap={gap()}>
+      <Title title={props.comp.title} />
+      <For each={props.comp.items}>
+        {(item, idx) => {
+          const bullet = createMemo(() => {
+            if (item.icon) return item.icon
+            return props.comp.ordered ? `${idx() + 1}.` : "•"
+          })
+          return (
+            <box gap={0} flexDirection="column">
+              <box flexDirection="row" gap={1}>
+                <text fg={statusKindFg(theme, item.status)} flexShrink={0}>
+                  {bullet()}
+                </text>
+                <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="word" flexGrow={1}>
+                  {item.primary}
+                </text>
+              </box>
+              <Show when={item.secondary}>
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.borderSubtle} flexShrink={0}>
+                    {" ".repeat(2)}
+                  </text>
+                  <text fg={theme.textMuted} wrapMode="word" flexGrow={1}>
+                    {item.secondary}
+                  </text>
+                </box>
+              </Show>
+              <Show when={item.tertiary}>
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.borderSubtle} flexShrink={0}>
+                    {" ".repeat(2)}
+                  </text>
+                  <text fg={theme.secondary} wrapMode="word" flexGrow={1}>
+                    {item.tertiary}
+                  </text>
+                </box>
+              </Show>
+            </box>
+          )
+        }}
+      </For>
+    </box>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Renderer: Accordion
+// ──────────────────────────────────────────────────────────────────────────
+
+function AccordionRenderer(props: { comp: Of<"accordion"> }) {
+  const { theme } = useTheme()
+  const [expanded, setExpanded] = createSignal(props.comp.sections.map((s) => s.open === true))
+
+  const toggle = (i: number) => {
+    setExpanded((prev) => {
+      const next = [...prev]
+      next[i] = !next[i]
+      return next
+    })
+  }
+
+  return (
+    <box gap={1}>
+      <Title title={props.comp.title} />
+      <For each={props.comp.sections}>
+        {(section, i) => {
+          const isOpen = createMemo(() => expanded()[i()] === true)
+          return (
+            <box border borderColor={theme.borderSubtle} gap={0} flexDirection="column">
+              <box flexDirection="row" gap={1} onMouseUp={() => toggle(i())}>
+                <text fg={theme.primary} flexShrink={0}>
+                  {isOpen() ? "▼" : "▶"}
+                </text>
+                <text fg={theme.text} attributes={TextAttributes.BOLD} flexGrow={1}>
+                  {section.title}
+                </text>
+                <Show when={section.subtitle}>
+                  <text fg={theme.textMuted} flexShrink={0}>
+                    {section.subtitle}
+                  </text>
+                </Show>
+              </box>
+              <Show when={isOpen()}>
+                <box paddingLeft={2} gap={0} flexDirection="column">
+                  <Show when={section.content}>
+                    <text fg={theme.text} wrapMode="word">
+                      {section.content}
+                    </text>
+                  </Show>
+                  <For each={section.items ?? []}>
+                    {(row) => (
+                      <box flexDirection="row" gap={2}>
+                        <text fg={theme.textMuted} flexShrink={0}>
+                          {row.key}
+                        </text>
+                        <text fg={statusKindFg(theme, row.status)} wrapMode="word" flexGrow={1}>
+                          {row.value}
+                        </text>
+                      </box>
+                    )}
+                  </For>
+                </box>
+              </Show>
+            </box>
+          )
+        }}
+      </For>
+    </box>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Renderer: Compare
+// ──────────────────────────────────────────────────────────────────────────
+
+function CompareRenderer(props: { comp: Of<"compare"> }) {
+  const { theme } = useTheme()
+  const dims = useTerminalDimensions()
+  const labelW = createMemo(() => Math.max(...props.comp.rows.map((r) => r.label.length), 6))
+  const colW = createMemo(() => Math.max(12, Math.floor((dims().width - labelW() - 8) / 2)))
+
+  function clip(s: string, w: number) {
+    if (s.length <= w) return s.padEnd(w)
+    return s.slice(0, Math.max(0, w - 1)) + "…"
+  }
+
+  function winnerFg(side: "left" | "right", winner?: string): RGBA {
+    if (!winner || winner === "none" || winner === "tie") return theme.text
+    if (winner === "tie") return theme.textMuted
+    return winner === side ? theme.success : theme.textMuted
+  }
+
+  return (
+    <box gap={0}>
+      <Title title={props.comp.title} />
+      <box flexDirection="row" gap={2} marginBottom={1}>
+        <text fg={theme.textMuted} flexShrink={0}>
+          {" ".repeat(labelW() + 2)}
+        </text>
+        <text fg={theme.accent} attributes={TextAttributes.BOLD} flexShrink={0}>
+          {clip(props.comp.leftLabel, colW())}
+        </text>
+        <text fg={theme.accent} attributes={TextAttributes.BOLD} flexShrink={0}>
+          {clip(props.comp.rightLabel, colW())}
+        </text>
+      </box>
+      <For each={props.comp.rows}>
+        {(row) => (
+          <box gap={0} flexDirection="column">
+            <box flexDirection="row" gap={2}>
+              <text fg={theme.textMuted} flexShrink={0}>
+                {row.label.padEnd(labelW(), " ")}
+              </text>
+              <text fg={winnerFg("left", row.winner)} flexShrink={0}>
+                {clip(row.left, colW())}
+              </text>
+              <text fg={winnerFg("right", row.winner)} flexShrink={0}>
+                {clip(row.right, colW())}
+              </text>
+            </box>
+            <Show when={row.note}>
+              <text fg={theme.textMuted} wrapMode="word">
+                {" ".repeat(labelW() + 2)}
+                {row.note}
+              </text>
+            </Show>
+          </box>
+        )}
+      </For>
+    </box>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Renderer: SparklineRow
+// ──────────────────────────────────────────────────────────────────────────
+
+function SparklineRowRenderer(props: { comp: Of<"sparkline_row"> }) {
+  const { theme } = useTheme()
+  const dims = useTerminalDimensions()
+  const labelW = createMemo(() => Math.max(...props.comp.rows.map((r) => r.label.length), 6))
+  const sparkW = createMemo(() => Math.max(12, Math.min(48, dims().width - labelW() - 24)))
+
+  return (
+    <box gap={0}>
+      <Title title={props.comp.title} />
+      <For each={props.comp.rows}>
+        {(row) => {
+          const sampled = createMemo(() => {
+            const v = row.values
+            if (v.length <= sparkW()) return v
+            const out: number[] = []
+            for (let i = 0; i < sparkW(); i++) {
+              const t = (i / Math.max(1, sparkW() - 1)) * (v.length - 1)
+              const lo = Math.floor(t)
+              const hi = Math.min(v.length - 1, Math.ceil(t))
+              const frac = t - lo
+              out.push(v[lo]! * (1 - frac) + v[hi]! * frac)
+            }
+            return out
+          })
+          const latest = createMemo(() => {
+            if (row.current !== undefined) return formatValue(row.current, row.format, row.unit)
+            const last = row.values[row.values.length - 1]
+            return formatValue(last, row.format, row.unit)
+          })
+          const deltaText = createMemo(() => {
+            if (row.delta === undefined) return undefined
+            const sign = row.delta > 0 ? "+" : row.delta < 0 ? "−" : ""
+            return `${sign}${Math.abs(row.delta)}${row.deltaUnit ?? ""}`
+          })
+          const color = createMemo(() => resolveColor(theme, row.color ?? "primary"))
+          return (
+            <box flexDirection="row" gap={1}>
+              <text fg={theme.textMuted} flexShrink={0}>
+                {row.label.padEnd(labelW(), " ")}
+              </text>
+              <text fg={color()} flexShrink={0}>
+                {sparkline(sampled())}
+              </text>
+              <Show when={props.comp.showValues !== false}>
+                <text fg={theme.text} flexShrink={0}>
+                  {latest()}
+                </text>
+              </Show>
+              <Show when={deltaText()}>
+                <text fg={theme.secondary} flexShrink={0}>
+                  {deltaText()}
+                </text>
+              </Show>
+            </box>
+          )
+        }}
+      </For>
+    </box>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Container renderers
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -1619,6 +1945,11 @@ export const defaultVizRegistry: VizRegistry = {
   progress_bars: ProgressBarsRenderer,
   timeline: TimelineRenderer,
   status_grid: StatusGridRenderer,
+  card: CardRenderer,
+  list: ListRenderer,
+  accordion: AccordionRenderer,
+  compare: CompareRenderer,
+  sparkline_row: SparklineRowRenderer,
   section: SectionRenderer,
   grid: GridRenderer,
 }
@@ -1675,9 +2006,15 @@ export type VizRendererProps = {
  * children against the same map. Mirrors `@json-render/solid`'s `Renderer`.
  */
 export function Renderer(props: VizRendererProps) {
+  const { theme } = useTheme()
   return (
     <VizRegistryContext.Provider value={props.registry ?? defaultVizRegistry}>
-      <For each={props.spec.components}>{(comp) => <ComponentRenderer component={comp} />}</For>
+      <box gap={1} flexDirection="column">
+        <For each={props.spec.components}>{(comp) => <ComponentRenderer component={comp} />}</For>
+        <Show when={props.loading}>
+          <text fg={theme.warning ?? theme.accent}>● streaming…</text>
+        </Show>
+      </box>
     </VizRegistryContext.Provider>
   )
 }
@@ -1752,6 +2089,36 @@ function componentToMarkdown(c: VizComponent, lines: string[]): void {
       break
     case "grid":
       for (const child of c.children) componentToMarkdown(child, lines)
+      break
+    case "card":
+      if (c.subtitle) lines.push(`_${c.subtitle}_`)
+      if (c.body) lines.push(c.body)
+      if (c.metrics)
+        for (const m of c.metrics) lines.push(`- **${m.label}**: ${formatValue(m.value, m.format, m.unit)}`)
+      if (c.footer) lines.push(`_${c.footer}_`)
+      break
+    case "list":
+      c.items.forEach((item, i) => {
+        const pre = c.ordered ? `${i + 1}.` : "-"
+        lines.push(`${pre} **${item.primary}**${item.secondary ? ` — ${item.secondary}` : ""}`)
+      })
+      break
+    case "accordion":
+      for (const s of c.sections) {
+        lines.push(`### ${s.title}`)
+        if (s.content) lines.push(s.content)
+        if (s.items) for (const it of s.items) lines.push(`- **${it.key}**: ${it.value}`)
+      }
+      break
+    case "compare":
+      lines.push(`| | ${c.leftLabel} | ${c.rightLabel} |`)
+      for (const r of c.rows) lines.push(`| ${r.label} | ${r.left} | ${r.right} |`)
+      break
+    case "sparkline_row":
+      for (const r of c.rows) {
+        const last = r.current ?? r.values[r.values.length - 1]
+        lines.push(`- **${r.label}**: ${formatValue(last as string | number, r.format, r.unit)} ${sparkline(r.values)}`)
+      }
       break
     default:
       lines.push(`_(${TYPE_LABEL[c.type]} component)_`)

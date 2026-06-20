@@ -10,6 +10,7 @@ import { McpHttpApi } from "./mcp"
 import { PermissionHttpApi } from "./permission"
 import { ProjectHttpApi } from "./project"
 import { ProviderHttpApi } from "./provider"
+import { LoopHttpApi } from "./loop"
 import { QuestionHttpApi } from "./question"
 import { SessionHttpApi } from "./session"
 import { TopLevelHttpApi } from "./top-level"
@@ -27,6 +28,7 @@ export namespace PublicHttpApi {
     .add(ProviderHttpApi.Group)
     .add(QuestionHttpApi.Group)
     .add(PermissionHttpApi.Group)
+    .add(LoopHttpApi.Group)
     .add(SessionHttpApi.Group)
     .add(TuiHttpApi.Group)
     .add(WorkspaceHttpApi.Group)
@@ -147,6 +149,24 @@ export namespace PublicHttpApi {
       .handle("oauthCallback", (request) => ProviderHttpApi.handlers.oauthCallback(request)),
   )
 
+  const LoopHandlersLive = HttpApiBuilder.group(Api, "loop", (handlers) =>
+    handlers
+      .handle("list", () => LoopHttpApi.handlers.list())
+      .handle("templates", () => LoopHttpApi.handlers.templates())
+      .handle("generate", (request) => LoopHttpApi.handlers.generate(request))
+      .handle("recentRuns", (request) => LoopHttpApi.handlers.recentRuns(request))
+      .handle("get", (request) => LoopHttpApi.handlers.get(request))
+      .handle("upsert", (request) => LoopHttpApi.handlers.upsert(request))
+      .handle("update", (request) => LoopHttpApi.handlers.update(request))
+      .handle("remove", (request) => LoopHttpApi.handlers.remove(request))
+      .handle("toggle", (request) => LoopHttpApi.handlers.toggle(request))
+      .handle("run", (request) => LoopHttpApi.handlers.run(request))
+      .handle("abort", (request) => LoopHttpApi.handlers.abort(request))
+      .handle("pause", (request) => LoopHttpApi.handlers.pause(request))
+      .handle("resume", (request) => LoopHttpApi.handlers.resume(request))
+      .handle("runs", (request) => LoopHttpApi.handlers.runs(request)),
+  )
+
   const SessionHandlersLive = HttpApiBuilder.group(Api, "session", (handlers) =>
     handlers
       .handle("list", (request) => SessionHttpApi.handlers.list(request))
@@ -172,7 +192,10 @@ export namespace PublicHttpApi {
       .handle("message", (request) => SessionHttpApi.handlers.message(request))
       .handle("messageRemove", (request) => SessionHttpApi.handlers.messageRemove(request))
       .handle("partRemove", (request) => SessionHttpApi.handlers.partRemove(request))
-      .handle("partUpdate", (request) => SessionHttpApi.handlers.partUpdate(request)),
+      .handle("partUpdate", (request) => SessionHttpApi.handlers.partUpdate(request))
+      .handle("v2Entries", (request) => SessionHttpApi.handlers.v2Entries(request))
+      .handle("v2State", (request) => SessionHttpApi.handlers.v2State(request))
+      .handle("v2Events", (request) => SessionHttpApi.handlers.v2Events(request)),
   )
 
   export const layer = ApiLive.pipe(
@@ -187,6 +210,7 @@ export namespace PublicHttpApi {
         ProviderHandlersLive.pipe(Layer.provide(ProviderHttpApi.DependenciesLive)),
         QuestionHandlersLive.pipe(Layer.provide(Question.defaultLayer)),
         PermissionHandlersLive.pipe(Layer.provide(PermissionNext.defaultLayer)),
+        LoopHandlersLive,
         SessionHandlersLive.pipe(Layer.provide(SessionHttpApi.DependenciesLive)),
         TuiHandlersLive.pipe(Layer.provide(TuiHttpApi.DependenciesLive)),
         WorkspaceHandlersLive,

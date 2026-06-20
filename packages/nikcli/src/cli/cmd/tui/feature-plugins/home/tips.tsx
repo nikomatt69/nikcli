@@ -15,19 +15,21 @@ function View(props: { show: boolean }) {
 }
 
 const tui: TuiPlugin = async (api) => {
-  api.command.register(() => [
-    {
-      title: api.kv.get("tips_hidden", false) ? "Show tips" : "Hide tips",
-      value: "tips.toggle",
-      keybind: "tips_toggle",
-      category: "System",
-      hidden: api.route.current.name !== "home",
-      onSelect() {
-        api.kv.set("tips_hidden", !api.kv.get("tips_hidden", false))
-        api.ui.dialog.clear()
+  api.keymap.registerLayer(() => ({
+    commands: [
+      {
+        name: "tips.toggle",
+        title: api.kv.get("tips_hidden", false) ? "Show tips" : "Hide tips",
+        namespace: "System",
+        hidden: api.route.current.name !== "home",
+        run() {
+          api.kv.set("tips_hidden", !api.kv.get("tips_hidden", false))
+          api.ui.dialog.clear()
+        },
       },
-    },
-  ])
+    ],
+    bindings: [{ key: "tips_toggle", cmd: "tips.toggle" }],
+  }))
 
   api.slots.register({
     order: 100,

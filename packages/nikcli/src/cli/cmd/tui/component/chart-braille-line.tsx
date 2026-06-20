@@ -35,6 +35,15 @@ function shift(rgba: RGBA, dr: number, dg: number, db: number): RGBA {
   )
 }
 
+// Linear blend of two colors. t=0 → a, t=1 → b.
+function mix(a: RGBA, b: RGBA, t: number): RGBA {
+  return RGBA.fromInts(
+    Math.round((a.r + (b.r - a.r) * t) * 255),
+    Math.round((a.g + (b.g - a.g) * t) * 255),
+    Math.round((a.b + (b.b - a.b) * t) * 255),
+  )
+}
+
 /**
  * Derive an N-color categorical palette from a theme. The first 4 colors
  * mirror the semantic tokens (primary, success, warning, accent) so that
@@ -391,6 +400,9 @@ export function BrailleLineChart(props: {
   width: number
   height: number
   yFormat?: (v: number) => string
+  /** One label per data point (e.g. dates). First/mid/last are shown on the
+   *  X axis; falls back to numeric indices when omitted. */
+  xLabels?: string[]
   showGrid?: boolean
   showLegend?: boolean
   showAxis?: boolean
@@ -404,7 +416,8 @@ export function BrailleLineChart(props: {
     if (series.length === 0 || series.every((s) => s.data.length === 0)) {
       return {
         lines: [],
-        xLabels: [],
+        axisLine: "",
+        xLabelRow: "",
         yLabels: [],
         legend: [],
         rowSegments: [] as Array<Array<{ text: string; color: RGBA }>>,
@@ -417,7 +430,8 @@ export function BrailleLineChart(props: {
     if (chartW <= 0 || chartH <= 0) {
       return {
         lines: [],
-        xLabels: [],
+        axisLine: "",
+        xLabelRow: "",
         yLabels: [],
         legend: [],
         rowSegments: [] as Array<Array<{ text: string; color: RGBA }>>,
@@ -445,23 +459,29 @@ export function BrailleLineChart(props: {
       yLabels.push({ pos: y, label: yFmt()(value) })
     }
 
-    // X-axis labels (first, middle, last)
+    // X-axis labels (first, middle, last) — use caller-supplied labels
+    // (dates) when available, else numeric indices. Composed into a single
+    // chartW-wide row so the labels sit exactly under their data points.
     const firstSeries = series.find((s) => s.data.length > 0)
-    const xLabels: { pos: number; label: string }[] = []
-    if (firstSeries && firstSeries.data.length >= 1) {
-      xLabels.push({ pos: 0, label: "0" })
-    }
-    if (firstSeries && firstSeries.data.length >= 3) {
-      xLabels.push({
-        pos: Math.floor(chartW / 2),
-        label: Math.floor(firstSeries.data.length / 2).toString(),
-      })
-    }
-    if (firstSeries && firstSeries.data.length >= 2) {
-      xLabels.push({
-        pos: chartW - 1,
-        label: (firstSeries.data.length - 1).toString(),
-      })
+    const n = firstSeries?.data.length ?? 0
+    const labelAt = (i: number) => props.xLabels?.[i] ?? String(i)
+    const axisLine = "─".repeat(Math.max(0, chartW))
+    let xLabelRow = ""
+    if (n >= 1) {
+      const slots = " ".repeat(Math.max(0, chartW)).split("")
+      const place = (text: string, pos: number, align: "left" | "center" | "right") => {
+        let start = pos
+        if (align === "center") start = pos - Math.floor(text.length / 2)
+        else if (align === "right") start = pos - text.length + 1
+        for (let k = 0; k < text.length; k++) {
+          const idx = start + k
+          if (idx >= 0 && idx < slots.length) slots[idx] = text[k]!
+        }
+      }
+      place(labelAt(0), 0, "left")
+      if (n >= 3) place(labelAt(Math.floor((n - 1) / 2)), Math.floor(chartW / 2), "center")
+      if (n >= 2) place(labelAt(n - 1), chartW - 1, "right")
+      xLabelRow = slots.join("")
     }
 
     // Per-row color segmentation: walk each row left-to-right, accumulate
@@ -508,7 +528,8 @@ export function BrailleLineChart(props: {
 
     return {
       lines,
-      xLabels,
+      axisLine,
+      xLabelRow,
       yLabels,
       seriesMask,
       rowSegments,
@@ -569,6 +590,25 @@ export function BrailleLineChart(props: {
           </For>
         </box>
       </box>
+
+      {/* X axis: baseline + first/mid/last labels, indented to line up with
+          the chart area (past the y-label gutter + axis line). */}
+      <Show when={props.showAxis !== false && chart().axisLine.length > 0}>
+        <box flexDirection="row" gap={0}>
+          <text wrapMode="none">{" ".repeat(7)}</text>
+          <text fg={theme.border} wrapMode="none">
+            {chart().axisLine}
+          </text>
+        </box>
+        <Show when={chart().xLabelRow.trim().length > 0}>
+          <box flexDirection="row" gap={0}>
+            <text wrapMode="none">{" ".repeat(7)}</text>
+            <text fg={theme.textMuted} wrapMode="none">
+              {chart().xLabelRow}
+            </text>
+          </box>
+        </Show>
+      </Show>
     </box>
   )
 }
@@ -719,15 +759,43 @@ export function StackedBarChartV2(props: {
       return props.segments.map((s) => ({
         ...s,
         width: Math.floor(props.width / props.segments.length),
+        pct: 0,
       }))
 
-    let remaining = props.width
-    return props.segments.map((s, i) => {
-      const w =
-        i === props.segments.length - 1 ? Math.max(0, remaining) : Math.max(1, Math.floor((s.value / t) * props.width))
-      remaining -= w
-      return { ...s, width: w }
+    // Two-pass allotment so every non-zero segment is visible (≥1 cell) while
+    // zero segments take none, and the widths still sum to exactly `width`.
+    // Pass 1: floor + guarantee ≥1 for non-zero. Pass 2: hand leftover cells
+    // to the largest segments by fractional remainder.
+    const raw = props.segments.map((s) => ({ seg: s, exact: (s.value / t) * props.width }))
+    let used = 0
+    const widths = raw.map((r) => {
+      const w = r.seg.value <= 0 ? 0 : Math.max(1, Math.floor(r.exact))
+      used += w
+      return w
     })
+    let leftover = props.width - used
+    if (leftover !== 0) {
+      const order = raw
+        .map((r, i) => ({ i, frac: r.exact - Math.floor(r.exact), nonZero: r.seg.value > 0 }))
+        .filter((o) => o.nonZero)
+        .sort((a, b) => b.frac - a.frac)
+      let k = 0
+      while (leftover > 0 && order.length > 0) {
+        widths[order[k % order.length]!.i]! += 1
+        leftover--
+        k++
+      }
+      while (leftover < 0) {
+        // Over-allotted (many tiny segments forced to 1): shave from the widest.
+        let widestIdx = -1
+        let widest = 1
+        for (let i = 0; i < widths.length; i++) if (widths[i]! > widest) ((widest = widths[i]!), (widestIdx = i))
+        if (widestIdx < 0) break
+        widths[widestIdx]! -= 1
+        leftover++
+      }
+    }
+    return props.segments.map((s, i) => ({ ...s, width: widths[i] ?? 0, pct: (s.value / t) * 100 }))
   })
 
   return (
@@ -736,22 +804,27 @@ export function StackedBarChartV2(props: {
       <box flexDirection="row" gap={0}>
         <For each={bars()}>
           {(seg) => (
-            <text fg={seg.color} wrapMode="none">
-              {"█".repeat(seg.width)}
-            </text>
+            <Show when={seg.width > 0}>
+              <text fg={seg.color} wrapMode="none">
+                {"█".repeat(seg.width)}
+              </text>
+            </Show>
           )}
         </For>
       </box>
       <Show when={props.showLabels}>
-        <box flexDirection="row" gap={2}>
-          <For each={props.segments}>
+        <box flexDirection="row" gap={3} flexWrap="wrap">
+          <For each={bars()}>
             {(seg) => (
               <box flexDirection="row" gap={1} alignItems="center">
                 <text fg={seg.color} wrapMode="none">
                   ■
                 </text>
-                <text fg={theme.textMuted}>
-                  {seg.label} ({formatTokens(seg.value)})
+                <text fg={theme.text} wrapMode="none">
+                  {seg.label}
+                </text>
+                <text fg={theme.textMuted} wrapMode="none">
+                  {formatTokens(seg.value)} ({seg.pct.toFixed(0)}%)
                 </text>
               </box>
             )}
@@ -779,7 +852,7 @@ export function HBarPrecision(props: {
   const fullBlocks = createMemo(() => Math.floor(filled()))
   const partial = createMemo(() => {
     const frac = filled() - fullBlocks()
-    const chars = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▇"]
+    const chars = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"]
     const idx = Math.round(frac * 8)
     return chars[Math.min(idx, 7)] ?? ""
   })
@@ -829,8 +902,12 @@ export function KPICard(props: {
   delta?: { pct: number; inverse?: boolean }
   /** When true, the card uses `borderActive` instead of `border` (e.g. on hover). */
   active?: boolean
+  /** Fixed card width (columns). Enables right-aligned delta + full-width
+   *  sparkline. Falls back to content-sized when omitted. */
+  width?: number
 }) {
   const { theme } = useTheme()
+  const innerW = () => Math.max(6, (props.width ?? Math.max(props.value.length, props.label.length) + 4) - 2)
 
   const deltaInfo = createMemo(() => {
     const d = props.delta
@@ -854,10 +931,25 @@ export function KPICard(props: {
   })
 
   return (
-    <box flexDirection="column" gap={0} border borderColor={props.active ? theme.borderActive : theme.border}>
-      <text fg={theme.textMuted} paddingLeft={1} paddingRight={1} wrapMode="none">
-        {props.label}
-      </text>
+    <box
+      flexDirection="column"
+      gap={0}
+      border
+      borderColor={props.active ? theme.borderActive : theme.border}
+      width={props.width}
+      flexShrink={0}
+    >
+      {/* Header: label (left) + delta (right) */}
+      <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1} gap={1}>
+        <text fg={theme.textMuted} wrapMode="none">
+          {props.label}
+        </text>
+        <Show when={deltaInfo()}>
+          <text fg={deltaColor()} wrapMode="none">
+            {deltaInfo()!.text}
+          </text>
+        </Show>
+      </box>
       <text fg={props.color} attributes={TextAttributes.BOLD} paddingLeft={1} paddingRight={1} wrapMode="none">
         {props.value}
       </text>
@@ -868,23 +960,45 @@ export function KPICard(props: {
       </Show>
       <Show when={props.sparkline && props.sparkline.length > 0}>
         <box paddingLeft={1} paddingRight={1}>
-          <BrailleSparkline
-            data={props.sparkline!}
-            width={Math.max(6, (props.value?.length ?? 4) + 4)}
-            color={props.color}
-          />
+          <BrailleSparkline data={props.sparkline!} width={innerW()} color={props.color} />
         </box>
-      </Show>
-      <Show when={deltaInfo()}>
-        <text fg={deltaColor()} paddingLeft={1} paddingRight={1} wrapMode="none">
-          {deltaInfo()!.text}
-        </text>
       </Show>
     </box>
   )
 }
 
-// Model Card with bar charts
+// One labeled token-breakdown row inside a ModelCard: "Label ████░░ 1.2M".
+// Bars are scaled against the card's own max so the dominant category fills
+// the track; the faint track keeps every row the same length for alignment.
+function ModelBar(props: { label: string; value: number; max: number; width: number; color: RGBA }) {
+  const { theme } = useTheme()
+  const filled = createMemo(() => {
+    if (props.max <= 0) return 0
+    return Math.max(0, Math.min(props.width, Math.round((props.value / props.max) * props.width)))
+  })
+  const track = createMemo<RGBA>(() => mix(props.color, theme.backgroundElement, 0.82))
+  return (
+    <box flexDirection="row" gap={1} alignItems="center">
+      <text fg={theme.textMuted} width={8} wrapMode="none">
+        {props.label.padEnd(8)}
+      </text>
+      <text fg={props.color} wrapMode="none">
+        {"█".repeat(filled())}
+      </text>
+      <text fg={track()} wrapMode="none">
+        {"█".repeat(Math.max(0, props.width - filled()))}
+      </text>
+      <text fg={theme.textMuted} wrapMode="none">
+        {formatTokens(props.value)}
+      </text>
+    </box>
+  )
+}
+
+// Model Card — header + request count + a labeled bar per token category
+// (input / output / reasoning / cache read / cache write). Categories with no
+// tokens are hidden so the card stays compact for simple models while still
+// surfacing cache & reasoning usage for the models that have it.
 export function ModelCard(props: {
   name: string
   provider: string
@@ -892,21 +1006,37 @@ export function ModelCard(props: {
   avgResponseTime?: number
   inputTokens: number
   outputTokens: number
-  maxTokens: number
+  reasoningTokens?: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
   color: RGBA
 }) {
   const { theme } = useTheme()
   const viz = createMemo(() => getChartColors(theme))
   const barWidth = 20
 
-  const inputBar = createMemo(() => {
-    const filled = Math.round((props.inputTokens / props.maxTokens) * barWidth)
-    return "█".repeat(Math.max(0, Math.min(barWidth, filled)))
-  })
-  const outputBar = createMemo(() => {
-    const filled = Math.round((props.outputTokens / props.maxTokens) * barWidth)
-    return "█".repeat(Math.max(0, Math.min(barWidth, filled)))
-  })
+  // Scale every bar against the largest category on THIS card so the breakdown
+  // is readable per-model (cache reads often dwarf input/output).
+  const localMax = createMemo(() =>
+    Math.max(
+      1,
+      props.inputTokens,
+      props.outputTokens,
+      props.reasoningTokens ?? 0,
+      props.cacheReadTokens ?? 0,
+      props.cacheWriteTokens ?? 0,
+    ),
+  )
+
+  const rows = createMemo(() =>
+    [
+      { label: "Input", value: props.inputTokens, color: viz().input },
+      { label: "Output", value: props.outputTokens, color: viz().output },
+      { label: "Reason", value: props.reasoningTokens ?? 0, color: viz().reasoning },
+      { label: "Cache R", value: props.cacheReadTokens ?? 0, color: viz().cache },
+      { label: "Cache W", value: props.cacheWriteTokens ?? 0, color: viz().cacheWrite },
+    ].filter((r) => r.value > 0),
+  )
 
   return (
     <box flexDirection="column" gap={0} border borderColor={theme.borderSubtle} paddingLeft={1} paddingRight={1}>
@@ -924,24 +1054,147 @@ export function ModelCard(props: {
           <text fg={theme.text}>{props.avgResponseTime}ms</text>
         </Show>
       </box>
+      <For each={rows()}>
+        {(r) => <ModelBar label={r.label} value={r.value} max={localMax()} width={barWidth} color={r.color} />}
+      </For>
+    </box>
+  )
+}
+
+/**
+ * Horizontal gauge — a single value as a fraction of `max`, drawn as a
+ * filled/empty block bar with a percentage and `value / max` caption.
+ *
+ * Mirrors the gauge renderer in the OpenTUI dashboard so analytics gauges
+ * read identically to the generated visualizations. `thresholds` (in pct)
+ * recolor the bar to warning/error as the value climbs, which is handy for
+ * "danger" metrics like context-window pressure or budget burn.
+ */
+export function Gauge(props: {
+  label: string
+  value: number
+  max: number
+  width?: number
+  color?: RGBA
+  format?: (v: number) => string
+  unit?: string
+  /** [warnPct, dangerPct] in 0..100; recolors the bar above each step. */
+  thresholds?: [number, number]
+}) {
+  const { theme } = useTheme()
+  const width = () => Math.max(6, props.width ?? 24)
+  const pct = createMemo(() => (props.max > 0 ? Math.max(0, Math.min(1, props.value / props.max)) : 0))
+  const pctNum = createMemo(() => pct() * 100)
+  const filled = createMemo(() => Math.round(pct() * width()))
+  const fmt = () => props.format ?? formatTokens
+  const color = createMemo<RGBA>(() => {
+    const t = props.thresholds
+    if (t) {
+      if (pctNum() >= t[1]) return theme.error
+      if (pctNum() >= t[0]) return theme.warning
+    }
+    return props.color ?? theme.primary
+  })
+  // Unfilled track: a faint tint of the bar color (toward the panel bg) so the
+  // gauge reads as one cohesive object instead of "colored bar + gray gap".
+  const track = createMemo<RGBA>(() => mix(color(), theme.backgroundElement, 0.82))
+  return (
+    <box flexDirection="column" gap={0}>
+      <text fg={theme.textMuted} wrapMode="none">
+        {props.label}
+      </text>
       <box flexDirection="row" gap={1} alignItems="center">
-        <text fg={theme.textMuted} width={7} wrapMode="none">
-          {"Input: "}
+        <text fg={color()} wrapMode="none">
+          {"█".repeat(filled())}
         </text>
-        <text fg={viz().input} wrapMode="none">
-          {inputBar()}
+        <text fg={track()} wrapMode="none">
+          {"█".repeat(Math.max(0, width() - filled()))}
         </text>
-        <text fg={theme.textMuted}>{formatTokens(props.inputTokens)}</text>
+        <text fg={color()} attributes={TextAttributes.BOLD} wrapMode="none">
+          {pctNum().toFixed(0)}%
+        </text>
       </box>
-      <box flexDirection="row" gap={1} alignItems="center">
-        <text fg={theme.textMuted} width={7} wrapMode="none">
-          {"Output:"}
+      <text fg={theme.textMuted} wrapMode="none">
+        {fmt()(props.value)}
+        {props.unit ?? ""} / {fmt()(props.max)}
+        {props.unit ?? ""}
+      </text>
+    </box>
+  )
+}
+
+// Vertical-eighth blocks: empty → full. Index = number of filled eighths.
+const VBLOCKS = [" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const
+
+/**
+ * Vertical bar (column) chart drawn with 1/8-precision block glyphs.
+ *
+ * Each bar is one character wide and `height` rows tall; the top cell of a
+ * bar can be a partial block so short differences between adjacent days stay
+ * visible. Renders top-to-bottom (highest row first) so it reads like a
+ * normal histogram. The peak bar is highlighted when `highlightMax` is set.
+ *
+ * Complements the braille line/area charts: where those show a continuous
+ * trend, this gives a discrete day-by-day "volume" silhouette that's easier
+ * to scan for spikes — matching the bar_chart visuals in the generated
+ * OpenTUI dashboards.
+ */
+export function VerticalBarChart(props: {
+  bars: { label?: string; value: number; color?: RGBA }[]
+  height?: number
+  color?: RGBA
+  yFormat?: (v: number) => string
+  highlightMax?: boolean
+  /** Show first/peak/last captions under the columns. */
+  showAxis?: boolean
+}) {
+  const { theme } = useTheme()
+  const height = () => Math.max(2, props.height ?? 6)
+  const fmt = () => props.yFormat ?? formatTokens
+  const max = createMemo(() => Math.max(1, ...props.bars.map((b) => b.value)))
+
+  // For each column, precompute the glyph for every row (index 0 = top row).
+  const cols = createMemo(() =>
+    props.bars.map((b) => {
+      const eighths = Math.round((b.value / max()) * height() * 8)
+      const chars: string[] = []
+      for (let row = height() - 1; row >= 0; row--) {
+        const e = Math.max(0, Math.min(8, eighths - row * 8))
+        chars.push(VBLOCKS[e] ?? " ")
+      }
+      const isMax = b.value > 0 && b.value === max()
+      const color = b.color ?? (props.highlightMax && isMax ? theme.primary : (props.color ?? theme.primary))
+      return { chars, color, value: b.value, label: b.label }
+    }),
+  )
+
+  return (
+    <box flexDirection="column" gap={0}>
+      <For each={Array.from({ length: height() })}>
+        {(_, rowIdx) => (
+          <box flexDirection="row" gap={0}>
+            <For each={cols()}>
+              {(c) => (
+                <text fg={c.color} wrapMode="none">
+                  {c.chars[rowIdx()] ?? " "}
+                </text>
+              )}
+            </For>
+          </box>
+        )}
+      </For>
+      {/* Baseline */}
+      <text fg={theme.borderSubtle} wrapMode="none">
+        {"▔".repeat(cols().length)}
+      </text>
+      {/* Compact single-line caption — first → last · peak. Avoids the label
+          overlap that a space-between row produced on narrow (7/14-day)
+          ranges where the columns are only a few characters wide. */}
+      <Show when={props.showAxis !== false && cols().length > 1}>
+        <text fg={theme.textMuted} wrapMode="none">
+          {cols()[0]?.label ?? "0"} → {cols()[cols().length - 1]?.label ?? ""} · peak {fmt()(max())}
         </text>
-        <text fg={viz().output} wrapMode="none">
-          {outputBar()}
-        </text>
-        <text fg={theme.textMuted}>{formatTokens(props.outputTokens)}</text>
-      </box>
+      </Show>
     </box>
   )
 }
@@ -994,7 +1247,7 @@ export function RankedBarList(props: {
           const full = () => Math.floor(filled())
           const frac = () => {
             const f = filled() - full()
-            const chars = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▇"]
+            const chars = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"]
             const i = Math.round(f * 8)
             return chars[Math.min(i, 7)] ?? ""
           }

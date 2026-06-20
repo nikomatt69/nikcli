@@ -76,6 +76,8 @@ import type {
   GlobalEventResponses,
   GlobalHealthResponses,
   InstanceDisposeResponses,
+  LoopAbortErrors,
+  LoopAbortResponses,
   LoopDeleteErrors,
   LoopDeleteResponses,
   LoopGenerateErrors,
@@ -371,6 +373,8 @@ import type {
   SessionGetErrors,
   SessionGetResponses,
   SessionGithub,
+  SessionGoalErrors,
+  SessionGoalResponses,
   SessionInstructionsErrors,
   SessionInstructionsResponses,
   SessionListResponses,
@@ -1015,6 +1019,38 @@ export class Loop extends HeyApiClient {
     )
     return (options?.client ?? this.client).post<LoopRunResponses, LoopRunErrors, ThrowOnError>({
       url: "/loop/{id}/run",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Abort in-flight loop run
+   *
+   * Cancel the currently running iteration of a loop without deleting its definition.
+   */
+  public abort<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopAbortResponses, LoopAbortErrors, ThrowOnError>({
+      url: "/loop/{id}/abort",
       ...options,
       ...params,
     })
@@ -3496,6 +3532,38 @@ export class Session2 extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<SessionTodoResponses, SessionTodoErrors, ThrowOnError>({
       url: "/session/{sessionID}/todo",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session goal
+   *
+   * Retrieve the active goal state for a session, or null when no goal is set.
+   */
+  public goal<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionGoalResponses, SessionGoalErrors, ThrowOnError>({
+      url: "/session/{sessionID}/goal",
       ...options,
       ...params,
     })

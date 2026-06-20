@@ -710,13 +710,6 @@ export type EventSessionError = {
   }
 }
 
-export type EventFileEdited = {
-  type: "file.edited"
-  properties: {
-    file: string
-  }
-}
-
 export type EventFileWatcherUpdated = {
   type: "file.watcher.updated"
   properties: {
@@ -947,6 +940,27 @@ export type EventSessionCompacted = {
   }
 }
 
+export type SessionGoalState = {
+  sessionID: string
+  goalID: string
+  objective: string
+  status: "active" | "paused" | "blocked" | "usage_limited" | "budget_limited" | "complete"
+  tokenBudget?: number
+  tokensUsed: number
+  timeUsedSeconds: number
+  iterationCount: number
+  timeCreated: number
+  timeUpdated: number
+}
+
+export type EventSessionGoal = {
+  type: "session.goal"
+  properties: {
+    sessionID: string
+    goal: SessionGoalState | null
+  }
+}
+
 export type EventMonitorCreated = {
   type: "monitor.created"
   properties: {
@@ -1039,6 +1053,59 @@ export type EventMonitorCompleted = {
     exitCode: number | null
     logPath: string
     wake: boolean
+  }
+}
+
+export type EventSessionV2Updated = {
+  type: "session.v2.updated"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type Pty = {
+  id: string
+  title: string
+  command: string
+  args: Array<string>
+  cwd: string
+  status: "running" | "exited"
+  pid: number
+}
+
+export type EventPtyCreated = {
+  type: "pty.created"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyUpdated = {
+  type: "pty.updated"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyExited = {
+  type: "pty.exited"
+  properties: {
+    id: string
+    exitCode: number
+  }
+}
+
+export type EventPtyDeleted = {
+  type: "pty.deleted"
+  properties: {
+    id: string
+  }
+}
+
+export type EventFileEdited = {
+  type: "file.edited"
+  properties: {
+    file: string
   }
 }
 
@@ -1195,52 +1262,6 @@ export type EventMissionAborted = {
   }
 }
 
-export type EventSessionV2Updated = {
-  type: "session.v2.updated"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type Pty = {
-  id: string
-  title: string
-  command: string
-  args: Array<string>
-  cwd: string
-  status: "running" | "exited"
-  pid: number
-}
-
-export type EventPtyCreated = {
-  type: "pty.created"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyUpdated = {
-  type: "pty.updated"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyExited = {
-  type: "pty.exited"
-  properties: {
-    id: string
-    exitCode: number
-  }
-}
-
-export type EventPtyDeleted = {
-  type: "pty.deleted"
-  properties: {
-    id: string
-  }
-}
-
 export type Event =
   | EventProjectUpdated
   | EventTelemetryRecord
@@ -1262,7 +1283,6 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
-  | EventFileEdited
   | EventFileWatcherUpdated
   | EventTuiPromptAppend
   | EventTuiCommandExecute
@@ -1279,10 +1299,17 @@ export type Event =
   | EventQuestionReplied
   | EventQuestionRejected
   | EventSessionCompacted
+  | EventSessionGoal
   | EventMonitorCreated
   | EventMonitorUpdated
   | EventMonitorOutput
   | EventMonitorCompleted
+  | EventSessionV2Updated
+  | EventPtyCreated
+  | EventPtyUpdated
+  | EventPtyExited
+  | EventPtyDeleted
+  | EventFileEdited
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventWorkspaceStatus
@@ -1301,11 +1328,6 @@ export type Event =
   | EventMissionExecFinished
   | EventMissionRuntimeChanged
   | EventMissionAborted
-  | EventSessionV2Updated
-  | EventPtyCreated
-  | EventPtyUpdated
-  | EventPtyExited
-  | EventPtyDeleted
 
 export type GlobalEvent = {
   directory: string
@@ -4613,6 +4635,34 @@ export type LoopRunResponses = {
   200: unknown
 }
 
+export type LoopAbortData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}/abort"
+}
+
+export type LoopAbortErrors = {
+  /**
+   * Loop not found
+   */
+  404: unknown
+}
+
+export type LoopAbortResponses = {
+  /**
+   * Abort completed
+   */
+  200: boolean
+}
+
+export type LoopAbortResponse = LoopAbortResponses[keyof LoopAbortResponses]
+
 export type LoopPauseData = {
   body?: never
   path: {
@@ -6585,6 +6635,43 @@ export type SessionTodoResponses = {
 }
 
 export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
+
+export type SessionGoalData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/goal"
+}
+
+export type SessionGoalErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionGoalError = SessionGoalErrors[keyof SessionGoalErrors]
+
+export type SessionGoalResponses = {
+  /**
+   * Goal state
+   */
+  200: SessionGoalState | null
+}
+
+export type SessionGoalResponse = SessionGoalResponses[keyof SessionGoalResponses]
 
 export type SessionForkData = {
   body?: {
