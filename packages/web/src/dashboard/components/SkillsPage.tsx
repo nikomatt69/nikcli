@@ -141,7 +141,9 @@ function SkillsPageInner() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-terminal-text">{skill.name}</span>
                     {skill.category && <Badge>{skill.category}</Badge>}
-                    {skill.tags?.map((tag) => <Badge key={tag}>{tag}</Badge>)}
+                    {skill.tags?.map((tag) => (
+                      <Badge key={tag}>{tag}</Badge>
+                    ))}
                   </div>
                   {skill.description && <p className="mt-1 text-sm text-terminal-muted">{skill.description}</p>}
                   {skill.path && <code className="mt-1 block text-xs text-terminal-muted">{skill.path}</code>}

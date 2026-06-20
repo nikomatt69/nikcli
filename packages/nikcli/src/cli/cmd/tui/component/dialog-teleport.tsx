@@ -130,14 +130,10 @@ export function DialogTeleport(props: { sessionID: string }) {
       const result = (await response.json().catch(() => null)) as { sessionID?: string; messageCount?: number } | null
 
       // Remember the server so the next teleport is one keystroke away.
-      await sdk.client.config
-        .update({ config: { teleport: { url: base, token } } as any })
-        .catch(() => undefined)
+      await sdk.client.config.update({ config: { teleport: { url: base, token } } as any }).catch(() => undefined)
 
       toast.show({
-        message: result?.sessionID
-          ? `Teleported to ${new URL(base).host} — open it on mobile`
-          : "Session teleported",
+        message: result?.sessionID ? `Teleported to ${new URL(base).host} — open it on mobile` : "Session teleported",
         variant: "success",
       })
       dialog.clear()
@@ -236,7 +232,12 @@ export function DialogTeleport(props: { sessionID: string }) {
       <box height={1} border={["top"]} borderColor={theme.borderSubtle} />
 
       <box flexDirection="row" justifyContent="flex-end" gap={1}>
-        <box paddingLeft={1} paddingRight={1} backgroundColor={theme.backgroundElement} onMouseUp={() => dialog.clear()}>
+        <box
+          paddingLeft={1}
+          paddingRight={1}
+          backgroundColor={theme.backgroundElement}
+          onMouseUp={() => dialog.clear()}
+        >
           <text fg={theme.textMuted}>Cancel</text>
         </box>
         <box

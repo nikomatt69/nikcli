@@ -169,7 +169,9 @@ export const TeleportCommand = cmd({
         process.exit(1)
       }
 
-      process.stderr.write(`Teleporting "${info.title}" (${messages.length} messages) to ${new URL(base).host}...${os.EOL}`)
+      process.stderr.write(
+        `Teleporting "${info.title}" (${messages.length} messages) to ${new URL(base).host}...${os.EOL}`,
+      )
 
       const response = await fetch(`${base}/mobile/teleport`, {
         method: "POST",
@@ -198,9 +200,7 @@ export const TeleportCommand = cmd({
         process.exit(1)
       }
 
-      const result = (await response.json().catch(() => null)) as
-        | { sessionID?: string; messageCount?: number }
-        | null
+      const result = (await response.json().catch(() => null)) as { sessionID?: string; messageCount?: number } | null
 
       if (args.save !== false) {
         await saveTeleportDefaults(base, token).catch(() => undefined)
