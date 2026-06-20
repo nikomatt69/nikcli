@@ -1,3 +1,4 @@
+import type { SessionConfigOption } from "@agentclientprotocol/sdk"
 import { describe, expect, test } from "bun:test"
 import {
   ACPConfigOption,
@@ -5,13 +6,18 @@ import {
   buildEffortSelectOption,
   buildModeSelectOption,
   buildModelSelectOption,
+  type ConfigOptionProvider,
   formatCurrentModelId,
   formatVariantName,
   parseModelSelection,
   stableStringify,
 } from "@/acp/config-option"
 
-const PROVIDERS = [
+// The build* helpers are typed as the full SessionConfigOption union; in these
+// tests they always produce the "select" variant, which carries options/currentValue.
+type SelectOption = Extract<SessionConfigOption, { type: "select" }>
+
+const PROVIDERS: ConfigOptionProvider[] = [
   {
     id: "anthropic",
     name: "Anthropic",
@@ -87,7 +93,7 @@ describe("acp/config-option", () => {
     const out = buildEffortSelectOption({
       variants: ["low", "high"],
       currentVariant: "high",
-    })
+    }) as SelectOption | undefined
     expect(out?.id).toBe("effort")
     expect(out?.currentValue).toBe("high")
     expect(out?.options).toHaveLength(2)
@@ -97,7 +103,7 @@ describe("acp/config-option", () => {
     const out = buildModeSelectOption({
       modes: [{ id: "build", name: "Build", description: "Write code" }],
       currentModeId: "build",
-    })
+    }) as SelectOption
     expect(out.options).toEqual([{ value: "build", name: "Build", description: "Write code" }])
   })
 
@@ -106,7 +112,7 @@ describe("acp/config-option", () => {
       providers: PROVIDERS,
       currentModel: { providerID: "anthropic", modelID: "claude-sonnet-4-5" },
       includeVariants: true,
-    })
+    }) as SelectOption
     expect(out.id).toBe("model")
     // The output is either a flat list or grouped; when both providers
     // have multiple entries, we expect grouped output.
