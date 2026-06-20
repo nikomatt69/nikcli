@@ -122,7 +122,7 @@ Add to your Zed configuration (`~/.config/zed/settings.json`):
       "command": "nikcli",
       "args": ["acp"]
     }
-  }
+  } 
 }
 ```
 
