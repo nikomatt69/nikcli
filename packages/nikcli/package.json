@@ -36,7 +36,7 @@
     }
   },
   "devDependencies": {
-    "@babel/core": "7.28.4",
+    "@babel/core": "7.29.6",
     "@nikcli-ai/script": "workspace:*",
     "@octokit/webhooks-types": "7.6.1",
     "@parcel/watcher-darwin-arm64": "2.5.1",
