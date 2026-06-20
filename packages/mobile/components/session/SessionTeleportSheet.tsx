@@ -84,8 +84,8 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
               Send to another server
             </Text>
             <Text className="mt-1.5 text-[13px] leading-5 text-soft">
-              Copies this conversation to a remote nikcli server so you can resume it there. The working files are
-              only cloned when teleporting from the desktop or CLI.
+              Copies this conversation to a remote nikcli server so you can resume it there. The working files are only
+              cloned when teleporting from the desktop or CLI.
             </Text>
           </View>
 

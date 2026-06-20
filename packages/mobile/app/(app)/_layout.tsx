@@ -39,7 +39,10 @@ export default function AppLayout() {
           <NativeTabs.Trigger.Label>Routines</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="more">
-          <NativeTabs.Trigger.Icon sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }} md="more_horiz" />
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }}
+            md="more_horiz"
+          />
           <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>

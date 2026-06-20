@@ -37,7 +37,7 @@ query's result is applied and empty queries never hit the server.
 
 - `src/cli/cmd/tui/component/prompt/autocomplete.tsx`
   - `const [files] = createResource(() => filter(), async (query) => { … await
-    sdk.client.find.files({ query: baseQuery }) … })` (≈ line 290–300).
+sdk.client.find.files({ query: baseQuery }) … })` (≈ line 290–300).
   - No debounce, no `AbortController`, no monotonic request id. `createResource` re-fetches on
     every `filter()` change; ordering of applied results is not guaranteed under bursts.
 - `src/cli/cmd/tui/component/dialog-tag.tsx:18` — a second, independent `find.files` call site
@@ -61,11 +61,13 @@ New `src/cli/cmd/tui/util/requests.ts`:
 // drops stale results via a monotonic id; aborts the prior request when the SDK accepts a signal
 function createLatestOnlyAsync<TArgs extends unknown[], R>(
   fn: (a: { input: TArgs; signal?: AbortSignal }) => Promise<R>,
-) { /* id++ guard + AbortController */ }
+) {
+  /* id++ guard + AbortController */
+}
 
-function createDebouncedAsync<TArgs extends unknown[], R>(
-  fn: (...a: TArgs) => Promise<R>, delayMs: number,
-) { /* trailing-edge debounce returning a Promise of the latest call */ }
+function createDebouncedAsync<TArgs extends unknown[], R>(fn: (...a: TArgs) => Promise<R>, delayMs: number) {
+  /* trailing-edge debounce returning a Promise of the latest call */
+}
 ```
 
 Compose them: `debounced(latestOnly(findFiles))`.
