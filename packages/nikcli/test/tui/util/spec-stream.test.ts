@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import {
-  parsePartialJson,
-  compilePartialSpec,
-  createSpecStreamCompiler,
-} from "@/cli/cmd/tui/util/spec-stream"
+import { parsePartialJson, compilePartialSpec, createSpecStreamCompiler } from "@/cli/cmd/tui/util/spec-stream"
 
 describe("parsePartialJson", () => {
   it("parses already-valid JSON unchanged", () => {

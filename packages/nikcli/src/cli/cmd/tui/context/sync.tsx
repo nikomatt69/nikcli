@@ -682,9 +682,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       // pinned sessions from the final eviction set.
       const expired = sessionLru.evictExpired()
       for (const sid of expired) if (pinned.has(sid)) sessionLru.touch(sid)
-      const evicted = [...new Set([...expired, ...sessionLru.evictOverflow(pinned)])].filter(
-        (sid) => !pinned.has(sid),
-      )
+      const evicted = [...new Set([...expired, ...sessionLru.evictOverflow(pinned)])].filter((sid) => !pinned.has(sid))
       if (evicted.length === 0) return
       setStore(
         produce((draft) => {

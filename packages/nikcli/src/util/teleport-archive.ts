@@ -46,10 +46,7 @@ export async function createWorkspaceArchive(
       await Bun.write(listFile, fileList)
       await runOk(["tar", "-czf", archivePath, "--null", "-C", root, "-T", listFile], root)
     } else {
-      await runOk(
-        ["tar", "-czf", archivePath, "-C", root, "--exclude=node_modules", "--exclude=.DS_Store", "."],
-        root,
-      )
+      await runOk(["tar", "-czf", archivePath, "-C", root, "--exclude=node_modules", "--exclude=.DS_Store", "."], root)
     }
   } catch (error) {
     await cleanup()
