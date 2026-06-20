@@ -558,6 +558,9 @@
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
                   },
+                  "createPR": {
+                    "type": "boolean"
+                  },
                   "paused": {
                     "type": "boolean"
                   },
@@ -919,6 +922,9 @@
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
                   },
+                  "createPR": {
+                    "type": "boolean"
+                  },
                   "paused": {
                     "type": "boolean"
                   },
@@ -1088,6 +1094,58 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.loop.run({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/loop/{id}/abort": {
+      "post": {
+        "operationId": "loop.abort",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Abort in-flight loop run",
+        "description": "Cancel the currently running iteration of a loop without deleting its definition.",
+        "responses": {
+          "200": {
+            "description": "Abort completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Loop not found"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.loop.abort({\n  ...\n})"
           }
         ]
       }
@@ -5617,6 +5675,83 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.todo({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/goal": {
+      "get": {
+        "operationId": "session.goal",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID"
+          }
+        ],
+        "summary": "Get session goal",
+        "description": "Retrieve the active goal state for a session, or null when no goal is set.",
+        "responses": {
+          "200": {
+            "description": "Goal state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SessionGoalState"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.goal({\n  ...\n})"
           }
         ]
       }
@@ -11697,6 +11832,188 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.session.rename({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mobile/teleport/upload": {
+      "post": {
+        "operationId": "mobile.session.teleport.upload.begin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Begin a teleport workspace upload",
+        "description": "Allocate a chunked upload slot for a working-directory tarball. Returns an uploadID.",
+        "responses": {
+          "200": {
+            "description": "Upload slot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadID": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["uploadID"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.session.teleport.upload.begin({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mobile/teleport/upload/{uploadID}": {
+      "post": {
+        "operationId": "mobile.session.teleport.upload.chunk",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "uploadID",
+            "required": true
+          }
+        ],
+        "summary": "Append a teleport upload chunk",
+        "description": "Append raw bytes to a chunked working-directory upload.",
+        "responses": {
+          "200": {
+            "description": "Chunk stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": ["ok"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.session.teleport.upload.chunk({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mobile/teleport": {
+      "post": {
+        "operationId": "mobile.session.teleport",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Teleport a session to this server",
+        "description": "Recreate a session transcript captured on another machine — optionally cloning its working directory via a previously uploaded `uploadID` — so it can be continued from the mobile app.",
+        "responses": {
+          "200": {
+            "description": "Teleported session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionID": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "messageCount": {
+                      "type": "number"
+                    },
+                    "directory": {
+                      "type": "string"
+                    },
+                    "workspace": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["sessionID", "messageCount", "workspace"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.session.teleport({\n  ...\n})"
           }
         ]
       }
@@ -20117,25 +20434,6 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.file.edited": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "file.edited"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "file": {
-                "type": "string"
-              }
-            },
-            "required": ["file"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
       "Event.file.watcher.updated": {
         "type": "object",
         "properties": {
@@ -20706,6 +21004,82 @@
         },
         "required": ["type", "properties"]
       },
+      "SessionGoalState": {
+        "type": "object",
+        "properties": {
+          "sessionID": {
+            "type": "string"
+          },
+          "goalID": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"]
+          },
+          "tokenBudget": {
+            "type": "number"
+          },
+          "tokensUsed": {
+            "type": "number"
+          },
+          "timeUsedSeconds": {
+            "type": "number"
+          },
+          "iterationCount": {
+            "type": "number"
+          },
+          "timeCreated": {
+            "type": "number"
+          },
+          "timeUpdated": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "sessionID",
+          "goalID",
+          "objective",
+          "status",
+          "tokensUsed",
+          "timeUsedSeconds",
+          "iterationCount",
+          "timeCreated",
+          "timeUpdated"
+        ]
+      },
+      "Event.session.goal": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "session.goal"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "type": "string"
+              },
+              "goal": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SessionGoalState"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["sessionID", "goal"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.monitor.created": {
         "type": "object",
         "properties": {
@@ -21110,6 +21484,166 @@
               }
             },
             "required": ["sessionID", "monitorID", "title", "status", "exitCode", "logPath", "wake"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.session.v2.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "session.v2.updated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "type": "string"
+              }
+            },
+            "required": ["sessionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Pty": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^pty.*"
+          },
+          "title": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "running"
+              },
+              {
+                "type": "string",
+                "const": "exited"
+              }
+            ]
+          },
+          "pid": {
+            "type": "number"
+          }
+        },
+        "required": ["id", "title", "command", "args", "cwd", "status", "pid"],
+        "additionalProperties": false
+      },
+      "Event.pty.created": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "pty.created"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "info": {
+                "$ref": "#/components/schemas/Pty"
+              }
+            },
+            "required": ["info"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.pty.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "pty.updated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "info": {
+                "$ref": "#/components/schemas/Pty"
+              }
+            },
+            "required": ["info"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.pty.exited": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "pty.exited"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^pty.*"
+              },
+              "exitCode": {
+                "type": "number"
+              }
+            },
+            "required": ["id", "exitCode"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.pty.deleted": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "pty.deleted"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^pty.*"
+              }
+            },
+            "required": ["id"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.file.edited": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "file.edited"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              }
+            },
+            "required": ["file"]
           }
         },
         "required": ["type", "properties"]
@@ -21561,147 +22095,6 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.session.v2.updated": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "session.v2.updated"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "sessionID": {
-                "type": "string"
-              }
-            },
-            "required": ["sessionID"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Pty": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^pty.*"
-          },
-          "title": {
-            "type": "string"
-          },
-          "command": {
-            "type": "string"
-          },
-          "args": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "cwd": {
-            "type": "string"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string",
-                "const": "running"
-              },
-              {
-                "type": "string",
-                "const": "exited"
-              }
-            ]
-          },
-          "pid": {
-            "type": "number"
-          }
-        },
-        "required": ["id", "title", "command", "args", "cwd", "status", "pid"],
-        "additionalProperties": false
-      },
-      "Event.pty.created": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "pty.created"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "info": {
-                "$ref": "#/components/schemas/Pty"
-              }
-            },
-            "required": ["info"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.pty.updated": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "pty.updated"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "info": {
-                "$ref": "#/components/schemas/Pty"
-              }
-            },
-            "required": ["info"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.pty.exited": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "pty.exited"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^pty.*"
-              },
-              "exitCode": {
-                "type": "number"
-              }
-            },
-            "required": ["id", "exitCode"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.pty.deleted": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "pty.deleted"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^pty.*"
-              }
-            },
-            "required": ["id"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
       "Event": {
         "anyOf": [
           {
@@ -21765,9 +22158,6 @@
             "$ref": "#/components/schemas/Event.session.error"
           },
           {
-            "$ref": "#/components/schemas/Event.file.edited"
-          },
-          {
             "$ref": "#/components/schemas/Event.file.watcher.updated"
           },
           {
@@ -21816,6 +22206,9 @@
             "$ref": "#/components/schemas/Event.session.compacted"
           },
           {
+            "$ref": "#/components/schemas/Event.session.goal"
+          },
+          {
             "$ref": "#/components/schemas/Event.monitor.created"
           },
           {
@@ -21826,6 +22219,24 @@
           },
           {
             "$ref": "#/components/schemas/Event.monitor.completed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.session.v2.updated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.pty.created"
+          },
+          {
+            "$ref": "#/components/schemas/Event.pty.updated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.pty.exited"
+          },
+          {
+            "$ref": "#/components/schemas/Event.pty.deleted"
+          },
+          {
+            "$ref": "#/components/schemas/Event.file.edited"
           },
           {
             "$ref": "#/components/schemas/Event.workspace.ready"
@@ -21880,21 +22291,6 @@
           },
           {
             "$ref": "#/components/schemas/Event.mission.aborted"
-          },
-          {
-            "$ref": "#/components/schemas/Event.session.v2.updated"
-          },
-          {
-            "$ref": "#/components/schemas/Event.pty.created"
-          },
-          {
-            "$ref": "#/components/schemas/Event.pty.updated"
-          },
-          {
-            "$ref": "#/components/schemas/Event.pty.exited"
-          },
-          {
-            "$ref": "#/components/schemas/Event.pty.deleted"
           }
         ]
       },
@@ -22033,6 +22429,9 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "createPR": {
+            "type": "boolean"
+          },
           "paused": {
             "type": "boolean"
           },
@@ -22126,6 +22525,31 @@
         },
         "required": ["id", "title", "description", "draft"]
       },
+      "LoopRunPullRequestRef": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "url": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "base": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["created", "updated"]
+          }
+        },
+        "required": ["number", "url", "branch", "base", "action"]
+      },
       "LoopRun": {
         "type": "object",
         "properties": {
@@ -22153,6 +22577,9 @@
           },
           "sessionID": {
             "type": "string"
+          },
+          "pullRequest": {
+            "$ref": "#/components/schemas/LoopRunPullRequestRef"
           }
         },
         "required": ["id", "loopID", "startedAt", "status", "ok"]
@@ -23048,6 +23475,21 @@
           "askOnExistingSession": {
             "description": "Prompt to continue existing remote session or start a new one",
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TeleportConfig": {
+        "description": "Teleport server defaults for sending sessions to a remote server",
+        "type": "object",
+        "properties": {
+          "url": {
+            "description": "Last used teleport server base URL (e.g. a Railway deploy)",
+            "type": "string"
+          },
+          "token": {
+            "description": "Last used teleport mobile Bearer token",
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -24140,6 +24582,9 @@
           "remote": {
             "$ref": "#/components/schemas/RemoteConfig"
           },
+          "teleport": {
+            "$ref": "#/components/schemas/TeleportConfig"
+          },
           "command": {
             "description": "Command configuration, see https://nikcli.store/docs/commands",
             "type": "object",
@@ -24664,8 +25109,26 @@
                 "maximum": 9007199254740991
               },
               "nativeLlm": {
-                "description": "Enable native @nikcli-ai/llm runtime (AI SDK fallback)",
+                "description": "Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.",
                 "type": "boolean"
+              },
+              "tui": {
+                "type": "object",
+                "properties": {
+                  "cacheEviction": {
+                    "description": "Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.",
+                    "type": "boolean"
+                  }
+                }
+              },
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "latestOnlyLspRefresh": {
+                    "description": "Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.",
+                    "type": "boolean"
+                  }
+                }
               }
             }
           },
@@ -27435,6 +27898,9 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "createPR": {
+            "type": "boolean"
+          },
           "paused": {
             "type": "boolean"
           },
@@ -27584,6 +28050,37 @@
           },
           "ok": {
             "type": "boolean"
+          },
+          "pullRequest": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "base": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "action": {
+                "type": "string",
+                "enum": ["created", "updated"]
+              }
+            },
+            "required": ["number", "url", "branch", "base", "action"]
           }
         },
         "required": ["id", "loopID", "startedAt", "status", "ok"]
@@ -27664,6 +28161,9 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "createPR": {
+            "type": "boolean"
           },
           "paused": {
             "type": "boolean"

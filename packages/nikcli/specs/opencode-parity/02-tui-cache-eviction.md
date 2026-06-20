@@ -37,8 +37,8 @@ an explicit, shared LRU + TTL eviction primitive and apply it to the highest-vol
 
 - `src/cli/cmd/tui/context/sync.tsx`
   - `createStore<{ message: Record<string, Message[]>, part: Record<string, Part[]>,
-    session_diff: Record<string, FileDiff[]>, todo, session_status, session_goal,
-    background_job, monitor, ... }>`.
+session_diff: Record<string, FileDiff[]>, todo, session_status, session_goal,
+background_job, monitor, ... }>`.
   - Per-session entries are written in `session.sync()` and via stream events.
   - Eviction happens **only** in `case "session.deleted"` (`delete draft.message[id]`, etc.) and
     on `bootstrap()` reset.
