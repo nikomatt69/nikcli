@@ -9,14 +9,7 @@ import { Bus } from "@/bus"
 export namespace SessionGoal {
   export const MAX_ITERATIONS = 50
 
-  export const StatusSchema = z.enum([
-    "active",
-    "paused",
-    "blocked",
-    "usage_limited",
-    "budget_limited",
-    "complete",
-  ])
+  export const StatusSchema = z.enum(["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"])
   export type Status = z.infer<typeof StatusSchema>
 
   export const StateSchema = z

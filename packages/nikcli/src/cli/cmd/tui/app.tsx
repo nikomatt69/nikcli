@@ -152,49 +152,49 @@ export function tui(input: {
                       <ToastProvider>
                         <LanguageProvider>
                           <RouteProvider>
-                          <SDKProvider
-                            url={input.url}
-                            directory={input.directory}
-                            fetch={input.fetch}
-                            events={input.events}
-                          >
-                            <SupportSessionProvider>
-                              <ProjectProvider>
-                                <SyncProvider>
-                                  <AnalyticsProvider>
-                                    <TelemetryProvider>
-                                      <ThemeProvider mode={mode}>
-                                        <LocalProvider>
-                                          <KeybindProvider>
-                                            <PromptStashProvider>
-                                              <EditorContextProvider>
-                                                <DialogProvider>
-                                                  <CommandProvider>
-                                                    <FrecencyProvider>
-                                                      <PromptHistoryProvider>
-                                                        <PromptRefProvider>
-                                                          <UpgradeProvider upgradeNow={input.upgradeNow}>
-                                                            <AttentionProvider renderer={renderer}>
-                                                              <App />
-                                                            </AttentionProvider>
-                                                          </UpgradeProvider>
-                                                        </PromptRefProvider>
-                                                      </PromptHistoryProvider>
-                                                    </FrecencyProvider>
-                                                  </CommandProvider>
-                                                </DialogProvider>
-                                              </EditorContextProvider>
-                                            </PromptStashProvider>
-                                          </KeybindProvider>
-                                        </LocalProvider>
-                                      </ThemeProvider>
-                                    </TelemetryProvider>
-                                  </AnalyticsProvider>
-                                </SyncProvider>
-                              </ProjectProvider>
-                            </SupportSessionProvider>
-                          </SDKProvider>
-                        </RouteProvider>
+                            <SDKProvider
+                              url={input.url}
+                              directory={input.directory}
+                              fetch={input.fetch}
+                              events={input.events}
+                            >
+                              <SupportSessionProvider>
+                                <ProjectProvider>
+                                  <SyncProvider>
+                                    <AnalyticsProvider>
+                                      <TelemetryProvider>
+                                        <ThemeProvider mode={mode}>
+                                          <LocalProvider>
+                                            <KeybindProvider>
+                                              <PromptStashProvider>
+                                                <EditorContextProvider>
+                                                  <DialogProvider>
+                                                    <CommandProvider>
+                                                      <FrecencyProvider>
+                                                        <PromptHistoryProvider>
+                                                          <PromptRefProvider>
+                                                            <UpgradeProvider upgradeNow={input.upgradeNow}>
+                                                              <AttentionProvider renderer={renderer}>
+                                                                <App />
+                                                              </AttentionProvider>
+                                                            </UpgradeProvider>
+                                                          </PromptRefProvider>
+                                                        </PromptHistoryProvider>
+                                                      </FrecencyProvider>
+                                                    </CommandProvider>
+                                                  </DialogProvider>
+                                                </EditorContextProvider>
+                                              </PromptStashProvider>
+                                            </KeybindProvider>
+                                          </LocalProvider>
+                                        </ThemeProvider>
+                                      </TelemetryProvider>
+                                    </AnalyticsProvider>
+                                  </SyncProvider>
+                                </ProjectProvider>
+                              </SupportSessionProvider>
+                            </SDKProvider>
+                          </RouteProvider>
                         </LanguageProvider>
                       </ToastProvider>
                     </KVProvider>

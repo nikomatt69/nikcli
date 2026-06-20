@@ -1533,7 +1533,10 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
           description="Live output, tool activity, reasoning, and diffs stream into this timeline from the same mobile session route."
           className="xl:min-h-[calc(100vh-18rem)]"
         >
-          <div ref={transcriptRef} className="space-y-4 xl:max-h-[calc(100vh-24rem)] xl:overflow-y-auto no-scrollbar xl:pr-1">
+          <div
+            ref={transcriptRef}
+            className="space-y-4 xl:max-h-[calc(100vh-24rem)] xl:overflow-y-auto no-scrollbar xl:pr-1"
+          >
             {detail.messages.length === 0 ? (
               <EmptyState
                 title="No transcript yet"

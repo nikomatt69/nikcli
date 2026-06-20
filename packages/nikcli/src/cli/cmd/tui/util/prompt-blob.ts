@@ -134,7 +134,10 @@ export function capPromptEntryBytes<T extends PromptPersistShape>(entry: T, maxB
     const part = raw as Record<string, unknown> & { type?: string; text?: unknown }
     if (part.type === "text" && typeof part.text === "string" && part.text.length > TEXT_TRUNCATE_AT) {
       const text = part.text
-      return { ...part, text: `${text.slice(0, TEXT_TRUNCATE_AT)}\n…[truncated ${text.length - TEXT_TRUNCATE_AT} chars]` }
+      return {
+        ...part,
+        text: `${text.slice(0, TEXT_TRUNCATE_AT)}\n…[truncated ${text.length - TEXT_TRUNCATE_AT} chars]`,
+      }
     }
     return raw
   })

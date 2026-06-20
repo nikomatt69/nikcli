@@ -2806,9 +2806,21 @@ export type Config = {
      */
     mcp_timeout?: number
     /**
-     * Enable native @nikcli-ai/llm runtime (AI SDK fallback)
+     * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.
      */
     nativeLlm?: boolean
+    tui?: {
+      /**
+       * Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.
+       */
+      cacheEviction?: boolean
+    }
+    requests?: {
+      /**
+       * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.
+       */
+      latestOnlyLspRefresh?: boolean
+    }
   }
   rag?: RagConfig
   image?: ImageConfig

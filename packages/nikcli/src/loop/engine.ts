@@ -20,21 +20,17 @@
  * published here for live status updates.
  */
 
-import z from "zod";
-import { BusEvent } from "../bus/bus-event";
-import { Bus } from "../bus";
-import { Log } from "../util/log";
-import { Scheduler } from "../scheduler";
-import { Instance } from "../project/instance";
-import { Session } from "../session";
-import { SessionPrompt } from "../session/prompt";
-import {
-  runPromiseWithLayer,
-  withCurrentInstance,
-  withInstanceAsync,
-} from "../effect";
-import { Effect } from "effect";
-import * as Manager from "./manager";
+import z from "zod"
+import { BusEvent } from "../bus/bus-event"
+import { Bus } from "../bus"
+import { Log } from "../util/log"
+import { Scheduler } from "../scheduler"
+import { Instance } from "../project/instance"
+import { Session } from "../session"
+import { SessionPrompt } from "../session/prompt"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
+import { Effect } from "effect"
+import * as Manager from "./manager"
 import {
   DEFAULT_RUN_TIMEOUT_MS,
   LOOP_RUN_LEASE_MS,
@@ -46,10 +42,10 @@ import {
   type LoopPullRequestRef,
   type LoopRun,
   type LoopRunStatus,
-} from "./schema";
-import * as PR from "./pr";
+} from "./schema"
+import * as PR from "./pr"
 
-const log = Log.create({ service: "loop.engine" });
+const log = Log.create({ service: "loop.engine" })
 
 // ── Bus events ────────────────────────────────────────────────────────────────
 
@@ -101,43 +97,38 @@ export const LoopEvent = {
       reason: z.string(),
     }),
   ),
-};
+}
 
 // ── Live runtime state ────────────────────────────────────────────────────────
 
-export type RuntimeStatus =
-  | "idle"
-  | "running"
-  | "paused"
-  | "error"
-  | "cancelling";
+export type RuntimeStatus = "idle" | "running" | "paused" | "error" | "cancelling"
 
 export type Runtime = {
-  status: RuntimeStatus;
-  runs: number;
-  lastRunAt?: number;
-  lastError?: string;
-  sessionID?: string;
-};
+  status: RuntimeStatus
+  runs: number
+  lastRunAt?: number
+  lastError?: string
+  sessionID?: string
+}
 
-const EMPTY: Runtime = { status: "idle", runs: 0 };
+const EMPTY: Runtime = { status: "idle", runs: 0 }
 
 type EngineState = {
-  live: Map<string, Runtime>;
-  inFlight: Map<string, InFlightRun>;
-};
+  live: Map<string, Runtime>
+  inFlight: Map<string, InFlightRun>
+}
 
 type InFlightRun = {
-  promise: Promise<void>;
-  controller: AbortController;
-  runID?: string;
-  sessionID?: string;
-};
+  promise: Promise<void>
+  controller: AbortController
+  runID?: string
+  sessionID?: string
+}
 
 const createEngineState = (): EngineState => ({
   live: new Map(),
   inFlight: new Map(),
-});
+})
 
 /**
  * Per-instance state, identical pattern to `Scheduler` (`src/scheduler/index.ts`).
@@ -147,62 +138,51 @@ const createEngineState = (): EngineState => ({
 const state = Instance.state(
   () => createEngineState(),
   async (entry) => {
-    for (const slot of entry.inFlight.values()) slot.controller.abort();
-    entry.inFlight.clear();
-    entry.live.clear();
+    for (const slot of entry.inFlight.values()) slot.controller.abort()
+    entry.inFlight.clear()
+    entry.live.clear()
   },
-);
+)
 
 /** Resolve the engine state for the *current* instance. */
 function instanceState(): EngineState {
-  return state();
+  return state()
 }
 
 export function runtimeOf(id: string): Runtime {
-  return instanceState().live.get(id) ?? EMPTY;
+  return instanceState().live.get(id) ?? EMPTY
 }
 
 function patch(id: string, next: (prev: Runtime) => Runtime): void {
-  const { live } = instanceState();
-  const prev = live.get(id) ?? EMPTY;
-  const value = next(prev);
-  if (value === prev) return;
-  if (
-    value.status === "idle" &&
-    value.runs === 0 &&
-    !value.lastRunAt &&
-    !value.lastError &&
-    !value.sessionID
-  ) {
-    live.delete(id);
+  const { live } = instanceState()
+  const prev = live.get(id) ?? EMPTY
+  const value = next(prev)
+  if (value === prev) return
+  if (value.status === "idle" && value.runs === 0 && !value.lastRunAt && !value.lastError && !value.sessionID) {
+    live.delete(id)
   } else {
-    live.set(id, value);
+    live.set(id, value)
   }
-  void Bus.publish(LoopEvent.RuntimeChanged, { loopID: id });
+  void Bus.publish(LoopEvent.RuntimeChanged, { loopID: id })
 }
 
 function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) return error.message
   if (typeof error === "object" && error !== null) {
-    const msg = (error as { message?: unknown }).message;
-    if (typeof msg === "string") return msg;
+    const msg = (error as { message?: unknown }).message
+    if (typeof msg === "string") return msg
   }
-  return String(error);
+  return String(error)
 }
 
 // ── Session helpers ───────────────────────────────────────────────────────────
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect));
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
-function runSessionPrompt<A, E>(
-  effect: Effect.Effect<A, E, SessionPrompt.Service>,
-) {
-  return runPromiseWithLayer(
-    SessionPrompt.defaultLayer,
-    withCurrentInstance(effect),
-  );
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
 
 // ── One iteration of a loop ──────────────────────────────────────────────────
@@ -214,72 +194,67 @@ async function executeStage(
   signal: AbortSignal,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const args = stage.tokenBudget
-      ? `${stage.objective} --token-budget ${stage.tokenBudget}`
-      : stage.objective;
+    const args = stage.tokenBudget ? `${stage.objective} --token-budget ${stage.tokenBudget}` : stage.objective
     const input: SessionPrompt.CommandInput = {
       sessionID,
       command: "goal",
       arguments: args,
       agent: stage.agent,
       ...(stage.model ? { model: stage.model } : {}),
-    };
+    }
     await runSessionPrompt(
       Effect.gen(function* () {
-        const prompt = yield* SessionPrompt.Service;
-        return yield* prompt.command(input);
+        const prompt = yield* SessionPrompt.Service
+        return yield* prompt.command(input)
       }),
-    );
+    )
     if (signal.aborted) {
-      return { ok: false, error: "aborted" };
+      return { ok: false, error: "aborted" }
     }
-    return { ok: true };
+    return { ok: true }
   } catch (error) {
-    return { ok: false, error: describeError(error) };
+    return { ok: false, error: describeError(error) }
   }
 }
 
 async function ensureSession(title: string): Promise<string> {
   const created = await runSession(
     Effect.gen(function* () {
-      const service = yield* Session.Service;
-      return yield* service.create({ title });
+      const service = yield* Session.Service
+      return yield* service.create({ title })
     }),
-  );
-  return created.id;
+  )
+  return created.id
 }
 
 /** Create or reuse a session for this loop's run. */
-async function ensureLoopSession(
-  def: LoopDefinition,
-  reuse?: string,
-): Promise<string> {
+async function ensureLoopSession(def: LoopDefinition, reuse?: string): Promise<string> {
   if (reuse) {
     // Best-effort reuse; if the session was disposed in the meantime we create a new one.
-    let existing: Session.Info | undefined;
+    let existing: Session.Info | undefined
     try {
       existing = await runSession(
         Effect.gen(function* () {
-          const service = yield* Session.Service;
-          return yield* service.getAnyProject(reuse);
+          const service = yield* Session.Service
+          return yield* service.getAnyProject(reuse)
         }),
-      );
+      )
     } catch {
-      existing = undefined;
+      existing = undefined
     }
-    if (existing && existing.id === reuse) return reuse;
+    if (existing && existing.id === reuse) return reuse
   }
-  return ensureSession(`loop: ${def.name}`);
+  return ensureSession(`loop: ${def.name}`)
 }
 
 /** Cancel the SessionPrompt driving a session. Throws if the prompt layer fails. */
 async function promptCancel(sessionID: string): Promise<void> {
   await runSessionPrompt(
     Effect.gen(function* () {
-      const prompt = yield* SessionPrompt.Service;
-      yield* prompt.cancel(sessionID);
+      const prompt = yield* SessionPrompt.Service
+      yield* prompt.cancel(sessionID)
     }),
-  );
+  )
 }
 
 /**
@@ -289,46 +264,36 @@ async function promptCancel(sessionID: string): Promise<void> {
  * below covers the window before that listener exists. The session itself is
  * left intact so the user can still inspect the work that was done.
  */
-async function cancelInFlightRun(
-  loopID: string,
-  runID: string | undefined,
-  sessionID?: string,
-): Promise<void> {
-  const slot = instanceState().inFlight.get(loopID);
-  slot?.controller.abort();
+async function cancelInFlightRun(loopID: string, runID: string | undefined, sessionID?: string): Promise<void> {
+  const slot = instanceState().inFlight.get(loopID)
+  slot?.controller.abort()
   if (sessionID) {
     try {
-      await promptCancel(sessionID);
+      await promptCancel(sessionID)
     } catch (error) {
       log.warn("session cancel failed", {
         loopID,
         runID,
         error: describeError(error),
-      });
+      })
     }
   }
 }
 
 /** Test-only seam: lets tests stub stage execution without a SessionPrompt layer. */
-let stageExecutorOverride: typeof executeStage | undefined;
+let stageExecutorOverride: typeof executeStage | undefined
 export function _internalSetStageExecutor(fn?: typeof executeStage): void {
-  stageExecutorOverride = fn;
+  stageExecutorOverride = fn
 }
 
 /** Test-only seam: lets tests stub the auto-PR hook without invoking `gh`. */
 let prHookOverride:
-  | ((input: {
-      def: LoopDefinition;
-      run: LoopRun;
-    }) => Promise<LoopPullRequestRef | undefined>)
-  | undefined;
+  | ((input: { def: LoopDefinition; run: LoopRun }) => Promise<LoopPullRequestRef | undefined>)
+  | undefined
 export function _internalSetPullRequestHook(
-  fn?: (input: {
-    def: LoopDefinition;
-    run: LoopRun;
-  }) => Promise<LoopPullRequestRef | undefined>,
+  fn?: (input: { def: LoopDefinition; run: LoopRun }) => Promise<LoopPullRequestRef | undefined>,
 ): void {
-  prHookOverride = fn;
+  prHookOverride = fn
 }
 
 /** Run all stages of a loop sequentially in one session. */
@@ -338,29 +303,29 @@ async function executeRun(
   signal: AbortSignal,
   onSessionID?: (sessionID: string) => void,
 ): Promise<{
-  ok: boolean;
-  firstError?: string;
-  sessionID: string;
+  ok: boolean
+  firstError?: string
+  sessionID: string
 }> {
   patch(def.id, (prev) => ({
     ...prev,
     status: "running",
     lastError: undefined,
-  }));
-  const sessionID = await ensureLoopSession(def, run.sessionID);
-  onSessionID?.(sessionID);
-  patch(def.id, (prev) => ({ ...prev, sessionID }));
+  }))
+  const sessionID = await ensureLoopSession(def, run.sessionID)
+  onSessionID?.(sessionID)
+  patch(def.id, (prev) => ({ ...prev, sessionID }))
 
-  await Manager.attachRunSession(def.id, run.id, sessionID);
+  await Manager.attachRunSession(def.id, run.id, sessionID)
   void Bus.publish(LoopEvent.RunStarted, {
     loopID: def.id,
     runID: run.id,
     sessionID,
-  });
+  })
 
-  let firstError: string | undefined;
+  let firstError: string | undefined
   if (signal.aborted) {
-    firstError = "aborted before stages ran";
+    firstError = "aborted before stages ran"
   } else {
     // `prompt.command` has no abort-signal input; the only cancellation
     // primitive is `prompt.cancel(sessionID)`. Bridge the run's signal to it
@@ -372,55 +337,44 @@ async function executeRun(
           sessionID,
           error: describeError(error),
         }),
-      );
-    };
-    signal.addEventListener("abort", onAbort, { once: true });
+      )
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
     try {
       for (const stage of def.stages) {
         if (signal.aborted) {
-          firstError = "aborted";
-          break;
+          firstError = "aborted"
+          break
         }
-        const result = await (stageExecutorOverride ?? executeStage)(
-          def,
-          stage,
-          sessionID,
-          signal,
-        );
+        const result = await (stageExecutorOverride ?? executeStage)(def, stage, sessionID, signal)
         if (!result.ok) {
-          firstError = result.error ?? `Stage "${stage.name}" failed`;
-          break;
+          firstError = result.error ?? `Stage "${stage.name}" failed`
+          break
         }
       }
     } finally {
-      signal.removeEventListener("abort", onAbort);
+      signal.removeEventListener("abort", onAbort)
     }
   }
 
-  const endedAt = Date.now();
-  const timedOut = signal.aborted && signal.reason === "timeout";
-  if (timedOut) firstError = "Run timed out";
-  const ok = firstError === undefined && !signal.aborted;
-  const finalStatus: LoopRunStatus = timedOut
-    ? "timeout"
-    : signal.aborted
-      ? "cancelled"
-      : ok
-        ? "complete"
-        : "error";
+  const endedAt = Date.now()
+  const timedOut = signal.aborted && signal.reason === "timeout"
+  if (timedOut) firstError = "Run timed out"
+  const ok = firstError === undefined && !signal.aborted
+  const finalStatus: LoopRunStatus = timedOut ? "timeout" : signal.aborted ? "cancelled" : ok ? "complete" : "error"
   await Manager.finishRun(def.id, run.id, {
     status: finalStatus,
     ok,
     endedAt,
     ...(firstError !== undefined ? { error: firstError } : {}),
-  });
+  })
 
   // Best-effort auto-PR: when the run completed cleanly and the definition
   // opted in, push the worktree to a stable loop branch and create/update a
   // GitHub PR. The function never throws, so a missing git/gh/auth or a
   // pre-existing failing push just leaves the run at `status: "complete"`
   // without a `pullRequest` field on the record.
-  let pullRequest: LoopPullRequestRef | undefined;
+  let pullRequest: LoopPullRequestRef | undefined
   if (ok && def.createPR) {
     const completedRun: LoopRun = {
       ...run,
@@ -428,19 +382,19 @@ async function executeRun(
       ok,
       endedAt,
       sessionID,
-    };
+    }
     try {
-      const hook = prHookOverride ?? PR.createLoopPullRequest;
-      pullRequest = await hook({ def, run: completedRun });
+      const hook = prHookOverride ?? PR.createLoopPullRequest
+      pullRequest = await hook({ def, run: completedRun })
     } catch (error) {
       log.warn("auto PR hook threw", {
         loopID: def.id,
         runID: run.id,
         error: describeError(error),
-      });
+      })
     }
     if (pullRequest) {
-      await Manager.attachRunPullRequest(def.id, run.id, pullRequest);
+      await Manager.attachRunPullRequest(def.id, run.id, pullRequest)
     }
   }
 
@@ -451,7 +405,7 @@ async function executeRun(
     status: finalStatus,
     ok,
     ...(firstError !== undefined ? { error: firstError } : {}),
-  });
+  })
 
   if (ok) {
     patch(def.id, (prev) => ({
@@ -459,13 +413,13 @@ async function executeRun(
       status: "idle",
       runs: prev.runs + 1,
       lastRunAt: endedAt,
-    }));
+    }))
   } else if (finalStatus === "cancelled") {
     patch(def.id, (prev) => ({
       ...prev,
       status: "idle",
       lastError: firstError,
-    }));
+    }))
   } else {
     // "error" and "timeout" both surface as an error runtime. Keep the
     // session on timeout so the user can inspect the partial work.
@@ -474,9 +428,9 @@ async function executeRun(
       status: "error",
       lastError: firstError,
       ...(timedOut ? {} : { sessionID: undefined }),
-    }));
+    }))
   }
-  return { ok, firstError, sessionID };
+  return { ok, firstError, sessionID }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -492,20 +446,20 @@ async function executeRun(
  * placeholder with a real promise; the second call returns the same promise.
  */
 export async function runOnce(id: string): Promise<void> {
-  const { inFlight } = instanceState();
+  const { inFlight } = instanceState()
   // ── Synchronous claim ──────────────────────────────────────────────────────
-  const existing = inFlight.get(id);
+  const existing = inFlight.get(id)
   if (existing) {
-    return;
+    return
   }
-  const ctrl = new AbortController();
+  const ctrl = new AbortController()
   const slot: InFlightRun = {
     controller: ctrl,
     promise: Promise.resolve(),
-  };
-  inFlight.set(id, slot);
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  }
+  inFlight.set(id, slot)
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  let heartbeat: ReturnType<typeof setInterval> | undefined
 
   try {
     // ── Capacity check (synchronous, right after the claim) ──────────────────
@@ -515,41 +469,41 @@ export async function runOnce(id: string): Promise<void> {
     // the strict `>`. Slots claimed by runs that bail on the guards below
     // inflate the count for a few ms; that's acceptable.
     if (inFlight.size > MAX_CONCURRENT_RUNS) {
-      log.info("max concurrent runs reached; skipping", { id });
-      void Bus.publish(LoopEvent.Aborted, { loopID: id, reason: "capacity" });
-      return;
+      log.info("max concurrent runs reached; skipping", { id })
+      void Bus.publish(LoopEvent.Aborted, { loopID: id, reason: "capacity" })
+      return
     }
-    const def = await Manager.get(id);
+    const def = await Manager.get(id)
     if (!def) {
-      log.warn("runOnce called for unknown loop", { id });
-      return;
+      log.warn("runOnce called for unknown loop", { id })
+      return
     }
-    if (!def.enabled) return;
-    if (def.paused || runtimeOf(id).status === "paused") return;
+    if (!def.enabled) return
+    if (def.paused || runtimeOf(id).status === "paused") return
 
     // Enforce maxRuns before kicking off a new run.
     if (def.maxRuns !== undefined) {
-      const runs = await Manager.countRuns(id);
+      const runs = await Manager.countRuns(id)
       if (runs >= def.maxRuns) {
         log.info("loop reached maxRuns; disarming", {
           id,
           maxRuns: def.maxRuns,
-        });
-        patch(id, (prev) => ({ ...prev, status: "idle" }));
-        Scheduler.unregister(schedulerID(id));
-        void Manager.setEnabled(id, false).catch(() => {});
-        return;
+        })
+        patch(id, (prev) => ({ ...prev, status: "idle" }))
+        Scheduler.unregister(schedulerID(id))
+        void Manager.setEnabled(id, false).catch(() => {})
+        return
       }
     }
 
-    const latest = await Manager.get(id);
+    const latest = await Manager.get(id)
     if (!latest) {
-      log.warn("loop removed before run could start", { id });
-      return;
+      log.warn("loop removed before run could start", { id })
+      return
     }
 
-    const run = await Manager.startRun(id);
-    slot.runID = run.id;
+    const run = await Manager.startRun(id)
+    slot.runID = run.id
 
     // Cap the run's wall-clock time so a hung stage can never hold the
     // single-flight slot forever. The "timeout" reason lets executeRun
@@ -557,51 +511,48 @@ export async function runOnce(id: string): Promise<void> {
     const timeoutMs = Math.min(
       Math.max(def.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS, MIN_RUN_TIMEOUT_MS),
       MAX_RUN_TIMEOUT_MS,
-    );
-    timeout = setTimeout(() => ctrl.abort("timeout"), timeoutMs);
+    )
+    timeout = setTimeout(() => ctrl.abort("timeout"), timeoutMs)
     // Renew the run's lease while we drive it, so restore() in another
     // process doesn't orphan a legitimately running run.
-    heartbeat = setInterval(
-      () => void Manager.touchRun(id, run.id),
-      Math.floor(LOOP_RUN_LEASE_MS / 3),
-    );
+    heartbeat = setInterval(() => void Manager.touchRun(id, run.id), Math.floor(LOOP_RUN_LEASE_MS / 3))
 
     // Swap the placeholder for the real promise so subsequent calls await it.
     const real = (async () => {
       try {
         await executeRun(def, run, ctrl.signal, (sessionID) => {
-          slot.sessionID = sessionID;
-        });
+          slot.sessionID = sessionID
+        })
       } catch (error) {
-        const message = describeError(error);
-        log.error("run failed", { id, error: message });
+        const message = describeError(error)
+        log.error("run failed", { id, error: message })
         await Manager.finishRun(id, run.id, {
           status: "error",
           ok: false,
           endedAt: Date.now(),
           error: message,
-        });
+        })
         patch(id, (prev) => ({
           ...prev,
           status: "error",
           lastError: message,
           sessionID: undefined,
-        }));
+        }))
         void Bus.publish(LoopEvent.RunFinished, {
           loopID: id,
           runID: run.id,
           status: "error",
           ok: false,
           error: message,
-        });
+        })
       }
-    })();
-    slot.promise = real;
-    await real;
+    })()
+    slot.promise = real
+    await real
   } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
-    if (heartbeat !== undefined) clearInterval(heartbeat);
-    inFlight.delete(id);
+    if (timeout !== undefined) clearTimeout(timeout)
+    if (heartbeat !== undefined) clearInterval(heartbeat)
+    inFlight.delete(id)
   }
 }
 
@@ -613,49 +564,49 @@ export async function runOnce(id: string): Promise<void> {
  * `LoopRun` is written for a loop the user just deleted.
  */
 export function abort(id: string): Promise<void> | undefined {
-  return instanceState().inFlight.get(id)?.promise;
+  return instanceState().inFlight.get(id)?.promise
 }
 
 /** Cancel + finalize any in-flight run for a loop. Used by the DELETE route. */
 export async function cancelRun(id: string): Promise<void> {
-  const slot = instanceState().inFlight.get(id);
-  if (!slot) return;
-  const runID = slot.runID;
-  const sessionID = slot.sessionID ?? runtimeOf(id).sessionID;
-  patch(id, (prev) => ({ ...prev, status: "cancelling" }));
-  await cancelInFlightRun(id, runID, sessionID);
+  const slot = instanceState().inFlight.get(id)
+  if (!slot) return
+  const runID = slot.runID
+  const sessionID = slot.sessionID ?? runtimeOf(id).sessionID
+  patch(id, (prev) => ({ ...prev, status: "cancelling" }))
+  await cancelInFlightRun(id, runID, sessionID)
   if (runID) {
     await Manager.finishRun(id, runID, {
       status: "cancelled",
       ok: false,
       endedAt: Date.now(),
       error: "Cancelled by user",
-    });
+    })
   }
   void Bus.publish(LoopEvent.Aborted, {
     loopID: id,
     ...(runID ? { runID } : {}),
     reason: "user-cancel",
-  });
+  })
   // Wait for the in-flight promise to settle.
   try {
-    await slot.promise;
+    await slot.promise
   } catch {
     // best-effort
   }
-  patch(id, (prev) => ({ ...prev, status: "idle" }));
+  patch(id, (prev) => ({ ...prev, status: "idle" }))
 }
 
 // ── Scheduler arming ─────────────────────────────────────────────────────────
 
 function schedulerID(id: string): string {
-  return `loop:${id}`;
+  return `loop:${id}`
 }
 
 /** Register (or re-register) the interval trigger for one loop. */
 export function arm(def: LoopDefinition): void {
-  Scheduler.unregister(schedulerID(def.id));
-  if (!def.enabled || def.paused || def.trigger.kind !== "interval") return;
+  Scheduler.unregister(schedulerID(def.id))
+  if (!def.enabled || def.paused || def.trigger.kind !== "interval") return
   Scheduler.register({
     id: schedulerID(def.id),
     interval: def.trigger.everyMs,
@@ -664,17 +615,15 @@ export function arm(def: LoopDefinition): void {
     run: async () => {
       // Re-establish the current instance context so Session/SessionPrompt resolve
       // against the right directory (Scheduler is per-instance).
-      await withInstanceAsync({ directory: Instance.directory }, () =>
-        runOnce(def.id),
-      );
+      await withInstanceAsync({ directory: Instance.directory }, () => runOnce(def.id))
     },
-  });
-  log.info("armed", { id: def.id, everyMs: def.trigger.everyMs });
+  })
+  log.info("armed", { id: def.id, everyMs: def.trigger.everyMs })
 }
 
 /** Cancel a loop's interval trigger. */
 export function disarm(id: string): void {
-  Scheduler.unregister(schedulerID(id));
+  Scheduler.unregister(schedulerID(id))
 }
 
 /**
@@ -683,24 +632,24 @@ export function disarm(id: string): void {
  * `"running"` runs (process died mid-run). Call from `InstanceBootstrap`.
  */
 export async function restore(): Promise<void> {
-  const defs = await Manager.list();
+  const defs = await Manager.list()
   for (const def of defs) {
-    arm(def);
-    const status: RuntimeStatus = def.paused ? "paused" : "idle";
+    arm(def)
+    const status: RuntimeStatus = def.paused ? "paused" : "idle"
     // Rehydrate runtime state from the latest run (if any).
-    const recent = await Manager.listRuns(def.id, 1);
+    const recent = await Manager.listRuns(def.id, 1)
     if (recent.length > 0) {
-      const last = recent[0];
+      const last = recent[0]
       const rehydrated: Runtime = {
         status,
         runs: await Manager.countRuns(def.id),
         lastRunAt: last.endedAt ?? last.startedAt,
         ...(last.error ? { lastError: last.error } : {}),
         ...(last.sessionID ? { sessionID: last.sessionID } : {}),
-      };
-      instanceState().live.set(def.id, rehydrated);
+      }
+      instanceState().live.set(def.id, rehydrated)
     } else if (def.paused) {
-      patch(def.id, (prev) => ({ ...prev, status: "paused" }));
+      patch(def.id, (prev) => ({ ...prev, status: "paused" }))
     }
   }
 
@@ -708,14 +657,13 @@ export async function restore(): Promise<void> {
   // The lease is judged on the heartbeat, not startedAt, so a long run that
   // is still actively driven (heartbeats every LOOP_RUN_LEASE_MS / 3) is
   // never orphaned from under its owner.
-  const stale = await Manager.listRunningRuns();
-  const cutoff = Date.now() - LOOP_RUN_LEASE_MS;
-  const isExpired = (run: LoopRun) =>
-    (run.heartbeatAt ?? run.startedAt) < cutoff;
+  const stale = await Manager.listRunningRuns()
+  const cutoff = Date.now() - LOOP_RUN_LEASE_MS
+  const isExpired = (run: LoopRun) => (run.heartbeatAt ?? run.startedAt) < cutoff
   for (const run of stale) {
     if (isExpired(run)) {
-      log.warn("orphaning stale run", { loopID: run.loopID, runID: run.id });
-      await Manager.orphanRun(run.loopID, run.id);
+      log.warn("orphaning stale run", { loopID: run.loopID, runID: run.id })
+      await Manager.orphanRun(run.loopID, run.id)
       void Bus.publish(LoopEvent.RunFinished, {
         loopID: run.loopID,
         runID: run.id,
@@ -723,17 +671,15 @@ export async function restore(): Promise<void> {
         status: "orphaned",
         ok: false,
         error: "Process exited before the run finished",
-      });
+      })
     }
   }
 
   log.info("restored loops", {
     count: defs.length,
-    armed: defs.filter(
-      (d) => d.enabled && !d.paused && d.trigger.kind === "interval",
-    ).length,
+    armed: defs.filter((d) => d.enabled && !d.paused && d.trigger.kind === "interval").length,
     orphaned: stale.filter(isExpired).length,
-  });
+  })
 }
 
 /**
@@ -741,50 +687,48 @@ export async function restore(): Promise<void> {
  * than `restore()` for write paths.
  */
 export async function sync(id: string): Promise<void> {
-  const def = await Manager.get(id);
-  if (def) arm(def);
-  else disarm(id);
+  const def = await Manager.get(id)
+  if (def) arm(def)
+  else disarm(id)
 }
 
 /** Drop all timers + per-instance state. (Instance disposal hook.) */
 export function dispose(): void {
-  const { inFlight, live } = instanceState();
-  for (const slot of inFlight.values()) slot.controller.abort();
-  inFlight.clear();
-  live.clear();
+  const { inFlight, live } = instanceState()
+  for (const slot of inFlight.values()) slot.controller.abort()
+  inFlight.clear()
+  live.clear()
 }
 
 // ── Reactive read-only accessors (for routes + TUI) ─────────────────────────
 
 export function getRuntime(id: string): Runtime {
-  return runtimeOf(id);
+  return runtimeOf(id)
 }
 
 export function listRuntimes(): Array<{ loopID: string; runtime: Runtime }> {
-  return Array.from(instanceState().live.entries()).map(
-    ([loopID, runtime]) => ({ loopID, runtime }),
-  );
+  return Array.from(instanceState().live.entries()).map(([loopID, runtime]) => ({ loopID, runtime }))
 }
 
 /** Reset the run counter (persisted + in-memory) for a loop. Used after manual run cap edits. */
 export async function resetRunCount(id: string): Promise<void> {
-  await Manager.resetRunCounter(id);
-  patch(id, (prev) => ({ ...prev, runs: 0 }));
+  await Manager.resetRunCounter(id)
+  patch(id, (prev) => ({ ...prev, runs: 0 }))
 }
 
 /** Public mutator for the runtime status. Used by pause/resume routes. */
 export function setRuntimeStatus(id: string, status: RuntimeStatus): void {
-  patch(id, (prev) => ({ ...prev, status }));
+  patch(id, (prev) => ({ ...prev, status }))
 }
 
 /** Test/debug helper: snapshot the engine state for assertions. */
 export function _internalSnapshot(): {
-  live: Array<[string, Runtime]>;
-  inFlight: string[];
+  live: Array<[string, Runtime]>
+  inFlight: string[]
 } {
-  const { live, inFlight } = instanceState();
+  const { live, inFlight } = instanceState()
   return {
     live: Array.from(live.entries()),
     inFlight: Array.from(inFlight.keys()),
-  };
+  }
 }

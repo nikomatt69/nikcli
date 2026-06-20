@@ -132,11 +132,7 @@ function UsersManagementPageInner() {
 
   if (currentUser?.role !== "admin") {
     return (
-      <EmptyState
-        icon={emptyIcons.lock}
-        title="Admin only"
-        description="You need admin privileges to manage users."
-      />
+      <EmptyState icon={emptyIcons.lock} title="Admin only" description="You need admin privileges to manage users." />
     )
   }
 
@@ -199,10 +195,7 @@ function UsersManagementPageInner() {
       ) : (
         <div className="space-y-3">
           {users.map((u) => (
-            <Card
-              key={u.id}
-              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-            >
+            <Card key={u.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-terminal-accent/20 bg-terminal-accent/15 text-sm font-semibold text-terminal-accent">
                   {(u.displayName || u.display_name || u.username)[0].toUpperCase()}
