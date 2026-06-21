@@ -43,6 +43,85 @@ function briefSummary(def: Store.MissionDefinition): string {
   return def.brief.length <= 80 ? def.brief : `${def.brief.slice(0, 79)}…`
 }
 
+// ── Model & agent pickers (mirrors feature-plugins/loops/dialogs.tsx) ──────────
+
+/** Resolve a "providerID/modelID" reference to a friendly label, or "default model". */
+function modelLabel(api: TuiPluginApi, model?: string): string {
+  if (!model) return "default model"
+  const slash = model.indexOf("/")
+  if (slash <= 0) return model
+  const providerID = model.slice(0, slash)
+  const modelID = model.slice(slash + 1)
+  const provider = api.state.provider.find((p) => p.id === providerID)
+  return provider?.models[modelID]?.name ?? modelID
+}
+
+/** Model picker built from the providers; `onPick` gets "providerID/modelID" or undefined. */
+function pickModel(
+  api: TuiPluginApi,
+  title: string,
+  current: string | undefined,
+  onPick: (model: string | undefined) => void,
+): void {
+  const options: DialogSelectOption<string>[] = [
+    {
+      value: "__default__",
+      title: "Use default model",
+      description: "Inherit the mission/session default model",
+      category: "Action",
+    },
+  ]
+  for (const provider of api.state.provider) {
+    for (const [modelID, info] of Object.entries(provider.models)) {
+      if (info.status === "deprecated") continue
+      const value = `${provider.id}/${modelID}`
+      options.push({
+        value,
+        title: info.name ?? modelID,
+        description: value === current ? "(current)" : undefined,
+        category: provider.name,
+      })
+    }
+  }
+  api.ui.dialog.replace(() => (
+    <DialogSelect<string>
+      title={title}
+      placeholder="Search models…"
+      current={current ?? "__default__"}
+      options={options}
+      onSelect={(opt) => onPick(opt.value === "__default__" ? undefined : opt.value)}
+    />
+  ))
+}
+
+/** Agent picker fetched from the server; `onPick` gets the chosen agent name. */
+function pickAgent(api: TuiPluginApi, current: string | undefined, onPick: (agent: string) => void): void {
+  api.client.app
+    .agents({})
+    .then((res) => {
+      const list = (res.data ?? []).filter((a) => a.mode !== "subagent" && !a.hidden)
+      const options: DialogSelectOption<string>[] =
+        list.length === 0
+          ? [{ value: "ralph", title: "ralph", category: "Agent" }]
+          : list.map((a) => ({
+              value: a.name,
+              title: a.name,
+              description: a.name === current ? "(current)" : a.description,
+              category: "Agents",
+            }))
+      api.ui.dialog.replace(() => (
+        <DialogSelect<string>
+          title="Select agent"
+          placeholder="Search agents…"
+          current={current}
+          options={options}
+          onSelect={(opt) => onPick(opt.value)}
+        />
+      ))
+    })
+    .catch(() => onPick(current ?? "ralph"))
+}
+
 function footer(api: TuiPluginApi, def: Store.MissionDefinition) {
   const rt = Runner.runtimeOf(def.id)
   const info = Runner.statusInfo(def, rt)
@@ -268,7 +347,7 @@ function confirmAndSave(api: TuiPluginApi, def: MissionDefinition): void {
   ))
 }
 
-type Action = "start" | "pause" | "resume" | "cancel" | "view" | "history" | "delete" | "back"
+type Action = "start" | "pause" | "resume" | "cancel" | "view" | "models" | "history" | "delete" | "back"
 
 function openActions(api: TuiPluginApi, def: Store.MissionDefinition): void {
   const rt = Runner.runtimeOf(def.id)
@@ -307,6 +386,11 @@ function openActions(api: TuiPluginApi, def: Store.MissionDefinition): void {
       title: "View plan",
       value: "view",
       description: `${def.milestones.length} milestone(s) · ${def.milestones.reduce((n, m) => n + m.features.length, 0)} feature(s)`,
+    },
+    {
+      title: "Edit models",
+      value: "models",
+      description: `worker ${modelLabel(api, def.models.worker)} · validation ${modelLabel(api, def.models.validation)}`,
     },
     {
       title: "History",
@@ -361,6 +445,9 @@ function openActions(api: TuiPluginApi, def: Store.MissionDefinition): void {
           case "view":
             openView(api, def)
             break
+          case "models":
+            openModels(api, def)
+            break
           case "history":
             openHistory(api, def)
             break
@@ -371,6 +458,56 @@ function openActions(api: TuiPluginApi, def: Store.MissionDefinition): void {
             openManager(api)
             break
         }
+      }}
+    />
+  ))
+}
+
+/** Edit the three role models a mission orchestrator uses. */
+function openModels(api: TuiPluginApi, def: Store.MissionDefinition): void {
+  type Role = "worker" | "validation" | "orchestrator" | "back"
+  const options: DialogSelectOption<Role>[] = [
+    {
+      title: "Worker model",
+      value: "worker",
+      description: modelLabel(api, def.models.worker),
+      category: "Roles",
+    },
+    {
+      title: "Validation model",
+      value: "validation",
+      description: modelLabel(api, def.models.validation),
+      category: "Roles",
+    },
+    {
+      title: "Orchestrator model",
+      value: "orchestrator",
+      description: modelLabel(api, def.models.orchestrator),
+      category: "Roles",
+    },
+    { title: "← Back", value: "back", description: "Return to the action menu", category: "Actions" },
+  ]
+  const persistModels = (role: Exclude<Role, "back">, model: string | undefined) => {
+    const models: Store.MissionModels = { ...def.models }
+    if (model) models[role] = model
+    else delete models[role]
+    const next = { ...def, models }
+    void Runner.persist(api, next).then((saved) => {
+      api.ui.toast({ variant: "success", message: `${role} model updated` })
+      openModels(api, saved ?? next)
+    })
+  }
+  api.ui.dialog.replace(() => (
+    <DialogSelect<Role>
+      title={`${def.name} — models`}
+      options={options}
+      onSelect={(opt) => {
+        if (opt.value === "back") {
+          openActions(api, def)
+          return
+        }
+        const role = opt.value
+        pickModel(api, `Select ${role} model`, def.models[role], (model) => persistModels(role, model))
       }}
     />
   ))
@@ -447,7 +584,33 @@ function featureIcon(status: MissionFeature["status"]): string {
   }
 }
 
-type FeatureAction = "mark-done" | "skip" | "reset" | "retry" | "back"
+type FeatureAction =
+  | "edit-objective"
+  | "edit-agent"
+  | "edit-model"
+  | "edit-budget"
+  | "mark-done"
+  | "skip"
+  | "reset"
+  | "retry"
+  | "back"
+
+/** Replace a feature in the definition and persist the whole mission. */
+function persistFeaturePatch(
+  api: TuiPluginApi,
+  def: Store.MissionDefinition,
+  featureID: string,
+  patch: Partial<MissionFeature>,
+): Promise<Store.MissionDefinition | undefined> {
+  const next: Store.MissionDefinition = {
+    ...def,
+    milestones: def.milestones.map((m) => ({
+      ...m,
+      features: m.features.map((f) => (f.id === featureID ? { ...f, ...patch } : f)),
+    })),
+  }
+  return Runner.persist(api, next).then((saved) => saved ?? next)
+}
 
 function openFeatureActions(
   api: TuiPluginApi,
@@ -455,7 +618,32 @@ function openFeatureActions(
   milestoneID: string,
   feature: MissionFeature,
 ): void {
-  const options: DialogSelectOption<FeatureAction>[] = []
+  const options: DialogSelectOption<FeatureAction>[] = [
+    {
+      title: "Edit objective",
+      value: "edit-objective",
+      description: feature.objective.length <= 60 ? feature.objective : `${feature.objective.slice(0, 59)}…`,
+      category: "Edit",
+    },
+    {
+      title: "Edit agent",
+      value: "edit-agent",
+      description: `@${feature.agent}`,
+      category: "Edit",
+    },
+    {
+      title: "Edit model",
+      value: "edit-model",
+      description: modelLabel(api, feature.model),
+      category: "Edit",
+    },
+    {
+      title: "Edit token budget",
+      value: "edit-budget",
+      description: feature.tokenBudget ? `${feature.tokenBudget} tok` : "none",
+      category: "Edit",
+    },
+  ]
   if (feature.status === "running" || feature.status === "error" || feature.status === "blocked") {
     options.push({
       title: "Mark done",
@@ -495,6 +683,75 @@ function openFeatureActions(
       options={options}
       onSelect={async (opt) => {
         switch (opt.value) {
+          case "edit-objective": {
+            api.ui.dialog.replace(() => (
+              <DialogPrompt
+                title={`${feature.id} · objective`}
+                placeholder="What should this feature accomplish?"
+                value={feature.objective}
+                onConfirm={(raw) => {
+                  const objective = raw.trim()
+                  if (!objective) {
+                    api.ui.toast({ variant: "error", message: "Objective cannot be empty" })
+                    openFeatureActions(api, def, milestoneID, feature)
+                    return
+                  }
+                  void persistFeaturePatch(api, def, feature.id, { objective }).then((saved) => {
+                    api.ui.toast({ variant: "success", message: "Objective updated" })
+                    openFeatureActions(api, saved ?? def, milestoneID, { ...feature, objective })
+                  })
+                }}
+                onCancel={() => openFeatureActions(api, def, milestoneID, feature)}
+              />
+            ))
+            break
+          }
+          case "edit-agent": {
+            pickAgent(api, feature.agent, (agent) => {
+              void persistFeaturePatch(api, def, feature.id, { agent }).then((saved) => {
+                api.ui.toast({ variant: "success", message: `Agent set to @${agent}` })
+                openFeatureActions(api, saved ?? def, milestoneID, { ...feature, agent })
+              })
+            })
+            break
+          }
+          case "edit-model": {
+            pickModel(api, `${feature.id} · model`, feature.model, (model) => {
+              void persistFeaturePatch(api, def, feature.id, { model }).then((saved) => {
+                api.ui.toast({ variant: "success", message: "Model updated" })
+                openFeatureActions(api, saved ?? def, milestoneID, { ...feature, model })
+              })
+            })
+            break
+          }
+          case "edit-budget": {
+            api.ui.dialog.replace(() => (
+              <DialogPrompt
+                title={`${feature.id} · token budget (optional)`}
+                placeholder="e.g. 200000 — leave empty for none"
+                value={feature.tokenBudget ? String(feature.tokenBudget) : ""}
+                onConfirm={(raw) => {
+                  const text = raw.trim()
+                  let tokenBudget: number | undefined
+                  if (text) {
+                    const parsed = Number(text)
+                    if (!Number.isInteger(parsed) || parsed <= 0) {
+                      api.ui.toast({ variant: "error", message: "Token budget must be a positive integer" })
+                      openFeatureActions(api, def, milestoneID, feature)
+                      return
+                    }
+                    tokenBudget = parsed
+                  }
+                  void persistFeaturePatch(api, def, feature.id, { tokenBudget }).then((saved) => {
+                    api.ui.toast({ variant: "success", message: tokenBudget ? "Token budget updated" : "Token budget removed" })
+                    openFeatureActions(api, saved ?? def, milestoneID, { ...feature, tokenBudget })
+                  })
+                }}
+                onCancel={() => openFeatureActions(api, def, milestoneID, feature)}
+              />
+            ))
+            break
+          }
           case "mark-done": {
             const next = await Runner.mutateFeature(api, def.id, feature.id, {
               status: "done",

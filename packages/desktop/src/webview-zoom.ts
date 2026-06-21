@@ -6,7 +6,12 @@ import { invoke } from "@tauri-apps/api/core"
 import { type as ostype } from "@tauri-apps/plugin-os"
 import { createSignal } from "solid-js"
 
-const OS_NAME = ostype()
+const TAURI_AVAILABLE = typeof window === "object" && "__TAURI_INTERNALS__" in window
+const OS_NAME = TAURI_AVAILABLE
+  ? ostype()
+  : typeof navigator === "object" && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? "macos"
+    : "linux"
 
 const [webviewZoom, setWebviewZoom] = createSignal(1)
 
@@ -17,9 +22,11 @@ const clamp = (value: number) => Math.min(Math.max(value, MIN_ZOOM_LEVEL), MAX_Z
 
 const applyZoom = (next: number) => {
   setWebviewZoom(next)
-  invoke("plugin:webview|set_webview_zoom", {
-    value: next,
-  })
+  if (TAURI_AVAILABLE) {
+    void invoke("plugin:webview|set_webview_zoom", { value: next })
+    return
+  }
+  document.documentElement.style.zoom = String(next)
 }
 
 window.addEventListener("keydown", (event) => {

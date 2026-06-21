@@ -17,6 +17,7 @@ import { Delegation } from "@/delegation/manager"
 import { Monitor } from "@/monitor/manager"
 import * as LoopEngine from "@/loop/engine"
 import * as MissionOrchestrator from "@/mission/orchestrator"
+import { Routine } from "@/mobile/routine"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
@@ -171,6 +172,11 @@ export async function InstanceBootstrap() {
   // "paused" so the user can inspect/continue it deliberately.
   await MissionOrchestrator.restore().catch((error) => {
     Log.Default.warn("failed to restore missions on startup", { error })
+  })
+  // Re-arm scheduled routine triggers for this instance. Without this, cron
+  // routines silently stop firing after a process restart.
+  await Routine.restoreSchedulers().catch((error) => {
+    Log.Default.warn("failed to restore routines on startup", { error })
   })
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {

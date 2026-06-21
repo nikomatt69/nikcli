@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
 <rect width="512" height="512" fill="#131010"></rect>
-<path d="M320 224V352H192V224H320Z" fill="#5A5858"></path>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="white"></path>
+<path d="M192 224H256V288H192ZM256 224H320V288H256ZM192 288H256V352H192ZM256 288H320V352H256ZM192 352H256V416H192ZM256 352H320V416H256Z" fill="#5A5858"></path>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M128 96H192V160H128ZM192 96H256V160H192ZM256 96H320V160H256ZM128 160H192V224H128ZM320 160H384V224H320ZM128 224H192V288H128ZM320 224H384V288H320ZM128 288H192V352H128ZM320 288H384V352H320ZM128 352H192V416H128ZM320 352H384V416H320Z" fill="white"></path>
 </svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
 @media (prefers-color-scheme: dark) { :root { filter: none; } }
 </style></svg>

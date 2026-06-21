@@ -1535,9 +1535,9 @@ export default function Page() {
   })
 
   return (
-    <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
+    <div data-component="session-shell" class="relative bg-background-base size-full overflow-hidden flex flex-col">
       <SessionHeader />
-      <div class="flex-1 min-h-0 flex flex-col md:flex-row">
+      <div data-slot="session-workspace" class="flex-1 min-h-0 flex flex-col md:flex-row">
         <SessionMobileTabs
           open={!isDesktop() && !!params.id}
           hasReview={hasReview()}
@@ -1549,6 +1549,7 @@ export default function Page() {
 
         {/* Session panel */}
         <div
+          data-slot="session-chat"
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
             "flex-1 pt-2 md:pt-3": true,

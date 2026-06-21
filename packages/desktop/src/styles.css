@@ -1,3 +1,597 @@
+:root {
+  --desktop-tools-width: 292px;
+}
+
+html[data-nikcli-desktop="true"],
+html[data-nikcli-desktop="true"] body,
+html[data-nikcli-desktop="true"] #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--background-base);
+}
+
+html.desktop-shell-resizing,
+html.desktop-shell-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+[data-component="desktop-shell"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--desktop-sidebar-width) minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-base);
+  background: var(--background-base);
+}
+
+#desktop-sidebar-mount {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--background-stronger) 92%, black 8%);
+  border-right: 1px solid var(--border-weak-base);
+}
+
+.desktop-app-host {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--background-base);
+}
+
+.desktop-app-host > :not(.desktop-app-splash):not(#desktop-tools-mount) {
+  width: 100%;
+  height: 100%;
+}
+
+.desktop-app-splash {
+  position: absolute;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  background: var(--background-base);
+  place-items: center;
+  pointer-events: none;
+}
+
+.desktop-app-splash__logo {
+  width: 56px;
+  height: 70px;
+  opacity: 0.1;
+  animation: pulse-splash 1.6s ease-in-out infinite;
+}
+
+.desktop-sidebar-resize {
+  position: absolute;
+  z-index: 90;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--desktop-sidebar-width) - 3px);
+  width: 6px;
+  cursor: col-resize;
+  outline: none;
+}
+
+.desktop-sidebar-resize::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  content: "";
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.desktop-sidebar-resize:hover::after,
+.desktop-sidebar-resize:focus-visible::after,
+.desktop-shell-resizing .desktop-sidebar-resize::after {
+  background: var(--border-focus);
+}
+
+.desktop-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--background-stronger) 96%, white 4%), var(--background-stronger));
+}
+
+.desktop-sidebar__titlebar {
+  display: flex;
+  flex: 0 0 54px;
+  align-items: center;
+  padding: 0 16px 0 108px;
+}
+
+.desktop-sidebar__history {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--icon-disabled);
+}
+
+.desktop-sidebar__primary {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 8px 13px 17px;
+}
+
+.desktop-nav-button,
+.desktop-sidebar__settings {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 38px;
+  gap: 12px;
+  padding: 0 10px;
+  color: var(--text-base);
+  font-size: 14px;
+  font-weight: 450;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  transition: color 100ms ease, background 100ms ease;
+}
+
+.desktop-nav-button:hover,
+.desktop-sidebar__settings:hover,
+.desktop-nav-button--active {
+  color: var(--text-strong);
+  background: var(--surface-base-hover);
+}
+
+.desktop-nav-button:focus-visible,
+.desktop-sidebar__settings:focus-visible,
+.desktop-project__select:focus-visible,
+.desktop-project__chevron:focus-visible,
+.desktop-session-row:focus-visible,
+.desktop-tool-button:focus-visible,
+.desktop-sidebar__list-item:focus-visible,
+.desktop-sidebar__section-heading button:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
+}
+
+.desktop-nav-button [data-component="icon"],
+.desktop-sidebar__settings [data-component="icon"] {
+  color: var(--icon-base);
+}
+
+.desktop-nav-button__badge {
+  min-width: 20px;
+  margin-left: auto;
+  padding: 1px 6px;
+  color: var(--text-weak);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  border: 1px solid var(--border-weak-base);
+  border-radius: 999px;
+  background: var(--surface-base);
+}
+
+.desktop-sidebar__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 8px;
+}
+
+.desktop-sidebar__section-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding: 0 10px;
+  color: var(--text-weaker);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.desktop-sidebar__section-heading button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--icon-weak-base);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  place-items: center;
+}
+
+.desktop-sidebar__section-heading button:hover {
+  color: var(--icon-base);
+  background: var(--surface-base-hover);
+}
+
+.desktop-sidebar__scroll {
+  min-height: 0;
+  height: calc(100% - 38px);
+  padding: 0 4px 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--border-weak-base) transparent;
+  scrollbar-width: thin;
+}
+
+.desktop-project {
+  margin-bottom: 7px;
+  border-radius: 8px;
+}
+
+.desktop-project__header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 4px 0 0;
+  color: var(--text-base);
+  border-radius: 7px;
+  background: transparent;
+}
+
+.desktop-project__header:hover,
+.desktop-project--active > .desktop-project__header {
+  color: var(--text-strong);
+  background: var(--surface-base-hover);
+}
+
+.desktop-project__select {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  align-self: stretch;
+  min-width: 0;
+  gap: 9px;
+  padding: 0 2px 0 6px;
+  color: inherit;
+  text-align: left;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+}
+
+.desktop-project__folder {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  color: var(--icon-base);
+  place-items: center;
+}
+
+.desktop-project__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-project__chevron {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  color: var(--icon-weak-base);
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  transition: transform 120ms ease;
+  place-items: center;
+}
+
+.desktop-project__chevron:hover {
+  background: var(--surface-base-hover);
+}
+
+.desktop-project__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+.desktop-project__sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0 5px 37px;
+}
+
+.desktop-session-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 31px;
+  gap: 8px;
+  padding: 0 8px;
+  color: var(--text-weak);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.desktop-session-row:hover,
+.desktop-session-row--active {
+  color: var(--text-base);
+  background: var(--surface-base-hover);
+}
+
+.desktop-session-row__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-session-row__time {
+  flex: 0 0 auto;
+  color: var(--text-weaker);
+  font-size: 10px;
+}
+
+.desktop-session-row--empty {
+  color: var(--text-weaker);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.desktop-sidebar__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 12px);
+  min-height: 84px;
+  margin: 10px 6px;
+  gap: 9px;
+  color: var(--text-weak);
+  border: 1px dashed var(--border-weak-base);
+  border-radius: 10px;
+  background: transparent;
+}
+
+.desktop-sidebar__empty:hover {
+  color: var(--text-base);
+  border-color: var(--border-hover);
+  background: var(--surface-base-hover);
+}
+
+.desktop-sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.desktop-sidebar__list-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  gap: 9px;
+  padding: 7px 9px;
+  overflow: hidden;
+  color: var(--text-base);
+  font-size: 12px;
+  text-align: left;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+}
+
+button.desktop-sidebar__list-item:hover {
+  background: var(--surface-base-hover);
+}
+
+.desktop-sidebar__list-item > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-sidebar__list-item kbd,
+.desktop-tool-button kbd {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  color: var(--text-weaker);
+  font-family: inherit;
+  font-size: 9px;
+  border: 1px solid var(--border-weak-base);
+  border-radius: 5px;
+  background: var(--surface-base);
+}
+
+.desktop-sidebar__notice {
+  margin: 8px;
+  padding: 12px;
+  color: var(--text-weak);
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--border-weak-base);
+  border-radius: 8px;
+  background: var(--surface-base);
+}
+
+.desktop-sidebar__settings {
+  flex: 0 0 46px;
+  width: calc(100% - 18px);
+  margin: 0 9px 8px;
+  border-top: 1px solid transparent;
+}
+
+.desktop-sidebar__version {
+  margin-left: auto;
+  color: var(--text-weaker);
+  font-size: 10px;
+}
+
+#desktop-tools-mount {
+  position: absolute;
+  z-index: 40;
+  inset: 0 0 0 auto;
+  width: var(--desktop-tools-width);
+  pointer-events: none;
+}
+
+.desktop-tools {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  display: flex;
+  width: var(--desktop-tools-width);
+  padding: 0 12px;
+  border-left: 1px solid var(--border-weak-base);
+  background: color-mix(in srgb, var(--background-base) 96%, black 4%);
+  pointer-events: auto;
+  transition: bottom 120ms ease;
+}
+
+.desktop-tools--covered {
+  visibility: hidden;
+}
+
+.desktop-tools__actions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 4px;
+  margin: auto 0;
+}
+
+.desktop-tool-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  gap: 10px;
+  padding: 0 12px;
+  color: var(--text-base);
+  font-size: 13px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-base) 86%, transparent);
+}
+
+.desktop-tool-button:hover:not(:disabled),
+.desktop-tool-button--active {
+  color: var(--text-strong);
+  border-color: var(--border-weak-base);
+  background: var(--surface-base-hover);
+}
+
+.desktop-tool-button:disabled {
+  color: var(--text-disabled);
+  opacity: 0.52;
+}
+
+.desktop-tool-button > span {
+  flex: 1 1 auto;
+}
+
+.desktop-app-host [data-component="sidebar-nav-desktop"],
+.desktop-app-host [data-component="sidebar-nav-mobile"],
+.desktop-app-host > div > div > .xl\:hidden {
+  display: none !important;
+}
+
+.desktop-app-host main {
+  border-left: 0 !important;
+  border-radius: 0 !important;
+}
+
+.desktop-app-host header {
+  height: 40px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--border-weak-base);
+  background: color-mix(in srgb, var(--background-base) 96%, black 4%);
+}
+
+.desktop-app-host header .group\/sidebar-toggle {
+  display: none;
+}
+
+.desktop-app-host [data-component="session-shell"] > [data-slot="session-workspace"] {
+  position: relative;
+  box-sizing: border-box;
+  padding-right: var(--desktop-tools-width);
+}
+
+.desktop-app-host [data-component="session-shell"] #review-panel {
+  position: absolute;
+  z-index: 50;
+  top: 0;
+  right: calc(var(--desktop-tools-width) * -1);
+  bottom: 0;
+  width: var(--desktop-tools-width) !important;
+  min-width: var(--desktop-tools-width);
+  flex: 0 0 var(--desktop-tools-width) !important;
+  overflow: hidden;
+  background: var(--background-base);
+}
+
+.desktop-app-host [data-component="session-shell"] [data-slot="session-chat"] {
+  width: 100% !important;
+  flex: 1 1 auto !important;
+}
+
+.desktop-app-host [data-component="session-shell"] #review-panel #file-tree-panel {
+  width: 100% !important;
+}
+
+.desktop-app-host [data-component="session-shell"] > #terminal-panel {
+  z-index: 45;
+  background: var(--background-base);
+}
+
+.desktop-app-host [data-component="session-new-view"] {
+  padding-top: 40px;
+  padding-bottom: calc(var(--prompt-height, 11.25rem) + 42px);
+}
+
+.desktop-app-host [data-component="session-new-view"] + * {
+  max-width: 920px;
+}
+
+.desktop-app-host form:has([data-component="prompt-input"]) {
+  border: 1px solid var(--border-base);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface-raised-stronger-non-alpha) 95%, white 5%);
+  box-shadow: 0 14px 44px rgb(0 0 0 / 18%), 0 0 0 1px rgb(255 255 255 / 3%);
+}
+
+.desktop-app-host [data-component="prompt-input"] {
+  min-height: 52px;
+  padding-top: 15px;
+  font-size: 14px;
+}
+
 button.decorum-tb-btn,
 button#decorum-tb-minimize,
 button#decorum-tb-maximize,
@@ -11,7 +605,32 @@ div[data-tauri-decorum-tb] {
   100% {
     opacity: 0.1;
   }
+
   50% {
     opacity: 0.3;
+  }
+}
+
+@media (max-width: 1180px) {
+  :root {
+    --desktop-tools-width: 240px;
+  }
+}
+
+@media (max-width: 980px) {
+  :root {
+    --desktop-tools-width: 0px;
+  }
+
+  [data-component="desktop-shell"] {
+    grid-template-columns: min(var(--desktop-sidebar-width), 280px) minmax(0, 1fr);
+  }
+
+  #desktop-tools-mount {
+    display: none;
+  }
+
+  .desktop-sidebar-resize {
+    left: min(calc(var(--desktop-sidebar-width) - 3px), 277px);
   }
 }

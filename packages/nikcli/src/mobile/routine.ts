@@ -246,12 +246,17 @@ export namespace Routine {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   export async function list(): Promise<Record[]> {
+    // Resolve the project-scoped prefix in the caller's instance scope. Reading
+    // `Instance.project.id` (AsyncLocalStorage) inside the Effect fiber below
+    // can race the context and throw "No context found for instance"; compute
+    // it up front, exactly like `LoopManager.list` (`src/loop/manager.ts`).
+    const prefix = ["routine", Instance.project.id]
     // Single Effect program: one Storage layer build for the whole batch.
     const records = await runPromiseWithLayer(
       Storage.defaultLayer,
       Effect.gen(function* () {
         const storage = yield* Storage.Service
-        const keys = yield* storage.list(["routine", Instance.project.id])
+        const keys = yield* storage.list(prefix)
         return yield* Effect.forEach(
           keys,
           (k) => storage.read<Record>(k).pipe(Effect.catch(() => Effect.succeed(null))),

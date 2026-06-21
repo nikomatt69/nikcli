@@ -5,6 +5,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useSDK } from "@tui/context/sdk"
+import { useSync } from "@tui/context/sync"
 import { DialogModel } from "@tui/component/dialog-model"
 import { useTheme } from "@tui/context/theme"
 import { useToast } from "@tui/ui/toast"
@@ -13,9 +14,57 @@ import { Keybind } from "@/util/keybind"
 import { Locale } from "@/util/locale"
 import { randomBytes } from "crypto"
 
-type WizardStep = "name" | "prompt" | "schedule" | "api" | "review"
+type WizardStep = "starter" | "name" | "prompt" | "model" | "schedule" | "api" | "review"
 type ScheduleChoice = "" | "@hourly" | "0 */6 * * *" | "@daily" | "@weekly" | "__custom__"
 type ApiChoice = "none" | "generate" | "custom"
+type RoutineModelChoice = { providerID: string; modelID: string } | undefined
+
+/** Built-in routine starters, mirroring loop/mission templates. */
+type RoutineTemplate = {
+  id: string
+  title: string
+  description: string
+  name: string
+  prompt: string
+  cron?: string
+}
+
+const ROUTINE_TEMPLATES: RoutineTemplate[] = [
+  {
+    id: "daily-review",
+    title: "Daily code review",
+    description: "Summarize the day's changes and flag risks",
+    name: "Daily code review",
+    prompt:
+      "Review the changes committed to this repository in the last 24 hours. Summarize what changed and call out any bugs, regressions, or risky edits that need attention.",
+    cron: "@daily",
+  },
+  {
+    id: "dependency-audit",
+    title: "Weekly dependency audit",
+    description: "Check for outdated or vulnerable dependencies",
+    name: "Dependency audit",
+    prompt:
+      "Audit the project's dependencies for outdated versions and known security advisories. Report findings and propose safe upgrade steps.",
+    cron: "@weekly",
+  },
+  {
+    id: "triage",
+    title: "Issue triage",
+    description: "API-triggered triage of an incoming report",
+    name: "Issue triage",
+    prompt:
+      "Triage the incoming issue or alert provided in the run context. Reproduce if possible, identify the likely root cause, and suggest next steps.",
+  },
+  {
+    id: "release-notes",
+    title: "Release notes draft",
+    description: "Draft release notes from recent commits",
+    name: "Release notes",
+    prompt:
+      "Draft user-facing release notes summarizing the notable changes since the last release tag, grouped by feature, fix, and breaking change.",
+  },
+]
 type RoutineAction =
   | "details"
   | "run"
@@ -159,11 +208,14 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
   const dialog = useDialog()
   const toast = useToast()
   const sdk = useSDK()
+  const sync = useSync()
+  const local = useLocal()
   const { theme } = useTheme()
 
-  const [step, setStep] = createSignal<WizardStep>("name")
+  const [step, setStep] = createSignal<WizardStep>("starter")
   const [name, setName] = createSignal("")
   const [prompt, setPrompt] = createSignal("")
+  const [model, setModel] = createSignal<RoutineModelChoice>(undefined)
   const [scheduleCron, setScheduleCron] = createSignal("")
   const [apiToken, setApiToken] = createSignal("")
   const [busy, setBusy] = createSignal(false)
@@ -189,6 +241,70 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
       return
     }
     setPrompt(trimmed)
+    setStep("model")
+  }
+
+  function applyTemplate(template: RoutineTemplate) {
+    setName(template.name)
+    setPrompt(template.prompt)
+    setScheduleCron(template.cron ?? "")
+    setStep("name")
+  }
+
+  const STARTER_OPTIONS: DialogSelectOption<string>[] = [
+    { title: "Blank routine", value: "__blank__", description: "Start from scratch", category: "Start" },
+    ...ROUTINE_TEMPLATES.map((t) => ({
+      title: t.title,
+      value: t.id,
+      description: t.description,
+      category: "Templates",
+    })),
+  ]
+
+  function handleStarter(value: string) {
+    if (value === "__blank__") {
+      setStep("name")
+      return
+    }
+    const template = ROUTINE_TEMPLATES.find((t) => t.id === value)
+    if (template) applyTemplate(template)
+    else setStep("name")
+  }
+
+  /** Model picker options sourced from the synced providers (mirrors loops). */
+  const modelOptions = (): DialogSelectOption<string>[] => {
+    const current = local.model.current()
+    const options: DialogSelectOption<string>[] = [
+      {
+        title: "Use default model",
+        value: "__default__",
+        description: current ? `Currently ${current.providerID}/${current.modelID}` : "Inherit the session default",
+        category: "Action",
+      },
+    ]
+    for (const provider of sync.data.provider) {
+      for (const [modelID, info] of Object.entries(provider.models)) {
+        if (info.status === "deprecated") continue
+        const chosen = model()
+        const isCurrent = chosen?.providerID === provider.id && chosen?.modelID === modelID
+        options.push({
+          title: info.name ?? modelID,
+          value: `${provider.id}/${modelID}`,
+          description: isCurrent ? "(selected)" : undefined,
+          category: provider.name,
+        })
+      }
+    }
+    return options
+  }
+
+  function handleModel(value: string) {
+    if (value === "__default__") {
+      setModel(undefined)
+    } else {
+      const slash = value.indexOf("/")
+      setModel({ providerID: value.slice(0, slash), modelID: value.slice(slash + 1) })
+    }
     setStep("schedule")
   }
 
@@ -265,20 +381,18 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
     return result
   }
 
-  function currentModel() {
-    const local = useLocal()
-    const model = local.model.current()
-    if (!model) return undefined
-    return { providerID: model.providerID, modelID: model.modelID }
-  }
-
   async function submit() {
     if (busy()) return
     setBusy(true)
     try {
-      const model = currentModel()
+      const chosen = model()
       const result = await sdk.client.mobile.routine.create({
-        mobileRoutineCreateInput: { name: name(), prompt: prompt(), triggers: triggers(), ...(model ? { model } : {}) },
+        mobileRoutineCreateInput: {
+          name: name(),
+          prompt: prompt(),
+          triggers: triggers(),
+          ...(chosen ? { model: chosen } : {}),
+        },
       })
       const routine = assertData<MobileRoutine>(result, "Failed to create routine")
       toast.show({ message: `Routine created: ${routine.name}`, variant: "success" })
@@ -291,9 +405,13 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
   }
 
   const reviewOptions = (): DialogSelectOption<string>[] => {
-    const local = useLocal()
-    const currentModel = local.model.current()
-    const modelLabel = currentModel ? `${currentModel.providerID}/${currentModel.modelID}` : "default"
+    const chosen = model()
+    const fallback = local.model.current()
+    const modelLabel = chosen
+      ? `${chosen.providerID}/${chosen.modelID}`
+      : fallback
+        ? `default (${fallback.providerID}/${fallback.modelID})`
+        : "default"
     return [
       { title: name(), value: "name", description: "Name", category: "Routine" },
       { title: Locale.truncate(prompt(), 70), value: "prompt", description: "Prompt", category: "Routine" },
@@ -327,6 +445,13 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
 
   return (
     <Switch>
+      <Match when={step() === "starter"}>
+        <DialogSelect
+          title="New routine: start from"
+          options={STARTER_OPTIONS}
+          onSelect={(option) => handleStarter(option.value)}
+        />
+      </Match>
       <Match when={step() === "name"}>
         <DialogPrompt
           title="New routine: name"
@@ -334,7 +459,7 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
           value={name()}
           busy={busy()}
           onConfirm={handleName}
-          onCancel={() => dialog.clear()}
+          onCancel={() => setStep("starter")}
         />
       </Match>
       <Match when={step() === "prompt"}>
@@ -350,6 +475,16 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
           busy={busy()}
           onConfirm={handlePrompt}
           onCancel={cancelOrBack("name")}
+        />
+      </Match>
+      <Match when={step() === "model"}>
+        <DialogSelect
+          title="New routine: model"
+          options={modelOptions()}
+          onSelect={(option) => handleModel(option.value)}
+          keybind={[
+            { title: "skip", keybind: Keybind.parse("escape")[0], onTrigger: () => handleModel("__default__") },
+          ]}
         />
       </Match>
       <Match when={step() === "schedule"}>
@@ -375,8 +510,21 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
           title="Review routine"
           options={reviewOptions()}
           onSelect={(option) => {
-            if (option.value === "back") setStep("api")
-            if (option.value === "create") void submit()
+            switch (option.value) {
+              case "name":
+              case "prompt":
+              case "model":
+              case "schedule":
+              case "api":
+                setStep(option.value as WizardStep)
+                break
+              case "back":
+                setStep("api")
+                break
+              case "create":
+                void submit()
+                break
+            }
           }}
         />
       </Match>

@@ -274,9 +274,11 @@
       "dependencies": {
         "@nikcli-ai/app": "workspace:*",
         "@nikcli-ai/ui": "workspace:*",
+        "@nikcli-ai/util": "workspace:*",
         "@solid-primitives/i18n": "2.2.1",
         "@solid-primitives/storage": "catalog:",
         "@solidjs/meta": "catalog:",
+        "@solidjs/router": "catalog:",
         "@tauri-apps/api": "^2",
         "@tauri-apps/plugin-deep-link": "~2",
         "@tauri-apps/plugin-dialog": "~2",

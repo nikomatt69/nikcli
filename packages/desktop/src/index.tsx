@@ -23,6 +23,7 @@ import "./styles.css"
 import { commands, InitStep } from "./bindings"
 import { Channel } from "@tauri-apps/api/core"
 import { createMenu } from "./menu"
+import { DesktopBridge, DesktopFrame } from "./shell"
 
 const root = document.getElementById("root")
 if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
@@ -32,6 +33,20 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 void initI18n()
 
 let update: Update | null = null
+const TAURI_AVAILABLE = typeof window === "object" && "__TAURI_INTERNALS__" in window
+
+const detectedOS = (): Platform["os"] => {
+  if (TAURI_AVAILABLE) {
+    const value = ostype()
+    if (value === "macos" || value === "windows" || value === "linux") return value
+  }
+  if (typeof navigator !== "object") return undefined
+  const value = navigator.platform || navigator.userAgent
+  if (/Mac|iPhone|iPad/i.test(value)) return "macos"
+  if (/Win/i.test(value)) return "windows"
+  if (/Linux/i.test(value)) return "linux"
+  return undefined
+}
 
 const deepLinkEvent = "nikcli:deep-link"
 
@@ -51,14 +66,11 @@ const listenForDeepLinks = async () => {
 
 const createPlatform = (password: Accessor<string | null>): Platform => ({
   platform: "desktop",
-  os: (() => {
-    const type = ostype()
-    if (type === "macos" || type === "windows" || type === "linux") return type
-    return undefined
-  })(),
+  os: detectedOS(),
   version: pkg.version,
 
   async openDirectoryPickerDialog(opts) {
+    if (!TAURI_AVAILABLE) return null
     const result = await open({
       directory: true,
       multiple: opts?.multiple ?? false,
@@ -68,6 +80,7 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
   },
 
   async openFilePickerDialog(opts) {
+    if (!TAURI_AVAILABLE) return null
     const result = await open({
       directory: false,
       multiple: opts?.multiple ?? false,
@@ -77,6 +90,7 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
   },
 
   async saveFilePickerDialog(opts) {
+    if (!TAURI_AVAILABLE) return null
     const result = await save({
       title: opts?.title ?? t("desktop.dialog.saveFile"),
       defaultPath: opts?.defaultPath,
@@ -85,10 +99,15 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
   },
 
   openLink(url: string) {
-    void shellOpen(url).catch(() => undefined)
+    if (TAURI_AVAILABLE) {
+      void shellOpen(url).catch(() => undefined)
+      return
+    }
+    window.open(url, "_blank", "noopener,noreferrer")
   },
 
   async openPath(path: string, app?: string) {
+    if (!TAURI_AVAILABLE) return
     await commands.openPath(path, app ?? null)
   },
 
@@ -101,6 +120,29 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
   },
 
   storage: (() => {
+    if (!TAURI_AVAILABLE) {
+      const cache = new Map<string, AsyncStorage>()
+      return (name = "default.dat") => {
+        const existing = cache.get(name)
+        if (existing) return existing
+        const prefix = `nikcli:${name}:`
+        const keys = () => Object.keys(localStorage).filter((key) => key.startsWith(prefix))
+        const storage: AsyncStorage = {
+          getItem: async (key) => localStorage.getItem(prefix + key),
+          setItem: async (key, value) => localStorage.setItem(prefix + key, value),
+          removeItem: async (key) => localStorage.removeItem(prefix + key),
+          clear: async () => keys().forEach((key) => localStorage.removeItem(key)),
+          key: async (index: number) => keys()[index]?.slice(prefix.length),
+          getLength: async () => keys().length,
+          get length() {
+            return storage.getLength()
+          },
+        }
+        cache.set(name, storage)
+        return storage
+      }
+    }
+
     type StoreLike = {
       get(key: string): Promise<string | null | undefined>
       set(key: string, value: string): Promise<unknown>
@@ -254,7 +296,7 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
   })(),
 
   checkUpdate: async () => {
-    if (!UPDATER_ENABLED) return { updateAvailable: false }
+    if (!TAURI_AVAILABLE || !UPDATER_ENABLED) return { updateAvailable: false }
     const next = await check().catch(() => null)
     if (!next) return { updateAvailable: false }
     const ok = await next
@@ -267,23 +309,38 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
   },
 
   update: async () => {
-    if (!UPDATER_ENABLED || !update) return
+    if (!TAURI_AVAILABLE || !UPDATER_ENABLED || !update) return
     if (ostype() === "windows") await commands.killSidecar().catch(() => undefined)
     await update.install().catch(() => undefined)
   },
 
   restart: async () => {
+    if (!TAURI_AVAILABLE) {
+      window.location.reload()
+      return
+    }
     await commands.killSidecar().catch(() => undefined)
     await relaunch()
   },
 
   notify: async (title, description, href) => {
-    const granted = await isPermissionGranted().catch(() => false)
-    const permission = granted ? "granted" : await requestPermission().catch(() => "denied")
+    const granted = TAURI_AVAILABLE
+      ? await isPermissionGranted().catch(() => false)
+      : typeof Notification === "function" && Notification.permission === "granted"
+    const permission = granted
+      ? "granted"
+      : TAURI_AVAILABLE
+        ? await requestPermission().catch(() => "denied")
+        : typeof Notification === "function"
+          ? await Notification.requestPermission().catch(() => "denied")
+          : "denied"
     if (permission !== "granted") return
 
-    const win = getCurrentWindow()
-    const focused = await win.isFocused().catch(() => document.hasFocus())
+    const focused = TAURI_AVAILABLE
+      ? await getCurrentWindow()
+          .isFocused()
+          .catch(() => document.hasFocus())
+      : document.hasFocus()
     if (focused) return
 
     await Promise.resolve()
@@ -293,10 +350,14 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
           icon: "https://nikcli.ai/favicon-96x96-v3.png",
         })
         notification.onclick = () => {
-          const win = getCurrentWindow()
-          void win.show().catch(() => undefined)
-          void win.unminimize().catch(() => undefined)
-          void win.setFocus().catch(() => undefined)
+          if (TAURI_AVAILABLE) {
+            const win = getCurrentWindow()
+            void win.show().catch(() => undefined)
+            void win.unminimize().catch(() => undefined)
+            void win.setFocus().catch(() => undefined)
+          } else {
+            window.focus()
+          }
           if (href) {
             window.history.pushState(null, "", href)
             window.dispatchEvent(new PopStateEvent("popstate"))
@@ -307,7 +368,7 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
       .catch(() => undefined)
   },
 
-  fetch: (input, init) => {
+  fetch: ((input, init) => {
     const pw = password()
 
     const addHeader = (headers: Headers, password: string) => {
@@ -316,40 +377,50 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
 
     if (input instanceof Request) {
       if (pw) addHeader(input.headers, pw)
-      return tauriFetch(input)
+      return TAURI_AVAILABLE ? tauriFetch(input) : globalThis.fetch(input)
     } else {
       const headers = new Headers(init?.headers)
       if (pw) addHeader(headers, pw)
-      return tauriFetch(input, {
+      const request = {
         ...(init as any),
         headers: headers,
-      })
+      }
+      return TAURI_AVAILABLE ? tauriFetch(input, request) : globalThis.fetch(input, request)
     }
-  },
+  }) as typeof fetch,
 
   getDefaultServerUrl: async () => {
+    if (!TAURI_AVAILABLE) return localStorage.getItem("nikcli:desktop:server-url")
     const result = await commands.getDefaultServerUrl().catch(() => null)
     return result
   },
 
   setDefaultServerUrl: async (url: string | null) => {
+    if (!TAURI_AVAILABLE) {
+      if (url) localStorage.setItem("nikcli:desktop:server-url", url)
+      else localStorage.removeItem("nikcli:desktop:server-url")
+      return
+    }
     await commands.setDefaultServerUrl(url)
   },
 
-  parseMarkdown: (markdown: string) => commands.parseMarkdownCommand(markdown),
+  parseMarkdown: TAURI_AVAILABLE ? (markdown: string) => commands.parseMarkdownCommand(markdown) : undefined,
 
   webviewZoom,
 
   checkAppExists: async (appName: string) => {
+    if (!TAURI_AVAILABLE) return false
     return commands.checkAppExists(appName)
   },
 })
 
 let menuTrigger = null as null | ((id: string) => void)
-createMenu((id) => {
-  menuTrigger?.(id)
-})
-void listenForDeepLinks()
+if (TAURI_AVAILABLE) {
+  void createMenu((id) => {
+    menuTrigger?.(id)
+  })
+  void listenForDeepLinks()
+}
 
 render(() => {
   const [serverPassword, setServerPassword] = createSignal<string | null>(null)
@@ -388,9 +459,12 @@ render(() => {
             }
 
             return (
-              <AppInterface defaultUrl={data().url}>
-                <Inner />
-              </AppInterface>
+              <DesktopFrame>
+                <AppInterface defaultUrl={data().url}>
+                  <Inner />
+                  <DesktopBridge />
+                </AppInterface>
+              </DesktopFrame>
             )
           }}
         </ServerGate>
@@ -403,6 +477,14 @@ type ServerReadyData = { url: string; password: string | null }
 
 // Gate component that waits for the server to be ready
 function ServerGate(props: { children: (data: Accessor<ServerReadyData>) => JSX.Element }) {
+  if (!TAURI_AVAILABLE) {
+    const url =
+      localStorage.getItem("nikcli:desktop:server-url") ??
+      import.meta.env.VITE_NIKCLI_SERVER_URL ??
+      "http://127.0.0.1:4096"
+    return props.children(() => ({ url, password: null }))
+  }
+
   const [serverData] = createResource(() => commands.awaitInitialization(new Channel<InitStep>() as any))
 
   if (serverData.state === "errored") throw serverData.error
