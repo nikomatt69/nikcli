@@ -89,7 +89,11 @@ export type PromptRef = {
 
 // i18n keys for the rotating placeholder examples (see specs/opencode-parity/06-tui-i18n.md).
 const PLACEHOLDER_KEYS = ["prompt.example.todo", "prompt.example.techStack", "prompt.example.tests"] as const
-const SHELL_PLACEHOLDER_KEYS = ["prompt.shellExample.ls", "prompt.shellExample.gitStatus", "prompt.shellExample.pwd"] as const
+const SHELL_PLACEHOLDER_KEYS = [
+  "prompt.shellExample.ls",
+  "prompt.shellExample.gitStatus",
+  "prompt.shellExample.pwd",
+] as const
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",

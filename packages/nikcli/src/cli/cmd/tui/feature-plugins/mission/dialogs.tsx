@@ -743,7 +743,10 @@ function openFeatureActions(
                     tokenBudget = parsed
                   }
                   void persistFeaturePatch(api, def, feature.id, { tokenBudget }).then((saved) => {
-                    api.ui.toast({ variant: "success", message: tokenBudget ? "Token budget updated" : "Token budget removed" })
+                    api.ui.toast({
+                      variant: "success",
+                      message: tokenBudget ? "Token budget updated" : "Token budget removed",
+                    })
                     openFeatureActions(api, saved ?? def, milestoneID, { ...feature, tokenBudget })
                   })
                 }}

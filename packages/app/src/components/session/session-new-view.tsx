@@ -52,8 +52,7 @@ export function NewSessionView(props: NewSessionViewProps) {
     <div
       data-component="session-new-view"
       classList={{
-        "size-full flex flex-col flex-[1_0_0] self-stretch max-w-200 mx-auto px-6 pb-[calc(var(--prompt-height,11.25rem)+64px)]":
-          true,
+        "size-full flex flex-col flex-[1_0_0] self-stretch max-w-200 mx-auto px-6 pb-[calc(var(--prompt-height,11.25rem)+64px)]": true,
         "justify-center items-center text-center": desktop(),
         "justify-end items-start gap-4": !desktop(),
       }}

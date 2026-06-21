@@ -103,8 +103,11 @@ html.desktop-shell-resizing * {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--background-stronger) 96%, white 4%), var(--background-stronger));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--background-stronger) 96%, white 4%),
+    var(--background-stronger)
+  );
 }
 
 .desktop-sidebar__titlebar {
@@ -144,7 +147,9 @@ html.desktop-shell-resizing * {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  transition: color 100ms ease, background 100ms ease;
+  transition:
+    color 100ms ease,
+    background 100ms ease;
 }
 
 .desktop-nav-button:hover,
@@ -583,7 +588,9 @@ button.desktop-sidebar__list-item:hover {
   border: 1px solid var(--border-base);
   border-radius: 15px;
   background: color-mix(in srgb, var(--surface-raised-stronger-non-alpha) 95%, white 5%);
-  box-shadow: 0 14px 44px rgb(0 0 0 / 18%), 0 0 0 1px rgb(255 255 255 / 3%);
+  box-shadow:
+    0 14px 44px rgb(0 0 0 / 18%),
+    0 0 0 1px rgb(255 255 255 / 3%);
 }
 
 .desktop-app-host [data-component="prompt-input"] {
