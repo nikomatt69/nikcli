@@ -118,14 +118,31 @@ async function git(args: string[], cwd: string): Promise<boolean> {
 /**
  * Give a teleported workspace a git identity if it doesn't already have one.
  * The archive ships without `.git` by default, so we initialize a repo and make
- * an initial commit — this gives the project a stable id (so it shows up as a
- * distinct repo) and lets diffs/snapshots work on the server.
+ * an *empty* root commit immediately — this is instant and gives the project a
+ * stable id (so it shows up as a distinct repo) without waiting on `git add` of
+ * potentially thousands of files. The real content commit is then snapshotted in
+ * the background so a clean baseline lands shortly after, without blocking the
+ * teleport response. Returns whether a git repo is present afterwards.
  */
-async function ensureGitRepo(directory: string): Promise<void> {
-  if (await git(["rev-parse", "--is-inside-work-tree"], directory)) return
-  if (!(await git(["init"], directory))) return
-  await git(["add", "-A"], directory)
+async function ensureGitRepo(directory: string): Promise<boolean> {
+  if (await git(["rev-parse", "--is-inside-work-tree"], directory)) return true
+  if (!(await git(["init"], directory))) return false
+  // Instant identity: empty root commit (no file staging).
   await git(["commit", "-m", "Teleported workspace", "--no-verify", "--allow-empty"], directory)
+  // Snapshot the actual content into a real commit in the background; the repo is
+  // already usable (files are present, diffs work via nikcli snapshots) meanwhile.
+  void (async () => {
+    try {
+      await git(["add", "-A"], directory)
+      await git(["commit", "-m", "Teleported workspace content", "--no-verify", "--allow-empty"], directory)
+    } catch (error) {
+      log.warn("teleport background commit failed", {
+        directory,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  })()
+  return true
 }
 
 /**
