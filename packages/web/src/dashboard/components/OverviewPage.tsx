@@ -11,10 +11,7 @@ import { Card, ErrorBanner, PageHeader, StatCard, btnPrimary, cardClass } from "
 
 function QuickAction({ label, href, description }: { label: string; href: string; description: string }) {
   return (
-    <a
-      href={href}
-      className={`group ${cardClass} p-5 transition-colors hover:border-terminal-accent/50`}
-    >
+    <a href={href} className={`group ${cardClass} p-5 transition-colors hover:border-terminal-accent/50`}>
       <div className="font-semibold text-terminal-text group-hover:text-terminal-accent">{label}</div>
       <div className="mt-1 text-sm leading-6 text-terminal-muted">{description}</div>
     </a>
@@ -74,7 +71,12 @@ function OverviewPageInner() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Cloud Sessions" loading={loading} value={stats.active} detail={`${stats.archived} archived`} />
-        <StatCard label="MCP Servers" loading={loading} value={stats.enabledMcp} detail={`${stats.mcpCount} configured`} />
+        <StatCard
+          label="MCP Servers"
+          loading={loading}
+          value={stats.enabledMcp}
+          detail={`${stats.mcpCount} configured`}
+        />
         <StatCard
           label="Profiles"
           loading={loading}
