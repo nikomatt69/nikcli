@@ -16,7 +16,18 @@ export namespace ModelsDev {
     const provider = database[providerID]
     if (!provider) return
     if (!provider.models) return
-    if (provider.models[modelID]) return
+    const existing = provider.models[modelID]
+    if (existing) {
+      // Merge `provider` and `modalities` so patches enrich models.dev entries
+      // without clobbering fields the upstream registry already populated.
+      const merged: Model = {
+        ...existing,
+        modalities: model.modalities ?? existing.modalities,
+        provider: model.provider ?? existing.provider,
+      }
+      provider.models[modelID] = merged
+      return
+    }
     provider.models[modelID] = model
   }
 
@@ -156,6 +167,189 @@ export namespace ModelsDev {
     ensureModel(database, "minimax-coding-plan", "MiniMax-M3", minimaxM3)
     ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M3", minimaxM3)
     ensureModel(database, "openrouter", "minimax/minimax-m3", openrouterM3)
+
+    // ---- Image models (registered because models.dev does not yet list these AI SDK image factories) ----
+    const imageModalities: NonNullable<Model["modalities"]> = {
+      input: ["text"],
+      output: ["image"],
+    }
+
+    const imageModel = (id: string, name: string, family: string, npm: string, api: string): Model => ({
+      id,
+      name,
+      family,
+      release_date: "2025-01-01",
+      attachment: false,
+      reasoning: false,
+      tool_call: false,
+      temperature: false,
+      cost: { input: 0, output: 0 },
+      limit: { context: 1_000, output: 1_000 },
+      modalities: imageModalities,
+      options: {},
+      provider: { npm, api },
+    })
+
+    // OpenAI (direct) — @ai-sdk/openai exposes .image(modelId)
+    ensureModel(
+      database,
+      "openai",
+      "gpt-image-1",
+      imageModel("gpt-image-1", "GPT Image 1", "gpt-image", "@ai-sdk/openai", "https://api.openai.com/v1"),
+    )
+    ensureModel(
+      database,
+      "openai",
+      "gpt-image-1-mini",
+      imageModel("gpt-image-1-mini", "GPT Image 1 mini", "gpt-image", "@ai-sdk/openai", "https://api.openai.com/v1"),
+    )
+    ensureModel(
+      database,
+      "openai",
+      "gpt-image-1.5",
+      imageModel("gpt-image-1.5", "GPT Image 1.5", "gpt-image", "@ai-sdk/openai", "https://api.openai.com/v1"),
+    )
+    ensureModel(
+      database,
+      "openai",
+      "dall-e-3",
+      imageModel("dall-e-3", "DALL·E 3", "dall-e", "@ai-sdk/openai", "https://api.openai.com/v1"),
+    )
+
+    // Google (direct) — @ai-sdk/google exposes .image(modelId)
+    ensureModel(
+      database,
+      "google",
+      "imagen-4.0-generate-001",
+      imageModel(
+        "imagen-4.0-generate-001",
+        "Imagen 4 Generate",
+        "imagen",
+        "@ai-sdk/google",
+        "https://generativelanguage.googleapis.com/v1beta",
+      ),
+    )
+    ensureModel(
+      database,
+      "google",
+      "imagen-4.0-ultra-generate-001",
+      imageModel(
+        "imagen-4.0-ultra-generate-001",
+        "Imagen 4 Ultra",
+        "imagen",
+        "@ai-sdk/google",
+        "https://generativelanguage.googleapis.com/v1beta",
+      ),
+    )
+    ensureModel(
+      database,
+      "google",
+      "imagen-4.0-fast-generate-001",
+      imageModel(
+        "imagen-4.0-fast-generate-001",
+        "Imagen 4 Fast",
+        "imagen",
+        "@ai-sdk/google",
+        "https://generativelanguage.googleapis.com/v1beta",
+      ),
+    )
+
+    // xAI (direct) — @ai-sdk/xai exposes .image(modelId)
+    ensureModel(
+      database,
+      "xai",
+      "grok-imagine-image",
+      imageModel("grok-imagine-image", "Grok Imagine Image", "grok-imagine", "@ai-sdk/xai", "https://api.x.ai/v1"),
+    )
+    ensureModel(
+      database,
+      "xai",
+      "grok-imagine-image-pro",
+      imageModel(
+        "grok-imagine-image-pro",
+        "Grok Imagine Image Pro",
+        "grok-imagine",
+        "@ai-sdk/xai",
+        "https://api.x.ai/v1",
+      ),
+    )
+
+    // Together AI — @ai-sdk/togetherai exposes .image(modelId)
+    ensureModel(
+      database,
+      "togetherai",
+      "black-forest-labs/FLUX.1-dev",
+      imageModel(
+        "black-forest-labs/FLUX.1-dev",
+        "FLUX.1-dev",
+        "flux",
+        "@ai-sdk/togetherai",
+        "https://api.together.xyz/v1",
+      ),
+    )
+    ensureModel(
+      database,
+      "togetherai",
+      "black-forest-labs/FLUX.1-schnell",
+      imageModel(
+        "black-forest-labs/FLUX.1-schnell",
+        "FLUX.1-schnell",
+        "flux",
+        "@ai-sdk/togetherai",
+        "https://api.together.xyz/v1",
+      ),
+    )
+    ensureModel(
+      database,
+      "togetherai",
+      "black-forest-labs/FLUX.1.1-pro",
+      imageModel(
+        "black-forest-labs/FLUX.1.1-pro",
+        "FLUX.1.1-pro",
+        "flux",
+        "@ai-sdk/togetherai",
+        "https://api.together.xyz/v1",
+      ),
+    )
+    ensureModel(
+      database,
+      "togetherai",
+      "stabilityai/stable-diffusion-xl-base-1.0",
+      imageModel(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        "Stable Diffusion XL Base 1.0",
+        "sdxl",
+        "@ai-sdk/togetherai",
+        "https://api.together.xyz/v1",
+      ),
+    )
+
+    // Patch openrouter-routed image models so `getImageModel` routes them correctly
+    // (models.dev entries lack modalities + provider metadata).
+    ensureModel(
+      database,
+      "openrouter",
+      "google/nano-banana-pro-2.5",
+      imageModel(
+        "google/nano-banana-pro-2.5",
+        "Google Nano Banana Pro 2.5",
+        "nanobanana",
+        "@openrouter/ai-sdk-provider",
+        "https://openrouter.ai/api/v1",
+      ),
+    )
+    ensureModel(
+      database,
+      "openrouter",
+      "openai/gpt-5-image",
+      imageModel(
+        "openai/gpt-5-image",
+        "OpenAI GPT-5 Image",
+        "gpt-image",
+        "@openrouter/ai-sdk-provider",
+        "https://openrouter.ai/api/v1",
+      ),
+    )
 
     // Cursor is not in models.dev; inject it so /connect dialog can offer it.
     if (!database["cursor"]) {

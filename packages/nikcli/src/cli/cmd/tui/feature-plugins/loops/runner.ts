@@ -58,15 +58,6 @@ function diffSnapshot(api: TuiPluginApi, sessionID: string): Store.DiffSnapshot 
 const DIFF_SETTLE_MS = 400
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, DIFF_SETTLE_MS))
 
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === "object" && error !== null) {
-    const msg = (error as { message?: unknown }).message
-    if (typeof msg === "string") return msg
-  }
-  return String(error)
-}
-
 /**
  * Trigger an autonomous run via the server's loop engine. Returns immediately;
  * progress is observed via bus events and reflected in the reactive store.

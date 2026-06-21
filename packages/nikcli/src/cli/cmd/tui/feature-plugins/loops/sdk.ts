@@ -10,7 +10,7 @@
 import type { NikcliClient } from "@nikcli-ai/sdk/v2"
 import type { TuiEventBus } from "@nikcli-ai/plugin/tui"
 import type { LoopDefinition, LoopTemplate, LoopRun } from "@/loop/schema"
-import { definitionFromGenerated, definitionFromGeneratedText, isValidModel, validateDefinition } from "@/loop/schema"
+import { definitionFromGenerated, isValidModel, validateDefinition } from "@/loop/schema"
 
 export type { LoopDefinition, LoopTemplate, LoopRun } from "@/loop/schema"
 export type { LoopPullRequestRef } from "@/loop/schema"

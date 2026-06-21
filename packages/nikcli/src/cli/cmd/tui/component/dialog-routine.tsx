@@ -433,7 +433,7 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
         description: apiToken() ? "Token will be shown in details" : "No API trigger",
         category: "Triggers",
       },
-      { title: "Back", value: "back", description: "Edit trigger settings", category: "Actions" },
+      { title: "← Back", value: "back", description: "Edit trigger settings", category: "Actions" },
       {
         title: busy() ? "Creating..." : "Create routine",
         value: "create",
@@ -644,7 +644,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
             description: "Prompt",
             category: "Prompt",
           },
-          { title: "Back", value: "back", description: "Return to actions", category: "Navigation" },
+          { title: "← Back", value: "back", description: "Return to actions", category: "Navigation" },
         ]}
         getOptionKey={(option) => option.value}
         onSelect={(option) => {
@@ -869,7 +869,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
       onSelect: () => void deleteRoutine(),
     },
     {
-      title: "Back",
+      title: "← Back",
       value: "back",
       description: "Return to routine list",
       category: "Navigation",

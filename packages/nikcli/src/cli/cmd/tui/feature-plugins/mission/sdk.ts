@@ -21,7 +21,6 @@ import {
   type MissionMilestone,
   type MissionModels,
   type MissionStatus,
-  progressOf,
 } from "./store"
 
 export type {
@@ -464,6 +463,3 @@ export function subscribeMissionEvents(
     for (const off of offs) off()
   }
 }
-
-// Suppress unused-import lint for the helper re-export.
-void progressOf

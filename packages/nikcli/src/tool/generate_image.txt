@@ -1,12 +1,26 @@
-Generate an image from a text prompt using an image model (e.g. GPT Image or Nano Banana).
+Generate images from a text prompt.
 
-Usage:
-- prompt: text prompt for image generation
-- generator: preset image generator (optional)
-- provider: provider ID override (optional)
-- model: model ID override (optional)
-- n: number of images to generate (default: 1)
-- size: output size in "{width}x{height}" (optional)
-- aspectRatio: output aspect ratio in "{width}:{height}" (optional)
+Available preset generators (use `generator: "<name>"`):
+- gpt_image, gpt_image_mini, gpt_image_1_5, dall_e_3        — OpenAI direct (needs OPENAI_API_KEY)
+- imagen_4, imagen_4_ultra, imagen_4_fast                   — Google Imagen 4 direct (needs GOOGLE_GENERATIVE_AI_API_KEY)
+- grok_imagine, grok_imagine_pro                            — xAI direct (needs XAI_API_KEY)
+- nanobanana, nanobanana_openai                             — OpenRouter-routed (needs OPENROUTER_API_KEY)
+- flux_dev, flux_schnell, flux_pro, sdxl                    — Together AI (needs TOGETHER_API_KEY)
+
+You can also bypass presets entirely by passing `provider` + `model`:
+  generate_image({ prompt, provider: "openai", model: "gpt-image-1" })
+  generate_image({ prompt, provider: "google", model: "imagen-4.0-generate-001" })
+  generate_image({ prompt, provider: "xai", model: "grok-imagine-image" })
+
+Parameters:
+- prompt: text prompt for image generation (required)
+- generator: preset name (optional, see list above)
+- provider: provider ID override — wins over generator and config (optional)
+- model: model ID override — wins over generator and config (optional)
+- n: number of images to generate, 1–4 (default: 1)
+- size: output size as "{width}x{height}" (optional, e.g. "1024x1024")
+- aspectRatio: output aspect ratio as "{width}:{height}" (optional, e.g. "16:9")
 - seed: deterministic seed (optional)
-- providerOptions: provider-specific options passed through to the underlying API (optional)
+- providerOptions: provider-specific options, passed through to the underlying image API (optional)
+
+Resolution order: params.provider+params.model > params.generator > config.image > preset default (gpt_image).

@@ -10,7 +10,7 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import * as Store from "./store"
 import * as Runner from "./runner"
-import { LoopApi, type LoopDefinition } from "./sdk"
+import { LoopApi } from "./sdk"
 
 export function toneColor(theme: TuiPluginApi["theme"]["current"], tone: Runner.LoopTone): RGBA {
   switch (tone) {
@@ -87,6 +87,24 @@ export function openManager(api: TuiPluginApi): void {
 
 function reload(api: TuiPluginApi, id: string): Store.LoopDefinition | undefined {
   return Store.getById(api.kv, id)
+}
+
+/**
+ * Like `dialog.replace`, but routes Esc (which closes the top dialog) back to
+ * `back` — so pressing Esc mid-wizard returns to the previous step instead of
+ * tearing down the whole stack. The host runs `onClose` on *any* teardown, so
+ * we guard on `depth === 0` to fire only on a real close, not a forward replace.
+ * Only safe for dialogs that don't self-clear (DialogPrompt/DialogSelect), never
+ * DialogConfirm/DialogAlert.
+ */
+function nav(
+  api: TuiPluginApi,
+  render: Parameters<TuiPluginApi["ui"]["dialog"]["replace"]>[0],
+  back: () => void,
+): void {
+  api.ui.dialog.replace(render, () => {
+    if (api.ui.dialog.depth === 0) back()
+  })
 }
 
 function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
@@ -787,18 +805,22 @@ function askStarter(api: TuiPluginApi): void {
       category: "Start",
     },
   ]
-  api.ui.dialog.replace(() => (
-    <DialogSelect<Starter>
-      title="New loop · start with"
-      options={options}
-      onSelect={(opt) => {
-        if (opt.value === "blank") askName(api, { stage: { objective: "" } })
-        else if (opt.value === "template") openTemplateGallery(api)
-        else if (opt.value === "generate") askGenerateDescription(api)
-        else openManager(api)
-      }}
-    />
-  ))
+  nav(
+    api,
+    () => (
+      <DialogSelect<Starter>
+        title="New loop · start with"
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value === "blank") askName(api, { stage: { objective: "" } })
+          else if (opt.value === "template") openTemplateGallery(api)
+          else if (opt.value === "generate") askGenerateDescription(api)
+          else openManager(api)
+        }}
+      />
+    ),
+    () => openManager(api),
+  )
 }
 
 /** Template gallery — pick a template, then funnel into the rest of the wizard. */
@@ -817,164 +839,180 @@ function openTemplateGallery(api: TuiPluginApi): void {
     description: "Return to starter options",
     category: "Start",
   })
-  api.ui.dialog.replace(() => (
-    <DialogSelect<TemplateValue>
-      title="New loop · templates"
-      options={options}
-      onSelect={(opt) => {
-        if (opt.value.kind === "back") {
-          askStarter(api)
-          return
-        }
-        const template = templates[opt.value.index]
-        if (!template) return
-        // Materialize the template into a draft and walk it through the wizard.
-        const draft: WizardDraft = {
-          ...(template.draft.name ? { name: template.draft.name } : {}),
-          ...(template.draft.intervalMs !== undefined ? { intervalMs: template.draft.intervalMs } : {}),
-          ...(template.draft.maxRuns !== undefined ? { maxRuns: template.draft.maxRuns } : {}),
-          stage: {
-            objective: template.draft.stages[0]?.objective ?? "",
-            ...(template.draft.stages[0]?.name ? { name: template.draft.stages[0].name } : {}),
-            ...(template.draft.stages[0]?.agent ? { agent: template.draft.stages[0].agent } : {}),
-          },
-        }
-        // For multi-stage templates, drop the user into the wizard at the
-        // first stage. The wizard currently collects a single stage; the
-        // remaining stages are picked up via the stage editor after creation.
-        api.ui.toast({
-          variant: "info",
-          message: `Template loaded — fill in stage details, then add the rest from the actions menu.`,
-        })
-        collectFirstStage(api, draft)
-      }}
-    />
-  ))
+  nav(
+    api,
+    () => (
+      <DialogSelect<TemplateValue>
+        title="New loop · templates"
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value.kind === "back") {
+            askStarter(api)
+            return
+          }
+          const template = templates[opt.value.index]
+          if (!template) return
+          // Materialize the template into a draft and walk it through the wizard.
+          const draft: WizardDraft = {
+            ...(template.draft.name ? { name: template.draft.name } : {}),
+            ...(template.draft.intervalMs !== undefined ? { intervalMs: template.draft.intervalMs } : {}),
+            ...(template.draft.maxRuns !== undefined ? { maxRuns: template.draft.maxRuns } : {}),
+            stage: {
+              objective: template.draft.stages[0]?.objective ?? "",
+              ...(template.draft.stages[0]?.name ? { name: template.draft.stages[0].name } : {}),
+              ...(template.draft.stages[0]?.agent ? { agent: template.draft.stages[0].agent } : {}),
+            },
+          }
+          // For multi-stage templates, drop the user into the wizard at the
+          // first stage. The wizard currently collects a single stage; the
+          // remaining stages are picked up via the stage editor after creation.
+          api.ui.toast({
+            variant: "info",
+            message: `Template loaded — fill in stage details, then add the rest from the actions menu.`,
+          })
+          collectFirstStage(api, draft)
+        }}
+      />
+    ),
+    () => askStarter(api),
+  )
 }
 
 /** Generate-from-description: prompt the user, then funnel the result into the wizard. */
 function askGenerateDescription(api: TuiPluginApi): void {
   const api2 = new LoopApi(api.client)
-  api.ui.dialog.replace(() => (
-    <DialogPrompt
-      title="New loop · describe what you want"
-      placeholder="e.g. Watch CI on PR #1234 every 10m and fix any failing checks"
-      description={() => (
-        <text fg={api.theme.current.textMuted}>
-          The AI will draft a multi-stage pipeline. You'll review before saving.
-        </text>
-      )}
-      onConfirm={async (value) => {
-        const description = value.trim()
-        if (!description) {
-          askStarter(api)
-          return
-        }
-        api.ui.toast({
-          variant: "info",
-          message: "Asking the model to draft a pipeline…",
-        })
-        try {
-          const def = await api2.generateFromDescription(description, {
-            agent: "general",
-          })
-          // The generated LoopDefinition is fully formed; offer to save as-is or
-          // open it in the stage editor. For now we just save and open the
-          // stage editor so the user can tweak before it triggers.
-          const saved = await new LoopApi(api.client).upsert(def)
-          await Runner.syncAll(api)
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New loop · describe what you want"
+        placeholder="e.g. Watch CI on PR #1234 every 10m and fix any failing checks"
+        description={() => (
+          <text fg={api.theme.current.textMuted}>
+            The AI will draft a multi-stage pipeline. You'll review before saving.
+          </text>
+        )}
+        onConfirm={async (value) => {
+          const description = value.trim()
+          if (!description) {
+            askStarter(api)
+            return
+          }
           api.ui.toast({
-            variant: "success",
-            message: `Drafted "${saved.name}" — review stages before saving`,
+            variant: "info",
+            message: "Asking the model to draft a pipeline…",
           })
-          openStages(api, saved)
-        } catch (error) {
-          api.ui.toast({
-            variant: "error",
-            message: `Generation failed: ${error instanceof Error ? error.message : String(error)}`,
-          })
-          askStarter(api)
-        }
-      }}
-      onCancel={() => askStarter(api)}
-    />
-  ))
+          try {
+            const def = await api2.generateFromDescription(description, {
+              agent: "general",
+            })
+            // The generated LoopDefinition is fully formed; offer to save as-is or
+            // open it in the stage editor. For now we just save and open the
+            // stage editor so the user can tweak before it triggers.
+            const saved = await new LoopApi(api.client).upsert(def)
+            await Runner.syncAll(api)
+            api.ui.toast({
+              variant: "success",
+              message: `Drafted "${saved.name}" — review stages before saving`,
+            })
+            openStages(api, saved)
+          } catch (error) {
+            api.ui.toast({
+              variant: "error",
+              message: `Generation failed: ${error instanceof Error ? error.message : String(error)}`,
+            })
+            askStarter(api)
+          }
+        }}
+      />
+    ),
+    () => askStarter(api),
+  )
 }
 
 function askName(api: TuiPluginApi, draft: WizardDraft): void {
-  api.ui.dialog.replace(() => (
-    <DialogPrompt
-      title="New loop · name (optional)"
-      placeholder="Leave empty to derive from the first stage"
-      value={draft.name ?? ""}
-      onConfirm={(value) => askSchedule(api, { ...draft, name: value.trim() || undefined })}
-      onCancel={() => api.ui.dialog.clear()}
-    />
-  ))
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New loop · name (optional)"
+        placeholder="Leave empty to derive from the first stage"
+        value={draft.name ?? ""}
+        onConfirm={(value) => askSchedule(api, { ...draft, name: value.trim() || undefined })}
+      />
+    ),
+    () => askStarter(api),
+  )
 }
 
 function askSchedule(api: TuiPluginApi, draft: WizardDraft): void {
-  api.ui.dialog.replace(() => (
-    <DialogPrompt
-      title="New loop · schedule (optional)"
-      placeholder="e.g. 10m, 1h — leave empty to run manually"
-      value={draft.intervalMs ? Store.formatDuration(draft.intervalMs) : ""}
-      onConfirm={(raw) => {
-        const text = raw.trim()
-        if (!text) {
-          // Manual loops have no temporal cap — skip the run-cap step.
-          collectFirstStage(api, {
-            ...draft,
-            intervalMs: undefined,
-            maxRuns: undefined,
-          })
-          return
-        }
-        try {
-          const everyMs = Store.parseDuration(text)
-          if (everyMs < Store.MIN_INTERVAL_MS) {
-            throw new Error(`Interval must be at least ${Store.formatDuration(Store.MIN_INTERVAL_MS)}`)
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New loop · schedule (optional)"
+        placeholder="e.g. 10m, 1h — leave empty to run manually"
+        value={draft.intervalMs ? Store.formatDuration(draft.intervalMs) : ""}
+        onConfirm={(raw) => {
+          const text = raw.trim()
+          if (!text) {
+            // Manual loops have no temporal cap — skip the run-cap step.
+            collectFirstStage(api, {
+              ...draft,
+              intervalMs: undefined,
+              maxRuns: undefined,
+            })
+            return
           }
-          askMaxRuns(api, { ...draft, intervalMs: everyMs })
-        } catch (error) {
-          api.ui.toast({
-            variant: "error",
-            message: error instanceof Error ? error.message : String(error),
-          })
-          askSchedule(api, draft)
-        }
-      }}
-      onCancel={() => api.ui.dialog.clear()}
-    />
-  ))
+          try {
+            const everyMs = Store.parseDuration(text)
+            if (everyMs < Store.MIN_INTERVAL_MS) {
+              throw new Error(`Interval must be at least ${Store.formatDuration(Store.MIN_INTERVAL_MS)}`)
+            }
+            askMaxRuns(api, { ...draft, intervalMs: everyMs })
+          } catch (error) {
+            api.ui.toast({
+              variant: "error",
+              message: error instanceof Error ? error.message : String(error),
+            })
+            askSchedule(api, draft)
+          }
+        }}
+      />
+    ),
+    () => askName(api, draft),
+  )
 }
 
 function askMaxRuns(api: TuiPluginApi, draft: WizardDraft): void {
-  api.ui.dialog.replace(() => (
-    <DialogPrompt
-      title="New loop · run cap (optional)"
-      placeholder="Stop after N runs — leave empty for unlimited"
-      value={draft.maxRuns ? String(draft.maxRuns) : ""}
-      onConfirm={(raw) => {
-        const text = raw.trim()
-        let maxRuns: number | undefined
-        if (text) {
-          const parsed = Number(text)
-          if (!Number.isInteger(parsed) || parsed <= 0) {
-            api.ui.toast({
-              variant: "error",
-              message: "Run cap must be a positive integer",
-            })
-            askMaxRuns(api, draft)
-            return
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New loop · run cap (optional)"
+        placeholder="Stop after N runs — leave empty for unlimited"
+        value={draft.maxRuns ? String(draft.maxRuns) : ""}
+        onConfirm={(raw) => {
+          const text = raw.trim()
+          let maxRuns: number | undefined
+          if (text) {
+            const parsed = Number(text)
+            if (!Number.isInteger(parsed) || parsed <= 0) {
+              api.ui.toast({
+                variant: "error",
+                message: "Run cap must be a positive integer",
+              })
+              askMaxRuns(api, draft)
+              return
+            }
+            maxRuns = parsed
           }
-          maxRuns = parsed
-        }
-        collectFirstStage(api, { ...draft, maxRuns })
-      }}
-      onCancel={() => api.ui.dialog.clear()}
-    />
-  ))
+          collectFirstStage(api, { ...draft, maxRuns })
+        }}
+      />
+    ),
+    () => askSchedule(api, draft),
+  )
 }
 
 function collectFirstStage(api: TuiPluginApi, draft: WizardDraft): void {

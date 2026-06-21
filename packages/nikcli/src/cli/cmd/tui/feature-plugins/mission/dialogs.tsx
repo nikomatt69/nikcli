@@ -1,10 +1,11 @@
 /**
  * Missions — TUI plugin: management dialogs.
  *
- * Mirrors `feature-plugins/loops/dialogs.tsx`. Three views:
- *   - `openManager` lists missions + offers "New mission" (template / LLM / blank)
+ * Mirrors `feature-plugins/loops/dialogs.tsx`. Key views:
+ *   - `openManager` lists missions + offers "New mission"
+ *   - `openWizard` is the guided creation flow (blank / template / generate)
  *   - `openActions` shows per-mission controls (start, pause, cancel, edit, delete)
- *   - `openHistory` lists recent executions with status + diff attribution
+ *   - `openHistory` lists recent executions with status, drilling into run detail
  *
  * The actual work (persistence, orchestration) is delegated to the server's
  * `MissionOrchestrator`; the dialogs only collect user intent and call the
@@ -16,7 +17,13 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import * as Store from "./store"
 import * as Runner from "./runner"
-import { MissionApi, type MissionDefinition, type MissionFeature, type MissionRuntimeStatus } from "./sdk"
+import {
+  MissionApi,
+  type MissionDefinition,
+  type MissionFeature,
+  type MissionMilestone,
+  type MissionRuntimeStatus,
+} from "./sdk"
 
 export function toneColor(theme: TuiPluginApi["theme"]["current"], tone: Runner.MissionTone): RGBA {
   switch (tone) {
@@ -37,10 +44,6 @@ function progressLine(def: Store.MissionDefinition): string {
   const p = Store.progressOf(def)
   const pct = p.totalFeatures === 0 ? 0 : Math.round((p.doneFeatures / p.totalFeatures) * 100)
   return `${p.doneFeatures}/${p.totalFeatures} features · ${p.doneMilestones}/${p.totalMilestones} milestones · ${pct}%`
-}
-
-function briefSummary(def: Store.MissionDefinition): string {
-  return def.brief.length <= 80 ? def.brief : `${def.brief.slice(0, 79)}…`
 }
 
 // ── Model & agent pickers (mirrors feature-plugins/loops/dialogs.tsx) ──────────
@@ -142,7 +145,7 @@ function missionOptions(api: TuiPluginApi): DialogSelectOption<ManagerValue>[] {
   rows.push({
     title: "＋ New mission",
     value: { kind: "new" } as ManagerValue,
-    description: "Plan a multi-milestone workflow (template, LLM, or blank)",
+    description: "Plan a multi-milestone workflow (blank, template, or AI-generated)",
     category: "Actions",
   })
   return rows
@@ -156,7 +159,7 @@ export function openManager(api: TuiPluginApi): void {
       options={missionOptions(api)}
       onSelect={(opt) => {
         if (opt.value.kind === "new") {
-          openNew(api)
+          openWizard(api)
           return
         }
         const def = Store.getById(api.kv, opt.value.id)
@@ -166,185 +169,492 @@ export function openManager(api: TuiPluginApi): void {
   ))
 }
 
-type NewSource = "template" | "llm" | "blank"
+/**
+ * Like `dialog.replace`, but routes Esc (which closes the top dialog) back to
+ * `back` — so pressing Esc mid-wizard returns to the previous step instead of
+ * tearing down the whole stack. The host runs `onClose` on *any* teardown, so
+ * we guard on `depth === 0` to fire only on a real close, not a forward replace.
+ * Only safe for dialogs that don't self-clear (DialogPrompt/DialogSelect), never
+ * DialogConfirm/DialogAlert.
+ */
+function nav(
+  api: TuiPluginApi,
+  render: Parameters<TuiPluginApi["ui"]["dialog"]["replace"]>[0],
+  back: () => void,
+): void {
+  api.ui.dialog.replace(render, () => {
+    if (api.ui.dialog.depth === 0) back()
+  })
+}
 
-function openNew(api: TuiPluginApi): void {
-  const options: DialogSelectOption<NewSource>[] = [
+// ── Creation wizard (mirrors feature-plugins/loops/dialogs.tsx) ────────────────
+//
+// A guided, multi-step flow where the user chooses everything: name, brief,
+// the three role models, and the first feature (objective / agent / model /
+// budget). Three starting points — blank, template, or generate-from-prompt —
+// all converge on the plan view (`openView`) for review after creation.
+
+type WizardFeature = {
+  objective: string
+  agent?: string
+  model?: string
+  tokenBudget?: number
+}
+
+type WizardDraft = {
+  name?: string
+  brief?: string
+  models: Store.MissionModels
+  validation?: Store.ValidationPolicy
+  feature: WizardFeature
+}
+
+function emptyDraft(): WizardDraft {
+  return { models: {}, feature: { objective: "" } }
+}
+
+export function openWizard(api: TuiPluginApi): void {
+  askStarter(api)
+}
+
+/** First step: pick a starting point (blank / template / generate). */
+function askStarter(api: TuiPluginApi): void {
+  type Starter = "blank" | "template" | "generate" | "back"
+  const options: DialogSelectOption<Starter>[] = [
     {
-      title: "From template",
+      title: "Blank mission",
+      value: "blank",
+      description: "Build a single-feature mission step by step",
+      category: "Start",
+    },
+    {
+      title: "From a template",
       value: "template",
-      description: "Pick a built-in starter brief",
-      category: "Sources",
+      description: "Start from a built-in brief, then refine or generate",
+      category: "Start",
     },
     {
       title: "Generate from description",
-      value: "llm",
-      description: "Let the model author a milestone+feature plan from a prompt",
-      category: "Sources",
-    },
-    {
-      title: "Blank brief",
-      value: "blank",
-      description: "Single-feature mission from a free-form brief",
-      category: "Sources",
+      value: "generate",
+      description: "Describe the goal — the model drafts milestones + features",
+      category: "Start",
     },
     {
       title: "← Back",
-      value: "blank",
-      description: "Return to mission list",
-      category: "Back",
+      value: "back",
+      description: "Return to the mission list",
+      category: "Start",
     },
   ]
-  // Replace the "blank" duplicate by giving the back option a sentinel.
-  options[3] = {
-    title: "← Back",
-    value: "blank",
-    description: "Return to mission list",
-    category: "Back",
-  }
-  api.ui.dialog.replace(() => (
-    <DialogSelect<NewSource>
-      title="New mission"
-      placeholder="Pick a source…"
-      options={options}
-      onSelect={(opt) => {
-        switch (opt.value) {
-          case "template":
-            openTemplatePicker(api)
-            break
-          case "llm":
-            openLLMWizard(api)
-            break
-          case "blank":
-            openBlankWizard(api)
-            break
-        }
-      }}
-    />
-  ))
+  nav(
+    api,
+    () => (
+      <DialogSelect<Starter>
+        title="New mission · start with"
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value === "blank") askName(api, emptyDraft())
+          else if (opt.value === "template") openTemplateGallery(api)
+          else if (opt.value === "generate") askGenerateDescription(api)
+          else openManager(api)
+        }}
+      />
+    ),
+    () => openManager(api),
+  )
 }
 
-async function openTemplatePicker(api: TuiPluginApi): Promise<void> {
+/** Template gallery — pick a template, then choose to generate or build manually. */
+async function openTemplateGallery(api: TuiPluginApi): Promise<void> {
   const api2 = new MissionApi(api.client)
   const templates = await api2.templates()
-  const options: DialogSelectOption<{ id: string; title: string }>[] = templates.map((t) => ({
+  type TemplateValue = { kind: "template"; id: string } | { kind: "back" }
+  const options: DialogSelectOption<TemplateValue>[] = templates.map((t) => ({
     title: t.title,
-    value: { id: t.id, title: t.title },
+    value: { kind: "template", id: t.id } as TemplateValue,
     description: t.description,
     category: "Templates",
   }))
-  api.ui.dialog.replace(() => (
-    <DialogSelect<{ id: string; title: string }>
-      title="Mission templates"
-      placeholder="Pick a template…"
-      options={options}
-      onSelect={(opt) => {
-        const brief = templates.find((t) => t.id === opt.value.id)?.brief
-        openLLMWizard(api, { templateBrief: brief })
-      }}
-    />
-  ))
+  options.push({
+    title: "← Back",
+    value: { kind: "back" },
+    description: "Return to starter options",
+    category: "Start",
+  })
+  nav(
+    api,
+    () => (
+      <DialogSelect<TemplateValue>
+        title="New mission · templates"
+        placeholder="Pick a template…"
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value.kind === "back") {
+            askStarter(api)
+            return
+          }
+          const id = opt.value.id
+          const template = templates.find((t) => t.id === id)
+          if (!template) return
+          openTemplateActions(api, template.title, template.brief)
+        }}
+      />
+    ),
+    () => askStarter(api),
+  )
 }
 
-function openLLMWizard(api: TuiPluginApi, preset?: { templateBrief?: string }): void {
-  api.ui.dialog.replace(() => (
-    <DialogPrompt
-      title="Generate mission from description"
-      placeholder="Describe the mission — the model will author milestones + features"
-      value={preset?.templateBrief ?? ""}
-      onConfirm={async (raw) => {
-        const text = raw.trim()
-        if (!text) {
+/** After picking a template: generate a full plan from the brief, or build it by hand. */
+function openTemplateActions(api: TuiPluginApi, title: string, brief: string): void {
+  type Choice = "generate" | "manual" | "back"
+  const options: DialogSelectOption<Choice>[] = [
+    {
+      title: "Generate plan from brief",
+      value: "generate",
+      description: "Let the model author milestones + features, then review",
+      category: title,
+    },
+    {
+      title: "Build manually",
+      value: "manual",
+      description: "Walk the wizard with the brief pre-filled",
+      category: title,
+    },
+    {
+      title: "← Back",
+      value: "back",
+      description: "Return to the template list",
+      category: "Actions",
+    },
+  ]
+  nav(
+    api,
+    () => (
+      <DialogSelect<Choice>
+        title={`New mission · ${title}`}
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value === "generate") askGenerateDescription(api, { brief })
+          else if (opt.value === "manual") askName(api, { models: {}, brief, feature: { objective: brief } })
+          else openTemplateGallery(api)
+        }}
+      />
+    ),
+    () => openTemplateGallery(api),
+  )
+}
+
+/** Generate-from-description: prompt (optionally pre-filled), draft a plan, then review. */
+function askGenerateDescription(api: TuiPluginApi, preset?: { brief?: string }): void {
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New mission · describe what you want"
+        placeholder="e.g. Add OAuth login with Google and GitHub, with tests and docs"
+        value={preset?.brief ?? ""}
+        description={() => (
+          <text fg={api.theme.current.textMuted}>
+            The model will draft milestones + features. You'll review the plan before it runs.
+          </text>
+        )}
+        onConfirm={async (raw) => {
+          const description = raw.trim()
+          if (!description) {
+            askStarter(api)
+            return
+          }
           api.ui.toast({
-            variant: "error",
-            message: "Description cannot be empty",
+            variant: "info",
+            message: "Asking the model to draft a plan…",
           })
-          openManager(api)
-          return
-        }
-        const api2 = new MissionApi(api.client)
-        const def = await api2.generateFromDescription(text).catch(() => undefined)
-        if (!def) {
-          api.ui.toast({
-            variant: "error",
-            message: "The model did not return a usable plan",
-          })
-          openManager(api)
-          return
-        }
-        // Confirm before persistence: the model can hallucinate structure.
-        confirmAndSave(api, def)
-      }}
-      onCancel={() => openManager(api)}
-    />
-  ))
-}
-
-function openBlankWizard(api: TuiPluginApi): void {
-  api.ui.dialog.replace(() => (
-    <DialogPrompt
-      title="Blank mission brief"
-      placeholder="One paragraph: what should the agent do?"
-      onConfirm={async (raw) => {
-        const text = raw.trim()
-        if (!text) {
-          api.ui.toast({ variant: "error", message: "Brief cannot be empty" })
-          openManager(api)
-          return
-        }
-        const def: MissionDefinition = {
-          id: `mission_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-          name: text.slice(0, 32),
-          brief: text,
-          milestones: [
-            {
-              id: "m1",
-              name: "Main",
-              features: [
-                {
-                  id: "f1_1",
-                  name: "Execute brief",
-                  objective: text,
-                  agent: "ralph",
-                  status: "pending",
-                  dependsOn: [],
-                },
-              ],
-              validation: "scrutiny",
-              status: "pending",
-            },
-          ],
-          models: {},
-          status: "ready",
-          createdAt: Date.now(),
-        }
-        confirmAndSave(api, def)
-      }}
-      onCancel={() => openManager(api)}
-    />
-  ))
-}
-
-function confirmAndSave(api: TuiPluginApi, def: MissionDefinition): void {
-  api.ui.dialog.replace(() => (
-    <api.ui.DialogConfirm
-      title={`Save "${def.name}"?`}
-      message={`${def.milestones.length} milestone(s) · ${def.milestones.reduce((n, m) => n + m.features.length, 0)} feature(s)\n\n${briefSummary(def)}`}
-      onConfirm={async () => {
-        const saved = await Runner.persist(api, def)
-        if (saved) {
+          const api2 = new MissionApi(api.client)
+          const def = await api2.generateFromDescription(description).catch(() => undefined)
+          if (!def) {
+            api.ui.toast({
+              variant: "error",
+              message: "The model did not return a usable plan",
+            })
+            askStarter(api)
+            return
+          }
+          const saved = await Runner.persist(api, def)
           api.ui.toast({
             variant: "success",
-            message: `Saved "${saved.name}"`,
+            message: `Drafted "${(saved ?? def).name}" — review the plan before starting`,
           })
-        } else {
-          api.ui.toast({ variant: "error", message: "Failed to save mission" })
-        }
-        openManager(api)
-      }}
-      onCancel={() => openManager(api)}
-    />
-  ))
+          openView(api, saved ?? def)
+        }}
+      />
+    ),
+    () => askStarter(api),
+  )
+}
+
+function askName(api: TuiPluginApi, draft: WizardDraft): void {
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New mission · name (optional)"
+        placeholder="Leave empty to derive from the brief"
+        value={draft.name ?? ""}
+        onConfirm={(value) => askBrief(api, { ...draft, name: value.trim() || undefined })}
+      />
+    ),
+    () => askStarter(api),
+  )
+}
+
+function askBrief(api: TuiPluginApi, draft: WizardDraft): void {
+  nav(
+    api,
+    () => (
+      <DialogPrompt
+        title="New mission · brief"
+        placeholder="One paragraph: what should the mission accomplish?"
+        value={draft.brief ?? ""}
+        onConfirm={(raw) => {
+          const brief = raw.trim()
+          if (!brief) {
+            api.ui.toast({ variant: "error", message: "Brief cannot be empty" })
+            askBrief(api, draft)
+            return
+          }
+          // Pre-fill the first feature's objective from the brief if untouched.
+          const feature = draft.feature.objective.trim() ? draft.feature : { ...draft.feature, objective: brief }
+          askModels(api, { ...draft, brief, feature })
+        }}
+      />
+    ),
+    () => askName(api, draft),
+  )
+}
+
+/** Choose the three role models the orchestrator uses (all optional). */
+function askModels(api: TuiPluginApi, draft: WizardDraft): void {
+  type Role = "worker" | "validation" | "orchestrator" | "continue" | "back"
+  const options: DialogSelectOption<Role>[] = [
+    {
+      title: "Worker model",
+      value: "worker",
+      description: modelLabel(api, draft.models.worker),
+      category: "Models",
+    },
+    {
+      title: "Validation model",
+      value: "validation",
+      description: modelLabel(api, draft.models.validation),
+      category: "Models",
+    },
+    {
+      title: "Orchestrator model",
+      value: "orchestrator",
+      description: modelLabel(api, draft.models.orchestrator),
+      category: "Models",
+    },
+    {
+      title: "Continue →",
+      value: "continue",
+      description: "Proceed to the validation policy",
+      category: "Actions",
+    },
+    {
+      title: "← Back",
+      value: "back",
+      description: "Return to the brief",
+      category: "Actions",
+    },
+  ]
+  nav(
+    api,
+    () => (
+      <DialogSelect<Role>
+        title="New mission · models (optional)"
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value === "continue") {
+            askValidation(api, draft)
+            return
+          }
+          if (opt.value === "back") {
+            askBrief(api, draft)
+            return
+          }
+          const role = opt.value
+          pickModel(api, `Select ${role} model`, draft.models[role], (model) => {
+            const models: Store.MissionModels = { ...draft.models }
+            if (model) models[role] = model
+            else delete models[role]
+            askModels(api, { ...draft, models })
+          })
+        }}
+      />
+    ),
+    () => askBrief(api, draft),
+  )
+}
+
+/** Choose how each milestone is validated before the mission advances. */
+function askValidation(api: TuiPluginApi, draft: WizardDraft): void {
+  const options: DialogSelectOption<Store.ValidationPolicy | "back">[] = [
+    {
+      title: "Scrutiny",
+      value: "scrutiny",
+      description: "A critical review pass validates each milestone",
+      category: "Validation",
+    },
+    {
+      title: "User test",
+      value: "user-test",
+      description: "Pause for you to manually verify each milestone",
+      category: "Validation",
+    },
+    {
+      title: "None",
+      value: "none",
+      description: "Advance without validating between milestones",
+      category: "Validation",
+    },
+    {
+      title: "← Back",
+      value: "back",
+      description: "Return to models",
+      category: "Actions",
+    },
+  ]
+  nav(
+    api,
+    () => (
+      <DialogSelect<Store.ValidationPolicy | "back">
+        title="New mission · validation policy"
+        current={draft.validation ?? "scrutiny"}
+        options={options}
+        onSelect={(opt) => {
+          if (opt.value === "back") {
+            askModels(api, draft)
+            return
+          }
+          collectFirstFeature(api, { ...draft, validation: opt.value })
+        }}
+      />
+    ),
+    () => askModels(api, draft),
+  )
+}
+
+/** Collect the first feature (objective → agent → model → budget), then finalize. */
+function collectFirstFeature(api: TuiPluginApi, draft: WizardDraft): void {
+  collectFeature(
+    api,
+    draft.feature,
+    (feature) => finalize(api, { ...draft, feature }),
+    () => openManager(api),
+  )
+}
+
+/** Reusable feature-field collector mirroring the loops stage editor. */
+function collectFeature(
+  api: TuiPluginApi,
+  initial: WizardFeature,
+  onDone: (feature: WizardFeature) => void,
+  onCancel: () => void,
+): void {
+  const askObjective = (cur: WizardFeature) => {
+    api.ui.dialog.replace(() => (
+      <DialogPrompt
+        title="Feature · objective"
+        placeholder="e.g. implement the login form and wire it to the API"
+        value={cur.objective}
+        onConfirm={(value) => {
+          const objective = value.trim()
+          if (!objective) {
+            api.ui.toast({ variant: "error", message: "Objective cannot be empty" })
+            askObjective({ ...cur, objective })
+            return
+          }
+          pickAgent(api, cur.agent, (agent) => askModelStep({ ...cur, objective, agent }))
+        }}
+        onCancel={onCancel}
+      />
+    ))
+  }
+  const askModelStep = (cur: WizardFeature) => {
+    pickModel(api, "Feature · model", cur.model, (model) => askBudget({ ...cur, model }))
+  }
+  const askBudget = (cur: WizardFeature) => {
+    api.ui.dialog.replace(() => (
+      <DialogPrompt
+        title="Feature · token budget (optional)"
+        placeholder="e.g. 200000 — leave empty for none"
+        value={cur.tokenBudget ? String(cur.tokenBudget) : ""}
+        onConfirm={(raw) => {
+          const text = raw.trim()
+          let tokenBudget: number | undefined
+          if (text) {
+            const parsed = Number(text)
+            if (!Number.isInteger(parsed) || parsed <= 0) {
+              api.ui.toast({
+                variant: "error",
+                message: "Token budget must be a positive integer",
+              })
+              askBudget(cur)
+              return
+            }
+            tokenBudget = parsed
+          }
+          onDone({
+            objective: cur.objective,
+            ...(cur.agent ? { agent: cur.agent } : {}),
+            ...(cur.model ? { model: cur.model } : {}),
+            ...(tokenBudget ? { tokenBudget } : {}),
+          })
+        }}
+        onCancel={onCancel}
+      />
+    ))
+  }
+  askObjective(initial)
+}
+
+function finalize(api: TuiPluginApi, draft: WizardDraft): void {
+  const brief = (draft.brief ?? draft.feature.objective).trim()
+  const objective = draft.feature.objective.trim() || brief
+  const def: MissionDefinition = {
+    id: `mission_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    name: draft.name || brief.slice(0, 32),
+    brief,
+    milestones: [
+      {
+        id: "m1",
+        name: "Main",
+        features: [
+          {
+            id: "f1_1",
+            name: objective.slice(0, 48) || "Execute brief",
+            objective,
+            agent: draft.feature.agent || "ralph",
+            ...(draft.feature.model ? { model: draft.feature.model } : {}),
+            ...(draft.feature.tokenBudget ? { tokenBudget: draft.feature.tokenBudget } : {}),
+            status: "pending",
+            dependsOn: [],
+          },
+        ],
+        validation: draft.validation ?? "scrutiny",
+        status: "pending",
+      },
+    ],
+    models: draft.models,
+    status: "ready",
+    createdAt: Date.now(),
+  }
+  void Runner.persist(api, def).then((saved) => {
+    api.ui.toast({
+      variant: "success",
+      message: `Mission "${(saved ?? def).name}" created — review the plan`,
+    })
+    openView(api, saved ?? def)
+  })
 }
 
 type Action = "start" | "pause" | "resume" | "cancel" | "view" | "models" | "history" | "delete" | "back"
@@ -513,57 +823,170 @@ function openModels(api: TuiPluginApi, def: Store.MissionDefinition): void {
   ))
 }
 
+/** Build a fresh feature from collected wizard fields (used by the add paths). */
+function featureFromDraft(feature: WizardFeature): MissionFeature {
+  const objective = feature.objective.trim()
+  return {
+    id: `f_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+    name: objective.slice(0, 48) || "New feature",
+    objective,
+    agent: feature.agent || "ralph",
+    ...(feature.model ? { model: feature.model } : {}),
+    ...(feature.tokenBudget ? { tokenBudget: feature.tokenBudget } : {}),
+    status: "pending",
+    dependsOn: [],
+  }
+}
+
+/** Persist a structurally-mutated mission, toast, then continue with the saved def. */
+function persistStructure(
+  api: TuiPluginApi,
+  next: Store.MissionDefinition,
+  message: string,
+  then: (saved: Store.MissionDefinition) => void,
+): void {
+  void Runner.persist(api, next).then((saved) => {
+    api.ui.toast({ variant: "success", message })
+    then(saved ?? next)
+  })
+}
+
 function openView(api: TuiPluginApi, def: Store.MissionDefinition): void {
-  type ViewAction = "edit-feature" | "back"
-  const featureOptions: DialogSelectOption<{
-    action: ViewAction
-    feature: MissionFeature
-    milestone: string
-  }>[] = []
+  type ViewValue =
+    | { kind: "feature"; milestoneID: string; featureID: string }
+    | { kind: "add-feature" }
+    | { kind: "add-milestone" }
+    | { kind: "back" }
+  const options: DialogSelectOption<ViewValue>[] = []
   for (const m of def.milestones) {
     for (const f of m.features) {
-      const tick = featureIcon(f.status)
-      featureOptions.push({
-        title: `${tick} ${f.id} ${f.name}`,
-        value: { action: "edit-feature", feature: f, milestone: m.id },
-        description: `${f.agent} · ${f.status}${f.dependsOn.length > 0 ? ` · after ${f.dependsOn.join(", ")}` : ""}`,
+      options.push({
+        title: `${featureIcon(f.status)} ${f.id} ${f.name}`,
+        value: { kind: "feature", milestoneID: m.id, featureID: f.id },
+        description: `@${f.agent} · ${f.status}${f.dependsOn.length > 0 ? ` · after ${f.dependsOn.join(", ")}` : ""}`,
         category: m.name,
       })
     }
   }
-  featureOptions.push({
-    title: "← Back",
-    value: {
-      action: "back",
-      feature: {
-        id: "",
-        name: "",
-        objective: "",
-        agent: "",
-        status: "pending",
-        dependsOn: [],
-      },
-      milestone: "",
+  options.push(
+    {
+      title: "＋ Add feature",
+      value: { kind: "add-feature" },
+      description: "Append a feature to a milestone",
+      category: "Edit",
     },
-    description: "Return to the action menu",
-    category: "Actions",
-  })
+    {
+      title: "＋ Add milestone",
+      value: { kind: "add-milestone" },
+      description: "Create a new milestone with a first feature",
+      category: "Edit",
+    },
+    {
+      title: "← Back",
+      value: { kind: "back" },
+      description: "Return to the action menu",
+      category: "Actions",
+    },
+  )
   api.ui.dialog.replace(() => (
-    <DialogSelect<{
-      action: ViewAction
-      feature: MissionFeature
-      milestone: string
-    }>
+    <DialogSelect<ViewValue>
       title={`${def.name} — plan`}
       placeholder="Pick a feature to intervene…"
-      options={featureOptions}
+      options={options}
       onSelect={(opt) => {
-        if (opt.value.action === "back") {
-          openActions(api, def)
+        switch (opt.value.kind) {
+          case "back":
+            openActions(api, def)
+            break
+          case "add-feature":
+            addFeature(api, def)
+            break
+          case "add-milestone":
+            addMilestone(api, def)
+            break
+          case "feature": {
+            const v = opt.value
+            const m = def.milestones.find((mm) => mm.id === v.milestoneID)
+            const f = m?.features.find((ff) => ff.id === v.featureID)
+            if (m && f) openFeatureActions(api, def, m.id, f)
+            break
+          }
+        }
+      }}
+    />
+  ))
+}
+
+/** Append a new feature to a milestone (picks the milestone first when there are several). */
+function addFeature(api: TuiPluginApi, def: Store.MissionDefinition): void {
+  const append = (milestoneID: string) => {
+    collectFeature(
+      api,
+      { objective: "" },
+      (feature) => {
+        const newFeature = featureFromDraft(feature)
+        const next: Store.MissionDefinition = {
+          ...def,
+          milestones: def.milestones.map((m) =>
+            m.id === milestoneID ? { ...m, features: [...m.features, newFeature] } : m,
+          ),
+        }
+        persistStructure(api, next, "Feature added", (saved) => openView(api, saved))
+      },
+      () => openView(api, def),
+    )
+  }
+  if (def.milestones.length <= 1) {
+    append(def.milestones[0]?.id ?? "m1")
+    return
+  }
+  const options: DialogSelectOption<string>[] = def.milestones.map((m) => ({
+    title: m.name,
+    value: m.id,
+    description: `${m.features.length} feature${m.features.length === 1 ? "" : "s"}`,
+    category: "Milestones",
+  }))
+  options.push({ title: "← Back", value: "__back__", description: "Return to the plan", category: "Actions" })
+  api.ui.dialog.replace(() => (
+    <DialogSelect<string>
+      title="Add feature · pick milestone"
+      options={options}
+      onSelect={(opt) => (opt.value === "__back__" ? openView(api, def) : append(opt.value))}
+    />
+  ))
+}
+
+/** Create a new milestone; a milestone needs at least one feature, so collect that too. */
+function addMilestone(api: TuiPluginApi, def: Store.MissionDefinition): void {
+  api.ui.dialog.replace(() => (
+    <DialogPrompt
+      title="New milestone · name"
+      placeholder="e.g. Polish & ship"
+      onConfirm={(raw) => {
+        const name = raw.trim()
+        if (!name) {
+          api.ui.toast({ variant: "error", message: "Milestone name cannot be empty" })
+          addMilestone(api, def)
           return
         }
-        openFeatureActions(api, def, opt.value.milestone, opt.value.feature)
+        collectFeature(
+          api,
+          { objective: "" },
+          (feature) => {
+            const milestone: MissionMilestone = {
+              id: `m_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`,
+              name,
+              features: [featureFromDraft(feature)],
+              validation: "scrutiny",
+              status: "pending",
+            }
+            const next: Store.MissionDefinition = { ...def, milestones: [...def.milestones, milestone] }
+            persistStructure(api, next, "Milestone added", (saved) => openView(api, saved))
+          },
+          () => openView(api, def),
+        )
       }}
+      onCancel={() => openView(api, def)}
     />
   ))
 }
@@ -593,6 +1016,9 @@ type FeatureAction =
   | "skip"
   | "reset"
   | "retry"
+  | "move-up"
+  | "move-down"
+  | "remove"
   | "back"
 
 /** Replace a feature in the definition and persist the whole mission. */
@@ -672,6 +1098,29 @@ function openFeatureActions(
       description: "Clear the error, mark pending, and resume orchestration",
     })
   }
+  const milestone = def.milestones.find((m) => m.id === milestoneID)
+  const index = milestone ? milestone.features.findIndex((f) => f.id === feature.id) : -1
+  const totalFeatures = def.milestones.reduce((n, m) => n + m.features.length, 0)
+  if (milestone && index > 0)
+    options.push({
+      title: "Move up",
+      value: "move-up",
+      description: "Run earlier in the milestone",
+      category: "Reorder",
+    })
+  if (milestone && index >= 0 && index < milestone.features.length - 1)
+    options.push({
+      title: "Move down",
+      value: "move-down",
+      description: "Run later in the milestone",
+      category: "Reorder",
+    })
+  options.push({
+    title: "Remove feature",
+    value: "remove",
+    description: totalFeatures <= 1 ? "(a mission needs one feature)" : "Drop this feature from the plan",
+    category: "Reorder",
+  })
   options.push({
     title: "← Back",
     value: "back",
@@ -679,7 +1128,7 @@ function openFeatureActions(
   })
   api.ui.dialog.replace(() => (
     <DialogSelect<FeatureAction>
-      title={`${feature.id} ${feature.name}`}
+      title={milestone ? `${milestone.name} · ${feature.id} ${feature.name}` : `${feature.id} ${feature.name}`}
       options={options}
       onSelect={async (opt) => {
         switch (opt.value) {
@@ -743,7 +1192,10 @@ function openFeatureActions(
                     tokenBudget = parsed
                   }
                   void persistFeaturePatch(api, def, feature.id, { tokenBudget }).then((saved) => {
-                    api.ui.toast({ variant: "success", message: tokenBudget ? "Token budget updated" : "Token budget removed" })
+                    api.ui.toast({
+                      variant: "success",
+                      message: tokenBudget ? "Token budget updated" : "Token budget removed",
+                    })
                     openFeatureActions(api, saved ?? def, milestoneID, { ...feature, tokenBudget })
                   })
                 }}
@@ -792,6 +1244,41 @@ function openFeatureActions(
             openManager(api)
             break
           }
+          case "move-up":
+          case "move-down": {
+            if (!milestone || index < 0) {
+              openView(api, def)
+              break
+            }
+            const feats = [...milestone.features]
+            const j = index + (opt.value === "move-up" ? -1 : 1)
+            if (j < 0 || j >= feats.length) {
+              openFeatureActions(api, def, milestoneID, feature)
+              break
+            }
+            ;[feats[index], feats[j]] = [feats[j], feats[index]]
+            const next: Store.MissionDefinition = {
+              ...def,
+              milestones: def.milestones.map((m) => (m.id === milestoneID ? { ...m, features: feats } : m)),
+            }
+            persistStructure(api, next, "Feature reordered", (saved) => openView(api, saved))
+            break
+          }
+          case "remove": {
+            if (totalFeatures <= 1) {
+              api.ui.toast({ variant: "error", message: "A mission needs at least one feature" })
+              openFeatureActions(api, def, milestoneID, feature)
+              break
+            }
+            const milestones = def.milestones
+              .map((m) =>
+                m.id === milestoneID ? { ...m, features: m.features.filter((f) => f.id !== feature.id) } : m,
+              )
+              .filter((m) => m.features.length > 0)
+            const next: Store.MissionDefinition = { ...def, milestones }
+            persistStructure(api, next, "Feature removed", (saved) => openView(api, saved))
+            break
+          }
           case "back":
             openView(api, def)
             break
@@ -801,37 +1288,112 @@ function openFeatureActions(
   ))
 }
 
+function showExecDetail(api: TuiPluginApi, def: Store.MissionDefinition, run: Store.MissionExec | undefined): void {
+  if (!run) {
+    openHistory(api, def)
+    return
+  }
+  const duration = run.endedAt ? formatDuration(Math.max(0, run.endedAt - run.startedAt)) : "running"
+  const lines = [
+    `Outcome:  ${run.ok ? "✓ ok" : `✗ ${run.status}`}`,
+    `Kind:     ${run.kind}`,
+    `Target:   ${run.targetID} ${run.targetName}`,
+    `When:     ${new Date(run.startedAt).toLocaleString()}${run.endedAt ? ` (${formatRelative(run.endedAt)})` : ""}`,
+    `Duration: ${duration}`,
+  ]
+  if (run.error) lines.push("", `Error:    ${run.error}`)
+
+  const sessionID = run.sessionID
+  if (sessionID) {
+    api.ui.dialog.replace(() => (
+      <api.ui.DialogConfirm
+        title={`${def.name} · run detail`}
+        message={`${lines.join("\n")}\n\nOpen the session for this run?`}
+        onConfirm={() => {
+          api.route.navigate("session", { sessionID })
+          api.ui.dialog.clear()
+        }}
+        onCancel={() => openHistory(api, def)}
+      />
+    ))
+    return
+  }
+  api.ui.dialog.replace(() => (
+    <api.ui.DialogAlert
+      title={`${def.name} · run detail`}
+      message={lines.join("\n")}
+      onConfirm={() => openHistory(api, def)}
+    />
+  ))
+}
+
 function openHistory(api: TuiPluginApi, def: Store.MissionDefinition): void {
   const runs = Store.loadHistory(api.kv, def.id)
   const stats = Store.missionStats(runs)
-  const summary = `ok ${stats.ok}/${stats.total} · ${Math.round(stats.successRate * 100)}% · ${stats.features} feat, ${stats.validations} val`
-  const options: DialogSelectOption<{ kind: "back" }>[] = runs.map((r) => ({
-    title: `${r.kind === "feature" ? "f" : "v"} ${r.targetID} ${r.targetName}`,
-    value: { kind: "back" },
-    description: `${r.status}${r.error ? ` — ${r.error}` : ""}${r.endedAt ? ` · ${formatRelative(r.endedAt)}` : ""}`,
-    category: r.kind,
-  }))
-  if (options.length === 0) {
+  const pct = stats.total === 0 ? "—" : `${Math.round(stats.successRate * 100)}%`
+  const subtitle =
+    stats.total === 0
+      ? "no runs yet"
+      : `${stats.ok}/${stats.total} ok · ${pct} · ${stats.features} feat, ${stats.validations} val`
+
+  type HistoryValue = { kind: "run"; index: number } | { kind: "clear" } | { kind: "back" }
+  const options: DialogSelectOption<HistoryValue>[] = runs.map((run, index) => {
+    const glyph = run.ok ? "✓" : "✗"
+    const when = run.endedAt ? formatRelative(run.endedAt) : "running"
+    return {
+      title: `${glyph} ${run.kind === "feature" ? "f" : "v"} ${run.targetID} ${run.targetName}`,
+      value: { kind: "run", index } as HistoryValue,
+      description: `${run.status}${run.error ? ` — ${run.error}` : ""} · ${when}`,
+      category: run.kind,
+      footer: (
+        <span
+          style={{
+            fg: run.ok ? api.theme.current.success : api.theme.current.error,
+          }}
+        >
+          {run.ok ? "ok" : run.status}
+        </span>
+      ),
+    }
+  })
+  if (runs.length > 0) {
     options.push({
-      title: "No runs yet",
-      value: { kind: "back" },
-      description: "Start the mission to record executions",
-      category: "Info",
+      title: "Clear history",
+      value: { kind: "clear" },
+      description: "Forget recorded executions",
+      category: "Actions",
     })
   }
   options.push({
-    title: `← Back (${summary})`,
+    title: "← Back",
     value: { kind: "back" },
     description: "Return to the action menu",
     category: "Actions",
   })
   api.ui.dialog.replace(() => (
-    <DialogSelect<{ kind: "back" }>
-      title={`${def.name} — history`}
+    <DialogSelect<HistoryValue>
+      title={`${def.name} · ${subtitle}`}
       options={options}
-      onSelect={() => openActions(api, def)}
+      onSelect={(opt) => {
+        if (opt.value.kind === "clear") {
+          Store.clearHistory(api.kv, def.id)
+          api.ui.toast({ variant: "success", message: "History cleared" })
+          openHistory(api, def)
+        } else if (opt.value.kind === "back") {
+          openActions(api, def)
+        } else if (opt.value.kind === "run") {
+          showExecDetail(api, def, runs[opt.value.index])
+        }
+      }}
     />
   ))
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`
+  return `${Math.floor(ms / 3_600_000)}h ${Math.round((ms % 3_600_000) / 60_000)}m`
 }
 
 function formatRelative(ts: number): string {
@@ -865,6 +1427,3 @@ function confirmDelete(api: TuiPluginApi, def: Store.MissionDefinition): void {
     />
   ))
 }
-
-// Silence the unused-import warning for milestoneID (used in openView).
-void (null as unknown as string)

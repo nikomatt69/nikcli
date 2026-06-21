@@ -9,8 +9,8 @@ import { ModelsDev } from "../../provider/models"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
 
-const DEFAULT_IMAGE_PROVIDER = "openrouter"
-const DEFAULT_IMAGE_MODEL = "openai/gpt-5-image"
+const DEFAULT_IMAGE_PROVIDER = "openai"
+const DEFAULT_IMAGE_MODEL = "gpt-image-1"
 
 function configGet() {
   return runPromiseWithLayer(
@@ -42,11 +42,13 @@ export const ImageModelCommand = cmd({
   builder: (yargs: Argv) => {
     return yargs
       .positional("provider", {
-        describe: "provider ID to use for image generation (e.g., openrouter, openai, vercel)",
+        describe:
+          "provider ID to use for image generation (e.g., openai, google, xai, togetherai, openrouter). See presets: gpt_image, imagen_4, grok_imagine, flux_dev, nanobanana.",
         type: "string",
       })
       .positional("model", {
-        describe: "image model ID to use (e.g., openai/gpt-5-image, google/nano-banana-pro-2.5)",
+        describe:
+          "image model ID (e.g., gpt-image-1, imagen-4.0-generate-001, grok-imagine-image, black-forest-labs/FLUX.1-dev, openai/gpt-5-image)",
         type: "string",
       })
       .option("reset", {

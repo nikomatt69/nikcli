@@ -39,15 +39,6 @@ function patch(id: string, next: (prev: MissionRuntime) => MissionRuntime): void
   setRuntimes(id, (prev) => next(prev ?? EMPTY))
 }
 
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === "object" && error !== null) {
-    const msg = (error as { message?: unknown }).message
-    if (typeof msg === "string") return msg
-  }
-  return String(error)
-}
-
 /** Drive the server's start endpoint. Returns immediately; updates arrive via bus events. */
 export async function start(api: TuiPluginApi, id: string): Promise<void> {
   const api2 = new MissionApi(api.client)
@@ -214,7 +205,7 @@ export function subscribeEvents(api: TuiPluginApi): () => void {
       })
       void syncWithServer(api)
     },
-    onRuntimeChanged: (missionID) => {
+    onRuntimeChanged: () => {
       void syncWithServer(api)
     },
   })
@@ -252,6 +243,3 @@ export function statusInfo(
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`
 }
-
-// Suppress unused-import lint for the type-only import.
-void describeError

@@ -1,6 +1,6 @@
 # Nikcli Project Memory
 
-**Last updated**: 2026-06-18 (integration master plan audit + HttpApi LoopRoutes + CI babysit)
+**Last updated**: 2026-06-21 (Brain Pass — workspace state refresh, favicon regen, security observation, default-branch confirmation)
 
 ## Architecture Overview
 
@@ -4249,3 +4249,74 @@ CLI/TUI → server session routes → SessionPrompt.loop (while true)
 - `src/worktree/` — git worktree handling
 
 **Confirmed effect migration** is in progress (see `specs/effect/` for design).
+
+## Brain Pass (2026-06-21)
+
+### Workspace State (live, session `ses_113c3c9bbffeO9kUUF3W1XuW9h`)
+
+- **Branch**: `live-main` (in sync with `origin/live-main`) — confirmed 3rd time
+- **40 modified files, 2 untracked** (`packages/desktop/src/shell.tsx`, `packages/terminal-control/script/`)
+- **30 packages in monorepo**; **119,343 LOC** in `packages/nikcli`
+- **Version**: `nikcli` v1.76.0 (workspace root); published as `@nikcli-ai/cli`
+- **Recent uncommitted work** is all **teleport/session-management**:
+  - Branding assets swapped (logos/favicons across `console`, `ui`)
+  - Desktop: new `shell.tsx`, modified `index.tsx`/`bindings.ts`/`styles.css`/`tsconfig.json`
+  - TUI: `dialog-routine.tsx`, `dialogs.tsx` in plugins/mission
+  - Core nikcli: `project/bootstrap.ts`, `mobile/routine.ts` touched
+  - `bun.lock` updated
+
+### One-Paragraph Project Framing (consolidate this for new sessions)
+
+**nikcli** is an AI agent platform (fork of [OpenCode](https://github.com/sst/opencode)) maintained by **nikomatt69**: terminal TUI, headless API server, web/mobile/desktop clients, bots, plugins, and long-running workflows (goals, missions, loops, routines). Runtime is **Bun**; core stack is **Solid/OpenTUI** (TUI), **Hono** (server), **Vercel AI SDK** (many providers), **SQLite/Drizzle** (persistence), and an ongoing move toward **Effect** for typed services. Mental model: one **project instance** per cwd (bootstrap in `project/`) talks to a **local or remote server**; **sessions** hold messages and tool turns; **agents** get a **tool registry** (`read`, `bash`, `task`, `goal`, LSP, etc.) under **permission rules**.
+
+### Security Observation (2026-06-21)
+
+The `nikcli.json` file in the **repo root** contains a real bearer token (`nkm_*` prefix) — confirmed by direct read. Do not echo the value in any output; treat repo-root `nikcli.json` as containing secrets until further notice. May warrant a `.gitignore` review and/or a `NIKCLI_CONFIG` env override at startup.
+
+### Open PRs against `live-main` (refreshed 2026-06-21)
+
+| PR   | Branch                                | Status                                  |
+| ---- | ------------------------------------- | --------------------------------------- |
+| #99  | `claude/session-v2-live-stepper`      | Windows smoke + test (windows) failures |
+| #91  | `nikcli/mobile/nikcli/yrrz85`         | Multiple failures                       |
+| #88  | `claude/npm-publish-error-vCzX7`      | Windows smoke + test failures           |
+| #86  | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures |
+| #102 | (newest at the time, status unknown)  | —                                       |
+
+Recently merged to `live-main`: #97, #96, and others. The branch itself is in sync with `origin/live-main` — no commits ahead/behind.
+
+### `/goal` Babysit PR — `live-main` Has No Open PR (2026-06-21)
+
+Session `ses_113e1f5d7ffeR0mky8uBZ7PAmf` ran a `/goal "Check CI status on the current PR"`. `gh pr status` confirmed "**There is no pull request associated with [live-main]**" — all `live-main` PRs are merged. The phrase "current PR" is ambiguous in this state; the agent asked the user to clarify. **Lesson**: when invoked on a fully-merged branch, "current PR" cannot be resolved automatically; surface this early and ask rather than guessing.
+
+### Favicon Regeneration (session `ses_113cc12d1ffeDQzDZzZwuhy7Bc`)
+
+**Goal**: regenerate `web-app-manifest-{192x192,512x512}.png` pixel-faithfully from the SVG source.
+
+**Two viable paths on macOS**:
+
+| Tool                | Source                                  | Caveat                                                                                    |
+| ------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `qlmanage`          | macOS built-in Quick Look               | Adds padding/margins around the SVG — bad for `purpose: "maskable"` PWA manifest entries |
+| `@resvg/resvg-js`   | Rust resvg via napi (`packages/terminal-control/script/regenerate-favicon.ts`) | Pixel-faithful. **Must run from `packages/terminal-control/` cwd** for the native binding to resolve |
+
+**Verification**: `favicon.svg` and `favicon-v3.svg` are byte-identical (white "n" letterform, gray inner stem, `#131010` background). Both PNG outputs match the source. Final sizes: 192×192=1008 bytes, 512×512=4282 bytes.
+
+**`generate_image` tool is NOT a substitute**: it's an AI image generator that produces stylistic interpretations with run-to-run variation, not deterministic SVG rasterization. Wrong tool for manifest icons that need `purpose: "maskable"` precision.
+
+### Style Preferences (compiled from `STYLE_GUIDE.md` + `packages/nikcli/AGENTS.md`)
+
+- One function unless composable; **avoid `let`, `else`, `try/catch`, `any`**
+- Prefer single-word names; `Bun.file()` over `fs.promises.readFile`
+- camelCase files, `@/` alias for project-relative imports
+- Zod schemas with `.meta({ ref: "..." })` for OpenAPI refs
+- `Storage` namespace for persistence; `Log.create({ service })` for namespaced loggers
+- `Identifier.descending("session")` for newest-first IDs; `Identifier.ascending("message")` for chronological
+- Subagent convention: kebab-case names (`explore`, `fast-explore`, `planner`, `code-reviewer`, `debugger`, `test-runner`, `refactor`, `delegator`)
+
+### OpenCode Reference (study target)
+
+- `anomalyco/opencode` on branch **`dev`** is the reference implementation
+- Same Effect-based DB service pattern with `EffectDrizzleSqlite` + custom `sqlite.bun.ts` `SqliteClient`
+- Webfetch pattern: `https://raw.githubusercontent.com/anomalyco/opencode/dev/{path}` (default branch is `dev`, not `main`)
+

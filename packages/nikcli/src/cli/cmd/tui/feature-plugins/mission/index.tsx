@@ -15,7 +15,7 @@ import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin
 import { createMemo, For, Show } from "solid-js"
 import * as Store from "./store"
 import * as Runner from "./runner"
-import { openManager, toneColor } from "./dialogs"
+import { openManager, openWizard, toneColor } from "./dialogs"
 import { MissionApi } from "./sdk"
 
 const id = "internal:missions"
@@ -85,9 +85,9 @@ const tui: TuiPlugin = async (api) => {
         name: "missions.new",
         title: "New mission",
         namespace: "Missions",
-        description: "Plan a new mission (template, LLM-generated, or blank brief)",
+        description: "Plan a new mission (template, blank, or AI-generated)",
         run() {
-          openManager(api)
+          openWizard(api)
         },
       },
     ],
