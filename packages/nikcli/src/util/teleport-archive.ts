@@ -5,23 +5,93 @@ import path from "path"
 /** File extensions skipped by default — binaries/media that aren't needed to keep coding. */
 const BINARY_EXTENSIONS = new Set([
   // images
-  "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif", "ico", "icns", "heic", "heif", "avif",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "tiff",
+  "tif",
+  "ico",
+  "icns",
+  "heic",
+  "heif",
+  "avif",
   // video
-  "mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v", "mpg", "mpeg",
+  "mp4",
+  "mov",
+  "avi",
+  "mkv",
+  "webm",
+  "flv",
+  "wmv",
+  "m4v",
+  "mpg",
+  "mpeg",
   // audio
-  "mp3", "wav", "flac", "ogg", "m4a", "aac", "wma", "opus",
+  "mp3",
+  "wav",
+  "flac",
+  "ogg",
+  "m4a",
+  "aac",
+  "wma",
+  "opus",
   // fonts
-  "woff", "woff2", "ttf", "otf", "eot",
+  "woff",
+  "woff2",
+  "ttf",
+  "otf",
+  "eot",
   // archives
-  "zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar", "zst", "lz4",
+  "zip",
+  "tar",
+  "gz",
+  "tgz",
+  "bz2",
+  "xz",
+  "7z",
+  "rar",
+  "zst",
+  "lz4",
   // compiled / native
-  "exe", "dll", "so", "dylib", "bin", "wasm", "o", "a", "node", "class", "jar", "obj", "lib", "pdb",
+  "exe",
+  "dll",
+  "so",
+  "dylib",
+  "bin",
+  "wasm",
+  "o",
+  "a",
+  "node",
+  "class",
+  "jar",
+  "obj",
+  "lib",
+  "pdb",
   // design / docs
-  "pdf", "psd", "ai", "sketch", "fig", "xcf",
+  "pdf",
+  "psd",
+  "ai",
+  "sketch",
+  "fig",
+  "xcf",
   // data / db / packed
-  "sqlite", "sqlite3", "db", "mdb", "dat", "pack", "idx",
+  "sqlite",
+  "sqlite3",
+  "db",
+  "mdb",
+  "dat",
+  "pack",
+  "idx",
   // disk / mobile artifacts
-  "apk", "ipa", "dmg", "iso", "img", "aab",
+  "apk",
+  "ipa",
+  "dmg",
+  "iso",
+  "img",
+  "aab",
 ])
 
 const DEFAULT_MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB: skip anything bigger by default
@@ -87,7 +157,10 @@ export async function createWorkspaceArchive(
         ["find", ".", "-type", "f", "-not", "-path", "./node_modules/*", "-not", "-path", "./.git/*", "-print0"],
         root,
       )
-      candidates = found.split("\0").filter(Boolean).map((p) => (p.startsWith("./") ? p.slice(2) : p))
+      candidates = found
+        .split("\0")
+        .filter(Boolean)
+        .map((p) => (p.startsWith("./") ? p.slice(2) : p))
     }
 
     // Filter out binaries and oversized files.
