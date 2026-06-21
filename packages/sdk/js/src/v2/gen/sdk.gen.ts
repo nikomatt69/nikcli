@@ -133,6 +133,7 @@ import type {
   McpStatusResponses,
   McpToggleErrors,
   McpToggleResponses,
+  Message,
   MissionCancelErrors,
   MissionCancelResponses,
   MissionDeleteErrors,
@@ -293,6 +294,8 @@ import type {
   MobileSessionRenameResponses,
   MobileSessionStreamResponses,
   MobileSessionTeleportErrors,
+  MobileSessionTeleportOutErrors,
+  MobileSessionTeleportOutResponses,
   MobileSessionTeleportResponses,
   MobileSessionTeleportUploadBeginResponses,
   MobileSessionTeleportUploadChunkErrors,
@@ -5772,6 +5775,55 @@ export class Upload extends HeyApiClient {
 }
 
 export class Teleport extends HeyApiClient {
+  /**
+   * Teleport a session from this server to another
+   *
+   * Archive the session's working directory and ship its transcript to a target server, so it can be resumed there. Used by the mobile app (which has no local filesystem).
+   */
+  public out<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      url?: string
+      token?: string
+      content?: boolean
+      includeGit?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "url" },
+            { in: "body", key: "token" },
+            { in: "body", key: "content" },
+            { in: "body", key: "includeGit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileSessionTeleportOutResponses,
+      MobileSessionTeleportOutErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}/teleport",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
   private _upload?: Upload
   get upload(): Upload {
     return (this._upload ??= new Upload({ client: this.client }))
@@ -6173,6 +6225,15 @@ export class Session4 extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
+      title?: string
+      name?: string
+      origin?: string
+      permission?: PermissionRuleset
+      messages?: Array<{
+        info: Message
+        parts: Array<Part2>
+      }>
+      uploadID?: string
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -6183,6 +6244,12 @@ export class Session4 extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "body", key: "title" },
+            { in: "body", key: "name" },
+            { in: "body", key: "origin" },
+            { in: "body", key: "permission" },
+            { in: "body", key: "messages" },
+            { in: "body", key: "uploadID" },
           ],
         },
       ],
@@ -6195,6 +6262,11 @@ export class Session4 extends HeyApiClient {
       url: "/mobile/teleport",
       ...options,
       ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

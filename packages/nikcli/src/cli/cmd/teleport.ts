@@ -230,6 +230,7 @@ export const TeleportCommand = cmd({
 
       const payload = JSON.stringify({
         title: info.title,
+        name: path.basename(info.directory),
         origin: `${os.hostname()}:${info.directory}`,
         permission: info.permission,
         messages,

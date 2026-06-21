@@ -282,28 +282,27 @@ export class MobileClient {
 
   /**
    * Teleport a session living on this server to another nikcli server (e.g. a
-   * Railway deploy) so it can be resumed there. Reads the full transcript from
-   * the current server, then POSTs it to the target server's teleport endpoint
-   * with the supplied Bearer token.
+   * Railway deploy) so it can be resumed there — including its working directory.
+   * The phone has no filesystem, so this delegates to the connected server, which
+   * archives the session's working dir and ships both content and transcript to
+   * the target. The target also gets a project entry in its repo list.
    */
-  async teleport(sessionID: string, target: { url: string; token: string }): Promise<TeleportResult> {
+  async teleport(
+    sessionID: string,
+    target: { url: string; token: string; content?: boolean; includeGit?: boolean },
+  ): Promise<TeleportResult> {
     const base = normalizeTeleportBaseUrl(target.url)
     if (!base) throw new Error("Invalid teleport server URL")
 
-    const detail = await this.getSession(sessionID)
-    const response = await fetch(`${base}/mobile/teleport`, {
+    return this.request<TeleportResult>(`/mobile/session/${encodeURIComponent(sessionID)}/teleport`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${target.token.trim()}`,
-      },
       body: JSON.stringify({
-        title: detail.info.title,
-        origin: "mobile",
-        messages: detail.messages,
+        url: base,
+        token: target.token.trim(),
+        content: target.content,
+        includeGit: target.includeGit,
       }),
     })
-    return parseMobileResponse<TeleportResult>(response, "/mobile/teleport")
   }
 
   listProjects() {

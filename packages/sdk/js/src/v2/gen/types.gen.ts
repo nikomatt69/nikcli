@@ -9310,7 +9310,26 @@ export type MobileSessionTeleportUploadChunkResponse =
   MobileSessionTeleportUploadChunkResponses[keyof MobileSessionTeleportUploadChunkResponses]
 
 export type MobileSessionTeleportData = {
-  body?: never
+  body?: {
+    title?: string
+    /**
+     * Display name for the project/repo created on this server
+     */
+    name?: string
+    /**
+     * Identifier of the machine the session was teleported from
+     */
+    origin?: string
+    permission?: PermissionRuleset
+    messages: Array<{
+      info: Message
+      parts: Array<Part>
+    }>
+    /**
+     * ID of a previously uploaded working-directory archive
+     */
+    uploadID?: string
+  }
   path?: never
   query?: {
     directory?: string
@@ -9342,6 +9361,64 @@ export type MobileSessionTeleportResponses = {
 }
 
 export type MobileSessionTeleportResponse = MobileSessionTeleportResponses[keyof MobileSessionTeleportResponses]
+
+export type MobileSessionTeleportOutData = {
+  body?: {
+    /**
+     * Target server base URL
+     */
+    url: string
+    /**
+     * Target server mobile Bearer token
+     */
+    token: string
+    /**
+     * Clone the working directory too (default true)
+     */
+    content?: boolean
+    /**
+     * Include full .git history in the clone
+     */
+    includeGit?: boolean
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/teleport"
+}
+
+export type MobileSessionTeleportOutErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionTeleportOutError = MobileSessionTeleportOutErrors[keyof MobileSessionTeleportOutErrors]
+
+export type MobileSessionTeleportOutResponses = {
+  /**
+   * Teleported session
+   */
+  200: {
+    sessionID: string
+    title?: string
+    messageCount: number
+    directory?: string
+    workspace: boolean
+  }
+}
+
+export type MobileSessionTeleportOutResponse =
+  MobileSessionTeleportOutResponses[keyof MobileSessionTeleportOutResponses]
 
 export type MobileWorktreeRemoveData = {
   body?: WorktreeRemoveInput

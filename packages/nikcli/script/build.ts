@@ -1,30 +1,35 @@
 #!/usr/bin/env bun
 
-import solidPlugin from "../node_modules/@opentui/solid/scripts/solid-plugin"
-import path from "path"
-import fs from "fs"
-import { $ } from "bun"
-import { fileURLToPath } from "url"
+// Import via the package's public `exports` map (./bun-plugin) so module
+// resolution works regardless of the install linker (isolated on macOS/Linux,
+// hoisted on Windows). The relative "../node_modules/..." path breaks under
+// hoisted linking because the package is hoisted to the repo root, not kept
+// under packages/nikcli/node_modules/.
+import solidPlugin from "@opentui/solid/bun-plugin";
+import path from "path";
+import fs from "fs";
+import { $ } from "bun";
+import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const dir = path.resolve(__dirname, "..")
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dir = path.resolve(__dirname, "..");
 
-process.chdir(dir)
+process.chdir(dir);
 
-import pkg from "../package.json"
-import { Script } from "@nikcli-ai/script"
+import pkg from "../package.json";
+import { Script } from "@nikcli-ai/script";
 
-const singleFlag = process.argv.includes("--single")
-const baselineFlag = process.argv.includes("--baseline")
-const skipInstall = process.argv.includes("--skip-install")
-const sourcemapsFlag = process.argv.includes("--sourcemaps")
+const singleFlag = process.argv.includes("--single");
+const baselineFlag = process.argv.includes("--baseline");
+const skipInstall = process.argv.includes("--skip-install");
+const sourcemapsFlag = process.argv.includes("--sourcemaps");
 
 const allTargets: {
-  os: string
-  arch: "arm64" | "x64"
-  abi?: "musl"
-  avx2?: false
+  os: string;
+  arch: "arm64" | "x64";
+  abi?: "musl";
+  avx2?: false;
 }[] = [
   {
     os: "linux",
@@ -81,35 +86,35 @@ const allTargets: {
     arch: "x64",
     avx2: false,
   },
-]
+];
 
 const targets = singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
-        return false
+        return false;
       }
 
       // When building for the current platform, prefer a single native binary by default.
       // Baseline binaries require additional Bun artifacts and can be flaky to download.
       if (item.avx2 === false) {
-        return baselineFlag
+        return baselineFlag;
       }
 
       // also skip abi-specific builds for the same reason
       if (item.abi !== undefined) {
-        return false
+        return false;
       }
 
-      return true
+      return true;
     })
-  : allTargets
+  : allTargets;
 
-await $`rm -rf dist`
+await $`rm -rf dist`;
 
-const binaries: Record<string, string> = {}
+const binaries: Record<string, string> = {};
 if (!skipInstall) {
-  await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
-  await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
+  await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`;
+  await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`;
 }
 for (const item of targets) {
   const name = [
@@ -121,16 +126,20 @@ for (const item of targets) {
     item.abi === undefined ? undefined : item.abi,
   ]
     .filter(Boolean)
-    .join("-")
-  console.log(`building ${name}`)
-  await $`mkdir -p dist/${name}/bin`
+    .join("-");
+  console.log(`building ${name}`);
+  await $`mkdir -p dist/${name}/bin`;
 
-  const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
-  const workerPath = "./src/cli/cmd/tui/worker.ts"
+  const parserWorker = fs.realpathSync(
+    path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"),
+  );
+  const workerPath = "./src/cli/cmd/tui/worker.ts";
 
   // Use platform-specific bunfs root path based on target OS
-  const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
-  const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
+  const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/";
+  const workerRelativePath = path
+    .relative(dir, parserWorker)
+    .replaceAll("\\", "/");
 
   await Bun.build({
     conditions: ["browser"],
@@ -145,7 +154,11 @@ for (const item of targets) {
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
       outfile: `dist/${name}/bin/nikcli`,
-      execArgv: [`--user-agent=nikcli/${Script.version}`, "--use-system-ca", "--"],
+      execArgv: [
+        `--user-agent=nikcli/${Script.version}`,
+        "--use-system-ca",
+        "--",
+      ],
       windows: {},
     },
     entrypoints: ["./src/index.ts", parserWorker, workerPath],
@@ -156,10 +169,10 @@ for (const item of targets) {
       NIKCLI_CHANNEL: `'${singleFlag ? "local" : Script.channel}'`,
       NIKCLI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
-  })
+  });
 
-  await $`rm -rf ./dist/${name}/bin/tui`
-  const binaryName = item.os === "win32" ? "nikcli.exe" : "nikcli"
+  await $`rm -rf ./dist/${name}/bin/tui`;
+  const binaryName = item.os === "win32" ? "nikcli.exe" : "nikcli";
   await Bun.file(`dist/${name}/package.json`).write(
     JSON.stringify(
       {
@@ -172,8 +185,8 @@ for (const item of targets) {
       null,
       2,
     ),
-  )
-  binaries[name] = Script.version
+  );
+  binaries[name] = Script.version;
 }
 
-export { binaries }
+export { binaries };

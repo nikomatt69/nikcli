@@ -145,6 +145,7 @@ export function DialogTeleport(props: { sessionID: string }) {
 
       const payload = JSON.stringify({
         title: info.title,
+        name: info.directory ? info.directory.split("/").filter(Boolean).pop() : undefined,
         origin: sdk.directory,
         permission: info.permission,
         messages,
