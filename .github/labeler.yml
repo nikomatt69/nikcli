@@ -1,0 +1,52 @@
+# Path-based PR label configuration for actions/labeler@v5
+# Docs: https://github.com/actions/labeler
+
+area/cli:
+  - changed-files:
+    - any-glob-to-any-file: 'packages/nikcli/src/cli/**'
+
+area/server:
+  - changed-files:
+    - any-glob-to-any-file: 'packages/nikcli/src/server/**'
+
+area/app:
+  - changed-files:
+    - any-glob-to-any-file: 'packages/app/**'
+
+area/sdk:
+  - changed-files:
+    - any-glob-to-any-file: 'packages/sdk/**'
+
+area/remote:
+  - changed-files:
+    - any-glob-to-any-file: 'packages/remote/**'
+
+area/desktop:
+  - changed-files:
+    - any-glob-to-any-file: 'packages/desktop/**'
+
+area/docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - '**/*.md'
+      - '**/*.mdx'
+
+area/ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+      - 'script/**'
+
+area/deps:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/package.json'
+      - '**/bun.lock'
+      - '.github/dependabot.yml'
+
+area/nix:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.nix'
+      - 'flake.lock'

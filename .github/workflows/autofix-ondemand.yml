@@ -1,0 +1,153 @@
+name: autofix-ondemand
+
+# Triggered when a maintainer comments "/autofix" on a PR.
+# Runs the same ci-autofix.ts script as the automatic pipeline job,
+# but works on-demand and supports an attempt cap to avoid loops.
+# Fork PRs cannot be pushed to directly, so they are rejected with guidance.
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: autofix-ondemand-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/autofix') &&
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          DATA=$(gh api "/repos/$REPO/pulls/$PR_NUMBER")
+          echo "ref=$(echo "$DATA" | jq -r .head.ref)"           >> "$GITHUB_OUTPUT"
+          echo "sha=$(echo "$DATA" | jq -r .head.sha)"           >> "$GITHUB_OUTPUT"
+          echo "number=$PR_NUMBER"                                >> "$GITHUB_OUTPUT"
+          FORK=$(echo "$DATA" | jq -r '.head.repo.full_name != .base.repo.full_name')
+          echo "is_fork=$FORK"                                    >> "$GITHUB_OUTPUT"
+
+      - name: Reject fork PRs
+        if: steps.pr.outputs.is_fork == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
+            --method POST \
+            -f body="> [!NOTE]
+          > **/autofix** cannot push to fork branches. Please apply fixes manually and push to your fork, or ask a maintainer to open a same-repo PR."
+          exit 0
+
+      - name: Check attempt cap (max 3)
+        id: cap
+        if: steps.pr.outputs.is_fork != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          COUNT=$(gh api "/repos/$REPO/pulls/$PR_NUMBER/commits" --paginate \
+            | jq '[.[] | select(.commit.message | contains("[nikcli autofix]"))] | length')
+          echo "attempts=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -ge 3 ]; then
+            gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
+              --method POST \
+              -f body="> [!WARNING]
+          > **/autofix** has already been attempted **${COUNT} times** on this PR (limit: 3). Please fix the remaining issues manually."
+            echo "exhausted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exhausted=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: React with eyes (started)
+        if: steps.pr.outputs.is_fork != 'true' && steps.cap.outputs.exhausted != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          gh api "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+            --method POST -f content=eyes || true
+
+      - name: Checkout PR branch
+        if: steps.pr.outputs.is_fork != 'true' && steps.cap.outputs.exhausted != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.pr.outputs.ref }}
+          token: ${{ secrets.SST_GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        if: steps.pr.outputs.is_fork != 'true' && steps.cap.outputs.exhausted != 'true'
+        uses: ./.github/actions/setup-bun
+
+      - name: Setup Git identity
+        if: steps.pr.outputs.is_fork != 'true' && steps.cap.outputs.exhausted != 'true'
+        run: |
+          git config --global user.email "nikcli-ci@users.noreply.github.com"
+          git config --global user.name "nikcli-ci[bot]"
+
+      - name: Run autofix
+        if: steps.pr.outputs.is_fork != 'true' && steps.cap.outputs.exhausted != 'true'
+        id: autofix
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          NIKCLI_AUTOFIX_MODEL: ${{ vars.NIKCLI_AUTOFIX_MODEL || 'minimax-coding-plan/MiniMax-M3' }}
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_REF: ${{ format('refs/heads/{0}', steps.pr.outputs.ref) }}
+          GITHUB_REF_NAME: ${{ steps.pr.outputs.ref }}
+          GITHUB_SHA: ${{ steps.pr.outputs.sha }}
+          GITHUB_EVENT_NAME: pull_request
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bun run script/ci-autofix.ts
+
+      - name: Push fix and report
+        if: steps.pr.outputs.is_fork != 'true' && steps.cap.outputs.exhausted != 'true' && steps.autofix.outcome == 'success'
+        env:
+          REF: ${{ steps.pr.outputs.ref }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ATTEMPT: ${{ steps.cap.outputs.attempts }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          if ! [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "Refusing to push to unsafe ref name"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "fix(ci): on-demand autofix via /autofix [nikcli autofix]"
+            git push origin "HEAD:$REF"
+            NEXT=$((ATTEMPT + 1))
+            gh api "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+              --method POST -f content="+1" || true
+            gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
+              --method POST \
+              -f body="> [!NOTE]
+          > Autofix applied and pushed — attempt **${NEXT}/3**. CI will re-run automatically." || true
+          else
+            gh api "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+              --method POST -f content="-1" || true
+            gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
+              --method POST \
+              -f body="> [!NOTE]
+          > **/autofix** ran but found nothing to change. Check CI logs for errors that require manual fixing." || true
+          fi

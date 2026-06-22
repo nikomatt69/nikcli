@@ -1,0 +1,82 @@
+name: auto-merge
+
+# Enables GitHub's built-in auto-merge for PRs from trusted bots and PRs
+# labeled "auto-merge" by a maintainer. Once all required status checks pass
+# (as configured in branch protection), GitHub merges automatically.
+#
+# PREREQUISITE: Enable auto-merge in the repo settings and configure branch
+# protection rules with required status checks on the live-main branch.
+
+on:
+  pull_request_target:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge-bots:
+    # Enable auto-merge for PRs opened by trusted bots (autofix, agent, dependabot).
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'opened' &&
+      github.repository == 'nikomatt69/nikcli' &&
+      (
+        github.event.pull_request.user.login == 'nikcli-ci[bot]' ||
+        github.event.pull_request.user.login == 'nikcli-agent[bot]' ||
+        github.event.pull_request.user.login == 'dependabot[bot]'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          echo "Enabling auto-merge for bot PR #$PR_NUMBER (author: $ACTOR)"
+          gh pr merge "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --auto \
+            --squash \
+            --subject "$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json title -q .title)" \
+            || echo "auto-merge already enabled or not available"
+
+  auto-merge-label:
+    # Enable auto-merge when a maintainer adds the "auto-merge" label.
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'auto-merge' &&
+      github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify labeler is a maintainer
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SENDER: ${{ github.event.sender.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          ASSOC=$(gh api "/repos/$REPO/collaborators/$SENDER/permission" \
+            --jq .permission 2>/dev/null || echo "none")
+          if [ "$ASSOC" = "admin" ] || [ "$ASSOC" = "maintain" ] || [ "$ASSOC" = "write" ]; then
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            echo "Sender $SENDER lacks write permission ($ASSOC) — skipping"
+          fi
+
+      - name: Enable auto-merge
+        if: steps.check.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Enabling auto-merge for PR #$PR_NUMBER (label trigger)"
+          gh pr merge "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --auto \
+            --merge \
+            || echo "auto-merge already enabled or not available"
