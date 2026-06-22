@@ -3,24 +3,8 @@ import { base64Encode } from "@nikcli-ai/util/encode"
 import { getFilename } from "@nikcli-ai/util/path"
 import { Icon } from "@nikcli-ai/ui/icon"
 import { Splash } from "@nikcli-ai/ui/logo"
-import {
-  useCommand,
-  useGlobalSync,
-  useLayout,
-  usePlatform,
-  useServer,
-  type LocalProject,
-} from "@nikcli-ai/app"
-import {
-  For,
-  Show,
-  createMemo,
-  createSignal,
-  onCleanup,
-  onMount,
-  type JSX,
-  type ParentProps,
-} from "solid-js"
+import { useCommand, useGlobalSync, useLayout, usePlatform, useServer, type LocalProject } from "@nikcli-ai/app"
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX, type ParentProps } from "solid-js"
 import { Portal } from "solid-js/web"
 
 const SIDEBAR_MIN = 260
@@ -136,10 +120,7 @@ export function DesktopFrame(props: ParentProps) {
   })
 
   return (
-    <div
-      data-component="desktop-shell"
-      style={{ "--desktop-sidebar-width": `${width()}px` }}
-    >
+    <div data-component="desktop-shell" style={{ "--desktop-sidebar-width": `${width()}px` }}>
       <aside id="desktop-sidebar-mount" aria-label="Projects and sessions" />
       <section class="desktop-app-host" ref={host}>
         <Show when={!appReady()}>
@@ -183,9 +164,7 @@ function NavButton(props: {
     >
       <Icon name={props.icon} size="normal" />
       <span>{props.label}</span>
-      <Show when={props.badge}>
-        {(badge) => <span class="desktop-nav-button__badge">{badge()}</span>}
-      </Show>
+      <Show when={props.badge}>{(badge) => <span class="desktop-nav-button__badge">{badge()}</span>}</Show>
     </button>
   )
 }
@@ -255,7 +234,11 @@ function ProjectGroup(props: {
             )}
           </For>
           <Show when={sessions().length === 0}>
-            <button type="button" class="desktop-session-row desktop-session-row--empty" onClick={() => props.onOpenProject(props.project)}>
+            <button
+              type="button"
+              class="desktop-session-row desktop-session-row--empty"
+              onClick={() => props.onOpenProject(props.project)}
+            >
               Start a new session
             </button>
           </Show>
@@ -404,9 +387,7 @@ function DesktopSidebar() {
                 <button type="button" class="desktop-sidebar__list-item" onClick={() => command.trigger(item.id)}>
                   <Icon name="task" size="small" />
                   <span>{item.title}</span>
-                  <Show when={command.keybind(item.id)}>
-                    {(keybind) => <kbd>{keybind()}</kbd>}
-                  </Show>
+                  <Show when={command.keybind(item.id)}>{(keybind) => <kbd>{keybind()}</kbd>}</Show>
                 </button>
               )}
             </For>
@@ -442,9 +423,7 @@ function ToolButton(props: {
     >
       <Icon name={props.icon} size="normal" />
       <span>{props.label}</span>
-      <Show when={props.keybind}>
-        {(keybind) => <kbd>{keybind()}</kbd>}
-      </Show>
+      <Show when={props.keybind}>{(keybind) => <kbd>{keybind()}</kbd>}</Show>
     </button>
   )
 }
@@ -537,8 +516,20 @@ export function DesktopBridge() {
 
   return (
     <>
-      <Show when={sidebarMount()}>{(mount) => <Portal mount={mount()}><DesktopSidebar /></Portal>}</Show>
-      <Show when={toolsMount()}>{(mount) => <Portal mount={mount()}><DesktopTools /></Portal>}</Show>
+      <Show when={sidebarMount()}>
+        {(mount) => (
+          <Portal mount={mount()}>
+            <DesktopSidebar />
+          </Portal>
+        )}
+      </Show>
+      <Show when={toolsMount()}>
+        {(mount) => (
+          <Portal mount={mount()}>
+            <DesktopTools />
+          </Portal>
+        )}
+      </Show>
     </>
   )
 }

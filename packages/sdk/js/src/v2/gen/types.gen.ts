@@ -2443,11 +2443,11 @@ export type RagConfig = {
  */
 export type ImageConfig = {
   /**
-   * Image generation model (e.g., openai/gpt-5-image, google/nano-banana-pro-2.5)
+   * Image generation model ID (e.g., gpt-image-1, imagen-4.0-generate-001, openai/gpt-5-image, black-forest-labs/FLUX.1-dev). Any model ID works — not limited to the presets in the generate_image tool.
    */
   model?: string
   /**
-   * Provider for image generation (e.g., openrouter, openai, vercel)
+   * Provider ID for image generation (e.g., openai, google, xai, togetherai, openrouter). Determines which SDK authenticates the request.
    */
   provider?: string
 }

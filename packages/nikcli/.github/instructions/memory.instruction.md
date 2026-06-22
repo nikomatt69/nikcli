@@ -1299,11 +1299,11 @@ A faithful port of [json-render](https://json-render.dev/docs)'s three layers on
 OpenTUI — the model emits a visualization spec and the TUI assembles itself as it
 streams. Full design in `specs/generative-tui.md`.
 
-| json-render | nikcli | Where |
-| --- | --- | --- |
-| **Catalog** (`defineCatalog` → `prompt`/`validate`/`zodSchema`/`jsonSchema`/`componentNames`) | `VizCatalog` (+ `VIZ_COMPONENT_TYPES`, `VizSpecZod`, `decodeVizComponent`, `normalizeVizComponents`) | `src/tool/opentui.ts` |
+| json-render                                                                                        | nikcli                                                                                                                                                    | Where                                              |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Catalog** (`defineCatalog` → `prompt`/`validate`/`zodSchema`/`jsonSchema`/`componentNames`)      | `VizCatalog` (+ `VIZ_COMPONENT_TYPES`, `VizSpecZod`, `decodeVizComponent`, `normalizeVizComponents`)                                                      | `src/tool/opentui.ts`                              |
 | **Registry / Renderer** (`defineRegistry`, `createRenderer`, `<Renderer spec registry loading />`) | `VizRegistry`, `defaultVizRegistry`, `createVizRenderer`, `<Renderer>`, `ComponentRenderer` (registry lookup via context + per-component `ErrorBoundary`) | `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` |
-| **SpecStream compiler** (`push`/`getResult`/`getPatches`/`reset`) | `createSpecStreamCompiler` (adds `pushObject`/`finalize`/`snapshot`; emits RFC-6902-flavored `VizPatch[]`) | `src/cli/cmd/tui/util/spec-stream.ts` |
+| **SpecStream compiler** (`push`/`getResult`/`getPatches`/`reset`)                                  | `createSpecStreamCompiler` (adds `pushObject`/`finalize`/`snapshot`; emits RFC-6902-flavored `VizPatch[]`)                                                | `src/cli/cmd/tui/util/spec-stream.ts`              |
 
 - **20 catalog components** (text, markdown, code, diff, alert, table, key_value,
   tree, stat, stat_grid, bar_chart, line_chart, histogram, heatmap, gauge,
@@ -3600,12 +3600,12 @@ Today's main session `ses_1337a40a8ffeQ50QP331G9bLvg` (and the parallel analysis
 
 **Worker sessions**:
 
-| #   | Topic                                            | Worker session                   |
-| --- | ------------------------------------------------ | -------------------------------- |
-| 1   | Tool System (define, registry, execution flow)   | `ses_1339cdbefffe4k0w6P0B2MpM4q` |
-| 2   | Agent System (subagents, task, dispatch)         | `ses_1339c7decffe3gfDhIYpCua1uv` |
-| 3   | Server + Storage + SDK (Hono, Bus, SDK build)    | `ses_1339c4b74ffdw0oiWXRG5thzk4` |
-| 4   | TUI debugging (opentui tool schema bug)          | `ses_1337a40a8ffeQ50QP331G9bLvg` |
+| #   | Topic                                          | Worker session                   |
+| --- | ---------------------------------------------- | -------------------------------- |
+| 1   | Tool System (define, registry, execution flow) | `ses_1339cdbefffe4k0w6P0B2MpM4q` |
+| 2   | Agent System (subagents, task, dispatch)       | `ses_1339c7decffe3gfDhIYpCua1uv` |
+| 3   | Server + Storage + SDK (Hono, Bus, SDK build)  | `ses_1339c4b74ffdw0oiWXRG5thzk4` |
+| 4   | TUI debugging (opentui tool schema bug)        | `ses_1337a40a8ffeQ50QP331G9bLvg` |
 
 **Supervisor finalization notes**: All 4 reports delivered via `Action: finalize` despite 10-minute timeouts. Two follow-up `@explore` agents (`ses_13388ac0effeBmfkr3XBE558pu`, `ses_133842e8affeekNHppG0oX6LId`) retrieved truncated tail sections of the Agent and Server reports from disk artifacts at `~/.local/share/nikcli/tool-output/tool_ecc7*`.
 
@@ -3688,22 +3688,22 @@ export namespace Tool {
   export function define<Parameters extends z.ZodType, M extends Metadata>(
     id: string,
     init:
-      | ((ctx?: InitContext) => Promise<AuthoredDef<Parameters, M>>)  // factory form
-      | AuthoredDef<Parameters, M>,                                  // literal form
+      | ((ctx?: InitContext) => Promise<AuthoredDef<Parameters, M>>) // factory form
+      | AuthoredDef<Parameters, M>, // literal form
   ): Info<Parameters, M>
 }
 ```
 
 Type hierarchy:
 
-| Type                | File:line       | What it is                                                                          |
-| ------------------- | --------------- | ----------------------------------------------------------------------------------- |
-| `Tool.Info`         | `tool.ts:81`    | Registry entry: `{ id: string; init(ctx?) => Promise<Def> }`                        |
-| `Tool.AuthoredDef`  | `tool.ts:74`    | Tool author body: `{ description, parameters, execute, formatValidationError? }`     |
-| `Tool.Def`          | `tool.ts:51`    | Wrapped (Effect-native): `{ description, parameters, execute → Effect, executeAsync → Promise }` |
-| `Tool.Context`      | `tool.ts:28`    | `{ sessionID, messageID, agent, abort: AbortSignal, callID?, extra?, messages?, metadata, ask }` |
-| `Tool.Result`       | `tool.ts:40`    | `{ title, metadata, output, attachments? }`                                         |
-| `Tool.InitContext`  | `tool.ts:24`    | `{ agent?: Agent.Info }`                                                            |
+| Type               | File:line    | What it is                                                                                       |
+| ------------------ | ------------ | ------------------------------------------------------------------------------------------------ |
+| `Tool.Info`        | `tool.ts:81` | Registry entry: `{ id: string; init(ctx?) => Promise<Def> }`                                     |
+| `Tool.AuthoredDef` | `tool.ts:74` | Tool author body: `{ description, parameters, execute, formatValidationError? }`                 |
+| `Tool.Def`         | `tool.ts:51` | Wrapped (Effect-native): `{ description, parameters, execute → Effect, executeAsync → Promise }` |
+| `Tool.Context`     | `tool.ts:28` | `{ sessionID, messageID, agent, abort: AbortSignal, callID?, extra?, messages?, metadata, ask }` |
+| `Tool.Result`      | `tool.ts:40` | `{ title, metadata, output, attachments? }`                                                      |
+| `Tool.InitContext` | `tool.ts:24` | `{ agent?: Agent.Info }`                                                                         |
 
 **Tool registry initialization flow** (`src/tool/registry.ts`):
 
@@ -3729,14 +3729,14 @@ Type hierarchy:
 
 **Primary agents** (3 visible + 3 hidden):
 
-| Agent          | Mode     | Hidden | Notes                                                                                   |
-| -------------- | -------- | ------ | --------------------------------------------------------------------------------------- |
-| `ralph`        | primary  | no     | Autonomous loop, full permissions, allows `question`                                    |
-| `build`        | primary  | no     | All tools, allows `plan_enter`, `question`. Inline prompt with `MONITOR_TOOL_AWARENESS`  |
-| `plan`         | primary  | no     | Edit denied except `.nikcli/plans/*.md` + `Global.Path.data/plans/`. Allows `plan_exit`  |
-| `compaction`   | primary  | yes    | `compaction.txt`. `*`: deny                                                             |
-| `title`        | primary  | yes    | `title.txt`. temperature 0.5. `*`: deny                                                 |
-| `summary`      | primary  | yes    | `summary.txt`. `*`: deny                                                                |
+| Agent        | Mode    | Hidden | Notes                                                                                   |
+| ------------ | ------- | ------ | --------------------------------------------------------------------------------------- |
+| `ralph`      | primary | no     | Autonomous loop, full permissions, allows `question`                                    |
+| `build`      | primary | no     | All tools, allows `plan_enter`, `question`. Inline prompt with `MONITOR_TOOL_AWARENESS` |
+| `plan`       | primary | no     | Edit denied except `.nikcli/plans/*.md` + `Global.Path.data/plans/`. Allows `plan_exit` |
+| `compaction` | primary | yes    | `compaction.txt`. `*`: deny                                                             |
+| `title`      | primary | yes    | `title.txt`. temperature 0.5. `*`: deny                                                 |
+| `summary`    | primary | yes    | `summary.txt`. `*`: deny                                                                |
 
 **`task` tool quirks** (10.1–10.15 from the Agent report, preserved verbatim):
 
@@ -3751,7 +3751,7 @@ Type hierarchy:
 9. **`task.txt` description replacement**: the `{agents}` placeholder in `src/tool/task.txt:3` is dynamically replaced at tool init (line 1135-1140), filtered by caller's permissions.
 10. **`bypassAgentCheck` is a security boundary** (comment at `task.ts:881-883`): only set by internal system code, never derived from user-controllable data. Set in `session/prompt.ts:810` when a `task` tool call comes from a model's tool-use part (model-subtask).
 11. **Background default + foreground path exists**: `background` defaults to `true` (line 39). Foreground path (`background: false`) at lines 1040-1124 still implemented, blocks until subagent finishes, subscribes to `MessageV2.Event.PartUpdated` for live tool UI.
-12. **Wake-up via synthetic user message**: `wakeParentSession` (line 575-626) directly calls `SessionPrompt.prompt()` on parent (line 610-615). The `delegation` tool's `read` action is for getting the full artifact *before* the wake arrives.
+12. **Wake-up via synthetic user message**: `wakeParentSession` (line 575-626) directly calls `SessionPrompt.prompt()` on parent (line 610-615). The `delegation` tool's `read` action is for getting the full artifact _before_ the wake arrives.
 13. **Timeouts per source**: `Delegation.TIMEOUTS` (line 118-128) — `research` 20 min, `advisor` 5 min, `delegator`/`delegator-followup` 10 min, `model-subtask` 10 min, others 15 min. Heartbeat refreshes lease every `LEASE_TIMEOUT_MS / 3` (line 358).
 14. **MCP tools also registered**: beyond `ToolRegistry.all()`, MCP tools merged in at `tools.ts:203-208` via `MCP.Service.tools()`.
 15. **`Tool.Context` is per-call**: built fresh by `context(args, options)` factory in `tools.ts:106-138` with the current `sessionID`, `messageID`, `callID`, `agent`, `model`, `bypassAgentCheck`, `metadata()`, `ask()`.
@@ -3997,7 +3997,7 @@ Session `ses_1339d8a9cffem7Eh39qYb0ANd1` generated a **standalone Bun-based TUI 
 - **3 live simulators** (different per frame):
   - tool activity (read/edit/bash/webfetch/task/...)
   - message stream (text/reasoning/tool/step/compaction/subtask)
-  - bus event ticker (server.connected → session.* → message.* → permission.* → ...)
+  - bus event ticker (server.connected → session._ → message._ → permission.\* → ...)
 - **Animated header** with braille ticker, uptime, frame counter, current time
 
 Launch: `REFRESH_MS=120 bun /tmp/nikcli-tui.mjs`
@@ -4030,22 +4030,23 @@ Launch: `REFRESH_MS=120 bun /tmp/nikcli-tui.mjs`
 
 **Fix scope (10 catalog entries)** — switch from `nikcli-*` to actual upstream package names verified via `webfetch` against `https://registry.npmjs.org/{pkg}`:
 
-| Catalog entry          | Wrong name          | Correct npm name                          | Type          |
-| ---------------------- | ------------------- | ----------------------------------------- | ------------- |
-| snip                   | `nikcli-snip`       | `@nikcli-ai/snip` ❌ 404 (private/internal) | remove/mark unavailable |
-| safety-net             | `nikcli-safety-net` | `@nikcli-ai/safety-net` ❌ 404              | remove/mark unavailable |
-| agent-memory           | `nikcli-agent-memory` | `@nikcli-ai/plugin-agent-memory` (or remove) | remove/mark unavailable |
-| smart-title            | `nikcli-smart-title` | `opencode-smart-title` (Tarquinen scope: `@tarquinen/opencode-smart-title`) | use unscoped or `@tarquinen/...` |
-| handoff                | `nikcli-handoff`    | `opencode-handoff` (or `@tarquinen/opencode-handoff`) | use unscoped or `@tarquinen/...` |
-| context-analysis       | `nikcli-context-analysis` | external opencode plugin             | remove/mark unavailable |
-| direnv                 | `nikcli-direnv`     | external opencode plugin                  | remove/mark unavailable |
-| dynamic-context-pruning | `nikcli-dynamic-context-pruning` | external opencode plugin     | remove/mark unavailable |
-| envsitter-guard        | `nikcli-envsitter-guard` | external opencode plugin            | remove/mark unavailable |
-| background-agents      | `nikcli-background-agents` | external opencode plugin          | remove/mark unavailable |
+| Catalog entry           | Wrong name                       | Correct npm name                                                            | Type                             |
+| ----------------------- | -------------------------------- | --------------------------------------------------------------------------- | -------------------------------- |
+| snip                    | `nikcli-snip`                    | `@nikcli-ai/snip` ❌ 404 (private/internal)                                 | remove/mark unavailable          |
+| safety-net              | `nikcli-safety-net`              | `@nikcli-ai/safety-net` ❌ 404                                              | remove/mark unavailable          |
+| agent-memory            | `nikcli-agent-memory`            | `@nikcli-ai/plugin-agent-memory` (or remove)                                | remove/mark unavailable          |
+| smart-title             | `nikcli-smart-title`             | `opencode-smart-title` (Tarquinen scope: `@tarquinen/opencode-smart-title`) | use unscoped or `@tarquinen/...` |
+| handoff                 | `nikcli-handoff`                 | `opencode-handoff` (or `@tarquinen/opencode-handoff`)                       | use unscoped or `@tarquinen/...` |
+| context-analysis        | `nikcli-context-analysis`        | external opencode plugin                                                    | remove/mark unavailable          |
+| direnv                  | `nikcli-direnv`                  | external opencode plugin                                                    | remove/mark unavailable          |
+| dynamic-context-pruning | `nikcli-dynamic-context-pruning` | external opencode plugin                                                    | remove/mark unavailable          |
+| envsitter-guard         | `nikcli-envsitter-guard`         | external opencode plugin                                                    | remove/mark unavailable          |
+| background-agents       | `nikcli-background-agents`       | external opencode plugin                                                    | remove/mark unavailable          |
 
 **Researcher conclusion** (`ses_conceptual-emerald-rabbit`, confidence: high): "Five catalog entries should switch to `@nikcli-ai/plugin-*`; the remaining five should be removed or marked unavailable unless internal/private publishing plans exist."
 
 **Important distinction**:
+
 - `@nikcli-ai/*` scoped packages either don't exist on npm or are private — they cause 404s
 - `opencode-*` packages are real, published, and the **plugin runtime is compatible** because nikcli's plugin loader (`packages/plugin/`) uses the same `Plugin` interface that opencode plugins expose
 - For scoped opencode packages like `@tarquinen/opencode-smart-title`, the unscoped name `opencode-smart-title` is what's published — npm registry HTML shows the scoped version, but `bun add` may need the scoped name
@@ -4062,20 +4063,20 @@ Comprehensive read-only audit + targeted refinements of `packages/web/src/pages/
 
 **Key files**:
 
-| File | Role |
-| --- | --- |
-| `packages/web/src/pages/docs/*.astro` (26 files) | Hand-authored doc pages, frontmatter `toc` array + `<DocsLayout>` + sections with `id` anchors |
-| `packages/web/src/layouts/DocsLayout.astro` | Docs-only HTML shell (SEO, Navbar, sidebar, article, optional TOC, footer, `astro:transitions` ClientRouter) |
-| `packages/web/src/layouts/Layout.astro` | Marketing + `/app` + dashboard pages (includes PostHog) |
-| `packages/web/src/components/docs/DocsSidebar.astro` | Sidebar nav |
-| `packages/web/src/components/docs/DocToc.astro` | Right-rail TOC (h2/h3) |
-| `packages/web/src/components/docs/DocCard.astro` | Card primitive (Tailwind + `<style>`) |
-| `packages/web/src/components/docs/DocCallout.astro` | Boxed callout |
-| `packages/web/src/components/docs/DocCode.astro` | Terminal-window code block with copy-to-clipboard |
-| `packages/web/src/data/docsSidebar.ts` | Nav groups — single source of truth |
-| `packages/web/src/data/keybinds.ts` | TUI keybind catalog (NOT imported by any docs page) |
-| `packages/web/src/styles/global.css` | Design tokens, theme, utilities |
-| `packages/web/src/styles/docs.css` | Prose/tables/TOC/sidebar/scroll-padding overrides |
+| File                                                 | Role                                                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `packages/web/src/pages/docs/*.astro` (26 files)     | Hand-authored doc pages, frontmatter `toc` array + `<DocsLayout>` + sections with `id` anchors               |
+| `packages/web/src/layouts/DocsLayout.astro`          | Docs-only HTML shell (SEO, Navbar, sidebar, article, optional TOC, footer, `astro:transitions` ClientRouter) |
+| `packages/web/src/layouts/Layout.astro`              | Marketing + `/app` + dashboard pages (includes PostHog)                                                      |
+| `packages/web/src/components/docs/DocsSidebar.astro` | Sidebar nav                                                                                                  |
+| `packages/web/src/components/docs/DocToc.astro`      | Right-rail TOC (h2/h3)                                                                                       |
+| `packages/web/src/components/docs/DocCard.astro`     | Card primitive (Tailwind + `<style>`)                                                                        |
+| `packages/web/src/components/docs/DocCallout.astro`  | Boxed callout                                                                                                |
+| `packages/web/src/components/docs/DocCode.astro`     | Terminal-window code block with copy-to-clipboard                                                            |
+| `packages/web/src/data/docsSidebar.ts`               | Nav groups — single source of truth                                                                          |
+| `packages/web/src/data/keybinds.ts`                  | TUI keybind catalog (NOT imported by any docs page)                                                          |
+| `packages/web/src/styles/global.css`                 | Design tokens, theme, utilities                                                                              |
+| `packages/web/src/styles/docs.css`                   | Prose/tables/TOC/sidebar/scroll-padding overrides                                                            |
 
 **Styling stack**: Tailwind (`@astrojs/tailwind`) + `@tailwindcss/typography` + CSS variables (`terminal-*`, `surface-*`, `--topbar-height`, `--docs-mobilebar-height`). No CSS modules. Component-scoped `<style>` only in DocCard and DocCode.
 
@@ -4087,26 +4088,27 @@ Comprehensive read-only audit + targeted refinements of `packages/web/src/pages/
 4. **Reference** — Packages & Suite, Source Map, CLI Debug
 
 **Sidebar behavior**:
+
 - Active link: pathname normalized (trailing `/` stripped) vs `item.href`; class `docs-nav-active` + `aria-current="page"`
 - Mobile: sticky "Browse" bar toggles `#docs-sidebar` (fixed overlay); closes on link click, Escape, `astro:before-swap`, desktop breakpoint
 - **Search**: static hint only — no real search index
 
 **Refinements applied (2026-06-17)**:
 
-| Issue found | Resolution |
-| --- | --- |
-| `class="doc-table"` widely used but **no `.doc-table` rule exists** in `docs.css`/`global.css`/Tailwind | Add `.doc-table` styles to `docs.css`; or migrate tables to rely on `.prose table` (current fallback) |
-| Section spacing inconsistent (`sm:mb-20 sm:scroll-mt-28` only on `index.astro` vs `mb-16 scroll-mt-24` elsewhere) | Standardize via `.doc-section` class in `docs.css` |
-| `docs-nav-group-anim` class on sidebar groups but **no CSS definition** | Remove class or add definition |
-| `keybinds.ts` unused (rich keybind list not wired into `tui.astro`/`configuration.astro`) | Wire or remove |
-| PostHog on marketing (`Layout.astro`) but **not on docs** (`DocsLayout.astro`) | Add `posthog.astro` include to `DocsLayout.astro` for consistent analytics |
-| Duplicate Google Fonts loading (both `global.css` `@import` and `DocsLayout.astro` `<link>`) | Remove one |
-| No i18n (only `lang="en"`) | Out of scope; documented as known gap |
-| `replace_classes.js` leftover migration script | Removed |
-| New `DocRelated.astro` component | Created for cross-linking between related docs |
-| `agents.astro` missing `support` agent (added 2026-06-10) | Added "Internal & support agents" section with `support` card; updated hidden-row note |
-| `cli-debug.astro` minimal content (only tables, no DocCode/DocCallout) | Full rewrite with all debug subcommands, DocCode examples, gating notes |
-| `tools.astro` toolIndex array (39 entries) vs registry `all()` IDs (31 Tool.define scans) | Add `DocCallout` for tool gating flags (`question` client-gated, `lsp` `NIKCLI_EXPERIMENTAL_LSP_TOOL`, `batch` config experimental, `plan_enter`/`plan_exit` plan-mode flags). New `check:docs-tools` script validates |
+| Issue found                                                                                                       | Resolution                                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `class="doc-table"` widely used but **no `.doc-table` rule exists** in `docs.css`/`global.css`/Tailwind           | Add `.doc-table` styles to `docs.css`; or migrate tables to rely on `.prose table` (current fallback)                                                                                                                  |
+| Section spacing inconsistent (`sm:mb-20 sm:scroll-mt-28` only on `index.astro` vs `mb-16 scroll-mt-24` elsewhere) | Standardize via `.doc-section` class in `docs.css`                                                                                                                                                                     |
+| `docs-nav-group-anim` class on sidebar groups but **no CSS definition**                                           | Remove class or add definition                                                                                                                                                                                         |
+| `keybinds.ts` unused (rich keybind list not wired into `tui.astro`/`configuration.astro`)                         | Wire or remove                                                                                                                                                                                                         |
+| PostHog on marketing (`Layout.astro`) but **not on docs** (`DocsLayout.astro`)                                    | Add `posthog.astro` include to `DocsLayout.astro` for consistent analytics                                                                                                                                             |
+| Duplicate Google Fonts loading (both `global.css` `@import` and `DocsLayout.astro` `<link>`)                      | Remove one                                                                                                                                                                                                             |
+| No i18n (only `lang="en"`)                                                                                        | Out of scope; documented as known gap                                                                                                                                                                                  |
+| `replace_classes.js` leftover migration script                                                                    | Removed                                                                                                                                                                                                                |
+| New `DocRelated.astro` component                                                                                  | Created for cross-linking between related docs                                                                                                                                                                         |
+| `agents.astro` missing `support` agent (added 2026-06-10)                                                         | Added "Internal & support agents" section with `support` card; updated hidden-row note                                                                                                                                 |
+| `cli-debug.astro` minimal content (only tables, no DocCode/DocCallout)                                            | Full rewrite with all debug subcommands, DocCode examples, gating notes                                                                                                                                                |
+| `tools.astro` toolIndex array (39 entries) vs registry `all()` IDs (31 Tool.define scans)                         | Add `DocCallout` for tool gating flags (`question` client-gated, `lsp` `NIKCLI_EXPERIMENTAL_LSP_TOOL`, `batch` config experimental, `plan_enter`/`plan_exit` plan-mode flags). New `check:docs-tools` script validates |
 
 **Check script** (`packages/web/script/check-docs-tool-index.ts`, run via `bun run check:docs-tools`):
 
@@ -4141,20 +4143,20 @@ User exploration clarified the agent loop architecture:
 
 **`src/agent/` — definitions only, NOT the loop**:
 
-| Path | Role |
-| --- | --- |
-| `src/agent/agent.ts` | Agent registry (`build`, `plan`, subagents), permissions, tool sets, prompts |
-| `src/agent/prompt/*.txt` | Static prompt fragments (explore, delegator, compaction, etc.) |
+| Path                     | Role                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `src/agent/agent.ts`     | Agent registry (`build`, `plan`, subagents), permissions, tool sets, prompts |
+| `src/agent/prompt/*.txt` | Static prompt fragments (explore, delegator, compaction, etc.)               |
 
 **`src/cli/` — entrypoints and TUI "runners", NOT the core loop**:
 
-| Path | Role |
-| --- | --- |
-| `src/cli/cmd/agent.ts` | CLI to create/list/configure agents |
-| `src/cli/cmd/debug/agent.ts` | Inspect agent + optionally run a tool |
-| `src/cli/cmd/mission.ts` | Headless mission orchestration CLI |
-| `src/cli/cmd/tui/feature-plugins/loops/runner.ts` | TUI client: calls server loop API, syncs bus events |
-| `src/cli/cmd/tui/feature-plugins/mission/runner.ts` | TUI client for mission runtime |
+| Path                                                | Role                                                |
+| --------------------------------------------------- | --------------------------------------------------- |
+| `src/cli/cmd/agent.ts`                              | CLI to create/list/configure agents                 |
+| `src/cli/cmd/debug/agent.ts`                        | Inspect agent + optionally run a tool               |
+| `src/cli/cmd/mission.ts`                            | Headless mission orchestration CLI                  |
+| `src/cli/cmd/tui/feature-plugins/loops/runner.ts`   | TUI client: calls server loop API, syncs bus events |
+| `src/cli/cmd/tui/feature-plugins/mission/runner.ts` | TUI client for mission runtime                      |
 
 **`test-runner`** is a named subagent in `agent.ts` (tools + system prompt), not a separate runner process.
 
@@ -4175,6 +4177,7 @@ const loop = fn(Identifier.schema("session"), async (sessionID) => {
 ```
 
 Each iteration:
+
 1. Reads session messages (user/assistant, compaction/subtask parts)
 2. May run **subtasks** via `TaskTool` (`task.type === "subtask"`)
 3. Creates **`SessionProcessor`**, resolves tools, calls **`processor.process()`** (one model turn)
@@ -4209,18 +4212,18 @@ CLI/TUI → server session routes → SessionPrompt.loop (while true)
 
 ### Tool Gating Reference (added to tools.astro)
 
-| Tool         | Gating                                                                                  |
-| ------------ | --------------------------------------------------------------------------------------- |
-| `question`   | Gated to non-CLI clients (TUI/mobile/SDK only)                                          |
-| `lsp`        | Requires `NIKCLI_EXPERIMENTAL_LSP_TOOL`                                                 |
-| `batch`      | Requires `experimental.batch_tool` config flag                                          |
-| `plan_enter` / `plan_exit` | Plan-mode flags + CLI client (TUI/SDK use plan agent directly)            |
-| `codesearch` / `websearch` | `nikcli` provider or `NIKCLI_ENABLE_EXA` env                              |
-| `apply_patch`| Only for non-OSS GPT models (Anthropic and others use `edit`/`write`)                   |
-| `speak`      | OpenRouter or ElevenLabs provider configured                                            |
-| `voice`      | OpenRouter STT configured                                                               |
-| `image`      | `gpt-5-image` or `nano-banana` provider available                                       |
-| `monitor`    | Available to all primary agents; background job runner                                   |
+| Tool                       | Gating                                                                |
+| -------------------------- | --------------------------------------------------------------------- |
+| `question`                 | Gated to non-CLI clients (TUI/mobile/SDK only)                        |
+| `lsp`                      | Requires `NIKCLI_EXPERIMENTAL_LSP_TOOL`                               |
+| `batch`                    | Requires `experimental.batch_tool` config flag                        |
+| `plan_enter` / `plan_exit` | Plan-mode flags + CLI client (TUI/SDK use plan agent directly)        |
+| `codesearch` / `websearch` | `nikcli` provider or `NIKCLI_ENABLE_EXA` env                          |
+| `apply_patch`              | Only for non-OSS GPT models (Anthropic and others use `edit`/`write`) |
+| `speak`                    | OpenRouter or ElevenLabs provider configured                          |
+| `voice`                    | OpenRouter STT configured                                             |
+| `image`                    | `gpt-5-image` or `nano-banana` provider available                     |
+| `monitor`                  | Available to all primary agents; background job runner                |
 
 ### Workspace Counts (updated 2026-06-17, courtesy of `analyze workspace` session)
 
@@ -4275,13 +4278,13 @@ The `nikcli.json` file in the **repo root** contains a real bearer token (`nkm_*
 
 ### Open PRs against `live-main` (refreshed 2026-06-21)
 
-| PR   | Branch                                | Status                                  |
-| ---- | ------------------------------------- | --------------------------------------- |
-| #99  | `claude/session-v2-live-stepper`      | Windows smoke + test (windows) failures |
-| #91  | `nikcli/mobile/nikcli/yrrz85`         | Multiple failures                       |
-| #88  | `claude/npm-publish-error-vCzX7`      | Windows smoke + test failures           |
+| PR   | Branch                                         | Status                                   |
+| ---- | ---------------------------------------------- | ---------------------------------------- |
+| #99  | `claude/session-v2-live-stepper`               | Windows smoke + test (windows) failures  |
+| #91  | `nikcli/mobile/nikcli/yrrz85`                  | Multiple failures                        |
+| #88  | `claude/npm-publish-error-vCzX7`               | Windows smoke + test failures            |
 | #86  | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures |
-| #102 | (newest at the time, status unknown)  | —                                       |
+| #102 | (newest at the time, status unknown)           | —                                        |
 
 Recently merged to `live-main`: #97, #96, and others. The branch itself is in sync with `origin/live-main` — no commits ahead/behind.
 
@@ -4295,10 +4298,10 @@ Session `ses_113e1f5d7ffeR0mky8uBZ7PAmf` ran a `/goal "Check CI status on the cu
 
 **Two viable paths on macOS**:
 
-| Tool                | Source                                  | Caveat                                                                                    |
-| ------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `qlmanage`          | macOS built-in Quick Look               | Adds padding/margins around the SVG — bad for `purpose: "maskable"` PWA manifest entries |
-| `@resvg/resvg-js`   | Rust resvg via napi (`packages/terminal-control/script/regenerate-favicon.ts`) | Pixel-faithful. **Must run from `packages/terminal-control/` cwd** for the native binding to resolve |
+| Tool              | Source                                                                         | Caveat                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `qlmanage`        | macOS built-in Quick Look                                                      | Adds padding/margins around the SVG — bad for `purpose: "maskable"` PWA manifest entries             |
+| `@resvg/resvg-js` | Rust resvg via napi (`packages/terminal-control/script/regenerate-favicon.ts`) | Pixel-faithful. **Must run from `packages/terminal-control/` cwd** for the native binding to resolve |
 
 **Verification**: `favicon.svg` and `favicon-v3.svg` are byte-identical (white "n" letterform, gray inner stem, `#131010` background). Both PNG outputs match the source. Final sizes: 192×192=1008 bytes, 512×512=4282 bytes.
 
@@ -4319,4 +4322,3 @@ Session `ses_113e1f5d7ffeR0mky8uBZ7PAmf` ran a `/goal "Check CI status on the cu
 - `anomalyco/opencode` on branch **`dev`** is the reference implementation
 - Same Effect-based DB service pattern with `EffectDrizzleSqlite` + custom `sqlite.bun.ts` `SqliteClient`
 - Webfetch pattern: `https://raw.githubusercontent.com/anomalyco/opencode/dev/{path}` (default branch is `dev`, not `main`)
-

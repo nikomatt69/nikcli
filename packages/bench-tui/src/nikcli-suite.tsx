@@ -75,7 +75,14 @@ function NikcliSuiteApp() {
   })
 
   return (
-    <box width={dim().width} height={dim().height} backgroundColor={theme.bg} flexDirection="column" paddingLeft={1} paddingRight={1}>
+    <box
+      width={dim().width}
+      height={dim().height}
+      backgroundColor={theme.bg}
+      flexDirection="column"
+      paddingLeft={1}
+      paddingRight={1}
+    >
       <box height={1} flexDirection="row" gap={1} marginBottom={1}>
         <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
           NIKCLI SUITE

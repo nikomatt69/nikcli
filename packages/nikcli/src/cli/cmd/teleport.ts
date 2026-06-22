@@ -200,7 +200,9 @@ export const TeleportCommand = cmd({
       if (args.content !== false) {
         process.stderr.write(`Archiving working directory ${info.directory}...${os.EOL}`)
         archive = await createWorkspaceArchive(info.directory, { includeGit: Boolean(args.git) }).catch((error) => {
-          process.stderr.write(`Could not archive working directory: ${error instanceof Error ? error.message : String(error)}${os.EOL}`)
+          process.stderr.write(
+            `Could not archive working directory: ${error instanceof Error ? error.message : String(error)}${os.EOL}`,
+          )
           return null
         })
         if (archive) {
@@ -214,7 +216,9 @@ export const TeleportCommand = cmd({
               archivePath: archive.path,
               onProgress: (sent, total) => {
                 const pct = total ? Math.floor((sent / total) * 100) : 100
-                process.stderr.write(`\rUploading workspace… ${pct}% (${(sent / 1e6).toFixed(1)}/${(total / 1e6).toFixed(1)} MB)`)
+                process.stderr.write(
+                  `\rUploading workspace… ${pct}% (${(sent / 1e6).toFixed(1)}/${(total / 1e6).toFixed(1)} MB)`,
+                )
               },
             })
             process.stderr.write(os.EOL)
@@ -263,9 +267,12 @@ export const TeleportCommand = cmd({
         process.exit(1)
       }
 
-      const result = (await response.json().catch(() => null)) as
-        | { sessionID?: string; messageCount?: number; directory?: string; workspace?: boolean }
-        | null
+      const result = (await response.json().catch(() => null)) as {
+        sessionID?: string
+        messageCount?: number
+        directory?: string
+        workspace?: boolean
+      } | null
 
       if (args.save !== false) {
         await saveTeleportDefaults(base, token).catch(() => undefined)
