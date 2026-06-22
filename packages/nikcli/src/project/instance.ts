@@ -29,33 +29,6 @@ function normalizeDirectory(directory: string) {
   }
 }
 
-function canonicalizePath(filepath: string) {
-  const absolute = path.isAbsolute(filepath) ? filepath : `${process.cwd()}${path.sep}${filepath}`
-  const { root } = path.parse(absolute)
-  const parts = absolute
-    .slice(root.length)
-    .split(/[\\/]+/)
-    .filter(Boolean)
-
-  let current = root
-  for (const part of parts) {
-    if (part === ".") continue
-    if (part === "..") {
-      current = path.dirname(current)
-      continue
-    }
-
-    const candidate = path.join(current, part)
-    try {
-      current = realpathSync(candidate)
-    } catch {
-      current = candidate
-    }
-  }
-
-  return current
-}
-
 export const Instance = {
   async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R }): Promise<R> {
     const directory = normalizeDirectory(input.directory)
@@ -112,7 +85,7 @@ export const Instance = {
     try {
       const canonicalInstance = realpathSync(Instance.directory)
       const canonicalWorktree = Instance.worktree === "/" ? "/" : realpathSync(Instance.worktree)
-      const canonicalPath = canonicalizePath(filepath)
+      const canonicalPath = Filesystem.canonicalizePath(filepath)
       if (Filesystem.contains(canonicalInstance, canonicalPath)) return true
       if (canonicalWorktree === "/") return false
       return Filesystem.contains(canonicalWorktree, canonicalPath)
@@ -132,7 +105,10 @@ export const Instance = {
 
     const { Bus } = await import("@/bus")
     await Bus.publish(Bus.InstanceDisposed, { directory: ctx.directory }).catch((error) => {
-      Log.Default.warn("failed to publish instance disposal event", { directory: ctx.directory, error })
+      Log.Default.warn("failed to publish instance disposal event", {
+        directory: ctx.directory,
+        error,
+      })
     })
 
     const tasks = [
@@ -141,7 +117,10 @@ export const Instance = {
         Promise.resolve()
           .then(() => disposer())
           .catch((error) => {
-            Log.Default.warn("instance disposer failed", { directory: ctx.directory, error })
+            Log.Default.warn("instance disposer failed", {
+              directory: ctx.directory,
+              error,
+            })
           }),
       ),
     ]

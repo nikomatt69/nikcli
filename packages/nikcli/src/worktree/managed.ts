@@ -1,5 +1,3 @@
-import { exec } from "child_process"
-import { promisify } from "util"
 import fs from "fs/promises"
 import path from "path"
 import { Global } from "../global"
@@ -10,8 +8,6 @@ import { zodObject } from "@/util/effect-zod"
 import { InstanceState, type InstanceContext } from "@/effect"
 import { Context, Effect, Layer, Schema } from "effect"
 import { ulid } from "ulid"
-
-const execAsync = promisify(exec)
 
 export namespace ManagedWorktree {
   const log = Log.create({ service: "managed-worktree" })
@@ -91,29 +87,54 @@ export namespace ManagedWorktree {
    * Unlike opencode, we fall back to fs.cp on copy failure since
    * we're in a TypeScript environment and byte-copying is acceptable.
    */
+  async function runCopyCommand(command: string, args: string[]) {
+    try {
+      const proc = Bun.spawn([command, ...args], {
+        stdout: "ignore",
+        stderr: "pipe",
+      })
+      const [exitCode, stderr] = await Promise.all([
+        proc.exited.catch(() => 1),
+        new Response(proc.stderr).text().catch(() => ""),
+      ])
+      return { exitCode, stderr, ok: exitCode === 0 }
+    } catch (error) {
+      const stderr = error instanceof Error ? error.message : String(error)
+      return { exitCode: 1, stderr, ok: false }
+    }
+  }
+
   async function copyDirectory(src: string, dest: string): Promise<void> {
     const platform = process.platform
 
     if (platform === "darwin") {
       // macOS: Use clonefile for APFS copy-on-write
-      try {
-        const result = await execAsync(`clonefile "${src}" "${dest}"`)
+      const result = await runCopyCommand("clonefile", [src, dest])
+      if (result.ok) {
         log.debug("clonefile success", { src, dest })
         return
-      } catch (err) {
-        log.warn("clonefile failed, trying fs.cp", { src, dest, error: err })
       }
+      log.warn("clonefile failed, trying fs.cp", {
+        src,
+        dest,
+        exitCode: result.exitCode,
+        stderr: result.stderr,
+      })
     }
 
     if (platform === "linux") {
       // Linux: Try reflink via cp --reflink=auto
-      try {
-        await execAsync(`cp --reflink=auto -a "${src}" "${dest}"`)
+      const result = await runCopyCommand("cp", ["--reflink=auto", "-a", src, dest])
+      if (result.ok) {
         log.debug("reflink copy success", { src, dest })
         return
-      } catch (err) {
-        log.warn("reflink failed, trying fs.cp", { src, dest, error: err })
       }
+      log.warn("reflink failed, trying fs.cp", {
+        src,
+        dest,
+        exitCode: result.exitCode,
+        stderr: result.stderr,
+      })
     }
 
     // Generic fallback: recursive copy with timestamps preserved
@@ -207,7 +228,9 @@ export namespace ManagedWorktree {
   // Detach HEAD in the copied worktree
   async function detachHead(worktreePath: string): Promise<void> {
     try {
-      await Git.run(["switch", "--detach", "--quiet", "HEAD"], { cwd: worktreePath })
+      await Git.run(["switch", "--detach", "--quiet", "HEAD"], {
+        cwd: worktreePath,
+      })
       log.debug("HEAD detached", { worktreePath })
     } catch (err) {
       log.warn("Failed to detach HEAD", { worktreePath, error: err })
@@ -256,7 +279,10 @@ export namespace ManagedWorktree {
     const abs = await absolutePath(p)
     const stat = await fs.stat(abs)
     if (!stat.isDirectory()) {
-      throw new WorktreeError({ message: `Not a directory: ${p}`, code: "NOT_DIRECTORY" })
+      throw new WorktreeError({
+        message: `Not a directory: ${p}`,
+        code: "NOT_DIRECTORY",
+      })
     }
     return abs
   }
@@ -362,7 +388,10 @@ export namespace ManagedWorktree {
   // Implementation
   async function createImpl(ctx: InstanceContext, input?: Schema.Schema.Type<typeof CreateInputSchema>): Promise<Info> {
     if (!input) {
-      throw new WorktreeError({ message: "No input provided", code: "INVALID_INPUT" })
+      throw new WorktreeError({
+        message: "No input provided",
+        code: "INVALID_INPUT",
+      })
     }
     const from = await existingDirectory(input.from)
     const gitDir = path.join(from, ".git")
@@ -373,7 +402,10 @@ export namespace ManagedWorktree {
       .then(() => true)
       .catch(() => false)
     if (!isGit) {
-      throw new WorktreeError({ message: `Not a git repository: ${from}`, code: "NOT_GIT" })
+      throw new WorktreeError({
+        message: `Not a git repository: ${from}`,
+        code: "NOT_GIT",
+      })
     }
 
     // Safety check: ensure git is not in unsafe state
@@ -424,7 +456,10 @@ export namespace ManagedWorktree {
       // Check destination doesn't exist
       try {
         await fs.access(destination)
-        throw new WorktreeError({ message: `Worktree already exists: ${destination}`, code: "ALREADY_EXISTS" })
+        throw new WorktreeError({
+          message: `Worktree already exists: ${destination}`,
+          code: "ALREADY_EXISTS",
+        })
       } catch (err: any) {
         if (err.code !== "ENOENT") throw err
       }
@@ -488,7 +523,10 @@ export namespace ManagedWorktree {
       const index = records.findIndex((r) => r.path === at)
 
       if (index === -1) {
-        throw new WorktreeError({ message: `Worktree not managed: ${at}`, code: "NOT_MANAGED" })
+        throw new WorktreeError({
+          message: `Worktree not managed: ${at}`,
+          code: "NOT_MANAGED",
+        })
       }
 
       const record = records[index]
@@ -602,12 +640,18 @@ export namespace ManagedWorktree {
         const toRecord = records.find((r) => r.path === toPath)
 
         if (!toRecord) {
-          throw new WorktreeError({ message: `Parent worktree not managed: ${input.to}`, code: "PARENT_NOT_FOUND" })
+          throw new WorktreeError({
+            message: `Parent worktree not managed: ${input.to}`,
+            code: "PARENT_NOT_FOUND",
+          })
         }
 
         // Check for cycle
         if (toRecord.id === record!.id || isDescendant(toPath, at)) {
-          throw new WorktreeError({ message: "Cannot create cycle in worktree tree", code: "CYCLE" })
+          throw new WorktreeError({
+            message: "Cannot create cycle in worktree tree",
+            code: "CYCLE",
+          })
         }
 
         // Prevent reparenting original
@@ -619,7 +663,10 @@ export namespace ManagedWorktree {
         }
 
         record!.parent_id = toRecord.id
-        log.info("Worktree reparented", { id: record!.id, newParent: toRecord.id })
+        log.info("Worktree reparented", {
+          id: record!.id,
+          newParent: toRecord.id,
+        })
       }
 
       return await getInfo(record!)
@@ -682,7 +729,9 @@ export namespace ManagedWorktree {
     // Get branch
     let branch = "unknown"
     try {
-      const result = await Git.run(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: record.path })
+      const result = await Git.run(["rev-parse", "--abbrev-ref", "HEAD"], {
+        cwd: record.path,
+      })
       if (result.exitCode === 0) {
         branch = result.text().trim()
       }

@@ -57,6 +57,12 @@ export type Platform = {
   /** Set the default server URL to use on app startup (platform-specific) */
   setDefaultServerUrl?(url: string | null): Promise<void> | void
 
+  /** Get the bearer token associated with a server URL (desktop only) */
+  getServerBearerToken?(url: string): Promise<string | null> | string | null
+
+  /** Set or clear the bearer token associated with a server URL (desktop only) */
+  setServerBearerToken?(url: string, token: string | null): Promise<void> | void
+
   /** Parse markdown to HTML using native parser (desktop only, returns unprocessed code blocks) */
   parseMarkdown?(markdown: string): Promise<string>
 

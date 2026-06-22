@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { checkServerHealth } from "./server-health"
+import { checkServerHealth, serverUrlMatchesRequest, withServerBearerToken } from "./server-health"
 
 describe("checkServerHealth", () => {
   test("returns healthy response with version", async () => {
@@ -38,5 +38,46 @@ describe("checkServerHealth", () => {
     await checkServerHealth("http://localhost:4096", fetch, { signal: abort.signal })
 
     expect(signal).toBe(abort.signal)
+  })
+})
+
+describe("server bearer authentication", () => {
+  test("matches only the configured server and path boundary", () => {
+    expect(serverUrlMatchesRequest("https://s.nikcli.store", "https://s.nikcli.store/global/health")).toBe(true)
+    expect(serverUrlMatchesRequest("https://s.nikcli.store/api", "https://s.nikcli.store/api/session")).toBe(true)
+    expect(serverUrlMatchesRequest("https://s.nikcli.store/api", "https://s.nikcli.store/apiv2/session")).toBe(false)
+    expect(serverUrlMatchesRequest("https://s.nikcli.store", "https://other.example/global/health")).toBe(false)
+  })
+
+  test("adds bearer auth without mutating the source request", async () => {
+    let received: Request | undefined
+    const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      received = input instanceof Request ? input : new Request(input, init)
+      return new Response(null, { status: 204 })
+    }) as typeof globalThis.fetch
+    const source = new Request("https://s.nikcli.store/global/health", {
+      headers: { "x-test": "value" },
+    })
+
+    await withServerBearerToken(fetcher, "https://s.nikcli.store", "secret-token")(source)
+
+    expect(source.headers.get("Authorization")).toBeNull()
+    expect(received?.headers.get("Authorization")).toBe("Bearer secret-token")
+    expect(received?.headers.get("x-test")).toBe("value")
+  })
+
+  test("does not leak the token to another origin", async () => {
+    let authorization: string | null = null
+    const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      authorization = request.headers.get("Authorization")
+      return new Response(null, { status: 204 })
+    }) as typeof globalThis.fetch
+
+    await withServerBearerToken(fetcher, "https://s.nikcli.store", "secret-token")(
+      "https://example.com/global/health",
+    )
+
+    expect(authorization).toBeNull()
   })
 })

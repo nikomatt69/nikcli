@@ -44,6 +44,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const [state, setState] = createStore({
       active: normalizeServerUrl(props.defaultUrl) ?? "",
       healthy: undefined as boolean | undefined,
+      revision: 0,
     })
 
     const healthy = () => state.healthy
@@ -85,6 +86,13 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
       })
     }
 
+    function reconnect() {
+      batch(() => {
+        setState("healthy", undefined)
+        setState("revision", (value) => value + 1)
+      })
+    }
+
     createEffect(() => {
       if (!ready()) return
       if (state.active) return
@@ -100,6 +108,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
 
     createEffect(() => {
       const url = state.active
+      void state.revision
       if (!url) return
 
       setState("healthy", undefined)
@@ -143,12 +152,16 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
       get name() {
         return serverDisplayName(state.active)
       },
+      get connectionKey() {
+        return state.active ? `${state.active}:${state.revision}` : ""
+      },
       get list() {
         return store.list
       },
       setActive,
       add,
       remove,
+      reconnect,
       projects: {
         list: projectsList,
         open(directory: string) {

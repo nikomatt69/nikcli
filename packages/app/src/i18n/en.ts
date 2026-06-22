@@ -304,6 +304,8 @@ export const dict = {
   "dialog.server.add.title": "Add a server",
   "dialog.server.add.url": "Server URL",
   "dialog.server.add.placeholder": "http://localhost:4096",
+  "dialog.server.add.token": "Bearer token (optional)",
+  "dialog.server.add.token.placeholder": "Bearer token (optional)",
   "dialog.server.add.error": "Could not connect to server",
   "dialog.server.add.checking": "Checking...",
   "dialog.server.add.button": "Add server",

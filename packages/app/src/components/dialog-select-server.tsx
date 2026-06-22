@@ -14,33 +14,48 @@ import { DropdownMenu } from "@nikcli-ai/ui/dropdown-menu"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { showToast } from "@nikcli-ai/ui/toast"
 import { ServerRow } from "@/components/server/server-row"
-import { checkServerHealth, type ServerHealth } from "@/utils/server-health"
+import { checkServerHealth, type ServerHealth, withServerBearerToken } from "@/utils/server-health"
 
 interface AddRowProps {
   value: string
+  token: string
   placeholder: string
+  tokenLabel: string
+  tokenPlaceholder: string
+  showToken: boolean
   adding: boolean
   error: string
   status: boolean | undefined
   onChange: (value: string) => void
+  onTokenChange: (value: string) => void
   onKeyDown: (event: KeyboardEvent) => void
   onBlur: () => void
 }
 
 interface EditRowProps {
   value: string
+  token: string
   placeholder: string
+  tokenLabel: string
+  tokenPlaceholder: string
+  showToken: boolean
   busy: boolean
   error: string
   status: boolean | undefined
   onChange: (value: string) => void
+  onTokenChange: (value: string) => void
   onKeyDown: (event: KeyboardEvent) => void
   onBlur: () => void
+  onSave: () => void
+  saveLabel: string
 }
 
 function AddRow(props: AddRowProps) {
   return (
-    <div class="flex items-center px-4 min-h-14 py-3 min-w-0 flex-1">
+    <div
+      class="flex items-start gap-2 px-4 min-h-14 py-3 min-w-0 flex-1"
+      onClick={(event) => event.stopPropagation()}
+    >
       <div class="flex-1 min-w-0 [&_[data-slot=input-wrapper]]:relative">
         <div
           classList={{
@@ -70,10 +85,25 @@ function AddRow(props: AddRowProps) {
           disabled={props.adding}
           onChange={props.onChange}
           onKeyDown={props.onKeyDown}
-          onBlur={props.onBlur}
+          onBlur={props.showToken ? undefined : props.onBlur}
           class="pl-7"
         />
       </div>
+      <Show when={props.showToken}>
+        <div class="flex-1 min-w-0">
+          <TextField
+            type="password"
+            label={props.tokenLabel}
+            hideLabel
+            placeholder={props.tokenPlaceholder}
+            value={props.token}
+            disabled={props.adding}
+            autocomplete="off"
+            onChange={props.onTokenChange}
+            onKeyDown={props.onKeyDown}
+          />
+        </div>
+      </Show>
     </div>
   )
 }
@@ -101,9 +131,27 @@ function EditRow(props: EditRowProps) {
           disabled={props.busy}
           onChange={props.onChange}
           onKeyDown={props.onKeyDown}
-          onBlur={props.onBlur}
+          onBlur={props.showToken ? undefined : props.onBlur}
         />
       </div>
+      <Show when={props.showToken}>
+        <div class="flex-1 min-w-0">
+          <TextField
+            type="password"
+            label={props.tokenLabel}
+            hideLabel
+            placeholder={props.tokenPlaceholder}
+            value={props.token}
+            disabled={props.busy}
+            autocomplete="off"
+            onChange={props.onTokenChange}
+            onKeyDown={props.onKeyDown}
+          />
+        </div>
+        <Button type="button" size="small" variant="primary" disabled={props.busy} onClick={props.onSave}>
+          {props.saveLabel}
+        </Button>
+      </Show>
     </div>
   )
 }
@@ -119,6 +167,7 @@ export function DialogSelectServer() {
     status: {} as Record<string, ServerHealth | undefined>,
     addServer: {
       url: "",
+      token: "",
       adding: false,
       error: "",
       showForm: false,
@@ -127,6 +176,8 @@ export function DialogSelectServer() {
     editServer: {
       id: undefined as string | undefined,
       value: "",
+      token: "",
+      originalToken: "",
       error: "",
       busy: false,
       status: undefined as boolean | undefined,
@@ -150,6 +201,7 @@ export function DialogSelectServer() {
     { initialValue: null },
   )
   const canDefault = createMemo(() => !!platform.getDefaultServerUrl && !!platform.setDefaultServerUrl)
+  const canBearer = createMemo(() => !!platform.getServerBearerToken && !!platform.setServerBearerToken)
   const fetcher = platform.fetch ?? globalThis.fetch
 
   const looksComplete = (value: string) => {
@@ -161,18 +213,24 @@ export function DialogSelectServer() {
     return host.includes(".") || host.includes(":")
   }
 
-  const previewStatus = async (value: string, setStatus: (value: boolean | undefined) => void) => {
+  const previewStatus = async (
+    value: string,
+    token: string,
+    setStatus: (value: boolean | undefined) => void,
+  ) => {
     setStatus(undefined)
     if (!looksComplete(value)) return
     const normalized = normalizeServerUrl(value)
     if (!normalized) return
-    const result = await checkServerHealth(normalized, fetcher)
+    const result = await checkServerHealth(normalized, withServerBearerToken(fetcher, normalized, token))
     setStatus(result.healthy)
   }
 
   const resetAdd = () => {
     setStore("addServer", {
       url: "",
+      token: "",
+      adding: false,
       error: "",
       showForm: false,
       status: undefined,
@@ -183,6 +241,8 @@ export function DialogSelectServer() {
     setStore("editServer", {
       id: undefined,
       value: "",
+      token: "",
+      originalToken: "",
       error: "",
       status: undefined,
       busy: false,
@@ -259,7 +319,13 @@ export function DialogSelectServer() {
   const handleAddChange = (value: string) => {
     if (store.addServer.adding) return
     setStore("addServer", { url: value, error: "" })
-    void previewStatus(value, (next) => setStore("addServer", { status: next }))
+    void previewStatus(value, store.addServer.token, (next) => setStore("addServer", { status: next }))
+  }
+
+  const handleAddTokenChange = (token: string) => {
+    if (store.addServer.adding) return
+    setStore("addServer", { token, error: "" })
+    void previewStatus(store.addServer.url, token, (next) => setStore("addServer", { status: next }))
   }
 
   const scrollListToBottom = () => {
@@ -273,7 +339,13 @@ export function DialogSelectServer() {
   const handleEditChange = (value: string) => {
     if (store.editServer.busy) return
     setStore("editServer", { value, error: "" })
-    void previewStatus(value, (next) => setStore("editServer", { status: next }))
+    void previewStatus(value, store.editServer.token, (next) => setStore("editServer", { status: next }))
+  }
+
+  const handleEditTokenChange = (token: string) => {
+    if (store.editServer.busy) return
+    setStore("editServer", { token, error: "" })
+    void previewStatus(store.editServer.value, token, (next) => setStore("editServer", { status: next }))
   }
 
   async function handleAdd(value: string) {
@@ -286,11 +358,19 @@ export function DialogSelectServer() {
 
     setStore("addServer", { adding: true, error: "" })
 
-    const result = await checkServerHealth(normalized, fetcher)
+    const token = store.addServer.token.trim()
+    const result = await checkServerHealth(normalized, withServerBearerToken(fetcher, normalized, token))
     setStore("addServer", { adding: false })
 
     if (!result.healthy) {
       setStore("addServer", { error: language.t("dialog.server.add.error") })
+      return
+    }
+
+    try {
+      await platform.setServerBearerToken?.(normalized, token || null)
+    } catch (err) {
+      setStore("addServer", { error: err instanceof Error ? err.message : String(err) })
       return
     }
 
@@ -306,14 +386,15 @@ export function DialogSelectServer() {
       return
     }
 
-    if (normalized === original) {
+    const token = store.editServer.token.trim()
+    if (normalized === original && token === store.editServer.originalToken) {
       resetEdit()
       return
     }
 
     setStore("editServer", { busy: true, error: "" })
 
-    const result = await checkServerHealth(normalized, fetcher)
+    const result = await checkServerHealth(normalized, withServerBearerToken(fetcher, normalized, token))
     setStore("editServer", { busy: false })
 
     if (!result.healthy) {
@@ -321,7 +402,26 @@ export function DialogSelectServer() {
       return
     }
 
-    replaceServer(original, normalized)
+    try {
+      await platform.setServerBearerToken?.(normalized, token || null)
+      if (normalized !== original) {
+        try {
+          await platform.setServerBearerToken?.(original, null)
+        } catch (err) {
+          await Promise.resolve(platform.setServerBearerToken?.(normalized, null)).catch(() => undefined)
+          throw err
+        }
+      }
+    } catch (err) {
+      setStore("editServer", { error: err instanceof Error ? err.message : String(err) })
+      return
+    }
+
+    if (normalized === original) {
+      server.reconnect()
+    } else {
+      replaceServer(original, normalized)
+    }
 
     resetEdit()
   }
@@ -354,9 +454,19 @@ export function DialogSelectServer() {
   }
 
   async function handleRemove(url: string) {
+    try {
+      await platform.setServerBearerToken?.(url, null)
+    } catch (err) {
+      showToast({
+        variant: "error",
+        title: language.t("common.requestFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+      return
+    }
     server.remove(url)
     if ((await platform.getDefaultServerUrl?.()) === url) {
-      platform.setDefaultServerUrl?.(null)
+      await platform.setDefaultServerUrl?.(null)
     }
   }
 
@@ -385,11 +495,16 @@ export function DialogSelectServer() {
                   render: () => (
                     <AddRow
                       value={store.addServer.url}
+                      token={store.addServer.token}
                       placeholder={language.t("dialog.server.add.placeholder")}
+                      tokenLabel={language.t("dialog.server.add.token")}
+                      tokenPlaceholder={language.t("dialog.server.add.token.placeholder")}
+                      showToken={canBearer()}
                       adding={store.addServer.adding}
                       error={store.addServer.error}
                       status={store.addServer.status}
                       onChange={handleAddChange}
+                      onTokenChange={handleAddTokenChange}
                       onKeyDown={handleAddKey}
                       onBlur={blurAdd}
                     />
@@ -406,13 +521,20 @@ export function DialogSelectServer() {
                   fallback={
                     <EditRow
                       value={store.editServer.value}
+                      token={store.editServer.token}
                       placeholder={language.t("dialog.server.add.placeholder")}
+                      tokenLabel={language.t("dialog.server.add.token")}
+                      tokenPlaceholder={language.t("dialog.server.add.token.placeholder")}
+                      showToken={canBearer()}
                       busy={store.editServer.busy}
                       error={store.editServer.error}
                       status={store.editServer.status}
                       onChange={handleEditChange}
+                      onTokenChange={handleEditTokenChange}
                       onKeyDown={(event) => handleEditKey(event, i)}
                       onBlur={() => handleEdit(i, store.editServer.value)}
+                      onSave={() => void handleEdit(i, store.editServer.value)}
+                      saveLabel={language.t("common.save")}
                     />
                   }
                 >
@@ -448,10 +570,23 @@ export function DialogSelectServer() {
                       <DropdownMenu.Portal>
                         <DropdownMenu.Content class="mt-1">
                           <DropdownMenu.Item
-                            onSelect={() => {
+                            onSelect={async () => {
+                              let token = ""
+                              try {
+                                token = (await platform.getServerBearerToken?.(i)) ?? ""
+                              } catch (err) {
+                                showToast({
+                                  variant: "error",
+                                  title: language.t("common.requestFailed"),
+                                  description: err instanceof Error ? err.message : String(err),
+                                })
+                                return
+                              }
                               setStore("editServer", {
                                 id: i,
                                 value: i,
+                                token,
+                                originalToken: token,
                                 error: "",
                                 status: store.status[i]?.healthy,
                               })
@@ -522,7 +657,11 @@ export function DialogSelectServer() {
             icon="plus-small"
             size="large"
             onClick={() => {
-              setStore("addServer", { showForm: true, url: "", error: "" })
+              if (store.addServer.showForm) {
+                void handleAdd(store.addServer.url)
+                return
+              }
+              setStore("addServer", { showForm: true, url: "", token: "", error: "" })
               scrollListToBottom()
             }}
             class="py-1.5 pl-1.5 pr-3 flex items-center gap-1.5"

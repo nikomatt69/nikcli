@@ -1,8 +1,9 @@
 import { Instance } from "../project/instance"
 import { Log } from "../util/log"
-import { Flag } from "../flag/flag"
+import { Flag } from "@/flag/flag"
 import { Global } from "../global"
 import path from "path"
+import fs from "fs/promises"
 import { lazyAsync } from "@/util/lazy"
 
 interface FileTimeEntry {
@@ -43,7 +44,7 @@ export namespace FileTime {
 
   const storage = lazyAsync(async () => {
     const dir = path.join(Global.Path.data, "filetime")
-    await Bun.write(dir, "")
+    await fs.mkdir(dir, { recursive: true })
     return { dir }
   })
 

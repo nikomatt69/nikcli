@@ -684,9 +684,12 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
     // MiniMax M2.x leaks reasoning into content and has no usable thinking
     // controls; M3 is Anthropic-compatible and handled via adaptiveEfforts below.
     (id.includes("minimax") && !id.includes("minimax-m3")) ||
-    id.includes("glm") ||
-    id.includes("kimi") ||
-    id.includes("k2p") ||
+    // GLM / Kimi / K2 don't accept reasoning_effort on their direct providers,
+    // but they DO via OpenRouter (handled in the openrouter switch case below),
+    // so only exclude them when the npm is not openrouter.
+    (id.includes("glm") && model.api.npm !== "@openrouter/ai-sdk-provider") ||
+    (id.includes("kimi") && model.api.npm !== "@openrouter/ai-sdk-provider") ||
+    (id.includes("k2p") && model.api.npm !== "@openrouter/ai-sdk-provider") ||
     id.includes("qwen") ||
     id.includes("big-pickle")
   )
@@ -708,14 +711,22 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
   if (id.includes("grok")) return {}
 
   switch (model.api.npm) {
-    case "@openrouter/ai-sdk-provider":
-      if (!id.includes("gpt") && !id.includes("gemini-3") && !id.includes("claude")) return {}
-      return Object.fromEntries(
-        (id.includes("gpt") ? openaiCompatibleReasoningEfforts(id) : OPENAI_EFFORTS).map((effort) => [
-          effort,
-          { reasoning: { effort } },
-        ]),
-      )
+    case "@openrouter/ai-sdk-provider": {
+      // OpenRouter normalizes a generic `reasoning.effort` passthrough across
+      // every upstream, so we don't pattern-match families here. Any model that
+      // reaches this point already passed the reasoning-capability check and the
+      // known-broken-controls exclusion above, so just emit the effort tiers.
+      // GPT / o-series expose their own OpenAI tier set. Anthropic-adaptive
+      // upstreams carry their adaptive efforts (already include `max`).
+      // Every other budget-based upstream (glm, kimi, deepseek, gemini-2.5,
+      // qwen…) gets low/medium/high plus `max`: OpenRouter maps `max` to ~95%
+      // of max_tokens of reasoning budget, so it's the strongest usable tier.
+      const efforts =
+        id.includes("gpt") || model.api.id.toLowerCase().startsWith("openai/")
+          ? openaiCompatibleReasoningEfforts(id)
+          : (adaptiveEfforts ?? [...WIDELY_SUPPORTED_EFFORTS, "max"])
+      return Object.fromEntries(efforts.map((effort) => [effort, { reasoning: { effort } }]))
+    }
 
     case "ai-gateway-provider": {
       // Cloudflare AI Gateway routes every upstream through its OpenAI-compatible

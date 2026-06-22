@@ -78,7 +78,7 @@ export function AppBaseProviders(props: ParentProps) {
 function ServerKey(props: ParentProps) {
   const server = useServer()
   return (
-    <Show when={server.url} keyed>
+    <Show when={server.connectionKey} keyed>
       {props.children}
     </Show>
   )

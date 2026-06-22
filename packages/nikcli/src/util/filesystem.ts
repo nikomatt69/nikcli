@@ -1,6 +1,6 @@
 import { realpathSync, statSync } from "fs"
 import { mkdir } from "fs/promises"
-import { dirname, isAbsolute, join, relative, resolve as pathResolve } from "path"
+import { dirname, isAbsolute, join, parse, relative, resolve as pathResolve, sep } from "path"
 
 export namespace Filesystem {
   function isContained(parent: string, child: string) {
@@ -62,6 +62,34 @@ export namespace Filesystem {
       return p
     }
   }
+
+  export function canonicalizePath(filepath: string) {
+    const absolute = isAbsolute(filepath) ? filepath : `${process.cwd()}${sep}${filepath}`
+    const { root } = parse(absolute)
+    const parts = absolute
+      .slice(root.length)
+      .split(/[\\/]+/)
+      .filter(Boolean)
+
+    let current = root
+    for (const part of parts) {
+      if (part === ".") continue
+      if (part === "..") {
+        current = dirname(current)
+        continue
+      }
+
+      const candidate = join(current, part)
+      try {
+        current = realpathSync(candidate)
+      } catch {
+        current = candidate
+      }
+    }
+
+    return current
+  }
+
   export function overlaps(a: string, b: string) {
     return isContained(a, b) || isContained(b, a)
   }

@@ -1,7 +1,14 @@
 // @refresh reload
 import { webviewZoom } from "./webview-zoom"
 import { render } from "solid-js/web"
-import { AppBaseProviders, AppInterface, PlatformProvider, Platform, useCommand } from "@nikcli-ai/app"
+import {
+  AppBaseProviders,
+  AppInterface,
+  PlatformProvider,
+  Platform,
+  serverUrlMatchesRequest,
+  useCommand,
+} from "@nikcli-ai/app"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link"
 import { open as shellOpen } from "@tauri-apps/plugin-shell"
@@ -34,6 +41,73 @@ void initI18n()
 
 let update: Update | null = null
 const TAURI_AVAILABLE = typeof window === "object" && "__TAURI_INTERNALS__" in window
+const SERVER_AUTH_STORE = "nikcli.server-auth.dat"
+const SERVER_BEARER_TOKENS_KEY = "bearerTokens"
+const SERVER_BEARER_TOKENS_FALLBACK_KEY = "nikcli:desktop:server-bearer-tokens"
+
+type ServerBearerTokens = Record<string, string>
+
+let serverAuthStore: Promise<Store> | undefined
+let serverBearerTokens: Promise<ServerBearerTokens> | undefined
+
+const serverKey = (url: string) => url.trim().replace(/\/+$/, "")
+
+const validServerBearerTokens = (value: unknown): ServerBearerTokens => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string" && !!entry[1].trim())
+      .map(([url, token]) => [serverKey(url), token.trim()]),
+  )
+}
+
+const loadServerBearerTokens = () => {
+  if (serverBearerTokens) return serverBearerTokens
+  serverBearerTokens = (async () => {
+    if (!TAURI_AVAILABLE) {
+      const raw = localStorage.getItem(SERVER_BEARER_TOKENS_FALLBACK_KEY)
+      if (!raw) return {}
+      try {
+        return validServerBearerTokens(JSON.parse(raw))
+      } catch {
+        return {}
+      }
+    }
+
+    serverAuthStore ??= Store.load(SERVER_AUTH_STORE)
+    const store = await serverAuthStore
+    return validServerBearerTokens(await store.get<unknown>(SERVER_BEARER_TOKENS_KEY))
+  })()
+  return serverBearerTokens
+}
+
+const saveServerBearerToken = async (url: string, token: string | null) => {
+  const current = await loadServerBearerTokens()
+  const next = { ...current }
+  const key = serverKey(url)
+  const value = token?.trim()
+  if (value) next[key] = value
+  else delete next[key]
+
+  if (!TAURI_AVAILABLE) {
+    localStorage.setItem(SERVER_BEARER_TOKENS_FALLBACK_KEY, JSON.stringify(next))
+  } else {
+    serverAuthStore ??= Store.load(SERVER_AUTH_STORE)
+    const store = await serverAuthStore
+    await store.set(SERVER_BEARER_TOKENS_KEY, next)
+    await store.save()
+  }
+  serverBearerTokens = Promise.resolve(next)
+}
+
+const findServerBearerToken = async (input: RequestInfo | URL) => {
+  const tokens = await loadServerBearerTokens()
+  return (
+    Object.entries(tokens)
+      .filter(([url]) => serverUrlMatchesRequest(url, input))
+      .sort(([a], [b]) => b.length - a.length)[0]?.[1] ?? null
+  )
+}
 
 const detectedOS = (): Platform["os"] => {
   if (TAURI_AVAILABLE) {
@@ -368,25 +442,23 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
       .catch(() => undefined)
   },
 
-  fetch: ((input, init) => {
+  fetch: (async (input, init) => {
     const pw = password()
-
-    const addHeader = (headers: Headers, password: string) => {
-      headers.append("Authorization", `Basic ${btoa(`nikcli:${password}`)}`)
+    const bearer = await findServerBearerToken(input).catch(() => null)
+    const headers = new Headers(input instanceof Request ? input.headers : undefined)
+    new Headers(init?.headers).forEach((value, name) => headers.set(name, value))
+    if (!headers.has("Authorization")) {
+      if (bearer) headers.set("Authorization", `Bearer ${bearer}`)
+      else if (pw) headers.set("Authorization", `Basic ${btoa(`nikcli:${pw}`)}`)
     }
 
     if (input instanceof Request) {
-      if (pw) addHeader(input.headers, pw)
-      return TAURI_AVAILABLE ? tauriFetch(input) : globalThis.fetch(input)
-    } else {
-      const headers = new Headers(init?.headers)
-      if (pw) addHeader(headers, pw)
-      const request = {
-        ...(init as any),
-        headers: headers,
-      }
-      return TAURI_AVAILABLE ? tauriFetch(input, request) : globalThis.fetch(input, request)
+      const request = new Request(input, { ...init, headers })
+      return TAURI_AVAILABLE ? tauriFetch(request) : globalThis.fetch(request)
     }
+
+    const request = { ...(init as RequestInit), headers }
+    return TAURI_AVAILABLE ? tauriFetch(input, request) : globalThis.fetch(input, request)
   }) as typeof fetch,
 
   getDefaultServerUrl: async () => {
@@ -403,6 +475,13 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
     }
     await commands.setDefaultServerUrl(url)
   },
+
+  getServerBearerToken: async (url: string) => {
+    const tokens = await loadServerBearerTokens()
+    return tokens[serverKey(url)] ?? null
+  },
+
+  setServerBearerToken: (url: string, token: string | null) => saveServerBearerToken(url, token),
 
   parseMarkdown: TAURI_AVAILABLE ? (markdown: string) => commands.parseMarkdownCommand(markdown) : undefined,
 
