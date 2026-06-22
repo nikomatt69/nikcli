@@ -1,7 +1,7 @@
 # Changelog
 
 <!-- UNRELEASED:START -->
-## Unreleased (June 22, 2026)
+## Unreleased (June 22, 2026) 
 
 ## Core
 
