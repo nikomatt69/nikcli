@@ -10,6 +10,10 @@
 - Improve PR command handling and enhance Git integration (@nikomatt69)
 - Implement bearer token support for server connections (@nikomatt69)
 
+## TUI
+
+- Guard possibly-undefined response status in workspace list (@nikomatt69)
+
 ## Desktop
 
 - Pass required method index to oauth callback (#129) (@nikomatt69)
@@ -21,6 +25,7 @@
   - refactor(cli): improve PR command handling and enhance Git integration
   - fix(app): pass required method index to oauth callback (#129)
   - chore(deps): update various dependencies and improve UI components
+  - fix(tui): guard possibly-undefined response status in workspace list
 - @bhanuprasad14:
   - fix(changelog): enhance changelog generation and management
 <!-- UNRELEASED:END -->
