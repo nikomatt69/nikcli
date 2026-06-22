@@ -62,6 +62,21 @@ jobs:
       channel: latest
     secrets: inherit
 
+  desktop:
+    needs: publish
+    if: >-
+      needs.publish.result == 'success' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/live-main' &&
+      github.repository == 'nikomatt69/nikcli' &&
+      needs.publish.outputs.tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}
+    secrets: inherit
+
   railway-deploy:
     needs: publish
     if: >-

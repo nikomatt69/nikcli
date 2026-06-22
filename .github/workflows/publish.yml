@@ -16,6 +16,13 @@ on:
         description: "Channel"
         required: false
         type: string
+    outputs:
+      tag:
+        description: "Release tag created by the publish job (e.g. v1.106.0)"
+        value: ${{ jobs.publish.outputs.tag }}
+      version:
+        description: "Released version (e.g. 1.106.0)"
+        value: ${{ jobs.publish.outputs.version }}
   push:
     branches:
       - snapshot-*
