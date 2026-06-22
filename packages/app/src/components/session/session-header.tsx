@@ -283,6 +283,7 @@ export function SessionHeader() {
           <Portal mount={mount()}>
             <button
               type="button"
+              data-component="session-search-files"
               class="hidden md:flex w-[320px] max-w-full min-w-0 p-1 pl-1.5 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-raised-base transition-colors cursor-default hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover active:bg-surface-raised-base-active"
               onClick={() => command.trigger("file.open")}
               aria-label={language.t("session.header.searchFiles")}
@@ -302,9 +303,9 @@ export function SessionHeader() {
       <Show when={rightMount()}>
         {(mount) => (
           <Portal mount={mount()}>
-            <div class="flex items-center gap-3">
+            <div data-component="session-header-actions" class="flex items-center gap-3">
               <Show when={projectDirectory()}>
-                <div class="hidden xl:flex items-center">
+                <div data-component="session-open-directory" class="hidden xl:flex items-center">
                   <Show
                     when={canOpen()}
                     fallback={

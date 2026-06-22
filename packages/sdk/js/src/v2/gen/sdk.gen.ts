@@ -23,6 +23,10 @@ import type {
   AuthRemoveResponses,
   AuthSetErrors,
   AuthSetResponses,
+  BrainStatusResponses,
+  BrainTriggerErrors,
+  BrainTriggerInput,
+  BrainTriggerResponses,
   CommandListResponses,
   Config as Config2,
   ConfigGetResponses,
@@ -36,6 +40,7 @@ import type {
   ConnectorsInvalidateResponses,
   ConnectorsStatusResponses,
   DeleteConfigMcpNameResponses,
+  DoctorRunResponses,
   EventSubscribeResponses,
   EventTuiCommandExecute,
   EventTuiPromptAppend,
@@ -9331,6 +9336,107 @@ export class Analytics extends HeyApiClient {
   }
 }
 
+export class Brain extends HeyApiClient {
+  /**
+   * Get brain status
+   *
+   * Memory-consolidation configuration and readiness.
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<BrainStatusResponses, unknown, ThrowOnError>({
+      url: "/brain",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Trigger brain run
+   *
+   * Run a memory-consolidation session now. Pass force to bypass thresholds.
+   */
+  public trigger<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      brainTriggerInput?: BrainTriggerInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "brainTriggerInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<BrainTriggerResponses, BrainTriggerErrors, ThrowOnError>({
+      url: "/brain/trigger",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Doctor extends HeyApiClient {
+  /**
+   * Run nikcli doctor
+   *
+   * Run the diagnostic checks and return a structured report.
+   */
+  public run<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<DoctorRunResponses, unknown, ThrowOnError>({
+      url: "/doctor",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Instance extends HeyApiClient {
   /**
    * Dispose instance
@@ -10363,6 +10469,16 @@ export class NikcliClient extends HeyApiClient {
   private _analytics?: Analytics
   get analytics(): Analytics {
     return (this._analytics ??= new Analytics({ client: this.client }))
+  }
+
+  private _brain?: Brain
+  get brain(): Brain {
+    return (this._brain ??= new Brain({ client: this.client }))
+  }
+
+  private _doctor?: Doctor
+  get doctor(): Doctor {
+    return (this._doctor ??= new Doctor({ client: this.client }))
   }
 
   private _instance?: Instance

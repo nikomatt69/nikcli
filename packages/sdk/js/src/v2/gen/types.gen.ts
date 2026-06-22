@@ -4057,6 +4057,48 @@ export type McpStatus =
   | McpStatusNeedsAuth
   | McpStatusNeedsClientRegistration
 
+export type BrainStatus = {
+  enabled: boolean
+  memoryEnabled: boolean
+  minHours: number
+  minSessions: number
+  lastBrainAt: number
+  hoursSinceLastBrain: number
+  sessionsSinceLastBrain: number
+  shouldTrigger: boolean
+  model?: {
+    providerID: string
+    modelID: string
+  }
+}
+
+export type BrainResult = {
+  success: boolean
+  sessionsReviewed: number
+  hoursSinceLastBrain: number
+  error?: string
+  sessionID?: string
+}
+
+export type BrainTriggerInput = {
+  force?: boolean
+}
+
+export type DoctorCheck = {
+  ok: boolean
+  label: string
+  detail?: string
+  fix?: string
+}
+
+export type DoctorReport = {
+  ok: boolean
+  version: string
+  channel: string
+  failures: number
+  results: Array<DoctorCheck>
+}
+
 export type Path = {
   home: string
   state: string
@@ -11761,6 +11803,72 @@ export type AnalyticsLeaderboardResponses = {
    */
   200: unknown
 }
+
+export type BrainStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/brain"
+}
+
+export type BrainStatusResponses = {
+  /**
+   * Brain status
+   */
+  200: BrainStatus
+}
+
+export type BrainStatusResponse = BrainStatusResponses[keyof BrainStatusResponses]
+
+export type BrainTriggerData = {
+  body?: BrainTriggerInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/brain/trigger"
+}
+
+export type BrainTriggerErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type BrainTriggerError = BrainTriggerErrors[keyof BrainTriggerErrors]
+
+export type BrainTriggerResponses = {
+  /**
+   * Brain run result
+   */
+  200: BrainResult
+}
+
+export type BrainTriggerResponse = BrainTriggerResponses[keyof BrainTriggerResponses]
+
+export type DoctorRunData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/doctor"
+}
+
+export type DoctorRunResponses = {
+  /**
+   * Doctor report
+   */
+  200: DoctorReport
+}
+
+export type DoctorRunResponse = DoctorRunResponses[keyof DoctorRunResponses]
 
 export type InstanceDisposeData = {
   body?: never

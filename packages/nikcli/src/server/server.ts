@@ -57,6 +57,8 @@ import { Workspace } from "@/workspace"
 import { ServerProxy } from "./proxy"
 import { HttpApiBridge } from "./httpapi/bridge"
 import { AnalyticsRoutes } from "./routes/analytics"
+import { BrainRoutes } from "./routes/brain"
+import { DoctorRoutes } from "./routes/doctor"
 
 function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
   return runPromiseWithLayer(Skill.defaultLayer, withCurrentInstance(effect))
@@ -489,6 +491,8 @@ export namespace Server {
         .route("/mcp", McpRoutes())
         .route("/tui", TuiRoutes())
         .route("/analytics", AnalyticsRoutes())
+        .route("/brain", BrainRoutes())
+        .route("/doctor", DoctorRoutes())
         .post(
           "/instance/dispose",
           describeRoute({

@@ -53,7 +53,7 @@ describe("cross-platform file:// URL handling", () => {
   // job re-runs the roundtrip on a real windows-latest runner. Here we encode the
   // contract source-level: every site that constructs a `file://` URL from a
   // filesystem path must go through pathToFileURL — never through `file://${path}`.
-  const fileUrlSites = ["session/prompt.ts", "acp/agent.ts", "cli/cmd/run.ts"] as const
+  const fileUrlSites = ["session/prompt.ts", "acp/content.ts", "cli/cmd/run.ts"] as const
 
   for (const rel of fileUrlSites) {
     it(`${rel} uses pathToFileURL and does not naively concat file:// + a filesystem path`, () => {

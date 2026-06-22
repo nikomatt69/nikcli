@@ -29,6 +29,7 @@ impl MainWindow {
         .title("Nikcli")
         .decorations(true)
         .disable_drag_drop_handler()
+        .min_inner_size(820.0, 620.0)
         .zoom_hotkeys_enabled(false)
         .visible(true)
         .maximized(true)

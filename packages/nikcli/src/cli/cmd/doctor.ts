@@ -7,13 +7,35 @@ import { statfsSync } from "fs"
 import path from "path"
 import { EOL } from "os"
 
-type CheckResult = { ok: boolean; label: string; detail?: string; fix?: string }
-const results: CheckResult[] = []
+export type CheckResult = { ok: boolean; label: string; detail?: string; fix?: string }
 
-function record(ok: boolean, label: string, detail?: string, fix?: string) {
-  results.push(
-    detail !== undefined ? (fix !== undefined ? { ok, label, detail, fix } : { ok, label, detail }) : { ok, label },
-  )
+type Record = (ok: boolean, label: string, detail?: string, fix?: string) => void
+
+function makeRecorder(results: CheckResult[]): Record {
+  return (ok, label, detail, fix) => {
+    results.push(
+      detail !== undefined ? (fix !== undefined ? { ok, label, detail, fix } : { ok, label, detail }) : { ok, label },
+    )
+  }
+}
+
+/**
+ * Run all diagnostic checks and return the structured results. Self-contained
+ * (no shared state, no process.exit) so it can be reused by the HTTP route as
+ * well as the CLI command.
+ */
+export async function runDoctorChecks(): Promise<{ ok: boolean; results: CheckResult[] }> {
+  const results: CheckResult[] = []
+  const record = makeRecorder(results)
+  checkVersion(record)
+  checkNode(record)
+  checkTty(record)
+  checkPath(record)
+  checkDisk(record)
+  await checkConfig(record)
+  await checkDeprecatedConfigKeys(record)
+  checkServer(record)
+  return { ok: results.every((r) => r.ok), results }
 }
 
 function bytes(n: number): string {
@@ -23,20 +45,20 @@ function bytes(n: number): string {
   return `${(n / 1024 / 1024 / 1024).toFixed(1)} GiB`
 }
 
-function checkVersion() {
+function checkVersion(record: Record) {
   record(true, "Version", `${Installation.VERSION} (${Installation.CHANNEL})`)
 }
 
-function checkNode() {
+function checkNode(record: Record) {
   record(true, "Runtime", `Bun ${typeof Bun !== "undefined" ? Bun.version : process.version}`)
 }
 
-function checkTty() {
+function checkTty(record: Record) {
   const tty = Boolean(process.stdout.isTTY)
   record(tty, "TTY", tty ? "stdout is a terminal" : "stdout is not a terminal — TUI features will be limited")
 }
 
-function checkPath() {
+function checkPath(record: Record) {
   // `Installation.Path.bin` resolves to the directory holding the current
   // executable. If it isn't on $PATH, upgrades via curl/bun won't work.
   try {
@@ -55,7 +77,7 @@ function checkPath() {
   }
 }
 
-function checkDisk() {
+function checkDisk(record: Record) {
   try {
     const target = Global.Path.state
     const stat = statfsSync(target)
@@ -74,7 +96,7 @@ function checkDisk() {
   }
 }
 
-async function checkConfig() {
+async function checkConfig(record: Record) {
   try {
     // Best-effort: a real config-schema validation needs an instance context.
     // We just check the raw JSON file for now — the full validation runs on
@@ -102,7 +124,7 @@ async function checkConfig() {
   }
 }
 
-async function checkDeprecatedConfigKeys() {
+async function checkDeprecatedConfigKeys(record: Record) {
   // Known renames / removals per the integration-master-plan and ux-roadmap.
   const deprecated: Array<{ from: string; to?: string; since?: string }> = [
     { from: "keybinds", to: "keymappings", since: "ux-roadmap E5" },
@@ -137,7 +159,7 @@ async function checkDeprecatedConfigKeys() {
   }
 }
 
-function checkServer() {
+function checkServer(record: Record) {
   // Best-effort: a running nikcli server in the current directory is a good
   // sign. We don't fail if it's not running — many workflows (one-shot `run`,
   // upgrade, doctor itself) don't need it.
@@ -154,15 +176,7 @@ export const DoctorCommand = cmd({
       type: "boolean",
     }),
   handler: async (args: { json?: boolean }) => {
-    results.length = 0
-    checkVersion()
-    checkNode()
-    checkTty()
-    checkPath()
-    checkDisk()
-    await checkConfig()
-    await checkDeprecatedConfigKeys()
-    checkServer()
+    const { results } = await runDoctorChecks()
 
     if (args.json) {
       const failures = results.filter((r) => !r.ok)

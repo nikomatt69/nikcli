@@ -47,6 +47,15 @@ import { useTheme, type ColorScheme } from "@nikcli-ai/ui/theme"
 import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { DialogSettings } from "@/components/dialog-settings"
+import { DialogStatus } from "@/components/dialog-status"
+import { DialogRoutines } from "@/components/dialog-routines"
+import { DialogAnalytics } from "@/components/dialog-analytics"
+import { DialogAdvisorModel } from "@/components/dialog-advisor-model"
+import { DialogConnectors } from "@/components/dialog-connectors"
+import { DialogOpenTelemetry } from "@/components/dialog-opentelemetry"
+import { DialogSkills } from "@/components/dialog-skills"
+import { DialogBrain } from "@/components/dialog-brain"
+import { DialogDoctor } from "@/components/dialog-doctor"
 import { useCommand, type CommandOption } from "@/context/command"
 import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { navStart } from "@/utils/perf"
@@ -923,6 +932,83 @@ export default function Layout(props: ParentProps) {
         category: language.t("command.category.settings"),
         keybind: "mod+comma",
         onSelect: () => openSettings(),
+      },
+      {
+        id: "nikcli.status",
+        title: language.t("command.status.open"),
+        category: language.t("command.category.system"),
+        slash: "status",
+        onSelect: () => dialog.show(() => <DialogStatus />),
+      },
+      {
+        id: "routine.list",
+        title: language.t("command.routines.open"),
+        category: language.t("command.category.system"),
+        slash: "routines",
+        onSelect: () => dialog.show(() => <DialogRoutines />),
+      },
+      {
+        id: "analytics.view",
+        title: language.t("command.analytics.open"),
+        category: language.t("command.category.system"),
+        slash: "analytics",
+        onSelect: () => dialog.show(() => <DialogAnalytics />),
+      },
+      {
+        id: "support.docs",
+        title: language.t("command.docs.open"),
+        category: language.t("command.category.system"),
+        slash: "docs",
+        onSelect: () => platform.openLink("https://nikcli.store/docs"),
+      },
+      {
+        id: "agent.advisor",
+        title: language.t("command.advisor.open"),
+        category: language.t("command.category.agent"),
+        slash: "advisor",
+        onSelect: () => dialog.show(() => <DialogAdvisorModel />),
+      },
+      {
+        id: "connectors.list",
+        title: language.t("command.connectors.open"),
+        category: language.t("command.category.system"),
+        slash: "connectors",
+        onSelect: () => dialog.show(() => <DialogConnectors />),
+      },
+      {
+        id: "otel.settings",
+        title: language.t("command.otel.open"),
+        category: language.t("command.category.system"),
+        slash: "otel",
+        onSelect: () => dialog.show(() => <DialogOpenTelemetry />),
+      },
+      {
+        id: "skill.list",
+        title: language.t("command.skills.open"),
+        category: language.t("command.category.agent"),
+        slash: "skills",
+        onSelect: () => dialog.show(() => <DialogSkills />),
+      },
+      {
+        id: "support.help",
+        title: language.t("command.help.open"),
+        category: language.t("command.category.system"),
+        slash: "help",
+        onSelect: () => command.show(),
+      },
+      {
+        id: "brain.run",
+        title: language.t("command.brain.open"),
+        category: language.t("command.category.system"),
+        slash: "brain",
+        onSelect: () => dialog.show(() => <DialogBrain />),
+      },
+      {
+        id: "support.doctor",
+        title: language.t("command.doctor.open"),
+        category: language.t("command.category.system"),
+        slash: "doctor",
+        onSelect: () => dialog.show(() => <DialogDoctor />),
       },
       {
         id: "session.previous",

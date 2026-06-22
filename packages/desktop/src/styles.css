@@ -1,5 +1,6 @@
 :root {
   --desktop-tools-width: 292px;
+  --desktop-review-width: 540px;
 }
 
 html[data-nikcli-desktop="true"],
@@ -36,6 +37,13 @@ html.desktop-shell-resizing * {
   overflow: hidden;
   background: color-mix(in srgb, var(--background-stronger) 92%, black 8%);
   border-right: 1px solid var(--border-weak-base);
+}
+
+#desktop-sidebar-mount > div,
+#desktop-tools-mount > div {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .desktop-app-host {
@@ -77,6 +85,7 @@ html.desktop-shell-resizing * {
   width: 6px;
   cursor: col-resize;
   outline: none;
+  touch-action: none;
 }
 
 .desktop-sidebar-resize::after {
@@ -86,13 +95,53 @@ html.desktop-shell-resizing * {
   left: 2px;
   width: 1px;
   content: "";
-  background: transparent;
-  transition: background 120ms ease;
+  background: var(--border-base);
+  transition:
+    background 120ms ease,
+    width 120ms ease;
 }
 
 .desktop-sidebar-resize:hover::after,
 .desktop-sidebar-resize:focus-visible::after,
 .desktop-shell-resizing .desktop-sidebar-resize::after {
+  width: 3px;
+  background: var(--border-focus);
+}
+
+.desktop-review-resize {
+  position: absolute;
+  z-index: 90;
+  top: 0;
+  bottom: 0;
+  right: calc(var(--desktop-review-width) - 3px);
+  display: none;
+  width: 6px;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-review-resize {
+  display: block;
+}
+
+.desktop-review-resize::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  content: "";
+  background: var(--border-base);
+  transition:
+    background 120ms ease,
+    width 120ms ease;
+}
+
+.desktop-review-resize:hover::after,
+.desktop-review-resize:focus-visible::after,
+.desktop-shell-resizing .desktop-review-resize::after {
+  width: 3px;
   background: var(--border-focus);
 }
 
@@ -228,8 +277,9 @@ html.desktop-shell-resizing * {
 }
 
 .desktop-sidebar__scroll {
+  flex: 1 1 auto;
   min-height: 0;
-  height: calc(100% - 38px);
+  height: auto;
   padding: 0 4px 20px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -464,6 +514,10 @@ button.desktop-sidebar__list-item:hover {
   pointer-events: none;
 }
 
+[data-component="desktop-shell"]:has(.desktop-tools--covered) #desktop-tools-mount {
+  width: 0;
+}
+
 .desktop-tools {
   position: absolute;
   top: 40px;
@@ -478,7 +532,13 @@ button.desktop-sidebar__list-item:hover {
 }
 
 .desktop-tools--covered {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border-left: 0;
+  overflow: hidden;
   visibility: hidden;
+  pointer-events: none;
 }
 
 .desktop-tools__actions {
@@ -536,10 +596,38 @@ button.desktop-sidebar__list-item:hover {
   min-height: 40px;
   border-bottom: 1px solid var(--border-weak-base);
   background: color-mix(in srgb, var(--background-base) 96%, black 4%);
+  container-name: desktop-titlebar;
+  container-type: inline-size;
 }
 
 .desktop-app-host header .group\/sidebar-toggle {
   display: none;
+}
+
+.desktop-app-host [data-component="titlebar-mobile-menu"] {
+  display: none;
+}
+
+@container desktop-titlebar (max-width: 1180px) {
+  [data-component="session-open-directory"] {
+    display: none;
+  }
+}
+
+@container desktop-titlebar (max-width: 760px) {
+  [data-component="session-search-files"] {
+    width: min(260px, 42cqw);
+  }
+
+  [data-component="session-header-actions"] {
+    gap: 8px;
+  }
+}
+
+@container desktop-titlebar (max-width: 620px) {
+  [data-component="session-search-files"] {
+    display: none;
+  }
 }
 
 .desktop-app-host [data-component="session-shell"] > [data-slot="session-workspace"] {
@@ -548,26 +636,59 @@ button.desktop-sidebar__list-item:hover {
   padding-right: var(--desktop-tools-width);
 }
 
-.desktop-app-host [data-component="session-shell"] #review-panel {
+[data-component="desktop-shell"]:has(.desktop-tools--review)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel {
   position: absolute;
   z-index: 50;
   top: 0;
-  right: calc(var(--desktop-tools-width) * -1);
+  right: var(--desktop-tools-width);
   bottom: 0;
-  width: var(--desktop-tools-width) !important;
-  min-width: var(--desktop-tools-width);
-  flex: 0 0 var(--desktop-tools-width) !important;
+  width: var(--desktop-review-width) !important;
+  min-width: var(--desktop-review-width);
+  max-width: var(--desktop-review-width);
+  flex: 0 0 var(--desktop-review-width) !important;
   overflow: hidden;
   background: var(--background-base);
 }
 
-.desktop-app-host [data-component="session-shell"] [data-slot="session-chat"] {
+/* Replace the tools reservation with the active side-panel width. */
+[data-component="desktop-shell"]:has(.desktop-tools--review)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: var(--desktop-review-width);
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--review)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel {
+  right: 0;
+}
+
+[data-component="desktop-shell"]:not(:has(.desktop-tools--files))
+  .desktop-app-host
+  [data-component="session-shell"]
+  [data-slot="session-chat"] {
   width: 100% !important;
   flex: 1 1 auto !important;
 }
 
-.desktop-app-host [data-component="session-shell"] #review-panel #file-tree-panel {
+[data-component="desktop-shell"]:has(.desktop-tools--review)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel
+  #file-tree-panel {
   width: 100% !important;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--files)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: 0;
 }
 
 .desktop-app-host [data-component="session-shell"] > #terminal-panel {
@@ -639,5 +760,41 @@ div[data-tauri-decorum-tb] {
 
   .desktop-sidebar-resize {
     left: min(calc(var(--desktop-sidebar-width) - 3px), 277px);
+  }
+
+  [data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-review-resize {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  [data-component="desktop-shell"]:has(.desktop-tools--covered)
+    .desktop-app-host
+    [data-component="session-shell"]
+    [data-slot="session-chat"] {
+    display: none;
+  }
+
+  [data-component="desktop-shell"]:has(.desktop-tools--covered)
+    .desktop-app-host
+    [data-component="session-shell"]
+    > [data-slot="session-workspace"] {
+    padding-right: 0;
+  }
+
+  [data-component="desktop-shell"]:has(.desktop-tools--covered)
+    .desktop-app-host
+    [data-component="session-shell"]
+    #review-panel,
+  [data-component="desktop-shell"]:has(.desktop-tools--files)
+    .desktop-app-host
+    [data-component="session-shell"]
+    #file-tree-panel {
+    position: relative;
+    inset: auto;
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 100% !important;
   }
 }
