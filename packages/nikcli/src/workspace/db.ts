@@ -1,33 +1,10 @@
 import { eq } from "drizzle-orm";
 import { Database } from "@/database/database";
-import { Storage } from "@/storage/storage";
+
 import { Log } from "@/util/log";
 import { workspace } from "./workspace.sql";
 import type { Config } from "./config";
-import { Effect } from "effect";
-import { runPromiseWithLayer } from "@/effect";
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect);
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service;
-      return yield* storage.read<T>(key);
-    }),
-  );
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service;
-      return yield* storage.list(prefix);
-    }),
-  );
-}
+import { storageList, storageRead } from "@/storage/effect";
 
 /** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
 type RunResult = { changes: number; lastInsertRowid: number | bigint };

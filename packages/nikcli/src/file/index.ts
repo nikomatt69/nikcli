@@ -361,32 +361,19 @@ export namespace File {
     if (project.vcs !== "git") return [];
 
     const cwd = ctx.directory;
-    const [stats, nameStatus, untrackedList] = await Promise.all([
-      Git.stats(cwd, "HEAD"),
-      Git.diff(cwd, "HEAD"),
-      Git.untrackedFiles(cwd),
+    const [hasHead, list] = await Promise.all([
+      Git.hasHead(cwd),
+      Git.status(cwd),
     ]);
+    const stats = hasHead ? await Git.stats(cwd, "HEAD") : [];
+    const statsByFile = new Map(stats.map((s) => [s.file, s]));
 
     const changedFiles: Info[] = [];
-    const statusByPath = new Map<string, Info["status"]>();
 
-    for (const item of nameStatus) {
-      statusByPath.set(item.file, item.status);
-    }
-
-    for (const stat of stats) {
-      changedFiles.push({
-        path: stat.file,
-        added: stat.additions,
-        removed: stat.deletions,
-        status: statusByPath.get(stat.file) ?? "modified",
-      });
-    }
-
-    if (untrackedList.length > 0) {
-      for (const filepath of untrackedList) {
+    for (const item of list) {
+      if (item.code === "??") {
         try {
-          const fullPath = path.join(ctx.directory, filepath);
+          const fullPath = path.join(ctx.directory, item.file);
           const stat = await fs.promises.lstat(fullPath);
           let lines = 0;
 
@@ -400,7 +387,7 @@ export namespace File {
           }
 
           changedFiles.push({
-            path: filepath,
+            path: item.file,
             added: lines,
             removed: 0,
             status: "added",
@@ -408,7 +395,16 @@ export namespace File {
         } catch {
           continue;
         }
+        continue;
       }
+
+      const num = statsByFile.get(item.file);
+      changedFiles.push({
+        path: item.file,
+        added: num?.additions ?? 0,
+        removed: num?.deletions ?? 0,
+        status: item.status,
+      });
     }
 
     return changedFiles.map((x) => ({

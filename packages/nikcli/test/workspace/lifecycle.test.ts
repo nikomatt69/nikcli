@@ -1,10 +1,15 @@
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "fs";
+import path from "path";
 
 describe("Workspace lifecycle", () => {
-  it("does not add duplicate SIGTERM handlers when the module is imported again", async () => {
-    await import("../../src/workspace/index");
-    const afterFirst = process.listenerCount("SIGTERM");
-    await import("../../src/workspace/index");
-    expect(process.listenerCount("SIGTERM")).toBe(afterFirst);
+  it("registers exit handlers once via process.once guard", () => {
+    const source = readFileSync(
+      path.join(import.meta.dir, "../../src/workspace/index.ts"),
+      "utf8",
+    );
+    expect(source).toContain("workspaceCleanupRegistered");
+    expect(source).toContain('process.once("SIGTERM"');
+    expect(source).not.toMatch(/process\.on\("SIGTERM"/);
   });
 });

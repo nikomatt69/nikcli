@@ -1,3 +1,4 @@
+import path from "path";
 import { spawn } from "child_process";
 import { Log } from "@/util/log";
 
@@ -235,6 +236,42 @@ export namespace Git {
     );
     if (result.exitCode !== 0) return [];
     return nuls(result.text());
+  }
+
+  /** Resolved absolute path to the git directory (may be `.git` or external). */
+  export async function gitDir(cwd: string): Promise<string | undefined> {
+    const result = await run(["rev-parse", "--git-dir"], { cwd });
+    if (result.exitCode !== 0) return undefined;
+    const relative = output(result);
+    if (!relative) return undefined;
+    return path.isAbsolute(relative) ? relative : path.resolve(cwd, relative);
+  }
+
+  /** Root commit hashes for all refs, sorted (used for stable project ids). */
+  export async function remotes(cwd: string): Promise<string[]> {
+    return lines(["remote"], { cwd });
+  }
+
+  export async function remoteAdd(cwd: string, name: string, url: string) {
+    return run(["remote", "add", name, url], { cwd });
+  }
+
+  export async function branchSetUpstream(
+    cwd: string,
+    upstream: string,
+    branch: string,
+  ) {
+    return run(["branch", `--set-upstream-to=${upstream}`, branch], { cwd });
+  }
+
+  export async function rootCommits(cwd: string): Promise<string[]> {
+    const result = await run(["rev-list", "--max-parents=0", "--all"], { cwd });
+    if (result.exitCode !== 0) return [];
+    return output(result)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .toSorted();
   }
 
   export async function status(cwd: string): Promise<Item[]> {

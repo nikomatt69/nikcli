@@ -25,24 +25,22 @@ import { Effect, Schema } from "effect";
 import {
   runPromiseWithLayer,
   withCurrentInstance,
+  runService,
   withInstanceAsync,
 } from "@/effect";
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect));
+  return runService(Session, effect, withCurrentInstance);
 }
 
 function runSessionPrompt<A, E>(
   effect: Effect.Effect<A, E, SessionPrompt.Service>,
 ) {
-  return runPromiseWithLayer(
-    SessionPrompt.defaultLayer,
-    withCurrentInstance(effect),
-  );
+  return runService(SessionPrompt, effect, withCurrentInstance);
 }
 
 function runVcs<A, E>(effect: Effect.Effect<A, E, Vcs.Service>) {
-  return runPromiseWithLayer(Vcs.defaultLayer, withCurrentInstance(effect));
+  return runService(Vcs, effect, withCurrentInstance);
 }
 
 export namespace Workspace {
@@ -102,10 +100,7 @@ export namespace Workspace {
   function runPermission<A, E>(
     effect: Effect.Effect<A, E, PermissionNext.Service>,
   ) {
-    return runPromiseWithLayer(
-      PermissionNext.defaultLayer,
-      withCurrentInstance(effect),
-    );
+    return runService(PermissionNext, effect, withCurrentInstance);
   }
 
   function hydrateStatus(sessionID: string, status: SessionStatus.Info) {
@@ -599,7 +594,7 @@ export namespace Workspace {
               });
             });
         });
-        if (!stop.aborted) setStatus(space.id, "disconnected");
+        if (!stop.aborted) setStatus(space.id, "connecting");
         await Bun.sleep(250);
       }
     } finally {
