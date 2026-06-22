@@ -20,7 +20,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "jimp": "1.6.0"
+    "jimp": "1.6.1"
   },
   "optionalDependencies": {
     "@silvia-odwyer/photon-node": "0.3.4",

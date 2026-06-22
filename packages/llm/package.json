@@ -38,7 +38,7 @@
     "./protocols/openai-responses": "./src/protocols/openai-responses.ts"
   },
   "devDependencies": {
-    "@clack/prompts": "1.0.0-alpha.1",
+    "@clack/prompts": "1.6.0",
     "@effect/platform-node": "4.0.0-beta.65",
     "@nikcli-ai/http-recorder": "workspace:*",
     "@tsconfig/bun": "catalog:",
@@ -46,8 +46,8 @@
     "@typescript/native-preview": "catalog:"
   },
   "dependencies": {
-    "@smithy/eventstream-codec": "4.2.14",
-    "@smithy/util-utf8": "4.2.2",
+    "@smithy/eventstream-codec": "4.4.1",
+    "@smithy/util-utf8": "4.4.1",
     "aws4fetch": "1.0.20",
     "ai": "catalog:",
     "effect": "4.0.0-beta.65"

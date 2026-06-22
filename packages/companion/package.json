@@ -23,7 +23,7 @@
     "dist"
   ],
   "dependencies": {
-    "@hono/node-server": "1.13.2",
+    "@hono/node-server": "1.19.14",
     "@nikcli-ai/sdk": "workspace:*",
     "@nikcli-ai/util": "workspace:*",
     "@types/react": "18.0.25",
@@ -31,14 +31,14 @@
     "hono": "catalog:",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "ws": "8.18.0",
-    "zustand": "5.0.9",
+    "ws": "8.21.0",
+    "zustand": "5.0.14",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
-    "@types/ws": "8.5.14",
+    "@types/ws": "8.18.1",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:",
     "wrangler": "4.61.1"

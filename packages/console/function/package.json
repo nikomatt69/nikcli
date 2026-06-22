@@ -17,13 +17,13 @@
     "@typescript/native-preview": "catalog:"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "2.0.0",
-    "@ai-sdk/openai": "2.0.2",
-    "@ai-sdk/openai-compatible": "1.0.1",
+    "@ai-sdk/anthropic": "2.0.83",
+    "@ai-sdk/openai": "2.0.108",
+    "@ai-sdk/openai-compatible": "1.0.41",
     "@hono/zod-validator": "catalog:",
     "@nikcli-ai/console-core": "workspace:*",
     "@nikcli-ai/console-resource": "workspace:*",
-    "@openauthjs/openauth": "0.0.0-20250322224806",
+    "@openauthjs/openauth": "0.4.3",
     "ai": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

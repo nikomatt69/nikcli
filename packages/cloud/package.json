@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "hono": "catalog:",
-    "jose": "5.9.6",
+    "jose": "5.10.0",
     "zod": "catalog:"
   },
   "devDependencies": {

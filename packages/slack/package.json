@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
-    "@slack/bolt": "^4.6.0"
+    "@slack/bolt": "^4.7.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250122.0",
@@ -23,6 +23,6 @@
     "wrangler": "^3.110.0"
   },
   "peerDependencies": {
-    "@slack/bolt": "^4.6.0"
+    "@slack/bolt": "^4.7.3"
   }
 }

@@ -43,9 +43,9 @@
     "vite": "7.3.1"
   },
   "dependencies": {
-    "ghostty-web": "0.3.0",
+    "ghostty-web": "0.4.0",
     "qrcode": "^1.5.4",
-    "ws": "^8.18.0"
+    "ws": "^8.21.0"
   },
   "optionalDependencies": {
     "localtunnel": "^2.0.2",
