@@ -36,6 +36,6 @@
     "@cloudflare/workers-types": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
-    "wrangler": "4.61.1"
+    "wrangler": "4.103.0"
   }
 }

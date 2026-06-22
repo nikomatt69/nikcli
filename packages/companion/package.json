@@ -41,6 +41,6 @@
     "@types/ws": "8.5.14",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:",
-    "wrangler": "4.61.1"
+    "wrangler": "4.103.0"
   }
 }
