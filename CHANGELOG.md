@@ -1,7 +1,7 @@
 # Changelog
 
 <!-- UNRELEASED:START -->
-## Unreleased (June 22, 2026) 
+## Unreleased (June 22, 2026)
 
 ## Core
 
@@ -26,6 +26,8 @@
   - fix(app): pass required method index to oauth callback (#129)
   - chore(deps): update various dependencies and improve UI components
   - fix(tui): guard possibly-undefined response status in workspace list
+  - fix(ci): use chore-update prefix for changelog auto-commit
+  - fix(changelog): fix formatting in Unreleased section
 - @bhanuprasad14:
   - fix(changelog): enhance changelog generation and management
 <!-- UNRELEASED:END -->
