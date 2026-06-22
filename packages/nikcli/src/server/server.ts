@@ -1155,7 +1155,21 @@ export namespace Server {
         return undefined
       }
     }
-    const server = opts.port === 0 ? (tryServe(4096) ?? tryServe(0)) : tryServe(opts.port)
+    let server: ReturnType<typeof Bun.serve> | undefined
+    if (opts.port === 0) {
+      server = tryServe(4096) ?? tryServe(0)
+    } else {
+      server = tryServe(opts.port)
+      if (!server) {
+        // The requested port is already in use — typically a nested nikcli
+        // instance inheriting PORT from a parent server (e.g. running the TUI
+        // inside the mobile `nikcli mobile serve` container). Fall back to an
+        // ephemeral port so the inner server still starts; callers always use
+        // the returned server.url, so the chosen port is transparent.
+        log.warn(`port ${opts.port} is in use; falling back to an ephemeral port`, { hostname: opts.hostname })
+        server = tryServe(0)
+      }
+    }
     if (!server) throw new Error(`Failed to start server on port ${opts.port}`)
 
     _url = server.url
