@@ -1,15 +1,35 @@
 name: review
 
 on:
+  # Manual, on-demand review: a maintainer comments "/review" on a PR.
   issue_comment:
     types: [created]
+  # Automatic review: runs once when a PR is opened or reopened. Restricted to
+  # same-repo PRs so the GITHUB_TOKEN has write access and no fork secrets leak.
+  # Use "/review" to re-run after pushing new commits.
+  pull_request:
+    types: [opened, reopened]
+
+# One review per PR at a time; a newer trigger cancels an in-flight run.
+concurrency:
+  group: review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
 
 jobs:
   check-guidelines:
     if: |
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/review') &&
-      contains(fromJson('["OWNER","MEMBER"]'), github.event.comment.author_association)
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/review') &&
+        contains(fromJson('["OWNER","MEMBER"]'), github.event.comment.author_association)
+      ) || (
+        github.event_name == 'pull_request' &&
+        github.repository == 'nikomatt69/nikcli' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login != 'nikcli-agent[bot]' &&
+        github.event.pull_request.user.login != 'nikcli-ci[bot]'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,7 +38,7 @@ jobs:
       - name: Get PR number
         id: pr-number
         env:
-          PR_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
@@ -57,7 +77,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           PR_BODY=$(jq -r '.body // ""' pr_data.json)
-          nikcli run -m minimax-coding-plan/MiniMax-M3 "A new pull request has been created: '${PR_TITLE}'
+          nikcli run -m minimax-coding-plan/MiniMax-M3 "A pull request needs review: '${PR_TITLE}'
 
           <pr-number>
           $PR_NUMBER
