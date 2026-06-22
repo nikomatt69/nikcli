@@ -27,7 +27,7 @@ jobs:
     if: >-
       github.repository == 'nikomatt69/nikcli' &&
       (github.event_name != 'push' ||
-       (!startsWith(github.event.head_commit.message, 'docs(changelog)') &&
+       (!startsWith(github.event.head_commit.message, 'chore: update changelog') &&
         !startsWith(github.event.head_commit.message, 'release: v') &&
         !startsWith(github.event.head_commit.message, 'chore: generate') &&
         !contains(github.event.head_commit.message, '[skip changelog]')))
@@ -58,7 +58,9 @@ jobs:
           git config --local user.email "nikcli-ci@users.noreply.github.com"
           git config --local user.name "nikcli-ci[bot]"
           git add CHANGELOG.md
-          git commit -m "docs(changelog): update [skip changelog]"
+          # "chore: update" prefix is excluded by ci-pipeline's publish job, so
+          # the changelog commit never triggers an extra minor release.
+          git commit -m "chore: update changelog [skip changelog]"
           git push origin HEAD:${{ github.ref_name }} --no-verify
 
       # --- On release: write the generated notes into the release body ---
