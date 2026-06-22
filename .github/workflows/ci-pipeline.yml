@@ -33,7 +33,7 @@ jobs:
 
       - name: Upload validation summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-validation-summary
           path: tmp/ci-validation-summary.md

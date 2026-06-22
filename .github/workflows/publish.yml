@@ -105,7 +105,7 @@ jobs:
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: false
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: nikcli-cli
           path: packages/nikcli/dist
