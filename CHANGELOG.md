@@ -1,5 +1,27 @@
 # Changelog
 
+<!-- UNRELEASED:START -->
+## Unreleased (June 22, 2026)
+
+## Core
+
+- Update various dependencies and improve UI components (@nikomatt69)
+- Improve PR command handling and enhance Git integration (@nikomatt69)
+- Implement bearer token support for server connections (@nikomatt69)
+
+## Desktop
+
+- Pass required method index to oauth callback (#129) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(server-auth): implement bearer token support for server connections
+  - refactor(cli): improve PR command handling and enhance Git integration
+  - fix(app): pass required method index to oauth callback (#129)
+  - chore(deps): update various dependencies and improve UI components
+<!-- UNRELEASED:END -->
+
 ## v1.5.0 (May 2026)
 
 ### Highlights
