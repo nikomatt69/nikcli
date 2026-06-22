@@ -2,7 +2,7 @@
 
 import { $ } from "bun"
 import { Script } from "@nikcli-ai/script"
-import { buildNotes, getLatestRelease } from "./changelog"
+import { buildNotes, getLatestRelease, writeReleaseSection } from "./changelog"
 
 let notes: string[] = []
 
@@ -15,6 +15,15 @@ if (!Script.preview) {
   } catch (e) {
     console.log("Could not build changelog notes (nikcli not installed):", e)
     notes = []
+  }
+
+  // Record this release in CHANGELOG.md as part of the upcoming "release: vX"
+  // commit. Doing it here (instead of a separate bot push) avoids racing the
+  // branch and keeps the file in sync with the GitHub release notes below.
+  try {
+    await writeReleaseSection(Script.version, notes)
+  } catch (e) {
+    console.log("Could not update CHANGELOG.md:", e)
   }
 }
 

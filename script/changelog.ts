@@ -272,6 +272,49 @@ export async function writeReleaseNotes(tag: string, notes: string[]) {
   console.log(`updated release notes for ${tagRef}`)
 }
 
+// Add a permanent, versioned section for a release to CHANGELOG.md and clear the
+// Unreleased block (its commits are now shipped). Called from publish-start.ts so
+// the CHANGELOG update is part of the "release: vX" commit — no separate bot push.
+export async function writeReleaseSection(version: string, notes: string[]) {
+  const file = Bun.file(CHANGELOG_PATH)
+  let content = (await file.exists()) ? await file.text() : "# Changelog\n"
+
+  const v = version.replace(/^v/, "")
+  const date = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long" })
+  const section = `## v${v} (${date})\n\n${notes.join("\n") || "- No notable changes"}\n`
+
+  // Reset the Unreleased block to empty markers (these commits are now released).
+  const startIdx = content.indexOf(UNRELEASED_START)
+  const endIdx = content.indexOf(UNRELEASED_END)
+  if (startIdx !== -1 && endIdx !== -1) {
+    content =
+      content.slice(0, startIdx) +
+      `${UNRELEASED_START}\n${UNRELEASED_END}` +
+      content.slice(endIdx + UNRELEASED_END.length)
+  }
+
+  // Insert the new version section after the Unreleased markers (or after the title).
+  const anchor = content.indexOf(UNRELEASED_END)
+  if (anchor !== -1) {
+    const insertAt = anchor + UNRELEASED_END.length
+    content = content.slice(0, insertAt) + `\n\n${section}` + content.slice(insertAt)
+  } else {
+    const titleMatch = content.match(/^#\s+Changelog\s*$/m)
+    if (titleMatch && titleMatch.index !== undefined) {
+      const insertAt = titleMatch.index + titleMatch[0].length
+      content = content.slice(0, insertAt) + `\n\n${section}` + content.slice(insertAt)
+    } else {
+      content = `# Changelog\n\n${section}\n${content}`
+    }
+  }
+
+  // Collapse any accidental runs of blank lines introduced by the insert.
+  content = content.replace(/\n{3,}/g, "\n\n")
+
+  await Bun.write(CHANGELOG_PATH, content)
+  console.log(`wrote v${v} section to ${CHANGELOG_PATH}`)
+}
+
 export async function getContributors(from: string, to: string) {
   const fromRef = from.startsWith("v") ? from : `v${from}`
   const toRef = to === "HEAD" ? to : to.startsWith("v") ? to : `v${to}`
