@@ -11,9 +11,11 @@ console.log("=== publishing ===\n")
 if (!Script.preview) {
   const previous = await getLatestRelease()
   try {
-    notes = await buildNotes(previous, "HEAD")
+    // Generate the changelog straight from the commit messages (grouped by area),
+    // no AI / nikcli server required — robust in CI.
+    notes = await buildNotes(previous, "HEAD", { raw: true })
   } catch (e) {
-    console.log("Could not build changelog notes (nikcli not installed):", e)
+    console.log("Could not build changelog notes:", e)
     notes = []
   }
 
