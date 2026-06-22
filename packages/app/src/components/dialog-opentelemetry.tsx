@@ -12,7 +12,9 @@ export const DialogOpenTelemetry: Component = () => {
   const [busy, setBusy] = createSignal(false)
 
   // AI SDK telemetry defaults to on; only an explicit `false` disables it.
-  const enabled = createMemo(() => (sync.data.config as { experimental?: { openTelemetry?: boolean } })?.experimental?.openTelemetry !== false)
+  const enabled = createMemo(
+    () => (sync.data.config as { experimental?: { openTelemetry?: boolean } })?.experimental?.openTelemetry !== false,
+  )
 
   const toggle = async () => {
     if (busy()) return

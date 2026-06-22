@@ -1,36 +1,11 @@
 # Changelog
 
 <!-- UNRELEASED:START -->
-## Unreleased (June 22, 2026)
-
-## Core
-
-- Enhance changelog generation and management (@bhanuprasad14)
-- Update various dependencies and improve UI components (@nikomatt69)
-- Improve PR command handling and enhance Git integration (@nikomatt69)
-- Implement bearer token support for server connections (@nikomatt69)
-
-## TUI
-
-- Guard possibly-undefined response status in workspace list (@nikomatt69)
-
-## Desktop
-
-- Pass required method index to oauth callback (#129) (@nikomatt69)
-
-**Thank you to 2 community contributors:**
-
-- @nikomatt69:
-  - feat(server-auth): implement bearer token support for server connections
-  - refactor(cli): improve PR command handling and enhance Git integration
-  - fix(app): pass required method index to oauth callback (#129)
-  - chore(deps): update various dependencies and improve UI components
-  - fix(tui): guard possibly-undefined response status in workspace list
-  - fix(ci): use chore-update prefix for changelog auto-commit
-  - fix(changelog): fix formatting in Unreleased section
-- @bhanuprasad14:
-  - fix(changelog): enhance changelog generation and management
 <!-- UNRELEASED:END -->
+
+## v1.106.0 (June 2026)
+
+- No notable changes
 
 ## v1.5.0 (May 2026)
 

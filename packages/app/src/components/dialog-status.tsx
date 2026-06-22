@@ -42,9 +42,7 @@ export const DialogStatus: Component = () => {
   const platform = usePlatform()
   const language = useLanguage()
 
-  const mcpEntries = createMemo(() =>
-    Object.entries(sync.data.mcp ?? {}).sort(([a], [b]) => a.localeCompare(b)),
-  )
+  const mcpEntries = createMemo(() => Object.entries(sync.data.mcp ?? {}).sort(([a], [b]) => a.localeCompare(b)))
   const lspEntries = createMemo(() => sync.data.lsp ?? [])
   const plugins = createMemo(() => parsePlugins(sync.data.config?.plugin))
 
@@ -89,7 +87,10 @@ export const DialogStatus: Component = () => {
                 <div class="flex items-center gap-x-2 min-w-0">
                   <span
                     class="size-2 rounded-full shrink-0"
-                    classList={{ "bg-icon-success": item.status === "connected", "bg-icon-error": item.status !== "connected" }}
+                    classList={{
+                      "bg-icon-success": item.status === "connected",
+                      "bg-icon-error": item.status !== "connected",
+                    }}
                   />
                   <span class="text-12-medium text-text-base truncate">{item.id}</span>
                   <span class="text-12-regular text-text-weak truncate">{item.root}</span>

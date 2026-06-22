@@ -30,9 +30,7 @@ export const DialogDoctor: Component = () => {
       <div class="flex flex-col gap-y-2 min-w-0 max-h-[60vh] overflow-auto no-scrollbar py-1">
         <Show
           when={report()}
-          fallback={
-            <span class="text-12-regular text-text-weak">{language.t("common.loading.ellipsis")}</span>
-          }
+          fallback={<span class="text-12-regular text-text-weak">{language.t("common.loading.ellipsis")}</span>}
         >
           <For each={report()!.results}>
             {(check) => (

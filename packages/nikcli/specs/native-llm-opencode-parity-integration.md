@@ -143,7 +143,7 @@ Sessioni lunghe (native + tool) **aumentano carico TUI** → 02/04 aiutano; **no
 
 | ID  | Task                                                                  |
 | --- | --------------------------------------------------------------------- |
-| 1.1 | OAuth + `status` ↔ `mapToModelRef`                                   |
+| 1.1 | OAuth + `status` ↔ `mapToModelRef`                                    |
 | 1.2 | Adapter `provider-error` → errore compatibile `fromError`/`retryable` |
 | 1.3 | Overflow message → path compaction (test obbligatori)                 |
 | 1.4 | Opz. `HeaderTimeoutError` in `fromError`                              |

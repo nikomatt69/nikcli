@@ -10,12 +10,7 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import {
-  Brain,
-  getBrainConfig,
-  getSessionsCountSince,
-  readLastBrainAt,
-} from "../../brain"
+import { Brain, getBrainConfig, getSessionsCountSince, readLastBrainAt } from "../../brain"
 import { Log } from "../../util/log"
 import { errors } from "../error"
 

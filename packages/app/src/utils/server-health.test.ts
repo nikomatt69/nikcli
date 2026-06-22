@@ -74,9 +74,7 @@ describe("server bearer authentication", () => {
       return new Response(null, { status: 204 })
     }) as typeof globalThis.fetch
 
-    await withServerBearerToken(fetcher, "https://s.nikcli.store", "secret-token")(
-      "https://example.com/global/health",
-    )
+    await withServerBearerToken(fetcher, "https://s.nikcli.store", "secret-token")("https://example.com/global/health")
 
     expect(authorization).toBeNull()
   })

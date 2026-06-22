@@ -13,7 +13,10 @@ type TokenBreakdown = {
 type GlobalAnalytics = {
   totals: { sessions: number; messages: number; tokens: TokenBreakdown; cost: number; toolCalls: number }
   byProvider: Record<string, { sessions: number; messages: number; tokens: number; cost: number }>
-  byModel: Record<string, { messages: number; tokens: { input: number; output: number; reasoning: number }; cost: number }>
+  byModel: Record<
+    string,
+    { messages: number; tokens: { input: number; output: number; reasoning: number }; cost: number }
+  >
 }
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 })
@@ -47,7 +50,12 @@ export const DialogAnalytics: Component = () => {
   const totals = createMemo(() => data()?.totals)
   const topModels = createMemo(() =>
     Object.entries(data()?.byModel ?? {})
-      .map(([id, m]) => ({ id, cost: m.cost, messages: m.messages, tokens: m.tokens.input + m.tokens.output + m.tokens.reasoning }))
+      .map(([id, m]) => ({
+        id,
+        cost: m.cost,
+        messages: m.messages,
+        tokens: m.tokens.input + m.tokens.output + m.tokens.reasoning,
+      }))
       .sort((a, b) => b.cost - a.cost)
       .slice(0, 6),
   )

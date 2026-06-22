@@ -52,10 +52,7 @@ interface EditRowProps {
 
 function AddRow(props: AddRowProps) {
   return (
-    <div
-      class="flex items-start gap-2 px-4 min-h-14 py-3 min-w-0 flex-1"
-      onClick={(event) => event.stopPropagation()}
-    >
+    <div class="flex items-start gap-2 px-4 min-h-14 py-3 min-w-0 flex-1" onClick={(event) => event.stopPropagation()}>
       <div class="flex-1 min-w-0 [&_[data-slot=input-wrapper]]:relative">
         <div
           classList={{
@@ -213,11 +210,7 @@ export function DialogSelectServer() {
     return host.includes(".") || host.includes(":")
   }
 
-  const previewStatus = async (
-    value: string,
-    token: string,
-    setStatus: (value: boolean | undefined) => void,
-  ) => {
+  const previewStatus = async (value: string, token: string, setStatus: (value: boolean | undefined) => void) => {
     setStatus(undefined)
     if (!looksComplete(value)) return
     const normalized = normalizeServerUrl(value)

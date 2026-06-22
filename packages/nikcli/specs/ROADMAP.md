@@ -49,7 +49,7 @@ cd packages/nikcli && bun test test/session/llm-event-adapter.test.ts test/sessi
 
 | ID         | Deliverable                                                        | Risk if skipped                     |
 | ---------- | ------------------------------------------------------------------ | ----------------------------------- |
-| **A-F1.1** | OAuth `fetch` + `status()` ↔ full `mapToModelRef`                 | Silent AI SDK fallback              |
+| **A-F1.1** | OAuth `fetch` + `status()` ↔ full `mapToModelRef`                  | Silent AI SDK fallback              |
 | **A-F1.2** | `provider-error` → throw compatible with `fromError` / `retryable` | No auto-retry on 429/throttle       |
 | **A-F1.3** | Context overflow messages → compaction path (+ tests)              | Wrong UX on long context            |
 | **A-F1.5** | Debug tags: `llm.runtime`, `llm.fallback`                          | Hard to debug double provider calls |
@@ -63,10 +63,10 @@ cd packages/nikcli && bun test test/session/llm-event-adapter.test.ts test/sessi
 
 ### Track B — F2 feature flags (no UX change)
 
-| ID         | Deliverable                                                                    |
-| ---------- | ------------------------------------------------------------------------------ |
-| **B-F2.1** | Zod: `experimental.requests`, `.tui`, `.persist` (all optional, default off)   |
-| **B-F2.2** | `src/config/features.ts`                                                       |
+| ID         | Deliverable                                                                   |
+| ---------- | ----------------------------------------------------------------------------- |
+| **B-F2.1** | Zod: `experimental.requests`, `.tui`, `.persist` (all optional, default off)  |
+| **B-F2.2** | `src/config/features.ts`                                                      |
 | **B-F2.3** | opencode-parity README ↔ config key table (done partially; wire on implement) |
 
 Can start **in parallel** with A-F1.
@@ -141,7 +141,7 @@ Adjust for team size; **do not** merge A-F1 and C-B4 in one PR.
 | ⬜     | Not started         |
 | 🟡     | In progress         |
 | ✅     | Done / gate passed  |
-| ⏸     | Blocked on decision |
+| ⏸      | Blocked on decision |
 
 _Update this file when milestones complete (status column + “Already shipped” section)._
 

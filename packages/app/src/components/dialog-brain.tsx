@@ -113,10 +113,7 @@ export const DialogBrain: Component = () => {
                 "border-icon-error text-icon-error": !r().success,
               }}
             >
-              <Show
-                when={r().success}
-                fallback={<span>{r().error ?? language.t("dialog.brain.failed")}</span>}
-              >
+              <Show when={r().success} fallback={<span>{r().error ?? language.t("dialog.brain.failed")}</span>}>
                 {language.t("dialog.brain.done", { count: r().sessionsReviewed })}
               </Show>
             </div>

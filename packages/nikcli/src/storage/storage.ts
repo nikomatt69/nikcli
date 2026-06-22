@@ -1,143 +1,129 @@
-import { Log } from "../util/log";
-import path from "path";
-import { Global } from "../global";
-import { Filesystem } from "../util/filesystem";
-import { Lock } from "../util/lock";
-import { Git } from "@/git";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Log } from "../util/log"
+import path from "path"
+import { Global } from "../global"
+import { Filesystem } from "../util/filesystem"
+import { Lock } from "../util/lock"
+import { Git } from "@/git"
+import { Context, Effect, Layer, Schema } from "effect"
 
 /** In-memory read-through cache with write-through invalidation. */
 namespace Cache {
-  const store = new Map<string, { value: unknown; expires: number }>();
-  const DEFAULT_TTL_MS = 5_000;
+  const store = new Map<string, { value: unknown; expires: number }>()
+  const DEFAULT_TTL_MS = 5_000
 
   export function get<T>(key: string): T | undefined {
-    const entry = store.get(key);
-    if (!entry) return undefined;
+    const entry = store.get(key)
+    if (!entry) return undefined
     if (Date.now() > entry.expires) {
-      store.delete(key);
-      return undefined;
+      store.delete(key)
+      return undefined
     }
-    return entry.value as T;
+    return entry.value as T
   }
 
-  export function set<T>(
-    key: string,
-    value: T,
-    ttlMs: number = DEFAULT_TTL_MS,
-  ): void {
-    store.set(key, { value, expires: Date.now() + ttlMs });
+  export function set<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_MS): void {
+    store.set(key, { value, expires: Date.now() + ttlMs })
   }
 
   export function invalidate(key: string): void {
-    store.delete(key);
+    store.delete(key)
   }
 
   export function invalidatePrefix(prefix: string): void {
     for (const key of store.keys()) {
       if (key.startsWith(prefix)) {
-        store.delete(key);
+        store.delete(key)
       }
     }
   }
 
   export function clear(): void {
-    store.clear();
+    store.clear()
   }
 
   export function size(): number {
-    return store.size;
+    return store.size
   }
 }
 
 export namespace Storage {
-  const log = Log.create({ service: "storage" });
+  const log = Log.create({ service: "storage" })
 
-  type Migration = (dir: string) => Promise<void>;
+  type Migration = (dir: string) => Promise<void>
 
   /**
    * Operation types for batch transactions.
    * Each operation is tagged with its type for type-safe dispatch.
    */
   export type WriteOp<T = unknown> = {
-    type: "write";
-    key: string[];
-    content: T;
-  };
-  export type RemoveOp = { type: "remove"; key: string[] };
-  export type TransactionOp<T = unknown> = WriteOp<T> | RemoveOp;
+    type: "write"
+    key: string[]
+    content: T
+  }
+  export type RemoveOp = { type: "remove"; key: string[] }
+  export type TransactionOp<T = unknown> = WriteOp<T> | RemoveOp
 
   export interface Interface {
-    remove(key: string[]): Effect.Effect<void, Error>;
-    read<T>(key: string[]): Effect.Effect<T, Error>;
-    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, Error>;
-    write<T>(key: string[], content: T): Effect.Effect<void, Error>;
-    list(prefix: string[]): Effect.Effect<string[][], Error>;
+    remove(key: string[]): Effect.Effect<void, Error>
+    read<T>(key: string[]): Effect.Effect<T, Error>
+    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, Error>
+    write<T>(key: string[], content: T): Effect.Effect<void, Error>
+    list(prefix: string[]): Effect.Effect<string[][], Error>
     /**
      * Execute multiple operations atomically.
      * All operations succeed or all fail together.
      * Uses a single lock for efficiency and consistency.
      */
-    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, Error>;
+    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, Error>
   }
 
-  export class Service extends Context.Service<Service, Interface>()(
-    "Storage.Service",
-  ) {}
+  export class Service extends Context.Service<Service, Interface>()("Storage.Service") {}
 
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()(
-    "NotFoundError",
-    {
-      message: Schema.String,
-    },
-  ) {}
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("NotFoundError", {
+    message: Schema.String,
+  }) {}
 
-  export class IOError extends Schema.TaggedErrorClass<IOError>()(
-    "StorageIOError",
-    {
-      message: Schema.String,
-      path: Schema.optional(Schema.String),
-      cause: Schema.optional(Schema.Unknown),
-    },
-  ) {}
+  export class IOError extends Schema.TaggedErrorClass<IOError>()("StorageIOError", {
+    message: Schema.String,
+    path: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Unknown),
+  }) {}
 
   /**
    * Union of all errors that any `Storage.Service` method can fail with.
    * Use this in the Effect error channel of downstream consumers so they can
    * `Effect.catchTag` against the specific error class.
    */
-  export type Error = NotFoundError | IOError;
+  export type Error = NotFoundError | IOError
 
   const MIGRATIONS: Migration[] = [
     async (dir) => {
-      const project = path.resolve(dir, "../project");
-      if (!(await Filesystem.isDir(project))) return;
+      const project = path.resolve(dir, "../project")
+      if (!(await Filesystem.isDir(project))) return
       for await (const projectDir of new Bun.Glob("*").scan({
         cwd: project,
         onlyFiles: false,
       })) {
-        log.info(`migrating project ${projectDir}`);
-        let projectID = projectDir;
-        const fullProjectDir = path.join(project, projectDir);
-        let worktree = "/";
+        log.info(`migrating project ${projectDir}`)
+        let projectID = projectDir
+        const fullProjectDir = path.join(project, projectDir)
+        let worktree = "/"
 
         if (projectID !== "global") {
-          for await (const msgFile of new Bun.Glob(
-            "storage/session/message/*/*.json",
-          ).scan({
+          for await (const msgFile of new Bun.Glob("storage/session/message/*/*.json").scan({
             cwd: path.join(project, projectDir),
             absolute: true,
           })) {
-            const json = await Bun.file(msgFile).json();
-            worktree = json.path?.root;
-            if (worktree) break;
+            const json = await Bun.file(msgFile).json()
+            worktree = json.path?.root
+            if (worktree) break
           }
-          if (!worktree) continue;
-          if (!(await Filesystem.isDir(worktree))) continue;
-          const roots = await Git.rootCommits(worktree);
-          const id = roots[0];
-          if (!id) continue;
-          projectID = id;
+          if (!worktree) continue
+          if (!(await Filesystem.isDir(worktree))) continue
+          const roots = await Git.rootCommits(worktree)
+          const id = roots[0]
+          if (!id) continue
+          projectID = id
 
           await Bun.write(
             path.join(dir, "project", projectID + ".json"),
@@ -150,66 +136,47 @@ export namespace Storage {
                 initialized: Date.now(),
               },
             }),
-          );
+          )
 
-          log.info(`migrating sessions for project ${projectID}`);
-          for await (const sessionFile of new Bun.Glob(
-            "storage/session/info/*.json",
-          ).scan({
+          log.info(`migrating sessions for project ${projectID}`)
+          for await (const sessionFile of new Bun.Glob("storage/session/info/*.json").scan({
             cwd: fullProjectDir,
             absolute: true,
           })) {
-            const dest = path.join(
-              dir,
-              "session",
-              projectID,
-              path.basename(sessionFile),
-            );
+            const dest = path.join(dir, "session", projectID, path.basename(sessionFile))
             log.info("copying", {
               sessionFile,
               dest,
-            });
-            const session = await Bun.file(sessionFile).json();
-            await Bun.write(dest, JSON.stringify(session));
-            log.info(`migrating messages for session ${session.id}`);
-            for await (const msgFile of new Bun.Glob(
-              `storage/session/message/${session.id}/*.json`,
-            ).scan({
+            })
+            const session = await Bun.file(sessionFile).json()
+            await Bun.write(dest, JSON.stringify(session))
+            log.info(`migrating messages for session ${session.id}`)
+            for await (const msgFile of new Bun.Glob(`storage/session/message/${session.id}/*.json`).scan({
               cwd: fullProjectDir,
               absolute: true,
             })) {
-              const dest = path.join(
-                dir,
-                "message",
-                session.id,
-                path.basename(msgFile),
-              );
+              const dest = path.join(dir, "message", session.id, path.basename(msgFile))
               log.info("copying", {
                 msgFile,
                 dest,
-              });
-              const message = await Bun.file(msgFile).json();
-              await Bun.write(dest, JSON.stringify(message));
+              })
+              const message = await Bun.file(msgFile).json()
+              await Bun.write(dest, JSON.stringify(message))
 
-              log.info(`migrating parts for message ${message.id}`);
-              for await (const partFile of new Bun.Glob(
-                `storage/session/part/${session.id}/${message.id}/*.json`,
-              ).scan({
-                cwd: fullProjectDir,
-                absolute: true,
-              })) {
-                const dest = path.join(
-                  dir,
-                  "part",
-                  message.id,
-                  path.basename(partFile),
-                );
-                const part = await Bun.file(partFile).json();
+              log.info(`migrating parts for message ${message.id}`)
+              for await (const partFile of new Bun.Glob(`storage/session/part/${session.id}/${message.id}/*.json`).scan(
+                {
+                  cwd: fullProjectDir,
+                  absolute: true,
+                },
+              )) {
+                const dest = path.join(dir, "part", message.id, path.basename(partFile))
+                const part = await Bun.file(partFile).json()
                 log.info("copying", {
                   partFile,
                   dest,
-                });
-                await Bun.write(dest, JSON.stringify(part));
+                })
+                await Bun.write(dest, JSON.stringify(part))
               }
             }
           }
@@ -221,55 +188,45 @@ export namespace Storage {
         cwd: dir,
         absolute: true,
       })) {
-        const session = await Bun.file(item).json();
-        if (!session.projectID) continue;
-        if (!session.summary?.diffs) continue;
-        const { diffs } = session.summary;
-        await Bun.file(
-          path.join(dir, "session_diff", session.id + ".json"),
-        ).write(JSON.stringify(diffs));
-        await Bun.file(
-          path.join(dir, "session", session.projectID, session.id + ".json"),
-        ).write(
+        const session = await Bun.file(item).json()
+        if (!session.projectID) continue
+        if (!session.summary?.diffs) continue
+        const { diffs } = session.summary
+        await Bun.file(path.join(dir, "session_diff", session.id + ".json")).write(JSON.stringify(diffs))
+        await Bun.file(path.join(dir, "session", session.projectID, session.id + ".json")).write(
           JSON.stringify({
             ...session,
             summary: {
-              additions: diffs.reduce(
-                (sum: any, x: any) => sum + x.additions,
-                0,
-              ),
-              deletions: diffs.reduce(
-                (sum: any, x: any) => sum + x.deletions,
-                0,
-              ),
+              additions: diffs.reduce((sum: any, x: any) => sum + x.additions, 0),
+              deletions: diffs.reduce((sum: any, x: any) => sum + x.deletions, 0),
             },
           }),
-        );
+        )
       }
     },
-  ];
+  ]
 
   const loadState = Effect.promise(async () => {
-    const dir = path.join(Global.Path.data, "storage");
+    const dir = path.join(Global.Path.data, "storage")
     const migration = await Bun.file(path.join(dir, "migration"))
       .json()
       .then((x) => parseInt(x))
-      .catch(() => 0);
+      .catch(() => 0)
     for (let index = migration; index < MIGRATIONS.length; index++) {
-      log.info("running migration", { index });
-      const migration = MIGRATIONS[index];
+      log.info("running migration", { index })
+      const migration = MIGRATIONS[index]
       try {
-        await migration(dir);
-        await Bun.write(path.join(dir, "migration"), (index + 1).toString());
+        await migration(dir)
+        await Bun.write(path.join(dir, "migration"), (index + 1).toString())
       } catch (e) {
-        log.error("failed to run migration", { index, error: e });
-        break; // Don't advance index if migration failed
+        log.error("failed to run migration", { index, error: e })
+        break // Don't advance index if migration failed
       }
     }
     return {
       dir,
-    };
-  });
+    }
+  })
 
   /**
    * Map an unknown error thrown by a storage implementation into a tagged
@@ -277,70 +234,66 @@ export namespace Storage {
    * typed — `ENONENT` becomes `NotFoundError`, anything else becomes `IOError`.
    */
   function mapError(e: unknown): Error {
-    if (e instanceof NotFoundError) return e;
-    if (e instanceof IOError) return e;
+    if (e instanceof NotFoundError) return e
+    if (e instanceof IOError) return e
     if (e instanceof Error) {
-      const errnoException = e as ErrnoException;
+      const errnoException = e as ErrnoException
       if (errnoException.code === "ENOENT") {
         return new NotFoundError({
           message: `Resource not found: ${errnoException.path ?? e.message}`,
-        });
+        })
       }
       return new IOError({
         message: e.message,
         ...(errnoException.path ? { path: errnoException.path } : {}),
         cause: e,
-      });
+      })
     }
-    return new IOError({ message: String(e) });
+    return new IOError({ message: String(e) })
   }
 
   async function removeImpl(dir: string, key: string[]) {
-    const cacheKey = key.join("/");
-    Cache.invalidate(cacheKey);
-    const target = path.join(dir, ...key) + ".json";
+    const cacheKey = key.join("/")
+    Cache.invalidate(cacheKey)
+    const target = path.join(dir, ...key) + ".json"
     try {
-      await Bun.file(target).delete();
+      await Bun.file(target).delete()
     } catch (e: any) {
       // Only ignore ENOENT (file doesn't exist) - other errors should propagate
-      if (e?.code !== "ENOENT") throw e;
+      if (e?.code !== "ENOENT") throw e
     }
   }
 
   async function readImpl<T>(dir: string, key: string[]) {
-    const cacheKey = key.join("/");
-    const cached = Cache.get<T>(cacheKey);
-    if (cached !== undefined) return cached;
+    const cacheKey = key.join("/")
+    const cached = Cache.get<T>(cacheKey)
+    if (cached !== undefined) return cached
 
-    const target = path.join(dir, ...key) + ".json";
-    using _ = await Lock.read(target);
-    const result = await Bun.file(target).json();
-    Cache.set(cacheKey, result as T);
-    return result as T;
+    const target = path.join(dir, ...key) + ".json"
+    using _ = await Lock.read(target)
+    const result = await Bun.file(target).json()
+    Cache.set(cacheKey, result as T)
+    return result as T
   }
 
-  async function updateImpl<T>(
-    dir: string,
-    key: string[],
-    fn: (draft: T) => void,
-  ) {
-    const target = path.join(dir, ...key) + ".json";
-    using _ = await Lock.write(target);
-    const content = structuredClone(await Bun.file(target).json());
-    fn(content);
-    await Bun.write(target, JSON.stringify(content, null, 2));
-    Cache.set(key.join("/"), content as T);
-    return content as T;
+  async function updateImpl<T>(dir: string, key: string[], fn: (draft: T) => void) {
+    const target = path.join(dir, ...key) + ".json"
+    using _ = await Lock.write(target)
+    const content = structuredClone(await Bun.file(target).json())
+    fn(content)
+    await Bun.write(target, JSON.stringify(content, null, 2))
+    Cache.set(key.join("/"), content as T)
+    return content as T
   }
 
   async function writeImpl<T>(dir: string, key: string[], content: T) {
-    const target = path.join(dir, ...key) + ".json";
-    using _ = await Lock.write(target);
-    await Bun.write(target, JSON.stringify(content, null, 2));
-    Cache.set(key.join("/"), content);
+    const target = path.join(dir, ...key) + ".json"
+    using _ = await Lock.write(target)
+    await Bun.write(target, JSON.stringify(content, null, 2))
+    Cache.set(key.join("/"), content)
   }
 
-  const glob = new Bun.Glob("**/*");
+  const glob = new Bun.Glob("**/*")
   async function listImpl(dir: string, prefix: string[]) {
     try {
       const result = await Array.fromAsync(
@@ -348,14 +301,12 @@ export namespace Storage {
           cwd: path.join(dir, ...prefix),
           onlyFiles: true,
         }),
-      ).then((results) =>
-        results.map((x) => [...prefix, ...x.slice(0, -5).split(path.sep)]),
-      );
-      result.sort();
-      return result;
+      ).then((results) => results.map((x) => [...prefix, ...x.slice(0, -5).split(path.sep)]))
+      result.sort()
+      return result
     } catch (error) {
-      log.error("list failed", { prefix, error });
-      return [];
+      log.error("list failed", { prefix, error })
+      return []
     }
   }
 
@@ -365,23 +316,18 @@ export namespace Storage {
    * Operations are executed in order; locks are acquired in sorted order to prevent deadlocks.
    */
   async function transactionImpl(dir: string, ops: TransactionOp[]) {
-    if (ops.length === 0) return;
+    if (ops.length === 0) return
 
     // Collect all targets and sort for consistent lock ordering (deadlock prevention)
     const targets = ops.map((op) => {
-      Cache.invalidate(op.key.join("/"));
-      return path.join(dir, ...op.key) + ".json";
-    });
-    targets.sort();
-    const uniqueTargets = [...new Set(targets)];
+      Cache.invalidate(op.key.join("/"))
+      return path.join(dir, ...op.key) + ".json"
+    })
+    targets.sort()
+    const uniqueTargets = [...new Set(targets)]
 
     // Execute all ops under a single logical lock scope
-    await executeWithLocks(
-      uniqueTargets,
-      (dir, ops) => executeTransactionOps(dir, ops),
-      dir,
-      ops,
-    );
+    await executeWithLocks(uniqueTargets, (dir, ops) => executeTransactionOps(dir, ops), dir, ops)
   }
 
   async function executeWithLocks<T>(
@@ -391,39 +337,39 @@ export namespace Storage {
     ops: TransactionOp[],
   ): Promise<T> {
     if (targets.length === 0) {
-      return fn(dir, ops);
+      return fn(dir, ops)
     }
 
     if (targets.length === 1) {
-      using _ = await Lock.write(targets[0]);
-      return fn(dir, ops);
+      using _ = await Lock.write(targets[0])
+      return fn(dir, ops)
     }
 
     if (targets.length === 2) {
-      using _ = await Lock.write(targets[0]);
-      using __ = await Lock.write(targets[1]);
-      return fn(dir, ops);
+      using _ = await Lock.write(targets[0])
+      using __ = await Lock.write(targets[1])
+      return fn(dir, ops)
     }
 
     // For 3+ targets, acquire sequentially to avoid complex disposal
     for (const target of targets) {
-      using _ = await Lock.write(target);
+      using _ = await Lock.write(target)
     }
-    return fn(dir, ops);
+    return fn(dir, ops)
   }
 
   async function executeTransactionOps(dir: string, ops: TransactionOp[]) {
     for (const op of ops) {
       if (op.type === "write") {
-        const target = path.join(dir, ...op.key) + ".json";
-        await Bun.write(target, JSON.stringify(op.content, null, 2));
-        Cache.set(op.key.join("/"), op.content);
+        const target = path.join(dir, ...op.key) + ".json"
+        await Bun.write(target, JSON.stringify(op.content, null, 2))
+        Cache.set(op.key.join("/"), op.content)
       } else if (op.type === "remove") {
-        const target = path.join(dir, ...op.key) + ".json";
+        const target = path.join(dir, ...op.key) + ".json"
         try {
-          await Bun.file(target).delete();
+          await Bun.file(target).delete()
         } catch (e: any) {
-          if (e?.code !== "ENOENT") throw e;
+          if (e?.code !== "ENOENT") throw e
         }
       }
     }
@@ -432,60 +378,60 @@ export namespace Storage {
   const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
-      const cachedState = yield* Effect.cached(loadState);
+      const cachedState = yield* Effect.cached(loadState)
 
       return Service.of({
         remove: (key) =>
           Effect.gen(function* () {
-            const { dir } = yield* cachedState;
+            const { dir } = yield* cachedState
             return yield* Effect.tryPromise({
               try: () => removeImpl(dir, key),
               catch: mapError,
-            });
+            })
           }),
         read: <T>(key: string[]) =>
           Effect.gen(function* () {
-            const { dir } = yield* cachedState;
+            const { dir } = yield* cachedState
             return yield* Effect.tryPromise<T, Error>({
               try: () => readImpl<T>(dir, key),
               catch: mapError,
-            });
+            })
           }),
         update: <T>(key: string[], fn: (draft: T) => void) =>
           Effect.gen(function* () {
-            const { dir } = yield* cachedState;
+            const { dir } = yield* cachedState
             return yield* Effect.tryPromise<T, Error>({
               try: () => updateImpl<T>(dir, key, fn),
               catch: mapError,
-            });
+            })
           }),
         write: (key, content) =>
           Effect.gen(function* () {
-            const { dir } = yield* cachedState;
+            const { dir } = yield* cachedState
             return yield* Effect.tryPromise<void, Error>({
               try: () => writeImpl(dir, key, content),
               catch: mapError,
-            });
+            })
           }),
         list: (prefix) =>
           Effect.gen(function* () {
-            const { dir } = yield* cachedState;
+            const { dir } = yield* cachedState
             return yield* Effect.tryPromise<string[][], Error>({
               try: () => listImpl(dir, prefix),
               catch: mapError,
-            });
+            })
           }),
         transaction: (ops) =>
           Effect.gen(function* () {
-            const { dir } = yield* cachedState;
+            const { dir } = yield* cachedState
             return yield* Effect.tryPromise<void, Error>({
               try: () => transactionImpl(dir, ops),
               catch: mapError,
-            });
+            })
           }),
-      });
+      })
     }),
-  );
+  )
 
-  export const defaultLayer = layer;
+  export const defaultLayer = layer
 }

@@ -102,8 +102,7 @@ export const DialogRoutines: Component = () => {
       >
         {(loop) => {
           const runtime = () => runtimeFor(loop.id)
-          const schedule = () =>
-            loop.trigger.kind === "interval" ? formatInterval(loop.trigger.everyMs) : "manual"
+          const schedule = () => (loop.trigger.kind === "interval" ? formatInterval(loop.trigger.everyMs) : "manual")
           const last = () => relativeTime(runtime()?.lastRunAt)
           return (
             <div class="w-full flex items-center justify-between gap-x-3">
@@ -118,9 +117,7 @@ export const DialogRoutines: Component = () => {
                   </Show>
                 </div>
                 <div class="flex items-center gap-2 text-11-regular text-text-weaker min-w-0">
-                  <span class="shrink-0">
-                    {language.t("dialog.routines.runs", { count: runtime()?.runs ?? 0 })}
-                  </span>
+                  <span class="shrink-0">{language.t("dialog.routines.runs", { count: runtime()?.runs ?? 0 })}</span>
                   <Show when={last()}>
                     <span class="truncate">· {last()}</span>
                   </Show>
@@ -148,11 +145,7 @@ export const DialogRoutines: Component = () => {
                   aria-label={language.t("dialog.routines.delete")}
                   onClick={() => remove(loop.id)}
                 />
-                <Switch
-                  checked={loop.enabled}
-                  disabled={busy() === loop.id}
-                  onChange={() => toggle(loop)}
-                />
+                <Switch checked={loop.enabled} disabled={busy() === loop.id} onChange={() => toggle(loop)} />
               </div>
             </div>
           )

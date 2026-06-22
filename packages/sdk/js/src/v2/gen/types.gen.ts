@@ -2145,24 +2145,7 @@ export type AgentConfig = {
    * Max advisor invocations per request (default: 3).
    */
   advisor_max_uses?: number
-  [key: string]:
-    | unknown
-    | string
-    | number
-    | {
-        [key: string]: boolean
-      }
-    | boolean
-    | "subagent"
-    | "primary"
-    | "all"
-    | {
-        [key: string]: unknown
-      }
-    | string
-    | number
-    | PermissionConfig
-    | undefined
+  [key: string]: unknown
 }
 
 export type ProviderConfig = {
@@ -2228,7 +2211,7 @@ export type ProviderConfig = {
            * Disable this variant for the model
            */
           disabled?: boolean
-          [key: string]: unknown | boolean | undefined
+          [key: string]: unknown
         }
       }
     }
@@ -2258,7 +2241,7 @@ export type ProviderConfig = {
      * Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.
      */
     chunkTimeout?: number
-    [key: string]: unknown | string | boolean | number | false | number | false | number | undefined
+    [key: string]: unknown
   }
 }
 

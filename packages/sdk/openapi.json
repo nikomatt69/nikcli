@@ -17590,6 +17590,148 @@
         ]
       }
     },
+    "/brain": {
+      "get": {
+        "operationId": "brain.status",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get brain status",
+        "description": "Memory-consolidation configuration and readiness.",
+        "responses": {
+          "200": {
+            "description": "Brain status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainStatus"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.brain.status({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/brain/trigger": {
+      "post": {
+        "operationId": "brain.trigger",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Trigger brain run",
+        "description": "Run a memory-consolidation session now. Pass force to bypass thresholds.",
+        "responses": {
+          "200": {
+            "description": "Brain run result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrainTriggerInput"
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.brain.trigger({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/doctor": {
+      "get": {
+        "operationId": "doctor.run",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Run nikcli doctor",
+        "description": "Run the diagnostic checks and return a structured report.",
+        "responses": {
+          "200": {
+            "description": "Doctor report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorReport"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.doctor.run({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/instance/dispose": {
       "post": {
         "operationId": "instance.dispose",
@@ -28832,6 +28974,128 @@
             "$ref": "#/components/schemas/MCPStatusNeedsClientRegistration"
           }
         ]
+      },
+      "BrainStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "memoryEnabled": {
+            "type": "boolean"
+          },
+          "minHours": {
+            "type": "number"
+          },
+          "minSessions": {
+            "type": "number"
+          },
+          "lastBrainAt": {
+            "type": "number"
+          },
+          "hoursSinceLastBrain": {
+            "type": "number"
+          },
+          "sessionsSinceLastBrain": {
+            "type": "number"
+          },
+          "shouldTrigger": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
+              },
+              "modelID": {
+                "type": "string"
+              }
+            },
+            "required": ["providerID", "modelID"]
+          }
+        },
+        "required": [
+          "enabled",
+          "memoryEnabled",
+          "minHours",
+          "minSessions",
+          "lastBrainAt",
+          "hoursSinceLastBrain",
+          "sessionsSinceLastBrain",
+          "shouldTrigger"
+        ]
+      },
+      "BrainResult": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "sessionsReviewed": {
+            "type": "number"
+          },
+          "hoursSinceLastBrain": {
+            "type": "number"
+          },
+          "error": {
+            "type": "string"
+          },
+          "sessionID": {
+            "type": "string"
+          }
+        },
+        "required": ["success", "sessionsReviewed", "hoursSinceLastBrain"]
+      },
+      "BrainTriggerInput": {
+        "type": "object",
+        "properties": {
+          "force": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DoctorCheck": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string"
+          }
+        },
+        "required": ["ok", "label"]
+      },
+      "DoctorReport": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "number"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoctorCheck"
+            }
+          }
+        },
+        "required": ["ok", "version", "channel", "failures", "results"]
       },
       "Path": {
         "type": "object",
