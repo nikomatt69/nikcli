@@ -32,7 +32,7 @@
       "icons/dev/icon.ico"
     ],
     "active": true,
-    "targets": ["deb", "rpm", "dmg", "nsis", "app"],
+    "targets": ["deb", "rpm", "appimage", "dmg", "nsis", "app"],
     "externalBin": ["sidecars/nikcli-cli"],
     "linux": {
       "rpm": {

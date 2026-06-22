@@ -17,6 +17,11 @@ export const SIDECAR_BINARIES: Array<{ rustTarget: string; ocBinary: string; ass
     assetExt: "zip",
   },
   {
+    rustTarget: "aarch64-pc-windows-msvc",
+    ocBinary: "nikcli-ai-windows-arm64",
+    assetExt: "zip",
+  },
+  {
     rustTarget: "x86_64-unknown-linux-gnu",
     ocBinary: "nikcli-ai-linux-x64",
     assetExt: "tar.gz",

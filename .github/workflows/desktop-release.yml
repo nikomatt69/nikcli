@@ -2,8 +2,11 @@ name: desktop-release
 
 # Builds the Tauri desktop apps (Nikcli) for every platform with `bun run tauri
 # build` and uploads the installers to the GitHub release — mirroring the way the
-# CLI binaries are attached. This workflow is separate from ci-pipeline but is
-# triggered by it (as a reusable workflow) once a release has been published.
+# CLI binaries are attached. When a Tauri signing key is configured it also builds
+# the auto-updater artifacts and publishes a Tauri `latest.json` manifest (the
+# Tauri equivalent of electron-builder's latest*.yml feeds).
+#
+# Separate from ci-pipeline, but triggered by it (reusable workflow) after publish.
 on:
   workflow_call:
     inputs:
@@ -38,8 +41,12 @@ jobs:
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -57,6 +64,7 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
+            libfuse2 \
             build-essential \
             file \
             rpm
@@ -76,41 +84,127 @@ jobs:
 
       # `bun run tauri build` runs the desktop "tauri" script; its beforeBuildCommand
       # prepares the per-target nikcli sidecar and builds the frontend automatically.
+      # When a signing key is present we use the prod config so Tauri also emits the
+      # auto-updater artifacts (+ .sig); otherwise we ship installers only.
       - name: Build desktop app
+        id: build
         working-directory: packages/desktop
-        run: bun run tauri build --target ${{ matrix.target }}
+        shell: bash
         env:
-          # Optional code-signing / notarization — used only if the secrets exist.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          # Tauri updater signature.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      - name: Collect bundles
-        id: collect
-        shell: bash
         run: |
+          set -euo pipefail
+          CONFIG_ARG=""
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "signing key present → prod config (updater artifacts)"
+            CONFIG_ARG="--config src-tauri/tauri.prod.conf.json"
+            echo "updater=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no signing key → base config (installers only)"
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+          fi
+          bun run tauri build --target ${{ matrix.target }} $CONFIG_ARG
+
+      - name: Collect & upload installers
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ROOT="$(pwd)"
           BUNDLE="packages/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
           mkdir -p artifacts
           if [ -d "$BUNDLE" ]; then
             find "$BUNDLE" -type f \( \
               -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" \
               -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" \
-              -o -name "*.sig" \
               \) -exec cp {} artifacts/ \;
+            # macOS: also ship a zipped .app for parity with opencode's *.zip
+            if [ -d "$BUNDLE/macos" ]; then
+              for app in "$BUNDLE"/macos/*.app; do
+                [ -d "$app" ] || continue
+                name="$(basename "$app" .app)"
+                (cd "$BUNDLE/macos" && zip -q -r -X "$ROOT/artifacts/${name}-${{ matrix.target }}.zip" "$(basename "$app")")
+              done
+            fi
           fi
           ls -la artifacts || true
-          count=$(find artifacts -type f | wc -l | tr -d ' ')
-          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ -n "$(ls -A artifacts 2>/dev/null)" ]; then
+            gh release upload "${{ inputs.tag }}" artifacts/* --clobber --repo nikomatt69/nikcli
+          fi
 
-      - name: Upload to release
-        if: steps.collect.outputs.count != '0'
+      # Tauri updater: rename the (arch-agnostic) macOS bundle, publish it, and
+      # stash the signature + metadata so the finalize job can build latest.json.
+      - name: Prepare updater fragment
+        if: steps.build.outputs.updater == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
-        run: gh release upload "${{ inputs.tag }}" artifacts/* --clobber --repo nikomatt69/nikcli
+        run: |
+          set -euo pipefail
+          BUNDLE="packages/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          SIG="$(find "$BUNDLE" -type f -name '*.sig' | head -1 || true)"
+          if [ -z "$SIG" ]; then echo "no .sig produced — skipping updater fragment"; exit 0; fi
+          ART="${SIG%.sig}"
+          base="$(basename "$ART")"
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin)     KEY=darwin-aarch64;  ARCH=aarch64;;
+            x86_64-apple-darwin)      KEY=darwin-x86_64;   ARCH=x64;;
+            x86_64-pc-windows-msvc)   KEY=windows-x86_64;  ARCH=x64;;
+            aarch64-pc-windows-msvc)  KEY=windows-aarch64; ARCH=arm64;;
+            x86_64-unknown-linux-gnu) KEY=linux-x86_64;    ARCH=x64;;
+            aarch64-unknown-linux-gnu)KEY=linux-aarch64;   ARCH=arm64;;
+          esac
+          # macOS .app.tar.gz has no arch in its name → make it unique per arch.
+          case "$base" in
+            *.app.tar.gz) newbase="Nikcli_${ARCH}.app.tar.gz";;
+            *)            newbase="$base";;
+          esac
+          mkdir -p frag
+          cp "$ART" "frag/$newbase"
+          cp "$SIG" "frag/${newbase}.sig"
+          printf '{"key":"%s","file":"%s"}' "$KEY" "$newbase" > frag/meta.json
+          # Publish the (renamed) updater bundle so latest.json can point at it.
+          gh release upload "${{ inputs.tag }}" "frag/$newbase" --clobber --repo nikomatt69/nikcli
+
+      - name: Upload updater fragment artifact
+        if: steps.build.outputs.updater == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: updater-${{ matrix.target }}
+          path: frag
+          if-no-files-found: ignore
+
+  # Assemble the Tauri latest.json manifest from the per-platform fragments.
+  finalize-updater:
+    needs: build
+    if: github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Download updater fragments
+        uses: actions/download-artifact@v7
+        with:
+          path: updater-fragments
+          pattern: updater-*
+        continue-on-error: true
+
+      - name: Build & upload latest.json
+        run: bun run script/finalize-updater.ts
+        env:
+          UPDATER_FRAGMENTS_DIR: updater-fragments
+          GH_REPO: nikomatt69/nikcli
+          NIKCLI_VERSION: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
