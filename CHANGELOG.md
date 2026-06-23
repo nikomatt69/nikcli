@@ -3,7 +3,7 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
-## v1.108.0 (June 2026) 
+## v1.108.0 (June 2026)
 
 - No notable changes
 
