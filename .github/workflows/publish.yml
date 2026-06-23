@@ -23,6 +23,9 @@ on:
       version:
         description: "Released version (e.g. 1.106.0)"
         value: ${{ jobs.publish.outputs.version }}
+      run_id:
+        description: "GitHub Actions run ID that produced the nikcli-cli artifact (downstream jobs use it to download the prebuilt CLI via `gh run download`)"
+        value: ${{ jobs.publish.outputs.run_id }}
   push:
     branches:
       - snapshot-*
@@ -121,6 +124,7 @@ jobs:
       release: ${{ steps.publish.outputs.release }}
       tag: ${{ steps.publish.outputs.tag }}
       version: ${{ steps.publish.outputs.version }}
+      run_id: ${{ github.run_id }}
 
   publish-release:
     needs:

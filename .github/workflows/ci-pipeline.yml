@@ -75,6 +75,7 @@ jobs:
     uses: ./.github/workflows/desktop-release.yml
     with:
       tag: ${{ needs.publish.outputs.tag }}
+      cli_run_id: ${{ needs.publish.outputs.run_id }}
     secrets: inherit
 
   railway-deploy:
