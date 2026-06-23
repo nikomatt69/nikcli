@@ -3,6 +3,27 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.109.0 (June 2026)
+
+## Core
+
+- Integrate browser-use-sdk and enhance desktop automation features (@nikomatt69)
+- Fall back to ephemeral port when the requested port is in use (@nikomatt69)
+
+## Desktop
+
+- Use prebuilt CLI sidecar in CI + drop Apple signing (#130) (@nikomatt69)
+- Full platform coverage + Tauri auto-updater (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - ci(desktop): full platform coverage + Tauri auto-updater
+  - fix(server): fall back to ephemeral port when the requested port is in use
+  - fix: update CHANGELOG.md for v1.108.0 release
+  - fix(desktop): use prebuilt CLI sidecar in CI + drop Apple signing (#130)
+  - feat: integrate browser-use-sdk and enhance desktop automation features
+
 ## v1.108.0 (June 2026)
 
 - No notable changes

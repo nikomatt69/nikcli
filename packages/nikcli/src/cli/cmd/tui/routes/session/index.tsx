@@ -2138,7 +2138,13 @@ function BrowserUse(props: ToolProps<typeof BrowserTool>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="◎" iconColor={theme.primary} pending="Running browser task..." complete={summary()} part={props.part}>
+        <InlineTool
+          icon="◎"
+          iconColor={theme.primary}
+          pending="Running browser task..."
+          complete={summary()}
+          part={props.part}
+        >
           Browser Use · {summary() ?? props.input.action ?? "run"}
         </InlineTool>
       </Match>
@@ -2152,12 +2158,23 @@ function ComputerUse(props: ToolProps<typeof ComputerTool>) {
   return (
     <Switch>
       <Match when={props.output !== undefined}>
-        <BlockTool title={`# Computer · ${action()}`} titleColor={theme.warning} accentColor={theme.warning} part={props.part}>
+        <BlockTool
+          title={`# Computer · ${action()}`}
+          titleColor={theme.warning}
+          accentColor={theme.warning}
+          part={props.part}
+        >
           <text fg={theme.textMuted}>{props.output}</text>
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="▣" iconColor={theme.warning} pending="Waiting for computer use..." complete={action()} part={props.part}>
+        <InlineTool
+          icon="▣"
+          iconColor={theme.warning}
+          pending="Waiting for computer use..."
+          complete={action()}
+          part={props.part}
+        >
           Computer · {action()}
         </InlineTool>
       </Match>

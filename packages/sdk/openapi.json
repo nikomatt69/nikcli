@@ -24722,6 +24722,23 @@
         },
         "additionalProperties": false
       },
+      "BrowserUseConfig": {
+        "description": "Browser Use (browser tool) configuration",
+        "type": "object",
+        "properties": {
+          "model": {
+            "description": "Default Browser Use model for the `browser` tool (e.g. bu-mini, bu-max, bu-ultra, gemini-3-flash, claude-sonnet-4.6, claude-opus-4.6, claude-opus-4.7, gpt-5.4-mini). Used when the tool call does not specify one.",
+            "type": "string"
+          },
+          "max_cost_usd": {
+            "description": "Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
+      },
       "AttachmentConfig": {
         "description": "Attachment handling configuration",
         "type": "object",
@@ -25442,6 +25459,9 @@
           },
           "image": {
             "$ref": "#/components/schemas/ImageConfig"
+          },
+          "browser": {
+            "$ref": "#/components/schemas/BrowserUseConfig"
           },
           "attachment": {
             "$ref": "#/components/schemas/AttachmentConfig"

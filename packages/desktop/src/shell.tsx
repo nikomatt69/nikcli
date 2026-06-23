@@ -595,9 +595,7 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
   const [setup, setSetup] = createStore({ open: false, saving: false, saved: false, error: "" })
   const browserModel = createMemo(() => sync.data.config.browser?.model || "")
   const sessionLabel = createMemo(() => buSessionLabel(sync.data.config.model))
-  const effectiveModelLabel = createMemo(() =>
-    browserModel() ? `${browserModel()} (browser config)` : sessionLabel(),
-  )
+  const effectiveModelLabel = createMemo(() => (browserModel() ? `${browserModel()} (browser config)` : sessionLabel()))
 
   // Empty value clears the override so the browser tool follows the session model.
   const saveBrowserModel = async (model: string) => {
@@ -657,7 +655,9 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
         </span>
         <div>
           <strong>{props.surface === "browser" ? "Browser Use" : "Computer Use"}</strong>
-          <span>{summary() ?? (props.surface === "browser" ? "Cloud browser workbench" : "Native desktop control")}</span>
+          <span>
+            {summary() ?? (props.surface === "browser" ? "Cloud browser workbench" : "Native desktop control")}
+          </span>
         </div>
         <span class="desktop-automation__badge" data-status={props.part?.state.status ?? "idle"}>
           {props.part?.state.status ?? "idle"}
@@ -669,7 +669,9 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
           <Icon name="window-cursor" size="large" />
           <strong>Browser Use needs an API key</strong>
           <span>Add a Browser Use project key to nikcli, then start a browser task.</span>
-          <button type="button" onClick={() => setSetup("open", true)}>Configure Browser Use</button>
+          <button type="button" onClick={() => setSetup("open", true)}>
+            Configure Browser Use
+          </button>
         </div>
       </Show>
 
@@ -698,7 +700,9 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
               : "Ask Nikcli to inspect or control the computer. Screenshots will appear here."}
           </span>
           <Show when={props.surface === "browser"}>
-            <button type="button" onClick={() => setSetup("open", true)}>Configure Browser Use</button>
+            <button type="button" onClick={() => setSetup("open", true)}>
+              Configure Browser Use
+            </button>
           </Show>
         </div>
       </Show>
@@ -740,15 +744,21 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
             </select>
             <Show when={buRequiresOwnKey(browserModel())}>
               <span class="desktop-automation__setup-warning">
-                ⚠ This model needs a provider key on your Browser Use project (cloud.browser-use.com),
-                or runs will fail. Pick a native model to avoid setup.
+                ⚠ This model needs a provider key on your Browser Use project (cloud.browser-use.com), or runs will
+                fail. Pick a native model to avoid setup.
               </span>
             </Show>
           </div>
-          <Show when={setup.error}><span class="desktop-automation__setup-error">{setup.error}</span></Show>
+          <Show when={setup.error}>
+            <span class="desktop-automation__setup-error">{setup.error}</span>
+          </Show>
           <div class="desktop-automation__setup-actions">
-            <button type="button" disabled={setup.saving} onClick={() => setSetup("open", false)}>Cancel</button>
-            <button type="submit" disabled={setup.saving}>{setup.saving ? "Saving…" : "Save key"}</button>
+            <button type="button" disabled={setup.saving} onClick={() => setSetup("open", false)}>
+              Cancel
+            </button>
+            <button type="submit" disabled={setup.saving}>
+              {setup.saving ? "Saving…" : "Save key"}
+            </button>
           </div>
         </form>
       </Show>
@@ -760,9 +770,7 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
         </div>
       </Show>
 
-      <Show when={output()}>
-        {(value) => <pre class="desktop-automation__output">{value().slice(0, 6000)}</pre>}
-      </Show>
+      <Show when={output()}>{(value) => <pre class="desktop-automation__output">{value().slice(0, 6000)}</pre>}</Show>
     </section>
   )
 }
