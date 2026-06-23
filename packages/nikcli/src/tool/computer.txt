@@ -1,16 +1,19 @@
-Control the local computer's screen, mouse, and keyboard ("computer use").
+Control a computer's screen, mouse, and keyboard ("computer use").
 
-This takes screenshots of the desktop and sends synthetic mouse and keyboard
-input to the operating system, letting you operate native applications the way a
-person would. Work in a loop: take a `screenshot`, decide where to act based on
-what you see, perform one action, then take another `screenshot` to confirm the
-result before continuing. Coordinates are in screen pixels with (0,0) at the
-top-left.
+By default this runs in the background against an isolated Linux desktop
+(a container), exactly like Codex/Operator — it operates a real desktop but
+never touches the user's own screen, and nothing happens visibly in real time.
+A live preview URL (noVNC) is returned so the user can optionally watch. The
+first action may take a while the first time while the desktop image is built.
+
+Work in a loop: take a `screenshot`, decide where to act based on what you see,
+perform one action, then take another `screenshot` to confirm the result before
+continuing. Coordinates are in screen pixels with (0,0) at the top-left.
 
 The `action` parameter selects what to do:
 
 - screenshot      Capture the current screen (returned as an image).
-- capabilities    Report what's supported on this OS and any missing helpers.
+- capabilities    Report the active mode and what's supported.
 - screen_size     Report the logical screen size (use it to scale coordinates).
 - mouse_move      Move the cursor to `x`,`y`.
 - left_click      Click at `x`,`y` (omit to click the current position).
@@ -23,17 +26,19 @@ The `action` parameter selects what to do:
                   "ctrl+c", "ArrowDown". Requires `text`.
 - scroll          Scroll `direction` ("up"|"down"|"left"|"right") by `amount`,
                   optionally after moving to `x`,`y`.
+- status          Report the background desktop and its live preview URL.
+- stop            Stop the background desktop and release resources.
 
-Platform requirements:
-- macOS: built-in screencapture and System Events. Coordinate clicks work
-  without extra software; mouse-only movement and drag use optional `cliclick`.
-  Grant Screen Recording and Accessibility permissions to Nikcli.
-- Linux (X11): needs `xdotool` for input and one of scrot/imagemagick/
-  gnome-screenshot for screenshots.
-- Windows: uses built-in PowerShell + .NET.
+Modes (config `computer.mode`):
+- sandbox (default): isolated background desktop in a container. Needs a
+  container runtime — on macOS that is colima ("colima start"); the desktop runs
+  inside that Linux VM, never on the Mac. Use this unless told otherwise.
+- host: drives the user's real machine in real time (visible takeover). Only
+  when the user explicitly asks to operate their own screen. On macOS needs
+  Screen Recording + Accessibility permissions and optional `cliclick`; Linux
+  needs xdotool + a screenshot tool; Windows uses built-in PowerShell.
 
-Run `capabilities` first if you are unsure whether the environment supports the
-action you need. This controls the user's actual machine — only perform the
-specific actions the user asked for, and never destructive or irreversible ones
-(deleting data, sending messages, purchases, settings changes) without explicit
-instruction.
+Run `capabilities` or `status` first if unsure whether the environment is ready.
+Only perform the specific actions the user asked for, and never destructive or
+irreversible ones (deleting data, sending messages, purchases, settings changes)
+without explicit instruction.

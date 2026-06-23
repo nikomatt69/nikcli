@@ -921,15 +921,25 @@ ToolRegistry.register({
 ToolRegistry.register({
   name: "computer",
   render(props) {
+    const mode = () => props.metadata.mode as string | undefined
+    const liveUrl = () => props.metadata.liveUrl as string | undefined
     return (
       <BasicTool
         {...props}
         icon="console"
         trigger={{
-          title: "Computer Use",
+          title: mode() === "host" ? "Computer Use" : "Computer Use (background)",
           subtitle: props.input.action,
+          args: mode() ? [mode()!] : [],
         }}
       >
+        <Show when={liveUrl()}>
+          {(url) => (
+            <a href={url()} target="_blank" rel="noreferrer" data-component="tool-action">
+              Live preview
+            </a>
+          )}
+        </Show>
         <Show when={props.output}>
           {(output) => (
             <div data-component="tool-output" data-scrollable>

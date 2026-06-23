@@ -2149,16 +2149,22 @@ function BrowserUse(props: ToolProps<typeof BrowserTool>) {
 function ComputerUse(props: ToolProps<typeof ComputerTool>) {
   const { theme } = useTheme()
   const action = createMemo(() => props.input.action ?? "computer")
+  const mode = createMemo(() => (props.metadata as Record<string, any>).mode as string | undefined)
+  const liveUrl = createMemo(() => (props.metadata as Record<string, any>).liveUrl as string | undefined)
+  const label = createMemo(() => (mode() === "host" ? "Computer" : "Computer (bg)"))
   return (
     <Switch>
       <Match when={props.output !== undefined}>
-        <BlockTool title={`# Computer · ${action()}`} titleColor={theme.warning} accentColor={theme.warning} part={props.part}>
-          <text fg={theme.textMuted}>{props.output}</text>
+        <BlockTool title={`# ${label()} · ${action()}`} titleColor={theme.warning} accentColor={theme.warning} part={props.part}>
+          <box gap={1}>
+            <text fg={theme.textMuted}>{props.output}</text>
+            <Show when={liveUrl()}>{(url) => <text fg={theme.textMuted}>Live preview: {url()}</text>}</Show>
+          </box>
         </BlockTool>
       </Match>
       <Match when={true}>
         <InlineTool icon="▣" iconColor={theme.warning} pending="Waiting for computer use..." complete={action()} part={props.part}>
-          Computer · {action()}
+          {label()} · {action()}
         </InlineTool>
       </Match>
     </Switch>

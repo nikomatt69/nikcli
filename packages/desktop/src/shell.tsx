@@ -657,7 +657,7 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
         </span>
         <div>
           <strong>{props.surface === "browser" ? "Browser Use" : "Computer Use"}</strong>
-          <span>{summary() ?? (props.surface === "browser" ? "Cloud browser workbench" : "Native desktop control")}</span>
+          <span>{summary() ?? (props.surface === "browser" ? "Cloud browser workbench" : "Background desktop (sandbox)")}</span>
         </div>
         <span class="desktop-automation__badge" data-status={props.part?.state.status ?? "idle"}>
           {props.part?.state.status ?? "idle"}
@@ -673,18 +673,18 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
         </div>
       </Show>
 
-      <Show when={props.surface === "browser" && configured() !== false && liveUrl()}>
+      <Show when={(props.surface === "computer" || configured() !== false) && liveUrl()}>
         {(url) => (
           <iframe
             class="desktop-automation__live"
             src={url()}
-            title="Browser Use live preview"
+            title={props.surface === "browser" ? "Browser Use live preview" : "Computer Use live preview"}
             allow="clipboard-read; clipboard-write"
           />
         )}
       </Show>
 
-      <Show when={(!liveUrl() || props.surface === "computer") && screenshot()}>
+      <Show when={!liveUrl() && screenshot()}>
         {(url) => <img class="desktop-automation__image" src={url()} alt={`${props.surface} screenshot`} />}
       </Show>
 
@@ -695,7 +695,7 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
           <span>
             {props.surface === "browser"
               ? "Ask Nikcli to use the browser. The live session will appear here."
-              : "Ask Nikcli to inspect or control the computer. Screenshots will appear here."}
+              : "Ask Nikcli to control a computer. It runs on a background desktop — the live preview will appear here."}
           </span>
           <Show when={props.surface === "browser"}>
             <button type="button" onClick={() => setSetup("open", true)}>Configure Browser Use</button>

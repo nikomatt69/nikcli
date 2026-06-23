@@ -1205,6 +1205,33 @@ export namespace Config {
     })
   export type BrowserUse = z.infer<typeof BrowserUse>
 
+  export const Computer = z
+    .object({
+      mode: z
+        .enum(["sandbox", "host"])
+        .optional()
+        .describe(
+          "Where the `computer` tool runs. 'sandbox' (default) drives an isolated background Linux desktop container and never touches your screen; 'host' drives your real machine in real time.",
+        ),
+      width: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Sandbox desktop width in pixels (default 1280)."),
+      height: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Sandbox desktop height in pixels (default 800)."),
+    })
+    .strict()
+    .meta({
+      ref: "ComputerConfig",
+    })
+  export type Computer = z.infer<typeof Computer>
+
   export const Attachment = z
     .object({
       image: z
@@ -1621,6 +1648,7 @@ export namespace Config {
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
       browser: BrowserUse.optional().describe("Browser Use (browser tool) configuration"),
+      computer: Computer.optional().describe("Computer use (computer tool) configuration"),
       attachment: Attachment.optional().describe("Attachment handling configuration"),
       speak: Speak.optional().describe("Text-to-speech configuration"),
       notifications: z

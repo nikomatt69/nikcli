@@ -2,8 +2,12 @@ import z from "zod";
 import { Tool } from "./tool";
 import DESCRIPTION from "./computer.txt";
 import { Computer } from "../computer/computer";
+import { Sandbox } from "../computer/sandbox";
 import { Identifier } from "../id/id";
 import type { MessageV2 } from "../session/message-v2";
+import { Config } from "@/config/config";
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect";
+import { Effect } from "effect";
 
 const ACTIONS = [
   "screenshot",
@@ -18,6 +22,8 @@ const ACTIONS = [
   "type",
   "key",
   "scroll",
+  "status",
+  "stop",
 ] as const;
 
 const parameters = z.object({
@@ -46,6 +52,8 @@ const parameters = z.object({
     .describe("Scroll amount in notches (default 3)"),
 });
 
+type Params = z.infer<typeof parameters>;
+
 function imageAttachment(
   ctx: Tool.Context,
   base64: string,
@@ -61,50 +69,131 @@ function imageAttachment(
   };
 }
 
-function requirePoint(
-  params: z.infer<typeof parameters>,
-): Computer.Point | undefined {
+function requirePoint(params: Params): Computer.Point | undefined {
   if (typeof params.x === "number" && typeof params.y === "number")
     return { x: params.x, y: params.y };
   return undefined;
+}
+
+function loadConfig() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service;
+        const value = yield* config.get();
+        return value.computer;
+      }),
+    ),
+  );
+}
+
+/** Live preview URL for the conversation's sandbox desktop, if any. */
+function liveUrl(mode: Computer.Mode, sessionID: string): string | undefined {
+  return mode === "sandbox" ? Sandbox.local(sessionID)?.liveUrl : undefined;
 }
 
 export const ComputerTool = Tool.define("computer", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx): Promise<Tool.Result> {
+    const cfg = await loadConfig();
+    const mode: Computer.Mode = cfg?.mode ?? "sandbox";
+    const driver = Computer.backend(mode, ctx.sessionID);
+
     await ctx.ask({
       permission: "computer",
       patterns: [params.action],
       always: ["*"],
-      metadata: { action: params.action, x: params.x, y: params.y },
+      metadata: { action: params.action, mode, x: params.x, y: params.y },
     });
 
+    function base(extra?: Record<string, unknown>) {
+      return {
+        action: params.action,
+        mode,
+        liveUrl: liveUrl(mode, ctx.sessionID),
+        ...extra,
+      };
+    }
+
+    // Surface the live preview as soon as we touch the sandbox so the workbench
+    // can show what the background desktop is doing.
+    if (mode === "sandbox" && params.action !== "stop") {
+      ctx.metadata({
+        title:
+          params.action === "status"
+            ? "computer · status"
+            : "Computer use (background)",
+        metadata: base(),
+      });
+    }
+
     switch (params.action) {
+      case "status": {
+        if (mode === "host") {
+          const cap = await Computer.hostBackend.capabilities();
+          return {
+            title: "computer · status",
+            output: `mode: host (drives your real screen)\nplatform: ${cap.platform}\n${cap.detail}`,
+            metadata: base({ running: true, ...cap }),
+          };
+        }
+        const state = await Sandbox.status(ctx.sessionID);
+        return {
+          title: "computer · status",
+          output: state.desktop
+            ? `mode: sandbox (background)\nrunning: ${state.running}\nlive preview: ${state.desktop.liveUrl}\nsize: ${state.desktop.width}x${state.desktop.height}`
+            : "mode: sandbox (background)\nNo desktop has been started for this conversation yet.",
+          metadata: base({ running: state.running }),
+        };
+      }
+
+      case "stop": {
+        if (mode === "host") {
+          return {
+            title: "computer · stop",
+            output: "Host mode has no background session to stop.",
+            metadata: base(),
+          };
+        }
+        const stopped = await Sandbox.close(ctx.sessionID);
+        return {
+          title: "computer · stop",
+          output: stopped
+            ? "Background computer desktop stopped."
+            : "No background computer desktop to stop.",
+          metadata: { action: params.action, mode, status: stopped ? "stopped" : "not_started" },
+        };
+      }
+
       case "capabilities": {
-        const cap = await Computer.capabilities();
+        const cap = await driver.capabilities();
         return {
           title: "computer capabilities",
-          output: `platform: ${cap.platform}\nscreenshot: ${cap.screenshot}\ninput: ${cap.input}\n${cap.detail}`,
-          metadata: { action: "capabilities", ...cap },
+          output: `mode: ${mode}\nplatform: ${cap.platform}\nscreenshot: ${cap.screenshot}\ninput: ${cap.input}\n${cap.detail}`,
+          metadata: base(cap),
         };
       }
 
       case "screen_size": {
-        const size = await Computer.screenSize();
+        const size = await driver.screenSize();
         return {
           title: "computer screen size",
           output: `Screen size: ${size.width}x${size.height}`,
-          metadata: { action: "screen_size", ...size },
+          metadata: base(size),
         };
       }
 
       case "screenshot": {
-        const data = await Computer.screenshot();
+        const data = await driver.screenshot();
         return {
           title: "computer screenshot",
-          output: "Captured screen.",
-          metadata: { action: "screenshot" },
+          output:
+            mode === "sandbox"
+              ? "Captured the background desktop."
+              : "Captured screen.",
+          metadata: base(),
           attachments: [imageAttachment(ctx, data)],
         };
       }
@@ -112,11 +201,11 @@ export const ComputerTool = Tool.define("computer", {
       case "mouse_move": {
         const point = requirePoint(params);
         if (!point) throw new Error("`mouse_move` requires `x` and `y`");
-        await Computer.moveMouse(point);
+        await driver.moveMouse(point);
         return {
           title: "computer mouse_move",
           output: `Moved to (${point.x}, ${point.y})`,
-          metadata: { action: "mouse_move", ...point },
+          metadata: base(point),
         };
       }
 
@@ -132,13 +221,13 @@ export const ComputerTool = Tool.define("computer", {
               : "left";
         const double = params.action === "double_click";
         const point = requirePoint(params);
-        await Computer.click(point, button, double);
+        await driver.click(point, button, double);
         return {
           title: `computer ${params.action}`,
           output: point
             ? `${params.action} at (${point.x}, ${point.y})`
             : `${params.action} at current position`,
-          metadata: { action: params.action, x: point?.x, y: point?.y },
+          metadata: base({ x: point?.x, y: point?.y }),
         };
       }
 
@@ -154,39 +243,39 @@ export const ComputerTool = Tool.define("computer", {
           );
         }
         const to = { x: params.to_x, y: params.to_y };
-        await Computer.drag(from, to);
+        await driver.drag(from, to);
         return {
           title: "computer left_click_drag",
           output: `Dragged from (${from.x}, ${from.y}) to (${to.x}, ${to.y})`,
-          metadata: { action: "left_click_drag", from, to },
+          metadata: base({ from, to }),
         };
       }
 
       case "type": {
         if (params.text === undefined)
           throw new Error("`type` requires `text`");
-        await Computer.type(params.text);
+        await driver.type(params.text);
         return {
           title: "computer type",
           output: `Typed ${params.text.length} character(s)`,
-          metadata: { action: "type" },
+          metadata: base(),
         };
       }
 
       case "key": {
         if (!params.text)
           throw new Error("`key` requires `text` (the key or chord to press)");
-        await Computer.key(params.text);
+        await driver.key(params.text);
         return {
           title: `computer key ${params.text}`,
           output: `Pressed ${params.text}`,
-          metadata: { action: "key", key: params.text },
+          metadata: base({ key: params.text }),
         };
       }
 
       case "scroll": {
         const point = requirePoint(params);
-        await Computer.scroll(
+        await driver.scroll(
           point,
           params.direction ?? "down",
           params.amount ?? 3,
@@ -194,11 +283,10 @@ export const ComputerTool = Tool.define("computer", {
         return {
           title: "computer scroll",
           output: `Scrolled ${params.direction ?? "down"}`,
-          metadata: {
-            action: "scroll",
+          metadata: base({
             direction: params.direction ?? "down",
             amount: params.amount ?? 3,
-          },
+          }),
         };
       }
 
