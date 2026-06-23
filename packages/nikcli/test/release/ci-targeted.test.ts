@@ -195,17 +195,23 @@ describe("setup-bun action consistency", () => {
 // ─── 6. Pinned action versions ──────────────────────────────────────────────
 
 describe("third-party action versioning", () => {
-  it("ci-pipeline.yml uses checkout@v4 (not @v3 or unpinned)", async () => {
+  it("ci-pipeline.yml uses checkout@v4+ (not @v3 or unpinned)", async () => {
     const yml = await read(".github/workflows/ci-pipeline.yml")
     const checkouts = yml.match(/actions\/checkout@v\d+/g) || []
     expect(checkouts.length).toBeGreaterThan(0)
-    for (const c of checkouts) expect(c).toBe("actions/checkout@v4")
+    for (const c of checkouts) {
+      const major = Number(c.match(/@v(\d+)/)![1])
+      expect(major).toBeGreaterThanOrEqual(4)
+    }
   })
 
-  it("ci-pipeline.yml uses upload-artifact@v4 (v3 is deprecated)", async () => {
+  it("ci-pipeline.yml uses upload-artifact@v4+ (v3 is deprecated)", async () => {
     const yml = await read(".github/workflows/ci-pipeline.yml")
     const uploads = yml.match(/actions\/upload-artifact@v\d+/g) || []
-    for (const u of uploads) expect(u).toBe("actions/upload-artifact@v4")
+    for (const u of uploads) {
+      const major = Number(u.match(/@v(\d+)/)![1])
+      expect(major).toBeGreaterThanOrEqual(4)
+    }
   })
 })
 

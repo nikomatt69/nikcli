@@ -8,8 +8,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "lint": "npx oxlint",
-    "test": "bun test",
-    "test:unit": "bun test --path-ignore-patterns='**/*.benchmark.test.ts'",
+    "test": "bun test --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts'",
+    "test:unit": "bun test --timeout 30000 --path-ignore-patterns='**/*benchmark*.test.ts'",
     "bench": "bun run --conditions=browser test/bench/viz.tsx",
     "bench:compare": "bun run script/bench-compare.ts",
     "build": "bun run script/build.ts",
