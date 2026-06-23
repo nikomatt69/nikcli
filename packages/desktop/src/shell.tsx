@@ -3,7 +3,7 @@ import { base64Encode } from "@nikcli-ai/util/encode"
 import { getFilename } from "@nikcli-ai/util/path"
 import { Icon } from "@nikcli-ai/ui/icon"
 import { Splash } from "@nikcli-ai/ui/logo"
-import { useCommand, useGlobalSync, useLayout, usePlatform, useServer, type LocalProject } from "@nikcli-ai/app"
+import { useCommand, useGlobalSDK, useGlobalSync, useLayout, usePlatform, type LocalProject } from "@nikcli-ai/app"
 import {
   For,
   Show,
@@ -16,6 +16,7 @@ import {
   type ParentProps,
 } from "solid-js"
 import { Portal } from "solid-js/web"
+import { createStore } from "solid-js/store"
 
 const SIDEBAR_MIN = 260
 const SIDEBAR_MAX = 460
@@ -27,6 +28,45 @@ const REVIEW_MIN = 320
 const REVIEW_MAX = 1200
 const REVIEW_DEFAULT = 540
 const REVIEW_STORAGE_KEY = "review-width"
+
+// Mirror of Browser.MODELS / Browser.NATIVE_MODELS (packages/nikcli). Only the
+// native models are billed by Browser Use with just a project key; the rest
+// need a bring-your-own provider key on the BU project or their runs fail.
+const BU_MODELS = [
+  "bu-mini",
+  "bu-max",
+  "bu-ultra",
+  "gemini-3-flash",
+  "claude-sonnet-4.6",
+  "claude-opus-4.6",
+  "claude-opus-4.7",
+  "gpt-5.4-mini",
+] as const
+const BU_NATIVE_MODELS = ["claude-sonnet-4.6", "claude-opus-4.6", "gpt-5.4-mini"] as const
+const buRequiresOwnKey = (model: string) =>
+  !!model && !BU_NATIVE_MODELS.includes(model as (typeof BU_NATIVE_MODELS)[number])
+
+/** Map a nikcli model id to the closest Browser Use model, if any. */
+function buFromModelID(modelID: string | undefined): string | undefined {
+  if (!modelID) return undefined
+  const id = modelID.toLowerCase()
+  const exact = BU_MODELS.find((m) => m === id)
+  if (exact) return exact
+  if (id.includes("opus") && (id.includes("4.7") || id.includes("4-7"))) return "claude-opus-4.7"
+  if (id.includes("opus") && (id.includes("4.6") || id.includes("4-6"))) return "claude-opus-4.6"
+  if (id.includes("sonnet") && (id.includes("4.6") || id.includes("4-6"))) return "claude-sonnet-4.6"
+  if (id.includes("gemini")) return "gemini-3-flash"
+  if (id.includes("gpt-5")) return "gpt-5.4-mini"
+  return undefined
+}
+
+/** What the active session provider/model resolves to for Browser Use. */
+function buSessionLabel(configModel: string | undefined): string {
+  const modelID = configModel?.includes("/") ? configModel.split("/").slice(1).join("/") : configModel
+  const mapped = buFromModelID(modelID)
+  if (mapped) return `${modelID} → ${mapped}`
+  return modelID ? `${modelID} → claude-sonnet-4.6 fallback` : "claude-sonnet-4.6 (default)"
+}
 
 type SidebarView = "projects" | "plugins" | "automations"
 
@@ -519,15 +559,227 @@ function ToolButton(props: {
   )
 }
 
+type AutomationPart = {
+  id: string
+  tool: "browser" | "computer"
+  state: {
+    status: "pending" | "running" | "completed" | "error"
+    input: Record<string, unknown>
+    title?: string
+    output?: string
+    error?: string
+    metadata?: Record<string, unknown>
+    attachments?: Array<{
+      mime: string
+      url?: string
+      source?: { type: "file"; path: string }
+    }>
+  }
+}
+
+type AutomationSurface = "browser" | "computer"
+
+function automationMetadata(part: AutomationPart | undefined) {
+  if (!part) return {}
+  return part.state.metadata ?? {}
+}
+
+function automationScreenshot(part: AutomationPart | undefined) {
+  if (!part || part.state.status !== "completed") return
+  return part.state.attachments?.find((attachment) => attachment.mime.startsWith("image/"))?.url
+}
+
+function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationPart }) {
+  const globalSDK = useGlobalSDK()
+  const sync = useGlobalSync()
+  const [setup, setSetup] = createStore({ open: false, saving: false, saved: false, error: "" })
+  const browserModel = createMemo(() => sync.data.config.browser?.model || "")
+  const sessionLabel = createMemo(() => buSessionLabel(sync.data.config.model))
+  const effectiveModelLabel = createMemo(() =>
+    browserModel() ? `${browserModel()} (browser config)` : sessionLabel(),
+  )
+
+  // Empty value clears the override so the browser tool follows the session model.
+  const saveBrowserModel = async (model: string) => {
+    try {
+      await globalSDK.client.config.update({ config: { browser: { model } } as any })
+    } catch (error) {
+      setSetup("error", error instanceof Error ? error.message : String(error))
+    }
+  }
+  const metadata = createMemo(() => automationMetadata(props.part))
+  const screenshot = createMemo(() => automationScreenshot(props.part))
+  const liveUrl = createMemo(() => {
+    const value = metadata().liveUrl
+    return typeof value === "string" ? value : undefined
+  })
+  const summary = createMemo(() => {
+    const value = metadata().summary
+    if (typeof value === "string" && value.trim()) return value
+    const task = props.part?.state.input.task
+    if (typeof task === "string" && task.trim()) return task
+    return undefined
+  })
+  const output = createMemo(() => {
+    if (props.part?.state.status === "error") return props.part.state.error
+    if (props.part?.state.status !== "completed") return undefined
+    return props.part.state.output?.trim()
+  })
+  const configured = createMemo(() => {
+    const value = metadata().configured
+    return typeof value === "boolean" ? value || setup.saved : undefined
+  })
+
+  const saveBrowserUseKey: JSX.EventHandlerUnion<HTMLFormElement, SubmitEvent> = async (event) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const data = new FormData(form)
+    const key = String(data.get("apiKey") ?? "").trim()
+    if (!/^bu_[A-Za-z0-9_-]+$/.test(key)) {
+      setSetup("error", "Enter a valid Browser Use key starting with bu_.")
+      return
+    }
+    setSetup({ saving: true, error: "" })
+    try {
+      await globalSDK.client.auth.set({ providerID: "browser-use", auth: { type: "api", key } })
+      form.reset()
+      setSetup({ saving: false, saved: true, open: false, error: "" })
+    } catch (error) {
+      setSetup({ saving: false, error: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  return (
+    <section class="desktop-automation" data-surface={props.surface}>
+      <div class="desktop-automation__status">
+        <span class="desktop-automation__status-icon">
+          <Icon name={props.surface === "browser" ? "window-cursor" : "console"} size="normal" />
+        </span>
+        <div>
+          <strong>{props.surface === "browser" ? "Browser Use" : "Computer Use"}</strong>
+          <span>{summary() ?? (props.surface === "browser" ? "Cloud browser workbench" : "Native desktop control")}</span>
+        </div>
+        <span class="desktop-automation__badge" data-status={props.part?.state.status ?? "idle"}>
+          {props.part?.state.status ?? "idle"}
+        </span>
+      </div>
+
+      <Show when={props.surface === "browser" && configured() === false}>
+        <div class="desktop-automation__empty">
+          <Icon name="window-cursor" size="large" />
+          <strong>Browser Use needs an API key</strong>
+          <span>Add a Browser Use project key to nikcli, then start a browser task.</span>
+          <button type="button" onClick={() => setSetup("open", true)}>Configure Browser Use</button>
+        </div>
+      </Show>
+
+      <Show when={props.surface === "browser" && configured() !== false && liveUrl()}>
+        {(url) => (
+          <iframe
+            class="desktop-automation__live"
+            src={url()}
+            title="Browser Use live preview"
+            allow="clipboard-read; clipboard-write"
+          />
+        )}
+      </Show>
+
+      <Show when={(!liveUrl() || props.surface === "computer") && screenshot()}>
+        {(url) => <img class="desktop-automation__image" src={url()} alt={`${props.surface} screenshot`} />}
+      </Show>
+
+      <Show when={!props.part && (props.surface === "computer" || configured() !== false)}>
+        <div class="desktop-automation__empty">
+          <Icon name={props.surface === "browser" ? "window-cursor" : "console"} size="large" />
+          <strong>{props.surface === "browser" ? "No browser session yet" : "No computer activity yet"}</strong>
+          <span>
+            {props.surface === "browser"
+              ? "Ask Nikcli to use the browser. The live session will appear here."
+              : "Ask Nikcli to inspect or control the computer. Screenshots will appear here."}
+          </span>
+          <Show when={props.surface === "browser"}>
+            <button type="button" onClick={() => setSetup("open", true)}>Configure Browser Use</button>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={props.surface === "browser" && setup.open}>
+        <form class="desktop-automation__setup" onSubmit={saveBrowserUseKey}>
+          <div>
+            <strong>Browser Use API key</strong>
+            <span>Stored in nikcli's existing local auth vault.</span>
+          </div>
+          <input
+            name="apiKey"
+            type="password"
+            placeholder="bu_..."
+            autocomplete="off"
+            spellcheck={false}
+            disabled={setup.saving}
+            autofocus
+          />
+          <div class="desktop-automation__setup-field">
+            <strong>Model</strong>
+            <span>Effective: {effectiveModelLabel()}</span>
+            <select
+              value={browserModel()}
+              disabled={setup.saving}
+              onChange={(event) => void saveBrowserModel(event.currentTarget.value)}
+            >
+              <option value="">Use session model ({sessionLabel()})</option>
+              <optgroup label="Native models (no setup)">
+                <For each={BU_MODELS.filter((m) => !buRequiresOwnKey(m))}>
+                  {(model) => <option value={model}>{model}</option>}
+                </For>
+              </optgroup>
+              <optgroup label="Bring-your-own-key models">
+                <For each={BU_MODELS.filter((m) => buRequiresOwnKey(m))}>
+                  {(model) => <option value={model}>{model} ⚠ BYO key</option>}
+                </For>
+              </optgroup>
+            </select>
+            <Show when={buRequiresOwnKey(browserModel())}>
+              <span class="desktop-automation__setup-warning">
+                ⚠ This model needs a provider key on your Browser Use project (cloud.browser-use.com),
+                or runs will fail. Pick a native model to avoid setup.
+              </span>
+            </Show>
+          </div>
+          <Show when={setup.error}><span class="desktop-automation__setup-error">{setup.error}</span></Show>
+          <div class="desktop-automation__setup-actions">
+            <button type="button" disabled={setup.saving} onClick={() => setSetup("open", false)}>Cancel</button>
+            <button type="submit" disabled={setup.saving}>{setup.saving ? "Saving…" : "Save key"}</button>
+          </div>
+        </form>
+      </Show>
+
+      <Show when={props.part && !liveUrl() && !screenshot()}>
+        <div class="desktop-automation__activity">
+          <span class="desktop-automation__pulse" />
+          <span>{summary() ?? props.part?.state.title ?? `Running ${props.surface} action`}</span>
+        </div>
+      </Show>
+
+      <Show when={output()}>
+        {(value) => <pre class="desktop-automation__output">{value().slice(0, 6000)}</pre>}
+      </Show>
+    </section>
+  )
+}
+
 function DesktopTools() {
   const command = useCommand()
+  const sync = useGlobalSync()
   const layout = useLayout()
   const platform = usePlatform()
-  const server = useServer()
   const params = useParams()
   const sessionKey = createMemo(() => `${params.dir ?? ""}${params.id ? `/${params.id}` : ""}`)
   const view = layout.view(sessionKey)
   const storage = platform.storage?.("desktop-shell.dat")
+  const [workbench, setWorkbench] = createStore<{
+    active: AutomationSurface
+    menu: boolean
+  }>({ active: "browser", menu: false })
   const available = createMemo(() => !!params.dir)
   const terminalBottom = createMemo(() =>
     available() && view.terminal.opened() ? `${layout.terminal.height()}px` : "0px",
@@ -535,7 +787,31 @@ function DesktopTools() {
   const sidePanelOpen = createMemo(() => available() && (view.reviewPanel.opened() || layout.fileTree.opened()))
   const fileTreeOpen = createMemo(() => available() && layout.fileTree.opened())
   const reviewOnlyOpen = createMemo(() => available() && view.reviewPanel.opened() && !fileTreeOpen())
+  const activeProject = createMemo(() =>
+    layout.projects.list().find((project) => base64Encode(project.worktree) === params.dir),
+  )
+  const activeData = createMemo(() => {
+    const project = activeProject()
+    if (!project) return
+    return sync.child(project.worktree, { bootstrap: false })[0]
+  })
+  const automationParts = createMemo(() => {
+    const data = activeData()
+    const sessionID = params.id
+    if (!data || !sessionID) return [] as AutomationPart[]
+    return (data.message[sessionID] ?? []).flatMap((message) =>
+      (data.part[message.id] ?? [])
+        .filter((part) => part.type === "tool" && (part.tool === "browser" || part.tool === "computer"))
+        .map((part) => part as unknown as AutomationPart),
+    )
+  })
+  const latestPart = createMemo(() => {
+    const parts = automationParts()
+    return [...parts].reverse().find((part) => part.tool === workbench.active)
+  })
+  const latestAutomation = createMemo(() => automationParts().at(-1))
   let previousPanels = { review: false, files: false }
+  let menuHost: HTMLDivElement | undefined
 
   createEffect(() => {
     const next = {
@@ -562,6 +838,28 @@ function DesktopTools() {
         return Promise.resolve(storage?.setItem(SHELL_LAYOUT_STORAGE_KEY, "true"))
       })
       .catch(() => undefined)
+
+    const closeMenu = (event: PointerEvent) => {
+      if (!workbench.menu || menuHost?.contains(event.target as Node)) return
+      setWorkbench("menu", false)
+    }
+    const closeMenuWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setWorkbench("menu", false)
+    }
+    document.addEventListener("pointerdown", closeMenu)
+    document.addEventListener("keydown", closeMenuWithKeyboard)
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", closeMenu)
+      document.removeEventListener("keydown", closeMenuWithKeyboard)
+    })
+  })
+
+  createEffect(() => {
+    const latest = latestAutomation()
+    if (!latest) return
+    setWorkbench("active", latest.tool)
+    view.reviewPanel.close()
+    layout.fileTree.close()
   })
 
   const toggleReview = () => {
@@ -576,6 +874,12 @@ function DesktopTools() {
     layout.fileTree.toggle()
   }
 
+  const showAutomation = (surface: AutomationSurface) => {
+    view.reviewPanel.close()
+    layout.fileTree.close()
+    setWorkbench({ active: surface, menu: false })
+  }
+
   return (
     <aside
       class="desktop-tools"
@@ -587,38 +891,76 @@ function DesktopTools() {
       style={{ bottom: terminalBottom() }}
       aria-label="Workspace tools"
     >
-      <div class="desktop-tools__actions">
-        <ToolButton
-          icon="checklist"
-          label="Review"
-          keybind={command.keybind("review.toggle")}
-          active={available() && view.reviewPanel.opened()}
-          disabled={!available()}
-          onClick={toggleReview}
-        />
-        <ToolButton
-          icon="console"
-          label="Terminal"
-          keybind={command.keybind("terminal.toggle")}
-          active={available() && view.terminal.opened()}
-          disabled={!available()}
-          onClick={() => command.trigger("terminal.toggle")}
-        />
-        <ToolButton
-          icon="window-cursor"
-          label="Browser"
-          disabled={!server.url}
-          onClick={() => platform.openLink(server.url)}
-        />
-        <ToolButton
-          icon="folder"
-          label="Files"
-          keybind={command.keybind("fileTree.toggle")}
-          active={available() && layout.fileTree.opened()}
-          disabled={!available()}
-          onClick={toggleFiles}
-        />
+      <div class="desktop-workbench__bar">
+        <button type="button" class="desktop-workbench__tab" aria-current="page">
+          <Icon name={workbench.active === "browser" ? "window-cursor" : "console"} size="small" />
+          <span>{workbench.active === "browser" ? "Browser" : "Computer"}</span>
+          <Show when={latestPart()?.state.status === "running"}>
+            <span class="desktop-workbench__running" />
+          </Show>
+        </button>
+        <div class="desktop-workbench__menu-host" ref={menuHost}>
+          <button
+            type="button"
+            class="desktop-workbench__add"
+            aria-label="Open workspace tool"
+            aria-expanded={workbench.menu}
+            onClick={() => setWorkbench("menu", (value) => !value)}
+          >
+            <Icon name="plus-small" size="small" />
+          </button>
+          <Show when={workbench.menu}>
+            <div class="desktop-workbench__menu" role="menu">
+              <ToolButton
+                icon="checklist"
+                label="Review"
+                keybind={command.keybind("review.toggle")}
+                active={available() && view.reviewPanel.opened()}
+                disabled={!available()}
+                onClick={() => {
+                  setWorkbench("menu", false)
+                  toggleReview()
+                }}
+              />
+              <ToolButton
+                icon="console"
+                label="Terminal"
+                keybind={command.keybind("terminal.toggle")}
+                active={available() && view.terminal.opened()}
+                disabled={!available()}
+                onClick={() => {
+                  setWorkbench("menu", false)
+                  command.trigger("terminal.toggle")
+                }}
+              />
+              <ToolButton
+                icon="window-cursor"
+                label="Browser"
+                active={workbench.active === "browser" && !sidePanelOpen()}
+                onClick={() => showAutomation("browser")}
+              />
+              <ToolButton
+                icon="console"
+                label="Computer"
+                active={workbench.active === "computer" && !sidePanelOpen()}
+                onClick={() => showAutomation("computer")}
+              />
+              <ToolButton
+                icon="folder"
+                label="Files"
+                keybind={command.keybind("fileTree.toggle")}
+                active={available() && layout.fileTree.opened()}
+                disabled={!available()}
+                onClick={() => {
+                  setWorkbench("menu", false)
+                  toggleFiles()
+                }}
+              />
+            </div>
+          </Show>
+        </div>
       </div>
+      <AutomationPanel surface={workbench.active} part={latestPart()} />
     </aside>
   )
 }

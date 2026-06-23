@@ -19,6 +19,7 @@ import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList, DialogProviderDisconnect } from "@tui/component/dialog-provider"
+import { DialogBrowserUse } from "@tui/component/dialog-browser-use"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
 import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider } from "@tui/context/server"
@@ -922,6 +923,18 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogProviderDisconnect />)
+      },
+      category: "Provider",
+    },
+    {
+      title: "Browser Use",
+      value: "browser.setup",
+      slash: {
+        name: "browser",
+        aliases: ["browser-use", "bu"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogBrowserUse />)
       },
       category: "Provider",
     },

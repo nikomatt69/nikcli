@@ -1,0 +1,39 @@
+Control the local computer's screen, mouse, and keyboard ("computer use").
+
+This takes screenshots of the desktop and sends synthetic mouse and keyboard
+input to the operating system, letting you operate native applications the way a
+person would. Work in a loop: take a `screenshot`, decide where to act based on
+what you see, perform one action, then take another `screenshot` to confirm the
+result before continuing. Coordinates are in screen pixels with (0,0) at the
+top-left.
+
+The `action` parameter selects what to do:
+
+- screenshot      Capture the current screen (returned as an image).
+- capabilities    Report what's supported on this OS and any missing helpers.
+- screen_size     Report the logical screen size (use it to scale coordinates).
+- mouse_move      Move the cursor to `x`,`y`.
+- left_click      Click at `x`,`y` (omit to click the current position).
+- right_click     Right-click at `x`,`y`.
+- middle_click    Middle-click at `x`,`y`.
+- double_click    Double-click at `x`,`y`.
+- left_click_drag Press at `x`,`y` and release at `to_x`,`to_y`.
+- type            Type `text` at the keyboard.
+- key             Press a key or chord, e.g. "Return", "Escape", "cmd+a",
+                  "ctrl+c", "ArrowDown". Requires `text`.
+- scroll          Scroll `direction` ("up"|"down"|"left"|"right") by `amount`,
+                  optionally after moving to `x`,`y`.
+
+Platform requirements:
+- macOS: built-in screencapture and System Events. Coordinate clicks work
+  without extra software; mouse-only movement and drag use optional `cliclick`.
+  Grant Screen Recording and Accessibility permissions to Nikcli.
+- Linux (X11): needs `xdotool` for input and one of scrot/imagemagick/
+  gnome-screenshot for screenshots.
+- Windows: uses built-in PowerShell + .NET.
+
+Run `capabilities` first if you are unsure whether the environment supports the
+action you need. This controls the user's actual machine — only perform the
+specific actions the user asked for, and never destructive or irreversible ones
+(deleting data, sending messages, purchases, settings changes) without explicit
+instruction.

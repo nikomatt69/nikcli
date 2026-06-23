@@ -100,6 +100,13 @@ export namespace Flag {
   export const NIKCLI_EXPERIMENTAL_SECURITY_TOOL = true
   export const NIKCLI_EXPERIMENTAL_WEBSOCKETS = true
 
+  // Computer & browser use ("computer use" like Codex / Claude Code).
+  // Browser tasks run through Browser Use SDK v3; desktop computer-use sends
+  // real input to the local machine. Both tools remain explicitly disableable.
+  // Opt out with NIKCLI_DISABLE_BROWSER_TOOL / NIKCLI_DISABLE_COMPUTER_TOOL.
+  export const NIKCLI_EXPERIMENTAL_BROWSER_TOOL = !truthy("NIKCLI_DISABLE_BROWSER_TOOL")
+  export const NIKCLI_EXPERIMENTAL_COMPUTER_TOOL = !truthy("NIKCLI_DISABLE_COMPUTER_TOOL")
+
   function number(key: string) {
     const value = process.env[key]
     if (!value) return undefined

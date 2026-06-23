@@ -48,6 +48,8 @@ import { DelegatorTool } from "./delegator"
 import { ExecCodeTool } from "./exec_code"
 import { SearchToolsTool } from "./search_tools"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
+import { BrowserTool } from "./browser"
+import { ComputerTool } from "./computer"
 
 const _toolDir = import.meta.dir
 
@@ -266,6 +268,8 @@ export namespace ToolRegistry {
           DelegatorTool,
           SearchToolsTool,
           ExecCodeTool,
+          ...(Flag.NIKCLI_EXPERIMENTAL_BROWSER_TOOL ? [BrowserTool] : []),
+          ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_TOOL ? [ComputerTool] : []),
           ...custom,
         ]
       })

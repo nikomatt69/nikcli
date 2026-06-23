@@ -157,6 +157,8 @@ export namespace Agent {
   async function buildState(worktree: string, cfg: Config.Info) {
     const defaults = PermissionNext.fromConfig({
       "*": "allow",
+      browser: "ask",
+      computer: "ask",
       doom_loop: "ask",
       external_directory: {
         "*": "ask",

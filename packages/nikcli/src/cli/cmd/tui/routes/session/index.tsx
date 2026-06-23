@@ -57,6 +57,8 @@ import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
 import type { MonitorTool } from "@/tool/monitor"
 import type { QuestionTool } from "@/tool/question"
+import type { BrowserTool } from "@/tool/browser"
+import type { ComputerTool } from "@/tool/computer"
 import { normalizeVizComponents, type OpenTUIVizTool } from "@/tool/opentui"
 import type { LSP } from "@/lsp"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
@@ -2083,6 +2085,12 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           <Match when={props.part.tool === "opentui"}>
             <OpenTUIViz {...toolprops} />
           </Match>
+          <Match when={props.part.tool === "browser"}>
+            <BrowserUse {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "computer"}>
+            <ComputerUse {...toolprops} />
+          </Match>
           <Match when={true}>
             <GenericTool {...toolprops} />
           </Match>
@@ -2105,6 +2113,58 @@ type ToolProps<T extends Tool.Info> = {
   output?: string
   part: ToolPart
 }
+
+function BrowserUse(props: ToolProps<typeof BrowserTool>) {
+  const { theme } = useTheme()
+  const title = createMemo(() => {
+    const status = props.metadata.status ? ` · ${props.metadata.status}` : ""
+    return `# Browser Use${status}`
+  })
+  const summary = createMemo(() => props.metadata.summary ?? props.input.task)
+
+  return (
+    <Switch>
+      <Match when={props.output !== undefined}>
+        <BlockTool title={title()} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
+          <box gap={1}>
+            <Show when={summary()}>{(value) => <text fg={theme.text}>{value()}</text>}</Show>
+            <Show when={props.metadata.liveUrl}>
+              {(url) => <text fg={theme.textMuted}>Live preview: {url()}</text>}
+            </Show>
+            <Show when={props.metadata.stepCount !== undefined}>
+              <text fg={theme.textMuted}>Steps: {String(props.metadata.stepCount)}</text>
+            </Show>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool icon="◎" iconColor={theme.primary} pending="Running browser task..." complete={summary()} part={props.part}>
+          Browser Use · {summary() ?? props.input.action ?? "run"}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
+function ComputerUse(props: ToolProps<typeof ComputerTool>) {
+  const { theme } = useTheme()
+  const action = createMemo(() => props.input.action ?? "computer")
+  return (
+    <Switch>
+      <Match when={props.output !== undefined}>
+        <BlockTool title={`# Computer · ${action()}`} titleColor={theme.warning} accentColor={theme.warning} part={props.part}>
+          <text fg={theme.textMuted}>{props.output}</text>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool icon="▣" iconColor={theme.warning} pending="Waiting for computer use..." complete={action()} part={props.part}>
+          Computer · {action()}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
 function GenericTool(props: ToolProps<any>) {
   return (
     <InlineTool icon="⚙" pending="Writing command..." complete={true} part={props.part}>

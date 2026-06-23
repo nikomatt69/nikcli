@@ -2,6 +2,7 @@ export { PlatformProvider, usePlatform, type Platform } from "./context/platform
 export { AppBaseProviders, AppInterface } from "./app"
 export { useCommand } from "./context/command"
 export { useGlobalSync } from "./context/global-sync"
+export { useGlobalSDK } from "./context/global-sdk"
 export { useLayout, type LocalProject } from "./context/layout"
 export { useServer } from "./context/server"
 export { serverUrlMatchesRequest } from "./utils/server-health"

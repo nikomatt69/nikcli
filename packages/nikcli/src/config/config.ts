@@ -1184,6 +1184,27 @@ export namespace Config {
     })
   export type Image = z.infer<typeof Image>
 
+  export const BrowserUse = z
+    .object({
+      model: z
+        .string()
+        .optional()
+        .describe(
+          "Default Browser Use model for the `browser` tool (e.g. bu-mini, bu-max, bu-ultra, gemini-3-flash, claude-sonnet-4.6, claude-opus-4.6, claude-opus-4.7, gpt-5.4-mini). Used when the tool call does not specify one.",
+        ),
+      max_cost_usd: z
+        .number()
+        .positive()
+        .max(100)
+        .optional()
+        .describe("Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one."),
+    })
+    .strict()
+    .meta({
+      ref: "BrowserUseConfig",
+    })
+  export type BrowserUse = z.infer<typeof BrowserUse>
+
   export const Attachment = z
     .object({
       image: z
@@ -1599,6 +1620,7 @@ export namespace Config {
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
+      browser: BrowserUse.optional().describe("Browser Use (browser tool) configuration"),
       attachment: Attachment.optional().describe("Attachment handling configuration"),
       speak: Speak.optional().describe("Text-to-speech configuration"),
       notifications: z

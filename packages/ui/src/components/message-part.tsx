@@ -214,6 +214,18 @@ export function getToolInfo(tool: string, input: any = {}): ToolInfo {
         title: i18n.t("ui.tool.webfetch"),
         subtitle: input.url,
       }
+    case "browser":
+      return {
+        icon: "window-cursor",
+        title: "Browser Use",
+        subtitle: input.task || input.action,
+      }
+    case "computer":
+      return {
+        icon: "console",
+        title: "Computer Use",
+        subtitle: input.action,
+      }
     case "task":
       return {
         icon: "task",
@@ -857,6 +869,65 @@ ToolRegistry.register({
               <Icon name="square-arrow-top-right" size="small" />
             </div>
           ),
+        }}
+      >
+        <Show when={props.output}>
+          {(output) => (
+            <div data-component="tool-output" data-scrollable>
+              <Markdown text={output()} />
+            </div>
+          )}
+        </Show>
+      </BasicTool>
+    )
+  },
+})
+
+ToolRegistry.register({
+  name: "browser",
+  render(props) {
+    const summary = () => (props.metadata.summary as string | undefined) || props.input.task || props.input.action
+    const liveUrl = () => props.metadata.liveUrl as string | undefined
+    const status = () => props.metadata.status as string | undefined
+    return (
+      <BasicTool
+        {...props}
+        icon="window-cursor"
+        trigger={{
+          title: "Browser Use",
+          subtitle: summary(),
+          args: status() ? [status()!] : [],
+        }}
+      >
+        <Show when={liveUrl()}>
+          {(url) => (
+            <a href={url()} target="_blank" rel="noreferrer" data-component="tool-action">
+              Live preview
+            </a>
+          )}
+        </Show>
+        <Show when={props.output}>
+          {(output) => (
+            <div data-component="tool-output" data-scrollable>
+              <Markdown text={output()} />
+            </div>
+          )}
+        </Show>
+      </BasicTool>
+    )
+  },
+})
+
+ToolRegistry.register({
+  name: "computer",
+  render(props) {
+    return (
+      <BasicTool
+        {...props}
+        icon="console"
+        trigger={{
+          title: "Computer Use",
+          subtitle: props.input.action,
         }}
       >
         <Show when={props.output}>

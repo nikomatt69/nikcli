@@ -1,6 +1,6 @@
 # Nikcli Project Memory
 
-**Last updated**: 2026-06-21 (Brain Pass — workspace state refresh, favicon regen, security observation, default-branch confirmation)
+**Last updated**: 2026-06-23 (Brain Pass — Nix workspace fileset CI fix, brain/doctor route review, PR #129 + open-PRs CI status, computer-use quirks)
 
 ## Architecture Overview
 
@@ -4322,3 +4322,174 @@ Session `ses_113e1f5d7ffeR0mky8uBZ7PAmf` ran a `/goal "Check CI status on the cu
 - `anomalyco/opencode` on branch **`dev`** is the reference implementation
 - Same Effect-based DB service pattern with `EffectDrizzleSqlite` + custom `sqlite.bun.ts` `SqliteClient`
 - Webfetch pattern: `https://raw.githubusercontent.com/anomalyco/opencode/dev/{path}` (default branch is `dev`, not `main`)
+
+## Brain Pass (2026-06-23)
+
+### Nix `update-node-modules-hashes` CI Fix — `nix/node_modules.nix` missing `../github`
+
+**Session**: `ses_10ecf5b0fffepGkMYcWkClvJ3M` — `/goal` "Fix the failing-CI errors identified on this branch."
+
+**Root cause**: `package.json:26` declares `"github"` in `workspaces.packages` (added 2026-03-22 in commit `eb8503d` "feat(mobile): add GitHub integration..."), but `nix/node_modules.nix` builds its source via `lib.fileset.toSource` with a fileset union of `../packages, ../bun.lock, ../package.json, ../patches, ../install` — **not** `../github`. Nix passes a restricted source tree to `bun install`, bun cannot find `github/` and fails with `error: Workspace not found "github" at package.json:26:7`. The `"github"` workspace was added 3 months ago without updating the Nix fileset — an inconsistency between the workspace declaration and the Nix build's restricted source.
+
+**Fix** (single line in `nix/node_modules.nix`, ~line 33, `lib.fileset.unions`):
+
+```diff
+       lib.fileset.unions [
+         ../packages
+         ../bun.lock
+         ../package.json
+         ../patches
+         ../install
++        ../github
+       ]
+```
+
+**Verification pattern** (reproducible in any repo root):
+
+```bash
+# BEFORE fix (simulating broken Nix fileset, no github/)
+TMPDIR=$(mktemp -d) && mkdir -p "$TMPDIR/src"
+cp -R packages bun.lock package.json patches install "$TMPDIR/src/" 2>/dev/null
+cd "$TMPDIR/src" && bun install --frozen-lockfile --ignore-scripts --no-progress
+# → EXIT 1, "Workspace not found \"github\" at package.json:26:7"
+
+# AFTER fix (matching fixed fileset)
+cp -R github "$TMPDIR/src/"
+cd "$TMPDIR/src" && bun install --frozen-lockfile --ignore-scripts --no-progress
+# → EXIT 0, 5152 packages installed
+```
+
+**Verification**: `bun run typecheck` → 17/17 tasks successful (FULL TURBO). Brace/paren/bracket balance check on `nix/node_modules.nix` — all balanced, expression parses.
+
+**Lesson**: Whenever a new workspace is added to root `package.json`, the `nix/node_modules.nix` fileset must be updated in the same PR. This is a recurring footgun — workspaces and Nix filesets drift over time.
+
+### Desktop CI Failures — macOS Codesign + Windows Bun Sidecar (2026-06-23)
+
+**Session**: `ses_10e1594dcffe4i2moCjkbcUbEN` — debug Windows Bun sidecar & macOS codesign CI failures (run 27990941099, ci-pipeline workflow).
+
+**macOS failure** (macos-14, aarch64-apple-darwin):
+
+```
+security: SecKeychainItemImport: One or more parameters passed to a function were not valid.
+failed to bundle project failed codesign application: failed to run command security import: failed to import keychain certificate
+error: script "tauri" exited with code 1
+```
+
+Root cause: `APPLE_CERTIFICATE` GitHub secret is invalid/malformed but codesigning is still attempted.
+
+**Windows failure** (windows-latest, x86_64-pc-windows-msvc):
+
+```
+error: could not create process
+Bun failed to remap this bin to its proper location within node_modules.
+This is an indication of a corrupted node_modules directory.
+Please run 'bun install --force' in the project root and try it again.
+beforeBuildCommand `bun run prepare:sidecar && bun run build` failed with exit code 255
+error: script "tauri" exited with code 1
+```
+
+Root cause: Windows CI runs `bun install --linker hoisted` (workaround for patched peer variants). Resulting `node_modules` is left in a state where `bun` cannot remap its bin during `prepare:sidecar`. Fix: prepend `bun install --force` (or `rm -rf node_modules && bun install --force`) before `beforeBuildCommand` in `.github/workflows/ci-pipeline.yml`.
+
+**Linux x64**: ✅ success — no issues.
+
+**Recommendation** (from review): the repo already has a CI-aware `prepare.ts` that downloads a prebuilt `nikcli-cli` artifact. Using the prebuilt artifact would be more robust than rebuilding the CLI from source on each desktop runner (which is what's failing on Windows).
+
+### PR #129 CI Status — `test (windows)` FAILURE, `test (linux)` pending
+
+**Session**: `ses_10ecf6d92ffeTidDB9SbiUrTT4` — `/goal` "Check CI status on the current PR."
+
+**Interpretation**: Branch `live-main` has no open PR (`gh pr view` → `no pull requests found for branch "live-main"`). Interpreted "current PR" as PR #129 — the most recent merged PR whose head landed on `live-main` at commit `40f67e1fc`.
+
+**Failing checks on PR #129** (MERGED 2026-06-22T18:45:04Z):
+
+| Check | Status | Workflow | Run |
+|---|---|---|---|
+| `test (windows)` | **FAILURE** | test | run 27975923042, job 82793533872 |
+| `test (linux)` | **pending / queued** (never finished) | test | run 27975923042, job 82793533915 |
+
+**Failure root cause** (verbatim from job log):
+
+```
+error: could not create process
+Bun failed to remap this bin to its proper location within node_modules.
+This is an indication of a corrupted node_modules directory.
+Please run 'bun install --force' in the project root and try it again.
+error: script "test:e2e:local" exited with code 255.
+##[error]Process completed with exit code 255.
+```
+
+All other 19 checks on PR #129 passed (Analyze actions/js/rust, typecheck, validate, nix-eval, dependency-review, review/check-guidelines, pr-standards, pr-management, labeler, security; autofix/publish/railway-deploy/report-failure skipped by design).
+
+### Open PRs against `live-main` (refreshed 2026-06-23)
+
+| PR  | Branch                                             | Status                                                                   |
+| --- | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| #103 | `fix/windows-self-update`                         | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail               |
+| #99 | `claude/session-v2-live-stepper`                   | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail               |
+| #91 | `nikcli/mobile/nikcli/yrrz85`                      | validate fail, typecheck fail, smoke × 2 fail, test (windows) fail      |
+| #88 | `claude/npm-publish-error-vCzX7`                   | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail               |
+| #86 | `claude/nikcli-effect-skill-integration-X5AAM`     | update-node-modules-hashes fail, smoke × 2 fail, test (windows) fail     |
+
+`test (linux)` on every open PR shows `fail 24h0m1s` — these are 24-hour job-timeout cancellations, not actual test failures.
+
+**Pattern across all open PRs**: same Windows `test (windows)` and `smoke (windows-latest, …)` failures from the same `bun` bin-remap corruption. Root cause fix: add `bun install --force` to the Windows job setup step in `.github/workflows/test.yml`.
+
+### Brain + Doctor Server Route Review (2026-06-23)
+
+**Session**: `ses_10ecf05f9ffe0C4DBUIIU1QvkF` — `@code-reviewer` subagent review of staged routes.
+
+**Files reviewed**: `packages/nikcli/src/server/routes/brain.ts`, `packages/nikcli/src/server/routes/doctor.ts`, `packages/nikcli/src/server/server.ts` (brain/doctor registration only), `packages/nikcli/src/cli/cmd/doctor.ts`.
+
+#### High-severity findings
+
+1. **`brain.ts:76` + `brain/index.ts:227–261` — `shouldTrigger` in status is wrong (throttle side effect)**
+   `GET /brain` calls `Brain.shouldTrigger()`, which updates module-level `lastSessionScanAt` and returns `false` when the 10-minute scan throttle applies. Mutates scheduler state on every status poll. Can make `shouldTrigger` in the JSON disagree with `hoursSinceLastBrain` / `sessionsSinceLastBrain` (those use `getSessionsCountSince` without the throttle). Frequent polling can also delay the hourly scheduler's real trigger check. Fix: status endpoint should compute readiness without mutating throttle state — read `lastSessionScanAt` directly instead of calling `shouldTrigger()`.
+
+2. **`doctor.ts:56–58` + `cli/cmd/doctor.ts:56–58` — HTTP doctor inherits TTY failure on headless server**
+   `runDoctorChecks()` always runs `checkTty`, which fails when `process.stdout.isTTY` is false. The nikcli server process is almost always non-TTY, so `GET /doctor` will often return `ok: false` with a failing "TTY" row even when the machine is fine. Desktop `dialog-doctor.tsx` uses top-level `ok` / failure copy — misleading "setup broken" for a check that only applies to CLI TUI. Fix: `runDoctorChecks({ includeTTY: false })` option, or split CLI vs HTTP doctor functions.
+
+3. **`brain.ts:105–109` — Trigger failures can surface as 500, not documented errors**
+   The handler has no `try/catch`; only business failures inside `Brain.trigger()` return `BrainResult`. If `getBrainConfig`, session listing, or `executeBrain` throws (corrupt state, unexpected I/O), the request becomes an unhandled exception. OpenAPI only documents `200` and `400`, not `500`. Fix: wrap in try/catch, return `{ ok: false, error: … }` shape or document 500 in OpenAPI.
+
+4. **`server.ts:406–445` + `server.ts:494–495` — `/doctor` behind full instance bootstrap**
+   `DoctorRoutes` is mounted after the instance middleware that runs `withInstanceAsync({ directory, init: InstanceBootstrap }, …)`. Doctor only needs global paths (`Global.Path`, `Installation`) and does not need project/instance (`doctor.ts:45–53`). A bad `directory` / `x-nikcli-directory` or bootstrap failure can block diagnostics with 404/500 instead of returning the report. Fix: mount `/doctor` ahead of instance middleware, like `/global/health`.
+
+#### Medium-severity findings
+
+5. **`brain.ts:74–75` vs `brain.ts:83` — Inconsistent "never run" semantics**
+   When there is no lock file, `readLastBrainAt()` is `0`. Status uses `hoursSinceLastBrain: -1` only when the hour delta is non-finite, but `0` yields a large positive hour value. `sessionsSinceLastBrain` counts all sessions since epoch (`getSessionsCountSince(0)`), which can look like "many sessions" while hours look "long since last run" — confusing for first-run / never-run UX. Fix: distinguish `null` (never run) from `0` (ran at epoch) — store `null` in the lock file when first run, or check file existence.
+
+6. **`brain.ts:94` + `brain/index.ts:326–329` — OpenAPI overstates trigger thresholds**
+   OpenAPI schema marks `minHours` and `minSessions` as required in `BrainTriggerBody`, but `Brain.trigger()` does not consume them server-side (only `force` is read). Clients sending threshold values get silent no-ops.
+
+**Layer violation** (architectural smell, not runtime bug): `server/routes/doctor.ts` imports `cli/cmd/doctor.ts` — server importing CLI is backwards. The shared logic (`runDoctorChecks`) should live in a neutral module (e.g. `health/doctor.ts`) that both CLI and server import.
+
+### Computer-Use Quirks on macOS (2026-06-23)
+
+**Session**: `ses_10a23a88fffesWVmNvehywyXap` — user asked to use computer use to open terminal.
+
+- **Cmd+Space intercept**: Cmd+Space on macOS does NOT open Spotlight when Cursor IDE is in focus — Cursor intercepts the shortcut and opens its "New Agent" panel. Workaround: focus another app first, or use osascript directly.
+- **`osascript -e 'tell application "Terminal" to activate'`** works reliably to open Terminal from non-GUI context. Exit code 0 but the terminal may open behind the foreground window — may need `osascript -e 'tell application "Terminal" to activate' -e 'delay 0.5'`.
+- **Ghostty + cliclick**: A Ghostty terminal session was visible when `cliclick` was being installed. `brew install cliclick` works as the install path. After install, `cliclick c:x,y` (mouse-click coordinates) becomes available for mouse-only interaction; without it, only `left_click` (with `x`,`y` parameters) is reliable on macOS for screen position.
+
+### Other 2026-06-23 Sessions
+
+- `ses_10e282dd9ffe1XQeUvAH3VcQDI` — `/goal` "Review the most recent changes for bugs and regressions and report findings" (nightly QA loop, no transcript details in input).
+- `ses_10e617a92ffev0z67tTMXFZiMF` — `/goal` "Check CI status on the current PR and report any failing checks" (initial attempt, no real progress before timeout).
+- `ses_10e617dd1ffeGZ5D212rV6DUAA` — `/goal` "Check CI status on the current PR" (second attempt, partially-met report).
+- `ses_10a344d5fffeBhPkIxgPY9863E` — This Brain pass.
+- `ses_10a23e36dffezJAQu90uCw59BP` — Earlier Brain pass on the same file (preliminary).
+
+### Patterns Confirmed (2026-06-23)
+
+1. **`/goal` "current PR" is ambiguous** when the current branch (`live-main`) has no open PR. Always: (a) check `gh pr view` first, (b) if no PR, surface the ambiguity early, (c) interpret as "most recently active PR" only when the user agrees.
+
+2. **Windows Bun CI failures are systemic** — `bun install --linker hoisted` produces corrupted `node_modules` in Windows runners across all open PRs. Pre-emptive `bun install --force` is the recommended fix.
+
+3. **Nix fileset / workspace drift** — adding a workspace to root `package.json` without updating `nix/node_modules.nix` breaks Nix builds silently (only surfaces on the next hash update). Document the coupling.
+
+4. **Brain module uses module-level mutable state** (`lastSessionScanAt`) that makes read endpoints have side effects. Future cleanup: separate `shouldTrigger` (mutating) from `readiness()` (pure read).
+
+5. **Doctor HTTP route shares implementation with CLI** — `runDoctorChecks()` includes TTY check that always fails on server. Need to split or parameterize.
+
+6. **Cursor IDE on macOS intercepts Cmd+Space** — Spotlight doesn't open when Cursor is focused.
