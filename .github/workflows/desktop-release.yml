@@ -14,12 +14,22 @@ on:
         description: "Release tag to attach desktop artifacts to (e.g. v1.106.0)"
         required: true
         type: string
+      cli_run_id:
+        description: "GitHub Actions run ID of the publish job that produced the prebuilt `nikcli-cli` artifact (used by `bun run prepare:sidecar` to download the sidecar instead of rebuilding it)"
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       tag:
         description: "Release tag to attach desktop artifacts to (e.g. v1.106.0)"
         required: true
         type: string
+      cli_run_id:
+        description: "GitHub Actions run ID of the publish job that produced the prebuilt `nikcli-cli` artifact"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: desktop-release-${{ inputs.tag }}
@@ -86,6 +96,11 @@ jobs:
       # prepares the per-target nikcli sidecar and builds the frontend automatically.
       # When a signing key is present we use the prod config so Tauri also emits the
       # auto-updater artifacts (+ .sig); otherwise we ship installers only.
+      #
+      # Apple code signing is intentionally disabled — the published macOS bundles
+      # are unsigned. Users get a first-launch Gatekeeper prompt and can
+      # right-click → Open. We can revisit (notarization + Developer ID) once we
+      # have a stable keychain secret.
       - name: Build desktop app
         id: build
         working-directory: packages/desktop
@@ -93,12 +108,11 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          # `prepare:sidecar` (predev.ts) downloads the prebuilt CLI artifact
+          # when this is set, instead of rebuilding it locally. Rebuilding the
+          # CLI cross-platform on every desktop runner is fragile (Bin's bin
+          # remap step fails on Windows with `could not create process`).
+          CLI_ARTIFACT_RUN_ID: ${{ inputs.cli_run_id }}
         run: |
           set -euo pipefail
           CONFIG_ARG=""
