@@ -30,10 +30,7 @@ if (runID) {
   // *contents* of `dist`. Once downloaded the binary lives at
   // `${dir}/<ocBinary>/bin/<name>` (no `packages/nikcli/dist/` prefix).
   await $`gh run download ${runID} -n nikcli-cli -D ${dir}`
-  await copyBinaryToSidecarFolder(
-    windowsify(`${dir}/${sidecarConfig.ocBinary}/bin/${binaryName}`),
-    RUST_TARGET,
-  )
+  await copyBinaryToSidecarFolder(windowsify(`${dir}/${sidecarConfig.ocBinary}/bin/${binaryName}`), RUST_TARGET)
   process.exit(0)
 }
 

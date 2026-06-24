@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.112.0 (June 2026)
+
+## Desktop
+
+- Slim CLI sidecar artifact + fix sidecar path so desktop builds pass (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(ci): slim CLI sidecar artifact + fix sidecar path so desktop builds pass
+
 ## v1.111.0 (June 2026)
 
 - No notable changes
