@@ -25,11 +25,13 @@ const runID = Bun.env.CLI_ARTIFACT_RUN_ID
 if (runID) {
   const dir = "src-tauri/target/nikcli-binaries"
   await $`mkdir -p ${dir}`
-  // The `nikcli-cli` artifact uploads `packages/nikcli/dist`, so once extracted
-  // the binary lives at `${dir}/packages/nikcli/dist/<ocBinary>/bin/<name>`.
+  // The `nikcli-cli` artifact is uploaded with `path: packages/nikcli/dist`, and
+  // `upload-artifact` strips that common prefix — so the artifact root is the
+  // *contents* of `dist`. Once downloaded the binary lives at
+  // `${dir}/<ocBinary>/bin/<name>` (no `packages/nikcli/dist/` prefix).
   await $`gh run download ${runID} -n nikcli-cli -D ${dir}`
   await copyBinaryToSidecarFolder(
-    windowsify(`${dir}/packages/nikcli/dist/${sidecarConfig.ocBinary}/bin/${binaryName}`),
+    windowsify(`${dir}/${sidecarConfig.ocBinary}/bin/${binaryName}`),
     RUST_TARGET,
   )
   process.exit(0)

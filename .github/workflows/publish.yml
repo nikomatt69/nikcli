@@ -115,10 +115,16 @@ jobs:
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: false
 
+      # Only the compiled per-target binaries are consumed downstream (the desktop
+      # build's `prepare:sidecar`). Uploading the whole `dist` also bundled the
+      # release `.zip`/`.tar.gz` archives and `bun pm pack` `.tgz` tarballs for
+      # every variant (~GBs), which then filled the small desktop runners' disks
+      # while extracting the artifact (`no space left on device`). Ship just the
+      # `bin/` payloads — the artifact root stays `<variant>/bin/nikcli`.
       - uses: actions/upload-artifact@v7
         with:
           name: nikcli-cli
-          path: packages/nikcli/dist
+          path: packages/nikcli/dist/*/bin/**
 
     outputs:
       release: ${{ steps.publish.outputs.release }}
