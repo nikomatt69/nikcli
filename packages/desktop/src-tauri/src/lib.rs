@@ -174,8 +174,10 @@ fn app_command_candidates(app_name: &str) -> Vec<String> {
         return Vec::new();
     }
 
-    let mut result = Vec::new();
-    let mut push = |candidate: String| {
+    // A free function rather than a closure capturing `result`: a closure would
+    // hold a mutable borrow for its whole lifetime, which conflicts with the
+    // `result.clone()` in the Windows-only block below (borrow-check error E0502).
+    fn push(result: &mut Vec<String>, candidate: String) {
         let candidate = candidate.trim().trim_matches('"').to_string();
         if candidate.is_empty()
             || result
@@ -185,26 +187,28 @@ fn app_command_candidates(app_name: &str) -> Vec<String> {
             return;
         }
         result.push(candidate);
-    };
+    }
 
-    push(app_name.to_string());
+    let mut result = Vec::new();
+
+    push(&mut result, app_name.to_string());
 
     let lower = app_name.to_ascii_lowercase();
-    push(lower.replace(' ', "-"));
-    push(lower.replace(' ', "_"));
-    push(lower.replace(' ', ""));
+    push(&mut result, lower.replace(' ', "-"));
+    push(&mut result, lower.replace(' ', "_"));
+    push(&mut result, lower.replace(' ', ""));
 
     match lower.as_str() {
-        "visual studio code" | "vscode" | "code" => push("code".to_string()),
-        "cursor" => push("cursor".to_string()),
-        "zed" => push("zed".to_string()),
+        "visual studio code" | "vscode" | "code" => push(&mut result, "code".to_string()),
+        "cursor" => push(&mut result, "cursor".to_string()),
+        "zed" => push(&mut result, "zed".to_string()),
         "powershell" | "pwsh" => {
-            push("powershell".to_string());
-            push("pwsh".to_string());
+            push(&mut result, "powershell".to_string());
+            push(&mut result, "pwsh".to_string());
         }
         "sublime text" | "sublime-text" | "sublime_text" => {
-            push("subl".to_string());
-            push("sublime_text".to_string());
+            push(&mut result, "subl".to_string());
+            push(&mut result, "sublime_text".to_string());
         }
         _ => {}
     }
@@ -214,7 +218,7 @@ fn app_command_candidates(app_name: &str) -> Vec<String> {
         let base = result.clone();
         for candidate in base {
             if !candidate.to_ascii_lowercase().ends_with(".exe") {
-                push(format!("{candidate}.exe"));
+                push(&mut result, format!("{candidate}.exe"));
             }
         }
     }
