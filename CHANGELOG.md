@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.117.0 (June 2026)
+
+## Desktop
+
+- Resolve Windows-only borrow error in app_command_candidates (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(desktop): resolve Windows-only borrow error in app_command_candidates
+
 ## v1.116.0 (June 2026)
 
 - No notable changes
