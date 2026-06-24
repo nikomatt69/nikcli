@@ -103,6 +103,15 @@ jobs:
           workspaces: packages/desktop/src-tauri -> target
           key: ${{ matrix.target }}
 
+      # On Windows the hoisted-linker `node_modules/.bin` shims end up broken, so
+      # the first `bun run` inside Tauri's beforeBuildCommand dies with
+      # `could not create process / Bun failed to remap this bin`. A forced
+      # reinstall (what Bun's own error message recommends) rebuilds the shims.
+      - name: Repair Bun bins
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bun install --force --linker hoisted
+
       # `bun run tauri build` runs the desktop "tauri" script; its beforeBuildCommand
       # prepares the per-target nikcli sidecar and builds the frontend automatically.
       # When a signing key is present we use the prod config so Tauri also emits the
@@ -127,6 +136,11 @@ jobs:
           # `predev.ts` runs `gh run download` to fetch that prebuilt CLI artifact,
           # which needs an authenticated `gh` — without GH_TOKEN it exits with code 4.
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          # Tauri bundles the Linux AppImage via `linuxdeploy`, itself an AppImage.
+          # Hosted runners can't FUSE-mount it, so it dies with `failed to run
+          # linuxdeploy`. Extract-and-run instead of mounting, and skip stripping.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          NO_STRIP: true
         run: |
           set -euo pipefail
           CONFIG_ARG=""
