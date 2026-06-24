@@ -103,17 +103,27 @@ jobs:
           workspaces: packages/desktop/src-tauri -> target
           key: ${{ matrix.target }}
 
-      # On Windows the hoisted-linker `node_modules/.bin` shims end up broken, so
-      # the first `bun run` inside Tauri's beforeBuildCommand dies with
-      # `could not create process / Bun failed to remap this bin`. A forced
-      # reinstall (what Bun's own error message recommends) rebuilds the shims.
-      - name: Repair Bun bins
-        if: runner.os == 'Windows'
+      # Prepare the sidecar + frontend in a plain step instead of via Tauri's
+      # `beforeBuildCommand`. Tauri runs that command with `node_modules/.bin` on
+      # PATH, so on Windows `bun` resolves to a hoisted-linker bin shim that's
+      # broken (`could not create process / Bun failed to remap this bin`). Run
+      # here, where `bun` is the global toolchain binary, then skip Tauri's
+      # beforeBuildCommand below.
+      - name: Prepare sidecar & frontend
+        working-directory: packages/desktop
         shell: bash
-        run: bun install --force --linker hoisted
+        env:
+          CLI_ARTIFACT_RUN_ID: ${{ inputs.cli_run_id }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          bun ./scripts/predev.ts
+          bun x tsgo -b
+          bun x vite build
 
-      # `bun run tauri build` runs the desktop "tauri" script; its beforeBuildCommand
-      # prepares the per-target nikcli sidecar and builds the frontend automatically.
+      # `bun run tauri build` runs the desktop "tauri" script. Its beforeBuildCommand
+      # is skipped (frontend already built above); we only bundle here.
       # When a signing key is present we use the prod config so Tauri also emits the
       # auto-updater artifacts (+ .sig); otherwise we ship installers only.
       #
@@ -152,7 +162,8 @@ jobs:
             echo "no signing key → base config (installers only)"
             echo "updater=false" >> "$GITHUB_OUTPUT"
           fi
-          bun run tauri build --target ${{ matrix.target }} $CONFIG_ARG
+          bun run tauri build --target ${{ matrix.target }} $CONFIG_ARG \
+            --config '{"build":{"beforeBuildCommand":""}}'
 
       - name: Collect & upload installers
         shell: bash
