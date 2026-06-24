@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.115.0 (June 2026)
+
+## Desktop
+
+- Drop AppImage + avoid bun-run remap so Linux/Windows desktop builds pass (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(ci): drop AppImage + avoid bun-run remap so Linux/Windows desktop builds pass
+
 ## v1.113.0 (June 2026)
 
 ## Desktop
