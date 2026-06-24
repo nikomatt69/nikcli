@@ -4402,10 +4402,10 @@ Root cause: Windows CI runs `bun install --linker hoisted` (workaround for patch
 
 **Failing checks on PR #129** (MERGED 2026-06-22T18:45:04Z):
 
-| Check | Status | Workflow | Run |
-|---|---|---|---|
-| `test (windows)` | **FAILURE** | test | run 27975923042, job 82793533872 |
-| `test (linux)` | **pending / queued** (never finished) | test | run 27975923042, job 82793533915 |
+| Check            | Status                                | Workflow | Run                              |
+| ---------------- | ------------------------------------- | -------- | -------------------------------- |
+| `test (windows)` | **FAILURE**                           | test     | run 27975923042, job 82793533872 |
+| `test (linux)`   | **pending / queued** (never finished) | test     | run 27975923042, job 82793533915 |
 
 **Failure root cause** (verbatim from job log):
 
@@ -4422,13 +4422,13 @@ All other 19 checks on PR #129 passed (Analyze actions/js/rust, typecheck, valid
 
 ### Open PRs against `live-main` (refreshed 2026-06-23)
 
-| PR  | Branch                                             | Status                                                                   |
-| --- | -------------------------------------------------- | ------------------------------------------------------------------------ |
-| #103 | `fix/windows-self-update`                         | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail               |
-| #99 | `claude/session-v2-live-stepper`                   | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail               |
-| #91 | `nikcli/mobile/nikcli/yrrz85`                      | validate fail, typecheck fail, smoke × 2 fail, test (windows) fail      |
-| #88 | `claude/npm-publish-error-vCzX7`                   | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail               |
-| #86 | `claude/nikcli-effect-skill-integration-X5AAM`     | update-node-modules-hashes fail, smoke × 2 fail, test (windows) fail     |
+| PR   | Branch                                         | Status                                                               |
+| ---- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| #103 | `fix/windows-self-update`                      | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail           |
+| #99  | `claude/session-v2-live-stepper`               | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail           |
+| #91  | `nikcli/mobile/nikcli/yrrz85`                  | validate fail, typecheck fail, smoke × 2 fail, test (windows) fail   |
+| #88  | `claude/npm-publish-error-vCzX7`               | smoke (windows-latest, cmd/pwsh) fail, test (windows) fail           |
+| #86  | `claude/nikcli-effect-skill-integration-X5AAM` | update-node-modules-hashes fail, smoke × 2 fail, test (windows) fail |
 
 `test (linux)` on every open PR shows `fail 24h0m1s` — these are 24-hour job-timeout cancellations, not actual test failures.
 

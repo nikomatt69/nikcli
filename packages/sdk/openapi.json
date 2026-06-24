@@ -24722,6 +24722,47 @@
         },
         "additionalProperties": false
       },
+      "BrowserUseConfig": {
+        "description": "Browser Use (browser tool) configuration",
+        "type": "object",
+        "properties": {
+          "model": {
+            "description": "Default Browser Use model for the `browser` tool (e.g. bu-mini, bu-max, bu-ultra, gemini-3-flash, claude-sonnet-4.6, claude-opus-4.6, claude-opus-4.7, gpt-5.4-mini). Used when the tool call does not specify one.",
+            "type": "string"
+          },
+          "max_cost_usd": {
+            "description": "Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComputerConfig": {
+        "description": "Computer use (computer tool) configuration",
+        "type": "object",
+        "properties": {
+          "mode": {
+            "description": "Where the `computer` tool runs. 'sandbox' (default) drives an isolated background Linux desktop container and never touches your screen; 'host' drives your real machine in real time.",
+            "type": "string",
+            "enum": ["sandbox", "host"]
+          },
+          "width": {
+            "description": "Sandbox desktop width in pixels (default 1280).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "description": "Sandbox desktop height in pixels (default 800).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false
+      },
       "AttachmentConfig": {
         "description": "Attachment handling configuration",
         "type": "object",
@@ -25442,6 +25483,12 @@
           },
           "image": {
             "$ref": "#/components/schemas/ImageConfig"
+          },
+          "browser": {
+            "$ref": "#/components/schemas/BrowserUseConfig"
+          },
+          "computer": {
+            "$ref": "#/components/schemas/ComputerConfig"
           },
           "attachment": {
             "$ref": "#/components/schemas/AttachmentConfig"

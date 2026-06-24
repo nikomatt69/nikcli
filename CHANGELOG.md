@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.110.0 (June 2026)
+
+## Core
+
+- Run computer use in an isolated background desktop (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(computer): run computer use in an isolated background desktop
+
 ## v1.108.0 (June 2026)
 
 - No notable changes
