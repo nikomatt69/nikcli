@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.113.0 (June 2026)
+
+## Desktop
+
+- Unblock desktop build/bundle/sign on all platforms (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(ci): unblock desktop build/bundle/sign on all platforms
+
 ## v1.112.0 (June 2026)
 
 ## Desktop
