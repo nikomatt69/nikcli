@@ -2450,6 +2450,24 @@ export type BrowserUseConfig = {
 }
 
 /**
+ * Computer use (computer tool) configuration
+ */
+export type ComputerConfig = {
+  /**
+   * Where the `computer` tool runs. 'sandbox' (default) drives an isolated background Linux desktop container and never touches your screen; 'host' drives your real machine in real time.
+   */
+  mode?: "sandbox" | "host"
+  /**
+   * Sandbox desktop width in pixels (default 1280).
+   */
+  width?: number
+  /**
+   * Sandbox desktop height in pixels (default 800).
+   */
+  height?: number
+}
+
+/**
  * Attachment handling configuration
  */
 export type AttachmentConfig = {
@@ -2837,6 +2855,7 @@ export type Config = {
   rag?: RagConfig
   image?: ImageConfig
   browser?: BrowserUseConfig
+  computer?: ComputerConfig
   attachment?: AttachmentConfig
   speak?: SpeakConfig
   /**

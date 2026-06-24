@@ -1213,18 +1213,8 @@ export namespace Config {
         .describe(
           "Where the `computer` tool runs. 'sandbox' (default) drives an isolated background Linux desktop container and never touches your screen; 'host' drives your real machine in real time.",
         ),
-      width: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe("Sandbox desktop width in pixels (default 1280)."),
-      height: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe("Sandbox desktop height in pixels (default 800)."),
+      width: z.number().int().positive().optional().describe("Sandbox desktop width in pixels (default 1280)."),
+      height: z.number().int().positive().optional().describe("Sandbox desktop height in pixels (default 800)."),
     })
     .strict()
     .meta({
