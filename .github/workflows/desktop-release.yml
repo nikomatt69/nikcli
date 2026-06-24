@@ -113,6 +113,9 @@ jobs:
           # CLI cross-platform on every desktop runner is fragile (Bin's bin
           # remap step fails on Windows with `could not create process`).
           CLI_ARTIFACT_RUN_ID: ${{ inputs.cli_run_id }}
+          # `predev.ts` runs `gh run download` to fetch that prebuilt CLI artifact,
+          # which needs an authenticated `gh` — without GH_TOKEN it exits with code 4.
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           CONFIG_ARG=""
