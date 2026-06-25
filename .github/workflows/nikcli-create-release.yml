@@ -72,6 +72,14 @@ jobs:
           {
             echo "notes<<EOF"
             echo "$NOTES"
+            echo ""
+            echo "## Installing the desktop app"
+            echo ""
+            echo "Desktop builds are not signed with a paid Apple/Windows certificate, so the OS shows a one-time warning on a freshly downloaded app. This is expected — the app is safe to run."
+            echo ""
+            echo "- **macOS** — right-click (Control-click) the app → **Open** → **Open**. If macOS says it is \"damaged\", run once: \`xattr -dr com.apple.quarantine /Applications/Nikcli.app\`"
+            echo "- **Windows** — if SmartScreen appears (\"Windows protected your PC\"), click **More info → Run anyway**."
+            echo "- **Linux** — install the downloaded \`.deb\` or \`.rpm\` package directly."
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
         env:
