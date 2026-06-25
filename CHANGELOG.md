@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.118.0 (June 2026)
+
+## Desktop
+
+- Update version and configuration for desktop release (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(desktop): update version and configuration for desktop release
+
 ## v1.116.0 (June 2026)
 
 - No notable changes
