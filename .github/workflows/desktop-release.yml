@@ -140,17 +140,14 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Apple Developer ID signing + notarization (macOS only). When these
-          # secrets are configured Tauri imports the base64 .p12 into a temporary
-          # keychain, signs the bundle (+ sidecar) with the Developer ID identity,
-          # and notarizes the .app/.dmg. When unset they're empty and Tauri falls
-          # back to the ad-hoc signature (`macOS.signingIdentity: "-"`) from config.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # macOS bundles are ad-hoc signed (`macOS.signingIdentity: "-"` in the
+          # Tauri config) — no Apple Developer cert. Do NOT wire APPLE_CERTIFICATE /
+          # APPLE_SIGNING_IDENTITY here from (possibly missing) secrets: GitHub sets
+          # an absent secret to an *empty string*, and Tauri treats a present-but-
+          # empty APPLE_CERTIFICATE as "sign with a real cert", then dies on
+          # `security import` of nothing. To enable Developer ID + notarization
+          # later, add the APPLE_* secrets AND export them here only when non-empty
+          # (e.g. via a guard step), never unconditionally.
           # `prepare:sidecar` (predev.ts) downloads the prebuilt CLI artifact
           # when this is set, instead of rebuilding it locally. Rebuilding the
           # CLI cross-platform on every desktop runner is fragile (Bin's bin
