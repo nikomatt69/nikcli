@@ -2,20 +2,39 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Nikcli",
   "identifier": "ai.nikcli.desktop",
+  "mainBinaryName": "Nikcli",
+  "version": "../package.json",
+  "build": {
+    "beforeDevCommand": "bun ./scripts/predev.ts && bun x vite",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun ./scripts/predev.ts && bun x tsgo -b && bun x vite build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "create": false
+      }
+    ],
+    "withGlobalTauri": true,
+    "security": {
+      "csp": null
+    },
+    "macOSPrivateApi": true
+  },
   "bundle": {
     "createUpdaterArtifacts": true,
     "icon": [
-      "icons/prod/32x32.png",
-      "icons/prod/128x128.png",
-      "icons/prod/128x128@2x.png",
-      "icons/prod/icon.icns",
-      "icons/prod/icon.ico"
+      "icons/dev/32x32.png",
+      "icons/dev/128x128.png",
+      "icons/dev/128x128@2x.png",
+      "icons/dev/icon.icns",
+      "icons/dev/icon.ico"
     ],
-    "windows": {
-      "nsis": {
-        "installerIcon": "icons/prod/icon.ico"
-      }
-    },
+    "active": true,
+    "targets": ["deb", "rpm", "dmg", "nsis", "app"],
+    "externalBin": ["sidecars/nikcli-cli"],
     "linux": {
       "deb": {
         "files": {
@@ -27,9 +46,24 @@
           "type": "none"
         }
       }
+    },
+    "macOS": {
+      "entitlements": "./entitlements.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/prod/icon.ico",
+        "headerImage": "assets/nsis-header.bmp",
+        "sidebarImage": "assets/nsis-sidebar.bmp"
+      }
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["nikcli"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI2NjhCNDk5MkIzOTZGMjcKUldRbmJ6a3JtYlJvdG54anJFVXFTSEdKUmVsbzJzODZxT1BxcSt0dnlZYk1ydGpCR1VXWkxtZTIK",
       "endpoints": ["https://github.com/nikomatt69/nikcli/releases/latest/download/latest.json"]

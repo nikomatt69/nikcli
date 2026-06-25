@@ -85,7 +85,6 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            libfuse2 \
             build-essential \
             file \
             rpm
@@ -146,11 +145,6 @@ jobs:
           # `predev.ts` runs `gh run download` to fetch that prebuilt CLI artifact,
           # which needs an authenticated `gh` — without GH_TOKEN it exits with code 4.
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
-          # Tauri bundles the Linux AppImage via `linuxdeploy`, itself an AppImage.
-          # Hosted runners can't FUSE-mount it, so it dies with `failed to run
-          # linuxdeploy`. Extract-and-run instead of mounting, and skip stripping.
-          APPIMAGE_EXTRACT_AND_RUN: 1
-          NO_STRIP: true
         run: |
           set -euo pipefail
           CONFIG_ARG=""
@@ -175,9 +169,9 @@ jobs:
           BUNDLE="packages/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
           mkdir -p artifacts
           if [ -d "$BUNDLE" ]; then
+            # Bundle targets: deb, rpm, dmg, nsis (.exe), app (zipped below).
             find "$BUNDLE" -type f \( \
-              -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" \
-              -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" \
+              -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" \
               \) -exec cp {} artifacts/ \;
             # macOS: also ship a zipped .app for parity with opencode's *.zip
             if [ -d "$BUNDLE/macos" ]; then
