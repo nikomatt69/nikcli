@@ -994,10 +994,7 @@ button.desktop-sidebar__list-item:hover {
   flex: 0 0 var(--desktop-files-width) !important;
 }
 
-[data-component="desktop-shell"]
-  .desktop-app-host
-  [data-component="session-shell"]
-  [data-slot="session-chat"] {
+[data-component="desktop-shell"] .desktop-app-host [data-component="session-shell"] [data-slot="session-chat"] {
   width: 100% !important;
   flex: 1 1 auto !important;
 }

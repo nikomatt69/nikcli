@@ -987,12 +987,7 @@ function DesktopTools() {
       style={{ bottom: "0px" }}
       aria-label="Workspace tools"
     >
-      <div
-        class="desktop-workbench__bar"
-        role="tablist"
-        aria-label="Workspace tool tabs"
-        onKeyDown={handleTabKeyDown}
-      >
+      <div class="desktop-workbench__bar" role="tablist" aria-label="Workspace tool tabs" onKeyDown={handleTabKeyDown}>
         <For each={workbenchTabs()}>
           {(tab) => (
             <button

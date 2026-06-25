@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.119.0 (June 2026)
+
+## Desktop
+
+- Add download/install instructions for unsigned releases (@nikomatt69)
+- Update macOS signing configuration for desktop release (@nikomatt69)
+- Enhance side panel and resizing logic (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(desktop): enhance side panel and resizing logic
+  - chore(ci): update macOS signing configuration for desktop release
+  - docs(desktop): add download/install instructions for unsigned releases
+
 ## v1.116.0 (June 2026)
 
 - No notable changes
