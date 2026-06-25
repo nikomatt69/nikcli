@@ -1,6 +1,7 @@
 :root {
   --desktop-tools-width: clamp(380px, 40vw, 760px);
   --desktop-review-width: 540px;
+  --desktop-files-width: 760px;
 }
 
 html[data-nikcli-desktop="true"],
@@ -121,8 +122,14 @@ html.desktop-shell-resizing * {
   touch-action: none;
 }
 
-[data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-review-resize {
+[data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-review-resize,
+[data-component="desktop-shell"]:has(.desktop-tools--files) .desktop-review-resize {
   display: block;
+  top: 86px;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--files) .desktop-review-resize {
+  right: calc(var(--desktop-files-width) - 3px);
 }
 
 .desktop-review-resize::after {
@@ -213,7 +220,6 @@ html.desktop-shell-resizing * {
 .desktop-project__select:focus-visible,
 .desktop-project__chevron:focus-visible,
 .desktop-session-row:focus-visible,
-.desktop-tool-button:focus-visible,
 .desktop-sidebar__list-item:focus-visible,
 .desktop-sidebar__section-heading button:focus-visible {
   outline: 1px solid var(--border-focus);
@@ -470,8 +476,7 @@ button.desktop-sidebar__list-item:hover {
   white-space: nowrap;
 }
 
-.desktop-sidebar__list-item kbd,
-.desktop-tool-button kbd {
+.desktop-sidebar__list-item kbd {
   flex: 0 0 auto;
   padding: 1px 5px;
   color: var(--text-weaker);
@@ -508,14 +513,18 @@ button.desktop-sidebar__list-item:hover {
 
 #desktop-tools-mount {
   position: absolute;
-  z-index: 40;
+  z-index: 70;
   inset: 0 0 0 auto;
   width: var(--desktop-tools-width);
   pointer-events: none;
 }
 
-[data-component="desktop-shell"]:has(.desktop-tools--covered) #desktop-tools-mount {
-  width: 0;
+[data-component="desktop-shell"]:has(.desktop-tools--review) #desktop-tools-mount {
+  width: var(--desktop-review-width);
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--files) #desktop-tools-mount {
+  width: var(--desktop-files-width);
 }
 
 .desktop-tools {
@@ -533,6 +542,29 @@ button.desktop-sidebar__list-item:hover {
   transition: bottom 120ms ease;
 }
 
+[data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-tools {
+  width: var(--desktop-review-width);
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--files) .desktop-tools {
+  width: var(--desktop-files-width);
+}
+
+.desktop-tools--review,
+.desktop-tools--terminal,
+.desktop-tools--files {
+  border-left: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.desktop-tools--review .desktop-workbench__bar,
+.desktop-tools--terminal .desktop-workbench__bar,
+.desktop-tools--files .desktop-workbench__bar {
+  border-left: 1px solid var(--border-weak-base);
+  pointer-events: auto;
+}
+
 .desktop-workbench__bar {
   position: relative;
   z-index: 3;
@@ -541,25 +573,29 @@ button.desktop-sidebar__list-item:hover {
   align-items: center;
   gap: 6px;
   padding: 0 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--border-weak-base);
   background: color-mix(in srgb, var(--background-stronger) 90%, black 10%);
 }
 
-.desktop-workbench__tab,
-.desktop-workbench__add {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 11px;
-  color: var(--text-base);
-  border: 1px solid var(--border-weak-base);
-  border-radius: 9px;
-  background: var(--surface-base);
+.desktop-workbench__bar::-webkit-scrollbar {
+  display: none;
 }
 
 .desktop-workbench__tab {
-  min-width: 116px;
-  gap: 8px;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  height: 32px;
+  min-width: 64px;
+  max-width: 124px;
+  gap: 6px;
+  padding: 0 8px;
+  color: var(--text-base);
+  border: 1px solid var(--border-weak-base);
+  border-radius: 8px;
+  background: var(--surface-base);
   font-size: 12px;
 }
 
@@ -569,18 +605,16 @@ button.desktop-sidebar__list-item:hover {
   white-space: nowrap;
 }
 
-.desktop-workbench__add {
-  width: 32px;
-  justify-content: center;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-}
-
-.desktop-workbench__add:hover,
-.desktop-workbench__add[aria-expanded="true"] {
+.desktop-workbench__tab:hover:not(:disabled),
+.desktop-workbench__tab--active {
+  color: var(--text-strong);
   border-color: var(--border-weak-base);
   background: var(--surface-base-hover);
+}
+
+.desktop-workbench__tab:disabled {
+  color: var(--text-disabled);
+  opacity: 0.52;
 }
 
 .desktop-workbench__running,
@@ -592,32 +626,6 @@ button.desktop-sidebar__list-item:hover {
   background: var(--icon-interactive-base);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-interactive-base) 18%, transparent);
   animation: desktop-automation-pulse 1.25s ease-in-out infinite;
-}
-
-.desktop-workbench__menu-host {
-  position: relative;
-}
-
-.desktop-workbench__menu {
-  position: absolute;
-  z-index: 100;
-  top: 38px;
-  left: 0;
-  display: flex;
-  width: 260px;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px;
-  border: 1px solid var(--border-base);
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--surface-raised-stronger-non-alpha) 96%, black 4%);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 38%);
-}
-
-.desktop-workbench__menu .desktop-tool-button {
-  min-height: 38px;
-  border: 0;
-  background: transparent;
 }
 
 .desktop-automation {
@@ -879,55 +887,6 @@ button.desktop-sidebar__list-item:hover {
   background: color-mix(in srgb, var(--background-stronger) 85%, transparent);
 }
 
-.desktop-tools--covered {
-  width: 0;
-  min-width: 0;
-  padding: 0;
-  border-left: 0;
-  overflow: hidden;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.desktop-tools__actions {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 4px;
-  margin: auto 0;
-}
-
-.desktop-tool-button {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 42px;
-  gap: 10px;
-  padding: 0 12px;
-  color: var(--text-base);
-  font-size: 13px;
-  text-align: left;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-base) 86%, transparent);
-}
-
-.desktop-tool-button:hover:not(:disabled),
-.desktop-tool-button--active {
-  color: var(--text-strong);
-  border-color: var(--border-weak-base);
-  background: var(--surface-base-hover);
-}
-
-.desktop-tool-button:disabled {
-  color: var(--text-disabled);
-  opacity: 0.52;
-}
-
-.desktop-tool-button > span {
-  flex: 1 1 auto;
-}
-
 .desktop-app-host [data-component="sidebar-nav-desktop"],
 .desktop-app-host [data-component="sidebar-nav-mobile"],
 .desktop-app-host > div > div > .xl\:hidden {
@@ -987,36 +946,55 @@ button.desktop-sidebar__list-item:hover {
 [data-component="desktop-shell"]:has(.desktop-tools--review)
   .desktop-app-host
   [data-component="session-shell"]
-  #review-panel {
-  position: absolute;
-  z-index: 50;
-  top: 0;
-  right: var(--desktop-tools-width);
-  bottom: 0;
-  width: var(--desktop-review-width) !important;
-  min-width: var(--desktop-review-width);
-  max-width: var(--desktop-review-width);
-  flex: 0 0 var(--desktop-review-width) !important;
-  overflow: hidden;
-  background: var(--background-base);
-}
-
-/* Replace the tools reservation with the active side-panel width. */
-[data-component="desktop-shell"]:has(.desktop-tools--review)
-  .desktop-app-host
-  [data-component="session-shell"]
   > [data-slot="session-workspace"] {
   padding-right: var(--desktop-review-width);
 }
 
+[data-component="desktop-shell"]:has(.desktop-tools--files)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: var(--desktop-files-width);
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--review)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel,
+[data-component="desktop-shell"]:has(.desktop-tools--files)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel {
+  position: absolute;
+  z-index: 50;
+  top: 46px;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: var(--background-base);
+}
+
 [data-component="desktop-shell"]:has(.desktop-tools--review)
   .desktop-app-host
   [data-component="session-shell"]
   #review-panel {
-  right: 0;
+  width: var(--desktop-review-width) !important;
+  min-width: var(--desktop-review-width);
+  max-width: var(--desktop-review-width);
+  flex: 0 0 var(--desktop-review-width) !important;
 }
 
-[data-component="desktop-shell"]:not(:has(.desktop-tools--files))
+[data-component="desktop-shell"]:has(.desktop-tools--files)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel {
+  width: var(--desktop-files-width) !important;
+  min-width: var(--desktop-files-width);
+  max-width: var(--desktop-files-width);
+  flex: 0 0 var(--desktop-files-width) !important;
+}
+
+[data-component="desktop-shell"]
   .desktop-app-host
   [data-component="session-shell"]
   [data-slot="session-chat"] {
@@ -1027,7 +1005,12 @@ button.desktop-sidebar__list-item:hover {
 [data-component="desktop-shell"]:has(.desktop-tools--review)
   .desktop-app-host
   [data-component="session-shell"]
-  #review-panel
+  #review-panel[data-mode="review"]
+  #file-tree-panel,
+[data-component="desktop-shell"]:has(.desktop-tools--files)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel[data-mode="files"]
   #file-tree-panel {
   width: 100% !important;
 }
@@ -1035,13 +1018,40 @@ button.desktop-sidebar__list-item:hover {
 [data-component="desktop-shell"]:has(.desktop-tools--files)
   .desktop-app-host
   [data-component="session-shell"]
-  > [data-slot="session-workspace"] {
-  padding-right: 0;
+  #review-panel[data-mode="review-files"]
+  #file-tree-panel {
+  width: clamp(240px, 34%, 360px) !important;
+  min-width: min(280px, 42%);
+  max-width: 380px;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--terminal)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > #terminal-panel {
+  position: absolute;
+  z-index: 50;
+  top: 46px;
+  right: 0;
+  bottom: 0;
+  width: var(--desktop-tools-width);
+  height: auto !important;
+  border-top: 0;
+  border-left: 1px solid var(--border-weak-base);
+  background: var(--background-base);
 }
 
 .desktop-app-host [data-component="session-shell"] > #terminal-panel {
   z-index: 45;
   background: var(--background-base);
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--terminal)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > #terminal-panel
+  > [role="separator"] {
+  display: none;
 }
 
 .desktop-app-host [data-component="session-new-view"] {
@@ -1123,27 +1133,52 @@ div[data-tauri-decorum-tb] {
     left: min(calc(var(--desktop-sidebar-width) - 3px), 277px);
   }
 
-  [data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-review-resize {
+  [data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-review-resize,
+  [data-component="desktop-shell"]:has(.desktop-tools--files) .desktop-review-resize {
     display: none;
+  }
+
+  [data-component="desktop-shell"]:has(.desktop-tools--terminal)
+    .desktop-app-host
+    [data-component="session-shell"]
+    > #terminal-panel {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: min(42vh, 320px) !important;
+    border-top: 1px solid var(--border-weak-base);
+    border-left: 0;
   }
 }
 
 @media (max-width: 900px) {
-  [data-component="desktop-shell"]:has(.desktop-tools--covered)
+  [data-component="desktop-shell"]:has(.desktop-tools--review)
+    .desktop-app-host
+    [data-component="session-shell"]
+    [data-slot="session-chat"],
+  [data-component="desktop-shell"]:has(.desktop-tools--files)
     .desktop-app-host
     [data-component="session-shell"]
     [data-slot="session-chat"] {
     display: none;
   }
 
-  [data-component="desktop-shell"]:has(.desktop-tools--covered)
+  [data-component="desktop-shell"]:has(.desktop-tools--review)
+    .desktop-app-host
+    [data-component="session-shell"]
+    > [data-slot="session-workspace"],
+  [data-component="desktop-shell"]:has(.desktop-tools--files)
     .desktop-app-host
     [data-component="session-shell"]
     > [data-slot="session-workspace"] {
     padding-right: 0;
   }
 
-  [data-component="desktop-shell"]:has(.desktop-tools--covered)
+  [data-component="desktop-shell"]:has(.desktop-tools--review)
+    .desktop-app-host
+    [data-component="session-shell"]
+    #review-panel,
+  [data-component="desktop-shell"]:has(.desktop-tools--files)
     .desktop-app-host
     [data-component="session-shell"]
     #review-panel,

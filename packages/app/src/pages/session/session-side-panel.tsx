@@ -68,10 +68,17 @@ export function SessionSidePanel(props: {
   activeDiff?: string
   focusReviewDiff: (path: string) => void
 }) {
+  const panelMode = createMemo(() => {
+    if (props.reviewOpen && props.layout.fileTree.opened()) return "review-files"
+    if (props.reviewOpen) return "review"
+    return "files"
+  })
+
   return (
     <Show when={props.open}>
       <aside
         id="review-panel"
+        data-mode={panelMode()}
         aria-label={props.language.t("session.panel.reviewAndFiles")}
         class="relative min-w-0 h-full border-l border-border-weak-base flex"
         classList={{

@@ -240,9 +240,9 @@ export default function Page() {
   const isDesktop = createMediaQuery("(min-width: 768px)")
   const isTauri = createMemo(() => platform.platform === "desktop")
   // The chat-vs-side resize handle inside the session panel is only useful in
-  // the web app. On Tauri the desktop shell owns its own resizer driven by
-  // --desktop-review-width; the CSS in that mode forces the chat and review
-  // panel widths, so an additional in-session handle would be a no-op.
+  // the web app. On Tauri the desktop shell owns its own resizer-driven panel
+  // widths; the CSS in that mode forces the chat and side panel widths, so an
+  // additional in-session handle would be a no-op.
   const supportsInSessionResize = createMemo(() => !isTauri())
   const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
   const desktopFileTreeOpen = createMemo(() => isDesktop() && layout.fileTree.opened())

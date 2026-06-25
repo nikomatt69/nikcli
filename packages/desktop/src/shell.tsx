@@ -7,9 +7,11 @@ import { useCommand, useGlobalSDK, useGlobalSync, useLayout, usePlatform, type L
 import {
   For,
   Show,
+  batch,
   createEffect,
   createMemo,
   createSignal,
+  on,
   onCleanup,
   onMount,
   type JSX,
@@ -28,6 +30,8 @@ const REVIEW_MIN = 320
 const REVIEW_MAX = 1200
 const REVIEW_DEFAULT = 540
 const REVIEW_STORAGE_KEY = "review-width"
+const FILES_MIN = 640
+const FILES_MAX = 1200
 
 // Mirror of Browser.MODELS / Browser.NATIVE_MODELS (packages/nikcli). Only the
 // native models are billed by Browser Use with just a project key; the rest
@@ -105,10 +109,16 @@ export function DesktopFrame(props: ParentProps) {
   let startReviewWidth = REVIEW_DEFAULT
 
   const storage = platform.storage?.("desktop-shell.dat")
-  const reviewMax = createMemo(() =>
-    Math.max(REVIEW_MIN, Math.min(REVIEW_MAX, Math.floor((windowWidth() - width()) * 0.45))),
-  )
+  const workspaceWidth = createMemo(() => Math.max(REVIEW_MIN, windowWidth() - width()))
+  const reviewMax = createMemo(() => Math.max(REVIEW_MIN, Math.min(REVIEW_MAX, Math.floor(workspaceWidth() * 0.45))))
+  const filesMax = createMemo(() => Math.max(REVIEW_MIN, Math.min(FILES_MAX, Math.floor(workspaceWidth() * 0.72))))
   const effectiveReviewWidth = createMemo(() => clampReview(reviewWidth(), reviewMax()))
+  const effectiveFilesWidth = createMemo(() =>
+    clampReview(Math.max(reviewWidth(), Math.min(FILES_MIN, filesMax())), filesMax()),
+  )
+  const filesPanelActive = () => host?.querySelector(".desktop-tools--files") !== null
+  const activeSidePanelWidth = () => (filesPanelActive() ? effectiveFilesWidth() : effectiveReviewWidth())
+  const activeSidePanelMax = () => (filesPanelActive() ? filesMax() : reviewMax())
 
   const syncWindowWidth = () => setWindowWidth(window.innerWidth)
 
@@ -136,7 +146,7 @@ export function DesktopFrame(props: ParentProps) {
 
   const moveResize = (event: PointerEvent) => {
     if (draggingReview) {
-      setReviewWidth(clampReview(startReviewWidth - (event.clientX - startReviewX), reviewMax()))
+      setReviewWidth(clampReview(startReviewWidth - (event.clientX - startReviewX), activeSidePanelMax()))
       return
     }
     if (!dragging) return
@@ -156,7 +166,7 @@ export function DesktopFrame(props: ParentProps) {
     if (event.button !== 0) return
     draggingReview = true
     startReviewX = event.clientX
-    startReviewWidth = effectiveReviewWidth()
+    startReviewWidth = activeSidePanelWidth()
     document.documentElement.classList.add("desktop-shell-resizing")
     event.currentTarget.setPointerCapture(event.pointerId)
   }
@@ -171,7 +181,7 @@ export function DesktopFrame(props: ParentProps) {
   const resizeReviewWithKeyboard: JSX.EventHandlerUnion<HTMLDivElement, KeyboardEvent> = (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
     event.preventDefault()
-    setReviewWidth(clampReview(effectiveReviewWidth() + (event.key === "ArrowLeft" ? 16 : -16), reviewMax()))
+    setReviewWidth(clampReview(activeSidePanelWidth() + (event.key === "ArrowLeft" ? 16 : -16), activeSidePanelMax()))
     persistReview()
   }
 
@@ -236,6 +246,7 @@ export function DesktopFrame(props: ParentProps) {
       style={{
         "--desktop-sidebar-width": `${width()}px`,
         "--desktop-review-width": `${effectiveReviewWidth()}px`,
+        "--desktop-files-width": `${effectiveFilesWidth()}px`,
       }}
     >
       <aside id="desktop-sidebar-mount" aria-label="Projects and sessions" />
@@ -266,8 +277,8 @@ export function DesktopFrame(props: ParentProps) {
         aria-label="Resize review panel"
         aria-orientation="vertical"
         aria-valuemin={REVIEW_MIN}
-        aria-valuemax={reviewMax()}
-        aria-valuenow={effectiveReviewWidth()}
+        aria-valuemax={activeSidePanelMax()}
+        aria-valuenow={activeSidePanelWidth()}
         tabIndex={0}
         onPointerDown={startReviewResize}
         onKeyDown={resizeReviewWithKeyboard}
@@ -535,30 +546,6 @@ function DesktopSidebar() {
   )
 }
 
-function ToolButton(props: {
-  icon: Parameters<typeof Icon>[0]["name"]
-  label: string
-  keybind?: string
-  active?: boolean
-  disabled?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      class="desktop-tool-button"
-      classList={{ "desktop-tool-button--active": props.active }}
-      disabled={props.disabled}
-      aria-pressed={props.active}
-      onClick={props.onClick}
-    >
-      <Icon name={props.icon} size="normal" />
-      <span>{props.label}</span>
-      <Show when={props.keybind}>{(keybind) => <kbd>{keybind()}</kbd>}</Show>
-    </button>
-  )
-}
-
 type AutomationPart = {
   id: string
   tool: "browser" | "computer"
@@ -578,6 +565,10 @@ type AutomationPart = {
 }
 
 type AutomationSurface = "browser" | "computer"
+type WorkbenchSurface = "review" | "terminal" | AutomationSurface | "files"
+
+const isAutomationSurface = (surface: WorkbenchSurface): surface is AutomationSurface =>
+  surface === "browser" || surface === "computer"
 
 function automationMetadata(part: AutomationPart | undefined) {
   if (!part) return {}
@@ -648,7 +639,7 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
   }
 
   return (
-    <section class="desktop-automation" data-surface={props.surface}>
+    <section id={`desktop-workbench-panel-${props.surface}`} class="desktop-automation" data-surface={props.surface}>
       <div class="desktop-automation__status">
         <span class="desktop-automation__status-icon">
           <Icon name={props.surface === "browser" ? "window-cursor" : "console"} size="normal" />
@@ -776,7 +767,6 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
 }
 
 function DesktopTools() {
-  const command = useCommand()
   const sync = useGlobalSync()
   const layout = useLayout()
   const platform = usePlatform()
@@ -785,16 +775,19 @@ function DesktopTools() {
   const view = layout.view(sessionKey)
   const storage = platform.storage?.("desktop-shell.dat")
   const [workbench, setWorkbench] = createStore<{
-    active: AutomationSurface
-    menu: boolean
-  }>({ active: "browser", menu: false })
+    active: WorkbenchSurface
+    automation: AutomationSurface
+  }>({ active: "browser", automation: "browser" })
   const available = createMemo(() => !!params.dir)
-  const terminalBottom = createMemo(() =>
-    available() && view.terminal.opened() ? `${layout.terminal.height()}px` : "0px",
+  const activeAutomation = createMemo<AutomationSurface>(() =>
+    isAutomationSurface(workbench.active) ? workbench.active : workbench.automation,
   )
-  const sidePanelOpen = createMemo(() => available() && (view.reviewPanel.opened() || layout.fileTree.opened()))
+  const terminalOpen = createMemo(() => available() && view.terminal.opened())
   const fileTreeOpen = createMemo(() => available() && layout.fileTree.opened())
-  const reviewOnlyOpen = createMemo(() => available() && view.reviewPanel.opened() && !fileTreeOpen())
+  const reviewOpen = createMemo(() => available() && view.reviewPanel.opened())
+  const reviewTabOpen = createMemo(() => workbench.active === "review" && reviewOpen())
+  const fileTabOpen = createMemo(() => workbench.active === "files" && fileTreeOpen())
+  const terminalTabOpen = createMemo(() => workbench.active === "terminal" && terminalOpen())
   const activeProject = createMemo(() =>
     layout.projects.list().find((project) => base64Encode(project.worktree) === params.dir),
   )
@@ -815,26 +808,75 @@ function DesktopTools() {
   })
   const latestPart = createMemo(() => {
     const parts = automationParts()
-    return [...parts].reverse().find((part) => part.tool === workbench.active)
+    return [...parts].reverse().find((part) => part.tool === activeAutomation())
   })
   const latestAutomation = createMemo(() => automationParts().at(-1))
-  let previousPanels = { review: false, files: false }
-  let menuHost: HTMLDivElement | undefined
+  const hasRunningAutomation = (surface: AutomationSurface) =>
+    automationParts().some((part) => part.tool === surface && part.state.status === "running")
 
-  createEffect(() => {
-    const next = {
-      review: available() && view.reviewPanel.opened(),
-      files: fileTreeOpen(),
-    }
+  const closeSessionPanels = (except?: "review" | "terminal" | "files") => {
+    if (except !== "review" && except !== "files") view.reviewPanel.close()
+    if (except !== "terminal") view.terminal.close()
+    if (except !== "files") layout.fileTree.close()
+  }
 
-    if (next.review && next.files) {
-      if (!previousPanels.review && previousPanels.files) layout.fileTree.close()
-      else if (previousPanels.review && !previousPanels.files) view.reviewPanel.close()
-      else layout.fileTree.close()
-    }
+  const openSurface = (surface: WorkbenchSurface) => {
+    if ((surface === "review" || surface === "terminal" || surface === "files") && !available()) return
 
-    previousPanels = next
-  })
+    batch(() => {
+      if (isAutomationSurface(surface)) {
+        closeSessionPanels()
+        setWorkbench({ active: surface, automation: surface })
+        return
+      }
+
+      if (surface === "review") {
+        closeSessionPanels("review")
+        view.reviewPanel.open()
+      } else if (surface === "terminal") {
+        closeSessionPanels("terminal")
+        view.terminal.open()
+      } else {
+        closeSessionPanels("files")
+        layout.fileTree.setTab("changes")
+        view.reviewPanel.open()
+        layout.fileTree.open()
+      }
+
+      setWorkbench("active", surface)
+    })
+  }
+
+  const panelControl = (surface: WorkbenchSurface) => {
+    if (surface === "review" || surface === "files") return "review-panel"
+    if (surface === "terminal") return "terminal-panel"
+    return `desktop-workbench-panel-${surface}`
+  }
+
+  const handleTabKeyDown: JSX.EventHandlerUnion<HTMLDivElement, KeyboardEvent> = (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home" && event.key !== "End") return
+
+    const current = event.target instanceof HTMLElement ? event.target.closest(".desktop-workbench__tab") : null
+    if (!(current instanceof HTMLButtonElement)) return
+
+    const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(".desktop-workbench__tab")).filter(
+      (tab) => !tab.disabled,
+    )
+    if (tabs.length === 0) return
+
+    const index = Math.max(0, tabs.indexOf(current))
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : event.key === "ArrowLeft"
+            ? (index - 1 + tabs.length) % tabs.length
+            : (index + 1) % tabs.length
+
+    event.preventDefault()
+    tabs[nextIndex]?.focus()
+  }
 
   onMount(() => {
     void Promise.resolve(storage?.getItem(SHELL_LAYOUT_STORAGE_KEY))
@@ -846,129 +888,136 @@ function DesktopTools() {
         return Promise.resolve(storage?.setItem(SHELL_LAYOUT_STORAGE_KEY, "true"))
       })
       .catch(() => undefined)
-
-    const closeMenu = (event: PointerEvent) => {
-      if (!workbench.menu || menuHost?.contains(event.target as Node)) return
-      setWorkbench("menu", false)
-    }
-    const closeMenuWithKeyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setWorkbench("menu", false)
-    }
-    document.addEventListener("pointerdown", closeMenu)
-    document.addEventListener("keydown", closeMenuWithKeyboard)
-    onCleanup(() => {
-      document.removeEventListener("pointerdown", closeMenu)
-      document.removeEventListener("keydown", closeMenuWithKeyboard)
-    })
   })
 
+  createEffect(
+    on(
+      () => latestAutomation()?.id,
+      () => {
+        const latest = latestAutomation()
+        if (!latest) return
+        batch(() => {
+          closeSessionPanels()
+          setWorkbench({ active: latest.tool, automation: latest.tool })
+        })
+      },
+    ),
+  )
+
+  let previousPanels = { review: false, terminal: false, files: false }
   createEffect(() => {
-    const latest = latestAutomation()
-    if (!latest) return
-    setWorkbench("active", latest.tool)
-    view.reviewPanel.close()
-    layout.fileTree.close()
+    const next = {
+      review: reviewOpen(),
+      terminal: terminalOpen(),
+      files: fileTreeOpen(),
+    }
+    const opened = (Object.keys(next) as Array<keyof typeof next>).filter((key) => next[key])
+
+    if (opened.length === 0) {
+      if (!isAutomationSurface(workbench.active)) setWorkbench("active", workbench.automation)
+      previousPanels = next
+      return
+    }
+
+    const active = !isAutomationSurface(workbench.active) && next[workbench.active] ? workbench.active : undefined
+    const newlyOpened = opened.find((key) => !previousPanels[key])
+    const selected = active ?? newlyOpened ?? opened[opened.length - 1]
+
+    if (selected === "review") closeSessionPanels("review")
+    if (selected === "terminal") closeSessionPanels("terminal")
+    if (selected === "files") {
+      closeSessionPanels("files")
+      view.reviewPanel.open()
+    }
+    if (workbench.active !== selected) setWorkbench("active", selected)
+
+    previousPanels = next
   })
 
-  const toggleReview = () => {
-    const opening = !view.reviewPanel.opened()
-    if (opening) layout.fileTree.close()
-    view.reviewPanel.toggle()
-  }
-
-  const toggleFiles = () => {
-    const opening = !layout.fileTree.opened()
-    if (opening) view.reviewPanel.close()
-    layout.fileTree.toggle()
-  }
-
-  const showAutomation = (surface: AutomationSurface) => {
-    view.reviewPanel.close()
-    layout.fileTree.close()
-    setWorkbench({ active: surface, menu: false })
-  }
+  const workbenchTabs = createMemo<
+    Array<{
+      surface: WorkbenchSurface
+      label: string
+      icon: Parameters<typeof Icon>[0]["name"]
+      disabled?: boolean
+      running?: boolean
+    }>
+  >(() => [
+    {
+      surface: "review",
+      label: "Review",
+      icon: "checklist",
+      disabled: !available(),
+    },
+    {
+      surface: "terminal",
+      label: "Terminal",
+      icon: "console",
+      disabled: !available(),
+    },
+    {
+      surface: "browser",
+      label: "Browser",
+      icon: "window-cursor",
+      running: hasRunningAutomation("browser"),
+    },
+    {
+      surface: "computer",
+      label: "Computer",
+      icon: "console",
+      running: hasRunningAutomation("computer"),
+    },
+    {
+      surface: "files",
+      label: "Files",
+      icon: "folder",
+      disabled: !available(),
+    },
+  ])
 
   return (
     <aside
       class="desktop-tools"
       classList={{
-        "desktop-tools--covered": sidePanelOpen(),
-        "desktop-tools--review": reviewOnlyOpen(),
-        "desktop-tools--files": fileTreeOpen(),
+        "desktop-tools--automation": isAutomationSurface(workbench.active),
+        "desktop-tools--review": reviewTabOpen(),
+        "desktop-tools--terminal": terminalTabOpen(),
+        "desktop-tools--files": fileTabOpen(),
       }}
-      style={{ bottom: terminalBottom() }}
+      style={{ bottom: "0px" }}
       aria-label="Workspace tools"
     >
-      <div class="desktop-workbench__bar">
-        <button type="button" class="desktop-workbench__tab" aria-current="page">
-          <Icon name={workbench.active === "browser" ? "window-cursor" : "console"} size="small" />
-          <span>{workbench.active === "browser" ? "Browser" : "Computer"}</span>
-          <Show when={latestPart()?.state.status === "running"}>
-            <span class="desktop-workbench__running" />
-          </Show>
-        </button>
-        <div class="desktop-workbench__menu-host" ref={menuHost}>
-          <button
-            type="button"
-            class="desktop-workbench__add"
-            aria-label="Open workspace tool"
-            aria-expanded={workbench.menu}
-            onClick={() => setWorkbench("menu", (value) => !value)}
-          >
-            <Icon name="plus-small" size="small" />
-          </button>
-          <Show when={workbench.menu}>
-            <div class="desktop-workbench__menu" role="menu">
-              <ToolButton
-                icon="checklist"
-                label="Review"
-                keybind={command.keybind("review.toggle")}
-                active={available() && view.reviewPanel.opened()}
-                disabled={!available()}
-                onClick={() => {
-                  setWorkbench("menu", false)
-                  toggleReview()
-                }}
-              />
-              <ToolButton
-                icon="console"
-                label="Terminal"
-                keybind={command.keybind("terminal.toggle")}
-                active={available() && view.terminal.opened()}
-                disabled={!available()}
-                onClick={() => {
-                  setWorkbench("menu", false)
-                  command.trigger("terminal.toggle")
-                }}
-              />
-              <ToolButton
-                icon="window-cursor"
-                label="Browser"
-                active={workbench.active === "browser" && !sidePanelOpen()}
-                onClick={() => showAutomation("browser")}
-              />
-              <ToolButton
-                icon="console"
-                label="Computer"
-                active={workbench.active === "computer" && !sidePanelOpen()}
-                onClick={() => showAutomation("computer")}
-              />
-              <ToolButton
-                icon="folder"
-                label="Files"
-                keybind={command.keybind("fileTree.toggle")}
-                active={available() && layout.fileTree.opened()}
-                disabled={!available()}
-                onClick={() => {
-                  setWorkbench("menu", false)
-                  toggleFiles()
-                }}
-              />
-            </div>
-          </Show>
-        </div>
+      <div
+        class="desktop-workbench__bar"
+        role="tablist"
+        aria-label="Workspace tool tabs"
+        onKeyDown={handleTabKeyDown}
+      >
+        <For each={workbenchTabs()}>
+          {(tab) => (
+            <button
+              type="button"
+              role="tab"
+              class="desktop-workbench__tab"
+              classList={{ "desktop-workbench__tab--active": workbench.active === tab.surface }}
+              aria-selected={workbench.active === tab.surface}
+              aria-controls={workbench.active === tab.surface ? panelControl(tab.surface) : undefined}
+              title={tab.label}
+              disabled={tab.disabled}
+              onClick={() => openSurface(tab.surface)}
+            >
+              <Icon name={tab.icon} size="small" />
+              <span>{tab.label}</span>
+              <Show when={tab.running}>
+                <span class="desktop-workbench__running" />
+              </Show>
+            </button>
+          )}
+        </For>
       </div>
-      <AutomationPanel surface={workbench.active} part={latestPart()} />
+      <Show when={isAutomationSurface(workbench.active)}>
+        <AutomationPanel surface={activeAutomation()} part={latestPart()} />
+      </Show>
     </aside>
   )
 }
