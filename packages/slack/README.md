@@ -68,6 +68,15 @@ features:
   bot_user:
     display_name: nikcli
     always_online: true
+  assistant_view:
+    # AI Assistant panel (the Claude-icon side panel surface)
+    assistant_description: AI coding assistant
+    suggested_prompts: []
+  slash_commands:
+    - command: /nikcli-tools
+      description: Manage per-channel tool policy (admins)
+      usage_hint: "[list | allow <tool> | deny <tool> | reset]"
+      should_escape: false
   event_subscriptions:
     enabled: true
     request_url: https://your-worker.workers.dev/slack/events
@@ -78,19 +87,30 @@ oauth_config:
   scopes:
     bot:
       - app_mentions:read
+      - assistant:write
       - chat:write
+      - commands
       - channels:history
       - groups:history
+      - im:history
+      - mpim:history
       - files:read
 settings:
   event_subscriptions:
     bot_events:
-      - app_mentions
+      - app_mention
+      - assistant_thread_started
+      - assistant_thread_context_changed
       - message.channels
       - message.groups
+      - message.im
+      - message.mpim
   interactivity:
     placeholder_text: Ask nikcli...
   org_deploy_enabled: false
+  # Socket Mode (src/index.ts) needs socket_mode_enabled: true + an app-level
+  # token with connections:write. The Cloudflare Worker (src/worker.ts) uses
+  # HTTP events instead, so keep this false for the Worker deployment.
   socket_mode_enabled: false
 ```
 
@@ -147,6 +167,15 @@ Reinstall the app.
 | `GITHUB_TOKEN`         | No       | GitHub token for GitHub Actions mode                        |
 | `GITHUB_REPO`          | No       | GitHub repo (e.g., `owner/repo`) for Actions                |
 | `GITHUB_ACTIONS_MODE`  | No       | Set to `"true"` to use GitHub Actions instead of direct API |
+| `SLACK_CHANNEL_MEMORY` | No       | `"false"` disables per-channel memory (default on)          |
+| `SLACK_CHANNEL_MEMORY_SIZE` | No  | Max remembered requests per channel (default `12`)          |
+| `SLACK_FOLLOWUPS`      | No       | `"false"` disables autonomous follow-ups (default on)       |
+| `SLACK_FOLLOWUP_SLOW_MS` | No     | Warn a job is slow after this many ms (default `120000`)    |
+| `SLACK_FOLLOWUP_DONE_MS` | No     | Only ping on completion if job ran ≥ this many ms (`20000`) |
+| `SLACK_DEFAULT_TOOLS`  | No       | Workspace tool defaults, e.g. `bash=false,write=false`      |
+| `SLACK_ADMIN_USERS`    | No       | Comma-separated Slack user IDs allowed to run `/nikcli-tools`|
+| `CHANNEL_MEMORY_FILE`  | No       | Path for channel memory store (default `/tmp/...`)          |
+| `CHANNEL_TOOLS_FILE`   | No       | Path for channel tool policy store (default `/tmp/...`)     |
 
 ## Commands
 
@@ -162,6 +191,25 @@ Features:
 - Voice message transcription (with `OPENAI_API_KEY`)
 - Thread-based sessions (continue conversations in threads)
 - Session sharing via URL
+
+### Claude Tag–style surfaces & behaviours
+
+The Socket Mode bot (`src/index.ts`) brings the nikcli agent to Slack the way
+Claude Tag does:
+
+- **Channel tagging** — `@nikcli <task>` in any channel; work happens in the thread.
+- **Direct messages** — DM the bot to work privately.
+- **AI Assistant panel** — open the assistant side panel and chat with nikcli from
+  anywhere in Slack. Shows suggested prompts and a live "is thinking…" status.
+- **Channel memory** — the bot remembers salient requests per channel (across
+  threads) and feeds them back as context on new sessions. Toggle with
+  `SLACK_CHANNEL_MEMORY=false`.
+- **Autonomous follow-ups** — it pings the requester when a long-running job
+  finishes and warns (tagging them) when a job is taking unusually long. Toggle
+  with `SLACK_FOLLOWUPS=false`.
+- **Per-channel tool policy** — admins restrict which nikcli tools the bot may use
+  in each channel via `/nikcli-tools allow|deny <tool>`. Defaults come from
+  `SLACK_DEFAULT_TOOLS`; admins are listed in `SLACK_ADMIN_USERS`.
 
 ## Development
 

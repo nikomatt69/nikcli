@@ -56,6 +56,14 @@ features:
   bot_user:
     display_name: nikcli
     always_online: true
+  assistant_view:
+    assistant_description: AI coding assistant
+    suggested_prompts: []
+  slash_commands:
+    - command: /nikcli-tools
+      description: Manage per-channel tool policy (admins)
+      usage_hint: "[list | allow <tool> | deny <tool> | reset]"
+      should_escape: false
   event_subscriptions:
     enabled: true
     request_url: https://slack.nikcli.store/slack/events
@@ -66,16 +74,24 @@ oauth_config:
   scopes:
     bot:
       - app_mentions:read
+      - assistant:write
       - chat:write
+      - commands
       - channels:history
       - groups:history
+      - im:history
+      - mpim:history
       - files:read
 settings:
   event_subscriptions:
     bot_events:
-      - app_mentions
+      - app_mention
+      - assistant_thread_started
+      - assistant_thread_context_changed
       - message.channels
       - message.groups
+      - message.im
+      - message.mpim
   interactivity:
     placeholder_text: Ask nikcli...
   org_deploy_enabled: false
@@ -83,6 +99,14 @@ settings:
 ```
 
 > **Nota:** L'URL `https://slack.nikcli.store` sarà disponibile dopo il deployment.
+>
+> **Socket Mode (consigliato, `bun run dev`):** imposta `socket_mode_enabled: true`,
+> rimuovi i due `request_url`, e in **Basic Information → App-Level Tokens** crea un
+> token con scope `connections:write` (è il tuo `SLACK_APP_TOKEN`, `xapp-…`).
+>
+> **AI Assistant panel:** dopo aver incollato il manifest, abilita anche
+> **Features → Agents & AI Apps** (Agent/Assistant) per far comparire il pannello laterale.
+> Lo scope `assistant:write` e gli eventi `assistant_thread_*` sono già nel manifest.
 
 ### 1.4 Clicca **"Next"** poi **"Create"**
 

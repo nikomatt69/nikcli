@@ -1,15 +1,18 @@
 # nikcli Project Memory
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-06-26
+**Version**: 1.120.0 | **Branch**: `live-main` (working) / `nikoemme-main` (default per AGENTS.md)
+**Repo**: `github.com/nikomatt69/nikcli` — fork of [OpenCode](https://github.com/sst/opencode) (SST)
 
 ## Overview
 
 ### Core
 
-- **Bun** (v1.3.x) — runtime, package manager
+- **Bun** 1.3.14 — runtime, package manager
 - **TypeScript** 5.8/5.9 — primary language (also `tsgo` for typecheck)
 - **Turborepo** — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)
+- **Effect** 4.0.0-beta.65 — typed runtime/dependency injection (migration in progress, 9-epoch plan)
 
 ### Frontend
 
@@ -29,12 +32,14 @@
 
 ### AI / LLM
 
-- **Vercel AI SDK** (`ai` 5.0.119) — core orchestration
-- **17 bundled providers**: Anthropic, OpenAI, Google, Vertex, Bedrock, Azure, Groq, Cerebras, Cohere, DeepInfra, Mistral, Perplexity, Together, Vercel, xAI, OpenRouter, GitLab
+- **Vercel AI SDK** (`ai` 5.0.119, v2 of `@ai-sdk/*`) — core orchestration
+- **17+ bundled providers**: Anthropic, OpenAI, Google, Vertex, Bedrock, Azure, Groq, Cerebras, Cohere, DeepInfra, Mistral, Perplexity, Together, Vercel Gateway, xAI, OpenRouter, GitLab, plus **custom plugin providers**: GitHub Copilot (custom SDK in `provider/sdk/copilot/`), Cloudflare, Codex, Cursor, XAI
 - **Ollama** — auto-discovered locally, configurable base URL
 - **MCP** (`@modelcontextprotocol/sdk` 1.25.2) — Model Context Protocol
 - **ACP** (`@agentclientprotocol/sdk` 0.5.1) — Agent Client Protocol (IDE integration, e.g. Zed)
 - **Chat adapters**: Discord, Slack, GitHub, Linear, Teams, Google Chat (with Redis/memory state)
+- **Provider state cached** via `Instance.state(...)`: long-lived processes keep older resolved provider sets until instance disposal/recreation
+- **`models --refresh` only refreshes models.dev cache** — provider-specific catalogs (Ollama, GitHub Copilot) come from their own runtime fetch paths
 
 ### Database & Storage
 
@@ -45,40 +50,49 @@
 
 ### Infrastructure
 
-- **SST** 3.17.38 — infrastructure as code
+- **SST** 3.19.3 — infrastructure as code (`infra/{app,console,enterprise,secret,stage}.ts`)
 - **Cloudflare Workers** — edge deployment
 - **Tauri v2** — desktop app (Rust + WebView, 96.6 MB build output)
 - **Expo** 52.0.46 / **React Native** 0.76.7 — mobile (iOS + Android)
-- **Docker** — `Dockerfile` (mobile host) + `Dockerfile.serve` (Railway SSH serve with Bun + Homebrew + Node.js pre-installed)
+- **Railway** (`railway.toml`) + **Fly.io** (`fly.toml`) — alternative deploy surfaces
+- **Docker** — `Dockerfile` (mobile host) + `Dockerfile.serve` + `docker-compose.serve.yml`
 - **Nix** — reproducible builds (`flake.nix`)
 - **GitHub Actions** — 23 workflows
+- **Homebrew tap** — `homebrew-tap/nikcli.rb`
+- **Patched deps** — 5 active patches in `patches/` (openrouter, fff-bun, photon-node, expo-modules-jsi, ghostty-web)
 
-## Monorepo Structure (21+ packages)
+## Monorepo Structure (27 packages)
 
 | Package                     | Name                          | Description                                                                                                   |
 | --------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `packages/nikcli`           | `nikcli`                      | **Core** — CLI, 14 agent types, 40+ tools, Hono server, OpenTUI TUI, session management                       |
+| `packages/nikcli`           | `nikcli`                      | **Core** — CLI (38+ subcommands), 60+ tools, Hono server + HTTP API, OpenTUI TUI, sessions, MCP/ACP, Effect migration |
+| `packages/sdk/js`           | `@nikcli-ai/sdk`              | JS SDK (client/server/crypto/cloud/v2 — auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`) |
+| `packages/llm`              | `@nikcli-ai/llm`              | LLM provider factories (modular, used by `provider/`)                                                         |
+| `packages/util`             | `@nikcli-ai/util`             | Shared utilities (fn, error, retry, slug, path — Zod-based)                                                   |
 | `packages/app`              | `@nikcli-ai/app`              | Shared web UI (SolidJS)                                                                                       |
 | `packages/ui`               | `@nikcli-ai/ui`               | UI component library, icons, themes, i18n                                                                     |
-| `packages/util`             | `@nikcli-ai/util`             | Shared utilities (error, slug, retry — Zod-based)                                                             |
-| `packages/sdk/js`           | `@nikcli-ai/sdk`              | JS SDK (client/server/crypto/cloud/v2 — auto-generated from OpenAPI)                                          |
 | `packages/nikcli-plugins/`  | `nikcli-plugins`              | External TUI plugin package (music, greet, matrix, starwars, weather, win95, pomodoro, calcio, pills, crypto) |
-| `packages/plugin`           | `@nikcli-ai/plugin`           | Plugin system core + 11 built-in plugins                                                                      |
-| `packages/desktop`          | `@nikcli-ai/desktop`          | Tauri v2 desktop app (16 languages: en, es, fr, de, ja, ko, zh, zht, ru, pl, ar, br, bs, da, no, sv)          |
-| `packages/mobile`           | `@nikcli-ai/mobile`           | Expo/React Native mobile (iOS + Android)                                                                      |
+| `packages/plugin`           | `@nikcli-ai/plugin`           | Plugin system core + bundled plugins (codex, cursor, github-copilot, openai, cloudflare, xai)                  |
+| `packages/desktop`          | `@nikcli-ai/desktop`          | Tauri v2 desktop app (16 languages)                                                                           |
+| `packages/mobile`           | `@nikcli-ai/mobile`           | Expo/React Native mobile (iOS + Android) — companion with QR pairing                                         |
 | `packages/enterprise`       | `@nikcli-ai/enterprise`       | Enterprise web app (SolidStart + Nitro)                                                                       |
 | `packages/cloud`            | `@nikcli-ai/cloud`            | Cloudflare Workers backend (D1, Durable Objects, jose JWT)                                                    |
 | `packages/companion`        | `@nikcli-ai/companion`        | Companion server (Hono + WebSocket + Cloudflare Workers)                                                      |
 | `packages/remote`           | `@nikcli-ai/remote`           | Remote terminal via WebSocket + QR code + tunnels                                                             |
 | `packages/slack`            | `@nikcli-ai/slack`            | Slack bot (@slack/bolt + Cloudflare Workers)                                                                  |
-| `packages/web`              | `@nikcli-ai/web`              | Marketing/docs site (Astro + React + Cloudflare)                                                              |
+| `packages/web`              | `@nikcli-ai/web`              | Marketing/docs site at `nikcli.store` (Astro + React + Cloudflare)                                           |
+| `packages/inference`        | `@nikcli-ai/inference`        | Inference service                                                                                             |
+| `packages/inference-dashboard` | `@nikcli-ai/inference-dashboard` | Analytics dashboard (Astro)                                                                                |
 | `packages/webrenderer`      | `@opentui/webrenderer`        | Native Rust web renderer (wry/tao) for TUI bridge                                                             |
+| `packages/tui-image`        | `@nikcli-ai/tui-image`        | TUI image rendering helpers                                                                                   |
+| `packages/terminal-control` | `@nikcli-ai/terminal-control` | Terminal control primitives                                                                                   |
+| `packages/bench-tui`        | `@nikcli-ai/bench-tui`        | TUI benchmarking                                                                                              |
 | `packages/function`         | `@nikcli-ai/function`         | Serverless function (Hono + Cloudflare Workers)                                                               |
-| `packages/console/app`      | `@nikcli-ai/console-app`      | Console dashboard (SolidStart)                                                                                |
-| `packages/console/core`     | `@nikcli-ai/console-core`     | Console backend (Drizzle ORM + Stripe, 55 migrations)                                                         |
-| `packages/console/function` | `@nikcli-ai/console-function` | Console serverless functions                                                                                  |
-| `packages/console/resource` | `@nikcli-ai/console-resource` | Console resource abstraction (Cloudflare/Node)                                                                |
-| `packages/console/mail`     | `@nikcli-ai/console-mail`     | Email templates (jsx-email)                                                                                   |
+| `packages/script`           | `@nikcli-ai/script`           | Cross-package scripting helpers                                                                               |
+| `packages/http-recorder`    | `@nikcli-ai/http-recorder`    | HTTP recording test fixture                                                                                   |
+| `packages/extensions/zed`   | `@nikcli-ai/zed`              | Zed editor integration                                                                                        |
+| `packages/containers/{base,bun-node,publish,rust,tauri-linux}` | `@nikcli-ai/containers-*` | Container build assets            |
+| `packages/console/{app,core,function,mail,resource}` | `@nikcli-ai/console-*` | Console sub-monorepo (SolidStart + Drizzle + Stripe + jsx-email)                          |
 | `github/`                   | `github`                      | GitHub Action composite action                                                                                |
 
 ### Repository Root Structure
@@ -154,29 +168,49 @@
 - `method()` returns: `"bun"` | `"npm"` | `"pnpm"` | `"yarn"` | `"brew"` | `"curl"` | `"choco"` | `"scoop"` | `"unknown"`
 - `upgradeImpl()`: handles upgrade per method — for `"brew"` uses `brew upgrade <formula>` with `HOMEBREW_NO_AUTO_UPDATE=1`
 
-### CLI Commands (32 commands)
+### CLI Commands (38+ commands)
 
-`run`, `serve`, `workspace-serve`, `generate`, `auth`, `agent`, `models`, `mcp`, `github`, `pr`, `session`, `rag-model`, `image-model`, `speak-model`, `remote`, `connectors`, `chatbot`, `lovable`, `ads`, `companion`, `mobile`, `plugin`, `acp`, `web`, `export`, `import`, `debug`, `stats`, `upgrade`, `uninstall`
-Plus TUI subcommands: `tui/attach`, `tui/thread`
+`run`, `goal`, `generate`, `agent`, `auth`, `account`, `upgrade`, `quickstart`, `doctor`, `uninstall`, `models`, `locale`, `serve`, `web`, `heap`, `stats`, `export`, `import`, `github`, `pr`, `session`, `image-model`, `speak-model`, `brain-model`, `remote`, `teleport`, `ads`, `companion`, `mobile`, `plug`, `routine`, `usage`, `mission`, `acp`, `mcp`, `connectors`, `chatbot`, `workspace-serve`
+Plus TUI subcommands: `tui/attach`, `tui/thread`, `debug`
 
 **Adding a new command:**
 
 1. Create `src/cli/cmd/<name>.ts` exporting a yargs `CommandModule`
-2. Import it in `src/index.ts:3` and register via `.command(...)` in `src/index.ts:95`
+2. Import it in `src/index.ts` and register via `.command(...)`
 3. For server/API-backed features: add route in `src/server/routes/` first, then call from CLI
+4. `process.on(SIGHUP)` ensures `serve` doesn't outlive its terminal
 
 ### Runtime Model
 
 - Most commands enter runtime via `bootstrap()` in `src/cli/bootstrap.ts:4` wrapping `Instance.provide(...)` from `src/project/instance.ts:54`
 - `Instance` is the core runtime container; resolves project/worktree, memoizes state per directory, handles teardown
 - Runtime init in `src/project/bootstrap.ts:18` wires: plugins, sharing, formatters, LSP, file watching, VCS, snapshots, truncation, todos, delegation
+- `InstanceBootstrap` (`bootstrap.ts`) fires: `Plugin.init()` (blocking), then `ShareNext`, `Format`, `FileWatcher`, `File`, `Vcs`, `Snapshot`, `Truncate`, `Todo`, `SessionV2` projector (fire-and-forget), then `LSP.init()` (blocking), then `Delegation.init()`, `Monitor.reconcile()`, `LoopEngine.restore()`, `MissionOrchestrator.restore()`, `Routine.restoreSchedulers()`. Subscribes to `Command.Event.Executed` → marks project initialized after `Command.Default.INIT`.
 - **Architectural seam**: CLI commands stay thin; real behavior hangs off `Instance` + bootstrapped subsystems
+
+### Effect Runtime (`src/effect/`) — **NEW**
+
+Thin wrappers over Effect 4 (`effect@4.0.0-beta.65`):
+
+- `instance-state.ts` — per-instance state via `InstanceState.make`
+- `instance-scope.ts` — `locallyInstance(ctx, effect)` scopes to a directory
+- `instance-ref.ts` — instance-scoped `Ref`
+- `runtime.ts` — `AppRuntime.runPromise`, `runPromiseWithLayer`
+- `run-service.ts` — `runService(Service, effect, withCurrentInstance?)`
+- `with-instance.ts` — `withCurrentInstance`, `withInstanceAsync`
+
+**Canonical pattern** repeated everywhere:
+```ts
+runX<A,E>(effect) = runPromiseWithLayer(X.defaultLayer, withCurrentInstance(effect))
+```
+
+**Bridge layer** (`src/server/httpapi/bridge.ts`): old Hono routes + new typed Hono `HttpApi` coexist during migration. The 9-epoch integration plan in `packages/nikcli/specs/integration-master-plan.md` is the authoritative sequencing — `effect/MASTER-PLAN.md` is kept for detail only.
 
 ### Agent System (`src/agent/agent.ts`)
 
 Zod schema `Agent.Info` with fields: name, description, mode, native, hidden, topP, temperature, color, permission, model, variant, prompt, options, steps.
 
-**14 built-in agents:**
+**Built-in agents (14 primary + subagents via Task tool delegation):**
 | Agent | Mode | Description |
 |-------|------|-------------|
 | `ralph` | primary | Autonomous loop agent (iterates until complete, supports `steps` option) |
@@ -186,21 +220,23 @@ Zod schema `Agent.Info` with fields: name, description, mode, native, hidden, to
 | `explore` | all | Fast codebase exploration (read, grep, glob, bash, web) |
 | `fast-explore` | all | Read-only quick inspection (read, grep, glob, list, tree) |
 | `planner` | all | Multi-step implementation strategies |
+| `scout` | all | Read-only external library research |
 | `code-reviewer` | all | Quality and safety review |
 | `debugger` | all | Root cause analysis + minimal fixes |
 | `test-runner` | all | Test execution + failure analysis |
 | `refactor` | all | Safe refactoring without behavior changes |
+| `ultrareview` | all | Multi-agent parallel review fleet (uses `code-reviewer` parallel agents) |
 | `compaction` | primary (hidden) | Session compaction |
 | `title` | primary (hidden) | Title generation (temp: 0.5) |
 | `summary` | primary (hidden) | Summary generation |
 
-`SUBAGENT_TOOLSETS` defines restricted toolsets per subagent type.
-Custom agents from `nikcli.json` config extend/override built-ins.
+`SUBAGENT_TOOLSETS` defines restricted toolsets per subagent type. Custom agents from `nikcli.json` config extend/override built-ins. Agent prompts can be specialized via `.txt` files in `agent/*.txt`.
 
 ### Session System (`src/session/`)
 
 - `Session.Info` Zod schema: id, slug, projectID, directory, parentID, workspaceID, share, github, title, version, time, permission, skills, revert
 - **MessageV2**: `{ type: "text" | "reasoning" | "tool" | "file" | "step-start" | "step-finish" | "snapshot" | "patch" | "agent" | "retry" | "compaction" | "subtask" }` — with optional `usage` (input/total/cached), `finish_reason`, `model_id`, `cost` fields on each message
+- **SessionV2** (`session/v2/`): event-sourced engine (newer than legacy session/) — projector fired in `InstanceBootstrap`
 - **SessionProcessor** (`processor.ts`): doom loop detection (threshold: 3), compaction check, permission deny handling, retry logic
 - **LLM streaming** (`llm.ts`): full stream with reasoning-start/delta/end, text-delta, tool-call, tool-result, error, finish; `looksLikeUIMessage()` + `repairMessage()` for malformed UI-shaped messages (fixes `AI_InvalidPromptError`); drops unrecoverable messages with warning
 - **ShareNext** (`share-next.ts`): syncs session data to enterprise endpoint (`s.nikcli.store`), with local fallback
@@ -244,11 +280,46 @@ Runtime command catalog merges: built-ins, config commands, MCP prompts, connect
 
 ### Tool Registry (`src/tool/registry.ts`)
 
-**44+ registered tools** (from `all()` function):
-Invalid, Question (client-only), Bash, Read, Tree, Glob, Grep, Edit, Write, Task, Docs (add/search/load/unload/context/request/gap-report), SmartDocs, Context (collect/search/related/diagnostics), MemorySearch, Rag (index/search/status/reset), GenerateImage, WebFetch, Todo (write/read), WebSearch, CodeSearch, Skill, ApplyPatch, LSP (experimental), Batch (experimental), Plan (enter/exit, experimental), UseConnector, Speak
+**60+ registered tools** (43 in main registry + dynamic loaders):
+
+| Category | Tools |
+|---|---|
+| **File/code** | `read`, `write`, `edit`, `multiedit`, `apply_patch`, `glob`, `grep`, `ls`, `tree`, `truncation`, `truncation-dir` |
+| **Shell/exec** | `bash`, `monitor` (background runner), `exec_code` |
+| **Web/search** | `webfetch`, `websearch`, `codesearch`, `repo_clone`, `repo_overview` |
+| **Browser/computer** | `browser` (Browser Use Cloud SDK v3, persistent sessions via `keepAlive:true`), `computer` (sandbox/host modes, requires Colima on macOS) |
+| **Context** | `context_collect`, `context_related`, `context_diagnostics`, `context_search`, `memory_search` |
+| **Planning/agents** | `task` (37KB — largest), `delegation`, `delegator`, `advisor`, `plan-enter`, `plan-exit`, `todo` (write/read), `goal` |
+| **Output media** | `generate_image`, `speak`, `voice` (with `speak/{elevenlabs,openrouter,provider}.ts`) |
+| **System** | `lsp`, `question`, `skill`, `batch`, `monitor` |
+| **Generative UI** | `opentui` (32KB — emits reactive Solid components via TUI) |
+| **Misc** | `search_tools`, `invalid`, `external-directory`, `mcp-exa` |
+
+**Author interface** (`Tool.define(id, init)`): normalizes both Promise- and Effect-returning `execute` into a unified `Tool.Def` where `execute` always returns `Effect.Effect<Result, Error>`. A compat `executeAsync(args, ctx)` wraps it via `AppRuntime.runPromise(...)`. Truncation runs automatically post-execute via `Truncate.Service` (best-effort, swallows errors).
+
+**Two-layer description pattern**: each tool has a sibling `.txt` file with prompt instructions (`advisor.txt`, `apply_patch.txt`, `bash.txt`, etc.) — used by the agent system when assembling prompts.
 
 Plus dynamically loaded tools from `tool/*.{js,ts}` files and plugin tools.
 Conditional: `codesearch`/`websearch` require nikcli provider or `NIKCLI_ENABLE_EXA`. `apply_patch` used for GPT models, `edit`/`write` for others.
+
+### Browser Tool (`src/tool/browser.ts` + `src/browser/browser.ts`) — **NEW**
+
+3-layer architecture: `tool/browser.ts` → wrapper `Tool.define` with zod schema; `browser/browser.ts` → namespace `Browser` with singleton SDK state + cleanup on shutdown; `tui/component/dialog-browser-use.tsx` → SolidJS dialog for setup + model selection.
+
+- **4 actions exposed**: `run` (task), `status`, `messages`, `stop`
+- **Auth chain**: `process.env.BROWSER_USE_API_KEY` → auth vault `providerID: "browser-use"`
+- **Persistence**: `keepAlive:true` + per-nikcli-session reuse — cookies, tabs, login state carried across conversation turns
+- **Default conservative flags** (all `false`, browser-only mode): `skills`, `agentmail`, `enableScheduledTasks`
+- **Supported models** (`Browser.MODELS`): `bu-mini`, `bu-max`, `bu-ultra`, `gemini-3-flash`, `claude-sonnet-4.6`, `claude-opus-4.6`, `claude-opus-4.7`, `gpt-5.4-mini`. Only `claude-sonnet-4.6`, `claude-opus-4.6`, `gpt-5.4-mini` are natively billable — others require BYO provider key (gap: dialog doesn't warn)
+- **Cost cap**: default $1, configurable up to $100 via `maxCostUsd`
+
+### Computer Tool (`src/tool/computer.ts`) — **NEW**
+
+- **Modes**: `sandbox` (default, isolated Linux container — needs Colima on macOS, runs Fluxbox minimal desktop) or `host` (drives user's real machine, requires Screen Recording + Accessibility permissions)
+- Screenshots returned inline; need `screenshot` action first to bootstrap sandbox image build
+- Coordinates are screen pixels with (0,0) at top-left
+- First action may take a while while the desktop image is built
+- Never destructive without explicit instruction
 
 ### Permission System (`src/permission/next.ts`)
 

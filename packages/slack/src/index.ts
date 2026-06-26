@@ -1,4 +1,4 @@
-import { App, type SayFn } from "@slack/bolt"
+import { App, Assistant, type SayFn } from "@slack/bolt"
 import {
   createNikcli,
   createNikcliClient,
@@ -7,6 +7,9 @@ import {
   type ToolPart,
   type ToolStateCompleted,
 } from "@nikcli-ai/sdk"
+import { ChannelMemory } from "./channel-memory"
+import { ChannelTools } from "./channel-tools"
+import { FollowUps } from "./followups"
 
 const NIKCLI_MODEL = process.env.NIKCLI_MODEL ?? "minimax-coding-plan/MiniMax-M2.5"
 const allowedChannels = new Set((process.env.SLACK_ALLOWED_CHANNELS ?? "").split(/[\s,]+/).filter(Boolean))
@@ -133,6 +136,17 @@ try {
   // file doesn't exist yet — fresh start
 }
 
+// Per-channel memory + tool policy + autonomous follow-ups
+await ChannelMemory.init()
+await ChannelTools.init()
+FollowUps.configure({
+  post: async (channel, thread, text) => {
+    await app.client.chat
+      .postMessage({ channel, thread_ts: thread, text: formatForSlack(text), ...botUsernameOpts })
+      .catch((err) => console.error("Follow-up post failed:", err))
+  },
+})
+
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 async function persistSessions(): Promise<void> {
   try {
@@ -207,6 +221,10 @@ async function subscribeToEvents(): Promise<void> {
     try {
       const events = await nikcli.client.event.subscribe()
       for await (const event of events.stream) {
+        if (event.type === "session.idle") {
+          FollowUps.onSessionIdle(event.properties.sessionID)
+          continue
+        }
         if (event.type !== "message.part.updated") continue
         const part = event.properties.part
 
@@ -263,6 +281,10 @@ app.message(async (args) => {
   const botId = typeof args.context?.botUserId === "string" ? args.context.botUserId : ""
   const direct = message.channel_type === "im" || message.channel_type === "mpim" || message.channel.startsWith("D")
 
+  // Messages inside the AI Assistant panel are threaded IMs handled by the
+  // Assistant middleware — skip them here to avoid double-processing.
+  if (message.channel_type === "im" && message.thread_ts) return
+
   // Handle file_share events (audio transcription) — only pure file shares, not text+file combos
   if (message.subtype === "file_share") {
     const msgText = message.text ?? ""
@@ -287,7 +309,10 @@ app.message(async (args) => {
         ...botUsernameOpts,
       })
 
-      await processPrompt(transcript, channel, thread, args.say)
+      await processPrompt(transcript, channel, thread, args.say, {
+        team: typeof args.context?.teamId === "string" ? args.context.teamId : undefined,
+        requester: message.user,
+      })
     } finally {
       PROCESSING_FILES.delete(file.id)
     }
@@ -319,13 +344,30 @@ app.message(async (args) => {
   }
 
   console.log("Processing message:", prompt)
-  await processPrompt(prompt, channel, thread, args.say)
+  await processPrompt(prompt, channel, thread, args.say, {
+    team: typeof args.context?.teamId === "string" ? args.context.teamId : undefined,
+    requester: userId || undefined,
+  })
 })
 
-async function processPrompt(prompt: string, channel: string, thread: string, say: SayFn): Promise<void> {
+async function processPrompt(
+  prompt: string,
+  channel: string,
+  thread: string,
+  say: SayFn,
+  opts: { team?: string; requester?: string } = {},
+): Promise<void> {
   const sessionKey = `${channel}-${thread}`
   const session = await getSession(sessionKey, channel, thread, say)
   if (!session) return
+
+  // Channel-scoped context + tool policy injected into the prompt.
+  const channelKey = ChannelMemory.keyOf(opts.team, channel)
+  ChannelMemory.record(channelKey, prompt)
+  const system = ChannelMemory.systemPreamble(channelKey)
+  const tools = ChannelTools.toolsFor(ChannelTools.keyOf(opts.team, channel))
+
+  FollowUps.startWork(session.sessionId, channel, thread, opts.requester)
 
   const thinkingMsg = await app.client.chat
     .postMessage({ channel, thread_ts: thread, text: "_Thinking…_", ...botUsernameOpts })
@@ -343,7 +385,12 @@ async function processPrompt(prompt: string, channel: string, thread: string, sa
         console.log("Sending to nikcli:", prompt)
         const result = await nikcli.client.session.prompt({
           path: { id: session.sessionId },
-          body: { parts: [{ type: "text", text: prompt }], ...modelBody },
+          body: {
+            parts: [{ type: "text", text: prompt }],
+            ...modelBody,
+            ...(system ? { system } : {}),
+            ...(tools ? { tools } : {}),
+          },
         })
 
         if (result.error) {
@@ -391,6 +438,41 @@ app.command("/test", async (args) => {
   await args.say("Bot is working!")
 })
 
+// Admin-managed per-channel tool policy: /nikcli-tools [list|allow <tool>|deny <tool>|reset]
+app.command("/nikcli-tools", async (args) => {
+  await args.ack()
+  const key = ChannelTools.keyOf(args.command.team_id, args.command.channel_id)
+  const reply = ChannelTools.handleCommand(args.command.text ?? "", key, args.command.user_id)
+  await args.respond({ response_type: "ephemeral", text: reply })
+})
+
+// AI Assistant panel surface (the Claude-icon side panel in Slack).
+const assistant = new Assistant({
+  threadStarted: async ({ say, setSuggestedPrompts }) => {
+    await say("Hi, I'm nikcli. Tell me what to build, debug, or investigate and I'll get to work.")
+    await setSuggestedPrompts({
+      title: "Try asking:",
+      prompts: [
+        { title: "Explain this repo", message: "Give me an overview of this repository." },
+        { title: "Fix failing tests", message: "Investigate and fix the failing tests." },
+        { title: "Open a PR", message: "Implement the change we discussed and open a pull request." },
+      ],
+    })
+  },
+  userMessage: async ({ message, say, setStatus, context }) => {
+    const m = message as { text?: string; channel?: string; thread_ts?: string; ts?: string; user?: string }
+    const text = m.text?.trim()
+    if (!text || !m.channel) return
+    const thread = m.thread_ts ?? m.ts ?? ""
+    await setStatus("is thinking…")
+    await processPrompt(text, m.channel, thread, say, {
+      team: typeof context?.teamId === "string" ? context.teamId : undefined,
+      requester: m.user,
+    })
+  },
+})
+app.assistant(assistant)
+
 // Graceful shutdown
 process.on("SIGTERM", () => shutdown())
 process.on("SIGINT", () => shutdown())
@@ -402,6 +484,8 @@ async function shutdown(): Promise<void> {
     persistTimer = null
     await persistSessions()
   }
+  FollowUps.stop()
+  await Promise.all([ChannelMemory.flush(), ChannelTools.flush()]).catch(() => {})
   await app.stop().catch(() => {})
   nikcli.server.close()
   process.exit(0)

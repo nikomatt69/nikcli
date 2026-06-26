@@ -19,6 +19,12 @@ COPY packages/remote/package.json packages/remote/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/companion/package.json packages/companion/
 COPY packages/slack/package.json packages/slack/
+COPY packages/llm/package.json packages/llm/
+COPY packages/tui-image/package.json packages/tui-image/
+COPY packages/webrenderer/package.json packages/webrenderer/
+COPY packages/http-recorder/package.json packages/http-recorder/
+# Explicit workspace member referenced by root package.json
+COPY github/package.json github/
 
 RUN bun install
 
@@ -31,8 +37,20 @@ COPY packages/remote packages/remote
 COPY packages/plugin packages/plugin
 COPY packages/companion packages/companion
 COPY packages/slack packages/slack
+COPY packages/llm packages/llm
+COPY packages/tui-image packages/tui-image
+COPY packages/webrenderer packages/webrenderer
+COPY packages/http-recorder packages/http-recorder
 
 RUN mkdir -p /app/repos
+
+# The SDK's createNikcli spawns `nikcli serve`. The published bin is a node
+# launcher that needs a prebuilt platform binary; in-container we run nikcli
+# straight from source via bun instead.
+# Run from the nikcli package dir so bun picks up its tsconfig
+# (jsxImportSource=@opentui/solid); otherwise bun defaults JSX to react.
+RUN printf '#!/bin/sh\ncd /app/packages/nikcli && exec bun --conditions=browser ./src/index.ts "$@"\n' > /usr/local/bin/nikcli \
+    && chmod +x /usr/local/bin/nikcli
 
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
