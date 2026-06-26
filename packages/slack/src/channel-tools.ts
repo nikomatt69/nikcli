@@ -18,9 +18,7 @@ export namespace ChannelTools {
   // Workspace-wide default, e.g. SLACK_DEFAULT_TOOLS="bash=false,write=false,edit=false"
   const defaults = parseToolSpec(process.env.SLACK_DEFAULT_TOOLS ?? "")
 
-  const adminUsers = new Set(
-    (process.env.SLACK_ADMIN_USERS ?? "").split(/[\s,]+/).filter(Boolean),
-  )
+  const adminUsers = new Set((process.env.SLACK_ADMIN_USERS ?? "").split(/[\s,]+/).filter(Boolean))
 
   export async function init(): Promise<void> {
     await store.load()

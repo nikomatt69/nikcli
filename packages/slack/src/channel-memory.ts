@@ -13,8 +13,7 @@ export namespace ChannelMemory {
     updatedAt: number
   }
 
-  const enabled =
-    process.env.SLACK_CHANNEL_MEMORY !== "false" && process.env.NIKCLI_SLACK_CHANNEL_MEMORY !== "false"
+  const enabled = process.env.SLACK_CHANNEL_MEMORY !== "false" && process.env.NIKCLI_SLACK_CHANNEL_MEMORY !== "false"
   const MAX_MESSAGES = Math.max(1, Number(process.env.SLACK_CHANNEL_MEMORY_SIZE ?? "12"))
   const MAX_LEN = 280
   const FILE = process.env.CHANNEL_MEMORY_FILE ?? "/tmp/slack-channel-memory.json"

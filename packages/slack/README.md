@@ -153,29 +153,29 @@ Reinstall the app.
 
 ## Environment Variables
 
-| Variable               | Required | Description                                                 |
-| ---------------------- | -------- | ----------------------------------------------------------- |
-| `SLACK_BOT_TOKEN`      | Yes      | Bot OAuth Token (`xoxb-...`)                                |
-| `SLACK_SIGNING_SECRET` | Yes      | Slack signing secret                                        |
-| `SLACK_CLIENT_ID`      | No       | Slack OAuth Client ID (for /slack/install)                  |
-| `SLACK_CLIENT_SECRET`  | No       | Slack OAuth Client Secret (for /slack/install)              |
-| `SLACK_APP_TOKEN`      | No       | Required only for Socket Mode (`bun run dev`)               |
-| `OPENAI_API_KEY`       | No       | OpenAI API for voice transcription                          |
-| `NIKCLI_URL`           | Yes      | Your nikcli server URL                                      |
-| `NIKCLI_USERNAME`      | No       | Basic Auth username (default: `nikcli`)                     |
-| `NIKCLI_PASSWORD`      | Yes      | Basic Auth password (`NIKCLI_SERVER_PASSWORD`)              |
-| `GITHUB_TOKEN`         | No       | GitHub token for GitHub Actions mode                        |
-| `GITHUB_REPO`          | No       | GitHub repo (e.g., `owner/repo`) for Actions                |
-| `GITHUB_ACTIONS_MODE`  | No       | Set to `"true"` to use GitHub Actions instead of direct API |
-| `SLACK_CHANNEL_MEMORY` | No       | `"false"` disables per-channel memory (default on)          |
-| `SLACK_CHANNEL_MEMORY_SIZE` | No  | Max remembered requests per channel (default `12`)          |
-| `SLACK_FOLLOWUPS`      | No       | `"false"` disables autonomous follow-ups (default on)       |
-| `SLACK_FOLLOWUP_SLOW_MS` | No     | Warn a job is slow after this many ms (default `120000`)    |
-| `SLACK_FOLLOWUP_DONE_MS` | No     | Only ping on completion if job ran ≥ this many ms (`20000`) |
-| `SLACK_DEFAULT_TOOLS`  | No       | Workspace tool defaults, e.g. `bash=false,write=false`      |
-| `SLACK_ADMIN_USERS`    | No       | Comma-separated Slack user IDs allowed to run `/nikcli-tools`|
-| `CHANNEL_MEMORY_FILE`  | No       | Path for channel memory store (default `/tmp/...`)          |
-| `CHANNEL_TOOLS_FILE`   | No       | Path for channel tool policy store (default `/tmp/...`)     |
+| Variable                    | Required | Description                                                   |
+| --------------------------- | -------- | ------------------------------------------------------------- |
+| `SLACK_BOT_TOKEN`           | Yes      | Bot OAuth Token (`xoxb-...`)                                  |
+| `SLACK_SIGNING_SECRET`      | Yes      | Slack signing secret                                          |
+| `SLACK_CLIENT_ID`           | No       | Slack OAuth Client ID (for /slack/install)                    |
+| `SLACK_CLIENT_SECRET`       | No       | Slack OAuth Client Secret (for /slack/install)                |
+| `SLACK_APP_TOKEN`           | No       | Required only for Socket Mode (`bun run dev`)                 |
+| `OPENAI_API_KEY`            | No       | OpenAI API for voice transcription                            |
+| `NIKCLI_URL`                | Yes      | Your nikcli server URL                                        |
+| `NIKCLI_USERNAME`           | No       | Basic Auth username (default: `nikcli`)                       |
+| `NIKCLI_PASSWORD`           | Yes      | Basic Auth password (`NIKCLI_SERVER_PASSWORD`)                |
+| `GITHUB_TOKEN`              | No       | GitHub token for GitHub Actions mode                          |
+| `GITHUB_REPO`               | No       | GitHub repo (e.g., `owner/repo`) for Actions                  |
+| `GITHUB_ACTIONS_MODE`       | No       | Set to `"true"` to use GitHub Actions instead of direct API   |
+| `SLACK_CHANNEL_MEMORY`      | No       | `"false"` disables per-channel memory (default on)            |
+| `SLACK_CHANNEL_MEMORY_SIZE` | No       | Max remembered requests per channel (default `12`)            |
+| `SLACK_FOLLOWUPS`           | No       | `"false"` disables autonomous follow-ups (default on)         |
+| `SLACK_FOLLOWUP_SLOW_MS`    | No       | Warn a job is slow after this many ms (default `120000`)      |
+| `SLACK_FOLLOWUP_DONE_MS`    | No       | Only ping on completion if job ran ≥ this many ms (`20000`)   |
+| `SLACK_DEFAULT_TOOLS`       | No       | Workspace tool defaults, e.g. `bash=false,write=false`        |
+| `SLACK_ADMIN_USERS`         | No       | Comma-separated Slack user IDs allowed to run `/nikcli-tools` |
+| `CHANNEL_MEMORY_FILE`       | No       | Path for channel memory store (default `/tmp/...`)            |
+| `CHANNEL_TOOLS_FILE`        | No       | Path for channel tool policy store (default `/tmp/...`)       |
 
 ## Commands
 

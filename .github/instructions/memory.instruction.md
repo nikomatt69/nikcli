@@ -63,37 +63,37 @@
 
 ## Monorepo Structure (27 packages)
 
-| Package                     | Name                          | Description                                                                                                   |
-| --------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `packages/nikcli`           | `nikcli`                      | **Core** — CLI (38+ subcommands), 60+ tools, Hono server + HTTP API, OpenTUI TUI, sessions, MCP/ACP, Effect migration |
-| `packages/sdk/js`           | `@nikcli-ai/sdk`              | JS SDK (client/server/crypto/cloud/v2 — auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`) |
-| `packages/llm`              | `@nikcli-ai/llm`              | LLM provider factories (modular, used by `provider/`)                                                         |
-| `packages/util`             | `@nikcli-ai/util`             | Shared utilities (fn, error, retry, slug, path — Zod-based)                                                   |
-| `packages/app`              | `@nikcli-ai/app`              | Shared web UI (SolidJS)                                                                                       |
-| `packages/ui`               | `@nikcli-ai/ui`               | UI component library, icons, themes, i18n                                                                     |
-| `packages/nikcli-plugins/`  | `nikcli-plugins`              | External TUI plugin package (music, greet, matrix, starwars, weather, win95, pomodoro, calcio, pills, crypto) |
-| `packages/plugin`           | `@nikcli-ai/plugin`           | Plugin system core + bundled plugins (codex, cursor, github-copilot, openai, cloudflare, xai)                  |
-| `packages/desktop`          | `@nikcli-ai/desktop`          | Tauri v2 desktop app (16 languages)                                                                           |
-| `packages/mobile`           | `@nikcli-ai/mobile`           | Expo/React Native mobile (iOS + Android) — companion with QR pairing                                         |
-| `packages/enterprise`       | `@nikcli-ai/enterprise`       | Enterprise web app (SolidStart + Nitro)                                                                       |
-| `packages/cloud`            | `@nikcli-ai/cloud`            | Cloudflare Workers backend (D1, Durable Objects, jose JWT)                                                    |
-| `packages/companion`        | `@nikcli-ai/companion`        | Companion server (Hono + WebSocket + Cloudflare Workers)                                                      |
-| `packages/remote`           | `@nikcli-ai/remote`           | Remote terminal via WebSocket + QR code + tunnels                                                             |
-| `packages/slack`            | `@nikcli-ai/slack`            | Slack bot (@slack/bolt + Cloudflare Workers)                                                                  |
-| `packages/web`              | `@nikcli-ai/web`              | Marketing/docs site at `nikcli.store` (Astro + React + Cloudflare)                                           |
-| `packages/inference`        | `@nikcli-ai/inference`        | Inference service                                                                                             |
-| `packages/inference-dashboard` | `@nikcli-ai/inference-dashboard` | Analytics dashboard (Astro)                                                                                |
-| `packages/webrenderer`      | `@opentui/webrenderer`        | Native Rust web renderer (wry/tao) for TUI bridge                                                             |
-| `packages/tui-image`        | `@nikcli-ai/tui-image`        | TUI image rendering helpers                                                                                   |
-| `packages/terminal-control` | `@nikcli-ai/terminal-control` | Terminal control primitives                                                                                   |
-| `packages/bench-tui`        | `@nikcli-ai/bench-tui`        | TUI benchmarking                                                                                              |
-| `packages/function`         | `@nikcli-ai/function`         | Serverless function (Hono + Cloudflare Workers)                                                               |
-| `packages/script`           | `@nikcli-ai/script`           | Cross-package scripting helpers                                                                               |
-| `packages/http-recorder`    | `@nikcli-ai/http-recorder`    | HTTP recording test fixture                                                                                   |
-| `packages/extensions/zed`   | `@nikcli-ai/zed`              | Zed editor integration                                                                                        |
-| `packages/containers/{base,bun-node,publish,rust,tauri-linux}` | `@nikcli-ai/containers-*` | Container build assets            |
-| `packages/console/{app,core,function,mail,resource}` | `@nikcli-ai/console-*` | Console sub-monorepo (SolidStart + Drizzle + Stripe + jsx-email)                          |
-| `github/`                   | `github`                      | GitHub Action composite action                                                                                |
+| Package                                                        | Name                             | Description                                                                                                           |
+| -------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `packages/nikcli`                                              | `nikcli`                         | **Core** — CLI (38+ subcommands), 60+ tools, Hono server + HTTP API, OpenTUI TUI, sessions, MCP/ACP, Effect migration |
+| `packages/sdk/js`                                              | `@nikcli-ai/sdk`                 | JS SDK (client/server/crypto/cloud/v2 — auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`)    |
+| `packages/llm`                                                 | `@nikcli-ai/llm`                 | LLM provider factories (modular, used by `provider/`)                                                                 |
+| `packages/util`                                                | `@nikcli-ai/util`                | Shared utilities (fn, error, retry, slug, path — Zod-based)                                                           |
+| `packages/app`                                                 | `@nikcli-ai/app`                 | Shared web UI (SolidJS)                                                                                               |
+| `packages/ui`                                                  | `@nikcli-ai/ui`                  | UI component library, icons, themes, i18n                                                                             |
+| `packages/nikcli-plugins/`                                     | `nikcli-plugins`                 | External TUI plugin package (music, greet, matrix, starwars, weather, win95, pomodoro, calcio, pills, crypto)         |
+| `packages/plugin`                                              | `@nikcli-ai/plugin`              | Plugin system core + bundled plugins (codex, cursor, github-copilot, openai, cloudflare, xai)                         |
+| `packages/desktop`                                             | `@nikcli-ai/desktop`             | Tauri v2 desktop app (16 languages)                                                                                   |
+| `packages/mobile`                                              | `@nikcli-ai/mobile`              | Expo/React Native mobile (iOS + Android) — companion with QR pairing                                                  |
+| `packages/enterprise`                                          | `@nikcli-ai/enterprise`          | Enterprise web app (SolidStart + Nitro)                                                                               |
+| `packages/cloud`                                               | `@nikcli-ai/cloud`               | Cloudflare Workers backend (D1, Durable Objects, jose JWT)                                                            |
+| `packages/companion`                                           | `@nikcli-ai/companion`           | Companion server (Hono + WebSocket + Cloudflare Workers)                                                              |
+| `packages/remote`                                              | `@nikcli-ai/remote`              | Remote terminal via WebSocket + QR code + tunnels                                                                     |
+| `packages/slack`                                               | `@nikcli-ai/slack`               | Slack bot (@slack/bolt + Cloudflare Workers)                                                                          |
+| `packages/web`                                                 | `@nikcli-ai/web`                 | Marketing/docs site at `nikcli.store` (Astro + React + Cloudflare)                                                    |
+| `packages/inference`                                           | `@nikcli-ai/inference`           | Inference service                                                                                                     |
+| `packages/inference-dashboard`                                 | `@nikcli-ai/inference-dashboard` | Analytics dashboard (Astro)                                                                                           |
+| `packages/webrenderer`                                         | `@opentui/webrenderer`           | Native Rust web renderer (wry/tao) for TUI bridge                                                                     |
+| `packages/tui-image`                                           | `@nikcli-ai/tui-image`           | TUI image rendering helpers                                                                                           |
+| `packages/terminal-control`                                    | `@nikcli-ai/terminal-control`    | Terminal control primitives                                                                                           |
+| `packages/bench-tui`                                           | `@nikcli-ai/bench-tui`           | TUI benchmarking                                                                                                      |
+| `packages/function`                                            | `@nikcli-ai/function`            | Serverless function (Hono + Cloudflare Workers)                                                                       |
+| `packages/script`                                              | `@nikcli-ai/script`              | Cross-package scripting helpers                                                                                       |
+| `packages/http-recorder`                                       | `@nikcli-ai/http-recorder`       | HTTP recording test fixture                                                                                           |
+| `packages/extensions/zed`                                      | `@nikcli-ai/zed`                 | Zed editor integration                                                                                                |
+| `packages/containers/{base,bun-node,publish,rust,tauri-linux}` | `@nikcli-ai/containers-*`        | Container build assets                                                                                                |
+| `packages/console/{app,core,function,mail,resource}`           | `@nikcli-ai/console-*`           | Console sub-monorepo (SolidStart + Drizzle + Stripe + jsx-email)                                                      |
+| `github/`                                                      | `github`                         | GitHub Action composite action                                                                                        |
 
 ### Repository Root Structure
 
@@ -200,8 +200,9 @@ Thin wrappers over Effect 4 (`effect@4.0.0-beta.65`):
 - `with-instance.ts` — `withCurrentInstance`, `withInstanceAsync`
 
 **Canonical pattern** repeated everywhere:
+
 ```ts
-runX<A,E>(effect) = runPromiseWithLayer(X.defaultLayer, withCurrentInstance(effect))
+runX<A, E>(effect) = runPromiseWithLayer(X.defaultLayer, withCurrentInstance(effect))
 ```
 
 **Bridge layer** (`src/server/httpapi/bridge.ts`): old Hono routes + new typed Hono `HttpApi` coexist during migration. The 9-epoch integration plan in `packages/nikcli/specs/integration-master-plan.md` is the authoritative sequencing — `effect/MASTER-PLAN.md` is kept for detail only.
@@ -282,18 +283,18 @@ Runtime command catalog merges: built-ins, config commands, MCP prompts, connect
 
 **60+ registered tools** (43 in main registry + dynamic loaders):
 
-| Category | Tools |
-|---|---|
-| **File/code** | `read`, `write`, `edit`, `multiedit`, `apply_patch`, `glob`, `grep`, `ls`, `tree`, `truncation`, `truncation-dir` |
-| **Shell/exec** | `bash`, `monitor` (background runner), `exec_code` |
-| **Web/search** | `webfetch`, `websearch`, `codesearch`, `repo_clone`, `repo_overview` |
+| Category             | Tools                                                                                                                                     |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **File/code**        | `read`, `write`, `edit`, `multiedit`, `apply_patch`, `glob`, `grep`, `ls`, `tree`, `truncation`, `truncation-dir`                         |
+| **Shell/exec**       | `bash`, `monitor` (background runner), `exec_code`                                                                                        |
+| **Web/search**       | `webfetch`, `websearch`, `codesearch`, `repo_clone`, `repo_overview`                                                                      |
 | **Browser/computer** | `browser` (Browser Use Cloud SDK v3, persistent sessions via `keepAlive:true`), `computer` (sandbox/host modes, requires Colima on macOS) |
-| **Context** | `context_collect`, `context_related`, `context_diagnostics`, `context_search`, `memory_search` |
-| **Planning/agents** | `task` (37KB — largest), `delegation`, `delegator`, `advisor`, `plan-enter`, `plan-exit`, `todo` (write/read), `goal` |
-| **Output media** | `generate_image`, `speak`, `voice` (with `speak/{elevenlabs,openrouter,provider}.ts`) |
-| **System** | `lsp`, `question`, `skill`, `batch`, `monitor` |
-| **Generative UI** | `opentui` (32KB — emits reactive Solid components via TUI) |
-| **Misc** | `search_tools`, `invalid`, `external-directory`, `mcp-exa` |
+| **Context**          | `context_collect`, `context_related`, `context_diagnostics`, `context_search`, `memory_search`                                            |
+| **Planning/agents**  | `task` (37KB — largest), `delegation`, `delegator`, `advisor`, `plan-enter`, `plan-exit`, `todo` (write/read), `goal`                     |
+| **Output media**     | `generate_image`, `speak`, `voice` (with `speak/{elevenlabs,openrouter,provider}.ts`)                                                     |
+| **System**           | `lsp`, `question`, `skill`, `batch`, `monitor`                                                                                            |
+| **Generative UI**    | `opentui` (32KB — emits reactive Solid components via TUI)                                                                                |
+| **Misc**             | `search_tools`, `invalid`, `external-directory`, `mcp-exa`                                                                                |
 
 **Author interface** (`Tool.define(id, init)`): normalizes both Promise- and Effect-returning `execute` into a unified `Tool.Def` where `execute` always returns `Effect.Effect<Result, Error>`. A compat `executeAsync(args, ctx)` wraps it via `AppRuntime.runPromise(...)`. Truncation runs automatically post-execute via `Truncate.Service` (best-effort, swallows errors).
 
