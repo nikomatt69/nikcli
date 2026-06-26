@@ -27,6 +27,11 @@ const [providerID, ...modelParts] = NIKCLI_MODEL.split("/")
 const modelID = modelParts.join("/")
 const modelBody = providerID && modelID ? { model: { providerID, modelID } } : {}
 
+// Working repository the agent operates on (the entrypoint clones it here).
+// When unset (local dev), nikcli falls back to its own cwd.
+const WORKDIR = process.env.NIKCLI_WORKDIR
+const dirQuery = WORKDIR ? { directory: WORKDIR } : undefined
+
 type Session = { sessionId: string; channel: string; thread: string }
 
 type SlackFile = {
@@ -99,7 +104,11 @@ if (NIKCLI_URL) {
   console.log("Nikcli remote server ready")
 } else {
   console.log("Starting local nikcli server...")
-  nikcli = await createNikcli({ port: 0, config: { model: NIKCLI_MODEL } })
+  nikcli = await createNikcli({
+    port: 0,
+    timeout: Number(process.env.NIKCLI_START_TIMEOUT_MS ?? "120000"),
+    config: { model: NIKCLI_MODEL },
+  })
   console.log("Nikcli server ready")
 }
 
@@ -385,6 +394,7 @@ async function processPrompt(
         console.log("Sending to nikcli:", prompt)
         const result = await nikcli.client.session.prompt({
           path: { id: session.sessionId },
+          ...(dirQuery ? { query: dirQuery } : {}),
           body: {
             parts: [{ type: "text", text: prompt }],
             ...modelBody,
@@ -585,6 +595,7 @@ async function getSession(sessionKey: string, channel: string, thread: string, s
 
   const createResult = await nikcli.client.session.create({
     body: { title: `Slack thread ${thread}` },
+    ...(dirQuery ? { query: dirQuery } : {}),
   })
 
   if (createResult.error || !createResult.data?.id) {

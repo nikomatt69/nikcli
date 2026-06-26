@@ -54,4 +54,8 @@ RUN printf '#!/bin/sh\ncd /app/packages/nikcli && exec bun --conditions=browser 
 
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
-CMD ["bun", "run", "--cwd", "packages/slack", "src/index.ts"]
+# Entrypoint clones the working repo (nikomatt69/nikcli) then starts the bot.
+COPY packages/slack/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
