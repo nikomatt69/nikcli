@@ -5,7 +5,6 @@ import path from "path"
 import type { MessageV2 as MessageV2Types } from "../../src/session/message-v2"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
-import { rmrf } from "../helpers/rmrf"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -117,8 +116,8 @@ afterEach(async () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => rmrf(dir)))
-  await rmrf(testHome)
+  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
+  await fs.rm(testHome, { recursive: true, force: true })
 })
 
 describe("session lifecycle", () => {

@@ -4,7 +4,6 @@ import type { SessionEntry as SessionEntryTypes } from "@/session/v2/entry"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { rmrf } from "../helpers/rmrf"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-v2-projector-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -147,6 +146,6 @@ describe("SessionProjector", () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await rmrf(projectDir)
-  await rmrf(testHome)
+  await fs.rm(projectDir, { recursive: true, force: true })
+  await fs.rm(testHome, { recursive: true, force: true })
 })

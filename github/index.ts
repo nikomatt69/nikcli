@@ -362,8 +362,12 @@ function isMock() {
 
 function isPullRequest() {
   const context = useContext()
+  // A review (line) comment is always on a PR. An issue_comment is a PR only
+  // when its issue carries a pull_request ref. Review-comment payloads have no
+  // `issue`, so guard the access to avoid a crash.
+  if (context.eventName === "pull_request_review_comment") return true
   const payload = context.payload as IssueCommentEvent
-  return Boolean(payload.issue.pull_request)
+  return Boolean(payload.issue?.pull_request)
 }
 
 function isScheduleEvent() {
@@ -375,8 +379,14 @@ function useContext() {
 }
 
 function useIssueId() {
-  const payload = useContext().payload as IssueCommentEvent
-  return payload.issue.number
+  // issue_comment delivers `issue`; pull_request_review_comment delivers
+  // `pull_request` and no `issue`. Both share the same number space (PR number
+  // == issue number on GitHub), so fall back to the PR number for review
+  // comments instead of crashing on `payload.issue.number`.
+  const payload = useContext().payload as IssueCommentEvent & PullRequestReviewCommentEvent
+  const id = payload.issue?.number ?? payload.pull_request?.number
+  if (id === undefined) throw new Error("event payload has neither issue nor pull_request number")
+  return id
 }
 
 function useShareUrl() {
@@ -599,7 +609,7 @@ async function summarize(response: string) {
       return "Scheduled task changes"
     }
     const payload = useContext().payload as IssueCommentEvent
-    return `Fix issue: ${payload.issue.title}`
+    return `Fix issue: ${payload.issue?.title ?? "code review"}`
   }
 }
 
