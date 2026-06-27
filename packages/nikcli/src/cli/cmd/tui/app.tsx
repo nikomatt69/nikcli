@@ -148,7 +148,8 @@ export function tui(input: {
         // case (identical final mode, no 1s tax). First run (no persisted mode)
         // still detects to avoid a wrong-mode flash. NIKCLI_BLOCKING_THEME forces
         // the old always-block behavior. See specs/tui-startup-speed.md.
-        const detectMode = async () => ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark") as "dark" | "light"
+        const detectMode = async () =>
+          ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark") as "dark" | "light"
         const mode: "dark" | "light" = await (async () => {
           if (Flag.NIKCLI_BLOCKING_THEME) return detectMode()
           const persisted = await readPersistedThemeMode()

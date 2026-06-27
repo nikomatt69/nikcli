@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.123.0 (June 2026)
+
+## Core
+
+- Test/ci: fix pre-existing Windows test-compat failures (@claude)
+- Global Windows EBUSY test cleanup retry + bot review-comment crash (@claude)
+- Address PR review feedback on startup-speed changes (@claude)
+- Lazy command registration + startup test suite (@claude)
+- Speed up TUI startup without behavioral regressions (@claude)
+
+**Thank you to 2 community contributors:**
+
+- @claude:
+  - docs: add TUI startup speed architecture analysis
+  - perf(tui): speed up TUI startup without behavioral regressions
+  - perf(cli): lazy command registration + startup test suite
+  - refactor(tui): address PR review feedback on startup-speed changes
+  - fix: global Windows EBUSY test cleanup retry + bot review-comment crash
+  - test/ci: fix pre-existing Windows test-compat failures
+- @nikomatt69:
+  - Merge pull request #131 from nikomatt69/claude/nikcli-tui-startup-speed-urkbii
+
 ## v1.122.0 (June 2026)
 
 - No notable changes

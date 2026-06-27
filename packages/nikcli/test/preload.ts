@@ -18,8 +18,7 @@ import { recordBenchmark, flushBenchmarkRun, beginBenchmarkRun } from "./benchma
 // that never raise these codes (Linux/macOS).
 ;(() => {
   const LOCK = new Set(["EBUSY", "ENOTEMPTY", "EPERM", "EACCES"])
-  const withRetry =
-    (orig: (target: any, options?: any) => Promise<void>) =>
+  const withRetry = (orig: (target: any, options?: any) => Promise<void>) =>
     async function rmWithRetry(target: any, options?: any) {
       for (let attempt = 0; ; attempt++) {
         try {
