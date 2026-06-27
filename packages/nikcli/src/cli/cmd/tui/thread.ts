@@ -5,6 +5,7 @@ import path from "path"
 import { UI } from "@/cli/ui"
 import { iife } from "@/util/iife"
 import { Log } from "@/util/log"
+import { Flag } from "@/flag/flag"
 import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import type { EventSource } from "./context/sdk"
@@ -163,6 +164,18 @@ export const TuiThreadCommand = cmd({
       })
     }
     const client = Rpc.client<typeof rpc>(worker)
+
+    // Kick the worker's instance bootstrap now so it overlaps renderer init and
+    // app import below, instead of starting only when SyncProvider fires its
+    // first request. Fire-and-forget: the same Instance.provide cache backs both
+    // this and the real requests, so bootstrap runs exactly once. See
+    // specs/tui-startup-speed.md. NIKCLI_NO_WARM_WORKER disables it.
+    if (!Flag.NIKCLI_NO_WARM_WORKER) {
+      client.call("warm", { directory: cwd }).catch((err) => {
+        Log.Default.warn("worker warm failed", { error: errorMessage(err) })
+      })
+    }
+
     const error = (e: unknown) => {
       Log.Default.error("process error", { error: errorMessage(e) })
     }

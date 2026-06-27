@@ -89,6 +89,22 @@ import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
+import path from "path"
+import { Global } from "@/global"
+
+// Read the user's persisted theme mode (set only via an explicit mode change)
+// directly from the KV store on disk, before the render tree mounts. Mirrors
+// KVProvider's storage location and ThemeProvider's "theme_mode" key. Returns
+// undefined when nothing is stored (first run) so detection can run instead.
+async function readPersistedThemeMode(): Promise<"dark" | "light" | undefined> {
+  try {
+    const kv = (await Bun.file(path.join(Global.Path.state, "kv.json")).json()) as Record<string, unknown>
+    const mode = kv?.["theme_mode"]
+    return mode === "dark" || mode === "light" ? mode : undefined
+  } catch {
+    return undefined
+  }
+}
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
   return {
@@ -130,7 +146,19 @@ export function tui(input: {
         const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
         const renderer = await createCliRenderer(rendererConfig(tuiCfg))
         void renderer.getPalette({ size: 16 }).catch(() => undefined)
-        const mode = (await (renderer as any).waitForThemeMode?.(1000)) ?? "dark"
+        // Terminal background-color detection can block up to 1s. ThemeProvider
+        // seeds its mode from the persisted KV "theme_mode" and only falls back
+        // to this detected value when none is stored — so when a persisted mode
+        // exists the detection result is discarded anyway. Skip the wait in that
+        // case (identical final mode, no 1s tax). First run (no persisted mode)
+        // still detects to avoid a wrong-mode flash. NIKCLI_BLOCKING_THEME forces
+        // the old always-block behavior. See specs/tui-startup-speed.md.
+        const detectMode = async () => ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark") as "dark" | "light"
+        const mode: "dark" | "light" = await (async () => {
+          if (Flag.NIKCLI_BLOCKING_THEME) return detectMode()
+          const persisted = await readPersistedThemeMode()
+          return persisted ?? (await detectMode())
+        })()
         const onExit = async () => {
           unguard?.()
           await input.onExit?.()

@@ -140,6 +140,22 @@ export const rpc = {
     server = Server.listen(input)
     return { url: server.url.toString() }
   },
+  // Pre-warm the instance bootstrap for a directory so it overlaps the UI
+  // renderer init instead of starting only when the first Sync request lands.
+  // Routes through the same Instance.provide cache as every real request, so
+  // InstanceBootstrap still runs exactly once per directory (no double work).
+  // See specs/tui-startup-speed.md.
+  async warm(input: { directory: string }) {
+    await Instance.provide({
+      directory: input.directory,
+      init: InstanceBootstrap,
+      fn: async () => {},
+    }).catch((error) => {
+      Log.Default.warn("worker warm failed", {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
+  },
   async checkUpgrade(input: { directory: string }) {
     await Instance.provide({
       directory: input.directory,

@@ -73,6 +73,21 @@ export namespace Flag {
   export const NIKCLI_DISCORD_TASK_NOTIFICATIONS =
     truthy("NIKCLI_DISCORD_TASK_NOTIFICATIONS") || truthy("DISCORD_TASK_NOTIFICATIONS")
 
+  // Startup performance — escape hatches for the TUI fast-start work
+  // (see specs/tui-startup-speed.md). All default to the fast path; set the
+  // matching flag to restore the previous eager/blocking behavior.
+  //
+  // NIKCLI_EAGER_BOOTSTRAP: await the delegation/monitor/loop/mission/routine
+  //   restore tail inside InstanceBootstrap instead of running it in the
+  //   background (use to bisect "subsystem X wasn't ready immediately").
+  export const NIKCLI_EAGER_BOOTSTRAP = truthy("NIKCLI_EAGER_BOOTSTRAP")
+  // NIKCLI_BLOCKING_THEME: block first paint up to 1s waiting for terminal
+  //   background-color detection instead of starting with the last-known mode.
+  export const NIKCLI_BLOCKING_THEME = truthy("NIKCLI_BLOCKING_THEME")
+  // NIKCLI_NO_WARM_WORKER: do not pre-warm the worker InstanceBootstrap while
+  //   the renderer initializes; let the first Sync request trigger it.
+  export const NIKCLI_NO_WARM_WORKER = truthy("NIKCLI_NO_WARM_WORKER")
+
   // TUI plugin system
   export declare const NIKCLI_TUI_CONFIG: string | undefined
   export const NIKCLI_PURE = truthy("NIKCLI_PURE")

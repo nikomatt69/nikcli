@@ -1,5 +1,22 @@
 # TUI startup speed — architecture
 
+> **Implementation status (this branch).** Landed the safe, individually
+> verifiable wins: **Change 1** (background the bootstrap restore tail),
+> **Change 3** (skip the up-to-1s theme wait when a mode is already
+> persisted — strictly behavior-preserving), **Change 4** (pre-warm the
+> worker bootstrap so it overlaps renderer init), and **Change 6** (preserve
+> `models.json` across cache-version bumps). Each is flag-reversible
+> (`NIKCLI_EAGER_BOOTSTRAP`, `NIKCLI_BLOCKING_THEME`, `NIKCLI_NO_WARM_WORKER`).
+> **Deferred:** Change 2 (lazy command registration — large structural
+> refactor of the yargs entry, higher regression surface for help/completion/
+> dispatch) and Change 5 (defer render-thread sync work — low real impact:
+> it runs *after* first paint and the brain scheduler is cheap). Both are
+> documented below for a follow-up. Validated with `tsgo` typecheck (clean),
+> oxlint (no new findings), and the affected unit/e2e tests (httpapi-bridge,
+> cli index-help e2e, project) — all green.
+
+
+
 Goal: make `nikcli` (the default `$0` TUI) reach **first interactive paint**
 materially faster, **without** regressing behavior, leaking errors, or
 changing semantics. Guardrails-first, flag-gated, measurable — consistent
