@@ -1,53 +1,17 @@
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
-import { RunCommand } from "./cli/cmd/run"
-import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "./util/log"
-import { AuthCommand } from "./cli/cmd/auth"
-import { AgentCommand } from "./cli/cmd/agent"
-import { UpgradeCommand } from "./cli/cmd/upgrade"
-import { QuickstartCommand } from "./cli/cmd/quickstart"
-import { DoctorCommand } from "./cli/cmd/doctor"
-import { UninstallCommand } from "./cli/cmd/uninstall"
-import { ModelsCommand } from "./cli/cmd/models"
-import { LocaleCommand } from "./cli/cmd/locale"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
 import { initialize } from "./global"
 import { FormatError } from "./cli/error"
-import { ServeCommand } from "./cli/cmd/serve"
-import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
-import { DebugCommand } from "./cli/cmd/debug"
-import { StatsCommand } from "./cli/cmd/stats"
-import { McpCommand } from "./cli/cmd/mcp"
-import { GithubCommand } from "./cli/cmd/github"
-import { ExportCommand } from "./cli/cmd/export"
-import { ImportCommand } from "./cli/cmd/import"
-import { AttachCommand } from "./cli/cmd/tui/attach"
+// Default `$0` TUI command stays eagerly imported: it is the common launch path,
+// so deferring it would buy nothing. Every other command is registered lazily
+// (see ./cli/cmd/lazy) so launching the TUI no longer evaluates their backend
+// import graphs up front. See specs/tui-startup-speed.md.
 import { TuiThreadCommand } from "./cli/cmd/tui/thread"
-import { AcpCommand } from "./cli/cmd/acp"
+import { lazyCommand, LAZY_COMMANDS } from "./cli/cmd/lazy"
 import { EOL } from "os"
-import { WebCommand } from "./cli/cmd/web"
-import { PrCommand } from "./cli/cmd/pr"
-import { SessionCommand } from "./cli/cmd/session"
-
-import { ImageModelCommand } from "./cli/cmd/image-model"
-import { SpeakModelCommand } from "./cli/cmd/speak-model"
-import { BrainModelCommand } from "./cli/cmd/brain-model"
-import { RemoteCommand } from "./cli/cmd/remote"
-import { TeleportCommand } from "./cli/cmd/teleport"
-
-import { AdsCommand } from "./cli/cmd/ads"
-
-import { CompanionCommand } from "./cli/cmd/companion"
-import { MobileCommand } from "./cli/cmd/mobile"
-import { PluginCommand } from "./cli/cmd/plug"
-import { AccountCommand } from "./cli/cmd/account"
-import { HeapCommand } from "./cli/cmd/heap"
-import { RoutineCommand } from "./cli/cmd/routine"
-import { UsageCommand } from "./cli/cmd/usage"
-import { GoalCommand } from "./cli/cmd/goal"
-import { MissionCommand } from "./cli/cmd/mission"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -106,45 +70,8 @@ const cli = yargs(hideBin(process.argv))
   })
   .usage("\n" + UI.logo())
   .completion("completion", "generate shell completion script")
-  .command(AcpCommand)
-  .command(McpCommand)
-  .command(AdsCommand)
   .command(TuiThreadCommand)
-  .command(AttachCommand)
-  .command(RunCommand)
-  .command(GoalCommand)
-  .command(GenerateCommand)
-  .command(DebugCommand)
-  .command(AuthCommand)
-  .command(AccountCommand)
-  .command(AgentCommand)
-  .command(UpgradeCommand)
-  .command(QuickstartCommand)
-  .command(DoctorCommand)
-  .command(UninstallCommand)
-  .command(ServeCommand)
-  .command(WorkspaceServeCommand)
-  .command(WebCommand)
-  .command(HeapCommand)
-  .command(ModelsCommand)
-  .command(LocaleCommand)
-  .command(StatsCommand)
-  .command(ExportCommand)
-  .command(ImportCommand)
-  .command(GithubCommand)
-  .command(PrCommand)
-  .command(SessionCommand)
-  .command(ImageModelCommand)
-  .command(SpeakModelCommand)
-  .command(BrainModelCommand)
-  .command(RemoteCommand)
-  .command(TeleportCommand)
-  .command(CompanionCommand)
-  .command(MobileCommand)
-  .command(RoutineCommand)
-  .command(MissionCommand)
-  .command(UsageCommand)
-  .command(PluginCommand)
+  .command(LAZY_COMMANDS.map(lazyCommand))
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

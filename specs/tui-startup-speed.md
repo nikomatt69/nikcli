@@ -1,19 +1,32 @@
 # TUI startup speed — architecture
 
-> **Implementation status (this branch).** Landed the safe, individually
-> verifiable wins: **Change 1** (background the bootstrap restore tail),
-> **Change 3** (skip the up-to-1s theme wait when a mode is already
-> persisted — strictly behavior-preserving), **Change 4** (pre-warm the
-> worker bootstrap so it overlaps renderer init), and **Change 6** (preserve
-> `models.json` across cache-version bumps). Each is flag-reversible
-> (`NIKCLI_EAGER_BOOTSTRAP`, `NIKCLI_BLOCKING_THEME`, `NIKCLI_NO_WARM_WORKER`).
-> **Deferred:** Change 2 (lazy command registration — large structural
-> refactor of the yargs entry, higher regression surface for help/completion/
-> dispatch) and Change 5 (defer render-thread sync work — low real impact:
-> it runs *after* first paint and the brain scheduler is cheap). Both are
-> documented below for a follow-up. Validated with `tsgo` typecheck (clean),
-> oxlint (no new findings), and the affected unit/e2e tests (httpapi-bridge,
-> cli index-help e2e, project) — all green.
+> **Implementation status (this branch).** Landed **Changes 1, 2, 3, 4, 6**:
+> **1** background the bootstrap restore tail; **2** lazy command registration
+> (the default `$0` TUI no longer evaluates 38 other commands' backend import
+> graphs up front); **3** skip the up-to-1s theme wait when a mode is already
+> persisted (strictly behavior-preserving); **4** pre-warm the worker bootstrap
+> so it overlaps renderer init; **6** preserve `models.json` across cache-version
+> bumps. Each behavior-affecting change is flag-reversible
+> (`NIKCLI_EAGER_BOOTSTRAP`, `NIKCLI_BLOCKING_THEME`, `NIKCLI_NO_WARM_WORKER`;
+> Change 2 carries no flag — it is a pure load-timing change validated to be
+> behavior-identical).
+>
+> **Change 5 intentionally not implemented.** Its render-thread sync work runs
+> *after* first paint (inside the async `onMount` IIFE), and `initBrainScheduler`
+> is a cheap synchronous registration that must run inside the instance
+> `AsyncLocalStorage` context already established for `TuiConfig.get()` —
+> deferring it off that path would either be a no-op or break the instance
+> context. Net: no first-paint benefit, real risk. Left as-is.
+>
+> **Validation.** `tsgo` typecheck clean; oxlint no new findings; full
+> `test/cli/` suite (154 tests incl. the new lazy-command drift-guard and
+> dispatch e2e), `test/global/cache-preserve`, `test/server/httpapi-bridge`,
+> and `test/project` all green. New tests:
+> `test/cli/lazy-commands.test.ts` (metadata drift guard — imports every command
+> module and asserts the lazy table matches exactly),
+> `test/cli/lazy-commands-dispatch.e2e.test.ts` (subprocess: top-level `--help`
+> lists all 38 commands, per-command lazy `--help` loads + renders, `plug` alias
+> routes), and `test/global/cache-preserve.test.ts`.
 
 
 
