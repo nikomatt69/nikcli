@@ -18,6 +18,7 @@ import { Monitor } from "@/monitor/manager"
 import * as LoopEngine from "@/loop/engine"
 import * as MissionOrchestrator from "@/mission/orchestrator"
 import { Routine } from "@/mobile/routine"
+import { Flag } from "@/flag/flag"
 import { runPromiseWithLayer, runService, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
@@ -158,26 +159,44 @@ export async function InstanceBootstrap() {
   } catch (error) {
     Log.Default.warn("session v2 projector init failed", { error })
   }
-  await Delegation.init()
-  await Monitor.reconcile().catch((error) => {
-    Log.Default.warn("failed to reconcile monitors on startup", { error })
-  })
-  // Restore headless interval loops for this instance. Safe to call repeatedly.
-  await LoopEngine.restore().catch((error) => {
-    Log.Default.warn("failed to restore loops on startup", { error })
-  })
-  // Restore mission orchestrator state (rehydrates runtimes, reconciles
-  // orphaned execution records). Does not auto-resume missions — that is an
-  // explicit user action, but a mission persisted as "running" is demoted to
-  // "paused" so the user can inspect/continue it deliberately.
-  await MissionOrchestrator.restore().catch((error) => {
-    Log.Default.warn("failed to restore missions on startup", { error })
-  })
-  // Re-arm scheduled routine triggers for this instance. Without this, cron
-  // routines silently stop firing after a process restart.
-  await Routine.restoreSchedulers().catch((error) => {
-    Log.Default.warn("failed to restore routines on startup", { error })
-  })
+  // The restore/reconcile tail below is not required to paint the TUI's first
+  // frame: each subsystem is event/poll-driven after init and nothing on the
+  // first-paint path reads its in-memory state synchronously. Running it in the
+  // background (like share/lsp/snapshot above) lets the first server request —
+  // which the TUI blocks on for first paint — resolve immediately instead of
+  // waiting for delegation/monitor/loop/mission/routine restore. See
+  // specs/tui-startup-speed.md. NIKCLI_EAGER_BOOTSTRAP restores the old awaited
+  // ordering for debugging.
+  //
+  // Delegation must initialize before the loop/mission/routine restores, which
+  // may schedule delegated work, so the deferred block keeps that ordering.
+  const restoreTail = async () => {
+    await Delegation.init()
+    await Monitor.reconcile().catch((error) => {
+      Log.Default.warn("failed to reconcile monitors on startup", { error })
+    })
+    // Restore headless interval loops for this instance. Safe to call repeatedly.
+    await LoopEngine.restore().catch((error) => {
+      Log.Default.warn("failed to restore loops on startup", { error })
+    })
+    // Restore mission orchestrator state (rehydrates runtimes, reconciles
+    // orphaned execution records). Does not auto-resume missions — that is an
+    // explicit user action, but a mission persisted as "running" is demoted to
+    // "paused" so the user can inspect/continue it deliberately.
+    await MissionOrchestrator.restore().catch((error) => {
+      Log.Default.warn("failed to restore missions on startup", { error })
+    })
+    // Re-arm scheduled routine triggers for this instance. Without this, cron
+    // routines silently stop firing after a process restart.
+    await Routine.restoreSchedulers().catch((error) => {
+      Log.Default.warn("failed to restore routines on startup", { error })
+    })
+  }
+  if (Flag.NIKCLI_EAGER_BOOTSTRAP) {
+    await restoreTail()
+  } else {
+    background("restore-tail", restoreTail())
+  }
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {

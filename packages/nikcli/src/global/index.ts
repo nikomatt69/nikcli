@@ -95,14 +95,22 @@ export async function initialize() {
 
   if (version !== CACHE_VERSION) {
     try {
+      // Preserve the models.dev cache across cache-version bumps: it is large,
+      // network-sourced, and refreshed in the background, so wiping it on every
+      // upgrade forces a blocking cold fetch on the next launch. It is keyed by
+      // content (not by this cache version), so keeping it is always safe.
+      // See specs/tui-startup-speed.md.
+      const preserve = new Set(["models.json"])
       const contents = await fs.readdir(Global.Path.cache)
       await Promise.all(
-        contents.map((item) =>
-          fs.rm(path.join(Global.Path.cache, item), {
-            recursive: true,
-            force: true,
-          }),
-        ),
+        contents
+          .filter((item) => !preserve.has(item))
+          .map((item) =>
+            fs.rm(path.join(Global.Path.cache, item), {
+              recursive: true,
+              force: true,
+            }),
+          ),
       )
     } catch (e) {
       console.debug("[global] failed to clear cache, ignoring:", e)

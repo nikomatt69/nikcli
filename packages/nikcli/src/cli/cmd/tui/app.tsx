@@ -64,7 +64,7 @@ import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
 import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
-import { KVProvider, useKV } from "./context/kv"
+import { KVProvider, useKV, readKVStore } from "./context/kv"
 import { LanguageProvider } from "./context/language"
 import { Provider } from "@/provider/provider"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
@@ -89,6 +89,17 @@ import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
+
+// Read the user's persisted theme mode (set only via an explicit mode change)
+// from the KV store on disk, before the render tree mounts. Uses KVProvider's
+// own readKVStore() so the storage location/shape can't drift, and the
+// "theme_mode" key matches ThemeProvider. Returns undefined when nothing is
+// stored (first run) so detection can run instead.
+async function readPersistedThemeMode(): Promise<"dark" | "light" | undefined> {
+  const kv = await readKVStore()
+  const mode = kv?.["theme_mode"]
+  return mode === "dark" || mode === "light" ? mode : undefined
+}
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
   return {
@@ -130,7 +141,19 @@ export function tui(input: {
         const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
         const renderer = await createCliRenderer(rendererConfig(tuiCfg))
         void renderer.getPalette({ size: 16 }).catch(() => undefined)
-        const mode = (await (renderer as any).waitForThemeMode?.(1000)) ?? "dark"
+        // Terminal background-color detection can block up to 1s. ThemeProvider
+        // seeds its mode from the persisted KV "theme_mode" and only falls back
+        // to this detected value when none is stored — so when a persisted mode
+        // exists the detection result is discarded anyway. Skip the wait in that
+        // case (identical final mode, no 1s tax). First run (no persisted mode)
+        // still detects to avoid a wrong-mode flash. NIKCLI_BLOCKING_THEME forces
+        // the old always-block behavior. See specs/tui-startup-speed.md.
+        const detectMode = async () => ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark") as "dark" | "light"
+        const mode: "dark" | "light" = await (async () => {
+          if (Flag.NIKCLI_BLOCKING_THEME) return detectMode()
+          const persisted = await readPersistedThemeMode()
+          return persisted ?? (await detectMode())
+        })()
         const onExit = async () => {
           unguard?.()
           await input.onExit?.()

@@ -1,8 +1,65 @@
 import "@opentui/solid/preload"
 import { afterAll, beforeAll } from "bun:test"
 import path from "path"
+import fsPromises from "fs/promises"
+import { createRequire } from "module"
 import { initialize as initGlobal } from "../src/global"
 import { recordBenchmark, flushBenchmarkRun, beginBenchmarkRun } from "./benchmarks/runner"
+
+// Windows releases file handles (SQLite DBs, watchers) asynchronously after an
+// Instance is disposed, so an `afterAll` that `fs.rm`s its temp dir
+// intermittently throws EBUSY/ENOTEMPTY/EPERM/EACCES and fails an otherwise
+// green test file. This is pure CI flakiness, and it can hit any test that
+// creates an Instance — not a fixed set of files — so patch fs.rm once here,
+// process-wide and test-only, to retry on those transient lock codes. After the
+// final retry a still-locked throwaway dir (force:true) is swallowed rather than
+// thrown: the OS reclaims the temp dir later and failing cleanup is exactly the
+// flake we're removing. Non-lock errors are always surfaced. No-op on platforms
+// that never raise these codes (Linux/macOS).
+;(() => {
+  const LOCK = new Set(["EBUSY", "ENOTEMPTY", "EPERM", "EACCES"])
+  const withRetry =
+    (orig: (target: any, options?: any) => Promise<void>) =>
+    async function rmWithRetry(target: any, options?: any) {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await orig(target, options)
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException)?.code
+          if (!code || !LOCK.has(code) || attempt >= 11) {
+            if (code && LOCK.has(code) && options?.force) return // give up on a throwaway dir
+            throw err
+          }
+          await new Promise((resolve) => setTimeout(resolve, Math.min(50 * (attempt + 1), 400)))
+        }
+      }
+    }
+  const patch = (holder: any) => {
+    if (!holder || typeof holder.rm !== "function" || holder.rm.__rmRetry) return
+    const wrapped = withRetry(holder.rm.bind(holder)) as typeof holder.rm & { __rmRetry?: boolean }
+    wrapped.__rmRetry = true
+    try {
+      holder.rm = wrapped
+    } catch {
+      // readonly binding (e.g. ESM namespace) — skip; the default-import object below covers callers
+    }
+  }
+  const req = createRequire(import.meta.url)
+  const safeReq = (id: string) => {
+    try {
+      return req(id)
+    } catch {
+      return undefined
+    }
+  }
+  // Test files use `import fs from "fs/promises"` (default object) almost
+  // exclusively; also patch the require/node: variants so the few stragglers
+  // and `require("fs").promises` are covered.
+  patch(fsPromises)
+  patch(safeReq("fs/promises"))
+  patch(safeReq("node:fs/promises"))
+  patch(safeReq("fs")?.promises)
+})()
 
 // Keep the whole suite hermetic: skip the `bun add @nikcli-ai/plugin` bootstrap
 // step, which requires the npm registry and otherwise hangs/trips timeouts when
