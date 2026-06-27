@@ -123,7 +123,10 @@ describe("Filesystem Benchmark", () => {
         unit: "ms",
       })
 
-      expect(elapsed).toBeLessThan(1000)
+      // 100k iterations: a generous ceiling that catches pathological
+      // regressions without flaking on slow/loaded CI runners (Windows runners
+      // are ~3x slower here). Matches the other thresholds in this file.
+      expect(elapsed).toBeLessThan(10000)
     })
 
     it("non-contained paths", async () => {
@@ -148,7 +151,8 @@ describe("Filesystem Benchmark", () => {
         unit: "ms",
       })
 
-      expect(elapsed).toBeLessThan(1000)
+      // Generous ceiling — see the contained-path benchmark above (slow CI runners).
+      expect(elapsed).toBeLessThan(10000)
     })
   })
 

@@ -187,7 +187,12 @@ describe("Filesystem", () => {
 
     it("handles absolute paths", () => {
       const resolved = Filesystem.resolve("/absolute/path")
-      expect(resolved).toBe("/absolute/path")
+      // Filesystem.resolve delegates to path.resolve, which is platform
+      // specific: on Windows "/absolute/path" resolves against the current
+      // drive (e.g. "C:\\absolute\\path"). Compare against the platform oracle
+      // and assert the result stays absolute, rather than hardcoding POSIX.
+      expect(resolved).toBe(path.resolve("/absolute/path"))
+      expect(path.isAbsolute(resolved)).toBe(true)
     })
   })
 

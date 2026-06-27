@@ -116,6 +116,16 @@ jobs:
           done
           exit 1
 
+      # The Windows e2e spawns the nikcli server as a child process. Under the
+      # hoisted linker used for the Windows install, Bun intermittently fails to
+      # remap workspace bins ("Bun failed to remap this bin ... corrupted
+      # node_modules directory. Please run 'bun install --force'"), which kills
+      # the e2e before it starts. Run the documented repair so the bin shims are
+      # rebuilt. Windows-only; does not touch the Linux job.
+      - name: Repair Bun bin links (Windows)
+        if: matrix.settings.name == 'windows'
+        run: bun install --force --linker hoisted
+
       - name: run
         working-directory: ${{ matrix.settings.workdir }}
         run: ${{ matrix.settings.command }}
