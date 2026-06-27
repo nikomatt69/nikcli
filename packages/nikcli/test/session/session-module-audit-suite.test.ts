@@ -15,6 +15,7 @@ import { Todo } from "@/session/todo"
 import { Bus } from "@/bus"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
+import { rmrf } from "../helpers/rmrf"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-audit-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -874,7 +875,7 @@ afterEach(async () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await Promise.all(projectDirs.map((dir) => rmrf(dir)))
+  await rmrf(testHome)
   flushBenchmarkRun()
 })

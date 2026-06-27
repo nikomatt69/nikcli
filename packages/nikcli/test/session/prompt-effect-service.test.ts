@@ -6,6 +6,7 @@ import { Effect } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { rmrf } from "../helpers/rmrf"
 
 describe("SessionPrompt.Service", () => {
   it("resolves file prompt parts from the Effect instance context", async () => {
@@ -46,7 +47,7 @@ describe("SessionPrompt.Service", () => {
         mime: "text/plain",
       })
     } finally {
-      await fs.rm(directory, { recursive: true, force: true })
+      await rmrf(directory)
     }
   })
 })

@@ -3,6 +3,7 @@ import { Effect } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { rmrf } from "../helpers/rmrf"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -16,7 +17,7 @@ const [{ Session }, { locallyInstance }, { Global }, { Identifier }] = await Pro
 ])
 
 afterAll(async () => {
-  await fs.rm(testHome, { recursive: true, force: true })
+  await rmrf(testHome)
 })
 
 describe("Session.Service", () => {
@@ -83,7 +84,7 @@ describe("Session.Service", () => {
       expect(result.messages).toHaveLength(1)
       expect(result.messages[0]?.parts).toHaveLength(1)
     } finally {
-      await fs.rm(directory, { recursive: true, force: true })
+      await rmrf(directory)
     }
   })
 })
