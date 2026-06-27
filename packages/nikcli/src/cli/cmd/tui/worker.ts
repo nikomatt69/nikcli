@@ -145,8 +145,11 @@ export const rpc = {
   // Routes through the same Instance.provide cache as every real request, so
   // InstanceBootstrap still runs exactly once per directory (no double work).
   // See specs/tui-startup-speed.md.
-  async warm(input: { directory: string }) {
-    await Instance.provide({
+  warm(input: { directory: string }) {
+    // Fire-and-forget: the caller never consumes the result, and the bootstrap
+    // promise is cached by Instance.provide, so awaiting here would only delay
+    // the RPC ack without changing when bootstrap actually runs.
+    return Instance.provide({
       directory: input.directory,
       init: InstanceBootstrap,
       fn: async () => {},

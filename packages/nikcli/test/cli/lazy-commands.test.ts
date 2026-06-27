@@ -76,9 +76,11 @@ describe("lazy command table", () => {
       export: "DoesNotExistCommand",
       load: async () => ({}),
     })
-    // builder triggers the lazy resolve
-    await expect((bad.builder as any)({ option: () => ({}), options: () => ({}) })).rejects.toThrow(
-      /missing export "DoesNotExistCommand"/,
-    )
+    // lazyCommand always sets builder to a function; invoking it triggers the
+    // lazy resolve. Type it explicitly rather than casting through `any`.
+    type BuilderFn = (yargs: unknown) => Promise<unknown>
+    const builder = bad.builder as unknown as BuilderFn
+    const yargsStub = { option: () => ({}), options: () => ({}) }
+    await expect(builder(yargsStub)).rejects.toThrow(/missing export "DoesNotExistCommand"/)
   })
 })

@@ -64,7 +64,7 @@ import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
 import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
-import { KVProvider, useKV } from "./context/kv"
+import { KVProvider, useKV, readKVStore } from "./context/kv"
 import { LanguageProvider } from "./context/language"
 import { Provider } from "@/provider/provider"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
@@ -89,21 +89,16 @@ import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
-import path from "path"
-import { Global } from "@/global"
 
 // Read the user's persisted theme mode (set only via an explicit mode change)
-// directly from the KV store on disk, before the render tree mounts. Mirrors
-// KVProvider's storage location and ThemeProvider's "theme_mode" key. Returns
-// undefined when nothing is stored (first run) so detection can run instead.
+// from the KV store on disk, before the render tree mounts. Uses KVProvider's
+// own readKVStore() so the storage location/shape can't drift, and the
+// "theme_mode" key matches ThemeProvider. Returns undefined when nothing is
+// stored (first run) so detection can run instead.
 async function readPersistedThemeMode(): Promise<"dark" | "light" | undefined> {
-  try {
-    const kv = (await Bun.file(path.join(Global.Path.state, "kv.json")).json()) as Record<string, unknown>
-    const mode = kv?.["theme_mode"]
-    return mode === "dark" || mode === "light" ? mode : undefined
-  } catch {
-    return undefined
-  }
+  const kv = await readKVStore()
+  const mode = kv?.["theme_mode"]
+  return mode === "dark" || mode === "light" ? mode : undefined
 }
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {

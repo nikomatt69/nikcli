@@ -4,12 +4,30 @@ import { createStore } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import path from "path"
 
+/** Single source of truth for the on-disk KV store location. */
+export function kvFilePath(): string {
+  return path.join(Global.Path.state, "kv.json")
+}
+
+/**
+ * Read the persisted KV store directly from disk, before the KVProvider context
+ * mounts. Used by callers that need a stored value during pre-render startup
+ * (e.g. the theme mode, to skip the blocking terminal detection). Keeping the
+ * path + parse here means consumers can't drift from KVProvider's storage shape.
+ * Returns an empty object when the file is missing or unreadable.
+ */
+export async function readKVStore(): Promise<Record<string, unknown>> {
+  return Bun.file(kvFilePath())
+    .json()
+    .catch(() => ({}) as Record<string, unknown>)
+}
+
 export const { use: useKV, provider: KVProvider } = createSimpleContext({
   name: "KV",
   init: () => {
     const [ready, setReady] = createSignal(false)
     const [store, setStore] = createStore<Record<string, any>>()
-    const file = Bun.file(path.join(Global.Path.state, "kv.json"))
+    const file = Bun.file(kvFilePath())
 
     file
       .json()
