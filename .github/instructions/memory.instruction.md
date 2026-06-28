@@ -1,8 +1,9 @@
 # nikcli Project Memory
 
-**Last updated**: 2026-06-26
-**Version**: 1.120.0 | **Branch**: `live-main` (working) / `nikoemme-main` (default per AGENTS.md)
+**Last updated**: 2026-06-28
+**Version**: 1.120.0 (live-main) / 1.122.0 (dev) | **Branch**: `live-main` (working) / `nikoemme-main` (default per AGENTS.md)
 **Repo**: `github.com/nikomatt69/nikcli` — fork of [OpenCode](https://github.com/sst/opencode) (SST)
+**HEAD on live-main** (2026-06-28): `2a36abd0 "fix(ci): cross-compile macOS x86_64 on Apple Silicon runner"`
 
 ## Overview
 
@@ -127,6 +128,21 @@
 - Even local CLI execution goes through internal server API: `run` builds SDK client whose `fetch` points at `Server.App().fetch()` in `src/cli/cmd/run.ts:533`
 - Uses `Installation.VERSION` (injected at build time via `NIKCLI_VERSION` env var) for `--version` flag
 
+### Worker / RPC Bridge (TUI ↔ Server)
+
+The TUI runs in two processes bridged by a JSON-RPC channel:
+
+- **`src/cli/cmd/tui/thread.ts`** — main thread; spawns Bun `Worker`, dynamically imports `./app` (SolidJS/OpenTUI renderer). Optionally calls `client.call("warm", { directory })` to pre-warm an instance in parallel with renderer init.
+- **`src/cli/cmd/tui/worker.ts`** — backend worker thread running `Server.App()`. Exposes RPC methods: `fetch`, `server`, `warm`, `checkUpgrade`, `upgradeNow`, `reload`, `subscribe`, `unsubscribe`, `shutdown`. Subscribes per-directory to `/event` SSE streams from `Server.App()` and forwards them as RPC events with subscription IDs.
+- **`src/util/rpc.ts`** — minimal JSON-over-postMessage RPC: request/result/error envelopes + named event channels; `client.on(...)` returns an unsubscribe function.
+- **Global bus wiring**: `GlobalBus` events → `Rpc.emit("global.event", event)` so the TUI receives SSE events without holding its own HTTP connection.
+
+### Lazy Command Loading (TUI startup speed)
+
+- 38+ CLI commands lazy-registered via `src/cli/cmd/lazy.ts:109` (deferred `import()` on first use) — keeps TUI startup fast.
+- Only the **TUI thread command** (`./cli/cmd/tui/thread`) is eagerly imported in `src/index.ts`.
+- Rationale/spec: `packages/nikcli/specs/tui-startup-speed.md`.
+
 ### CLI Startup & Auto-Upgrade Flow
 
 **Entry chain:**
@@ -190,14 +206,14 @@ Plus TUI subcommands: `tui/attach`, `tui/thread`, `debug`
 
 ### Effect Runtime (`src/effect/`) — **NEW**
 
-Thin wrappers over Effect 4 (`effect@4.0.0-beta.65`):
+Thin wrappers over Effect 4 (`effect@4.0.0-beta.65`). File layout:
 
-- `instance-state.ts` — per-instance state via `InstanceState.make`
-- `instance-scope.ts` — `locallyInstance(ctx, effect)` scopes to a directory
-- `instance-ref.ts` — instance-scoped `Ref`
-- `runtime.ts` — `AppRuntime.runPromise`, `runPromiseWithLayer`
-- `run-service.ts` — `runService(Service, effect, withCurrentInstance?)`
-- `with-instance.ts` — `withCurrentInstance`, `withInstanceAsync`
+- `runtime.ts` — `AppRuntime` (base `ManagedRuntime`), `runtimeFor(layer)` memoization via `WeakMap`, `runPromiseWithLayer`, `runPromise`, `withCurrentInstance` (auto-lift from `Instance.directory`)
+- `instance-ref.ts` — `InstanceRef`/`WorkspaceRef` Effect services, `locallyInstance`/`locallyWorkspace` providers, `instance`/`workspace` accessors
+- `instance-state.ts` — `InstanceState.make` backed by `ScopedCache.ScopedCache<string, S>` keyed by directory; helpers `InstanceState.get`/`context`/`directory`/`worktree`/`project`
+- `instance-scope.ts` — `InstanceScope.with(input, effect)` composes `InstanceRef` + `WorkspaceRef`
+- `with-instance.ts` — `withInstanceAsync` / `withInstance` — legacy `Instance.provide` boundary that wraps plain async/Effect bodies in scope
+- `run-service.ts` — `runService(Module, effect, wrap?)` runs with a module's `defaultLayer`
 
 **Canonical pattern** repeated everywhere:
 
@@ -205,7 +221,9 @@ Thin wrappers over Effect 4 (`effect@4.0.0-beta.65`):
 runX<A, E>(effect) = runPromiseWithLayer(X.defaultLayer, withCurrentInstance(effect))
 ```
 
-**Bridge layer** (`src/server/httpapi/bridge.ts`): old Hono routes + new typed Hono `HttpApi` coexist during migration. The 9-epoch integration plan in `packages/nikcli/specs/integration-master-plan.md` is the authoritative sequencing — `effect/MASTER-PLAN.md` is kept for detail only.
+Every domain service (`Session`, `Agent`, `Project`, `Provider`, `Permission`, `Storage`, `Bus`, …) exposes `defaultLayer: Layer.Layer<…>` + a thin `runX(effect)` helper following this shape.
+
+**Bridge layer** (`src/server/httpapi/bridge.ts`): old Hono routes + new typed Hono `HttpApi` (from `effect/unstable/httpapi`) coexist during migration. Feature-flagged via `NIKCLI_EXPERIMENTAL_HTTPAPI`. The 9-epoch integration plan in `packages/nikcli/specs/integration-master-plan.md` is the authoritative sequencing — `effect/MASTER-PLAN.md` is kept for detail only.
 
 ### Agent System (`src/agent/agent.ts`)
 
@@ -298,6 +316,17 @@ Runtime command catalog merges: built-ins, config commands, MCP prompts, connect
 
 **Author interface** (`Tool.define(id, init)`): normalizes both Promise- and Effect-returning `execute` into a unified `Tool.Def` where `execute` always returns `Effect.Effect<Result, Error>`. A compat `executeAsync(args, ctx)` wraps it via `AppRuntime.runPromise(...)`. Truncation runs automatically post-execute via `Truncate.Service` (best-effort, swallows errors).
 
+**Precise contract** (`src/tool/tool.ts`):
+
+| Type                  | Lines   | Shape                                                                                                                              |
+| --------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `Tool.Context<M>`     | 28–38   | `{ sessionID, messageID, agent, abort: AbortSignal, callID?, extra?, messages?, metadata({title?, metadata?}), ask(input) }`       |
+| `Tool.Result<M>`      | 40–45   | `{ title, metadata, output, attachments? }`                                                                                        |
+| `Tool.Def`            | 51–68   | Effect-shaped body (preferred)                                                                                                     |
+| `Tool.AuthoredDef`    | 74–79   | Legacy Promise-or-Effect accepted by `define()`                                                                                    |
+| `Tool.Info`           | 81–84   | `{ id, init(ctx?) → Promise<Def> }` — registered unit                                                                              |
+| `Tool.define` factory | 107–179 | Zod parse (L120) → ctx.metadata wrap (L133–145) → execute → Truncate service (L153–157) → `executeAsync` (L173) for legacy callers |
+
 **Two-layer description pattern**: each tool has a sibling `.txt` file with prompt instructions (`advisor.txt`, `apply_patch.txt`, `bash.txt`, etc.) — used by the agent system when assembling prompts.
 
 Plus dynamically loaded tools from `tool/*.{js,ts}` files and plugin tools.
@@ -361,17 +390,32 @@ Generic interval-based task scheduler with `Instance.state` scoping:
 
 ### Server (`src/server/server.ts`)
 
-Hono-based HTTP server (762 lines), `Bun.serve()` with WebSocket support:
+Hono-based HTTP server (~1.2k lines after recent additions), `Bun.serve()` with WebSocket support. Built lazily via `Server.App = lazy(() => new Hono()…)` (`server.ts:183`) — route modules are only evaluated on first request.
 
-**Middleware chain:**
+**Middleware chain** (in order, `server.ts:286–475`):
 
-1. Error handler (NamedError → JSON, HTTPException → response, Unknown → 500)
-2. Share redirects (`/s/:shareID` → `/share/:shareID`)
-3. Auth: mobile bearer JWT → Tailscale identity headers → HTTP Basic
-4. Request logging (except `/log`)
-5. CORS (localhost, Tailscale `.ts.net`, `*.nikcli.store`, Tauri, Capacitor, Expo)
-6. Instance/directory resolution from query params or `x-nikcli-*` headers
-7. Workspace context + Instance bootstrap
+1. `userAuthMiddleware()` (L286) — extracts `Bearer nku_…` token, sets `userSession` on Hono context.
+2. **Auth guard** (L287–339) — public paths (`/user/*`, `/global/health`, OPTIONS), then bearer token + mobile JWT, then Tailscale identity headers (only trusted when bound to loopback), then basic auth if `NIKCLI_SERVER_PASSWORD` set.
+3. Request logger (L340–356)
+4. **CORS** (L357–404) — allowlists `localhost`, `127.0.0.1`, `*.local`, `tauri://localhost`, `tailscale:`, `nikcli://`, `capacitor://`, `exp://`, `*.ts.net` (Tailscale), `*.nikcli.store`, plus runtime whitelist from `opts.cors` + `NIKCLI_SERVER_CORS_ORIGINS`.
+5. Instance/workspace context (L406–446) — `directory` resolution: `?directory=` → `x-nikcli-directory` header → `process.cwd()`; resolves any `?workspace=` and proxies to remote target if needed.
+6. `/doc` OpenAPI (L447–459)
+7. Query validator (L460–468)
+8. **HttpApiBridge** (L469–474) — feature-flagged (`NIKCLI_EXPERIMENTAL_HTTPAPI`) router to `effect/unstable/httpapi` handlers.
+9. **Route mounts** (L475–495): `ProjectRoutes`, `LoopRoutes`, `MissionRoutes`, `PtyRoutes`, `ConfigRoutes`, `ExperimentalRoutes`, `SessionRoutes`, `PermissionRoutes`, `QuestionRoutes`, `ProviderRoutes`, `CompanionRoutes`, `UserRoutes`, `MobileRoutes`, `FileRoutes`, `ConnectorsRoutes`, `ChatBotRoutes`, `McpRoutes`, `TuiRoutes`, `AnalyticsRoutes`, `BrainRoutes`, `DoctorRoutes`.
+10. Catch-all proxy (L1093–1108) → `https://app.nikcli.store` with strict CSP.
+
+**Error mapping** (L186–247):
+
+- `Session.BusyError` → 409, `Storage.NotFoundError` → 404
+- `Provider.ModelNotFoundError` → 400 (with model suggestions)
+- `Vcs.PatchApplyError` → 400, worktree errors → 400
+- `HTTPException` → its own response; else 500 `{ name: "Unknown", data: { message } }`
+- Per-route `__http` marker honored so handlers control status/body
+
+**`Server.listen()`** (L1126–1212): `Bun.serve` with `idleTimeout: 0`, `maxRequestBodySize: NIKCLI_SERVER_MAX_BODY ?? 2 GiB`, WebSocket handlers via `hono/bun`. Port 4096 first; on collision falls back to ephemeral port (used for nested `mobile serve`). Optionally publishes mDNS via `MDNS.publish` (skipped on loopback). On `isLocal()` it triggers `Workspace.startSyncing` for every project.
+
+**OpenAPI**: generated at runtime; spec at `/Volumes/SSD/Projects/nikcli/packages/sdk/openapi.json` (~839 KB).
 
 **Route modules (18+):**
 | Mount | Module | Key Operations |
@@ -463,7 +507,14 @@ External TUI plugin package using OpenTUI SolidJS components:
 - `src/skill/` — loads `SKILL.md` from `.nikcli/skill/`, `.claude/skills/`, `.agents/skills/`
 - `src/bus/` — pub/sub event bus (`bus-event.ts`, `global.ts`) with typed events
 - `src/mobile/` — bearer token auth (`MobileAuth`), GitHub repo management
-- `src/storage/` — file-based JSON with read/write locks, migrations
+- `src/storage/` — typed JSON file storage (`Storage.Service` Effect service)
+  - Hierarchical key paths (`["project", id, ...]`) → `<dir>/<key...>.json`
+  - In-memory **read cache with 5s TTL** + write-through invalidation
+  - File-level locks via `Lock.read`/`Lock.write` (`src/util/lock.ts`)
+  - Atomic transactions with **sorted-target lock acquisition** to prevent deadlocks
+  - Migrations gated by `<dir>/migration` counter (`MIGRATIONS` array)
+  - Helpers in `storage/effect.ts`: `storageRead`/`storageWrite`/`storageUpdate`/`storageRemove`/`storageList`
+  - Errors mapped to `NotFoundError` (ENOENT) or `IOError` (tagged `Schema.TaggedErrorClass`)
 - `src/file/` — fff integration, `.gitignore` support, file watcher, time utilities
 - `src/snapshot/` — git snapshot management for reverts
 - `src/share/` — session sharing to enterprise endpoint
@@ -477,6 +528,10 @@ External TUI plugin package using OpenTUI SolidJS components:
 - `src/id/` — identifier generation (ascending/descending ULID-based)
 - `src/global/` — global paths (home, state, config)
 - `src/project/` — instance management, bootstrap, VCS (git), state
+  - **`Project.Service`** (`src/project/project.ts`) discovers project by walking up to `.git`, derives a stable project ID cached in `<git-dir>/nikcli` via `git rev-list --max-parents=0 --all` (picks root commit SHA)
+  - Tracks `sandboxes` (other worktrees); supports optional `discover` (favicon discovery)
+  - **`Instance.provide({ directory, init?, fn })`** (`src/project/instance.ts:54`): caches by `realpathSync(directory)`, calls `Project.fromDirectory` to derive `{ project, sandbox, worktree }`, runs `init` once per directory, then `fn` inside AsyncLocalStorage scope
+  - Helpers: `Instance.containsPath(...)` for path-safety, `Instance.state(...)` factory for per-instance state with disposer, `Instance.dispose()`/`disposeAll()` → publishes `Bus.InstanceDisposed`, runs disposers, clears cache
 - `src/util/` — 27 utility modules (archive, color, context, defer, error, eventloop, filesystem, flock, fn, format, hash, iife, keybind, lazy, locale, lock, log, network, process, queue, record, rpc, scrap, signal, timeout, token, wildcard)
 - `src/chatbot/` — chatbot handlers
 - `src/docs/` — documentation context/library management

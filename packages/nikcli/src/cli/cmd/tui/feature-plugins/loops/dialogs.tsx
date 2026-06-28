@@ -358,7 +358,11 @@ export function modelLabel(api: TuiPluginApi, model?: string): string {
 }
 
 /** Model picker built from the providers; `onPick` gets "providerID/modelID" or undefined. */
-function pickModel(api: TuiPluginApi, current: string | undefined, onPick: (model: string | undefined) => void): void {
+export function pickModel(
+  api: TuiPluginApi,
+  current: string | undefined,
+  onPick: (model: string | undefined) => void,
+): void {
   const options: DialogSelectOption<string>[] = [
     {
       value: "__default__",
