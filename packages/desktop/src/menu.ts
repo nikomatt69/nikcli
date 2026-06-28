@@ -62,15 +62,15 @@ export async function createMenu(trigger: (id: string) => void) {
         ].filter(Boolean),
       }),
       await Submenu.new({
-        text: "File",
+        text: t("desktop.menu.file"),
         items: [
           await MenuItem.new({
-            text: "New Session",
+            text: t("command.session.new"),
             accelerator: "Shift+Cmd+S",
             action: () => trigger("session.new"),
           }),
           await MenuItem.new({
-            text: "Open Project...",
+            text: t("command.project.open"),
             accelerator: "Cmd+O",
             action: () => trigger("project.open"),
           }),
@@ -83,7 +83,7 @@ export async function createMenu(trigger: (id: string) => void) {
         ],
       }),
       await Submenu.new({
-        text: "Edit",
+        text: t("desktop.menu.edit"),
         items: [
           await PredefinedMenuItem.new({
             item: "Undo",
@@ -109,44 +109,44 @@ export async function createMenu(trigger: (id: string) => void) {
         ],
       }),
       await Submenu.new({
-        text: "View",
+        text: t("desktop.menu.view"),
         items: [
           await MenuItem.new({
             action: () => trigger("sidebar.toggle"),
-            text: "Toggle Sidebar",
+            text: t("command.sidebar.toggle"),
             accelerator: "Cmd+B",
           }),
           await MenuItem.new({
             action: () => trigger("terminal.toggle"),
-            text: "Toggle Terminal",
+            text: t("command.terminal.toggle"),
             accelerator: "Ctrl+`",
           }),
           await MenuItem.new({
             action: () => trigger("fileTree.toggle"),
-            text: "Toggle File Tree",
+            text: t("command.fileTree.toggle"),
           }),
           await PredefinedMenuItem.new({
             item: "Separator",
           }),
           await MenuItem.new({
             action: () => trigger("common.goBack"),
-            text: "Back",
+            text: t("common.goBack"),
           }),
           await MenuItem.new({
             action: () => trigger("common.goForward"),
-            text: "Forward",
+            text: t("common.goForward"),
           }),
           await PredefinedMenuItem.new({
             item: "Separator",
           }),
           await MenuItem.new({
             action: () => trigger("session.previous"),
-            text: "Previous Session",
+            text: t("command.session.previous"),
             accelerator: "Option+ArrowUp",
           }),
           await MenuItem.new({
             action: () => trigger("session.next"),
-            text: "Next Session",
+            text: t("command.session.next"),
             accelerator: "Option+ArrowDown",
           }),
           await PredefinedMenuItem.new({
@@ -155,33 +155,58 @@ export async function createMenu(trigger: (id: string) => void) {
         ],
       }),
       await Submenu.new({
-        text: "Help",
+        text: t("desktop.menu.tools"),
         items: [
-          // missing native macos search
           await MenuItem.new({
-            action: () => openUrl("https://nikcli.ai/docs"),
-            text: "Nikcli Documentation",
+            action: () => trigger("routine.list"),
+            text: t("command.routines.open"),
           }),
           await MenuItem.new({
-            action: () => openUrl("https://discord.com/invite/nikcli"),
-            text: "Support Forum",
+            action: () => trigger("analytics.view"),
+            text: t("command.analytics.open"),
+          }),
+          await MenuItem.new({
+            action: () => trigger("connectors.list"),
+            text: t("command.connectors.open"),
+          }),
+          await MenuItem.new({
+            action: () => trigger("skill.list"),
+            text: t("command.skills.open"),
           }),
           await PredefinedMenuItem.new({
             item: "Separator",
           }),
-          // await MenuItem.new({
-          //   text: "Release Notes",
-          // }),
+          await MenuItem.new({
+            action: () => trigger("nikcli.status"),
+            text: t("command.status.open"),
+          }),
+          await MenuItem.new({
+            action: () => trigger("support.doctor"),
+            text: t("command.doctor.open"),
+          }),
+        ],
+      }),
+      await Submenu.new({
+        text: t("desktop.menu.help"),
+        items: [
+          await MenuItem.new({
+            action: () => openUrl("https://nikcli.ai/docs"),
+            text: t("desktop.menu.documentation"),
+          }),
+          await MenuItem.new({
+            action: () => openUrl("https://discord.com/invite/nikcli"),
+            text: t("desktop.menu.supportForum"),
+          }),
           await PredefinedMenuItem.new({
             item: "Separator",
           }),
           await MenuItem.new({
             action: () => openUrl("https://github.com/nikomatt69/nikcli/issues/new?template=feature_request.yml"),
-            text: "Share Feedback",
+            text: t("desktop.menu.shareFeedback"),
           }),
           await MenuItem.new({
             action: () => openUrl("https://github.com/nikomatt69/nikcli/issues/new?template=bug_report.yml"),
-            text: "Report a Bug",
+            text: t("desktop.menu.reportBug"),
           }),
         ],
       }),

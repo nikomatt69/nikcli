@@ -3,7 +3,15 @@ import { base64Encode } from "@nikcli-ai/util/encode"
 import { getFilename } from "@nikcli-ai/util/path"
 import { Icon } from "@nikcli-ai/ui/icon"
 import { Splash } from "@nikcli-ai/ui/logo"
-import { useCommand, useGlobalSDK, useGlobalSync, useLayout, usePlatform, type LocalProject } from "@nikcli-ai/app"
+import {
+  useCommand,
+  useGlobalSDK,
+  useGlobalSync,
+  useLayout,
+  usePlatform,
+  useServer,
+  type LocalProject,
+} from "@nikcli-ai/app"
 import {
   For,
   Show,
@@ -19,6 +27,7 @@ import {
 } from "solid-js"
 import { Portal } from "solid-js/web"
 import { createStore } from "solid-js/store"
+import { t } from "./i18n"
 
 const SIDEBAR_MIN = 260
 const SIDEBAR_MAX = 460
@@ -32,6 +41,9 @@ const REVIEW_DEFAULT = 540
 const REVIEW_STORAGE_KEY = "review-width"
 const FILES_MIN = 640
 const FILES_MAX = 1200
+const FILES_DEFAULT = 760
+const FILES_STORAGE_KEY = "files-width"
+const WORKBENCH_COLLAPSED_STORAGE_KEY = "workbench-collapsed"
 
 // Mirror of Browser.MODELS / Browser.NATIVE_MODELS (packages/nikcli). Only the
 // native models are billed by Browser Use with just a project key; the rest
@@ -72,7 +84,29 @@ function buSessionLabel(configModel: string | undefined): string {
   return modelID ? `${modelID} → claude-sonnet-4.6 fallback` : "claude-sonnet-4.6 (default)"
 }
 
-type SidebarView = "projects" | "plugins" | "automations"
+type SidebarView = "projects" | "automations" | "integrations" | "operations"
+
+type SidebarCommand = {
+  id: string
+  title: string
+  keybind?: string
+}
+
+const SIDEBAR_ACTION_ICONS: Record<string, Parameters<typeof Icon>[0]["name"]> = {
+  "routine.list": "task",
+  "desktop.workbench.browser": "window-cursor",
+  "desktop.workbench.computer": "console",
+  "brain.run": "brain",
+  "provider.connect": "plus",
+  "connectors.list": "link",
+  "skill.list": "code",
+  "mcp.toggle": "mcp",
+  "nikcli.status": "circle-check",
+  "analytics.view": "bullet-list",
+  "support.doctor": "checklist",
+  "otel.settings": "settings-gear",
+  "server.switch": "server",
+}
 
 const clampSidebar = (value: number) => Math.min(Math.max(Math.round(value), SIDEBAR_MIN), SIDEBAR_MAX)
 const clampReview = (value: number, max = REVIEW_MAX) => Math.min(Math.max(Math.round(value), REVIEW_MIN), max)
@@ -98,6 +132,7 @@ export function DesktopFrame(props: ParentProps) {
   const platform = usePlatform()
   const [width, setWidth] = createSignal(SIDEBAR_DEFAULT)
   const [reviewWidth, setReviewWidth] = createSignal(REVIEW_DEFAULT)
+  const [filesWidth, setFilesWidth] = createSignal(FILES_DEFAULT)
   const [windowWidth, setWindowWidth] = createSignal(typeof window === "undefined" ? 1440 : window.innerWidth)
   const [appReady, setAppReady] = createSignal(false)
   let host: HTMLElement | undefined
@@ -113,12 +148,15 @@ export function DesktopFrame(props: ParentProps) {
   const reviewMax = createMemo(() => Math.max(REVIEW_MIN, Math.min(REVIEW_MAX, Math.floor(workspaceWidth() * 0.45))))
   const filesMax = createMemo(() => Math.max(REVIEW_MIN, Math.min(FILES_MAX, Math.floor(workspaceWidth() * 0.72))))
   const effectiveReviewWidth = createMemo(() => clampReview(reviewWidth(), reviewMax()))
-  const effectiveFilesWidth = createMemo(() =>
-    clampReview(Math.max(reviewWidth(), Math.min(FILES_MIN, filesMax())), filesMax()),
-  )
+  const effectiveFilesWidth = createMemo(() => {
+    const max = filesMax()
+    const min = Math.min(FILES_MIN, max)
+    return Math.min(Math.max(Math.round(filesWidth()), min), max)
+  })
   const filesPanelActive = () => host?.querySelector(".desktop-tools--files") !== null
   const activeSidePanelWidth = () => (filesPanelActive() ? effectiveFilesWidth() : effectiveReviewWidth())
   const activeSidePanelMax = () => (filesPanelActive() ? filesMax() : reviewMax())
+  const activeSidePanelMin = () => (filesPanelActive() ? Math.min(FILES_MIN, filesMax()) : REVIEW_MIN)
 
   const syncWindowWidth = () => setWindowWidth(window.innerWidth)
 
@@ -127,7 +165,9 @@ export function DesktopFrame(props: ParentProps) {
   }
 
   const persistReview = () => {
-    void storage?.setItem(REVIEW_STORAGE_KEY, String(reviewWidth()))
+    const key = filesPanelActive() ? FILES_STORAGE_KEY : REVIEW_STORAGE_KEY
+    const value = filesPanelActive() ? filesWidth() : reviewWidth()
+    void storage?.setItem(key, String(value))
   }
 
   const stopResize = () => {
@@ -146,7 +186,10 @@ export function DesktopFrame(props: ParentProps) {
 
   const moveResize = (event: PointerEvent) => {
     if (draggingReview) {
-      setReviewWidth(clampReview(startReviewWidth - (event.clientX - startReviewX), activeSidePanelMax()))
+      const next = startReviewWidth - (event.clientX - startReviewX)
+      if (filesPanelActive())
+        setFilesWidth(Math.min(Math.max(Math.round(next), activeSidePanelMin()), activeSidePanelMax()))
+      else setReviewWidth(clampReview(next, activeSidePanelMax()))
       return
     }
     if (!dragging) return
@@ -181,7 +224,10 @@ export function DesktopFrame(props: ParentProps) {
   const resizeReviewWithKeyboard: JSX.EventHandlerUnion<HTMLDivElement, KeyboardEvent> = (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
     event.preventDefault()
-    setReviewWidth(clampReview(activeSidePanelWidth() + (event.key === "ArrowLeft" ? 16 : -16), activeSidePanelMax()))
+    const next = activeSidePanelWidth() + (event.key === "ArrowLeft" ? 16 : -16)
+    if (filesPanelActive())
+      setFilesWidth(Math.min(Math.max(Math.round(next), activeSidePanelMin()), activeSidePanelMax()))
+    else setReviewWidth(clampReview(next, activeSidePanelMax()))
     persistReview()
   }
 
@@ -200,6 +246,14 @@ export function DesktopFrame(props: ParentProps) {
         if (value == null) return
         const parsed = Number(value)
         if (Number.isFinite(parsed)) setReviewWidth(clampReview(parsed))
+      })
+      .catch(() => undefined)
+
+    void Promise.resolve(storage?.getItem(FILES_STORAGE_KEY))
+      .then((value) => {
+        if (value == null) return
+        const parsed = Number(value)
+        if (Number.isFinite(parsed)) setFilesWidth(parsed)
       })
       .catch(() => undefined)
 
@@ -274,9 +328,9 @@ export function DesktopFrame(props: ParentProps) {
       <div
         class="desktop-review-resize"
         role="separator"
-        aria-label="Resize review panel"
+        aria-label={t("desktop.workbench.resize")}
         aria-orientation="vertical"
-        aria-valuemin={REVIEW_MIN}
+        aria-valuemin={activeSidePanelMin()}
         aria-valuemax={activeSidePanelMax()}
         aria-valuenow={activeSidePanelWidth()}
         tabIndex={0}
@@ -306,6 +360,25 @@ function NavButton(props: {
       <span>{props.label}</span>
       <Show when={props.badge}>{(badge) => <span class="desktop-nav-button__badge">{badge()}</span>}</Show>
     </button>
+  )
+}
+
+function SidebarCommandList(props: { items: SidebarCommand[]; empty: string; onSelect: (id: string) => void }) {
+  return (
+    <div class="desktop-sidebar__list">
+      <For each={props.items}>
+        {(item) => (
+          <button type="button" class="desktop-sidebar__list-item" onClick={() => props.onSelect(item.id)}>
+            <Icon name={SIDEBAR_ACTION_ICONS[item.id] ?? "task"} size="small" />
+            <span>{item.title}</span>
+            <Show when={item.keybind}>{(keybind) => <kbd>{keybind()}</kbd>}</Show>
+          </button>
+        )}
+      </For>
+      <Show when={props.items.length === 0}>
+        <div class="desktop-sidebar__notice">{props.empty}</div>
+      </Show>
+    </div>
   )
 }
 
@@ -395,6 +468,7 @@ function DesktopSidebar() {
   const sync = useGlobalSync()
   const layout = useLayout()
   const platform = usePlatform()
+  const server = useServer()
   const params = useParams()
   const navigate = useNavigate()
   const [view, setView] = createSignal<SidebarView>("projects")
@@ -402,10 +476,30 @@ function DesktopSidebar() {
 
   const projects = createMemo(() => layout.projects.list())
   const plugins = createMemo(() => sync.data.config.plugin ?? [])
+  const commandMap = createMemo(
+    () =>
+      new Map(
+        command.options
+          .filter((option) => !option.id.startsWith("suggested.") && !option.disabled && !!option.onSelect)
+          .map((option) => [
+            option.id,
+            { id: option.id, title: option.title, keybind: command.keybind(option.id) || undefined },
+          ]),
+      ),
+  )
+  const commandItems = (ids: string[]) =>
+    ids.flatMap((id) => {
+      const option = commandMap().get(id)
+      return option ? [option] : []
+    })
   const automations = createMemo(() =>
-    command.options
-      .filter((option) => !option.id.startsWith("suggested.") && !option.disabled && !!option.onSelect)
-      .slice(0, 30),
+    commandItems(["routine.list", "desktop.workbench.browser", "desktop.workbench.computer", "brain.run"]),
+  )
+  const integrations = createMemo(() =>
+    commandItems(["provider.connect", "connectors.list", "skill.list", "mcp.toggle"]),
+  )
+  const operations = createMemo(() =>
+    commandItems(["nikcli.status", "analytics.view", "support.doctor", "otel.settings", "server.switch"]),
   )
 
   onMount(() => {
@@ -446,29 +540,38 @@ function DesktopSidebar() {
       </div>
 
       <div class="desktop-sidebar__primary">
-        <NavButton icon="edit-small-2" label="New chat" onClick={newSession} />
-        <NavButton icon="magnifying-glass" label="Search" onClick={command.show} />
-        <NavButton
-          icon="mcp"
-          label="Plugins"
-          active={view() === "plugins"}
-          badge={plugins().length ? String(plugins().length) : undefined}
-          onClick={() => toggleView("plugins")}
-        />
+        <NavButton icon="edit-small-2" label={t("desktop.sidebar.newChat")} onClick={newSession} />
+        <NavButton icon="magnifying-glass" label={t("desktop.sidebar.search")} onClick={command.show} />
         <NavButton
           icon="task"
-          label="Automations"
+          label={t("desktop.sidebar.automations")}
           active={view() === "automations"}
-          badge={automations().length ? String(automations().length) : undefined}
           onClick={() => toggleView("automations")}
+        />
+        <NavButton
+          icon="mcp"
+          label={t("desktop.sidebar.integrations")}
+          active={view() === "integrations"}
+          badge={plugins().length ? String(plugins().length) : undefined}
+          onClick={() => toggleView("integrations")}
+        />
+        <NavButton
+          icon="circle-check"
+          label={t("desktop.sidebar.operations")}
+          active={view() === "operations"}
+          onClick={() => toggleView("operations")}
         />
       </div>
 
       <div class="desktop-sidebar__content">
         <Show when={view() === "projects"}>
           <div class="desktop-sidebar__section-heading">
-            <span>Projects</span>
-            <button type="button" onClick={() => command.trigger("project.open")} aria-label="Open project">
+            <span>{t("desktop.sidebar.projects")}</span>
+            <button
+              type="button"
+              onClick={() => command.trigger("project.open")}
+              aria-label={t("desktop.sidebar.openProject")}
+            >
               <Icon name="plus-small" size="small" />
             </button>
           </div>
@@ -488,20 +591,44 @@ function DesktopSidebar() {
             <Show when={projects().length === 0}>
               <button type="button" class="desktop-sidebar__empty" onClick={() => command.trigger("project.open")}>
                 <Icon name="folder-add-left" size="normal" />
-                <span>Open a project to get started</span>
+                <span>{t("desktop.sidebar.emptyProjects")}</span>
               </button>
             </Show>
           </div>
         </Show>
 
-        <Show when={view() === "plugins"}>
+        <Show when={view() === "automations"}>
           <div class="desktop-sidebar__section-heading">
-            <span>Configured plugins</span>
-            <button type="button" onClick={() => setView("projects")} aria-label="Close plugins">
+            <span>{t("desktop.sidebar.automations")}</span>
+            <button type="button" onClick={() => setView("projects")} aria-label={t("desktop.sidebar.closePanel")}>
               <Icon name="close-small" size="small" />
             </button>
           </div>
           <div class="desktop-sidebar__scroll desktop-sidebar__list">
+            <SidebarCommandList
+              items={automations()}
+              empty={t("desktop.sidebar.noActions")}
+              onSelect={(id) => command.trigger(id)}
+            />
+          </div>
+        </Show>
+
+        <Show when={view() === "integrations"}>
+          <div class="desktop-sidebar__section-heading">
+            <span>{t("desktop.sidebar.integrations")}</span>
+            <button type="button" onClick={() => setView("projects")} aria-label={t("desktop.sidebar.closePanel")}>
+              <Icon name="close-small" size="small" />
+            </button>
+          </div>
+          <div class="desktop-sidebar__scroll desktop-sidebar__list">
+            <SidebarCommandList
+              items={integrations()}
+              empty={t("desktop.sidebar.noActions")}
+              onSelect={(id) => command.trigger(id)}
+            />
+            <div class="desktop-sidebar__section-heading desktop-sidebar__section-heading--nested">
+              <span>{t("desktop.sidebar.configuredPlugins")}</span>
+            </div>
             <For each={plugins()}>
               {(plugin) => (
                 <div class="desktop-sidebar__list-item">
@@ -511,37 +638,60 @@ function DesktopSidebar() {
               )}
             </For>
             <Show when={plugins().length === 0}>
-              <div class="desktop-sidebar__notice">No plugins are configured in nikcli.json.</div>
+              <div class="desktop-sidebar__notice">{t("desktop.sidebar.noPlugins")}</div>
             </Show>
           </div>
         </Show>
 
-        <Show when={view() === "automations"}>
+        <Show when={view() === "operations"}>
           <div class="desktop-sidebar__section-heading">
-            <span>Available actions</span>
-            <button type="button" onClick={() => setView("projects")} aria-label="Close automations">
+            <span>{t("desktop.sidebar.operations")}</span>
+            <button type="button" onClick={() => setView("projects")} aria-label={t("desktop.sidebar.closePanel")}>
               <Icon name="close-small" size="small" />
             </button>
           </div>
           <div class="desktop-sidebar__scroll desktop-sidebar__list">
-            <For each={automations()}>
-              {(item) => (
-                <button type="button" class="desktop-sidebar__list-item" onClick={() => command.trigger(item.id)}>
-                  <Icon name="task" size="small" />
-                  <span>{item.title}</span>
-                  <Show when={command.keybind(item.id)}>{(keybind) => <kbd>{keybind()}</kbd>}</Show>
-                </button>
-              )}
-            </For>
+            <SidebarCommandList
+              items={operations()}
+              empty={t("desktop.sidebar.noActions")}
+              onSelect={(id) => command.trigger(id)}
+            />
           </div>
         </Show>
       </div>
 
-      <button type="button" class="desktop-sidebar__settings" onClick={() => command.trigger("settings.open")}>
-        <Icon name="settings-gear" size="normal" />
-        <span>Settings</span>
-        <span class="desktop-sidebar__version">v{platform.version}</span>
-      </button>
+      <div class="desktop-sidebar__footer">
+        <button
+          type="button"
+          class="desktop-sidebar__server"
+          onClick={() => command.trigger("server.switch")}
+          title={server.url}
+        >
+          <span
+            classList={{
+              "desktop-sidebar__server-status": true,
+              "desktop-sidebar__server-status--healthy": server.healthy() === true,
+              "desktop-sidebar__server-status--unhealthy": server.healthy() === false,
+            }}
+          />
+          <span class="desktop-sidebar__server-copy">
+            <span>{server.name}</span>
+            <span>
+              {server.healthy() === true
+                ? t("desktop.sidebar.serverConnected")
+                : server.healthy() === false
+                  ? t("desktop.sidebar.serverUnreachable")
+                  : t("desktop.sidebar.serverChecking")}
+            </span>
+          </span>
+          <Icon name="chevron-right" size="small" />
+        </button>
+        <button type="button" class="desktop-sidebar__settings" onClick={() => command.trigger("settings.open")}>
+          <Icon name="settings-gear" size="normal" />
+          <span>{t("desktop.sidebar.settings")}</span>
+          <span class="desktop-sidebar__version">v{platform.version}</span>
+        </button>
+      </div>
     </div>
   )
 }
@@ -770,6 +920,7 @@ function DesktopTools() {
   const sync = useGlobalSync()
   const layout = useLayout()
   const platform = usePlatform()
+  const command = useCommand()
   const params = useParams()
   const sessionKey = createMemo(() => `${params.dir ?? ""}${params.id ? `/${params.id}` : ""}`)
   const view = layout.view(sessionKey)
@@ -777,7 +928,9 @@ function DesktopTools() {
   const [workbench, setWorkbench] = createStore<{
     active: WorkbenchSurface
     automation: AutomationSurface
-  }>({ active: "browser", automation: "browser" })
+    collapsed: boolean
+    fullscreen: boolean
+  }>({ active: "browser", automation: "browser", collapsed: false, fullscreen: false })
   const available = createMemo(() => !!params.dir)
   const activeAutomation = createMemo<AutomationSurface>(() =>
     isAutomationSurface(workbench.active) ? workbench.active : workbench.automation,
@@ -824,6 +977,7 @@ function DesktopTools() {
     if ((surface === "review" || surface === "terminal" || surface === "files") && !available()) return
 
     batch(() => {
+      setWorkbench("collapsed", false)
       if (isAutomationSurface(surface)) {
         closeSessionPanels()
         setWorkbench({ active: surface, automation: surface })
@@ -846,6 +1000,42 @@ function DesktopTools() {
       setWorkbench("active", surface)
     })
   }
+
+  const persistCollapsed = (collapsed: boolean) => {
+    void Promise.resolve(storage?.setItem(WORKBENCH_COLLAPSED_STORAGE_KEY, String(collapsed))).catch(() => undefined)
+  }
+
+  const toggleCollapsed = () => {
+    const next = !workbench.collapsed
+    batch(() => {
+      setWorkbench("collapsed", next)
+      if (next) setWorkbench("fullscreen", false)
+    })
+    persistCollapsed(next)
+  }
+
+  const toggleFullscreen = () => {
+    batch(() => {
+      setWorkbench("collapsed", false)
+      setWorkbench("fullscreen", (value) => !value)
+    })
+    persistCollapsed(false)
+  }
+
+  command.register("desktop-workbench", () => [
+    {
+      id: "desktop.workbench.browser",
+      title: t("desktop.workbench.browser"),
+      category: t("desktop.workbench.title"),
+      onSelect: () => openSurface("browser"),
+    },
+    {
+      id: "desktop.workbench.computer",
+      title: t("desktop.workbench.computer"),
+      category: t("desktop.workbench.title"),
+      onSelect: () => openSurface("computer"),
+    },
+  ])
 
   const panelControl = (surface: WorkbenchSurface) => {
     if (surface === "review" || surface === "files") return "review-panel"
@@ -879,6 +1069,12 @@ function DesktopTools() {
   }
 
   onMount(() => {
+    void Promise.resolve(storage?.getItem(WORKBENCH_COLLAPSED_STORAGE_KEY))
+      .then((collapsed) => {
+        if (collapsed === "true") setWorkbench("collapsed", true)
+      })
+      .catch(() => undefined)
+
     void Promise.resolve(storage?.getItem(SHELL_LAYOUT_STORAGE_KEY))
       .then((initialized) => {
         if (initialized === "true") return
@@ -898,8 +1094,9 @@ function DesktopTools() {
         if (!latest) return
         batch(() => {
           closeSessionPanels()
-          setWorkbench({ active: latest.tool, automation: latest.tool })
+          setWorkbench({ active: latest.tool, automation: latest.tool, collapsed: false })
         })
+        persistCollapsed(false)
       },
     ),
   )
@@ -945,31 +1142,31 @@ function DesktopTools() {
   >(() => [
     {
       surface: "review",
-      label: "Review",
+      label: t("desktop.workbench.review"),
       icon: "checklist",
       disabled: !available(),
     },
     {
       surface: "terminal",
-      label: "Terminal",
+      label: t("desktop.workbench.terminal"),
       icon: "console",
       disabled: !available(),
     },
     {
       surface: "browser",
-      label: "Browser",
+      label: t("desktop.workbench.browser"),
       icon: "window-cursor",
       running: hasRunningAutomation("browser"),
     },
     {
       surface: "computer",
-      label: "Computer",
+      label: t("desktop.workbench.computer"),
       icon: "console",
       running: hasRunningAutomation("computer"),
     },
     {
       surface: "files",
-      label: "Files",
+      label: t("desktop.workbench.files"),
       icon: "folder",
       disabled: !available(),
     },
@@ -983,35 +1180,77 @@ function DesktopTools() {
         "desktop-tools--review": reviewTabOpen(),
         "desktop-tools--terminal": terminalTabOpen(),
         "desktop-tools--files": fileTabOpen(),
+        "desktop-tools--collapsed": workbench.collapsed,
+        "desktop-tools--fullscreen": workbench.fullscreen,
       }}
       style={{ bottom: "0px" }}
-      aria-label="Workspace tools"
+      aria-label={t("desktop.workbench.title")}
     >
-      <div class="desktop-workbench__bar" role="tablist" aria-label="Workspace tool tabs" onKeyDown={handleTabKeyDown}>
-        <For each={workbenchTabs()}>
-          {(tab) => (
+      <Show
+        when={!workbench.collapsed}
+        fallback={
+          <button
+            type="button"
+            class="desktop-workbench__collapsed-trigger"
+            aria-label={t("desktop.workbench.show")}
+            title={t("desktop.workbench.show")}
+            onClick={toggleCollapsed}
+          >
+            <Icon name="layout-right-full" size="normal" />
+          </button>
+        }
+      >
+        <div
+          class="desktop-workbench__bar"
+          role="tablist"
+          aria-label={t("desktop.workbench.title")}
+          onKeyDown={handleTabKeyDown}
+        >
+          <For each={workbenchTabs()}>
+            {(tab) => (
+              <button
+                type="button"
+                role="tab"
+                class="desktop-workbench__tab"
+                classList={{ "desktop-workbench__tab--active": workbench.active === tab.surface }}
+                aria-label={tab.label}
+                aria-selected={workbench.active === tab.surface}
+                aria-controls={workbench.active === tab.surface ? panelControl(tab.surface) : undefined}
+                title={tab.label}
+                disabled={tab.disabled}
+                onClick={() => openSurface(tab.surface)}
+              >
+                <Icon name={tab.icon} size="small" />
+                <span>{tab.label}</span>
+                <Show when={tab.running}>
+                  <span class="desktop-workbench__running" />
+                </Show>
+              </button>
+            )}
+          </For>
+          <div class="desktop-workbench__controls">
             <button
               type="button"
-              role="tab"
-              class="desktop-workbench__tab"
-              classList={{ "desktop-workbench__tab--active": workbench.active === tab.surface }}
-              aria-selected={workbench.active === tab.surface}
-              aria-controls={workbench.active === tab.surface ? panelControl(tab.surface) : undefined}
-              title={tab.label}
-              disabled={tab.disabled}
-              onClick={() => openSurface(tab.surface)}
+              aria-label={workbench.fullscreen ? t("desktop.workbench.restore") : t("desktop.workbench.expand")}
+              title={workbench.fullscreen ? t("desktop.workbench.restore") : t("desktop.workbench.expand")}
+              aria-pressed={workbench.fullscreen}
+              onClick={toggleFullscreen}
             >
-              <Icon name={tab.icon} size="small" />
-              <span>{tab.label}</span>
-              <Show when={tab.running}>
-                <span class="desktop-workbench__running" />
-              </Show>
+              <Icon name={workbench.fullscreen ? "collapse" : "expand"} size="small" />
             </button>
-          )}
-        </For>
-      </div>
-      <Show when={isAutomationSurface(workbench.active)}>
-        <AutomationPanel surface={activeAutomation()} part={latestPart()} />
+            <button
+              type="button"
+              aria-label={t("desktop.workbench.collapse")}
+              title={t("desktop.workbench.collapse")}
+              onClick={toggleCollapsed}
+            >
+              <Icon name="layout-right" size="small" />
+            </button>
+          </div>
+        </div>
+        <Show when={isAutomationSurface(workbench.active)}>
+          <AutomationPanel surface={activeAutomation()} part={latestPart()} />
+        </Show>
       </Show>
     </aside>
   )

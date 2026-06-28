@@ -1,14 +1,16 @@
+/* Full-screen preview overlay must stack above all desktop shell layers
+   (#desktop-tools-mount: 70, resize handles: 90). */
 [data-component="image-preview"] {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
 
   [data-slot="image-preview-container"] {
     position: relative;
-    z-index: 50;
+    z-index: 100;
     width: min(calc(100vw - 32px), 90vw);
     max-width: 1200px;
     height: min(calc(100vh - 32px), 90vh);

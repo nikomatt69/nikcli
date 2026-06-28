@@ -3,7 +3,9 @@
 }
 
 [data-component="popover-content"] {
-  z-index: 50;
+  /* Must stack above desktop layers (#desktop-tools-mount: 70, resize handles: 90)
+     so popovers anchored to the titlebar aren't clipped by the workbench panel. */
+  z-index: 100;
   min-width: 200px;
   max-width: 320px;
   border-radius: var(--radius-md);
