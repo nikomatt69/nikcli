@@ -277,7 +277,60 @@ export type LoopTemplate = {
   }
 }
 
+/**
+ * Stage objectives for the DeepSec agent-powered vulnerability scanner
+ * (https://github.com/vercel-labs/deepsec). Exported so the `/deepsec` TUI
+ * plugin and the `/loops` wizard build the exact same pipeline — keep this the
+ * single source of truth for the wording so the two paths never drift.
+ *
+ * DeepSec drives a four-phase workflow: `init` (bootstrap `.deepsec/`), `scan`
+ * (cheap regex candidate discovery), `process` (expensive AI investigation),
+ * and `export` (markdown/JSON report). Each phase maps onto one loop stage, so
+ * the loop engine becomes the orchestrator and resume/history come for free.
+ */
+export const DEEPSEC_STAGES = {
+  bootstrap: {
+    name: "bootstrap",
+    agent: "general",
+    objective:
+      "Ensure the DeepSec scanner is set up in this repository. If a `.deepsec/` directory does not already exist, run `npx --yes deepsec init` to create it, then run `pnpm install` inside `.deepsec`. If `.deepsec/` already exists, do nothing. Report in one line whether setup was needed and that DeepSec is ready.",
+  },
+  scan: {
+    name: "scan",
+    agent: "general",
+    objective:
+      "From the `.deepsec` directory run `pnpm deepsec scan` to find candidate vulnerability sites with DeepSec's fast regex-based scanning (no AI). Do not modify any source files. Report how many candidate sites were found, grouped by category if available.",
+  },
+  process: {
+    name: "process",
+    agent: "general",
+    objective:
+      "From the `.deepsec` directory run `pnpm deepsec process` to run DeepSec's AI-powered investigation over the candidate sites from the scan phase. This phase can take a while and consume tokens — let it run to completion and do not interrupt it. When it finishes, report the number of confirmed findings broken down by severity.",
+  },
+  diff: {
+    name: "scan-diff",
+    agent: "general",
+    objective:
+      "From the `.deepsec` directory run `pnpm deepsec process --diff` to investigate only the code changed in the current branch/PR (change-validation mode). Do not modify any source files. Report confirmed findings introduced by the diff, by severity, or state clearly that the diff introduces no new findings.",
+  },
+  export: {
+    name: "export",
+    agent: "general",
+    objective:
+      "From the `.deepsec` directory run `pnpm deepsec export` to produce DeepSec's findings report in markdown and JSON. Summarize the top findings by severity (critical/high first) with file and line, and state where the report files were written so the user can open them.",
+  },
+} as const
+
 export const LOOP_TEMPLATES: LoopTemplate[] = [
+  {
+    id: "deepsec-scan",
+    title: "DeepSec security scan",
+    description: "Agent-powered vulnerability scan (init → scan → process → export) via vercel-labs/deepsec",
+    draft: {
+      name: "DeepSec security scan",
+      stages: [DEEPSEC_STAGES.bootstrap, DEEPSEC_STAGES.scan, DEEPSEC_STAGES.process, DEEPSEC_STAGES.export],
+    },
+  },
   {
     id: "babysit-pr",
     title: "Babysit PR",

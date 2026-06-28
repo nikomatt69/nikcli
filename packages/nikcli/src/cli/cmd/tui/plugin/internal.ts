@@ -9,6 +9,7 @@ import PluginManager from "../feature-plugins/system/plugins"
 import Fusion from "../feature-plugins/system/fusion"
 import Loops from "../feature-plugins/loops"
 import Missions from "../feature-plugins/mission"
+import DeepSec from "../feature-plugins/deepsec"
 
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 
@@ -29,4 +30,5 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Fusion,
   Missions,
   Loops,
+  DeepSec,
 ]
