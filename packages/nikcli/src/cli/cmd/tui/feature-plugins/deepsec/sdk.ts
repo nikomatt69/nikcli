@@ -60,7 +60,7 @@ function stagesFor(mode: DeepSecMode): LoopStage[] {
     case "full":
       return [DEEPSEC_STAGES.bootstrap, DEEPSEC_STAGES.scan, DEEPSEC_STAGES.process, DEEPSEC_STAGES.export]
     case "diff":
-      return [DEEPSEC_STAGES.bootstrap, DEEPSEC_STAGES.diff, DEEPSEC_STAGES.export]
+      return [DEEPSEC_STAGES.bootstrap, DEEPSEC_STAGES.scanDiff, DEEPSEC_STAGES.export]
     case "export":
       return [DEEPSEC_STAGES.export]
   }
