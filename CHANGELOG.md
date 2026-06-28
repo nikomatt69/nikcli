@@ -3,7 +3,35 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
-## v1.126.0 (June 2026) 
+## v1.127.0 (June 2026)
+
+## Core
+
+- Align diff stage key, drop redundant comment (@claude)
+- Add /deepsec command for agent-powered vulnerability scans (@claude)
+
+## TUI
+
+- Enhance TUI plugin with model selection for scans (@nikomatt69)
+- Drop unused formatDuration re-export from deepsec sdk (@claude)
+
+## Desktop
+
+- Implement directory commands in the layout component (@nikomatt69)
+
+**Thank you to 2 community contributors:**
+
+- @nikomatt69:
+  - Implement directory commands in the layout component
+  - Merge pull request #132 from nikomatt69/claude/nikcli-command-plugin-loops-w8blln
+  - feat(deepsec): enhance TUI plugin with model selection for scans
+  - fix: update CHANGELOG for v1.126.0 release
+- @claude:
+  - feat(tui): add /deepsec command for agent-powered vulnerability scans
+  - refactor(tui): drop unused formatDuration re-export from deepsec sdk
+  - refactor(deepsec): align diff stage key, drop redundant comment
+
+## v1.126.0 (June 2026)
 
 ## TUI
 
