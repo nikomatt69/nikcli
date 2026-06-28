@@ -12,13 +12,7 @@
  * `/deepsec` command and the `/loops` wizard build the exact same pipeline.
  */
 import type { NikcliClient } from "@nikcli-ai/sdk/v2"
-import {
-  DEEPSEC_STAGES,
-  definitionFromGenerated,
-  formatDuration,
-  type LoopDefinition,
-  type LoopStage,
-} from "@/loop/schema"
+import { DEEPSEC_STAGES, definitionFromGenerated, type LoopDefinition, type LoopStage } from "@/loop/schema"
 import { LoopApi, type LoopRuntime } from "../loops/sdk"
 
 export type { LoopDefinition, LoopRuntime } from "../loops/sdk"
@@ -155,5 +149,3 @@ export class DeepSecApi {
     return this.loops.remove(id)
   }
 }
-
-export { formatDuration }
