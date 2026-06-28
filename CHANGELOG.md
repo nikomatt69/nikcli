@@ -3,6 +3,26 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.125.0 (June 2026)
+
+## Core
+
+- Align diff stage key, drop redundant comment (@claude)
+- Add /deepsec command for agent-powered vulnerability scans (@claude)
+
+## TUI
+
+- Drop unused formatDuration re-export from deepsec sdk (@claude)
+
+**Thank you to 2 community contributors:**
+
+- @claude:
+  - feat(tui): add /deepsec command for agent-powered vulnerability scans
+  - refactor(tui): drop unused formatDuration re-export from deepsec sdk
+  - refactor(deepsec): align diff stage key, drop redundant comment
+- @nikomatt69:
+  - Merge pull request #132 from nikomatt69/claude/nikcli-command-plugin-loops-w8blln
+
 ## v1.124.0 (June 2026)
 
 ## Desktop

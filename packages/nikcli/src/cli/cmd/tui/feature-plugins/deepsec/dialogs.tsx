@@ -15,11 +15,7 @@ import { DEEPSEC_MODES, DeepSecApi, planFor, type DeepSecMode, type LoopDefiniti
 
 const DOCS_URL = "https://github.com/vercel-labs/deepsec"
 
-type LauncherValue =
-  | { kind: "mode"; mode: DeepSecMode }
-  | { kind: "schedule" }
-  | { kind: "manage" }
-  | { kind: "docs" }
+type LauncherValue = { kind: "mode"; mode: DeepSecMode } | { kind: "schedule" } | { kind: "manage" } | { kind: "docs" }
 
 function runtimeLabel(rt: LoopRuntime): string {
   if (rt.status === "running") return "running…"
