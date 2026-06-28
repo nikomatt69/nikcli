@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.124.0 (June 2026)
+
+## Desktop
+
+- Implement directory commands in the layout component (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - Implement directory commands in the layout component
+
 ## v1.122.0 (June 2026)
 
 - No notable changes

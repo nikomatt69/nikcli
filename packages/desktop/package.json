@@ -1,7 +1,7 @@
 {
   "name": "@nikcli-ai/desktop",
   "private": true,
-  "version": "0.0.0-live-main-202606272352",
+  "version": "1.124.0",
   "type": "module",
   "license": "MIT",
   "homepage": "https://nikcli.ai",

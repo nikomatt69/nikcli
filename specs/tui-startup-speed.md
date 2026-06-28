@@ -12,7 +12,7 @@
 > behavior-identical).
 >
 > **Change 5 intentionally not implemented.** Its render-thread sync work runs
-> *after* first paint (inside the async `onMount` IIFE), and `initBrainScheduler`
+> _after_ first paint (inside the async `onMount` IIFE), and `initBrainScheduler`
 > is a cheap synchronous registration that must run inside the instance
 > `AsyncLocalStorage` context already established for `TuiConfig.get()` —
 > deferring it off that path would either be a no-op or break the instance
@@ -27,8 +27,6 @@
 > `test/cli/lazy-commands-dispatch.e2e.test.ts` (subprocess: top-level `--help`
 > lists all 38 commands, per-command lazy `--help` loads + renders, `plug` alias
 > routes), and `test/global/cache-preserve.test.ts`.
-
-
 
 Goal: make `nikcli` (the default `$0` TUI) reach **first interactive paint**
 materially faster, **without** regressing behavior, leaking errors, or
@@ -53,7 +51,7 @@ architecture. The relevant shape:
 - The UI is a **SolidJS app rendered to the terminal** via
   `@opentui/solid` + `@opentui/core` (`src/cli/cmd/tui/app.tsx`).
 - Backend work is wrapped per-request in `withInstanceAsync({ init:
-  InstanceBootstrap })`; the **first** request to a directory triggers
+InstanceBootstrap })`; the **first** request to a directory triggers
   `InstanceBootstrap` (`src/project/bootstrap.ts`).
 
 Upstream opencode keeps this path lean: few CLI subcommands, a small
@@ -71,6 +69,7 @@ First interactive paint of `nikcli` (no args → `TuiThreadCommand`, `$0`)
 serializes through these stages:
 
 ### Stage A — main process module evaluation (`src/index.ts`)
+
 `index.ts` eagerly `import`s **all 39 command modules** at top level. Every
 command module imports the **full backend** at top level — e.g. `run.ts`
 pulls `Server`, `Provider`, `Agent`, `Storage`, `SessionRepo`,
@@ -82,18 +81,21 @@ avoidable startup latency (module parse + top-level side effects), and it
 grows with every new subcommand.
 
 ### Stage B — `initialize()` middleware (`src/global/index.ts`)
+
 7× `fs.mkdir` (parallel, cheap) + a cache-version check. Note: bumping
 `CACHE_VERSION` wipes the whole cache dir, including `models.json`
 (`src/provider/models.ts:13`) — so the **first launch after an upgrade**
 loses the models cache and can fall to a network fetch on a later path.
 
 ### Stage C — worker spawn (`thread.ts:handler` → `worker.ts`)
+
 `new Worker(workerPath)` boots a second JS context that, at top level,
 imports `Server`, `Instance`, `InstanceBootstrap` and its entire transitive
 graph (LSP, plugins, effect, …) plus `Log.init`. Heavy, but runs in
 parallel with Stage D once spawned — **if** we let it.
 
 ### Stage D — renderer init (`app.tsx:tui()`)
+
 - `dynamic import("./app")` pulls `@opentui/solid`, `@opentui/core`,
   `solid-js`, **~60 dialog/route components**, and more backend modules
   (`Provider`, `Session`, `brain/scheduler`, `db/users`, …) — all top-level.
@@ -103,6 +105,7 @@ parallel with Stage D once spawned — **if** we let it.
   (`app.tsx:131-133`).
 
 ### Stage E — data bootstrap gate (`context/sync.tsx:bootstrap()`)
+
 `SyncProvider.onMount` fires 4 **blocking** RPC calls before the UI leaves
 the `"loading"` state (`sync.tsx:592-610`): `config.providers`,
 `provider.list`, `app.agents`, `config.get`. The **first** of these is what
@@ -110,6 +113,7 @@ triggers the worker's `InstanceBootstrap` — so Stage E's latency = first-RPC
 round-trip **+ the entire awaited bootstrap tail** (Stage F).
 
 ### Stage F — `InstanceBootstrap` awaited tail (`src/project/bootstrap.ts`)
+
 Most inits are correctly fire-and-forget via `background(...)` (share,
 format, lsp, file-watcher, file, vcs, snapshot, truncate, todo). But the
 **tail is awaited sequentially** before the first request resolves:
@@ -121,6 +125,7 @@ calls are **nikcli-specific additions** and none is needed to paint the
 first frame — yet every one blocks it.
 
 ### Stage G — UI `onMount` side work (`app.tsx:338-390`)
+
 On the render thread: `UserDB.hasUsers()` (synchronous SQLite open +
 implicit migration, `db/users.ts:358`) and `getActiveSessionSync()`
 (sync file read), then `withInstanceAsync(... initBrainScheduler() ...)` —
@@ -138,14 +143,14 @@ render thread.
 
 ## 3. Bottlenecks ranked by impact × safety
 
-| # | Bottleneck | Where | Impact | Risk to fix |
-|---|-----------|-------|--------|-------------|
-| 1 | Awaited bootstrap tail (delegation/monitor/loop/mission/routine restore) blocks first RPC | `bootstrap.ts:188-210` | **High** | **Low** |
-| 2 | Eager import of 39 commands → whole backend evaluated in UI process | `index.ts`, `run.ts:6-25` | **High** | **Low** |
-| 3 | `waitForThemeMode(1000)` blocks first frame | `app.tsx:131-133` | **Med-High** | **Low** |
-| 4 | Worker bootstrap serialized *after* renderer instead of warmed in parallel | `thread.ts` handler order | **Med** | **Low** |
-| 5 | Sync SQLite (`UserDB.hasUsers`) + 2nd Instance + brain scheduler on render thread | `app.tsx:338-366` | **Med** | **Med** |
-| 6 | Cache wipe on `CACHE_VERSION` bump drops `models.json` | `global/index.ts`, `models.ts` | **Low-Med** | **Low** |
+| #   | Bottleneck                                                                                | Where                          | Impact       | Risk to fix |
+| --- | ----------------------------------------------------------------------------------------- | ------------------------------ | ------------ | ----------- |
+| 1   | Awaited bootstrap tail (delegation/monitor/loop/mission/routine restore) blocks first RPC | `bootstrap.ts:188-210`         | **High**     | **Low**     |
+| 2   | Eager import of 39 commands → whole backend evaluated in UI process                       | `index.ts`, `run.ts:6-25`      | **High**     | **Low**     |
+| 3   | `waitForThemeMode(1000)` blocks first frame                                               | `app.tsx:131-133`              | **Med-High** | **Low**     |
+| 4   | Worker bootstrap serialized _after_ renderer instead of warmed in parallel                | `thread.ts` handler order      | **Med**      | **Low**     |
+| 5   | Sync SQLite (`UserDB.hasUsers`) + 2nd Instance + brain scheduler on render thread         | `app.tsx:338-366`              | **Med**      | **Med**     |
+| 6   | Cache wipe on `CACHE_VERSION` bump drops `models.json`                                    | `global/index.ts`, `models.ts` | **Low-Med**  | **Low**     |
 
 ---
 
@@ -156,6 +161,7 @@ where behavior could shift, and each preserves existing error funnels
 (`Log.Default`, `background()` `.catch`, `ErrorBoundary`).
 
 ### Change 1 — Background the bootstrap tail (highest ROI)
+
 Move the five nikcli-specific restore/reconcile calls off the awaited path
 into the existing `background(service, promise)` helper, exactly like
 `share`/`lsp`/`snapshot` already are. `background()` already swallows
@@ -176,6 +182,7 @@ that was "running" still gets demoted/reconciled — just a few hundred ms
 later, off the paint path.
 
 ### Change 2 — Lazy command registration in the entry
+
 Stop importing 39 command modules eagerly. yargs supports lazy command
 modules; wrap each non-TUI command so its module is `import()`-ed only when
 that command is actually invoked. Two viable shapes:
@@ -194,6 +201,7 @@ and shell-completion, which enumerates command metadata (keep descriptions
 static so `completion` needs no module load).
 
 ### Change 3 — Non-blocking theme detection
+
 Replace the up-to-1000 ms `waitForThemeMode(1000)` gate with: start with a
 default mode (persisted last-known mode from KV, else `"dark"`), render
 immediately, and apply the detected mode reactively when
@@ -202,23 +210,26 @@ reactive (`mode` is a signal-backed prop), so a late mode swap is a cheap
 re-style, not a re-mount.
 
 - Guard: `Flag.NIKCLI_BLOCKING_THEME=1` keeps the synchronous wait.
-- Regression guard: persist detected mode to KV so the *next* launch starts
+- Regression guard: persist detected mode to KV so the _next_ launch starts
   correct with zero flash; cap any first-launch flash to one frame.
 
 ### Change 4 — Warm the worker before the renderer
+
 Reorder `thread.ts:handler` so the expensive worker bootstrap overlaps
 renderer creation instead of starting only when `SyncProvider` fires its
 first RPC. Concretely: immediately after `new Worker(...)`, kick a cheap,
 idempotent RPC (e.g. `config.get` for `cwd`) that forces `Instance.provide`
-+ `InstanceBootstrap` to begin, *while* `createCliRenderer` and `import(
-"./app")` run. By the time Stage E's blocking requests fire, bootstrap is
-already in flight (or done). No semantic change — same calls, earlier start.
 
-- Implementation detail: the warm-up call must be the same instance-keyed
+- `InstanceBootstrap` to begin, _while_ `createCliRenderer` and `import(
+"./app")` run. By the time Stage E's blocking requests fire, bootstrap is
+  already in flight (or done). No semantic change — same calls, earlier start.
+
+* Implementation detail: the warm-up call must be the same instance-keyed
   path the real requests use, so it dedupes (one bootstrap, not two).
-- Guard: `Flag.NIKCLI_NO_WARM_WORKER=1`.
+* Guard: `Flag.NIKCLI_NO_WARM_WORKER=1`.
 
 ### Change 5 — Defer render-thread sync work
+
 Take `UserDB.hasUsers()` / `getActiveSessionSync()` and `initBrainScheduler()`
 off the first-paint render frame:
 
@@ -233,6 +244,7 @@ off the first-paint render frame:
 - Guard: `Flag.NIKCLI_EAGER_BRAIN=1`.
 
 ### Change 6 (cleanup) — Preserve `models.json` across cache-version bumps
+
 When wiping cache on `CACHE_VERSION` change, **preserve** `models.json` (or
 move models cache out of the version-wiped dir). Prevents a post-upgrade
 cold launch from degrading to a network model fetch. Pure win, no flag.

@@ -51,12 +51,16 @@ describe("lazy command table", () => {
       }
       // describe may legitimately be undefined (visible but undescribed command).
       if ((real.describe ?? undefined) !== (spec.describe ?? undefined)) {
-        mismatches.push(`${spec.export}: describe ${JSON.stringify(real.describe)} !== table ${JSON.stringify(spec.describe)}`)
+        mismatches.push(
+          `${spec.export}: describe ${JSON.stringify(real.describe)} !== table ${JSON.stringify(spec.describe)}`,
+        )
       }
       const realAliases = normalizeAliases(real.aliases).sort()
       const tableAliases = normalizeAliases(spec.aliases).sort()
       if (JSON.stringify(realAliases) !== JSON.stringify(tableAliases)) {
-        mismatches.push(`${spec.export}: aliases ${JSON.stringify(realAliases)} !== table ${JSON.stringify(tableAliases)}`)
+        mismatches.push(
+          `${spec.export}: aliases ${JSON.stringify(realAliases)} !== table ${JSON.stringify(tableAliases)}`,
+        )
       }
     }
     expect(mismatches).toEqual([])
