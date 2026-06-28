@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.126.0 (June 2026)
+
+## TUI
+
+- Enhance TUI plugin with model selection for scans (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(deepsec): enhance TUI plugin with model selection for scans
+
 ## v1.124.0 (June 2026)
 
 ## Desktop
