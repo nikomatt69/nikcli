@@ -12,12 +12,21 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { formatDuration, MIN_INTERVAL_MS, parseDuration } from "@/loop/schema"
 import { DEEPSEC_MODES, DeepSecApi, planFor, type DeepSecMode, type LoopDefinition, type LoopRuntime } from "./sdk"
+import { modelLabel, pickModel } from "../loops/dialogs"
 
 const DOCS_URL = "https://github.com/vercel-labs/deepsec"
+
+/**
+ * Model applied to DeepSec scan stages, chosen via the launcher. Module-scoped
+ * so the choice persists across `/deepsec` invocations within a session;
+ * undefined => each stage inherits the session's default model.
+ */
+let chosenModel: string | undefined
 
 type LauncherValue =
   | { kind: "mode"; mode: DeepSecMode }
   | { kind: "schedule" }
+  | { kind: "model" }
   | { kind: "manage" }
   | { kind: "docs" }
 
@@ -42,6 +51,12 @@ export function openLauncher(api: TuiPluginApi): void {
       title: "Schedule recurring scan",
       value: { kind: "schedule" },
       description: "Run the full scan automatically on an interval",
+      category: "Scan",
+    })
+    options.push({
+      title: `Model: ${modelLabel(api, chosenModel)}`,
+      value: { kind: "model" },
+      description: "Choose the model DeepSec scans run with",
       category: "Scan",
     })
     if (existing.length > 0) {
@@ -72,6 +87,12 @@ export function openLauncher(api: TuiPluginApi): void {
             case "schedule":
               openSchedule(api)
               break
+            case "model":
+              pickModel(api, chosenModel, (model) => {
+                chosenModel = model
+                openLauncher(api)
+              })
+              break
             case "manage":
               openManage(api)
               break
@@ -90,7 +111,7 @@ function startRun(api: TuiPluginApi, mode: DeepSecMode): void {
   api.ui.dialog.clear()
   api.ui.toast({ variant: "info", message: "DeepSec: starting scan…" })
   void deepsec
-    .runNow(planFor(mode))
+    .runNow(planFor(mode, chosenModel !== undefined ? { model: chosenModel } : {}))
     .then((def) => {
       api.ui.toast({ variant: "success", message: `DeepSec scan started — track it in /loops (${def.name})` })
     })
@@ -121,7 +142,7 @@ function openSchedule(api: TuiPluginApi): void {
           return
         }
         void deepsec
-          .schedule(everyMs)
+          .schedule(everyMs, chosenModel)
           .then(() => {
             api.ui.dialog.clear()
             api.ui.toast({ variant: "success", message: `DeepSec scheduled every ${formatDuration(everyMs)}` })

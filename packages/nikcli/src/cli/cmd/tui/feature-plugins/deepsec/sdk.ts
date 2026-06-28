@@ -27,6 +27,8 @@ export type DeepSecPlan = {
   stages: LoopStage[]
   /** Recurring scans set an interval; one-shot scans stay manual. */
   intervalMs?: number
+  /** "providerID/modelID" applied to every stage; undefined => session default. */
+  model?: string
 }
 
 const NAME = {
@@ -55,7 +57,7 @@ export const DEEPSEC_MODES: ReadonlyArray<{ mode: DeepSecMode; title: string; de
   },
 ]
 
-function stagesFor(mode: DeepSecMode): LoopStage[] {
+function baseStagesFor(mode: DeepSecMode): ReadonlyArray<LoopStage> {
   switch (mode) {
     case "full":
       return [DEEPSEC_STAGES.bootstrap, DEEPSEC_STAGES.scan, DEEPSEC_STAGES.process, DEEPSEC_STAGES.export]
@@ -66,19 +68,24 @@ function stagesFor(mode: DeepSecMode): LoopStage[] {
   }
 }
 
+function stagesFor(mode: DeepSecMode, model?: string): LoopStage[] {
+  return baseStagesFor(mode).map((stage) => (model ? { ...stage, model } : { ...stage }))
+}
+
 /**
  * Build the run plan for a mode. `intervalMs` turns the full scan into a
  * recurring (scheduled) loop; otherwise the loop is manual and we trigger it
  * once. Recurring scans use a distinct name so they coexist with one-shots.
  */
-export function planFor(mode: DeepSecMode, opts: { intervalMs?: number } = {}): DeepSecPlan {
-  const stages = stagesFor(mode)
+export function planFor(mode: DeepSecMode, opts: { intervalMs?: number; model?: string } = {}): DeepSecPlan {
+  const stages = stagesFor(mode, opts.model)
   const name = opts.intervalMs !== undefined && mode === "full" ? NAME.scheduled : NAME[mode]
   return {
     mode,
     name,
     stages,
     ...(opts.intervalMs !== undefined ? { intervalMs: opts.intervalMs } : {}),
+    ...(opts.model !== undefined ? { model: opts.model } : {}),
   }
 }
 
@@ -136,8 +143,8 @@ export class DeepSecApi {
   }
 
   /** Persist a recurring scan; the server scheduler fires it on its interval. */
-  async schedule(intervalMs: number): Promise<LoopDefinition> {
-    return this.ensure(planFor("full", { intervalMs }))
+  async schedule(intervalMs: number, model?: string): Promise<LoopDefinition> {
+    return this.ensure(planFor("full", { intervalMs, ...(model !== undefined ? { model } : {}) }))
   }
 
   /** Trigger one run of an already-persisted loop by id. */
