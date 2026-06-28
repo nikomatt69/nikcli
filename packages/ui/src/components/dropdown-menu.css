@@ -8,7 +8,9 @@
   background-color: var(--surface-raised-stronger-non-alpha);
   padding: 4px;
   box-shadow: var(--shadow-md);
-  z-index: 50;
+  /* Must stack above desktop layers (#desktop-tools-mount: 70, resize handles: 90)
+     so dropdowns anchored to the titlebar aren't clipped by the workbench panel. */
+  z-index: 100;
   transform-origin: var(--kb-menu-content-transform-origin);
 
   &:focus,

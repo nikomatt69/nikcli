@@ -282,6 +282,12 @@ html.desktop-shell-resizing * {
   background: var(--surface-base-hover);
 }
 
+.desktop-sidebar__section-heading--nested {
+  height: 34px;
+  margin-top: 10px;
+  border-top: 1px solid var(--border-weak-base);
+}
+
 .desktop-sidebar__scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -499,9 +505,9 @@ button.desktop-sidebar__list-item:hover {
 }
 
 .desktop-sidebar__settings {
-  flex: 0 0 46px;
-  width: calc(100% - 18px);
-  margin: 0 9px 8px;
+  flex: 0 0 40px;
+  width: 100%;
+  margin: 0;
   border-top: 1px solid transparent;
 }
 
@@ -509,6 +515,89 @@ button.desktop-sidebar__list-item:hover {
   margin-left: auto;
   color: var(--text-weaker);
   font-size: 10px;
+}
+
+.desktop-sidebar__footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 9px 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border-weak-base);
+}
+
+.desktop-sidebar__server {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  gap: 9px;
+  padding: 5px 9px;
+  color: var(--text-base);
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.desktop-sidebar__server:hover {
+  color: var(--text-strong);
+  background: var(--surface-base-hover);
+}
+
+.desktop-sidebar__server:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
+}
+
+.desktop-sidebar__server-status {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border-weak-base);
+}
+
+.desktop-sidebar__server-status--healthy {
+  background: var(--icon-success-base);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-success-base) 12%, transparent);
+}
+
+.desktop-sidebar__server-status--unhealthy {
+  background: var(--icon-critical-base);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-critical-base) 12%, transparent);
+}
+
+.desktop-sidebar__server-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.desktop-sidebar__server-copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-sidebar__server-copy > span:first-child {
+  color: var(--text-base);
+  font-size: 11px;
+  font-weight: 520;
+}
+
+.desktop-sidebar__server-copy > span:last-child {
+  color: var(--text-weaker);
+  font-size: 9px;
+}
+
+.desktop-sidebar__server > [data-component="icon"] {
+  flex: 0 0 auto;
+  color: var(--icon-weak-base);
 }
 
 #desktop-tools-mount {
@@ -540,6 +629,8 @@ button.desktop-sidebar__list-item:hover {
   background: color-mix(in srgb, var(--background-base) 96%, black 4%);
   pointer-events: auto;
   transition: bottom 120ms ease;
+  container-name: desktop-tools;
+  container-type: inline-size;
 }
 
 [data-component="desktop-shell"]:has(.desktop-tools--review) .desktop-tools {
@@ -583,6 +674,45 @@ button.desktop-sidebar__list-item:hover {
   display: none;
 }
 
+.desktop-workbench__controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.desktop-workbench__controls button,
+.desktop-workbench__collapsed-trigger {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--icon-weak-base);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  place-items: center;
+}
+
+.desktop-workbench__controls button:hover,
+.desktop-workbench__collapsed-trigger:hover {
+  color: var(--icon-base);
+  background: var(--surface-base-hover);
+}
+
+.desktop-workbench__controls button:focus-visible,
+.desktop-workbench__collapsed-trigger:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
+}
+
+.desktop-workbench__collapsed-trigger {
+  width: 100%;
+  height: 46px;
+  border-radius: 0;
+}
+
 .desktop-workbench__tab {
   display: flex;
   flex: 1 1 0;
@@ -617,6 +747,24 @@ button.desktop-sidebar__list-item:hover {
   opacity: 0.52;
 }
 
+@container desktop-tools (max-width: 560px) {
+  .desktop-workbench__bar {
+    gap: 4px;
+  }
+
+  .desktop-workbench__tab {
+    flex: 1 1 38px;
+    min-width: 38px;
+    max-width: 52px;
+    justify-content: center;
+    padding-inline: 6px;
+  }
+
+  .desktop-workbench__tab > span:nth-child(2) {
+    display: none;
+  }
+}
+
 .desktop-workbench__running,
 .desktop-automation__pulse {
   width: 7px;
@@ -626,6 +774,64 @@ button.desktop-sidebar__list-item:hover {
   background: var(--icon-interactive-base);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-interactive-base) 18%, transparent);
   animation: desktop-automation-pulse 1.25s ease-in-out infinite;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed) #desktop-tools-mount {
+  width: 44px;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed) .desktop-tools {
+  width: 44px !important;
+  border-left: 1px solid var(--border-weak-base);
+  background: color-mix(in srgb, var(--background-stronger) 90%, black 10%);
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: 44px;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel,
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > #terminal-panel {
+  display: none !important;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed) .desktop-review-resize,
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen) .desktop-review-resize {
+  display: none !important;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen) #desktop-tools-mount,
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen) .desktop-tools {
+  width: 100% !important;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: 100%;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel,
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > #terminal-panel {
+  width: 100% !important;
+  min-width: 100%;
+  max-width: 100%;
 }
 
 .desktop-automation {
@@ -1073,6 +1279,34 @@ button.desktop-sidebar__list-item:hover {
   min-height: 52px;
   padding-top: 15px;
   font-size: 14px;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: 44px;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > [data-slot="session-workspace"] {
+  padding-right: 100%;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen)
+  .desktop-app-host
+  [data-component="session-shell"]
+  #review-panel,
+[data-component="desktop-shell"]:has(.desktop-tools--fullscreen)
+  .desktop-app-host
+  [data-component="session-shell"]
+  > #terminal-panel {
+  width: 100% !important;
+  min-width: 100%;
+  max-width: 100%;
+  flex-basis: 100% !important;
 }
 
 button.decorum-tb-btn,
