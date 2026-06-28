@@ -3,7 +3,7 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
-## v1.126.0 (June 2026)
+## v1.126.0 (June 2026) 
 
 ## TUI
 
