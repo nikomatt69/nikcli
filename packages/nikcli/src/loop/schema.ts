@@ -307,7 +307,7 @@ export const DEEPSEC_STAGES = {
     objective:
       "From the `.deepsec` directory run `pnpm deepsec process` to run DeepSec's AI-powered investigation over the candidate sites from the scan phase. This phase can take a while and consume tokens — let it run to completion and do not interrupt it. When it finishes, report the number of confirmed findings broken down by severity.",
   },
-  diff: {
+  scanDiff: {
     name: "scan-diff",
     agent: "general",
     objective:

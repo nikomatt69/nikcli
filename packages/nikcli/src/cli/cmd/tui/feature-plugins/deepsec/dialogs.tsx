@@ -197,7 +197,6 @@ function openLoopActions(api: TuiPluginApi, def: LoopDefinition): void {
           })
           return
         }
-        // remove
         void deepsec.remove(def.id).then((ok) => {
           api.ui.toast({
             variant: ok ? "success" : "error",
