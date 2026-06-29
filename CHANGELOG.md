@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.130.0 (June 2026)
+
+## Desktop
+
+- Improve dialog components with layout and styling adjustments (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor: improve dialog components with layout and styling adjustments
+  - style: update syntax highlighting colors for VSCode themes
+
 ## v1.129.0 (June 2026)
 
 ## Desktop
