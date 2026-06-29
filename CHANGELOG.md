@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.131.0 (June 2026)
+
+## Desktop
+
+- Implement changelog and download pages with GitHub release integration (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat: implement changelog and download pages with GitHub release integration
+
 ## v1.129.0 (June 2026)
 
 ## Desktop

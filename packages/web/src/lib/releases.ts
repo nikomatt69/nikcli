@@ -207,7 +207,10 @@ export function formatDate(iso: string | null): string {
   }
 }
 
-export const OS_META: Record<Exclude<OS, "any">, { label: string; icon: "apple" | "windows" | "linux" | "android" | "ios" }> = {
+export const OS_META: Record<
+  Exclude<OS, "any">,
+  { label: string; icon: "apple" | "windows" | "linux" | "android" | "ios" }
+> = {
   macos: { label: "macOS", icon: "apple" },
   windows: { label: "Windows", icon: "windows" },
   linux: { label: "Linux", icon: "linux" },
