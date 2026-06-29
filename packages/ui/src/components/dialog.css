@@ -6,10 +6,13 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  background-color: hsl(from var(--background-base) h s l / 0.2);
+  background-color: hsl(from var(--background-base) h s l / 0.36);
+  backdrop-filter: blur(2px);
 }
 
 [data-component="dialog"] {
+  --dialog-gutter: 20px;
+
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -21,8 +24,8 @@
   [data-slot="dialog-container"] {
     position: relative;
     z-index: 100;
-    width: min(calc(100vw - 16px), 640px);
-    height: min(calc(100vh - 16px), 512px);
+    width: min(calc(100vw - 32px), 640px);
+    height: min(calc(100vh - 32px), 512px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -37,18 +40,9 @@
       width: 100%;
       max-height: 100%;
       min-height: 280px;
-      overflow: auto;
+      overflow: hidden;
       pointer-events: auto;
 
-      /* Hide scrollbar */
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-      &::-webkit-scrollbar {
-        display: none;
-      }
-
-      /* padding: 8px; */
-      /* padding: 8px 8px 0 8px; */
       border-radius: var(--radius-xl);
       background: var(--surface-raised-stronger-non-alpha);
       background-clip: padding-box;
@@ -56,13 +50,17 @@
 
       [data-slot="dialog-header"] {
         display: flex;
-        padding: 20px;
+        min-width: 0;
+        padding: 18px var(--dialog-gutter) 12px;
+        gap: 16px;
         justify-content: space-between;
         align-items: center;
         flex-shrink: 0;
         align-self: stretch;
 
         [data-slot="dialog-title"] {
+          min-width: 0;
+          margin: 0;
           color: var(--text-strong);
 
           /* text-16-medium */
@@ -73,17 +71,21 @@
           line-height: var(--line-height-x-large); /* 150% */
           letter-spacing: var(--letter-spacing-tight);
         }
-        /* [data-slot="dialog-close-button"] {} */
+
+        [data-slot="dialog-close-button"] {
+          flex-shrink: 0;
+          margin: -4px -4px -4px 0;
+        }
+      }
+
+      &:not([data-has-description]) [data-slot="dialog-header"] {
+        padding-bottom: 16px;
       }
 
       [data-slot="dialog-description"] {
-        display: flex;
-        padding: 16px;
-        padding-left: 24px;
-        padding-top: 0;
-        margin-top: -8px;
-        justify-content: space-between;
-        align-items: center;
+        display: block;
+        padding: 0 var(--dialog-gutter) 16px;
+        margin: 0;
         flex-shrink: 0;
         align-self: stretch;
 
@@ -100,16 +102,36 @@
 
       [data-slot="dialog-body"] {
         width: 100%;
+        min-height: 0;
         position: relative;
         display: flex;
         flex-direction: column;
         flex: 1;
-        overflow: hidden;
+        overflow: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+
+        &[data-padding="default"] {
+          padding: 0 var(--dialog-gutter) var(--dialog-gutter);
+        }
+
+        &[data-padding="default"] > [data-component="list"] {
+          padding-inline: 0;
+        }
+
+        &[data-padding="none"] {
+          padding: 0;
+        }
 
         &:focus-visible {
           outline: none;
         }
       }
+
+      &[data-no-header] [data-slot="dialog-body"][data-padding="default"] {
+        padding-top: var(--dialog-gutter);
+      }
+
       &:focus-visible {
         outline: none;
       }
@@ -122,6 +144,10 @@
 
       [data-slot="dialog-content"] {
         min-height: 0;
+
+        [data-slot="dialog-body"] {
+          flex: 0 1 auto;
+        }
       }
     }
   }
@@ -134,6 +160,17 @@
   &[data-size="x-large"] [data-slot="dialog-container"] {
     width: min(calc(100vw - 32px), 960px);
     height: min(calc(100vh - 32px), 600px);
+  }
+
+  @media (max-width: 639px) {
+    --dialog-gutter: 16px;
+
+    [data-slot="dialog-container"],
+    &[data-size="large"] [data-slot="dialog-container"],
+    &[data-size="x-large"] [data-slot="dialog-container"] {
+      width: min(calc(100vw - 24px), 100%);
+      height: min(calc(100vh - 24px), 600px);
+    }
   }
 }
 

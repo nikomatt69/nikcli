@@ -1333,7 +1333,7 @@ export default function Layout(props: ParentProps) {
 
     return (
       <Dialog title={language.t("workspace.delete.title")} fit>
-        <div class="flex flex-col gap-4 pl-6 pr-2.5 pb-3">
+        <div class="flex flex-col gap-4">
           <div class="flex flex-col gap-1">
             <span class="text-14-regular text-text-strong">
               {language.t("workspace.delete.confirm", { name: name() })}
@@ -1407,7 +1407,7 @@ export default function Layout(props: ParentProps) {
 
     return (
       <Dialog title={language.t("workspace.reset.title")} fit>
-        <div class="flex flex-col gap-4 pl-6 pr-2.5 pb-3">
+        <div class="flex flex-col gap-4">
           <div class="flex flex-col gap-1">
             <span class="text-14-regular text-text-strong">
               {language.t("workspace.reset.confirm", { name: name() })}

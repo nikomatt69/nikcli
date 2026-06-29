@@ -69,7 +69,7 @@ export const DialogBrain: Component = () => {
 
   return (
     <Dialog title={language.t("dialog.brain.title")} description={language.t("dialog.brain.description")}>
-      <div class="flex flex-col gap-y-4 py-1">
+      <div class="flex flex-col gap-y-4">
         <Show
           when={status()}
           fallback={

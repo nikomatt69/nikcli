@@ -321,7 +321,7 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   })
 
   return (
-    <Dialog class="pt-3 pb-0 !max-h-[480px]" transition>
+    <Dialog bodyPadding="none" class="pt-3 pb-0 !max-h-[480px]" transition>
       <List
         search={{
           placeholder: filesOnly()

@@ -66,7 +66,7 @@ export const DialogDoctor: Component = () => {
           : language.t("dialog.doctor.description")
       }
     >
-      <div class="flex w-[680px] max-w-[calc(100vw-56px)] flex-col gap-y-4 max-h-[70vh] overflow-auto no-scrollbar py-1">
+      <div class="flex w-full min-w-0 flex-col gap-y-4">
         <Show
           when={report()}
           fallback={<span class="text-12-regular text-text-weak">{language.t("common.loading.ellipsis")}</span>}

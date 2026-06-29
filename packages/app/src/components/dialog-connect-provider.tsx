@@ -175,8 +175,8 @@ export function DialogConnectProvider(props: { provider: string }) {
         />
       }
     >
-      <div class="flex flex-col gap-6 px-2.5 pb-3">
-        <div class="px-2.5 flex gap-4 items-center">
+      <div class="flex min-h-0 flex-col gap-5">
+        <div class="flex items-center gap-3">
           <ProviderIcon id={props.provider as IconName} class="size-5 shrink-0 icon-strong-base" />
           <div class="text-16-medium text-text-strong">
             <Switch>
@@ -187,7 +187,7 @@ export function DialogConnectProvider(props: { provider: string }) {
             </Switch>
           </div>
         </div>
-        <div class="px-2.5 pb-10 flex flex-col gap-6">
+        <div class="flex min-h-0 flex-col gap-6">
           <Switch>
             <Match when={store.methodIndex === undefined}>
               <div class="text-14-regular text-text-base">

@@ -68,7 +68,7 @@ export const DialogAnalytics: Component = () => {
 
   return (
     <Dialog title={language.t("dialog.analytics.title")} description={language.t("dialog.analytics.description")}>
-      <div class="flex flex-col gap-y-5 min-w-0 max-h-[60vh] overflow-auto no-scrollbar py-1">
+      <div class="flex min-w-0 flex-col gap-y-5">
         <Show
           when={totals()}
           fallback={

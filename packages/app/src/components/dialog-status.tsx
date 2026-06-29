@@ -165,7 +165,7 @@ export const DialogStatus: Component = () => {
 
   return (
     <Dialog size="large" title={language.t("dialog.status.title")} description={`nikcli v${platform.version ?? "?"}`}>
-      <div class="flex w-[720px] max-w-[calc(100vw-56px)] flex-col gap-y-5 max-h-[70vh] overflow-auto no-scrollbar py-1">
+      <div class="flex w-full min-w-0 flex-col gap-y-5">
         <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
           <Metric label={language.t("dialog.status.version")} value={platform.version ?? "?"} />
           <Metric

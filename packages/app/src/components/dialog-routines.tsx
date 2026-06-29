@@ -186,7 +186,7 @@ export const DialogRoutines: Component = () => {
       title={language.t("dialog.routines.title")}
       description={language.t("dialog.routines.description", { count: loops().length })}
     >
-      <div class="flex w-[680px] max-w-[calc(100vw-56px)] flex-col gap-y-4">
+      <div class="flex w-full min-w-0 flex-col gap-y-4">
         <div class="grid grid-cols-3 gap-2">
           <SummaryCard label={language.t("dialog.routines.enabled")} value={enabledCount()} tone="success" />
           <SummaryCard label={language.t("dialog.routines.running")} value={runningCount()} tone="warning" />

@@ -78,7 +78,7 @@ export const DialogOpenTelemetry: Component = () => {
 
   return (
     <Dialog size="large" title={language.t("dialog.otel.title")} description={language.t("dialog.otel.description")}>
-      <div class="flex w-[560px] max-w-[calc(100vw-56px)] flex-col gap-y-4 py-1">
+      <div class="flex w-full min-w-0 flex-col gap-y-4">
         <div class="grid grid-cols-2 gap-2">
           <SummaryCard
             label={language.t("dialog.otel.toggle")}

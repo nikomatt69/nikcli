@@ -76,6 +76,8 @@ export function DialogReleaseNotes(props: { highlights: Highlight[] }) {
     <Dialog
       size="large"
       fit
+      bodyPadding="none"
+      bodyClass="overflow-hidden"
       class="w-[min(calc(100vw-40px),720px)] h-[min(calc(100vh-40px),400px)] -mt-20 min-h-0 overflow-hidden"
     >
       {/* Hidden element to capture initial focus and handle escape */}

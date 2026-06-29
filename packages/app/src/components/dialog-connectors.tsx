@@ -121,7 +121,7 @@ export const DialogConnectors: Component = () => {
       title={language.t("dialog.connectors.title")}
       description={language.t("dialog.connectors.description", { count: items().length })}
     >
-      <div class="flex w-[640px] max-w-[calc(100vw-56px)] flex-col gap-y-4">
+      <div class="flex w-full min-w-0 flex-col gap-y-4">
         <div class="grid grid-cols-3 gap-2">
           <SummaryCard label={language.t("dialog.connectors.connected")} value={connectedCount()} tone="success" />
           <SummaryCard label={language.t("dialog.connectors.needsAuth")} value={authCount()} tone="warning" />

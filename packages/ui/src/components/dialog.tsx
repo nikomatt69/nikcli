@@ -10,6 +10,9 @@ export interface DialogProps extends ParentProps {
   size?: "normal" | "large" | "x-large"
   class?: ComponentProps<"div">["class"]
   classList?: ComponentProps<"div">["classList"]
+  bodyClass?: ComponentProps<"div">["class"]
+  bodyClassList?: ComponentProps<"div">["classList"]
+  bodyPadding?: "default" | "none"
   fit?: boolean
   transition?: boolean
 }
@@ -27,6 +30,7 @@ export function Dialog(props: DialogProps) {
         <Kobalte.Content
           data-slot="dialog-content"
           data-no-header={!props.title && !props.action ? "" : undefined}
+          data-has-description={props.description ? "" : undefined}
           classList={{
             ...(props.classList ?? {}),
             [props.class ?? ""]: !!props.class,
@@ -60,11 +64,18 @@ export function Dialog(props: DialogProps) {
             </div>
           </Show>
           <Show when={props.description}>
-            <Kobalte.Description data-slot="dialog-description" style={{ "margin-left": "-4px" }}>
-              {props.description}
-            </Kobalte.Description>
+            <Kobalte.Description data-slot="dialog-description">{props.description}</Kobalte.Description>
           </Show>
-          <div data-slot="dialog-body">{props.children}</div>
+          <div
+            data-slot="dialog-body"
+            data-padding={props.bodyPadding ?? "default"}
+            classList={{
+              ...(props.bodyClassList ?? {}),
+              [props.bodyClass ?? ""]: !!props.bodyClass,
+            }}
+          >
+            {props.children}
+          </div>
         </Kobalte.Content>
       </div>
     </div>

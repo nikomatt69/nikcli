@@ -261,7 +261,7 @@ export const DialogSelectModel: Component<{ provider?: string }> = (props) => {
       <ModelList provider={props.provider} onSelect={() => dialog.close()} />
       <Button
         variant="ghost"
-        class="ml-3 mt-5 mb-6 text-text-base self-start"
+        class="mt-3 self-start text-text-base"
         onClick={() => dialog.show(() => <DialogManageModels />)}
       >
         {language.t("dialog.model.manage")}
