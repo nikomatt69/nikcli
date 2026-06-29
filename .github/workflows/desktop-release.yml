@@ -121,6 +121,15 @@ jobs:
           TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
         run: |
           set -euo pipefail
+          RELEASE_VERSION="${{ inputs.tag }}"
+          RELEASE_VERSION="${RELEASE_VERSION#refs/tags/}"
+          RELEASE_VERSION="${RELEASE_VERSION#v}"
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "Unable to derive release version from tag '${{ inputs.tag }}'"
+            exit 1
+          fi
+          export NIKCLI_VERSION="$RELEASE_VERSION"
+          export VITE_NIKCLI_DESKTOP_VERSION="$RELEASE_VERSION"
           bun ./scripts/predev.ts
           bun x tsgo -b
           bun x vite build
@@ -162,17 +171,26 @@ jobs:
           GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          CONFIG_ARG=""
+          RELEASE_VERSION="${{ inputs.tag }}"
+          RELEASE_VERSION="${RELEASE_VERSION#refs/tags/}"
+          RELEASE_VERSION="${RELEASE_VERSION#v}"
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "Unable to derive release version from tag '${{ inputs.tag }}'"
+            exit 1
+          fi
+          export NIKCLI_VERSION="$RELEASE_VERSION"
+          CONFIG_ARGS=()
           if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
             echo "signing key present → prod config (updater artifacts)"
-            CONFIG_ARG="--config src-tauri/tauri.prod.conf.json"
+            CONFIG_ARGS=(--config src-tauri/tauri.prod.conf.json)
             echo "updater=true" >> "$GITHUB_OUTPUT"
           else
             echo "no signing key → base config (installers only)"
             echo "updater=false" >> "$GITHUB_OUTPUT"
           fi
-          bun run tauri build --target ${{ matrix.target }} $CONFIG_ARG \
-            --config '{"build":{"beforeBuildCommand":""}}'
+          CONFIG_JSON="{\"version\":\"$RELEASE_VERSION\",\"build\":{\"beforeBuildCommand\":\"\"}}"
+          bun run tauri build --target ${{ matrix.target }} "${CONFIG_ARGS[@]}" \
+            --config "$CONFIG_JSON"
 
       - name: Collect & upload installers
         shell: bash

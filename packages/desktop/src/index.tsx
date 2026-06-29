@@ -44,6 +44,7 @@ const TAURI_AVAILABLE = typeof window === "object" && "__TAURI_INTERNALS__" in w
 const SERVER_AUTH_STORE = "nikcli.server-auth.dat"
 const SERVER_BEARER_TOKENS_KEY = "bearerTokens"
 const SERVER_BEARER_TOKENS_FALLBACK_KEY = "nikcli:desktop:server-bearer-tokens"
+const DESKTOP_VERSION = (import.meta.env.VITE_NIKCLI_DESKTOP_VERSION as string | undefined)?.trim() || pkg.version
 
 type ServerBearerTokens = Record<string, string>
 
@@ -141,7 +142,7 @@ const listenForDeepLinks = async () => {
 const createPlatform = (password: Accessor<string | null>): Platform => ({
   platform: "desktop",
   os: detectedOS(),
-  version: pkg.version,
+  version: DESKTOP_VERSION,
 
   async openDirectoryPickerDialog(opts) {
     if (!TAURI_AVAILABLE) return null

@@ -1,14 +1,7 @@
 #!/usr/bin/env bun
 import { $ } from "bun"
 
-import { Script } from "@nikcli-ai/script"
 import { copyBinaryToSidecarFolder, getCurrentSidecar, windowsify } from "./utils"
-
-// Sync the desktop package.json to the current CLI version so the sidecar
-// lookup matches what users have installed globally.
-const pkg = await Bun.file("./package.json").json()
-pkg.version = Script.version
-await Bun.write("./package.json", JSON.stringify(pkg, null, 2) + "\n")
 
 const RUST_TARGET = Bun.env.TAURI_ENV_TARGET_TRIPLE
 const sidecarConfig = getCurrentSidecar(RUST_TARGET)
