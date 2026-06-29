@@ -4,39 +4,6 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
 }
 
-export type EventInstallationUpdated = {
-  type: "installation.updated"
-  properties: {
-    version: string
-  }
-}
-
-export type EventInstallationUpdateAvailable = {
-  type: "installation.update-available"
-  properties: {
-    version: string
-    method?: "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
-  }
-}
-
-export type EventTelemetryRecord = {
-  type: "telemetry.record"
-  properties: {
-    id: string
-    traceId: string
-    parentId?: string
-    name: string
-    kind: string
-    startTime: number
-    durationMs: number
-    statusCode?: number
-    statusMessage?: string
-    attributes?: {
-      [key: string]: string
-    }
-  }
-}
-
 export type Project = {
   id: string
   worktree: string
@@ -60,10 +27,43 @@ export type EventProjectUpdated = {
   properties: Project
 }
 
+export type EventTelemetryRecord = {
+  type: "telemetry.record"
+  properties: {
+    id: string
+    traceId: string
+    parentId?: string
+    name: string
+    kind: string
+    startTime: number
+    durationMs: number
+    statusCode?: number
+    statusMessage?: string
+    attributes?: {
+      [key: string]: string
+    }
+  }
+}
+
 export type EventServerInstanceDisposed = {
   type: "server.instance.disposed"
   properties: {
     directory: string
+  }
+}
+
+export type EventInstallationUpdated = {
+  type: "installation.updated"
+  properties: {
+    version: string
+  }
+}
+
+export type EventInstallationUpdateAvailable = {
+  type: "installation.update-available"
+  properties: {
+    version: string
+    method?: "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
   }
 }
 
@@ -710,6 +710,14 @@ export type EventSessionError = {
   }
 }
 
+export type EventFileWatcherUpdated = {
+  type: "file.watcher.updated"
+  properties: {
+    file: string
+    event: "add" | "change" | "unlink"
+  }
+}
+
 export type EventTuiPromptAppend = {
   type: "tui.prompt.append"
   properties: {
@@ -764,21 +772,6 @@ export type EventTuiSessionSelect = {
   }
 }
 
-export type EventFileWatcherUpdated = {
-  type: "file.watcher.updated"
-  properties: {
-    file: string
-    event: "add" | "change" | "unlink"
-  }
-}
-
-export type EventVcsBranchUpdated = {
-  type: "vcs.branch.updated"
-  properties: {
-    branch?: string
-  }
-}
-
 export type EventMcpToolsChanged = {
   type: "mcp.tools.changed"
   properties: {
@@ -801,6 +794,44 @@ export type EventCommandExecuted = {
     sessionID: string
     arguments: string
     messageID: string
+  }
+}
+
+export type EventVcsBranchUpdated = {
+  type: "vcs.branch.updated"
+  properties: {
+    branch?: string
+  }
+}
+
+export type Todo = {
+  /**
+   * Brief description of the task
+   */
+  content: string
+  /**
+   * Current status of the task: pending, in_progress, completed, cancelled
+   */
+  status: string
+  /**
+   * Priority level of the task: high, medium, low
+   */
+  priority: string
+  /**
+   * Unique identifier for the todo item
+   */
+  id: string
+}
+
+export type EventTodoUpdated = {
+  type: "todo.updated"
+  properties: {
+    sessionID: string
+    todos: Array<Todo>
+    diff: {
+      added: Array<Todo>
+      completed: Array<Todo>
+    }
   }
 }
 
@@ -930,37 +961,6 @@ export type EventSessionGoal = {
   }
 }
 
-export type Todo = {
-  /**
-   * Brief description of the task
-   */
-  content: string
-  /**
-   * Current status of the task: pending, in_progress, completed, cancelled
-   */
-  status: string
-  /**
-   * Priority level of the task: high, medium, low
-   */
-  priority: string
-  /**
-   * Unique identifier for the todo item
-   */
-  id: string
-}
-
-export type EventTodoUpdated = {
-  type: "todo.updated"
-  properties: {
-    sessionID: string
-    todos: Array<Todo>
-    diff: {
-      added: Array<Todo>
-      completed: Array<Todo>
-    }
-  }
-}
-
 export type EventMonitorCreated = {
   type: "monitor.created"
   properties: {
@@ -1053,6 +1053,91 @@ export type EventMonitorCompleted = {
     exitCode: number | null
     logPath: string
     wake: boolean
+  }
+}
+
+export type EventSessionV2Updated = {
+  type: "session.v2.updated"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type Pty = {
+  id: string
+  title: string
+  command: string
+  args: Array<string>
+  cwd: string
+  status: "running" | "exited"
+  pid: number
+}
+
+export type EventPtyCreated = {
+  type: "pty.created"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyUpdated = {
+  type: "pty.updated"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyExited = {
+  type: "pty.exited"
+  properties: {
+    id: string
+    exitCode: number
+  }
+}
+
+export type EventPtyDeleted = {
+  type: "pty.deleted"
+  properties: {
+    id: string
+  }
+}
+
+export type EventFileEdited = {
+  type: "file.edited"
+  properties: {
+    file: string
+  }
+}
+
+export type EventWorkspaceReady = {
+  type: "workspace.ready"
+  properties: {
+    name: string
+  }
+}
+
+export type EventWorkspaceFailed = {
+  type: "workspace.failed"
+  properties: {
+    message: string
+  }
+}
+
+export type EventWorkspaceStatus = {
+  type: "workspace.status"
+  properties: {
+    workspaceID: string
+    status: "connecting" | "connected" | "disconnected" | "error"
+  }
+}
+
+export type EventDelegationCompleted = {
+  type: "delegation.completed"
+  properties: {
+    delegationID: string
+    parentSessionID: string
+    status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+    title: string
   }
 }
 
@@ -1177,97 +1262,12 @@ export type EventMissionAborted = {
   }
 }
 
-export type EventSessionV2Updated = {
-  type: "session.v2.updated"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type Pty = {
-  id: string
-  title: string
-  command: string
-  args: Array<string>
-  cwd: string
-  status: "running" | "exited"
-  pid: number
-}
-
-export type EventPtyCreated = {
-  type: "pty.created"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyUpdated = {
-  type: "pty.updated"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyExited = {
-  type: "pty.exited"
-  properties: {
-    id: string
-    exitCode: number
-  }
-}
-
-export type EventPtyDeleted = {
-  type: "pty.deleted"
-  properties: {
-    id: string
-  }
-}
-
-export type EventFileEdited = {
-  type: "file.edited"
-  properties: {
-    file: string
-  }
-}
-
-export type EventWorkspaceReady = {
-  type: "workspace.ready"
-  properties: {
-    name: string
-  }
-}
-
-export type EventWorkspaceFailed = {
-  type: "workspace.failed"
-  properties: {
-    message: string
-  }
-}
-
-export type EventWorkspaceStatus = {
-  type: "workspace.status"
-  properties: {
-    workspaceID: string
-    status: "connecting" | "connected" | "disconnected" | "error"
-  }
-}
-
-export type EventDelegationCompleted = {
-  type: "delegation.completed"
-  properties: {
-    delegationID: string
-    parentSessionID: string
-    status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
-    title: string
-  }
-}
-
 export type Event =
+  | EventProjectUpdated
+  | EventTelemetryRecord
+  | EventServerInstanceDisposed
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
-  | EventTelemetryRecord
-  | EventProjectUpdated
-  | EventServerInstanceDisposed
   | EventServerConnected
   | EventGlobalDisposed
   | EventLspClientDiagnostics
@@ -1283,15 +1283,16 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
+  | EventFileWatcherUpdated
   | EventTuiPromptAppend
   | EventTuiCommandExecute
   | EventTuiToastShow
   | EventTuiSessionSelect
-  | EventFileWatcherUpdated
-  | EventVcsBranchUpdated
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
+  | EventVcsBranchUpdated
+  | EventTodoUpdated
   | EventSessionStatus
   | EventSessionIdle
   | EventQuestionAsked
@@ -1299,11 +1300,20 @@ export type Event =
   | EventQuestionRejected
   | EventSessionCompacted
   | EventSessionGoal
-  | EventTodoUpdated
   | EventMonitorCreated
   | EventMonitorUpdated
   | EventMonitorOutput
   | EventMonitorCompleted
+  | EventSessionV2Updated
+  | EventPtyCreated
+  | EventPtyUpdated
+  | EventPtyExited
+  | EventPtyDeleted
+  | EventFileEdited
+  | EventWorkspaceReady
+  | EventWorkspaceFailed
+  | EventWorkspaceStatus
+  | EventDelegationCompleted
   | EventLoopUpserted
   | EventLoopRemoved
   | EventLoopRunStarted
@@ -1318,16 +1328,6 @@ export type Event =
   | EventMissionExecFinished
   | EventMissionRuntimeChanged
   | EventMissionAborted
-  | EventSessionV2Updated
-  | EventPtyCreated
-  | EventPtyUpdated
-  | EventPtyExited
-  | EventPtyDeleted
-  | EventFileEdited
-  | EventWorkspaceReady
-  | EventWorkspaceFailed
-  | EventWorkspaceStatus
-  | EventDelegationCompleted
 
 export type GlobalEvent = {
   directory: string

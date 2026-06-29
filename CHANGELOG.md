@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.128.0 (June 2026)
+
+## Desktop
+
+- Enhance desktop release workflow and version handling (@nikomatt69)
+- Implement directory commands in the layout component (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - Implement directory commands in the layout component
+  - fix: enhance desktop release workflow and version handling
+
 ## v1.124.0 (June 2026)
 
 ## Desktop
