@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.129.0 (June 2026)
+
+## Desktop
+
+- Enhance dialog components with summary cards and status pills (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor: enhance dialog components with summary cards and status pills
+
 ## v1.128.0 (June 2026)
 
 ## Desktop
