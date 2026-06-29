@@ -1,10 +1,11 @@
-import { Component, createMemo, For, Show } from "solid-js"
+import { Component, createMemo, For, JSXElement, Show } from "solid-js"
 import { Dialog } from "@nikcli-ai/ui/dialog"
 import { useSync } from "@/context/sync"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 
 type PluginEntry = { name: string; version?: string }
+type Tone = "success" | "warning" | "danger" | "muted"
 
 function parsePlugins(list: unknown): PluginEntry[] {
   const entries = Array.isArray(list) ? list : []
@@ -29,12 +30,94 @@ function parsePlugins(list: unknown): PluginEntry[] {
   return result.toSorted((a, b) => a.name.localeCompare(b.name))
 }
 
-const MCP_STATUS_COLOR: Record<string, string> = {
-  connected: "bg-icon-success",
-  failed: "bg-icon-error",
-  disabled: "bg-icon-weak",
-  needs_auth: "bg-icon-warning",
-  needs_client_registration: "bg-icon-error",
+function mcpTone(status: string): Tone {
+  switch (status) {
+    case "connected":
+      return "success"
+    case "needs_auth":
+      return "warning"
+    case "failed":
+    case "needs_client_registration":
+      return "danger"
+    default:
+      return "muted"
+  }
+}
+
+function lspTone(status: string): Tone {
+  return status === "connected" ? "success" : "danger"
+}
+
+const StatusDot: Component<{ tone: Tone }> = (props) => (
+  <span
+    class="size-2 rounded-full shrink-0"
+    classList={{
+      "bg-icon-success": props.tone === "success",
+      "bg-icon-warning": props.tone === "warning",
+      "bg-icon-error": props.tone === "danger",
+      "bg-icon-weak": props.tone === "muted",
+    }}
+  />
+)
+
+const StatusPill: Component<{ tone: Tone; children: JSXElement }> = (props) => (
+  <span
+    class="inline-flex h-6 max-w-[220px] items-center gap-1.5 rounded-md border border-border-base bg-surface-base px-2 text-11-medium"
+    classList={{
+      "text-icon-success": props.tone === "success",
+      "text-icon-warning": props.tone === "warning",
+      "text-icon-error": props.tone === "danger",
+      "text-text-weaker": props.tone === "muted",
+    }}
+  >
+    <StatusDot tone={props.tone} />
+    <span class="truncate">{props.children}</span>
+  </span>
+)
+
+const Metric: Component<{ label: string; value: string | number; detail?: string; tone?: Tone }> = (props) => (
+  <div class="flex min-w-0 flex-col gap-0.5 rounded-md border border-border-base bg-surface-raised-base px-3 py-2">
+    <span class="text-11-regular text-text-weaker">{props.label}</span>
+    <span
+      class="truncate text-15-medium tabular-nums"
+      classList={{
+        "text-icon-success": props.tone === "success",
+        "text-icon-warning": props.tone === "warning",
+        "text-icon-error": props.tone === "danger",
+        "text-text-base": !props.tone || props.tone === "muted",
+      }}
+    >
+      {props.value}
+    </span>
+    <Show when={props.detail}>
+      <span class="truncate text-11-regular text-text-weaker">{props.detail}</span>
+    </Show>
+  </div>
+)
+
+const Section: Component<{ title: string; description?: string; children: JSXElement }> = (props) => (
+  <section class="flex min-w-0 flex-col gap-y-2">
+    <div class="flex min-w-0 items-end justify-between gap-3">
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <span class="truncate text-13-medium text-text-base">{props.title}</span>
+        <Show when={props.description}>
+          <span class="truncate text-11-regular text-text-weaker">{props.description}</span>
+        </Show>
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">{props.children}</div>
+  </section>
+)
+
+const EmptyState: Component<{ children: JSXElement }> = (props) => (
+  <div class="rounded-md border border-border-base bg-surface-raised-base px-3 py-2 text-12-regular text-text-weak">
+    {props.children}
+  </div>
+)
+
+function statusError(item: { status: string; error?: unknown }): string | undefined {
+  if (item.status !== "failed" || item.error === undefined) return undefined
+  return String(item.error)
 }
 
 export const DialogStatus: Component = () => {
@@ -45,82 +128,139 @@ export const DialogStatus: Component = () => {
   const mcpEntries = createMemo(() => Object.entries(sync.data.mcp ?? {}).sort(([a], [b]) => a.localeCompare(b)))
   const lspEntries = createMemo(() => sync.data.lsp ?? [])
   const plugins = createMemo(() => parsePlugins(sync.data.config?.plugin))
+  const mcpSummary = createMemo(() => {
+    const entries = mcpEntries()
+    const connected = entries.filter(([, item]) => item.status === "connected").length
+    const attention = entries.filter(([, item]) => item.status !== "connected" && item.status !== "disabled").length
+    return { total: entries.length, connected, attention }
+  })
+  const lspSummary = createMemo(() => {
+    const entries = lspEntries()
+    const connected = entries.filter((item) => item.status === "connected").length
+    const attention = entries.length - connected
+    return { total: entries.length, connected, attention }
+  })
+
+  const metricTone = (total: number, attention: number): Tone => {
+    if (total === 0) return "muted"
+    return attention > 0 ? "warning" : "success"
+  }
+
+  const mcpStatusLabel = (status: string) => {
+    switch (status) {
+      case "connected":
+        return language.t("mcp.status.connected")
+      case "failed":
+        return language.t("mcp.status.failed")
+      case "needs_auth":
+        return language.t("mcp.status.needs_auth")
+      case "needs_client_registration":
+        return language.t("mcp.status.needs_client_registration")
+      case "disabled":
+        return language.t("mcp.status.disabled")
+      default:
+        return status
+    }
+  }
 
   return (
-    <Dialog title={language.t("dialog.status.title")} description={`nikcli v${platform.version ?? "?"}`}>
-      <div class="flex flex-col gap-y-5 min-w-0 max-h-[60vh] overflow-auto no-scrollbar py-1">
-        <section class="flex flex-col gap-y-1.5">
-          <span class="text-13-medium text-text-base">
-            {language.t("dialog.status.mcp", { count: mcpEntries().length })}
-          </span>
+    <Dialog size="large" title={language.t("dialog.status.title")} description={`nikcli v${platform.version ?? "?"}`}>
+      <div class="flex w-[720px] max-w-[calc(100vw-56px)] flex-col gap-y-5 max-h-[70vh] overflow-auto no-scrollbar py-1">
+        <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <Metric label={language.t("dialog.status.version")} value={platform.version ?? "?"} />
+          <Metric
+            label={language.t("dialog.status.mcp.metric")}
+            value={`${mcpSummary().connected}/${mcpSummary().total}`}
+            detail={
+              mcpSummary().attention > 0
+                ? language.t("dialog.status.issues", { count: mcpSummary().attention })
+                : language.t("dialog.status.operational")
+            }
+            tone={metricTone(mcpSummary().total, mcpSummary().attention)}
+          />
+          <Metric
+            label={language.t("dialog.status.lsp.metric")}
+            value={`${lspSummary().connected}/${lspSummary().total}`}
+            detail={
+              lspSummary().attention > 0
+                ? language.t("dialog.status.issues", { count: lspSummary().attention })
+                : language.t("dialog.status.operational")
+            }
+            tone={metricTone(lspSummary().total, lspSummary().attention)}
+          />
+          <Metric
+            label={language.t("dialog.status.plugins.metric")}
+            value={plugins().length}
+            detail={language.t("dialog.status.configured")}
+          />
+        </div>
+
+        <Section
+          title={language.t("dialog.status.mcp", { count: mcpEntries().length })}
+          description={language.t("dialog.status.mcp.description")}
+        >
           <Show
             when={mcpEntries().length > 0}
-            fallback={<span class="text-12-regular text-text-weak">{language.t("dialog.status.mcp.empty")}</span>}
+            fallback={<EmptyState>{language.t("dialog.status.mcp.empty")}</EmptyState>}
           >
             <For each={mcpEntries()}>
               {([name, item]) => (
-                <div class="flex items-center gap-x-2 min-w-0">
-                  <span
-                    class="size-2 rounded-full shrink-0"
-                    classList={{ [MCP_STATUS_COLOR[item.status] ?? "bg-icon-weak"]: true }}
-                  />
-                  <span class="text-12-medium text-text-base truncate">{name}</span>
-                  <span class="text-12-regular text-text-weak truncate">
-                    {item.status === "failed" && "error" in item ? String(item.error) : item.status}
-                  </span>
+                <div class="flex min-w-0 items-start justify-between gap-3 rounded-md border border-border-base bg-surface-raised-base px-3 py-2">
+                  <div class="flex min-w-0 flex-col gap-0.5">
+                    <span class="truncate text-12-medium text-text-base">{name}</span>
+                    <Show when={statusError(item)}>
+                      {(error) => <span class="break-words text-11-regular text-icon-error">{error()}</span>}
+                    </Show>
+                  </div>
+                  <StatusPill tone={mcpTone(item.status)}>{mcpStatusLabel(item.status)}</StatusPill>
                 </div>
               )}
             </For>
           </Show>
-        </section>
+        </Section>
 
-        <section class="flex flex-col gap-y-1.5">
-          <span class="text-13-medium text-text-base">
-            {language.t("dialog.status.lsp", { count: lspEntries().length })}
-          </span>
+        <Section
+          title={language.t("dialog.status.lsp", { count: lspEntries().length })}
+          description={language.t("dialog.status.lsp.description")}
+        >
           <Show
             when={lspEntries().length > 0}
-            fallback={<span class="text-12-regular text-text-weak">{language.t("dialog.status.lsp.empty")}</span>}
+            fallback={<EmptyState>{language.t("dialog.status.lsp.empty")}</EmptyState>}
           >
             <For each={lspEntries()}>
               {(item) => (
-                <div class="flex items-center gap-x-2 min-w-0">
-                  <span
-                    class="size-2 rounded-full shrink-0"
-                    classList={{
-                      "bg-icon-success": item.status === "connected",
-                      "bg-icon-error": item.status !== "connected",
-                    }}
-                  />
-                  <span class="text-12-medium text-text-base truncate">{item.id}</span>
-                  <span class="text-12-regular text-text-weak truncate">{item.root}</span>
+                <div class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border-base bg-surface-raised-base px-3 py-2">
+                  <div class="flex min-w-0 flex-col gap-0.5">
+                    <span class="truncate text-12-medium text-text-base">{item.id}</span>
+                    <span class="truncate text-11-regular text-text-weaker">{item.root}</span>
+                  </div>
+                  <StatusPill tone={lspTone(item.status)}>{item.status}</StatusPill>
                 </div>
               )}
             </For>
           </Show>
-        </section>
+        </Section>
 
-        <section class="flex flex-col gap-y-1.5">
-          <span class="text-13-medium text-text-base">
-            {language.t("dialog.status.plugins", { count: plugins().length })}
-          </span>
+        <Section
+          title={language.t("dialog.status.plugins", { count: plugins().length })}
+          description={language.t("dialog.status.plugins.description")}
+        >
           <Show
             when={plugins().length > 0}
-            fallback={<span class="text-12-regular text-text-weak">{language.t("dialog.status.plugins.empty")}</span>}
+            fallback={<EmptyState>{language.t("dialog.status.plugins.empty")}</EmptyState>}
           >
             <For each={plugins()}>
               {(item) => (
-                <div class="flex items-center gap-x-2 min-w-0">
-                  <span class="size-2 rounded-full shrink-0 bg-icon-success" />
-                  <span class="text-12-medium text-text-base truncate">{item.name}</span>
+                <div class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border-base bg-surface-raised-base px-3 py-2">
+                  <span class="truncate text-12-medium text-text-base">{item.name}</span>
                   <Show when={item.version}>
-                    <span class="text-12-regular text-text-weak truncate">@{item.version}</span>
+                    <span class="shrink-0 text-11-regular text-text-weaker">@{item.version}</span>
                   </Show>
                 </div>
               )}
             </For>
           </Show>
-        </section>
+        </Section>
       </div>
     </Dialog>
   )

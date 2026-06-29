@@ -4,11 +4,13 @@ import { Component, For, createMemo, type JSX } from "solid-js"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
 
-type PermissionAction = "allow" | "ask" | "deny"
+export type PermissionAction = "allow" | "ask" | "deny"
 
-type PermissionObject = Record<string, PermissionAction>
-type PermissionValue = PermissionAction | PermissionObject | string[] | undefined
-type PermissionMap = Record<string, PermissionValue>
+export type PermissionObject = Record<string, PermissionAction>
+export type PermissionValue = PermissionAction | PermissionObject | string[] | undefined
+export type PermissionMap = Record<string, PermissionValue>
+export type PermissionPreset = "require_approval" | "approve_for_me" | "full_access"
+export type PermissionMode = PermissionPreset | "custom"
 
 type PermissionItem = {
   id: string
@@ -16,13 +18,96 @@ type PermissionItem = {
   description: string
 }
 
+const PERMISSION_TOOL_KEYS = [
+  "read",
+  "edit",
+  "glob",
+  "grep",
+  "list",
+  "tree",
+  "bash",
+  "task",
+  "skill",
+  "lsp",
+  "todoread",
+  "todowrite",
+  "webfetch",
+  "websearch",
+  "codesearch",
+  "external_directory",
+  "doom_loop",
+  "browser",
+  "computer",
+  "repo_clone",
+  "repo_overview",
+  "generate_image",
+  "memory_search",
+  "context_collect",
+  "context_search",
+  "context_related",
+  "context_diagnostics",
+  "rag_index",
+  "rag_search",
+  "rag_status",
+  "rag_reset",
+  "speak",
+] as const
+
+const INTERNAL_DENY_PERMISSION_KEYS = ["question", "plan_enter", "plan_exit"] as const
+
+const APPROVE_FOR_ME_PERMISSIONS: PermissionMap = {
+  "*": "allow",
+  read: {
+    "*": "allow",
+    "*.env": "ask",
+    "*.env.*": "ask",
+    "*.env.example": "allow",
+  },
+  edit: "allow",
+  glob: "allow",
+  grep: "allow",
+  list: "allow",
+  tree: "allow",
+  task: "allow",
+  skill: "allow",
+  lsp: "allow",
+  todoread: "allow",
+  todowrite: "allow",
+  repo_overview: "allow",
+  context_collect: "allow",
+  context_search: "allow",
+  context_related: "allow",
+  context_diagnostics: "allow",
+  rag_search: "allow",
+  rag_status: "allow",
+  speak: "allow",
+  bash: "ask",
+  webfetch: "ask",
+  websearch: "ask",
+  codesearch: "ask",
+  external_directory: "ask",
+  doom_loop: "ask",
+  browser: "ask",
+  computer: "ask",
+  repo_clone: "ask",
+  generate_image: "ask",
+  memory_search: "ask",
+  rag_index: "ask",
+  rag_reset: "ask",
+  question: "deny",
+  plan_enter: "deny",
+  plan_exit: "deny",
+}
+
+export const PERMISSION_PRESETS = ["require_approval", "approve_for_me", "full_access"] as const
+
 const ACTIONS = [
   { value: "allow", label: "settings.permissions.action.allow" },
   { value: "ask", label: "settings.permissions.action.ask" },
   { value: "deny", label: "settings.permissions.action.deny" },
 ] as const
 
-const ITEMS = [
+export const PERMISSION_ITEMS = [
   {
     id: "read",
     title: "settings.permissions.tool.read.title",
@@ -107,27 +192,98 @@ const ITEMS = [
 
 const VALID_ACTIONS = new Set<PermissionAction>(["allow", "ask", "deny"])
 
-function toMap(value: unknown): PermissionMap {
+export function toPermissionMap(value: unknown): PermissionMap {
   if (value && typeof value === "object" && !Array.isArray(value)) return value as PermissionMap
 
-  const action = getAction(value)
+  const action = getPermissionAction(value)
   if (action) return { "*": action }
 
   return {}
 }
 
-function getAction(value: unknown): PermissionAction | undefined {
+export function getPermissionAction(value: unknown): PermissionAction | undefined {
   if (typeof value === "string" && VALID_ACTIONS.has(value as PermissionAction)) return value as PermissionAction
   return
 }
 
-function getRuleDefault(value: unknown): PermissionAction | undefined {
-  const action = getAction(value)
+export function getPermissionRuleDefault(value: unknown): PermissionAction | undefined {
+  const action = getPermissionAction(value)
   if (action) return action
 
   if (!value || typeof value !== "object" || Array.isArray(value)) return
 
-  return getAction((value as Record<string, unknown>)["*"])
+  return getPermissionAction((value as Record<string, unknown>)["*"])
+}
+
+export function getPermissionActionFor(map: PermissionMap, id: string, fallback: PermissionAction = "allow") {
+  const direct = getPermissionRuleDefault(map[id])
+  if (direct) return direct
+
+  const wildcard = getPermissionRuleDefault(map["*"])
+  if (wildcard) return wildcard
+
+  return fallback
+}
+
+function hasRuleAction(value: PermissionValue, action: PermissionAction) {
+  if (getPermissionAction(value) === action) return true
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  return Object.values(value).some((entry) => entry === action)
+}
+
+function uniformPermissionPatch(action: PermissionAction): PermissionMap {
+  const patch: PermissionMap = { "*": action }
+  for (const key of PERMISSION_TOOL_KEYS) patch[key] = action
+  for (const key of INTERNAL_DENY_PERMISSION_KEYS) patch[key] = "deny"
+  return patch
+}
+
+function clonePermissionMap(map: PermissionMap): PermissionMap {
+  return Object.fromEntries(
+    Object.entries(map).map(([key, value]) => [
+      key,
+      value && typeof value === "object" && !Array.isArray(value) ? { ...value } : value,
+    ]),
+  )
+}
+
+export function permissionPresetPatch(preset: PermissionPreset): PermissionMap {
+  if (preset === "require_approval") return uniformPermissionPatch("ask")
+  if (preset === "full_access") return uniformPermissionPatch("allow")
+  return clonePermissionMap(APPROVE_FOR_ME_PERMISSIONS)
+}
+
+export function detectPermissionMode(value: unknown): PermissionMode {
+  const map = toPermissionMap(value)
+  if (Object.keys(map).length === 0) return "approve_for_me"
+
+  const strict = getPermissionRuleDefault(map["*"]) === "ask"
+  if (strict && PERMISSION_TOOL_KEYS.every((key) => getPermissionActionFor(map, key, "ask") === "ask")) {
+    return "require_approval"
+  }
+
+  const full = getPermissionRuleDefault(map["*"]) === "allow"
+  if (
+    full &&
+    PERMISSION_TOOL_KEYS.every((key) => getPermissionActionFor(map, key) === "allow") &&
+    !Object.entries(map).some(
+      ([key, value]) =>
+        !INTERNAL_DENY_PERMISSION_KEYS.includes(key as (typeof INTERNAL_DENY_PERMISSION_KEYS)[number]) &&
+        (hasRuleAction(value, "ask") || hasRuleAction(value, "deny")),
+    )
+  ) {
+    return "full_access"
+  }
+
+  const approveForMe =
+    getPermissionRuleDefault(map["*"]) === "allow" &&
+    getPermissionActionFor(map, "edit") === "allow" &&
+    getPermissionActionFor(map, "bash") === "ask" &&
+    getPermissionActionFor(map, "webfetch") === "ask" &&
+    getPermissionActionFor(map, "websearch") === "ask" &&
+    getPermissionActionFor(map, "external_directory") === "ask"
+
+  return approveForMe ? "approve_for_me" : "custom"
 }
 
 export const SettingsPermissions: Component = () => {
@@ -143,23 +299,14 @@ export const SettingsPermissions: Component = () => {
   )
 
   const permission = createMemo(() => {
-    return toMap(globalSync.data.config.permission)
+    return toPermissionMap(globalSync.data.config.permission)
   })
 
-  const actionFor = (id: string): PermissionAction => {
-    const value = permission()[id]
-    const direct = getRuleDefault(value)
-    if (direct) return direct
-
-    const wildcard = getRuleDefault(permission()["*"])
-    if (wildcard) return wildcard
-
-    return "allow"
-  }
+  const actionFor = (id: string): PermissionAction => getPermissionActionFor(permission(), id)
 
   const setPermission = async (id: string, action: PermissionAction) => {
     const before = globalSync.data.config.permission
-    const map = toMap(before)
+    const map = toPermissionMap(before)
     const existing = map[id]
 
     const nextValue =
@@ -186,7 +333,7 @@ export const SettingsPermissions: Component = () => {
         <div class="flex flex-col gap-2">
           <h3 class="text-14-medium text-text-strong">{language.t("settings.permissions.section.tools")}</h3>
           <div class="border border-border-weak-base rounded-lg overflow-hidden">
-            <For each={ITEMS}>
+            <For each={PERMISSION_ITEMS}>
               {(item) => (
                 <SettingsRow title={language.t(item.title)} description={language.t(item.description)}>
                   <Select

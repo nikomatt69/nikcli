@@ -26,15 +26,27 @@ import type { IconName } from "@nikcli-ai/ui/icons/provider"
 import { Tooltip, TooltipKeybind } from "@nikcli-ai/ui/tooltip"
 import { IconButton } from "@nikcli-ai/ui/icon-button"
 import { Select } from "@nikcli-ai/ui/select"
+import { DropdownMenu } from "@nikcli-ai/ui/dropdown-menu"
+import { showToast } from "@nikcli-ai/ui/toast"
 import { useDialog } from "@nikcli-ai/ui/context/dialog"
 import { ModelSelectorPopover } from "@/components/dialog-select-model"
 import { DialogSelectModelUnpaid } from "@/components/dialog-select-model-unpaid"
+import { DialogSettings } from "@/components/dialog-settings"
 import { useProviders } from "@/hooks/use-providers"
 import { useCommand } from "@/context/command"
 import { Persist, persisted } from "@/utils/persist"
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { usePermission } from "@/context/permission"
 import { useLanguage } from "@/context/language"
+import { useGlobalSync } from "@/context/global-sync"
+import {
+  detectPermissionMode,
+  permissionPresetPatch,
+  PERMISSION_PRESETS,
+  toPermissionMap,
+  type PermissionMode,
+  type PermissionPreset,
+} from "@/components/settings-permissions"
 import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge } from "./prompt-input/editor-dom"
 import { createPromptAttachments, ACCEPTED_FILE_TYPES } from "./prompt-input/attachments"
 import { navigatePromptHistory, prependHistoryEntry, promptLength } from "./prompt-input/history"
@@ -97,6 +109,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const command = useCommand()
   const permission = usePermission()
   const language = useLanguage()
+  const globalSync = useGlobalSync()
   let editorRef!: HTMLDivElement
   let fileInputRef!: HTMLInputElement
   let scrollRef!: HTMLDivElement
@@ -927,6 +940,59 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
   }
 
+  const permissionMode = createMemo(() => detectPermissionMode(globalSync.data.config.permission))
+
+  const permissionModeTitle = (mode: PermissionMode) => {
+    switch (mode) {
+      case "require_approval":
+        return language.t("prompt.permissions.requireApproval.title")
+      case "approve_for_me":
+        return language.t("prompt.permissions.approveForMe.title")
+      case "full_access":
+        return language.t("prompt.permissions.fullAccess.title")
+      case "custom":
+        return language.t("prompt.permissions.custom.title")
+    }
+  }
+
+  const permissionModeDescription = (mode: PermissionMode) => {
+    switch (mode) {
+      case "require_approval":
+        return language.t("prompt.permissions.requireApproval.description")
+      case "approve_for_me":
+        return language.t("prompt.permissions.approveForMe.description")
+      case "full_access":
+        return language.t("prompt.permissions.fullAccess.description")
+      case "custom":
+        return language.t("prompt.permissions.custom.description")
+    }
+  }
+
+  const permissionModeIcon = (mode: PermissionMode) => {
+    switch (mode) {
+      case "require_approval":
+        return "circle-ban-sign" as const
+      case "full_access":
+        return "circle-check" as const
+      default:
+        return "checklist" as const
+    }
+  }
+
+  const setPermissionPreset = (preset: PermissionPreset) => {
+    const before = globalSync.data.config.permission
+    const patch = permissionPresetPatch(preset)
+
+    globalSync.set("config", "permission", { ...toPermissionMap(before), ...patch })
+    if (params.id) permission.disableAutoAccept(params.id, sdk.directory)
+
+    globalSync.updateConfig({ permission: patch }).catch((err: unknown) => {
+      globalSync.set("config", "permission", before)
+      const message = err instanceof Error ? err.message : String(err)
+      showToast({ title: language.t("prompt.permissions.toast.updateFailed.title"), description: message })
+    })
+  }
+
   return (
     <div class="relative size-full _max-h-[320px] flex flex-col gap-3">
       <PromptPopover
@@ -1038,6 +1104,82 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     variant="ghost"
                   />
                 </TooltipKeybind>
+                <DropdownMenu>
+                  <DropdownMenu.Trigger
+                    as={Button}
+                    type="button"
+                    variant="ghost"
+                    class="px-2 min-w-0 max-w-[180px] text-12-regular data-[expanded]:bg-surface-raised-base-active"
+                    aria-label={language.t("prompt.permissions.title")}
+                  >
+                    <Icon
+                      name={permissionModeIcon(permissionMode())}
+                      size="small"
+                      classList={{
+                        "text-icon-info-active": permissionMode() === "approve_for_me",
+                        "text-icon-success-base": permissionMode() === "full_access",
+                        "text-icon-warning": permissionMode() === "require_approval",
+                        "text-icon-base": permissionMode() === "custom",
+                      }}
+                    />
+                    <span class="truncate">{permissionModeTitle(permissionMode())}</span>
+                    <Icon name="chevron-down" size="small" class="shrink-0" />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content placement="top-start" gutter={8} class="w-[360px] max-w-[calc(100vw-32px)]">
+                      <DropdownMenu.Group>
+                        <DropdownMenu.GroupLabel>{language.t("prompt.permissions.title")}</DropdownMenu.GroupLabel>
+                        <DropdownMenu.RadioGroup
+                          value={permissionMode()}
+                          onChange={(value) => {
+                            if (!PERMISSION_PRESETS.includes(value as PermissionPreset)) return
+                            setPermissionPreset(value as PermissionPreset)
+                          }}
+                        >
+                          <Show when={permissionMode() === "custom"}>
+                            <DropdownMenu.RadioItem value="custom" disabled class="items-start py-2">
+                              <Icon name="sliders" size="small" class="text-icon-base mt-0.5 shrink-0" />
+                              <div class="flex flex-col gap-0.5 min-w-0">
+                                <DropdownMenu.ItemLabel>{permissionModeTitle("custom")}</DropdownMenu.ItemLabel>
+                                <DropdownMenu.ItemDescription class="whitespace-normal">
+                                  {permissionModeDescription("custom")}
+                                </DropdownMenu.ItemDescription>
+                              </div>
+                              <DropdownMenu.ItemIndicator class="ml-auto mt-0.5">
+                                <Icon name="check-small" size="small" class="text-icon-weak" />
+                              </DropdownMenu.ItemIndicator>
+                            </DropdownMenu.RadioItem>
+                          </Show>
+                          {PERMISSION_PRESETS.map((preset) => (
+                            <DropdownMenu.RadioItem value={preset} class="items-start py-2">
+                              <Icon
+                                name={permissionModeIcon(preset)}
+                                size="small"
+                                class="text-icon-weak mt-0.5 shrink-0"
+                              />
+                              <div class="flex flex-col gap-0.5 min-w-0">
+                                <DropdownMenu.ItemLabel>{permissionModeTitle(preset)}</DropdownMenu.ItemLabel>
+                                <DropdownMenu.ItemDescription class="whitespace-normal">
+                                  {permissionModeDescription(preset)}
+                                </DropdownMenu.ItemDescription>
+                              </div>
+                              <DropdownMenu.ItemIndicator class="ml-auto mt-0.5">
+                                <Icon name="check-small" size="small" class="text-icon-weak" />
+                              </DropdownMenu.ItemIndicator>
+                            </DropdownMenu.RadioItem>
+                          ))}
+                        </DropdownMenu.RadioGroup>
+                      </DropdownMenu.Group>
+                      <DropdownMenu.Separator />
+                      <DropdownMenu.Item
+                        onSelect={() => dialog.show(() => <DialogSettings defaultValue="permissions" />)}
+                      >
+                        <Icon name="settings-gear" size="small" class="text-icon-weak" />
+                        <DropdownMenu.ItemLabel>{language.t("prompt.permissions.openSettings")}</DropdownMenu.ItemLabel>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu>
                 <Show
                   when={providers.paid().length > 0}
                   fallback={
@@ -1098,36 +1240,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       onClick={() => local.model.variant.cycle()}
                     >
                       {local.model.variant.current() ?? language.t("common.default")}
-                    </Button>
-                  </TooltipKeybind>
-                </Show>
-                <Show when={permission.permissionsEnabled() && params.id}>
-                  <TooltipKeybind
-                    placement="top"
-                    gutter={8}
-                    title={language.t("command.permissions.autoaccept.enable")}
-                    keybind={command.keybind("permissions.autoaccept")}
-                  >
-                    <Button
-                      variant="ghost"
-                      onClick={() => permission.toggleAutoAccept(params.id!, sdk.directory)}
-                      classList={{
-                        "_hidden group-hover/prompt-input:flex size-6 items-center justify-center": true,
-                        "text-text-base": !permission.isAutoAccepting(params.id!, sdk.directory),
-                        "hover:bg-surface-success-base": permission.isAutoAccepting(params.id!, sdk.directory),
-                      }}
-                      aria-label={
-                        permission.isAutoAccepting(params.id!, sdk.directory)
-                          ? language.t("command.permissions.autoaccept.disable")
-                          : language.t("command.permissions.autoaccept.enable")
-                      }
-                      aria-pressed={permission.isAutoAccepting(params.id!, sdk.directory)}
-                    >
-                      <Icon
-                        name="chevron-double-right"
-                        size="small"
-                        classList={{ "text-icon-success-base": permission.isAutoAccepting(params.id!, sdk.directory) }}
-                      />
                     </Button>
                   </TooltipKeybind>
                 </Show>
