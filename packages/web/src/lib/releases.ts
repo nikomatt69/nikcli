@@ -31,6 +31,8 @@ export interface ReleaseInfo {
   publishedAt: string | null
   htmlUrl: string
   prerelease: boolean
+  /** Raw GitHub release notes (markdown) */
+  body: string
   assets: ClassifiedAsset[]
 }
 
@@ -47,6 +49,7 @@ interface RawRelease {
   html_url: string
   prerelease: boolean
   draft: boolean
+  body: string | null
   assets: RawAsset[]
 }
 
@@ -170,8 +173,33 @@ function shape(rel: RawRelease): ReleaseInfo {
     publishedAt: rel.published_at,
     htmlUrl: rel.html_url,
     prerelease: rel.prerelease,
+    body: rel.body || "",
     assets,
   }
+}
+
+/**
+ * A release is "complete" only once its CI pipeline has published the full
+ * artifact set: the desktop app for macOS + Windows + Linux AND the CLI. The
+ * Windows desktop installer is signed/built last, so this gate is the reliable
+ * signal that CI has finished. Both the download and changelog pages key off
+ * this so they never surface a half-published version.
+ */
+export function isComplete(rel: ReleaseInfo): boolean {
+  const desktopOs = new Set(rel.assets.filter((a) => a.category === "desktop").map((a) => a.os))
+  const hasCli = rel.assets.some((a) => a.category === "cli")
+  return desktopOs.has("macos") && desktopOs.has("windows") && desktopOs.has("linux") && hasCli
+}
+
+/** Compare semver-ish "x.y.z" strings; returns >0 if a is newer than b. */
+export function compareVersions(a: string, b: string): number {
+  const pa = a.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0)
+  const pb = b.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (d !== 0) return d
+  }
+  return 0
 }
 
 export async function fetchReleases(limit = 30): Promise<ReleaseInfo[]> {

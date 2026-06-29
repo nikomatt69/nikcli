@@ -105,7 +105,10 @@ const renderBody = (lines: string[]): string => {
   return html.join("\n")
 }
 
-const slugify = (title: string): string =>
+/** Render a standalone markdown block (e.g. a GitHub release body) to HTML. */
+export const renderMarkdownBlock = (md: string): string => renderBody(md.split(/\r?\n/))
+
+export const slugify = (title: string): string =>
   title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

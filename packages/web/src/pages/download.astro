@@ -5,6 +5,7 @@ import {
   fetchReleases,
   formatBytes,
   formatDate,
+  isComplete,
   OS_META,
   type ReleaseInfo,
   type ClassifiedAsset,
@@ -26,20 +27,11 @@ const requested = Astro.url.searchParams.get("version")?.replace(/^v/, "")
 const explicit = requested ? releases.find((r) => r.tag.replace(/^v/, "") === requested) ?? null : null
 const latestOverall = releases[0] ?? null
 
-// A release is "ready" only once its CI pipeline has finished publishing the
-// full artifact set — desktop (incl. Windows) AND the CLI binaries. The very
-// latest tag often only has CLI assets while desktop/mobile builds are still
-// running, so we default to the newest *complete* release. This keeps the page
-// coherent (Desktop never shows up empty) and in sync with the changelog.
-const osCovered = (r: ReleaseInfo, cat: DownloadCategory) =>
-  new Set(r.assets.filter((a) => a.category === cat).map((a) => a.os))
-// A release is complete only when the desktop app exists for all three OSes
-// (macOS, Windows, Linux) AND the CLI is published. Windows desktop installers
-// are signed/built last, so this gate prevents showing a half-published version.
-const isReady = (r: ReleaseInfo) => {
-  const d = osCovered(r, "desktop")
-  return d.has("macos") && d.has("windows") && d.has("linux") && osCovered(r, "cli").size > 0
-}
+// The very latest tag often only has CLI assets while desktop/mobile builds are
+// still running, so we default to the newest *complete* release (full desktop
+// matrix incl. Windows + CLI). This keeps the page coherent (Desktop never shows
+// up empty) and in sync with the changelog. See isComplete() in lib/releases.
+const isReady = isComplete
 const latestReady = releases.find(isReady) ?? latestOverall
 
 // The base release whose assets we show (explicit pick, else latest ready).
