@@ -21,11 +21,7 @@ export interface ChangelogEntry {
   empty: boolean
 }
 
-const escapeHtml = (s: string): string =>
-  s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
+const escapeHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
 /** Minimal inline markdown → HTML for the controlled changelog content. */
 const renderInline = (text: string): string => {
@@ -92,9 +88,7 @@ const renderBody = (lines: string[]): string => {
         inList = true
       }
       const nested = li[1].length >= 2
-      html.push(
-        `<li class="${nested ? "ml-5 list-[circle]" : "list-disc"} ml-5">${renderInline(li[2])}</li>`,
-      )
+      html.push(`<li class="${nested ? "ml-5 list-[circle]" : "list-disc"} ml-5">${renderInline(li[2])}</li>`)
       continue
     }
 
@@ -168,5 +162,4 @@ export function parseChangelog(raw: string = changelogRaw): ChangelogEntry[] {
 
 export const changelogEntries: ChangelogEntry[] = parseChangelog()
 
-export const latestVersion: string | null =
-  changelogEntries.find((e) => e.version)?.version ?? null
+export const latestVersion: string | null = changelogEntries.find((e) => e.version)?.version ?? null

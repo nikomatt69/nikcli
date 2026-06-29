@@ -193,8 +193,14 @@ export function isComplete(rel: ReleaseInfo): boolean {
 
 /** Compare semver-ish "x.y.z" strings; returns >0 if a is newer than b. */
 export function compareVersions(a: string, b: string): number {
-  const pa = a.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0)
-  const pb = b.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0)
+  const pa = a
+    .replace(/^v/, "")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0)
+  const pb = b
+    .replace(/^v/, "")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0)
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0)
     if (d !== 0) return d
@@ -235,7 +241,10 @@ export function formatDate(iso: string | null): string {
   }
 }
 
-export const OS_META: Record<Exclude<OS, "any">, { label: string; icon: "apple" | "windows" | "linux" | "android" | "ios" }> = {
+export const OS_META: Record<
+  Exclude<OS, "any">,
+  { label: string; icon: "apple" | "windows" | "linux" | "android" | "ios" }
+> = {
   macos: { label: "macOS", icon: "apple" },
   windows: { label: "Windows", icon: "windows" },
   linux: { label: "Linux", icon: "linux" },

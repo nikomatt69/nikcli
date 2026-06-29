@@ -26,9 +26,7 @@ export function resolveProviderIcon(id: string): IconName {
   }
 
   return (
-    iconNames
-      .filter((name) => normalized.startsWith(`${name}-`))
-      .sort((a, b) => b.length - a.length)[0] ?? "synthetic"
+    iconNames.filter((name) => normalized.startsWith(`${name}-`)).sort((a, b) => b.length - a.length)[0] ?? "synthetic"
   )
 }
 
