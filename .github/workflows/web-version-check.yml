@@ -1,0 +1,106 @@
+name: web-version-check
+
+# Periodically keeps the live site (nikcli.store) in sync with releases, but
+# only AFTER a release's CI pipeline has fully finished publishing artifacts.
+#
+# A release is treated as "complete" only when every expected artifact is on the
+# GitHub release: the desktop app for macOS + Windows + Linux AND the CLI. The
+# Windows desktop installer is signed/built last, so this gate guarantees we
+# never redeploy the web for a half-published version. While CI is still
+# running, this job simply waits and re-checks on the next tick.
+
+on:
+  schedule:
+    # every 30 minutes — fine-grained enough to catch a CI pipeline finishing
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency: ${{ github.workflow }}
+
+jobs:
+  check:
+    if: github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Wait for CI completion, then update the web if behind
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          SITE="https://nikcli.store"
+
+          # 1) Only act if the site is online ("se il sito è online")
+          status=$(curl -fsS -o /dev/null -w "%{http_code}" "$SITE/" || echo "000")
+          echo "Site homepage status: $status"
+          if [ "$status" != "200" ]; then
+            echo "::notice::Site is not online (HTTP $status) — skipping."
+            exit 0
+          fi
+
+          # 2) Latest *complete* release = CI finished, all artifacts published.
+          #    Requires desktop for macOS (.dmg) + Windows (-setup.exe) +
+          #    Linux (.deb/.rpm) AND the CLI (nikcli-ai-*).
+          complete_tag=$(gh api "repos/$REPO/releases?per_page=20" --jq '
+            map(select(
+              (.draft | not) and
+              (.assets | any(.name | test("\\.dmg$"))) and
+              (.assets | any(.name | test("-setup\\.exe$"))) and
+              (.assets | any(.name | test("\\.deb$|\\.rpm$"))) and
+              (.assets | any(.name | test("^nikcli-ai-")))
+            )) | .[0].tag_name // ""')
+          echo "Latest complete release: ${complete_tag:-none}"
+
+          latest_tag=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || echo "")
+          echo "Latest release tag:      ${latest_tag:-none}"
+
+          if [ -z "$complete_tag" ]; then
+            echo "::notice::No fully-published release found yet — waiting for CI."
+            exit 0
+          fi
+
+          if [ -n "$latest_tag" ] && [ "$latest_tag" != "$complete_tag" ]; then
+            echo "::notice::$latest_tag is still building (CI not finished) — will redeploy once complete."
+          fi
+
+          # 3) What the live site currently reflects (marker on /download, plus
+          #    the rendered changelog version as a fallback signal).
+          site_ready=$(curl -fsS "$SITE/download" 2>/dev/null \
+            | grep -oE 'data-latest-ready="[^"]*"' | head -1 \
+            | sed -E 's/.*"([^"]*)".*/\1/' || true)
+          site_changelog=$(curl -fsS "$SITE/changelog" 2>/dev/null \
+            | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+          echo "Site /download latest:   ${site_ready:-unknown}"
+          echo "Site /changelog latest:  ${site_changelog:-unknown}"
+
+          repo_changelog=$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1 || true)
+          echo "Repo CHANGELOG latest:   ${repo_changelog:-none}"
+
+          redeploy=false
+
+          # The site is behind a newly-completed release.
+          if [ "$site_ready" != "$complete_tag" ]; then
+            echo "::notice::Site shows '${site_ready:-none}' but $complete_tag is fully published."
+            redeploy=true
+          fi
+
+          # Changelog source advanced but the rendered site hasn't been rebuilt.
+          if [ -n "$repo_changelog" ] && [ "$repo_changelog" != "$site_changelog" ]; then
+            echo "::notice::Changelog drift (repo $repo_changelog vs site ${site_changelog:-none})."
+            redeploy=true
+          fi
+
+          if [ "$redeploy" = "true" ]; then
+            echo "CI is complete and the site is behind — triggering site deploy…"
+            gh workflow run deploy.yml --ref live-main
+            echo "::notice::Site deploy dispatched for $complete_tag."
+          else
+            echo "Site is up to date with the latest complete release — nothing to do."
+          fi

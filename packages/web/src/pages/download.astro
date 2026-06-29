@@ -1,0 +1,455 @@
+---
+import Layout from "../layouts/Layout.astro"
+import Navbar from "../components/Navbar.astro"
+import {
+  fetchReleases,
+  formatBytes,
+  formatDate,
+  OS_META,
+  type ReleaseInfo,
+  type ClassifiedAsset,
+  type OS,
+} from "../lib/releases"
+
+import type { DownloadCategory } from "../lib/releases"
+
+let releases: ReleaseInfo[] = []
+let loadError = false
+try {
+  releases = await fetchReleases(30)
+} catch {
+  loadError = true
+}
+
+const requested = Astro.url.searchParams.get("version")?.replace(/^v/, "")
+// Explicit browse mode: user picked a specific version from the selector.
+const explicit = requested ? releases.find((r) => r.tag.replace(/^v/, "") === requested) ?? null : null
+const latestOverall = releases[0] ?? null
+
+// A release is "ready" only once its CI pipeline has finished publishing the
+// full artifact set — desktop (incl. Windows) AND the CLI binaries. The very
+// latest tag often only has CLI assets while desktop/mobile builds are still
+// running, so we default to the newest *complete* release. This keeps the page
+// coherent (Desktop never shows up empty) and in sync with the changelog.
+const osCovered = (r: ReleaseInfo, cat: DownloadCategory) =>
+  new Set(r.assets.filter((a) => a.category === cat).map((a) => a.os))
+// A release is complete only when the desktop app exists for all three OSes
+// (macOS, Windows, Linux) AND the CLI is published. Windows desktop installers
+// are signed/built last, so this gate prevents showing a half-published version.
+const isReady = (r: ReleaseInfo) => {
+  const d = osCovered(r, "desktop")
+  return d.has("macos") && d.has("windows") && d.has("linux") && osCovered(r, "cli").size > 0
+}
+const latestReady = releases.find(isReady) ?? latestOverall
+
+// The base release whose assets we show (explicit pick, else latest ready).
+const base = explicit ?? latestReady
+// A newer tag still being built (assets not all published yet), if any.
+const building =
+  !explicit && latestOverall && latestReady && latestOverall.tag !== latestReady.tag ? latestOverall : null
+
+// Newest release that contains a given category (used as a fallback hint).
+const latestWith = (cat: DownloadCategory): ReleaseInfo | null =>
+  releases.find((r) => r.assets.some((a) => a.category === cat)) ?? null
+
+// group a release's assets (of one category) by OS
+type Group = { os: Exclude<OS, "any">; assets: ClassifiedAsset[] }
+const groupByOs = (assets: ClassifiedAsset[]): Group[] => {
+  const order: Exclude<OS, "any">[] = ["macos", "windows", "linux", "android", "ios"]
+  const map = new Map<Exclude<OS, "any">, ClassifiedAsset[]>()
+  for (const a of assets) {
+    if (a.os === "any") continue
+    const list = map.get(a.os as Exclude<OS, "any">) ?? []
+    list.push(a)
+    map.set(a.os as Exclude<OS, "any">, list)
+  }
+  return order
+    .filter((os) => map.has(os))
+    .map((os) => ({ os, assets: map.get(os)!.sort((x, y) => x.label.localeCompare(y.label)) }))
+}
+
+interface Section {
+  groups: Group[]
+  /** Latest release elsewhere that has this category, when base lacks it */
+  fallback: ReleaseInfo | null
+}
+const sectionFor = (cat: DownloadCategory): Section => {
+  const assets = base ? base.assets.filter((a) => a.category === cat) : []
+  return { groups: groupByOs(assets), fallback: assets.length ? null : latestWith(cat) }
+}
+
+const desktopSec = sectionFor("desktop")
+const cliSec = sectionFor("cli")
+const mobileSec = sectionFor("mobile")
+const hasContent = Boolean(base)
+
+const osIcon = (icon: string): string => {
+  switch (icon) {
+    case "apple":
+      return `<path d="M16.36 12.78c.02 2.6 2.28 3.46 2.3 3.47-.02.06-.36 1.24-1.19 2.46-.72 1.06-1.46 2.1-2.64 2.13-1.15.02-1.52-.68-2.84-.68s-1.73.66-2.82.7c-1.13.05-2-.13-2.74-.18-1.4-1.6-2.5-4.55-2.6-7.4-.06-1.5.21-3 .92-4.16C5.66 9.8 6.9 9.06 8.2 9.04c1.1-.02 2.13.74 2.8.74.66 0 1.92-.92 3.24-.78.55.02 2.1.22 3.1 1.68-.08.05-1.85 1.08-1.83 3.22M14.2 7.3c.58-.7.97-1.68.86-2.65-.84.03-1.85.56-2.45 1.26-.54.62-1.01 1.61-.88 2.56.93.07 1.89-.47 2.47-1.17"/>`
+    case "windows":
+      return `<path d="M3 5.5 10.2 4.5v6.9H3V5.5m0 13L10.2 19.5v-6.8H3V18.5M11.2 4.3 21 3v8.4H11.2V4.3m0 15.4L21 21v-8.3H11.2v7Z"/>`
+    case "linux":
+      return `<path d="M12 2c-1.7 0-3 1.5-3 3.3 0 1 .1 1.9-.4 2.9-.5 1-1.6 1.8-2.1 3.3-.4 1.2-.2 2.2.2 3.2.2.5-.3.9-.5 1.4-.3.8.1 1.6.7 2 .5.4 1.3.3 1.8-.1.5.4 1.2.6 2.3.6s1.8-.2 2.3-.6c.5.4 1.3.5 1.8.1.6-.4 1-1.2.7-2 .4-.5.7-.9.5-1.4.4-1 .6-2 .2-3.2-.5-1.5-1.6-2.3-2.1-3.3-.5-1-.4-1.9-.4-2.9C15 3.5 13.7 2 12 2m-1.3 4.2c.3 0 .5.3.5.7s-.2.7-.5.7-.5-.3-.5-.7.2-.7.5-.7m2.6 0c.3 0 .5.3.5.7s-.2.7-.5.7-.5-.3-.5-.7.2-.7.5-.7Z"/>`
+    case "android":
+      return `<path d="M6 9v7a1 1 0 0 0 1 1h1v3a1 1 0 0 0 2 0v-3h4v3a1 1 0 0 0 2 0v-3h1a1 1 0 0 0 1-1V9H6m-2 0a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0v-5a1 1 0 0 0-1-1m16 0a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0v-5a1 1 0 0 0-1-1M15.5 2l1.2-1.7-.6-.4L14.8 1.7A6 6 0 0 0 12 1c-1 0-2 .25-2.8.7L8 0l-.6.4L8.5 2A5 5 0 0 0 6 6h12a5 5 0 0 0-2.5-4M9.5 4.5a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m5 0a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1Z"/>`
+    case "ios":
+      return `<path d="M16.36 12.78c.02 2.6 2.28 3.46 2.3 3.47-.02.06-.36 1.24-1.19 2.46-.72 1.06-1.46 2.1-2.64 2.13-1.15.02-1.52-.68-2.84-.68s-1.73.66-2.82.7c-1.13.05-2-.13-2.74-.18-1.4-1.6-2.5-4.55-2.6-7.4-.06-1.5.21-3 .92-4.16C5.66 9.8 6.9 9.06 8.2 9.04c1.1-.02 2.13.74 2.8.74.66 0 1.92-.92 3.24-.78.55.02 2.1.22 3.1 1.68-.08.05-1.85 1.08-1.83 3.22M14.2 7.3c.58-.7.97-1.68.86-2.65-.84.03-1.85.56-2.45 1.26-.54.62-1.01 1.61-.88 2.56.93.07 1.89-.47 2.47-1.17"/>`
+    default:
+      return ""
+  }
+}
+
+const curlCmd = "curl -fsSL https://nikcli.store/install | bash"
+const seoDescription =
+  "Download nikcli — desktop apps for macOS, Windows, and Linux, standalone CLI binaries, and mobile builds for every released version."
+---
+
+<Layout title="Download nikcli — Desktop, CLI & Mobile" description={seoDescription}>
+  <Navbar />
+  <main id="main-content" tabindex="-1" class="flex-1 w-full bg-terminal-bg relative isolate outline-none">
+    <!-- Hero -->
+    <section class="page-section relative">
+      <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[240px] bg-terminal-accent/6 blur-[110px] rounded-full"></div>
+      </div>
+      <div class="page-shell flex flex-col items-center text-center">
+        <div class="inline-flex items-center gap-2 mb-5">
+          <div class="h-px w-6 bg-terminal-accent" aria-hidden="true"></div>
+          <span class="font-mono text-eyebrow uppercase tracking-[0.2em] text-terminal-accent">Downloads</span>
+          <div class="h-px w-6 bg-terminal-accent" aria-hidden="true"></div>
+        </div>
+        <h1 class="font-display text-[clamp(2rem,5vw,3.5rem)] font-extrabold leading-[1.04] tracking-[-0.035em] text-terminal-text mb-4">
+          Get nikcli for<br /><span class="text-terminal-muted font-semibold">your platform.</span>
+        </h1>
+        <p class="max-w-xl text-[clamp(0.9rem,1.5vw,1.05rem)] text-terminal-muted leading-relaxed mb-8">
+          Native desktop apps, standalone CLI binaries, and mobile builds — every release,
+          every architecture. Signed, checksummed, and ready to run.
+        </p>
+
+        {base && (
+          <div class="flex flex-wrap items-center justify-center gap-3">
+            <span class="inline-flex items-center gap-2 rounded-full border border-terminal-accent/25 bg-terminal-accent/10 px-3.5 py-1.5 font-mono text-[12.5px] font-semibold text-terminal-accent">
+              <span class="w-1.5 h-1.5 rounded-full bg-terminal-accent inline-block"></span>
+              {base.tag}
+              {base.prerelease && <span class="opacity-70">· pre-release</span>}
+              {!explicit && <span class="opacity-70">· latest</span>}
+            </span>
+            {base.publishedAt && (
+              <span class="text-[12.5px] text-terminal-muted/80">Released {formatDate(base.publishedAt)}</span>
+            )}
+            <a
+              href={base.htmlUrl}
+              target="_blank"
+              rel="noreferrer"
+              class="text-[12.5px] font-medium text-terminal-muted underline underline-offset-4 decoration-terminal-border/60 hover:text-terminal-text hover:decoration-terminal-accent transition-colors"
+            >
+              Release notes ↗
+            </a>
+          </div>
+        )}
+
+        {/* cron/marker: latest fully-published release shown on the site */}
+        <span data-latest-ready={base?.tag} class="hidden" aria-hidden="true"></span>
+
+        {building && (
+          <p class="mt-5 inline-flex items-center gap-2 rounded-full border border-terminal-warning/30 bg-terminal-warning/8 px-3.5 py-1.5 text-[12.5px] font-medium text-terminal-warning">
+            <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+            </svg>
+            {building.tag} is building — download links appear once all artifacts are published.
+          </p>
+        )}
+
+        <!-- detected-platform hint -->
+        <p id="platform-hint" class="mt-5 hidden text-[12.5px] text-terminal-muted/70"></p>
+
+        {releases.length > 1 && (
+          <form method="get" class="mt-7 flex items-center gap-2.5" id="version-form">
+            <label for="version" class="text-[12.5px] font-medium text-terminal-muted">Version</label>
+            <select
+              id="version"
+              name="version"
+              class="rounded-[var(--radius-md)] border border-terminal-border/60 bg-terminal-panel px-3 py-1.5 font-mono text-[12.5px] text-terminal-text shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terminal-accent"
+            >
+              <option value="" selected={!explicit}>Latest complete release</option>
+              {releases.map((r) => (
+                <option value={r.tag.replace(/^v/, "")} selected={Boolean(explicit) && base?.tag === r.tag}>
+                  {r.tag}
+                  {r.prerelease ? " (pre-release)" : !isReady(r) ? " (building…)" : ""}
+                </option>
+              ))}
+            </select>
+            <noscript>
+              <button type="submit" class="rounded-[var(--radius-md)] bg-terminal-accent px-3 py-1.5 text-[12.5px] font-bold text-terminal-bg">Go</button>
+            </noscript>
+          </form>
+        )}
+      </div>
+    </section>
+
+    {loadError && (
+      <section class="page-shell pb-12">
+        <div class="mx-auto max-w-2xl rounded-[var(--radius-card)] border border-terminal-warning/30 bg-terminal-warning/8 p-6 text-center">
+          <p class="text-[14px] text-terminal-text font-medium mb-1">Couldn't reach the release feed</p>
+          <p class="text-[13px] text-terminal-muted">
+            Browse all downloads directly on
+            <a href="https://github.com/nikomatt69/nikcli/releases" target="_blank" rel="noreferrer" class="text-terminal-accent underline underline-offset-2">GitHub Releases ↗</a>.
+          </p>
+        </div>
+      </section>
+    )}
+
+    {hasContent && (
+      <div class="page-shell pb-16 flex flex-col gap-14">
+        <!-- Desktop -->
+        <section id="desktop" aria-label="Desktop downloads">
+            <div class="mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+              <div>
+                <h2 class="font-display text-[1.5rem] font-bold tracking-tight text-terminal-text">Desktop app</h2>
+                <p class="text-[14px] text-terminal-muted mt-1">The full nikcli GUI — agent sessions, TUI, and tooling in a native window.</p>
+              </div>
+              {desktopSec.groups.length > 0 && base && (
+                <span class="font-mono text-[12px] text-terminal-muted/70">{base.tag}</span>
+              )}
+            </div>
+            {desktopSec.groups.length === 0 ? (
+              <div class="rounded-[var(--radius-card)] border border-terminal-border/60 bg-terminal-panel p-6 text-[13.5px] text-terminal-muted">
+                {desktopSec.fallback ? (
+                  <span>
+                    {base?.tag} has no desktop builds{building ? " yet — its CI pipeline is still running" : ""}. Latest desktop app:
+                    <a href={`/download?version=${desktopSec.fallback.tag.replace(/^v/, "")}`} class="ml-1 font-semibold text-terminal-accent hover:underline">{desktopSec.fallback.tag} →</a>
+                  </span>
+                ) : (
+                  <span>No desktop builds available for this release.</span>
+                )}
+              </div>
+            ) : (
+            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {desktopSec.groups.map((group) => (
+                <article
+                  data-os={group.os}
+                  class="os-card rounded-[var(--radius-card)] border border-terminal-border/60 bg-terminal-panel p-6 shadow-soft transition-[border-color,box-shadow] duration-200 hover:border-terminal-accent/30 hover:shadow-strong"
+                >
+                  <div class="mb-4 flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-terminal-accent/25 bg-terminal-accent/10 text-terminal-accent">
+                      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true" set:html={osIcon(OS_META[group.os].icon)} />
+                    </div>
+                    <h3 class="font-display text-[1.05rem] font-bold text-terminal-text">{OS_META[group.os].label}</h3>
+                  </div>
+                  <ul class="space-y-2">
+                    {group.assets.map((a) => (
+                      <li>
+                        <a
+                          href={a.url}
+                          class="group flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-terminal-border/50 bg-terminal-bg/50 px-3.5 py-2.5 transition-[border-color,background-color] duration-150 hover:border-terminal-accent/40 hover:bg-terminal-accent/8"
+                        >
+                          <span class="flex flex-col">
+                            <span class="text-[13.5px] font-semibold text-terminal-text group-hover:text-terminal-accent">{a.label}</span>
+                            <span class="font-mono text-[11px] text-terminal-muted/70">{formatBytes(a.size)}</span>
+                          </span>
+                          <svg class="h-4 w-4 shrink-0 text-terminal-muted group-hover:text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                          </svg>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+            )}
+          </section>
+
+        <!-- CLI -->
+        <section id="cli" aria-label="CLI downloads">
+          <div class="mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            <div>
+              <h2 class="font-display text-[1.5rem] font-bold tracking-tight text-terminal-text">Command line</h2>
+              <p class="text-[14px] text-terminal-muted mt-1">One command installs the latest CLI — or grab a standalone binary below.</p>
+            </div>
+            {cliSec.groups.length > 0 && base && (
+              <span class="font-mono text-[12px] text-terminal-muted/70">{base.tag}</span>
+            )}
+          </div>
+
+          <!-- quick install -->
+          <div class="mb-6 overflow-hidden rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-window-bg shadow-soft">
+            <div class="flex items-center justify-between border-b border-terminal-window-border/60 px-4 py-2.5">
+              <span class="font-mono text-[11px] font-medium text-terminal-window-muted">Terminal · macOS / Linux</span>
+              <button id="copy-curl" type="button" class="flex items-center gap-1.5 rounded-md border border-terminal-border/50 bg-surface-active/60 px-2.5 py-1 font-mono text-[11px] font-medium text-terminal-muted transition-transform duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent active:scale-[0.97]">
+                <span id="copy-curl-label">Copy</span>
+              </button>
+            </div>
+            <div class="bg-terminal-window-code px-5 py-4 font-mono text-[13.5px]">
+              <span class="text-terminal-accent font-bold select-none">$ </span>
+              <span class="text-terminal-window-text">{curlCmd}</span>
+            </div>
+          </div>
+
+          {cliSec.groups.length > 0 ? (
+            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {cliSec.groups.map((group) => (
+                <article
+                  data-os={group.os}
+                  class="os-card rounded-[var(--radius-card)] border border-terminal-border/60 bg-terminal-panel p-6 shadow-soft transition-[border-color,box-shadow] duration-200 hover:border-terminal-accent/30 hover:shadow-strong"
+                >
+                  <div class="mb-4 flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-terminal-accent/25 bg-terminal-accent/10 text-terminal-accent">
+                      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true" set:html={osIcon(OS_META[group.os].icon)} />
+                    </div>
+                    <h3 class="font-display text-[1.05rem] font-bold text-terminal-text">{OS_META[group.os].label}</h3>
+                  </div>
+                  <ul class="space-y-2">
+                    {group.assets.map((a) => (
+                      <li>
+                        <a
+                          href={a.url}
+                          class="group flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-terminal-border/50 bg-terminal-bg/50 px-3.5 py-2.5 transition-[border-color,background-color] duration-150 hover:border-terminal-accent/40 hover:bg-terminal-accent/8"
+                        >
+                          <span class="flex flex-col">
+                            <span class="text-[13.5px] font-semibold text-terminal-text group-hover:text-terminal-accent">{a.label}</span>
+                            <span class="font-mono text-[11px] text-terminal-muted/70">{formatBytes(a.size)}</span>
+                          </span>
+                          <svg class="h-4 w-4 shrink-0 text-terminal-muted group-hover:text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                          </svg>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p class="text-[13.5px] text-terminal-muted">No standalone CLI binaries in this release — use the install command above.</p>
+          )}
+        </section>
+
+        <!-- Mobile -->
+        <section id="mobile" aria-label="Mobile downloads">
+          <div class="mb-6">
+            <h2 class="font-display text-[1.5rem] font-bold tracking-tight text-terminal-text">Mobile</h2>
+            <p class="text-[14px] text-terminal-muted mt-1">Drive nikcli sessions from your phone.</p>
+          </div>
+          {mobileSec.groups.length > 0 ? (
+            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {mobileSec.groups.map((group) => (
+                <article class="rounded-[var(--radius-card)] border border-terminal-border/60 bg-terminal-panel p-6 shadow-soft">
+                  <div class="mb-4 flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-terminal-accent/25 bg-terminal-accent/10 text-terminal-accent">
+                      <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true" set:html={osIcon(OS_META[group.os].icon)} />
+                    </div>
+                    <h3 class="font-display text-[1.05rem] font-bold text-terminal-text">{OS_META[group.os].label}</h3>
+                  </div>
+                  <ul class="space-y-2">
+                    {group.assets.map((a) => (
+                      <li>
+                        <a href={a.url} class="group flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-terminal-border/50 bg-terminal-bg/50 px-3.5 py-2.5 transition-[border-color,background-color] duration-150 hover:border-terminal-accent/40 hover:bg-terminal-accent/8">
+                          <span class="flex flex-col">
+                            <span class="text-[13.5px] font-semibold text-terminal-text group-hover:text-terminal-accent">{a.label}</span>
+                            <span class="font-mono text-[11px] text-terminal-muted/70">{formatBytes(a.size)}</span>
+                          </span>
+                          <svg class="h-4 w-4 shrink-0 text-terminal-muted group-hover:text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                          </svg>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div class="rounded-[var(--radius-card)] border border-terminal-border/60 bg-terminal-panel p-6 sm:p-7 shadow-soft">
+              <div class="flex flex-col sm:flex-row items-start gap-5">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-accent/25 bg-terminal-accent/10 text-terminal-accent">
+                  <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="7" y="2" width="10" height="20" rx="2.5" /><path d="M11 18h2" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-display text-[1.05rem] font-bold text-terminal-text mb-1.5">Use nikcli on mobile</h3>
+                  <p class="text-[14px] leading-[1.7] text-terminal-muted mb-4">
+                    Native binaries for this release aren't published yet. Connect your phone to a running
+                    nikcli server and resume any session from the mobile experience — no install required.
+                  </p>
+                  <div class="flex flex-wrap gap-3">
+                    <a href="/app" class="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2 text-[13px] font-bold text-terminal-bg transition-[transform,opacity] hover:opacity-90 active:scale-[0.97]">
+                      Open Web App
+                    </a>
+                    <a href="/docs/mobile" class="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-terminal-border/60 bg-terminal-panel px-4 py-2 text-[13px] font-semibold text-terminal-text transition-colors hover:border-terminal-accent/40 hover:text-terminal-accent">
+                      Mobile docs →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <!-- footer links -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-terminal-border/50 pt-8 text-[13px] text-terminal-muted">
+          <span>Looking for an older build?</span>
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <a href="/changelog" class="font-medium hover:text-terminal-text transition-colors">Changelog →</a>
+            <a href="https://github.com/nikomatt69/nikcli/releases" target="_blank" rel="noreferrer" class="font-medium hover:text-terminal-text transition-colors">All releases ↗</a>
+          </div>
+        </div>
+      </div>
+    )}
+  </main>
+</Layout>
+
+<script>
+  const initDownload = () => {
+    // version selector → navigate
+    const sel = document.getElementById("version") as HTMLSelectElement | null
+    if (sel) {
+      const onChange = () => {
+        const url = new URL(window.location.href)
+        url.searchParams.set("version", sel.value)
+        window.location.href = url.toString()
+      }
+      sel.addEventListener("change", onChange)
+    }
+
+    // copy curl command
+    const copyBtn = document.getElementById("copy-curl")
+    const copyLbl = document.getElementById("copy-curl-label")
+    copyBtn?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText("curl -fsSL https://nikcli.store/install | bash")
+        if (copyLbl) copyLbl.textContent = "Copied!"
+        setTimeout(() => { if (copyLbl) copyLbl.textContent = "Copy" }, 2000)
+      } catch {}
+    })
+
+    // detect OS and highlight matching cards
+    const ua = navigator.userAgent.toLowerCase()
+    const platform = (navigator.platform || "").toLowerCase()
+    let os: string | null = null
+    if (/mac/.test(platform) || /mac os/.test(ua)) os = "macos"
+    else if (/win/.test(platform) || /windows/.test(ua)) os = "windows"
+    else if (/android/.test(ua)) os = "android"
+    else if (/iphone|ipad|ipod/.test(ua)) os = "ios"
+    else if (/linux/.test(platform) || /linux/.test(ua)) os = "linux"
+
+    const label: Record<string, string> = {
+      macos: "macOS", windows: "Windows", linux: "Linux", android: "Android", ios: "iOS",
+    }
+    const hint = document.getElementById("platform-hint")
+    if (os && hint) {
+      hint.textContent = `Detected ${label[os]} — your platform is highlighted below.`
+      hint.classList.remove("hidden")
+    }
+    if (os) {
+      document.querySelectorAll<HTMLElement>(`.os-card[data-os="${os}"]`).forEach((el) => {
+        el.classList.add("ring-2", "ring-terminal-accent/40", "border-terminal-accent/50")
+      })
+    }
+  }
+
+  initDownload()
+  document.addEventListener("astro:page-load", initDownload)
+</script>
