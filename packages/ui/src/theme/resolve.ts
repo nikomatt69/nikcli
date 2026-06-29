@@ -242,22 +242,24 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   tokens["icon-diff-delete-hover"] = diffDelete[isDark ? 9 : 10]
   tokens["icon-diff-modified-base"] = tokens["icon-warning-base"]
 
-  tokens["syntax-comment"] = "var(--text-weak)"
-  tokens["syntax-regexp"] = "var(--text-base)"
-  tokens["syntax-string"] = isDark ? "#00ceb9" : "#006656"
-  tokens["syntax-keyword"] = "var(--text-weak)"
-  tokens["syntax-primitive"] = isDark ? "#ffba92" : "#fb4804"
-  tokens["syntax-operator"] = isDark ? "var(--text-weak)" : "var(--text-base)"
-  tokens["syntax-variable"] = "var(--text-strong)"
-  tokens["syntax-property"] = isDark ? "#ff9ae2" : "#ed6dc8"
-  tokens["syntax-type"] = isDark ? "#ecf58c" : "#596600"
-  tokens["syntax-constant"] = isDark ? "#93e9f6" : "#007b80"
-  tokens["syntax-punctuation"] = isDark ? "var(--text-weak)" : "var(--text-base)"
-  tokens["syntax-object"] = "var(--text-strong)"
+  // VSCode Dark+ / Light+ syntax palette
+  tokens["syntax-comment"] = isDark ? "#6a9955" : "#008000"
+  tokens["syntax-regexp"] = isDark ? "#d16969" : "#811f3f"
+  tokens["syntax-string"] = isDark ? "#ce9178" : "#a31515"
+  tokens["syntax-keyword"] = isDark ? "#569cd6" : "#0000ff"
+  tokens["syntax-primitive"] = isDark ? "#dcdcaa" : "#795e26"
+  tokens["syntax-operator"] = "var(--text-base)"
+  tokens["syntax-variable"] = isDark ? "#9cdcfe" : "#001080"
+  tokens["syntax-property"] = isDark ? "#9cdcfe" : "#001080"
+  tokens["syntax-type"] = isDark ? "#4ec9b0" : "#267f99"
+  tokens["syntax-constant"] = isDark ? "#b5cea8" : "#098658"
+  tokens["syntax-punctuation"] = "var(--text-base)"
+  tokens["syntax-object"] = isDark ? "#9cdcfe" : "#001080"
+  tokens["syntax-unknown"] = isDark ? "#c586c0" : "#af00db"
   tokens["syntax-success"] = success[9]
   tokens["syntax-warning"] = warning[9]
   tokens["syntax-critical"] = error[isDark ? 9 : 9]
-  tokens["syntax-info"] = isDark ? "#93e9f6" : "#0092a8"
+  tokens["syntax-info"] = isDark ? "#569cd6" : "#0000ff"
   tokens["syntax-diff-add"] = diffAdd[10]
   tokens["syntax-diff-delete"] = diffDelete[10]
   tokens["syntax-diff-unknown"] = "#ff0000"
