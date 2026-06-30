@@ -509,7 +509,10 @@ export function SessionHeader() {
                   </TooltipKeybind>
                 </div>
                 <div class="hidden md:block shrink-0">
-                  <TooltipKeybind title={language.t("command.review.toggle")} keybind={command.keybind("review.toggle")}>
+                  <TooltipKeybind
+                    title={language.t("command.review.toggle")}
+                    keybind={command.keybind("review.toggle")}
+                  >
                     <Button
                       variant="ghost"
                       class="group/review-toggle size-6 p-0"

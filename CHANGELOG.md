@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.133.0 (June 2026)
+
+## Desktop
+
+- Integrate account management features into the application (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat: integrate account management features into the application
+
 ## v1.132.0 (June 2026)
 
 - No notable changes

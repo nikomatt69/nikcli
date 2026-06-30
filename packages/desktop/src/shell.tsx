@@ -552,7 +552,9 @@ function DesktopAccount() {
           }
         >
           <form class="desktop-account__form" onSubmit={submit}>
-            <strong>{mode() === "register" ? t("desktop.account.signUpTitle") : t("desktop.account.signInTitle")}</strong>
+            <strong>
+              {mode() === "register" ? t("desktop.account.signUpTitle") : t("desktop.account.signInTitle")}
+            </strong>
             <Show when={mode() === "register"}>
               <TextField
                 label={t("desktop.account.username")}
