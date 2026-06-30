@@ -14,6 +14,7 @@ import { GlobalSyncProvider } from "@/context/global-sync"
 import { PermissionProvider } from "@/context/permission"
 import { LayoutProvider } from "@/context/layout"
 import { GlobalSDKProvider } from "@/context/global-sdk"
+import { AccountProvider } from "@/context/account"
 import { normalizeServerUrl, ServerProvider, useServer } from "@/context/server"
 import { SettingsProvider } from "@/context/settings"
 import { TerminalProvider } from "@/context/terminal"
@@ -109,6 +110,7 @@ export function AppInterface(props: { defaultUrl?: string; children?: JSX.Elemen
     <ServerProvider defaultUrl={defaultServerUrl()}>
       <ServerKey>
         <GlobalSDKProvider>
+          <AccountProvider>
           <GlobalSyncProvider>
             <Router
               root={(routerProps) => (
@@ -163,6 +165,7 @@ export function AppInterface(props: { defaultUrl?: string; children?: JSX.Elemen
               </Route>
             </Router>
           </GlobalSyncProvider>
+          </AccountProvider>
         </GlobalSDKProvider>
       </ServerKey>
     </ServerProvider>

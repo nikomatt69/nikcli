@@ -42,6 +42,7 @@ export function SessionSidePanel(props: {
   tabs: () => ReturnType<ReturnType<typeof useLayout>["tabs"]>
   openTab: (value: string) => void
   showAllFiles: () => void
+  reviewActions?: JSX.Element
   reviewPanel: () => JSX.Element
   messages: () => unknown[]
   visibleUserMessages: () => unknown[]
@@ -148,6 +149,7 @@ export function SessionSidePanel(props: {
                             {(tab) => <SortableTab tab={tab} onTabClose={props.tabs().close} />}
                           </For>
                         </SortableProvider>
+                        <Show when={props.reviewActions}>{props.reviewActions}</Show>
                         <StickyAddButton>
                           <TooltipKeybind
                             title={props.language.t("command.file.open")}

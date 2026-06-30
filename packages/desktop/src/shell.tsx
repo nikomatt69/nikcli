@@ -2,14 +2,21 @@ import { useNavigate, useParams } from "@solidjs/router"
 import { base64Encode } from "@nikcli-ai/util/encode"
 import { getFilename } from "@nikcli-ai/util/path"
 import { Icon } from "@nikcli-ai/ui/icon"
+import { Avatar } from "@nikcli-ai/ui/avatar"
+import { Button } from "@nikcli-ai/ui/button"
+import { DropdownMenu } from "@nikcli-ai/ui/dropdown-menu"
+import { Popover } from "@nikcli-ai/ui/popover"
+import { TextField } from "@nikcli-ai/ui/text-field"
 import { Splash } from "@nikcli-ai/ui/logo"
 import {
+  useAccount,
   useCommand,
   useGlobalSDK,
   useGlobalSync,
   useLayout,
   usePlatform,
   useServer,
+  type AccountUser,
   type LocalProject,
 } from "@nikcli-ai/app"
 import {
@@ -463,6 +470,194 @@ function ProjectGroup(props: {
   )
 }
 
+function accountInitials(user: AccountUser) {
+  const base = user.display_name?.trim() || user.username || user.email
+  return base.slice(0, 2).toUpperCase()
+}
+
+function DesktopAccount() {
+  const account = useAccount()
+  const command = useCommand()
+  const platform = usePlatform()
+  const [open, setOpen] = createSignal(false)
+  const [mode, setMode] = createSignal<"login" | "register">("login")
+  const [form, setForm] = createStore({ email: "", password: "", username: "", displayName: "" })
+  const [busy, setBusy] = createSignal(false)
+
+  const displayName = createMemo(() => {
+    const user = account.user
+    return user?.display_name?.trim() || user?.username || t("desktop.account.signIn")
+  })
+  const planLabel = createMemo(() =>
+    account.user?.role === "admin" ? t("desktop.account.admin") : t("desktop.account.member"),
+  )
+
+  const resetForm = () => setForm({ email: "", password: "", username: "", displayName: "" })
+
+  const submit: JSX.EventHandlerUnion<HTMLFormElement, SubmitEvent> = async (event) => {
+    event.preventDefault()
+    if (busy()) return
+    setBusy(true)
+    try {
+      if (mode() === "register") {
+        await account.register({
+          username: form.username.trim(),
+          email: form.email.trim(),
+          password: form.password,
+          displayName: form.displayName.trim() || undefined,
+        })
+      } else {
+        await account.login(form.email.trim(), form.password)
+      }
+      resetForm()
+      setOpen(false)
+    } catch {
+      // Failure is surfaced through account.error below.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggleMode = () => {
+    account.clearError()
+    setMode((current) => (current === "register" ? "login" : "register"))
+  }
+
+  return (
+    <Show
+      when={account.user}
+      fallback={
+        <Popover
+          open={open()}
+          onOpenChange={(next) => {
+            setOpen(next)
+            if (!next) account.clearError()
+          }}
+          placement="top-start"
+          gutter={8}
+          triggerAs="button"
+          triggerProps={{ type: "button", class: "desktop-account desktop-account--signed-out" }}
+          class="desktop-account__popover"
+          trigger={
+            <>
+              <span class="desktop-account__avatar desktop-account__avatar--empty">
+                <Icon name="enter" size="small" />
+              </span>
+              <span class="desktop-account__copy">
+                <span>{t("desktop.account.signIn")}</span>
+                <span>{account.serverName}</span>
+              </span>
+              <Icon name="chevron-right" size="small" />
+            </>
+          }
+        >
+          <form class="desktop-account__form" onSubmit={submit}>
+            <strong>{mode() === "register" ? t("desktop.account.signUpTitle") : t("desktop.account.signInTitle")}</strong>
+            <Show when={mode() === "register"}>
+              <TextField
+                label={t("desktop.account.username")}
+                value={form.username}
+                onChange={(value) => setForm("username", value)}
+                autocomplete="username"
+                required
+                disabled={busy()}
+              />
+              <TextField
+                label={t("desktop.account.displayName")}
+                value={form.displayName}
+                onChange={(value) => setForm("displayName", value)}
+                disabled={busy()}
+              />
+            </Show>
+            <TextField
+              label={t("desktop.account.email")}
+              type="email"
+              value={form.email}
+              onChange={(value) => setForm("email", value)}
+              autocomplete="email"
+              required
+              disabled={busy()}
+              autofocus
+            />
+            <TextField
+              label={t("desktop.account.password")}
+              type="password"
+              value={form.password}
+              onChange={(value) => setForm("password", value)}
+              autocomplete={mode() === "register" ? "new-password" : "current-password"}
+              required
+              disabled={busy()}
+            />
+            <Show when={account.error}>
+              <span class="desktop-account__error">{account.error}</span>
+            </Show>
+            <Button type="submit" disabled={busy()}>
+              {busy()
+                ? t("desktop.account.signingIn")
+                : mode() === "register"
+                  ? t("desktop.account.register")
+                  : t("desktop.account.submit")}
+            </Button>
+            <Show when={account.canRegister || mode() === "register"}>
+              <button type="button" class="desktop-account__switch" onClick={toggleMode}>
+                {mode() === "register" ? t("desktop.account.loginToggle") : t("desktop.account.registerToggle")}
+              </button>
+            </Show>
+          </form>
+        </Popover>
+      }
+    >
+      {(user) => (
+        <DropdownMenu placement="top-start" gutter={8}>
+          <DropdownMenu.Trigger as="button" type="button" class="desktop-account">
+            <Avatar class="desktop-account__avatar" fallback={accountInitials(user())} size="small" />
+            <span class="desktop-account__copy">
+              <span>{displayName()}</span>
+              <span>{planLabel()}</span>
+            </span>
+            <Icon name="selector" size="small" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content class="desktop-account__menu">
+              <div class="desktop-account__menu-header">
+                <span>{user().email}</span>
+                <span>{t("desktop.account.personal")}</span>
+              </div>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Item class="desktop-account__menu-item" onSelect={() => command.trigger("settings.open")}>
+                <Icon name="glasses" size="small" />
+                <DropdownMenu.ItemLabel>{t("desktop.account.profile")}</DropdownMenu.ItemLabel>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item class="desktop-account__menu-item" onSelect={() => command.trigger("settings.open")}>
+                <Icon name="settings-gear" size="small" />
+                <DropdownMenu.ItemLabel>{t("desktop.account.settings")}</DropdownMenu.ItemLabel>
+                <kbd class="desktop-account__menu-kbd">⌘,</kbd>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                class="desktop-account__menu-item"
+                onSelect={() => platform.openLink("https://nikcli.store")}
+              >
+                <Icon name="share" size="small" />
+                <DropdownMenu.ItemLabel>{t("desktop.account.invite")}</DropdownMenu.ItemLabel>
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Item class="desktop-account__menu-item" onSelect={() => command.trigger("analytics.view")}>
+                <Icon name="bullet-list" size="small" />
+                <DropdownMenu.ItemLabel>{t("desktop.account.usage")}</DropdownMenu.ItemLabel>
+                <Icon name="chevron-right" size="small" class="desktop-account__menu-trailing" />
+              </DropdownMenu.Item>
+              <DropdownMenu.Item class="desktop-account__menu-item" onSelect={() => void account.logout()}>
+                <Icon name="arrow-right" size="small" />
+                <DropdownMenu.ItemLabel>{t("desktop.account.logout")}</DropdownMenu.ItemLabel>
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu>
+      )}
+    </Show>
+  )
+}
+
 function DesktopSidebar() {
   const command = useCommand()
   const sync = useGlobalSync()
@@ -691,6 +886,7 @@ function DesktopSidebar() {
           <span>{t("desktop.sidebar.settings")}</span>
           <span class="desktop-sidebar__version">v{platform.version}</span>
         </button>
+        <DesktopAccount />
       </div>
     </div>
   )

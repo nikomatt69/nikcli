@@ -51,6 +51,7 @@ import {
   type DiffStyle,
   type SessionReviewTabProps,
 } from "@/pages/session/review-tab"
+import { ReviewGitControls } from "@/pages/session/review-git-controls"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { terminalTabLabel } from "@/pages/session/terminal-label"
 import { MessageTimeline } from "@/pages/session/message-timeline"
@@ -1740,6 +1741,14 @@ export default function Page() {
           tabs={tabs}
           openTab={openTab}
           showAllFiles={showAllFiles}
+          reviewActions={
+            <ReviewGitControls
+              onChanged={() => {
+                if (params.id) void sync.session.diff(params.id)
+                void file.tree.refresh("")
+              }}
+            />
+          }
           reviewPanel={reviewPanel}
           messages={messages as () => unknown[]}
           visibleUserMessages={visibleUserMessages as () => unknown[]}
