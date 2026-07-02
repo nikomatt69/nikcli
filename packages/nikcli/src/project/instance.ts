@@ -72,6 +72,9 @@ export const Instance = {
       return input.fn()
     })
   },
+  has(directory: string) {
+    return cache.has(normalizeDirectory(directory))
+  },
   get directory() {
     return context.use().directory
   },

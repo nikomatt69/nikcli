@@ -226,15 +226,20 @@ export namespace Config {
   }
 
   function makeScopedState(paths: ConfigPaths.Interface, appFs: AppFileSystem.Interface) {
-    return InstanceState.make<State>((ctx) =>
-      Effect.gen(function* () {
-        const directories = yield* paths.directories(ctx.directory, ctx.worktree)
-        const found = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
-          ? []
-          : yield* appFs.findUp("nikcli.json", ctx.directory, ctx.worktree)
-        const projectFiles = found.toReversed()
-        return yield* Effect.promise(() => loadState(ctx, directories, projectFiles))
-      }),
+    return InstanceState.make<State>(
+      (ctx) =>
+        Effect.gen(function* () {
+          const directories = yield* paths.directories(ctx.directory, ctx.worktree)
+          const found = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
+            ? []
+            : yield* appFs.findUp("nikcli.json", ctx.directory, ctx.worktree)
+          const projectFiles = found.toReversed()
+          return yield* Effect.promise(() => loadState(ctx, directories, projectFiles))
+        }),
+      // Config participates in instance hot reload: when a config file changes
+      // on disk, InstanceReload invalidates this cache so the next get() sees
+      // the new agents/commands/permissions without a process restart.
+      { reloadable: true },
     )
   }
 

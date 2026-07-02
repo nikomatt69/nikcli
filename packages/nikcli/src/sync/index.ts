@@ -190,9 +190,11 @@ export namespace SyncStorage {
 
   /**
    * Append event with compaction.
-   * Compacts events when aggregate exceeds MAX_EVENTS_PER_AGGREGATE.
+   * Compacts events when aggregate exceeds MAX_EVENTS_PER_AGGREGATE, or the
+   * caller-provided `limit` (kept exactly at `limit` when set — used by the
+   * workspace restore journal to honor per-workspace event limits).
    */
-  function appendEventWith(db: Executor, projectID: string, event: SyncEventRecord): void {
+  function appendEventWith(db: Executor, projectID: string, event: SyncEventRecord, limit?: number): void {
     // Insert the event
     db.insert(syncEvent)
       .values({
@@ -213,14 +215,16 @@ export namespace SyncStorage {
       .where(and(eq(syncEvent.projectId, projectID), eq(syncEvent.aggregate, event.aggregate)))
       .get()
 
-    if (countResult && countResult.count > MAX_EVENTS_PER_AGGREGATE) {
-      // Get the oldest COMPACTION_TRIM_TO events for this aggregate
+    const threshold = limit ?? MAX_EVENTS_PER_AGGREGATE
+    const trimTo = limit ?? COMPACTION_TRIM_TO
+    if (countResult && countResult.count > threshold) {
+      // Get the oldest events beyond the retention target for this aggregate
       const oldEvents = db
         .select({ id: syncEvent.id })
         .from(syncEvent)
         .where(and(eq(syncEvent.projectId, projectID), eq(syncEvent.aggregate, event.aggregate)))
         .orderBy(asc(syncEvent.seq))
-        .limit(countResult.count - COMPACTION_TRIM_TO)
+        .limit(countResult.count - trimTo)
         .all()
 
       if (oldEvents.length > 0) {
@@ -233,7 +237,7 @@ export namespace SyncStorage {
           projectID,
           aggregate: event.aggregate,
           before: countResult.count,
-          after: COMPACTION_TRIM_TO,
+          after: trimTo,
         })
       }
     }
@@ -269,6 +273,7 @@ export namespace SyncStorage {
     projectID: string,
     aggregate: string,
     create: (seq: number) => SyncEventRecord,
+    limit?: number,
   ): Promise<SyncEventRecord> {
     // BEGIN IMMEDIATE so sequence read + append are atomic even across
     // multiple processes sharing nikcli.db.
@@ -281,7 +286,7 @@ export namespace SyncStorage {
           .get()
         const seq = (seqRow?.seq ?? 0) + 1
         const record = create(seq)
-        appendEventWith(tx, projectID, record)
+        appendEventWith(tx, projectID, record, limit)
         return record
       },
       { behavior: "immediate" },
@@ -321,6 +326,75 @@ export namespace SyncStorage {
   export async function clear(projectID: string): Promise<void> {
     db().delete(syncEvent).where(eq(syncEvent.projectId, projectID)).run()
     db().delete(syncSequence).where(eq(syncSequence.projectId, projectID)).run()
+  }
+
+  export async function clearAggregate(projectID: string, aggregate: string): Promise<void> {
+    db()
+      .delete(syncEvent)
+      .where(and(eq(syncEvent.projectId, projectID), eq(syncEvent.aggregate, aggregate)))
+      .run()
+    db()
+      .delete(syncSequence)
+      .where(and(eq(syncSequence.projectId, projectID), eq(syncSequence.aggregate, aggregate)))
+      .run()
+  }
+}
+
+/**
+ * Unified event journal for instances and workspaces.
+ *
+ * Single write path for the events that let a client (TUI, mobile, another
+ * machine) restore state after a disconnect: local bus mirrors and remote
+ * workspace sync loops both append here, so there is exactly one sequenced,
+ * replayable backend instead of ad-hoc per-feature event buffers.
+ */
+export namespace SyncBackend {
+  const log = Log.create({ service: "sync.backend" })
+
+  export interface Options {
+    /** Keep at most this many events for the aggregate (trims oldest). */
+    limit?: number
+  }
+
+  export async function append(
+    projectID: string,
+    aggregate: string,
+    event: { type: string; properties?: unknown },
+    options?: Options,
+  ): Promise<SyncEventRecord> {
+    const record = await SyncStorage.reserveSeqAndAppend(
+      projectID,
+      aggregate,
+      (seq) => ({
+        id: Identifier.ascending("sync"),
+        aggregate,
+        seq,
+        type: event.type,
+        data: event,
+        timestamp: Date.now(),
+      }),
+      options?.limit,
+    )
+    log.debug("journaled", { projectID, aggregate, type: event.type, seq: record.seq })
+    return record
+  }
+
+  /** Sequenced records for an aggregate; `fromSeq` allows incremental catch-up. */
+  export async function records(projectID: string, aggregate: string, fromSeq?: number): Promise<SyncEventRecord[]> {
+    return SyncStorage.getEvents(projectID, aggregate, fromSeq)
+  }
+
+  /** Raw event payloads for an aggregate, in append order. */
+  export async function payloads(projectID: string, aggregate: string, fromSeq?: number): Promise<unknown[]> {
+    return (await records(projectID, aggregate, fromSeq)).map((record) => record.data)
+  }
+
+  export async function latest(projectID: string, aggregate: string): Promise<number> {
+    return SyncStorage.getLatestSeq(projectID, aggregate)
+  }
+
+  export async function clear(projectID: string, aggregate: string): Promise<void> {
+    await SyncStorage.clearAggregate(projectID, aggregate)
   }
 }
 

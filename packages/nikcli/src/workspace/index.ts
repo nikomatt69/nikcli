@@ -19,6 +19,7 @@ import { getAdaptor, listAdaptors } from "./adaptors"
 import { ConfigSchema } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
+import { SyncBackend } from "@/sync"
 import { WorkspaceDB } from "./db"
 import { zod, zodObject } from "@/util/effect-zod"
 import { Effect, Schema } from "effect"
@@ -171,12 +172,42 @@ export namespace Workspace {
       .map((session) => session.id)
   }
 
+  function eventLimitFor(space: Pick<WorkspaceDB.Info, "config">) {
+    return space.config.eventLimit ?? WorkspaceDB.DEFAULT_EVENT_LIMIT
+  }
+
+  /**
+   * Restore journal for a workspace, backed by the unified sync backend.
+   * Older builds buffered restore events in the workspace row's JSON column;
+   * those are imported into the journal on first read and the column cleared,
+   * so there is a single sequenced source of truth afterwards.
+   */
+  async function journalEvents(workspaceID: string, fromSeq?: number) {
+    const space = WorkspaceDB.get(workspaceID)
+    if (!space) return []
+    if ((await SyncBackend.latest(space.projectID, workspaceID)) === 0) {
+      const legacy = WorkspaceDB.getState(workspaceID).events
+      if (legacy.length > 0) {
+        for (const event of legacy) {
+          const typed = event as { type?: unknown }
+          if (typeof typed?.type !== "string") continue
+          await SyncBackend.append(space.projectID, workspaceID, typed as { type: string }, {
+            limit: eventLimitFor(space),
+          }).catch((error) => {
+            log.warn("failed to migrate legacy workspace event", { workspaceID, error })
+          })
+        }
+        WorkspaceDB.updateState(workspaceID, { events: [] })
+      }
+    }
+    return SyncBackend.records(space.projectID, workspaceID, fromSeq)
+  }
+
   async function buildRestorePayload(workspaceID: string): Promise<Restore> {
-    const state = WorkspaceDB.getState(workspaceID)
     return {
       workspaceID,
       sessions: await listRootSessions(workspaceID),
-      events: state.events,
+      events: (await journalEvents(workspaceID)).map((record) => record.data),
     }
   }
 
@@ -265,10 +296,18 @@ export namespace Workspace {
     })
   }
 
-  function rememberWorkspaceEvent(workspaceID: string, event: { type?: string; properties?: any }) {
+  function rememberWorkspaceEvent(space: Info, event: { type?: string; properties?: any }) {
     if (!event?.type || event.type === "server.heartbeat") return
     if (!RESTORE_EVENT_TYPES.has(event.type)) return
-    WorkspaceDB.appendEvent(workspaceID, event)
+    void SyncBackend.append(space.projectID, space.id, event as { type: string }, {
+      limit: eventLimitFor(space),
+    }).catch((error) => {
+      log.warn("failed to journal workspace event", {
+        workspaceID: space.id,
+        type: event.type,
+        error,
+      })
+    })
   }
 
   function startSpaceSync(space: Info) {
@@ -471,6 +510,9 @@ export namespace Workspace {
       }
       await getAdaptor(info.config).remove(info.config)
       WorkspaceDB.remove(id)
+      await SyncBackend.clear(info.projectID, id).catch((error) => {
+        log.warn("failed to clear workspace journal", { workspaceID: id, error })
+      })
       SandboxRegistry.invalidateWorkspace(id)
       connectionStatuses.delete(id)
       return info
@@ -509,7 +551,7 @@ export namespace Workspace {
           void acceptsWorkspaceEvent(space.id, payload)
             .then((accepted) => {
               if (!accepted) return
-              rememberWorkspaceEvent(space.id, payload)
+              rememberWorkspaceEvent(space, payload)
               void mirrorWorkspaceEvent(space, payload).catch((error) => {
                 log.warn("workspace event mirror failed", {
                   workspaceID: space.id,
@@ -576,6 +618,39 @@ export namespace Workspace {
       status: status(space.id),
     }))
   }
+
+  export const JournalEvent = z.object({
+    seq: z.number().int(),
+    type: z.string(),
+    data: z.unknown(),
+    timestamp: z.number(),
+  })
+  export type JournalEvent = z.infer<typeof JournalEvent>
+
+  /**
+   * Sequenced restore journal for a workspace. Clients that missed SSE events
+   * (reconnect, mobile resume) can catch up incrementally by passing the last
+   * sequence number they saw.
+   */
+  export const events = fn(
+    z.object({
+      workspaceID: Identifier.schema("workspace"),
+      from: z.number().int().nonnegative().optional(),
+    }),
+    async ({ workspaceID, from }): Promise<JournalEvent[]> => {
+      const info = await get(workspaceID)
+      if (!info)
+        throw new Storage.NotFoundError({
+          message: `Workspace not found: ${workspaceID}`,
+        })
+      return (await journalEvents(workspaceID, from)).map((record) => ({
+        seq: record.seq,
+        type: record.type,
+        data: record.data,
+        timestamp: record.timestamp,
+      }))
+    },
+  )
 
   // Cleanup global state on process exit (register once per process)
   function cleanup() {

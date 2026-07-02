@@ -12,6 +12,7 @@ import { lazy } from "../../util/lazy"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 import { Instance } from "@/project/instance"
+import { InstanceReload } from "@/project/reload"
 
 const log = Log.create({ service: "server" })
 
@@ -136,6 +137,34 @@ export const ConfigRoutes = lazy(() =>
           )
         }
         return c.json(config)
+      },
+    )
+    .post(
+      "/reload",
+      describeRoute({
+        summary: "Reload configuration",
+        description:
+          "Hot-reload the instance: invalidate reloadable per-instance state so the next read reflects config files on disk. Emits instance.reload.started / instance.reloaded on the event stream.",
+        operationId: "config.reload",
+        responses: {
+          200: {
+            description: "Instance reloaded",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    reloaded: z.boolean(),
+                    directory: z.string(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        await InstanceReload.reload(["api"])
+        return c.json({ reloaded: true, directory: Instance.directory })
       },
     )
     .get(
