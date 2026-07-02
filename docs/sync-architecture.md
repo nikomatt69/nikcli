@@ -8,14 +8,14 @@ backend — locally and (optionally) across machines through a remote hub.
 Everything flows through one SQLite table, `sync_event` (see
 `packages/nikcli/src/sync/sync.sql.ts`):
 
-| column                  | meaning                                                            |
-| ----------------------- | ------------------------------------------------------------------ |
-| `project_id`            | owning project                                                     |
-| `aggregate`             | the entity the event belongs to (`wrk_…`, `ses_…`)                 |
+| column                  | meaning                                                              |
+| ----------------------- | -------------------------------------------------------------------- |
+| `project_id`            | owning project                                                       |
+| `aggregate`             | the entity the event belongs to (`wrk_…`, `ses_…`)                   |
 | `seq`                   | per-`(project, aggregate)` monotonic sequence (from `sync_sequence`) |
-| `type` / `data`         | event envelope (`{ type, properties }`)                            |
-| `workspace_id`          | denormalized routing metadata (nullable)                           |
-| `origin` / `origin_seq` | `local` or `remote:<client>`; the origin server's seq when remote  |
+| `type` / `data`         | event envelope (`{ type, properties }`)                              |
+| `workspace_id`          | denormalized routing metadata (nullable)                             |
+| `origin` / `origin_seq` | `local` or `remote:<client>`; the origin server's seq when remote    |
 
 Appends go through `Sync.emitRaw(projectID, aggregate, data, options?)`
 (`packages/nikcli/src/sync/index.ts`), which reserves the next sequence
@@ -31,7 +31,7 @@ to 500; snapshots make that safe (below).
   lifecycle events (`workspace.created`, `workspace.removed`, …) used by the
   projector to rebuild the workspace row from cold start.
 - **Session sync bridge** (`session/sync-bridge.ts`): restore events of
-  *local* sessions (not bound to a workspace) are journaled under the
+  _local_ sessions (not bound to a workspace) are journaled under the
   session id. Workspace-bound sessions are skipped — the workspace loop
   owns them. Opt out with `NIKCLI_DISABLE_SESSION_JOURNAL=1`.
 - **Remote sync** (below): events received from the hub are replayed into
@@ -130,10 +130,10 @@ importer. `sync_event` has been the single source of truth since.
 
 ## Environment variables
 
-| variable                         | effect                                             |
-| -------------------------------- | -------------------------------------------------- |
-| `NIKCLI_REMOTE_URL`              | hub base URL; enables remote sync (with token)     |
-| `NIKCLI_REMOTE_TOKEN`            | Bearer token (`cli-sync` scope)                    |
-| `NIKCLI_REMOTE_AUTOSTART=false`  | don't autostart from bootstrap                     |
-| `NIKCLI_DISABLE_SESSION_JOURNAL` | don't journal local session events                 |
-| `NIKCLI_DISABLE_HOT_RELOAD`      | don't watch config files for instance hot reload   |
+| variable                         | effect                                           |
+| -------------------------------- | ------------------------------------------------ |
+| `NIKCLI_REMOTE_URL`              | hub base URL; enables remote sync (with token)   |
+| `NIKCLI_REMOTE_TOKEN`            | Bearer token (`cli-sync` scope)                  |
+| `NIKCLI_REMOTE_AUTOSTART=false`  | don't autostart from bootstrap                   |
+| `NIKCLI_DISABLE_SESSION_JOURNAL` | don't journal local session events               |
+| `NIKCLI_DISABLE_HOT_RELOAD`      | don't watch config files for instance hot reload |
