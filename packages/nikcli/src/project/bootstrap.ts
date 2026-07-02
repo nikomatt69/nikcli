@@ -193,6 +193,29 @@ export async function InstanceBootstrap() {
     )
   }
 
+  // Unified backend: journal local (non-workspace) session restore events
+  // into sync_event, same log the workspace loops and remote sync use.
+  // Imported lazily: the bridge reaches into session/, which would close
+  // an import cycle with this module if imported statically.
+  if (!Flag.NIKCLI_DISABLE_SESSION_JOURNAL) {
+    try {
+      const { SessionSyncBridge } = await import("../session/sync-bridge")
+      Instance.registerDisposer(SessionSyncBridge.init())
+    } catch (error) {
+      Log.Default.warn("session sync bridge init failed", { error })
+    }
+  }
+
+  // Optional hub-and-spoke remote sync (NIKCLI_REMOTE_URL + _TOKEN).
+  // Idempotent per (url, project); no-op when env is not configured.
+  background(
+    "remote-sync",
+    import("@/sync/cli-init").then(async ({ SyncCliInit }) => {
+      const stop = await SyncCliInit.initRemoteSyncFromEnv()
+      if (stop) Instance.registerDisposer(stop)
+    }),
+  )
+
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {
       await runProject(

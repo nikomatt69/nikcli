@@ -1,0 +1,75 @@
+/**
+ * Bridge between local session activity and the unified `sync_event` log.
+ *
+ * The workspace event loop already journals events for sessions that live
+ * inside a workspace (aggregate = workspace id). This bridge covers the
+ * other half of the "one backend for sessions + workspaces" goal: sessions
+ * of the local instance that are NOT bound to a workspace. Their restore
+ * events (created/updated/deleted/status/idle, permission and question
+ * asks/replies) are journaled under the session id as aggregate, so any
+ * client — mobile resume, remote hub, a second machine — can catch up
+ * from the same sequenced log it already uses for workspaces.
+ *
+ * Workspace-bound sessions are skipped here: the workspace loop owns them,
+ * and journaling them twice would inflate the log with duplicates.
+ */
+import { Bus } from "@/bus"
+import { Instance } from "@/project/instance"
+import { Log } from "@/util/log"
+import { Sync } from "@/sync"
+import { SessionRepo } from "./repo"
+
+const log = Log.create({ service: "session-sync-bridge" })
+
+/** Same shape the workspace loop persists: client-facing restore events. */
+const JOURNAL_EVENT_TYPES = new Set([
+  "session.created",
+  "session.updated",
+  "session.deleted",
+  "session.status",
+  "session.idle",
+  "permission.asked",
+  "permission.replied",
+  "question.asked",
+  "question.replied",
+  "question.rejected",
+])
+
+function eventSessionID(properties: any): string | undefined {
+  if (!properties || typeof properties !== "object") return
+  if (typeof properties.sessionID === "string") return properties.sessionID
+  if (typeof properties.info?.id === "string" && properties.info.id.startsWith("ses")) return properties.info.id
+  if (typeof properties.info?.sessionID === "string") return properties.info.sessionID
+}
+
+export namespace SessionSyncBridge {
+  /**
+   * Subscribe the current instance's bus to the unified log. Returns the
+   * unsubscribe function; the caller registers it as an instance disposer.
+   */
+  export function init(): () => void {
+    const projectID = Instance.project.id
+    return Bus.subscribeAll((event: { type?: string; properties?: any }) => {
+      if (!event?.type || !JOURNAL_EVENT_TYPES.has(event.type)) return
+      const sessionID = eventSessionID(event.properties)
+      if (!sessionID) return
+
+      // Workspace-bound sessions are journaled by the workspace event loop
+      // under the workspace aggregate; a missing row (already-deleted
+      // session emitting session.deleted) is journaled as local.
+      const session = SessionRepo.get(sessionID)
+      if (session?.workspaceID) return
+
+      void Sync.emitRaw(projectID, sessionID, {
+        type: event.type,
+        properties: event.properties ?? {},
+      }).catch((error) => {
+        log.warn("session event journal failed", {
+          sessionID,
+          type: event.type,
+          error,
+        })
+      })
+    })
+  }
+}
