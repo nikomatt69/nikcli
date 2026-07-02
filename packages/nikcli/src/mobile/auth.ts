@@ -12,6 +12,14 @@ function getChanges(result: void | RunResult): number {
 }
 
 export namespace MobileAuth {
+  /**
+   * Token scope: `mobile` (paired mobile device), `cli-sync` (CLI↔hub sync),
+   * `studio` (desktop UI). The `/sync/*` routes require `cli-sync` or
+   * `studio` when a bearer token is used.
+   */
+  export const Scope = z.enum(["mobile", "cli-sync", "studio"])
+  export type Scope = z.infer<typeof Scope>
+
   export const Token = z
     .object({
       id: z.string(),
@@ -20,6 +28,7 @@ export namespace MobileAuth {
       createdAt: z.number(),
       lastUsedAt: z.number().optional(),
       expiresAt: z.number().optional(),
+      scope: z.string().default("mobile"),
     })
     .meta({ ref: "MobileAuthToken" })
 
@@ -68,6 +77,7 @@ export namespace MobileAuth {
       createdAt: row.createdAt,
       lastUsedAt: row.lastUsedAt ?? undefined,
       expiresAt: row.expiresAt ?? undefined,
+      scope: row.scope ?? "mobile",
     }
   }
 
@@ -78,6 +88,7 @@ export namespace MobileAuth {
       createdAt: row.createdAt,
       lastUsedAt: row.lastUsedAt ?? undefined,
       expiresAt: row.expiresAt ?? undefined,
+      scope: row.scope ?? "mobile",
     }
   }
 
@@ -147,7 +158,7 @@ export namespace MobileAuth {
       .sort((a, b) => b.createdAt - a.createdAt)
   }
 
-  export async function create(input?: { name?: string; expiresInDays?: number }) {
+  export async function create(input?: { name?: string; expiresInDays?: number; scope?: Scope }) {
     await ensureMigrated()
     const token = `nkm_${randomBytes(24).toString("base64url")}`
     const info: typeof mobileTokens.$inferInsert = {
@@ -157,6 +168,7 @@ export namespace MobileAuth {
       createdAt: Date.now(),
       lastUsedAt: null,
       expiresAt: input?.expiresInDays ? Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000 : null,
+      scope: input?.scope ?? "mobile",
     }
 
     db().insert(mobileTokens).values(info).run()
@@ -171,6 +183,7 @@ export namespace MobileAuth {
         createdAt: info.createdAt,
         lastUsedAt: info.lastUsedAt ?? undefined,
         expiresAt: info.expiresAt ?? undefined,
+        scope: info.scope,
       }),
     }
   }

@@ -15,11 +15,48 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import { z } from "zod"
 import { eq, and, gt, sql } from "drizzle-orm"
 import { Database } from "@/database/database"
+import type { MobileAuth } from "@/mobile/auth"
 import { syncEvent, syncOutbox } from "@/sync/sync.sql"
 import { GlobalBus } from "@/bus/global"
 import { Log } from "@/util/log"
 
 const log = Log.create({ service: "server.sync" })
+
+// Scopes allowed to use the sync surface when a bearer token is presented.
+// Operator-level auth paths (basic auth, tailscale identity, unsecured
+// loopback server) do not carry a token and pass through.
+const SYNC_SCOPES = new Set(["cli-sync", "studio"])
+
+function syncToken(c: { get?: (key: string) => unknown }): MobileAuth.PublicToken | undefined {
+  return (c as any).get?.("mobileAuth") as MobileAuth.PublicToken | undefined
+}
+
+// Fixed-window rate limit for event pushes (plan mitigation: a stolen token
+// must not be able to flood the log). Keyed by token id, or by the auth
+// path ("operator") when no token is involved.
+const PUSH_WINDOW_MS = 60_000
+const PUSH_LIMIT_PER_WINDOW = 100
+const pushWindows = new Map<string, { windowStart: number; count: number }>()
+
+function pushAllowed(identity: string): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now()
+  const window = pushWindows.get(identity)
+  if (!window || now - window.windowStart >= PUSH_WINDOW_MS) {
+    // Lazy cleanup: drop stale windows so the map stays bounded.
+    if (pushWindows.size > 1_000) {
+      for (const [key, value] of pushWindows) {
+        if (now - value.windowStart >= PUSH_WINDOW_MS) pushWindows.delete(key)
+      }
+    }
+    pushWindows.set(identity, { windowStart: now, count: 1 })
+    return { allowed: true, retryAfterMs: 0 }
+  }
+  if (window.count >= PUSH_LIMIT_PER_WINDOW) {
+    return { allowed: false, retryAfterMs: window.windowStart + PUSH_WINDOW_MS - now }
+  }
+  window.count++
+  return { allowed: true, retryAfterMs: 0 }
+}
 
 const SyncEventPayload = z.object({
   event: z.object({
@@ -48,6 +85,21 @@ const StreamQuery = z.object({
 })
 
 export const SyncRoutes = new Hono()
+  // Scope enforcement: a bearer-authenticated caller must hold a sync-capable
+  // scope. Tokens are verified by the server-level auth middleware; this
+  // narrows what a valid-but-mobile token may reach.
+  .use("*", async (c, next) => {
+    const token = syncToken(c)
+    if (token && !SYNC_SCOPES.has(token.scope ?? "mobile")) {
+      log.warn("sync access denied: insufficient scope", {
+        tokenID: token.id,
+        scope: token.scope,
+        path: c.req.path,
+      })
+      return c.text("Forbidden: sync requires a cli-sync or studio token", 403)
+    }
+    return next()
+  })
   .post(
     "/event",
     describeRoute({
@@ -57,10 +109,20 @@ export const SyncRoutes = new Hono()
         204: { description: "Event accepted" },
         400: { description: "Invalid payload" },
         401: { description: "Unauthorized" },
+        429: { description: "Rate limit exceeded" },
       },
     }),
     validator("json", SyncEventPayload),
     async (c) => {
+      const token = syncToken(c)
+      const identity = token?.id ?? "operator"
+      const rate = pushAllowed(identity)
+      if (!rate.allowed) {
+        log.warn("sync push rate limited", { identity, path: c.req.path })
+        c.header("retry-after", String(Math.ceil(rate.retryAfterMs / 1000)))
+        return c.text("Rate limit exceeded", 429)
+      }
+
       const body = c.req.valid("json")
       const db = Database.syncDb()
       // Idempotency: skip if the event id already exists
@@ -102,10 +164,14 @@ export const SyncRoutes = new Hono()
           properties: { eventID: body.event.id, seq: inserted },
         },
       })
+      // Audit trail: who pushed what (plan mitigation for stolen tokens).
       log.info("remote event accepted", {
         eventID: body.event.id,
         seq: inserted,
         aggregate: body.event.aggregate,
+        type: body.event.type,
+        tokenID: token?.id ?? "operator",
+        tokenName: token?.name,
       })
       return c.body(null, 204)
     },

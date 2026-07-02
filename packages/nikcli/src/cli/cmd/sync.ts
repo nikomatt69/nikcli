@@ -1,9 +1,6 @@
 import { cmd } from "./cmd"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
-import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Project } from "@/project/project"
 import { Outbox } from "@/sync/outbox"
 import { RemoteSync } from "@/sync/remote-sync"
 
@@ -62,6 +59,32 @@ export const SyncCommand = cmd({
         handler: async () => {
           console.log("disconnect is implicit — stopping the CLI will close the connection")
           console.log("queued events in the outbox will be sent on next connect")
+        },
+      })
+      .command({
+        command: "token create",
+        describe: "create a cli-sync scoped token for connecting a CLI to this hub",
+        builder: (inner) =>
+          inner
+            .option("name", {
+              type: "string",
+              default: "cli-sync",
+              describe: "token label",
+            })
+            .option("expiry-days", {
+              type: "number",
+              describe: "optional token expiry in days",
+            }),
+        handler: async (args) => {
+          const { MobileAuth } = await import("@/mobile/auth")
+          const created = await MobileAuth.create({
+            name: String(args.name || "cli-sync"),
+            expiresInDays: args.expiryDays ? Number(args.expiryDays) : undefined,
+            scope: "cli-sync",
+          })
+          console.log(`token id: ${created.info.id} (scope: cli-sync)`)
+          console.log(`NIKCLI_REMOTE_TOKEN=${created.token}`)
+          console.log("store the token now — it cannot be shown again")
         },
       })
       .demandCommand()
