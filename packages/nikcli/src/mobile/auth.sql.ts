@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Mobile Auth Tokens (also used for cli-sync scope)
@@ -23,4 +23,4 @@ export const mobileTokens = sqliteTable(
   (table) => ({
     scopeIdx: index("idx_mobile_tokens_scope").on(table.scope),
   }),
-);
+)

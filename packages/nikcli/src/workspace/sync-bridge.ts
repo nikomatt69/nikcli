@@ -15,10 +15,10 @@
  * types we care about (see RESTORE_EVENT_TYPES in workspace/index.ts) and
  * pass the payload through as a generic record.
  */
-import { Log } from "@/util/log";
-import { Sync, type SyncEventRecord } from "@/sync";
+import { Log } from "@/util/log"
+import { Sync, type SyncEventRecord } from "@/sync"
 
-const log = Log.create({ service: "workspace-sync-bridge" });
+const log = Log.create({ service: "workspace-sync-bridge" })
 
 /**
  * Emit a workspace-bound event into the unified event log. The
@@ -30,19 +30,19 @@ export async function workspaceEvent(
   workspaceID: string,
   event: { type?: string; properties?: any },
 ): Promise<SyncEventRecord | undefined> {
-  if (!event?.type) return;
+  if (!event?.type) return
   try {
     return await Sync.emitRaw(projectID, workspaceID, {
       type: event.type,
       properties: event.properties ?? {},
-    });
+    })
   } catch (error) {
     log.warn("failed to emit workspace event", {
       workspaceID,
       type: event.type,
       error,
-    });
-    return undefined;
+    })
+    return undefined
   }
 }
 
@@ -55,22 +55,18 @@ export async function workspaceEvent(
 export async function workspaceLifecycle(
   projectID: string,
   workspaceID: string,
-  type:
-    | "workspace.created"
-    | "workspace.removed"
-    | "workspace.configUpdated"
-    | "workspace.statusChanged",
+  type: "workspace.created" | "workspace.removed" | "workspace.configUpdated" | "workspace.statusChanged",
   data: Record<string, unknown>,
 ): Promise<SyncEventRecord | undefined> {
   try {
-    return await Sync.emitRaw(projectID, workspaceID, { type, ...data });
+    return await Sync.emitRaw(projectID, workspaceID, { type, ...data })
   } catch (error) {
     log.warn("failed to emit workspace lifecycle event", {
       workspaceID,
       type,
       error,
-    });
-    return undefined;
+    })
+    return undefined
   }
 }
 
@@ -83,14 +79,14 @@ export async function workspaceEvents(workspaceID: string): Promise<unknown[]> {
   // The aggregate is the workspace id, so we read every event whose
   // aggregate equals the workspace id. We do not filter on projectID
   // here because the projection already ran for a known workspace.
-  return Sync.readAggregate(workspaceID);
+  return Sync.readAggregate(workspaceID)
 }
 
 export const SyncEmit = {
   workspaceEvent,
   workspaceLifecycle,
-};
+}
 
 export const SyncReplay = {
   workspaceEvents,
-};
+}

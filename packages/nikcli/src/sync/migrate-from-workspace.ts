@@ -12,12 +12,12 @@
  * the `events` column is gone, so this script gracefully handles the
  * "column does not exist" case.
  */
-import { Database } from "@/database/database";
-import { Sync } from "@/sync";
-import { eq } from "drizzle-orm";
-import * as schema from "@/database/schema";
+import { Database } from "@/database/database"
+import { Sync } from "@/sync"
+import { eq } from "drizzle-orm"
+import * as schema from "@/database/schema"
 
-const MIGRATION_FLAG_AGGREGATE = "__sync_unify_workspace_migrated__";
+const MIGRATION_FLAG_AGGREGATE = "__sync_unify_workspace_migrated__"
 
 export namespace SyncUnifyMigration {
   /**
@@ -27,24 +27,20 @@ export namespace SyncUnifyMigration {
   export async function run(projectID?: string): Promise<number> {
     // Check the sentinel aggregate — if we have already run once and
     // emitted at least one event under it, treat the migration as done.
-    const sentinel = await Sync.readAggregate(MIGRATION_FLAG_AGGREGATE);
-    if (sentinel.length > 0) return 0;
+    const sentinel = await Sync.readAggregate(MIGRATION_FLAG_AGGREGATE)
+    if (sentinel.length > 0) return 0
 
-    const db = Database.syncDb();
+    const db = Database.syncDb()
     const rows = projectID
-      ? db
-          .select()
-          .from(schema.workspace)
-          .where(eq(schema.workspace.projectId, projectID))
-          .all()
-      : db.select().from(schema.workspace).all();
+      ? db.select().from(schema.workspace).where(eq(schema.workspace.projectId, projectID)).all()
+      : db.select().from(schema.workspace).all()
 
-    let seeded = 0;
+    let seeded = 0
     for (const row of rows) {
       // Avoid duplicate seeding: if any event for this workspace id
       // already exists, the projector is already aware of it.
-      const existing = await Sync.readAggregate(row.id);
-      if (existing.length > 0) continue;
+      const existing = await Sync.readAggregate(row.id)
+      if (existing.length > 0) continue
 
       await Sync.emitRaw(
         row.projectId,
@@ -56,8 +52,8 @@ export namespace SyncUnifyMigration {
           name: row.name,
         },
         { workspaceID: row.id },
-      );
-      seeded++;
+      )
+      seeded++
     }
 
     // Mark the migration as done so we never re-run.
@@ -65,16 +61,16 @@ export namespace SyncUnifyMigration {
       type: "sync_unify.workspace_migrated",
       seeded,
       at: Date.now(),
-    });
+    })
 
-    return seeded;
+    return seeded
   }
 
   function safeJson(value: string): unknown {
     try {
-      return JSON.parse(value);
+      return JSON.parse(value)
     } catch {
-      return null;
+      return null
     }
   }
 }

@@ -1,5 +1,5 @@
-import { Database as BunDatabase } from "bun:sqlite";
-import type { DatabaseMigration } from "../migration";
+import { Database as BunDatabase } from "bun:sqlite"
+import type { DatabaseMigration } from "../migration"
 
 /**
  * Phase 0 — unify sessions + workspace behind a single event-sourced backend.
@@ -26,13 +26,13 @@ export default {
       ALTER TABLE sync_event ADD COLUMN workspace_id TEXT;
       ALTER TABLE sync_event ADD COLUMN origin TEXT NOT NULL DEFAULT 'local';
       ALTER TABLE sync_event ADD COLUMN origin_seq INTEGER;
-    `);
+    `)
     database.exec(`
       CREATE INDEX IF NOT EXISTS idx_sync_event_workspace ON sync_event(workspace_id);
       CREATE INDEX IF NOT EXISTS idx_sync_event_origin ON sync_event(origin);
       CREATE INDEX IF NOT EXISTS idx_sync_event_project_origin
         ON sync_event(project_id, origin, aggregate, seq);
-    `);
+    `)
 
     // sync_snapshot: cold-start projection cache
     database.exec(`
@@ -45,7 +45,7 @@ export default {
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (project_id, aggregate, aggregate_id)
       );
-    `);
+    `)
 
     // sync_outbox: pending push to remote hub
     database.exec(`
@@ -63,15 +63,15 @@ export default {
         ON sync_outbox(status, next_attempt_at);
       CREATE INDEX IF NOT EXISTS idx_sync_outbox_event
         ON sync_outbox(event_id);
-    `);
+    `)
 
     // mobile_tokens: scope column
     database.exec(`
       ALTER TABLE mobile_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'mobile';
-    `);
+    `)
     database.exec(`
       CREATE INDEX IF NOT EXISTS idx_mobile_tokens_scope ON mobile_tokens(scope);
-    `);
+    `)
 
     // workspace: drop parallel event log columns.
     // Backfill: any existing rows that still have JSON events in `events`
@@ -80,4 +80,4 @@ export default {
     // Here we keep the columns for one release so the old code path can
     // still read them; the actual DROP COLUMN runs in 0009 after migration.
   },
-} satisfies DatabaseMigration.Migration;
+} satisfies DatabaseMigration.Migration

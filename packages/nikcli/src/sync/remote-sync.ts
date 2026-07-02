@@ -19,32 +19,32 @@
  * On `stop()` the subscriptions are closed and the outbox drain is
  * cancelled. The next start resumes from the last successful seq.
  */
-import { Log } from "@/util/log";
-import { Database } from "@/database/database";
-import { eq } from "drizzle-orm";
-import { syncOutbox, syncEvent } from "./sync.sql";
-import { RemoteSyncClient } from "./remote-client";
-import { Outbox } from "./outbox";
-import { Sync, type SyncEventRecord } from "./index";
+import { Log } from "@/util/log"
+import { Database } from "@/database/database"
+import { eq } from "drizzle-orm"
+import { syncOutbox, syncEvent } from "./sync.sql"
+import { RemoteSyncClient } from "./remote-client"
+import { Outbox } from "./outbox"
+import { Sync, type SyncEventRecord } from "./index"
 
-const log = Log.create({ service: "sync.remote" });
+const log = Log.create({ service: "sync.remote" })
 
 export type RemoteSyncOptions = {
-  url: string;
-  token: string;
-  projectID: string;
-  drainIntervalMs?: number;
-  clientId?: string;
-};
+  url: string
+  token: string
+  projectID: string
+  drainIntervalMs?: number
+  clientId?: string
+}
 
 export type RemoteSyncHandle = {
-  stop(): Promise<void>;
+  stop(): Promise<void>
   status(): {
-    connected: boolean;
-    lastSeq: number;
-    outbox: ReturnType<typeof Outbox.status>;
-  };
-};
+    connected: boolean
+    lastSeq: number
+    outbox: ReturnType<typeof Outbox.status>
+  }
+}
 
 export namespace RemoteSync {
   /**
@@ -52,13 +52,9 @@ export namespace RemoteSync {
    * can be pushed to the remote.
    */
   function loadEvent(eventId: string): SyncEventRecord | undefined {
-    const db = Database.syncDb();
-    const row = db
-      .select()
-      .from(syncEvent)
-      .where(eq(syncEvent.id, eventId))
-      .get();
-    if (!row) return undefined;
+    const db = Database.syncDb()
+    const row = db.select().from(syncEvent).where(eq(syncEvent.id, eventId)).get()
+    if (!row) return undefined
     return {
       id: row.id,
       projectId: row.projectId,
@@ -70,24 +66,22 @@ export namespace RemoteSync {
       timestamp: row.timestamp,
       origin: row.origin,
       originSeq: row.originSeq ?? undefined,
-    };
+    }
   }
 
   function safeJson(value: string): unknown {
     try {
-      return JSON.parse(value);
+      return JSON.parse(value)
     } catch {
-      return null;
+      return null
     }
   }
 
-  export async function start(
-    opts: RemoteSyncOptions,
-  ): Promise<RemoteSyncHandle> {
-    const clientId = opts.clientId ?? "cli";
-    const originTag = `remote:${clientId}`;
-    const drainInterval = opts.drainIntervalMs ?? 5_000;
-    let connected = true;
+  export async function start(opts: RemoteSyncOptions): Promise<RemoteSyncHandle> {
+    const clientId = opts.clientId ?? "cli"
+    const originTag = `remote:${clientId}`
+    const drainInterval = opts.drainIntervalMs ?? 5_000
+    let connected = true
 
     const client = new RemoteSyncClient({
       url: opts.url,
@@ -101,81 +95,80 @@ export namespace RemoteSync {
             workspaceID: event.workspaceId,
             origin: originTag,
             originSeq: event.seq,
-          });
+          })
         } catch (error) {
-          log.warn("replaying remote event failed", { error, event: event.id });
+          log.warn("replaying remote event failed", { error, event: event.id })
         }
       },
       onError: (error) => {
-        connected = false;
-        log.warn("remote sync connection error", { error });
+        connected = false
+        log.warn("remote sync connection error", { error })
       },
-    });
+    })
 
-    await client.start();
+    await client.start()
     log.info("remote sync started", {
       url: opts.url,
       projectID: opts.projectID,
-    });
+    })
 
     // Periodic outbox drain
     const drainTimer = setInterval(() => {
       void Outbox.drain(opts.url, async (eventId) => {
-        const event = loadEvent(eventId);
-        if (!event)
-          return { ok: false, permanent: true, error: "event not found" };
-        const ok = await client.push(event);
-        if (ok) return { ok: true };
+        const event = loadEvent(eventId)
+        if (!event) return { ok: false, permanent: true, error: "event not found" }
+        const ok = await client.push(event)
+        if (ok) return { ok: true }
         // 401 / 403 treated as permanent to stop retry storms
-        return { ok: false, error: "push failed" };
+        return { ok: false, error: "push failed" }
       }).catch((error) => {
-        log.warn("outbox drain failed", { error });
-      });
-    }, drainInterval);
+        log.warn("outbox drain failed", { error })
+      })
+    }, drainInterval)
 
     // Auto-enqueue: monkey-patch-free integration via wrapping the
     // public Sync.emitRaw. The wrapper records the event id in the
     // outbox right after the row is inserted.
-    const originalEmitRaw = Sync.emitRaw;
-    (Sync as any).emitRaw = async (
+    const originalEmitRaw = Sync.emitRaw
+    ;(Sync as any).emitRaw = async (
       projectID: string,
       aggregate: string,
       data: unknown,
       options: {
-        workspaceID?: string;
-        origin?: string;
-        originSeq?: number;
+        workspaceID?: string
+        origin?: string
+        originSeq?: number
       } = {},
     ) => {
-      const isLocal = !options.origin || options.origin === "local";
-      const record = await originalEmitRaw(projectID, aggregate, data, options);
+      const isLocal = !options.origin || options.origin === "local"
+      const record = await originalEmitRaw(projectID, aggregate, data, options)
       if (isLocal) {
         try {
-          Outbox.enqueue(record.id, opts.url);
+          Outbox.enqueue(record.id, opts.url)
         } catch (error) {
-          log.warn("outbox enqueue failed", { error });
+          log.warn("outbox enqueue failed", { error })
         }
       }
-      return record;
-    };
+      return record
+    }
 
     return {
       stop: async () => {
-        clearInterval(drainTimer);
-        client.stop();
+        clearInterval(drainTimer)
+        client.stop()
         // Restore the original emitRaw so a subsequent start works
-        (Sync as any).emitRaw = originalEmitRaw;
-        connected = false;
-        log.info("remote sync stopped");
+        ;(Sync as any).emitRaw = originalEmitRaw
+        connected = false
+        log.info("remote sync stopped")
       },
       status: () => {
-        const lastSeq = client["lastSeq"] as number;
+        const lastSeq = client["lastSeq"] as number
         return {
           connected,
           lastSeq,
           outbox: Outbox.status(opts.url),
-        };
+        }
       },
-    };
+    }
   }
 }

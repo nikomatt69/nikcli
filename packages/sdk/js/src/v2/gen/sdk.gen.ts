@@ -440,6 +440,14 @@ import type {
   SessionV2StateErrors,
   SessionV2StateResponses,
   SubtaskPartInput,
+  SyncConnectResponses,
+  SyncDisconnectResponses,
+  SyncDrainResponses,
+  SyncEventPushErrors,
+  SyncEventPushResponses,
+  SyncEventStreamResponses,
+  SyncOutboxListResponses,
+  SyncStatsResponses,
   TextPartInput,
   ToolIdsErrors,
   ToolIdsResponses,
@@ -4521,6 +4529,248 @@ export class Permission extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+}
+
+export class Event_ extends HeyApiClient {
+  /**
+   * Push a sync event from a remote CLI
+   */
+  public push<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      event: {
+        id: string
+        projectId: string
+        workspaceId?: string
+        aggregate: string
+        seq: number
+        type: string
+        data: unknown
+        timestamp: number
+        origin?: string
+        originSeq?: number
+      }
+      projectID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncEventPushResponses, SyncEventPushErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "event" },
+            { in: "body", key: "projectID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SyncEventPushResponses, SyncEventPushErrors, ThrowOnError>({
+      url: "/sync/event",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * SSE stream of new sync events
+   */
+  public stream<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      projectID: string
+      token: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncEventStreamResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "projectID" },
+            { in: "query", key: "token" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SyncEventStreamResponses, unknown, ThrowOnError>({
+      url: "/sync/stream",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Outbox extends HeyApiClient {
+  /**
+   * List events since a given sequence for catch-up
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      projectID: string
+      since?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncOutboxListResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "projectID" },
+            { in: "query", key: "since" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SyncOutboxListResponses, unknown, ThrowOnError>({
+      url: "/sync/outbox",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Sync extends HeyApiClient {
+  /**
+   * Aggregated sync stats for the TUI
+   */
+  public stats<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      projectID?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncStatsResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "projectID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SyncStatsResponses, unknown, ThrowOnError>({
+      url: "/sync/stats",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Force a connection to the configured hub
+   */
+  public connect<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncConnectResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SyncConnectResponses, unknown, ThrowOnError>({
+      url: "/sync/connect",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Abort the hub connection
+   */
+  public disconnect<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncDisconnectResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SyncDisconnectResponses, unknown, ThrowOnError>({
+      url: "/sync/disconnect",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Force an outbox drain now
+   */
+  public drain<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncDrainResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SyncDrainResponses, unknown, ThrowOnError>({
+      url: "/sync/drain",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _event?: Event_
+  get event(): Event_ {
+    return (this._event ??= new Event_({ client: this.client }))
+  }
+
+  private _outbox?: Outbox
+  get outbox(): Outbox {
+    return (this._outbox ??= new Outbox({ client: this.client }))
   }
 }
 
@@ -10036,7 +10286,7 @@ export class Auth6 extends HeyApiClient {
   }
 }
 
-export class Event_ extends HeyApiClient {
+export class Event2 extends HeyApiClient {
   /**
    * Subscribe to events
    *
@@ -10463,6 +10713,11 @@ export class NikcliClient extends HeyApiClient {
     return (this._permission ??= new Permission({ client: this.client }))
   }
 
+  private _sync?: Sync
+  get sync(): Sync {
+    return (this._sync ??= new Sync({ client: this.client }))
+  }
+
   private _question?: Question
   get question(): Question {
     return (this._question ??= new Question({ client: this.client }))
@@ -10558,8 +10813,8 @@ export class NikcliClient extends HeyApiClient {
     return (this._auth ??= new Auth6({ client: this.client }))
   }
 
-  private _event?: Event_
-  get event(): Event_ {
-    return (this._event ??= new Event_({ client: this.client }))
+  private _event?: Event2
+  get event(): Event2 {
+    return (this._event ??= new Event2({ client: this.client }))
   }
 }

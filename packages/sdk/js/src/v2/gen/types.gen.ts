@@ -1524,6 +1524,10 @@ export type KeybindsConfig = {
    */
   status_view?: string
   /**
+   * View sync status (sessions + workspace, hub remote)
+   */
+  sync_view?: string
+  /**
    * Export session to editor
    */
   session_export?: string
@@ -7873,6 +7877,168 @@ export type SessionMonitorCancelResponses = {
    */
   200: unknown
 }
+
+export type SyncEventPushData = {
+  body?: {
+    event: {
+      id: string
+      projectId: string
+      workspaceId?: string
+      aggregate: string
+      seq: number
+      type: string
+      data: unknown
+      timestamp: number
+      origin?: string
+      originSeq?: number
+    }
+    projectID: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/sync/event"
+}
+
+export type SyncEventPushErrors = {
+  /**
+   * Invalid payload
+   */
+  400: unknown
+  /**
+   * Unauthorized
+   */
+  401: unknown
+}
+
+export type SyncEventPushResponses = {
+  /**
+   * Event accepted
+   */
+  204: void
+}
+
+export type SyncEventPushResponse = SyncEventPushResponses[keyof SyncEventPushResponses]
+
+export type SyncOutboxListData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    workspace?: string
+    projectID: string
+    since?: number
+  }
+  url: "/sync/outbox"
+}
+
+export type SyncOutboxListResponses = {
+  /**
+   * Page of events
+   */
+  200: {
+    events: Array<unknown>
+    hasMore: boolean
+  }
+}
+
+export type SyncOutboxListResponse = SyncOutboxListResponses[keyof SyncOutboxListResponses]
+
+export type SyncEventStreamData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    workspace?: string
+    projectID: string
+    token: string
+  }
+  url: "/sync/stream"
+}
+
+export type SyncEventStreamResponses = {
+  /**
+   * SSE stream
+   */
+  200: unknown
+}
+
+export type SyncStatsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    projectID?: string
+  }
+  url: "/sync/stats"
+}
+
+export type SyncStatsResponses = {
+  /**
+   * Sync stats
+   */
+  200: unknown
+}
+
+export type SyncConnectData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/sync/connect"
+}
+
+export type SyncConnectResponses = {
+  /**
+   * Connection requested
+   */
+  204: void
+}
+
+export type SyncConnectResponse = SyncConnectResponses[keyof SyncConnectResponses]
+
+export type SyncDisconnectData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/sync/disconnect"
+}
+
+export type SyncDisconnectResponses = {
+  /**
+   * Disconnection requested
+   */
+  204: void
+}
+
+export type SyncDisconnectResponse = SyncDisconnectResponses[keyof SyncDisconnectResponses]
+
+export type SyncDrainData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/sync/drain"
+}
+
+export type SyncDrainResponses = {
+  /**
+   * Drain requested
+   */
+  204: void
+}
+
+export type SyncDrainResponse = SyncDrainResponses[keyof SyncDrainResponses]
 
 export type PermissionReplyData = {
   body?: {

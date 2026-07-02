@@ -8319,6 +8319,353 @@
         ]
       }
     },
+    "/sync/event": {
+      "post": {
+        "operationId": "sync.event.push",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Push a sync event from a remote CLI",
+        "responses": {
+          "204": {
+            "description": "Event accepted"
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "projectId": {
+                        "type": "string"
+                      },
+                      "workspaceId": {
+                        "type": "string"
+                      },
+                      "aggregate": {
+                        "type": "string"
+                      },
+                      "seq": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "data": {},
+                      "timestamp": {
+                        "type": "number"
+                      },
+                      "origin": {
+                        "type": "string"
+                      },
+                      "originSeq": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["id", "projectId", "aggregate", "seq", "type", "data", "timestamp"]
+                  },
+                  "projectID": {
+                    "type": "string"
+                  }
+                },
+                "required": ["event", "projectID"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.event.push({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/sync/outbox": {
+      "get": {
+        "operationId": "sync.outbox.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "projectID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "summary": "List events since a given sequence for catch-up",
+        "responses": {
+          "200": {
+            "description": "Page of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["events", "hasMore"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.outbox.list({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/sync/stream": {
+      "get": {
+        "operationId": "sync.event.stream",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "projectID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "SSE stream of new sync events",
+        "responses": {
+          "200": {
+            "description": "SSE stream"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.event.stream({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/sync/stats": {
+      "get": {
+        "operationId": "sync.stats",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "projectID",
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Aggregated sync stats for the TUI",
+        "responses": {
+          "200": {
+            "description": "Sync stats"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.stats({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/sync/connect": {
+      "post": {
+        "operationId": "sync.connect",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Force a connection to the configured hub",
+        "responses": {
+          "204": {
+            "description": "Connection requested"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.connect({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/sync/disconnect": {
+      "post": {
+        "operationId": "sync.disconnect",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Abort the hub connection",
+        "responses": {
+          "204": {
+            "description": "Disconnection requested"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.disconnect({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/sync/drain": {
+      "post": {
+        "operationId": "sync.drain",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Force an outbox drain now",
+        "responses": {
+          "204": {
+            "description": "Drain requested"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.drain({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/permission/{requestID}/reply": {
       "post": {
         "operationId": "permission.reply",
@@ -23153,6 +23500,11 @@
           "status_view": {
             "description": "View status",
             "default": "<leader>s",
+            "type": "string"
+          },
+          "sync_view": {
+            "description": "View sync status (sessions + workspace, hub remote)",
+            "default": "<leader>y",
             "type": "string"
           },
           "session_export": {

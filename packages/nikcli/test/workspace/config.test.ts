@@ -1,16 +1,16 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test"
 
 describe("Workspace", () => {
   describe("event limit configuration", () => {
     it("can parse config with eventLimit", async () => {
-      const { Config } = await import("../../src/workspace/config");
+      const { Config } = await import("../../src/workspace/config")
 
       const worktreeConfig = Config.parse({
         type: "worktree",
         directory: "/test",
         eventLimit: 500,
-      });
-      expect(worktreeConfig.eventLimit).toBe(500);
+      })
+      expect(worktreeConfig.eventLimit).toBe(500)
 
       const containerConfig = Config.parse({
         type: "container",
@@ -21,11 +21,11 @@ describe("Workspace", () => {
         port: 8080,
         serverUrl: "http://localhost:8080",
         eventLimit: 1000,
-      });
-      expect(containerConfig.eventLimit).toBe(1000);
-    });
-  });
-});
+      })
+      expect(containerConfig.eventLimit).toBe(1000)
+    })
+  })
+})
 
 /**
  * Phase 0: workspace events live in the unified `sync_event` log. The
@@ -37,17 +37,17 @@ describe("Workspace", () => {
  */
 describe("SyncStorage (workspace event log)", () => {
   it("enforces the max events per aggregate during compaction", async () => {
-    const { Sync } = await import("../../src/sync");
-    const { Identifier } = await import("../../src/id/id");
-    const projectID = `test_proj_phase0_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const aggregate = Identifier.ascending("workspace");
+    const { Sync } = await import("../../src/sync")
+    const { Identifier } = await import("../../src/id/id")
+    const projectID = `test_proj_phase0_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const aggregate = Identifier.ascending("workspace")
 
     // Emit a small number of events, verify they all land
     for (let i = 0; i < 5; i++) {
-      await Sync.emitRaw(projectID, aggregate, { type: "workspace.test", i });
+      await Sync.emitRaw(projectID, aggregate, { type: "workspace.test", i })
     }
-    const events = await Sync.readAggregate(aggregate);
-    expect(events).toHaveLength(5);
-    expect(events.at(-1)).toEqual({ type: "workspace.test", i: 4 });
-  });
-});
+    const events = await Sync.readAggregate(aggregate)
+    expect(events).toHaveLength(5)
+    expect(events.at(-1)).toEqual({ type: "workspace.test", i: 4 })
+  })
+})
