@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.137.0 (July 2026)
+
+## Core
+
+- Snapshot projections for sessions, cold-start endpoint, SDK regen (@claude)
+
+**Thank you to 2 community contributors:**
+
+- @claude:
+  - feat(sync): snapshot projections for sessions, cold-start endpoint, SDK regen
+  - merge: live-main v1.135.0, regenerate openapi.json from merged tree
+- @nikomatt69:
+  - feat(sync): snapshot projections for sessions, cold-start endpoint, SDK regen (#136)
+
 ## v1.135.0 (July 2026)
 
 ## Core
