@@ -164,6 +164,43 @@ export const WorkspaceRoutes = lazy(() =>
         return c.json(workspace)
       },
     )
+    .get(
+      "/:id/events",
+      describeRoute({
+        summary: "Workspace event journal",
+        description:
+          "Sequenced restore events for a workspace. Pass `from` (last seen sequence number) to catch up incrementally after a disconnect.",
+        operationId: "experimental.workspace.events",
+        responses: {
+          200: {
+            description: "Journaled workspace events",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(Workspace.JournalEvent)),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          id: Workspace.Info.shape.id,
+        }),
+      ),
+      validator(
+        "query",
+        z.object({
+          from: z.coerce.number().int().nonnegative().optional(),
+        }),
+      ),
+      async (c) => {
+        const { id } = c.req.valid("param")
+        const query = c.req.valid("query")
+        return c.json(await Workspace.events({ workspaceID: id, from: query.from }))
+      },
+    )
     .post(
       "/:id/restore",
       describeRoute({

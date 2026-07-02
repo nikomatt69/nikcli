@@ -7,7 +7,9 @@ import { Project } from "./project"
 import { Bus } from "../bus"
 import { Command } from "../command"
 import { Instance } from "./instance"
+import { InstanceReload } from "./reload"
 import { Vcs } from "./vcs"
+import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { ShareNext } from "@/share/share-next"
 import { Snapshot } from "../snapshot"
@@ -178,6 +180,18 @@ export async function InstanceBootstrap() {
   await Routine.restoreSchedulers().catch((error) => {
     Log.Default.warn("failed to restore routines on startup", { error })
   })
+
+  // Config hot reload: watch the instance's config surface and invalidate
+  // reloadable per-instance state when files change, announcing the reload
+  // on the bus so connected clients stay in sync without a restart.
+  if (!Flag.NIKCLI_DISABLE_HOT_RELOAD) {
+    background(
+      "hot-reload",
+      InstanceReload.watch().then((stop) => {
+        Instance.registerDisposer(stop)
+      }),
+    )
+  }
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {

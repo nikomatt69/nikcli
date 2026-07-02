@@ -174,7 +174,13 @@ export namespace Workspace {
   }
 
   async function buildRestorePayload(workspaceID: string): Promise<Restore> {
-    const events = await SyncReplay.workspaceEvents(workspaceID)
+    // The unified log also journals lifecycle events (workspace.created,
+    // workspace.removed, ...) for cold-start projection; the restore payload
+    // only carries the client-facing restore events.
+    const events = (await SyncReplay.workspaceEvents(workspaceID)).filter((event) => {
+      const type = (event as { type?: unknown })?.type
+      return typeof type === "string" && RESTORE_EVENT_TYPES.has(type)
+    })
     return {
       workspaceID,
       sessions: await listRootSessions(workspaceID),
@@ -605,6 +611,45 @@ export namespace Workspace {
       status: status(space.id),
     }))
   }
+
+  export const JournalEvent = z.object({
+    seq: z.number().int(),
+    type: z.string(),
+    data: z.unknown(),
+    timestamp: z.number(),
+  });
+  export type JournalEvent = z.infer<typeof JournalEvent>;
+
+  /**
+   * Sequenced event journal for a workspace, read from the unified sync
+   * event log. Clients that missed SSE events (reconnect, mobile resume)
+   * can catch up incrementally by passing the last sequence number they saw.
+   */
+  export const events = fn(
+    z.object({
+      workspaceID: Identifier.schema("workspace"),
+      from: z.number().int().nonnegative().optional(),
+    }),
+    async ({ workspaceID, from }): Promise<JournalEvent[]> => {
+      const info = await get(workspaceID);
+      if (!info)
+        throw new Storage.NotFoundError({
+          message: `Workspace not found: ${workspaceID}`,
+        });
+      const { SyncStorage } = await import("@/sync");
+      const records = await SyncStorage.getEvents(
+        info.projectID,
+        workspaceID,
+        from,
+      );
+      return records.map((record) => ({
+        seq: record.seq,
+        type: record.type,
+        data: record.data,
+        timestamp: record.timestamp,
+      }));
+    },
+  );
 
   // Cleanup global state on process exit (register once per process)
   function cleanup() {
