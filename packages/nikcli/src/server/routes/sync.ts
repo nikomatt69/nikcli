@@ -227,6 +227,41 @@ export const SyncRoutes = new Hono()
     },
   )
   .get(
+    "/snapshot/:aggregateID",
+    describeRoute({
+      summary: "Cold-start projection snapshot for an aggregate",
+      description:
+        "Returns the snapshot-backed projected state and last sequence number for a workspace (wrk_…) or session (ses_…) aggregate, so a client can restore without replaying the full event log.",
+      operationId: "sync.snapshot.get",
+      responses: {
+        200: {
+          description: "Projected state",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  lastSeq: z.number().int(),
+                  state: z.unknown(),
+                }),
+              ),
+            },
+          },
+        },
+        400: { description: "Unsupported aggregate kind" },
+      },
+    }),
+    validator("param", z.object({ aggregateID: z.string() })),
+    validator("query", z.object({ projectID: z.string() })),
+    async (c) => {
+      const { aggregateID } = c.req.valid("param")
+      const { projectID } = c.req.valid("query")
+      const { SyncProjection } = await import("@/sync/projection")
+      const result = await SyncProjection.byAggregate(projectID, aggregateID)
+      if (!result) return c.text("Unsupported aggregate kind", 400)
+      return c.json(result)
+    },
+  )
+  .get(
     "/stream",
     describeRoute({
       summary: "SSE stream of new sync events",

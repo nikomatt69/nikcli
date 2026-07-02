@@ -47,9 +47,16 @@ to 500; snapshots make that safe (below).
   returns sequenced events past the client's last seen `seq` — the recovery
   path for TUI reconnects and mobile resume.
 - **Projection with snapshots** (`sync/projector.ts`, `sync/reducer.ts`,
-  `sync/snapshot.ts`): pure reducers replay an aggregate on top of the last
-  snapshot (`sync_snapshot`), re-snapshotting every N events. Snapshots are
-  cache, not source of truth: corruption falls back to full replay.
+  `sync/snapshot.ts`, `sync/projection.ts`): pure reducers replay an
+  aggregate on top of the last snapshot (`sync_snapshot`), re-snapshotting
+  every N events. Snapshots are cache, not source of truth: corruption
+  falls back to full replay. `SyncProjection` is the production facade
+  (`workspace()`, `session()`, prefix-dispatching `byAggregate()`), and
+  the session bridge refreshes a session's snapshot write-through every
+  `SNAPSHOT_INTERVAL` journaled events.
+- **Cold-start snapshot fetch**: `GET /sync/snapshot/:aggregateID?projectID=`
+  returns `{ lastSeq, state }` for a workspace (`wrk_…`) or session
+  (`ses_…`) aggregate, so a client restores without replaying the full log.
 
 ## Remote sync (optional, hub-and-spoke)
 

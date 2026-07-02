@@ -710,6 +710,13 @@ export type EventSessionError = {
   }
 }
 
+export type EventFileEdited = {
+  type: "file.edited"
+  properties: {
+    file: string
+  }
+}
+
 export type EventFileWatcherUpdated = {
   type: "file.watcher.updated"
   properties: {
@@ -794,6 +801,23 @@ export type EventCommandExecuted = {
     sessionID: string
     arguments: string
     messageID: string
+  }
+}
+
+export type EventInstanceReloadStarted = {
+  type: "instance.reload.started"
+  properties: {
+    directory: string
+    files: Array<string>
+  }
+}
+
+export type EventInstanceReloaded = {
+  type: "instance.reloaded"
+  properties: {
+    directory: string
+    files: Array<string>
+    durationMs: number
   }
 }
 
@@ -1056,59 +1080,6 @@ export type EventMonitorCompleted = {
   }
 }
 
-export type EventSessionV2Updated = {
-  type: "session.v2.updated"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type Pty = {
-  id: string
-  title: string
-  command: string
-  args: Array<string>
-  cwd: string
-  status: "running" | "exited"
-  pid: number
-}
-
-export type EventPtyCreated = {
-  type: "pty.created"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyUpdated = {
-  type: "pty.updated"
-  properties: {
-    info: Pty
-  }
-}
-
-export type EventPtyExited = {
-  type: "pty.exited"
-  properties: {
-    id: string
-    exitCode: number
-  }
-}
-
-export type EventPtyDeleted = {
-  type: "pty.deleted"
-  properties: {
-    id: string
-  }
-}
-
-export type EventFileEdited = {
-  type: "file.edited"
-  properties: {
-    file: string
-  }
-}
-
 export type EventWorkspaceReady = {
   type: "workspace.ready"
   properties: {
@@ -1262,6 +1233,52 @@ export type EventMissionAborted = {
   }
 }
 
+export type EventSessionV2Updated = {
+  type: "session.v2.updated"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type Pty = {
+  id: string
+  title: string
+  command: string
+  args: Array<string>
+  cwd: string
+  status: "running" | "exited"
+  pid: number
+}
+
+export type EventPtyCreated = {
+  type: "pty.created"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyUpdated = {
+  type: "pty.updated"
+  properties: {
+    info: Pty
+  }
+}
+
+export type EventPtyExited = {
+  type: "pty.exited"
+  properties: {
+    id: string
+    exitCode: number
+  }
+}
+
+export type EventPtyDeleted = {
+  type: "pty.deleted"
+  properties: {
+    id: string
+  }
+}
+
 export type Event =
   | EventProjectUpdated
   | EventTelemetryRecord
@@ -1283,6 +1300,7 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
+  | EventFileEdited
   | EventFileWatcherUpdated
   | EventTuiPromptAppend
   | EventTuiCommandExecute
@@ -1291,6 +1309,8 @@ export type Event =
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
+  | EventInstanceReloadStarted
+  | EventInstanceReloaded
   | EventVcsBranchUpdated
   | EventTodoUpdated
   | EventSessionStatus
@@ -1304,12 +1324,6 @@ export type Event =
   | EventMonitorUpdated
   | EventMonitorOutput
   | EventMonitorCompleted
-  | EventSessionV2Updated
-  | EventPtyCreated
-  | EventPtyUpdated
-  | EventPtyExited
-  | EventPtyDeleted
-  | EventFileEdited
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventWorkspaceStatus
@@ -1328,6 +1342,11 @@ export type Event =
   | EventMissionExecFinished
   | EventMissionRuntimeChanged
   | EventMissionAborted
+  | EventSessionV2Updated
+  | EventPtyCreated
+  | EventPtyUpdated
+  | EventPtyExited
+  | EventPtyDeleted
 
 export type GlobalEvent = {
   directory: string
@@ -3581,6 +3600,7 @@ export type MobileAuthTokenPublic = {
   createdAt: number
   lastUsedAt?: number
   expiresAt?: number
+  scope?: string
 }
 
 export type MobileProject = {
@@ -5493,6 +5513,28 @@ export type ConfigUpdateResponses = {
 
 export type ConfigUpdateResponse = ConfigUpdateResponses[keyof ConfigUpdateResponses]
 
+export type ConfigReloadData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/reload"
+}
+
+export type ConfigReloadResponses = {
+  /**
+   * Instance reloaded
+   */
+  200: {
+    reloaded: boolean
+    directory: string
+  }
+}
+
+export type ConfigReloadResponse = ConfigReloadResponses[keyof ConfigReloadResponses]
+
 export type ConfigProvidersData = {
   body?: never
   path?: never
@@ -5918,6 +5960,48 @@ export type ExperimentalWorkspaceCreateResponses = {
 
 export type ExperimentalWorkspaceCreateResponse =
   ExperimentalWorkspaceCreateResponses[keyof ExperimentalWorkspaceCreateResponses]
+
+export type ExperimentalWorkspaceEventsData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    from?: number
+  }
+  url: "/experimental/workspace/{id}/events"
+}
+
+export type ExperimentalWorkspaceEventsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ExperimentalWorkspaceEventsError =
+  ExperimentalWorkspaceEventsErrors[keyof ExperimentalWorkspaceEventsErrors]
+
+export type ExperimentalWorkspaceEventsResponses = {
+  /**
+   * Journaled workspace events
+   */
+  200: Array<{
+    seq: number
+    type: string
+    data: unknown
+    timestamp: number
+  }>
+}
+
+export type ExperimentalWorkspaceEventsResponse =
+  ExperimentalWorkspaceEventsResponses[keyof ExperimentalWorkspaceEventsResponses]
 
 export type ExperimentalWorkspaceRestoreData = {
   body?: never
@@ -7911,6 +7995,10 @@ export type SyncEventPushErrors = {
    * Unauthorized
    */
   401: unknown
+  /**
+   * Rate limit exceeded
+   */
+  429: unknown
 }
 
 export type SyncEventPushResponses = {
@@ -7945,6 +8033,38 @@ export type SyncOutboxListResponses = {
 }
 
 export type SyncOutboxListResponse = SyncOutboxListResponses[keyof SyncOutboxListResponses]
+
+export type SyncSnapshotGetData = {
+  body?: never
+  path: {
+    aggregateID: string
+  }
+  query: {
+    directory?: string
+    workspace?: string
+    projectID: string
+  }
+  url: "/sync/snapshot/{aggregateID}"
+}
+
+export type SyncSnapshotGetErrors = {
+  /**
+   * Unsupported aggregate kind
+   */
+  400: unknown
+}
+
+export type SyncSnapshotGetResponses = {
+  /**
+   * Projected state
+   */
+  200: {
+    lastSeq: number
+    state: unknown
+  }
+}
+
+export type SyncSnapshotGetResponse = SyncSnapshotGetResponses[keyof SyncSnapshotGetResponses]
 
 export type SyncEventStreamData = {
   body?: never
