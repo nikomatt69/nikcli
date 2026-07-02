@@ -78,8 +78,19 @@ three loops:
 Starts are idempotent per `(url, projectID)`: bootstrap
 (`sync/cli-init.ts`, wired in `project/bootstrap.ts`), `nikcli serve` and
 `nikcli sync` share one connection instead of stacking hooks and timers.
-Server-side, `/sync/*` routes (`server/routes/sync.ts`) require a Bearer
-token with `cli-sync` or `studio` scope (`mobile/auth.sql.ts`).
+
+### Hub-side security
+
+- **Scope enforcement**: when a Bearer token is presented, `/sync/*`
+  requires the `cli-sync` or `studio` scope (`mobile/auth.sql.ts`); a
+  paired mobile token gets 403. Operator-level auth paths (basic auth,
+  Tailscale identity) pass through. Create a sync token with
+  `nikcli sync token create --name <label>`.
+- **Rate limiting**: `POST /sync/event` allows 100 events/min per token
+  (fixed window, 429 + `retry-after` beyond it), so a stolen token cannot
+  flood the log.
+- **Audit**: every accepted push is logged with token id/name, aggregate,
+  type and the renumbered sequence.
 
 `nikcli sync status` shows connection, last seq, and outbox depth.
 
