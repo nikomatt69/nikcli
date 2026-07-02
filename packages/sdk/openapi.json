@@ -2861,6 +2861,56 @@
         ]
       }
     },
+    "/config/reload": {
+      "post": {
+        "operationId": "config.reload",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Reload configuration",
+        "description": "Hot-reload the instance: invalidate reloadable per-instance state so the next read reflects config files on disk. Emits instance.reload.started / instance.reloaded on the event stream.",
+        "responses": {
+          "200": {
+            "description": "Instance reloaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reloaded": {
+                      "type": "boolean"
+                    },
+                    "directory": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reloaded", "directory"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.config.reload({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/config/providers": {
       "get": {
         "operationId": "config.providers",
@@ -3870,6 +3920,103 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.remove({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/workspace/{id}/events": {
+      "get": {
+        "operationId": "experimental.workspace.events",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^wrk.*"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "summary": "Workspace event journal",
+        "description": "Sequenced restore events for a workspace. Pass `from` (last seen sequence number) to catch up incrementally after a disconnect.",
+        "responses": {
+          "200": {
+            "description": "Journaled workspace events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "seq": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "data": {},
+                      "timestamp": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["seq", "type", "data", "timestamp"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.events({\n  ...\n})"
           }
         ]
       }
@@ -21309,6 +21456,59 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.instance.reload.started": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "instance.reload.started"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "directory": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["directory", "files"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.instance.reloaded": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "instance.reloaded"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "directory": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "durationMs": {
+                "type": "number"
+              }
+            },
+            "required": ["directory", "files", "durationMs"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.vcs.branch.updated": {
         "type": "object",
         "properties": {
@@ -22832,6 +23032,12 @@
           },
           {
             "$ref": "#/components/schemas/Event.command.executed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.instance.reload.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.instance.reloaded"
           },
           {
             "$ref": "#/components/schemas/Event.vcs.branch.updated"

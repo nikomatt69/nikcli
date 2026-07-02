@@ -3,6 +3,26 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.135.0 (July 2026)
+
+## Core
+
+- Journal local sessions, idempotent remote sync, bootstrap wiring (@claude)
+- Instance hot reload and unified sync backend for workspaces (@claude)
+
+**Thank you to 2 community contributors:**
+
+- @claude:
+  - feat: instance hot reload and unified sync backend for workspaces
+  - merge: live-main unified sync architecture into hot-reload branch
+  - merge: live-main v1.134.0, keep hot-reload config state and restore event filter
+  - feat(sync): journal local sessions, idempotent remote sync, bootstrap wiring
+  - feat(sync): enforce token scopes, rate-limit and audit hub event pushes
+- @nikomatt69:
+  - feat: instance hot reload + workspace event catch-up on unified sync log (#133)
+  - feat(sync): local session journaling, idempotent remote sync, bootstrap wiring (#134)
+  - feat(sync): enforce token scopes, rate-limit and audit hub event pushes (#135)
+
 ## v1.134.0 (July 2026)
 
 ## Core

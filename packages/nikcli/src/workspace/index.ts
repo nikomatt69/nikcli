@@ -617,8 +617,8 @@ export namespace Workspace {
     type: z.string(),
     data: z.unknown(),
     timestamp: z.number(),
-  });
-  export type JournalEvent = z.infer<typeof JournalEvent>;
+  })
+  export type JournalEvent = z.infer<typeof JournalEvent>
 
   /**
    * Sequenced event journal for a workspace, read from the unified sync
@@ -631,25 +631,21 @@ export namespace Workspace {
       from: z.number().int().nonnegative().optional(),
     }),
     async ({ workspaceID, from }): Promise<JournalEvent[]> => {
-      const info = await get(workspaceID);
+      const info = await get(workspaceID)
       if (!info)
         throw new Storage.NotFoundError({
           message: `Workspace not found: ${workspaceID}`,
-        });
-      const { SyncStorage } = await import("@/sync");
-      const records = await SyncStorage.getEvents(
-        info.projectID,
-        workspaceID,
-        from,
-      );
+        })
+      const { SyncStorage } = await import("@/sync")
+      const records = await SyncStorage.getEvents(info.projectID, workspaceID, from)
       return records.map((record) => ({
         seq: record.seq,
         type: record.type,
         data: record.data,
         timestamp: record.timestamp,
-      }));
+      }))
     },
-  );
+  )
 
   // Cleanup global state on process exit (register once per process)
   function cleanup() {

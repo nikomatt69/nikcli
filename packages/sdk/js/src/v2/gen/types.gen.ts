@@ -797,6 +797,23 @@ export type EventCommandExecuted = {
   }
 }
 
+export type EventInstanceReloadStarted = {
+  type: "instance.reload.started"
+  properties: {
+    directory: string
+    files: Array<string>
+  }
+}
+
+export type EventInstanceReloaded = {
+  type: "instance.reloaded"
+  properties: {
+    directory: string
+    files: Array<string>
+    durationMs: number
+  }
+}
+
 export type EventVcsBranchUpdated = {
   type: "vcs.branch.updated"
   properties: {
@@ -1291,6 +1308,8 @@ export type Event =
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
+  | EventInstanceReloadStarted
+  | EventInstanceReloaded
   | EventVcsBranchUpdated
   | EventTodoUpdated
   | EventSessionStatus
@@ -5493,6 +5512,28 @@ export type ConfigUpdateResponses = {
 
 export type ConfigUpdateResponse = ConfigUpdateResponses[keyof ConfigUpdateResponses]
 
+export type ConfigReloadData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/reload"
+}
+
+export type ConfigReloadResponses = {
+  /**
+   * Instance reloaded
+   */
+  200: {
+    reloaded: boolean
+    directory: string
+  }
+}
+
+export type ConfigReloadResponse = ConfigReloadResponses[keyof ConfigReloadResponses]
+
 export type ConfigProvidersData = {
   body?: never
   path?: never
@@ -5918,6 +5959,48 @@ export type ExperimentalWorkspaceCreateResponses = {
 
 export type ExperimentalWorkspaceCreateResponse =
   ExperimentalWorkspaceCreateResponses[keyof ExperimentalWorkspaceCreateResponses]
+
+export type ExperimentalWorkspaceEventsData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    from?: number
+  }
+  url: "/experimental/workspace/{id}/events"
+}
+
+export type ExperimentalWorkspaceEventsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ExperimentalWorkspaceEventsError =
+  ExperimentalWorkspaceEventsErrors[keyof ExperimentalWorkspaceEventsErrors]
+
+export type ExperimentalWorkspaceEventsResponses = {
+  /**
+   * Journaled workspace events
+   */
+  200: Array<{
+    seq: number
+    type: string
+    data: unknown
+    timestamp: number
+  }>
+}
+
+export type ExperimentalWorkspaceEventsResponse =
+  ExperimentalWorkspaceEventsResponses[keyof ExperimentalWorkspaceEventsResponses]
 
 export type ExperimentalWorkspaceRestoreData = {
   body?: never
