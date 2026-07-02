@@ -14,41 +14,41 @@
  * needs to reconstruct the row. Anything else (full messages, snapshots)
  * lives in its own table and is fetched on demand.
  */
-import type { SyncEventRecord } from "./index";
+import type { SyncEventRecord } from "./index"
 
 export type WorkspaceState = {
-  id: string;
-  projectID: string;
-  name: string;
-  branch: string | null;
-  config: unknown;
-  status?: string;
-  lastTouchedAt: number;
-};
+  id: string
+  projectID: string
+  name: string
+  branch: string | null
+  config: unknown
+  status?: string
+  lastTouchedAt: number
+}
 
 export type SessionState = {
-  id: string;
-  projectID: string;
-  workspaceID?: string;
-  title: string;
-  parentID?: string;
-  lastTouchedAt: number;
-};
+  id: string
+  projectID: string
+  workspaceID?: string
+  title: string
+  parentID?: string
+  lastTouchedAt: number
+}
 
 export type PermissionState = {
-  id: string;
-  asked: boolean;
-  replied: boolean;
-  lastTouchedAt: number;
-};
+  id: string
+  asked: boolean
+  replied: boolean
+  lastTouchedAt: number
+}
 
 export type QuestionState = {
-  id: string;
-  asked: boolean;
-  replied: boolean;
-  rejected: boolean;
-  lastTouchedAt: number;
-};
+  id: string
+  asked: boolean
+  replied: boolean
+  rejected: boolean
+  lastTouchedAt: number
+}
 
 const SESSION_EVENT_TYPES = new Set([
   "session.created",
@@ -56,27 +56,17 @@ const SESSION_EVENT_TYPES = new Set([
   "session.deleted",
   "session.status",
   "session.idle",
-]);
+])
 
-const PERMISSION_EVENT_TYPES = new Set([
-  "permission.asked",
-  "permission.replied",
-]);
+const PERMISSION_EVENT_TYPES = new Set(["permission.asked", "permission.replied"])
 
-const QUESTION_EVENT_TYPES = new Set([
-  "question.asked",
-  "question.replied",
-  "question.rejected",
-]);
+const QUESTION_EVENT_TYPES = new Set(["question.asked", "question.replied", "question.rejected"])
 
 export const SyncProjector = {
-  workspace: (
-    state: WorkspaceState,
-    event: SyncEventRecord,
-  ): WorkspaceState => {
-    if (!event.data || typeof event.data !== "object") return state;
-    const data = event.data as Record<string, any>;
-    const type = data.type;
+  workspace: (state: WorkspaceState, event: SyncEventRecord): WorkspaceState => {
+    if (!event.data || typeof event.data !== "object") return state
+    const data = event.data as Record<string, any>
+    const type = data.type
     switch (type) {
       case "workspace.created": {
         return {
@@ -87,7 +77,7 @@ export const SyncProjector = {
           branch: data.branch ?? state.branch ?? null,
           config: data.config ?? state.config,
           lastTouchedAt: event.timestamp,
-        };
+        }
       }
       case "workspace.configUpdated": {
         return {
@@ -95,27 +85,27 @@ export const SyncProjector = {
           config: data.config ?? state.config,
           branch: data.branch ?? state.branch,
           lastTouchedAt: event.timestamp,
-        };
+        }
       }
       case "workspace.statusChanged": {
         return {
           ...state,
           status: typeof data.status === "string" ? data.status : state.status,
           lastTouchedAt: event.timestamp,
-        };
+        }
       }
       case "workspace.removed": {
-        return { ...state, lastTouchedAt: event.timestamp };
+        return { ...state, lastTouchedAt: event.timestamp }
       }
       default:
-        return state;
+        return state
     }
   },
 
   session: (state: SessionState, event: SyncEventRecord): SessionState => {
-    if (!event.data || typeof event.data !== "object") return state;
-    if (!SESSION_EVENT_TYPES.has(event.type)) return state;
-    const data = event.data as Record<string, any>;
+    if (!event.data || typeof event.data !== "object") return state
+    if (!SESSION_EVENT_TYPES.has(event.type)) return state
+    const data = event.data as Record<string, any>
     return {
       ...state,
       id: event.aggregate,
@@ -127,29 +117,26 @@ export const SyncProjector = {
       title: data.title ?? data.properties?.title ?? state.title,
       parentID: data.parentID ?? data.properties?.parentID ?? state.parentID,
       lastTouchedAt: event.timestamp,
-    };
+    }
   },
 
-  permission: (
-    state: PermissionState,
-    event: SyncEventRecord,
-  ): PermissionState => {
-    if (!PERMISSION_EVENT_TYPES.has(event.type)) return state;
-    const data = event.data as Record<string, any>;
-    const id = (data.id as string | undefined) ?? event.aggregate;
+  permission: (state: PermissionState, event: SyncEventRecord): PermissionState => {
+    if (!PERMISSION_EVENT_TYPES.has(event.type)) return state
+    const data = event.data as Record<string, any>
+    const id = (data.id as string | undefined) ?? event.aggregate
     return {
       ...state,
       id,
       asked: event.type === "permission.asked" ? true : state.asked,
       replied: event.type === "permission.replied" ? true : state.replied,
       lastTouchedAt: event.timestamp,
-    };
+    }
   },
 
   question: (state: QuestionState, event: SyncEventRecord): QuestionState => {
-    if (!QUESTION_EVENT_TYPES.has(event.type)) return state;
-    const data = event.data as Record<string, any>;
-    const id = (data.id as string | undefined) ?? event.aggregate;
+    if (!QUESTION_EVENT_TYPES.has(event.type)) return state
+    const data = event.data as Record<string, any>
+    const id = (data.id as string | undefined) ?? event.aggregate
     return {
       ...state,
       id,
@@ -157,6 +144,6 @@ export const SyncProjector = {
       replied: event.type === "question.replied" ? true : state.replied,
       rejected: event.type === "question.rejected" ? true : state.rejected,
       lastTouchedAt: event.timestamp,
-    };
+    }
   },
-};
+}

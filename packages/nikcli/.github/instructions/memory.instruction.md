@@ -999,11 +999,11 @@ Server: Bus.publish(PartUpdated, {part, delta})
 
 There were always **three distinct backends** behind the word "session":
 
-| Backend              | Where                                | Sync model                                                              | Auth/Scope                                |
-| -------------------- | ------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------- |
-| **Local SQLite**     | `src/database/database.ts` `nikcli.db` (Drizzle + `bun:sqlite`) | WAL + reader-writer `Lock` per file; no optimistic concurrency (no ETag) | Single-user, single-process               |
-| **Workspace remote** | `src/workspace/workspace-server/server.ts` running inside container/worktree | **HTTP reverse proxy** — `ServerProxy.http/websocket` proxies every request to remote; SSE `/event` forwards `GlobalBus`; `/sync/steal` warps sessions | Workspace-scoped (project + workspaceID)  |
-| **Cloud**            | `packages/cloud` on Cloudflare D1 + Durable Objects | `sync/push` (cursor via `syncVersion` + `sync_log.id`) + `sync/pull` (idempotent via `hash`) + WebSocket `/relay/{sessionID}` (Durable Object) | **E2E encrypted** with ECDH P-256          |
+| Backend              | Where                                                                        | Sync model                                                                                                                                             | Auth/Scope                               |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| **Local SQLite**     | `src/database/database.ts` `nikcli.db` (Drizzle + `bun:sqlite`)              | WAL + reader-writer `Lock` per file; no optimistic concurrency (no ETag)                                                                               | Single-user, single-process              |
+| **Workspace remote** | `src/workspace/workspace-server/server.ts` running inside container/worktree | **HTTP reverse proxy** — `ServerProxy.http/websocket` proxies every request to remote; SSE `/event` forwards `GlobalBus`; `/sync/steal` warps sessions | Workspace-scoped (project + workspaceID) |
+| **Cloud**            | `packages/cloud` on Cloudflare D1 + Durable Objects                          | `sync/push` (cursor via `syncVersion` + `sync_log.id`) + `sync/pull` (idempotent via `hash`) + WebSocket `/relay/{sessionID}` (Durable Object)         | **E2E encrypted** with ECDH P-256        |
 
 There is **no `Repository<T>` / `IStorage` common interface**. Each domain module is a namespace that only shares `Database.syncDb()`. Unification work in progress (see below).
 
@@ -1018,12 +1018,12 @@ There is **no `Repository<T>` / `IStorage` common interface**. Each domain modul
 
 **Event registry** at `src/sync/index.ts:55-104` defines these aggregates:
 
-| Aggregate      | Event types                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `session`      | `session.created`, `session.updated`, `session.deleted`, `session.status`, `session.idle`                                       |
-| `permission`   | `permission.asked`, `permission.replied`                                                                                       |
-| `question`     | `question.asked`, `question.replied`, `question.rejected`                                                                       |
-| `workspace` *(new — 2026-06-30)* | workspace lifecycle events                                                                                            |
+| Aggregate                        | Event types                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `session`                        | `session.created`, `session.updated`, `session.deleted`, `session.status`, `session.idle` |
+| `permission`                     | `permission.asked`, `permission.replied`                                                  |
+| `question`                       | `question.asked`, `question.replied`, `question.rejected`                                 |
+| `workspace` _(new — 2026-06-30)_ | workspace lifecycle events                                                                |
 
 **Compaction policy** (`src/sync/index.ts`): `MAX_EVENTS_PER_AGGREGATE=1000`, trim-to `500`.
 
@@ -1067,7 +1067,11 @@ No ETag / `If-Match` / optimistic-concurrency — only WAL+`BEGIN IMMEDIATE` for
 
 ```ts
 export type Client = BunSQLiteDatabase<Schema>
-export interface Interface { readonly db: Client; readonly native: BunDatabase; readonly filename: string }
+export interface Interface {
+  readonly db: Client
+  readonly native: BunDatabase
+  readonly filename: string
+}
 ```
 
 - **Singleton sync** `Database.syncDb()` + `syncNative()`
@@ -4546,40 +4550,44 @@ Workspace = unit of execution (local worktree, docker container, or remote). The
 
 ### File Map
 
-| File                                       | Role                                                                                              |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `workspace/index.ts`                       | `Workspace` namespace — create/list/get/remove/restore/warp/syncList/startSyncing, event loop SSE, status FSM |
-| `workspace/db.ts`                          | `WorkspaceDB` — CRUD via Drizzle, `migrateFromStorage()` JSON→SQLite importer                      |
-| `workspace/workspace.sql.ts`               | `workspace` table schema                                                                          |
-| `workspace/config.ts`                      | Discriminated union `Config = WorktreeConfig \| ContainerConfig` (Effect Schema)                   |
-| `workspace/workspace-context.ts`           | AsyncLocalStorage `WorkspaceContext` (workspaceID passed per scope)                              |
-| `workspace/session-proxy-middleware.ts`    | Hono middleware that proxies a request to a remote workspace                                      |
-| `workspace/sse.ts`                         | SSE event parser                                                                                  |
-| `workspace/workspace-server/server.ts`     | Bun.serve that runs *inside* a remote container/worktree                                          |
-| `workspace/workspace-server/routes.ts`     | SSE `/event` producer; mirrors `GlobalBus`                                                        |
-| `workspace/adaptors/types.ts`              | `Adaptor<TConfig>` interface + `Target` type                                                      |
-| `workspace/adaptors/index.ts`              | `registerAdaptor`, `getAdaptor`, `listAdaptors` registry                                           |
-| `workspace/adaptors/worktree.ts`           | Worktree git adaptor (uses `@/worktree`)                                                           |
-| `workspace/adaptors/container-build.ts`    | Docker/Podman container adaptor                                                                   |
+| File                                    | Role                                                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `workspace/index.ts`                    | `Workspace` namespace — create/list/get/remove/restore/warp/syncList/startSyncing, event loop SSE, status FSM |
+| `workspace/db.ts`                       | `WorkspaceDB` — CRUD via Drizzle, `migrateFromStorage()` JSON→SQLite importer                                 |
+| `workspace/workspace.sql.ts`            | `workspace` table schema                                                                                      |
+| `workspace/config.ts`                   | Discriminated union `Config = WorktreeConfig \| ContainerConfig` (Effect Schema)                              |
+| `workspace/workspace-context.ts`        | AsyncLocalStorage `WorkspaceContext` (workspaceID passed per scope)                                           |
+| `workspace/session-proxy-middleware.ts` | Hono middleware that proxies a request to a remote workspace                                                  |
+| `workspace/sse.ts`                      | SSE event parser                                                                                              |
+| `workspace/workspace-server/server.ts`  | Bun.serve that runs _inside_ a remote container/worktree                                                      |
+| `workspace/workspace-server/routes.ts`  | SSE `/event` producer; mirrors `GlobalBus`                                                                    |
+| `workspace/adaptors/types.ts`           | `Adaptor<TConfig>` interface + `Target` type                                                                  |
+| `workspace/adaptors/index.ts`           | `registerAdaptor`, `getAdaptor`, `listAdaptors` registry                                                      |
+| `workspace/adaptors/worktree.ts`        | Worktree git adaptor (uses `@/worktree`)                                                                      |
+| `workspace/adaptors/container-build.ts` | Docker/Podman container adaptor                                                                               |
 
 ### Drizzle Schema — `workspace` table
 
 ```ts
-export const workspace = sqliteTable("workspace", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id").notNull(),
-  name: text("name").notNull().default(""),
-  branch: text("branch"),
-  config: text("config").notNull(),           // JSON-serialized Config
-  status: text("status"),                      // connecting|connected|disconnected|error
-  events: text("events"),                      // JSON-serialized append-only event log  [column DROPPED 2026-06-30]
-  eventLimit: integer("event_limit"),
-  timeUsed: integer("time_used").notNull().default(0),
-  createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
-}, (table) => ({
-  projectIdx: index("idx_workspace_project").on(table.projectId),
-}))
+export const workspace = sqliteTable(
+  "workspace",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    name: text("name").notNull().default(""),
+    branch: text("branch"),
+    config: text("config").notNull(), // JSON-serialized Config
+    status: text("status"), // connecting|connected|disconnected|error
+    events: text("events"), // JSON-serialized append-only event log  [column DROPPED 2026-06-30]
+    eventLimit: integer("event_limit"),
+    timeUsed: integer("time_used").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_workspace_project").on(table.projectId),
+  }),
+)
 ```
 
 ### Discriminated Union Config (point of polymorphism — NO BackendType)
@@ -4588,15 +4596,17 @@ export const workspace = sqliteTable("workspace", {
 const WorktreeConfig = Schema.Struct({
   directory: Schema.String,
   type: Schema.Literal("worktree"),
-  strategy: Schema.optional(Schema.Literals(["git", "cow"])),  // copy-on-write (APFS clonefile)
+  strategy: Schema.optional(Schema.Literals(["git", "cow"])), // copy-on-write (APFS clonefile)
   eventLimit: Schema.optional(Schema.Int),
 })
 const ContainerConfig = Schema.Struct({
   directory: Schema.String,
   type: Schema.Literal("container"),
   runtime: Schema.Literals(["docker", "podman"]),
-  image: Schema.String, containerName: Schema.String,
-  port: Schema.Int, serverUrl: Schema.String,
+  image: Schema.String,
+  containerName: Schema.String,
+  port: Schema.Int,
+  serverUrl: Schema.String,
   eventLimit: Schema.optional(Schema.Int),
 })
 export const ConfigSchema = Schema.Union([WorktreeConfig, ContainerConfig])
@@ -4605,15 +4615,16 @@ export const ConfigSchema = Schema.Union([WorktreeConfig, ContainerConfig])
 ### Adaptor interface (the only abstraction)
 
 ```ts
-export type Target =
-  | { type: "local"; directory: string }
-  | { type: "remote"; url: string | URL; headers?: HeadersInit }
+export type Target = { type: "local"; directory: string } | { type: "remote"; url: string | URL; headers?: HeadersInit }
 
 export type Adaptor<T extends Config = Config> = {
   name: string
   description: string
-  create(from: T, branch?: string|null, workspaceID?: string)
-    : Promise<{ config: T; init: () => Promise<void>; name?: string }>
+  create(
+    from: T,
+    branch?: string | null,
+    workspaceID?: string,
+  ): Promise<{ config: T; init: () => Promise<void>; name?: string }>
   list?(): Promise<ListedWorkspace<T>[]>
   remove(from: T): Promise<void>
   target(config: T): Target | Promise<Target>
@@ -4634,7 +4645,7 @@ Add a new backend by registering: `registerAdaptor("name", AdaptorImpl)`. Built-
 ```ts
 async function workspaceEventLoop(space: Info, stop: AbortSignal) {
   const target = await Workspace.target(space.id)
-  if (!target || target.type === "local") return  // skip local worktrees
+  if (!target || target.type === "local") return // skip local worktrees
   const baseURL = String(target.url).replace(/\/$/, "")
   // SSE: GET <baseURL>/event
   // For each event: acceptsWorkspaceEvent → WorkspaceDB.appendEvent + mirror to status/permissions
@@ -4647,13 +4658,14 @@ The two parallel sources of truth (`workspace.events` JSON column + the eventual
 
 In `src/server/routes/workspace.ts` (Hono + hono-openapi):
 
-| Method | Path                                  | Description                              |
-| ------ | ------------------------------------- | ---------------------------------------- |
-| GET    | `/experimental/workspace/adaptor`     | List adaptors                            |
-| POST   | `/experimental/workspace/warp`        | Move session into workspace (detach = null workspaceID) |
-| POST   | `/experimental/workspace/sync-list`   | Force auto-discovery (git worktree list) |
-| GET    | `/experimental/workspace/status`      | Runtime status                           |
-| `workspace/workspace-server/server.ts` also exposes `/session/*` (full session routes) + `/sync/steal` + `/event` SSE — the *remote* server is just another instance of nikcli-core, but it's commonly run via the `workspace-serve` CLI inside a container.
+| Method | Path                                | Description                                             |
+| ------ | ----------------------------------- | ------------------------------------------------------- |
+| GET    | `/experimental/workspace/adaptor`   | List adaptors                                           |
+| POST   | `/experimental/workspace/warp`      | Move session into workspace (detach = null workspaceID) |
+| POST   | `/experimental/workspace/sync-list` | Force auto-discovery (git worktree list)                |
+| GET    | `/experimental/workspace/status`    | Runtime status                                          |
+
+| `workspace/workspace-server/server.ts` also exposes `/session/*` (full session routes) + `/sync/steal` + `/event` SSE — the _remote_ server is just another instance of nikcli-core, but it's commonly run via the `workspace-serve` CLI inside a container.
 
 ### Mobile + Studio + Companion clients
 
@@ -4668,20 +4680,20 @@ Three parallel `@explore` deep-dives + one `@general` planner produced today's m
 
 ### Key Audits (each session delivered despite 10-min timeout)
 
-| Worker session                          | Topic                                                    |
-| --------------------------------------- | -------------------------------------------------------- |
-| `ses_0e7121032ffeCwT2VS7gRQqXkd` (+ delegator) | **Workspace backend** architecture                       |
-| `ses_0e7121036ffeOnNS4i7xLjlDcR` (+ delegator) | **Session backend** architecture                         |
-| `ses_0e712102cffe8e0SqIzurZuuQR` (+ delegator) | **Sync/concurrency/storage** patterns                    |
+| Worker session                                 | Topic                                                     |
+| ---------------------------------------------- | --------------------------------------------------------- |
+| `ses_0e7121032ffeCwT2VS7gRQqXkd` (+ delegator) | **Workspace backend** architecture                        |
+| `ses_0e7121036ffeOnNS4i7xLjlDcR` (+ delegator) | **Session backend** architecture                          |
+| `ses_0e712102cffe8e0SqIzurZuuQR` (+ delegator) | **Sync/concurrency/storage** patterns                     |
 | `ses_0e70bacb5ffeZZ2F01DJb0ydNF` (+ delegator) | **Planner**: implementation plan for unified sync backend |
 
 ### The Three-Backend Reality (confirmed)
 
-| Backend              | How it syncs                                                     | Why it's the way it is                                     |
-| -------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- |
-| Local SQLite         | WAL + `BEGIN IMMEDIATE` + `Lock` (single-process)                | Easiest; multi-process OK; **no optimistic concurrency**   |
-| Workspace remote     | HTTP proxy (`ServerProxy.http/websocket`) + SSE `/event`         | Avoids client rewriting; transparent to client             |
-| Cloud (D1 + DO)      | `sync/push` + `sync/pull` cursor-based, ECDH P-256 E2E encrypted | Multi-user + cross-device; needs different model           |
+| Backend          | How it syncs                                                     | Why it's the way it is                                   |
+| ---------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| Local SQLite     | WAL + `BEGIN IMMEDIATE` + `Lock` (single-process)                | Easiest; multi-process OK; **no optimistic concurrency** |
+| Workspace remote | HTTP proxy (`ServerProxy.http/websocket`) + SSE `/event`         | Avoids client rewriting; transparent to client           |
+| Cloud (D1 + DO)  | `sync/push` + `sync/pull` cursor-based, ECDH P-256 E2E encrypted | Multi-user + cross-device; needs different model         |
 
 **No `Repository<T>` common interface** — namespaces share only `Database.syncDb()`. Adding one is the cleanest path forward.
 
@@ -4697,16 +4709,16 @@ Three parallel `@explore` deep-dives + one `@general` planner produced today's m
 
 ### Implementation Merged (2026-06-30)
 
-| File                                                       | Action  | Description                                                                                              |
-| ---------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| `src/database/migration/20260630000000_sync_unify.ts`      | Created | Broadens `sync_event` schema (adds version, workspaceID, etc.); consolidates aggregate domain           |
-| `src/database/migration/20260630000100_workspace_drop_events.ts` | Created | Drops the legacy `workspace.events` JSON column                                                          |
-| `src/sync/projector.ts`                                    | Created | Reduce events → typed state (per-aggregate)                                                              |
-| `src/sync/reducer.ts`                                      | Created | Pure reducer; `SyncReducer` for workspace (`SyncProjector.workspace`), aggregate-walk replay             |
-| `src/sync/snapshot.ts`                                     | Created | Per-aggregate snapshot cache (`SyncSnapshot.save/load/corrupt-fallback`)                                 |
-| `src/sync/outbox.ts`                                       | Created | Outbox table for cross-process write durability (replaces in-memory `syncControllers`)                  |
-| `test/sync/unified.test.ts`                                | Created | 10 tests; 9/10 pass; one snapshot-corruption timing bug being fixed                                      |
-| `test/workspace/config.test.ts`                            | Created | 2 tests; 2/2 pass                                                                                        |
+| File                                                             | Action  | Description                                                                                   |
+| ---------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `src/database/migration/20260630000000_sync_unify.ts`            | Created | Broadens `sync_event` schema (adds version, workspaceID, etc.); consolidates aggregate domain |
+| `src/database/migration/20260630000100_workspace_drop_events.ts` | Created | Drops the legacy `workspace.events` JSON column                                               |
+| `src/sync/projector.ts`                                          | Created | Reduce events → typed state (per-aggregate)                                                   |
+| `src/sync/reducer.ts`                                            | Created | Pure reducer; `SyncReducer` for workspace (`SyncProjector.workspace`), aggregate-walk replay  |
+| `src/sync/snapshot.ts`                                           | Created | Per-aggregate snapshot cache (`SyncSnapshot.save/load/corrupt-fallback`)                      |
+| `src/sync/outbox.ts`                                             | Created | Outbox table for cross-process write durability (replaces in-memory `syncControllers`)        |
+| `test/sync/unified.test.ts`                                      | Created | 10 tests; 9/10 pass; one snapshot-corruption timing bug being fixed                           |
+| `test/workspace/config.test.ts`                                  | Created | 2 tests; 2/2 pass                                                                             |
 
 ### Test Status (2026-06-30)
 
@@ -4715,7 +4727,7 @@ $ bun test test/sync/unified.test.ts       →  9 pass, 1 fail, 24 expects
 $ bun test test/workspace/config.test.ts   →  2 pass, 0 fail,  4 expects
 ```
 
-The 1 failing test (`SyncReducer — replay with snapshot cache > falls back to full replay on snapshot corruption`) is a test-ordering bug: corrupting the snapshot *before* emitting the event means the replay still has zero events to replay, so the test name's expectation (`state.name === "gamma"`) doesn't hold. The fix in progress: emit first, corrupt snapshot *after* `seq` advances, so replay seeks >stored seq → fails to load → falls back to full replay.
+The 1 failing test (`SyncReducer — replay with snapshot cache > falls back to full replay on snapshot corruption`) is a test-ordering bug: corrupting the snapshot _before_ emitting the event means the replay still has zero events to replay, so the test name's expectation (`state.name === "gamma"`) doesn't hold. The fix in progress: emit first, corrupt snapshot _after_ `seq` advances, so replay seeks >stored seq → fails to load → falls back to full replay.
 
 ### Open Tasks / Pending (from planner)
 
@@ -4731,7 +4743,7 @@ The 1 failing test (`SyncReducer — replay with snapshot cache > falls back to 
 - Cloud SDK uses `syncVersion = MAX(sync_version, ?)` for cursor-based pull/push on D1
 - Local SDK uses reader-writer file `Lock` for JSON storage + WAL + `BEGIN IMMEDIATE` for sequences
 - Workspace SSE mirrors `GlobalBus` events to remote clients; remote writes go through `Mirror` to update local DB
-- Three "sync" meanings in codebase: (1) `sync_event` log (event-sourcing), (2) `startSyncing` workspace SSE loop, (3) Cloud push/pull — *all distinct*
+- Three "sync" meanings in codebase: (1) `sync_event` log (event-sourcing), (2) `startSyncing` workspace SSE loop, (3) Cloud push/pull — _all distinct_
 
 ### Other 2026-06-30 Sessions
 
@@ -4744,7 +4756,7 @@ The 1 failing test (`SyncReducer — replay with snapshot cache > falls back to 
 66 bus events  ·  21 route files  ·  119,343 LOC (packages/nikcli)
 ```
 
-+ new modules (2026-06-30): `src/sync/{projector,reducer,snapshot,outbox}.ts`, +2 migrations, +2 test files.
+- new modules (2026-06-30): `src/sync/{projector,reducer,snapshot,outbox}.ts`, +2 migrations, +2 test files.
 
 ### Confidence / TODO
 

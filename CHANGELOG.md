@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.134.0 (July 2026)
+
+## Core
+
+- Add missing semicolons and improve type declarations in content modules (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix: add missing semicolons and improve type declarations in content modules
+
 ## v1.133.0 (June 2026)
 
 ## Desktop

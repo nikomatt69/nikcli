@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Workspace
@@ -26,4 +26,4 @@ export const workspace = sqliteTable(
   (table) => ({
     projectIdx: index("idx_workspace_project").on(table.projectId),
   }),
-);
+)

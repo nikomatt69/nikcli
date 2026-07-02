@@ -9,13 +9,13 @@
  * cold start: the cost is one snapshot read + a small bounded event
  * replay (capped at `SNAPSHOT_INTERVAL` events on a healthy cache).
  */
-import { Sync, type SyncEventRecord } from "./index";
-import { SyncSnapshot, SNAPSHOT_INTERVAL, type SnapshotKey } from "./snapshot";
-import { Log } from "@/util/log";
+import { Sync, type SyncEventRecord } from "./index"
+import { SyncSnapshot, SNAPSHOT_INTERVAL, type SnapshotKey } from "./snapshot"
+import { Log } from "@/util/log"
 
-const log = Log.create({ service: "sync.reducer" });
+const log = Log.create({ service: "sync.reducer" })
 
-type Projector<S> = (state: S, event: SyncEventRecord) => S;
+type Projector<S> = (state: S, event: SyncEventRecord) => S
 
 export namespace SyncReducer {
   /**
@@ -29,33 +29,33 @@ export namespace SyncReducer {
     initial: S,
     projectors: Projector<S>[],
   ): Promise<{ state: S; lastSeq: number }> {
-    const cached = SyncSnapshot.load(key);
-    let state: S = cached ? (cached.state as S) : initial;
-    let lastSeq = cached?.lastSeq ?? 0;
+    const cached = SyncSnapshot.load(key)
+    let state: S = cached ? (cached.state as S) : initial
+    let lastSeq = cached?.lastSeq ?? 0
 
     // Read events strictly after the snapshot's seq. The projection is
     // applied in seq order so the result is deterministic.
-    const events = await Sync.getEvents(key.projectID, key.aggregate, lastSeq);
-    let eventsSinceSnapshot = 0;
+    const events = await Sync.getEvents(key.projectID, key.aggregate, lastSeq)
+    let eventsSinceSnapshot = 0
     for (const event of events) {
       for (const projector of projectors) {
         try {
-          state = projector(state, event);
+          state = projector(state, event)
         } catch (error) {
-          log.error("projector failed", { ...key, type: event.type, error });
+          log.error("projector failed", { ...key, type: event.type, error })
         }
       }
-      lastSeq = Math.max(lastSeq, event.seq);
-      eventsSinceSnapshot++;
+      lastSeq = Math.max(lastSeq, event.seq)
+      eventsSinceSnapshot++
     }
 
     if (eventsSinceSnapshot >= SNAPSHOT_INTERVAL || !cached) {
       // Persist a fresh snapshot so the next cold start can skip these
       // events entirely.
-      SyncSnapshot.save(key, lastSeq, state);
+      SyncSnapshot.save(key, lastSeq, state)
     }
 
-    return { state, lastSeq };
+    return { state, lastSeq }
   }
 
   /**
@@ -68,22 +68,22 @@ export namespace SyncReducer {
     initial: S,
     projectors: Projector<S>[],
   ): Promise<S> {
-    const events = await Sync.getEvents(projectID, aggregate);
-    let state: S = initial;
+    const events = await Sync.getEvents(projectID, aggregate)
+    let state: S = initial
     for (const event of events) {
       for (const projector of projectors) {
         try {
-          state = projector(state, event);
+          state = projector(state, event)
         } catch (error) {
           log.error("projector failed", {
             projectID,
             aggregate,
             type: event.type,
             error,
-          });
+          })
         }
       }
     }
-    return state;
+    return state
   }
 }

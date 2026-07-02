@@ -1,10 +1,4 @@
-import {
-  sqliteTable,
-  text,
-  integer,
-  index,
-  primaryKey,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Sync Events — single source of truth for sessions + workspace events
@@ -41,15 +35,8 @@ export const syncEvent = sqliteTable(
   },
   (table) => ({
     projectIdx: index("idx_sync_event_project").on(table.projectId),
-    aggregateIdx: index("idx_sync_event_aggregate").on(
-      table.projectId,
-      table.aggregate,
-    ),
-    seqIdx: index("idx_sync_event_seq").on(
-      table.projectId,
-      table.aggregate,
-      table.seq,
-    ),
+    aggregateIdx: index("idx_sync_event_aggregate").on(table.projectId, table.aggregate),
+    seqIdx: index("idx_sync_event_seq").on(table.projectId, table.aggregate, table.seq),
     workspaceIdx: index("idx_sync_event_workspace").on(table.workspaceId),
     originIdx: index("idx_sync_event_origin").on(table.origin),
     projectOriginIdx: index("idx_sync_event_project_origin").on(
@@ -59,7 +46,7 @@ export const syncEvent = sqliteTable(
       table.seq,
     ),
   }),
-);
+)
 
 // ============================================================================
 // Sync Snapshots — cold-start projection cache
@@ -81,7 +68,7 @@ export const syncSnapshot = sqliteTable(
       columns: [table.projectId, table.aggregate, table.aggregateId],
     }),
   }),
-);
+)
 
 // ============================================================================
 // Sync Outbox — pending push queue to a remote hub server
@@ -100,13 +87,10 @@ export const syncOutbox = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (table) => ({
-    statusIdx: index("idx_sync_outbox_status").on(
-      table.status,
-      table.nextAttemptAt,
-    ),
+    statusIdx: index("idx_sync_outbox_status").on(table.status, table.nextAttemptAt),
     eventIdx: index("idx_sync_outbox_event").on(table.eventId),
   }),
-);
+)
 
 // ============================================================================
 // Sync Sequences — SQL backend for JSON-backed sequence counter storage
@@ -122,4 +106,4 @@ export const syncSequence = sqliteTable(
   (table) => ({
     pk: primaryKey({ columns: [table.projectId, table.aggregate] }),
   }),
-);
+)

@@ -1,5 +1,5 @@
-import { Database as BunDatabase } from "bun:sqlite";
-import type { DatabaseMigration } from "../migration";
+import { Database as BunDatabase } from "bun:sqlite"
+import type { DatabaseMigration } from "../migration"
 
 /**
  * Phase 0b — drop the now-orphaned `events` JSON column and `event_limit`
@@ -19,6 +19,6 @@ export default {
     database.exec(`
       ALTER TABLE workspace DROP COLUMN events;
       ALTER TABLE workspace DROP COLUMN event_limit;
-    `);
+    `)
   },
-} satisfies DatabaseMigration.Migration;
+} satisfies DatabaseMigration.Migration
