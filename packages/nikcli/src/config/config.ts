@@ -1,104 +1,117 @@
-import { Log } from "../util/log"
-import path from "path"
-import { pathToFileURL } from "url"
-import os from "os"
-import z from "zod"
-import { ModelsDev } from "../provider/models"
-import { mergeDeep, unique } from "remeda"
-import { Global } from "../global"
-import fs from "fs/promises"
-import { Flag } from "../flag/flag"
-import { Auth } from "../auth"
-import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
-import { LSPServer } from "../lsp/server"
-import { BunProc } from "@/bun"
-import { Installation } from "@/installation"
-import { ConfigMarkdown } from "./markdown"
-import { existsSync } from "fs"
-import { Bus } from "@/bus"
-import { GlobalBus } from "@/bus/global"
-import { Event } from "../server/event"
-import { Context, Effect, Layer, Schema, ScopedCache } from "effect"
-import { InstanceState, runPromiseWithLayer } from "@/effect"
-import type { InstanceContext } from "@/effect"
-import { ConfigPaths } from "./paths"
-import { AppFileSystem } from "@/filesystem"
+import { Log } from "../util/log";
+import path from "path";
+import { pathToFileURL } from "url";
+import os from "os";
+import z from "zod";
+import { ModelsDev } from "../provider/models";
+import { mergeDeep, unique } from "remeda";
+import { Global } from "../global";
+import fs from "fs/promises";
+import { Flag } from "../flag/flag";
+import { Auth } from "../auth";
+import {
+  type ParseError as JsoncParseError,
+  parse as parseJsonc,
+  printParseErrorCode,
+} from "jsonc-parser";
+import { LSPServer } from "../lsp/server";
+import { BunProc } from "@/bun";
+import { Installation } from "@/installation";
+import { ConfigMarkdown } from "./markdown";
+import { existsSync } from "fs";
+import { Bus } from "@/bus";
+import { GlobalBus } from "@/bus/global";
+import { Event } from "../server/event";
+import { Context, Effect, Layer, Schema, ScopedCache } from "effect";
+import { InstanceState, runPromiseWithLayer } from "@/effect";
+import type { InstanceContext } from "@/effect";
+import { ConfigPaths } from "./paths";
+import { AppFileSystem } from "@/filesystem";
 
 export namespace Config {
-  const log = Log.create({ service: "config" })
+  const log = Log.create({ service: "config" });
 
   function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
-    return runPromiseWithLayer(Auth.defaultLayer, effect)
+    return runPromiseWithLayer(Auth.defaultLayer, effect);
   }
 
   // Custom merge function that concatenates array fields instead of replacing them
   function mergeConfigConcatArrays(target: Info, source: Info): Info {
-    const merged = mergeDeep(target, source)
+    const merged = mergeDeep(target, source);
     if (target.plugin && source.plugin) {
-      merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+      merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]));
     }
     if (target.instructions && source.instructions) {
-      merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+      merged.instructions = Array.from(
+        new Set([...target.instructions, ...source.instructions]),
+      );
     }
-    return merged
+    return merged;
   }
 
   type State = {
-    config: Info
-    directories: string[]
-  }
+    config: Info;
+    directories: string[];
+  };
 
   export interface Interface {
-    get(): Effect.Effect<Info, unknown>
-    getGlobal(): Effect.Effect<Info, unknown>
-    update(config: Info): Effect.Effect<void, unknown>
-    updateGlobal(config: Info): Effect.Effect<void, unknown>
-    directories(): Effect.Effect<string[], unknown>
+    get(): Effect.Effect<Info, unknown>;
+    getGlobal(): Effect.Effect<Info, unknown>;
+    update(config: Info): Effect.Effect<void, unknown>;
+    updateGlobal(config: Info): Effect.Effect<void, unknown>;
+    directories(): Effect.Effect<string[], unknown>;
   }
 
-  export class Service extends Context.Service<Service, Interface>()("Config.Service") {}
+  export class Service extends Context.Service<Service, Interface>()(
+    "Config.Service",
+  ) {}
 
-  async function loadState(ctx: InstanceContext, directories: string[], projectFiles: string[]): Promise<State> {
+  async function loadState(
+    ctx: InstanceContext,
+    directories: string[],
+    projectFiles: string[],
+  ): Promise<State> {
     const auth = await runAuth(
       Effect.gen(function* () {
-        const auth = yield* Auth.Service
-        return yield* auth.all()
+        const auth = yield* Auth.Service;
+        return yield* auth.all();
       }),
-    )
+    );
 
     // Load remote/well-known config first as the base layer (lowest precedence)
     // This allows organizations to provide default configs that users can override
-    let result: Info = {}
+    let result: Info = {};
     for (const [key, value] of Object.entries(auth)) {
       if (value.type === "wellknown") {
         if (!/^[A-Z_][A-Z0-9_]*$/.test(value.key)) {
           log.warn("skipping well-known config with invalid env key", {
             url: key,
             env: value.key,
-          })
-          continue
+          });
+          continue;
         }
         log.warn("fetching remote config from well-known endpoint", {
           url: `${key}/.well-known/nikcli`,
-        })
+        });
         const response = await runAuth(
           Effect.gen(function* () {
-            const auth = yield* Auth.Service
-            return yield* auth.fetchWellKnown(key)
+            const auth = yield* Auth.Service;
+            return yield* auth.fetchWellKnown(key);
           }),
-        )
+        );
         if (!response.ok) {
           throw new Config.RemoteFetchError({
             url: key,
             status: response.status,
-          })
+          });
         }
         const wellknown = (await response.json()) as {
-          config?: Record<string, unknown>
-        }
-        const remoteConfig = wellknown.config ?? {}
+          config?: Record<string, unknown>;
+        };
+        const remoteConfig = wellknown.config ?? {};
         // Add $schema to prevent load() from trying to write back to a non-existent file
-        if (!remoteConfig.$schema) remoteConfig.$schema = "https://nikcli.store/config.json"
+        if (!remoteConfig.$schema)
+          remoteConfig.$schema = "https://nikcli.store/config.json";
         result = mergeConfigConcatArrays(
           result,
           await load(
@@ -108,68 +121,78 @@ export namespace Config {
             false,
             false,
           ),
-        )
-        log.debug("loaded remote config from well-known", { url: key })
+        );
+        log.debug("loaded remote config from well-known", { url: key });
       }
     }
 
     // Global user config overrides remote config
-    result = mergeConfigConcatArrays(result, await global())
+    result = mergeConfigConcatArrays(result, await global());
 
     // Custom config path overrides global
     if (Flag.NIKCLI_CONFIG) {
-      result = mergeConfigConcatArrays(result, await loadFile(Flag.NIKCLI_CONFIG))
-      log.debug("loaded custom config", { path: Flag.NIKCLI_CONFIG })
+      result = mergeConfigConcatArrays(
+        result,
+        await loadFile(Flag.NIKCLI_CONFIG),
+      );
+      log.debug("loaded custom config", { path: Flag.NIKCLI_CONFIG });
     }
 
     // Project config has highest precedence (overrides global and remote)
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
       for (const resolved of projectFiles) {
-        result = mergeConfigConcatArrays(result, await loadFile(resolved))
+        result = mergeConfigConcatArrays(result, await loadFile(resolved));
       }
     }
 
     // Inline config content has highest precedence
     if (Flag.NIKCLI_CONFIG_CONTENT) {
-      result = mergeConfigConcatArrays(result, JSON.parse(Flag.NIKCLI_CONFIG_CONTENT))
-      log.debug("loaded custom config from NIKCLI_CONFIG_CONTENT")
+      result = mergeConfigConcatArrays(
+        result,
+        JSON.parse(Flag.NIKCLI_CONFIG_CONTENT),
+      );
+      log.debug("loaded custom config from NIKCLI_CONFIG_CONTENT");
     }
 
-    result.agent = result.agent || {}
-    result.mode = result.mode || {}
-    result.plugin = result.plugin || []
+    result.agent = result.agent || {};
+    result.mode = result.mode || {};
+    result.plugin = result.plugin || [];
 
     if (Flag.NIKCLI_CONFIG_DIR) {
       log.debug("loading config from NIKCLI_CONFIG_DIR", {
         path: Flag.NIKCLI_CONFIG_DIR,
-      })
+      });
     }
 
     for (const dir of unique(directories)) {
       if (dir.endsWith(".nikcli") || dir === Flag.NIKCLI_CONFIG_DIR) {
-        log.debug(`loading config from ${path.join(dir, "nikcli.json")}`)
-        result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, "nikcli.json")))
+        log.debug(`loading config from ${path.join(dir, "nikcli.json")}`);
+        result = mergeConfigConcatArrays(
+          result,
+          await loadFile(path.join(dir, "nikcli.json")),
+        );
         // to satisfy the type checker
-        result.agent ??= {}
-        result.mode ??= {}
-        result.plugin ??= []
+        result.agent ??= {};
+        result.mode ??= {};
+        result.plugin ??= [];
       }
 
       // Only install when deps are missing. Running `bun install` when
       // node_modules already exists (e.g. a worktree whose node_modules is
       // symlinked to the main checkout) fails with EEXIST while linking
       // packages — noise that previously also corrupted the TUI.
-      if (!existsSync(path.join(dir, "node_modules"))) await installDependencies(dir)
+      if (!existsSync(path.join(dir, "node_modules")))
+        await installDependencies(dir);
 
       // The directory may not exist yet (e.g. when the plugin-install bootstrap
       // that creates it is skipped). Nothing to load from a missing dir, and the
       // glob scanners below would throw ENOENT on a non-existent cwd.
-      if (!existsSync(dir)) continue
+      if (!existsSync(dir)) continue;
 
-      result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-      result.agent = mergeDeep(result.agent, await loadAgent(dir))
-      result.agent = mergeDeep(result.agent, await loadMode(dir))
-      result.plugin.push(...(await loadPlugin(dir)))
+      result.command = mergeDeep(result.command ?? {}, await loadCommand(dir));
+      result.agent = mergeDeep(result.agent, await loadAgent(dir));
+      result.agent = mergeDeep(result.agent, await loadMode(dir));
+      result.plugin.push(...(await loadPlugin(dir)));
     }
 
     // Migrate deprecated mode field to agent field
@@ -179,111 +202,137 @@ export namespace Config {
           ...mode,
           mode: "primary" as const,
         },
-      })
+      });
     }
 
     if (Flag.NIKCLI_PERMISSION) {
-      result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.NIKCLI_PERMISSION))
+      result.permission = mergeDeep(
+        result.permission ?? {},
+        JSON.parse(Flag.NIKCLI_PERMISSION),
+      );
     }
 
     // Backwards compatibility: legacy top-level `tools` config
     if (result.tools) {
-      const perms: Record<string, Config.PermissionAction> = {}
+      const perms: Record<string, Config.PermissionAction> = {};
       for (const [tool, enabled] of Object.entries(result.tools)) {
-        const action: Config.PermissionAction = enabled ? "allow" : "deny"
-        if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
-          perms.edit = action
-          continue
+        const action: Config.PermissionAction = enabled ? "allow" : "deny";
+        if (
+          tool === "write" ||
+          tool === "edit" ||
+          tool === "patch" ||
+          tool === "multiedit"
+        ) {
+          perms.edit = action;
+          continue;
         }
-        perms[tool] = action
+        perms[tool] = action;
       }
-      result.permission = mergeDeep(perms, result.permission ?? {})
+      result.permission = mergeDeep(perms, result.permission ?? {});
     }
 
-    if (!result.username) result.username = os.userInfo().username
+    if (!result.username) result.username = os.userInfo().username;
 
     // Handle migration from autoshare to share field
     if (result.autoshare === true && !result.share) {
-      result.share = "auto"
+      result.share = "auto";
     }
 
-    if (!result.keybinds) result.keybinds = Info.shape.keybinds.parse({})
+    if (!result.keybinds) result.keybinds = Info.shape.keybinds.parse({});
 
     // Apply flag overrides for compaction settings
     if (Flag.NIKCLI_DISABLE_AUTOCOMPACT) {
-      result.compaction = { ...result.compaction, auto: false }
+      result.compaction = { ...result.compaction, auto: false };
     }
     if (Flag.NIKCLI_DISABLE_PRUNE) {
-      result.compaction = { ...result.compaction, prune: false }
+      result.compaction = { ...result.compaction, prune: false };
     }
 
-    result.plugin = deduplicatePlugins(result.plugin ?? [])
+    result.plugin = deduplicatePlugins(result.plugin ?? []);
 
     return {
       config: result,
       directories,
-    }
+    };
   }
 
-  function makeScopedState(paths: ConfigPaths.Interface, appFs: AppFileSystem.Interface) {
+  function makeScopedState(
+    paths: ConfigPaths.Interface,
+    appFs: AppFileSystem.Interface,
+  ) {
     return InstanceState.make<State>(
       (ctx) =>
         Effect.gen(function* () {
-          const directories = yield* paths.directories(ctx.directory, ctx.worktree)
+          const directories = yield* paths.directories(
+            ctx.directory,
+            ctx.worktree,
+          );
           const found = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
             ? []
-            : yield* appFs.findUp("nikcli.json", ctx.directory, ctx.worktree)
-          const projectFiles = found.toReversed()
-          return yield* Effect.promise(() => loadState(ctx, directories, projectFiles))
+            : yield* appFs.findUp("nikcli.json", ctx.directory, ctx.worktree);
+          const projectFiles = found.toReversed();
+          return yield* Effect.promise(() =>
+            loadState(ctx, directories, projectFiles),
+          );
         }),
       // Config participates in instance hot reload: when a config file changes
       // on disk, InstanceReload invalidates this cache so the next get() sees
       // the new agents/commands/permissions without a process restart.
       { reloadable: true },
-    )
+    );
   }
 
   export async function installDependencies(dir: string) {
-    if (process.env.NIKCLI_TEST_MODE || process.env.NIKCLI_SKIP_PLUGIN_INSTALL) return
+    if (process.env.NIKCLI_TEST_MODE || process.env.NIKCLI_SKIP_PLUGIN_INSTALL)
+      return;
 
-    const pkg = path.join(dir, "package.json")
+    const pkg = path.join(dir, "package.json");
 
     if (!(await Bun.file(pkg).exists())) {
-      await Bun.write(pkg, "{}")
+      await Bun.write(pkg, "{}");
     }
 
-    const gitignore = path.join(dir, ".gitignore")
-    const hasGitIgnore = await Bun.file(gitignore).exists()
-    if (!hasGitIgnore) await Bun.write(gitignore, ["node_modules", "package.json", "bun.lock", ".gitignore"].join("\n"))
+    const gitignore = path.join(dir, ".gitignore");
+    const hasGitIgnore = await Bun.file(gitignore).exists();
+    if (!hasGitIgnore)
+      await Bun.write(
+        gitignore,
+        ["node_modules", "package.json", "bun.lock", ".gitignore"].join("\n"),
+      );
 
     // Never write to stdout/stderr here: it corrupts the TUI render. Log instead.
     await BunProc.run(
-      ["add", "@nikcli-ai/plugin@" + (Installation.isLocal() ? "latest" : Installation.VERSION), "--exact"],
+      [
+        "add",
+        "@nikcli-ai/plugin@" +
+          (Installation.isLocal() ? "latest" : Installation.VERSION),
+        "--exact",
+      ],
       {
         cwd: dir,
       },
     ).catch((err) => {
-      log.warn("plugin install failed", { dir, error: String(err) })
-    })
+      log.warn("plugin install failed", { dir, error: String(err) });
+    });
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
     await BunProc.run(["install"], { cwd: dir }).catch((err) => {
-      log.warn("dependency install failed", { dir, error: String(err) })
-    })
+      log.warn("dependency install failed", { dir, error: String(err) });
+    });
   }
 
   function rel(item: string, patterns: string[]) {
     for (const pattern of patterns) {
-      const index = item.indexOf(pattern)
-      if (index === -1) continue
-      return item.slice(index + pattern.length)
+      const index = item.indexOf(pattern);
+      if (index === -1) continue;
+      return item.slice(index + pattern.length);
     }
   }
 
   function trim(file: string) {
-    const ext = path.extname(file)
-    return ext.length ? file.slice(0, -ext.length) : file
+    const ext = path.extname(file);
+    return ext.length ? file.slice(0, -ext.length) : file;
   }
 
   /**
@@ -292,129 +341,154 @@ export namespace Config {
    * config dir that was never created doesn't crash config loading.
    */
   async function* safeScan(glob: Bun.Glob, dir: string) {
-    if (!existsSync(dir)) return
+    if (!existsSync(dir)) return;
     try {
       yield* glob.scan({
         absolute: true,
         followSymlinks: true,
         dot: true,
         cwd: dir,
-      })
+      });
     } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return
-      throw err
+      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return;
+      throw err;
     }
   }
 
-  const COMMAND_GLOB = new Bun.Glob("{command,commands}/**/*.md")
+  const COMMAND_GLOB = new Bun.Glob("{command,commands}/**/*.md");
   async function loadCommand(dir: string) {
-    const result: Record<string, Command> = {}
+    const result: Record<string, Command> = {};
     for await (const item of safeScan(COMMAND_GLOB, dir)) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse command ${item}`
-        const { Session } = await import("@/session")
+        const message =
+          err instanceof ConfigMarkdown.FrontmatterError
+            ? err.message
+            : `Failed to parse command ${item}`;
+        const { Session } = await import("@/session");
         Bus.publish(Session.Event.Error, {
           error: { name: "UnknownError" as const, data: { message } },
-        })
-        log.error("failed to load command", { command: item, err })
-        return undefined
-      })
-      if (!md) continue
+        });
+        log.error("failed to load command", { command: item, err });
+        return undefined;
+      });
+      if (!md) continue;
 
-      const patterns = ["/.nikcli/command/", "/.nikcli/commands/", "/command/", "/commands/"]
-      const file = rel(item, patterns) ?? path.basename(item)
-      const name = trim(file)
+      const patterns = [
+        "/.nikcli/command/",
+        "/.nikcli/commands/",
+        "/command/",
+        "/commands/",
+      ];
+      const file = rel(item, patterns) ?? path.basename(item);
+      const name = trim(file);
 
       const config = {
         name,
         ...md.data,
         template: md.content.trim(),
-      }
-      const parsed = Command.safeParse(config)
+      };
+      const parsed = Command.safeParse(config);
       if (parsed.success) {
-        result[config.name] = parsed.data
-        continue
+        result[config.name] = parsed.data;
+        continue;
       }
-      throw Object.assign(new InvalidError({ path: item, issues: parsed.error.issues }), { cause: parsed.error })
+      throw Object.assign(
+        new InvalidError({ path: item, issues: parsed.error.issues }),
+        { cause: parsed.error },
+      );
     }
-    return result
+    return result;
   }
 
-  const AGENT_GLOB = new Bun.Glob("{agent,agents}/**/*.md")
+  const AGENT_GLOB = new Bun.Glob("{agent,agents}/**/*.md");
   async function loadAgent(dir: string) {
-    const result: Record<string, Agent> = {}
+    const result: Record<string, Agent> = {};
 
     for await (const item of safeScan(AGENT_GLOB, dir)) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse agent ${item}`
-        const { Session } = await import("@/session")
+        const message =
+          err instanceof ConfigMarkdown.FrontmatterError
+            ? err.message
+            : `Failed to parse agent ${item}`;
+        const { Session } = await import("@/session");
         Bus.publish(Session.Event.Error, {
           error: { name: "UnknownError" as const, data: { message } },
-        })
-        log.error("failed to load agent", { agent: item, err })
-        return undefined
-      })
-      if (!md) continue
+        });
+        log.error("failed to load agent", { agent: item, err });
+        return undefined;
+      });
+      if (!md) continue;
 
-      const patterns = ["/.nikcli/agent/", "/.nikcli/agents/", "/agent/", "/agents/"]
-      const file = rel(item, patterns) ?? path.basename(item)
-      const agentName = trim(file)
+      const patterns = [
+        "/.nikcli/agent/",
+        "/.nikcli/agents/",
+        "/agent/",
+        "/agents/",
+      ];
+      const file = rel(item, patterns) ?? path.basename(item);
+      const agentName = trim(file);
 
       const config = {
         name: agentName,
         ...md.data,
         prompt: md.content.trim(),
-      }
-      const parsed = Agent.safeParse(config)
+      };
+      const parsed = Agent.safeParse(config);
       if (parsed.success) {
-        result[config.name] = parsed.data
-        continue
+        result[config.name] = parsed.data;
+        continue;
       }
-      throw Object.assign(new InvalidError({ path: item, issues: parsed.error.issues }), { cause: parsed.error })
+      throw Object.assign(
+        new InvalidError({ path: item, issues: parsed.error.issues }),
+        { cause: parsed.error },
+      );
     }
-    return result
+    return result;
   }
 
-  const MODE_GLOB = new Bun.Glob("{mode,modes}/*.md")
+  const MODE_GLOB = new Bun.Glob("{mode,modes}/*.md");
   async function loadMode(dir: string) {
-    const result: Record<string, Agent> = {}
+    const result: Record<string, Agent> = {};
     for await (const item of safeScan(MODE_GLOB, dir)) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse mode ${item}`
-        const { Session } = await import("@/session")
+        const message =
+          err instanceof ConfigMarkdown.FrontmatterError
+            ? err.message
+            : `Failed to parse mode ${item}`;
+        const { Session } = await import("@/session");
         Bus.publish(Session.Event.Error, {
           error: { name: "UnknownError" as const, data: { message } },
-        })
-        log.error("failed to load mode", { mode: item, err })
-        return undefined
-      })
-      if (!md) continue
+        });
+        log.error("failed to load mode", { mode: item, err });
+        return undefined;
+      });
+      if (!md) continue;
 
       const config = {
         name: path.basename(item, ".md"),
         ...md.data,
         prompt: md.content.trim(),
-      }
-      const parsed = Agent.safeParse(config)
+      };
+      const parsed = Agent.safeParse(config);
       if (parsed.success) {
         result[config.name] = {
           ...parsed.data,
           mode: "primary" as const,
-        }
-        continue
+        };
+        continue;
       }
     }
-    return result
+    return result;
   }
 
-  const PLUGIN_GLOB = new Bun.Glob("{plugin,plugins}/*.{ts,js}")
+  const PLUGIN_GLOB = new Bun.Glob("{plugin,plugins}/*.{ts,js}");
   async function loadPlugin(dir: string) {
-    const plugins: string[] = []
+    const plugins: string[] = [];
 
     for await (const item of safeScan(PLUGIN_GLOB, dir)) {
-      plugins.push(pathToFileURL(item).href)
+      plugins.push(pathToFileURL(item).href);
     }
-    return plugins
+    return plugins;
   }
 
   /**
@@ -429,13 +503,13 @@ export namespace Config {
    */
   export function getPluginName(plugin: string): string {
     if (plugin.startsWith("file://")) {
-      return path.parse(new URL(plugin).pathname).name
+      return path.parse(new URL(plugin).pathname).name;
     }
-    const lastAt = plugin.lastIndexOf("@")
+    const lastAt = plugin.lastIndexOf("@");
     if (lastAt > 0) {
-      return plugin.substring(0, lastAt)
+      return plugin.substring(0, lastAt);
     }
-    return plugin
+    return plugin;
   }
 
   /**
@@ -452,102 +526,131 @@ export namespace Config {
   export function deduplicatePlugins(plugins: string[]): string[] {
     // seenNames: canonical plugin names for duplicate detection
     // e.g., "oh-my-nikcli", "@scope/pkg"
-    const seenNames = new Set<string>()
+    const seenNames = new Set<string>();
 
     // uniqueSpecifiers: full plugin specifiers to return
     // e.g., "oh-my-nikcli@2.4.3", "file:///path/to/plugin.js"
-    const uniqueSpecifiers: string[] = []
+    const uniqueSpecifiers: string[] = [];
 
     for (const specifier of plugins.toReversed()) {
-      const name = getPluginName(specifier)
+      const name = getPluginName(specifier);
       if (!seenNames.has(name)) {
-        seenNames.add(name)
-        uniqueSpecifiers.push(specifier)
+        seenNames.add(name);
+        uniqueSpecifiers.push(specifier);
       }
     }
 
-    return uniqueSpecifiers.toReversed()
+    return uniqueSpecifiers.toReversed();
   }
 
   export const PluginOptions = z.record(z.string(), z.unknown()).meta({
     ref: "PluginOptionsConfig",
-  })
-  export type PluginOptions = z.infer<typeof PluginOptions>
+  });
+  export type PluginOptions = z.infer<typeof PluginOptions>;
 
-  export const PluginSpec = z.union([z.string(), z.tuple([z.string(), PluginOptions])]).meta({
-    ref: "PluginSpecConfig",
-  })
-  export type PluginSpec = z.infer<typeof PluginSpec>
+  export const PluginSpec = z
+    .union([z.string(), z.tuple([z.string(), PluginOptions])])
+    .meta({
+      ref: "PluginSpecConfig",
+    });
+  export type PluginSpec = z.infer<typeof PluginSpec>;
 
   export function pluginSpecifier(plugin: string | PluginSpec) {
-    if (typeof plugin === "string") return plugin
-    return plugin[0]
+    if (typeof plugin === "string") return plugin;
+    return plugin[0];
   }
 
   export function pluginOptions(plugin: string | PluginSpec) {
-    if (typeof plugin === "string") return
-    return plugin[1]
+    if (typeof plugin === "string") return;
+    return plugin[1];
   }
 
-  export async function resolvePluginSpec(plugin: PluginSpec, configFilepath: string): Promise<PluginSpec> {
-    const spec = pluginSpecifier(plugin)
-    let resolved = spec
+  export async function resolvePluginSpec(
+    plugin: PluginSpec,
+    configFilepath: string,
+  ): Promise<PluginSpec> {
+    const spec = pluginSpecifier(plugin);
+    let resolved = spec;
     try {
-      resolved = import.meta.resolve!(spec, configFilepath)
+      resolved = import.meta.resolve!(spec, configFilepath);
     } catch (err) {
-      log.warn("failed to resolve plugin path", { spec, error: err })
+      log.warn("failed to resolve plugin path", { spec, error: err });
     }
 
-    if (typeof plugin === "string") return resolved
-    return [resolved, plugin[1]]
+    if (typeof plugin === "string") return resolved;
+    return [resolved, plugin[1]];
   }
 
   export function managedConfigDir() {
-    return path.join(Global.Path.config, "managed")
+    return path.join(Global.Path.config, "managed");
   }
 
   export const McpLocal = z
     .object({
       type: z.literal("local").describe("Type of MCP server connection"),
-      command: z.string().array().describe("Command and arguments to run the MCP server"),
+      command: z
+        .string()
+        .array()
+        .describe("Command and arguments to run the MCP server"),
       environment: z
         .record(z.string(), z.string())
         .optional()
         .describe("Environment variables to set when running the MCP server"),
-      enabled: z.boolean().optional().describe("Enable or disable the MCP server on startup"),
+      enabled: z
+        .boolean()
+        .optional()
+        .describe("Enable or disable the MCP server on startup"),
       timeout: z
         .number()
         .int()
         .positive()
         .optional()
-        .describe("Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified."),
+        .describe(
+          "Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified.",
+        ),
     })
     .strict()
     .meta({
       ref: "McpLocalConfig",
-    })
+    });
 
   export const McpOAuth = z
     .object({
       clientId: z
         .string()
         .optional()
-        .describe("OAuth client ID. If not provided, dynamic client registration (RFC 7591) will be attempted."),
-      clientSecret: z.string().optional().describe("OAuth client secret (if required by the authorization server)"),
-      scope: z.string().optional().describe("OAuth scopes to request during authorization"),
+        .describe(
+          "OAuth client ID. If not provided, dynamic client registration (RFC 7591) will be attempted.",
+        ),
+      clientSecret: z
+        .string()
+        .optional()
+        .describe(
+          "OAuth client secret (if required by the authorization server)",
+        ),
+      scope: z
+        .string()
+        .optional()
+        .describe("OAuth scopes to request during authorization"),
     })
     .strict()
     .meta({
       ref: "McpOAuthConfig",
-    })
-  export type McpOAuth = z.infer<typeof McpOAuth>
+    });
+  export type McpOAuth = z.infer<typeof McpOAuth>;
 
   export const McpRemote = z
     .object({
       type: z.literal("remote").describe("Type of MCP server connection"),
       url: z.string().describe("URL of the remote MCP server"),
-      enabled: z.boolean().optional().describe("Enable or disable the MCP server on startup"),
-      headers: z.record(z.string(), z.string()).optional().describe("Headers to send with the request"),
+      enabled: z
+        .boolean()
+        .optional()
+        .describe("Enable or disable the MCP server on startup"),
+      headers: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Headers to send with the request"),
       oauth: z
         .union([McpOAuth, z.literal(false)])
         .optional()
@@ -559,15 +662,17 @@ export namespace Config {
         .int()
         .positive()
         .optional()
-        .describe("Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified."),
+        .describe(
+          "Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified.",
+        ),
     })
     .strict()
     .meta({
       ref: "McpRemoteConfig",
-    })
+    });
 
-  export const Mcp = z.discriminatedUnion("type", [McpLocal, McpRemote])
-  export type Mcp = z.infer<typeof Mcp>
+  export const Mcp = z.discriminatedUnion("type", [McpLocal, McpRemote]);
+  export type Mcp = z.infer<typeof Mcp>;
 
   export const ConnectorFigma = z
     .object({
@@ -576,8 +681,8 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorFigma" })
-  export type ConnectorFigma = z.infer<typeof ConnectorFigma>
+    .meta({ ref: "ConnectorFigma" });
+  export type ConnectorFigma = z.infer<typeof ConnectorFigma>;
 
   export const ConnectorSlack = z
     .object({
@@ -587,20 +692,26 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorSlack" })
-  export type ConnectorSlack = z.infer<typeof ConnectorSlack>
+    .meta({ ref: "ConnectorSlack" });
+  export type ConnectorSlack = z.infer<typeof ConnectorSlack>;
 
   export const ConnectorGithub = z
     .object({
       type: z.literal("github"),
       token: z.string().optional().describe("GitHub personal access token"),
-      oauthClientId: z.string().optional().describe("GitHub OAuth client ID for mobile device flow"),
-      clientId: z.string().optional().describe("Alias for GitHub OAuth client ID"),
+      oauthClientId: z
+        .string()
+        .optional()
+        .describe("GitHub OAuth client ID for mobile device flow"),
+      clientId: z
+        .string()
+        .optional()
+        .describe("Alias for GitHub OAuth client ID"),
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorGithub" })
-  export type ConnectorGithub = z.infer<typeof ConnectorGithub>
+    .meta({ ref: "ConnectorGithub" });
+  export type ConnectorGithub = z.infer<typeof ConnectorGithub>;
 
   export const ConnectorLovable = z
     .object({
@@ -610,8 +721,8 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorLovable" })
-  export type ConnectorLovable = z.infer<typeof ConnectorLovable>
+    .meta({ ref: "ConnectorLovable" });
+  export type ConnectorLovable = z.infer<typeof ConnectorLovable>;
 
   export const ConnectorDiscord = z
     .object({
@@ -620,8 +731,8 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorDiscord" })
-  export type ConnectorDiscord = z.infer<typeof ConnectorDiscord>
+    .meta({ ref: "ConnectorDiscord" });
+  export type ConnectorDiscord = z.infer<typeof ConnectorDiscord>;
 
   export const ConnectorTeams = z
     .object({
@@ -630,8 +741,8 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorTeams" })
-  export type ConnectorTeams = z.infer<typeof ConnectorTeams>
+    .meta({ ref: "ConnectorTeams" });
+  export type ConnectorTeams = z.infer<typeof ConnectorTeams>;
 
   export const ConnectorGChat = z
     .object({
@@ -640,8 +751,8 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorGChat" })
-  export type ConnectorGChat = z.infer<typeof ConnectorGChat>
+    .meta({ ref: "ConnectorGChat" });
+  export type ConnectorGChat = z.infer<typeof ConnectorGChat>;
 
   export const ConnectorLinear = z
     .object({
@@ -650,8 +761,8 @@ export namespace Config {
       enabled: z.boolean().optional(),
     })
     .strict()
-    .meta({ ref: "ConnectorLinear" })
-  export type ConnectorLinear = z.infer<typeof ConnectorLinear>
+    .meta({ ref: "ConnectorLinear" });
+  export type ConnectorLinear = z.infer<typeof ConnectorLinear>;
 
   export const Connector = z.discriminatedUnion("type", [
     ConnectorFigma,
@@ -662,43 +773,45 @@ export namespace Config {
     ConnectorTeams,
     ConnectorGChat,
     ConnectorLinear,
-  ])
-  export type Connector = z.infer<typeof Connector>
+  ]);
+  export type Connector = z.infer<typeof Connector>;
 
   export const PermissionAction = z.enum(["ask", "allow", "deny"]).meta({
     ref: "PermissionActionConfig",
-  })
-  export type PermissionAction = z.infer<typeof PermissionAction>
+  });
+  export type PermissionAction = z.infer<typeof PermissionAction>;
 
   export const PermissionObject = z.record(z.string(), PermissionAction).meta({
     ref: "PermissionObjectConfig",
-  })
-  export type PermissionObject = z.infer<typeof PermissionObject>
+  });
+  export type PermissionObject = z.infer<typeof PermissionObject>;
 
-  export const PermissionRule = z.union([PermissionAction, PermissionObject]).meta({
-    ref: "PermissionRuleConfig",
-  })
-  export type PermissionRule = z.infer<typeof PermissionRule>
+  export const PermissionRule = z
+    .union([PermissionAction, PermissionObject])
+    .meta({
+      ref: "PermissionRuleConfig",
+    });
+  export type PermissionRule = z.infer<typeof PermissionRule>;
 
   // Capture original key order before zod reorders, then rebuild in original order
   const permissionPreprocess = (val: unknown) => {
     if (typeof val === "object" && val !== null && !Array.isArray(val)) {
-      return { __originalKeys: Object.keys(val), ...val }
+      return { __originalKeys: Object.keys(val), ...val };
     }
-    return val
-  }
+    return val;
+  };
 
   const permissionTransform = (x: unknown): Record<string, PermissionRule> => {
-    if (typeof x === "string") return { "*": x as PermissionAction }
-    const obj = x as { __originalKeys?: string[] } & Record<string, unknown>
-    const { __originalKeys, ...rest } = obj
-    if (!__originalKeys) return rest as Record<string, PermissionRule>
-    const result: Record<string, PermissionRule> = {}
+    if (typeof x === "string") return { "*": x as PermissionAction };
+    const obj = x as { __originalKeys?: string[] } & Record<string, unknown>;
+    const { __originalKeys, ...rest } = obj;
+    if (!__originalKeys) return rest as Record<string, PermissionRule>;
+    const result: Record<string, PermissionRule> = {};
     for (const key of __originalKeys) {
-      if (key in rest) result[key] = rest[key] as PermissionRule
+      if (key in rest) result[key] = rest[key] as PermissionRule;
     }
-    return result
-  }
+    return result;
+  };
 
   export const Permission = z
     .preprocess(
@@ -752,8 +865,8 @@ export namespace Config {
     .transform(permissionTransform)
     .meta({
       ref: "PermissionConfig",
-    })
-  export type Permission = z.infer<typeof Permission>
+    });
+  export type Permission = z.infer<typeof Permission>;
 
   export const Command = z.object({
     template: z.string(),
@@ -761,8 +874,8 @@ export namespace Config {
     agent: z.string().optional(),
     model: z.string().optional(),
     subtask: z.boolean().optional(),
-  })
-  export type Command = z.infer<typeof Command>
+  });
+  export type Command = z.infer<typeof Command>;
 
   export const Reference = z
     .union([
@@ -784,8 +897,8 @@ export namespace Config {
     ])
     .meta({
       ref: "ReferenceConfig",
-    })
-  export type Reference = z.infer<typeof Reference>
+    });
+  export type Reference = z.infer<typeof Reference>;
 
   export const Agent = z
     .object({
@@ -793,18 +906,28 @@ export namespace Config {
       variant: z
         .string()
         .optional()
-        .describe("Default model variant for this agent (applies only when using the agent's configured model)."),
+        .describe(
+          "Default model variant for this agent (applies only when using the agent's configured model).",
+        ),
       temperature: z.number().optional(),
       top_p: z.number().optional(),
       prompt: z.string().optional(),
-      tools: z.record(z.string(), z.boolean()).optional().describe("@deprecated Use 'permission' field instead"),
+      tools: z
+        .record(z.string(), z.boolean())
+        .optional()
+        .describe("@deprecated Use 'permission' field instead"),
       disable: z.boolean().optional(),
-      description: z.string().optional().describe("Description of when to use the agent"),
+      description: z
+        .string()
+        .optional()
+        .describe("Description of when to use the agent"),
       mode: z.enum(["subagent", "primary", "all"]).optional(),
       hidden: z
         .boolean()
         .optional()
-        .describe("Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)"),
+        .describe(
+          "Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)",
+        ),
       options: z.record(z.string(), z.any()).optional(),
       color: z
         .string()
@@ -816,8 +939,15 @@ export namespace Config {
         .int()
         .positive()
         .optional()
-        .describe("Maximum number of agentic iterations before forcing text-only response"),
-      maxSteps: z.number().int().positive().optional().describe("@deprecated Use 'steps' field instead."),
+        .describe(
+          "Maximum number of agentic iterations before forcing text-only response",
+        ),
+      maxSteps: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("@deprecated Use 'steps' field instead."),
       permission: Permission.optional(),
       advisor: z
         .string()
@@ -853,146 +983,444 @@ export namespace Config {
         "tools",
         "advisor",
         "advisor_max_uses",
-      ])
+      ]);
 
       // Extract unknown properties into options
-      const options: Record<string, unknown> = { ...agent.options }
+      const options: Record<string, unknown> = { ...agent.options };
       for (const [key, value] of Object.entries(agent)) {
-        if (!knownKeys.has(key)) options[key] = value
+        if (!knownKeys.has(key)) options[key] = value;
       }
 
       // Convert legacy tools config to permissions
-      const permission: Permission = {}
+      const permission: Permission = {};
       for (const [tool, enabled] of Object.entries(agent.tools ?? {})) {
-        const action = enabled ? "allow" : "deny"
+        const action = enabled ? "allow" : "deny";
         // write, edit, patch, multiedit all map to edit permission
-        if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
-          permission.edit = action
+        if (
+          tool === "write" ||
+          tool === "edit" ||
+          tool === "patch" ||
+          tool === "multiedit"
+        ) {
+          permission.edit = action;
         } else {
-          permission[tool] = action
+          permission[tool] = action;
         }
       }
-      Object.assign(permission, agent.permission)
+      Object.assign(permission, agent.permission);
 
       // Convert legacy maxSteps to steps
-      const steps = agent.steps ?? agent.maxSteps
+      const steps = agent.steps ?? agent.maxSteps;
 
       return { ...agent, options, permission, steps } as typeof agent & {
-        options?: Record<string, unknown>
-        permission?: Permission
-        steps?: number
-      }
+        options?: Record<string, unknown>;
+        permission?: Permission;
+        steps?: number;
+      };
     })
     .meta({
       ref: "AgentConfig",
-    })
-  export type Agent = z.infer<typeof Agent>
+    });
+  export type Agent = z.infer<typeof Agent>;
 
   export const Keybinds = z
     .object({
-      leader: z.string().optional().default("ctrl+x").describe("Leader key for keybind combinations"),
-      app_exit: z.string().optional().default("ctrl+c,ctrl+d,<leader>q").describe("Exit the application"),
-      editor_open: z.string().optional().default("<leader>e").describe("Open external editor"),
-      theme_list: z.string().optional().default("<leader>t").describe("List available themes"),
-      sidebar_toggle: z.string().optional().default("<leader>b").describe("Toggle sidebar"),
-      scrollbar_toggle: z.string().optional().default("none").describe("Toggle session scrollbar"),
-      username_toggle: z.string().optional().default("none").describe("Toggle username visibility"),
-      status_view: z.string().optional().default("<leader>s").describe("View status"),
-      session_export: z.string().optional().default("<leader>x").describe("Export session to editor"),
-      session_new: z.string().optional().default("<leader>n").describe("Create a new session"),
-      session_list: z.string().optional().default("<leader>l").describe("List all sessions"),
-      session_timeline: z.string().optional().default("<leader>g").describe("Show session timeline"),
-      session_fork: z.string().optional().default("none").describe("Fork session from message"),
-      session_rename: z.string().optional().default("ctrl+r").describe("Rename session"),
-      session_delete: z.string().optional().default("ctrl+d").describe("Delete session"),
-      session_pin_toggle: z.string().optional().default("<leader>p").describe("Toggle session pin"),
-      session_quick_switch_1: z.string().optional().default("<leader>1").describe("Quick switch to session slot 1"),
-      session_quick_switch_2: z.string().optional().default("<leader>2").describe("Quick switch to session slot 2"),
-      session_quick_switch_3: z.string().optional().default("<leader>3").describe("Quick switch to session slot 3"),
-      session_quick_switch_4: z.string().optional().default("<leader>4").describe("Quick switch to session slot 4"),
-      session_quick_switch_5: z.string().optional().default("<leader>5").describe("Quick switch to session slot 5"),
-      session_quick_switch_6: z.string().optional().default("<leader>6").describe("Quick switch to session slot 6"),
-      session_quick_switch_7: z.string().optional().default("<leader>7").describe("Quick switch to session slot 7"),
-      session_quick_switch_8: z.string().optional().default("<leader>8").describe("Quick switch to session slot 8"),
-      session_quick_switch_9: z.string().optional().default("<leader>9").describe("Quick switch to session slot 9"),
-      stash_delete: z.string().optional().default("ctrl+d").describe("Delete stash entry"),
-      model_provider_list: z.string().optional().default("ctrl+a").describe("Open provider list from model dialog"),
-      model_favorite_toggle: z.string().optional().default("ctrl+f").describe("Toggle model favorite status"),
-      session_share: z.string().optional().default("none").describe("Share current session"),
-      session_unshare: z.string().optional().default("none").describe("Unshare current session"),
-      session_interrupt: z.string().optional().default("escape").describe("Interrupt current session"),
-      session_codebro_open: z.string().optional().default("<leader>i").describe("Open the Codebro dossier"),
+      leader: z
+        .string()
+        .optional()
+        .default("ctrl+x")
+        .describe("Leader key for keybind combinations"),
+      app_exit: z
+        .string()
+        .optional()
+        .default("ctrl+c,ctrl+d,<leader>q")
+        .describe("Exit the application"),
+      editor_open: z
+        .string()
+        .optional()
+        .default("<leader>e")
+        .describe("Open external editor"),
+      theme_list: z
+        .string()
+        .optional()
+        .default("<leader>t")
+        .describe("List available themes"),
+      sidebar_toggle: z
+        .string()
+        .optional()
+        .default("<leader>b")
+        .describe("Toggle sidebar"),
+      scrollbar_toggle: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Toggle session scrollbar"),
+      username_toggle: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Toggle username visibility"),
+      status_view: z
+        .string()
+        .optional()
+        .default("<leader>s")
+        .describe("View status"),
+      sync_view: z
+        .string()
+        .optional()
+        .default("<leader>y")
+        .describe("View sync status (sessions + workspace, hub remote)"),
+      session_export: z
+        .string()
+        .optional()
+        .default("<leader>x")
+        .describe("Export session to editor"),
+      session_new: z
+        .string()
+        .optional()
+        .default("<leader>n")
+        .describe("Create a new session"),
+      session_list: z
+        .string()
+        .optional()
+        .default("<leader>l")
+        .describe("List all sessions"),
+      session_timeline: z
+        .string()
+        .optional()
+        .default("<leader>g")
+        .describe("Show session timeline"),
+      session_fork: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Fork session from message"),
+      session_rename: z
+        .string()
+        .optional()
+        .default("ctrl+r")
+        .describe("Rename session"),
+      session_delete: z
+        .string()
+        .optional()
+        .default("ctrl+d")
+        .describe("Delete session"),
+      session_pin_toggle: z
+        .string()
+        .optional()
+        .default("<leader>p")
+        .describe("Toggle session pin"),
+      session_quick_switch_1: z
+        .string()
+        .optional()
+        .default("<leader>1")
+        .describe("Quick switch to session slot 1"),
+      session_quick_switch_2: z
+        .string()
+        .optional()
+        .default("<leader>2")
+        .describe("Quick switch to session slot 2"),
+      session_quick_switch_3: z
+        .string()
+        .optional()
+        .default("<leader>3")
+        .describe("Quick switch to session slot 3"),
+      session_quick_switch_4: z
+        .string()
+        .optional()
+        .default("<leader>4")
+        .describe("Quick switch to session slot 4"),
+      session_quick_switch_5: z
+        .string()
+        .optional()
+        .default("<leader>5")
+        .describe("Quick switch to session slot 5"),
+      session_quick_switch_6: z
+        .string()
+        .optional()
+        .default("<leader>6")
+        .describe("Quick switch to session slot 6"),
+      session_quick_switch_7: z
+        .string()
+        .optional()
+        .default("<leader>7")
+        .describe("Quick switch to session slot 7"),
+      session_quick_switch_8: z
+        .string()
+        .optional()
+        .default("<leader>8")
+        .describe("Quick switch to session slot 8"),
+      session_quick_switch_9: z
+        .string()
+        .optional()
+        .default("<leader>9")
+        .describe("Quick switch to session slot 9"),
+      stash_delete: z
+        .string()
+        .optional()
+        .default("ctrl+d")
+        .describe("Delete stash entry"),
+      model_provider_list: z
+        .string()
+        .optional()
+        .default("ctrl+a")
+        .describe("Open provider list from model dialog"),
+      model_favorite_toggle: z
+        .string()
+        .optional()
+        .default("ctrl+f")
+        .describe("Toggle model favorite status"),
+      session_share: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Share current session"),
+      session_unshare: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Unshare current session"),
+      session_interrupt: z
+        .string()
+        .optional()
+        .default("escape")
+        .describe("Interrupt current session"),
+      session_codebro_open: z
+        .string()
+        .optional()
+        .default("<leader>i")
+        .describe("Open the Codebro dossier"),
       subtask_background: z
         .string()
         .optional()
         .default("ctrl+b")
         .describe("Background current subtask and return to parent session"),
-      subtask_picker: z.string().optional().default("down").describe("Open background subtask picker"),
-      session_compact: z.string().optional().default("<leader>c").describe("Compact the session"),
-      messages_page_up: z.string().optional().default("pageup,ctrl+alt+b").describe("Scroll messages up by one page"),
+      subtask_picker: z
+        .string()
+        .optional()
+        .default("down")
+        .describe("Open background subtask picker"),
+      session_compact: z
+        .string()
+        .optional()
+        .default("<leader>c")
+        .describe("Compact the session"),
+      messages_page_up: z
+        .string()
+        .optional()
+        .default("pageup,ctrl+alt+b")
+        .describe("Scroll messages up by one page"),
       messages_page_down: z
         .string()
         .optional()
         .default("pagedown,ctrl+alt+f")
         .describe("Scroll messages down by one page"),
-      messages_line_up: z.string().optional().default("ctrl+alt+y").describe("Scroll messages up by one line"),
-      messages_line_down: z.string().optional().default("ctrl+alt+e").describe("Scroll messages down by one line"),
-      messages_half_page_up: z.string().optional().default("ctrl+alt+u").describe("Scroll messages up by half page"),
+      messages_line_up: z
+        .string()
+        .optional()
+        .default("ctrl+alt+y")
+        .describe("Scroll messages up by one line"),
+      messages_line_down: z
+        .string()
+        .optional()
+        .default("ctrl+alt+e")
+        .describe("Scroll messages down by one line"),
+      messages_half_page_up: z
+        .string()
+        .optional()
+        .default("ctrl+alt+u")
+        .describe("Scroll messages up by half page"),
       messages_half_page_down: z
         .string()
         .optional()
         .default("ctrl+alt+d")
         .describe("Scroll messages down by half page"),
-      messages_first: z.string().optional().default("ctrl+g,home").describe("Navigate to first message"),
-      messages_last: z.string().optional().default("ctrl+alt+g,end").describe("Navigate to last message"),
-      messages_next: z.string().optional().default("none").describe("Navigate to next message"),
-      messages_previous: z.string().optional().default("none").describe("Navigate to previous message"),
-      messages_last_user: z.string().optional().default("none").describe("Navigate to last user message"),
-      messages_copy: z.string().optional().default("<leader>y").describe("Copy message"),
-      messages_undo: z.string().optional().default("<leader>u").describe("Undo message"),
-      messages_redo: z.string().optional().default("<leader>r").describe("Redo message"),
+      messages_first: z
+        .string()
+        .optional()
+        .default("ctrl+g,home")
+        .describe("Navigate to first message"),
+      messages_last: z
+        .string()
+        .optional()
+        .default("ctrl+alt+g,end")
+        .describe("Navigate to last message"),
+      messages_next: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Navigate to next message"),
+      messages_previous: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Navigate to previous message"),
+      messages_last_user: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Navigate to last user message"),
+      messages_copy: z
+        .string()
+        .optional()
+        .default("<leader>y")
+        .describe("Copy message"),
+      messages_undo: z
+        .string()
+        .optional()
+        .default("<leader>u")
+        .describe("Undo message"),
+      messages_redo: z
+        .string()
+        .optional()
+        .default("<leader>r")
+        .describe("Redo message"),
       messages_toggle_conceal: z
         .string()
         .optional()
         .default("<leader>h")
         .describe("Toggle code block concealment in messages"),
-      tool_details: z.string().optional().default("none").describe("Toggle tool details visibility"),
-      model_list: z.string().optional().default("<leader>m").describe("List available models"),
-      model_cycle_recent: z.string().optional().default("f2").describe("Next recently used model"),
-      model_cycle_recent_reverse: z.string().optional().default("shift+f2").describe("Previous recently used model"),
-      model_cycle_favorite: z.string().optional().default("none").describe("Next favorite model"),
-      model_cycle_favorite_reverse: z.string().optional().default("none").describe("Previous favorite model"),
-      command_list: z.string().optional().default("ctrl+p").describe("List available commands"),
-      agent_list: z.string().optional().default("<leader>a").describe("List agents"),
+      tool_details: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Toggle tool details visibility"),
+      model_list: z
+        .string()
+        .optional()
+        .default("<leader>m")
+        .describe("List available models"),
+      model_cycle_recent: z
+        .string()
+        .optional()
+        .default("f2")
+        .describe("Next recently used model"),
+      model_cycle_recent_reverse: z
+        .string()
+        .optional()
+        .default("shift+f2")
+        .describe("Previous recently used model"),
+      model_cycle_favorite: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Next favorite model"),
+      model_cycle_favorite_reverse: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Previous favorite model"),
+      command_list: z
+        .string()
+        .optional()
+        .default("ctrl+p")
+        .describe("List available commands"),
+      agent_list: z
+        .string()
+        .optional()
+        .default("<leader>a")
+        .describe("List agents"),
       agent_cycle: z.string().optional().default("tab").describe("Next agent"),
-      agent_cycle_reverse: z.string().optional().default("shift+tab").describe("Previous agent"),
-      variant_cycle: z.string().optional().default("ctrl+t").describe("Cycle model variants"),
-      input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
-      input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
-      input_submit: z.string().optional().default("return").describe("Submit input"),
+      agent_cycle_reverse: z
+        .string()
+        .optional()
+        .default("shift+tab")
+        .describe("Previous agent"),
+      variant_cycle: z
+        .string()
+        .optional()
+        .default("ctrl+t")
+        .describe("Cycle model variants"),
+      input_clear: z
+        .string()
+        .optional()
+        .default("ctrl+c")
+        .describe("Clear input field"),
+      input_paste: z
+        .string()
+        .optional()
+        .default("ctrl+v")
+        .describe("Paste from clipboard"),
+      input_submit: z
+        .string()
+        .optional()
+        .default("return")
+        .describe("Submit input"),
       input_newline: z
         .string()
         .optional()
         .default("shift+return,ctrl+return,alt+return,ctrl+j")
         .describe("Insert newline in input"),
-      input_move_left: z.string().optional().default("left,ctrl+b").describe("Move cursor left in input"),
-      input_move_right: z.string().optional().default("right,ctrl+f").describe("Move cursor right in input"),
-      input_move_up: z.string().optional().default("up").describe("Move cursor up in input"),
-      input_move_down: z.string().optional().default("down").describe("Move cursor down in input"),
-      input_select_left: z.string().optional().default("shift+left").describe("Select left in input"),
-      input_select_right: z.string().optional().default("shift+right").describe("Select right in input"),
-      input_select_up: z.string().optional().default("shift+up").describe("Select up in input"),
-      input_select_down: z.string().optional().default("shift+down").describe("Select down in input"),
-      input_line_home: z.string().optional().default("ctrl+a").describe("Move to start of line in input"),
-      input_line_end: z.string().optional().default("ctrl+e").describe("Move to end of line in input"),
+      input_move_left: z
+        .string()
+        .optional()
+        .default("left,ctrl+b")
+        .describe("Move cursor left in input"),
+      input_move_right: z
+        .string()
+        .optional()
+        .default("right,ctrl+f")
+        .describe("Move cursor right in input"),
+      input_move_up: z
+        .string()
+        .optional()
+        .default("up")
+        .describe("Move cursor up in input"),
+      input_move_down: z
+        .string()
+        .optional()
+        .default("down")
+        .describe("Move cursor down in input"),
+      input_select_left: z
+        .string()
+        .optional()
+        .default("shift+left")
+        .describe("Select left in input"),
+      input_select_right: z
+        .string()
+        .optional()
+        .default("shift+right")
+        .describe("Select right in input"),
+      input_select_up: z
+        .string()
+        .optional()
+        .default("shift+up")
+        .describe("Select up in input"),
+      input_select_down: z
+        .string()
+        .optional()
+        .default("shift+down")
+        .describe("Select down in input"),
+      input_line_home: z
+        .string()
+        .optional()
+        .default("ctrl+a")
+        .describe("Move to start of line in input"),
+      input_line_end: z
+        .string()
+        .optional()
+        .default("ctrl+e")
+        .describe("Move to end of line in input"),
       input_select_line_home: z
         .string()
         .optional()
         .default("ctrl+shift+a")
         .describe("Select to start of line in input"),
-      input_select_line_end: z.string().optional().default("ctrl+shift+e").describe("Select to end of line in input"),
-      input_visual_line_home: z.string().optional().default("alt+a").describe("Move to start of visual line in input"),
-      input_visual_line_end: z.string().optional().default("alt+e").describe("Move to end of visual line in input"),
+      input_select_line_end: z
+        .string()
+        .optional()
+        .default("ctrl+shift+e")
+        .describe("Select to end of line in input"),
+      input_visual_line_home: z
+        .string()
+        .optional()
+        .default("alt+a")
+        .describe("Move to start of visual line in input"),
+      input_visual_line_end: z
+        .string()
+        .optional()
+        .default("alt+e")
+        .describe("Move to end of visual line in input"),
       input_select_visual_line_home: z
         .string()
         .optional()
@@ -1003,21 +1431,61 @@ export namespace Config {
         .optional()
         .default("alt+shift+e")
         .describe("Select to end of visual line in input"),
-      input_buffer_home: z.string().optional().default("home").describe("Move to start of buffer in input"),
-      input_buffer_end: z.string().optional().default("end").describe("Move to end of buffer in input"),
+      input_buffer_home: z
+        .string()
+        .optional()
+        .default("home")
+        .describe("Move to start of buffer in input"),
+      input_buffer_end: z
+        .string()
+        .optional()
+        .default("end")
+        .describe("Move to end of buffer in input"),
       input_select_buffer_home: z
         .string()
         .optional()
         .default("shift+home")
         .describe("Select to start of buffer in input"),
-      input_select_buffer_end: z.string().optional().default("shift+end").describe("Select to end of buffer in input"),
-      input_delete_line: z.string().optional().default("ctrl+shift+d").describe("Delete line in input"),
-      input_delete_to_line_end: z.string().optional().default("ctrl+k").describe("Delete to end of line in input"),
-      input_delete_to_line_start: z.string().optional().default("ctrl+u").describe("Delete to start of line in input"),
-      input_backspace: z.string().optional().default("backspace,shift+backspace").describe("Backspace in input"),
-      input_delete: z.string().optional().default("ctrl+d,delete,shift+delete").describe("Delete character in input"),
-      input_undo: z.string().optional().default("ctrl+-,super+z").describe("Undo in input"),
-      input_redo: z.string().optional().default("ctrl+.,super+shift+z").describe("Redo in input"),
+      input_select_buffer_end: z
+        .string()
+        .optional()
+        .default("shift+end")
+        .describe("Select to end of buffer in input"),
+      input_delete_line: z
+        .string()
+        .optional()
+        .default("ctrl+shift+d")
+        .describe("Delete line in input"),
+      input_delete_to_line_end: z
+        .string()
+        .optional()
+        .default("ctrl+k")
+        .describe("Delete to end of line in input"),
+      input_delete_to_line_start: z
+        .string()
+        .optional()
+        .default("ctrl+u")
+        .describe("Delete to start of line in input"),
+      input_backspace: z
+        .string()
+        .optional()
+        .default("backspace,shift+backspace")
+        .describe("Backspace in input"),
+      input_delete: z
+        .string()
+        .optional()
+        .default("ctrl+d,delete,shift+delete")
+        .describe("Delete character in input"),
+      input_undo: z
+        .string()
+        .optional()
+        .default("ctrl+-,super+z")
+        .describe("Undo in input"),
+      input_redo: z
+        .string()
+        .optional()
+        .default("ctrl+.,super+shift+z")
+        .describe("Redo in input"),
       input_word_forward: z
         .string()
         .optional()
@@ -1048,25 +1516,69 @@ export namespace Config {
         .optional()
         .default("ctrl+w,ctrl+backspace,alt+backspace")
         .describe("Delete word backward in input"),
-      history_previous: z.string().optional().default("up").describe("Previous history item"),
-      history_next: z.string().optional().default("down").describe("Next history item"),
-      session_child_cycle: z.string().optional().default("<leader>right").describe("Next child session"),
-      session_child_cycle_reverse: z.string().optional().default("<leader>left").describe("Previous child session"),
+      history_previous: z
+        .string()
+        .optional()
+        .default("up")
+        .describe("Previous history item"),
+      history_next: z
+        .string()
+        .optional()
+        .default("down")
+        .describe("Next history item"),
+      session_child_cycle: z
+        .string()
+        .optional()
+        .default("<leader>right")
+        .describe("Next child session"),
+      session_child_cycle_reverse: z
+        .string()
+        .optional()
+        .default("<leader>left")
+        .describe("Previous child session"),
       // NOTE: for subtasks we prefer `subtask_background` (ctrl+b) which also
       // adds the child back to the background list. Keep this bound to ctrl+b
       // so "Parent" in subagent sessions matches the behavior users expect.
-      session_parent: z.string().optional().default("ctrl+b").describe("Go to parent session"),
-      session_child_close: z.string().optional().default("<leader>c").describe("Close subagent session"),
-      terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
-      terminal_title_toggle: z.string().optional().default("none").describe("Toggle terminal title"),
-      tips_toggle: z.string().optional().default("<leader>h").describe("Toggle tips on home screen"),
-      voice_record: z.string().optional().default("ctrl+alt+v").describe("Toggle voice recording (push to talk)"),
-      app_support: z.string().optional().default("<leader>z").describe("Open the support assistant dialog"),
+      session_parent: z
+        .string()
+        .optional()
+        .default("ctrl+b")
+        .describe("Go to parent session"),
+      session_child_close: z
+        .string()
+        .optional()
+        .default("<leader>c")
+        .describe("Close subagent session"),
+      terminal_suspend: z
+        .string()
+        .optional()
+        .default("ctrl+z")
+        .describe("Suspend terminal"),
+      terminal_title_toggle: z
+        .string()
+        .optional()
+        .default("none")
+        .describe("Toggle terminal title"),
+      tips_toggle: z
+        .string()
+        .optional()
+        .default("<leader>h")
+        .describe("Toggle tips on home screen"),
+      voice_record: z
+        .string()
+        .optional()
+        .default("ctrl+alt+v")
+        .describe("Toggle voice recording (push to talk)"),
+      app_support: z
+        .string()
+        .optional()
+        .default("<leader>z")
+        .describe("Open the support assistant dialog"),
     })
     .strict()
     .meta({
       ref: "KeybindsConfig",
-    })
+    });
 
   export const TUI = z.object({
     scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
@@ -1079,53 +1591,89 @@ export namespace Config {
     diff_style: z
       .enum(["auto", "stacked"])
       .optional()
-      .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
-    mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
-    sound: z.boolean().optional().describe("Enable or disable ambient sound feedback (default: true)"),
-    bg_pulse: z.boolean().optional().describe("Enable animated background pulse behind the home logo (default: false)"),
-  })
+      .describe(
+        "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column",
+      ),
+    mouse: z
+      .boolean()
+      .optional()
+      .describe("Enable or disable mouse capture (default: true)"),
+    sound: z
+      .boolean()
+      .optional()
+      .describe("Enable or disable ambient sound feedback (default: true)"),
+    bg_pulse: z
+      .boolean()
+      .optional()
+      .describe(
+        "Enable animated background pulse behind the home logo (default: false)",
+      ),
+  });
 
   export const AdsItem = z
     .object({
       id: z.string().describe("Unique ad identifier"),
       text: z.string().describe("Ad message text"),
-      url: z.string().url().optional().describe("Optional URL to show with the ad"),
+      url: z
+        .string()
+        .url()
+        .optional()
+        .describe("Optional URL to show with the ad"),
       enabled: z.boolean().optional().describe("Enable this ad"),
     })
     .strict()
     .meta({
       ref: "AdsItemConfig",
-    })
-  export type AdsItem = z.infer<typeof AdsItem>
+    });
+  export type AdsItem = z.infer<typeof AdsItem>;
 
   export const Ads = z
     .object({
       enabled: z.boolean().optional().describe("Enable ads in the TUI"),
-      ratio: z.number().min(0).max(1).optional().describe("Chance to show an ad instead of a tip (0-1)"),
+      ratio: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Chance to show an ad instead of a tip (0-1)"),
       items: z.array(AdsItem).optional().describe("User-defined ads"),
     })
     .strict()
     .meta({
       ref: "AdsConfig",
-    })
-  export type Ads = z.infer<typeof Ads>
+    });
+  export type Ads = z.infer<typeof Ads>;
 
   export const Server = z
     .object({
-      port: z.number().int().positive().optional().describe("Port to listen on"),
+      port: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Port to listen on"),
       hostname: z.string().optional().describe("Hostname to listen on"),
       mdns: z.boolean().optional().describe("Enable mDNS service discovery"),
-      cors: z.array(z.string()).optional().describe("Additional domains to allow for CORS"),
+      cors: z
+        .array(z.string())
+        .optional()
+        .describe("Additional domains to allow for CORS"),
     })
     .strict()
     .meta({
       ref: "ServerConfig",
-    })
+    });
 
   export const Remote = z
     .object({
-      enabled: z.boolean().optional().describe("Enable Remote Control automatically for all TUI sessions"),
-      enableTunnel: z.boolean().optional().describe("Enable public tunnel by default for Remote Control"),
+      enabled: z
+        .boolean()
+        .optional()
+        .describe("Enable Remote Control automatically for all TUI sessions"),
+      enableTunnel: z
+        .boolean()
+        .optional()
+        .describe("Enable public tunnel by default for Remote Control"),
       provider: z
         .enum(["localtunnel", "cloudflared", "ngrok", "remotosh", "none"])
         .optional()
@@ -1133,40 +1681,56 @@ export namespace Config {
       askOnExistingSession: z
         .boolean()
         .optional()
-        .describe("Prompt to continue existing remote session or start a new one"),
+        .describe(
+          "Prompt to continue existing remote session or start a new one",
+        ),
     })
     .strict()
     .meta({
       ref: "RemoteConfig",
-    })
-  export type Remote = z.infer<typeof Remote>
+    });
+  export type Remote = z.infer<typeof Remote>;
 
   export const Teleport = z
     .object({
-      url: z.string().optional().describe("Last used teleport server base URL (e.g. a Railway deploy)"),
-      token: z.string().optional().describe("Last used teleport mobile Bearer token"),
+      url: z
+        .string()
+        .optional()
+        .describe("Last used teleport server base URL (e.g. a Railway deploy)"),
+      token: z
+        .string()
+        .optional()
+        .describe("Last used teleport mobile Bearer token"),
     })
     .strict()
     .meta({
       ref: "TeleportConfig",
-    })
-  export type Teleport = z.infer<typeof Teleport>
+    });
+  export type Teleport = z.infer<typeof Teleport>;
 
   export const Layout = z.enum(["auto", "stretch"]).meta({
     ref: "LayoutConfig",
-  })
-  export type Layout = z.infer<typeof Layout>
+  });
+  export type Layout = z.infer<typeof Layout>;
 
   export const Rag = z
     .object({
-      model: z.string().optional().describe("Embedding model for RAG (e.g., nvidia/llama-embed-nemotron-8b)"),
-      provider: z.string().optional().describe("Provider for RAG embeddings (defaults to nvidia)"),
+      model: z
+        .string()
+        .optional()
+        .describe(
+          "Embedding model for RAG (e.g., nvidia/llama-embed-nemotron-8b)",
+        ),
+      provider: z
+        .string()
+        .optional()
+        .describe("Provider for RAG embeddings (defaults to nvidia)"),
     })
     .strict()
     .meta({
       ref: "RagConfig",
-    })
-  export type Rag = z.infer<typeof Rag>
+    });
+  export type Rag = z.infer<typeof Rag>;
 
   export const Image = z
     .object({
@@ -1186,8 +1750,8 @@ export namespace Config {
     .strict()
     .meta({
       ref: "ImageConfig",
-    })
-  export type Image = z.infer<typeof Image>
+    });
+  export type Image = z.infer<typeof Image>;
 
   export const BrowserUse = z
     .object({
@@ -1202,13 +1766,15 @@ export namespace Config {
         .positive()
         .max(100)
         .optional()
-        .describe("Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one."),
+        .describe(
+          "Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one.",
+        ),
     })
     .strict()
     .meta({
       ref: "BrowserUseConfig",
-    })
-  export type BrowserUse = z.infer<typeof BrowserUse>
+    });
+  export type BrowserUse = z.infer<typeof BrowserUse>;
 
   export const Computer = z
     .object({
@@ -1218,14 +1784,24 @@ export namespace Config {
         .describe(
           "Where the `computer` tool runs. 'sandbox' (default) drives an isolated background Linux desktop container and never touches your screen; 'host' drives your real machine in real time.",
         ),
-      width: z.number().int().positive().optional().describe("Sandbox desktop width in pixels (default 1280)."),
-      height: z.number().int().positive().optional().describe("Sandbox desktop height in pixels (default 800)."),
+      width: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Sandbox desktop width in pixels (default 1280)."),
+      height: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Sandbox desktop height in pixels (default 800)."),
     })
     .strict()
     .meta({
       ref: "ComputerConfig",
-    })
-  export type Computer = z.infer<typeof Computer>
+    });
+  export type Computer = z.infer<typeof Computer>;
 
   export const Attachment = z
     .object({
@@ -1234,9 +1810,21 @@ export namespace Config {
           auto_resize: z
             .boolean()
             .optional()
-            .describe("Automatically downscale/re-encode images that exceed the configured limits"),
-          max_width: z.number().int().positive().optional().describe("Maximum image width in pixels"),
-          max_height: z.number().int().positive().optional().describe("Maximum image height in pixels"),
+            .describe(
+              "Automatically downscale/re-encode images that exceed the configured limits",
+            ),
+          max_width: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Maximum image width in pixels"),
+          max_height: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Maximum image height in pixels"),
           max_base64_bytes: z
             .number()
             .int()
@@ -1251,21 +1839,35 @@ export namespace Config {
     .strict()
     .meta({
       ref: "AttachmentConfig",
-    })
-  export type Attachment = z.infer<typeof Attachment>
+    });
+  export type Attachment = z.infer<typeof Attachment>;
 
   export const Speak = z
     .object({
-      provider: z.string().optional().describe("TTS provider (e.g., elevenlabs, openrouter)"),
-      model: z.string().optional().describe("TTS voice ID (e.g., ElevenLabs voice ID, OpenRouter voice name)"),
-      modelId: z.string().optional().describe("TTS model ID (e.g., eleven_v3, openai/gpt-audio-mini)"),
-      outputFormat: z.string().optional().describe("TTS output format (e.g., mp3_44100_128, mp3, wav)"),
+      provider: z
+        .string()
+        .optional()
+        .describe("TTS provider (e.g., elevenlabs, openrouter)"),
+      model: z
+        .string()
+        .optional()
+        .describe(
+          "TTS voice ID (e.g., ElevenLabs voice ID, OpenRouter voice name)",
+        ),
+      modelId: z
+        .string()
+        .optional()
+        .describe("TTS model ID (e.g., eleven_v3, openai/gpt-audio-mini)"),
+      outputFormat: z
+        .string()
+        .optional()
+        .describe("TTS output format (e.g., mp3_44100_128, mp3, wav)"),
     })
     .strict()
     .meta({
       ref: "SpeakConfig",
-    })
-  export type Speak = z.infer<typeof Speak>
+    });
+  export type Speak = z.infer<typeof Speak>;
 
   export const Provider = ModelsDev.Provider.partial()
     .extend({
@@ -1280,7 +1882,10 @@ export namespace Config {
                 z.string(),
                 z
                   .object({
-                    disabled: z.boolean().optional().describe("Disable this variant for the model"),
+                    disabled: z
+                      .boolean()
+                      .optional()
+                      .describe("Disable this variant for the model"),
                   })
                   .catchall(z.any()),
               )
@@ -1293,8 +1898,16 @@ export namespace Config {
         .object({
           apiKey: z.string().optional(),
           baseURL: z.string().optional(),
-          enterpriseUrl: z.string().optional().describe("GitHub Enterprise URL for copilot authentication"),
-          setCacheKey: z.boolean().optional().describe("Enable promptCacheKey for this provider (default false)"),
+          enterpriseUrl: z
+            .string()
+            .optional()
+            .describe("GitHub Enterprise URL for copilot authentication"),
+          setCacheKey: z
+            .boolean()
+            .optional()
+            .describe(
+              "Enable promptCacheKey for this provider (default false)",
+            ),
           timeout: z
             .union([
               z
@@ -1304,7 +1917,9 @@ export namespace Config {
                 .describe(
                   "Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.",
                 ),
-              z.literal(false).describe("Disable timeout for this provider entirely."),
+              z
+                .literal(false)
+                .describe("Disable timeout for this provider entirely."),
             ])
             .optional()
             .describe(
@@ -1319,7 +1934,9 @@ export namespace Config {
                 .describe(
                   "Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.",
                 ),
-              z.literal(false).describe("Disable response header timeout for this provider."),
+              z
+                .literal(false)
+                .describe("Disable response header timeout for this provider."),
             ])
             .optional()
             .describe(
@@ -1340,21 +1957,53 @@ export namespace Config {
     .strict()
     .meta({
       ref: "ProviderConfig",
-    })
-  export type Provider = z.infer<typeof Provider>
+    });
+  export type Provider = z.infer<typeof Provider>;
 
   export const Info = z
     .object({
-      $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
-      theme: z.string().optional().describe("Theme name to use for the interface"),
+      $schema: z
+        .string()
+        .optional()
+        .describe("JSON schema reference for configuration validation"),
+      theme: z
+        .string()
+        .optional()
+        .describe("Theme name to use for the interface"),
       locale: z
         .object({
-          language: z.string().optional().describe("UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'"),
-          region: z.string().optional().describe("ISO-3166 country code, e.g. 'IT', 'US'"),
-          locale: z.string().optional().describe("Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set"),
-          timezone: z.string().optional().describe("IANA timezone, e.g. 'Europe/Rome'"),
-          currency: z.string().optional().describe("ISO-4217 currency code, e.g. 'EUR'; defaults from region"),
-          autoDetect: z.boolean().optional().describe("Auto-detect locale from environment and system (default true)"),
+          language: z
+            .string()
+            .optional()
+            .describe(
+              "UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'",
+            ),
+          region: z
+            .string()
+            .optional()
+            .describe("ISO-3166 country code, e.g. 'IT', 'US'"),
+          locale: z
+            .string()
+            .optional()
+            .describe(
+              "Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set",
+            ),
+          timezone: z
+            .string()
+            .optional()
+            .describe("IANA timezone, e.g. 'Europe/Rome'"),
+          currency: z
+            .string()
+            .optional()
+            .describe(
+              "ISO-4217 currency code, e.g. 'EUR'; defaults from region",
+            ),
+          autoDetect: z
+            .boolean()
+            .optional()
+            .describe(
+              "Auto-detect locale from environment and system (default true)",
+            ),
           replyLanguage: z
             .union([z.boolean(), z.string()])
             .optional()
@@ -1363,22 +2012,36 @@ export namespace Config {
             ),
         })
         .optional()
-        .describe("Localization: UI language, region, formatting, and model reply language"),
+        .describe(
+          "Localization: UI language, region, formatting, and model reply language",
+        ),
       keybinds: Keybinds.optional().describe("Custom keybind configurations"),
       logLevel: Log.Level.optional().describe("Log level"),
       tui: TUI.optional().describe("TUI specific settings"),
-      ads: Ads.optional().describe("User-defined ads shown in the TUI tips area"),
-      server: Server.optional().describe("Server configuration for nikcli serve and web commands"),
-      remote: Remote.optional().describe("Remote Control defaults and behavior"),
-      teleport: Teleport.optional().describe("Teleport server defaults for sending sessions to a remote server"),
+      ads: Ads.optional().describe(
+        "User-defined ads shown in the TUI tips area",
+      ),
+      server: Server.optional().describe(
+        "Server configuration for nikcli serve and web commands",
+      ),
+      remote: Remote.optional().describe(
+        "Remote Control defaults and behavior",
+      ),
+      teleport: Teleport.optional().describe(
+        "Teleport server defaults for sending sessions to a remote server",
+      ),
       command: z
         .record(z.string(), Command)
         .optional()
-        .describe("Command configuration, see https://nikcli.store/docs/commands"),
+        .describe(
+          "Command configuration, see https://nikcli.store/docs/commands",
+        ),
       reference: z
         .record(z.string(), Reference)
         .optional()
-        .describe("Named external repositories or local directories exposed as read-only reference agents."),
+        .describe(
+          "Named external repositories or local directories exposed as read-only reference agents.",
+        ),
       watcher: z
         .object({
           ignore: z.array(z.string()).optional(),
@@ -1395,22 +2058,36 @@ export namespace Config {
       autoshare: z
         .boolean()
         .optional()
-        .describe("@deprecated Use 'share' field instead. Share newly created sessions automatically"),
+        .describe(
+          "@deprecated Use 'share' field instead. Share newly created sessions automatically",
+        ),
       autoupdate: z
         .union([z.boolean(), z.literal("notify")])
         .optional()
         .describe(
           "Automatically update to the latest version. Set to true to auto-update, false to disable, or 'notify' to show update notifications",
         ),
-      disabled_providers: z.array(z.string()).optional().describe("Disable providers that are loaded automatically"),
+      disabled_providers: z
+        .array(z.string())
+        .optional()
+        .describe("Disable providers that are loaded automatically"),
       enabled_providers: z
         .array(z.string())
         .optional()
-        .describe("When set, ONLY these providers will be enabled. All other providers will be ignored"),
-      model: z.string().describe("Model to use in the format of provider/model, eg anthropic/claude-2").optional(),
+        .describe(
+          "When set, ONLY these providers will be enabled. All other providers will be ignored",
+        ),
+      model: z
+        .string()
+        .describe(
+          "Model to use in the format of provider/model, eg anthropic/claude-2",
+        )
+        .optional(),
       small_model: z
         .string()
-        .describe("Small model to use for tasks like title generation in the format of provider/model")
+        .describe(
+          "Small model to use for tasks like title generation in the format of provider/model",
+        )
         .optional(),
       default_agent: z
         .string()
@@ -1421,7 +2098,9 @@ export namespace Config {
       username: z
         .string()
         .optional()
-        .describe("Custom username to display in conversations instead of system username"),
+        .describe(
+          "Custom username to display in conversations instead of system username",
+        ),
       mode: z
         .object({
           build: Agent.optional(),
@@ -1478,7 +2157,9 @@ export namespace Config {
           ]),
         )
         .optional()
-        .describe("External service connectors (Figma, Slack, GitHub, Lovable)"),
+        .describe(
+          "External service connectors (Figma, Slack, GitHub, Lovable)",
+        ),
       formatter: z
         .union([
           z.literal(false),
@@ -1515,22 +2196,29 @@ export namespace Config {
         .optional()
         .refine(
           (data) => {
-            if (!data) return true
-            if (typeof data === "boolean") return true
-            const serverIds = new Set(Object.values(LSPServer).map((s) => s.id))
+            if (!data) return true;
+            if (typeof data === "boolean") return true;
+            const serverIds = new Set(
+              Object.values(LSPServer).map((s) => s.id),
+            );
 
             return Object.entries(data).every(([id, config]) => {
-              if (config.disabled) return true
-              if (serverIds.has(id)) return true
-              return Boolean(config.extensions)
-            })
+              if (config.disabled) return true;
+              if (serverIds.has(id)) return true;
+              return Boolean(config.extensions);
+            });
           },
           {
             error: "For custom LSP servers, 'extensions' array is required.",
           },
         ),
-      instructions: z.array(z.string()).optional().describe("Additional instruction files or patterns to include"),
-      layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
+      instructions: z
+        .array(z.string())
+        .optional()
+        .describe("Additional instruction files or patterns to include"),
+      layout: Layout.optional().describe(
+        "@deprecated Always uses stretch layout.",
+      ),
       permission: Permission.optional(),
       tools: z.record(z.string(), z.boolean()).optional(),
       enterprise: z
@@ -1540,14 +2228,24 @@ export namespace Config {
         .optional(),
       compaction: z
         .object({
-          auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),
-          prune: z.boolean().optional().describe("Enable pruning of old tool outputs (default: true)"),
+          auto: z
+            .boolean()
+            .optional()
+            .describe(
+              "Enable automatic compaction when context is full (default: true)",
+            ),
+          prune: z
+            .boolean()
+            .optional()
+            .describe("Enable pruning of old tool outputs (default: true)"),
           reserved: z
             .number()
             .int()
             .min(0)
             .optional()
-            .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
+            .describe(
+              "Token buffer for compaction. Leaves enough window to avoid overflow during compaction.",
+            ),
         })
         .optional(),
       experimental: z
@@ -1574,7 +2272,10 @@ export namespace Config {
                 .optional(),
             })
             .optional(),
-          chatMaxRetries: z.number().optional().describe("Number of retries for chat completions on failure"),
+          chatMaxRetries: z
+            .number()
+            .optional()
+            .describe("Number of retries for chat completions on failure"),
           disable_paste_summary: z.boolean().optional(),
           batch_tool: z.boolean().optional().describe("Enable the batch tool"),
           openTelemetry: z
@@ -1587,8 +2288,14 @@ export namespace Config {
             .array(z.string())
             .optional()
             .describe("Tools that should only be available to primary agents."),
-          continue_loop_on_deny: z.boolean().optional().describe("Continue the agent loop when a tool call is denied"),
-          brain: z.boolean().optional().describe("Enable automatic memory consolidation (brain) feature"),
+          continue_loop_on_deny: z
+            .boolean()
+            .optional()
+            .describe("Continue the agent loop when a tool call is denied"),
+          brain: z
+            .boolean()
+            .optional()
+            .describe("Enable automatic memory consolidation (brain) feature"),
           brainMinHours: z
             .number()
             .int()
@@ -1600,20 +2307,27 @@ export namespace Config {
             .int()
             .positive()
             .optional()
-            .describe("Minimum number of sessions to trigger brain consolidation"),
+            .describe(
+              "Minimum number of sessions to trigger brain consolidation",
+            ),
           brainModel: z
             .string()
             .optional()
             .describe(
               "Model to use for the Brain memory consolidation session in the format of provider/model, e.g. anthropic/claude-sonnet-4-5. Falls back to the default model when unset.",
             ),
-          memory: z.boolean().optional().describe("Enable memory file support for session context"),
+          memory: z
+            .boolean()
+            .optional()
+            .describe("Enable memory file support for session context"),
           mcp_timeout: z
             .number()
             .int()
             .positive()
             .optional()
-            .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+            .describe(
+              "Timeout in milliseconds for model context protocol (MCP) requests",
+            ),
           nativeLlm: z
             .boolean()
             .optional()
@@ -1635,67 +2349,125 @@ export namespace Config {
               latestOnlyLspRefresh: z
                 .boolean()
                 .optional()
-                .describe("Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off."),
+                .describe(
+                  "Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.",
+                ),
             })
             .optional(),
         })
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
-      browser: BrowserUse.optional().describe("Browser Use (browser tool) configuration"),
-      computer: Computer.optional().describe("Computer use (computer tool) configuration"),
-      attachment: Attachment.optional().describe("Attachment handling configuration"),
+      browser: BrowserUse.optional().describe(
+        "Browser Use (browser tool) configuration",
+      ),
+      computer: Computer.optional().describe(
+        "Computer use (computer tool) configuration",
+      ),
+      attachment: Attachment.optional().describe(
+        "Attachment handling configuration",
+      ),
       speak: Speak.optional().describe("Text-to-speech configuration"),
       notifications: z
         .object({
           todo: z
             .object({
-              enabled: z.boolean().optional().describe("Enable todo notifications"),
-              macos: z.boolean().optional().describe("Enable macOS native notifications"),
+              enabled: z
+                .boolean()
+                .optional()
+                .describe("Enable todo notifications"),
+              macos: z
+                .boolean()
+                .optional()
+                .describe("Enable macOS native notifications"),
               slack: z
                 .object({
                   enabled: z.boolean().optional(),
-                  connector: z.string().optional().describe("Name of the Slack connector to use"),
-                  channel: z.string().optional().describe("Slack channel ID or name"),
+                  connector: z
+                    .string()
+                    .optional()
+                    .describe("Name of the Slack connector to use"),
+                  channel: z
+                    .string()
+                    .optional()
+                    .describe("Slack channel ID or name"),
                 })
                 .optional(),
               discord: z
                 .object({
                   enabled: z.boolean().optional(),
-                  webhook: z.string().optional().describe("Discord webhook URL"),
+                  webhook: z
+                    .string()
+                    .optional()
+                    .describe("Discord webhook URL"),
                 })
                 .optional(),
             })
             .optional(),
           icon: z
             .object({
-              url: z.string().optional().describe("Icon image URL or file path for macOS notifications"),
-              alt: z.string().optional().describe("Alt text (unused for macOS)"),
+              url: z
+                .string()
+                .optional()
+                .describe(
+                  "Icon image URL or file path for macOS notifications",
+                ),
+              alt: z
+                .string()
+                .optional()
+                .describe("Alt text (unused for macOS)"),
             })
             .optional(),
           notify: z
             .object({
-              enabled: z.boolean().optional().describe("Enable native notifications"),
-              macos: z.boolean().optional().describe("Enable macOS native notifications"),
+              enabled: z
+                .boolean()
+                .optional()
+                .describe("Enable native notifications"),
+              macos: z
+                .boolean()
+                .optional()
+                .describe("Enable macOS native notifications"),
               slack: z
                 .object({
                   enabled: z.boolean().optional(),
-                  connector: z.string().optional().describe("Name of the Slack connector to use"),
-                  channel: z.string().optional().describe("Slack channel ID or name"),
+                  connector: z
+                    .string()
+                    .optional()
+                    .describe("Name of the Slack connector to use"),
+                  channel: z
+                    .string()
+                    .optional()
+                    .describe("Slack channel ID or name"),
                 })
                 .optional(),
               discord: z
                 .object({
                   enabled: z.boolean().optional(),
-                  webhook: z.string().optional().describe("Discord webhook URL"),
+                  webhook: z
+                    .string()
+                    .optional()
+                    .describe("Discord webhook URL"),
                 })
                 .optional(),
               events: z
                 .object({
-                  sessionIdle: z.boolean().optional().describe("Notify when a session becomes idle"),
-                  sessionError: z.boolean().optional().describe("Notify when a session errors"),
-                  permissionAsked: z.boolean().optional().describe("Notify when permissions are requested"),
-                  questionAsked: z.boolean().optional().describe("Notify when questions are asked"),
+                  sessionIdle: z
+                    .boolean()
+                    .optional()
+                    .describe("Notify when a session becomes idle"),
+                  sessionError: z
+                    .boolean()
+                    .optional()
+                    .describe("Notify when a session errors"),
+                  permissionAsked: z
+                    .boolean()
+                    .optional()
+                    .describe("Notify when permissions are requested"),
+                  questionAsked: z
+                    .boolean()
+                    .optional()
+                    .describe("Notify when questions are asked"),
                 })
                 .optional(),
               idleMinMs: z
@@ -1706,30 +2478,78 @@ export namespace Config {
                 .describe("Minimum busy duration before idle notifications"),
               rateLimit: z
                 .object({
-                  windowMs: z.number().int().positive().optional().describe("Rate limit window in ms"),
-                  maxPerWindow: z.number().int().positive().optional().describe("Max notifications per window"),
+                  windowMs: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Rate limit window in ms"),
+                  maxPerWindow: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Max notifications per window"),
                 })
                 .optional(),
               retry: z
                 .object({
                   attempts: z.number().int().positive().optional(),
-                  delay: z.number().int().positive().optional().describe("Initial retry delay in ms"),
-                  factor: z.number().positive().optional().describe("Backoff multiplier"),
-                  maxDelay: z.number().int().positive().optional().describe("Max retry delay in ms"),
-                  timeoutMs: z.number().int().positive().optional().describe("Timeout per attempt in ms"),
+                  delay: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Initial retry delay in ms"),
+                  factor: z
+                    .number()
+                    .positive()
+                    .optional()
+                    .describe("Backoff multiplier"),
+                  maxDelay: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Max retry delay in ms"),
+                  timeoutMs: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Timeout per attempt in ms"),
                 })
                 .optional(),
               breaker: z
                 .object({
-                  failures: z.number().int().positive().optional().describe("Failures before circuit opens"),
-                  cooldownMs: z.number().int().positive().optional().describe("Circuit breaker cooldown in ms"),
+                  failures: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Failures before circuit opens"),
+                  cooldownMs: z
+                    .number()
+                    .int()
+                    .positive()
+                    .optional()
+                    .describe("Circuit breaker cooldown in ms"),
                 })
                 .optional(),
               quietHours: z
                 .object({
-                  enabled: z.boolean().optional().describe("Enable quiet hours"),
-                  start: z.string().optional().describe("Quiet hours start (HH:MM)"),
-                  end: z.string().optional().describe("Quiet hours end (HH:MM)"),
+                  enabled: z
+                    .boolean()
+                    .optional()
+                    .describe("Enable quiet hours"),
+                  start: z
+                    .string()
+                    .optional()
+                    .describe("Quiet hours start (HH:MM)"),
+                  end: z
+                    .string()
+                    .optional()
+                    .describe("Quiet hours end (HH:MM)"),
                   suppress: z
                     .array(z.enum(["macos", "slack", "discord"]))
                     .optional()
@@ -1745,14 +2565,26 @@ export namespace Config {
         .object({
           tophat: z
             .object({
-              enabled: z.boolean().optional().describe("Enable Tophat integration"),
-              cliPath: z.string().optional().describe("Custom path to tophatctl binary"),
-              defaultPlatform: z.enum(["ios", "android"]).optional().describe("Default target platform"),
+              enabled: z
+                .boolean()
+                .optional()
+                .describe("Enable Tophat integration"),
+              cliPath: z
+                .string()
+                .optional()
+                .describe("Custom path to tophatctl binary"),
+              defaultPlatform: z
+                .enum(["ios", "android"])
+                .optional()
+                .describe("Default target platform"),
               defaultDestination: z
                 .enum(["device", "simulator", "emulator"])
                 .optional()
                 .describe("Default install destination"),
-              autoDetect: z.boolean().optional().describe("Auto-detect mobile projects (default: true)"),
+              autoDetect: z
+                .boolean()
+                .optional()
+                .describe("Auto-detect mobile projects (default: true)"),
             })
             .strict()
             .optional(),
@@ -1764,24 +2596,27 @@ export namespace Config {
     .strict()
     .meta({
       ref: "Config",
-    })
+    });
 
-  export type Info = z.output<typeof Info>
+  export type Info = z.output<typeof Info>;
 
   async function global() {
-    return await loadFile(path.join(Global.Path.config, "nikcli.json"))
+    return await loadFile(path.join(Global.Path.config, "nikcli.json"));
   }
 
-  async function loadFile(filepath: string, env: Record<string, string> = {}): Promise<Info> {
-    log.info("loading", { path: filepath })
+  async function loadFile(
+    filepath: string,
+    env: Record<string, string> = {},
+  ): Promise<Info> {
+    log.info("loading", { path: filepath });
     let text = await Bun.file(filepath)
       .text()
       .catch((err) => {
-        if (err.code === "ENOENT") return
-        throw Object.assign(new JsonError({ path: filepath }), { cause: err })
-      })
-    if (!text) return {}
-    return load(text, filepath, env)
+        if (err.code === "ENOENT") return;
+        throw Object.assign(new JsonError({ path: filepath }), { cause: err });
+      });
+    if (!text) return {};
+    return load(text, filepath, env);
   }
 
   async function load(
@@ -1791,31 +2626,35 @@ export namespace Config {
     allowProcessEnv = true,
     allowFileRefs = true,
   ) {
-    const original = text
+    const original = text;
     text = text.replace(/\{env:([^}]+)\}/g, (_, varName) => {
-      return env[varName] ?? (allowProcessEnv ? (process.env[varName] ?? "") : "")
-    })
+      return (
+        env[varName] ?? (allowProcessEnv ? (process.env[varName] ?? "") : "")
+      );
+    });
 
-    const fileMatches = text.match(/\{file:[^}]+\}/g)
+    const fileMatches = text.match(/\{file:[^}]+\}/g);
     if (allowFileRefs && fileMatches) {
-      const configDir = path.dirname(configFilepath)
-      const lines = text.split("\n")
+      const configDir = path.dirname(configFilepath);
+      const lines = text.split("\n");
 
       for (const match of fileMatches) {
-        const lineIndex = lines.findIndex((line) => line.includes(match))
+        const lineIndex = lines.findIndex((line) => line.includes(match));
         if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) {
-          continue // Skip if line is commented
+          continue; // Skip if line is commented
         }
-        let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
+        let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "");
         if (filePath.startsWith("~/")) {
-          filePath = path.join(os.homedir(), filePath.slice(2))
+          filePath = path.join(os.homedir(), filePath.slice(2));
         }
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
+        const resolvedPath = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(configDir, filePath);
         const fileContent = (
           await Bun.file(resolvedPath)
             .text()
             .catch((error) => {
-              const errMsg = `bad file reference: "${match}"`
+              const errMsg = `bad file reference: "${match}"`;
               if (error.code === "ENOENT") {
                 throw Object.assign(
                   new InvalidError({
@@ -1823,93 +2662,104 @@ export namespace Config {
                     message: errMsg + ` ${resolvedPath} does not exist`,
                   }),
                   { cause: error },
-                )
+                );
               }
-              throw Object.assign(new InvalidError({ path: configFilepath, message: errMsg }), { cause: error })
+              throw Object.assign(
+                new InvalidError({ path: configFilepath, message: errMsg }),
+                { cause: error },
+              );
             })
-        ).trim()
+        ).trim();
         // escape newlines/quotes, strip outer quotes
-        text = text.replace(match, JSON.stringify(fileContent).slice(1, -1))
+        text = text.replace(match, JSON.stringify(fileContent).slice(1, -1));
       }
     }
 
-    const errors: JsoncParseError[] = []
-    const data = parseJsonc(text, errors, { allowTrailingComma: true })
+    const errors: JsoncParseError[] = [];
+    const data = parseJsonc(text, errors, { allowTrailingComma: true });
     if (errors.length) {
-      const lines = text.split("\n")
+      const lines = text.split("\n");
       const errorDetails = errors
         .map((e) => {
-          const beforeOffset = text.substring(0, e.offset).split("\n")
-          const line = beforeOffset.length
-          const column = beforeOffset[beforeOffset.length - 1].length + 1
-          const problemLine = lines[line - 1]
+          const beforeOffset = text.substring(0, e.offset).split("\n");
+          const line = beforeOffset.length;
+          const column = beforeOffset[beforeOffset.length - 1].length + 1;
+          const problemLine = lines[line - 1];
 
-          const error = `${printParseErrorCode(e.error)} at line ${line}, column ${column}`
-          if (!problemLine) return error
+          const error = `${printParseErrorCode(e.error)} at line ${line}, column ${column}`;
+          if (!problemLine) return error;
 
-          return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`
+          return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`;
         })
-        .join("\n")
+        .join("\n");
 
       throw new JsonError({
         path: configFilepath,
         message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails}\n--- End ---`,
-      })
+      });
     }
 
-    const parsed = Info.safeParse(data)
+    const parsed = Info.safeParse(data);
     if (parsed.success) {
       if (!parsed.data.$schema) {
-        parsed.data.$schema = "https://nikcli.store/config.json"
+        parsed.data.$schema = "https://nikcli.store/config.json";
         // Write the $schema to the original text to preserve variables like {env:VAR}
-        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://nikcli.store/config.json",')
-        let tmp: string | undefined
+        const updated = original.replace(
+          /^\s*\{/,
+          '{\n  "$schema": "https://nikcli.store/config.json",',
+        );
+        let tmp: string | undefined;
         try {
-          const target = await fs.realpath(configFilepath).catch(() => configFilepath)
-          const stat = await fs.stat(target).catch(() => undefined)
+          const target = await fs
+            .realpath(configFilepath)
+            .catch(() => configFilepath);
+          const stat = await fs.stat(target).catch(() => undefined);
           if (stat?.isFile()) {
-            tmp = target + ".tmp"
-            await Bun.write(tmp, updated)
+            tmp = target + ".tmp";
+            await Bun.write(tmp, updated);
             // chmod is Unix-only, skip on Windows
             if (process.platform !== "win32") {
-              await fs.chmod(tmp, stat.mode & 0o777)
+              await fs.chmod(tmp, stat.mode & 0o777);
             }
-            await fs.rename(tmp, target)
+            await fs.rename(tmp, target);
           }
         } catch (error) {
           log.debug("failed to persist config schema hint", {
             path: configFilepath,
             error,
-          })
+          });
         } finally {
           if (tmp) {
-            await fs.unlink(tmp).catch(() => undefined)
+            await fs.unlink(tmp).catch(() => undefined);
           }
         }
       }
-      const data = parsed.data
+      const data = parsed.data;
       if (data.plugin) {
         for (let i = 0; i < data.plugin.length; i++) {
-          const plugin = data.plugin[i]
+          const plugin = data.plugin[i];
           try {
-            data.plugin[i] = import.meta.resolve!(plugin, configFilepath)
+            data.plugin[i] = import.meta.resolve!(plugin, configFilepath);
           } catch (err) {
-            log.warn("failed to resolve plugin path", { plugin, error: err })
+            log.warn("failed to resolve plugin path", { plugin, error: err });
           }
         }
       }
-      return data
+      return data;
     }
 
     throw new InvalidError({
       path: configFilepath,
       issues: parsed.error.issues,
-    })
+    });
   }
-  export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigJsonError", {
-    path: Schema.String,
-    message: Schema.optional(Schema.String),
-  }) {}
+  export class JsonError extends Schema.TaggedErrorClass<JsonError>()(
+    "ConfigJsonError",
+    {
+      path: Schema.String,
+      message: Schema.optional(Schema.String),
+    },
+  ) {}
 
   export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()(
     "ConfigDirectoryTypoError",
@@ -1920,11 +2770,14 @@ export namespace Config {
     },
   ) {}
 
-  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigInvalidError", {
-    path: Schema.optional(Schema.String),
-    issues: Schema.optional(Schema.Unknown),
-    message: Schema.optional(Schema.String),
-  }) {}
+  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()(
+    "ConfigInvalidError",
+    {
+      path: Schema.optional(Schema.String),
+      issues: Schema.optional(Schema.Unknown),
+      message: Schema.optional(Schema.String),
+    },
+  ) {}
 
   /**
    * Thrown when fetching a remote well-known config endpoint returns a
@@ -1932,66 +2785,77 @@ export namespace Config {
    * `Effect.catchTag("ConfigRemoteFetch", ...)` and the existing
    * `instanceof Config.RemoteFetchError` continues to work.
    */
-  export class RemoteFetchError extends Schema.TaggedErrorClass<RemoteFetchError>()("ConfigRemoteFetch", {
-    url: Schema.String,
-    status: Schema.Number,
-  }) {}
+  export class RemoteFetchError extends Schema.TaggedErrorClass<RemoteFetchError>()(
+    "ConfigRemoteFetch",
+    {
+      url: Schema.String,
+      status: Schema.Number,
+    },
+  ) {}
 
   async function updateImpl(ctx: InstanceContext, config: Info) {
-    const filepath = path.join(ctx.directory, "nikcli.json")
-    const existing = await loadFile(filepath)
-    await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
+    const filepath = path.join(ctx.directory, "nikcli.json");
+    const existing = await loadFile(filepath);
+    await Bun.write(
+      filepath,
+      JSON.stringify(mergeDeep(existing, config), null, 2),
+    );
   }
 
   function globalConfigFile() {
-    return path.join(Global.Path.config, "nikcli.json")
+    return path.join(Global.Path.config, "nikcli.json");
   }
 
   function parseConfig(text: string, filepath: string): Info {
-    const errors: JsoncParseError[] = []
-    const data = parseJsonc(text, errors, { allowTrailingComma: true })
+    const errors: JsoncParseError[] = [];
+    const data = parseJsonc(text, errors, { allowTrailingComma: true });
     if (errors.length) {
-      const lines = text.split("\n")
+      const lines = text.split("\n");
       const errorDetails = errors
         .map((e) => {
-          const beforeOffset = text.substring(0, e.offset).split("\n")
-          const line = beforeOffset.length
-          const column = beforeOffset[beforeOffset.length - 1].length + 1
-          const problemLine = lines[line - 1]
+          const beforeOffset = text.substring(0, e.offset).split("\n");
+          const line = beforeOffset.length;
+          const column = beforeOffset[beforeOffset.length - 1].length + 1;
+          const problemLine = lines[line - 1];
 
-          const error = `${printParseErrorCode(e.error)} at line ${line}, column ${column}`
-          if (!problemLine) return error
+          const error = `${printParseErrorCode(e.error)} at line ${line}, column ${column}`;
+          if (!problemLine) return error;
 
-          return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`
+          return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`;
         })
-        .join("\n")
+        .join("\n");
 
       throw new JsonError({
         path: filepath,
         message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails}\n--- End ---`,
-      })
+      });
     }
 
-    const parsed = Info.safeParse(data)
-    if (parsed.success) return parsed.data
+    const parsed = Info.safeParse(data);
+    if (parsed.success) return parsed.data;
 
     throw new InvalidError({
       path: filepath,
       issues: parsed.error.issues,
-    })
+    });
   }
 
   async function updateGlobalImpl(config: Info) {
-    const filepath = globalConfigFile()
+    const filepath = globalConfigFile();
     const before = await Bun.file(filepath)
       .text()
       .catch((err) => {
-        if (err.code === "ENOENT") return "{}"
-        throw Object.assign(new JsonError({ path: filepath }), { cause: err })
-      })
+        if (err.code === "ENOENT") return "{}";
+        throw Object.assign(new JsonError({ path: filepath }), { cause: err });
+      });
 
-    const existing = before.trim() ? parseConfig(before, filepath) : ({} as Info)
-    await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
+    const existing = before.trim()
+      ? parseConfig(before, filepath)
+      : ({} as Info);
+    await Bun.write(
+      filepath,
+      JSON.stringify(mergeDeep(existing, config), null, 2),
+    );
 
     GlobalBus.emit("event", {
       directory: "global",
@@ -1999,38 +2863,46 @@ export namespace Config {
         type: Event.Disposed.type,
         properties: {},
       },
-    })
+    });
   }
 
   export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
-      const paths = yield* ConfigPaths.Service
-      const appFs = yield* AppFileSystem.Service
-      const scopedState = yield* makeScopedState(paths, appFs)
+      const paths = yield* ConfigPaths.Service;
+      const appFs = yield* AppFileSystem.Service;
+      const scopedState = yield* makeScopedState(paths, appFs);
 
       const get: Interface["get"] = Effect.fn("Config.get")(function* () {
-        return (yield* InstanceState.get(scopedState)).config
-      })
+        return (yield* InstanceState.get(scopedState)).config;
+      });
 
-      const getGlobal: Interface["getGlobal"] = Effect.fn("Config.getGlobal")(function* () {
-        return yield* Effect.promise(() => Promise.resolve(global()))
-      })
+      const getGlobal: Interface["getGlobal"] = Effect.fn("Config.getGlobal")(
+        function* () {
+          return yield* Effect.promise(() => Promise.resolve(global()));
+        },
+      );
 
-      const update: Interface["update"] = Effect.fn("Config.update")(function* (config) {
-        const ctx = yield* InstanceState.context
-        yield* Effect.promise(() => updateImpl(ctx, config))
-        yield* ScopedCache.invalidate(scopedState, ctx.directory)
-      })
+      const update: Interface["update"] = Effect.fn("Config.update")(
+        function* (config) {
+          const ctx = yield* InstanceState.context;
+          yield* Effect.promise(() => updateImpl(ctx, config));
+          yield* ScopedCache.invalidate(scopedState, ctx.directory);
+        },
+      );
 
-      const updateGlobal: Interface["updateGlobal"] = Effect.fn("Config.updateGlobal")(function* (config) {
-        yield* Effect.promise(() => updateGlobalImpl(config))
-        yield* ScopedCache.invalidateAll(scopedState)
-      })
+      const updateGlobal: Interface["updateGlobal"] = Effect.fn(
+        "Config.updateGlobal",
+      )(function* (config) {
+        yield* Effect.promise(() => updateGlobalImpl(config));
+        yield* ScopedCache.invalidateAll(scopedState);
+      });
 
-      const directories: Interface["directories"] = Effect.fn("Config.directories")(function* () {
-        return (yield* InstanceState.get(scopedState)).directories
-      })
+      const directories: Interface["directories"] = Effect.fn(
+        "Config.directories",
+      )(function* () {
+        return (yield* InstanceState.get(scopedState)).directories;
+      });
 
       return Service.of({
         directories,
@@ -2038,12 +2910,12 @@ export namespace Config {
         getGlobal,
         update,
         updateGlobal,
-      })
+      });
     }),
-  )
+  );
 
   export const defaultLayer = layer.pipe(
     Layer.provide(ConfigPaths.defaultLayer),
     Layer.provide(AppFileSystem.defaultLayer),
-  )
+  );
 }

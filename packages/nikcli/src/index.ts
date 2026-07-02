@@ -1,70 +1,71 @@
-import yargs from "yargs"
-import { hideBin } from "yargs/helpers"
-import { RunCommand } from "./cli/cmd/run"
-import { GenerateCommand } from "./cli/cmd/generate"
-import { Log } from "./util/log"
-import { AuthCommand } from "./cli/cmd/auth"
-import { AgentCommand } from "./cli/cmd/agent"
-import { UpgradeCommand } from "./cli/cmd/upgrade"
-import { QuickstartCommand } from "./cli/cmd/quickstart"
-import { DoctorCommand } from "./cli/cmd/doctor"
-import { UninstallCommand } from "./cli/cmd/uninstall"
-import { ModelsCommand } from "./cli/cmd/models"
-import { LocaleCommand } from "./cli/cmd/locale"
-import { UI } from "./cli/ui"
-import { Installation } from "./installation"
-import { initialize } from "./global"
-import { FormatError } from "./cli/error"
-import { ServeCommand } from "./cli/cmd/serve"
-import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
-import { DebugCommand } from "./cli/cmd/debug"
-import { StatsCommand } from "./cli/cmd/stats"
-import { McpCommand } from "./cli/cmd/mcp"
-import { GithubCommand } from "./cli/cmd/github"
-import { ExportCommand } from "./cli/cmd/export"
-import { ImportCommand } from "./cli/cmd/import"
-import { AttachCommand } from "./cli/cmd/tui/attach"
-import { TuiThreadCommand } from "./cli/cmd/tui/thread"
-import { AcpCommand } from "./cli/cmd/acp"
-import { EOL } from "os"
-import { WebCommand } from "./cli/cmd/web"
-import { PrCommand } from "./cli/cmd/pr"
-import { SessionCommand } from "./cli/cmd/session"
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import { RunCommand } from "./cli/cmd/run";
+import { GenerateCommand } from "./cli/cmd/generate";
+import { Log } from "./util/log";
+import { AuthCommand } from "./cli/cmd/auth";
+import { AgentCommand } from "./cli/cmd/agent";
+import { UpgradeCommand } from "./cli/cmd/upgrade";
+import { QuickstartCommand } from "./cli/cmd/quickstart";
+import { DoctorCommand } from "./cli/cmd/doctor";
+import { UninstallCommand } from "./cli/cmd/uninstall";
+import { ModelsCommand } from "./cli/cmd/models";
+import { LocaleCommand } from "./cli/cmd/locale";
+import { UI } from "./cli/ui";
+import { Installation } from "./installation";
+import { initialize } from "./global";
+import { FormatError } from "./cli/error";
+import { ServeCommand } from "./cli/cmd/serve";
+import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve";
+import { DebugCommand } from "./cli/cmd/debug";
+import { StatsCommand } from "./cli/cmd/stats";
+import { McpCommand } from "./cli/cmd/mcp";
+import { GithubCommand } from "./cli/cmd/github";
+import { ExportCommand } from "./cli/cmd/export";
+import { ImportCommand } from "./cli/cmd/import";
+import { AttachCommand } from "./cli/cmd/tui/attach";
+import { TuiThreadCommand } from "./cli/cmd/tui/thread";
+import { AcpCommand } from "./cli/cmd/acp";
+import { EOL } from "os";
+import { WebCommand } from "./cli/cmd/web";
+import { PrCommand } from "./cli/cmd/pr";
+import { SessionCommand } from "./cli/cmd/session";
 
-import { ImageModelCommand } from "./cli/cmd/image-model"
-import { SpeakModelCommand } from "./cli/cmd/speak-model"
-import { BrainModelCommand } from "./cli/cmd/brain-model"
-import { RemoteCommand } from "./cli/cmd/remote"
-import { TeleportCommand } from "./cli/cmd/teleport"
+import { ImageModelCommand } from "./cli/cmd/image-model";
+import { SpeakModelCommand } from "./cli/cmd/speak-model";
+import { BrainModelCommand } from "./cli/cmd/brain-model";
+import { RemoteCommand } from "./cli/cmd/remote";
+import { TeleportCommand } from "./cli/cmd/teleport";
 
-import { AdsCommand } from "./cli/cmd/ads"
+import { AdsCommand } from "./cli/cmd/ads";
 
-import { CompanionCommand } from "./cli/cmd/companion"
-import { MobileCommand } from "./cli/cmd/mobile"
-import { PluginCommand } from "./cli/cmd/plug"
-import { AccountCommand } from "./cli/cmd/account"
-import { HeapCommand } from "./cli/cmd/heap"
-import { RoutineCommand } from "./cli/cmd/routine"
-import { UsageCommand } from "./cli/cmd/usage"
-import { GoalCommand } from "./cli/cmd/goal"
-import { MissionCommand } from "./cli/cmd/mission"
+import { CompanionCommand } from "./cli/cmd/companion";
+import { MobileCommand } from "./cli/cmd/mobile";
+import { PluginCommand } from "./cli/cmd/plug";
+import { AccountCommand } from "./cli/cmd/account";
+import { HeapCommand } from "./cli/cmd/heap";
+import { RoutineCommand } from "./cli/cmd/routine";
+import { UsageCommand } from "./cli/cmd/usage";
+import { GoalCommand } from "./cli/cmd/goal";
+import { MissionCommand } from "./cli/cmd/mission";
+import { SyncCommand } from "./cli/cmd/sync";
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
     e: e instanceof Error ? e.message : e,
-  })
-})
+  });
+});
 
 process.on("uncaughtException", (e) => {
   Log.Default.error("exception", {
     e: e instanceof Error ? e.message : e,
-  })
-})
+  });
+});
 
 // Ensure the process exits on terminal hangup (e.g. closing the terminal tab).
 // Without this, long-running commands like `serve` block on a never-resolving
 // promise and survive as orphaned processes.
-process.on("SIGHUP", () => process.exit())
+process.on("SIGHUP", () => process.exit());
 
 const cli = yargs(hideBin(process.argv))
   .parserConfiguration({ "populate--": true })
@@ -84,25 +85,25 @@ const cli = yargs(hideBin(process.argv))
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
   .middleware(async (opts) => {
-    await initialize()
+    await initialize();
 
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),
       level: (() => {
-        if (opts.logLevel) return opts.logLevel as Log.Level
-        if (Installation.isLocal()) return "DEBUG"
-        return "INFO"
+        if (opts.logLevel) return opts.logLevel as Log.Level;
+        if (Installation.isLocal()) return "DEBUG";
+        return "INFO";
       })(),
-    })
+    });
 
-    process.env.AGENT = "1"
-    process.env.NIKCLI = "1"
+    process.env.AGENT = "1";
+    process.env.NIKCLI = "1";
 
     Log.Default.info("nikcli", {
       version: Installation.VERSION,
       args: process.argv.slice(2),
-    })
+    });
   })
   .usage("\n" + UI.logo())
   .completion("completion", "generate shell completion script")
@@ -145,31 +146,32 @@ const cli = yargs(hideBin(process.argv))
   .command(MissionCommand)
   .command(UsageCommand)
   .command(PluginCommand)
+  .command(SyncCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
       msg?.startsWith("Not enough non-option arguments") ||
       msg?.startsWith("Invalid values:")
     ) {
-      if (err) throw err
-      cli.showHelp("log")
+      if (err) throw err;
+      cli.showHelp("log");
     }
-    if (err) throw err
-    process.exit(1)
+    if (err) throw err;
+    process.exit(1);
   })
-  .strict()
+  .strict();
 
 try {
-  await cli.parse()
+  await cli.parse();
 } catch (e) {
-  let data: Record<string, any> = {}
+  let data: Record<string, any> = {};
   if (e instanceof Error) {
     Object.assign(data, {
       name: e.name,
       message: e.message,
       cause: e.cause?.toString(),
       stack: e.stack,
-    })
+    });
   }
 
   if (e instanceof ResolveMessage) {
@@ -181,20 +183,25 @@ try {
       referrer: e.referrer,
       position: e.position,
       importKind: e.importKind,
-    })
+    });
   }
-  Log.Default.error("fatal", data)
-  const formatted = FormatError(e)
-  if (formatted) UI.error(formatted)
+  Log.Default.error("fatal", data);
+  const formatted = FormatError(e);
+  if (formatted) UI.error(formatted);
   if (formatted === undefined) {
-    UI.error("Unexpected error, check log file at " + Log.file() + " for more details" + EOL)
-    console.error(e instanceof Error ? e.message : String(e))
+    UI.error(
+      "Unexpected error, check log file at " +
+        Log.file() +
+        " for more details" +
+        EOL,
+    );
+    console.error(e instanceof Error ? e.message : String(e));
   }
-  process.exitCode = 1
+  process.exitCode = 1;
 } finally {
   // Some subprocesses don't react properly to SIGTERM and similar signals.
   // Most notably, some docker-container-based MCP servers don't handle such signals unless
   // run using `docker run --init`.
   // Explicitly exit to avoid any hanging subprocesses.
-  process.exit()
+  process.exit();
 }

@@ -45,6 +45,8 @@ describe("Database.Service", () => {
       { id: "20260611030000_import_json_storage" },
       { id: "20260611040000_import_sync_json" },
       { id: "20260612000000_session_v2_event" },
+      { id: "20260630000000_sync_unify" },
+      { id: "20260630000100_workspace_drop_events" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",

@@ -1,79 +1,51 @@
-import fs from "fs/promises"
-import os from "os"
-import path from "path"
-import { afterAll, describe, expect, it } from "bun:test"
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
+import { afterAll, describe, expect, it } from "bun:test";
 
-const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-sync-backend-"))
-process.env.NIKCLI_TEST_HOME ??= testDir
-process.env.NIKCLI_DB ??= path.join(testDir, "nikcli.db")
+const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-sync-catchup-"));
+process.env.NIKCLI_TEST_HOME ??= testDir;
+process.env.NIKCLI_DB ??= path.join(testDir, "nikcli.db");
 
-const { SyncBackend } = await import("@/sync")
+const { Sync, SyncStorage } = await import("@/sync");
 
 // Unique ids per run so the assertions hold even when the process-wide
 // database singleton was already opened by another test file.
-const run = Math.random().toString(36).slice(2)
-const projectID = `proj_sync_backend_${run}`
+const run = Math.random().toString(36).slice(2);
+const projectID = `proj_sync_catchup_${run}`;
 
 afterAll(async () => {
-  await fs.rm(testDir, { recursive: true, force: true })
-})
+  await fs.rm(testDir, { recursive: true, force: true });
+});
 
-describe("SyncBackend", () => {
-  it("appends events with monotonic sequence numbers", async () => {
-    const aggregate = `wrk_${run}_seq`
-
-    const first = await SyncBackend.append(projectID, aggregate, { type: "session.created", properties: { id: "a" } })
-    const second = await SyncBackend.append(projectID, aggregate, { type: "session.updated", properties: { id: "a" } })
-
-    expect(first.seq).toBe(1)
-    expect(second.seq).toBe(2)
-    expect(await SyncBackend.latest(projectID, aggregate)).toBe(2)
-
-    const records = await SyncBackend.records(projectID, aggregate)
-    expect(records.map((record) => record.type)).toEqual(["session.created", "session.updated"])
-    expect(records.map((record) => record.seq)).toEqual([1, 2])
-  })
-
-  it("supports incremental catch-up via fromSeq", async () => {
-    const aggregate = `wrk_${run}_catchup`
+describe("Sync — incremental catch-up (workspace journal)", () => {
+  it("returns only events past fromSeq, in order", async () => {
+    const workspaceID = `wrk_${run}_catchup`;
 
     for (let i = 1; i <= 4; i++) {
-      await SyncBackend.append(projectID, aggregate, { type: "session.status", properties: { sessionID: `s${i}` } })
+      await Sync.emitRaw(projectID, workspaceID, {
+        type: "session.status",
+        properties: { sessionID: `s${i}` },
+      });
     }
 
-    const tail = await SyncBackend.records(projectID, aggregate, 2)
-    expect(tail.map((record) => record.seq)).toEqual([3, 4])
+    const all = await SyncStorage.getEvents(projectID, workspaceID);
+    expect(all.map((record) => record.seq)).toEqual([1, 2, 3, 4]);
 
-    const payloads = await SyncBackend.payloads(projectID, aggregate, 3)
-    expect(payloads).toEqual([{ type: "session.status", properties: { sessionID: "s4" } }])
-  })
+    const tail = await SyncStorage.getEvents(projectID, workspaceID, 2);
+    expect(tail.map((record) => record.seq)).toEqual([3, 4]);
+    expect(tail.map((record) => (record.data as any).properties.sessionID)).toEqual(["s3", "s4"]);
+  });
 
-  it("trims the aggregate to the caller-provided limit", async () => {
-    const aggregate = `wrk_${run}_limit`
+  it("scopes catch-up to the aggregate", async () => {
+    const first = `wrk_${run}_a`;
+    const second = `wrk_${run}_b`;
 
-    for (let i = 1; i <= 7; i++) {
-      await SyncBackend.append(projectID, aggregate, { type: "session.idle", properties: { sessionID: `s${i}` } }, { limit: 5 })
-    }
+    await Sync.emitRaw(projectID, first, { type: "session.created", properties: { id: "a" } });
+    await Sync.emitRaw(projectID, second, { type: "session.created", properties: { id: "b" } });
 
-    const records = await SyncBackend.records(projectID, aggregate)
-    expect(records).toHaveLength(5)
-    // Oldest events were trimmed; sequence numbers keep increasing.
-    expect(records[0].seq).toBe(3)
-    expect(records.at(-1)?.seq).toBe(7)
-    expect(await SyncBackend.latest(projectID, aggregate)).toBe(7)
-  })
-
-  it("clears a single aggregate without touching others", async () => {
-    const keep = `wrk_${run}_keep`
-    const drop = `wrk_${run}_drop`
-
-    await SyncBackend.append(projectID, keep, { type: "session.created", properties: { id: "keep" } })
-    await SyncBackend.append(projectID, drop, { type: "session.created", properties: { id: "drop" } })
-
-    await SyncBackend.clear(projectID, drop)
-
-    expect(await SyncBackend.records(projectID, drop)).toHaveLength(0)
-    expect(await SyncBackend.latest(projectID, drop)).toBe(0)
-    expect(await SyncBackend.records(projectID, keep)).toHaveLength(1)
-  })
-})
+    const events = await SyncStorage.getEvents(projectID, first);
+    expect(events).toHaveLength(1);
+    expect((events[0].data as any).properties.id).toBe("a");
+  });
+});

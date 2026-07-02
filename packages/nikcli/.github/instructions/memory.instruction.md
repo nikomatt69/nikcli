@@ -1,12 +1,14 @@
 # Nikcli Project Memory
 
-**Last updated**: 2026-06-23 (Brain Pass — Nix workspace fileset CI fix, brain/doctor route review, PR #129 + open-PRs CI status, computer-use quirks)
+**Last updated**: 2026-06-30 (Brain Pass — Unified sync backend (projector/reducer/snapshot/outbox) implemented, workspace.events column dropped, sync_event broadened, parallel deep-audits of workspace & session backends)
+
+> **TL;DR for new sessions**: nikcli is an AI agent CLI/runtime (fork of OpenCode) on Bun + Hono + Solid + Vercel AI SDK + SQLite/Drizzle + Effect 4 beta. Three current backends (local SQLite, remote WorkspaceServer via SSE proxy, Cloud D1+DO E2E) are being unified behind a single event-sourced `sync_event` log with projector/reducer/snapshot/outbox. Today (2026-06-30): implementation merged under migrations `20260630000000_sync_unify` + `20260630000100_workspace_drop_events`; tests at `test/sync/unified.test.ts` (9/10 pass) and `test/workspace/config.test.ts` (2/2 pass). Default branch is **`live-main`** (the `nikoemme-main` in AGENTS.md is outdated). `lastUserActivity` ref at `src/sync/index.ts:55-104`.
 
 ## Architecture Overview
 
 ### Monorepo Structure (`/Volumes/SSD/Projects/nikcli/`)
 
-24 packages managed with Bun workspaces + Turbo (35+ total including inference, console, cloud, enterprise, etc.):
+30+ packages managed with Bun workspaces + Turbo (current count: 27 catalog entries plus github/ Action, browser-use, etc.). Originally 24; the 2026-06-09 audit corrected to 27 packages; 2026-06-21 saw 30. Stack:
 
 | Package                 | Purpose                             | Key Tech                            |
 | ----------------------- | ----------------------------------- | ----------------------------------- |
@@ -991,9 +993,45 @@ Server: Bus.publish(PartUpdated, {part, delta})
 | `share/share.ts:56`      | Share service cache sync       |
 | `share/share-next.ts:87` | Share service cache sync (new) |
 
-## Storage System (`src/storage/`)
+## Storage System
 
-### In-Memory Cache
+### Three-Backend Reality (today, 2026-06-30) — being unified
+
+There were always **three distinct backends** behind the word "session":
+
+| Backend              | Where                                | Sync model                                                              | Auth/Scope                                |
+| -------------------- | ------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------- |
+| **Local SQLite**     | `src/database/database.ts` `nikcli.db` (Drizzle + `bun:sqlite`) | WAL + reader-writer `Lock` per file; no optimistic concurrency (no ETag) | Single-user, single-process               |
+| **Workspace remote** | `src/workspace/workspace-server/server.ts` running inside container/worktree | **HTTP reverse proxy** — `ServerProxy.http/websocket` proxies every request to remote; SSE `/event` forwards `GlobalBus`; `/sync/steal` warps sessions | Workspace-scoped (project + workspaceID)  |
+| **Cloud**            | `packages/cloud` on Cloudflare D1 + Durable Objects | `sync/push` (cursor via `syncVersion` + `sync_log.id`) + `sync/pull` (idempotent via `hash`) + WebSocket `/relay/{sessionID}` (Durable Object) | **E2E encrypted** with ECDH P-256          |
+
+There is **no `Repository<T>` / `IStorage` common interface**. Each domain module is a namespace that only shares `Database.syncDb()`. Unification work in progress (see below).
+
+### Unified Sync Backend — Implementation in progress as of 2026-06-30
+
+**Active workstream**: promote `sync_event` to the single source of truth for sessions + workspaces, with projector/reducer/snapshot/outbox as the read model. Already merged:
+
+- Migration `20260630000000_sync_unify.ts` — broadens `sync_event` schema (adds `version`, `workspaceID`, etc.)
+- Migration `20260630000100_workspace_drop_events.ts` — drops the legacy `workspace.events` JSON column (was the dual source of truth)
+- New files: `src/sync/projector.ts`, `src/sync/reducer.ts`, `src/sync/snapshot.ts`, `src/sync/outbox.ts`
+- Tests: `test/sync/unified.test.ts` (9/10 pass — one snapshot-corruption timing bug in progress), `test/workspace/config.test.ts` (2/2 pass)
+
+**Event registry** at `src/sync/index.ts:55-104` defines these aggregates:
+
+| Aggregate      | Event types                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `session`      | `session.created`, `session.updated`, `session.deleted`, `session.status`, `session.idle`                                       |
+| `permission`   | `permission.asked`, `permission.replied`                                                                                       |
+| `question`     | `question.asked`, `question.replied`, `question.rejected`                                                                       |
+| `workspace` *(new — 2026-06-30)* | workspace lifecycle events                                                                                            |
+
+**Compaction policy** (`src/sync/index.ts`): `MAX_EVENTS_PER_AGGREGATE=1000`, trim-to `500`.
+
+### `Storage` (JSON filesystem, kept for non-migrated side-state)
+
+`src/storage/storage.ts` (Effect-based): JSON files at `Global.Path.data/storage/<key...>/<name>.json`.
+
+#### In-Memory Cache
 
 - **Read-through cache** with 5s TTL (`DEFAULT_TTL_MS = 5000`)
 - `Cache.get()` returns `undefined` if missing or expired (auto-deletes expired entries)
@@ -1001,7 +1039,7 @@ Server: Bus.publish(PartUpdated, {part, delta})
 - `Storage.read()` populates cache on disk read; `Storage.write/update()` update cache
 - **Write-through**: all write/update operations call `Cache.set()` after completing the file write
 
-### Key Operations
+#### Key Operations
 
 - `Storage.read/write/list/remove` — JSON file storage with key→path mapping
 - `Storage.update()` — read-modify-write with exclusive lock
@@ -1014,33 +1052,40 @@ Server: Bus.publish(PartUpdated, {part, delta})
 - Preserves BigInt, Date objects, Typed arrays (JSON corrupts/strips)
 - Prevents accidental cache corruption from shared references in mutating `fn(content)`
 
-### Locking Mechanism
+#### Locking Mechanism
 
 Two lock types:
 
-- **`Lock`** (`src/util/lock.ts`): In-memory reader-writer lock, single-process. Multiple concurrent readers, single writer, writers prioritized. Auto-cleanup when no active readers/writers.
-- **`Flock`** (`src/util/flock.ts`): File-based distributed lock with lease. Used for cross-process coordination (snapshot, account refresh). Exponential backoff + heartbeat + breaker pattern.
+- **`Lock`** (`src/util/lock.ts`): In-memory reader-writer lock, **single-process only**. Multiple concurrent readers, single writer, writers prioritized. Auto-cleanup when no active readers/writers.
+- **`Flock`** (`src/util/flock.ts`): File-based distributed lock with lease (heartbeat + breaker + backoff). Used for cross-process coordination (snapshot, account refresh).
 
-### Storage Key Patterns (`<data>/storage/`)
+No ETag / `If-Match` / optimistic-concurrency — only WAL+`BEGIN IMMEDIATE` for sequence reservation and the locks above.
 
-| Key Pattern                                 | File Path                          | Contains            |
-| ------------------------------------------- | ---------------------------------- | ------------------- |
-| `["project", "<id>"]`                       | `storage/project/<id>.json`        | Project metadata    |
-| `["session", "<projectID>", "<sessionID>"]` | `storage/session/<pid>/<sid>.json` | Session info        |
-| `["message", "<sessionID>", "<messageID>"]` | `storage/message/<sid>/<mid>.json` | Message info        |
-| `["part", "<messageID>", "<partID>"]`       | `storage/part/<mid>/<pid>.json`    | Message part        |
-| `["session_diff", "<sessionID>"]`           | `storage/session_diff/<sid>.json`  | Snapshot file diffs |
-| `["session_share", "<sessionID>"]`          | `storage/session_share/<sid>.json` | Share data          |
-| `["todo", "<sessionID>"]`                   | `storage/todo/<sid>.json`          | Session TODO        |
+### `Database` (SQLite + Drizzle)
 
-### Migrations
+`src/database/database.ts`:
 
-Two JSON file migrations tracked via `<data>/storage/migration` marker file:
+```ts
+export type Client = BunSQLiteDatabase<Schema>
+export interface Interface { readonly db: Client; readonly native: BunDatabase; readonly filename: string }
+```
 
-- **Migration 0** (lines 64-159): Legacy project format → `session/{projectID}/` layout
-- **Migration 1** (lines 160-180): Extracts `diffs` from session files → separate `session_diff/` files
+- **Singleton sync** `Database.syncDb()` + `syncNative()`
+- **Layer Effect** for tests via `Database.defaultLayer` / `Database.layerFromPath(filename)`
+- DB file: `${Global.Path.data}/nikcli.db` (override via `NIKCLI_DB`)
+- PRAGMAs: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`, `wal_checkpoint(PASSIVE)`
 
-Database migrations via Drizzle in `migration/` (timestamped subdirs).
+**Tables** (from `src/database/schema.ts`, re-exports per-domain `.sql.ts` files): `account`, `config`, `users`, `userSession`, `chatContact`, `chatMessage`, `mobileToken`, `workspace`, `sessionInfo`, `messageInfo`, `messagePart`, `sessionV2Event`, `todoInfo`, `permissionRuleset`, `syncEvent`, `syncSequence`.
+
+**Migrations**: static list in `src/database/migration.gen.ts`, applied transactionally by `migration.ts`. Key files:
+
+- `20260610211500_initial.ts` — first schema
+- `20260611000000_session_message_todo_permission.ts` — main domain tables
+- `20260611010000_sync_event_sequence.ts` — sync log basics
+- `20260611020000_import_legacy_databases.ts` / `20260611030000_import_json_storage.ts` / `20260611040000_import_sync_json.ts` — backfill from old formats
+- `20260612000000_session_v2_event.ts` — v2 event log table
+- `20260630000000_sync_unify.ts` — broadens `sync_event` schema
+- `20260630000100_workspace_drop_events.ts` — drops `workspace.events` JSON column
 
 ### DeltaCoalescer (`src/session/delta-coalescer.ts`)
 
@@ -1054,12 +1099,11 @@ Reduces ~500 Storage writes per message to ~10-20 via debouncing:
 **Flow for streaming text**: `text-delta` → `updatePartCoalesced()` → Bus.publish + coalescer.schedule → 150ms debounce → Storage.write
 **Flow for terminal text**: `text-end` → `flushNow()` + `Session.updatePart()` (flushNow persists, updatePart publishes Bus event only)
 
-### Database (`src/storage/db.ts`)
-
-- SQLite with Drizzle ORM, Bun driver
-- PRAGMAs: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`
-
 ### Git snapshots and file watchers for real-time sync
+
+### Workspace System (specifics)
+
+`packages/nikcli/src/workspace/` — see "Workspace System Architecture" section below for full deep-dive.
 
 ## Bug Fixes (2026-04-06)
 
@@ -4493,3 +4537,217 @@ All other 19 checks on PR #129 passed (Analyze actions/js/rust, typecheck, valid
 5. **Doctor HTTP route shares implementation with CLI** — `runDoctorChecks()` includes TTY check that always fails on server. Need to split or parameterize.
 
 6. **Cursor IDE on macOS intercepts Cmd+Space** — Spotlight doesn't open when Cursor is focused.
+
+## Workspace System Architecture (2026-06-30 deep-dive)
+
+**Location**: `packages/nikcli/src/workspace/`
+
+Workspace = unit of execution (local worktree, docker container, or remote). The **server proxies** non-local workspaces transparently — the TUI never sees two backends.
+
+### File Map
+
+| File                                       | Role                                                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `workspace/index.ts`                       | `Workspace` namespace — create/list/get/remove/restore/warp/syncList/startSyncing, event loop SSE, status FSM |
+| `workspace/db.ts`                          | `WorkspaceDB` — CRUD via Drizzle, `migrateFromStorage()` JSON→SQLite importer                      |
+| `workspace/workspace.sql.ts`               | `workspace` table schema                                                                          |
+| `workspace/config.ts`                      | Discriminated union `Config = WorktreeConfig \| ContainerConfig` (Effect Schema)                   |
+| `workspace/workspace-context.ts`           | AsyncLocalStorage `WorkspaceContext` (workspaceID passed per scope)                              |
+| `workspace/session-proxy-middleware.ts`    | Hono middleware that proxies a request to a remote workspace                                      |
+| `workspace/sse.ts`                         | SSE event parser                                                                                  |
+| `workspace/workspace-server/server.ts`     | Bun.serve that runs *inside* a remote container/worktree                                          |
+| `workspace/workspace-server/routes.ts`     | SSE `/event` producer; mirrors `GlobalBus`                                                        |
+| `workspace/adaptors/types.ts`              | `Adaptor<TConfig>` interface + `Target` type                                                      |
+| `workspace/adaptors/index.ts`              | `registerAdaptor`, `getAdaptor`, `listAdaptors` registry                                           |
+| `workspace/adaptors/worktree.ts`           | Worktree git adaptor (uses `@/worktree`)                                                           |
+| `workspace/adaptors/container-build.ts`    | Docker/Podman container adaptor                                                                   |
+
+### Drizzle Schema — `workspace` table
+
+```ts
+export const workspace = sqliteTable("workspace", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull(),
+  name: text("name").notNull().default(""),
+  branch: text("branch"),
+  config: text("config").notNull(),           // JSON-serialized Config
+  status: text("status"),                      // connecting|connected|disconnected|error
+  events: text("events"),                      // JSON-serialized append-only event log  [column DROPPED 2026-06-30]
+  eventLimit: integer("event_limit"),
+  timeUsed: integer("time_used").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => ({
+  projectIdx: index("idx_workspace_project").on(table.projectId),
+}))
+```
+
+### Discriminated Union Config (point of polymorphism — NO BackendType)
+
+```ts
+const WorktreeConfig = Schema.Struct({
+  directory: Schema.String,
+  type: Schema.Literal("worktree"),
+  strategy: Schema.optional(Schema.Literals(["git", "cow"])),  // copy-on-write (APFS clonefile)
+  eventLimit: Schema.optional(Schema.Int),
+})
+const ContainerConfig = Schema.Struct({
+  directory: Schema.String,
+  type: Schema.Literal("container"),
+  runtime: Schema.Literals(["docker", "podman"]),
+  image: Schema.String, containerName: Schema.String,
+  port: Schema.Int, serverUrl: Schema.String,
+  eventLimit: Schema.optional(Schema.Int),
+})
+export const ConfigSchema = Schema.Union([WorktreeConfig, ContainerConfig])
+```
+
+### Adaptor interface (the only abstraction)
+
+```ts
+export type Target =
+  | { type: "local"; directory: string }
+  | { type: "remote"; url: string | URL; headers?: HeadersInit }
+
+export type Adaptor<T extends Config = Config> = {
+  name: string
+  description: string
+  create(from: T, branch?: string|null, workspaceID?: string)
+    : Promise<{ config: T; init: () => Promise<void>; name?: string }>
+  list?(): Promise<ListedWorkspace<T>[]>
+  remove(from: T): Promise<void>
+  target(config: T): Target | Promise<Target>
+  healthCheck?(config: T): Promise<boolean> | boolean
+}
+```
+
+Add a new backend by registering: `registerAdaptor("name", AdaptorImpl)`. Built-in: `worktree`, `container`. The `Sandbox` layer (`sandbox/registry.ts`) wraps the workspace with an LRU cache (30s TTL) and uses `Workspace.get + getAdaptor().target()` for resolution.
+
+### Runtime singletons (in-memory) in `workspace/index.ts`
+
+- `syncControllers: Map<workspaceID, AbortController>` — SSE loops
+- `connectionStatuses: Map<workspaceID, ConnectionStatus>` — FSM
+- `startingSync: Set<workspaceID>` — mutex preventing concurrent start
+
+### `workspaceEventLoop` (riga 481-ish)
+
+```ts
+async function workspaceEventLoop(space: Info, stop: AbortSignal) {
+  const target = await Workspace.target(space.id)
+  if (!target || target.type === "local") return  // skip local worktrees
+  const baseURL = String(target.url).replace(/\/$/, "")
+  // SSE: GET <baseURL>/event
+  // For each event: acceptsWorkspaceEvent → WorkspaceDB.appendEvent + mirror to status/permissions
+}
+```
+
+The two parallel sources of truth (`workspace.events` JSON column + the eventual `sync_event`) are being unified — the column was dropped in `20260630000100_workspace_drop_events.ts`.
+
+### Server endpoints (legacy paths still mounted)
+
+In `src/server/routes/workspace.ts` (Hono + hono-openapi):
+
+| Method | Path                                  | Description                              |
+| ------ | ------------------------------------- | ---------------------------------------- |
+| GET    | `/experimental/workspace/adaptor`     | List adaptors                            |
+| POST   | `/experimental/workspace/warp`        | Move session into workspace (detach = null workspaceID) |
+| POST   | `/experimental/workspace/sync-list`   | Force auto-discovery (git worktree list) |
+| GET    | `/experimental/workspace/status`      | Runtime status                           |
+| `workspace/workspace-server/server.ts` also exposes `/session/*` (full session routes) + `/sync/steal` + `/event` SSE — the *remote* server is just another instance of nikcli-core, but it's commonly run via the `workspace-serve` CLI inside a container.
+
+### Mobile + Studio + Companion clients
+
+- **Mobile** (`packages/mobile`): uses `@nikcli-ai/sdk/v2` HTTP endpoints
+- **Studio** (TUI `feature-plugins`, `apps`): SolidJS components → SDK calls (all via Promise, not Effect)
+- **Companion** (`packages/companion`): separate Cloudflare Workers deployment; bridges the WebSocket relay for raw Claude Code sessions (NOT the same as TUI's companion UI)
+- **Workspace ↔ sessions**: a workspace contains multiple sessions; sessions are referenced back via `session_info.workspace_id`; deletion of a workspace does NOT cascade-delete sessions (they become orphaned).
+
+## Brain Pass (2026-06-30) — Unified Sync Backend
+
+Three parallel `@explore` deep-dives + one `@general` planner produced today's major architectural workstream: unify the **three coexisting backends** behind a single event-sourced `sync_event` log.
+
+### Key Audits (each session delivered despite 10-min timeout)
+
+| Worker session                          | Topic                                                    |
+| --------------------------------------- | -------------------------------------------------------- |
+| `ses_0e7121032ffeCwT2VS7gRQqXkd` (+ delegator) | **Workspace backend** architecture                       |
+| `ses_0e7121036ffeOnNS4i7xLjlDcR` (+ delegator) | **Session backend** architecture                         |
+| `ses_0e712102cffe8e0SqIzurZuuQR` (+ delegator) | **Sync/concurrency/storage** patterns                    |
+| `ses_0e70bacb5ffeZZ2F01DJb0ydNF` (+ delegator) | **Planner**: implementation plan for unified sync backend |
+
+### The Three-Backend Reality (confirmed)
+
+| Backend              | How it syncs                                                     | Why it's the way it is                                     |
+| -------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| Local SQLite         | WAL + `BEGIN IMMEDIATE` + `Lock` (single-process)                | Easiest; multi-process OK; **no optimistic concurrency**   |
+| Workspace remote     | HTTP proxy (`ServerProxy.http/websocket`) + SSE `/event`         | Avoids client rewriting; transparent to client             |
+| Cloud (D1 + DO)      | `sync/push` + `sync/pull` cursor-based, ECDH P-256 E2E encrypted | Multi-user + cross-device; needs different model           |
+
+**No `Repository<T>` common interface** — namespaces share only `Database.syncDb()`. Adding one is the cleanest path forward.
+
+### Planner Agent's Decisions (2026-06-30)
+
+- **Single log table**: keep `sync_event`, broaden its domain. Don't create a new table — avoids double projector/replay logic.
+- **`workspace.events` JSON column**: convert to denormalized read cache, eventually drop. Source-of-truth moves to `sync_event` under new aggregate `workspace`.
+- **`session_v2_event`**: deprecate writes; keep table for read-model back-compat; eventually drop.
+- **Event schema**: include `workspaceID?`, `projectID` required (all aggregates scoped to project). Cross-workspace events use `null` workspaceID.
+- **Conflict resolution**: last-writer-wins by monotonic `sync_event.seq` per aggregate. No CRDT (kept simple).
+- **Snapshot strategy**: per-aggregate snapshot at compaction boundary (`MAX_EVENTS_PER_AGGREGATE=1000`, trim-to `500`); replay from `(lastSnap.aggregate, lastSnap.seq)`.
+- **Railway sync**: optional, leverages existing pairing auth; push on local emit → remote persists → remote SSE replays to local subscribers. Volume: per-aggregate compaction on remote; client uses pull cursor.
+
+### Implementation Merged (2026-06-30)
+
+| File                                                       | Action  | Description                                                                                              |
+| ---------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `src/database/migration/20260630000000_sync_unify.ts`      | Created | Broadens `sync_event` schema (adds version, workspaceID, etc.); consolidates aggregate domain           |
+| `src/database/migration/20260630000100_workspace_drop_events.ts` | Created | Drops the legacy `workspace.events` JSON column                                                          |
+| `src/sync/projector.ts`                                    | Created | Reduce events → typed state (per-aggregate)                                                              |
+| `src/sync/reducer.ts`                                      | Created | Pure reducer; `SyncReducer` for workspace (`SyncProjector.workspace`), aggregate-walk replay             |
+| `src/sync/snapshot.ts`                                     | Created | Per-aggregate snapshot cache (`SyncSnapshot.save/load/corrupt-fallback`)                                 |
+| `src/sync/outbox.ts`                                       | Created | Outbox table for cross-process write durability (replaces in-memory `syncControllers`)                  |
+| `test/sync/unified.test.ts`                                | Created | 10 tests; 9/10 pass; one snapshot-corruption timing bug being fixed                                      |
+| `test/workspace/config.test.ts`                            | Created | 2 tests; 2/2 pass                                                                                        |
+
+### Test Status (2026-06-30)
+
+```
+$ bun test test/sync/unified.test.ts       →  9 pass, 1 fail, 24 expects
+$ bun test test/workspace/config.test.ts   →  2 pass, 0 fail,  4 expects
+```
+
+The 1 failing test (`SyncReducer — replay with snapshot cache > falls back to full replay on snapshot corruption`) is a test-ordering bug: corrupting the snapshot *before* emitting the event means the replay still has zero events to replay, so the test name's expectation (`state.name === "gamma"`) doesn't hold. The fix in progress: emit first, corrupt snapshot *after* `seq` advances, so replay seeks >stored seq → fails to load → falls back to full replay.
+
+### Open Tasks / Pending (from planner)
+
+- Emit `Sync.emit(...)` from `SessionRepo` write paths (still only `workspace/index.ts:271` does it today)
+- Wire `permission` / `question` aggregates to runtime (defined but not emitted)
+- Drop `session_v2_event` table once projector is stable (deprecation path)
+- Roll out `Effect`-based storage abstraction (`IStorage` interface in new file `src/storage/interface.ts`)
+- Railway bidirectional sync: full protocol sketch (push → persist → emit to subscribers; pull from cursor; offline-first last-writer-wins by seq)
+
+### Session Patterns (confirmed via the explore audits)
+
+- **No ETag / If-Match / optimistic concurrency** anywhere in nikcli
+- Cloud SDK uses `syncVersion = MAX(sync_version, ?)` for cursor-based pull/push on D1
+- Local SDK uses reader-writer file `Lock` for JSON storage + WAL + `BEGIN IMMEDIATE` for sequences
+- Workspace SSE mirrors `GlobalBus` events to remote clients; remote writes go through `Mirror` to update local DB
+- Three "sync" meanings in codebase: (1) `sync_event` log (event-sourcing), (2) `startSyncing` workspace SSE loop, (3) Cloud push/pull — *all distinct*
+
+### Other 2026-06-30 Sessions
+
+- `ses_0e717a22bffeUQBKNicnVrpFsL` — Build session: ran unified sync tests (9/10 pass), workspace config tests (2/2 pass), debugged snapshot-corruption test ordering
+
+### File Structure Update — Workspace Counts (2026-06-30)
+
+```
+44 tools  ·  19 agents  ·  260 endpoints  ·  99 unique paths
+66 bus events  ·  21 route files  ·  119,343 LOC (packages/nikcli)
+```
+
++ new modules (2026-06-30): `src/sync/{projector,reducer,snapshot,outbox}.ts`, +2 migrations, +2 test files.
+
+### Confidence / TODO
+
+- **Confidence**: HIGH that the unification direction is right; the audit confirmed no abstraction existed before, so any backend-type cleanup is net positive
+- **Risk**: drop of `workspace.events` column is irreversible — but data is migrated into `sync_event` first, so practically safe
+- **TODO**: write the `IStorage` interface module; re-export per-domain `*Repo` namespaces behind it; document the migration guide for external contributors

@@ -1,45 +1,55 @@
-import { Prompt, type PromptRef } from "@tui/component/prompt"
-import { createMemo, createSignal, Match, onMount, Show, Switch } from "solid-js"
-import { useTheme } from "@tui/context/theme"
-import { useKeybind } from "@tui/context/keybind"
-import { Logo } from "../component/logo"
-import { BgPulse, type BgPulseMask } from "../component/bg-pulse"
-import { Tips } from "../component/tips"
-import { Locale } from "@/util/locale"
-import { useSync } from "../context/sync"
-import { Toast } from "../ui/toast"
-import { useArgs } from "../context/args"
-import { useDirectory } from "../context/directory"
-import { useRouteData } from "@tui/context/route"
-import { usePromptRef } from "../context/prompt"
-import { Installation } from "@/installation"
-import { useKV } from "../context/kv"
-import { useCommandDialog } from "../component/dialog-command"
-import type { BoxRenderable } from "@opentui/core"
+import { Prompt, type PromptRef } from "@tui/component/prompt";
+import {
+  createMemo,
+  createSignal,
+  Match,
+  onMount,
+  Show,
+  Switch,
+} from "solid-js";
+import { useTheme } from "@tui/context/theme";
+import { useKeybind } from "@tui/context/keybind";
+import { Logo } from "../component/logo";
+import { BgPulse, type BgPulseMask } from "../component/bg-pulse";
+import { Tips } from "../component/tips";
+import { Locale } from "@/util/locale";
+import { useSync } from "../context/sync";
+import { useRemoteSync } from "../context/remote-sync";
+import { Toast } from "../ui/toast";
+import { useArgs } from "../context/args";
+import { useDirectory } from "../context/directory";
+import { useRouteData } from "@tui/context/route";
+import { usePromptRef } from "../context/prompt";
+import { Installation } from "@/installation";
+import { useKV } from "../context/kv";
+import { useCommandDialog } from "../component/dialog-command";
+import type { BoxRenderable } from "@opentui/core";
 export function Home() {
-  const sync = useSync()
-  const kv = useKV()
-  const { theme } = useTheme()
-  const route = useRouteData("home")
-  const promptRef = usePromptRef()
-  const command = useCommandDialog()
-  const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
-  const ads = createMemo(() => sync.data.config.ads)
+  const sync = useSync();
+  const remote = useRemoteSync();
+  const kv = useKV();
+  const { theme } = useTheme();
+  const route = useRouteData("home");
+  const promptRef = usePromptRef();
+  const command = useCommandDialog();
+  const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0);
+  const ads = createMemo(() => sync.data.config.ads);
   const mcpError = createMemo(() => {
-    return Object.values(sync.data.mcp).some((x) => x.status === "failed")
-  })
+    return Object.values(sync.data.mcp).some((x) => x.status === "failed");
+  });
 
   const connectedMcpCount = createMemo(() => {
-    return Object.values(sync.data.mcp).filter((x) => x.status === "connected").length
-  })
+    return Object.values(sync.data.mcp).filter((x) => x.status === "connected")
+      .length;
+  });
 
-  const isFirstTimeUser = createMemo(() => sync.data.session.length === 0)
-  const tipsHidden = createMemo(() => kv.get("tips_hidden", false))
+  const isFirstTimeUser = createMemo(() => sync.data.session.length === 0);
+  const tipsHidden = createMemo(() => kv.get("tips_hidden", false));
   const showTips = createMemo(() => {
     // Don't show tips for first-time users
-    if (isFirstTimeUser()) return false
-    return !tipsHidden()
-  })
+    if (isFirstTimeUser()) return false;
+    return !tipsHidden();
+  });
 
   command.register(() => [
     {
@@ -48,11 +58,11 @@ export function Home() {
       keybind: "tips_toggle",
       category: "System",
       onSelect: (dialog) => {
-        kv.set("tips_hidden", !tipsHidden())
-        dialog.clear()
+        kv.set("tips_hidden", !tipsHidden());
+        dialog.clear();
       },
     },
-  ])
+  ]);
 
   const Hint = (
     <Show when={connectedMcpCount() > 0}>
@@ -65,46 +75,64 @@ export function Home() {
             </Match>
             <Match when={true}>
               <span style={{ fg: theme.success }}>•</span>{" "}
-              {Locale.pluralize(connectedMcpCount(), "{} mcp server", "{} mcp servers")}
+              {Locale.pluralize(
+                connectedMcpCount(),
+                "{} mcp server",
+                "{} mcp servers",
+              )}
             </Match>
           </Switch>
         </text>
       </box>
     </Show>
-  )
+  );
 
-  let prompt: PromptRef
-  const args = useArgs()
+  let prompt: PromptRef;
+  const args = useArgs();
   onMount(() => {
     if (route.initialPrompt) {
-      prompt.set(route.initialPrompt)
+      prompt.set(route.initialPrompt);
     } else if (args.prompt) {
-      prompt.set({ input: args.prompt, parts: [] })
-      prompt.submit()
+      prompt.set({ input: args.prompt, parts: [] });
+      prompt.submit();
     }
-  })
-  const directory = useDirectory()
+  });
+  const directory = useDirectory();
 
-  const keybind = useKeybind()
+  const keybind = useKeybind();
 
   const pulseEnabled = createMemo(() => {
-    const tuiCfg = sync.data.config?.tui as { bg_pulse?: boolean } | undefined
-    return Boolean(tuiCfg?.bg_pulse)
-  })
-  const [logoMask, setLogoMask] = createSignal<BgPulseMask | undefined>()
+    const tuiCfg = sync.data.config?.tui as { bg_pulse?: boolean } | undefined;
+    return Boolean(tuiCfg?.bg_pulse);
+  });
+  const [logoMask, setLogoMask] = createSignal<BgPulseMask | undefined>();
   const bindLogoBox = (box: BoxRenderable | undefined) => {
-    if (!box) return
+    if (!box) return;
     const update = () => {
-      setLogoMask({ x: box.x, y: box.y, width: box.width, height: box.height, pad: 2, strength: 0.85 })
-    }
-    update()
-    box.on("resize", update)
-  }
+      setLogoMask({
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        pad: 2,
+        strength: 0.85,
+      });
+    };
+    update();
+    box.on("resize", update);
+  };
 
   return (
     <>
       <Show when={pulseEnabled()}>
-        <box position="absolute" top={0} left={0} right={0} bottom={0} zIndex={-1}>
+        <box
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          zIndex={-1}
+        >
           <BgPulse masks={logoMask() ? [logoMask()!] : []} />
         </box>
       </Show>
@@ -115,17 +143,31 @@ export function Home() {
           <Logo idle={true} />
         </box>
         <box height={1} minHeight={0} flexShrink={1} />
-        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>
+        <box
+          width="100%"
+          maxWidth={75}
+          zIndex={1000}
+          paddingTop={1}
+          flexShrink={0}
+        >
           <Prompt
             ref={(r) => {
-              prompt = r
-              promptRef.set(r)
+              prompt = r;
+              promptRef.set(r);
             }}
             hint={Hint}
             workspaceID={route.workspaceID}
           />
         </box>
-        <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>
+        <box
+          height={4}
+          minHeight={0}
+          width="100%"
+          maxWidth={75}
+          alignItems="center"
+          paddingTop={3}
+          flexShrink={1}
+        >
           <Show when={showTips()}>
             <Tips ads={ads()} />
           </Show>
@@ -155,12 +197,41 @@ export function Home() {
                   <span style={{ fg: theme.error }}>⊙ </span>
                 </Match>
                 <Match when={true}>
-                  <span style={{ fg: connectedMcpCount() > 0 ? theme.success : theme.textMuted }}>⊙ </span>
+                  <span
+                    style={{
+                      fg:
+                        connectedMcpCount() > 0
+                          ? theme.success
+                          : theme.textMuted,
+                    }}
+                  >
+                    ⊙{" "}
+                  </span>
                 </Match>
               </Switch>
               {connectedMcpCount()} MCP
             </text>
             <text fg={theme.textMuted}>/status</text>
+          </Show>
+          <Show when={remote.isConfigured()}>
+            <text fg={theme.textMuted}>·</text>
+            <text fg={theme.text}>
+              <span
+                style={{
+                  fg: remote.isConnected()
+                    ? theme.success
+                    : remote.status.lastError
+                      ? theme.error
+                      : theme.textMuted,
+                }}
+              >
+                {remote.isConnected() ? "◉" : "○"}{" "}
+              </span>
+              {remote.status.pending > 0
+                ? `${remote.status.pending} pending`
+                : "sync"}
+            </text>
+            <text fg={theme.textMuted}>/sync</text>
           </Show>
         </box>
         <box flexGrow={1} />
@@ -169,5 +240,5 @@ export function Home() {
         </box>
       </box>
     </>
-  )
+  );
 }
