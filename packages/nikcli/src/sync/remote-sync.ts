@@ -22,7 +22,7 @@
 import { Log } from "@/util/log"
 import { Database } from "@/database/database"
 import { eq } from "drizzle-orm"
-import { syncOutbox, syncEvent } from "./sync.sql"
+import { syncEvent } from "./sync.sql"
 import { RemoteSyncClient } from "./remote-client"
 import { Outbox } from "./outbox"
 import { Sync, type SyncEventRecord } from "./index"
@@ -47,6 +47,49 @@ export type RemoteSyncHandle = {
 }
 
 export namespace RemoteSync {
+  // One handle per (url, projectID): repeated starts (bootstrap + serve +
+  // `nikcli sync`) share the same connection instead of stacking emitRaw
+  // wrappers and duplicate drain timers.
+  const active = new Map<string, { handle: RemoteSyncHandle; url: string }>()
+
+  // Single global emitRaw hook. Each active target gets local events
+  // enqueued; the hook is installed once and removed when the last
+  // remote sync stops.
+  const enqueueTargets = new Set<string>()
+  let removeEmitHook: (() => void) | undefined
+
+  function ensureEmitHook() {
+    if (removeEmitHook) return
+    const originalEmitRaw = Sync.emitRaw
+    ;(Sync as any).emitRaw = async (
+      projectID: string,
+      aggregate: string,
+      data: unknown,
+      options: {
+        workspaceID?: string
+        origin?: string
+        originSeq?: number
+      } = {},
+    ) => {
+      const isLocal = !options.origin || options.origin === "local"
+      const record = await originalEmitRaw(projectID, aggregate, data, options)
+      if (isLocal) {
+        for (const target of enqueueTargets) {
+          try {
+            Outbox.enqueue(record.id, target)
+          } catch (error) {
+            log.warn("outbox enqueue failed", { target, error })
+          }
+        }
+      }
+      return record
+    }
+    removeEmitHook = () => {
+      ;(Sync as any).emitRaw = originalEmitRaw
+      removeEmitHook = undefined
+    }
+  }
+
   /**
    * Resolve a `SyncEventRecord` from the outbox row's `eventId` so it
    * can be pushed to the remote.
@@ -77,7 +120,27 @@ export namespace RemoteSync {
     }
   }
 
-  export async function start(opts: RemoteSyncOptions): Promise<RemoteSyncHandle> {
+  // Concurrent starts for the same (url, projectID) share the in-flight
+  // promise instead of racing past the active check.
+  const starting = new Map<string, Promise<RemoteSyncHandle>>()
+
+  export function start(opts: RemoteSyncOptions): Promise<RemoteSyncHandle> {
+    const key = `${opts.url}::${opts.projectID}`
+    const existing = active.get(key)
+    if (existing) return Promise.resolve(existing.handle)
+    let inflight = starting.get(key)
+    if (!inflight) {
+      inflight = doStart(opts, key)
+      starting.set(key, inflight)
+      const settle = () => {
+        if (starting.get(key) === inflight) starting.delete(key)
+      }
+      inflight.then(settle, settle)
+    }
+    return inflight
+  }
+
+  async function doStart(opts: RemoteSyncOptions, key: string): Promise<RemoteSyncHandle> {
     const clientId = opts.clientId ?? "cli"
     const originTag = `remote:${clientId}`
     const drainInterval = opts.drainIntervalMs ?? 5_000
@@ -126,38 +189,21 @@ export namespace RemoteSync {
       })
     }, drainInterval)
 
-    // Auto-enqueue: monkey-patch-free integration via wrapping the
-    // public Sync.emitRaw. The wrapper records the event id in the
-    // outbox right after the row is inserted.
-    const originalEmitRaw = Sync.emitRaw
-    ;(Sync as any).emitRaw = async (
-      projectID: string,
-      aggregate: string,
-      data: unknown,
-      options: {
-        workspaceID?: string
-        origin?: string
-        originSeq?: number
-      } = {},
-    ) => {
-      const isLocal = !options.origin || options.origin === "local"
-      const record = await originalEmitRaw(projectID, aggregate, data, options)
-      if (isLocal) {
-        try {
-          Outbox.enqueue(record.id, opts.url)
-        } catch (error) {
-          log.warn("outbox enqueue failed", { error })
-        }
-      }
-      return record
-    }
+    // Auto-enqueue: local events recorded via the shared emitRaw hook land
+    // in the outbox for this target right after the row is inserted.
+    enqueueTargets.add(opts.url)
+    ensureEmitHook()
 
-    return {
+    const handle: RemoteSyncHandle = {
       stop: async () => {
         clearInterval(drainTimer)
         client.stop()
-        // Restore the original emitRaw so a subsequent start works
-        ;(Sync as any).emitRaw = originalEmitRaw
+        active.delete(key)
+        // Only stop enqueuing for this url when no other project still
+        // syncs to it; remove the hook entirely when nothing is active.
+        const urlStillUsed = [...active.values()].some((entry) => entry.url === opts.url)
+        if (!urlStillUsed) enqueueTargets.delete(opts.url)
+        if (active.size === 0) removeEmitHook?.()
         connected = false
         log.info("remote sync stopped")
       },
@@ -170,5 +216,8 @@ export namespace RemoteSync {
         }
       },
     }
+
+    active.set(key, { handle, url: opts.url })
+    return handle
   }
 }

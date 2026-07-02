@@ -20,6 +20,18 @@ export namespace Flag {
   // Opt out of the in-process config hot reload (instance reload on config
   // file changes). Reload can still be triggered explicitly via the API.
   export const NIKCLI_DISABLE_HOT_RELOAD = truthy("NIKCLI_DISABLE_HOT_RELOAD")
+  // Opt out of journaling local (non-workspace) session restore events into
+  // the unified sync_event log.
+  export const NIKCLI_DISABLE_SESSION_JOURNAL = truthy("NIKCLI_DISABLE_SESSION_JOURNAL")
+  // Optional hub-and-spoke remote sync. Setting both URL and TOKEN enables
+  // it; AUTOSTART=false keeps bootstrap from starting it automatically
+  // (explicit `nikcli sync` / `nikcli serve` still can).
+  export const NIKCLI_REMOTE_URL = process.env["NIKCLI_REMOTE_URL"]
+  export const NIKCLI_REMOTE_TOKEN = process.env["NIKCLI_REMOTE_TOKEN"]
+  export const NIKCLI_REMOTE_AUTOSTART = (() => {
+    const value = process.env["NIKCLI_REMOTE_AUTOSTART"]?.toLowerCase()
+    return value !== "false" && value !== "0"
+  })()
   export const NIKCLI_DISABLE_MODELS_FETCH = truthy("NIKCLI_DISABLE_MODELS_FETCH")
   export const NIKCLI_DISABLE_CLAUDE_CODE = truthy("NIKCLI_DISABLE_CLAUDE_CODE")
   export const NIKCLI_DISABLE_CLAUDE_CODE_PROMPT =
