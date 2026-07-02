@@ -450,6 +450,8 @@ import type {
   SyncEventPushResponses,
   SyncEventStreamResponses,
   SyncOutboxListResponses,
+  SyncSnapshotGetErrors,
+  SyncSnapshotGetResponses,
   SyncStatsResponses,
   TextPartInput,
   ToolIdsErrors,
@@ -4719,6 +4721,42 @@ export class Outbox extends HeyApiClient {
   }
 }
 
+export class Snapshot extends HeyApiClient {
+  /**
+   * Cold-start projection snapshot for an aggregate
+   *
+   * Returns the snapshot-backed projected state and last sequence number for a workspace (wrk_…) or session (ses_…) aggregate, so a client can restore without replaying the full event log.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      aggregateID: string
+      directory?: string
+      workspace?: string
+      projectID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncSnapshotGetResponses, SyncSnapshotGetErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "aggregateID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "projectID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SyncSnapshotGetResponses, SyncSnapshotGetErrors, ThrowOnError>({
+      url: "/sync/snapshot/{aggregateID}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Sync extends HeyApiClient {
   /**
    * Aggregated sync stats for the TUI
@@ -4842,6 +4880,11 @@ export class Sync extends HeyApiClient {
   private _outbox?: Outbox
   get outbox(): Outbox {
     return (this._outbox ??= new Outbox({ client: this.client }))
+  }
+
+  private _snapshot?: Snapshot
+  get snapshot(): Snapshot {
+    return (this._snapshot ??= new Snapshot({ client: this.client }))
   }
 }
 

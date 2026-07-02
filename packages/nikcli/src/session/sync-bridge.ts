@@ -17,6 +17,7 @@ import { Bus } from "@/bus"
 import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
 import { Sync } from "@/sync"
+import { SNAPSHOT_INTERVAL } from "@/sync/snapshot"
 import { SessionRepo } from "./repo"
 
 const log = Log.create({ service: "session-sync-bridge" })
@@ -43,6 +44,26 @@ function eventSessionID(properties: any): string | undefined {
 }
 
 export namespace SessionSyncBridge {
+  // Write-through snapshotting (plan 1.4): every SNAPSHOT_INTERVAL journaled
+  // events per session, refresh the projection snapshot so a cold start
+  // replays a bounded tail instead of the whole aggregate. Counters are
+  // in-memory per process; losing them only delays a refresh — the reducer
+  // re-snapshots on read anyway.
+  const journaled = new Map<string, number>()
+  const JOURNAL_COUNTER_CAP = 10_000
+
+  function maybeSnapshot(projectID: string, sessionID: string) {
+    const count = (journaled.get(sessionID) ?? 0) + 1
+    if (journaled.size > JOURNAL_COUNTER_CAP && !journaled.has(sessionID)) journaled.clear()
+    journaled.set(sessionID, count)
+    if (count % SNAPSHOT_INTERVAL !== 0) return
+    void import("@/sync/projection")
+      .then(({ SyncProjection }) => SyncProjection.session(projectID, sessionID))
+      .catch((error) => {
+        log.warn("session snapshot refresh failed", { sessionID, error })
+      })
+  }
+
   /**
    * Subscribe the current instance's bus to the unified log. Returns the
    * unsubscribe function; the caller registers it as an instance disposer.
@@ -63,13 +84,15 @@ export namespace SessionSyncBridge {
       void Sync.emitRaw(projectID, sessionID, {
         type: event.type,
         properties: event.properties ?? {},
-      }).catch((error) => {
-        log.warn("session event journal failed", {
-          sessionID,
-          type: event.type,
-          error,
-        })
       })
+        .then(() => maybeSnapshot(projectID, sessionID))
+        .catch((error) => {
+          log.warn("session event journal failed", {
+            sessionID,
+            type: event.type,
+            error,
+          })
+        })
     })
   }
 }
