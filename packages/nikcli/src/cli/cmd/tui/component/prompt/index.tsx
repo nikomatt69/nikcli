@@ -310,6 +310,30 @@ export function Prompt(props: PromptProps) {
           ],
         }
       }
+
+      if (process.platform === "win32") {
+        return {
+          name: "ffmpeg",
+          command: [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "dshow",
+            "-i",
+            "audio=default",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-c:a",
+            "pcm_s16le",
+            "-y",
+            filePath,
+          ],
+        }
+      }
     }
 
     const rec = Bun.which("rec")
@@ -593,22 +617,21 @@ export function Prompt(props: PromptProps) {
       const recorder = await detectVoiceRecorder(filePath)
 
       if (!recorder) {
-        toast.show({
-          variant: "error",
-          message:
-            process.platform === "darwin"
-              ? "Voice mode requires ffmpeg, sox, or macOS Command Line Tools (swift)"
-              : "Voice mode requires ffmpeg or sox (rec) installed",
-          duration: 4000,
-        })
+        const msg = process.platform === "darwin"
+          ? "Voice mode requires ffmpeg, sox, or macOS Command Line Tools (swift)"
+          : process.platform === "win32"
+            ? "Voice mode requires ffmpeg with dshow support (try: choco install ffmpeg)"
+            : "Voice mode requires ffmpeg or sox (rec) installed"
+        toast.show({ variant: "error", message: msg, duration: 4000 })
         return
       }
 
       if (!hasShownMicHint) {
         hasShownMicHint = true
-        const message =
-          process.platform === "darwin"
-            ? "If prompted, allow microphone access for your terminal"
+        const message = process.platform === "darwin"
+          ? "If prompted, allow microphone access for your terminal"
+          : process.platform === "win32"
+            ? "If recording fails, check microphone privacy settings (Settings > Privacy > Microphone)"
             : "Allow microphone access when prompted by your operating system"
         toast.show({ variant: "info", message, duration: 3500 })
       }
