@@ -1,5 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import path from "path"
+import fs from "fs"
+import fsp from "fs/promises"
 import { $ } from "bun"
 import z from "zod"
 import { Log } from "../util/log"
@@ -194,7 +196,94 @@ export namespace Installation {
       stdout: result.stdout.toString(),
       stderr: result.stderr.toString(),
     })
+
+    if (method === "npm" || method === "pnpm" || method === "bun") {
+      const pkg = platformBinaryPackageName()
+      if (pkg) {
+        log.info("upgrading platform binary package", { package: pkg, target })
+        const installCmd =
+          method === "npm"
+            ? $`npm install -g ${pkg}@${target}`
+            : method === "pnpm"
+              ? $`pnpm install -g ${pkg}@${target}`
+              : $`bun install -g ${pkg}@${target}`
+        const r = await installCmd.quiet().throws(false)
+        if (r.exitCode !== 0) {
+          const err = r.stderr.toString("utf8")
+          if (err.includes("ETARGET") || err.includes("No matching version")) {
+            log.warn("platform binary not on npm, falling back to GitHub release", { pkg, target })
+            await installPlatformBinaryFromGithub(target)
+          } else {
+            throw new UpgradeFailedError({ stderr: err })
+          }
+        }
+      }
+    }
+
     await $`${process.execPath} --version`.nothrow().quiet().text()
+  }
+
+  function platformBinaryPackageName(): string | undefined {
+    const os: Record<string, string> = { darwin: "darwin", linux: "linux", win32: "windows" }
+    const arch: Record<string, string> = { x64: "x64", arm64: "arm64", arm: "arm" }
+    const p = os[process.platform]
+    const a = arch[process.arch]
+    return p && a ? `nikcli-ai-${p}-${a}` : undefined
+  }
+
+  async function installPlatformBinaryFromGithub(target: string) {
+    const os: Record<string, string> = { darwin: "darwin", linux: "linux", win32: "windows" }
+    const arch: Record<string, string> = { x64: "x64", arm64: "arm64", arm: "arm" }
+    const platform = os[process.platform] ?? process.platform
+    const archName = arch[process.arch] ?? process.arch
+    const binName = process.platform === "win32" ? "nikcli.exe" : "nikcli"
+    const ext = process.platform === "win32" ? "zip" : "tar.gz"
+    const archiveName = `nikcli-ai-${platform}-${archName}.${ext}`
+    const url = `https://github.com/nikomatt69/nikcli/releases/download/v${target}/${archiveName}`
+
+    log.info("downloading platform binary from GitHub release", { url })
+
+    const tmp = path.join(import.meta.dir, "..", ".nikcli-upgrade-tmp")
+    const archivePath = path.join(tmp, archiveName)
+    await fsp.mkdir(tmp, { recursive: true }).catch(() => {})
+
+    const res = await fetch(url)
+    if (!res.ok) {
+      throw new UpgradeFailedError({ stderr: `Failed to download ${archiveName}: ${res.status}` })
+    }
+    await Bun.write(archivePath, Buffer.from(await res.arrayBuffer()))
+
+    const extractDir = path.join(tmp, "extract")
+    await fsp.mkdir(extractDir, { recursive: true }).catch(() => {})
+    const flag = ext === "zip" ? "xf" : "xzf"
+    const e = await $`tar -${flag} ${archivePath} -C ${extractDir}`.throws(false).quiet()
+    if (e.exitCode !== 0) {
+      throw new UpgradeFailedError({ stderr: "Failed to extract archive" })
+    }
+
+    const find = (dir: string): string | undefined => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, entry.name)
+        if (entry.isDirectory()) { const f = find(p); if (f) return f }
+        else if (entry.name === binName) return p
+      }
+    }
+    const extracted = find(extractDir)
+    if (!extracted) {
+      throw new UpgradeFailedError({ stderr: `${binName} not found in extracted archive` })
+    }
+
+    const npmGlobalDir = path.dirname(path.dirname(process.execPath))
+    const destDir = path.join(npmGlobalDir, "node_modules", `nikcli-ai-${platform}-${archName}`, "bin")
+    const dest = path.join(destDir, binName)
+
+    fs.mkdirSync(destDir, { recursive: true })
+    if (fs.existsSync(dest)) fs.unlinkSync(dest)
+    fs.copyFileSync(extracted, dest)
+    if (process.platform !== "win32") fs.chmodSync(dest, 0o755)
+
+    await fsp.rm(tmp, { recursive: true, force: true }).catch(() => {})
+    log.info("platform binary installed from GitHub release", { package: `nikcli-ai-${platform}-${archName}`, target })
   }
 
   export const VERSION = typeof NIKCLI_VERSION === "string" ? NIKCLI_VERSION : "local"
