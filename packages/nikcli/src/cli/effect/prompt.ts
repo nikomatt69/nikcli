@@ -1,3 +1,4 @@
+/** Candidate removal: zero imports from src/ (plan neon-meadow 2.5). */
 import * as prompts from "@clack/prompts"
 import { Effect, Option } from "effect"
 

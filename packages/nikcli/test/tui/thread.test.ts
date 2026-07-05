@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import path from "path"
-import { createWorkerEnv, resolveThreadDirectory, validateSession } from "@/cli/cmd/tui/thread"
+import { chdirToThreadDirectory, createWorkerEnv, resolveThreadDirectory, validateSession } from "@/cli/cmd/tui/thread"
 import { Process } from "@/util/process"
 
 describe("TUI thread bootstrap", () => {
@@ -33,5 +33,17 @@ describe("TUI thread bootstrap", () => {
     await expect(validateSession({ url: "http://nikcli.local", sessionID: "bad" })).rejects.toThrow(
       "Invalid session ID",
     )
+  })
+
+  it("chdirToThreadDirectory returns false when chdir fails", () => {
+    const chdir = process.chdir
+    process.chdir = (() => {
+      throw new Error("ENOENT")
+    }) as typeof process.chdir
+    try {
+      expect(chdirToThreadDirectory("/nonexistent-path-nikcli-thread-test")).toBe(false)
+    } finally {
+      process.chdir = chdir
+    }
   })
 })
