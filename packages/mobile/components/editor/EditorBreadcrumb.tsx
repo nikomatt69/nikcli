@@ -90,11 +90,7 @@ export function EditorBreadcrumb(props: {
                 hitSlop={6}
                 style={{
                   ...styles.segment,
-                  backgroundColor: isLast
-                    ? isDark
-                      ? "rgba(255,255,255,0.12)"
-                      : "rgba(20,20,19,0.10)"
-                    : "transparent",
+                  backgroundColor: isLast ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.10)") : "transparent",
                   borderWidth: isLast ? 1 : 0,
                   borderColor: isLast ? (isDark ? "rgba(255,255,255,0.30)" : "rgba(20,20,19,0.20)") : "transparent",
                 }}

@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.141.0 (July 2026)
+
+## Core
+
+- Remove obsolete binary files from nikcli package (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - delete: remove obsolete binary files from nikcli package
+
 ## v1.137.0 (July 2026)
 
 ## Core

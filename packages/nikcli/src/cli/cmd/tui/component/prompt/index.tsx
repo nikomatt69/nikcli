@@ -617,22 +617,24 @@ export function Prompt(props: PromptProps) {
       const recorder = await detectVoiceRecorder(filePath)
 
       if (!recorder) {
-        const msg = process.platform === "darwin"
-          ? "Voice mode requires ffmpeg, sox, or macOS Command Line Tools (swift)"
-          : process.platform === "win32"
-            ? "Voice mode requires ffmpeg with dshow support (try: choco install ffmpeg)"
-            : "Voice mode requires ffmpeg or sox (rec) installed"
+        const msg =
+          process.platform === "darwin"
+            ? "Voice mode requires ffmpeg, sox, or macOS Command Line Tools (swift)"
+            : process.platform === "win32"
+              ? "Voice mode requires ffmpeg with dshow support (try: choco install ffmpeg)"
+              : "Voice mode requires ffmpeg or sox (rec) installed"
         toast.show({ variant: "error", message: msg, duration: 4000 })
         return
       }
 
       if (!hasShownMicHint) {
         hasShownMicHint = true
-        const message = process.platform === "darwin"
-          ? "If prompted, allow microphone access for your terminal"
-          : process.platform === "win32"
-            ? "If recording fails, check microphone privacy settings (Settings > Privacy > Microphone)"
-            : "Allow microphone access when prompted by your operating system"
+        const message =
+          process.platform === "darwin"
+            ? "If prompted, allow microphone access for your terminal"
+            : process.platform === "win32"
+              ? "If recording fails, check microphone privacy settings (Settings > Privacy > Microphone)"
+              : "Allow microphone access when prompted by your operating system"
         toast.show({ variant: "info", message, duration: 3500 })
       }
 

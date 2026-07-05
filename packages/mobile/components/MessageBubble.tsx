@@ -374,9 +374,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                     paddingVertical: 5,
                   }}
                 >
-                  <Text className="text-[12px] font-medium text-muted">
-                    {isUser ? "You" : "Nikcli"}
-                  </Text>
+                  <Text className="text-[12px] font-medium text-muted">{isUser ? "You" : "Nikcli"}</Text>
                 </View>
                 {summaryLine ? <Text className="text-[11px] leading-4 text-soft">{summaryLine}</Text> : null}
               </View>

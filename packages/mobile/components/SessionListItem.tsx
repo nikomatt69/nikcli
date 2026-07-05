@@ -110,7 +110,9 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
 
 function SectionDivider() {
   const { palette } = useAppTheme()
-  return <View style={{ marginHorizontal: 20, marginTop: 8, height: 1, backgroundColor: hexToRgba(palette.ink, 0.08) }} />
+  return (
+    <View style={{ marginHorizontal: 20, marginTop: 8, height: 1, backgroundColor: hexToRgba(palette.ink, 0.08) }} />
+  )
 }
 
 type SessionActionsSheetProps = {
