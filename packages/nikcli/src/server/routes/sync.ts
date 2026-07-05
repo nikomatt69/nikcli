@@ -17,8 +17,10 @@ import { eq, and, gt, sql } from "drizzle-orm"
 import { Database } from "@/database/database"
 import type { MobileAuth } from "@/mobile/auth"
 import { syncEvent, syncOutbox } from "@/sync/sync.sql"
+import { SyncConfig } from "@/sync/sync-config"
 import { GlobalBus } from "@/bus/global"
 import { Log } from "@/util/log"
+import { configUpdateGlobal } from "./mobile/helpers"
 
 const log = Log.create({ service: "server.sync" })
 
@@ -338,8 +340,9 @@ export const SyncRoutes = new Hono()
     async (c) => {
       const { projectID } = c.req.valid("query")
       const db = Database.syncDb()
-      const url = process.env["NIKCLI_REMOTE_URL"]?.replace(/\/$/, "")
-      const configured = Boolean(url && process.env["NIKCLI_REMOTE_TOKEN"])
+      const remote = await SyncConfig.resolve()
+      const url = remote.url
+      const configured = remote.configured
       // Outbox counters
       const pending = db
         .select({ count: sql<number>`cast(count(*) as integer)` })
@@ -385,6 +388,7 @@ export const SyncRoutes = new Hono()
       return c.json({
         url,
         configured,
+        source: remote.source,
         connected: configured && Boolean(latest),
         pending: pending?.count ?? 0,
         failed: failed?.count ?? 0,
@@ -407,6 +411,72 @@ export const SyncRoutes = new Hono()
     },
   )
   .post(
+    "/config",
+    describeRoute({
+      summary: "Save the remote hub settings to the global config file",
+      description:
+        "Persists `sync.url` / `sync.token` in the global nikcli.json so the TUI can configure the hub without env vars. NIKCLI_REMOTE_URL / NIKCLI_REMOTE_TOKEN still override the saved values. When the result is fully configured, the hub connection is started immediately.",
+      operationId: "sync.config.set",
+      responses: {
+        200: {
+          description: "Resolved sync configuration after the save",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  configured: z.boolean(),
+                  url: z.string().optional(),
+                  source: z.enum(["env", "config"]).optional(),
+                  started: z.boolean(),
+                  error: z.string().optional(),
+                }),
+              ),
+            },
+          },
+        },
+        400: { description: "Invalid hub URL" },
+      },
+    }),
+    validator(
+      "json",
+      z.object({
+        url: z.string(),
+        token: z.string().optional().describe("Omit to keep the token already saved in the config file"),
+        autostart: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json")
+      const url = normalizeHubUrl(body.url)
+      if (!url) return c.text("Invalid hub URL", 400)
+      const patch: { sync: { url: string; token?: string; autostart?: boolean } } = { sync: { url } }
+      if (body.token) patch.sync.token = body.token
+      if (body.autostart !== undefined) patch.sync.autostart = body.autostart
+      await configUpdateGlobal(patch)
+      SyncConfig.invalidate()
+      const resolved = await SyncConfig.resolve()
+      let started = false
+      let error: string | undefined
+      if (resolved.configured) {
+        try {
+          const { SyncCliInit } = await import("@/sync/cli-init")
+          const result = await SyncCliInit.startForAllProjects({ url: resolved.url!, token: resolved.token! })
+          started = result.count > 0
+        } catch (err) {
+          error = err instanceof Error ? err.message : String(err)
+        }
+      }
+      log.info("sync config saved from TUI", { url, configured: resolved.configured, started })
+      return c.json({
+        configured: resolved.configured,
+        url: resolved.url,
+        source: resolved.source,
+        started,
+        error,
+      })
+    },
+  )
+  .post(
     "/connect",
     describeRoute({
       summary: "Force a connection to the configured hub",
@@ -414,10 +484,14 @@ export const SyncRoutes = new Hono()
       responses: { 204: { description: "Connection requested" } },
     }),
     async (c) => {
-      // The hub connection is owned by the local CLI process; from the
-      // server's perspective the connection is implicit. This endpoint
-      // exists so the TUI can dispatch a connect intent uniformly.
       log.info("sync connect requested from TUI")
+      const resolved = await SyncConfig.resolve()
+      if (resolved.configured) {
+        const { SyncCliInit } = await import("@/sync/cli-init")
+        await SyncCliInit.startForAllProjects({ url: resolved.url!, token: resolved.token! }).catch((error) => {
+          log.warn("sync connect failed", { error })
+        })
+      }
       return c.body(null, 204)
     },
   )
@@ -445,6 +519,19 @@ export const SyncRoutes = new Hono()
       return c.body(null, 204)
     },
   )
+
+/** Accepts values with or without a scheme/trailing slash; https by default. */
+function normalizeHubUrl(raw: string): string | undefined {
+  let value = raw.trim()
+  if (!value) return undefined
+  if (!/^https?:\/\//i.test(value)) value = `https://${value}`
+  try {
+    const url = new URL(value)
+    return (url.origin + url.pathname).replace(/\/+$/, "")
+  } catch {
+    return undefined
+  }
+}
 
 function previewPayload(value: string): string {
   try {

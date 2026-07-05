@@ -19,7 +19,6 @@ import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList, DialogProviderDisconnect } from "@tui/component/dialog-provider"
-import { DialogBrowserUse } from "@tui/component/dialog-browser-use"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
 import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider } from "@tui/context/server"
@@ -80,7 +79,6 @@ import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
-import { initBrainScheduler } from "@/brain/scheduler"
 import { BRAIN_SESSION_TITLE } from "@/brain"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { UserDB } from "@/db/users"
@@ -367,7 +365,6 @@ function App() {
       }
 
       const tuiConfig = await withInstanceAsync({ directory: sdk.directory || process.cwd() }, async () => {
-        initBrainScheduler()
         return TuiConfig.get()
       })
       const api = createTuiApi({
@@ -947,18 +944,6 @@ function App() {
       category: "Provider",
     },
     {
-      title: "Browser Use",
-      value: "browser.setup",
-      slash: {
-        name: "browser",
-        aliases: ["browser-use", "bu"],
-      },
-      onSelect: () => {
-        dialog.replace(() => <DialogBrowserUse />)
-      },
-      category: "Provider",
-    },
-    {
       title: "Manage Account",
       value: "auth.manage",
       category: "Account",
@@ -988,48 +973,6 @@ function App() {
       slash: { name: "settings" },
       onSelect: () => {
         dialog.replace(() => <DialogSettings />)
-      },
-      category: "System",
-    },
-    {
-      title: "Run Brain",
-      value: "brain.run",
-      slash: { name: "brain" },
-      onSelect: (dialog) => {
-        const directory = sync.data.path.directory || sdk.directory || process.cwd()
-        dialog.clear()
-        toast.show({ message: "Brain started in background", variant: "info" })
-        void (async () => {
-          const { Brain } = await import("@/brain")
-          const result = await withInstanceAsync({ directory }, () => Brain.trigger({ force: true }))
-          if (!result.success) {
-            toast.show({
-              message: result.error ?? "Brain failed",
-              variant: "error",
-              duration: 5000,
-            })
-            return
-          }
-
-          toast.show({
-            message: `Brain completed after reviewing ${result.sessionsReviewed} session${result.sessionsReviewed === 1 ? "" : "s"}`,
-            variant: "success",
-          })
-
-          if (result.sessionID) {
-            route.navigate({
-              type: "session",
-              sessionID: result.sessionID,
-              workspaceID: sync.session.get(result.sessionID)?.workspaceID ?? route.data.workspaceID,
-            })
-          }
-        })().catch((error) => {
-          toast.show({
-            message: error instanceof Error ? error.message : "Brain failed",
-            variant: "error",
-            duration: 5000,
-          })
-        })
       },
       category: "System",
     },

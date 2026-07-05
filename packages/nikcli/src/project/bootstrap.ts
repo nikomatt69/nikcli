@@ -206,8 +206,9 @@ export async function InstanceBootstrap() {
     }
   }
 
-  // Optional hub-and-spoke remote sync (NIKCLI_REMOTE_URL + _TOKEN).
-  // Idempotent per (url, project); no-op when env is not configured.
+  // Optional hub-and-spoke remote sync (NIKCLI_REMOTE_URL + _TOKEN env
+  // vars, or the config file's `sync` block set from the TUI /sync dialog).
+  // Idempotent per (url, project); no-op when not configured.
   background(
     "remote-sync",
     import("@/sync/cli-init").then(async ({ SyncCliInit }) => {

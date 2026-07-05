@@ -3,14 +3,14 @@ import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
 import { Outbox } from "@/sync/outbox"
 import { RemoteSync } from "@/sync/remote-sync"
+import { SyncConfig } from "@/sync/sync-config"
 
 const log = Log.create({ service: "cli.sync" })
 
-async function readEnv(): Promise<{ url: string; token: string } | undefined> {
-  const url = process.env.NIKCLI_REMOTE_URL?.replace(/\/$/, "")
-  const token = process.env.NIKCLI_REMOTE_TOKEN
-  if (!url || !token) return undefined
-  return { url, token }
+async function readRemote(): Promise<{ url: string; token: string; source?: "env" | "config" } | undefined> {
+  const resolved = await SyncConfig.resolve()
+  if (!resolved.url || !resolved.token) return undefined
+  return { url: resolved.url, token: resolved.token, source: resolved.source }
 }
 
 export const SyncCommand = cmd({
@@ -22,14 +22,14 @@ export const SyncCommand = cmd({
         command: "status",
         describe: "show outbox state and last-seen sequence",
         handler: async () => {
-          const env = await readEnv()
-          if (!env) {
+          const remote = await readRemote()
+          if (!remote) {
             console.log("remote sync not configured")
-            console.log("set NIKCLI_REMOTE_URL and NIKCLI_REMOTE_TOKEN to enable")
+            console.log("set NIKCLI_REMOTE_URL and NIKCLI_REMOTE_TOKEN, or use /sync in the TUI to save it")
             return
           }
-          const outbox = Outbox.status(env.url)
-          console.log(`target:        ${env.url}`)
+          const outbox = Outbox.status(remote.url)
+          console.log(`target:        ${remote.url} (${remote.source === "env" ? "env vars" : "config file"})`)
           console.log(`outbox pending: ${outbox.pending}`)
           console.log(`outbox failed:  ${outbox.failed}`)
           console.log(`outbox total:   ${outbox.total}`)
@@ -39,15 +39,15 @@ export const SyncCommand = cmd({
         command: "connect",
         describe: "force a connection to the configured remote hub",
         handler: async () => {
-          const env = await readEnv()
-          if (!env) {
+          const remote = await readRemote()
+          if (!remote) {
             console.log("remote sync not configured")
             return
           }
           const projectID = Instance.project.id
-          log.info("forcing remote sync start", { url: env.url, projectID })
-          const handle = await RemoteSync.start({ ...env, projectID })
-          console.log(`connected to ${env.url} (project ${projectID})`)
+          log.info("forcing remote sync start", { url: remote.url, projectID })
+          const handle = await RemoteSync.start({ url: remote.url, token: remote.token, projectID })
+          console.log(`connected to ${remote.url} (project ${projectID})`)
           console.log("press Ctrl-C to disconnect")
           await new Promise(() => {})
           await handle.stop()

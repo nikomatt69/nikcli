@@ -54,7 +54,7 @@ function sortFileNodes(items: FileNode[]) {
 
 function relativeParent(path: string) {
   const parts = path.split("/").filter(Boolean)
-  if (parts.length <= 1) return "Project root"
+  if (parts.length <= 1) return "Workspace root"
   return parts.slice(Math.max(0, parts.length - 4), -1).join("/")
 }
 

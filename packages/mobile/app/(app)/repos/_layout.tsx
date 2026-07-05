@@ -17,7 +17,7 @@ export default function ReposLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "Projects", headerShown: false }}
+        options={{ title: "Workspaces", headerShown: false }}
       />
     </Stack>
   )

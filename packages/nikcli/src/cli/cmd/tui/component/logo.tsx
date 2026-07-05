@@ -1,102 +1,118 @@
 import { TextAttributes, RGBA } from "@opentui/core"
-import { For, type JSX } from "solid-js"
+import { useTimeline } from "@opentui/solid"
+import { createSignal, For, onMount } from "solid-js"
 import { useTheme, tint } from "@tui/context/theme"
+import { useKV } from "@tui/context/kv"
 
-// Shadow markers (rendered chars in parens):
-// _ = full shadow cell (space with bg=shadow)
-// ^ = letter top, shadow bottom (▀ with fg=letter, bg=shadow)
-// ~ = shadow top only (▀ with fg=shadow)
-const SHADOW_MARKER = /[_^~]/
-
-const LOGO_LEFT = [
-  `███╗   ██╗██╗██╗  ██╗`,
-  `████╗  ██║██║██║ ██╔╝`,
-  `██╔██╗ ██║██║█████╔╝ `,
-  `██║╚██╗██║██║██╔═██╗ `,
-  `██║ ╚████║██║██║  ██╗`,
-  `╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝`,
+const LOGO_LINES = [
+  "███╗   ██╗ ██╗ ██╗  ██╗  ██████╗ ██╗      ██╗",
+  "████╗  ██║ ██║ ██║ ██╔╝ ██╔════╝ ██║      ██║",
+  "██╔██╗ ██║ ██║ █████╔╝  ██║      ██║      ██║",
+  "██║╚██╗██║ ██║ ██╔═██╗  ██║      ██║      ██║",
+  "██║ ╚████║ ██║ ██║  ██╗ ╚██████╗ ███████╗ ██║",
+  "╚═╝  ╚═══╝ ╚═╝ ╚═╝  ╚═╝  ╚═════╝ ╚══════╝ ╚═╝",
 ]
 
-const LOGO_RIGHT = [
-  ` ██████╗██╗     ██╗`,
-  `██╔════╝██║     ██║`,
-  `██║     ██║     ██║`,
-  `██║     ██║     ██║`,
-  `╚██████╗███████╗██║`,
-  ` ╚═════╝╚══════╝╚═╝`,
-]
+const LOGO_WIDTH = Math.max(...LOGO_LINES.map((line) => line.length))
+const REVEAL_DURATION = 950
+const SHINE_WIDTH = 5
+const ROW_LUMINANCE = [0.48, 0.62, 0.82, 1, 0.72, 0.5]
 
-export function Logo() {
+type Segment = {
+  text: string
+  color: RGBA
+  bold: boolean
+}
+
+export function Logo(props: { idle?: boolean }) {
   const { theme } = useTheme()
+  const kv = useKV()
+  const animationsEnabled = props.idle !== false && kv.get("animations_enabled", true)
+  const [progress, setProgress] = createSignal(animationsEnabled ? 0 : 1)
+  const timeline = useTimeline({ duration: REVEAL_DURATION, autoplay: animationsEnabled })
 
-  const renderLine = (line: string, fg: RGBA, bold: boolean): JSX.Element[] => {
-    const shadow = tint(theme.background, fg, 0.25)
-    const attrs = bold ? TextAttributes.BOLD : undefined
-    const elements: JSX.Element[] = []
-    let i = 0
+  onMount(() => {
+    if (!animationsEnabled) return
+    timeline.add(
+      { progress: 0 },
+      {
+        progress: 1,
+        duration: REVEAL_DURATION,
+        ease: "inOutSine",
+        onUpdate: (animation) => setProgress(animation.targets[0].progress),
+      },
+    )
+  })
 
-    while (i < line.length) {
-      const rest = line.slice(i)
-      const markerIndex = rest.search(SHADOW_MARKER)
+  const renderLine = (line: string, row: number): Segment[] => {
+    const cursor = Math.floor(progress() * (LOGO_WIDTH + SHINE_WIDTH))
+    const edge = Math.min(LOGO_WIDTH, cursor)
+    const shineStart = Math.min(LOGO_WIDTH, Math.max(0, cursor - SHINE_WIDTH))
+    const base = tint(theme.textMuted, theme.text, ROW_LUMINANCE[row] ?? 0.7)
+    const segments: Segment[] = []
 
-      if (markerIndex === -1) {
-        elements.push(
-          <text fg={fg} attributes={attrs} selectable={false}>
-            {rest}
-          </text>,
-        )
-        break
-      }
-
-      if (markerIndex > 0) {
-        elements.push(
-          <text fg={fg} attributes={attrs} selectable={false}>
-            {rest.slice(0, markerIndex)}
-          </text>,
-        )
-      }
-
-      const marker = rest[markerIndex]
-      switch (marker) {
-        case "_":
-          elements.push(
-            <text fg={fg} bg={shadow} attributes={attrs} selectable={false}>
-              {" "}
-            </text>,
-          )
-          break
-        case "^":
-          elements.push(
-            <text fg={fg} bg={shadow} attributes={attrs} selectable={false}>
-              ▀
-            </text>,
-          )
-          break
-        case "~":
-          elements.push(
-            <text fg={shadow} attributes={attrs} selectable={false}>
-              ▀
-            </text>,
-          )
-          break
-      }
-
-      i += markerIndex + 1
+    if (shineStart > 0) {
+      segments.push({
+        text: line.slice(0, shineStart),
+        color: base,
+        bold: row >= 2 && row <= 4,
+      })
     }
 
-    return elements
+    if (edge > shineStart) {
+      segments.push({
+        text: line.slice(shineStart, edge),
+        color: tint(base, theme.text, 0.9),
+        bold: true,
+      })
+    }
+
+    if (edge < LOGO_WIDTH) {
+      segments.push({
+        text: " ".repeat(LOGO_WIDTH - edge),
+        color: theme.background,
+        bold: false,
+      })
+    }
+
+    return segments
+  }
+
+  const diamondStrength = () => {
+    const value = progress()
+    if (value < 0.86) return 0
+    if (value < 0.96) return (value - 0.86) / 0.1
+    return 1 - ((value - 0.96) / 0.04) * 0.35
   }
 
   return (
-    <box>
-      <For each={LOGO_LEFT}>
+    <box width={LOGO_WIDTH}>
+      <For each={LOGO_LINES}>
         {(line, index) => (
-          <box flexDirection="row" gap={1}>
-            <box flexDirection="row">{renderLine(line, theme.textMuted, false)}</box>
-            <box flexDirection="row">{renderLine(LOGO_RIGHT[index()], theme.text, true)}</box>
+          <box flexDirection="row" height={1}>
+            <For each={renderLine(line, index())}>
+              {(segment) => (
+                <text
+                  fg={segment.color}
+                  attributes={segment.bold ? TextAttributes.BOLD : undefined}
+                  selectable={false}
+                >
+                  {segment.text}
+                </text>
+              )}
+            </For>
           </box>
         )}
       </For>
+      <box width={LOGO_WIDTH} height={1} alignItems="center">
+        <text
+          fg={tint(theme.background, theme.text, diamondStrength())}
+          attributes={TextAttributes.BOLD}
+          selectable={false}
+        >
+          {progress() >= 0.86 ? "◇" : " "}
+        </text>
+      </box>
     </box>
   )
 }

@@ -34,8 +34,10 @@ export type SyncEventSummary = {
 }
 
 export type RemoteSyncStatus = {
-  /** Configured via NIKCLI_REMOTE_URL + NIKCLI_REMOTE_TOKEN. */
+  /** Configured via NIKCLI_REMOTE_URL + NIKCLI_REMOTE_TOKEN or the config file's `sync` block. */
   configured: boolean
+  /** Where the effective settings came from ("env" wins over "config"). */
+  source: "env" | "config" | undefined
   /** Currently connected to the hub. */
   connected: boolean
   /** Hub URL (no trailing slash) or `undefined` if not configured. */
@@ -58,6 +60,7 @@ export type RemoteSyncStatus = {
 
 const EMPTY_STATUS: RemoteSyncStatus = {
   configured: false,
+  source: undefined,
   connected: false,
   url: undefined,
   pending: 0,
@@ -120,6 +123,7 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
         const stats = await syncFetch<{
           url?: string
           configured: boolean
+          source?: "env" | "config"
           connected: boolean
           pending: number
           failed: number
@@ -153,6 +157,7 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
         setStatus(
           produce((s) => {
             s.configured = stats.configured
+            s.source = stats.source
             s.connected = stats.connected
             s.url = stats.url
             s.pending = stats.pending
@@ -206,6 +211,37 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
       await poll()
     }
 
+    /**
+     * Persist the hub settings in the global config file via the server.
+     * An omitted token keeps the one already saved in the config file.
+     */
+    async function saveConfig(input: {
+      url: string
+      token?: string
+    }): Promise<{ ok: boolean; started?: boolean; source?: "env" | "config"; error?: string }> {
+      const base = (sdk as any).url as string | undefined
+      if (!base) return { ok: false, error: "server unavailable" }
+      try {
+        const res = await fetch(`${base.replace(/\/$/, "")}/sync/config`, {
+          method: "POST",
+          signal: AbortSignal.timeout(15_000),
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(input),
+        })
+        if (!res.ok) {
+          const detail = await res.text().catch(() => "")
+          return { ok: false, error: detail || `server returned ${res.status}` }
+        }
+        const data = (await res.json().catch(() => undefined)) as
+          | { configured?: boolean; started?: boolean; source?: "env" | "config"; error?: string }
+          | undefined
+        await poll()
+        return { ok: true, started: data?.started, source: data?.source, error: data?.error }
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    }
+
     onMount(() => {
       void poll()
       pollTimer = setInterval(poll, 2000)
@@ -226,6 +262,7 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
       connect,
       disconnect,
       drain,
+      saveConfig,
       refresh: poll,
     }
   },

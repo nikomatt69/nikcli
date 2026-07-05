@@ -28,7 +28,7 @@ export default function AppLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="repos">
           <NativeTabs.Trigger.Icon sf={{ default: "folder", selected: "folder.fill" }} md="folder" />
-          <NativeTabs.Trigger.Label>Projects</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>Workspaces</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="terminal">
           <NativeTabs.Trigger.Icon sf={{ default: "apple.terminal", selected: "apple.terminal.fill" }} md="code" />

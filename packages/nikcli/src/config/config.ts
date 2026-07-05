@@ -1391,6 +1391,24 @@ export namespace Config {
         .optional(),
       plugin: z.string().array().optional(),
       snapshot: z.boolean().optional(),
+      sync: z
+        .object({
+          url: z
+            .string()
+            .optional()
+            .describe("Remote sync hub URL, e.g. https://s.nikcli.store. NIKCLI_REMOTE_URL overrides this."),
+          token: z
+            .string()
+            .optional()
+            .describe("cli-sync scoped bearer token for the remote hub. NIKCLI_REMOTE_TOKEN overrides this."),
+          autostart: z
+            .boolean()
+            .optional()
+            .describe("Connect to the hub automatically at startup (default true when url + token are set)"),
+        })
+        .strict()
+        .optional()
+        .describe("Optional hub-and-spoke remote sync settings, manageable from the TUI /sync dialog"),
       share: z
         .enum(["manual", "auto", "disabled"])
         .optional()

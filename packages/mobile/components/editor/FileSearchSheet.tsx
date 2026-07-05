@@ -62,7 +62,7 @@ function fileName(path: string) {
 
 function parentPath(path: string) {
   const parts = path.split("/").filter(Boolean)
-  if (parts.length <= 1) return "Project root"
+  if (parts.length <= 1) return "Workspace root"
   return parts.slice(Math.max(0, parts.length - 3), -1).join("/")
 }
 

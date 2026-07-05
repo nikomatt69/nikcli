@@ -9,6 +9,11 @@ import PluginManager from "../feature-plugins/system/plugins"
 import Fusion from "../feature-plugins/system/fusion"
 import Loops from "../feature-plugins/loops"
 import Missions from "../feature-plugins/mission"
+import Brain from "../feature-plugins/brain"
+import Browser from "../feature-plugins/browser"
+import Chatbot from "../feature-plugins/chatbot"
+import Computer from "../feature-plugins/computer"
+import Connectors from "../feature-plugins/connectors"
 
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 
@@ -29,4 +34,9 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Fusion,
   Missions,
   Loops,
+  Brain,
+  Browser,
+  Chatbot,
+  Computer,
+  Connectors,
 ]

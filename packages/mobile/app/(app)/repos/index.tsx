@@ -31,7 +31,7 @@ function projectLabel(project: ProjectInfo): string {
 }
 
 function currentProjectLabel(project: ProjectInfo | undefined) {
-  if (!project) return "No repo selected"
+  if (!project) return "No workspace selected"
   return projectLabel(project)
 }
 
@@ -279,12 +279,12 @@ export default function ReposScreen() {
         )}
         ListHeaderComponent={
           <View style={{ gap: 20 }}>
-            <ScreenBrandHeader title="Projects" right={<SettingsCircleButton />} />
+            <ScreenBrandHeader title="Workspaces" right={<SettingsCircleButton />} />
             <AppHeader
               className=""
               chips={[
-                { label: `${projects.length} server repos`, tone: "accent" },
-                { label: `${repos.length} GitHub repos` },
+                { label: `${projects.length} workspaces`, tone: "accent" },
+                { label: `${repos.length} GitHub sources` },
                 { label: currentProjectLabel(selectedProject) },
                 { label: executionTarget === "container" ? "Container" : "Local" },
                 bootstrap?.github?.user?.login ? { label: `@${bootstrap.github.user.login}`, tone: "good" } : null,
@@ -309,16 +309,16 @@ export default function ReposScreen() {
                 <ActionButton label="Create sandbox" loading={busy} onPress={() => void createSandbox()} />
               </View>
               {selectedProject ? (
-                <Text className="mt-3 text-xs text-soft">Current repo: {selectedProject.worktree}</Text>
+                <Text className="mt-3 text-xs text-soft">Current workspace: {selectedProject.worktree}</Text>
               ) : null}
             </SurfaceCard>
 
             <View>
-              <SectionHeader label="Server repos" />
+              <SectionHeader label="Server workspaces" />
               {loading || bootstrapLoading ? <RepoCardSkeleton count={2} /> : null}
               {!loading && !bootstrapLoading && projects.length === 0 ? (
                 <EmptyState
-                  title="No server repos yet"
+                  title="No workspaces yet"
                   description="Point the server at a workspace, import a repository, or create a sandbox to seed the hosted portfolio."
                 />
               ) : null}
@@ -475,7 +475,7 @@ export default function ReposScreen() {
                     {selectedRepo.imported_directory ? (
                       <View className="flex-1">
                         <ActionButton
-                          label="Use repo"
+                          label="Use workspace"
                           variant="secondary"
                           onPress={() => void handleImportedRepo(selectedRepo)}
                         />

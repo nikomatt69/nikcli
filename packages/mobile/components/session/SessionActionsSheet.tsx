@@ -220,7 +220,7 @@ export function SessionActionsSheet({
         <SheetRow
           Icon={MonitorPlay}
           label="Session preview"
-          description="Project folder and dev URLs from this chat"
+          description="Workspace folder and dev URLs from this chat"
           onPress={() => {
             onOpenPreview?.()
             setTimeout(() => sheetRef.current?.dismiss(), 120)

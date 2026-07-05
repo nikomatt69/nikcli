@@ -4,9 +4,8 @@ import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { fileURLToPath } from "url"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { Show, createEffect, createMemo, createSignal } from "solid-js"
-import { PLUGIN_CATALOG } from "./plugin-catalog"
 
-type PluginRowValue = { kind: "installed"; id: string } | { kind: "catalog"; pkg: string }
+type PluginRowValue = { kind: "installed"; id: string }
 
 const id = "internal:plugin-manager"
 const key = Keybind.parse("space").at(0)
@@ -190,8 +189,7 @@ function View(props: { api: TuiPluginApi }) {
   }
 
   const rows = createMemo((): DialogSelectOption<PluginRowValue>[] => {
-    const loaded = list()
-    const installedRows = [...loaded]
+    return [...list()]
       .sort((a, b) => {
         const x = a.source === "internal" ? 1 : 0
         const y = b.source === "internal" ? 1 : 0
@@ -199,75 +197,9 @@ function View(props: { api: TuiPluginApi }) {
         return a.id.localeCompare(b.id)
       })
       .map((item) => installedRow(props.api, item, size().width))
-
-    const catalogRows = PLUGIN_CATALOG.filter(
-      (entry) => !loaded.some((p) => p.spec === entry.pkg || p.id === entry.pkg),
-    ).map(
-      (entry): DialogSelectOption<PluginRowValue> => ({
-        title: entry.name,
-        value: { kind: "catalog", pkg: entry.pkg },
-        category: "Catalog",
-        description: entry.description,
-        footer: <span style={{ fg: props.api.theme.current.textMuted }}>not installed</span>,
-      }),
-    )
-
-    return [...installedRows, ...catalogRows]
   })
 
-  function installFromCatalog(pkg: string) {
-    if (lock()) return
-    setLock(true)
-    props.api.plugins
-      .install(pkg, { global: false })
-      .then((out) => {
-        if (!out.ok) {
-          props.api.ui.toast({ variant: "error", message: out.message })
-          if (out.missing) {
-            props.api.ui.toast({
-              variant: "info",
-              message: "Check npm registry/auth settings and try again.",
-            })
-          }
-          return
-        }
-        props.api.ui.toast({
-          variant: "success",
-          message: `Installed ${pkg} (local: ${out.dir})`,
-        })
-        if (!out.tui) {
-          props.api.ui.toast({
-            variant: "info",
-            message: `${pkg} has no TUI target.`,
-          })
-          return
-        }
-        return props.api.plugins.add(pkg).then((ok) => {
-          if (!ok) {
-            props.api.ui.toast({
-              variant: "warning",
-              message: `Installed ${pkg} but runtime load failed — restart TUI to retry.`,
-            })
-            return
-          }
-          props.api.ui.toast({
-            variant: "success",
-            message: `${pkg} loaded in current session.`,
-          })
-          setRefresh((r) => r + 1)
-          setCur({ kind: "installed", id: pkg })
-        })
-      })
-      .finally(() => {
-        setLock(false)
-      })
-  }
-
   const flip = (x: PluginRowValue) => {
-    if (x.kind === "catalog") {
-      installFromCatalog(x.pkg)
-      return
-    }
     if (lock()) return
     const item = list().find((entry) => entry.id === x.id)
     if (!item) return
@@ -305,7 +237,7 @@ function View(props: { api: TuiPluginApi }) {
         {
           title: "toggle",
           keybind: key,
-          disabled: lock() || cur()?.kind === "catalog",
+          disabled: lock(),
           onTrigger: (item) => {
             setCur(item.value)
             flip(item.value)
@@ -315,12 +247,8 @@ function View(props: { api: TuiPluginApi }) {
           title: "install",
           keybind: add,
           disabled: lock(),
-          onTrigger: (item) => {
-            if (item.value.kind === "catalog") {
-              flip(item.value)
-            } else {
-              showInstall(props.api)
-            }
+          onTrigger: () => {
+            showInstall(props.api)
           },
         },
       ]}
