@@ -68,11 +68,11 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
         : "rgba(22,163,74,0.09)"
       : tone === "neutral"
         ? isDark
-          ? "rgba(148,163,184,0.09)"
-          : "rgba(100,116,139,0.08)"
+          ? "rgba(117,116,110,0.09)"
+          : "rgba(90,89,84,0.08)"
         : isDark
           ? "rgba(255,255,255,0.08)"
-          : "rgba(14,165,233,0.09)"
+          : "rgba(20,20,19,0.09)"
 
   const iconBorder =
     tone === "success"
@@ -81,11 +81,11 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
         : "rgba(22,163,74,0.20)"
       : tone === "neutral"
         ? isDark
-          ? "rgba(148,163,184,0.18)"
-          : "rgba(100,116,139,0.16)"
+          ? "rgba(117,116,110,0.18)"
+          : "rgba(90,89,84,0.16)"
         : isDark
           ? "rgba(255,255,255,0.12)"
-          : "rgba(14,165,233,0.18)"
+          : "rgba(20,20,19,0.18)"
 
   const iconColor = tone === "success" ? palette.success : tone === "neutral" ? palette.soft : palette.accentLight
 
@@ -136,7 +136,7 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
 }
 
 function SectionLabel({ label }: { label: string }) {
-  return <Text className="px-5 pb-1 pt-3.5 text-[10px] font-bold uppercase tracking-[1.6px] text-muted">{label}</Text>
+  return <Text className="px-5 pb-1 pt-3.5 text-[12px] font-medium text-muted">{label}</Text>
 }
 
 function SectionDivider() {
@@ -160,7 +160,7 @@ export function SessionActionsSheet({
     <ActionSheet ref={sheetRef} snapPoints={["86%"]}>
       {/* Header */}
       <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Session actions</Text>
+        <Text className="text-[12px] font-medium text-muted">Session actions</Text>
         <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={2}>
           {title || "Untitled session"}
         </Text>
@@ -168,8 +168,8 @@ export function SessionActionsSheet({
           className="mt-2 self-start rounded-full px-2.5 py-1"
           style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>

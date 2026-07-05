@@ -999,7 +999,7 @@ export default function SettingsScreen() {
 
                 <View className="mt-4 gap-3">
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       GitHub profile
                     </Text>
                     <Text className="mt-2 text-lg font-semibold text-ink">
@@ -1017,7 +1017,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       Host profile
                     </Text>
                     <Text selectable className="mt-2 text-sm font-semibold text-ink">
@@ -1057,7 +1057,7 @@ export default function SettingsScreen() {
 
               {/* Theme Selector Dropdown */}
               <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                <Text className="text-[12px] font-medium text-muted">
                   Color Theme
                 </Text>
                 <Pressable
@@ -1072,9 +1072,9 @@ export default function SettingsScreen() {
                     {/* Theme preview swatches */}
                     <View
                       className="size-6 rounded-full border-2 border-border"
-                      style={{ backgroundColor: palette?.accent ?? "#0ea5e9" }}
+                      style={{ backgroundColor: palette?.accent ?? "#141413" }}
                     />
-                    <Text style={{ color: palette?.ink ?? "#0d1b2a", fontSize: 14 }}>▼</Text>
+                    <Text style={{ color: palette?.ink ?? "#141413", fontSize: 14 }}>▼</Text>
                   </View>
                 </Pressable>
               </View>
@@ -1102,7 +1102,7 @@ export default function SettingsScreen() {
               </View>
 
               <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                <Text className="text-[12px] font-medium text-muted">
                   Visible settings sections
                 </Text>
                 <View className="mt-3 flex-row flex-wrap gap-2">
@@ -1148,7 +1148,7 @@ export default function SettingsScreen() {
 
                 <View className="mt-4 gap-3">
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       Notifications
                     </Text>
                     <View className="mt-3 flex-row flex-wrap gap-2">
@@ -1176,7 +1176,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       Haptics
                     </Text>
                     <View className="mt-3 flex-row flex-wrap gap-2">
@@ -1203,7 +1203,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       Message gestures
                     </Text>
                     <View className="mt-3 flex-row flex-wrap gap-2">
@@ -1407,7 +1407,7 @@ export default function SettingsScreen() {
 
                     {selectedProvider ? (
                       <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                        <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                        <Text className="text-[12px] font-medium text-muted">
                           Selected provider
                         </Text>
                         <Text className="mt-2 text-lg font-semibold text-ink">{selectedProvider.name}</Text>
@@ -1458,7 +1458,7 @@ export default function SettingsScreen() {
                     />
 
                     <View className="rounded-[8px] border border-border bg-panel/55 p-4">
-                      <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                      <Text className="text-[12px] font-medium text-muted">
                         Provider API key
                       </Text>
                       <Text className="mt-2 text-sm leading-6 text-soft">
@@ -1575,7 +1575,7 @@ export default function SettingsScreen() {
 
                 {githubConnected ? (
                   <View className="mt-4 rounded-[8px] border border-success/20 bg-success/10 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-ink">
+                    <Text className="text-[12px] font-medium text-muted">
                       Connected account
                     </Text>
                     <Text className="mt-2 text-xl font-semibold text-ink">@{bootstrap?.github?.user?.login}</Text>
@@ -1595,7 +1595,7 @@ export default function SettingsScreen() {
 
                 {oauthFlow ? (
                   <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       Authorization in progress
                     </Text>
                     <Text className="mt-2 text-sm leading-6 text-soft">
@@ -1643,7 +1643,7 @@ export default function SettingsScreen() {
                 </View>
 
                 <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                  <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                  <Text className="text-[12px] font-medium text-muted">
                     Add MCP server
                   </Text>
                   <View className="mt-3 gap-3">
@@ -1877,7 +1877,7 @@ export default function SettingsScreen() {
                   style={{ backgroundColor: palette?.surface ?? "#ffffff" }}
                 >
                   <View className="mb-4 h-1 w-10 rounded-full bg-border self-center" />
-                  <Text className="mb-4 text-center text-lg font-semibold" style={{ color: palette?.ink ?? "#0d1b2a" }}>
+                  <Text className="mb-4 text-center text-lg font-semibold" style={{ color: palette?.ink ?? "#141413" }}>
                     Choose Theme
                   </Text>
                   <ScrollView
@@ -1896,20 +1896,20 @@ export default function SettingsScreen() {
                           }}
                           className={`mx-1 my-1 flex-row items-center justify-between rounded-[12px] px-4 py-3 ${isSelected ? "bg-accent/10" : ""}`}
                           style={{
-                            backgroundColor: isSelected ? `${palette?.accent ?? "#0ea5e9"}20` : "transparent",
+                            backgroundColor: isSelected ? `${palette?.accent ?? "#141413"}20` : "transparent",
                           }}
                         >
                           <View>
                             <Text
                               className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}
                               style={{
-                                color: isSelected ? (palette?.accent ?? "#0ea5e9") : (palette?.ink ?? "#0d1b2a"),
+                                color: isSelected ? (palette?.accent ?? "#141413") : (palette?.ink ?? "#141413"),
                               }}
                             >
                               {theme.name}
                             </Text>
                             {theme.author && (
-                              <Text className="mt-1 text-xs" style={{ color: palette?.muted ?? "#61768c" }}>
+                              <Text className="mt-1 text-xs" style={{ color: palette?.muted ?? "#75746e" }}>
                                 by {theme.author}
                               </Text>
                             )}
@@ -1917,9 +1917,9 @@ export default function SettingsScreen() {
                           {isSelected && (
                             <View
                               className="size-6 items-center justify-center rounded-full"
-                              style={{ backgroundColor: `${palette?.accent ?? "#0ea5e9"}30` }}
+                              style={{ backgroundColor: `${palette?.accent ?? "#141413"}30` }}
                             >
-                              <Text style={{ color: palette?.accent ?? "#0ea5e9", fontWeight: "bold" }}>✓</Text>
+                              <Text style={{ color: palette?.accent ?? "#141413", fontWeight: "bold" }}>✓</Text>
                             </View>
                           )}
                         </Pressable>

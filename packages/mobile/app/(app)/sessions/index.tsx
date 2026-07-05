@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { FlatList, RefreshControl, View } from "react-native"
+import { RefreshControl, SectionList, Text, View } from "react-native"
 import { router, useRootNavigationState } from "expo-router"
 import { SessionListItem } from "@/components/SessionListItem"
 import { SessionListSkeleton } from "@/components/SessionListSkeleton"
@@ -8,9 +8,39 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { TextField } from "@/components/ui/TextField"
 import { AppHeader } from "@/components/layout/AppHeader"
+import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { SessionSummary } from "@/lib/types"
+
+type SessionSection = {
+  title: string
+  data: SessionSummary[]
+}
+
+function groupSessions(sessions: SessionSummary[]): SessionSection[] {
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000
+  const startOfWeek = startOfToday - 6 * 24 * 60 * 60 * 1000
+
+  const buckets: Record<string, SessionSummary[]> = {
+    Today: [],
+    Yesterday: [],
+    "This week": [],
+    Earlier: [],
+  }
+  for (const session of sessions) {
+    const updated = session.info.time.updated
+    if (updated >= startOfToday) buckets.Today.push(session)
+    else if (updated >= startOfYesterday) buckets.Yesterday.push(session)
+    else if (updated >= startOfWeek) buckets["This week"].push(session)
+    else buckets.Earlier.push(session)
+  }
+  return Object.entries(buckets)
+    .filter(([, data]) => data.length > 0)
+    .map(([title, data]) => ({ title, data }))
+}
 
 export default function SessionsScreen() {
   const { palette } = useAppTheme()
@@ -67,8 +97,8 @@ export default function SessionsScreen() {
   }, [config, loading, load, rootNavigationState?.key])
 
   const refreshControlElement = useMemo(
-    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />,
-    [refreshing, load, palette.accent],
+    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.muted} />,
+    [refreshing, load, palette.muted],
   )
 
   async function createSession() {
@@ -93,24 +123,27 @@ export default function SessionsScreen() {
   }
 
   const busyCount = useMemo(() => sessions.filter((item) => item.status?.type === "busy").length, [sessions])
-  const retryCount = useMemo(() => sessions.filter((item) => item.status?.type === "retry").length, [sessions])
+  const sections = useMemo(() => groupSessions(sessions), [sessions])
 
   const hero = (
-    <AppHeader
-      chips={[
-        { label: `${sessions.length} sessions`, tone: "accent" },
-        { label: `${busyCount} busy`, tone: busyCount ? "accent" : "neutral" },
-        retryCount ? { label: `${retryCount} need attention`, tone: "warn" } : null,
-      ]}
-    >
-      <View className="flex-row items-start gap-3">
+    <AppHeader className="gap-3 pb-4">
+      <ScreenBrandHeader title="Sessions" right={<SettingsCircleButton />} />
+      <View className="flex-row items-center gap-3">
         <View className="flex-1">
           <TextField value={search} onChangeText={setSearch} placeholder="Search sessions" autoCapitalize="none" />
         </View>
-        <View className="w-[132px]">
-          <ActionButton label="New session" loading={creating} onPress={() => void createSession()} />
-        </View>
+        <ActionButton
+          label="New"
+          loading={creating}
+          onPress={() => void createSession()}
+          className="min-h-[44px] px-5 py-2.5"
+        />
       </View>
+      {busyCount > 0 ? (
+        <Text className="text-[13px] text-muted">
+          {busyCount} {busyCount === 1 ? "agent" : "agents"} working
+        </Text>
+      ) : null}
       {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
@@ -125,13 +158,30 @@ export default function SessionsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
-      <FlatList
+    <View className="flex-1 bg-background">
+      <SectionList
         contentInsetAdjustmentBehavior="automatic"
-        data={sessions}
+        sections={sections}
         keyExtractor={(item) => item.info.id}
         refreshControl={refreshControlElement}
-        ItemSeparatorComponent={() => <View className="h-3" />}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <Text
+            className="text-[13px] font-medium text-muted"
+            style={{ paddingTop: 18, paddingBottom: 6, paddingHorizontal: 4 }}
+          >
+            {section.title}
+          </Text>
+        )}
+        ItemSeparatorComponent={() => (
+          <View
+            style={{
+              height: 1,
+              marginLeft: 24,
+              backgroundColor: hexToRgba(palette.ink, 0.06),
+            }}
+          />
+        )}
         renderItem={({ item, index }) => (
           <SessionListItem
             item={item}
@@ -162,13 +212,14 @@ export default function SessionsScreen() {
         ListEmptyComponent={
           <EmptyState
             title="No sessions yet"
-            description="Create a session to run work, review diffs, and answer permission prompts."
+            description="Start a session to run work, review diffs, and answer permission prompts."
             action={
-              <ActionButton label="Create local session" loading={creating} onPress={() => void createSession()} />
+              <ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />
             }
           />
         }
-        contentContainerStyle={{ paddingBottom: 28 }}
+        style={{ paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
       />
     </View>
   )

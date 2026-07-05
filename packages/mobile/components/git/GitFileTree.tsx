@@ -161,7 +161,7 @@ function TreeItem({
           paddingLeft: depth * 16 + 12,
           paddingRight: 12,
           paddingVertical: 8,
-          backgroundColor: isSelected ? (isDark ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.08)") : "transparent",
+          backgroundColor: isSelected ? (isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.08)") : "transparent",
           borderRadius: 10,
           marginHorizontal: 8,
           marginVertical: 1,

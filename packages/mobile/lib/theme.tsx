@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react"
-import { useColorScheme } from "nativewind"
+import { View } from "react-native"
+import { useColorScheme, vars } from "nativewind"
 import { getThemePreferences, setStoredColorScheme, setStoredTheme } from "./storage"
 
 import abyss from "./themes/abyss.json"
@@ -418,6 +419,18 @@ function hexToRgba(hex: string, alpha: number = 1): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+function colorChannels(color: string): string {
+  const hex = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color)
+  if (hex) {
+    return `${parseInt(hex[1], 16)} ${parseInt(hex[2], 16)} ${parseInt(hex[3], 16)}`
+  }
+
+  const functional = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(color)
+  if (functional) return `${functional[1]} ${functional[2]} ${functional[3]}`
+
+  return "0 0 0"
+}
+
 // Lighten/darken color helper
 function adjustColor(hex: string, amount: number): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
@@ -527,9 +540,9 @@ function resolveThemeColors(theme: ThemeJson, mode: "dark" | "light"): ThemeColo
 
   // Derive mobile-specific colors from theme
   const isDark = mode === "dark"
-  const surface = background
-  const surfaceMuted = isDark ? adjustColor(background, 15) : adjustColor(background, -10)
-  const surfaceRaised = backgroundPanel
+  const surface = isDark ? backgroundPanel : adjustColor(background, 8)
+  const surfaceMuted = backgroundPanel
+  const surfaceRaised = isDark ? backgroundElement : adjustColor(background, 8)
   const panel = backgroundPanel
   const ink = text
   const soft = textMuted
@@ -636,35 +649,35 @@ function resolveThemeColors(theme: ThemeJson, mode: "dark" | "light"): ThemeColo
 // Legacy palette format for backwards compatibility
 export const palettes = {
   light: {
-    background: "#f1f6fb",
+    background: "#f7f6f2",
     surface: "#ffffff",
-    surfaceMuted: "#f6f9fc",
+    surfaceMuted: "#f2f0eb",
     surfaceRaised: "#ffffff",
-    panel: "#e8f0f8",
-    border: "#c1d0df",
-    ink: "#0d1b2a",
-    soft: "#46586e",
-    muted: "#61768c",
-    accent: "#0ea5e9",
-    accentLight: "#0369a1",
-    warn: "#d97706",
-    warning: "#d97706",
-    success: "#16a34a",
-    danger: "#dc2626",
-    critical: "#dc2626",
-    focusRing: "rgba(14, 165, 233, 0.35)",
-    shadowSoft: "rgba(15, 23, 42, 0.08)",
-    shadowStrong: "rgba(15, 23, 42, 0.16)",
-    tabBackground: "#f6f9fc",
+    panel: "#efede8",
+    border: "#dad8d1",
+    ink: "#141413",
+    soft: "#5a5954",
+    muted: "#75746e",
+    accent: "#141413",
+    accentLight: "#141413",
+    warn: "#c06e2e",
+    warning: "#c06e2e",
+    success: "#1f8a65",
+    danger: "#cf2d56",
+    critical: "#cf2d56",
+    focusRing: "rgba(20, 20, 19, 0.25)",
+    shadowSoft: "rgba(20, 20, 19, 0.06)",
+    shadowStrong: "rgba(20, 20, 19, 0.14)",
+    tabBackground: "#f7f6f2",
     tabSurface: "#ffffff",
-    tabStatus: "#edf3f8",
-    shadow: "#94a3b8",
-    codeBackground: "#dbeafe",
-    codeText: "#0f172a",
+    tabStatus: "#efede8",
+    shadow: "#a8a69f",
+    codeBackground: "#efede8",
+    codeText: "#141413",
     codeBlockBackground: "#1e1e1e",
-    codeAccent: "#38bdf8",
-    reasoningBackground: "#f4f8fc",
-    userBubble: "#e0f3ff",
+    codeAccent: "#3b82f6",
+    reasoningBackground: "#f2f0eb",
+    userBubble: "#f0eee8",
     assistantBubble: "#ffffff",
   },
   dark: {
@@ -708,15 +721,15 @@ export const glassTokens = {
   light: {
     glassShell: "rgba(255, 255, 255, 0.72)",
     glassShellStrong: "rgba(255, 255, 255, 0.85)",
-    glassPanel: "rgba(232, 240, 248, 0.68)",
-    glassPanelStrong: "rgba(232, 240, 248, 0.82)",
+    glassPanel: "rgba(239, 237, 232, 0.68)",
+    glassPanelStrong: "rgba(239, 237, 232, 0.82)",
     glassBorder: "rgba(255, 255, 255, 0.18)",
     glassBorderStrong: "rgba(255, 255, 255, 0.28)",
     glassShadow: "rgba(0, 0, 0, 0.06)",
     glassShadowStrong: "rgba(0, 0, 0, 0.1)",
     glassScrim: "rgba(0, 0, 0, 0.025)",
-    glassTintAccent: "rgba(14, 165, 233, 0.08)",
-    glassTintAccentStrong: "rgba(14, 165, 233, 0.15)",
+    glassTintAccent: "rgba(20, 20, 19, 0.06)",
+    glassTintAccentStrong: "rgba(20, 20, 19, 0.12)",
   },
   dark: {
     glassShell: "rgba(17, 17, 17, 0.72)",
@@ -800,6 +813,38 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [themeId, colorScheme])
 
   const glass = isDark ? glassTokens.dark : glassTokens.light
+  const themeVariables = useMemo(
+    () =>
+      vars({
+        "--color-background": colorChannels(theme.background),
+        "--color-surface": colorChannels(theme.surface),
+        "--color-panel": colorChannels(theme.panel),
+        "--color-border": colorChannels(theme.border),
+        "--color-accent": colorChannels(theme.accent),
+        "--color-accent-strong": colorChannels(theme.primary),
+        "--color-accent-light": colorChannels(theme.accentLight),
+        "--color-muted": colorChannels(theme.muted),
+        "--color-ink": colorChannels(theme.ink),
+        "--color-soft": colorChannels(theme.soft),
+        "--color-user-bubble": colorChannels(theme.userBubble),
+        "--color-assistant-bubble": colorChannels(theme.assistantBubble),
+        "--color-success": colorChannels(theme.success),
+        "--color-danger": colorChannels(theme.danger),
+        "--color-warning": colorChannels(theme.warning),
+        "--color-info": colorChannels(theme.info),
+        "--color-focus-ring": colorChannels(theme.accent),
+        "--color-glass-shell": colorChannels(glass.glassShell),
+        "--color-glass-shell-strong": colorChannels(glass.glassShellStrong),
+        "--color-glass-panel": colorChannels(glass.glassPanel),
+        "--color-glass-border": colorChannels(glass.glassBorder),
+        "--color-glass-border-strong": colorChannels(glass.glassBorderStrong),
+        "--color-glass-shadow": colorChannels(glass.glassShadow),
+        "--color-glass-scrim": colorChannels(glass.glassScrim),
+        "--color-glass-tint-accent": colorChannels(glass.glassTintAccent),
+        "--color-overlay": colorChannels(isDark ? "#000000" : theme.ink),
+      }),
+    [glass, isDark, theme],
+  )
 
   const setTheme = async (newThemeId: string) => {
     if (THEMES[newThemeId]) {
@@ -841,7 +886,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return null
   }
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  return (
+    <ThemeContext.Provider value={value}>
+      <View style={[{ flex: 1 }, themeVariables]}>{children}</View>
+    </ThemeContext.Provider>
+  )
 }
 
 export function useTheme(): ThemeContextType {
@@ -871,12 +920,12 @@ export function useChatTheme() {
 // Chat UI Design Tokens - iOS 2026 Style (kept for backwards compatibility)
 export const chatTokens = {
   light: {
-    userBubbleBg: "#007AFF",
-    userBubbleText: "#FFFFFF",
-    userBubbleTail: "#007AFF",
-    receivedBubbleBg: "#E9E9EB",
-    receivedBubbleText: "#000000",
-    receivedBubbleTail: "#E9E9EB",
+    userBubbleBg: "#F0EEE8",
+    userBubbleText: "#141413",
+    userBubbleTail: "#F0EEE8",
+    receivedBubbleBg: "#FFFFFF",
+    receivedBubbleText: "#141413",
+    receivedBubbleTail: "#FFFFFF",
     bubbleRadius: 18,
     bubbleTailRadius: 4,
     bubbleMaxWidth: 0.75,
@@ -884,46 +933,46 @@ export const chatTokens = {
     bubblePaddingV: 8,
     bubbleSpacing: 4,
     bubbleGroupSpacing: 16,
-    inputBg: "#F1F6FB",
-    inputBorder: "#C1D0DF",
-    inputFocusBorder: "#007AFF",
-    inputPlaceholder: "#61768C",
-    inputText: "#0D1B2A",
-    inputSendActive: "#007AFF",
-    inputSendDisabled: "#C1D0DF",
+    inputBg: "#F7F6F2",
+    inputBorder: "#DAD8D1",
+    inputFocusBorder: "#141413",
+    inputPlaceholder: "#75746E",
+    inputText: "#141413",
+    inputSendActive: "#141413",
+    inputSendDisabled: "#DAD8D1",
     statusOnline: "#34C759",
     statusOffline: "#8E8E93",
     statusBusy: "#FF9500",
-    statusTyping: "#007AFF",
+    statusTyping: "#141413",
     readReceiptSent: "#8E8E93",
     readReceiptDelivered: "#8E8E93",
-    readReceiptRead: "#007AFF",
+    readReceiptRead: "#141413",
     timestampColor: "#8E8E93",
     timestampFontSize: 11,
     avatarBorder: "#FFFFFF",
     avatarOnline: "#34C759",
     avatarSize: 36,
     avatarRadius: 18,
-    listSeparator: "#C1D0DF",
-    listUnreadBg: "#F1F6FB",
-    listUnreadDot: "#007AFF",
+    listSeparator: "#DAD8D1",
+    listUnreadBg: "#F7F6F2",
+    listUnreadDot: "#141413",
     reactionBg: "#E5E5EA",
-    reactionSelectedBg: "#007AFF",
+    reactionSelectedBg: "#141413",
     reactionSelectedText: "#FFFFFF",
     reactionBorder: "#FFFFFF",
     attachmentBg: "#E9E9EB",
     attachmentIcon: "#8E8E93",
     voiceWaveform: "#C7C7CC",
-    voiceWaveformProgress: "#007AFF",
+    voiceWaveformProgress: "#141413",
     voiceDuration: "#8E8E93",
   },
   dark: {
-    userBubbleBg: "#0B84FF",
-    userBubbleText: "#FFFFFF",
-    userBubbleTail: "#0B84FF",
-    receivedBubbleBg: "#2C2C2E",
-    receivedBubbleText: "#FFFFFF",
-    receivedBubbleTail: "#2C2C2E",
+    userBubbleBg: "#2A2A28",
+    userBubbleText: "#ECECEA",
+    userBubbleTail: "#2A2A28",
+    receivedBubbleBg: "#1E1E1D",
+    receivedBubbleText: "#ECECEA",
+    receivedBubbleTail: "#1E1E1D",
     bubbleRadius: 18,
     bubbleTailRadius: 4,
     bubbleMaxWidth: 0.75,
@@ -933,18 +982,18 @@ export const chatTokens = {
     bubbleGroupSpacing: 16,
     inputBg: "#1C1C1E",
     inputBorder: "#38383A",
-    inputFocusBorder: "#0B84FF",
+    inputFocusBorder: "#E8E8E6",
     inputPlaceholder: "#8E8E93",
     inputText: "#FFFFFF",
-    inputSendActive: "#0B84FF",
+    inputSendActive: "#E8E8E6",
     inputSendDisabled: "#38383A",
     statusOnline: "#30D158",
     statusOffline: "#636366",
     statusBusy: "#FF9F0A",
-    statusTyping: "#0B84FF",
+    statusTyping: "#E8E8E6",
     readReceiptSent: "#636366",
     readReceiptDelivered: "#636366",
-    readReceiptRead: "#0B84FF",
+    readReceiptRead: "#E8E8E6",
     timestampColor: "#8E8E93",
     timestampFontSize: 11,
     avatarBorder: "#1C1C1E",
@@ -953,15 +1002,15 @@ export const chatTokens = {
     avatarRadius: 18,
     listSeparator: "#38383A",
     listUnreadBg: "#1C1C1E",
-    listUnreadDot: "#0B84FF",
+    listUnreadDot: "#E8E8E6",
     reactionBg: "#3A3A3C",
-    reactionSelectedBg: "#0B84FF",
+    reactionSelectedBg: "#E8E8E6",
     reactionSelectedText: "#FFFFFF",
     reactionBorder: "#1C1C1E",
     attachmentBg: "#2C2C2E",
     attachmentIcon: "#8E8E93",
     voiceWaveform: "#48484A",
-    voiceWaveformProgress: "#0B84FF",
+    voiceWaveformProgress: "#E8E8E6",
     voiceDuration: "#8E8E93",
   },
 } as const

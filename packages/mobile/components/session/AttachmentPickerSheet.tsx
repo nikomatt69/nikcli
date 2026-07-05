@@ -170,10 +170,10 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
             tint={isDark ? "dark" : "light"}
             intensity={isDark ? 20 : 14}
             style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
           />
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(15,23,42,0.16)" }]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)" }]}
           />
 
           <Pressable style={{ flex: 1 }} onPress={onClose} />
@@ -265,8 +265,8 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
                               style={[
                                 styles.itemIcon,
                                 {
-                                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
-                                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.16)",
+                                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+                                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.16)",
                                 },
                               ]}
                             >

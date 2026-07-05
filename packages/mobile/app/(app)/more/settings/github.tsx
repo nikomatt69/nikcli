@@ -299,7 +299,7 @@ export default function GithubSettingsScreen() {
 
           {oauthFlow ? (
             <View className="rounded-[8px] border border-border bg-background/60 p-4">
-              <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+              <Text className="text-[12px] font-medium text-muted">
                 Authorization in progress
               </Text>
               <Text className="mt-2 text-sm leading-6 text-soft">

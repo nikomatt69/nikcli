@@ -92,11 +92,11 @@ export function EditorBreadcrumb(props: {
                   ...styles.segment,
                   backgroundColor: isLast
                     ? isDark
-                      ? "rgba(14,165,233,0.12)"
-                      : "rgba(14,165,233,0.10)"
+                      ? "rgba(255,255,255,0.12)"
+                      : "rgba(20,20,19,0.10)"
                     : "transparent",
                   borderWidth: isLast ? 1 : 0,
-                  borderColor: isLast ? (isDark ? "rgba(14,165,233,0.30)" : "rgba(14,165,233,0.20)") : "transparent",
+                  borderColor: isLast ? (isDark ? "rgba(255,255,255,0.30)" : "rgba(20,20,19,0.20)") : "transparent",
                 }}
               >
                 {!isLast && <SegmentIcon name={segment} size={11} color={palette.muted} />}

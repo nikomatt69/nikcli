@@ -249,9 +249,9 @@ function TabBarItem({
   onSelect: () => void
   onClose: () => void
 }) {
-  const activeAccent = isDark ? "#58a6ff" : "#0369a1"
-  const activeBackground = isDark ? "rgba(88,166,255,0.15)" : "rgba(14,165,233,0.12)"
-  const activeBorder = isDark ? "rgba(88,166,255,0.3)" : "rgba(14,165,233,0.2)"
+  const activeAccent = isDark ? "#58a6ff" : "#141413"
+  const activeBackground = isDark ? "rgba(88,166,255,0.15)" : "rgba(20,20,19,0.12)"
+  const activeBorder = isDark ? "rgba(88,166,255,0.3)" : "rgba(20,20,19,0.2)"
   const containerStyle = useMemo(
     () => ({
       ...TAB_BAR_ITEM_BASE,
@@ -320,7 +320,7 @@ function TabBar({
       style={{
         flexShrink: 0,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(193,208,223,0.7)",
+        borderBottomColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(218,216,209,0.7)",
         backgroundColor: isDark ? "#0d1117" : "#f6f9fc",
         paddingVertical: 6,
       }}
@@ -561,7 +561,7 @@ export default function TerminalScreen() {
           paddingVertical: 6,
           backgroundColor: isDark ? "#0d0d0d" : "#f6f9fc",
           borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.6)",
+          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.6)",
         }}
       >
         {/* Current session title */}
@@ -611,9 +611,9 @@ export default function TerminalScreen() {
             hitSlop={8}
           >
             {creating ? (
-              <ActivityIndicator size="small" color={isDark ? "#58a6ff" : "#0369a1"} />
+              <ActivityIndicator size="small" color={isDark ? "#58a6ff" : "#141413"} />
             ) : (
-              <Plus size={18} color={isDark ? "#58a6ff" : "#0369a1"} strokeWidth={2} />
+              <Plus size={18} color={isDark ? "#58a6ff" : "#141413"} strokeWidth={2} />
             )}
           </Pressable>
 

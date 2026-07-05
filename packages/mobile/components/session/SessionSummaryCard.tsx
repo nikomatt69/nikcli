@@ -1,10 +1,11 @@
 import { Linking, Text, View } from "react-native"
+import { GitPullRequest } from "lucide-react-native"
 import { relativeTime, type SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 type SessionSummaryCardProps = {
   detail: SessionDetail | null
@@ -15,6 +16,8 @@ type SessionSummaryCardProps = {
   onPublish(): void
   onAbort(): void
   onCleanup(): void
+  /** Opens the full git review modal (stage, commit, push, pull, diff). */
+  onOpenGit?(): void
 }
 
 function currentStatusTone(status?: string) {
@@ -29,18 +32,18 @@ function MetricTile(props: { label: string; value: string; tone?: "neutral" | "a
     props.tone === "accent"
       ? isDark
         ? "rgba(255,255,255,0.06)"
-        : "rgba(14,165,233,0.08)"
+        : "rgba(20,20,19,0.08)"
       : props.tone === "good"
         ? isDark
           ? "rgba(212,212,212,0.06)"
-          : "rgba(34,197,94,0.08)"
+          : "rgba(31,138,101,0.08)"
         : props.tone === "warn"
           ? isDark
             ? "rgba(143,143,143,0.06)"
-            : "rgba(239,68,68,0.08)"
+            : "rgba(207,45,86,0.08)"
           : isDark
             ? "rgba(255,255,255,0.04)"
-            : "rgba(241,246,251,0.78)"
+            : "rgba(247,246,242,0.78)"
 
   return (
     <View
@@ -49,7 +52,7 @@ function MetricTile(props: { label: string; value: string; tone?: "neutral" | "a
         minWidth: 0,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.7)",
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.7)",
         backgroundColor,
         paddingHorizontal: 12,
         paddingVertical: 11,
@@ -86,8 +89,9 @@ export function SessionSummaryCard({
   onPublish,
   onAbort,
   onCleanup,
+  onOpenGit,
 }: SessionSummaryCardProps) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const title = detail?.info.title || "Session"
   const github = detail?.info.github
   const location = github?.fullName || detail?.info.directory || "Unknown workspace"
@@ -150,42 +154,76 @@ export function SessionSummaryCard({
 
         {github ? (
           <View
-            className="mt-4 rounded-[8px] border p-4"
+            className="mt-4 p-4"
             style={{
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.72)",
-              backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(241,246,251,0.68)",
+              borderRadius: 14,
+              borderCurve: "continuous",
+              borderWidth: 1,
+              borderColor: hexToRgba(palette.ink, 0.08),
+              backgroundColor: palette.surfaceRaised,
             }}
           >
-            <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
-              GitHub publish path
+            {/* PR header row */}
+            <View className="flex-row items-center gap-2">
+              <GitPullRequest
+                size={15}
+                color={github.pullRequest ? palette.success : palette.muted}
+                strokeWidth={2.2}
+              />
+              {github.pullRequest ? (
+                <>
+                  <Text selectable className="flex-1 text-[15px] font-semibold text-ink" numberOfLines={1}>
+                    #{github.pullRequest.number} {github.pullRequest.title}
+                  </Text>
+                  <InfoChip label="Open" tone="good" />
+                </>
+              ) : (
+                <Text selectable className="flex-1 text-[15px] font-semibold text-ink" numberOfLines={1}>
+                  No pull request yet
+                </Text>
+              )}
+            </View>
+
+            {/* Branch path */}
+            <Text selectable className="mt-2 text-[13px] leading-5 text-muted" numberOfLines={1}>
+              {github.headBranch} → {github.baseBranch}
+              {additions || deletions ? "  ·  " : ""}
+              {additions ? <Text style={{ color: palette.success }}>+{additions} </Text> : null}
+              {deletions ? <Text style={{ color: palette.danger }}>-{deletions}</Text> : null}
             </Text>
-            <Text selectable className="mt-2 text-sm leading-6 text-soft">
-              {github.pullRequest
-                ? `This session already tracks PR #${github.pullRequest.number}. You can update the branch or reopen the PR directly from mobile.`
-                : `Base branch ${github.baseBranch} -> head branch ${github.headBranch}. Publish when the worktree is ready.`}
-            </Text>
+
+            {/* Primary: publish / update — the "Squash & Merge"-style ink pill */}
+            <View className="mt-3 gap-2">
+              <ActionButton
+                label={github.pullRequest ? "Update pull request" : "Publish pull request"}
+                disabled={sessionBlocked || cleaned}
+                onPress={onPublish}
+              />
+              <View className="flex-row gap-2">
+                {onOpenGit ? (
+                  <View className="flex-1">
+                    <ActionButton label="Review changes" variant="secondary" onPress={onOpenGit} />
+                  </View>
+                ) : null}
+                {github.pullRequest ? (
+                  <View className="flex-1">
+                    <ActionButton
+                      label="Open on GitHub"
+                      variant="secondary"
+                      onPress={() => void Linking.openURL(github.pullRequest?.url ?? "")}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            </View>
           </View>
         ) : null}
 
         <View className="mt-4 gap-2">
-          {github ? (
-            <ActionButton
-              label={github.pullRequest ? "Update pull request" : "Publish pull request"}
-              disabled={sessionBlocked || cleaned}
-              onPress={onPublish}
-            />
+          {!github && onOpenGit ? (
+            <ActionButton label="Review changes" variant="secondary" onPress={onOpenGit} />
           ) : null}
-
           <View className="flex-row gap-2">
-            {github?.pullRequest ? (
-              <View className="flex-1">
-                <ActionButton
-                  label="Open PR"
-                  variant="secondary"
-                  onPress={() => void Linking.openURL(github.pullRequest?.url ?? "")}
-                />
-              </View>
-            ) : null}
             <View className="flex-1">
               <ActionButton label="Abort session" variant="danger" onPress={onAbort} />
             </View>

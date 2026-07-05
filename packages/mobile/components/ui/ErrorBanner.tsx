@@ -1,27 +1,26 @@
 import { AlertTriangle } from "lucide-react-native"
 import { Text, View } from "react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export function ErrorBanner(props: { message: string }) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
 
   return (
     <View
-      className="overflow-hidden border p-4"
+      className="overflow-hidden p-4"
       style={{
         borderRadius: 16,
         borderCurve: "continuous",
-        borderColor: isDark ? "rgba(251,113,133,0.24)" : "rgba(239,68,68,0.24)",
-        backgroundColor: isDark ? "rgba(251,113,133,0.10)" : "rgba(239,68,68,0.08)",
+        borderWidth: 1,
+        borderColor: hexToRgba(palette.danger, 0.2),
+        backgroundColor: hexToRgba(palette.danger, 0.08),
       }}
     >
       <View className="flex-row items-start gap-3">
-        <View className="mt-0.5 rounded-[8px] border border-danger/25 bg-danger/15 p-2">
-          <AlertTriangle size={14} color={palette.danger} strokeWidth={2.1} />
-        </View>
+        <AlertTriangle size={16} color={palette.danger} strokeWidth={2.1} style={{ marginTop: 2 }} />
         <View className="flex-1 gap-1">
-          <Text className="text-[11px] font-semibold uppercase tracking-[1.6px] text-danger">Needs attention</Text>
-          <Text selectable className="text-sm leading-6 text-soft">
+          <Text style={{ fontSize: 13, fontWeight: "600", color: palette.danger }}>Needs attention</Text>
+          <Text selectable className="text-sm leading-5 text-soft">
             {props.message}
           </Text>
         </View>

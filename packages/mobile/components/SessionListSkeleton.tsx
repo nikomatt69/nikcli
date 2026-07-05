@@ -1,20 +1,25 @@
 import { View } from "react-native"
 import { SkeletonBox } from "@/components/Skeleton"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
+/** Row-shaped placeholders matching SessionListItem: dot + title + meta line. */
 export function SessionListSkeleton({ count = 6 }: { count?: number }) {
+  const { palette } = useAppTheme()
+
   return (
-    <View className="gap-3">
+    <View>
       {Array.from({ length: count }).map((_, index) => (
-        <View key={index} className="overflow-hidden rounded-[8px] border border-line/60 p-4" style={{ gap: 10 }}>
-          <View className="flex-row items-center justify-between" style={{ gap: 12 }}>
-            <SkeletonBox width="60%" height={15} borderRadius={6} />
-            <SkeletonBox width={56} height={11} borderRadius={6} />
+        <View key={index}>
+          <View className="flex-row items-start" style={{ gap: 12, paddingVertical: 13, paddingHorizontal: 4 }}>
+            <SkeletonBox width={8} height={8} borderRadius={999} style={{ marginTop: 6 }} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <SkeletonBox width="62%" height={14} borderRadius={6} />
+              <SkeletonBox width="84%" height={11} borderRadius={6} />
+            </View>
           </View>
-          <SkeletonBox width="90%" height={12} borderRadius={6} />
-          <View className="flex-row" style={{ gap: 8 }}>
-            <SkeletonBox width={68} height={20} borderRadius={10} />
-            <SkeletonBox width={52} height={20} borderRadius={10} />
-          </View>
+          {index < count - 1 ? (
+            <View style={{ height: 1, marginLeft: 24, backgroundColor: hexToRgba(palette.ink, 0.06) }} />
+          ) : null}
         </View>
       ))}
     </View>

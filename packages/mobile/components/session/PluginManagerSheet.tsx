@@ -147,7 +147,7 @@ export function PluginManagerSheet({
         {/* Backdrop */}
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-            <View style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(15,23,42,0.20)" }} />
+            <View style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.20)" }} />
           </Pressable>
         </Animated.View>
 
@@ -191,7 +191,7 @@ export function PluginManagerSheet({
                 <View
                   style={[
                     styles.headerIcon,
-                    { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)" },
+                    { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)" },
                   ]}
                 >
                   <Plug size={18} color={palette.accentLight} strokeWidth={2} />
@@ -230,8 +230,8 @@ export function PluginManagerSheet({
                 style={[
                   styles.statPill,
                   {
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.16)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.16)",
                   },
                 ]}
               >
@@ -315,7 +315,7 @@ export function PluginManagerSheet({
                       <View
                         style={[
                           styles.manageIcon,
-                          { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)" },
+                          { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" },
                         ]}
                       >
                         <Icon size={16} color={palette.accentLight} strokeWidth={2} />
@@ -373,7 +373,7 @@ export function PluginManagerSheet({
                     width: 56,
                     height: 56,
                     borderRadius: 28,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
                     alignItems: "center",
                     justifyContent: "center",
                     marginBottom: 12,
@@ -460,7 +460,7 @@ function AnimatedCategoryTab({
             transform: [{ scale: scaleAnim }],
             borderColor,
             borderWidth: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1.5] }),
-            backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+            backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
           },
         ]}
       >
@@ -515,7 +515,7 @@ function AnimatedManageCard({
           gap: 12,
           padding: 12,
           borderRadius: 14,
-          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(14,165,233,0.04)",
+          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(20,20,19,0.04)",
         }}
       >
         {children}
@@ -554,7 +554,7 @@ function PluginCard({
         style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
       >
         <View
-          style={[styles.pluginIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)" }]}
+          style={[styles.pluginIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" }]}
         >
           <Icon size={16} color={palette.accentLight} strokeWidth={2} />
         </View>

@@ -18,7 +18,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
   { eyebrow, title, description, badges = [], shimmer = false, icon: Icon, onPressIn, onPressOut, ...props },
   ref,
 ) {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const scaleRef = useRef<Animated.Value | null>(null)
   if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
   const scale = scaleRef.current
@@ -39,25 +39,26 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
         {...props}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        className="border border-border bg-background/60 px-4 py-3.5"
+        className="px-3 py-3.5"
         style={({ pressed }) => ({
-          borderRadius: 16,
+          borderRadius: 14,
           borderCurve: "continuous",
           opacity: pressed ? 0.9 : 1,
+          backgroundColor: pressed ? (isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.04)") : "transparent",
         })}
       >
         <View className="flex-row items-center justify-between gap-3">
           {Icon ? (
             <View
-              className="h-11 w-11 items-center justify-center rounded-2xl border border-border bg-surface"
+              className="h-10 w-10 items-center justify-center rounded-full bg-panel"
               style={{ borderCurve: "continuous" }}
             >
-              <Icon size={20} color={palette.accent} strokeWidth={2.1} />
+              <Icon size={18} color={palette.ink} strokeWidth={2} />
             </View>
           ) : null}
           <View className="min-w-0 flex-1 gap-1">
-            <Text className="text-[12px] font-semibold text-accent-light">{eyebrow}</Text>
-            <Text className="text-base font-semibold text-ink">{title}</Text>
+            <Text className="text-[12px] font-medium text-muted">{eyebrow}</Text>
+            <Text className="text-[15px] font-semibold text-ink">{title}</Text>
             <Text className="text-[13px] leading-[18px] text-soft" numberOfLines={2}>
               {description}
             </Text>
@@ -67,9 +68,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
               </Text>
             ) : null}
           </View>
-          <View className="h-8 w-8 items-center justify-center rounded-full bg-surface">
-            <ChevronRight size={18} color={palette.muted} strokeWidth={2.1} />
-          </View>
+          <ChevronRight size={17} color={palette.muted} strokeWidth={2} />
         </View>
       </Pressable>
     </Animated.View>

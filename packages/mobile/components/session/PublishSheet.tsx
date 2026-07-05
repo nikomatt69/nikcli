@@ -101,10 +101,10 @@ export function PublishSheet({
           tint={isDark ? "dark" : "light"}
           intensity={isDark ? 22 : 15}
           style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+          fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
         />
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)" }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)" }]}
         />
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>

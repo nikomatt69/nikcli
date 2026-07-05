@@ -45,6 +45,11 @@ export function AppHeader({ chips, children, className = "gap-3 pb-5" }: AppHead
  * Settings gear for a Stack `headerRight`. Lives here so every tab can wire the
  * same accessible control instead of duplicating the Pressable.
  */
+/**
+ * Bare gear icon for a Stack `headerRight`. On iOS 26+ the system wraps
+ * header items in a native liquid-glass capsule, so no custom container:
+ * just the icon, tinted from the theme.
+ */
 export function SettingsHeaderButton() {
   const { palette } = useAppTheme()
 
@@ -55,7 +60,7 @@ export function SettingsHeaderButton() {
       hitSlop={12}
       onPress={() => router.push("/more/settings")}
     >
-      <Settings size={20} color={palette.accent} strokeWidth={2.2} />
+      <Settings size={20} color={palette.ink} strokeWidth={2} />
     </Pressable>
   )
 }

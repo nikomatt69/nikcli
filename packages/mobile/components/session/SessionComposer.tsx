@@ -5,6 +5,7 @@ import {
   Easing,
   Keyboard,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +13,7 @@ import {
 } from "react-native"
 import { ArrowUp, Code2, GitBranch, Lock, MapPin, Paperclip, Plus, Square, Terminal, X } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { ComposerToolDrawer, type ComposerTab } from "./ComposerToolDrawer"
 
@@ -275,14 +276,10 @@ export function SessionComposer({
 
   const borderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [palette.border, isDark ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.38)"],
+    outputRange: [palette.border, isDark ? "rgba(255,255,255,0.28)" : "rgba(20,20,19,0.28)"],
   })
 
-  // Inactive → topbar glass; active → accent fill
-  const sendBg = sendColorAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)", palette.accent],
-  })
+  // Send button matches the circular chrome buttons: surface fill + hairline.
 
   // Pill slides from left-edge-gap (2) to second segment start (SEGMENT_W + 2)
   const segmentPillLeft = modeAnim.interpolate({
@@ -303,15 +300,13 @@ export function SessionComposer({
   const slashTranslateY = slashAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] })
   const statusTranslateY = statusAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] })
 
-  // ── Icon button style ─────────────────────────────────────────────────────
+  // ── Icon button style — bare icons, no chrome (Cursor-style toolbar) ─────
   const iconBtn = useMemo(
     () => ({
       borderRadius: 999,
-      borderWidth: 1,
-      borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(193,208,223,0.78)",
-      backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
+      backgroundColor: "transparent" as const,
     }),
-    [isDark],
+    [],
   )
 
   return (
@@ -360,7 +355,7 @@ export function SessionComposer({
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(232,240,248,0.12)" },
+                { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(239,237,232,0.12)" },
               ]}
               pointerEvents="none"
             />
@@ -394,76 +389,70 @@ export function SessionComposer({
             </View>
 
             {slashSuggestions.length ? (
-              slashSuggestions.slice(0, 5).map((item, i) => (
-                <Pressable
-                  key={item.name}
-                  onPress={() => {
-                    void triggerHaptic("selection")
-                    onSelectSlash(item.name)
-                  }}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    backgroundColor: pressed
-                      ? isDark
-                        ? "rgba(255,255,255,0.07)"
-                        : "rgba(14,165,233,0.06)"
-                      : "transparent",
-                    borderBottomWidth: i < Math.min(slashSuggestions.length, 5) - 1 ? StyleSheet.hairlineWidth : 0,
-                    borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                  })}
-                >
-                  {/* Command name + description */}
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        letterSpacing: -0.2,
-                        color: palette.accentLight,
-                      }}
-                      numberOfLines={1}
-                    >
-                      /{item.name}
-                    </Text>
-                    {item.description ? (
+              <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="always">
+                {slashSuggestions.map((item, i) => (
+                  <Pressable
+                    key={item.name}
+                    onPress={() => {
+                      void triggerHaptic("selection")
+                      onSelectSlash(item.name)
+                    }}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingHorizontal: 14,
+                      paddingVertical: 11,
+                      backgroundColor: pressed ? hexToRgba(palette.ink, 0.05) : "transparent",
+                      borderBottomWidth: i < slashSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0,
+                      borderBottomColor: hexToRgba(palette.ink, 0.06),
+                    })}
+                  >
+                    {/* Command name + description; fall back so a row is never blank */}
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <Text
                         style={{
-                          color: palette.soft,
-                          fontSize: 11.5,
-                          marginTop: 2,
-                          lineHeight: 15,
+                          fontSize: 14,
+                          fontWeight: "600",
+                          letterSpacing: -0.2,
+                          color: palette.ink,
                         }}
                         numberOfLines={1}
                       >
-                        {item.description}
+                        {item.name?.trim() ? `/${item.name}` : item.description || item.badge || "(unnamed command)"}
                       </Text>
-                    ) : null}
-                  </View>
-
-                  {/* Badge */}
-                  {item.badge ? (
-                    <View
-                      style={{
-                        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.14)",
-                        paddingHorizontal: 7,
-                        paddingVertical: 3,
-                        marginLeft: 10,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Text style={{ color: palette.accentLight, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 }}>
-                        {item.badge.toUpperCase()}
-                      </Text>
+                      {item.name?.trim() && item.description ? (
+                        <Text
+                          style={{
+                            color: palette.muted,
+                            fontSize: 12,
+                            marginTop: 2,
+                            lineHeight: 16,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {item.description}
+                        </Text>
+                      ) : null}
                     </View>
-                  ) : null}
-                </Pressable>
-              ))
+
+                    {/* Badge */}
+                    {item.badge ? (
+                      <View
+                        style={{
+                          backgroundColor: hexToRgba(palette.ink, 0.05),
+                          borderRadius: 999,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          marginLeft: 10,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Text style={{ color: palette.soft, fontSize: 10, fontWeight: "600" }}>{item.badge}</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
             ) : !slashLoading ? (
               <View style={{ alignItems: "center", paddingVertical: 16 }}>
                 <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "500" }}>No matching commands</Text>
@@ -502,7 +491,7 @@ export function SessionComposer({
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.15)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(247,246,242,0.2)",
                 },
               ]}
               pointerEvents="none"
@@ -526,7 +515,7 @@ export function SessionComposer({
               keyboardAppearance={isDark ? "dark" : "light"}
               returnKeyType="default"
               placeholder={
-                cleaned ? "Worktree cleaned up" : mode === "plan" ? "What would you like to plan?" : "Reply to Nikcli…"
+                cleaned ? "Worktree cleaned up" : mode === "plan" ? "What would you like to plan?" : "Plan, ask, build…"
               }
               placeholderTextColor={palette.muted}
               style={{
@@ -537,7 +526,7 @@ export function SessionComposer({
                 minHeight: INPUT_MIN_HEIGHT,
                 paddingTop: INPUT_PADDING_TOP,
                 paddingBottom: INPUT_PADDING_BOTTOM,
-                paddingHorizontal: 18,
+                paddingHorizontal: 16,
                 textAlignVertical: "top",
               }}
             />
@@ -547,7 +536,7 @@ export function SessionComposer({
               style={{
                 height: StyleSheet.hairlineWidth,
                 marginHorizontal: 16,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.6)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
               }}
             />
 
@@ -575,7 +564,7 @@ export function SessionComposer({
                       transform: [{ scale: pressed ? 0.94 : 1 }],
                     })}
                   >
-                    <Paperclip size={15} color={palette.soft} strokeWidth={2} />
+                    <Paperclip size={16} color={palette.soft} strokeWidth={2} />
                     {pendingAttachments.length > 0 ? (
                       <View
                         style={{
@@ -589,10 +578,17 @@ export function SessionComposer({
                           justifyContent: "center",
                           backgroundColor: palette.accent,
                           borderWidth: 1,
-                          borderColor: isDark ? palette.surface : "#fff",
+                          borderColor: palette.surface,
                         }}
                       >
-                        <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800", fontVariant: ["tabular-nums"] }}>
+                        <Text
+                          style={{
+                            color: palette.background,
+                            fontSize: 9,
+                            fontWeight: "800",
+                            fontVariant: ["tabular-nums"],
+                          }}
+                        >
                           {pendingAttachments.length}
                         </Text>
                       </View>
@@ -618,7 +614,7 @@ export function SessionComposer({
                     transform: [{ scale: pressed ? 0.94 : 1 }],
                   })}
                 >
-                  <Terminal size={15} color={palette.accentLight} strokeWidth={2} />
+                  <Terminal size={16} color={palette.soft} strokeWidth={2} />
                 </Pressable>
 
                 {/* Git */}
@@ -640,7 +636,7 @@ export function SessionComposer({
                       transform: [{ scale: pressed ? 0.94 : 1 }],
                     })}
                   >
-                    <GitBranch size={15} color={palette.accentLight} strokeWidth={2} />
+                    <GitBranch size={16} color={palette.soft} strokeWidth={2} />
                   </Pressable>
                 ) : null}
 
@@ -662,7 +658,7 @@ export function SessionComposer({
                     transform: [{ scale: pressed ? 0.94 : 1 }],
                   })}
                 >
-                  <Plus size={15} color={palette.soft} strokeWidth={2} />
+                  <Plus size={16} color={palette.soft} strokeWidth={2} />
                 </Pressable>
 
                 {/* Mode segmented control */}
@@ -683,7 +679,7 @@ export function SessionComposer({
                   <View
                     style={[
                       styles.segment,
-                      { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.78)" },
+                      { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(218,216,209,0.78)" },
                     ]}
                   >
                     {/* Sliding pill indicator */}
@@ -693,7 +689,7 @@ export function SessionComposer({
                         {
                           left: segmentPillLeft,
                           backgroundColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.95)",
-                          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.18)",
+                          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.18)",
                         },
                       ]}
                     />
@@ -727,7 +723,7 @@ export function SessionComposer({
                       maxWidth: 108,
                       borderRadius: 999,
                       borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(193,208,223,0.70)",
+                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(218,216,209,0.70)",
                       backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.62)",
                       paddingHorizontal: 8,
                       paddingVertical: 5,
@@ -743,8 +739,8 @@ export function SessionComposer({
                     style={{
                       borderRadius: 999,
                       borderWidth: 1,
-                      borderColor: isDark ? "rgba(52,199,89,0.30)" : "rgba(34,197,94,0.22)",
-                      backgroundColor: isDark ? "rgba(52,199,89,0.11)" : "rgba(34,197,94,0.08)",
+                      borderColor: isDark ? "rgba(52,199,89,0.30)" : "rgba(31,138,101,0.22)",
+                      backgroundColor: isDark ? "rgba(52,199,89,0.11)" : "rgba(31,138,101,0.08)",
                       paddingHorizontal: 8,
                       paddingVertical: 5,
                     }}
@@ -782,19 +778,19 @@ export function SessionComposer({
                       accessibilityLabel="Stop current run"
                       hitSlop={4}
                       style={({ pressed }) => ({
-                        borderRadius: 13,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 999,
                         borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
+                        borderColor: hexToRgba(palette.ink, 0.12),
+                        backgroundColor: hexToRgba(palette.ink, 0.05),
                         alignItems: "center",
                         justifyContent: "center",
                         opacity: pressed ? 0.7 : 1,
                         transform: [{ scale: pressed ? 0.93 : 1 }],
                       })}
                     >
-                      <Square size={14} color={palette.ink} strokeWidth={0} fill={palette.ink} />
+                      <Square size={12} color={palette.ink} strokeWidth={0} fill={palette.ink} />
                     </Pressable>
                   </Animated.View>
                 ) : (
@@ -809,23 +805,23 @@ export function SessionComposer({
                         onSend()
                       }}
                       style={({ pressed }) => ({
-                        borderRadius: 13,
+                        width: 34,
+                        height: 34,
+                        borderRadius: 999,
                         borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
+                        borderColor: hexToRgba(palette.ink, 0.1),
+                        backgroundColor: palette.surfaceRaised,
                         alignItems: "center",
                         justifyContent: "center",
                         overflow: "hidden",
-                        opacity: pressed && !sendDisabled ? 0.7 : sendDisabled ? 0.5 : 1,
+                        opacity: pressed && !sendDisabled ? 0.7 : sendDisabled ? 0.55 : 1,
                         transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
                       })}
                     >
-                      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 13, backgroundColor: sendBg }]} />
                       <ArrowUp
-                        size={20}
-                        color={hasText && !sendBlocked ? (isDark ? "#0a0a0a" : "#ffffff") : palette.muted}
-                        strokeWidth={2.6}
+                        size={18}
+                        color={hasText && !sendBlocked ? palette.ink : palette.muted}
+                        strokeWidth={2.4}
                       />
                     </Pressable>
                   </Animated.View>
@@ -867,9 +863,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    paddingTop: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    paddingTop: 10,
   },
   segment: {
     flexDirection: "row",

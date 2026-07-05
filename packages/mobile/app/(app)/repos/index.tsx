@@ -1,18 +1,22 @@
 import { useCallback, useMemo, useState } from "react"
-import { FlatList, RefreshControl, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, RefreshControl, Text, View } from "react-native"
 import { router, useFocusEffect, useRootNavigationState } from "expo-router"
-import { GithubRepoCard, LocalRepoCard } from "@/components/RepoCard"
 import { RepoCardSkeleton } from "@/components/RepoCardSkeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { Divider } from "@/components/ui/Divider"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
+import { ListRow, StatusDot } from "@/components/ui/ListRow"
+import { SectionHeader } from "@/components/ui/SectionHeader"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { AppHeader } from "@/components/layout/AppHeader"
+import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
+import { relativeTime } from "@/lib/types"
 
 const EMPTY_ROWS: never[] = []
 
@@ -22,9 +26,22 @@ function safeOwner(fullName?: string): string | null {
   return owner || null
 }
 
+function projectLabel(project: ProjectInfo): string {
+  return project.name || project.worktree.split("/").filter(Boolean).pop() || project.worktree
+}
+
 function currentProjectLabel(project: ProjectInfo | undefined) {
   if (!project) return "No repo selected"
-  return project.name || project.worktree.split("/").filter(Boolean).pop() || project.worktree
+  return projectLabel(project)
+}
+
+function repoSubtitle(repo: GitHubRepo): string {
+  const parts = [
+    repo.language,
+    `${repo.stargazers_count.toLocaleString()} stars`,
+    repo.updated_at ? relativeTime(new Date(repo.updated_at).getTime()) : null,
+  ].filter(Boolean)
+  return parts.join(" · ")
 }
 
 export default function ReposScreen() {
@@ -262,6 +279,7 @@ export default function ReposScreen() {
         )}
         ListHeaderComponent={
           <View style={{ gap: 20 }}>
+            <ScreenBrandHeader title="Projects" right={<SettingsCircleButton />} />
             <AppHeader
               className=""
               chips={[
@@ -295,8 +313,8 @@ export default function ReposScreen() {
               ) : null}
             </SurfaceCard>
 
-            <View className="gap-3">
-              <Text className="text-lg font-semibold text-ink">Server repos</Text>
+            <View>
+              <SectionHeader label="Server repos" />
               {loading || bootstrapLoading ? <RepoCardSkeleton count={2} /> : null}
               {!loading && !bootstrapLoading && projects.length === 0 ? (
                 <EmptyState
@@ -304,18 +322,30 @@ export default function ReposScreen() {
                   description="Point the server at a workspace, import a repository, or create a sandbox to seed the hosted portfolio."
                 />
               ) : null}
-              {projects.map((project) => (
-                <LocalRepoCard
-                  key={project.id}
-                  project={project}
-                  selected={selectedDirectory === project.worktree}
-                  onSelect={() => void selectProject(project)}
-                />
+              {projects.map((project, index) => (
+                <View key={project.id}>
+                  {index > 0 ? <Divider inset={24} /> : null}
+                  <ListRow
+                    leading={
+                      <StatusDot
+                        color={
+                          selectedDirectory === project.worktree ? palette.secondary : hexToRgba(palette.ink, 0.25)
+                        }
+                      />
+                    }
+                    title={projectLabel(project)}
+                    subtitle={project.worktree}
+                    trailing={
+                      selectedDirectory === project.worktree ? <InfoChip label="Selected" tone="accent" /> : undefined
+                    }
+                    onPress={() => void selectProject(project)}
+                  />
+                </View>
               ))}
             </View>
 
             <View className="gap-3 pb-10">
-              <Text className="text-lg font-semibold text-ink">GitHub account</Text>
+              <SectionHeader label="GitHub account" />
               {!bootstrap?.github?.connected ? (
                 <EmptyState
                   title="Connect GitHub first"
@@ -415,7 +445,7 @@ export default function ReposScreen() {
                   ) : null}
 
                   <View className="mt-4 rounded-[8px] border border-border bg-background/70 p-4">
-                    <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
+                    <Text className="text-[12px] font-medium text-muted">
                       Launch summary
                     </Text>
                     <Text className="mt-2 text-sm leading-6 text-soft">
@@ -433,6 +463,30 @@ export default function ReposScreen() {
                   </View>
 
                   <View className="mt-4 flex-row gap-2">
+                    <View className="flex-1">
+                      <ActionButton
+                        label={selectedRepo.imported ? "Refresh import" : "Import only"}
+                        variant="secondary"
+                        loading={importingRepo === selectedRepo.full_name}
+                        onPress={() => void importRepo(selectedRepo)}
+                        disabled={Boolean(importingRepo)}
+                      />
+                    </View>
+                    {selectedRepo.imported_directory ? (
+                      <View className="flex-1">
+                        <ActionButton
+                          label="Use repo"
+                          variant="secondary"
+                          onPress={() => void handleImportedRepo(selectedRepo)}
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                  {selectedRepo.imported_directory ? (
+                    <Text className="mt-2 text-xs text-soft">Imported at {selectedRepo.imported_directory}</Text>
+                  ) : null}
+
+                  <View className="mt-3 flex-row gap-2">
                     <View className="flex-1">
                       <ActionButton label="Close wizard" variant="secondary" onPress={() => setBranchRepo(null)} />
                     </View>
@@ -454,40 +508,26 @@ export default function ReposScreen() {
                   description="Adjust your search, reconnect GitHub if needed, or refresh the control plane from Settings."
                 />
               ) : null}
-              {visibleRepos.slice(0, 20).map((repo) => (
-                <View key={repo.id} className="gap-3 rounded-[8px] border border-border bg-surface p-3">
-                  <GithubRepoCard repo={repo} />
-                  <View className="flex-row gap-2">
-                    <View className="flex-1">
-                      <ActionButton
-                        label={branchRepo === repo.full_name ? "Wizard open" : "Configure session"}
-                        loading={branchLoading === repo.full_name}
-                        onPress={() => void loadBranches(repo)}
-                        disabled={Boolean(importingRepo) || branchLoading === repo.full_name}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <ActionButton
-                        label={repo.imported ? "Refresh import" : "Import only"}
-                        variant="secondary"
-                        loading={importingRepo === repo.full_name}
-                        onPress={() => void importRepo(repo)}
-                        disabled={Boolean(importingRepo)}
-                      />
-                    </View>
-                    {repo.imported_directory ? (
-                      <View className="flex-1">
-                        <ActionButton
-                          label="Use repo"
-                          variant="secondary"
-                          onPress={() => void handleImportedRepo(repo)}
-                        />
-                      </View>
-                    ) : null}
-                  </View>
-                  {repo.imported_directory ? (
-                    <Text className="text-xs text-soft">Imported at {repo.imported_directory}</Text>
-                  ) : null}
+              {visibleRepos.slice(0, 20).map((repo, index) => (
+                <View key={repo.id}>
+                  {index > 0 ? <Divider inset={24} /> : null}
+                  <ListRow
+                    leading={
+                      <StatusDot color={repo.imported ? palette.success : hexToRgba(palette.ink, 0.25)} />
+                    }
+                    title={repo.full_name || repo.name}
+                    subtitle={repoSubtitle(repo)}
+                    trailing={
+                      branchLoading === repo.full_name ? (
+                        <ActivityIndicator size="small" color={palette.muted} />
+                      ) : repo.imported ? (
+                        <InfoChip label="Imported" tone="good" />
+                      ) : undefined
+                    }
+                    showChevron
+                    onPress={() => void loadBranches(repo)}
+                    disabled={Boolean(importingRepo) || branchLoading === repo.full_name}
+                  />
                 </View>
               ))}
             </View>

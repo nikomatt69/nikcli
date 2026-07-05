@@ -359,22 +359,22 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                     borderColor: isUser
                       ? isDark
                         ? "rgba(255,255,255,0.12)"
-                        : "rgba(14,165,233,0.18)"
+                        : "rgba(20,20,19,0.18)"
                       : isDark
                         ? "rgba(255,255,255,0.08)"
-                        : "rgba(193,208,223,0.72)",
+                        : "rgba(218,216,209,0.72)",
                     backgroundColor: isUser
                       ? isDark
                         ? "rgba(255,255,255,0.08)"
-                        : "rgba(14,165,233,0.10)"
+                        : "rgba(20,20,19,0.10)"
                       : isDark
                         ? "rgba(255,255,255,0.04)"
-                        : "rgba(241,246,251,0.78)",
+                        : "rgba(247,246,242,0.78)",
                     paddingHorizontal: 10,
                     paddingVertical: 5,
                   }}
                 >
-                  <Text className="text-[10px] font-semibold uppercase tracking-[1.4px] text-accent-light">
+                  <Text className="text-[12px] font-medium text-muted">
                     {isUser ? "You" : "Nikcli"}
                   </Text>
                 </View>
@@ -522,7 +522,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   >
                     <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
                   </Animated.View>
-                  <Text className="flex-1 text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
+                  <Text className="flex-1 text-[12px] font-medium text-muted">
                     {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
                   </Text>
                 </Pressable>
@@ -561,7 +561,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                       accessibilityRole="button"
                       accessibilityLabel="Load patch diff"
                     >
-                      <Text className="text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
+                      <Text className="text-[12px] font-medium text-muted">
                         {props.diffLoading ? "Loading..." : "Load diff"}
                       </Text>
                     </Pressable>

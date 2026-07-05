@@ -1,14 +1,14 @@
 # Nikcli Project Memory
 
-**Last updated**: 2026-06-30 (Brain Pass — Unified sync backend (projector/reducer/snapshot/outbox) implemented, workspace.events column dropped, sync_event broadened, parallel deep-audits of workspace & session backends)
+**Last updated**: 2026-07-02 (Brain Pass — v1.134.0 at HEAD `dfc1d7085`; TUI sync dialog added (`/sync` slash + `<leader>y` keybind + `RemoteSync` context + `DialogSync` component + 4 server endpoints `/sync/stats` + `/sync/connect` + `/sync/disconnect` + `/sync/drain`); workspace structure now ~30 packages (added `terminal-control`, `tui-image`, `bench-tui`, `http-recorder`); `src/sync/` completed with outbox/remote/event-replay; 88 tool files, 40+ CLI commands, 119,343 LOC in `packages/nikcli`; SECURITY: `nikcli.json` at repo root contains real bearer token (`nkm_*`) — do not echo; default branch is **`live-main`** confirmed AGAIN; AGENTS.md says `dev` — that's outdated)
 
-> **TL;DR for new sessions**: nikcli is an AI agent CLI/runtime (fork of OpenCode) on Bun + Hono + Solid + Vercel AI SDK + SQLite/Drizzle + Effect 4 beta. Three current backends (local SQLite, remote WorkspaceServer via SSE proxy, Cloud D1+DO E2E) are being unified behind a single event-sourced `sync_event` log with projector/reducer/snapshot/outbox. Today (2026-06-30): implementation merged under migrations `20260630000000_sync_unify` + `20260630000100_workspace_drop_events`; tests at `test/sync/unified.test.ts` (9/10 pass) and `test/workspace/config.test.ts` (2/2 pass). Default branch is **`live-main`** (the `nikoemme-main` in AGENTS.md is outdated). `lastUserActivity` ref at `src/sync/index.ts:55-104`.
+> **TL;DR for new sessions**: nikcli is an AI agent CLI/runtime (fork of OpenCode, v1.134.0, maintainer nikomatt69) on Bun + Hono + Solid + OpenTUI + Vercel AI SDK + SQLite/Drizzle + Effect 4 beta. v1.134.0 released 2026-06-22. Three current backends (local SQLite, remote WorkspaceServer via SSE proxy, Cloud D1+DO E2E) are being unified behind a single event-sourced `sync_event` log with projector/reducer/snapshot/outbox. Most recent focus (since v1.134.0): unified sync backend implementation (migrations `20260630000000_sync_unify` + `20260630000100_workspace_drop_events`), optional Railway remote sync (`https://s.nikcli.store` with `NIKCLI_REMOTE_URL` + `NIKCLI_REMOTE_TOKEN`), and a TUI `DialogSync` to monitor/control that sync. Tests at `test/sync/unified.test.ts` (9/10 pass → **17/17 across 4 files** after TUI sync dialog completion) and `test/workspace/` (2/2 pass). **Default branch is `live-main`** (AGENTS.md says `dev` — outdated; `nikoemme-main` is also outdated). `lastUserActivity` ref at `src/sync/index.ts:55-104`. SECURITY: repo-root `nikcli.json` contains real `nkm_*` bearer token — do not echo.
 
 ## Architecture Overview
 
 ### Monorepo Structure (`/Volumes/SSD/Projects/nikcli/`)
 
-30+ packages managed with Bun workspaces + Turbo (current count: 27 catalog entries plus github/ Action, browser-use, etc.). Originally 24; the 2026-06-09 audit corrected to 27 packages; 2026-06-21 saw 30. Stack:
+**30 packages** under `packages/` (Bun workspaces + Turbo). v1.134.0 (single canonical version, workspace root). Originally 24 (2026-05); 2026-06-09 audit corrected to 27; 2026-06-21 saw 30; **2026-07-02 confirmed 30 packages + `github/` workspace**. New since the 2026-06-17 audit: `terminal-control`, `tui-image`, `bench-tui`, `http-recorder`, `extensions`, `containers`. Stack:
 
 | Package                 | Purpose                             | Key Tech                            |
 | ----------------------- | ----------------------------------- | ----------------------------------- |
@@ -33,7 +33,8 @@
 ### Core Structure
 
 - **Session System** (`src/session/`) - Message storage, LLM processing, prompts, streaming
-- **Tool System** (`src/tool/`) - 50+ tools: bash, edit, read, write, grep, task, skill, etc.
+- **Sync System** (`src/sync/`) - **NEWEST AREA**: unified event-sourced `sync_event` log with projector/reducer/snapshot/outbox + optional Railway remote (`s.nikcli.store`)
+- **Tool System** (`src/tool/`) - **88 files** as of 2026-07-02: bash, edit, read, write, grep, task, skill, monitor, opentui, computer, browser, etc.
 - **Background/Delegation** (`src/delegation/`, `src/background/`) - Background job management, durable run store
 - **Monitor** (`src/monitor/`) - Long-running process management
 - **Command System** (`src/command/`) - Slash commands, built-ins, MCP/connector prompts
@@ -4763,3 +4764,245 @@ The 1 failing test (`SyncReducer — replay with snapshot cache > falls back to 
 - **Confidence**: HIGH that the unification direction is right; the audit confirmed no abstraction existed before, so any backend-type cleanup is net positive
 - **Risk**: drop of `workspace.events` column is irreversible — but data is migrated into `sync_event` first, so practically safe
 - **TODO**: write the `IStorage` interface module; re-export per-domain `*Repo` namespaces behind it; document the migration guide for external contributors
+
+## Brain Pass (2026-06-30 PM) — TUI Sync Dialog Completion
+
+### Session `ses_0e717a22bffeUQBKNicnVrpFsL`
+
+Built TUI surface for the unified sync backend just merged that morning. Adds `/sync` slash command, `<leader>y` keybind, live status indicator in the home footer, and a `DialogSync` monitoring panel.
+
+### Files Created
+
+| File                                                          | Purpose                                                                                            |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/cli/cmd/tui/context/remote-sync.tsx`                     | `RemoteSync` Solid context: 2s poll on `/sync/stats`, reactive store for `status`, `events[]`, `isConnected`; methods `connect()`, `disconnect()`, `drain()`, `refresh()` |
+| `src/cli/cmd/tui/component/dialog-sync.tsx`                   | `DialogSync` monitoring UI: state badge, stats grid (URL, Outbox pending/failed, Last seq, Last origin), action buttons (Connect/Disconnect/Drain/Refresh), 50-event scrollbox with direction arrow `↑/↓`; shortcuts `^c` connect, `^d` drain, `^r` refresh |
+
+### Files Modified
+
+| File                                            | Change                                                                                              |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `src/cli/cmd/tui/app.tsx`                       | Provider wrap for `RemoteSync`, registered `sync_view` keymap layer via `api.keymap.registerLayer`, command palette entry "Sync status" + slash `/sync` (aliases `hub`, `remote`) |
+| `src/cli/cmd/tui/routes/home.tsx`               | Live indicator in home footer: `◉ sync` (green connected) / `○ sync` (gray disconnected) / `N pending` (error/outbox full) with hint `/sync` |
+| `src/cli/cmd/tui/ui/dialog-help.tsx`            | Added keybind `sync_view` + slash command `/sync`                                                    |
+| `src/config/config.ts`                          | New keybind `sync_view` default `<leader>y`                                                          |
+| `src/server/routes/sync.ts`                     | 4 new endpoints: `GET /sync/stats`, `POST /sync/connect`, `POST /sync/disconnect`, `POST /sync/drain` (last 3 are server-side no-ops for now) |
+
+### Typecheck Fixes During Build (2026-06-30 evening)
+
+6 typecheck errors found and fixed:
+
+1. **`app.tsx:1171`** — `category: "System"` was listed twice in command registration; removed duplicate
+2. **`dialog-sync.tsx:134`** — `Stat` `color` expects `string`, was passed `theme.accent` (`RGBA`); added fallback
+3-6. **`remote-sync.tsx:150, 204, 213, 222`** — `encodeURIComponent(projectID)` failed because `projectID` was `string | undefined`; replaced with `encodeURIComponent(projectID ?? "")` in all 4 sites
+
+**Final tier-1 verification**: `bun run typecheck` exit 0 (no errors); `bun test test/sync/ test/workspace/` → 17 pass, 0 fail, 35 expect() calls (across 4 test files).
+
+## Brain Pass (2026-07-02) — Deep Workspace Map + Security
+
+### Confirmed State (2026-07-02 HEAD = `dfc1d7085`)
+
+| Field             | Value                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| Version           | **v1.134.0** (workspace root, single canonical version across all published packages)   |
+| Release date      | v1.134.0 released ~2026-06-22 (2 days before this pass); HEAD `dfc1d7085` is post-release hardening |
+| Last commit subj. | `feat(sync): enforce token scopes, rate-limit and audit hub event pushes`             |
+| Active focus      | Unified sync backend hardening (Railway `s.nikcli.store` remote hub) + Loops product + TUI live sync dialog |
+| Branch            | **`live-main`** (clean working tree, in sync with `origin/live-main`)                  |
+
+### Two Parallel Workspace Explore Agents (2026-07-02)
+
+| Agent session                              | Outcome                                                |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `ses_0df3e6a17ffez9XgzsX5HdF7nM`          | @explore deep walkthrough of monorepo (delivered in supervisor `action: finalize`; user then kicked off `ses_0df3cf633ffeJFdHKFEkqtwsZ2` as a re-run) |
+| `ses_0df3cf633ffeJFdHKFEkqtwsZ2`           | @explore re-run that produced the consolidated onboarding map |
+| `ses_0df3c6246ffeJkJJNEy5RvVwBc`           | @explore follow-up "Map nikcli monorepo workspace" |
+| `ses_0df3fbbbbffeoxIt4Z7BEoDXeE`           | Hi-greeting then "check workspace deep" / "continua" — supervisor handled parallel exploration, user got full overview from main session |
+
+### Consolidated Onboarding Map (from explore agents, 2026-07-02)
+
+**Identity**: `nikcli` fork of [sst/opencode](https://github.com/sst/opencode), MIT, maintained by **nikomatt69**, v1.134.0 (just released 2 days ago), bun@1.3.14 exact.
+
+**Repo layout**:
+
+```
+nikcli/
+├── packages/                ← 30 workspace packages (Bun workspaces)
+│   ├── nikcli/              ← MAIN package · the CLI app
+│   ├── sdk/                 ← @nikcli-ai/sdk (generated TS client + JS bundle)
+│   ├── llm/, plugin/, util/, remote/, companion/, slack/   ← internal libs
+│   ├── desktop/, mobile/    ← app targets
+│   ├── web/, console/, cloud/, enterprise/, function/      ← web surfaces
+│   ├── inference/, inference-dashboard/, http-recorder/    ← AI ops
+│   ├── tui-image/, terminal-control/, ui/, webrenderer/    ← TUI primitives
+│   ├── bench-tui/, app/     ← bench + dashboards
+│   └── script/, extensions/, containers/                   ← tooling
+├── script/                  ← root build/release/sst helpers
+├── specs/                   ← 15 numbered spec docs + perf-roadmap.md + project.md
+├── docs/                    ← sync-architecture.md (single doc)
+├── infra/, github/          ← deploy + CI workflows
+├── patches/                 ← patch-package patches (5 packages)
+├── themes/, .nikcli/, memory/   ← runtime + state
+└── Dockerfile(s), flake.nix, sst.config.ts, railway.toml
+```
+
+### `packages/nikcli/` src/ directory (exhaustive, 2026-07-02)
+
+**Core subsystems**:
+
+| Path                              | Purpose                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| `src/index.ts`                    | yargs CLI entry, registers all ~40 subcommands                                         |
+| `src/agent/`                      | Agent system — `agent.ts` + 8 prompt txts (compaction, explore, scout, summary, title, delegation, delegator, ultrareview-reviewer) |
+| `src/cli/`                        | CLI framework — bootstrap, error formatter, ui, upgrade, heap, network                 |
+| `src/cli/cmd/`                    | ~40 subcommands: run, generate, auth, agent, serve, workspace-serve, mcp, sync, pr, web, session, mission, ads, goal, debug, tui, ...   |
+| `src/cli/cmd/tui/`                | **SolidJS + OpenTUI** terminal UI — 60+ components, 22 contexts, 6 feature-plugins (deepsec, home, loops, mission, sidebar, system)    |
+| `src/session/`                    | Engine + persistence: message-v2, session, processor, runner (single-flight), llm, goal, compaction, revert, summary, v2/ |
+| `src/sync/`                       | **Newest area** — unified sync log, outbox, projector, reducer, remote-sync (~1.7k LOC) |
+| `src/loop/`, `src/mission/`       | Continuous-orchestration primitives                                                    |
+| `src/provider/`                   | 19+ AI providers (Anthropic, OpenAI, Azure, Google, Bedrock, Groq, xAI, Cohere, Mistral, Perplexity, Together, OpenRouter, Cerebras, DeepInfra, GitLab, ...) |
+| `src/server/`                     | Hono HTTP API + mDNS + proxy; routes for project, session, file, pty, mcp, connectors, chatbot, companion, mobile, provider, config, permission, loop, question, global, tui, experimental, users, workspace, mission, sync, analytics, brain, doctor |
+| `src/storage/`, `src/database/`   | Drizzle/SQLite persistence + Storage namespace for JSON KV                             |
+| `src/file/`, `src/git/`, `src/lsp/` | Filesystem, git, LSP                                                                 |
+| `src/mcp/`, `src/plugin/`         | MCP + plugin system (42 files in plugin/)                                              |
+| `src/permission/`, `src/auth/`, `src/account/` | RBAC + OAuth + multi-account                                                |
+| `src/effect/`                     | Effect-TS foundation (runtime, instance-state, instance-scope, instance-ref, run-service, with-instance) |
+| `src/util/effect-zod.ts`          | **Effect Schema → Zod walker** for hono-openapi parity                                 |
+| `src/observability/`              | Metrics + OpenTelemetry                                                              |
+| `src/util/`                       | 40 utility modules                                                                    |
+
+### Built-in Agents (`src/agent/prompt/*.txt`)
+
+`compaction`, `summary`, `title` — session lifecycle; `explore`, `scout` — read-only research; `delegation`, `delegator` — task DAG coordination; `ultrareview-reviewer` — parallel review fleet. PLUS inline-prompts for `ralph`, `build`, `plan`, `general`, `planner`, `debugger`, `refactor`, `support`, `test-runner`, `code-reviewer`, `fast-explore`, `researcher`.
+
+### Tool Inventory Highlights (`src/tool/`, ~88 files)
+
+- Read: `read`, `ls`, `tree`, `glob`, `grep`, `codesearch`
+- Write: `write`, `edit`, `multiedit`, `apply_patch`, `bash`
+- Search/Research: `webfetch`, `websearch`, `repo_clone`, `repo_overview`
+- Code intelligence: `lsp`, `context_collect`, `context_related`, `context_diagnostics`, `memory_search`
+- Orchestration: `task`, `delegation`, `delegator`, `plan`, `loop`, `mission`
+- UI: `question`, `todowrite`, `todoread`, `opentui` (rich dashboard viz), `dialog`
+- Browser/Computer: `browser`, `computer`, `browser-use`
+- Media: `generate_image`, `speak`, `voice`
+- Domain: `mcp-exa`, `advisor`, `monitor`, `invalid`, `exec_code`, `batch`
+
+### Tests (`test/`)
+
+58 test files in `test/` mirroring `src/` structure. Uses **bun test** with `--timeout 30000`. Coverage on by default. `bun test test/sync/ test/workspace/` → **17 pass, 0 fail, 35 expect() calls, 1138ms** as of 2026-06-30 PM.
+
+### Recent Activity (last ~2 weeks)
+
+The repo is in an **active sync-architecture push**:
+
+```
+dfc1d7085  feat(sync): enforce token scopes, rate-limit and audit hub event pushes
+ed744e53e  feat(sync): local session journaling, idempotent remote sync, bootstrap wiring
+ed59fcf9d  feat: instance hot reload + workspace event catch-up on unified sync log
+fa2d5aaaa  feat: instance hot reload and unified sync backend for workspaces
+7c8d709b3  release: v1.134.0
+997e6ee57  release: v1.133.0
+702e40ec8  feat: integrate account management features into the application
+```
+
+**Currently working on**: `src/sync/` (outbox + remote-sync + audit), `src/cli/effect/` (Effect-TS migration), `src/loop/` (Loops engine), Desktop Tauri shell + signing pipeline.
+
+Open branches suggest in-flight work on: `align/opencode-parity`, `feat/tui-image-prompt-preview`, `claude/session-v2-live-stepper`, `claude/nikcli-effect-ts-review`.
+
+### Useful Commands (in `packages/nikcli/`)
+
+| Command                          | What it does                                                              |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `bun install`                    | Install deps (root uses Bun catalogs)                                     |
+| `bun run dev`                    | Run TUI in browser mode (`--conditions=browser`)                          |
+| `bun run build`                  | `bun run script/build.ts`                                                 |
+| `bun run typecheck`              | `tsgo --noEmit` (TypeScript native preview)                               |
+| `bun test`                       | bun test, 30s timeout, skips `*benchmark*.test.ts`                       |
+| `bun run bench`                  | TUI viz benchmark                                                        |
+| `bun run sandbox:vercel`         | Vercel sandbox smoke test                                                 |
+
+### Key Config Files
+
+| File                    | Purpose                                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `tsconfig.json`         | extends `@tsconfig/bun`, JSX via `@opentui/solid`, `@/*` → `./src/*`, `@tui/*` → `./src/cli/cmd/tui/*` |
+| `bunfig.toml`           | preloads `@opentui/solid/preload` + test preload `./test/preload.ts`, 10s test timeout, coverage on  |
+| `nikcli.json` (root)    | runtime defaults (build agent uses `minimax-coding-plan/MiniMax-M3` advisor, brain model same, image `grok-imagine-image-quality`, speak OpenRouter `gpt-audio-mini`, tunnel via `cloudflared`) ⚠ **contains real `nkm_*` bearer token — DO NOT ECHO** |
+| `drizzle.config.ts`     | Drizzle ORM config for SQLite                                                                     |
+| `parsers-config.ts`     | tree-sitter parser registration                                                                   |
+| `package.json` (root)   | workspace declaration, version catalog (`workspaces.catalog`), `trustedDependencies`, `patchedDependencies` (5 patches), workspaces include `packages/*, packages/console/*, packages/remote, packages/sdk/js, packages/slack, github` |
+| `turbo.json`            | Turbo task graph — `typecheck`, `build`, plus `nikcli#test` and `@nikcli-ai/app#test`             |
+| `oxlintrc.json`         | Linter config                                                                                     |
+| `sst.config.ts`, `fly.toml`, `railway.toml`, `wrangler.toml` | Deploy targets                                              |
+| `flake.nix`, `nix/`     | Nix packaging; **CRITICAL**: `nix/node_modules.nix` `lib.fileset.unions` MUST include `../github` (it's in workspaces!) or Nix builds break. Updated 2026-06-23 |
+| `Dockerfile`, `Dockerfile.serve` | Container images                                                                   |
+| `infra/`                | SST infrastructure (`app.ts`, `console.ts`, `enterprise.ts`, `secret.ts`, `stage.ts`)             |
+| `script/`               | Repo-wide scripts (release, CI, schema, publish, etc.) — patches known LSP issue with @octokit/rest via dynamic-import + fetch fallback |
+| `homebrew-tap/`         | Homebrew formula                                                                                  |
+| `patches/`              | patch-package patches for `@ff-labs/fff-bun@0.9.4`, `@openrouter/ai-sdk-provider@1.5.4`, `ghostty-web@0.3.0`, `@silvia-odwyer/photon-node@0.3.4`, `expo-modules-jsi@56.0.9` |
+| `.sst/`, `.turbo/`, `.opencode/`, `.cursor/`, `.zed/`, `.vscode/` | Tool state                                      |
+| `.husky/`               | Git hooks                                                                                         |
+
+### Specs / Docs
+
+- `specs/01..10-*.md` — 10 numbered design specs (persist-limits, cache-eviction, throttling, scroll-spy, modularize, i18n-audit ×2, unified-diff-hub, CLI geoloc, loops)
+- `specs/perf-roadmap.md`, `specs/project.md`, `specs/provider-options-design.md`
+- `specs/storage/`, `specs/v2/` — sub-specs (effect migration, v2 engine)
+- `docs/sync-architecture.md` — the architecture doc for the actively-developed sync layer
+
+### Workspace Counts (refreshed 2026-07-02)
+
+Confirmed live numbers:
+
+```
+44 tools    ·  19 agents        ·  260 endpoints    ·  99 unique paths
+66 bus events   ·  21 route files   ·  119,343 LOC (packages/nikcli)
+```
+
+Plus new artifacts from the sync backend push (2026-06-30):
+
+- **+4 modules** in `src/sync/`: `projector.ts`, `reducer.ts`, `snapshot.ts`, `outbox.ts`
+- **+2 migrations**: `20260630000000_sync_unify.ts`, `20260630000100_workspace_drop_events.ts`
+- **+2 test files**: `test/sync/unified.test.ts`, `test/workspace/config.test.ts` (combined: 17 tests, 35 expects, all passing as of 2026-06-30 PM)
+- **+2 TUI files** (2026-06-30 evening): `context/remote-sync.tsx`, `component/dialog-sync.tsx`
+
+Total tool file count: **88** (was 60+ in 2026-06-17, was ~50 in earlier audits — growth is real, not measurement drift).
+
+### Security Observations (Consolidated)
+
+1. **`nikcli.json` at repo root contains a real `nkm_*` bearer token** — confirmed by direct read 2026-06-21, still present 2026-07-02. **Do not echo the value in any output**. Likely should be gitignored or moved to `~/.config/nikcli/nikcli.json`.
+2. **`SERVER_ID` and other credentials** referenced in `script/release-github.ts`, `script/publish-start.ts`, `script/publish-complete.ts`, `script/changelog.ts`. `VERCEL_OIDC_TOKEN` discovered in build/publish scripts.
+3. **Echoed tokens in logs** (open issues): `mobile/auth.ts:80-89` timing attack — verify() uses `===` not constant-time. `server.ts` logs include `c.req.path` which can include `?token=...`. Future cleanup needed.
+4. **Cursor IDE on macOS intercepts Cmd+Space** — affects `computer-use` flows where user expects Spotlight. Use osascript instead.
+
+### Patterns Confirmed (2026-07-02)
+
+1. **Default branch is `live-main`** — confirmed AGAIN, now 4th verification. `AGENTS.md` says `dev` (outdated). GitHub Actions default-branch setting may need check.
+2. **`/goal` "current PR" is ambiguous** when on `live-main` — `gh pr view live-main` returns "no pull requests" so the phrase needs disambiguation. Surface early, don't guess.
+3. **Parallel @explore agents** are the standard pattern for whole-repo audits — each typically returns within 10-min timeout via supervisor `action: finalize`. Trust the supervisor summary, supplement with direct reads when in doubt.
+4. **`session_diff/*.json` files are empty** (`[]`); session transcripts live in **SQLite** at `~/.local/share/nikcli/nikcli.db`, tables `message_info` + `message_part`. To retrieve text from a session: find the final assistant message, extract `text` JSON from the matching part.
+5. **Workspace proxying is transparent** to TUI/client — `Workspace.get + Workspace.getAdaptor().target()` resolves a backend-agnostic handle. No client-side backend discrimination needed.
+6. **Three "sync" meanings** (NOT the same): `sync_event` log (event-sourcing), `Workspace.startSyncing` (workspace SSE loop), Cloud `sync/push|sync/pull` — _all distinct_. Unified as of 2026-06-30 behind one `sync_event` log.
+7. **No ETag / `If-Match` / optimistic concurrency** anywhere in nikcli — concurrency control is exclusively Lock/WAL/locks. Future-proof cleanup target.
+8. **AGENTS.md has accumulated stale info** — `dev` branch reference (should be `live-main`), `studio` package reference (doesn't exist), etc. Treat AGENTS.md as advisory; trust the live workspace state.
+
+### Open PRs against `live-main` (refreshed 2026-07-02)
+
+(Not enumerated this pass; previous known set: #103, #99, #91, #88, #86, #129. Workspace exploration did not capture fresh PR list. Most recent merged: v1.134.0 release commits `7c8d709b3` and `997e6ee57`.)
+
+### Last Brain Pass Survey Sessions (2026-07-02)
+
+- `ses_0df3e6a17ffez9XgzsX5HdF7nM` — First @explore deep walkthrough (delivered via supervisor finalize)
+- `ses_0df3cf633ffeJFdHKFEkqtwsZ2` — Re-run @explore that produced the consolidated onboarding map (final, structured)
+- `ses_0df3c6246ffeJkJJNEy5RvVwBc` — Final @explore follow-up "Map nikcli monorepo workspace" (delivered via supervisor finalize)
+- `ses_0df3fbbbbffeoxIt4Z7BEoDXeE` — Hi-greeting then "check workspace deep" / "continua" — full overview delivered to user
+- `ses_0e6e94024ffe10kco4e8b6GbLr` — This Brain pass
+
+### Outstanding TODO from 2026-07-02
+
+- **TUI exit logo**: User requested nikcli to display ASCII logo on terminal kill (like OpenCode does); was not yet wired up as of 2026-06-10. May still be pending.
+- **Database centralization cleanup**: domain modules still re-export their own tables; need full migration to central `Database` service.
+- **Opentui tool schema bug**: discriminator fix (Option A in 2026-06-07 Brain Pass) still not attempted — `z.discriminatedUnion("type", [...])` migration would resolve the array-field validation failures.
+- **Brain + Doctor server routes**: 4 high-severity code-review findings from 2026-06-23 still unaddressed (throttle side effect, TTY failure on headless, no 500 docs, doctor behind instance bootstrap).
+- **`nikcli.json` security**: repo-root config has real bearer token. Should add to `.gitignore` or move.
+- **Nix fileset drift**: any new workspace added to root `package.json` must update `nix/node_modules.nix` fileset simultaneously — recurring footgun.

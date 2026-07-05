@@ -118,10 +118,10 @@ export const ActionSheet = React.forwardRef<
             tint={isDark ? "dark" : "light"}
             intensity={isDark ? 15 : 10}
             style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
           />
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(15,23,42,0.16)" }]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(20,20,19,0.16)" }]}
           />
         </Animated.View>
 
@@ -222,18 +222,18 @@ export function ActionSheetItem({
           backgroundColor: destructive
             ? isDark
               ? "rgba(143,143,143,0.10)"
-              : "rgba(239,68,68,0.10)"
+              : "rgba(207,45,86,0.10)"
             : isDark
               ? "rgba(255,255,255,0.07)"
-              : "rgba(14,165,233,0.08)",
+              : "rgba(20,20,19,0.08)",
           borderWidth: 1,
           borderColor: destructive
             ? isDark
               ? "rgba(143,143,143,0.18)"
-              : "rgba(239,68,68,0.18)"
+              : "rgba(207,45,86,0.18)"
             : isDark
               ? "rgba(255,255,255,0.11)"
-              : "rgba(14,165,233,0.18)",
+              : "rgba(20,20,19,0.18)",
           alignItems: "center",
           justifyContent: "center",
         }}

@@ -1,9 +1,10 @@
+import { useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { InfoChip } from "@/components/ui/InfoChip"
 import type { GitHubRepo, ProjectInfo } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 function lastPathSegment(path?: string): string {
   if (!path) return "Unknown workspace"
@@ -30,32 +31,27 @@ export function LocalRepoCard(props: {
   onStartSession?: () => void
   startingSession?: boolean
 }) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
+  const [pressed, setPressed] = useState(false)
 
   return (
     <Pressable
       onPress={props.onSelect}
-      className="overflow-hidden border p-4"
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      className="overflow-hidden p-4"
       style={{
-        borderRadius: 18,
+        borderRadius: 16,
         borderCurve: "continuous",
-        borderColor: props.selected
-          ? isDark
-            ? "rgba(255,255,255,0.16)"
-            : "rgba(14,165,233,0.22)"
-          : isDark
-            ? "rgba(255,255,255,0.08)"
-            : "rgba(193,208,223,0.9)",
+        borderWidth: 1,
+        borderColor: props.selected ? hexToRgba(palette.ink, 0.3) : hexToRgba(palette.ink, 0.08),
         backgroundColor: props.selected ? palette.panel : palette.surface,
-        shadowColor: palette.shadow,
-        shadowOpacity: isDark ? 0.12 : 0.05,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 3 },
+        opacity: pressed ? 0.88 : 1,
       }}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
-          <Text selectable className="text-[12px] font-semibold text-accent-light">
+          <Text selectable className="text-[12px] font-medium text-muted">
             {props.project.current ? "Live workspace" : "Available workspace"}
           </Text>
           <Text selectable className="text-base font-semibold text-ink">
@@ -86,21 +82,22 @@ export function LocalRepoCard(props: {
 }
 
 export function GithubRepoCard(props: { repo: GitHubRepo }) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
 
   return (
     <View
-      className="overflow-hidden border p-4"
+      className="overflow-hidden p-4"
       style={{
-        borderRadius: 18,
+        borderRadius: 16,
         borderCurve: "continuous",
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
-        backgroundColor: isDark ? "rgba(0,0,0,0.55)" : "rgba(241,246,251,0.65)",
+        borderWidth: 1,
+        borderColor: hexToRgba(palette.ink, 0.08),
+        backgroundColor: palette.surface,
       }}
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
-          <Text selectable className="text-[12px] font-semibold text-accent-light">
+          <Text selectable className="text-[12px] font-medium text-muted">
             GitHub source
           </Text>
           <Text selectable className="text-base font-semibold text-ink">

@@ -15,7 +15,7 @@ export default function MoreLayout() {
         animation: "slide_from_right",
       }}
     >
-      <Stack.Screen name="index" options={{ title: "More", headerLargeTitle: true }} />
+      <Stack.Screen name="index" options={{ title: "More", headerShown: false }} />
       <Stack.Screen name="loops" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
     </Stack>

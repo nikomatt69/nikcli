@@ -38,8 +38,8 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
 
   const inputWrapStyle = {
     borderWidth: 1.5,
-    borderColor: isDark ? "rgba(56,189,248,0.30)" : "rgba(14,165,233,0.24)",
-    backgroundColor: isDark ? "rgba(56,189,248,0.05)" : "rgba(14,165,233,0.04)",
+    borderColor: isDark ? "rgba(56,189,248,0.30)" : "rgba(20,20,19,0.24)",
+    backgroundColor: isDark ? "rgba(56,189,248,0.05)" : "rgba(20,20,19,0.04)",
   } as const
 
   const inputStyle = {
@@ -61,7 +61,7 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
     >
       <KeyboardAvoidingView
         className="flex-1"
-        style={{ backgroundColor: isDark ? "rgba(2,6,23,0.74)" : "rgba(15,23,42,0.26)" }}
+        style={{ backgroundColor: isDark ? "rgba(2,6,23,0.74)" : "rgba(20,20,19,0.26)" }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable className="flex-1" onPress={onClose} />
@@ -79,7 +79,7 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
         >
           {/* Header */}
           <View className="border-b border-border px-5 pb-4 pt-6">
-            <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Teleport session</Text>
+            <Text className="text-[12px] font-medium text-muted">Teleport session</Text>
             <Text className="mt-2 text-[22px] font-bold leading-[26px] tracking-tight text-ink">
               Send to another server
             </Text>
@@ -91,7 +91,7 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
 
           {/* Inputs */}
           <View className="px-5 pb-2 pt-5">
-            <Text className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-muted">Server URL</Text>
+            <Text className="mb-2.5 text-[12px] font-medium text-muted">Server URL</Text>
             <View className="rounded-2xl px-4 py-3" style={inputWrapStyle}>
               <TextInput
                 ref={urlRef}
@@ -108,7 +108,7 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
               />
             </View>
 
-            <Text className="mb-2.5 mt-4 text-[11px] font-semibold uppercase tracking-[0.8px] text-muted">
+            <Text className="mb-2.5 mt-4 text-[12px] font-medium text-muted">
               Auth token
             </Text>
             <View className="rounded-2xl px-4 py-3" style={inputWrapStyle}>

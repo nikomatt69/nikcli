@@ -202,12 +202,12 @@ export function ComposerToolDrawer({
                 tint={isDark ? "dark" : "light"}
                 intensity={isDark ? 20 : 14}
                 style={StyleSheet.absoluteFill}
-                fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+                fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
               />
               <View
                 style={[
                   StyleSheet.absoluteFill,
-                  { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(15,23,42,0.16)" },
+                  { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)" },
                 ]}
               />
             </View>
@@ -259,12 +259,12 @@ export function ComposerToolDrawer({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 8,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
                     paddingHorizontal: 10,
                     paddingVertical: 8,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.15)",
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.15)",
                   }}
                 >
                   {(() => {
@@ -339,7 +339,7 @@ export function ComposerToolDrawer({
                   flex: 1,
                   overflow: "hidden",
                   borderTopWidth: 1,
-                  borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.10)",
+                  borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.10)",
                 }}
               >
                 {activeTab === "model" && (
@@ -401,7 +401,7 @@ function AttachContent({
             paddingVertical: 14,
             opacity: pressed ? 0.6 : 1,
             borderBottomWidth: i < rows.length - 1 ? StyleSheet.hairlineWidth : 0,
-            borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+            borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
           })}
         >
           <View
@@ -411,7 +411,7 @@ function AttachContent({
               borderRadius: 14,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
             }}
           >
             <row.Icon size={20} color={palette.accentLight} strokeWidth={2} />
@@ -495,7 +495,7 @@ function AnimatedTabButton({
           transform: [{ scale: scaleAnim }],
           borderColor,
           borderWidth: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1.5] }),
-          backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+          backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
         }}
       >
         {children}
@@ -556,7 +556,7 @@ function AnimatedItemCard({
           paddingHorizontal: 16,
           paddingVertical: 11,
           borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+          borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
         }}
       >
         {children}
@@ -585,7 +585,7 @@ function EmptyState({
           width: 52,
           height: 52,
           borderRadius: 26,
-          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
           alignItems: "center",
           justifyContent: "center",
           marginBottom: 12,
@@ -723,10 +723,10 @@ function ModelContent({
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: isActive
-                  ? "rgba(14,165,233,0.18)"
+                  ? "rgba(20,20,19,0.18)"
                   : isDark
                     ? "rgba(255,255,255,0.08)"
-                    : "rgba(14,165,233,0.08)",
+                    : "rgba(20,20,19,0.08)",
               }}
             >
               <Code2 size={15} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2.2} />
@@ -753,7 +753,7 @@ function ModelContent({
                       borderRadius: 6,
                       paddingHorizontal: 7,
                       paddingVertical: 2.5,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                       alignSelf: "flex-start",
                     }}
                   >
@@ -937,7 +937,7 @@ function SkillsContent({
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                 }}
               >
                 <Sparkles size={15} color={palette.accentLight} strokeWidth={2.2} />
@@ -1024,8 +1024,8 @@ function GitContent({
             style={[
               styles.gitBranchChip,
               {
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.20)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.20)",
               },
             ]}
           >
@@ -1049,7 +1049,7 @@ function GitContent({
               gap: 14,
               padding: 14,
               borderRadius: 16,
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(14,165,233,0.04)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(20,20,19,0.04)",
               transform: [{ scale: pressed ? 0.97 : 1 }],
               opacity: pressed ? 0.7 : 1,
             })}
@@ -1059,7 +1059,7 @@ function GitContent({
                 width: 42,
                 height: 42,
                 borderRadius: 12,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -1138,7 +1138,7 @@ function ToolsContent({
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                 }}
               >
                 <Terminal size={15} color={palette.accentLight} strokeWidth={2.2} />

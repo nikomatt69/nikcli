@@ -69,8 +69,8 @@ function FileFilterRow({
   palette: ReturnType<typeof useAppTheme>["palette"]
   onOpen: (path: string) => void
 }) {
-  const iconBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.07)"
-  const pressedBackground = isDark ? "rgba(255,255,255,0.05)" : "rgba(14,165,233,0.05)"
+  const iconBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.07)"
+  const pressedBackground = isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.05)"
   const borderColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"
   const rowStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
@@ -135,7 +135,7 @@ function filePresentation(node: FileNode, palette: ReturnType<typeof useAppTheme
   const textExts = new Set(["md", "mdx", "txt", "log", "yml", "yaml", "toml", "ini", "env"])
   const imageExts = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"])
   if (["json", "jsonc"].includes(ext)) return { Icon: FileJson, color: "#22c55e", label: "JSON" }
-  if (["css", "scss", "sass", "less"].includes(ext)) return { Icon: Braces, color: "#0ea5e9", label: ext.toUpperCase() }
+  if (["css", "scss", "sass", "less"].includes(ext)) return { Icon: Braces, color: "#141413", label: ext.toUpperCase() }
   if (["sql", "db", "sqlite"].includes(ext)) return { Icon: Database, color: "#a855f7", label: ext.toUpperCase() }
   if (["lock", "plist"].includes(ext) || node.name === "package.json")
     return { Icon: Package, color: "#d97706", label: "Package" }
@@ -160,7 +160,7 @@ function ChromeIconButton({
   disabled?: boolean
 }) {
   const { palette, isDark } = useAppTheme()
-  const borderColor = isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.82)"
+  const borderColor = isDark ? "rgba(255,255,255,0.13)" : "rgba(218,216,209,0.82)"
   const backgroundColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)"
   const buttonStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
@@ -238,7 +238,7 @@ function IndentGuides({ depth }: { depth: number }) {
             top: 0,
             bottom: 0,
             width: StyleSheet.hairlineWidth,
-            backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.13)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.13)",
           }}
         />
       ))}
@@ -265,11 +265,11 @@ function ExplorerStat({
         gap: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: active ? (isDark ? "rgba(14,165,233,0.34)" : "rgba(14,165,233,0.22)") : palette.border,
+        borderColor: active ? (isDark ? "rgba(255,255,255,0.34)" : "rgba(20,20,19,0.22)") : palette.border,
         backgroundColor: active
           ? isDark
-            ? "rgba(14,165,233,0.12)"
-            : "rgba(14,165,233,0.08)"
+            ? "rgba(255,255,255,0.12)"
+            : "rgba(20,20,19,0.08)"
           : isDark
             ? "rgba(255,255,255,0.045)"
             : "rgba(255,255,255,0.65)",
@@ -576,11 +576,11 @@ export default function ExplorerScreen() {
             marginLeft: 10 + item.depth * 16,
             borderRadius: 8,
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
             backgroundColor: pressed
               ? isDark
                 ? "rgba(255,255,255,0.09)"
-                : "rgba(14,165,233,0.08)"
+                : "rgba(20,20,19,0.08)"
               : isDark
                 ? "rgba(255,255,255,0.035)"
                 : "rgba(255,255,255,0.72)",
@@ -694,7 +694,7 @@ export default function ExplorerScreen() {
             gap: 8,
             borderRadius: 8,
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.7)",
+            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.7)",
             backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)",
             paddingHorizontal: 12,
             paddingVertical: 8,

@@ -93,7 +93,7 @@ function ProjectWorkspaceCard(props: {
         marginBottom: 14,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.86)",
+        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.86)",
         backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.86)",
         padding: 14,
         gap: 10,
@@ -125,7 +125,7 @@ function ProjectWorkspaceCard(props: {
               gap: 6,
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.72)",
+              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
               paddingHorizontal: 12,
               paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
@@ -145,7 +145,7 @@ function ProjectWorkspaceCard(props: {
               alignItems: "center",
               gap: 6,
               borderRadius: 8,
-              backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.10)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
               paddingHorizontal: 12,
               paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
@@ -240,7 +240,7 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
   return (
     <ActionSheet ref={ref} snapPoints={["92%"]}>
       <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Session preview</Text>
+        <Text className="text-[12px] font-medium text-muted">Session preview</Text>
         <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={2}>
           {title || "Session"}
         </Text>
@@ -248,8 +248,8 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
           className="mt-2 self-start rounded-full px-2.5 py-1"
           style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>
@@ -297,7 +297,7 @@ function PreviewCard(props: {
         overflow: "hidden",
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.86)",
+        borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.86)",
         backgroundColor: props.isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.86)",
       }}
     >
@@ -307,7 +307,7 @@ function PreviewCard(props: {
           overflow: "hidden",
           backgroundColor: props.isDark ? "#101010" : "#f8fafc",
           borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+          borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
         }}
       >
         <WebView
@@ -377,7 +377,7 @@ function PreviewCard(props: {
               gap: 6,
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.72)",
+              borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
               paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
             })}
@@ -396,7 +396,7 @@ function PreviewCard(props: {
               justifyContent: "center",
               gap: 6,
               borderRadius: 8,
-              backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.10)",
+              backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
               paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
             })}

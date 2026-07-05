@@ -102,7 +102,7 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
           width: 80,
           height: 80,
           borderRadius: 40,
-          backgroundColor: "rgba(34,197,94,0.2)",
+          backgroundColor: "rgba(31,138,101,0.2)",
           borderWidth: 3,
           borderColor: "#22c55e",
           alignItems: "center",

@@ -82,7 +82,7 @@ export function ComposerPermissionBar(props: {
           borderRadius: 18,
           overflow: "hidden",
           borderWidth: 1,
-          borderColor: isDark ? "rgba(255,200,50,0.18)" : "rgba(217,119,6,0.22)",
+          borderColor: isDark ? "rgba(255,200,50,0.18)" : "rgba(192,110,46,0.22)",
           backgroundColor: isDark ? "rgba(40,30,10,0.92)" : "rgba(255,251,235,0.96)",
         }}
       >
@@ -90,7 +90,7 @@ export function ComposerPermissionBar(props: {
         <View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? "rgba(255,180,0,0.04)" : "rgba(217,119,6,0.04)" },
+            { backgroundColor: isDark ? "rgba(255,180,0,0.04)" : "rgba(192,110,46,0.04)" },
           ]}
           pointerEvents="none"
         />
@@ -109,8 +109,8 @@ export function ComposerPermissionBar(props: {
             style={{
               borderRadius: 10,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,180,0,0.22)" : "rgba(217,119,6,0.22)",
-              backgroundColor: isDark ? "rgba(255,180,0,0.10)" : "rgba(217,119,6,0.10)",
+              borderColor: isDark ? "rgba(255,180,0,0.22)" : "rgba(192,110,46,0.22)",
+              backgroundColor: isDark ? "rgba(255,180,0,0.10)" : "rgba(192,110,46,0.10)",
               padding: 7,
               flexShrink: 0,
             }}
@@ -202,8 +202,8 @@ export function ComposerPermissionBar(props: {
               style={({ pressed }) => ({
                 borderRadius: 11,
                 borderWidth: 1,
-                borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(239,68,68,0.22)",
-                backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(239,68,68,0.08)",
+                borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(207,45,86,0.22)",
+                backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(207,45,86,0.08)",
                 padding: 11,
                 opacity: pressed ? 0.7 : 1,
                 transform: [{ scale: pressed ? 0.92 : 1 }],
@@ -219,7 +219,7 @@ export function ComposerPermissionBar(props: {
               style={({ pressed }) => ({
                 borderRadius: 11,
                 borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.78)",
+                borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.78)",
                 backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
                 padding: 11,
                 opacity: pressed ? 0.7 : 1,

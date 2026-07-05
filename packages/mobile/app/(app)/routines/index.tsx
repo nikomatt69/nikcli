@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { FlatList, RefreshControl, View } from "react-native"
-import { Link, router, type Href } from "expo-router"
+import { FlatList, RefreshControl, Text, View } from "react-native"
+import { router, type Href } from "expo-router"
+import { Play } from "lucide-react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { Divider } from "@/components/ui/Divider"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
-import { SurfaceCard } from "@/components/ui/SurfaceCard"
+import { IconCircleButton } from "@/components/ui/IconCircleButton"
+import { ListRow, StatusDot } from "@/components/ui/ListRow"
 import { AppHeader } from "@/components/layout/AppHeader"
+import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { Routine } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 
@@ -23,24 +26,32 @@ function triggerSummary(routine: Routine): string {
 }
 
 function RoutineRow({ item, onRun, running }: { item: Routine; onRun: (id: string) => void; running: boolean }) {
+  const { palette } = useAppTheme()
+
+  const subtitle = [
+    item.paused ? "Paused" : triggerSummary(item),
+    item.lastRunAt ? `ran ${relativeTime(item.lastRunAt)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
   return (
-    <SurfaceCard
-      eyebrow={relativeTime(item.updatedAt)}
+    <ListRow
+      leading={<StatusDot color={item.paused ? hexToRgba(palette.ink, 0.25) : palette.success} />}
       title={item.name}
-      description={item.prompt.slice(0, 120) + (item.prompt.length > 120 ? "…" : "")}
-    >
-      <View className="flex-row flex-wrap gap-2">
-        <InfoChip label={item.paused ? "Paused" : "Active"} tone={item.paused ? "warn" : "good"} />
-        <InfoChip label={triggerSummary(item)} tone="neutral" />
-        {item.lastRunAt ? <InfoChip label={`Last run ${relativeTime(item.lastRunAt)}`} tone="neutral" /> : null}
-      </View>
-      <View className="mt-4 flex-row gap-3">
-        <ActionButton label="Run now" loading={running} onPress={() => onRun(item.id)} variant="secondary" />
-        <Link href={`/routines/${item.id}` as Href} asChild>
-          <ActionButton label="Edit" variant="secondary" onPress={() => {}} />
-        </Link>
-      </View>
-    </SurfaceCard>
+      subtitle={subtitle}
+      onPress={() => router.push(`/routines/${item.id}` as Href)}
+      trailing={
+        <IconCircleButton
+          size={34}
+          accessibilityLabel={`Run ${item.name} now`}
+          onPress={() => onRun(item.id)}
+          disabled={running}
+        >
+          <Play size={14} color={running ? palette.muted : palette.ink} strokeWidth={2.2} />
+        </IconCircleButton>
+      }
+    />
   )
 }
 
@@ -73,8 +84,8 @@ export default function RoutinesScreen() {
   }, [load])
 
   const refreshControlElement = useMemo(
-    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />,
-    [refreshing, load, palette.accent],
+    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.muted} />,
+    [refreshing, load, palette.muted],
   )
 
   async function runRoutine(id: string) {
@@ -91,20 +102,17 @@ export default function RoutinesScreen() {
     }
   }
 
+  const activeCount = routines.filter((r) => !r.paused).length
+
   const hero = (
-    <AppHeader
-      chips={[
-        { label: `${routines.length} routines`, tone: "accent" },
-        {
-          label: `${routines.filter((r) => !r.paused).length} active`,
-          tone: routines.some((r) => !r.paused) ? "good" : "neutral",
-        },
-        routines.some((r) => r.paused)
-          ? { label: `${routines.filter((r) => r.paused).length} paused`, tone: "warn" }
-          : null,
-      ]}
-    >
+    <AppHeader className="gap-3 pb-4">
+      <ScreenBrandHeader title="Routines" right={<SettingsCircleButton />} />
       <ActionButton label="New routine" onPress={() => router.push("/routines/new" as Href)} />
+      {routines.length > 0 ? (
+        <Text className="text-[13px] text-muted">
+          {routines.length} {routines.length === 1 ? "routine" : "routines"} · {activeCount} active
+        </Text>
+      ) : null}
       {error ? <ErrorBanner message={error} /> : null}
     </AppHeader>
   )
@@ -116,7 +124,7 @@ export default function RoutinesScreen() {
         data={routines}
         keyExtractor={(item) => item.id}
         refreshControl={refreshControlElement}
-        ItemSeparatorComponent={() => <View className="h-3" />}
+        ItemSeparatorComponent={() => <Divider inset={24} />}
         renderItem={({ item }) => <RoutineRow item={item} onRun={runRoutine} running={runningID === item.id} />}
         ListHeaderComponent={hero}
         ListEmptyComponent={

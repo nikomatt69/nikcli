@@ -66,9 +66,9 @@ function PickerRow({ Icon, label, description, onPress }: RowProps) {
             style={{
               width: 46,
               height: 46,
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
             }}
           >
             <Icon size={20} color={palette.accentLight} strokeWidth={2.1} />
@@ -114,14 +114,14 @@ export function AttachmentPicker({ sheetRef, onFile }: Props) {
     <ActionSheet ref={sheetRef} snapPoints={[320]}>
       {/* Header */}
       <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Attach file</Text>
+        <Text className="text-[12px] font-medium text-muted">Attach file</Text>
         <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink">Choose a source</Text>
         <View
           className="mt-2 self-start rounded-full px-2.5 py-1"
           style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>

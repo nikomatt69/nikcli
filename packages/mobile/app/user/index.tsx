@@ -152,8 +152,8 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
           alignItems: "center",
           justifyContent: "center",
           borderWidth: 2,
-          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.35)",
-          backgroundColor: isDark ? "rgba(14,165,233,0.18)" : "rgba(14,165,233,0.12)",
+          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.35)",
+          backgroundColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.12)",
           overflow: "hidden",
         }}
       >
@@ -161,7 +161,7 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
           tint={isDark ? "dark" : "light"}
           intensity={40}
           style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(14,165,233,0.18)" : "rgba(14,165,233,0.12)"}
+          fallbackColor={isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.12)"}
         />
         <Text
           style={{
@@ -192,15 +192,15 @@ function Avatar({ user, size = 38 }: { user: UserProfile; size?: number }) {
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1.5,
-        borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(14,165,233,0.30)",
-        backgroundColor: isDark ? "rgba(14,165,233,0.14)" : "rgba(14,165,233,0.10)",
+        borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(20,20,19,0.30)",
+        backgroundColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(20,20,19,0.10)",
       }}
     >
       <AdaptiveBlur
         tint={isDark ? "dark" : "light"}
         intensity={30}
         style={StyleSheet.absoluteFill}
-        fallbackColor={isDark ? "rgba(14,165,233,0.14)" : "rgba(14,165,233,0.10)"}
+        fallbackColor={isDark ? "rgba(255,255,255,0.14)" : "rgba(20,20,19,0.10)"}
       />
       <Text
         style={{
@@ -272,7 +272,7 @@ function StatCard({ icon, label, value, trend, color, animation, index }: StatCa
           borderRadius: 20,
           padding: 14,
           borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.80)",
+          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.80)",
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.25 : 0.08,
           shadowRadius: 14,
@@ -374,7 +374,7 @@ function AnimatedProgressBar({ label, value, max = 100, color, animation, delay 
         style={{
           height: 6,
           borderRadius: 3,
-          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.60)",
+          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.60)",
           overflow: "hidden",
         }}
       >
@@ -455,7 +455,7 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
               : "rgba(255,215,0,0.15)"
             : isDark
               ? "rgba(255,255,255,0.04)"
-              : "rgba(193,208,223,0.30)",
+              : "rgba(218,216,209,0.30)",
           borderWidth: 1,
           borderColor: earned ? (isDark ? "rgba(255,215,0,0.30)" : "rgba(255,215,0,0.40)") : "transparent",
           minWidth: 80,
@@ -472,7 +472,7 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
                 : "rgba(255,215,0,0.25)"
               : isDark
                 ? "rgba(255,255,255,0.06)"
-                : "rgba(193,208,223,0.40)",
+                : "rgba(218,216,209,0.40)",
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -537,7 +537,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
         style={{
           borderRadius: 8,
           borderWidth: 1.5,
-          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.25)",
+          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.25)",
           backgroundColor: isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.92)",
           overflow: "hidden",
           shadowColor: isDark ? "#000" : palette.shadow,
@@ -555,7 +555,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
             right: 0,
             height: 80,
             opacity: shimmerOpacity,
-            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(14,165,233,0.10)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.10)",
           }}
         />
         <View
@@ -585,7 +585,7 @@ function SectionLabel({ label, animation }: { label: string; animation: Animated
         transform: [{ translateY: animation.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
       }}
     >
-      <Text className="mb-2 ml-1 text-[10px] font-bold uppercase tracking-[1.6px] text-muted">{label}</Text>
+      <Text className="mb-2 ml-1 text-[12px] font-medium text-muted">{label}</Text>
     </Animated.View>
   )
 }
@@ -605,7 +605,7 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
         style={{
           borderRadius: 8,
           borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.90)",
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.90)",
           backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
           overflow: "hidden",
           marginBottom: 16,
@@ -892,7 +892,7 @@ export default function UserScreen() {
             style={{
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.90)",
+              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.90)",
               backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
               overflow: "hidden",
               marginBottom: 16,
@@ -945,10 +945,10 @@ export default function UserScreen() {
           }}
         >
           <StatCard
-            icon={<UserCircle2 size={16} color="#0ea5e9" strokeWidth={2.5} />}
+            icon={<UserCircle2 size={16} color="#141413" strokeWidth={2.5} />}
             label="Account age"
             value={`${Math.min(accountAgeDays, 999)}d`}
-            color="#0ea5e9"
+            color="#141413"
             animation={statsAnim}
             index={0}
           />
@@ -1069,7 +1069,7 @@ export default function UserScreen() {
               <AnimatedProgressBar
                 label="Profile completion"
                 value={profileCompletion}
-                color="#0ea5e9"
+                color="#141413"
                 animation={new Animated.Value(1)}
                 delay={300}
               />
@@ -1155,9 +1155,9 @@ export default function UserScreen() {
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: "rgba(239,68,68,0.14)",
+                  backgroundColor: "rgba(207,45,86,0.14)",
                   borderWidth: 1,
-                  borderColor: "rgba(239,68,68,0.28)",
+                  borderColor: "rgba(207,45,86,0.28)",
                 }}
               >
                 <LogOut size={15} color="#ef4444" strokeWidth={2.2} />

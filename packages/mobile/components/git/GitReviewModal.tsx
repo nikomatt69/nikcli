@@ -82,7 +82,7 @@ function MetricPill({ label, value, color }: { label: string; value: number; col
         gap: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.80)",
+        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.80)",
         backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
         paddingHorizontal: 10,
         paddingVertical: 7,
@@ -156,8 +156,8 @@ function BranchPill({ branch }: { branch: GitBranchInfo }) {
         borderColor: active ? palette.accent : palette.border,
         backgroundColor: active
           ? isDark
-            ? "rgba(14,165,233,0.16)"
-            : "rgba(14,165,233,0.10)"
+            ? "rgba(255,255,255,0.16)"
+            : "rgba(20,20,19,0.10)"
           : isDark
             ? "rgba(255,255,255,0.04)"
             : "rgba(255,255,255,0.64)",
@@ -844,7 +844,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
                       borderRadius: 12,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isDark ? "rgba(14,165,233,0.16)" : "rgba(14,165,233,0.10)",
+                      backgroundColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(20,20,19,0.10)",
                     }}
                   >
                     <GitCommit size={17} color={palette.accentLight} strokeWidth={2.2} />
@@ -990,8 +990,8 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
                           borderBottomColor: palette.border,
                           backgroundColor: commit.isHead
                             ? isDark
-                              ? "rgba(14,165,233,0.08)"
-                              : "rgba(14,165,233,0.05)"
+                              ? "rgba(255,255,255,0.08)"
+                              : "rgba(20,20,19,0.05)"
                             : "transparent",
                         })}
                       >

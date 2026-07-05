@@ -1,30 +1,21 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
 import { ArrowRight, Square, Trash2 } from "lucide-react-native"
-import { InfoChip } from "@/components/ui/InfoChip"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import type { SessionSummary } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 function sessionLocation(item: SessionSummary): string {
   const github = item.info.github
   if (github) {
-    const repo = github.fullName || github.repo || "Unknown repo"
-    const branch = github.headBranch || github.baseBranch || "unknown-branch"
-    return `${repo} -> ${branch}`
+    return github.repo || github.fullName || "Unknown repo"
   }
 
   const directory = item.info.directory?.trim()
-  return directory || "Unknown workspace"
-}
-
-function repoBadge(item: SessionSummary): string | null {
-  const github = item.info.github
-  if (!github) return null
-  const repo = github.repo || github.fullName || "Unknown repo"
-  const branch = github.baseBranch || github.headBranch || "unknown-branch"
-  return `${repo}:${branch}`
+  if (!directory) return "Unknown workspace"
+  const segments = directory.split("/").filter(Boolean)
+  return segments[segments.length - 1] ?? directory
 }
 
 type SheetRowProps = {
@@ -36,7 +27,7 @@ type SheetRowProps = {
 }
 
 function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetRowProps) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const scaleAnimRef = useRef<Animated.Value | null>(null)
   if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
   const scaleAnim = scaleAnimRef.current
@@ -56,29 +47,17 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
 
   const iconBg =
     tone === "danger"
-      ? isDark
-        ? "rgba(143,143,143,0.08)"
-        : "rgba(239,68,68,0.10)"
+      ? hexToRgba(palette.danger, 0.1)
       : tone === "neutral"
-        ? isDark
-          ? "rgba(148,163,184,0.09)"
-          : "rgba(100,116,139,0.08)"
-        : isDark
-          ? "rgba(255,255,255,0.08)"
-          : "rgba(14,165,233,0.09)"
+        ? hexToRgba(palette.muted, 0.09)
+        : hexToRgba(palette.ink, 0.06)
 
   const iconBorder =
     tone === "danger"
-      ? isDark
-        ? "rgba(143,143,143,0.16)"
-        : "rgba(239,68,68,0.22)"
+      ? hexToRgba(palette.danger, 0.2)
       : tone === "neutral"
-        ? isDark
-          ? "rgba(148,163,184,0.18)"
-          : "rgba(100,116,139,0.16)"
-        : isDark
-          ? "rgba(255,255,255,0.12)"
-          : "rgba(14,165,233,0.18)"
+        ? hexToRgba(palette.muted, 0.18)
+        : hexToRgba(palette.ink, 0.12)
 
   const labelColor = tone === "danger" ? palette.danger : palette.ink
 
@@ -130,7 +109,8 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
 }
 
 function SectionDivider() {
-  return <View style={{ marginHorizontal: 20, marginTop: 8, height: 1, backgroundColor: "rgba(128,128,128,0.12)" }} />
+  const { palette } = useAppTheme()
+  return <View style={{ marginHorizontal: 20, marginTop: 8, height: 1, backgroundColor: hexToRgba(palette.ink, 0.08) }} />
 }
 
 type SessionActionsSheetProps = {
@@ -143,7 +123,7 @@ type SessionActionsSheetProps = {
 }
 
 function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, onOpen }: SessionActionsSheetProps) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
 
   return (
     <ActionSheet ref={sheetRef} snapPoints={[340]}>
@@ -151,18 +131,16 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
       <View
         style={{
           borderBottomWidth: 1,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+          borderBottomColor: hexToRgba(palette.ink, 0.08),
           paddingHorizontal: 20,
           paddingBottom: 16,
         }}
       >
         <Text
           style={{
-            fontSize: 10,
-            fontWeight: "700",
-            letterSpacing: 1.8,
-            color: palette.accent,
-            textTransform: "uppercase",
+            fontSize: 12,
+            fontWeight: "500",
+            color: palette.muted,
           }}
         >
           Session actions
@@ -216,6 +194,17 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
   )
 }
 
+function statusLabel(status: string, hasChanges: boolean): string {
+  if (status === "busy") return "Working"
+  if (status === "retry") return "Needs attention"
+  return hasChanges ? "Done" : "No changes"
+}
+
+/**
+ * Minimal Cursor-style list row: status dot, one-line title, and a meta line
+ * "workspace · status · +N -M" with tinted diff counts. Actions live behind
+ * long-press (unchanged sheet).
+ */
 export function SessionListItem(props: {
   item: SessionSummary
   onPress(): void
@@ -223,55 +212,27 @@ export function SessionListItem(props: {
   onStop?: () => void
   index?: number
 }) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const status = props.item.status?.type ?? "idle"
   const summary = props.item.info.summary
-  const translateYRef = useRef<Animated.Value | null>(null)
-  if (translateYRef.current === null) translateYRef.current = new Animated.Value(10)
-  const translateY = translateYRef.current
   const opacityRef = useRef<Animated.Value | null>(null)
   if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
   const opacity = opacityRef.current
-  const scaleRef = useRef<Animated.Value | null>(null)
-  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
-  const scale = scaleRef.current
+  const [pressed, setPressed] = useState(false)
   const sheetRef = useRef<ActionSheetRef>(null)
-  const badge = repoBadge(props.item)
-  const containerBacked = Boolean(props.item.info.workspaceID)
-  const changedFiles = (summary?.additions ?? 0) + (summary?.deletions ?? 0)
+  const additions = summary?.additions ?? 0
+  const deletions = summary?.deletions ?? 0
+  const hasChanges = additions + deletions > 0
   const isBusy = status === "busy"
 
-  const statusColors =
+  const dotColor =
     status === "busy"
-      ? {
-          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.10)",
-          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
-          textColor: palette.accentLight,
-          dotColor: palette.accent,
-        }
+      ? palette.secondary
       : status === "retry"
-        ? {
-            backgroundColor: isDark ? "rgba(143,143,143,0.08)" : "rgba(239,68,68,0.10)",
-            borderColor: isDark ? "rgba(143,143,143,0.16)" : "rgba(239,68,68,0.22)",
-            textColor: isDark ? palette.ink : palette.danger,
-            dotColor: palette.danger,
-          }
-        : {
-            backgroundColor: isDark ? "rgba(212,212,212,0.08)" : "rgba(34,197,94,0.10)",
-            borderColor: isDark ? "rgba(212,212,212,0.16)" : "rgba(34,197,94,0.20)",
-            textColor: palette.accentLight,
-            dotColor: palette.success,
-          }
-
-  const onPressIn = useCallback(() => {
-    scale.stopAnimation()
-    Animated.spring(scale, { toValue: 0.978, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
-  }, [scale])
-
-  const onPressOut = useCallback(() => {
-    scale.stopAnimation()
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 3 }).start()
-  }, [scale])
+        ? palette.danger
+        : hasChanges
+          ? palette.secondary
+          : hexToRgba(palette.ink, 0.25)
 
   const openSheet = useCallback(() => {
     sheetRef.current?.present()
@@ -279,92 +240,53 @@ export function SessionListItem(props: {
 
   useEffect(() => {
     opacity.setValue(0)
-    translateY.setValue(10)
-    const delay = (props.index ?? 0) * 30
-    const animation = Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 220, delay, useNativeDriver: true }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        delay,
-        damping: 18,
-        stiffness: 190,
-        mass: 0.9,
-        useNativeDriver: true,
-      }),
-    ])
+    const delay = Math.min(props.index ?? 0, 8) * 25
+    const animation = Animated.timing(opacity, { toValue: 1, duration: 200, delay, useNativeDriver: true })
     animation.start()
     return () => animation.stop()
-  }, [opacity, props.index, translateY])
+  }, [opacity, props.index])
 
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
+    <Animated.View style={{ opacity }}>
       <Pressable
         onPress={props.onPress}
         onLongPress={openSheet}
         delayLongPress={380}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        className="overflow-hidden border border-border bg-surface p-4"
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
         style={{
-          borderRadius: 18,
-          borderCurve: "continuous",
-          shadowColor: palette.shadow,
-          shadowOpacity: isDark ? 0.12 : 0.05,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 3 },
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 12,
+          paddingVertical: 13,
+          paddingHorizontal: 4,
+          borderRadius: 12,
+          backgroundColor: pressed ? hexToRgba(palette.ink, 0.04) : "transparent",
         }}
       >
-        <View className="flex-row items-start justify-between gap-4">
-          <View className="flex-1 gap-2">
-            <Text className="text-[12px] text-muted">Updated {relativeTime(props.item.info.time.updated)}</Text>
-            <Text selectable className="text-[17px] font-semibold leading-[22px] text-ink" numberOfLines={2}>
-              {props.item.info.title || "Untitled session"}
-            </Text>
-            <Text selectable className="text-sm leading-5 text-soft" numberOfLines={2}>
+        <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: dotColor, marginTop: 6 }} />
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <Text className="text-[15px] font-semibold leading-5 text-ink" numberOfLines={1}>
+            {props.item.info.title || "Untitled session"}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
+            <Text className="text-[13px] text-muted" numberOfLines={1}>
               {sessionLocation(props.item)}
+              {" · "}
+              {statusLabel(status, hasChanges)}
+            </Text>
+            {hasChanges ? (
+              <Text className="text-[13px] text-muted" numberOfLines={1}>
+                {" · "}
+                <Text style={{ color: palette.success, fontVariant: ["tabular-nums"] }}>+{additions}</Text>{" "}
+                <Text style={{ color: palette.danger, fontVariant: ["tabular-nums"] }}>-{deletions}</Text>
+              </Text>
+            ) : null}
+            <Text className="text-[13px] text-muted" numberOfLines={1}>
+              {" · "}
+              {relativeTime(props.item.info.time.updated)}
             </Text>
           </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: statusColors.borderColor,
-              backgroundColor: statusColors.backgroundColor,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-            }}
-          >
-            <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: statusColors.dotColor }} />
-            <Text style={{ color: statusColors.textColor, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
-              {status.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-        <View className="mt-4 flex-row flex-wrap gap-2">
-          <InfoChip label={`${summary?.files ?? 0} files`} />
-          <InfoChip
-            label={`+${summary?.additions ?? 0} / -${summary?.deletions ?? 0}`}
-            tone={changedFiles ? "accent" : "neutral"}
-          />
-          {containerBacked ? <InfoChip label="Container sandbox" tone="accent" /> : null}
-          {badge ? <InfoChip label={badge} tone="accent" /> : null}
-        </View>
-        <View className="mt-3 flex-row justify-end">
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation()
-              openSheet()
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Open session actions"
-            hitSlop={10}
-            className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5"
-          >
-            <Text style={{ fontSize: 13, color: palette.muted, letterSpacing: 0.4 }}>•••</Text>
-          </Pressable>
         </View>
       </Pressable>
 

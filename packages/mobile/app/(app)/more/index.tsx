@@ -2,10 +2,14 @@ import { ScrollView, Text, View } from "react-native"
 import { Link } from "expo-router"
 import { Repeat, Settings as SettingsIcon } from "lucide-react-native"
 import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
+import { ScreenBrandHeader } from "@/components/layout/ScreenBrandHeader"
+import { Divider } from "@/components/ui/Divider"
 import { useServer } from "@/lib/server-context"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export default function MoreScreen() {
   const { config } = useServer()
+  const { palette } = useAppTheme()
   const hostLabel = config?.url ? config.url.replace(/^https?:\/\//, "") : "No host linked"
 
   return (
@@ -14,30 +18,41 @@ export default function MoreScreen() {
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ paddingBottom: 28 }}
     >
-      <View className="gap-3">
-        <Text className="px-1 text-[13px] leading-[18px] text-soft">
+      <View className="gap-4">
+        <ScreenBrandHeader title="More" />
+        <Text className="px-1 text-[13px] leading-[19px] text-soft">
           Less-used tools and configuration for this workspace.
         </Text>
 
-        <Link href="/more/loops" asChild>
-          <SettingsNavCard
-            icon={Repeat}
-            eyebrow="Automation"
-            title="Loops"
-            description="Run a prompt or command on a recurring schedule and review past iterations."
-            badges={["Recurring runs", "History"]}
-          />
-        </Link>
-
-        <Link href="/more/settings" asChild>
-          <SettingsNavCard
-            icon={SettingsIcon}
-            eyebrow="Configuration"
-            title="Settings"
-            description="Host connection, models, GitHub, integrations, security, and appearance."
-            badges={[hostLabel]}
-          />
-        </Link>
+        <View
+          className="overflow-hidden bg-surface"
+          style={{
+            borderRadius: 18,
+            borderCurve: "continuous",
+            borderWidth: 1,
+            borderColor: hexToRgba(palette.ink, 0.08),
+          }}
+        >
+          <Link href="/more/loops" asChild>
+            <SettingsNavCard
+              icon={Repeat}
+              eyebrow="Automation"
+              title="Loops"
+              description="Run recurring work and review past iterations."
+              badges={["Recurring runs", "History"]}
+            />
+          </Link>
+          <Divider inset={65} />
+          <Link href="/more/settings" asChild>
+            <SettingsNavCard
+              icon={SettingsIcon}
+              eyebrow="Configuration"
+              title="Settings"
+              description="Host, models, integrations, security, and appearance."
+              badges={[hostLabel]}
+            />
+          </Link>
+        </View>
       </View>
     </ScrollView>
   )

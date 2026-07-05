@@ -1,8 +1,7 @@
-import { useEffect, useRef } from "react"
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type PressableProps } from "react-native"
+import { useEffect, useRef, useState } from "react"
+import { ActivityIndicator, Animated, Pressable, Text, type PressableProps } from "react-native"
 import { cn } from "@/lib/cn"
-import { useAppTheme } from "@/lib/theme"
-import { AdaptiveBlur } from "@/components/GlassView"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 type ActionButtonProps = PressableProps & {
   label: string
@@ -10,6 +9,11 @@ type ActionButtonProps = PressableProps & {
   variant?: "primary" | "secondary" | "ghost" | "danger"
 }
 
+/**
+ * Pill-shaped action button. Primary is a solid ink fill with inverted text;
+ * the other variants sit on surface with a hairline border. All colors derive
+ * from the active theme palette so every theme keeps working.
+ */
 export function ActionButton({
   label,
   loading,
@@ -20,8 +24,9 @@ export function ActionButton({
   onPressOut: externalPressOut,
   ...props
 }: ActionButtonProps) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const scale = useRef(new Animated.Value(1)).current
+  const [pressed, setPressed] = useState(false)
   const inactive = Boolean(disabled || loading)
 
   useEffect(() => {
@@ -33,49 +38,39 @@ export function ActionButton({
   const tone =
     variant === "secondary"
       ? {
-          backgroundColor: isDark ? "rgba(26,26,26,0.86)" : "rgba(241,246,251,0.84)",
-          overlayColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.18)",
-          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(193,208,223,0.78)",
+          backgroundColor: palette.surfaceRaised,
+          borderColor: hexToRgba(palette.ink, 0.12),
           textColor: palette.ink,
         }
       : variant === "ghost"
         ? {
-            backgroundColor: isDark ? "rgba(24,24,24,0.82)" : "rgba(255,255,255,0.58)",
-            overlayColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.14)",
-            borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.55)",
+            backgroundColor: "transparent",
+            borderColor: hexToRgba(palette.ink, 0.08),
             textColor: palette.ink,
           }
         : variant === "danger"
           ? {
-              backgroundColor: isDark ? "rgba(80,28,28,0.86)" : "rgba(239,68,68,0.10)",
-              overlayColor: isDark ? "rgba(239,68,68,0.12)" : "rgba(239,68,68,0.02)",
-              borderColor: isDark ? "rgba(248,113,113,0.34)" : "rgba(239,68,68,0.22)",
-              textColor: isDark ? "#fff4f4" : palette.danger,
+              backgroundColor: hexToRgba(palette.danger, 0.1),
+              borderColor: hexToRgba(palette.danger, 0.2),
+              textColor: palette.danger,
             }
           : {
-              backgroundColor: isDark ? "rgba(255,255,255,0.90)" : palette.accent,
-              overlayColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)",
-              borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.12)",
-              textColor: isDark ? "#0a0a0a" : palette.codeText,
+              backgroundColor: palette.ink,
+              borderColor: "transparent",
+              textColor: palette.background,
             }
-  const variantClassName =
-    variant === "secondary"
-      ? "border-border bg-surface"
-      : variant === "ghost"
-        ? "border-border/70 bg-background/85"
-        : variant === "danger"
-          ? "border-danger/30 bg-danger/10"
-          : "border-accent/30 bg-accent"
 
   function handlePressIn(e: Parameters<NonNullable<PressableProps["onPressIn"]>>[0]) {
     if (!disabled && !loading) {
+      setPressed(true)
       scale.stopAnimation()
-      Animated.spring(scale, { toValue: 0.975, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
+      Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
     }
     externalPressIn?.(e)
   }
 
   function handlePressOut(e: Parameters<NonNullable<PressableProps["onPressOut"]>>[0]) {
+    setPressed(false)
     scale.stopAnimation()
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start()
     externalPressOut?.(e)
@@ -87,37 +82,17 @@ export function ActionButton({
         disabled={disabled || loading}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        className={cn(
-          "min-h-[48px] items-center justify-center overflow-hidden rounded-[8px] border px-4 py-3",
-          variantClassName,
-          className,
-        )}
-        style={({ pressed }) => ({
-          opacity: inactive ? (isDark ? 0.66 : 0.58) : pressed ? 0.92 : 1,
-          shadowColor: variant === "primary" && !inactive ? palette.accent : palette.shadow,
-          shadowOpacity: inactive ? 0 : variant === "primary" ? (isDark ? 0.3 : 0.18) : isDark ? 0.2 : 0.08,
-          shadowRadius: variant === "primary" ? 12 : 8,
-          shadowOffset: { width: 0, height: variant === "primary" ? 6 : 4 },
-        })}
+        className={cn("min-h-[48px] items-center justify-center overflow-hidden px-5 py-3", className)}
+        style={{
+          borderRadius: 999,
+          borderCurve: "continuous",
+          borderWidth: variant === "primary" ? 0 : 1,
+          borderColor: tone.borderColor,
+          backgroundColor: tone.backgroundColor,
+          opacity: inactive ? 0.5 : pressed ? 0.85 : 1,
+        }}
         {...props}
       >
-        <AdaptiveBlur
-          tint={isDark ? "dark" : "light"}
-          intensity={variant === "primary" ? 70 : 45}
-          style={StyleSheet.absoluteFill}
-          fallbackColor={tone.backgroundColor}
-          pointerEvents="none"
-        />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: tone.overlayColor }]} pointerEvents="none" />
-        {inactive ? (
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? "rgba(8,8,8,0.28)" : "rgba(255,255,255,0.22)" },
-            ]}
-            pointerEvents="none"
-          />
-        ) : null}
         {loading ? (
           <ActivityIndicator color={tone.textColor} />
         ) : (
@@ -126,8 +101,8 @@ export function ActionButton({
               color: tone.textColor,
               textAlign: "center",
               fontSize: 15,
-              fontWeight: "700",
-              letterSpacing: 0.15,
+              fontWeight: "600",
+              letterSpacing: -0.1,
             }}
           >
             {label}

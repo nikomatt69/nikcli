@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { PRESS_SPRING } from "@/lib/animation"
 
@@ -13,7 +13,7 @@ type AnimatedToggleChipProps = {
 }
 
 export function AnimatedToggleChip({ label, sublabel, active, onToggle, tone = "accent" }: AnimatedToggleChipProps) {
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const scaleRef = useRef<Animated.Value | null>(null)
   if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
   const scale = scaleRef.current
@@ -47,44 +47,28 @@ export function AnimatedToggleChip({ label, sublabel, active, onToggle, tone = "
   const borderColor = toggleProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [
-      isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.72)",
+      hexToRgba(palette.ink, 0.08),
       tone === "accent"
-        ? isDark
-          ? "rgba(14,165,233,0.45)"
-          : "rgba(14,165,233,0.35)"
+        ? hexToRgba(palette.ink, 0.35)
         : tone === "good"
-          ? isDark
-            ? "rgba(34,197,94,0.45)"
-            : "rgba(34,197,94,0.35)"
+          ? hexToRgba(palette.success, 0.4)
           : tone === "warn"
-            ? isDark
-              ? "rgba(239,68,68,0.45)"
-              : "rgba(239,68,68,0.35)"
-            : isDark
-              ? "rgba(255,255,255,0.12)"
-              : "rgba(193,208,223,0.72)",
+            ? hexToRgba(palette.danger, 0.4)
+            : hexToRgba(palette.ink, 0.12),
     ],
   })
 
   const backgroundColor = toggleProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [
-      isDark ? "rgba(255,255,255,0.05)" : "rgba(241,246,251,0.8)",
+      hexToRgba(palette.ink, 0.04),
       tone === "accent"
-        ? isDark
-          ? "rgba(14,165,233,0.12)"
-          : "rgba(14,165,233,0.10)"
+        ? hexToRgba(palette.ink, 0.1)
         : tone === "good"
-          ? isDark
-            ? "rgba(34,197,94,0.12)"
-            : "rgba(34,197,94,0.10)"
+          ? hexToRgba(palette.success, 0.12)
           : tone === "warn"
-            ? isDark
-              ? "rgba(239,68,68,0.12)"
-              : "rgba(239,68,68,0.10)"
-            : isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(241,246,251,0.8)",
+            ? hexToRgba(palette.danger, 0.12)
+            : hexToRgba(palette.ink, 0.06),
     ],
   })
 
@@ -125,7 +109,7 @@ export function AnimatedToggleChip({ label, sublabel, active, onToggle, tone = "
                 backgroundColor: toggleProgress.interpolate({
                   inputRange: [0, 1],
                   outputRange: [
-                    isDark ? "rgba(255,255,255,0.15)" : "rgba(193,208,223,0.6)",
+                    hexToRgba(palette.ink, 0.15),
                     tone === "accent" ? palette.accent : tone === "good" ? palette.success : palette.danger,
                   ],
                 }),
@@ -138,7 +122,7 @@ export function AnimatedToggleChip({ label, sublabel, active, onToggle, tone = "
                 {
                   backgroundColor: toggleProgress.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [isDark ? "#6b7280" : "#ffffff", "#ffffff"],
+                    outputRange: [palette.surface, palette.surface],
                   }),
                   transform: [
                     {

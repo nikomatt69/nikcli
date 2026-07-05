@@ -349,7 +349,7 @@ export default function SessionScreen() {
   const chromeButtonStyle = {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.82)",
+    borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
     overflow: "hidden",
     padding: 12,
   } as const
@@ -753,10 +753,10 @@ export default function SessionScreen() {
           command.hints.some((hint) => hint.toLowerCase().includes(raw))
         )
       })
-      .slice(0, 5)
+      .slice(0, 20)
       .map((command) => ({
         name: command.name,
-        description: command.description,
+        description: command.description || (command.hints.length ? command.hints.join(" ") : undefined),
         badge: command.skill
           ? "Skill"
           : command.mcp
@@ -1407,6 +1407,7 @@ export default function SessionScreen() {
               onPublish={openPublishModal}
               onAbort={() => void abort()}
               onCleanup={() => void cleanup()}
+              onOpenGit={() => setGitReviewOpen(true)}
             />
             <SessionPreviewStrip previews={previews} project={sessionProjectPanel} />
             {detail?.permissions.length ? (

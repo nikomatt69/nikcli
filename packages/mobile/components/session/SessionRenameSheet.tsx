@@ -35,7 +35,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
     >
       <KeyboardAvoidingView
         className="flex-1"
-        style={{ backgroundColor: isDark ? "rgba(2,6,23,0.74)" : "rgba(15,23,42,0.26)" }}
+        style={{ backgroundColor: isDark ? "rgba(2,6,23,0.74)" : "rgba(20,20,19,0.26)" }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable className="flex-1" onPress={onClose} />
@@ -53,7 +53,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
         >
           {/* Header */}
           <View className="border-b border-border px-5 pb-4 pt-6">
-            <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Rename session</Text>
+            <Text className="text-[12px] font-medium text-muted">Rename session</Text>
             <Text className="mt-2 text-[22px] font-bold leading-[26px] tracking-tight text-ink">Set a new title</Text>
             {currentTitle ? (
               <Text className="mt-1.5 text-[13px] leading-5 text-soft" numberOfLines={1}>
@@ -64,14 +64,14 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
 
           {/* Input area */}
           <View className="px-5 pb-2 pt-5">
-            <Text className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-muted">New title</Text>
+            <Text className="mb-2.5 text-[12px] font-medium text-muted">New title</Text>
 
             <View
               className="rounded-2xl px-4 py-3"
               style={{
                 borderWidth: 1.5,
-                borderColor: isDark ? "rgba(56,189,248,0.30)" : "rgba(14,165,233,0.24)",
-                backgroundColor: isDark ? "rgba(56,189,248,0.05)" : "rgba(14,165,233,0.04)",
+                borderColor: isDark ? "rgba(56,189,248,0.30)" : "rgba(20,20,19,0.24)",
+                backgroundColor: isDark ? "rgba(56,189,248,0.05)" : "rgba(20,20,19,0.04)",
               }}
             >
               <TextInput

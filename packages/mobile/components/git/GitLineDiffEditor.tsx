@@ -75,12 +75,12 @@ function LineView({
       : "rgba(0,0,0,0.03)"
     : isAdd
       ? isDark
-        ? "rgba(34,197,94,0.15)"
-        : "rgba(34,197,94,0.08)"
+        ? "rgba(31,138,101,0.15)"
+        : "rgba(31,138,101,0.08)"
       : isRemove
         ? isDark
-          ? "rgba(239,68,68,0.15)"
-          : "rgba(239,68,68,0.08)"
+          ? "rgba(207,45,86,0.15)"
+          : "rgba(207,45,86,0.08)"
         : "transparent"
 
   const textColor = isHeader
@@ -221,8 +221,8 @@ export function GitLineDiffEditor({
               backgroundColor:
                 index === selectedFileIndex
                   ? isDark
-                    ? "rgba(14,165,233,0.2)"
-                    : "rgba(14,165,233,0.1)"
+                    ? "rgba(255,255,255,0.2)"
+                    : "rgba(20,20,19,0.1)"
                   : isDark
                     ? "rgba(255,255,255,0.05)"
                     : "rgba(0,0,0,0.04)",
@@ -230,8 +230,8 @@ export function GitLineDiffEditor({
               borderColor:
                 index === selectedFileIndex
                   ? isDark
-                    ? "rgba(14,165,233,0.4)"
-                    : "rgba(14,165,233,0.2)"
+                    ? "rgba(255,255,255,0.4)"
+                    : "rgba(20,20,19,0.2)"
                   : palette.border,
             }}
           >
@@ -297,7 +297,7 @@ export function GitLineDiffEditor({
             paddingHorizontal: 8,
             paddingVertical: 4,
             borderRadius: 6,
-            backgroundColor: copied ? "rgba(34,197,94,0.15)" : "transparent",
+            backgroundColor: copied ? "rgba(31,138,101,0.15)" : "transparent",
           }}
         >
           <Copy size={12} color={copied ? "#22c55e" : palette.muted} />

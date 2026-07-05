@@ -1,7 +1,7 @@
 import type { PropsWithChildren, ReactNode } from "react"
 import { Text, View, useWindowDimensions } from "react-native"
 import { cn } from "@/lib/cn"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 type SurfaceCardProps = PropsWithChildren<{
   eyebrow?: string
@@ -22,25 +22,21 @@ export function SurfaceCard({
   children,
 }: SurfaceCardProps) {
   const { width } = useWindowDimensions()
-  const { palette, isDark } = useAppTheme()
+  const { palette } = useAppTheme()
   const compact = width < 390
   const backgroundColor =
     tone === "panel" ? palette.panel : tone === "background" ? `${palette.background}dd` : palette.surfaceRaised
-  const borderColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.86)"
+  const borderColor = hexToRgba(palette.ink, 0.08)
 
   return (
     <View
       className={cn(`overflow-hidden ${compact ? "px-4 py-4" : "px-5 py-5"}`, className)}
       style={{
-        borderRadius: 20,
+        borderRadius: 18,
         borderCurve: "continuous",
         borderWidth: 1,
         borderColor,
         backgroundColor,
-        shadowColor: palette.shadow,
-        shadowOpacity: isDark ? 0.16 : 0.05,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 3 },
       }}
     >
       {eyebrow ? (

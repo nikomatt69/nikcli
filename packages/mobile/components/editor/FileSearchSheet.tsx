@@ -97,7 +97,7 @@ function HighlightedLine({ result, color, matchColor }: { result: SearchResult; 
           key={`${index}:${segment.text}`}
           style={
             segment.matched
-              ? { color: matchColor, fontWeight: "800", backgroundColor: "rgba(14,165,233,0.14)" }
+              ? { color: matchColor, fontWeight: "800", backgroundColor: "rgba(20,20,19,0.14)" }
               : undefined
           }
         >
@@ -119,7 +119,7 @@ function Metric({ icon, label }: { icon: React.ReactNode; label: string }) {
         borderRadius: 999,
         paddingHorizontal: 9,
         paddingVertical: 5,
-        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
       }}
     >
       {icon}
@@ -159,8 +159,8 @@ function SearchResultRow({
   palette: ReturnType<typeof useAppTheme>["palette"]
   onSelect: (file: string, line: number) => void
 }) {
-  const pressedBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.06)"
-  const iconBackground = isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.08)"
+  const pressedBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.06)"
+  const iconBackground = isDark ? "rgba(255,255,255,0.07)" : "rgba(20,20,19,0.08)"
   const borderColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"
   const rowStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
@@ -345,7 +345,7 @@ export function FileSearchSheet(props: {
         {/* Animated backdrop */}
         <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={props.onClose}>
-            <View style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(15,23,42,0.20)" }} />
+            <View style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.20)" }} />
           </Pressable>
         </Animated.View>
 
@@ -419,7 +419,7 @@ export function FileSearchSheet(props: {
                     alignItems: "center",
                     justifyContent: "center",
                     opacity: pressed ? 0.65 : 1,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(20,20,19,0.06)",
                   })}
                 >
                   <X size={16} color={palette.ink} strokeWidth={2.2} />
@@ -564,7 +564,7 @@ export function FileSearchSheet(props: {
                       backgroundColor: pressed
                         ? isDark
                           ? "rgba(255,255,255,0.05)"
-                          : "rgba(14,165,233,0.05)"
+                          : "rgba(20,20,19,0.05)"
                         : "transparent",
                       borderBottomWidth: StyleSheet.hairlineWidth,
                       borderBottomColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",

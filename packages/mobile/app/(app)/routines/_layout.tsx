@@ -1,5 +1,4 @@
 import { Stack } from "expo-router"
-import { SettingsHeaderButton } from "@/components/layout/AppHeader"
 import { useAppTheme } from "@/lib/theme"
 
 export default function RoutinesLayout() {
@@ -18,7 +17,7 @@ export default function RoutinesLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "Routines", headerLargeTitle: true, headerRight: () => <SettingsHeaderButton /> }}
+        options={{ title: "Routines", headerShown: false }}
       />
       <Stack.Screen name="[routineId]" options={{ title: "Routine" }} />
     </Stack>

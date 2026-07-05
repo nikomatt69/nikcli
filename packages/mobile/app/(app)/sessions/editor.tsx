@@ -60,7 +60,7 @@ const LIGHT_SYNTAX: Record<string, string> = {
   [DRACULA.number]: "#7c3aed",
   [DRACULA.operator]: "#0284c7",
   [DRACULA.foreground]: "#1a1a1a",
-  [DRACULA.muted]: "#61768c",
+  [DRACULA.muted]: "#75746e",
 }
 
 export default function EditorScreen() {
@@ -372,7 +372,7 @@ export default function EditorScreen() {
         icon={icon}
         onPress={onPress}
         active={opts?.active ?? false}
-        activeBg={opts?.activeBg ?? (isDark ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.10)")}
+        activeBg={opts?.activeBg ?? (isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)")}
         activeBorder={opts?.activeBorder ?? palette.accent}
         label={opts?.label}
         isDark={isDark}
@@ -398,7 +398,7 @@ export default function EditorScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? "#000000" : "#f1f6fb" }}>
+    <View style={{ flex: 1, backgroundColor: isDark ? "#000000" : "#f7f6f2" }}>
       {/* ── Header with glass treatment ── */}
       <Animated.View style={getAnimatedStyle(contentAnims[0])}>
         <View
@@ -408,7 +408,7 @@ export default function EditorScreen() {
             paddingHorizontal: 14,
             overflow: "hidden",
             borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(193,208,223,0.8)",
+            borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(218,216,209,0.8)",
           }}
         >
           {/* Layer 1: Full-width glass background */}
@@ -416,14 +416,14 @@ export default function EditorScreen() {
             tint={isDark ? "dark" : "light"}
             intensity={isDark ? 90 : 80}
             style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(241,246,251,0.80)"}
+            fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(247,246,242,0.80)"}
             pointerEvents="none"
           />
           {/* Layer 2: Semi-transparent overlay */}
           <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? "rgba(0,0,0,0.32)" : "rgba(241,246,251,0.22)" },
+              { backgroundColor: isDark ? "rgba(0,0,0,0.32)" : "rgba(247,246,242,0.22)" },
             ]}
             pointerEvents="none"
           />
@@ -462,7 +462,7 @@ export default function EditorScreen() {
                 left: 0,
                 right: 0,
                 height: 24,
-                backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.14)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(239,237,232,0.14)",
               }}
               pointerEvents="none"
             />
@@ -572,14 +572,14 @@ export default function EditorScreen() {
                           inputRange: [0, 1],
                           outputRange: [
                             isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                            isDark ? "rgba(14,165,233,0.45)" : "rgba(14,165,233,0.35)",
+                            isDark ? "rgba(255,255,255,0.45)" : "rgba(20,20,19,0.35)",
                           ],
                         }),
                         backgroundColor: modeProgress.interpolate({
                           inputRange: [0, 1],
                           outputRange: [
                             isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-                            isDark ? "rgba(14,165,233,0.12)" : "rgba(14,165,233,0.10)",
+                            isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.10)",
                           ],
                         }),
                       }}
@@ -612,7 +612,7 @@ export default function EditorScreen() {
                     gap: 8,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.65)",
+                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.65)",
                     overflow: "hidden",
                     paddingHorizontal: 12,
                     paddingVertical: 9,
@@ -727,7 +727,7 @@ export default function EditorScreen() {
                   padding: 12,
                   borderRadius: 8,
                   borderWidth: 1,
-                  borderColor: isDark ? "rgba(245,158,11,0.30)" : "rgba(217,119,6,0.24)",
+                  borderColor: isDark ? "rgba(245,158,11,0.30)" : "rgba(192,110,46,0.24)",
                   backgroundColor: isDark ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.08)",
                 }}
               >
@@ -824,18 +824,18 @@ export default function EditorScreen() {
           paddingBottom: bottom + 10,
           overflow: "hidden",
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(193,208,223,0.8)",
+          borderTopColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(218,216,209,0.8)",
         }}
       >
         <AdaptiveBlur
           tint={isDark ? "dark" : "light"}
           intensity={isDark ? 80 : 70}
           style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(241,246,251,0.80)"}
+          fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(247,246,242,0.80)"}
           pointerEvents="none"
         />
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.28)" : "rgba(241,246,251,0.22)" }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.28)" : "rgba(247,246,242,0.22)" }]}
           pointerEvents="none"
         />
         <View
@@ -845,7 +845,7 @@ export default function EditorScreen() {
             right: 0,
             bottom: 0,
             height: 24,
-            backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.14)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(239,237,232,0.14)",
           }}
           pointerEvents="none"
         />
@@ -877,7 +877,7 @@ export default function EditorScreen() {
                     gap: 6,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(14,165,233,0.35)" : "rgba(14,165,233,0.25)",
+                    borderColor: isDark ? "rgba(255,255,255,0.35)" : "rgba(20,20,19,0.25)",
                     overflow: "hidden",
                     paddingHorizontal: 14,
                     paddingVertical: 7,
@@ -889,13 +889,13 @@ export default function EditorScreen() {
                     tint={isDark ? "dark" : "light"}
                     intensity={40}
                     style={StyleSheet.absoluteFill}
-                    fallbackColor={isDark ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.10)"}
+                    fallbackColor={isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)"}
                     pointerEvents="none"
                   />
                   <View
                     style={[
                       StyleSheet.absoluteFill,
-                      { backgroundColor: isDark ? "rgba(14,165,233,0.06)" : "rgba(14,165,233,0.04)" },
+                      { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.04)" },
                     ]}
                     pointerEvents="none"
                   />
@@ -1027,7 +1027,7 @@ function LineNumbers({ nums, highlights, isDark, palette, fontSize, lineHeight, 
           <View
             key={n}
             style={{
-              backgroundColor: isActive ? (isDark ? "rgba(14,165,233,0.12)" : "rgba(14,165,233,0.08)") : "transparent",
+              backgroundColor: isActive ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.08)") : "transparent",
               borderRadius: 4,
               paddingHorizontal: isActive ? 4 : 0,
               marginHorizontal: isActive ? -4 : 0,

@@ -86,10 +86,10 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
           tint={isDark ? "dark" : "light"}
           intensity={isDark ? 20 : 14}
           style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+          fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
         />
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(15,23,42,0.16)" }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)" }]}
         />
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -290,14 +290,14 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                   borderColor: item.disabled
                                     ? isDark
                                       ? "rgba(255,255,255,0.06)"
-                                      : "rgba(193,208,223,0.6)"
+                                      : "rgba(218,216,209,0.6)"
                                     : isDark
                                       ? "rgba(255,255,255,0.08)"
                                       : "rgba(255,255,255,0.78)",
                                   backgroundColor: item.disabled
                                     ? isDark
                                       ? "rgba(255,255,255,0.02)"
-                                      : "rgba(241,246,251,0.45)"
+                                      : "rgba(247,246,242,0.45)"
                                     : isDark
                                       ? "rgba(255,255,255,0.04)"
                                       : "rgba(255,255,255,0.52)",
@@ -332,8 +332,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                       style={{
                                         borderRadius: 999,
                                         borderWidth: 1,
-                                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
-                                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+                                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
+                                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
                                         paddingHorizontal: 10,
                                         paddingVertical: 4,
                                       }}

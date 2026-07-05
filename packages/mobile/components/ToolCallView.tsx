@@ -103,14 +103,14 @@ export function ToolCallView(props: { part: ToolPart }) {
       : status === "completed"
         ? isDark
           ? "rgba(212,212,212,0.08)"
-          : "rgba(34,197,94,0.10)"
+          : "rgba(31,138,101,0.10)"
         : status === "error"
           ? isDark
             ? "rgba(143,143,143,0.08)"
-            : "rgba(239,68,68,0.10)"
+            : "rgba(207,45,86,0.10)"
           : isDark
             ? "rgba(255,255,255,0.05)"
-            : "rgba(241,246,251,0.8)"
+            : "rgba(247,246,242,0.8)"
   const statusBorder =
     status === "running"
       ? isDark
@@ -119,14 +119,14 @@ export function ToolCallView(props: { part: ToolPart }) {
       : status === "completed"
         ? isDark
           ? "rgba(212,212,212,0.16)"
-          : "rgba(34,197,94,0.22)"
+          : "rgba(31,138,101,0.22)"
         : status === "error"
           ? isDark
             ? "rgba(143,143,143,0.16)"
-            : "rgba(239,68,68,0.22)"
+            : "rgba(207,45,86,0.22)"
           : isDark
             ? "rgba(255,255,255,0.08)"
-            : "rgba(193,208,223,0.72)"
+            : "rgba(218,216,209,0.72)"
 
   async function copyOutput() {
     if (!output) return
@@ -139,8 +139,8 @@ export function ToolCallView(props: { part: ToolPart }) {
     <View
       className="min-w-0 overflow-hidden rounded-[20px] border"
       style={{
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.78)",
-        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(241,246,251,0.78)",
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.78)",
+        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(247,246,242,0.78)",
       }}
     >
       <Pressable
@@ -223,7 +223,7 @@ export function ToolCallView(props: { part: ToolPart }) {
         <View className="gap-3 border-t border-border px-3 py-2.5">
           {inputEntries.length > 0 ? (
             <View className="rounded-[16px] border border-border/70 bg-surface p-3">
-              <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Input</Text>
+              <Text className="mb-2 text-[12px] font-medium text-muted">Input</Text>
               {inputEntries.map(([key, value]) => (
                 <View key={key} className="mb-1 min-w-0 flex-row gap-2">
                   <Text className="shrink-0 font-mono text-xs text-soft">{key}:</Text>
@@ -246,7 +246,7 @@ export function ToolCallView(props: { part: ToolPart }) {
           {rawOutput !== undefined ? (
             <View className="rounded-[16px] border border-border/70 bg-surface p-3">
               <View className="mb-2 flex-row items-center justify-between gap-2">
-                <Text className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Output</Text>
+                <Text className="text-[12px] font-medium text-muted">Output</Text>
                 {output ? (
                   <Pressable
                     onPress={copyOutput}

@@ -24,7 +24,7 @@ function DataBlock(props: { label: string; value: string }) {
 
   return (
     <View className="gap-1.5 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2.5">
-      <Text selectable className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
+      <Text selectable className="text-[12px] font-medium text-muted">
         {props.label}
       </Text>
       <ScrollView
@@ -60,7 +60,7 @@ export function PermissionCard(props: {
     <View
       className="mb-3 overflow-hidden rounded-[8px] border p-4"
       style={{
-        borderColor: isDark ? "rgba(251,191,36,0.20)" : "rgba(217,119,6,0.20)",
+        borderColor: isDark ? "rgba(251,191,36,0.20)" : "rgba(192,110,46,0.20)",
         backgroundColor: isDark ? palette.surfaceMuted : palette.panel,
       }}
     >
@@ -69,7 +69,7 @@ export function PermissionCard(props: {
           <Icon size={15} color={palette.accentLight} strokeWidth={2.1} />
         </View>
         <View className="min-w-0 flex-1 gap-1.5">
-          <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+          <Text selectable className="text-[12px] font-medium text-muted">
             Permission required
           </Text>
           <Text selectable className="text-base font-semibold text-ink">
@@ -100,7 +100,7 @@ export function PermissionCard(props: {
 
       {props.item.patterns.length > 0 ? (
         <View className="mt-3 gap-2 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2.5">
-          <Text selectable className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
+          <Text selectable className="text-[12px] font-medium text-muted">
             Patterns
           </Text>
           {props.item.patterns.map((pattern, index) => (

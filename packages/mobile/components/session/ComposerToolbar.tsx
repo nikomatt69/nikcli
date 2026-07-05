@@ -206,7 +206,7 @@ function ComposerDrawer({
         {/* Backdrop */}
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-            <View style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(15,23,42,0.20)" }} />
+            <View style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.20)" }} />
           </Pressable>
         </Animated.View>
 
@@ -310,7 +310,7 @@ function ComposerDrawer({
                     <View
                       style={[
                         styles.tabBadge,
-                        { backgroundColor: isActive ? "rgba(255,255,255,0.25)" : "rgba(14,165,233,0.15)" },
+                        { backgroundColor: isActive ? "rgba(255,255,255,0.25)" : "rgba(20,20,19,0.15)" },
                       ]}
                     >
                       <Text style={[styles.tabBadgeText, { color: isActive ? "#fff" : palette.accentLight }]}>
@@ -387,8 +387,8 @@ function ModelContent({
             style={[
               styles.currentModel,
               {
-                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.20)",
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.06)",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.20)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.06)",
               },
             ]}
           >
@@ -412,7 +412,7 @@ function ModelContent({
           borderBottom={i < availableModels.length - 1}
         >
           <View
-            style={[styles.modelIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.07)" }]}
+            style={[styles.modelIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.07)" }]}
           >
             <MapPin size={16} color={palette.accentLight} strokeWidth={2} />
           </View>
@@ -420,7 +420,7 @@ function ModelContent({
             <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{model.name}</Text>
             {model.badge && (
               <View
-                style={[styles.badge, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)" }]}
+                style={[styles.badge, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" }]}
               >
                 <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
               </View>
@@ -436,7 +436,7 @@ function ModelContent({
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 12,
@@ -511,7 +511,7 @@ function McpContent({
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 12,
@@ -580,7 +580,7 @@ function SkillsContent({
               <View
                 style={[
                   styles.skillIcon,
-                  { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.07)" },
+                  { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.07)" },
                 ]}
               >
                 <Sparkles size={16} color={palette.accentLight} strokeWidth={2} />
@@ -603,7 +603,7 @@ function SkillsContent({
                 width: 56,
                 height: 56,
                 borderRadius: 28,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
                 alignItems: "center",
                 justifyContent: "center",
                 marginBottom: 12,
@@ -651,7 +651,7 @@ function ToolsContent({
             <View
               style={[
                 styles.toolIcon,
-                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.07)" },
+                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.07)" },
               ]}
             >
               <Terminal size={16} color={palette.accentLight} strokeWidth={2} />
@@ -674,7 +674,7 @@ function ToolsContent({
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 12,
@@ -814,7 +814,7 @@ function AnimatedListItem({
           paddingHorizontal: 20,
           paddingVertical: 12,
           borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+          borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
         }}
       >
         {children}
@@ -848,7 +848,7 @@ function AnimatedSwitchRow({
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
-        borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+        borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
       }}
     >
       {children}

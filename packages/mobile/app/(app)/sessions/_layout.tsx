@@ -1,5 +1,4 @@
 import { Stack } from "expo-router"
-import { SettingsHeaderButton } from "@/components/layout/AppHeader"
 import { useAppTheme } from "@/lib/theme"
 
 export default function SessionsLayout() {
@@ -20,8 +19,7 @@ export default function SessionsLayout() {
         name="index"
         options={{
           title: "Sessions",
-          headerLargeTitle: true,
-          headerRight: () => <SettingsHeaderButton />,
+          headerShown: false,
         }}
       />
       <Stack.Screen name="[sessionId]" options={{ headerShown: false }} />

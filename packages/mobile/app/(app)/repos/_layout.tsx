@@ -1,5 +1,4 @@
 import { Stack } from "expo-router"
-import { SettingsHeaderButton } from "@/components/layout/AppHeader"
 import { useAppTheme } from "@/lib/theme"
 
 export default function ReposLayout() {
@@ -18,7 +17,7 @@ export default function ReposLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "Projects", headerLargeTitle: true, headerRight: () => <SettingsHeaderButton /> }}
+        options={{ title: "Projects", headerShown: false }}
       />
     </Stack>
   )
