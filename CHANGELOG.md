@@ -3,6 +3,24 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.140.0 (July 2026)
+
+## Core
+
+- Enhance update notification logic and improve upgrade process (@nikomatt69)
+- Awaiting last 2 subagents' findings.
+
+## TUI
+
+- Add Windows dshow support for voice recording with ffmpeg (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(tui): add Windows dshow support for voice recording with ffmpeg
+  - feat(upgrade): enhance update notification logic and improve upgrade process
+  - Merge pull request #141 from nikomatt69/fix/voice-recording-windows-dshow
+
 ## v1.137.0 (July 2026)
 
 ## Core

@@ -999,9 +999,7 @@ export default function SettingsScreen() {
 
                 <View className="mt-4 gap-3">
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      GitHub profile
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">GitHub profile</Text>
                     <Text className="mt-2 text-lg font-semibold text-ink">
                       {bootstrap?.github?.user?.login ? `@${bootstrap.github.user.login}` : "Not connected"}
                     </Text>
@@ -1017,9 +1015,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Host profile
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Host profile</Text>
                     <Text selectable className="mt-2 text-sm font-semibold text-ink">
                       {workspaceLabel}
                     </Text>
@@ -1057,9 +1053,7 @@ export default function SettingsScreen() {
 
               {/* Theme Selector Dropdown */}
               <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-[12px] font-medium text-muted">
-                  Color Theme
-                </Text>
+                <Text className="text-[12px] font-medium text-muted">Color Theme</Text>
                 <Pressable
                   onPress={() => setThemePickerOpen(true)}
                   className={`mt-3 flex-row items-center justify-between rounded-[12px] border px-4 py-3 ${optionChipClass(true)}`}
@@ -1102,9 +1096,7 @@ export default function SettingsScreen() {
               </View>
 
               <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-[12px] font-medium text-muted">
-                  Visible settings sections
-                </Text>
+                <Text className="text-[12px] font-medium text-muted">Visible settings sections</Text>
                 <View className="mt-3 flex-row flex-wrap gap-2">
                   {SETTINGS_SECTIONS.map((section) => {
                     const active = visibleSettingsSections[section.id]
@@ -1148,9 +1140,7 @@ export default function SettingsScreen() {
 
                 <View className="mt-4 gap-3">
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Notifications
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Notifications</Text>
                     <View className="mt-3 flex-row flex-wrap gap-2">
                       {[
                         ["enabled", "Master switch"],
@@ -1176,9 +1166,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Haptics
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Haptics</Text>
                     <View className="mt-3 flex-row flex-wrap gap-2">
                       {[
                         ["enabled", "Master switch"],
@@ -1203,9 +1191,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Message gestures
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Message gestures</Text>
                     <View className="mt-3 flex-row flex-wrap gap-2">
                       {[
                         ["bubbleSwipeActions", "Swipe actions"],
@@ -1407,9 +1393,7 @@ export default function SettingsScreen() {
 
                     {selectedProvider ? (
                       <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                        <Text className="text-[12px] font-medium text-muted">
-                          Selected provider
-                        </Text>
+                        <Text className="text-[12px] font-medium text-muted">Selected provider</Text>
                         <Text className="mt-2 text-lg font-semibold text-ink">{selectedProvider.name}</Text>
                         <Text className="mt-1 text-sm text-soft">{selectedProvider.id}</Text>
                         {selectedProvider.env.length ? (
@@ -1458,9 +1442,7 @@ export default function SettingsScreen() {
                     />
 
                     <View className="rounded-[8px] border border-border bg-panel/55 p-4">
-                      <Text className="text-[12px] font-medium text-muted">
-                        Provider API key
-                      </Text>
+                      <Text className="text-[12px] font-medium text-muted">Provider API key</Text>
                       <Text className="mt-2 text-sm leading-6 text-soft">
                         Save the key on the host for the selected provider. This is what unlocks providers like MiniMax
                         for mobile-created sessions.
@@ -1575,9 +1557,7 @@ export default function SettingsScreen() {
 
                 {githubConnected ? (
                   <View className="mt-4 rounded-[8px] border border-success/20 bg-success/10 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Connected account
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Connected account</Text>
                     <Text className="mt-2 text-xl font-semibold text-ink">@{bootstrap?.github?.user?.login}</Text>
                     {bootstrap?.github?.user?.name ? (
                       <Text className="mt-1 text-sm text-soft">{bootstrap.github.user.name}</Text>
@@ -1595,9 +1575,7 @@ export default function SettingsScreen() {
 
                 {oauthFlow ? (
                   <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Authorization in progress
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Authorization in progress</Text>
                     <Text className="mt-2 text-sm leading-6 text-soft">
                       Enter this code in GitHub if the browser page asks for it.
                     </Text>
@@ -1643,9 +1621,7 @@ export default function SettingsScreen() {
                 </View>
 
                 <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
-                  <Text className="text-[12px] font-medium text-muted">
-                    Add MCP server
-                  </Text>
+                  <Text className="text-[12px] font-medium text-muted">Add MCP server</Text>
                   <View className="mt-3 gap-3">
                     <TextField
                       label="Server name"

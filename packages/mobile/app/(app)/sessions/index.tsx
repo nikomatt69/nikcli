@@ -213,9 +213,7 @@ export default function SessionsScreen() {
           <EmptyState
             title="No sessions yet"
             description="Start a session to run work, review diffs, and answer permission prompts."
-            action={
-              <ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />
-            }
+            action={<ActionButton label="Start a session" loading={creating} onPress={() => void createSession()} />}
           />
         }
         style={{ paddingHorizontal: 16 }}

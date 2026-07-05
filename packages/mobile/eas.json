@@ -17,7 +17,7 @@
         "image": "macos-sequoia-15.6-xcode-26.1"
       }
     },
-   "preview": {
+    "preview": {
       "ios": {
         "simulator": true
       }

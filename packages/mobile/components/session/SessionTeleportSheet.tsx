@@ -108,9 +108,7 @@ export function SessionTeleportSheet({ visible, busy, onClose, onTeleport }: Pro
               />
             </View>
 
-            <Text className="mb-2.5 mt-4 text-[12px] font-medium text-muted">
-              Auth token
-            </Text>
+            <Text className="mb-2.5 mt-4 text-[12px] font-medium text-muted">Auth token</Text>
             <View className="rounded-2xl px-4 py-3" style={inputWrapStyle}>
               <TextInput
                 ref={tokenRef}
