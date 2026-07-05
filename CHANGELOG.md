@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.138.0 (July 2026)
+
+## Core
+
+- Add missing semicolons and update terminology in inference-dashboard and mobile app (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix: add missing semicolons and update terminology in inference-dashboard and mobile app
+
 ## v1.137.0 (July 2026)
 
 ## Core

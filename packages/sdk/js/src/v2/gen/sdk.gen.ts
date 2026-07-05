@@ -36,7 +36,7 @@ import type {
   BrainTriggerInput,
   BrainTriggerResponses,
   CommandListResponses,
-  Config as Config2,
+  Config as Config3,
   ConfigGetResponses,
   ConfigProvidersResponses,
   ConfigReloadResponses,
@@ -443,6 +443,8 @@ import type {
   SessionV2StateErrors,
   SessionV2StateResponses,
   SubtaskPartInput,
+  SyncConfigSetErrors,
+  SyncConfigSetResponses,
   SyncConnectResponses,
   SyncDisconnectResponses,
   SyncDrainResponses,
@@ -2020,7 +2022,7 @@ export class Config extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
-      config?: Config2
+      config?: Config3
     },
     options?: Options<never, ThrowOnError>,
   ): RequestResult<ConfigUpdateResponses, ConfigUpdateErrors, ThrowOnError> {
@@ -4757,6 +4759,49 @@ export class Snapshot extends HeyApiClient {
   }
 }
 
+export class Config2 extends HeyApiClient {
+  /**
+   * Save the remote hub settings to the global config file
+   *
+   * Persists `sync.url` / `sync.token` in the global nikcli.json so the TUI can configure the hub without env vars. NIKCLI_REMOTE_URL / NIKCLI_REMOTE_TOKEN still override the saved values. When the result is fully configured, the hub connection is started immediately.
+   */
+  public set<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      url: string
+      token?: string
+      autostart?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<SyncConfigSetResponses, SyncConfigSetErrors, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "url" },
+            { in: "body", key: "token" },
+            { in: "body", key: "autostart" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SyncConfigSetResponses, SyncConfigSetErrors, ThrowOnError>({
+      url: "/sync/config",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Sync extends HeyApiClient {
   /**
    * Aggregated sync stats for the TUI
@@ -4885,6 +4930,11 @@ export class Sync extends HeyApiClient {
   private _snapshot?: Snapshot
   get snapshot(): Snapshot {
     return (this._snapshot ??= new Snapshot({ client: this.client }))
+  }
+
+  private _config?: Config2
+  get config(): Config2 {
+    return (this._config ??= new Config2({ client: this.client }))
   }
 }
 

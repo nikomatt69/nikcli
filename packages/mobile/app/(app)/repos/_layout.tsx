@@ -15,10 +15,7 @@ export default function ReposLayout() {
         animation: "slide_from_right",
       }}
     >
-      <Stack.Screen
-        name="index"
-        options={{ title: "Workspaces", headerShown: false }}
-      />
+      <Stack.Screen name="index" options={{ title: "Workspaces", headerShown: false }} />
     </Stack>
   )
 }

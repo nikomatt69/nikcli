@@ -221,9 +221,7 @@ export default function ConnectScreen() {
           nikcli mobile pair --public-url https://nikcli-mobile-production.up.railway.app --name iphone --expiry-days 90
         </Text>
         <View className="mt-4 gap-2 rounded-[24px] border border-border bg-background/70 p-4">
-          <Text className="text-[12px] font-medium text-muted">
-            GitHub OAuth server setup
-          </Text>
+          <Text className="text-[12px] font-medium text-muted">GitHub OAuth server setup</Text>
           <Text className="text-sm leading-6 text-soft">
             If Settings says GitHub OAuth is unavailable, add `NIKCLI_GITHUB_OAUTH_CLIENT_ID` or
             `GITHUB_CLIENT_ID_CONSOLE` to the hosted server environment, then restart that server process.

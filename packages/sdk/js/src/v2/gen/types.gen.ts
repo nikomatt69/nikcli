@@ -2645,6 +2645,23 @@ export type Config = {
   plugin?: Array<string>
   snapshot?: boolean
   /**
+   * Optional hub-and-spoke remote sync settings, manageable from the TUI /sync dialog
+   */
+  sync?: {
+    /**
+     * Remote sync hub URL, e.g. https://s.nikcli.store. NIKCLI_REMOTE_URL overrides this.
+     */
+    url?: string
+    /**
+     * cli-sync scoped bearer token for the remote hub. NIKCLI_REMOTE_TOKEN overrides this.
+     */
+    token?: string
+    /**
+     * Connect to the hub automatically at startup (default true when url + token are set)
+     */
+    autostart?: boolean
+  }
+  /**
    * Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
    */
   share?: "manual" | "auto" | "disabled"
@@ -8102,6 +8119,45 @@ export type SyncStatsResponses = {
    */
   200: unknown
 }
+
+export type SyncConfigSetData = {
+  body?: {
+    url: string
+    /**
+     * Omit to keep the token already saved in the config file
+     */
+    token?: string
+    autostart?: boolean
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/sync/config"
+}
+
+export type SyncConfigSetErrors = {
+  /**
+   * Invalid hub URL
+   */
+  400: unknown
+}
+
+export type SyncConfigSetResponses = {
+  /**
+   * Resolved sync configuration after the save
+   */
+  200: {
+    configured: boolean
+    url?: string
+    source?: "env" | "config"
+    started: boolean
+    error?: string
+  }
+}
+
+export type SyncConfigSetResponse = SyncConfigSetResponses[keyof SyncConfigSetResponses]
 
 export type SyncConnectData = {
   body?: never
