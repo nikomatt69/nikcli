@@ -3,6 +3,23 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.139.0 (July 2026)
+
+## Core
+
+- Enhance event handling and streamline imports (@nikomatt69)
+- Update connection handling and clean up imports (@nikomatt69)
+- Introduce workspace projection and lifecycle event handling (@nikomatt69)
+- Reorganize user-related files and remove unused components (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor: reorganize user-related files and remove unused components
+  - feat(workspace): introduce workspace projection and lifecycle event handling
+  - refactor(workspace): update connection handling and clean up imports
+  - refactor(sync): enhance event handling and streamline imports
+
 ## v1.137.0 (July 2026)
 
 ## Core

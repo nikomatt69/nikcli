@@ -649,10 +649,7 @@ function ToolsContent({
             borderBottom={i < tools.length - 1}
           >
             <View
-              style={[
-                styles.toolIcon,
-                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.07)" },
-              ]}
+              style={[styles.toolIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.07)" }]}
             >
               <Terminal size={16} color={palette.accentLight} strokeWidth={2} />
             </View>

@@ -95,11 +95,7 @@ export function Logo(props: { idle?: boolean }) {
           <box flexDirection="row" height={1}>
             <For each={renderLine(line, index())}>
               {(segment) => (
-                <text
-                  fg={segment.color}
-                  attributes={segment.bold ? TextAttributes.BOLD : undefined}
-                  selectable={false}
-                >
+                <text fg={segment.color} attributes={segment.bold ? TextAttributes.BOLD : undefined} selectable={false}>
                   {segment.text}
                 </text>
               )}
