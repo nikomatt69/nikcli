@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 
-// Re-implement the LRU cache helper logic from `db/users.ts` to verify behavior.
+// Re-implement the LRU cache helper logic from `user/users.ts` to verify behavior.
 const SESSION_CACHE_MAX_SIZE = 10_000
 
 function makeCache() {

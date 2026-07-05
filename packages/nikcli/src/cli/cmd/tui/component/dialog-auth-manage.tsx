@@ -7,7 +7,7 @@ import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { useToast } from "@tui/ui/toast"
 import { DialogProvider } from "./dialog-provider"
-import { UserDB } from "@/db/users"
+import { UserDB } from "@/user/users"
 import { useTheme } from "@tui/context/theme"
 
 type ProfileNotice = {

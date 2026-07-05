@@ -1,5 +1,5 @@
 export { account, config } from "@/account/account.sql"
-export { chatContacts, chatMessages, users, userSessions } from "@/db/users.sql"
+export { chatContacts, chatMessages, users, userSessions } from "@/user/users.sql"
 export { mobileTokens } from "@/mobile/auth.sql"
 export { workspace } from "@/workspace/workspace.sql"
 export { sessionInfo } from "@/session/session.sql"

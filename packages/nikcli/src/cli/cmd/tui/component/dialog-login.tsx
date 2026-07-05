@@ -1,6 +1,6 @@
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import type { DialogContext } from "@tui/ui/dialog"
-import { UserDB } from "@/db/users"
+import { UserDB } from "@/user/users"
 
 /**
  * Sequential login/register flow via TUI dialog prompts.

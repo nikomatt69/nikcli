@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { validator } from "hono-openapi"
 import z from "zod"
-import { UserDB } from "@/db/users"
+import { UserDB } from "@/user/users"
 
 declare module "hono" {
   interface ContextVariableMap {

@@ -14,6 +14,7 @@ import Browser from "../feature-plugins/browser"
 import Chatbot from "../feature-plugins/chatbot"
 import Computer from "../feature-plugins/computer"
 import Connectors from "../feature-plugins/connectors"
+import Observability from "../feature-plugins/observability"
 
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 
@@ -39,4 +40,5 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Chatbot,
   Computer,
   Connectors,
+  Observability,
 ]

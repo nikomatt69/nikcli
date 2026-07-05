@@ -36,7 +36,6 @@ import { DialogUsage } from "@tui/component/dialog-usage"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogSettings } from "@tui/component/dialog-settings"
 import { DialogConfig } from "@tui/component/dialog-config"
-import { DialogOpenTelemetry } from "@tui/component/dialog-opentelemetry"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogTour } from "@tui/component/dialog-tour"
 import { DialogQuickstartInfo, DialogDoctorInfo, DialogSupport, openExternal } from "@tui/component/dialog-support"
@@ -81,11 +80,10 @@ import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
 import { BRAIN_SESSION_TITLE } from "@/brain"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
-import { UserDB } from "@/db/users"
+import { UserDB } from "@/user/users"
 import { DialogLogin } from "@tui/component/dialog-login"
 import { DialogOnboarding } from "@tui/component/dialog-onboarding"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
-import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
@@ -956,18 +954,6 @@ function App() {
       },
     },
     {
-      title: "Chat",
-      value: "chat.open",
-      category: "Account",
-      slash: {
-        name: "chat",
-        aliases: ["messages", "dm"],
-      },
-      onSelect: () => {
-        dialog.replace(() => <DialogChat />)
-      },
-    },
-    {
       title: "Settings",
       value: "settings.open",
       slash: { name: "settings" },
@@ -982,15 +968,6 @@ function App() {
       slash: { name: "config" },
       onSelect: () => {
         dialog.replace(() => <DialogConfig />)
-      },
-      category: "System",
-    },
-    {
-      title: "OpenTelemetry",
-      value: "otel.settings",
-      slash: { name: "otel", aliases: ["telemetry", "opentelemetry"] },
-      onSelect: () => {
-        dialog.replace(() => <DialogOpenTelemetry />)
       },
       category: "System",
     },
