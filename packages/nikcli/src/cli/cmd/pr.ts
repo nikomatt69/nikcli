@@ -67,9 +67,16 @@ export const PrCommand = cmd({
                 UI.println(`Found nikcli session: ${sessionUrl}`)
                 UI.println(`Importing session...`)
 
-                const importResult = await $`nikcli import ${sessionUrl}`.nothrow()
-                if (importResult.exitCode === 0) {
-                  const importOutput = importResult.text().trim()
+                const importProc = Bun.spawn({
+                  cmd: [process.execPath, ...process.argv.slice(1, 2), "import", sessionUrl],
+                  stdout: "pipe",
+                  stderr: "pipe",
+                  cwd: process.cwd(),
+                  env: process.env,
+                })
+                const importExit = await importProc.exited
+                if (importExit === 0) {
+                  const importOutput = (await new Response(importProc.stdout).text()).trim()
                   const sessionIdMatch = importOutput.match(/Imported session: ([a-zA-Z0-9_-]+)/)
                   if (sessionIdMatch) {
                     sessionId = sessionIdMatch[1]
@@ -86,20 +93,18 @@ export const PrCommand = cmd({
         UI.println("Starting nikcli...")
         UI.println()
 
-        const { spawn } = await import("child_process")
-        const nikcliArgs = sessionId ? ["-s", sessionId] : []
-        const nikcliProcess = spawn("nikcli", nikcliArgs, {
-          stdio: "inherit",
+        const nikcliProcess = Bun.spawn({
+          cmd: [process.execPath, ...process.argv.slice(1, 2), ...(sessionId ? ["-s", sessionId] : [])],
+          stdin: "inherit",
+          stdout: "inherit",
+          stderr: "inherit",
           cwd: process.cwd(),
+          env: process.env,
         })
-
-        await new Promise<void>((resolve, reject) => {
-          nikcliProcess.on("exit", (code) => {
-            if (code === 0) resolve()
-            else reject(new Error(`nikcli exited with code ${code}`))
-          })
-          nikcliProcess.on("error", reject)
-        })
+        const exitCode = await nikcliProcess.exited
+        if (exitCode !== 0) {
+          throw new Error(`nikcli exited with code ${exitCode}`)
+        }
       }
     })
   },

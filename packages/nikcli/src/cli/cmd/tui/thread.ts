@@ -5,7 +5,11 @@ import path from "path";
 import { UI } from "@/cli/ui";
 import { iife } from "@/util/iife";
 import { Log } from "@/util/log";
-import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network";
+import {
+  withNetworkOptions,
+  resolveNetworkOptions,
+  shouldStartHttpServer,
+} from "@/cli/network";
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2";
 import type { EventSource } from "./context/sdk";
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32";
@@ -159,7 +163,7 @@ export const TuiThreadCommand = cmd({
       process.chdir(cwd);
     } catch {
       UI.error("Failed to change directory to " + cwd);
-      return;
+      process.exit(1);
     }
 
     const worker = new Worker(workerPath, {
@@ -233,17 +237,10 @@ export const TuiThreadCommand = cmd({
       return piped ? piped + "\n" + args.prompt : args.prompt;
     });
 
-    // Check if server should be started (port or hostname explicitly set in CLI or config)
     const networkOpts = await resolveNetworkOptions(
       args as Parameters<typeof resolveNetworkOptions>[0],
     );
-    const shouldStartServer =
-      process.argv.includes("--port") ||
-      process.argv.includes("--hostname") ||
-      process.argv.includes("--mdns") ||
-      networkOpts.mdns ||
-      networkOpts.port !== 0 ||
-      networkOpts.hostname !== "127.0.0.1";
+    const shouldStartServer = shouldStartHttpServer(networkOpts);
 
     let url: string;
     let customFetch: typeof fetch | undefined;

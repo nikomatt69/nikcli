@@ -63,7 +63,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--icon-weak);
+    color: var(--icon-weak-base);
 
     [data-component="icon"] {
       width: 20px;
@@ -371,7 +371,7 @@
 
     [data-slot="icon-svg"] {
       flex-shrink: 0;
-      color: var(--icon-weak);
+      color: var(--icon-weak-base);
     }
   }
 
@@ -623,7 +623,7 @@
 
       &:hover {
         background-color: var(--surface-base-hover);
-        border-color: var(--border-default);
+        border-color: var(--border-hover);
       }
 
       &[data-picked="true"] {
@@ -658,7 +658,7 @@
         flex: 1;
         padding: 8px 12px;
         font-size: 14px;
-        border: 1px solid var(--border-default);
+        border: 1px solid var(--border-base);
         border-radius: 6px;
         background-color: var(--surface-base);
         color: var(--text-base);
@@ -823,6 +823,6 @@
 
   [data-component="icon"] {
     flex-shrink: 0;
-    color: var(--icon-weak);
+    color: var(--icon-weak-base);
   }
 }

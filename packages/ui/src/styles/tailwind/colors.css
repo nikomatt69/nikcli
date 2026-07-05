@@ -77,6 +77,9 @@
   --color-text-weaker: var(--text-weaker);
   --color-text-strong: var(--text-strong);
   --color-text-interactive-base: var(--text-interactive-base);
+  --color-text-success-base: var(--text-success-base);
+  --color-text-warning-base: var(--text-warning-base);
+  --color-text-critical-base: var(--text-critical-base);
   --color-text-invert-base: var(--text-invert-base);
   --color-text-invert-weak: var(--text-invert-weak);
   --color-text-invert-weaker: var(--text-invert-weaker);

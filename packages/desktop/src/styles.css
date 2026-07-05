@@ -902,7 +902,7 @@ button.desktop-sidebar__list-item:hover {
 }
 
 .desktop-workbench__tab:disabled {
-  color: var(--text-disabled);
+  color: var(--text-weaker);
   opacity: 0.52;
 }
 
@@ -1061,13 +1061,13 @@ button.desktop-sidebar__list-item:hover {
 }
 
 .desktop-automation__badge[data-status="running"] {
-  color: var(--text-on-color);
+  color: var(--text-on-interactive-base);
   border-color: color-mix(in srgb, var(--icon-interactive-base) 62%, transparent);
   background: color-mix(in srgb, var(--icon-interactive-base) 54%, var(--surface-base));
 }
 
 .desktop-automation__badge[data-status="error"] {
-  color: var(--text-on-color);
+  color: var(--text-on-critical-base);
   border-color: var(--border-critical-base);
   background: var(--surface-critical-base);
 }
@@ -1215,7 +1215,7 @@ button.desktop-sidebar__list-item:hover {
 }
 
 .desktop-automation__setup-actions button[type="submit"] {
-  color: var(--text-on-color);
+  color: var(--text-interactive-base);
   border-color: var(--border-focus);
   background: var(--surface-interactive-base);
 }

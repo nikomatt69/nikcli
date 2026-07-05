@@ -47,7 +47,7 @@
         letter-spacing: var(--letter-spacing-normal);
 
         &:hover {
-          background-color: var(--surface-base);
+          background-color: var(--surface-base-hover);
         }
         &:focus-visible {
           outline: none;
@@ -75,6 +75,14 @@
     [data-slot="accordion-content"] {
       overflow: hidden;
       width: 100%;
+
+      &[data-expanded] {
+        animation: slideDown 250ms ease-out;
+      }
+
+      &[data-closed] {
+        animation: slideUp 250ms ease-out;
+      }
     }
   }
 }

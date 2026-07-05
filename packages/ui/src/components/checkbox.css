@@ -59,16 +59,16 @@
   [data-slot="checkbox-checkbox-description"] {
     color: var(--text-base);
     font-family: var(--font-family-sans);
-    font-size: 12px;
+    font-size: var(--font-size-x-small);
     font-weight: var(--font-weight-regular);
     line-height: var(--line-height-normal);
     letter-spacing: var(--letter-spacing-normal);
   }
 
   [data-slot="checkbox-checkbox-error"] {
-    color: var(--text-error);
+    color: var(--text-critical-base);
     font-family: var(--font-family-sans);
-    font-size: 12px;
+    font-size: var(--font-size-x-small);
     font-weight: var(--font-weight-regular);
     line-height: var(--line-height-normal);
     letter-spacing: var(--letter-spacing-normal);
@@ -76,12 +76,12 @@
 
   &:hover:not([data-disabled], [data-readonly]) [data-slot="checkbox-checkbox-control"] {
     border-color: var(--border-hover);
-    background-color: var(--surface-hover);
+    background-color: var(--surface-base-hover);
   }
 
   &:focus-within:not([data-readonly]) [data-slot="checkbox-checkbox-control"] {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 2px var(--surface-focus);
+    box-shadow: 0 0 0 2px var(--border-weak-selected);
   }
 
   &[data-checked] [data-slot="checkbox-checkbox-control"],
@@ -93,7 +93,7 @@
   &[data-checked]:hover:not([data-disabled], [data-readonly]) [data-slot="checkbox-checkbox-control"],
   &[data-indeterminate]:hover:not([data-disabled]) [data-slot="checkbox-checkbox-control"] {
     border-color: var(--border-hover);
-    background-color: var(--surface-hover);
+    background-color: var(--surface-base-hover);
   }
 
   &[data-checked] [data-slot="checkbox-checkbox-indicator"],
@@ -107,11 +107,11 @@
 
   &[data-disabled] [data-slot="checkbox-checkbox-control"] {
     border-color: var(--border-disabled);
-    background-color: var(--surface-disabled);
+    background-color: var(--input-disabled);
   }
 
   &[data-invalid] [data-slot="checkbox-checkbox-control"] {
-    border-color: var(--border-error);
+    border-color: var(--border-critical-base);
   }
 
   &[data-readonly] {

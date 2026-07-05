@@ -62,17 +62,17 @@
     animation: toastSwipeOut 100ms ease-out forwards;
   }
 
-  /* &[data-variant="success"] { */
-  /*   border-color: var(--color-semantic-positive); */
-  /* } */
-  /**/
-  /* &[data-variant="error"] { */
-  /*   border-color: var(--color-semantic-danger); */
-  /* } */
-  /**/
-  /* &[data-variant="loading"] { */
-  /*   border-color: var(--color-semantic-info); */
-  /* } */
+  &[data-variant="success"] {
+    border-color: var(--border-success-base);
+  }
+
+  &[data-variant="error"] {
+    border-color: var(--border-critical-base);
+  }
+
+  &[data-variant="loading"] {
+    border-color: var(--border-info-base);
+  }
 
   [data-slot="toast-icon"] {
     flex-shrink: 0;
@@ -81,8 +81,7 @@
     justify-content: center;
 
     [data-component="icon"] {
-      color: var(--text-invert-stronger);
-      /* color: var(--icon-invert-base); */
+      color: var(--icon-invert-base);
     }
   }
 
@@ -181,7 +180,7 @@
   [data-slot="toast-progress-fill"] {
     height: 100%;
     width: var(--kb-toast-progress-fill-width);
-    background-color: var(--color-primary);
+    background-color: var(--icon-invert-base);
     transition: width 250ms linear;
   }
 }

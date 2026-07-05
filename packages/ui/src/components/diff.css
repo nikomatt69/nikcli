@@ -21,8 +21,8 @@
     position: sticky;
     background-color: var(--surface-diff-hidden-base);
     color: var(--text-base);
-    width: var(--diffs-column-content-width);
-    left: var(--diffs-column-number-width);
+    width: var(--diffs-column-content-width, 100%);
+    left: var(--diffs-column-number-width, 40px);
     padding-left: 8px;
     user-select: none;
     cursor: default;
