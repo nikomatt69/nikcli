@@ -3,29 +3,31 @@ import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { Identifier } from "@/id/id"
-import { PermissionNext } from "@/permission/next"
 import { Project } from "@/project/project"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Instance } from "@/project/instance"
 import { Vcs } from "@/project/vcs"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
-import { SessionStatus } from "@/session/status"
 import { SessionRepo } from "@/session/repo"
 import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { getAdaptor, listAdaptors } from "./adaptors"
 import { ConfigSchema } from "./config"
-import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { WorkspaceDB } from "./db"
-import { SyncEmit } from "./sync-bridge"
 import { WorkspaceProjection } from "./projection"
+import {
+  WorkspaceConnection,
+  ConnectionStatus as _ConnectionStatus,
+  ConnectionStatusInfo as _ConnectionStatusInfo,
+} from "./connection"
+import type { WorkspaceInfo } from "./types"
 import { SyncUnifyMigration } from "@/sync/migrate-from-workspace"
 import { zod, zodObject } from "@/util/effect-zod"
 import { Effect, Schema } from "effect"
-import { runPromiseWithLayer, withCurrentInstance, runService, withInstanceAsync } from "@/effect"
+import { runService, withInstanceAsync, withCurrentInstance } from "@/effect"
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runService(Session, effect, withCurrentInstance)
@@ -40,16 +42,16 @@ function runVcs<A, E>(effect: Effect.Effect<A, E, Vcs.Service>) {
 }
 
 export namespace Workspace {
-  const ConnectionStatusSchema = Schema.Literals(["connecting", "connected", "disconnected", "error"])
-  export const ConnectionStatus = zod(ConnectionStatusSchema)
-  export type ConnectionStatus = Schema.Schema.Type<typeof ConnectionStatusSchema>
-
-  const ConnectionStatusInfoSchema = Schema.Struct({
-    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
-    status: ConnectionStatusSchema,
-  }).annotate({ identifier: "WorkspaceConnectionStatus" })
-  export const ConnectionStatusInfo = zodObject(ConnectionStatusInfoSchema)
-  export type ConnectionStatusInfo = Schema.Schema.Type<typeof ConnectionStatusInfoSchema>
+  // The connection module owns the runtime values. We re-export the type
+  // definitions to keep callers using `Workspace.ConnectionStatus` working
+  // without forcing eager evaluation of the connection module's runtime
+  // bindings (which would create a TDZ when both files import each other).
+  // The runtime `ConnectionStatus` value (used by `Event.Status` schema) is
+  // declared locally as a Zod enum mirroring the connection module so the
+  // namespace exposes both a value and a type at the same name.
+  export const ConnectionStatus = z.enum(["connecting", "connected", "disconnected", "error"])
+  export type ConnectionStatus = import("./connection").ConnectionStatus
+  export type ConnectionStatusInfo = import("./connection").ConnectionStatusInfo
 
   export const Event = {
     Ready: BusEvent.define(
@@ -83,22 +85,6 @@ export namespace Workspace {
   }).annotate({ identifier: "Workspace" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
-
-  function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
-    return runService(PermissionNext, effect, withCurrentInstance)
-  }
-
-  function hydrateStatus(sessionID: string, status: SessionStatus.Info) {
-    return runPromiseWithLayer(
-      SessionStatus.defaultLayer,
-      withCurrentInstance(
-        Effect.gen(function* () {
-          const sessionStatus = yield* SessionStatus.Service
-          return yield* sessionStatus.hydrate(sessionID, status)
-        }),
-      ),
-    )
-  }
 
   const RestoreSchema = Schema.Struct({
     workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
@@ -148,9 +134,6 @@ export namespace Workspace {
     })
   }
 
-  const syncControllers = new Map<string, AbortController>()
-  const connectionStatuses = new Map<string, ConnectionStatus>()
-  const startingSync = new Set<string>() // Mutex to prevent concurrent sync starts
   const RESTORE_EVENT_TYPES = new Set([
     "session.created",
     "session.updated",
@@ -190,129 +173,15 @@ export namespace Workspace {
   }
 
   export function status(workspaceID: string): ConnectionStatus {
-    return (connectionStatuses.get(workspaceID) ??
-      WorkspaceDB.getStatus(workspaceID) ??
-      "disconnected") as ConnectionStatus
-  }
-
-  function setStatus(workspaceID: string, next: ConnectionStatus) {
-    const prev = connectionStatuses.get(workspaceID)
-    if (prev === next) return
-    connectionStatuses.set(workspaceID, next)
-    WorkspaceDB.setStatusColumn(workspaceID, next)
-    void Bus.publish(Event.Status, { workspaceID, status: next }).catch(() => undefined)
-  }
-
-  function syncDirectory(space: Info) {
-    if (space.config.type === "worktree") return
-    return space.config.directory
-  }
-
-  function eventSessionID(event: { properties?: any }) {
-    const properties = event.properties
-    if (!properties || typeof properties !== "object") return
-    if (typeof properties.sessionID === "string") return properties.sessionID
-    if (typeof properties.info?.id === "string" && properties.info.id.startsWith("ses")) return properties.info.id
-    if (typeof properties.info?.sessionID === "string") return properties.info.sessionID
-    if (typeof properties.part?.sessionID === "string") return properties.part.sessionID
-  }
-
-  function eventWorkspaceID(event: { properties?: any }) {
-    const workspaceID = event.properties?.info?.workspaceID
-    return typeof workspaceID === "string" ? workspaceID : undefined
-  }
-
-  async function acceptsWorkspaceEvent(workspaceID: string, event: { type?: string; properties?: any }) {
-    if (!event?.type || event.type === "server.heartbeat") return false
-    const declaredWorkspaceID = eventWorkspaceID(event)
-    if (declaredWorkspaceID && declaredWorkspaceID !== workspaceID) return false
-
-    const sessionID = eventSessionID(event)
-    if (!sessionID) return true
-
-    const session = await runSession(
-      Effect.gen(function* () {
-        const sessions = yield* Session.Service
-        return yield* sessions.getAnyProject(sessionID)
-      }),
-    ).catch(() => undefined)
-
-    if (!session) return declaredWorkspaceID === undefined || declaredWorkspaceID === workspaceID
-    return session.workspaceID === workspaceID
-  }
-
-  async function mirrorWorkspaceEvent(space: Info, event: { type?: string; properties?: any }) {
-    const directory = syncDirectory(space)
-    if (!directory || !event?.type) return
-
-    await withInstanceAsync({ directory, init: InstanceBootstrap }, async () => {
-      if (event.type === "session.status" && event.properties?.sessionID && event.properties?.status) {
-        await hydrateStatus(event.properties.sessionID, event.properties.status)
-      }
-
-      if (event.type === "session.idle" && event.properties?.sessionID) {
-        await hydrateStatus(event.properties.sessionID, { type: "idle" })
-      }
-
-      if (event.type === "permission.asked" && event.properties?.id) {
-        await runPermission(
-          Effect.gen(function* () {
-            const permission = yield* PermissionNext.Service
-            yield* permission.hydrateAsk(event.properties)
-          }),
-        )
-      }
-
-      if (event.type === "permission.replied" && event.properties?.requestID) {
-        await runPermission(
-          Effect.gen(function* () {
-            const permission = yield* PermissionNext.Service
-            yield* permission.hydrateReply(event.properties.requestID)
-          }),
-        )
-      }
-    })
-  }
-
-  function rememberWorkspaceEvent(workspaceID: string, event: { type?: string; properties?: any }) {
-    if (!event?.type || event.type === "server.heartbeat") return
-    if (!RESTORE_EVENT_TYPES.has(event.type)) return
-    // Phase 0: route workspace-bound events through the unified event log.
-    // The aggregate is the workspace id; this lets the same projector chain
-    // reconstruct the workspace's event timeline from cold start.
-    void SyncEmit.workspaceEvent(Instance.project.id, workspaceID, event).catch((error) => {
-      log.warn("workspace event sync emit failed", { workspaceID, error })
-    })
+    return WorkspaceConnection.status(workspaceID)
   }
 
   function startSpaceSync(space: Info) {
-    if (space.config.type === "worktree") return
-    if (syncControllers.has(space.id)) return
-    // Atomic check-and-set using starting mutex
-    if (startingSync.has(space.id)) return
-    startingSync.add(space.id)
-
-    const stop = new AbortController()
-    syncControllers.set(space.id, stop)
-
-    void workspaceEventLoop(space, stop.signal)
-      .catch((error) => {
-        log.warn("workspace sync listener failed", {
-          workspaceID: space.id,
-          error,
-        })
-      })
-      .finally(() => {
-        if (syncControllers.get(space.id) === stop) syncControllers.delete(space.id)
-        startingSync.delete(space.id)
-      })
+    void Workspace.target(space.id).then((target) => WorkspaceConnection.start(space as WorkspaceInfo, target))
   }
 
   function stopSpaceSync(id: string) {
-    const controller = syncControllers.get(id)
-    if (!controller) return
-    controller.abort()
-    syncControllers.delete(id)
+    WorkspaceConnection.stop(id)
   }
 
   export const create = fn(
@@ -363,7 +232,7 @@ export namespace Workspace {
           }
         }
         SandboxRegistry.invalidateWorkspace(id)
-        connectionStatuses.delete(id)
+        WorkspaceConnection.forget(id)
         await getAdaptor(config)
           .remove(config)
           .catch((cleanupError) => {
@@ -505,71 +374,11 @@ export namespace Workspace {
         WorkspaceDB.remove(id)
       })
       SandboxRegistry.invalidateWorkspace(id)
-      connectionStatuses.delete(id)
+      WorkspaceConnection.forget(id)
       return info
     }
   })
   const log = Log.create({ service: "workspace-sync" })
-
-  async function workspaceEventLoop(space: Info, stop: AbortSignal) {
-    const target = await Workspace.target(space.id)
-
-    if (!target || target.type === "local") return
-
-    const baseURL = String(target.url).replace(/\/?$/, "/")
-    const BACKOFF_BASE_MS = 1000
-    const BACKOFF_CAP_MS = 30_000
-    let backoff = BACKOFF_BASE_MS
-
-    try {
-      while (!stop.aborted) {
-        setStatus(space.id, "connecting")
-        const res = await fetch(new URL(baseURL + "event"), {
-          method: "GET",
-          headers: target.headers,
-          signal: stop,
-        }).catch(() => undefined)
-        if (!res || !res.ok || !res.body) {
-          setStatus(space.id, "error")
-          await Bun.sleep(backoff)
-          backoff = Math.min(backoff * 2, BACKOFF_CAP_MS)
-          continue
-        }
-        backoff = BACKOFF_BASE_MS
-        setStatus(space.id, "connected")
-        await parseSSE(res.body, stop, (event) => {
-          const payload = event as { type?: string; properties?: any }
-          void acceptsWorkspaceEvent(space.id, payload)
-            .then((accepted) => {
-              if (!accepted) return
-              rememberWorkspaceEvent(space.id, payload)
-              void mirrorWorkspaceEvent(space, payload).catch((error) => {
-                log.warn("workspace event mirror failed", {
-                  workspaceID: space.id,
-                  error,
-                  type: payload?.type,
-                })
-              })
-              GlobalBus.emit("event", {
-                directory: space.id,
-                payload,
-              })
-            })
-            .catch((error) => {
-              log.warn("workspace event ownership check failed", {
-                workspaceID: space.id,
-                error,
-                type: payload?.type,
-              })
-            })
-        })
-        if (!stop.aborted) setStatus(space.id, "connecting")
-        await Bun.sleep(250)
-      }
-    } finally {
-      setStatus(space.id, "disconnected")
-    }
-  }
 
   export function startSyncing(project: Project.Info) {
     void (async () => {
@@ -585,22 +394,20 @@ export namespace Workspace {
           continue
         }
         const healthy = await Promise.resolve(getAdaptor(space.config).healthCheck?.(space.config)).catch(() => false)
-        setStatus(space.id, healthy === false ? "error" : "connected")
+        WorkspaceConnection.set(space.id, healthy === false ? "error" : "connected")
       }
     })()
 
     return {
       async stop() {
         const spaces = await list(project)
-        spaces.forEach((space) => stopSpaceSync(space.id))
+        spaces.forEach((space) => WorkspaceConnection.stop(space.id))
       },
     }
   }
 
   export function stopAllSyncing() {
-    for (const id of [...syncControllers.keys()]) {
-      stopSpaceSync(id)
-    }
+    WorkspaceConnection.stopAll()
   }
 
   export async function statuses(project: Project.Info): Promise<ConnectionStatusInfo[]> {
@@ -645,24 +452,10 @@ export namespace Workspace {
     },
   )
 
-  // Cleanup global state on process exit (register once per process)
-  function cleanup() {
-    log.info("cleanup: stopping all workspace sync loops")
-    stopAllSyncing()
-    connectionStatuses.clear()
-  }
-
-  let workspaceCleanupRegistered = false
-  if (!workspaceCleanupRegistered) {
-    workspaceCleanupRegistered = true
-    const cleanupOnce = () => {
-      workspaceCleanupRegistered = false
-      cleanup()
-    }
-    process.once("beforeExit", cleanupOnce)
-    process.once("SIGTERM", cleanupOnce)
-    process.once("SIGINT", cleanupOnce)
-  }
+  // Register process-exit cleanup once per process. The connection module
+  // owns the loop state and installs the actual handlers automatically on
+  // import; this helper exists for tests that want a no-op re-entry.
+  export const registerCleanup = () => {}
 
   /**
    * Ensures the workspace's event sync loop is running and resolves once the
@@ -682,11 +475,11 @@ export namespace Workspace {
           message: `Workspace not found: ${workspaceID}`,
         })
       if (info.config.type === "worktree") {
-        setStatus(workspaceID, "connected")
+        WorkspaceConnection.set(workspaceID, "connected")
         return buildRestorePayload(workspaceID)
       }
       startSpaceSync(info)
-      const currentStatus = connectionStatuses.get(workspaceID)
+      const currentStatus = WorkspaceConnection.current(workspaceID)
       if (currentStatus === "connected") return buildRestorePayload(workspaceID)
       if (currentStatus === "error") {
         throw new Error(`Workspace failed to connect: ${workspaceID}`)
@@ -704,6 +497,11 @@ export namespace Workspace {
       return buildRestorePayload(workspaceID)
     },
   )
+
+  // Register process-exit cleanup once per process. The connection module
+  // owns the loop state and the actual handlers. The actual call is
+  // deferred to module-level side-effect to avoid the TDZ on
+  // `WorkspaceConnection` during namespace initialization.
 
   export const sessionRestore = fn(
     z.object({

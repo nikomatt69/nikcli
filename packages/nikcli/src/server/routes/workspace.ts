@@ -5,6 +5,7 @@ import { Identifier } from "../../id/id"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
 import { Workspace } from "../../workspace"
+import { ConnectionStatusInfo } from "../../workspace/connection"
 import { listAdaptors } from "../../workspace/adaptors"
 import { errors } from "../error"
 
@@ -111,7 +112,7 @@ export const WorkspaceRoutes = lazy(() =>
             description: "Workspace connection statuses",
             content: {
               "application/json": {
-                schema: resolver(z.array(Workspace.ConnectionStatusInfo)),
+                schema: resolver(z.array(ConnectionStatusInfo)),
               },
             },
           },

@@ -36,18 +36,6 @@ export async function workspaceEvent(
   }
 }
 
-/**
- * Replay all events for a workspace. Used by `buildRestorePayload` to
- * reconstruct the `events: unknown[]` field of the workspace restore
- * response. Returns events in `seq` order, oldest first.
- */
-export async function workspaceEvents(workspaceID: string): Promise<unknown[]> {
-  // The aggregate is the workspace id, so we read every event whose
-  // aggregate equals the workspace id. We do not filter on projectID
-  // here because the projection already ran for a known workspace.
-  return Sync.readAggregate(workspaceID)
-}
-
 export const SyncEmit = {
   workspaceEvent,
 }
