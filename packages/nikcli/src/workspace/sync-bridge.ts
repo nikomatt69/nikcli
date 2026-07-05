@@ -1,19 +1,9 @@
 /**
- * Bridge between workspace events and the unified `sync_event` log.
+ * Bridge between workspace restore events and the unified `sync_event` log.
  *
- * Phase 0 of the unify-sessions-workspace plan routes workspace-bound
- * events (status, session.status, permission, question, …) through the
- * same `Sync.emit` / `Sync.replay` API that the session aggregates
- * already use. The bridge is the only place that knows how to address
- * the workspace aggregate in the event log: the `aggregate` column is
- * the workspace id itself, so the per-aggregate sequence number is
- * monotonically increasing per workspace.
- *
- * Why a separate module instead of inlining? The `Sync` API is generic
- * over a zod schema; workspace events have a heterogeneous payload
- * (the `properties` of an arbitrary bus event). We register the event
- * types we care about (see RESTORE_EVENT_TYPES in workspace/index.ts) and
- * pass the payload through as a generic record.
+ * Workspace lifecycle events live in `workspace/projection.ts`, which owns
+ * the seam from `sync_event` to the `workspace` row projection. This bridge
+ * only journals heterogeneous restore events observed from workspace buses.
  */
 import { Log } from "@/util/log"
 import { Sync, type SyncEventRecord } from "@/sync"
@@ -47,30 +37,6 @@ export async function workspaceEvent(
 }
 
 /**
- * Emit a workspace lifecycle event (workspace.created, workspace.removed,
- * workspace.configUpdated) into the unified event log. These are the
- * events a projector needs to reconstruct the workspace row from cold
- * start.
- */
-export async function workspaceLifecycle(
-  projectID: string,
-  workspaceID: string,
-  type: "workspace.created" | "workspace.removed" | "workspace.configUpdated" | "workspace.statusChanged",
-  data: Record<string, unknown>,
-): Promise<SyncEventRecord | undefined> {
-  try {
-    return await Sync.emitRaw(projectID, workspaceID, { type, ...data })
-  } catch (error) {
-    log.warn("failed to emit workspace lifecycle event", {
-      workspaceID,
-      type,
-      error,
-    })
-    return undefined
-  }
-}
-
-/**
  * Replay all events for a workspace. Used by `buildRestorePayload` to
  * reconstruct the `events: unknown[]` field of the workspace restore
  * response. Returns events in `seq` order, oldest first.
@@ -84,9 +50,4 @@ export async function workspaceEvents(workspaceID: string): Promise<unknown[]> {
 
 export const SyncEmit = {
   workspaceEvent,
-  workspaceLifecycle,
-}
-
-export const SyncReplay = {
-  workspaceEvents,
 }

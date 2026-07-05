@@ -1,7 +1,5 @@
-import { Global } from "@/global"
 import { Log } from "@/util/log"
 import { Identifier } from "@/id/id"
-import z from "zod"
 import { eq, and, asc, sql } from "drizzle-orm"
 import { Database } from "@/database/database"
 import { syncEvent, syncSequence } from "./sync.sql"
@@ -9,99 +7,6 @@ import { syncEvent, syncSequence } from "./sync.sql"
 // Compaction settings
 const MAX_EVENTS_PER_AGGREGATE = 1000
 const COMPACTION_TRIM_TO = 500
-
-export namespace SyncEvent {
-  const log = Log.create({ service: "sync.event" })
-
-  type EventDefinition<T extends z.ZodType> = {
-    type: string
-    schema: T
-    version: number
-    aggregate: string
-  }
-
-  const registry = new Map<string, EventDefinition<any>>()
-
-  export function define<T extends z.ZodType>(config: {
-    type: string
-    version?: number
-    aggregate: string
-    schema: T
-  }): EventDefinition<T> {
-    const definition = {
-      type: config.type,
-      schema: config.schema,
-      version: config.version ?? 1,
-      aggregate: config.aggregate,
-    }
-    registry.set(config.type, definition)
-    log.debug("event registered", {
-      type: config.type,
-      aggregate: config.aggregate,
-    })
-    return definition
-  }
-
-  export function get(type: string): EventDefinition<any> | undefined {
-    return registry.get(type)
-  }
-
-  export function types(): string[] {
-    return Array.from(registry.keys())
-  }
-}
-
-// Register workspace event types (used in workspace event loop RESTORE_EVENT_TYPES)
-SyncEvent.define({
-  type: "session.created",
-  aggregate: "session",
-  schema: z.object({ id: z.string() }),
-})
-SyncEvent.define({
-  type: "session.updated",
-  aggregate: "session",
-  schema: z.object({ id: z.string() }),
-})
-SyncEvent.define({
-  type: "session.deleted",
-  aggregate: "session",
-  schema: z.object({ id: z.string() }),
-})
-SyncEvent.define({
-  type: "session.status",
-  aggregate: "session",
-  schema: z.object({ sessionID: z.string(), status: z.unknown() }),
-})
-SyncEvent.define({
-  type: "session.idle",
-  aggregate: "session",
-  schema: z.object({ sessionID: z.string() }),
-})
-SyncEvent.define({
-  type: "permission.asked",
-  aggregate: "permission",
-  schema: z.object({ id: z.string() }),
-})
-SyncEvent.define({
-  type: "permission.replied",
-  aggregate: "permission",
-  schema: z.object({ requestID: z.string() }),
-})
-SyncEvent.define({
-  type: "question.asked",
-  aggregate: "question",
-  schema: z.object({ id: z.string() }),
-})
-SyncEvent.define({
-  type: "question.replied",
-  aggregate: "question",
-  schema: z.object({ id: z.string() }),
-})
-SyncEvent.define({
-  type: "question.rejected",
-  aggregate: "question",
-  schema: z.object({ id: z.string() }),
-})
 
 export interface SyncEventRecord {
   id: string
@@ -384,86 +289,29 @@ export interface SyncProjector<S> {
 export namespace Sync {
   const log = Log.create({ service: "sync" })
 
-  export async function emit<T extends z.ZodType>(
-    projectID: string,
-    eventDef: SyncEventDefinition<T>,
-    data: z.infer<T>,
-  ): Promise<SyncEventRecord> {
-    // Validate event data against the registered schema
-    let parsed: z.infer<T>
-    try {
-      parsed = eventDef.schema.parse(data)
-    } catch (err) {
-      log.error("event validation failed", {
-        projectID,
-        type: eventDef.type,
-        error: String(err),
-      })
-      throw new Error(`Event data validation failed for type '${eventDef.type}': ${String(err)}`)
+  /**
+   * Post-emit hook: listeners run after an event row lands in
+   * `sync_event`, with the resolved origin ("local" unless the caller
+   * tagged the event as remote). The remote sync outbox subscribes here
+   * to enqueue local events for push. Returns an unsubscribe function.
+   */
+  export type EmitListener = (record: SyncEventRecord, meta: { origin: string }) => void
+  const emitListeners = new Set<EmitListener>()
+  export function onEmit(listener: EmitListener): () => void {
+    emitListeners.add(listener)
+    return () => {
+      emitListeners.delete(listener)
     }
-
-    const aggregate = (parsed as any)[eventDef.aggregate]
-    if (!aggregate) {
-      throw new Error(`Event data missing aggregate field: ${eventDef.aggregate}`)
-    }
-
-    const record = await SyncStorage.reserveSeqAndAppend(projectID, aggregate, (seq) => ({
-      id: Identifier.ascending("sync"),
-      projectId: projectID,
-      aggregate,
-      seq,
-      type: eventDef.type,
-      data: parsed,
-      timestamp: Date.now(),
-    }))
-    log.info("event emitted", {
-      projectID,
-      type: eventDef.type,
-      aggregate,
-      seq: record.seq,
-    })
-
-    return record
   }
 
-  export async function replay<S>(
-    projectID: string,
-    aggregate: string,
-    initialState: S,
-    projectors: SyncProjector<S>[],
-  ): Promise<S> {
-    const events = await SyncStorage.getEvents(projectID, aggregate)
-    let state = initialState
-
-    for (const event of events) {
-      const definition = SyncEvent.get(event.type)
-      if (!definition) {
-        log.warn("unknown event type during replay", {
-          projectID,
-          type: event.type,
-        })
-        continue
-      }
-
-      for (const projector of projectors) {
-        try {
-          state = projector(state, event)
-        } catch (error) {
-          log.error("projector failed during replay", {
-            projectID,
-            type: event.type,
-            error,
-          })
-        }
+  function notifyEmitListeners(record: SyncEventRecord, meta: { origin: string }) {
+    for (const listener of emitListeners) {
+      try {
+        listener(record, meta)
+      } catch (error) {
+        log.warn("emit listener failed", { type: record.type, error })
       }
     }
-
-    log.info("replay completed", {
-      projectID,
-      aggregate,
-      events: events.length,
-    })
-    return state
   }
 
   export async function getEvents(projectID: string, aggregate: string, fromSeq?: number): Promise<SyncEventRecord[]> {
@@ -522,6 +370,7 @@ export namespace Sync {
       seq: record.seq,
       origin: options.origin ?? "local",
     })
+    notifyEmitListeners(record, { origin: options.origin ?? "local" })
     return record
   }
 
@@ -536,10 +385,8 @@ export namespace Sync {
   }
 
   /**
-   * Convenience wrapper around the snapshot-aware replay. Phase 1 keeps
-   * this signature stable; downstream code can switch from
-   * `Sync.replay` to `Sync.replayWithSnapshot` without changing the
-   * projector chain.
+   * Convenience wrapper around the snapshot-aware replay so callers can
+   * stay on the `Sync` surface without importing the reducer directly.
    */
   export async function replayWithSnapshot<S>(
     key: { projectID: string; aggregate: string; aggregateID: string },
@@ -549,11 +396,4 @@ export namespace Sync {
     const { SyncReducer } = await import("./reducer")
     return SyncReducer.replayWithSnapshot(key, initial, projectors)
   }
-}
-
-type SyncEventDefinition<T extends z.ZodType> = {
-  type: string
-  schema: T
-  version: number
-  aggregate: string
 }

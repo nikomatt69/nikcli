@@ -14,7 +14,7 @@
  * The started sync does three things concurrently:
  *  1. Subscribe to `/sync/stream` for live events from the hub.
  *  2. Periodically drain the local outbox to the hub.
- *  3. Wire `Sync.emitRaw` to also enqueue the event for push.
+ *  3. Subscribe to `Sync.onEmit` so local events are enqueued for push.
  *
  * On `stop()` the subscriptions are closed and the outbox drain is
  * cancelled. The next start resumes from the last successful seq.
@@ -52,40 +52,26 @@ export namespace RemoteSync {
   // wrappers and duplicate drain timers.
   const active = new Map<string, { handle: RemoteSyncHandle; url: string }>()
 
-  // Single global emitRaw hook. Each active target gets local events
-  // enqueued; the hook is installed once and removed when the last
-  // remote sync stops.
+  // Single global emit subscription. Each active target gets local
+  // events enqueued; the listener is installed once and removed when
+  // the last remote sync stops.
   const enqueueTargets = new Set<string>()
   let removeEmitHook: (() => void) | undefined
 
   function ensureEmitHook() {
     if (removeEmitHook) return
-    const originalEmitRaw = Sync.emitRaw
-    ;(Sync as any).emitRaw = async (
-      projectID: string,
-      aggregate: string,
-      data: unknown,
-      options: {
-        workspaceID?: string
-        origin?: string
-        originSeq?: number
-      } = {},
-    ) => {
-      const isLocal = !options.origin || options.origin === "local"
-      const record = await originalEmitRaw(projectID, aggregate, data, options)
-      if (isLocal) {
-        for (const target of enqueueTargets) {
-          try {
-            Outbox.enqueue(record.id, target)
-          } catch (error) {
-            log.warn("outbox enqueue failed", { target, error })
-          }
+    const unsubscribe = Sync.onEmit((record, meta) => {
+      if (meta.origin !== "local") return
+      for (const target of enqueueTargets) {
+        try {
+          Outbox.enqueue(record.id, target)
+        } catch (error) {
+          log.warn("outbox enqueue failed", { target, error })
         }
       }
-      return record
-    }
+    })
     removeEmitHook = () => {
-      ;(Sync as any).emitRaw = originalEmitRaw
+      unsubscribe()
       removeEmitHook = undefined
     }
   }
@@ -189,8 +175,9 @@ export namespace RemoteSync {
       })
     }, drainInterval)
 
-    // Auto-enqueue: local events recorded via the shared emitRaw hook land
-    // in the outbox for this target right after the row is inserted.
+    // Auto-enqueue: local events reported by the shared `Sync.onEmit`
+    // listener land in the outbox for this target right after the row
+    // is inserted.
     enqueueTargets.add(opts.url)
     ensureEmitHook()
 

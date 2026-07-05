@@ -20,7 +20,8 @@ import { ConfigSchema } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { WorkspaceDB } from "./db"
-import { SyncEmit, SyncReplay } from "./sync-bridge"
+import { SyncEmit } from "./sync-bridge"
+import { WorkspaceProjection } from "./projection"
 import { SyncUnifyMigration } from "@/sync/migrate-from-workspace"
 import { zod, zodObject } from "@/util/effect-zod"
 import { Effect, Schema } from "effect"
@@ -177,7 +178,7 @@ export namespace Workspace {
     // The unified log also journals lifecycle events (workspace.created,
     // workspace.removed, ...) for cold-start projection; the restore payload
     // only carries the client-facing restore events.
-    const events = (await SyncReplay.workspaceEvents(workspaceID)).filter((event) => {
+    const events = (await WorkspaceProjection.events(workspaceID)).filter((event) => {
       const type = (event as { type?: unknown })?.type
       return typeof type === "string" && RESTORE_EVENT_TYPES.has(type)
     })
@@ -343,22 +344,14 @@ export namespace Workspace {
         await init()
         await WorkspaceDB.migrateFromStorage()
         previousInfo = WorkspaceDB.get(id)
-        WorkspaceDB.upsert(info)
-        wroteDB = true
-        WorkspaceDB.setStatusColumn(id, info.config.type === "worktree" ? "connected" : "connecting")
-        // Phase 0: emit a workspace.created event so the unified event log
-        // can replay the workspace lifecycle from cold start. The aggregate
-        // is the workspace id; data carries the bootstrap info.
-        void SyncEmit.workspaceLifecycle(input.projectID, id, "workspace.created", {
+        await WorkspaceProjection.emitLifecycle(input.projectID, id, "workspace.created", {
           config: info.config,
           branch: info.branch,
           name: info.name,
-        }).catch((error) => {
-          log.warn("workspace.created sync emit failed", {
-            workspaceID: id,
-            error,
-          })
+          timeUsed: info.timeUsed,
         })
+        wroteDB = true
+        WorkspaceDB.setStatusColumn(id, info.config.type === "worktree" ? "connected" : "connecting")
         startSpaceSync(info)
       } catch (error) {
         stopSpaceSync(id)
@@ -448,20 +441,19 @@ export namespace Workspace {
         branch: item.branch,
         config: item.config,
       }
-      WorkspaceDB.upsert(info)
-      WorkspaceDB.setStatusColumn(info.id, info.config.type === "worktree" ? "connected" : "connecting")
-      // Phase 0: same workspace.created emit as the create() path, so
-      // discovered workspaces have a presence in the unified event log.
-      void SyncEmit.workspaceLifecycle(project.id, info.id, "workspace.created", {
+      await WorkspaceProjection.emitLifecycle(project.id, info.id, "workspace.created", {
         config: info.config,
         branch: info.branch,
         name: info.name,
+        timeUsed: info.timeUsed,
       }).catch((error) => {
-        log.warn("workspace.created sync emit failed (discovered)", {
+        log.warn("workspace.created projection failed (discovered)", {
           workspaceID: info.id,
           error,
         })
+        WorkspaceDB.upsert(info)
       })
+      WorkspaceDB.setStatusColumn(info.id, info.config.type === "worktree" ? "connected" : "connecting")
       startSpaceSync(info)
     }
 
@@ -505,7 +497,13 @@ export namespace Workspace {
         })
       }
       await getAdaptor(info.config).remove(info.config)
-      WorkspaceDB.remove(id)
+      await WorkspaceProjection.emitLifecycle(info.projectID, id, "workspace.removed", {}).catch((error) => {
+        log.warn("workspace.removed projection failed", {
+          workspaceID: id,
+          error,
+        })
+        WorkspaceDB.remove(id)
+      })
       SandboxRegistry.invalidateWorkspace(id)
       connectionStatuses.delete(id)
       return info

@@ -57,33 +57,4 @@ export namespace SyncReducer {
 
     return { state, lastSeq }
   }
-
-  /**
-   * Variant: replay without snapshot support. Used by tests and the
-   * one-shot migration backfill that doesn't need a cache layer.
-   */
-  export async function replayAll<S>(
-    projectID: string,
-    aggregate: string,
-    initial: S,
-    projectors: Projector<S>[],
-  ): Promise<S> {
-    const events = await Sync.getEvents(projectID, aggregate)
-    let state: S = initial
-    for (const event of events) {
-      for (const projector of projectors) {
-        try {
-          state = projector(state, event)
-        } catch (error) {
-          log.error("projector failed", {
-            projectID,
-            aggregate,
-            type: event.type,
-            error,
-          })
-        }
-      }
-    }
-    return state
-  }
 }

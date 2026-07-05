@@ -14,9 +14,6 @@ import { and, eq, lte, sql } from "drizzle-orm"
 import { Database } from "@/database/database"
 import { Identifier } from "@/id/id"
 import { syncOutbox } from "./sync.sql"
-import { Log } from "@/util/log"
-
-const log = Log.create({ service: "sync.outbox" })
 
 const BACKOFF_BASE_MS = 1_000
 const BACKOFF_CAP_MS = 24 * 60 * 60 * 1_000 // 24h
@@ -146,19 +143,5 @@ export namespace Outbox {
       else if (row.status === "failed") failed++
     }
     return { pending, failed, total: rows.length }
-  }
-
-  /**
-   * Wire up automatic enqueue for every event emitted via `Sync.emit`
-   * or `Sync.emitRaw`. Returns a teardown function that detaches the
-   * listener. Used by `RemoteSync.start`.
-   */
-  export function autoEnqueue(target: string, listener: (eventId: string) => void): () => void {
-    // Phase 2: the simplest possible integration point — call the
-    // listener right after every `Sync.emitRaw` lands. This is wired
-    // at the call site in `RemoteSync.start`, not via monkey-patch,
-    // to keep the dependency direction clean.
-    log.debug("autoEnqueue listener registered", { target })
-    return () => {}
   }
 }

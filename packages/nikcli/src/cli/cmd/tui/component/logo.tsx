@@ -1,8 +1,9 @@
 import { TextAttributes, RGBA } from "@opentui/core"
 import { useTimeline } from "@opentui/solid"
-import { createSignal, For, onMount } from "solid-js"
+import { createSignal, For, onMount, Show } from "solid-js"
 import { useTheme, tint } from "@tui/context/theme"
 import { useKV } from "@tui/context/kv"
+import { Link } from "@tui/ui/link"
 
 const LOGO_LINES = [
   "███╗   ██╗ ██╗ ██╗  ██╗  ██████╗ ██╗      ██╗",
@@ -17,6 +18,8 @@ const LOGO_WIDTH = Math.max(...LOGO_LINES.map((line) => line.length))
 const REVEAL_DURATION = 950
 const SHINE_WIDTH = 5
 const ROW_LUMINANCE = [0.48, 0.62, 0.82, 1, 0.72, 0.5]
+const CREDIT = "by nikomatt69"
+const GITHUB_PROFILE_URL = "https://github.com/nikomatt69"
 
 type Segment = {
   text: string
@@ -104,7 +107,7 @@ export function Logo(props: { idle?: boolean }) {
           </box>
         )}
       </For>
-      <box width={LOGO_WIDTH} height={1} alignItems="center">
+      <box width={LOGO_WIDTH} height={1} flexDirection="row" justifyContent="center" gap={1}>
         <text
           fg={tint(theme.background, theme.text, diamondStrength())}
           attributes={TextAttributes.BOLD}
@@ -112,6 +115,18 @@ export function Logo(props: { idle?: boolean }) {
         >
           {progress() >= 0.86 ? "◇" : " "}
         </text>
+        <Show
+          when={progress() >= 0.86}
+          fallback={
+            <text fg={theme.background} selectable={false}>
+              {" ".repeat(CREDIT.length)}
+            </text>
+          }
+        >
+          <Link href={GITHUB_PROFILE_URL} fg={theme.info} underline={false}>
+            {CREDIT}
+          </Link>
+        </Show>
       </box>
     </box>
   )

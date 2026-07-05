@@ -16,6 +16,7 @@ import { Database } from "@/database/database"
 import { Sync } from "@/sync"
 import { eq } from "drizzle-orm"
 import * as schema from "@/database/schema"
+import { WorkspaceProjection } from "@/workspace/projection"
 
 const MIGRATION_FLAG_AGGREGATE = "__sync_unify_workspace_migrated__"
 
@@ -27,7 +28,9 @@ export namespace SyncUnifyMigration {
   export async function run(projectID?: string): Promise<number> {
     // Check the sentinel aggregate — if we have already run once and
     // emitted at least one event under it, treat the migration as done.
-    const sentinel = await Sync.readAggregate(MIGRATION_FLAG_AGGREGATE)
+    const migrationScope = projectID ?? "all"
+    const sentinelAggregate = `${MIGRATION_FLAG_AGGREGATE}:${migrationScope}`
+    const sentinel = await Sync.readAggregate(sentinelAggregate)
     if (sentinel.length > 0) return 0
 
     const db = Database.syncDb()
@@ -42,23 +45,18 @@ export namespace SyncUnifyMigration {
       const existing = await Sync.readAggregate(row.id)
       if (existing.length > 0) continue
 
-      await Sync.emitRaw(
-        row.projectId,
-        row.id,
-        {
-          type: "workspace.created",
-          config: safeJson(row.config),
-          branch: row.branch,
-          name: row.name,
-        },
-        { workspaceID: row.id },
-      )
+      await WorkspaceProjection.emitLifecycle(row.projectId, row.id, "workspace.created", {
+        config: safeJson(row.config),
+        branch: row.branch,
+        name: row.name,
+      })
       seeded++
     }
 
     // Mark the migration as done so we never re-run.
-    await Sync.emitRaw("global", MIGRATION_FLAG_AGGREGATE, {
+    await Sync.emitRaw("global", sentinelAggregate, {
       type: "sync_unify.workspace_migrated",
+      projectID: projectID ?? null,
       seeded,
       at: Date.now(),
     })

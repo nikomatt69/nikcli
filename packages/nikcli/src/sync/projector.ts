@@ -23,6 +23,8 @@ export type WorkspaceState = {
   branch: string | null
   config: unknown
   status?: string
+  removed?: boolean
+  timeUsed?: number
   lastTouchedAt: number
 }
 
@@ -76,6 +78,8 @@ export const SyncProjector = {
           name: typeof data.name === "string" ? data.name : state.name,
           branch: data.branch ?? state.branch ?? null,
           config: data.config ?? state.config,
+          removed: false,
+          timeUsed: typeof data.timeUsed === "number" ? data.timeUsed : state.timeUsed,
           lastTouchedAt: event.timestamp,
         }
       }
@@ -95,7 +99,7 @@ export const SyncProjector = {
         }
       }
       case "workspace.removed": {
-        return { ...state, lastTouchedAt: event.timestamp }
+        return { ...state, removed: true, lastTouchedAt: event.timestamp }
       }
       default:
         return state

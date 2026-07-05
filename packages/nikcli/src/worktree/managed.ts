@@ -9,6 +9,13 @@ import { InstanceState, type InstanceContext } from "@/effect"
 import { Context, Effect, Layer, Schema } from "effect"
 import { ulid } from "ulid"
 
+/**
+ * Experimental copy-on-write worktree engine (clonefile/reflink), separate
+ * from the stable `Worktree` service: different registry, ULID ids, and a
+ * parent/child tree model. Only reachable through the experimental HTTP
+ * routes — import it directly from `@/worktree/managed`; it is deliberately
+ * not re-exported from the `@/worktree` barrel.
+ */
 export namespace ManagedWorktree {
   const log = Log.create({ service: "managed-worktree" })
 
