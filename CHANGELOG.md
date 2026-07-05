@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.142.0 (July 2026)
+
+## Core
+
+- Enhance sync command and clean up CLI structure (@nikomatt69)
+- Implement critical bug fixes and enhancements in CLI commands (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): implement critical bug fixes and enhancements in CLI commands
+  - feat(nikcli): enhance sync command and clean up CLI structure
+
 ## v1.137.0 (July 2026)
 
 ## Core

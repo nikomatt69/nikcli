@@ -4773,20 +4773,20 @@ Built TUI surface for the unified sync backend just merged that morning. Adds `/
 
 ### Files Created
 
-| File                                                          | Purpose                                                                                            |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `src/cli/cmd/tui/context/remote-sync.tsx`                     | `RemoteSync` Solid context: 2s poll on `/sync/stats`, reactive store for `status`, `events[]`, `isConnected`; methods `connect()`, `disconnect()`, `drain()`, `refresh()` |
-| `src/cli/cmd/tui/component/dialog-sync.tsx`                   | `DialogSync` monitoring UI: state badge, stats grid (URL, Outbox pending/failed, Last seq, Last origin), action buttons (Connect/Disconnect/Drain/Refresh), 50-event scrollbox with direction arrow `↑/↓`; shortcuts `^c` connect, `^d` drain, `^r` refresh |
+| File                                        | Purpose                                                                                                                                                                                                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/cli/cmd/tui/context/remote-sync.tsx`   | `RemoteSync` Solid context: 2s poll on `/sync/stats`, reactive store for `status`, `events[]`, `isConnected`; methods `connect()`, `disconnect()`, `drain()`, `refresh()`                                                                                   |
+| `src/cli/cmd/tui/component/dialog-sync.tsx` | `DialogSync` monitoring UI: state badge, stats grid (URL, Outbox pending/failed, Last seq, Last origin), action buttons (Connect/Disconnect/Drain/Refresh), 50-event scrollbox with direction arrow `↑/↓`; shortcuts `^c` connect, `^d` drain, `^r` refresh |
 
 ### Files Modified
 
-| File                                            | Change                                                                                              |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `src/cli/cmd/tui/app.tsx`                       | Provider wrap for `RemoteSync`, registered `sync_view` keymap layer via `api.keymap.registerLayer`, command palette entry "Sync status" + slash `/sync` (aliases `hub`, `remote`) |
-| `src/cli/cmd/tui/routes/home.tsx`               | Live indicator in home footer: `◉ sync` (green connected) / `○ sync` (gray disconnected) / `N pending` (error/outbox full) with hint `/sync` |
-| `src/cli/cmd/tui/ui/dialog-help.tsx`            | Added keybind `sync_view` + slash command `/sync`                                                    |
-| `src/config/config.ts`                          | New keybind `sync_view` default `<leader>y`                                                          |
-| `src/server/routes/sync.ts`                     | 4 new endpoints: `GET /sync/stats`, `POST /sync/connect`, `POST /sync/disconnect`, `POST /sync/drain` (last 3 are server-side no-ops for now) |
+| File                                 | Change                                                                                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/cli/cmd/tui/app.tsx`            | Provider wrap for `RemoteSync`, registered `sync_view` keymap layer via `api.keymap.registerLayer`, command palette entry "Sync status" + slash `/sync` (aliases `hub`, `remote`) |
+| `src/cli/cmd/tui/routes/home.tsx`    | Live indicator in home footer: `◉ sync` (green connected) / `○ sync` (gray disconnected) / `N pending` (error/outbox full) with hint `/sync`                                      |
+| `src/cli/cmd/tui/ui/dialog-help.tsx` | Added keybind `sync_view` + slash command `/sync`                                                                                                                                 |
+| `src/config/config.ts`               | New keybind `sync_view` default `<leader>y`                                                                                                                                       |
+| `src/server/routes/sync.ts`          | 4 new endpoints: `GET /sync/stats`, `POST /sync/connect`, `POST /sync/disconnect`, `POST /sync/drain` (last 3 are server-side no-ops for now)                                     |
 
 ### Typecheck Fixes During Build (2026-06-30 evening)
 
@@ -4794,7 +4794,7 @@ Built TUI surface for the unified sync backend just merged that morning. Adds `/
 
 1. **`app.tsx:1171`** — `category: "System"` was listed twice in command registration; removed duplicate
 2. **`dialog-sync.tsx:134`** — `Stat` `color` expects `string`, was passed `theme.accent` (`RGBA`); added fallback
-3-6. **`remote-sync.tsx:150, 204, 213, 222`** — `encodeURIComponent(projectID)` failed because `projectID` was `string | undefined`; replaced with `encodeURIComponent(projectID ?? "")` in all 4 sites
+   3-6. **`remote-sync.tsx:150, 204, 213, 222`** — `encodeURIComponent(projectID)` failed because `projectID` was `string | undefined`; replaced with `encodeURIComponent(projectID ?? "")` in all 4 sites
 
 **Final tier-1 verification**: `bun run typecheck` exit 0 (no errors); `bun test test/sync/ test/workspace/` → 17 pass, 0 fail, 35 expect() calls (across 4 test files).
 
@@ -4802,22 +4802,22 @@ Built TUI surface for the unified sync backend just merged that morning. Adds `/
 
 ### Confirmed State (2026-07-02 HEAD = `dfc1d7085`)
 
-| Field             | Value                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| Version           | **v1.134.0** (workspace root, single canonical version across all published packages)   |
-| Release date      | v1.134.0 released ~2026-06-22 (2 days before this pass); HEAD `dfc1d7085` is post-release hardening |
-| Last commit subj. | `feat(sync): enforce token scopes, rate-limit and audit hub event pushes`             |
+| Field             | Value                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| Version           | **v1.134.0** (workspace root, single canonical version across all published packages)                       |
+| Release date      | v1.134.0 released ~2026-06-22 (2 days before this pass); HEAD `dfc1d7085` is post-release hardening         |
+| Last commit subj. | `feat(sync): enforce token scopes, rate-limit and audit hub event pushes`                                   |
 | Active focus      | Unified sync backend hardening (Railway `s.nikcli.store` remote hub) + Loops product + TUI live sync dialog |
-| Branch            | **`live-main`** (clean working tree, in sync with `origin/live-main`)                  |
+| Branch            | **`live-main`** (clean working tree, in sync with `origin/live-main`)                                       |
 
 ### Two Parallel Workspace Explore Agents (2026-07-02)
 
-| Agent session                              | Outcome                                                |
-| ------------------------------------------ | ------------------------------------------------------ |
-| `ses_0df3e6a17ffez9XgzsX5HdF7nM`          | @explore deep walkthrough of monorepo (delivered in supervisor `action: finalize`; user then kicked off `ses_0df3cf633ffeJFdHKFEkqtwsZ2` as a re-run) |
-| `ses_0df3cf633ffeJFdHKFEkqtwsZ2`           | @explore re-run that produced the consolidated onboarding map |
-| `ses_0df3c6246ffeJkJJNEy5RvVwBc`           | @explore follow-up "Map nikcli monorepo workspace" |
-| `ses_0df3fbbbbffeoxIt4Z7BEoDXeE`           | Hi-greeting then "check workspace deep" / "continua" — supervisor handled parallel exploration, user got full overview from main session |
+| Agent session                    | Outcome                                                                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ses_0df3e6a17ffez9XgzsX5HdF7nM` | @explore deep walkthrough of monorepo (delivered in supervisor `action: finalize`; user then kicked off `ses_0df3cf633ffeJFdHKFEkqtwsZ2` as a re-run) |
+| `ses_0df3cf633ffeJFdHKFEkqtwsZ2` | @explore re-run that produced the consolidated onboarding map                                                                                         |
+| `ses_0df3c6246ffeJkJJNEy5RvVwBc` | @explore follow-up "Map nikcli monorepo workspace"                                                                                                    |
+| `ses_0df3fbbbbffeoxIt4Z7BEoDXeE` | Hi-greeting then "check workspace deep" / "continua" — supervisor handled parallel exploration, user got full overview from main session              |
 
 ### Consolidated Onboarding Map (from explore agents, 2026-07-02)
 
@@ -4850,26 +4850,26 @@ nikcli/
 
 **Core subsystems**:
 
-| Path                              | Purpose                                                                                |
-| --------------------------------- | -------------------------------------------------------------------------------------- |
-| `src/index.ts`                    | yargs CLI entry, registers all ~40 subcommands                                         |
-| `src/agent/`                      | Agent system — `agent.ts` + 8 prompt txts (compaction, explore, scout, summary, title, delegation, delegator, ultrareview-reviewer) |
-| `src/cli/`                        | CLI framework — bootstrap, error formatter, ui, upgrade, heap, network                 |
-| `src/cli/cmd/`                    | ~40 subcommands: run, generate, auth, agent, serve, workspace-serve, mcp, sync, pr, web, session, mission, ads, goal, debug, tui, ...   |
-| `src/cli/cmd/tui/`                | **SolidJS + OpenTUI** terminal UI — 60+ components, 22 contexts, 6 feature-plugins (deepsec, home, loops, mission, sidebar, system)    |
-| `src/session/`                    | Engine + persistence: message-v2, session, processor, runner (single-flight), llm, goal, compaction, revert, summary, v2/ |
-| `src/sync/`                       | **Newest area** — unified sync log, outbox, projector, reducer, remote-sync (~1.7k LOC) |
-| `src/loop/`, `src/mission/`       | Continuous-orchestration primitives                                                    |
-| `src/provider/`                   | 19+ AI providers (Anthropic, OpenAI, Azure, Google, Bedrock, Groq, xAI, Cohere, Mistral, Perplexity, Together, OpenRouter, Cerebras, DeepInfra, GitLab, ...) |
-| `src/server/`                     | Hono HTTP API + mDNS + proxy; routes for project, session, file, pty, mcp, connectors, chatbot, companion, mobile, provider, config, permission, loop, question, global, tui, experimental, users, workspace, mission, sync, analytics, brain, doctor |
-| `src/storage/`, `src/database/`   | Drizzle/SQLite persistence + Storage namespace for JSON KV                             |
-| `src/file/`, `src/git/`, `src/lsp/` | Filesystem, git, LSP                                                                 |
-| `src/mcp/`, `src/plugin/`         | MCP + plugin system (42 files in plugin/)                                              |
-| `src/permission/`, `src/auth/`, `src/account/` | RBAC + OAuth + multi-account                                                |
-| `src/effect/`                     | Effect-TS foundation (runtime, instance-state, instance-scope, instance-ref, run-service, with-instance) |
-| `src/util/effect-zod.ts`          | **Effect Schema → Zod walker** for hono-openapi parity                                 |
-| `src/observability/`              | Metrics + OpenTelemetry                                                              |
-| `src/util/`                       | 40 utility modules                                                                    |
+| Path                                           | Purpose                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`                                 | yargs CLI entry, registers all ~40 subcommands                                                                                                                                                                                                        |
+| `src/agent/`                                   | Agent system — `agent.ts` + 8 prompt txts (compaction, explore, scout, summary, title, delegation, delegator, ultrareview-reviewer)                                                                                                                   |
+| `src/cli/`                                     | CLI framework — bootstrap, error formatter, ui, upgrade, heap, network                                                                                                                                                                                |
+| `src/cli/cmd/`                                 | ~40 subcommands: run, generate, auth, agent, serve, workspace-serve, mcp, sync, pr, web, session, mission, ads, goal, debug, tui, ...                                                                                                                 |
+| `src/cli/cmd/tui/`                             | **SolidJS + OpenTUI** terminal UI — 60+ components, 22 contexts, 6 feature-plugins (deepsec, home, loops, mission, sidebar, system)                                                                                                                   |
+| `src/session/`                                 | Engine + persistence: message-v2, session, processor, runner (single-flight), llm, goal, compaction, revert, summary, v2/                                                                                                                             |
+| `src/sync/`                                    | **Newest area** — unified sync log, outbox, projector, reducer, remote-sync (~1.7k LOC)                                                                                                                                                               |
+| `src/loop/`, `src/mission/`                    | Continuous-orchestration primitives                                                                                                                                                                                                                   |
+| `src/provider/`                                | 19+ AI providers (Anthropic, OpenAI, Azure, Google, Bedrock, Groq, xAI, Cohere, Mistral, Perplexity, Together, OpenRouter, Cerebras, DeepInfra, GitLab, ...)                                                                                          |
+| `src/server/`                                  | Hono HTTP API + mDNS + proxy; routes for project, session, file, pty, mcp, connectors, chatbot, companion, mobile, provider, config, permission, loop, question, global, tui, experimental, users, workspace, mission, sync, analytics, brain, doctor |
+| `src/storage/`, `src/database/`                | Drizzle/SQLite persistence + Storage namespace for JSON KV                                                                                                                                                                                            |
+| `src/file/`, `src/git/`, `src/lsp/`            | Filesystem, git, LSP                                                                                                                                                                                                                                  |
+| `src/mcp/`, `src/plugin/`                      | MCP + plugin system (42 files in plugin/)                                                                                                                                                                                                             |
+| `src/permission/`, `src/auth/`, `src/account/` | RBAC + OAuth + multi-account                                                                                                                                                                                                                          |
+| `src/effect/`                                  | Effect-TS foundation (runtime, instance-state, instance-scope, instance-ref, run-service, with-instance)                                                                                                                                              |
+| `src/util/effect-zod.ts`                       | **Effect Schema → Zod walker** for hono-openapi parity                                                                                                                                                                                                |
+| `src/observability/`                           | Metrics + OpenTelemetry                                                                                                                                                                                                                               |
+| `src/util/`                                    | 40 utility modules                                                                                                                                                                                                                                    |
 
 ### Built-in Agents (`src/agent/prompt/*.txt`)
 
@@ -4911,37 +4911,37 @@ Open branches suggest in-flight work on: `align/opencode-parity`, `feat/tui-imag
 
 ### Useful Commands (in `packages/nikcli/`)
 
-| Command                          | What it does                                                              |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `bun install`                    | Install deps (root uses Bun catalogs)                                     |
-| `bun run dev`                    | Run TUI in browser mode (`--conditions=browser`)                          |
-| `bun run build`                  | `bun run script/build.ts`                                                 |
-| `bun run typecheck`              | `tsgo --noEmit` (TypeScript native preview)                               |
-| `bun test`                       | bun test, 30s timeout, skips `*benchmark*.test.ts`                       |
-| `bun run bench`                  | TUI viz benchmark                                                        |
-| `bun run sandbox:vercel`         | Vercel sandbox smoke test                                                 |
+| Command                  | What it does                                       |
+| ------------------------ | -------------------------------------------------- |
+| `bun install`            | Install deps (root uses Bun catalogs)              |
+| `bun run dev`            | Run TUI in browser mode (`--conditions=browser`)   |
+| `bun run build`          | `bun run script/build.ts`                          |
+| `bun run typecheck`      | `tsgo --noEmit` (TypeScript native preview)        |
+| `bun test`               | bun test, 30s timeout, skips `*benchmark*.test.ts` |
+| `bun run bench`          | TUI viz benchmark                                  |
+| `bun run sandbox:vercel` | Vercel sandbox smoke test                          |
 
 ### Key Config Files
 
-| File                    | Purpose                                                                                            |
-| ----------------------- | -------------------------------------------------------------------------------------------------- |
-| `tsconfig.json`         | extends `@tsconfig/bun`, JSX via `@opentui/solid`, `@/*` → `./src/*`, `@tui/*` → `./src/cli/cmd/tui/*` |
-| `bunfig.toml`           | preloads `@opentui/solid/preload` + test preload `./test/preload.ts`, 10s test timeout, coverage on  |
-| `nikcli.json` (root)    | runtime defaults (build agent uses `minimax-coding-plan/MiniMax-M3` advisor, brain model same, image `grok-imagine-image-quality`, speak OpenRouter `gpt-audio-mini`, tunnel via `cloudflared`) ⚠ **contains real `nkm_*` bearer token — DO NOT ECHO** |
-| `drizzle.config.ts`     | Drizzle ORM config for SQLite                                                                     |
-| `parsers-config.ts`     | tree-sitter parser registration                                                                   |
-| `package.json` (root)   | workspace declaration, version catalog (`workspaces.catalog`), `trustedDependencies`, `patchedDependencies` (5 patches), workspaces include `packages/*, packages/console/*, packages/remote, packages/sdk/js, packages/slack, github` |
-| `turbo.json`            | Turbo task graph — `typecheck`, `build`, plus `nikcli#test` and `@nikcli-ai/app#test`             |
-| `oxlintrc.json`         | Linter config                                                                                     |
-| `sst.config.ts`, `fly.toml`, `railway.toml`, `wrangler.toml` | Deploy targets                                              |
-| `flake.nix`, `nix/`     | Nix packaging; **CRITICAL**: `nix/node_modules.nix` `lib.fileset.unions` MUST include `../github` (it's in workspaces!) or Nix builds break. Updated 2026-06-23 |
-| `Dockerfile`, `Dockerfile.serve` | Container images                                                                   |
-| `infra/`                | SST infrastructure (`app.ts`, `console.ts`, `enterprise.ts`, `secret.ts`, `stage.ts`)             |
-| `script/`               | Repo-wide scripts (release, CI, schema, publish, etc.) — patches known LSP issue with @octokit/rest via dynamic-import + fetch fallback |
-| `homebrew-tap/`         | Homebrew formula                                                                                  |
-| `patches/`              | patch-package patches for `@ff-labs/fff-bun@0.9.4`, `@openrouter/ai-sdk-provider@1.5.4`, `ghostty-web@0.3.0`, `@silvia-odwyer/photon-node@0.3.4`, `expo-modules-jsi@56.0.9` |
-| `.sst/`, `.turbo/`, `.opencode/`, `.cursor/`, `.zed/`, `.vscode/` | Tool state                                      |
-| `.husky/`               | Git hooks                                                                                         |
+| File                                                              | Purpose                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tsconfig.json`                                                   | extends `@tsconfig/bun`, JSX via `@opentui/solid`, `@/*` → `./src/*`, `@tui/*` → `./src/cli/cmd/tui/*`                                                                                                                                                 |
+| `bunfig.toml`                                                     | preloads `@opentui/solid/preload` + test preload `./test/preload.ts`, 10s test timeout, coverage on                                                                                                                                                    |
+| `nikcli.json` (root)                                              | runtime defaults (build agent uses `minimax-coding-plan/MiniMax-M3` advisor, brain model same, image `grok-imagine-image-quality`, speak OpenRouter `gpt-audio-mini`, tunnel via `cloudflared`) ⚠ **contains real `nkm_*` bearer token — DO NOT ECHO** |
+| `drizzle.config.ts`                                               | Drizzle ORM config for SQLite                                                                                                                                                                                                                          |
+| `parsers-config.ts`                                               | tree-sitter parser registration                                                                                                                                                                                                                        |
+| `package.json` (root)                                             | workspace declaration, version catalog (`workspaces.catalog`), `trustedDependencies`, `patchedDependencies` (5 patches), workspaces include `packages/*, packages/console/*, packages/remote, packages/sdk/js, packages/slack, github`                 |
+| `turbo.json`                                                      | Turbo task graph — `typecheck`, `build`, plus `nikcli#test` and `@nikcli-ai/app#test`                                                                                                                                                                  |
+| `oxlintrc.json`                                                   | Linter config                                                                                                                                                                                                                                          |
+| `sst.config.ts`, `fly.toml`, `railway.toml`, `wrangler.toml`      | Deploy targets                                                                                                                                                                                                                                         |
+| `flake.nix`, `nix/`                                               | Nix packaging; **CRITICAL**: `nix/node_modules.nix` `lib.fileset.unions` MUST include `../github` (it's in workspaces!) or Nix builds break. Updated 2026-06-23                                                                                        |
+| `Dockerfile`, `Dockerfile.serve`                                  | Container images                                                                                                                                                                                                                                       |
+| `infra/`                                                          | SST infrastructure (`app.ts`, `console.ts`, `enterprise.ts`, `secret.ts`, `stage.ts`)                                                                                                                                                                  |
+| `script/`                                                         | Repo-wide scripts (release, CI, schema, publish, etc.) — patches known LSP issue with @octokit/rest via dynamic-import + fetch fallback                                                                                                                |
+| `homebrew-tap/`                                                   | Homebrew formula                                                                                                                                                                                                                                       |
+| `patches/`                                                        | patch-package patches for `@ff-labs/fff-bun@0.9.4`, `@openrouter/ai-sdk-provider@1.5.4`, `ghostty-web@0.3.0`, `@silvia-odwyer/photon-node@0.3.4`, `expo-modules-jsi@56.0.9`                                                                            |
+| `.sst/`, `.turbo/`, `.opencode/`, `.cursor/`, `.zed/`, `.vscode/` | Tool state                                                                                                                                                                                                                                             |
+| `.husky/`                                                         | Git hooks                                                                                                                                                                                                                                              |
 
 ### Specs / Docs
 

@@ -1,59 +1,48 @@
-import { Config } from "../config/config";
-import z from "zod";
-import { Provider } from "../provider/provider";
-import { generateObject, streamObject, type ModelMessage } from "ai";
-import { SystemPrompt } from "../session/system";
-import { Truncate } from "../tool/truncation";
-import { Auth } from "../auth";
-import { ProviderTransform } from "../provider/transform";
-import { PermissionNext } from "@/permission/next";
-import { mergeDeep, pipe, sortBy, values } from "remeda";
-import { Global } from "@/global";
-import path from "path";
-import PROMPT_GENERATE from "./generate.txt";
-import PROMPT_COMPACTION from "./prompt/compaction.txt";
-import PROMPT_EXPLORE from "./prompt/explore.txt";
-import PROMPT_SCOUT from "./prompt/scout.txt";
-import PROMPT_SUMMARY from "./prompt/summary.txt";
-import PROMPT_TITLE from "./prompt/title.txt";
-import PROMPT_DELEGATION from "./prompt/delegation.txt";
-import PROMPT_DELEGATOR from "./prompt/delegator.txt";
-import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt";
-import { Context, Effect, Layer, Schema } from "effect";
-import {
-  InstanceState,
-  locallyInstance,
-  runPromiseWithLayer,
-  type InstanceContext,
-} from "@/effect";
-import { type DeepMutable, zodObject } from "@/util/effect-zod";
-import { Flag } from "@/flag/flag";
+import { Config } from "../config/config"
+import z from "zod"
+import { Provider } from "../provider/provider"
+import { generateObject, streamObject, type ModelMessage } from "ai"
+import { SystemPrompt } from "../session/system"
+import { Truncate } from "../tool/truncation"
+import { Auth } from "../auth"
+import { ProviderTransform } from "../provider/transform"
+import { PermissionNext } from "@/permission/next"
+import { mergeDeep, pipe, sortBy, values } from "remeda"
+import { Global } from "@/global"
+import path from "path"
+import PROMPT_GENERATE from "./generate.txt"
+import PROMPT_COMPACTION from "./prompt/compaction.txt"
+import PROMPT_EXPLORE from "./prompt/explore.txt"
+import PROMPT_SCOUT from "./prompt/scout.txt"
+import PROMPT_SUMMARY from "./prompt/summary.txt"
+import PROMPT_TITLE from "./prompt/title.txt"
+import PROMPT_DELEGATION from "./prompt/delegation.txt"
+import PROMPT_DELEGATOR from "./prompt/delegator.txt"
+import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
+import { Context, Effect, Layer, Schema } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
+import { Flag } from "@/flag/flag"
 
 function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
-  return runPromiseWithLayer(Auth.defaultLayer, effect);
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
 }
 
-function runProvider<A, E>(
-  effect: Effect.Effect<A, E, Provider.Service>,
-  ctx: InstanceContext,
-) {
-  return runPromiseWithLayer(
-    Provider.defaultLayer,
-    locallyInstance(ctx, effect),
-  );
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>, ctx: InstanceContext) {
+  return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(ctx, effect))
 }
 
 const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 
 ${PROMPT_DELEGATION}
-`;
+`
 
 const MONITOR_TOOL_AWARENESS = `
 
 For typecheck, builds, test suites, dev servers, and any long-running or potentially long-running command, use the monitor tool instead of bash. The bash tool blocks the turn and will hang on commands that take a while or never exit; the monitor tool runs the command in the background, persists its output, and wakes the session when it finishes so you can keep working. Reserve bash for short, fast, clearly-bounded commands (a few seconds at most).
 
 The monitor tool only streams a short preview of the output. The full results are written to a log file on disk (the "Log file:" path returned when the job starts). To read the complete output of a background job — for example to inspect typecheck or build errors — read that log file from the filesystem with the read tool once the job has produced output or finished, rather than relying on the streamed preview alone.
-`;
+`
 
 const PRIMARY_AGENT_RESEARCH_AWARENESS = `
 
@@ -63,7 +52,7 @@ When you identify a knowledge gap, outdated external dependency question, missin
 - Keep only one active research run per parent session unless the existing one is clearly irrelevant.
 - While research runs, continue any independent work instead of blocking.
 - When the research becomes relevant, use delegator or delegation to read and incorporate the result.
-`;
+`
 
 export namespace Agent {
   /**
@@ -72,17 +61,14 @@ export namespace Agent {
    * `Effect.catchTag("AgentNotFound", ...)` and the existing `instanceof
    * Agent.NotFoundError` continues to work.
    */
-  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()(
-    "AgentNotFound",
-    {
-      name: Schema.String,
-    },
-  ) {}
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AgentNotFound", {
+    name: Schema.String,
+  }) {}
 
   const ModelRefSchema = Schema.Struct({
     modelID: Schema.String,
     providerID: Schema.String,
-  });
+  })
 
   const InfoSchema = Schema.Struct({
     name: Schema.String,
@@ -98,33 +84,20 @@ export namespace Agent {
     advisor: Schema.optional(
       Schema.Struct({
         model: ModelRefSchema,
-        maxUses: Schema.optional(
-          Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
-        ),
+        maxUses: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
       }),
     ),
     variant: Schema.optional(Schema.String),
     prompt: Schema.optional(Schema.String),
     options: Schema.Record(Schema.String, Schema.Unknown),
-    steps: Schema.optional(
-      Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
-    ),
-  }).annotate({ identifier: "Agent" });
-  export const Info = zodObject(InfoSchema);
-  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>;
+    steps: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+  }).annotate({ identifier: "Agent" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
     "fast-explore": ["read", "grep", "glob", "list", "tree"],
-    planner: [
-      "read",
-      "grep",
-      "glob",
-      "list",
-      "tree",
-      "websearch",
-      "codesearch",
-      "webfetch",
-    ],
+    planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"],
     scout: [
       "read",
       "grep",
@@ -138,16 +111,7 @@ export namespace Agent {
       "repo_overview",
     ],
     general: [],
-    explore: [
-      "read",
-      "grep",
-      "glob",
-      "list",
-      "bash",
-      "webfetch",
-      "websearch",
-      "codesearch",
-    ],
+    explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"],
     researcher: [
       "read",
       "grep",
@@ -171,38 +135,24 @@ export namespace Agent {
     "code-reviewer": ["read", "grep", "glob", "list", "bash"],
     debugger: ["read", "grep", "glob", "list", "bash", "edit"],
     "test-runner": ["read", "grep", "list", "bash", "edit", "write"],
-    refactor: [
-      "read",
-      "grep",
-      "glob",
-      "list",
-      "bash",
-      "edit",
-      "write",
-      "apply_patch",
-    ],
-  };
-
-  export interface Interface {
-    get(agent: string): Effect.Effect<Info | undefined>;
-    list(): Effect.Effect<Info[], never>;
-    defaultAgent(): Effect.Effect<string, NotFoundError>;
-    generate(input: {
-      description: string;
-      model?: { providerID: string; modelID: string };
-    }): Effect.Effect<
-      {
-        identifier: string;
-        whenToUse: string;
-        systemPrompt: string;
-      },
-      unknown
-    >;
+    refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch"],
   }
 
-  export class Service extends Context.Service<Service, Interface>()(
-    "Agent.Service",
-  ) {}
+  export interface Interface {
+    get(agent: string): Effect.Effect<Info | undefined>
+    list(): Effect.Effect<Info[], never>
+    defaultAgent(): Effect.Effect<string, NotFoundError>
+    generate(input: { description: string; model?: { providerID: string; modelID: string } }): Effect.Effect<
+      {
+        identifier: string
+        whenToUse: string
+        systemPrompt: string
+      },
+      unknown
+    >
+  }
+
+  export class Service extends Context.Service<Service, Interface>()("Agent.Service") {}
 
   async function buildState(worktree: string, cfg: Config.Info) {
     const defaults = PermissionNext.fromConfig({
@@ -224,8 +174,8 @@ export namespace Agent {
         "*.env.*": "ask",
         "*.env.example": "allow",
       },
-    });
-    const user = PermissionNext.fromConfig(cfg.permission ?? {});
+    })
+    const user = PermissionNext.fromConfig(cfg.permission ?? {})
 
     const result: Record<string, Info> = {
       ralph: {
@@ -283,10 +233,7 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
             edit: {
               "*": "deny",
               [path.join(".nikcli", "plans", "*.md")]: "allow",
-              [path.relative(
-                worktree,
-                path.join(Global.Path.data, path.join("plans", "*.md")),
-              )]: "allow",
+              [path.relative(worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
             },
           }),
           user,
@@ -531,8 +478,7 @@ Review changes and report issues with file paths and fixes.`,
       },
       "ultrareview-reviewer": {
         name: "ultrareview-reviewer",
-        description:
-          "Specialized reviewer agent for a single domain within an ultrareview parallel fleet.",
+        description: "Specialized reviewer agent for a single domain within an ultrareview parallel fleet.",
         prompt: PROMPT_ULTRAREVIEW_REVIEWER,
         permission: PermissionNext.merge(
           defaults,
@@ -641,8 +587,7 @@ Apply small, safe refactors and verify results.`,
       },
       delegator: {
         name: "delegator",
-        description:
-          "Coordination agent that synthesizes background subagent results.",
+        description: "Coordination agent that synthesizes background subagent results.",
         mode: "subagent",
         native: true,
         hidden: true,
@@ -805,17 +750,14 @@ The system prompt will include a \`<docs_index>\` block listing all available do
         ),
         prompt: PROMPT_SUMMARY,
       },
-    };
+    }
 
     if (Flag.NIKCLI_EXPERIMENTAL_SCOUT) {
       for (const [name, reference] of Object.entries(cfg.reference ?? {})) {
-        const agentName = `reference-${name.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
-        if (result[agentName]) continue;
+        const agentName = `reference-${name.replace(/[^A-Za-z0-9_-]+/g, "-")}`
+        if (result[agentName]) continue
 
-        const localPath =
-          reference.type === "local"
-            ? path.resolve(worktree, reference.path)
-            : undefined;
+        const localPath = reference.type === "local" ? path.resolve(worktree, reference.path) : undefined
         const referencePrompt =
           reference.type === "git"
             ? `${PROMPT_SCOUT}
@@ -838,7 +780,7 @@ Reference:
 - path: ${localPath}
 ${reference.description ? `- description: ${reference.description}` : ""}
 
-Inspect this local reference path directly. Stay read-only and cite absolute paths.`;
+Inspect this local reference path directly. Stay read-only and cite absolute paths.`
 
         result[agentName] = {
           name: agentName,
@@ -879,16 +821,16 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
           options: {},
           mode: "subagent",
           native: true,
-        };
+        }
       }
     }
 
     for (const [key, value] of Object.entries(cfg.agent ?? {})) {
       if (value.disable) {
-        delete result[key];
-        continue;
+        delete result[key]
+        continue
       }
-      let item = result[key];
+      let item = result[key]
       if (!item)
         item = result[key] = {
           name: key,
@@ -896,41 +838,38 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
           permission: PermissionNext.merge(defaults, user),
           options: {},
           native: false,
-        };
-      if (value.model) item.model = Provider.parseModel(value.model);
+        }
+      if (value.model) item.model = Provider.parseModel(value.model)
       if (value.advisor) {
         item.advisor = {
           model: Provider.parseModel(value.advisor),
           maxUses: value.advisor_max_uses,
-        };
+        }
       } else {
-        item.advisor = undefined;
+        item.advisor = undefined
       }
-      item.variant = value.variant ?? item.variant;
-      item.prompt = value.prompt ?? item.prompt;
-      item.description = value.description ?? item.description;
-      item.temperature = value.temperature ?? item.temperature;
-      item.topP = value.top_p ?? item.topP;
-      item.mode = value.mode ?? item.mode;
-      item.color = value.color ?? item.color;
-      item.hidden = value.hidden ?? item.hidden;
-      item.name = value.name ?? item.name;
-      item.steps = value.steps ?? item.steps;
-      item.options = mergeDeep(item.options, value.options ?? {});
-      item.permission = PermissionNext.merge(
-        item.permission,
-        PermissionNext.fromConfig(value.permission ?? {}),
-      );
+      item.variant = value.variant ?? item.variant
+      item.prompt = value.prompt ?? item.prompt
+      item.description = value.description ?? item.description
+      item.temperature = value.temperature ?? item.temperature
+      item.topP = value.top_p ?? item.topP
+      item.mode = value.mode ?? item.mode
+      item.color = value.color ?? item.color
+      item.hidden = value.hidden ?? item.hidden
+      item.name = value.name ?? item.name
+      item.steps = value.steps ?? item.steps
+      item.options = mergeDeep(item.options, value.options ?? {})
+      item.permission = PermissionNext.merge(item.permission, PermissionNext.fromConfig(value.permission ?? {}))
     }
 
     for (const name in result) {
-      const agent = result[name];
+      const agent = result[name]
       const explicit = agent.permission.some((r: PermissionNext.Rule) => {
-        if (r.permission !== "external_directory") return false;
-        if (r.action !== "deny") return false;
-        return r.pattern === Truncate.DIR || r.pattern === Truncate.GLOB;
-      });
-      if (explicit) continue;
+        if (r.permission !== "external_directory") return false
+        if (r.action !== "deny") return false
+        return r.pattern === Truncate.DIR || r.pattern === Truncate.GLOB
+      })
+      if (explicit) continue
 
       result[name].permission = PermissionNext.merge(
         result[name].permission,
@@ -940,10 +879,10 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
             [Truncate.GLOB]: "allow",
           },
         }),
-      );
+      )
     }
 
-    return result;
+    return result
   }
 
   const layer = Layer.effect(
@@ -955,39 +894,31 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
           locallyInstance(
             ctx,
             Effect.gen(function* () {
-              const config = yield* Config.Service;
-              return yield* config.get();
+              const config = yield* Config.Service
+              return yield* config.get()
             }),
           ),
-        );
+        )
       }
 
       const state = yield* InstanceState.make<Record<string, Info>>((ctx) =>
         Effect.gen(function* () {
-          const cfg = yield* Effect.promise(() => configGet(ctx));
-          return yield* Effect.tryPromise(() =>
-            buildState(ctx.worktree, cfg),
-          ).pipe(Effect.orDie);
+          const cfg = yield* Effect.promise(() => configGet(ctx))
+          return yield* Effect.tryPromise(() => buildState(ctx.worktree, cfg)).pipe(Effect.orDie)
         }),
-      );
-      const getState = () => InstanceState.get(state);
+      )
+      const getState = () => InstanceState.get(state)
 
       function list() {
         return Effect.gen(function* () {
-          const ctx = yield* InstanceState.context;
-          const cfg = yield* Effect.promise(() => configGet(ctx));
+          const ctx = yield* InstanceState.context
+          const cfg = yield* Effect.promise(() => configGet(ctx))
           return pipe(
             yield* getState(),
             values(),
-            sortBy([
-              (x) =>
-                cfg.default_agent
-                  ? x.name === cfg.default_agent
-                  : x.name === "build",
-              "desc",
-            ]),
-          );
-        });
+            sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"]),
+          )
+        })
       }
 
       return Service.of({
@@ -995,59 +926,42 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
         list,
         defaultAgent: () =>
           Effect.gen(function* () {
-            const ctx = yield* InstanceState.context;
-            const cfg = yield* Effect.promise(() => configGet(ctx));
-            const agents = yield* getState();
+            const ctx = yield* InstanceState.context
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            const agents = yield* getState()
 
             if (cfg.default_agent) {
-              const agent = agents[cfg.default_agent];
-              if (!agent)
-                return yield* Effect.fail(
-                  new NotFoundError({ name: cfg.default_agent }),
-                );
-              if (agent.mode === "subagent")
-                return yield* Effect.fail(
-                  new NotFoundError({ name: cfg.default_agent }),
-                );
-              if (agent.hidden === true)
-                return yield* Effect.fail(
-                  new NotFoundError({ name: cfg.default_agent }),
-                );
-              return agent.name;
+              const agent = agents[cfg.default_agent]
+              if (!agent) return yield* Effect.fail(new NotFoundError({ name: cfg.default_agent }))
+              if (agent.mode === "subagent") return yield* Effect.fail(new NotFoundError({ name: cfg.default_agent }))
+              if (agent.hidden === true) return yield* Effect.fail(new NotFoundError({ name: cfg.default_agent }))
+              return agent.name
             }
 
-            const primaryVisible = (yield* list()).find(
-              (a: Info) => a.mode !== "subagent" && a.hidden !== true,
-            );
-            if (!primaryVisible)
-              return yield* Effect.fail(new NotFoundError({ name: "" }));
-            return primaryVisible.name;
+            const primaryVisible = (yield* list()).find((a: Info) => a.mode !== "subagent" && a.hidden !== true)
+            if (!primaryVisible) return yield* Effect.fail(new NotFoundError({ name: "" }))
+            return primaryVisible.name
           }),
         generate: (input) =>
           Effect.gen(function* () {
-            const ctx = yield* InstanceState.context;
-            const cfg = yield* Effect.promise(() => configGet(ctx));
-            const { defaultModel, model, language } = yield* Effect.promise(
-              () =>
-                runProvider(
-                  Effect.gen(function* () {
-                    const provider = yield* Provider.Service;
-                    const defaultModel =
-                      input.model ?? (yield* provider.defaultModel());
-                    const model = yield* provider.getModel(
-                      defaultModel.providerID,
-                      defaultModel.modelID,
-                    );
-                    const language = yield* provider.getLanguage(model);
-                    return { defaultModel, model, language };
-                  }),
-                  ctx,
-                ),
-            );
+            const ctx = yield* InstanceState.context
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            const { defaultModel, model, language } = yield* Effect.promise(() =>
+              runProvider(
+                Effect.gen(function* () {
+                  const provider = yield* Provider.Service
+                  const defaultModel = input.model ?? (yield* provider.defaultModel())
+                  const model = yield* provider.getModel(defaultModel.providerID, defaultModel.modelID)
+                  const language = yield* provider.getLanguage(model)
+                  return { defaultModel, model, language }
+                }),
+                ctx,
+              ),
+            )
 
-            const system = SystemPrompt.header(defaultModel.providerID);
-            system.push(PROMPT_GENERATE);
-            const existing = yield* list();
+            const system = SystemPrompt.header(defaultModel.providerID)
+            system.push(PROMPT_GENERATE)
+            const existing = yield* list()
 
             const params = {
               experimental_telemetry: {
@@ -1075,20 +989,17 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
                 whenToUse: z.string(),
                 systemPrompt: z.string(),
               }),
-            } satisfies Parameters<typeof generateObject>[0];
+            } satisfies Parameters<typeof generateObject>[0]
 
             const auth = yield* Effect.promise(() =>
               runAuth(
                 Effect.gen(function* () {
-                  const auth = yield* Auth.Service;
-                  return yield* auth.get(defaultModel.providerID);
+                  const auth = yield* Auth.Service
+                  return yield* auth.get(defaultModel.providerID)
                 }),
               ),
-            );
-            if (
-              defaultModel.providerID === "openai" &&
-              auth?.type === "oauth"
-            ) {
+            )
+            if (defaultModel.providerID === "openai" && auth?.type === "oauth") {
               return yield* Effect.promise(async () => {
                 const result = streamObject({
                   ...params,
@@ -1097,20 +1008,20 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
                     store: false,
                   }),
                   onError: () => {},
-                });
+                })
                 for await (const part of result.fullStream) {
-                  if (part.type === "error") throw part.error;
+                  if (part.type === "error") throw part.error
                 }
-                return result.object;
-              });
+                return result.object
+              })
             }
 
-            const result = yield* Effect.promise(() => generateObject(params));
-            return result.object;
+            const result = yield* Effect.promise(() => generateObject(params))
+            return result.object
           }),
-      });
+      })
     }),
-  );
+  )
 
-  export const defaultLayer = layer;
+  export const defaultLayer = layer
 }
