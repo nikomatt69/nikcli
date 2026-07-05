@@ -12,20 +12,21 @@
  *   await stop()
  *
  * The started sync does three things concurrently:
- *  1. Subscribe to `/sync/stream` for live events from the hub.
- *  2. Periodically drain the local outbox to the hub.
+ *  1. Subscribe to remote events via the injected `RemoteTransport`.
+ *  2. Periodically drain the local outbox via the injected `Scheduler`.
  *  3. Subscribe to `Sync.onEmit` so local events are enqueued for push.
  *
- * On `stop()` the subscriptions are closed and the outbox drain is
- * cancelled. The next start resumes from the last successful seq.
+ * The transport and scheduler are Adapters — the production wiring uses
+ * `createHttpRemoteTransport` + `realScheduler`, while tests inject
+ * `createInMemoryRemoteTransport` + `createInMemoryScheduler`.
  */
 import { Log } from "@/util/log"
 import { Database } from "@/database/database"
 import { eq } from "drizzle-orm"
 import { syncEvent } from "./sync.sql"
-import { RemoteSyncClient } from "./remote-client"
 import { Outbox } from "./outbox"
 import { Sync, type SyncEventRecord } from "./index"
+import { createHttpRemoteTransport, realScheduler, type RemoteTransport, type Scheduler } from "./transport"
 
 const log = Log.create({ service: "sync.remote" })
 
@@ -35,6 +36,11 @@ export type RemoteSyncOptions = {
   projectID: string
   drainIntervalMs?: number
   clientId?: string
+  /** Override the transport for testing. Defaults to the HTTP+EventSource
+   *  client built by `createHttpRemoteTransport`. */
+  transport?: RemoteTransport
+  /** Override the scheduler/clock for testing. Defaults to `realScheduler`. */
+  scheduler?: Scheduler
 }
 
 export type RemoteSyncHandle = {
@@ -47,14 +53,7 @@ export type RemoteSyncHandle = {
 }
 
 export namespace RemoteSync {
-  // One handle per (url, projectID): repeated starts (bootstrap + serve +
-  // `nikcli sync`) share the same connection instead of stacking emitRaw
-  // wrappers and duplicate drain timers.
   const active = new Map<string, { handle: RemoteSyncHandle; url: string }>()
-
-  // Single global emit subscription. Each active target gets local
-  // events enqueued; the listener is installed once and removed when
-  // the last remote sync stops.
   const enqueueTargets = new Set<string>()
   let removeEmitHook: (() => void) | undefined
 
@@ -76,10 +75,6 @@ export namespace RemoteSync {
     }
   }
 
-  /**
-   * Resolve a `SyncEventRecord` from the outbox row's `eventId` so it
-   * can be pushed to the remote.
-   */
   function loadEvent(eventId: string): SyncEventRecord | undefined {
     const db = Database.syncDb()
     const row = db.select().from(syncEvent).where(eq(syncEvent.id, eventId)).get()
@@ -106,8 +101,6 @@ export namespace RemoteSync {
     }
   }
 
-  // Concurrent starts for the same (url, projectID) share the in-flight
-  // promise instead of racing past the active check.
   const starting = new Map<string, Promise<RemoteSyncHandle>>()
 
   export function start(opts: RemoteSyncOptions): Promise<RemoteSyncHandle> {
@@ -127,81 +120,105 @@ export namespace RemoteSync {
   }
 
   async function doStart(opts: RemoteSyncOptions, key: string): Promise<RemoteSyncHandle> {
-    const clientId = opts.clientId ?? "cli"
-    const originTag = `remote:${clientId}`
+    const originTag = `remote:${opts.clientId ?? "cli"}`
     const drainInterval = opts.drainIntervalMs ?? 5_000
     let connected = true
+    let lastSeq = 0
 
-    const client = new RemoteSyncClient({
-      url: opts.url,
-      token: opts.token,
-      projectID: opts.projectID,
-      onEvent: async (event) => {
-        // Replay the remote event into the local store, marked as
-        // remote origin so we don't re-push it.
-        try {
-          await Sync.emitRaw(event.projectId, event.aggregate, event.data, {
-            workspaceID: event.workspaceId,
-            origin: originTag,
-            originSeq: event.seq,
-          })
-        } catch (error) {
-          log.warn("replaying remote event failed", { error, event: event.id })
+    const transport: RemoteTransport =
+      opts.transport ??
+      createHttpRemoteTransport({
+        url: opts.url,
+        token: opts.token,
+        projectID: opts.projectID,
+        onError: (error) => {
+          connected = false
+          log.warn("remote sync connection error", { error })
+        },
+      })
+
+    const scheduler: Scheduler = opts.scheduler ?? realScheduler
+
+    // Catch-up: pull everything since 0 (the server already filters by
+    // projectID and the local outbox will dedupe).
+    try {
+      let since = 0
+      for (;;) {
+        const page = await transport.pullBacklog(since)
+        for (const event of page.events) {
+          since = Math.max(since, event.seq)
+          lastSeq = Math.max(lastSeq, event.seq)
+          try {
+            await Sync.emitRaw(event.projectId, event.aggregate, event.data, {
+              workspaceID: event.workspaceId,
+              origin: originTag,
+              originSeq: event.seq,
+            })
+          } catch (error) {
+            log.warn("replaying remote event failed", {
+              error,
+              event: event.id,
+            })
+          }
         }
-      },
-      onError: (error) => {
-        connected = false
-        log.warn("remote sync connection error", { error })
-      },
+        if (!page.hasMore) break
+      }
+    } catch (error) {
+      log.warn("initial catch-up failed", { error })
+    }
+
+    transport.subscribe(async (event) => {
+      try {
+        await Sync.emitRaw(event.projectId, event.aggregate, event.data, {
+          workspaceID: event.workspaceId,
+          origin: originTag,
+          originSeq: event.seq,
+        })
+      } catch (error) {
+        log.warn("replaying remote event failed", { error, event: event.id })
+      }
     })
 
-    await client.start()
     log.info("remote sync started", {
       url: opts.url,
       projectID: opts.projectID,
     })
 
-    // Periodic outbox drain
-    const drainTimer = setInterval(() => {
+    const drainHandle = scheduler.interval(() => {
       void Outbox.drain(opts.url, async (eventId) => {
         const event = loadEvent(eventId)
         if (!event) return { ok: false, permanent: true, error: "event not found" }
-        const ok = await client.push(event)
-        if (ok) return { ok: true }
-        // 401 / 403 treated as permanent to stop retry storms
-        return { ok: false, error: "push failed" }
+        const outcome = await transport.push(event)
+        if (outcome.ok) return { ok: true }
+        return {
+          ok: false,
+          permanent: outcome.permanent === true,
+          error: outcome.error,
+        }
       }).catch((error) => {
         log.warn("outbox drain failed", { error })
       })
     }, drainInterval)
 
-    // Auto-enqueue: local events reported by the shared `Sync.onEmit`
-    // listener land in the outbox for this target right after the row
-    // is inserted.
     enqueueTargets.add(opts.url)
     ensureEmitHook()
 
     const handle: RemoteSyncHandle = {
       stop: async () => {
-        clearInterval(drainTimer)
-        client.stop()
+        drainHandle.clear()
+        transport.close()
         active.delete(key)
-        // Only stop enqueuing for this url when no other project still
-        // syncs to it; remove the hook entirely when nothing is active.
         const urlStillUsed = [...active.values()].some((entry) => entry.url === opts.url)
         if (!urlStillUsed) enqueueTargets.delete(opts.url)
         if (active.size === 0) removeEmitHook?.()
         connected = false
         log.info("remote sync stopped")
       },
-      status: () => {
-        const lastSeq = client["lastSeq"] as number
-        return {
-          connected,
-          lastSeq,
-          outbox: Outbox.status(opts.url),
-        }
-      },
+      status: () => ({
+        connected,
+        lastSeq,
+        outbox: Outbox.status(opts.url),
+      }),
     }
 
     active.set(key, { handle, url: opts.url })

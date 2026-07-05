@@ -14,6 +14,7 @@
  */
 import { Database } from "@/database/database"
 import { Sync } from "@/sync"
+import { SyncEvents } from "@/sync/events"
 import { eq } from "drizzle-orm"
 import * as schema from "@/database/schema"
 import { WorkspaceProjection } from "@/workspace/projection"
@@ -54,11 +55,10 @@ export namespace SyncUnifyMigration {
     }
 
     // Mark the migration as done so we never re-run.
-    await Sync.emitRaw("global", sentinelAggregate, {
-      type: "sync_unify.workspace_migrated",
-      projectID: projectID ?? null,
+    await SyncEvents.emit("global", sentinelAggregate, SyncEvents.E.SyncUnify.migrated, {
       seeded,
       at: Date.now(),
+      projectID: projectID ?? null,
     })
 
     return seeded

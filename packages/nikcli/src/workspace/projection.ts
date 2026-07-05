@@ -1,6 +1,7 @@
 import { Log } from "@/util/log"
 import { Sync, type SyncEventRecord } from "@/sync"
 import { SyncProjection } from "@/sync/projection"
+import { SyncEvents, type EventDef } from "@/sync/events"
 import { Config } from "./config"
 import { WorkspaceDB } from "./db"
 
@@ -12,6 +13,13 @@ export namespace WorkspaceProjection {
     | "workspace.removed"
     | "workspace.configUpdated"
     | "workspace.statusChanged"
+
+  const DEFINITIONS: Record<LifecycleType, EventDef<any>> = {
+    "workspace.created": SyncEvents.E.Workspace.created,
+    "workspace.removed": SyncEvents.E.Workspace.removed,
+    "workspace.configUpdated": SyncEvents.E.Workspace.configUpdated,
+    "workspace.statusChanged": SyncEvents.E.Workspace.statusChanged,
+  }
 
   export type ProjectResult = {
     record?: SyncEventRecord
@@ -26,7 +34,10 @@ export namespace WorkspaceProjection {
     type: LifecycleType,
     data: Record<string, unknown>,
   ): Promise<ProjectResult> {
-    const record = await Sync.emitRaw(projectID, workspaceID, { type, ...data }, { workspaceID })
+    const def = DEFINITIONS[type]
+    const record = await SyncEvents.emit(projectID, workspaceID, def, data, {
+      workspaceID,
+    })
     const projected = await project(projectID, workspaceID)
     return { ...projected, record: { ...record, workspaceId: workspaceID } }
   }

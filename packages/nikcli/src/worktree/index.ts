@@ -11,7 +11,12 @@ import { Lock } from "@/util/lock"
 import { InstanceState, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-export * from "./managed"
+// NOTE: `ManagedWorktree` (./managed) is intentionally NOT re-exported from
+// this barrel. It is an experimental copy-on-write engine that has a single
+// caller (`server/routes/experimental.ts`) and its own service shape. The
+// `Worktree.Service` above is the stable interface for new code. To consume
+// the experimental engine, import it directly from
+// `"@/worktree/managed"` (or `../worktree/managed`).
 
 export namespace Worktree {
   const InfoSchema = Schema.Struct({

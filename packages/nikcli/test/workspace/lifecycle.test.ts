@@ -10,9 +10,10 @@ describe("Workspace lifecycle", () => {
     expect(source).toMatch(/process\.once\("SIGTERM"/)
   })
 
-  it("delegates cleanup registration to the connection module", () => {
+  it("does not leak process.once handlers into workspace/index.ts (the connection module owns them)", () => {
     const indexSource = readFileSync(path.join(import.meta.dir, "../../src/workspace/index.ts"), "utf8")
-    expect(indexSource).toContain("WorkspaceConnection.registerProcessCleanup()")
     expect(indexSource).not.toMatch(/process\.once\("SIGTERM"/)
+    expect(indexSource).not.toMatch(/process\.once\("SIGINT"/)
+    expect(indexSource).not.toMatch(/process\.once\("beforeExit"/)
   })
 })

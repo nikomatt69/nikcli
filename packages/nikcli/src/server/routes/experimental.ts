@@ -2,7 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { ToolRegistry } from "../../tool/registry"
-import { Worktree, ManagedWorktree } from "../../worktree"
+import { Worktree } from "../../worktree"
+import { ManagedWorktree } from "../../worktree/managed"
 import { Instance } from "../../project/instance"
 import { Project } from "../../project/project"
 import { MCP } from "../../mcp"
@@ -107,7 +108,10 @@ export const ExperimentalRoutes = lazy(() =>
         const tools = await runToolRegistry(
           Effect.gen(function* () {
             const registry = yield* ToolRegistry.Service
-            return yield* registry.tools({ providerID: provider, modelID: model })
+            return yield* registry.tools({
+              providerID: provider,
+              modelID: model,
+            })
           }),
         )
         return c.json(
