@@ -30,7 +30,7 @@ const latestOverall = releases[0] ?? null
 // The very latest tag often only has CLI assets while desktop/mobile builds are
 // still running, so we default to the newest *complete* release (full desktop
 // matrix incl. Windows + CLI). This keeps the page coherent (Desktop never shows
-// up empty) and in sync with the changelog. See isComplete() in lib/releases.
+// up empty). See isComplete() in lib/releases.
 const isReady = isComplete
 const latestReady = releases.find(isReady) ?? latestOverall
 
@@ -384,7 +384,6 @@ const seoDescription =
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-terminal-border/50 pt-8 text-[13px] text-terminal-muted">
           <span>Looking for an older build?</span>
           <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <a href="/changelog" class="font-medium hover:text-terminal-text transition-colors">Changelog →</a>
             <a href="https://github.com/nikomatt69/nikcli/releases" target="_blank" rel="noreferrer" class="font-medium hover:text-terminal-text transition-colors">All releases ↗</a>
           </div>
         </div>

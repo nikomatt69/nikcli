@@ -3,13 +3,12 @@
   "version": "1.137.0",
   "type": "module",
   "scripts": {
-    "dev": "bun run sync:changelog && astro dev",
-    "start": "bun run sync:changelog && astro dev",
-    "build": "bun run sync:changelog && astro build",
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
     "deploy": "echo '_worker.js' > dist/.assetsignore && wrangler deploy",
-    "sync:changelog": "bun run script/sync-changelog.ts",
     "check:docs-tools": "bun run script/check-docs-tool-index.ts"
   },
   "dependencies": {
