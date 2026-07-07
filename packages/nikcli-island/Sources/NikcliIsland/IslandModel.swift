@@ -39,8 +39,10 @@ final class IslandModel: ObservableObject {
 
     var onActivate: (() -> Void)?
     var onSelectSession: (String) -> Void = { _ in }
-    /// Reply to the currently-displayed permission request ("once" or "reject").
-    var onReplyPermission: (String) -> Void = { _ in }
+    /// Reply to a specific permission request ("once" or "reject") — takes the target
+    /// permissionId/port explicitly since several requests can be pending at once and
+    /// each row in the stack replies to its own, not just whichever session is displayed.
+    var onReplyPermission: (_ reply: String, _ permissionId: String, _ port: Int32) -> Void = { _, _, _ in }
 
     var onQuit: () -> Void = {}
     var onChooseDisplay: (CGDirectDisplayID?) -> Void = { _ in }

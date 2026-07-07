@@ -98,9 +98,11 @@ enum SessionAggregator {
         }.count
         guard !live.isEmpty else { return .hidden }
 
-        let sessions: [SessionInfo] = live.compactMap { s in
+        // Idle sessions are kept (not dropped) so a nikcli that's open but between turns
+        // still surfaces the closed pill instead of the island retracting to nothing —
+        // it only fully hides once the session file itself is gone (process exited).
+        let sessions: [SessionInfo] = live.map { s in
             let eff = effectiveState(s, now: now)
-            guard eff != .idle else { return nil }
             return SessionInfo(
                 id: s.sessionId,
                 provider: s.provider,

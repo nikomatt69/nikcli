@@ -19,14 +19,25 @@ struct IslandRootView: View {
     }
 }
 
-/// Widens from a hairline slit while fading + de-blurring in, so the pill reads as
-/// materializing out of the notch rather than an instant slab that then stretches.
+// Width leads (fast out of the gate, settles early) while height trails (barely moves
+// at first, then rushes to catch up) — sharing one curve pair between reveal and
+// retract is what makes the two read as true mirrors of each other: opening widens
+// into a slit that then drops down, closing pulls back up into a slit that then
+// narrows to nothing, instead of both axes just scaling in lockstep.
+private func easeOutCubic(_ t: Double) -> Double { 1 - pow(1 - t, 3) }
+private func easeInCubic(_ t: Double) -> Double { t * t * t }
+
+/// Grows out of the notch on both axes — not just widening while the height barely
+/// moves — so the pill reads as materializing from a point at the notch rather than an
+/// instant slab that then stretches. Mirrored by `NotchRetract` for the reverse.
 private struct NotchReveal: ViewModifier {
     let progress: Double
     func body(content: Content) -> some View {
         content
-            .scaleEffect(x: max(0.001, progress), y: 0.7 + 0.3 * progress, anchor: .top)
-            .opacity(progress)
+            .scaleEffect(x: max(0.001, easeOutCubic(progress)),
+                         y: max(0.001, easeInCubic(progress)),
+                         anchor: .top)
+            .opacity(easeOutCubic(progress))
             .blur(radius: (1 - progress) * 3)
     }
 }
@@ -34,8 +45,10 @@ private struct NotchRetract: ViewModifier {
     let progress: Double
     func body(content: Content) -> some View {
         content
-            .scaleEffect(x: max(0.001, progress), y: 0.85 + 0.15 * progress, anchor: .top)
-            .opacity(progress)
+            .scaleEffect(x: max(0.001, easeOutCubic(progress)),
+                         y: max(0.001, easeInCubic(progress)),
+                         anchor: .top)
+            .opacity(easeOutCubic(progress))
     }
 }
 extension AnyTransition {
@@ -88,10 +101,14 @@ struct IslandPill: View {
     }
     private var pillHeight: CGFloat {
         let base = closedH + logoRowHeight + (expanded ? model.dropHeight : 0)
-        guard expanded && showsPermissionActions else { return base }
-        // The multi-session bar adds a "Replying to …" caption above Allow/Deny so it's
-        // unambiguous which row the buttons target — a few extra points of height for it.
-        return base + 34 + (model.isMulti ? 14 : 0)
+        let pending = pendingPermissionSessions.count
+        guard expanded && pending > 0 else { return base }
+        // The multi-session bar adds a "Replying to …" caption above each Allow/Deny row
+        // so it's unambiguous which one the buttons target — a few extra points of
+        // height for it. Every simultaneously pending request gets its own stacked row.
+        let blockH: CGFloat = 34 + (model.isMulti ? 14 : 0)
+        let spacing: CGFloat = 10 * CGFloat(max(0, pending - 1))
+        return base + blockH * CGFloat(pending) + spacing
     }
 
     var body: some View {
@@ -110,8 +127,8 @@ struct IslandPill: View {
                     .frame(height: model.dropHeight)
                     .opacity(expanded ? 1 : 0)
                     .offset(y: expanded ? 0 : -4)
-                if showsPermissionActions {
-                    permissionActions
+                if !pendingPermissionSessions.isEmpty {
+                    permissionActionsStack
                         .opacity(expanded ? 1 : 0)
                         .offset(y: expanded ? 0 : 6)
                 }
@@ -280,41 +297,47 @@ struct IslandPill: View {
         .padding(.top, 5)
     }
 
-    /// Whether the currently-displayed session is an actionable permission request (has
-    /// both a request id and a known port to reply to). Available in multi-session mode
-    /// too — Allow/Deny must not disappear just because a subagent's siblings are also
-    /// live, or approving a delegated permission would require dropping to the terminal.
-    private var showsPermissionActions: Bool {
-        model.state == .permission && !model.permissionId.isEmpty && model.permissionPort > 0
+    /// Every live session with an actionable pending permission (has both a request id
+    /// and a known port to reply to) — every one gets its own Allow/Deny row rather than
+    /// just whichever session happens to be displayed, so two subagents blocked at once
+    /// are both answerable without pinning/selecting between them first.
+    private var pendingPermissionSessions: [SessionInfo] {
+        model.sessions.filter { $0.state == .permission && !$0.permissionId.isEmpty && $0.port > 0 }
     }
 
-    /// The session `permissionActions` will actually reply to (== model.displayedId).
-    /// Only looked up to label the button row in multi-session mode, where several
-    /// rows can be visible at once and it's otherwise ambiguous which one Allow/Deny
-    /// targets.
+    /// The session `menuItems`' quick Allow/Deny targets (== model.displayedId) — the
+    /// context menu only ever offers a single shortcut, for whichever session is shown.
     private var displayedSessionInfo: SessionInfo? {
         model.sessions.first { $0.id == model.displayedId }
     }
 
-    private var permissionActions: some View {
-        VStack(spacing: 6) {
-            if model.isMulti, let info = displayedSessionInfo {
-                Text("Replying to \(info.isSubagent && !info.agentTitle.isEmpty ? info.agentTitle : info.project)")
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+    private var permissionActionsStack: some View {
+        VStack(spacing: 10) {
+            ForEach(pendingPermissionSessions) { session in
+                permissionActionRow(session)
             }
-            permissionButtons
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
     }
 
-    private var permissionButtons: some View {
+    private func permissionActionRow(_ session: SessionInfo) -> some View {
+        VStack(spacing: 6) {
+            if model.isMulti {
+                Text("Replying to \(session.isSubagent && !session.agentTitle.isEmpty ? session.agentTitle : session.project)")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            permissionButtons(session)
+        }
+    }
+
+    private func permissionButtons(_ session: SessionInfo) -> some View {
         HStack(spacing: 8) {
             Button {
-                model.onReplyPermission("reject")
+                model.onReplyPermission("reject", session.permissionId, session.port)
             } label: {
                 Text("Deny")
                     .font(.system(size: 12, weight: .semibold))
@@ -328,7 +351,7 @@ struct IslandPill: View {
             .buttonStyle(IslandButtonStyle())
 
             Button {
-                model.onReplyPermission("once")
+                model.onReplyPermission("once", session.permissionId, session.port)
             } label: {
                 Text("Allow")
                     .font(.system(size: 12, weight: .semibold))
@@ -404,9 +427,9 @@ struct IslandPill: View {
             Button("Unpin — follow the busiest session") { model.onSelectSession(pin) }
             Divider()
         }
-        if showsPermissionActions {
-            Button("Allow") { model.onReplyPermission("once") }
-            Button("Deny") { model.onReplyPermission("reject") }
+        if let info = displayedSessionInfo, info.state == .permission, !info.permissionId.isEmpty, info.port > 0 {
+            Button("Allow") { model.onReplyPermission("once", info.permissionId, info.port) }
+            Button("Deny") { model.onReplyPermission("reject", info.permissionId, info.port) }
             Divider()
         }
         if NSScreen.screens.count > 1 {
@@ -583,6 +606,7 @@ private struct SessionRow: View {
         case .permission: return "Awaiting permission"
         case .done:       return "Done"
         case .error:      return "Error"
+        case .idle:       return "Idle"
         default:          return session.label.isEmpty ? "Working…" : session.label
         }
     }

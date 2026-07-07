@@ -36,7 +36,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         model.onSelectSession = { [weak self] id in self?.selectSession(id) }
         model.onQuit = { [weak self] in self?.quit() }
         model.onChooseDisplay = { [weak self] id in self?.chooseDisplay(id) }
-        model.onReplyPermission = { [weak self] reply in self?.replyPermission(reply) }
+        model.onReplyPermission = { [weak self] reply, permissionId, port in
+            self?.replyPermission(reply, permissionId: permissionId, port: port)
+        }
         windowController.install()
 
         if ProcessInfo.processInfo.environment["ISLAND_FORCE_EXPAND"] == "1" {
@@ -209,19 +211,33 @@ final class AppController: NSObject, NSApplicationDelegate {
     /// bridge stamped into the session's snapshot file. Best-effort: nikcli already
     /// times permission requests out on its own if nobody answers, so a failed POST
     /// here just means the user tries again (or answers in the terminal instead).
-    private func replyPermission(_ reply: String) {
-        guard model.permissionPort > 0, !model.permissionId.isEmpty else { return }
-        guard let url = URL(string: "http://127.0.0.1:\(model.permissionPort)/permission/\(model.permissionId)/reply") else { return }
+    ///
+    /// Takes the target permissionId/port explicitly (rather than reading model's
+    /// singular `permissionId`/`permissionPort`) because several sessions can each have
+    /// their own pending request shown at once — replying to one must not touch the
+    /// others still waiting.
+    private func replyPermission(_ reply: String, permissionId: String, port: Int32) {
+        guard port > 0, !permissionId.isEmpty else { return }
+        guard let url = URL(string: "http://127.0.0.1:\(port)/permission/\(permissionId)/reply") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: ["reply": reply])
         URLSession.shared.dataTask(with: req).resume()
-        // Optimistic: collapse the amber state immediately rather than waiting the ~0.4s
+        // Optimistic: clear just this request immediately rather than waiting the ~0.4s
         // poll for permission.replied to land in a fresh snapshot.
-        model.state = .thinking
-        model.permissionId = ""
-        setExpanded(false)
+        if let idx = model.sessions.firstIndex(where: { $0.permissionId == permissionId }) {
+            model.sessions[idx].state = .thinking
+            model.sessions[idx].permissionId = ""
+        }
+        if model.permissionId == permissionId {
+            model.state = .thinking
+            model.permissionId = ""
+        }
+        // Only drop back to the slim pill once nothing else is still waiting.
+        if !model.sessions.contains(where: { $0.state == .permission }) {
+            setExpanded(false)
+        }
     }
 
     /// Quit gracefully: de-expand to the slim bar, retract into the notch, and only
