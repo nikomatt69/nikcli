@@ -79,6 +79,15 @@ export namespace IslandBridge {
      *  until this time so fast tools (a quick Read/Edit) are still readable, then
      *  falls back to "Thinking…". Mirrors Pookify's tool-linger behavior. */
     toolEndsAt: number
+    /** Non-empty when this session is a subagent spawned via delegation (Task/Agent/
+     *  delegation.manager) — the parent's own sessionID. Lets the island tell a
+     *  subagent's row apart from its orchestrator instead of showing duplicate
+     *  "project" names when several subagents share the same cwd. */
+    parentID: string
+    /** The session's own title (e.g. a delegated task's description) — shown in the
+     *  multi-session stack in place of `project` for subagent rows, since `project`
+     *  is usually identical across a parent and all its subagents. */
+    agentTitle: string
   }
 
   const toolLingerSeconds = 1.9
@@ -192,10 +201,24 @@ export namespace IslandBridge {
 
   const known = new Map<string, Snapshot>()
 
+  /** parentID/title never change after a session is created, so this only needs to
+   *  run once per sessionID (guarded by `known` already holding a prior snapshot) —
+   *  not on every write, which would otherwise hit the DB on every status tick. */
+  async function lookupIdentity(sessionID: string): Promise<{ parentID: string; agentTitle: string }> {
+    try {
+      const { SessionRepo } = await import("@/session/repo")
+      const info = SessionRepo.get(sessionID)
+      return { parentID: info?.parentID ?? "", agentTitle: info?.title ?? "" }
+    } catch {
+      return { parentID: "", agentTitle: "" }
+    }
+  }
+
   async function write(sessionID: string, directory: string | undefined, patch: Partial<Snapshot>) {
     try {
       await ensureDirs()
       const prev = known.get(sessionID)
+      const identity = prev ? undefined : await lookupIdentity(sessionID)
       const snap: Snapshot = {
         schema: 1,
         sessionID,
@@ -210,6 +233,8 @@ export namespace IslandBridge {
         startedAt: 0,
         permissionID: "",
         toolEndsAt: 0,
+        parentID: identity?.parentID ?? prev?.parentID ?? "",
+        agentTitle: identity?.agentTitle ?? prev?.agentTitle ?? "",
         ...prev,
         ...patch,
         ts: Date.now() / 1000,

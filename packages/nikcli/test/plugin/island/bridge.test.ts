@@ -75,6 +75,18 @@ function setStatus(sessionID: string, status: SessionStatus.Info) {
   )
 }
 
+function createSession(input: { title: string; parentID?: string }) {
+  return runPromiseWithLayer(
+    Session.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const svc = yield* Session.Service
+        return yield* svc.createNext({ directory: Instance.directory, ...input })
+      }),
+    ),
+  )
+}
+
 describe("IslandBridge", () => {
   it("mirrors session.status busy -> thinking, idle -> idle", async () => {
     await withProject(async () => {
@@ -210,6 +222,31 @@ describe("IslandBridge", () => {
         info: { id: sid } as any,
       })
       await expectNoSnapshot(sid)
+    })
+  })
+
+  it("stamps parentID/agentTitle for a subagent so the island can tell it apart from its orchestrator", async () => {
+    await withProject(async () => {
+      const parent = await createSession({ title: "orchestrator run" })
+      const child = await createSession({ title: "security-review subagent", parentID: parent.id })
+
+      await Bus.publish(PermissionNext.Event.Asked, {
+        id: "per_subagent1",
+        sessionID: child.id,
+        permission: "bash",
+        patterns: ["*"],
+        metadata: {},
+        always: [],
+      })
+      const asked = await waitForSnapshot(child.id, (s) => s.state === "permission")
+      expect(asked.parentID).toBe(parent.id)
+      expect(asked.agentTitle).toBe("security-review subagent")
+
+      // The orchestrator itself has no parent, so its own snapshot must not pick up
+      // any subagent identity.
+      await setStatus(parent.id, { type: "busy", since: Date.now() })
+      const parentSnap = await waitForSnapshot(parent.id, (s) => s.state === "thinking")
+      expect(parentSnap.parentID).toBe("")
     })
   })
 

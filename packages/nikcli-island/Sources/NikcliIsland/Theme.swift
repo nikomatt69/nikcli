@@ -5,10 +5,15 @@ import IslandCore
 /// the barest overshoot, a slightly faster collapse so dismissal feels crisp, and a
 /// content cross-fade that lags the shape by a hair so content appears to grow out of
 /// the pill.
+///
+/// `appear`/`disappear` drive the whole-island reveal/retract (`notchReveal` in
+/// IslandView). Their settle time (~0.73 * response / dampingFraction) must stay in
+/// step with the asyncAfter delays in AppController that flip `opening`/`isVisible` —
+/// tune both together.
 enum Theme {
-    static let expand   = Animation.spring(response: 0.6, dampingFraction: 1.0)
-    static let appear    = Animation.spring(response: 1.4, dampingFraction: 0.86)
-    static let disappear = Animation.spring(response: 1.0, dampingFraction: 1.0)
+    static let expand    = Animation.spring(response: 0.42, dampingFraction: 0.86)
+    static let appear    = Animation.spring(response: 0.48, dampingFraction: 0.8)
+    static let disappear = Animation.spring(response: 0.34, dampingFraction: 1.0)
 
     // The pill body — pure, flat black so it fuses seamlessly with the physical notch.
     // Override with ISLAND_PILL: a grayscale value 0.0-1.0, or a hex string like #0A0A0F.

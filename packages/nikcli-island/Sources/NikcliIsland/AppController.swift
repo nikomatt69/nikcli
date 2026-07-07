@@ -76,10 +76,16 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var openingWork: DispatchWorkItem?
     private var lastDecision: IslandDecision?
 
+    /// Picks which session the pill's single-detail fields (label/detail/permissionId/…)
+    /// reflect. A pin is only overridden by auto-surfacing the top-priority session when
+    /// the pin *isn't itself* the thing demanding attention — otherwise two simultaneous
+    /// permission requests (e.g. two subagents blocked at once) would fight over the
+    /// display and whichever one the user pinned second would become unreachable.
     private func displayedSession(_ d: IslandDecision) -> SessionInfo? {
         guard let top = d.sessions.first else { return nil }
-        if top.state == .permission { return top }
-        if let pin = model.pinnedId, let s = d.sessions.first(where: { $0.id == pin }) { return s }
+        if let pin = model.pinnedId, let pinned = d.sessions.first(where: { $0.id == pin }) {
+            if pinned.state == .permission || top.state != .permission { return pinned }
+        }
         return top
     }
 
@@ -112,7 +118,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                     }
                 }
                 openingWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.15, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55, execute: work)
             }
             let shown = displayedSession(d)!
             if model.sessions != d.sessions {
@@ -151,7 +157,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                     }
                 }
                 hideWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
             } else {
                 model.isVisible = false
             }
@@ -231,11 +237,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         model.forceExpand = false
         model.collapsing = true
         setExpanded(false)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.model.isVisible = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                     MainActor.assumeIsolated { NSApp.terminate(nil) }
                 }
             }

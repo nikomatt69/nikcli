@@ -56,6 +56,9 @@ public struct SessionSnapshot: Codable, Sendable {
                                     // keep the label until this time, then treat as thinking
     public var detail: String       // small context under the label, e.g. a file basename
     public var permissionId: String // set while state == .permission; used to reply
+    public var parentId: String     // non-empty when this session is a subagent spawned
+                                     // via delegation — the parent's own sessionID
+    public var agentTitle: String   // the session's own title, shown for subagent rows
 
     public init(schema: Int = Island.stateSchema,
                 provider: Provider = .nikcli,
@@ -71,7 +74,9 @@ public struct SessionSnapshot: Codable, Sendable {
                 ts: Double = 0,
                 toolEndsAt: Double = 0,
                 detail: String = "",
-                permissionId: String = "") {
+                permissionId: String = "",
+                parentId: String = "",
+                agentTitle: String = "") {
         self.schema = schema
         self.provider = provider
         self.sessionId = sessionId
@@ -87,12 +92,15 @@ public struct SessionSnapshot: Codable, Sendable {
         self.toolEndsAt = toolEndsAt
         self.detail = detail
         self.permissionId = permissionId
+        self.parentId = parentId
+        self.agentTitle = agentTitle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schema, provider, state, label, tool, project, cwd, pid, port, startedAt, ts, toolEndsAt, detail
+        case schema, provider, state, label, tool, project, cwd, pid, port, startedAt, ts, toolEndsAt, detail, agentTitle
         case sessionId = "sessionID"
         case permissionId = "permissionID"
+        case parentId = "parentID"
     }
 
     /// Tolerate older/newer files: unknown provider/state decode to safe defaults rather
@@ -114,6 +122,8 @@ public struct SessionSnapshot: Codable, Sendable {
         toolEndsAt   = (try? c.decode(Double.self, forKey: .toolEndsAt)) ?? 0
         detail       = (try? c.decode(String.self, forKey: .detail)) ?? ""
         permissionId = (try? c.decode(String.self, forKey: .permissionId)) ?? ""
+        parentId     = (try? c.decode(String.self, forKey: .parentId)) ?? ""
+        agentTitle   = (try? c.decode(String.self, forKey: .agentTitle)) ?? ""
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -133,5 +143,7 @@ public struct SessionSnapshot: Codable, Sendable {
         try c.encode(toolEndsAt, forKey: .toolEndsAt)
         try c.encode(detail, forKey: .detail)
         try c.encode(permissionId, forKey: .permissionId)
+        try c.encode(parentId, forKey: .parentId)
+        try c.encode(agentTitle, forKey: .agentTitle)
     }
 }

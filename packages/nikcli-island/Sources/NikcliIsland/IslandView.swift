@@ -19,16 +19,23 @@ struct IslandRootView: View {
     }
 }
 
+/// Widens from a hairline slit while fading + de-blurring in, so the pill reads as
+/// materializing out of the notch rather than an instant slab that then stretches.
 private struct NotchReveal: ViewModifier {
     let progress: Double
     func body(content: Content) -> some View {
-        content.scaleEffect(x: max(0.001, progress), y: 1, anchor: .top)
+        content
+            .scaleEffect(x: max(0.001, progress), y: 0.7 + 0.3 * progress, anchor: .top)
+            .opacity(progress)
+            .blur(radius: (1 - progress) * 3)
     }
 }
 private struct NotchRetract: ViewModifier {
     let progress: Double
     func body(content: Content) -> some View {
-        content.scaleEffect(x: max(0.001, progress), y: 1, anchor: .top)
+        content
+            .scaleEffect(x: max(0.001, progress), y: 0.85 + 0.15 * progress, anchor: .top)
+            .opacity(progress)
     }
 }
 extension AnyTransition {
@@ -53,6 +60,7 @@ struct IslandPill: View {
     @ObservedObject var model: IslandModel
     @State private var hoverWork: DispatchWorkItem?
     @State private var stackEdges = StackEdges(top: false, bottom: false)
+    @State private var pressed = false
 
     private let wing: CGFloat = Theme.wing
     private let iconSize: CGFloat = 18
@@ -80,7 +88,10 @@ struct IslandPill: View {
     }
     private var pillHeight: CGFloat {
         let base = closedH + logoRowHeight + (expanded ? model.dropHeight : 0)
-        return expanded && showsPermissionActions ? base + 34 : base
+        guard expanded && showsPermissionActions else { return base }
+        // The multi-session bar adds a "Replying to …" caption above Allow/Deny so it's
+        // unambiguous which row the buttons target — a few extra points of height for it.
+        return base + 34 + (model.isMulti ? 14 : 0)
     }
 
     var body: some View {
@@ -98,15 +109,18 @@ struct IslandPill: View {
                 dropDown
                     .frame(height: model.dropHeight)
                     .opacity(expanded ? 1 : 0)
+                    .offset(y: expanded ? 0 : -4)
                 if showsPermissionActions {
                     permissionActions
                         .opacity(expanded ? 1 : 0)
+                        .offset(y: expanded ? 0 : 6)
                 }
             }
         }
         .frame(width: pillWidth, height: pillHeight, alignment: .top)
         .clipShape(shape)
         .contentShape(shape)
+        .scaleEffect(pressed ? 0.97 : 1)
         // A soft glow instead of Pookify's "no shadow, pure black" stance — light blue at
         // rest/working (echoes the accent), whiter on success. Three blurred layers,
         // each wider and fainter than the last, so the glow has a long, soft falloff
@@ -124,12 +138,21 @@ struct IslandPill: View {
                 model.hovering = false
             }
         }
+        // Tactile press feedback for the pill itself, matching IslandButtonStyle's weight
+        // so tapping the whole island feels like the same material as tapping Allow/Deny.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if !pressed { pressed = true } }
+                .onEnded { _ in pressed = false }
+        )
         .onTapGesture { model.onActivate?() }
         .contextMenu { menuItems }
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: pressed)
         .animation(Theme.expand, value: expanded)
         .animation(Theme.expand, value: model.state)
         .animation(Theme.expand, value: model.showsTimer)
         .animation(Theme.expand, value: model.sessions.count)
+        .animation(Theme.expand, value: pendingPermissionCount)
     }
 
     // MARK: closed row
@@ -149,8 +172,24 @@ struct IslandPill: View {
         }
     }
 
+    /// How many live sessions are simultaneously blocked on a permission — surfaced as
+    /// its own amber badge so "3 subagents waiting on you" is visible from the closed
+    /// pill, distinct from the plain white "N sessions working" bubble.
+    private var pendingPermissionCount: Int {
+        model.sessions.filter { $0.state == .permission }.count
+    }
+
     @ViewBuilder private var rightStatus: some View {
-        if model.isMulti && model.state.isWorking {
+        if model.isMulti && pendingPermissionCount > 0 {
+            Text("\(pendingPermissionCount)")
+                .font(.system(size: 10.5, weight: .bold).monospacedDigit())
+                .foregroundStyle(.black)
+                .lineLimit(1)
+                .padding(.horizontal, 6.5)
+                .padding(.vertical, 2.5)
+                .background(Capsule().fill(Theme.amber))
+                .transition(.scale(scale: 0.4).combined(with: .opacity))
+        } else if model.isMulti && model.state.isWorking {
             Text("\(model.sessions.count)")
                 .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
                 .foregroundStyle(.white.opacity(0.95))
@@ -164,17 +203,22 @@ struct IslandPill: View {
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
         } else {
+            // Each glyph pops in with a spring scale + fade rather than a hard cross-fade,
+            // so "Done"/"Error"/permission landing reads as a small, deliberate arrival.
             switch model.state {
             case .permission:
                 Circle().fill(Theme.amber).frame(width: 8, height: 8)
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
             case .done:
                 Image(systemName: "checkmark")
                     .font(.system(size: iconSize * 0.62, weight: .bold))
                     .foregroundStyle(Theme.accent(model.provider))
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
             case .error:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: iconSize * 0.6, weight: .semibold))
                     .foregroundStyle(Theme.amber)
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
             default:
                 Color.clear
             }
@@ -237,12 +281,37 @@ struct IslandPill: View {
     }
 
     /// Whether the currently-displayed session is an actionable permission request (has
-    /// both a request id and a known port to reply to).
+    /// both a request id and a known port to reply to). Available in multi-session mode
+    /// too — Allow/Deny must not disappear just because a subagent's siblings are also
+    /// live, or approving a delegated permission would require dropping to the terminal.
     private var showsPermissionActions: Bool {
-        !model.isMulti && model.state == .permission && !model.permissionId.isEmpty && model.permissionPort > 0
+        model.state == .permission && !model.permissionId.isEmpty && model.permissionPort > 0
+    }
+
+    /// The session `permissionActions` will actually reply to (== model.displayedId).
+    /// Only looked up to label the button row in multi-session mode, where several
+    /// rows can be visible at once and it's otherwise ambiguous which one Allow/Deny
+    /// targets.
+    private var displayedSessionInfo: SessionInfo? {
+        model.sessions.first { $0.id == model.displayedId }
     }
 
     private var permissionActions: some View {
+        VStack(spacing: 6) {
+            if model.isMulti, let info = displayedSessionInfo {
+                Text("Replying to \(info.isSubagent && !info.agentTitle.isEmpty ? info.agentTitle : info.project)")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            permissionButtons
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    private var permissionButtons: some View {
         HStack(spacing: 8) {
             Button {
                 model.onReplyPermission("reject")
@@ -271,8 +340,6 @@ struct IslandPill: View {
             }
             .buttonStyle(IslandButtonStyle())
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
     }
 
     // MARK: session stack (2+ sessions)
@@ -436,6 +503,14 @@ private struct SessionRow: View {
             Circle()
                 .fill(dotColor)
                 .frame(width: 6, height: 6)
+            // A subagent shares its parent's `project`, so several rows from the same
+            // delegation would otherwise be indistinguishable — mark it with a small
+            // turn-down glyph and prefer its own title as the row's headline instead.
+            if session.isSubagent {
+                Image(systemName: "arrow.turn.down.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
             Text(projectDisplay)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white)
@@ -470,6 +545,7 @@ private struct SessionRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
         .animation(.easeOut(duration: 0.15), value: isDisplayed)
+        .animation(Theme.expand, value: session.state)
     }
 
     private var dotColor: Color {
@@ -496,7 +572,9 @@ private struct SessionRow: View {
     }
 
     private var projectDisplay: String {
-        let p = session.project.isEmpty ? "session" : session.project
+        let p = session.isSubagent && !session.agentTitle.isEmpty
+            ? session.agentTitle
+            : (session.project.isEmpty ? "session" : session.project)
         return p.count > 20 ? p.prefix(19) + "…" : p
     }
 
@@ -518,10 +596,12 @@ private struct SessionRow: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(Theme.accent(session.provider))
+                .transition(.scale(scale: 0.4).combined(with: .opacity))
         } else if session.state == .error {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(Theme.amber)
+                .transition(.scale(scale: 0.4).combined(with: .opacity))
         }
     }
 }
