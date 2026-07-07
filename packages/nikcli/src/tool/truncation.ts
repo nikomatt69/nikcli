@@ -1,5 +1,5 @@
 import { Identifier } from "../id/id"
-import { PermissionNext } from "../permission/next"
+import { PermissionRuleset } from "../permission/ruleset"
 import type { Agent } from "../agent/agent"
 import { Scheduler } from "../scheduler"
 import { DIR as TruncationDir, GLOB as TruncationGlob, outputPath } from "./truncation-dir"
@@ -51,7 +51,7 @@ export namespace Truncate {
 
       function hasTaskTool(agent?: Agent.Info): boolean {
         if (!agent?.permission) return false
-        const rule = PermissionNext.evaluate("task", "*", agent.permission)
+        const rule = PermissionRuleset.evaluate("task", "*", agent.permission)
         return rule.action !== "deny"
       }
 

@@ -16,6 +16,7 @@ import { Storage } from "../storage/storage"
 import { runStorage, storageRead, storageRemove, storageWrite } from "@/storage/effect"
 import { Log } from "../util/log"
 import { MessageV2 } from "./message-v2"
+import { SessionPrimitives } from "./primitives"
 import { fn } from "@/util/fn"
 import { Snapshot } from "@/snapshot"
 
@@ -118,19 +119,8 @@ export namespace Session {
 
   export type MobileInfo = z.infer<typeof MobileInfo>
 
-  const parentTitlePrefix = "New session - "
-  const childTitlePrefix = "Child session - "
-  const DEFAULT_TITLE_REGEX = new RegExp(
-    `^(${parentTitlePrefix}|${childTitlePrefix})\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$`,
-  )
-
-  function createDefaultTitle(isChild = false) {
-    return (isChild ? childTitlePrefix : parentTitlePrefix) + new Date().toISOString()
-  }
-
-  export function isDefaultTitle(title: string) {
-    return DEFAULT_TITLE_REGEX.test(title)
-  }
+  const createDefaultTitle = SessionPrimitives.createDefaultTitle
+  export const isDefaultTitle = SessionPrimitives.isDefaultTitle
 
   export const Info = z
     .object({
@@ -207,7 +197,7 @@ export namespace Session {
     })
   export type ShareInfo = z.output<typeof ShareInfo>
 
-  export const ID = Identifier.schema("session")
+  export const ID = SessionPrimitives.ID
 
   export const CreateInput = z
     .object({
@@ -275,26 +265,26 @@ export namespace Session {
       }),
     ),
     Updated: BusEvent.define(
-      "session.updated",
+      SessionPrimitives.EventName.updated,
       z.object({
         info: Info,
       }),
     ),
     Deleted: BusEvent.define(
-      "session.deleted",
+      SessionPrimitives.EventName.deleted,
       z.object({
         info: Info,
       }),
     ),
     Diff: BusEvent.define(
-      "session.diff",
+      SessionPrimitives.EventName.diff,
       z.object({
         sessionID: z.string(),
         diff: Snapshot.FileDiff.array(),
       }),
     ),
     Error: BusEvent.define(
-      "session.error",
+      SessionPrimitives.EventName.error,
       z.object({
         sessionID: z.string().optional(),
         error: MessageV2.Assistant.shape.error,

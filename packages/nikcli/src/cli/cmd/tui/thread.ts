@@ -11,7 +11,7 @@ import type { EventSource } from "./context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
 import { errorMessage } from "@/util/error"
 import { Process } from "@/util/process"
-import { Session } from "@/session"
+import { SessionPrimitives } from "@/session/primitives"
 
 declare global {
   const NIKCLI_WORKER_PATH: string
@@ -107,7 +107,7 @@ export async function validateSession(input: {
 }) {
   if (!input.sessionID) return
 
-  const parsed = Session.ID.safeParse(input.sessionID)
+  const parsed = SessionPrimitives.ID.safeParse(input.sessionID)
   if (!parsed.success) {
     throw new Error(`Invalid session ID: ${input.sessionID}`)
   }

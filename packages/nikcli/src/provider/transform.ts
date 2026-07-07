@@ -644,27 +644,8 @@ function googleThinkingBudgetMax(apiId: string) {
   return 24_576
 }
 
-// OpenRouter "Fusion" (https://openrouter.ai/blog/announcements/fusion-beats-frontier/)
-// is a meta-model that routes a request through several analysis models. It is
-// exposed as selectable variants ("quality" / "budget") whose provider option
-// carries the fusion plugin config; the leading analysis model is used as the
-// primary `model`. The constants/helpers below are shared with the TUI Fusion
-// manager so built-in and custom presets use one definition.
-export const FUSION_NPM = "@openrouter/ai-sdk-provider"
-export const FUSION_MODEL_ID = "openrouter/fusion"
-
-/** Build a fusion variant value from analysis model slugs (primary defaults to the first). */
-export function fusionPreset(analysisModels: readonly string[], model?: string): Record<string, any> {
-  return {
-    plugins: [{ id: "fusion", analysis_models: [...analysisModels], model: model ?? analysisModels[0] }],
-  }
-}
-
-/** Built-in fusion presets shown (and toggleable) in the TUI Fusion manager. */
-export const FUSION_BUILTIN_VARIANTS: Record<string, Record<string, any>> = {
-  quality: fusionPreset(["~anthropic/claude-opus-latest", "~openai/gpt-latest", "~google/gemini-pro-latest"]),
-  budget: fusionPreset(["~google/gemini-flash-latest", "~moonshotai/kimi-latest", "deepseek/deepseek-v4-pro"]),
-}
+export { FUSION_NPM, FUSION_MODEL_ID, fusionPreset, FUSION_BUILTIN_VARIANTS } from "./fusion"
+import { FUSION_NPM, FUSION_MODEL_ID, FUSION_BUILTIN_VARIANTS } from "./fusion"
 
 export function variants(model: Provider.Model): Record<string, Record<string, any>> {
   if (model.api.npm === FUSION_NPM && model.api.id === FUSION_MODEL_ID) {

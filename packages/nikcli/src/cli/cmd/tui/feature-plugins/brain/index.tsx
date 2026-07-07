@@ -10,7 +10,6 @@
  */
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import { withInstanceAsync } from "@/effect"
-import { initBrainScheduler } from "@/brain/scheduler"
 
 const id = "internal:brain"
 
@@ -18,6 +17,9 @@ const tui: TuiPlugin = async (api) => {
   const directory = () => api.state.path.directory || process.cwd()
 
   await withInstanceAsync({ directory: directory() }, async () => {
+    // Lazy: the scheduler pulls the full brain/provider chain, which must not
+    // be evaluated during TUI module load.
+    const { initBrainScheduler } = await import("@/brain/scheduler")
     initBrainScheduler()
   })
 

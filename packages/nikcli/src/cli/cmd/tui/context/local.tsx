@@ -11,7 +11,7 @@ import { Global } from "@/global"
 import { iife } from "@/util/iife"
 import { createSimpleContext } from "./helper"
 import { useToast } from "../ui/toast"
-import { Provider } from "@/provider/provider"
+import { parseModel } from "@/provider/parse"
 import { useArgs } from "./args"
 import { RGBA } from "@opentui/core"
 
@@ -209,7 +209,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       const args = useArgs()
       const fallbackModel = createMemo(() => {
         if (args.model) {
-          const { providerID, modelID } = Provider.parseModel(args.model)
+          const { providerID, modelID } = parseModel(args.model)
           if (isModelValid({ providerID, modelID })) {
             return {
               providerID,
@@ -219,7 +219,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         }
 
         if (sync.data.config.model) {
-          const { providerID, modelID } = Provider.parseModel(sync.data.config.model)
+          const { providerID, modelID } = parseModel(sync.data.config.model)
           if (isModelValid({ providerID, modelID })) {
             return {
               providerID,

@@ -1,11 +1,5 @@
 import { Log } from "@/util/log"
 import { UserFacingError } from "@/util/user-error"
-import { ConfigMarkdown } from "@/config/markdown"
-import { Config } from "../config/config"
-import { MCP } from "../mcp"
-import { Provider } from "../provider/provider"
-import { Agent } from "@/agent/agent"
-import { UI } from "./ui"
 
 const log = Log.create({ service: "error-formatter" })
 

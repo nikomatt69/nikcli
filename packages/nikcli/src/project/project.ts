@@ -4,7 +4,6 @@ import path from "path"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { Flag } from "@/flag/flag"
-import { SessionRepo } from "../session/repo"
 import { BusEvent } from "@/bus/bus-event"
 import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
@@ -337,6 +336,9 @@ export namespace Project {
     const globalProject = await storageRead<Info>(["project", "global"]).catch(() => undefined)
     if (!globalProject) return
 
+    // Lazy: the session repo pulls the drizzle/database chain, which client
+    // processes loading project.ts must not evaluate at module load.
+    const { SessionRepo } = await import("../session/repo")
     const globalSessions = SessionRepo.getByProject("global")
     if (globalSessions.length === 0) return
 

@@ -42,7 +42,6 @@ import { DialogQuickstartInfo, DialogDoctorInfo, DialogSupport, openExternal } f
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
-import { DialogSkills } from "@tui/component/dialog-skills"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogSessionWarp } from "@tui/component/dialog-session-warp"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
@@ -62,11 +61,11 @@ import { AttentionProvider, useAttention } from "./context/attention"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
-import { Session as SessionApi } from "@/session"
+import { SessionPrimitives } from "@/session/primitives"
 import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
 import { LanguageProvider } from "./context/language"
-import { Provider } from "@/provider/provider"
+import { parseModel } from "@/provider/parse"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { writeHeapSnapshot } from "v8"
@@ -78,13 +77,8 @@ import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
-import { BRAIN_SESSION_TITLE } from "@/brain"
+import { BRAIN_SESSION_TITLE } from "@/brain/constants"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
-import { UserDB } from "@/user/users"
-import { DialogLogin } from "@tui/component/dialog-login"
-import { DialogOnboarding } from "@tui/component/dialog-onboarding"
-import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
-import { DialogAnalytics } from "@tui/component/dialog-analytics"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
 
@@ -301,7 +295,7 @@ function App() {
       },
       { tokens: 0, input: 0, output: 0, reasoning: 0, cost: 0 },
     )
-    const title = session?.title && !SessionApi.isDefaultTitle(session.title) ? session.title : "Untitled session"
+    const title = session?.title && !SessionPrimitives.isDefaultTitle(session.title) ? session.title : "Untitled session"
     const duration = session ? formatDuration(Date.now() - session.time.created) : undefined
     const context = usage.model?.contextLimit
       ? `${Usage.formatTokens(usage.tokens)} / ${Usage.formatTokens(usage.model.contextLimit)} (${Usage.formatPct(usage.tokens, usage.model.contextLimit)})`
@@ -337,6 +331,12 @@ function App() {
 
   onMount(() => {
     void (async () => {
+      // Lazy: UserDB pulls drizzle and the onboarding dialog pulls the speak/
+      // provider chain; neither may be evaluated during TUI module load.
+      const [{ UserDB }, { DialogOnboarding }] = await Promise.all([
+        import("@/user/users"),
+        import("@tui/component/dialog-onboarding"),
+      ])
       const isFirstRun = !UserDB.hasUsers()
 
       const storedToken = UserDB.getActiveSessionSync()
@@ -359,6 +359,7 @@ function App() {
         }
       } else if (!validUser) {
         // Returning user with no active session: standard login
+        const { DialogLogin } = await import("@tui/component/dialog-login")
         await DialogLogin.run(dialog)
       }
 
@@ -458,7 +459,7 @@ function App() {
         }
 
         if (state.type === "session" && state.sessionID) {
-          if (!state.title || SessionApi.isDefaultTitle(state.title)) {
+          if (!state.title || SessionPrimitives.isDefaultTitle(state.title)) {
             renderer.setTerminalTitle("Nikcli")
             return
           }
@@ -486,7 +487,7 @@ function App() {
     batch(() => {
       if (args.agent) local.agent.set(args.agent)
       if (args.model) {
-        const { providerID, modelID } = Provider.parseModel(args.model)
+        const { providerID, modelID } = parseModel(args.model)
         if (!providerID || !modelID)
           return toast.show({
             variant: "warning",
@@ -852,7 +853,7 @@ function App() {
         name: "skills",
       },
       onSelect: () => {
-        dialog.replace(() => <DialogSkills />)
+        void import("@tui/component/dialog-skills").then(({ DialogSkills }) => dialog.replace(() => <DialogSkills />))
       },
     },
     {
@@ -950,7 +951,9 @@ function App() {
         aliases: ["account"],
       },
       onSelect: () => {
-        dialog.replace(() => <DialogAuthManage />)
+        void import("@tui/component/dialog-auth-manage").then(({ DialogAuthManage }) =>
+          dialog.replace(() => <DialogAuthManage />),
+        )
       },
     },
     {
@@ -1028,7 +1031,9 @@ function App() {
         aliases: ["stats"],
       },
       onSelect: () => {
-        dialog.replace(() => <DialogAnalytics onClose={() => dialog.clear()} />)
+        void import("@tui/component/dialog-analytics").then(({ DialogAnalytics }) =>
+          dialog.replace(() => <DialogAnalytics onClose={() => dialog.clear()} />),
+        )
       },
       category: "Session",
     },
@@ -1207,7 +1212,7 @@ function App() {
           workspaceID: sync.session.get(evt.properties.sessionID)?.workspaceID,
         })
       }),
-      sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
+      sdk.event.on(SessionPrimitives.EventName.deleted, (evt) => {
         const deletedSessionID = evt.properties.info.id
         const currentSessionID =
           route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
@@ -1224,7 +1229,7 @@ function App() {
           })
         }
       }),
-      sdk.event.on(SessionApi.Event.Error.type, (evt) => {
+      sdk.event.on(SessionPrimitives.EventName.error, (evt) => {
         const error = evt.properties.error
         if (error && typeof error === "object" && error.name === "MessageAbortedError") return
         const sessionID = evt.properties.sessionID

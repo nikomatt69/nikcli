@@ -7,12 +7,14 @@
  * configured connector with its live health status (connected, needs auth,
  * failed, disabled), plus per-connector actions to refresh the cached status
  * or drop stored credentials.
+ *
+ * The `@/connectors` modules are imported lazily: they pull the `ai` package
+ * chain, which must not be evaluated during TUI module load.
  */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withInstanceAsync } from "@/effect"
-import { Connectors } from "@/connectors"
-import { ConnectorAuth } from "@/connectors/auth"
+import type { Connectors } from "@/connectors"
 
 const id = "internal:connectors"
 
@@ -36,6 +38,7 @@ function statusLabel(status: Connectors.Status): string {
 }
 
 async function loadStatuses(api: TuiPluginApi): Promise<StatusEntry[]> {
+  const { Connectors } = await import("@/connectors")
   const directory = api.state.path.directory || process.cwd()
   const statuses = await withInstanceAsync({ directory }, () => Connectors.status())
   const configured = (api.state.config.connectors ?? {}) as Record<string, { type?: string } | undefined>
@@ -46,7 +49,8 @@ async function loadStatuses(api: TuiPluginApi): Promise<StatusEntry[]> {
   }))
 }
 
-function removeCredentials(name: string): Promise<void> {
+async function removeCredentials(name: string): Promise<void> {
+  const { ConnectorAuth } = await import("@/connectors/auth")
   return runPromiseWithLayer(
     ConnectorAuth.defaultLayer,
     Effect.gen(function* () {
@@ -54,6 +58,10 @@ function removeCredentials(name: string): Promise<void> {
       yield* auth.remove(name)
     }),
   )
+}
+
+function invalidateConnector(name: string): Promise<void> {
+  return import("@/connectors").then(({ Connectors }) => Connectors.invalidateConnector(name))
 }
 
 function openConnector(api: TuiPluginApi, entry: StatusEntry): void {
@@ -67,8 +75,7 @@ function openConnector(api: TuiPluginApi, entry: StatusEntry): void {
           value: "refresh",
           description: "Invalidate the cached status and re-run the health check",
           onSelect() {
-            Connectors.invalidateConnector(entry.name)
-            openManager(api)
+            void invalidateConnector(entry.name).then(() => openManager(api))
           },
         },
         {
@@ -77,8 +84,8 @@ function openConnector(api: TuiPluginApi, entry: StatusEntry): void {
           description: "Drop the stored token for this connector",
           onSelect() {
             void removeCredentials(entry.name)
+              .then(() => invalidateConnector(entry.name))
               .then(() => {
-                Connectors.invalidateConnector(entry.name)
                 api.ui.toast({ message: `Removed credentials for ${entry.name}`, variant: "success" })
                 openManager(api)
               })
@@ -134,9 +141,11 @@ export function openManager(api: TuiPluginApi): void {
             value: "refresh-all",
             description: "Invalidate every cached connector status",
             onSelect() {
-              Connectors.invalidateStatus()
-              Connectors.invalidateTools()
-              openManager(api)
+              void import("@/connectors").then(({ Connectors }) => {
+                Connectors.invalidateStatus()
+                Connectors.invalidateTools()
+                openManager(api)
+              })
             },
           },
         ]}

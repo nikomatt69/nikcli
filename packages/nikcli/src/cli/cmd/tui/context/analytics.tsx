@@ -4,12 +4,6 @@ import { createSimpleContext } from "./helper"
 import { Log } from "@/util/log"
 import { Global } from "@/global"
 import type { DailyAnalytics, GlobalAnalytics, SessionAnalytics } from "@/analytics/analytics"
-import {
-  loadPersistedAnalyticsFromDataRoot,
-  mergeGlobalAnalytics,
-  mergeDailyAnalyticsLists,
-  mergeSessionAnalyticsLists,
-} from "@/analytics/analytics"
 
 const log = Log.create({ service: "analytics-context" })
 
@@ -44,6 +38,10 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
       setLoading(true)
       let gotHistorical = false
       try {
+        // Lazy: analytics.ts pulls the session/message repos (drizzle chain),
+        // which must not be evaluated during TUI module load.
+        const { loadPersistedAnalyticsFromDataRoot, mergeGlobalAnalytics, mergeDailyAnalyticsLists, mergeSessionAnalyticsLists } =
+          await import("@/analytics/analytics")
         const dataRoot = Global.Path.data
         const disk = await loadPersistedAnalyticsFromDataRoot(dataRoot)
         if (disk.global) gotHistorical = true

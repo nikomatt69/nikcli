@@ -106,7 +106,8 @@ const LOCK_DURATION_MS = 60 * 60 * 1000 // 1 hour
 const BRAIN_SESSION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 const SESSION_REVIEW_LIMIT = 10
 const SESSION_REVIEW_MAX_CHARS = 12_000
-export const BRAIN_SESSION_TITLE = "Brain: Memory Consolidation"
+export { BRAIN_SESSION_TITLE } from "./constants"
+import { BRAIN_SESSION_TITLE } from "./constants"
 
 function memoryPath(): string {
   return path.join(Instance.directory, ".github", "instructions", "memory.instruction.md")

@@ -1,4 +1,5 @@
 import fuzzysort from "fuzzysort"
+import { parseModel as parseModelLight } from "./parse"
 import { Config } from "../config/config"
 import { mapValues, mergeDeep, omit, pickBy, sortBy } from "remeda"
 import { NoSuchModelError, type Provider as SDK } from "ai"
@@ -22,28 +23,12 @@ import {
   type InstanceContext,
 } from "@/effect"
 
-// Direct imports for bundled providers
-import { createAmazonBedrock, type AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
-import { createAnthropic } from "@ai-sdk/anthropic"
-import { createAzure } from "@ai-sdk/azure"
-import { createGoogleGenerativeAI } from "@ai-sdk/google"
-import { createVertex } from "@ai-sdk/google-vertex"
-import { createVertexAnthropic } from "@ai-sdk/google-vertex/anthropic"
-import { createOpenAI } from "@ai-sdk/openai"
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
-import { createOpenRouter, type LanguageModelV2 } from "@openrouter/ai-sdk-provider"
-import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/copilot"
-import { createXai } from "@ai-sdk/xai"
-import { createMistral } from "@ai-sdk/mistral"
-import { createGroq } from "@ai-sdk/groq"
-import { createDeepInfra } from "@ai-sdk/deepinfra"
-import { createCerebras } from "@ai-sdk/cerebras"
-import { createCohere } from "@ai-sdk/cohere"
-import { createGateway } from "@ai-sdk/gateway"
-import { createTogetherAI } from "@ai-sdk/togetherai"
-import { createPerplexity } from "@ai-sdk/perplexity"
-import { createVercel } from "@ai-sdk/vercel"
-import { createGitLab } from "@gitlab/gitlab-ai-provider"
+// Bundled provider SDKs are loaded lazily (see BUNDLED_PROVIDERS): evaluating
+// all twenty packages eagerly costs ~2s at process start, while a session only
+// ever touches the ones it actually uses.
+import type { AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
+import type { LanguageModelV2 } from "@openrouter/ai-sdk-provider"
+import type { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
 import { ProviderError } from "./error"
 
@@ -382,31 +367,32 @@ export namespace Provider {
     return isGpt5OrLater(modelID) && !modelID.startsWith("gpt-5-mini")
   }
 
-  const BUNDLED_PROVIDERS: Record<string, (options: Record<string, unknown>) => SDK> = {
-    "@ai-sdk/amazon-bedrock": createAmazonBedrock,
-    "@ai-sdk/anthropic": createAnthropic,
-    "@ai-sdk/azure": createAzure,
-    "@ai-sdk/google": createGoogleGenerativeAI,
-    "@ai-sdk/google-vertex": createVertex,
-    "@ai-sdk/google-vertex/anthropic": createVertexAnthropic,
-    "@ai-sdk/openai": createOpenAI,
-    "@ai-sdk/openai-compatible": createOpenAICompatible as unknown as (options: Record<string, unknown>) => SDK,
-    "@openrouter/ai-sdk-provider": createOpenRouter,
-    "@ai-sdk/xai": createXai,
-    "@ai-sdk/mistral": createMistral,
-    "@ai-sdk/groq": createGroq,
-    "@ai-sdk/deepinfra": createDeepInfra,
-    "@ai-sdk/cerebras": createCerebras,
-    "@ai-sdk/cohere": createCohere,
-    "@ai-sdk/gateway": createGateway,
-    "@ai-sdk/togetherai": createTogetherAI,
-    "@ai-sdk/perplexity": createPerplexity,
-    "@ai-sdk/vercel": createVercel,
-    "@gitlab/gitlab-ai-provider": createGitLab,
-    // @ts-ignore provider package exposes a compatibility factory not covered by current typings
-    "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible as unknown as (
-      options: Record<string, unknown>,
-    ) => SDK,
+  type BundledFactory = (options: Record<string, unknown>) => SDK
+  const BUNDLED_PROVIDERS: Record<string, () => Promise<BundledFactory>> = {
+    "@ai-sdk/amazon-bedrock": () => import("@ai-sdk/amazon-bedrock").then((m) => m.createAmazonBedrock),
+    "@ai-sdk/anthropic": () => import("@ai-sdk/anthropic").then((m) => m.createAnthropic),
+    "@ai-sdk/azure": () => import("@ai-sdk/azure").then((m) => m.createAzure),
+    "@ai-sdk/google": () => import("@ai-sdk/google").then((m) => m.createGoogleGenerativeAI),
+    "@ai-sdk/google-vertex": () => import("@ai-sdk/google-vertex").then((m) => m.createVertex),
+    "@ai-sdk/google-vertex/anthropic": () =>
+      import("@ai-sdk/google-vertex/anthropic").then((m) => m.createVertexAnthropic),
+    "@ai-sdk/openai": () => import("@ai-sdk/openai").then((m) => m.createOpenAI),
+    "@ai-sdk/openai-compatible": () =>
+      import("@ai-sdk/openai-compatible").then((m) => m.createOpenAICompatible as unknown as BundledFactory),
+    "@openrouter/ai-sdk-provider": () => import("@openrouter/ai-sdk-provider").then((m) => m.createOpenRouter),
+    "@ai-sdk/xai": () => import("@ai-sdk/xai").then((m) => m.createXai),
+    "@ai-sdk/mistral": () => import("@ai-sdk/mistral").then((m) => m.createMistral),
+    "@ai-sdk/groq": () => import("@ai-sdk/groq").then((m) => m.createGroq),
+    "@ai-sdk/deepinfra": () => import("@ai-sdk/deepinfra").then((m) => m.createDeepInfra),
+    "@ai-sdk/cerebras": () => import("@ai-sdk/cerebras").then((m) => m.createCerebras),
+    "@ai-sdk/cohere": () => import("@ai-sdk/cohere").then((m) => m.createCohere),
+    "@ai-sdk/gateway": () => import("@ai-sdk/gateway").then((m) => m.createGateway),
+    "@ai-sdk/togetherai": () => import("@ai-sdk/togetherai").then((m) => m.createTogetherAI),
+    "@ai-sdk/perplexity": () => import("@ai-sdk/perplexity").then((m) => m.createPerplexity),
+    "@ai-sdk/vercel": () => import("@ai-sdk/vercel").then((m) => m.createVercel),
+    "@gitlab/gitlab-ai-provider": () => import("@gitlab/gitlab-ai-provider").then((m) => m.createGitLab),
+    "@ai-sdk/github-copilot": () =>
+      import("./sdk/copilot").then((m) => m.createOpenaiCompatible as unknown as BundledFactory),
   }
 
   type CustomModelLoader = (sdk: SDK, modelID: string, options?: Record<string, unknown>) => Promise<unknown>
@@ -1628,7 +1614,8 @@ export namespace Provider {
       const bundledFn = BUNDLED_PROVIDERS[bundledKey]
       if (bundledFn) {
         log.info("using bundled provider", { providerID: model.providerID, pkg: bundledKey })
-        const loaded = bundledFn({
+        const create = await bundledFn()
+        const loaded = create({
           name: model.providerID,
           ...options,
         })
@@ -2021,13 +2008,7 @@ export namespace Provider {
     )
   }
 
-  export function parseModel(model: string) {
-    const [providerID, ...rest] = model.split("/")
-    return {
-      providerID: providerID,
-      modelID: rest.join("/"),
-    }
-  }
+  export const parseModel = parseModelLight
 
   export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundError>()("ProviderModelNotFoundError", {
     providerID: Schema.String,
