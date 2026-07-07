@@ -295,7 +295,8 @@ function App() {
       },
       { tokens: 0, input: 0, output: 0, reasoning: 0, cost: 0 },
     )
-    const title = session?.title && !SessionPrimitives.isDefaultTitle(session.title) ? session.title : "Untitled session"
+    const title =
+      session?.title && !SessionPrimitives.isDefaultTitle(session.title) ? session.title : "Untitled session"
     const duration = session ? formatDuration(Date.now() - session.time.created) : undefined
     const context = usage.model?.contextLimit
       ? `${Usage.formatTokens(usage.tokens)} / ${Usage.formatTokens(usage.model.contextLimit)} (${Usage.formatPct(usage.tokens, usage.model.contextLimit)})`

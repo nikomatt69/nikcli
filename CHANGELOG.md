@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.146.0 (July 2026)
+
+## Core
+
+- Cut server chains from TUI module graph, lazy-load bundled AI SDKs (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - perf(nikcli): cut server chains from TUI module graph, lazy-load bundled AI SDKs
+
 ## v1.143.0 (July 2026)
 
 ## Core
