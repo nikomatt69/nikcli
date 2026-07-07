@@ -15,10 +15,7 @@ export default function RoutinesLayout() {
         animation: "slide_from_right",
       }}
     >
-      <Stack.Screen
-        name="index"
-        options={{ title: "Routines", headerShown: false }}
-      />
+      <Stack.Screen name="index" options={{ title: "Routines", headerShown: false }} />
       <Stack.Screen name="[routineId]" options={{ title: "Routine" }} />
     </Stack>
   )

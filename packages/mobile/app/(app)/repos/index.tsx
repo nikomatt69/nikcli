@@ -445,9 +445,7 @@ export default function ReposScreen() {
                   ) : null}
 
                   <View className="mt-4 rounded-[8px] border border-border bg-background/70 p-4">
-                    <Text className="text-[12px] font-medium text-muted">
-                      Launch summary
-                    </Text>
+                    <Text className="text-[12px] font-medium text-muted">Launch summary</Text>
                     <Text className="mt-2 text-sm leading-6 text-soft">
                       {`Worktree source: ${selectedRepo.full_name} from ${baseBranchByRepo[selectedRepo.full_name] ?? (selectedRepo.default_branch || "main")}.`}
                     </Text>
@@ -512,9 +510,7 @@ export default function ReposScreen() {
                 <View key={repo.id}>
                   {index > 0 ? <Divider inset={24} /> : null}
                   <ListRow
-                    leading={
-                      <StatusDot color={repo.imported ? palette.success : hexToRgba(palette.ink, 0.25)} />
-                    }
+                    leading={<StatusDot color={repo.imported ? palette.success : hexToRgba(palette.ink, 0.25)} />}
                     title={repo.full_name || repo.name}
                     subtitle={repoSubtitle(repo)}
                     trailing={

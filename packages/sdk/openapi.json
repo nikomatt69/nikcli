@@ -8786,6 +8786,91 @@
         ]
       }
     },
+    "/sync/config": {
+      "post": {
+        "operationId": "sync.config.set",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Save the remote hub settings to the global config file",
+        "description": "Persists `sync.url` / `sync.token` in the global nikcli.json so the TUI can configure the hub without env vars. NIKCLI_REMOTE_URL / NIKCLI_REMOTE_TOKEN still override the saved values. When the result is fully configured, the hub connection is started immediately.",
+        "responses": {
+          "200": {
+            "description": "Resolved sync configuration after the save",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": ["env", "config"]
+                    },
+                    "started": {
+                      "type": "boolean"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["configured", "started"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hub URL"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "Omit to keep the token already saved in the config file",
+                    "type": "string"
+                  },
+                  "autostart": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["url"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.sync.config.set({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/sync/connect": {
       "post": {
         "operationId": "sync.connect",
@@ -19413,6 +19498,9 @@
               "method": {
                 "type": "string",
                 "enum": ["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]
+              },
+              "current": {
+                "type": "string"
               }
             },
             "required": ["version"]
@@ -22412,6 +22500,30 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.workspace.status": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "workspace.status"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "workspaceID": {
+                "type": "string",
+                "pattern": "^wrk.*"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["connecting", "connected", "disconnected", "error"]
+              }
+            },
+            "required": ["workspaceID", "status"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.session.v2.updated": {
         "type": "object",
         "properties": {
@@ -22606,46 +22718,6 @@
               }
             },
             "required": ["message"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.workspace.status": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "workspace.status"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "workspaceID": {
-                "type": "string",
-                "pattern": "^wrk.*"
-              },
-              "status": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "const": "connecting"
-                  },
-                  {
-                    "type": "string",
-                    "const": "connected"
-                  },
-                  {
-                    "type": "string",
-                    "const": "disconnected"
-                  },
-                  {
-                    "type": "string",
-                    "const": "error"
-                  }
-                ]
-              }
-            },
-            "required": ["workspaceID", "status"]
           }
         },
         "required": ["type", "properties"]
@@ -23151,6 +23223,9 @@
             "$ref": "#/components/schemas/Event.monitor.completed"
           },
           {
+            "$ref": "#/components/schemas/Event.workspace.status"
+          },
+          {
             "$ref": "#/components/schemas/Event.session.v2.updated"
           },
           {
@@ -23173,9 +23248,6 @@
           },
           {
             "$ref": "#/components/schemas/Event.workspace.failed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.workspace.status"
           },
           {
             "$ref": "#/components/schemas/Event.delegation.completed"
@@ -25618,6 +25690,25 @@
           },
           "snapshot": {
             "type": "boolean"
+          },
+          "sync": {
+            "description": "Optional hub-and-spoke remote sync settings, manageable from the TUI /sync dialog",
+            "type": "object",
+            "properties": {
+              "url": {
+                "description": "Remote sync hub URL, e.g. https://s.nikcli.store. NIKCLI_REMOTE_URL overrides this.",
+                "type": "string"
+              },
+              "token": {
+                "description": "cli-sync scoped bearer token for the remote hub. NIKCLI_REMOTE_TOKEN overrides this.",
+                "type": "string"
+              },
+              "autostart": {
+                "description": "Connect to the hub automatically at startup (default true when url + token are set)",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
           },
           "share": {
             "description": "Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing",

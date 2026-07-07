@@ -18,18 +18,18 @@ nikcli doesn't have that constraint: it already has a live, in-process event bus
 compiled hook helper:
 
 - **`packages/nikcli/src/plugin/island/bridge.ts`** — started unconditionally from
-  `src/index.ts`'s top-level middleware (so it runs for *any* nikcli invocation: `nikcli
-  tui`, a one-shot `nikcli run`, `nikcli serve` — not just the TUI). It listens on
+  `src/index.ts`'s top-level middleware (so it runs for _any_ nikcli invocation: `nikcli
+tui`, a one-shot `nikcli run`, `nikcli serve` — not just the TUI). It listens on
   `GlobalBus` (`src/bus/global.ts`), which every `Bus.publish(...)` call already forwards
   to regardless of mode, and mirrors each session's state into a small JSON file per
   session under `~/Library/Application Support/NikcliIsland/state.d/`.
 - **This Swift package** reads those files (`SessionAggregator.swift`, ported from
-  Pookify's file-polling design almost unchanged — that part *is* agent-agnostic) and
+  Pookify's file-polling design almost unchanged — that part _is_ agent-agnostic) and
   draws the notch (`IslandView.swift`, `NotchWindow.swift`, `IslandShape.swift`,
   `NSScreen+Notch.swift` — all reused from Pookify essentially verbatim, since window/
   shape/animation code has nothing agent-specific in it).
 - Each snapshot also carries the writing process's local server port. Because that's a
-  *live* nikcli process with a real HTTP API — not a one-way hook — the island can POST
+  _live_ nikcli process with a real HTTP API — not a one-way hook — the island can POST
   straight to `/permission/:requestID/reply` to **approve or deny a permission request
   from the notch**. Pookify can only ever display Claude Code's permission state; it has
   no channel back into the agent.

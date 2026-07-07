@@ -1,14 +1,12 @@
-import type { Argv } from "yargs";
-import { UI } from "../ui";
-import * as prompts from "@clack/prompts";
-import { Installation } from "../../installation";
-import { runPromiseWithLayer } from "@/effect";
-import { Effect } from "effect";
+import type { Argv } from "yargs"
+import { UI } from "../ui"
+import * as prompts from "@clack/prompts"
+import { Installation } from "../../installation"
+import { runPromiseWithLayer } from "@/effect"
+import { Effect } from "effect"
 
-function runInstallation<A, E>(
-  effect: Effect.Effect<A, E, Installation.Service>,
-) {
-  return runPromiseWithLayer(Installation.defaultLayer, effect);
+function runInstallation<A, E>(effect: Effect.Effect<A, E, Installation.Service>) {
+  return runPromiseWithLayer(Installation.defaultLayer, effect)
 }
 
 export const UpgradeCommand = {
@@ -25,24 +23,22 @@ export const UpgradeCommand = {
         describe: "installation method to use",
         type: "string",
         choices: ["curl", "npm", "pnpm", "bun", "brew", "choco", "scoop"],
-      });
+      })
   },
   handler: async (args: { target?: string; method?: string }) => {
-    UI.empty();
-    UI.println(UI.logo("  "));
-    UI.empty();
-    prompts.intro("Upgrade");
+    UI.empty()
+    UI.println(UI.logo("  "))
+    UI.empty()
+    prompts.intro("Upgrade")
     const detectedMethod = await runInstallation(
       Effect.gen(function* () {
-        const installation = yield* Installation.Service;
-        return yield* installation.method();
+        const installation = yield* Installation.Service
+        return yield* installation.method()
       }),
-    );
-    const method = (args.method as Installation.Method) ?? detectedMethod;
+    )
+    const method = (args.method as Installation.Method) ?? detectedMethod
     if (method === "unknown") {
-      prompts.log.error(
-        `nikcli is installed to ${process.execPath} and may be managed by a package manager`,
-      );
+      prompts.log.error(`nikcli is installed to ${process.execPath} and may be managed by a package manager`)
       const install = await prompts.select({
         message: "Install anyways?",
         options: [
@@ -50,57 +46,50 @@ export const UpgradeCommand = {
           { label: "No", value: false },
         ],
         initialValue: false,
-      });
+      })
       if (!install) {
-        prompts.outro("Done");
-        return;
+        prompts.outro("Done")
+        return
       }
     }
-    prompts.log.info("Using method: " + method);
+    prompts.log.info("Using method: " + method)
     const target = args.target
       ? args.target.replace(/^v/, "")
       : await runInstallation(
           Effect.gen(function* () {
-            const installation = yield* Installation.Service;
-            return yield* installation.latest();
+            const installation = yield* Installation.Service
+            return yield* installation.latest()
           }),
-        );
+        )
 
     if (Installation.VERSION === target) {
-      prompts.log.warn(
-        `nikcli upgrade skipped: ${target} is already installed`,
-      );
-      prompts.outro("Done");
-      return;
+      prompts.log.warn(`nikcli upgrade skipped: ${target} is already installed`)
+      prompts.outro("Done")
+      return
     }
 
-    prompts.log.info(`From ${Installation.VERSION} → ${target}`);
-    const spinner = prompts.spinner();
-    spinner.start("Upgrading...");
+    prompts.log.info(`From ${Installation.VERSION} → ${target}`)
+    const spinner = prompts.spinner()
+    spinner.start("Upgrading...")
     const err = await runInstallation(
       Effect.gen(function* () {
-        const installation = yield* Installation.Service;
-        return yield* installation.upgrade(method, target);
+        const installation = yield* Installation.Service
+        return yield* installation.upgrade(method, target)
       }),
-    ).catch((err) => err);
+    ).catch((err) => err)
     if (err) {
-      spinner.stop("Upgrade failed", 1);
+      spinner.stop("Upgrade failed", 1)
       if (err instanceof Installation.UpgradeFailedError) {
-        if (
-          method === "choco" &&
-          err.stderr.includes("not running from an elevated command shell")
-        ) {
-          prompts.log.error(
-            "Please run the terminal as Administrator and try again",
-          );
+        if (method === "choco" && err.stderr.includes("not running from an elevated command shell")) {
+          prompts.log.error("Please run the terminal as Administrator and try again")
         } else {
-          prompts.log.error(err.stderr);
+          prompts.log.error(err.stderr)
         }
-      } else if (err instanceof Error) prompts.log.error(err.message);
-      prompts.outro("Done");
-      process.exit(1);
+      } else if (err instanceof Error) prompts.log.error(err.message)
+      prompts.outro("Done")
+      process.exit(1)
     }
-    spinner.stop("Upgrade complete");
-    prompts.outro("Done");
+    spinner.stop("Upgrade complete")
+    prompts.outro("Done")
   },
-};
+}

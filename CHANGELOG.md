@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.143.0 (July 2026)
+
+## Core
+
+- Add Island plugin to internal TUI plugins and enhance IslandBridge functionality (@nikomatt69)
+- Integrate IslandBridge for improved event handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): integrate IslandBridge for improved event handling
+  - feat(nikcli): add Island plugin to internal TUI plugins and enhance IslandBridge functionality
+
 ## v1.137.0 (July 2026)
 
 ## Core
