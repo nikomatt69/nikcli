@@ -3,9 +3,11 @@ import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun";
 import { Context, Layer } from "effect";
 import { InstanceRef, sharedMemoMap } from "@/effect";
 import { Instance } from "@/project/instance";
+import { ChatbotHttp } from "./chatbot";
 import { HttpApiEvent } from "./event";
 import { HttpApiPrompt } from "./prompt";
 import { PublicHttpApi } from "./public";
+import { UsersHttp } from "./users";
 
 export namespace HttpApiBridge {
   const implementedRoutes = [
@@ -16,6 +18,13 @@ export namespace HttpApiBridge {
     ["DELETE", /^\/session\/[^/]+\/message\/[^/]+\/part\/[^/]+$/],
     ["DELETE", /^\/experimental\/workspace\/[^/]+$/],
     ["GET", /^\/agent$/],
+    ["GET", /^\/brain\/?$/],
+    ["POST", /^\/brain\/trigger$/],
+    ["GET", /^\/connectors\/?$/],
+    ["POST", /^\/connectors\/[^/]+\/auth$/],
+    ["DELETE", /^\/connectors\/[^/]+\/auth$/],
+    ["POST", /^\/connectors\/invalidate$/],
+    ["POST", /^\/chatbot\/(discord|slack|teams|gchat|linear|github)\/[^/]+$/],
     ["GET", /^\/analytics\/global$/],
     ["GET", /^\/analytics\/daily$/],
     ["GET", /^\/analytics\/session\/[^/]+$/],
@@ -76,6 +85,17 @@ export namespace HttpApiBridge {
     ["GET", /^\/session\/[^/]+\/message$/],
     ["GET", /^\/session\/[^/]+\/message\/[^/]+$/],
     ["GET", /^\/session\/[^/]+\/todo$/],
+    ["GET", /^\/session\/[^/]+\/instructions$/],
+    ["GET", /^\/session\/[^/]+\/context$/],
+    ["POST", /^\/session\/[^/]+\/context\/toggle$/],
+    ["GET", /^\/session\/[^/]+\/goal$/],
+    ["GET", /^\/session\/[^/]+\/background$/],
+    ["GET", /^\/session\/[^/]+\/background\/[^/]+$/],
+    ["GET", /^\/session\/[^/]+\/background\/[^/]+\/read$/],
+    ["POST", /^\/session\/[^/]+\/background\/[^/]+\/cancel$/],
+    ["GET", /^\/session\/[^/]+\/monitor\/[^/]+$/],
+    ["GET", /^\/session\/[^/]+\/monitor\/[^/]+\/log$/],
+    ["POST", /^\/session\/[^/]+\/monitor\/[^/]+\/cancel$/],
     ["GET", /^\/session\/[^/]+\/v2\/entries$/],
     ["GET", /^\/session\/[^/]+\/v2\/state$/],
     ["GET", /^\/session\/[^/]+\/v2\/events$/],
@@ -162,6 +182,14 @@ export namespace HttpApiBridge {
     ["GET", /^\/global\/health$/],
     ["GET", /^\/global\/event$/],
     ["POST", /^\/global\/dispose$/],
+    ["POST", /^\/user\/register$/],
+    ["POST", /^\/user\/login$/],
+    ["POST", /^\/user\/logout$/],
+    ["GET", /^\/user\/me$/],
+    ["GET", /^\/user\/status$/],
+    ["GET", /^\/user\/list$/],
+    ["PATCH", /^\/user\/[^/]+$/],
+    ["DELETE", /^\/user\/[^/]+$/],
   ] as const;
 
   const handler = HttpRouter.toWebHandler(
@@ -193,11 +221,18 @@ export namespace HttpApiBridge {
     );
   }
 
-  /** Serve an instance-less `/global/*` request. Reads no Instance ALS. */
-  export function handleGlobal(request: Request) {
+  /** Serve an instance-less `/global/*` or `/user/*` request. Reads no Instance ALS. */
+  export async function handleGlobal(request: Request) {
     const pathname = new URL(request.url).pathname;
     if (request.method === "GET" && pathname === "/global/event") {
-      return Promise.resolve(HttpApiEvent.handle());
+      return HttpApiEvent.handle();
+    }
+    if (pathname.startsWith("/user/")) {
+      // Raw handlers: the legacy /user routes are outside the OpenAPI surface
+      // and reuse one { error } body shape across statuses, which the HttpApi
+      // error encoder cannot discriminate.
+      const response = await UsersHttp.handle(request);
+      if (response) return response;
     }
     return handler(request, Context.empty() as Context.Context<any>);
   }
@@ -219,6 +254,13 @@ export namespace HttpApiBridge {
           request,
           decodeURIComponent(promptAsync[1]),
         );
+      if (pathname.startsWith("/chatbot/")) {
+        // Webhook receivers need the raw Request (signature verification), so
+        // they bypass the schema-encoding router like the other specials.
+        return ChatbotHttp.handle(request).then(
+          (response) => response ?? new Response("Not Found", { status: 404 }),
+        );
+      }
     }
     return handler(
       request,

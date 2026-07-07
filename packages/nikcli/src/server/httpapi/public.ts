@@ -4,7 +4,9 @@ import { PermissionNext } from "@/permission/next";
 import { Project } from "@/project/project";
 import { Question } from "@/question";
 import { AnalyticsHttpApi } from "./analytics";
+import { BrainHttpApi } from "./brain";
 import { ConfigHttpApi } from "./config";
+import { ConnectorsHttpApi } from "./connectors";
 import { DoctorHttpApi } from "./doctor";
 import { ExperimentalHttpApi } from "./experimental";
 import { FileHttpApi } from "./file";
@@ -25,7 +27,9 @@ export namespace PublicHttpApi {
   export const Api = HttpApi.make("nikcli")
     .add(TopLevelHttpApi.Group)
     .add(AnalyticsHttpApi.Group)
+    .add(BrainHttpApi.Group)
     .add(ConfigHttpApi.Group)
+    .add(ConnectorsHttpApi.Group)
     .add(DoctorHttpApi.Group)
     .add(ExperimentalHttpApi.Group)
     .add(FileHttpApi.Group)
@@ -254,6 +258,29 @@ export namespace PublicHttpApi {
       .handle("dispose", () => GlobalHttpApi.handlers.dispose()),
   );
 
+  const BrainHandlersLive = HttpApiBuilder.group(Api, "brain", (handlers) =>
+    handlers
+      .handle("status", () => BrainHttpApi.handlers.status())
+      .handle("trigger", (request) => BrainHttpApi.handlers.trigger(request)),
+  );
+
+  const ConnectorsHandlersLive = HttpApiBuilder.group(
+    Api,
+    "connectors",
+    (handlers) =>
+      handlers
+        .handle("status", () => ConnectorsHttpApi.handlers.status())
+        .handle("authSet", (request) =>
+          ConnectorsHttpApi.handlers.authSet(request),
+        )
+        .handle("authRemove", (request) =>
+          ConnectorsHttpApi.handlers.authRemove(request),
+        )
+        .handle("invalidate", (request) =>
+          ConnectorsHttpApi.handlers.invalidate(request),
+        ),
+  );
+
   const AnalyticsHandlersLive = HttpApiBuilder.group(
     Api,
     "analytics",
@@ -339,6 +366,35 @@ export namespace PublicHttpApi {
       .handle("v2State", (request) => SessionHttpApi.handlers.v2State(request))
       .handle("v2Events", (request) =>
         SessionHttpApi.handlers.v2Events(request),
+      )
+      .handle("instructions", (request) =>
+        SessionHttpApi.handlers.instructions(request),
+      )
+      .handle("contextBreakdown", (request) =>
+        SessionHttpApi.handlers.contextBreakdown(request),
+      )
+      .handle("contextToggle", (request) =>
+        SessionHttpApi.handlers.contextToggle(request),
+      )
+      .handle("goal", (request) => SessionHttpApi.handlers.goal(request))
+      .handle("background", (request) =>
+        SessionHttpApi.handlers.background(request),
+      )
+      .handle("backgroundInspect", (request) =>
+        SessionHttpApi.handlers.backgroundInspect(request),
+      )
+      .handle("backgroundRead", (request) =>
+        SessionHttpApi.handlers.backgroundRead(request),
+      )
+      .handle("backgroundCancel", (request) =>
+        SessionHttpApi.handlers.backgroundCancel(request),
+      )
+      .handle("monitor", (request) => SessionHttpApi.handlers.monitor(request))
+      .handle("monitorLog", (request) =>
+        SessionHttpApi.handlers.monitorLog(request),
+      )
+      .handle("monitorCancel", (request) =>
+        SessionHttpApi.handlers.monitorCancel(request),
       ),
   );
 
@@ -349,7 +405,11 @@ export namespace PublicHttpApi {
           Layer.provide(TopLevelHttpApi.DependenciesLive),
         ),
         AnalyticsHandlersLive,
+        BrainHandlersLive,
         ConfigHandlersLive.pipe(Layer.provide(ConfigHttpApi.DependenciesLive)),
+        ConnectorsHandlersLive.pipe(
+          Layer.provide(ConnectorsHttpApi.DependenciesLive),
+        ),
         DoctorHandlersLive.pipe(Layer.provide(DoctorHttpApi.DependenciesLive)),
         ExperimentalHandlersLive.pipe(
           Layer.provide(ExperimentalHttpApi.DependenciesLive),

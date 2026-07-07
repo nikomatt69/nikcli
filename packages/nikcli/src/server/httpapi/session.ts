@@ -4,9 +4,13 @@ import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
 import { Delegation } from "@/delegation/manager"
 import { InstanceState } from "@/effect"
+import { Log } from "@/util/log"
+import { MCP } from "@/mcp"
 import { Monitor } from "@/monitor/manager"
 import { PermissionNext } from "@/permission/next"
 import { Session } from "@/session"
+import { SessionContext } from "@/session/context-breakdown"
+import { SessionGoal } from "@/session/goal"
 import { ShareNext } from "@/share/share-next"
 import { Storage } from "@/storage/storage"
 import { MessageV2 } from "@/session/message-v2"
@@ -20,6 +24,8 @@ import { SessionV2 } from "@/session/v2"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 
 export namespace SessionHttpApi {
+  const log = Log.create({ service: "httpapi.session" })
+
   const BooleanFromString = Schema.String.pipe(
     Schema.decodeTo(Schema.Boolean, {
       decode: SchemaGetter.transform((value: string) => value === "true"),
@@ -153,6 +159,11 @@ export namespace SessionHttpApi {
     name: Schema.Literal("NotFoundError"),
     data: Schema.Record(Schema.String, Schema.Unknown),
   }).annotate({ identifier: "SessionNotFoundError", httpApiStatus: 404 })
+  /** The background list route returns a bare `{ error }` 404, unlike the
+   * `{ name, data }` shape used everywhere else — preserved for parity. */
+  const BackgroundNotFound = Schema.Struct({
+    error: Schema.Literal("Session not found"),
+  }).annotate({ identifier: "SessionBackgroundNotFound", httpApiStatus: 404 })
   const Busy = Schema.Struct({
     name: Schema.Literal("SessionBusyError"),
     data: Schema.Record(Schema.String, Schema.Unknown),
@@ -188,6 +199,30 @@ export namespace SessionHttpApi {
   // dropping undefined keys without changing the schema contract for callers.
   // Returning `T` keeps handler signatures inferable for HttpApi.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
+
+  const InstructionList = Schema.Array(
+    Schema.Struct({ path: Schema.String, name: Schema.String }),
+  ).annotate({ identifier: "SessionInstructionList" })
+
+  const ContextTogglePayload = Schema.Struct({
+    kind: Schema.Literals(["mcp", "skill", "instruction", "tool"]),
+    key: Schema.String,
+    enabled: Schema.Boolean,
+  }).annotate({ identifier: "SessionContextToggleInput" })
+
+  const DelegationPath = Schema.Struct({
+    sessionID: Schema.String,
+    delegationID: Schema.String,
+  })
+
+  const MonitorPath = Schema.Struct({
+    sessionID: Schema.String,
+    monitorID: Schema.String,
+  })
+
+  const MonitorLogQuery = Schema.Struct({
+    lines: Schema.optional(Schema.NumberFromString),
+  })
 
   export const Group = HttpApiGroup.make("session")
     .add(
@@ -377,6 +412,81 @@ export namespace SessionHttpApi {
       HttpApiEndpoint.get("v2Events", "/:sessionID/v2/events", {
         params: SessionIDPath,
         success: SessionV2EventList,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("instructions", "/:sessionID/instructions", {
+        params: SessionIDPath,
+        success: InstructionList,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("contextBreakdown", "/:sessionID/context", {
+        params: SessionIDPath,
+        success: Schema.Unknown,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("contextToggle", "/:sessionID/context/toggle", {
+        params: SessionIDPath,
+        payload: ContextTogglePayload,
+        success: Schema.Unknown,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("goal", "/:sessionID/goal", {
+        params: SessionIDPath,
+        success: Schema.Unknown,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("background", "/:sessionID/background", {
+        params: SessionIDPath,
+        success: Schema.Unknown,
+        error: BackgroundNotFound,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("backgroundInspect", "/:sessionID/background/:delegationID", {
+        params: DelegationPath,
+        success: Schema.Unknown,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("backgroundRead", "/:sessionID/background/:delegationID/read", {
+        params: DelegationPath,
+        success: Schema.String,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("backgroundCancel", "/:sessionID/background/:delegationID/cancel", {
+        params: DelegationPath,
+        success: Schema.Boolean,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("monitor", "/:sessionID/monitor/:monitorID", {
+        params: MonitorPath,
+        success: Schema.Unknown,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("monitorLog", "/:sessionID/monitor/:monitorID/log", {
+        params: MonitorPath,
+        query: MonitorLogQuery,
+        success: Schema.Unknown,
+        error: [NotFound, Busy],
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("monitorCancel", "/:sessionID/monitor/:monitorID/cancel", {
+        params: MonitorPath,
+        success: Schema.Unknown,
         error: [NotFound, Busy],
       }),
     )
@@ -675,6 +785,130 @@ export namespace SessionHttpApi {
         yield* session.get(params.sessionID)
         return jsonSafe(SessionV2.events(params.sessionID))
       }).pipe(declaredErrors),
+    instructions: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.get(params.sessionID)
+        const ctx = yield* InstanceState.context
+        const config = yield* Config.Service
+        const cfg = yield* config.get()
+        const { collectSystemPaths } = yield* Effect.promise(() => import("@/session/instruction"))
+        const result = yield* Effect.promise(() => collectSystemPaths(ctx, cfg))
+        return Array.from(result.paths).map((p) => ({
+          path: p,
+          name: p.split("/").pop() || p,
+        }))
+      }).pipe(declaredErrors),
+    contextBreakdown: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
+        return jsonSafe(result) as unknown
+      }).pipe(declaredErrors),
+    contextToggle: ({
+      params,
+      payload,
+    }: {
+      params: typeof SessionIDPath.Type
+      payload: typeof ContextTogglePayload.Type
+    }) =>
+      Effect.gen(function* () {
+        const { kind, key, enabled } = payload
+        if (kind === "mcp") {
+          const config = yield* Config.Service
+          yield* config.update({ mcp: { [key]: { enabled } } })
+          const mcp = yield* MCP.Service
+          yield* (enabled ? mcp.connect(key) : mcp.disconnect(key)).pipe(
+            Effect.catch((e: unknown) =>
+              Effect.sync(() => log.warn("mcp toggle connect/disconnect failed", { key, error: String(e) })),
+            ),
+            Effect.catchDefect((e) =>
+              Effect.sync(() => log.warn("mcp toggle connect/disconnect failed", { key, error: String(e) })),
+            ),
+          )
+        } else if (kind === "skill") {
+          const session = yield* Session.Service
+          yield* session.update(params.sessionID, (draft) => {
+            const set = new Set(draft.skills ?? [])
+            if (enabled) set.add(key)
+            else set.delete(key)
+            draft.skills = [...set]
+          })
+        } else if (kind === "tool") {
+          const session = yield* Session.Service
+          yield* session.update(params.sessionID, (draft) => {
+            const map = { ...(draft.disabledTools ?? {}) }
+            if (enabled) delete map[key]
+            else map[key] = true
+            draft.disabledTools = map
+          })
+        } else {
+          const session = yield* Session.Service
+          yield* session.update(params.sessionID, (draft) => {
+            const set = new Set(draft.disabledInstructions ?? [])
+            if (enabled) set.delete(key)
+            else set.add(key)
+            draft.disabledInstructions = [...set]
+          })
+        }
+        const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
+        return jsonSafe(result) as unknown
+      }).pipe(declaredErrors),
+    goal: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const goal = yield* SessionGoal.Service
+        const state = yield* goal.get(params.sessionID)
+        return jsonSafe(state ?? null) as unknown
+      }).pipe(Effect.orDie),
+    background: ({ params }: { params: typeof SessionIDPath.Type }) =>
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        const found = yield* session.get(params.sessionID).pipe(
+          Effect.catch(() => Effect.succeed(undefined)),
+          Effect.catchDefect(() => Effect.succeed(undefined)),
+        )
+        if (!found) {
+          return yield* Effect.fail({ error: "Session not found" as const })
+        }
+        const jobs = yield* Effect.promise(() => Delegation.listJobs(params.sessionID))
+        return jsonSafe(jobs) as unknown
+      }),
+    backgroundInspect: ({ params }: { params: typeof DelegationPath.Type }) =>
+      Effect.promise(() => Delegation.inspectJobForSession(params.sessionID, params.delegationID)).pipe(
+        Effect.map((job) => jsonSafe(job ?? null) as unknown),
+        Effect.orDie,
+      ),
+    backgroundRead: ({ params }: { params: typeof DelegationPath.Type }) =>
+      Effect.promise(() => Delegation.readJobForSession(params.sessionID, params.delegationID)).pipe(
+        Effect.map((output) => output ?? ""),
+        Effect.orDie,
+      ),
+    backgroundCancel: ({ params }: { params: typeof DelegationPath.Type }) =>
+      Effect.promise(() => Delegation.cancelJobForSession(params.sessionID, params.delegationID)).pipe(
+        Effect.orDie,
+      ),
+    monitor: ({ params }: { params: typeof MonitorPath.Type }) =>
+      Effect.gen(function* () {
+        const record = yield* Effect.promise(() => Monitor.get(params.sessionID, params.monitorID))
+        return jsonSafe(record ?? null) as unknown
+      }).pipe(declaredErrors),
+    monitorLog: ({
+      params,
+      query,
+    }: {
+      params: typeof MonitorPath.Type
+      query: typeof MonitorLogQuery.Type
+    }) =>
+      Effect.gen(function* () {
+        const snapshot = yield* Effect.promise(() =>
+          Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
+        )
+        return jsonSafe(snapshot ?? null) as unknown
+      }).pipe(declaredErrors),
+    monitorCancel: ({ params }: { params: typeof MonitorPath.Type }) =>
+      Effect.gen(function* () {
+        const record = yield* Effect.promise(() => Monitor.cancel(params.sessionID, params.monitorID))
+        return jsonSafe(record ?? null) as unknown
+      }).pipe(declaredErrors),
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "session", (builder) =>
@@ -705,7 +939,18 @@ export namespace SessionHttpApi {
       .handle("partUpdate", (request) => handlers.partUpdate(request))
       .handle("v2Entries", (request) => handlers.v2Entries(request))
       .handle("v2State", (request) => handlers.v2State(request))
-      .handle("v2Events", (request) => handlers.v2Events(request)),
+      .handle("v2Events", (request) => handlers.v2Events(request))
+      .handle("instructions", (request) => handlers.instructions(request))
+      .handle("contextBreakdown", (request) => handlers.contextBreakdown(request))
+      .handle("contextToggle", (request) => handlers.contextToggle(request))
+      .handle("goal", (request) => handlers.goal(request))
+      .handle("background", (request) => handlers.background(request))
+      .handle("backgroundInspect", (request) => handlers.backgroundInspect(request))
+      .handle("backgroundRead", (request) => handlers.backgroundRead(request))
+      .handle("backgroundCancel", (request) => handlers.backgroundCancel(request))
+      .handle("monitor", (request) => handlers.monitor(request))
+      .handle("monitorLog", (request) => handlers.monitorLog(request))
+      .handle("monitorCancel", (request) => handlers.monitorCancel(request)),
   )
 
   export const DependenciesLive = Layer.mergeAll(
@@ -720,6 +965,8 @@ export namespace SessionHttpApi {
     Agent.defaultLayer,
     Config.defaultLayer,
     PermissionNext.defaultLayer,
+    SessionGoal.defaultLayer,
+    MCP.defaultLayer,
   ) as Layer.Layer<
     | Session.Service
     | SessionPrompt.Service
@@ -731,7 +978,9 @@ export namespace SessionHttpApi {
     | SessionCompaction.Service
     | Agent.Service
     | Config.Service
-    | PermissionNext.Service,
+    | PermissionNext.Service
+    | SessionGoal.Service
+    | MCP.Service,
     never,
     never
   >
