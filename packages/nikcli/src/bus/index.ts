@@ -4,6 +4,7 @@ import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
 import { Context, Effect, Layer } from "effect"
 import { InstanceState, runtimeFor, withCurrentInstance } from "@/effect"
+import { IslandBridge } from "@/plugin/island/bridge"
 
 export namespace Bus {
   const log = Log.create({ service: "bus" })
@@ -103,6 +104,14 @@ export namespace Bus {
             log.debug("publishing", {
               type: def.type,
             })
+            // Self-activating, not dependent on any one CLI entrypoint
+            // remembering to wire it in: `publish` is the single choke point
+            // every session/permission/tool event already flows through, in
+            // whichever realm is actually running the session (the TUI's own
+            // worker thread, `serve`'s main thread, etc — see IslandBridge's
+            // own doc for why that realm distinction matters). Idempotent and
+            // a no-op off macOS, so calling it on every publish is cheap.
+            IslandBridge.start()
             const pending: Array<void | Promise<void>> = []
             for (const key of [def.type, "*"]) {
               const match = current.subscriptions.get(key)

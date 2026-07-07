@@ -10,6 +10,7 @@ import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import type { BunWebSocketData } from "hono/bun"
 import { Flag } from "@/flag/flag"
 import { Process } from "@/util/process"
+import { IslandBridge } from "@/plugin/island/bridge"
 
 Process.ensureMetadata("worker")
 
@@ -183,6 +184,11 @@ export const rpc = {
         server = undefined
         current.stop(true)
       }
+      // Explicit, not process.on("exit", ...): this worker's own `process` is
+      // shared with the parent thread, so an "exit" listener here would fire
+      // on the wrong signal (see IslandBridge.stop()'s doc for how this was
+      // found). This IS the real, deterministic end of this worker's life.
+      IslandBridge.stop()
     })())
     await shutdown
     if (shuttingDown === shutdown) shuttingDown = undefined
