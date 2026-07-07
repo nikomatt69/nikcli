@@ -21,13 +21,13 @@ export namespace Vcs {
     ),
   }
 
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     branch: Schema.String,
   }).annotate({ identifier: "VcsInfo" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
-  const FileStatusSchema = Schema.Struct({
+  export const FileStatusSchema = Schema.Struct({
     file: Schema.String,
     additions: Schema.Number,
     deletions: Schema.Number,
@@ -36,13 +36,13 @@ export namespace Vcs {
   export const FileStatus = zodObject(FileStatusSchema)
   export type FileStatus = Schema.Schema.Type<typeof FileStatusSchema>
 
-  const ApplyInputSchema = Schema.Struct({
+  export const ApplyInputSchema = Schema.Struct({
     patch: Schema.String,
   }).annotate({ identifier: "VcsApplyInput" })
   export const ApplyInput = zodObject(ApplyInputSchema)
   export type ApplyInput = Schema.Schema.Type<typeof ApplyInputSchema>
 
-  const ApplyResultSchema = Schema.Struct({
+  export const ApplyResultSchema = Schema.Struct({
     applied: Schema.Boolean,
   }).annotate({ identifier: "VcsApplyResult" })
   export const ApplyResult = zodObject(ApplyResultSchema)

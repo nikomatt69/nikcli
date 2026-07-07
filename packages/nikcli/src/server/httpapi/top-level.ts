@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Agent } from "@/agent/agent"
 import { Command } from "@/command"
@@ -22,6 +22,22 @@ export namespace TopLevelHttpApi {
   export const VcsInfo = Schema.Struct({
     branch: Schema.optional(Schema.String),
   }).annotate({ identifier: "VcsInfo" })
+
+  /** Raw patch body served as `text/x-diff`, mirroring the Hono `c.text` route. */
+  const VcsDiffRaw = Schema.String.pipe(
+    HttpApiSchema.asText({ contentType: "text/x-diff; charset=utf-8" }),
+  )
+
+  /** Legacy 400 body for failed patch application: `{ name, data }`. */
+  const VcsApplyError = Schema.Struct({
+    name: Schema.Literal("VcsApplyError"),
+    data: Schema.Struct({
+      message: Schema.String,
+      reason: Schema.String,
+    }),
+  }).annotate({ identifier: "VcsApplyError", httpApiStatus: 400 })
+
+  type VcsApplyErrorBody = typeof VcsApplyError.Type
 
   export const CommandInfo = Schema.Struct({
     name: Schema.String,
@@ -97,6 +113,15 @@ export namespace TopLevelHttpApi {
     .add(HttpApiEndpoint.post("dispose", "/instance/dispose", { success: DisposeResult }))
     .add(HttpApiEndpoint.get("path", "/path", { success: Path }))
     .add(HttpApiEndpoint.get("vcs", "/vcs", { success: VcsInfo }))
+    .add(HttpApiEndpoint.get("vcsStatus", "/vcs/status", { success: Schema.Array(Vcs.FileStatusSchema) }))
+    .add(HttpApiEndpoint.get("vcsDiffRaw", "/vcs/diff/raw", { success: VcsDiffRaw }))
+    .add(
+      HttpApiEndpoint.post("vcsApply", "/vcs/apply", {
+        payload: Vcs.ApplyInputSchema,
+        success: Vcs.ApplyResultSchema,
+        error: VcsApplyError,
+      }),
+    )
     .add(HttpApiEndpoint.get("command", "/command", { success: Schema.Array(CommandInfo) }))
     .add(HttpApiEndpoint.get("agent", "/agent", { success: Schema.Array(AgentInfo) }))
     .add(HttpApiEndpoint.get("skill", "/skill", { success: Schema.Array(SkillInfo) }))
@@ -127,6 +152,28 @@ export namespace TopLevelHttpApi {
           branch: yield* vcs.branch(),
         }
       }),
+    vcsStatus: () =>
+      Effect.gen(function* () {
+        const vcs = yield* Vcs.Service
+        return yield* vcs.status()
+      }),
+    vcsDiffRaw: () =>
+      Effect.gen(function* () {
+        const vcs = yield* Vcs.Service
+        return yield* vcs.diffRaw()
+      }),
+    vcsApply: ({ payload }: { payload: Vcs.ApplyInput }) =>
+      Effect.gen(function* () {
+        const vcs = yield* Vcs.Service
+        return yield* vcs.apply(payload)
+      }).pipe(
+        Effect.catchTag("VcsPatchApplyError", (error) =>
+          Effect.fail<VcsApplyErrorBody>({
+            name: "VcsApplyError",
+            data: { message: error.message, reason: error.reason },
+          }),
+        ),
+      ),
     command: () =>
       Effect.gen(function* () {
         const command = yield* Command.Service
@@ -159,6 +206,9 @@ export namespace TopLevelHttpApi {
       .handle("dispose", handlers.dispose)
       .handle("path", handlers.path)
       .handle("vcs", handlers.vcs)
+      .handle("vcsStatus", handlers.vcsStatus)
+      .handle("vcsDiffRaw", handlers.vcsDiffRaw)
+      .handle("vcsApply", handlers.vcsApply)
       .handle("command", handlers.command)
       .handle("agent", handlers.agent)
       .handle("skill", handlers.skill)

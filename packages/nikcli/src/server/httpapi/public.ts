@@ -74,6 +74,11 @@ export namespace PublicHttpApi {
         .handle("dispose", () => TopLevelHttpApi.handlers.dispose())
         .handle("path", () => TopLevelHttpApi.handlers.path())
         .handle("vcs", () => TopLevelHttpApi.handlers.vcs())
+        .handle("vcsStatus", () => TopLevelHttpApi.handlers.vcsStatus())
+        .handle("vcsDiffRaw", () => TopLevelHttpApi.handlers.vcsDiffRaw())
+        .handle("vcsApply", (request) =>
+          TopLevelHttpApi.handlers.vcsApply(request),
+        )
         .handle("command", () => TopLevelHttpApi.handlers.command())
         .handle("agent", () => TopLevelHttpApi.handlers.agent())
         .handle("skill", () => TopLevelHttpApi.handlers.skill())

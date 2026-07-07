@@ -68,6 +68,39 @@ describe("Top-level HttpApi bridge", () => {
     const pathsAfterDispose = (await request("/path", directory)) as { directory: string }
     expect(pathsAfterDispose.directory).toBe(directory)
   })
+
+  it("serves VCS status, raw diff, and apply through HttpApi", async () => {
+    const directory = await makeProjectDir()
+
+    const status = (await request("/vcs/status", directory)) as Array<{ file: string }>
+    expect(Array.isArray(status)).toBe(true)
+
+    const url = new URL("/vcs/diff/raw", "http://nikcli.local")
+    url.searchParams.set("directory", directory)
+    const diff = await Server.App().fetch(new Request(url))
+    expect(diff.status).toBe(200)
+    expect(diff.headers.get("content-type")).toContain("text/x-diff")
+    expect(typeof (await diff.text())).toBe("string")
+
+    // Applying a patch to a non-git project dir must return the legacy
+    // { name: "VcsApplyError", data: { message, reason } } 400 body.
+    const applyUrl = new URL("/vcs/apply", "http://nikcli.local")
+    applyUrl.searchParams.set("directory", directory)
+    const apply = await Server.App().fetch(
+      new Request(applyUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ patch: "diff --git a/x b/x\n" }),
+      }),
+    )
+    expect(apply.status).toBe(400)
+    const applyBody = (await apply.json()) as {
+      name: string
+      data: { message: string; reason: string }
+    }
+    expect(applyBody.name).toBe("VcsApplyError")
+    expect(applyBody.data.reason).toBe("non-git")
+  })
 })
 
 afterEach(async () => {

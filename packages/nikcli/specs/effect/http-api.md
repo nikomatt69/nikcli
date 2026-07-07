@@ -248,7 +248,7 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 | `file`                    | `bridged`         | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open                                                                                                                                      |
 | `mcp`                     | `bridged`         | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle                                                                                      |
 | `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found                                     |
-| top-level instance routes | `bridged` partial | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged; `GET /vcs/diff` is not registered on this branch                           |
+| top-level instance routes | `bridged`         | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /vcs/status`, `GET /vcs/diff/raw`, `POST /vcs/apply`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged                  |
 | experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open                                                                          |
 | `session`                 | `bridged` partial | create/update/delete/fork/abort/revert/unrevert/list/status/get/children/todo/diff/messages plus single-message and part JSON routes are bridged; prompt, share, init, summarize, shell, and command routes remain Hono |
 | `sync`                    | `not ported`      | no current Effect `HttpApi` sync route exists                                                                                                                                                                           |
@@ -266,6 +266,9 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `GET /path` - current directory and worktree paths.
 - [x] `GET /vcs` - current VCS status.
 - [ ] `GET /vcs/diff` - VCS diff summary. Current branch audit: no matching Hono registration found in `src/server/server.ts`; keep unchecked until removed from inventory or reintroduced intentionally.
+- [x] `GET /vcs/status` - changed files without patches. Evidence: `src/server/httpapi/top-level.ts` `vcsStatus` and `bun test test/server/httpapi-top-level.test.ts`.
+- [x] `GET /vcs/diff/raw` - raw patch served as `text/x-diff` via `HttpApiSchema.asText`.
+- [x] `POST /vcs/apply` - apply patch; `VcsPatchApplyError` maps to the legacy `{ name: "VcsApplyError", data: { message, reason } }` 400 body.
 - [x] `GET /command` - command catalog.
 - [x] `GET /agent` - agent catalog.
 - [x] `GET /skill` - skill catalog.

@@ -22,7 +22,7 @@ Rough coverage — desktop instance API paths that **do not** fall through to Ho
 
 | Prefix / group                                                           | HttpApi module                       | Notes                                                                                        |
 | ------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `/agent`, `/command`, `/skill`, `/lsp`, `/formatter`, `/path`, `/vcs`    | top-level / mixed                    | VCS **mutations** (`vcs.apply`, `vcs.status`, `vcs.diff.raw`) still Hono-only in `server.ts` |
+| `/agent`, `/command`, `/skill`, `/lsp`, `/formatter`, `/path`, `/vcs`    | top-level / mixed                    | incl. `vcs.status`, `vcs.diff.raw` (text/x-diff), `vcs.apply` (bridged 2026-07-08)           |
 | `/config`, `/profiles`                                                   | `httpapi/config`, profiles in public | MCP config patch routes bridged                                                              |
 | `/doctor`                                                                | `httpapi/doctor`                     | Diagnostic report bridged via `GET /doctor`                                                  |
 | `/project`                                                               | `httpapi/project`                    |                                                                                              |
@@ -40,7 +40,7 @@ Rough coverage — desktop instance API paths that **do not** fall through to Ho
 | `/analytics`                                                             | `httpapi/analytics`                  | global, daily, session, sessions, leaderboard (all reads)                                    |
 | `/global/*`                                                              | `httpapi/global` + `httpapi/event`   | **Separate instance-less branch**: `supportsGlobal`/`handleGlobal`, mounted before instance middleware |
 
-Count: **142** regex entries in `implementedRoutes` plus **3** in `globalRoutes` (see `bridge.ts`), including the full `/loop` and `/mission` groups, `/analytics`, `GET /doctor`, and the instance-less `/global` branch.
+Count: **145** regex entries in `implementedRoutes` plus **3** in `globalRoutes` (see `bridge.ts`), including the full `/loop` and `/mission` groups, `/analytics`, the three `/vcs` sub-routes, `GET /doctor`, and the instance-less `/global` branch.
 
 ## Session — bridged vs Hono-only
 
@@ -80,7 +80,7 @@ High-traffic / plan-relevant:
 | ------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
 | **bridged**  | `supports()` true → Effect HttpApi or prompt special       | session CRUD, tui, v2 GET, file, mcp                                      |
 | **special**  | Custom `handle()` branch; may still need `supports()` true | `/event`, session prompt POST                                             |
-| **missing**  | Always Hono with flag on                                   | `/pty`, session instructions/context/background, connectors/chatbot/companion/user, VCS writes |
+| **missing**  | Always Hono with flag on                                   | `/pty`, session instructions/context/background, connectors/chatbot/companion/user, `/app/*` |
 | **deferred** | ADR / non-JSON                                             | PTY WebSocket, full SSE parity tests                                      |
 
 ## Maintenance
