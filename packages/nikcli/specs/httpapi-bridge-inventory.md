@@ -1,6 +1,6 @@
 # HttpApi bridge inventory (Hono vs `implementedRoutes`)
 
-Audit date: 2026-06-18. Source of truth for bridged paths: `src/server/httpapi/bridge.ts` (`implementedRoutes` + `handle()` specials).
+Audit date: 2026-07-07. Source of truth for bridged paths: `src/server/httpapi/bridge.ts` (`implementedRoutes` + `handle()` specials).
 
 When `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, `server.ts` forwards to `HttpApiBridge.handle` only if `HttpApiBridge.supports(path, method)` is true; otherwise Hono handles the request.
 
@@ -24,6 +24,7 @@ Rough coverage — desktop instance API paths that **do not** fall through to Ho
 | ------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `/agent`, `/command`, `/skill`, `/lsp`, `/formatter`, `/path`, `/vcs`    | top-level / mixed                    | VCS **mutations** (`vcs.apply`, `vcs.status`, `vcs.diff.raw`) still Hono-only in `server.ts` |
 | `/config`, `/profiles`                                                   | `httpapi/config`, profiles in public | MCP config patch routes bridged                                                              |
+| `/doctor`                                                                | `httpapi/doctor`                     | Diagnostic report bridged via `GET /doctor`                                                  |
 | `/project`                                                               | `httpapi/project`                    |                                                                                              |
 | `/provider`                                                              | `httpapi/provider`                   | OAuth authorize/callback bridged                                                             |
 | `/permission`, `/question`                                               | `httpapi/*`                          |                                                                                              |
@@ -35,8 +36,11 @@ Rough coverage — desktop instance API paths that **do not** fall through to Ho
 | `/instance/dispose`                                                      | top-level                            |                                                                                              |
 | `/tui/*` (listed paths)                                                  | `httpapi/tui`                        | Same queues as Hono `routes/tui.ts`                                                          |
 | `/loop`                                                                  | `httpapi/loop`                       | CRUD, run/abort/pause/resume, generate, templates, runs                                      |
+| `/mission`                                                               | `httpapi/mission`                    | Full group: CRUD, start/pause/cancel, feature mutate, generate, execs                        |
+| `/analytics`                                                             | `httpapi/analytics`                  | global, daily, session, sessions, leaderboard (all reads)                                    |
+| `/global/*`                                                              | `httpapi/global` + `httpapi/event`   | **Separate instance-less branch**: `supportsGlobal`/`handleGlobal`, mounted before instance middleware |
 
-Count: **122** regex entries in `implementedRoutes` (see `bridge.ts`), including full `/loop` group (`httpapi/loop.ts`).
+Count: **142** regex entries in `implementedRoutes` plus **3** in `globalRoutes` (see `bridge.ts`), including the full `/loop` and `/mission` groups, `/analytics`, `GET /doctor`, and the instance-less `/global` branch.
 
 ## Session — bridged vs Hono-only
 
@@ -59,10 +63,10 @@ High-traffic / plan-relevant:
 | Group                                    | Mount                            | Why                                                                 |
 | ---------------------------------------- | -------------------------------- | ------------------------------------------------------------------- |
 | ~~**Loop**~~                             | `/loop`                          | **Bridged** via `httpapi/loop.ts` (2026-06-18)                      |
-| **Mission**                              | `/mission`                       | Same pattern as loop                                                |
+| ~~**Mission**~~                          | `/mission`                       | **Bridged** via `httpapi/mission.ts` (2026-07-08)                   |
 | **PTY**                                  | `/pty`                           | WebSocket `pty.connect` — classify **special** (Phase 1.6 http-api) |
-| **Analytics**                            | `/analytics`                     | Desktop dashboards                                                  |
-| **Global**                               | `/global`                        | Health, dispose, **second** event entry (`global.event`)            |
+| ~~**Analytics**~~                        | `/analytics`                     | **Bridged** via `httpapi/analytics.ts` (2026-07-08)                 |
+| ~~**Global**~~                           | `/global`                        | **Bridged** via `httpapi/global.ts` + instance-less `handleGlobal` branch (2026-07-08) |
 | **Connectors, chatbot, companion, user** | respective mounts                | Integrations                                                        |
 | **Mobile**                               | `/mobile`                        | Separate OpenAPI surface; intentionally not in instance bridge      |
 | **VCS writes**                           | `/vcs` on `server.ts`            | `vcs.status`, `vcs.diff.raw`, `vcs.apply`                           |
@@ -76,7 +80,7 @@ High-traffic / plan-relevant:
 | ------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
 | **bridged**  | `supports()` true → Effect HttpApi or prompt special       | session CRUD, tui, v2 GET, file, mcp                                      |
 | **special**  | Custom `handle()` branch; may still need `supports()` true | `/event`, session prompt POST                                             |
-| **missing**  | Always Hono with flag on                                   | `/mission`, `/pty`, `/analytics`, session instructions/context/background |
+| **missing**  | Always Hono with flag on                                   | `/pty`, session instructions/context/background, connectors/chatbot/companion/user, VCS writes |
 | **deferred** | ADR / non-JSON                                             | PTY WebSocket, full SSE parity tests                                      |
 
 ## Maintenance

@@ -403,6 +403,14 @@ export namespace Server {
             },
           }),
         )
+        .use(async (c, next) => {
+          // `/global/*` is mounted before the instance/workspace middleware, so
+          // it gets its own bridge branch that provides no instance context.
+          if (!Flag.NIKCLI_EXPERIMENTAL_HTTPAPI || !HttpApiBridge.supportsGlobal(c.req.path, c.req.method)) {
+            return next()
+          }
+          return HttpApiBridge.handleGlobal(c.req.raw)
+        })
         .route("/global", GlobalRoutes())
         .use(async (c, next) => {
           // Skip instance/workspace context for user auth endpoints

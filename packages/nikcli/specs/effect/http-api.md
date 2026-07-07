@@ -4,21 +4,25 @@ Plan for replacing instance Hono route implementations with Effect `HttpApi` whi
 
 ## End State
 
-- JSON route contracts and handlers live in `src/server/routes/instance/httpapi/*`.
+- JSON route contracts and handlers live in `src/server/httpapi/*`.
 - Route modules own their `HttpApiGroup`, schemas, handlers, and route-level middleware.
-- `httpapi/server.ts` only composes groups, instance lookup, observability, and the web handler bridge.
+- `httpapi/public.ts` composes groups, and `httpapi/bridge.ts` exposes the web handler while the Hono bridge exists. The future pure Effect backend should compose groups, instance lookup, observability, and the Bun server boundary in one place.
 - Hono route implementations are deleted once their `HttpApi` replacements are default, tested, and represented in the SDK/OpenAPI pipeline.
-- Streaming, SSE, and websocket routes move later through Effect HTTP primitives or another explicit replacement plan; they do not need to fit `HttpApi` if `HttpApi` is the wrong abstraction.
+- Streaming, SSE, and websocket routes move through Effect HTTP primitives (`HttpServerResponse.stream`, raw `HttpRouter`, or `handleRaw`) or another explicit replacement plan; they do not need to fit JSON `HttpApi` if `HttpApi` is the wrong abstraction.
 
 ## Current State
 
-Current branch audit, 2026-05-06:
+Current branch audit, 2026-07-07:
 
 - `src/server/routes/instance/*` does not exist on this branch.
 - `src/server/httpapi/question.ts` contains a real Effect `HttpApi` route slice for question list/reply/reject, covered by `bun test test/server/httpapi-question.test.ts`.
 - `src/server/httpapi/permission.ts` contains a real Effect `HttpApi` route slice for permission list/reply, covered by `bun test test/server/httpapi-permission.test.ts`.
 - `src/server/httpapi/top-level.ts` contains a real Effect `HttpApi` route slice for `POST /instance/dispose` and top-level reads: `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter`.
 - `src/server/httpapi/config.ts` contains a real Effect `HttpApi` route slice for `GET /config`, `PATCH /config`, and `GET /config/providers`.
+- `src/server/httpapi/doctor.ts` contains a real Effect `HttpApi` route slice for `GET /doctor`, covered by `bun test test/server/httpapi-doctor.test.ts`.
+- `src/server/httpapi/analytics.ts` contains a real Effect `HttpApi` route slice for `GET /analytics/global`, `GET /analytics/daily`, `GET /analytics/session/:sessionID`, `GET /analytics/sessions`, and `GET /analytics/leaderboard`, covered by `bun test test/server/httpapi-analytics.test.ts`.
+- `src/server/httpapi/global.ts` contains a real Effect `HttpApi` route slice for the instance-less `GET /global/health` and `POST /global/dispose` (plus the shared `GlobalDisposedEvent` definition). `GET /global/event` is served as raw SSE by `HttpApiEvent.handle()`. Because `/global` is mounted before the instance/workspace middleware, `server.ts` forwards these paths through a dedicated `HttpApiBridge.supportsGlobal` / `handleGlobal` branch that provides no instance context. Covered by `bun test test/server/httpapi-global.test.ts`.
+- `src/server/httpapi/mission.ts` contains a real Effect `HttpApi` route slice for the full mission group: list, templates, generate, get, upsert, update, delete, start, pause, cancel, feature mutate, execs, and recent execs. Create/update bodies are parsed with the same zod schemas as the legacy validator so zod defaults keep being applied. `generateFromDescription` moved to `src/mission/generate.ts` (neutral module, mirrors `loop/generate.ts`); the Hono route re-exports it. Covered by `bun test test/server/httpapi-mission.test.ts`.
 - `src/server/httpapi/experimental.ts` contains a real Effect `HttpApi` route slice for experimental JSON routes: `GET /experimental/tool/ids`, `GET /experimental/tool`, `POST /experimental/worktree`, `GET /experimental/worktree`, `DELETE /experimental/worktree`, `POST /experimental/worktree/reset`, and `GET /experimental/resource`.
 - `src/server/httpapi/file.ts` contains a real Effect `HttpApi` route slice for `GET /find`, `GET /find/file`, `GET /find/symbol`, `GET /file`, `GET /file/content`, `PUT /file/content`, and `GET /file/status`.
 - `src/server/httpapi/mcp.ts` contains a real Effect `HttpApi` route slice for non-OAuth MCP management: `GET /mcp`, `POST /mcp`, `DELETE /mcp/:name/auth`, `POST /mcp/:name/connect`, `POST /mcp/:name/disconnect`, and `POST /mcp/:name/toggle`.
@@ -27,7 +31,7 @@ Current branch audit, 2026-05-06:
 - `src/server/httpapi/session.ts` contains a real Effect `HttpApi` route slice for session create/update/delete/fork/abort/revert/unrevert, read-only session routes, and non-streaming message/part JSON routes: `POST /session`, `DELETE /session/:sessionID`, `PATCH /session/:sessionID`, `POST /session/:sessionID/fork`, `POST /session/:sessionID/abort`, `POST /session/:sessionID/revert`, `POST /session/:sessionID/unrevert`, `GET /session`, `GET /session/status`, `GET /session/:sessionID`, `GET /session/:sessionID/children`, `GET /session/:sessionID/todo`, `GET /session/:sessionID/diff`, `GET /session/:sessionID/message`, `GET /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID/part/:partID`, and `PATCH /session/:sessionID/message/:messageID/part/:partID`.
 - `src/server/httpapi/workspace.ts` contains a real Effect `HttpApi` route slice for workspace routes: `GET /experimental/workspace/adaptor`, `GET /experimental/workspace`, `POST /experimental/workspace/:id`, `DELETE /experimental/workspace/:id`, `POST /experimental/workspace/:id/restore`, and `POST /experimental/workspace/:id/session/:sessionID/restore`.
 - `src/server/httpapi/public.ts` composes the implemented slices into one `PublicHttpApi`, covered by `bun test test/server/httpapi-public.test.ts`.
-- `src/server/httpapi/bridge.ts` mounts the implemented top-level, config, experimental, file, MCP, project, provider, question, permission, session, and workspace slices through `HttpApiBuilder.toWebHandler` when `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, and passes the active instance into the Effect context. The bridge matches exact method/path patterns so unported routes fall through to legacy Hono even while the flag is enabled. Coverage: `bun test test/server/httpapi-session.test.ts test/server/httpapi-workspace.test.ts test/server/httpapi-experimental.test.ts test/server/httpapi-mcp.test.ts test/server/httpapi-file.test.ts test/server/httpapi-provider.test.ts test/server/httpapi-config.test.ts test/server/httpapi-project.test.ts test/server/httpapi-top-level.test.ts test/server/httpapi-bridge.test.ts`.
+- `src/server/httpapi/bridge.ts` mounts the implemented top-level, config, doctor, experimental, file, MCP, project, provider, question, permission, session, TUI, loop, and workspace slices through `HttpRouter.toWebHandler` when `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, and passes the active instance into the Effect context. The bridge matches exact method/path patterns so unported routes fall through to legacy Hono even while the flag is enabled. Coverage: `bun test test/server/`.
 - The active server route files are still `src/server/routes/*.ts` and import Hono / `hono-openapi`.
 - The current mount is an in-Hono experimental bridge after the existing instance/workspace middleware. The full backend-fork-at-startup path is still open.
 - The route checklist below remains unchecked until the corresponding Effect `HttpApi` route is mounted through the experimental backend/bridge and covered by tests or SDK/OpenAPI verification.
@@ -54,18 +58,35 @@ Historical target state to reintroduce intentionally:
 - Regenerate the SDK after schema or OpenAPI-affecting changes and verify the diff is expected.
 - Do not delete a Hono route until the SDK/OpenAPI pipeline no longer depends on its Hono `describeRoute` entry.
 
+## Effect v4 / opencode Rules To Reuse
+
+These rules come from `.opencode/references/effect-smol/migration`, `.opencode/references/effect-smol/packages/effect/HTTPAPI.md`, `.opencode/references/effect-smol/packages/effect/src/unstable/httpapi/*`, and opencode's `packages/opencode/src/server/routes/instance/httpapi/AGENTS.md` route-pattern note.
+
+- Use current Effect v4 imports: `effect/unstable/http`, `effect/unstable/httpapi`, and `@effect/platform-bun` for Bun server boundaries. Do not copy old `@effect/platform/HttpApi*` or v3 module paths.
+- Use `Context.Service` for new services and define layers explicitly with `Layer.effect`, `Layer.succeed`, or `Layer.mergeAll`. Avoid relying on hidden default/dependency wiring.
+- Keep stable services at the layer boundary. In `HttpApiBuilder.group(...)`, yield stable services once while constructing the handler layer, then close over them in handlers when practical. Do not rebuild stable layers with `Effect.provide(...)` inside request handlers.
+- Use `Effect.gen(function* () { ... })` for multi-step handlers; use `yield* Service` for service access. For v4 yieldable values, use explicit module operations where required (`Fiber.join`, `Deferred.await`, `Ref.get`) instead of treating those values as Effects.
+- Model SDK-visible failures as explicit schemas: prefer `Schema.TaggedErrorClass` or project API error schemas annotated with `HttpApiSchema.status(code)`. Use built-in `HttpApiError.*` only when the empty/tagged body is the intended wire shape.
+- Add a shared `HttpApiMiddleware.layerSchemaErrorTransform` before changing validation error bodies. The default Effect response for schema failures is an empty 400, while Hono validators often return structured JSON.
+- Move auth contracts to `HttpApiSecurity` and middleware (`basic`, `bearer`, and legacy `auth_token` query/api-key) so OpenAPI and runtime enforcement share one definition.
+- Use `HttpApiSchema.asText({ contentType: "text/event-stream" })` plus `HttpServerResponse.stream(...)` for SSE that belongs in the typed API surface.
+- Use `HttpApiBuilder.group(...).handleRaw(...)` for declared endpoints that need the raw request/response, especially websocket upgrades and compatibility routes that still need endpoint middleware and OpenAPI metadata.
+- Use raw `HttpRouter.use(...)` only for routes outside the declared API surface, such as static UI fallbacks or temporary compatibility catch-alls.
+- Prefer `HttpApiTest.groups(...)` for focused in-memory handler/client tests, and keep bridge-level `Server.App().fetch(...)` tests for auth, instance selection, and Hono-fallback behavior.
+- Treat `BunHttpServer` as the final Bun-native server target: it wraps `Bun.serve`, scoped shutdown, streaming responses, multipart, file responses, and websocket upgrades under Effect services.
+
 ## Route Slice Checklist
 
 Use this checklist for each small HttpApi migration PR:
 
 1. Read the legacy Hono route and copy behavior exactly, including default values, headers, operation IDs, response schemas, and status codes.
-2. Put the new `HttpApiGroup`, route paths, DTO schemas, and handlers in `src/server/routes/instance/httpapi/*`.
-3. Mount the new paths in `src/server/routes/instance/index.ts` only inside the `NIKCLI_EXPERIMENTAL_HTTPAPI` block.
-4. Use `InstanceState.context` / `InstanceState.directory` inside HttpApi handlers instead of `Instance.directory`, `Instance.worktree`, or `Instance.project` ALS globals.
+2. Put the new `HttpApiGroup`, route paths, DTO schemas, and handlers in `src/server/httpapi/*`.
+3. Add the group to `src/server/httpapi/public.ts` and add exact method/path patterns to `src/server/httpapi/bridge.ts` only for implemented routes.
+4. Use request-provided context (`InstanceRef`, `InstanceState.context`, or `InstanceState.directory`, depending on the existing slice) inside HttpApi handlers instead of reading `Instance.directory`, `Instance.worktree`, or `Instance.project` ALS globals directly.
 5. Reuse existing services directly. If a service returns plain objects, use `Schema.Struct`; use `Schema.Class` only when handlers return actual class instances.
 6. Keep legacy Hono routes and `.zod` compatibility in place for SDK/OpenAPI generation.
-7. Add tests that hit the Hono-mounted bridge via `InstanceRoutes`, not only the raw `HttpApi` web handler, when the route depends on auth or instance context.
-8. Run `bun typecheck` from `packages/nikcli`, relevant `bun run test:ci ...` tests from `packages/nikcli`, and `./packages/sdk/js/script/build.ts` from the repo root.
+7. Add tests that hit the Hono-mounted bridge via `Server.App().fetch(...)` when the route depends on auth, instance context, or fallback routing. Add `HttpApiTest.groups(...)` tests for focused schema/client round-trips when useful.
+8. Run `bun test` for the new slice, `bun test test/server/` for bridge coverage, `bunx tsgo --noEmit` from `packages/nikcli`, and SDK generation when schema/OpenAPI output changes.
 
 ## Hono Deletion Checklist
 
@@ -100,6 +121,8 @@ For the experimental route group, port read-only JSON routes before mutations:
 - Use `Schema.Class` only when the handler returns real class instances or the constructor requirement is intentional.
 - Keep nested anonymous shapes as `Schema.Struct` unless a named SDK type is useful.
 - Avoid parallel hand-written Zod and Effect definitions for the same route boundary.
+- Use v4 Schema names and shapes from `migration/schema.md`: `Schema.Literals([...])`, `Schema.Union([...])`, `Schema.Record(key, value)`, `Schema.String.check(Schema.isUUID())`, and `Schema.TaggedErrorClass`.
+- Put status and content-type behavior on schemas with `HttpApiSchema.status(...)` / `httpApiStatus` and `HttpApiSchema.as*` helpers instead of duplicating status metadata in handlers.
 
 ## Phases
 
@@ -217,6 +240,10 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 | `permission`              | `bridged`         | `src/server/httpapi/permission.ts` implements list/reply; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                             |
 | `provider`                | `bridged` partial | `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth` are bridged; OAuth routes remain open                                                                  |
 | `config`                  | `bridged`         | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open                                                                                                                     |
+| `doctor`                  | `bridged`         | `GET /doctor` is bridged via `src/server/httpapi/doctor.ts`; covered by `test/server/httpapi-doctor.test.ts`                                                                                                            |
+| `analytics`               | `bridged`         | all five read routes bridged via `src/server/httpapi/analytics.ts`; covered by `test/server/httpapi-analytics.test.ts`                                                                                                  |
+| `global`                  | `bridged`         | `health`/`dispose` via `src/server/httpapi/global.ts`, `event` via raw SSE; served by the instance-less `handleGlobal` branch                                                                                           |
+| `mission`                 | `bridged`         | full CRUD + lifecycle + execs bridged via `src/server/httpapi/mission.ts`; covered by `test/server/httpapi-mission.test.ts`                                                                                             |
 | `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch                                                           |
 | `file`                    | `bridged`         | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open                                                                                                                                      |
 | `mcp`                     | `bridged`         | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle                                                                                      |
@@ -250,6 +277,42 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `GET /config` - read config.
 - [x] `PATCH /config` - update config and dispose active instance. Current branch behavior disposes inline before returning JSON; post-response lifecycle remains a Hono deletion criterion.
 - [x] `GET /config/providers` - config provider summary.
+
+### Doctor Routes
+
+- [x] `GET /doctor` - run diagnostics and return the structured doctor report. Evidence: `src/server/httpapi/doctor.ts`, `src/server/httpapi/bridge.ts`, and `bun test test/server/httpapi-doctor.test.ts`.
+
+### Analytics Routes
+
+- [x] `GET /analytics/global` - cumulative global analytics. Evidence: `src/server/httpapi/analytics.ts` and `bun test test/server/httpapi-analytics.test.ts`.
+- [x] `GET /analytics/daily` - daily snapshots with the legacy `from`/`to`/`days` defaulting.
+- [x] `GET /analytics/session/:sessionID` - session analytics; missing session returns the legacy `{ error: "Session not found" }` 404 body.
+- [x] `GET /analytics/sessions` - all session summaries.
+- [x] `GET /analytics/leaderboard` - ranked models/providers/projects.
+
+### Global Routes
+
+Served by the instance-less `supportsGlobal`/`handleGlobal` bridge branch (mounted before the instance middleware in `server.ts`).
+
+- [x] `GET /global/health` - health + version. Evidence: `src/server/httpapi/global.ts` and `bun test test/server/httpapi-global.test.ts`.
+- [x] `POST /global/dispose` - dispose all instances and emit `global.disposed`.
+- [x] `GET /global/event` - global SSE stream via `HttpApiEvent.handle()` (raw response, not `HttpApi`).
+
+### Mission Routes
+
+- [x] `GET /mission` - list missions with runtime status. Evidence: `src/server/httpapi/mission.ts` and `bun test test/server/httpapi-mission.test.ts`.
+- [x] `GET /mission/templates` - built-in templates.
+- [x] `POST /mission/generate` - generate a definition from a description (errors map to the legacy `ValidationError` 400 body, same as the loop slice).
+- [x] `GET /mission/:id` - get mission + runtime; legacy `NotFound` 404 body.
+- [x] `PUT /mission` - create; body parsed with the legacy zod `CreateInput` so schema defaults apply.
+- [x] `POST /mission/:id` - update; path/body id mismatch and validation failures map to the legacy 400 body.
+- [x] `DELETE /mission/:id` - delete (cancels in-flight orchestration first).
+- [x] `POST /mission/:id/start` - start/resume orchestration.
+- [x] `POST /mission/:id/pause` - pause.
+- [x] `POST /mission/:id/cancel` - cancel and freeze.
+- [x] `POST /mission/:id/feature/:featureID` - feature mutation (skip / mark-done / reset / add deps).
+- [x] `GET /mission/:id/execs` - execution history.
+- [x] `GET /mission/execs/recent` - recent executions across missions.
 
 ### Project Routes
 
@@ -406,10 +469,11 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 11. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, and abort are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 12. [x] Bridge remaining session mutation routes: share/unshare/summarize/command/shell/deprecated-permissions are bridged (2026-06-12); init was removed by design. Only the streaming prompt routes (`POST /session/:id/message`, `POST /session/:id/prompt_async`) remain, tracked with the SSE work in step 13.
 13. [x] Replace event SSE with non-Hono HTTP (2026-06-12): `src/server/httpapi/event.ts` serves `GET /event` from the bridge as a web-standard ReadableStream SSE response (server.connected greeting, GlobalBus forwarding, 30s heartbeat) — no Hono dependency. The streaming prompt routes (`POST /session/:id/message`, `prompt_async`) follow the same raw-response pattern when they move.
-14. [ ] Replace pty websocket/control routes with non-Hono Effect HTTP for the Effect backend. Hono `pty.ts` remains in the Hono backend.
-15. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
-16. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
-17. [ ] Flip `backend.ts` default from `hono` to `effect-httpapi`, keep `NIKCLI_EXPERIMENTAL_HTTPAPI` (or its inverse) as a short fallback flag, then delete replaced Hono route files.
+14. [x] Bridge doctor route. Evidence: `src/server/httpapi/doctor.ts`, `src/server/httpapi/bridge.ts`, and `bun test test/server/httpapi-doctor.test.ts`.
+15. [ ] Replace pty websocket/control routes with non-Hono Effect HTTP for the Effect backend. Hono `pty.ts` remains in the Hono backend.
+16. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
+17. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
+18. [ ] Flip `backend.ts` default from `hono` to `effect-httpapi`, keep `NIKCLI_EXPERIMENTAL_HTTPAPI` (or its inverse) as a short fallback flag, then delete replaced Hono route files.
 
 ## Checklist
 

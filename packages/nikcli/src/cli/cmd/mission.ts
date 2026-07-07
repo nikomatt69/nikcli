@@ -166,7 +166,7 @@ const MissionNewCommand = cmd({
       let draft: MissionDefinition
       if (args.fromDescription) {
         UI.println(UI.Style.TEXT_INFO_BOLD + "▶" + UI.Style.TEXT_DIM, "Generating mission plan from description…")
-        const { generateFromDescription } = await import("../../server/routes/mission")
+        const { generateFromDescription } = await import("../../mission/generate")
         draft = await generateFromDescription(String(args.fromDescription), {
           ...(args.model ? { model: String(args.model) } : {}),
           ...(args.agent ? { agent: String(args.agent) } : {}),

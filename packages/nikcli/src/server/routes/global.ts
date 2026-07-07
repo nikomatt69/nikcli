@@ -8,10 +8,11 @@ import { Instance } from "../../project/instance"
 import { Installation } from "@/installation"
 import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
+import { GlobalDisposedEvent } from "../httpapi/global"
 
 const log = Log.create({ service: "server" })
 
-export const GlobalDisposedEvent = BusEvent.define("global.disposed", z.object({}))
+export { GlobalDisposedEvent }
 
 export const GlobalRoutes = lazy(() =>
   new Hono()

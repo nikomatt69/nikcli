@@ -157,6 +157,15 @@ mechanical.
 
 ## Progress tracker
 
+2026-07-08: new HttpApi slices `httpapi/analytics.ts`, `httpapi/global.ts`, and
+`httpapi/mission.ts` author their route DTOs as Effect Schema
+(`Schema.Struct` for typed bodies, `Schema.Unknown` where the legacy Hono
+contract was `z.any()`). Mission create/update bodies intentionally keep the
+zod `MissionDefinitionSchema` as parse source (via `safeParse` inside the
+handler) because the legacy validator applied zod defaults; that zod stays the
+single source of truth per the "When Zod can stay" rule and flips together
+with `mission/schema.ts` if it ever migrates.
+
 ### `src/config/` ✅ complete
 
 All of `packages/nikcli/src/config/` has been migrated. Files that still
