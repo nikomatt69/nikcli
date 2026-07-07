@@ -234,14 +234,22 @@ export namespace IslandBridge {
   }
 
   let started = false
+  // Separate from `started`: `started` just guards the one-time GlobalBus
+  // listener registration, while `enabled` gates whether that listener does
+  // anything. Kept apart so a TUI plugin can flip bridging on/off for this
+  // process's session (see feature-plugins/island) without needing to
+  // register/unregister the listener each time — toggling off just clears
+  // the current snapshots and stops writing; toggling back on resumes
+  // through the already-registered listener.
+  let enabled = process.env.NIKCLI_ISLAND_DISABLE !== "1"
 
   /** Idempotent. No-op off macOS. Safe to call from any CLI entrypoint. */
   export function start(): void {
     if (started || !isMac()) return
-    if (process.env.NIKCLI_ISLAND_DISABLE === "1") return
     started = true
 
     GlobalBus.on("event", ({ directory, payload }) => {
+      if (!enabled) return
       const { type, properties } = payload ?? {}
       switch (type) {
         case "session.status": {
@@ -339,5 +347,38 @@ export namespace IslandBridge {
       } catch {}
     }
     known.clear()
+  }
+
+  export function isSupported(): boolean {
+    return isMac()
+  }
+
+  export function isEnabled(): boolean {
+    return enabled
+  }
+
+  /** Toggle bridging for this process's session (e.g. the TUI plugin's activate/deactivate). */
+  export function setEnabled(next: boolean): void {
+    if (enabled === next) return
+    enabled = next
+    if (next) {
+      start()
+      return
+    }
+    stop()
+  }
+
+  export async function status(): Promise<{
+    supported: boolean
+    enabled: boolean
+    appRunning: boolean
+    sessions: number
+  }> {
+    return {
+      supported: isMac(),
+      enabled,
+      appRunning: isMac() ? await appIsRunning() : false,
+      sessions: known.size,
+    }
   }
 }
