@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.147.0 (July 2026)
+
+## Core
+
+- Bridge VCS status/diff-raw/apply routes to Effect HttpApi (@nikomatt69)
+- Bridge doctor, analytics, global, and mission routes to Effect HttpApi (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): bridge doctor, analytics, global, and mission routes to Effect HttpApi
+  - feat(nikcli): bridge VCS status/diff-raw/apply routes to Effect HttpApi
+
 ## v1.143.0 (July 2026)
 
 ## Core

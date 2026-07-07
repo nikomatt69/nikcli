@@ -42,13 +42,13 @@ more of the library we already ship, not upgrading.
 
 Measured on this branch:
 
-| Edge | Legacy usage | Effect service usage |
-| --- | --- | --- |
-| env/config reads | 204 `process.env` reads | **0** `Config.*` reads |
-| HTTP client | 132 raw `fetch(` callsites | 4 `HttpClient` refs |
-| child processes | 11 files `child_process`, 29 files `Bun.spawn` | **0** `ChildProcessSpawner` refs (guide.md prescribes it) |
-| filesystem | 72 files import `node:fs` | `AppFileSystem`/`BunFileSystem` in migrated services only |
-| route DTOs | 150 files import zod | Schema owns httpapi slices; zod retained for Hono/SDK compat |
+| Edge             | Legacy usage                                   | Effect service usage                                         |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------ |
+| env/config reads | 204 `process.env` reads                        | **0** `Config.*` reads                                       |
+| HTTP client      | 132 raw `fetch(` callsites                     | 4 `HttpClient` refs                                          |
+| child processes  | 11 files `child_process`, 29 files `Bun.spawn` | **0** `ChildProcessSpawner` refs (guide.md prescribes it)    |
+| filesystem       | 72 files import `node:fs`                      | `AppFileSystem`/`BunFileSystem` in migrated services only    |
+| route DTOs       | 150 files import zod                           | Schema owns httpapi slices; zod retained for Hono/SDK compat |
 
 - Instance ALS teardown (`INST-1..6`) fully open; `Global.Path` import-time side effects (P3) open.
 - `Bus` is callback-based (`subscribe(cb) => unsubscribe`) — the `Stream`-based subscription

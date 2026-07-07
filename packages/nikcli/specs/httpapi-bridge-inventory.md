@@ -20,24 +20,24 @@ TUI control paths are in `implementedRoutes` and `TuiHttpApi` (`httpapi/tui.ts`)
 
 Rough coverage — desktop instance API paths that **do not** fall through to Hono when the flag is on:
 
-| Prefix / group                                                           | HttpApi module                       | Notes                                                                                        |
-| ------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `/agent`, `/command`, `/skill`, `/lsp`, `/formatter`, `/path`, `/vcs`    | top-level / mixed                    | incl. `vcs.status`, `vcs.diff.raw` (text/x-diff), `vcs.apply` (bridged 2026-07-08)           |
-| `/config`, `/profiles`                                                   | `httpapi/config`, profiles in public | MCP config patch routes bridged                                                              |
-| `/doctor`                                                                | `httpapi/doctor`                     | Diagnostic report bridged via `GET /doctor`                                                  |
-| `/project`                                                               | `httpapi/project`                    |                                                                                              |
-| `/provider`                                                              | `httpapi/provider`                   | OAuth authorize/callback bridged                                                             |
-| `/permission`, `/question`                                               | `httpapi/*`                          |                                                                                              |
-| `/session` (subset)                                                      | `httpapi/session`                    | See **Session gaps** below                                                                   |
-| `/mcp`                                                                   | `httpapi/mcp`                        | OAuth MCP auth routes bridged                                                                |
-| `/find`, `/file`                                                         | `httpapi/file`                       |                                                                                              |
-| `/experimental/tool`, `/experimental/worktree`, `/experimental/resource` | `httpapi/experimental`               |                                                                                              |
-| `/experimental/workspace/*`                                              | `httpapi/workspace`                  | incl. `sync-list`, `warp`, restore                                                           |
-| `/instance/dispose`                                                      | top-level                            |                                                                                              |
-| `/tui/*` (listed paths)                                                  | `httpapi/tui`                        | Same queues as Hono `routes/tui.ts`                                                          |
-| `/loop`                                                                  | `httpapi/loop`                       | CRUD, run/abort/pause/resume, generate, templates, runs                                      |
-| `/mission`                                                               | `httpapi/mission`                    | Full group: CRUD, start/pause/cancel, feature mutate, generate, execs                        |
-| `/analytics`                                                             | `httpapi/analytics`                  | global, daily, session, sessions, leaderboard (all reads)                                    |
+| Prefix / group                                                           | HttpApi module                       | Notes                                                                                                  |
+| ------------------------------------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `/agent`, `/command`, `/skill`, `/lsp`, `/formatter`, `/path`, `/vcs`    | top-level / mixed                    | incl. `vcs.status`, `vcs.diff.raw` (text/x-diff), `vcs.apply` (bridged 2026-07-08)                     |
+| `/config`, `/profiles`                                                   | `httpapi/config`, profiles in public | MCP config patch routes bridged                                                                        |
+| `/doctor`                                                                | `httpapi/doctor`                     | Diagnostic report bridged via `GET /doctor`                                                            |
+| `/project`                                                               | `httpapi/project`                    |                                                                                                        |
+| `/provider`                                                              | `httpapi/provider`                   | OAuth authorize/callback bridged                                                                       |
+| `/permission`, `/question`                                               | `httpapi/*`                          |                                                                                                        |
+| `/session` (subset)                                                      | `httpapi/session`                    | See **Session gaps** below                                                                             |
+| `/mcp`                                                                   | `httpapi/mcp`                        | OAuth MCP auth routes bridged                                                                          |
+| `/find`, `/file`                                                         | `httpapi/file`                       |                                                                                                        |
+| `/experimental/tool`, `/experimental/worktree`, `/experimental/resource` | `httpapi/experimental`               |                                                                                                        |
+| `/experimental/workspace/*`                                              | `httpapi/workspace`                  | incl. `sync-list`, `warp`, restore                                                                     |
+| `/instance/dispose`                                                      | top-level                            |                                                                                                        |
+| `/tui/*` (listed paths)                                                  | `httpapi/tui`                        | Same queues as Hono `routes/tui.ts`                                                                    |
+| `/loop`                                                                  | `httpapi/loop`                       | CRUD, run/abort/pause/resume, generate, templates, runs                                                |
+| `/mission`                                                               | `httpapi/mission`                    | Full group: CRUD, start/pause/cancel, feature mutate, generate, execs                                  |
+| `/analytics`                                                             | `httpapi/analytics`                  | global, daily, session, sessions, leaderboard (all reads)                                              |
 | `/global/*`                                                              | `httpapi/global` + `httpapi/event`   | **Separate instance-less branch**: `supportsGlobal`/`handleGlobal`, mounted before instance middleware |
 
 Count: **145** regex entries in `implementedRoutes` plus **3** in `globalRoutes` (see `bridge.ts`), including the full `/loop` and `/mission` groups, `/analytics`, the three `/vcs` sub-routes, `GET /doctor`, and the instance-less `/global` branch.
@@ -60,28 +60,28 @@ Count: **145** regex entries in `implementedRoutes` plus **3** in `globalRoutes`
 
 High-traffic / plan-relevant:
 
-| Group                                    | Mount                            | Why                                                                 |
-| ---------------------------------------- | -------------------------------- | ------------------------------------------------------------------- |
-| ~~**Loop**~~                             | `/loop`                          | **Bridged** via `httpapi/loop.ts` (2026-06-18)                      |
-| ~~**Mission**~~                          | `/mission`                       | **Bridged** via `httpapi/mission.ts` (2026-07-08)                   |
-| **PTY**                                  | `/pty`                           | WebSocket `pty.connect` — classify **special** (Phase 1.6 http-api) |
-| ~~**Analytics**~~                        | `/analytics`                     | **Bridged** via `httpapi/analytics.ts` (2026-07-08)                 |
+| Group                                    | Mount                            | Why                                                                                    |
+| ---------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------- |
+| ~~**Loop**~~                             | `/loop`                          | **Bridged** via `httpapi/loop.ts` (2026-06-18)                                         |
+| ~~**Mission**~~                          | `/mission`                       | **Bridged** via `httpapi/mission.ts` (2026-07-08)                                      |
+| **PTY**                                  | `/pty`                           | WebSocket `pty.connect` — classify **special** (Phase 1.6 http-api)                    |
+| ~~**Analytics**~~                        | `/analytics`                     | **Bridged** via `httpapi/analytics.ts` (2026-07-08)                                    |
 | ~~**Global**~~                           | `/global`                        | **Bridged** via `httpapi/global.ts` + instance-less `handleGlobal` branch (2026-07-08) |
-| **Connectors, chatbot, companion, user** | respective mounts                | Integrations                                                        |
-| **Mobile**                               | `/mobile`                        | Separate OpenAPI surface; intentionally not in instance bridge      |
-| **VCS writes**                           | `/vcs` on `server.ts`            | `vcs.status`, `vcs.diff.raw`, `vcs.apply`                           |
-| **App**                                  | `/app/*` on `server.ts`          | agents, skills, log                                                 |
-| **Managed worktree**                     | `/experimental/managed-worktree` | Not in current regex set                                            |
-| **Sync start**                           | (planned)                        | Blocked on `Sync.Service` Effect — **F1.3**                         |
+| **Connectors, chatbot, companion, user** | respective mounts                | Integrations                                                                           |
+| **Mobile**                               | `/mobile`                        | Separate OpenAPI surface; intentionally not in instance bridge                         |
+| **VCS writes**                           | `/vcs` on `server.ts`            | `vcs.status`, `vcs.diff.raw`, `vcs.apply`                                              |
+| **App**                                  | `/app/*` on `server.ts`          | agents, skills, log                                                                    |
+| **Managed worktree**                     | `/experimental/managed-worktree` | Not in current regex set                                                               |
+| **Sync start**                           | (planned)                        | Blocked on `Sync.Service` Effect — **F1.3**                                            |
 
 ## Classification summary (F0.4)
 
-| Class        | Meaning                                                    | Examples                                                                  |
-| ------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **bridged**  | `supports()` true → Effect HttpApi or prompt special       | session CRUD, tui, v2 GET, file, mcp                                      |
-| **special**  | Custom `handle()` branch; may still need `supports()` true | `/event`, session prompt POST                                             |
+| Class        | Meaning                                                    | Examples                                                                                     |
+| ------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **bridged**  | `supports()` true → Effect HttpApi or prompt special       | session CRUD, tui, v2 GET, file, mcp                                                         |
+| **special**  | Custom `handle()` branch; may still need `supports()` true | `/event`, session prompt POST                                                                |
 | **missing**  | Always Hono with flag on                                   | `/pty`, session instructions/context/background, connectors/chatbot/companion/user, `/app/*` |
-| **deferred** | ADR / non-JSON                                             | PTY WebSocket, full SSE parity tests                                      |
+| **deferred** | ADR / non-JSON                                             | PTY WebSocket, full SSE parity tests                                                         |
 
 ## Maintenance
 

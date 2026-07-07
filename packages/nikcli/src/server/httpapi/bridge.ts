@@ -1,11 +1,11 @@
-import { HttpRouter } from "effect/unstable/http";
-import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun";
-import { Context, Layer } from "effect";
-import { InstanceRef, sharedMemoMap } from "@/effect";
-import { Instance } from "@/project/instance";
-import { HttpApiEvent } from "./event";
-import { HttpApiPrompt } from "./prompt";
-import { PublicHttpApi } from "./public";
+import { HttpRouter } from "effect/unstable/http"
+import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
+import { Context, Layer } from "effect"
+import { InstanceRef, sharedMemoMap } from "@/effect"
+import { Instance } from "@/project/instance"
+import { HttpApiEvent } from "./event"
+import { HttpApiPrompt } from "./prompt"
+import { PublicHttpApi } from "./public"
 
 export namespace HttpApiBridge {
   const implementedRoutes = [
@@ -151,7 +151,7 @@ export namespace HttpApiBridge {
     ["POST", /^\/tui\/publish$/],
     ["POST", /^\/tui\/select-session$/],
     ["POST", /^\/tui\/control\/response$/],
-  ] as const;
+  ] as const
 
   /**
    * Instance-less routes served before the `/global` Hono mount. These must
@@ -162,63 +162,48 @@ export namespace HttpApiBridge {
     ["GET", /^\/global\/health$/],
     ["GET", /^\/global\/event$/],
     ["POST", /^\/global\/dispose$/],
-  ] as const;
+  ] as const
 
   const handler = HttpRouter.toWebHandler(
     PublicHttpApi.layer.pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          BunHttpServer.layerHttpServices,
-          BunFileSystem.layer,
-          BunPath.layer,
-        ),
-      ),
+      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
     ),
     { memoMap: sharedMemoMap },
-  ).handler;
+  ).handler
 
   export function supports(pathname: string, method = "GET") {
-    const normalizedMethod = method.toUpperCase();
+    const normalizedMethod = method.toUpperCase()
     return implementedRoutes.some(
-      ([routeMethod, pattern]) =>
-        routeMethod === normalizedMethod && pattern.test(pathname),
-    );
+      ([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname),
+    )
   }
 
   export function supportsGlobal(pathname: string, method = "GET") {
-    const normalizedMethod = method.toUpperCase();
-    return globalRoutes.some(
-      ([routeMethod, pattern]) =>
-        routeMethod === normalizedMethod && pattern.test(pathname),
-    );
+    const normalizedMethod = method.toUpperCase()
+    return globalRoutes.some(([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname))
   }
 
   /** Serve an instance-less `/global/*` request. Reads no Instance ALS. */
   export function handleGlobal(request: Request) {
-    const pathname = new URL(request.url).pathname;
+    const pathname = new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/global/event") {
-      return Promise.resolve(HttpApiEvent.handle());
+      return Promise.resolve(HttpApiEvent.handle())
     }
-    return handler(request, Context.empty() as Context.Context<any>);
+    return handler(request, Context.empty() as Context.Context<any>)
   }
 
   export function handle(request: Request) {
     // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
     // of the router — they are not schema-encoded HttpApi bodies.
-    const pathname = new URL(request.url).pathname;
+    const pathname = new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/event") {
-      return Promise.resolve(HttpApiEvent.handle());
+      return Promise.resolve(HttpApiEvent.handle())
     }
     if (request.method === "POST") {
-      const prompt = pathname.match(/^\/session\/([^/]+)\/message$/);
-      if (prompt)
-        return HttpApiPrompt.prompt(request, decodeURIComponent(prompt[1]));
-      const promptAsync = pathname.match(/^\/session\/([^/]+)\/prompt_async$/);
-      if (promptAsync)
-        return HttpApiPrompt.promptAsync(
-          request,
-          decodeURIComponent(promptAsync[1]),
-        );
+      const prompt = pathname.match(/^\/session\/([^/]+)\/message$/)
+      if (prompt) return HttpApiPrompt.prompt(request, decodeURIComponent(prompt[1]))
+      const promptAsync = pathname.match(/^\/session\/([^/]+)\/prompt_async$/)
+      if (promptAsync) return HttpApiPrompt.promptAsync(request, decodeURIComponent(promptAsync[1]))
     }
     return handler(
       request,
@@ -227,6 +212,6 @@ export namespace HttpApiBridge {
         worktree: Instance.worktree,
         project: Instance.project,
       }) as Context.Context<any>,
-    );
+    )
   }
 }

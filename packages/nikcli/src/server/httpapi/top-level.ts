@@ -24,9 +24,7 @@ export namespace TopLevelHttpApi {
   }).annotate({ identifier: "VcsInfo" })
 
   /** Raw patch body served as `text/x-diff`, mirroring the Hono `c.text` route. */
-  const VcsDiffRaw = Schema.String.pipe(
-    HttpApiSchema.asText({ contentType: "text/x-diff; charset=utf-8" }),
-  )
+  const VcsDiffRaw = Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/x-diff; charset=utf-8" }))
 
   /** Legacy 400 body for failed patch application: `{ name, data }`. */
   const VcsApplyError = Schema.Struct({
