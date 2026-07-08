@@ -638,6 +638,20 @@ function googleThinkingLevelEfforts(apiId: string) {
   return ["low", "medium", "high"]
 }
 
+// Matches grok-4.5 across the id formats we encounter ("grok-4.5",
+// "grok-4-5-fast", "xai/grok-4.5") without false-matching "grok-4.50".
+const GROK_4_5_RE = /(?:^|\/)grok-4[.-]5(?:[.-]|$)/
+
+// Effort tiers a grok model accepts, weakest to strongest; undefined when the
+// model has no effort control (it may still always reason at a fixed depth).
+// see: https://docs.x.ai/docs/guides/reasoning
+function xaiReasoningEfforts(id: string): string[] | undefined {
+  if (id.includes("grok-3-mini")) return ["low", "high"]
+  if (id.includes("multi-agent")) return ["low", "medium", "high", "xhigh"]
+  if (GROK_4_5_RE.test(id)) return ["low", "medium", "high"]
+  return undefined
+}
+
 function googleThinkingBudgetMax(apiId: string) {
   const id = apiId.toLowerCase()
   if (id.includes("2.5") && id.includes("pro") && !id.includes("flash")) return 32_768
@@ -676,20 +690,28 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
   )
     return {}
 
+  // xAI reasoning-effort support is per-model, not family-wide: grok-3-mini
+  // takes low/high, grok-4.5 takes low/medium/high (reasoning can't be disabled,
+  // defaults to high), and grok-4.20 multi-agent uses effort to pick the agent
+  // count (low/medium/high/xhigh). Every other grok reasoning model (grok-4,
+  // grok-4.3, grok-code, grok-build…) reasons at a fixed depth and rejects the
+  // parameter, so it gets no variants. Composer models served under the xai
+  // provider have no documented effort control either.
   // see: https://docs.x.ai/docs/guides/reasoning#control-how-hard-the-model-thinks
-  if (id.includes("grok") && id.includes("grok-3-mini")) {
+  if (id.includes("grok") || model.api.npm === "@ai-sdk/xai") {
+    const efforts = xaiReasoningEfforts(id)
+    if (!efforts) return {}
     if (model.api.npm === "@openrouter/ai-sdk-provider") {
-      return {
-        low: { reasoning: { effort: "low" } },
-        high: { reasoning: { effort: "high" } },
-      }
+      return Object.fromEntries(efforts.map((effort) => [effort, { reasoning: { effort } }]))
     }
-    return {
-      low: { reasoningEffort: "low" },
-      high: { reasoningEffort: "high" },
-    }
+    // Direct xAI (and OAI-compatible fronts) take `reasoningEffort`, but
+    // @ai-sdk/xai's provider-options schema only allows low|medium|high —
+    // `xhigh` fails its zod validation — so it only survives on OpenRouter's
+    // generic reasoning.effort passthrough above.
+    return Object.fromEntries(
+      efforts.filter((effort) => effort !== "xhigh").map((effort) => [effort, { reasoningEffort: effort }]),
+    )
   }
-  if (id.includes("grok")) return {}
 
   switch (model.api.npm) {
     case "@openrouter/ai-sdk-provider": {

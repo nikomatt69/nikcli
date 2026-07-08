@@ -29,6 +29,7 @@ import {
 import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
+import { features } from "@/config/features"
 import { Instance } from "@/project/instance"
 import type { Agent } from "@/agent/agent"
 import type { MessageV2 } from "./message-v2"
@@ -368,7 +369,7 @@ export namespace LLM {
       }),
     )
 
-    const nativeLlmEnabled = cfg.experimental?.nativeLlm === true
+    const nativeLlmEnabled = features(cfg).nativeLlm
 
     // Debug-only route compile when native runtime is off (AI SDK still handles HTTP).
     if (modelRef && !nativeLlmEnabled) {

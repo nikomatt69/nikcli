@@ -1,6 +1,6 @@
 # HttpApi bridge inventory (Hono vs `implementedRoutes`)
 
-Audit date: 2026-07-07. Source of truth for bridged paths: `src/server/httpapi/bridge.ts` (`implementedRoutes` + `handle()` specials).
+Audit date: 2026-07-08 (refreshed). Source of truth for bridged paths: `src/server/httpapi/bridge.ts` (`implementedRoutes` + `handle()` specials).
 
 When `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, `server.ts` forwards to `HttpApiBridge.handle` only if `HttpApiBridge.supports(path, method)` is true; otherwise Hono handles the request.
 
@@ -47,7 +47,11 @@ Rough coverage — desktop instance API paths that **do not** fall through to Ho
 | `/analytics`                                                                                               | `httpapi/analytics`                  | global, daily, session, sessions, leaderboard (all reads)                                                                                                                                                                                                                                                                    |
 | `/global/*`                                                                                                | `httpapi/global` + `httpapi/event`   | **Separate instance-less branch**: `supportsGlobal`/`handleGlobal`, mounted before instance middleware                                                                                                                                                                                                                       |
 
-Count: **145** regex entries in `implementedRoutes` plus **3** in `globalRoutes` (see `bridge.ts`), including the full `/loop` and `/mission` groups, `/analytics`, the three `/vcs` sub-routes, `GET /doctor`, and the instance-less `/global` branch.
+Count (code-verified 2026-07-08): **~178** regex entries in `implementedRoutes` plus **11** in `globalRoutes` (see `bridge.ts`), including the full `/loop` and `/mission` groups, `/analytics`, `/brain`, `/connectors`, session instructions/context/background/monitor, Sync.Service JSON routes, the three `/vcs` sub-routes, `GET /doctor`, and the instance-less `/global` branch.
+
+Regenerate support matrix: `bun run script/httpapi-bridge-inventory.ts`.
+
+**Still Hono-only (do not claim bridged):** companion HTML, mobile surface (~84 ops), PTY WebSocket `/pty/:id/connect`, sync SSE `/sync/stream` + legacy sync event/outbox/stats/connect/disconnect/drain.
 
 ## Session — bridged vs Hono-only
 

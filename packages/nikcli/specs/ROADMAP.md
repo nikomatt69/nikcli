@@ -27,14 +27,16 @@ Track C — TUI opencode-parity (client)   Track D — Soak & default-on
 
 ## Now (current sprint)
 
-| ID         | Work                                                            | Owner hint    | Gate   | Status |
-| ---------- | --------------------------------------------------------------- | ------------- | ------ | ------ |
-| **A-F0.1** | Smoke `experimental.nativeLlm` on/off (chat, tools)             | session       | Manual | ⬜     |
-| **A-F0.2** | `cd packages/llm && bun test`                                   | llm           | Exit 0 | ⬜     |
-| **A-F0.3** | Update clever-nebula “stato implementazione” → P0 code complete | docs          | —      | ⬜     |
-| **A-F0.4** | Document known gap: native retry ≠ AI SDK until F1.2            | AGENTS / plan | —      | ⬜     |
+| ID         | Work                                                            | Owner hint    | Gate   | Status                                                    |
+| ---------- | --------------------------------------------------------------- | ------------- | ------ | --------------------------------------------------------- |
+| **A-F0.1** | Smoke `experimental.nativeLlm` on/off (chat, tools)             | session       | Manual | ⬜                                                        |
+| **A-F0.2** | `cd packages/llm && bun test`                                   | llm           | Exit 0 | ⬜                                                        |
+| **A-F0.3** | Update clever-nebula “stato implementazione” → P0 code complete | docs          | —      | ⬜                                                        |
+| **A-F0.4** | Document known gap: native retry ≠ AI SDK until F1.2            | AGENTS / plan | —      | ✅ F1.2 landed 2026-07-08 (`providerErrorToAPICallError`) |
 
 **Already shipped (P0 code):** `llm-event-adapter`, `native-runtime` (`llmStreamRequest`), `llm.ts` branch + pre-stream fallback, typecheck + session tests green.
+
+**2026-07-08 (misty-moon wave 1):** F1.2 retry parity (`APICallError` from provider-error); native abort wrapper; `src/config/features.ts` + `messageVirtualization` flag; session list windowing behind flag; Effect OpenAPI opt-in (`generate --httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`).
 
 ```bash
 cd packages/nikcli && bun run typecheck
@@ -47,13 +49,13 @@ cd packages/nikcli && bun test test/session/llm-event-adapter.test.ts test/sessi
 
 ### Track A — F1 native error parity
 
-| ID         | Deliverable                                                        | Risk if skipped                     |
-| ---------- | ------------------------------------------------------------------ | ----------------------------------- |
-| **A-F1.1** | OAuth `fetch` + `status()` ↔ full `mapToModelRef`                  | Silent AI SDK fallback              |
-| **A-F1.2** | `provider-error` → throw compatible with `fromError` / `retryable` | No auto-retry on 429/throttle       |
-| **A-F1.3** | Context overflow messages → compaction path (+ tests)              | Wrong UX on long context            |
-| **A-F1.5** | Debug tags: `llm.runtime`, `llm.fallback`                          | Hard to debug double provider calls |
-| **A-F1.6** | Tests for `native-runtime`; deprecate `native-request.ts`          | Tech debt                           |
+| ID         | Deliverable                                                        | Risk if skipped                                                          |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| **A-F1.1** | OAuth `fetch` + `status()` ↔ full `mapToModelRef`                  | ✅ ADR: permanent AI SDK for OAuth until llm supports fetch (2026-07-08) |
+| **A-F1.2** | `provider-error` → throw compatible with `fromError` / `retryable` | ✅ `providerErrorToAPICallError` + tests (2026-07-08)                    |
+| **A-F1.3** | Context overflow messages → compaction path (+ tests)              | Wrong UX on long context                                                 |
+| **A-F1.5** | Debug tags: `llm.runtime`, `llm.fallback`                          | Hard to debug double provider calls                                      |
+| **A-F1.6** | Tests for `native-runtime`; deprecate `native-request.ts`          | ✅ abort + status tests in `test/session/native-runtime.test.ts`         |
 
 **Gate F1:** extended `retry.test` / adapter tests; `packages/llm` green; **no** `processor.ts` edit for native.
 
@@ -63,11 +65,11 @@ cd packages/nikcli && bun test test/session/llm-event-adapter.test.ts test/sessi
 
 ### Track B — F2 feature flags (no UX change)
 
-| ID         | Deliverable                                                                   |
-| ---------- | ----------------------------------------------------------------------------- |
-| **B-F2.1** | Zod: `experimental.requests`, `.tui`, `.persist` (all optional, default off)  |
-| **B-F2.2** | `src/config/features.ts`                                                      |
-| **B-F2.3** | opencode-parity README ↔ config key table (done partially; wire on implement) |
+| ID         | Deliverable                                                                             |
+| ---------- | --------------------------------------------------------------------------------------- | ------------- |
+| **B-F2.1** | Zod: `experimental.requests`, `.tui` (+ `messageVirtualization`); persist.\* still open | ✅ partial    |
+| **B-F2.2** | `src/config/features.ts`                                                                | ✅ 2026-07-08 |
+| **B-F2.3** | opencode-parity README ↔ config key table                                               | ✅ 2026-07-08 |
 
 Can start **in parallel** with A-F1.
 

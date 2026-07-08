@@ -57,6 +57,7 @@ import { Project } from "@/project/project"
 import { Workspace } from "@/workspace"
 import { ServerProxy } from "./proxy"
 import { HttpApiBridge } from "./httpapi/bridge"
+import { ServerBackend } from "./backend"
 import { AnalyticsRoutes } from "./routes/analytics"
 import { BrainRoutes } from "./routes/brain"
 import { DoctorRoutes } from "./routes/doctor"
@@ -406,7 +407,7 @@ export namespace Server {
         .use(async (c, next) => {
           // `/global/*` is mounted before the instance/workspace middleware, so
           // it gets its own bridge branch that provides no instance context.
-          if (!Flag.NIKCLI_EXPERIMENTAL_HTTPAPI || !HttpApiBridge.supportsGlobal(c.req.path, c.req.method)) {
+          if (!ServerBackend.shouldUseGlobalHttpApiBridge(c.req.path, c.req.method)) {
             return next()
           }
           return HttpApiBridge.handleGlobal(c.req.raw)
@@ -476,7 +477,7 @@ export namespace Server {
           ),
         )
         .use(async (c, next) => {
-          if (!Flag.NIKCLI_EXPERIMENTAL_HTTPAPI || !HttpApiBridge.supports(c.req.path, c.req.method)) {
+          if (!ServerBackend.shouldUseHttpApiBridge(c.req.path, c.req.method)) {
             return next()
           }
           return HttpApiBridge.handle(c.req.raw)

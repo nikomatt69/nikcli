@@ -226,12 +226,15 @@ export namespace HttpApiBridge {
     ["DELETE", /^\/user\/[^/]+$/],
   ] as const
 
-  const handler = HttpRouter.toWebHandler(
-    PublicHttpApi.layer.pipe(
-      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
-    ),
-    { memoMap: sharedMemoMap },
-  ).handler
+  /** Shared Effect HttpApi layer used by the in-Hono bridge today and by the future pure Effect backend. */
+  export const layer = PublicHttpApi.layer.pipe(
+    Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
+  )
+
+  /** Web-standard request handler for the schema-encoded HttpApi routes. */
+  export const webHandler = HttpRouter.toWebHandler(layer, {
+    memoMap: sharedMemoMap,
+  }).handler
 
   export function supports(pathname: string, method = "GET") {
     const normalizedMethod = method.toUpperCase()
@@ -258,7 +261,7 @@ export namespace HttpApiBridge {
       const response = await UsersHttp.handle(request)
       if (response) return response
     }
-    return handler(request, Context.empty() as Context.Context<any>)
+    return webHandler(request, Context.empty() as Context.Context<any>)
   }
 
   export function handle(request: Request) {
@@ -296,7 +299,7 @@ export namespace HttpApiBridge {
         )
       }
     }
-    return handler(
+    return webHandler(
       request,
       Context.make(InstanceRef, {
         directory: Instance.directory,

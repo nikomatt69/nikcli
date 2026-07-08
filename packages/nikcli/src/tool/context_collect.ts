@@ -3,12 +3,11 @@ import path from "path"
 import { pathToFileURL } from "url"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_collect.txt"
-import { Instance } from "@/project/instance"
 import { SearchBackend } from "@/file/searchBackend"
 import { assertExternalDirectory } from "./external-directory"
 import { FileIgnore } from "@/file/ignore"
 import { LSP } from "@/lsp"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
 const parameters = z.object({
@@ -24,18 +23,24 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
 
+async function instancePaths() {
+  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  return { directory: ctx.directory, worktree: ctx.worktree }
+}
+
 export const ContextCollectTool = Tool.define<typeof parameters, { count: number; truncated: boolean }>(
   "context_collect",
   {
     description: DESCRIPTION,
     parameters,
     async execute(params, ctx) {
-      const roots = params.paths?.length ? params.paths : [Instance.directory]
+      const { directory } = await instancePaths()
+      const roots = params.paths?.length ? params.paths : [directory]
       const limitFiles = params.maxFiles ?? 20
       const limitLines = params.maxLines ?? 200
       const includeSymbols = params.includeSymbols ?? false
       const includeDiagnostics = params.includeDiagnostics ?? false
-      const resolved = roots.map((item) => (path.isAbsolute(item) ? item : path.resolve(Instance.directory, item)))
+      const resolved = roots.map((item) => (path.isAbsolute(item) ? item : path.resolve(directory, item)))
       const regex = params.pattern ? new RegExp(params.pattern) : undefined
 
       await ctx.ask({
@@ -58,7 +63,7 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
         await assertExternalDirectory(ctx, item, { kind })
       }
 
-      const files = await collectFiles(resolved, limitFiles)
+      const files = await collectFiles(resolved, limitFiles, directory)
       const diagnostics = includeDiagnostics
         ? await runLSP(
             Effect.gen(function* () {
@@ -83,7 +88,7 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
       lines.push(`Collected ${files.length} files`)
 
       for (const file of files) {
-        const rel = path.relative(Instance.directory, file) || file
+        const rel = path.relative(directory, file) || file
         const body = await readSnippet(file, limitLines, regex)
         const snippet = body || "(no matching content)"
         lines.push("")
@@ -121,7 +126,7 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
   },
 )
 
-async function collectFiles(roots: string[], limit: number) {
+async function collectFiles(roots: string[], limit: number, directory: string) {
   const files: string[] = []
   for (const root of roots) {
     if (files.length >= limit) break
@@ -135,10 +140,13 @@ async function collectFiles(roots: string[], limit: number) {
     }
     if (!info.isDirectory()) continue
 
-    for await (const entry of SearchBackend.files({ cwd: root, limit: limit - files.length })) {
+    for await (const entry of SearchBackend.files({
+      cwd: root,
+      limit: limit - files.length,
+    })) {
       if (files.length >= limit) break
       const full = path.join(root, entry)
-      const rel = path.relative(Instance.directory, full)
+      const rel = path.relative(directory, full)
       if (FileIgnore.match(rel)) continue
       files.push(full)
     }

@@ -98,6 +98,11 @@ import { compilePartialSpec } from "@tui/util/spec-stream"
 import { TuiImageList } from "@tui/component/tui-image"
 import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
+import { features } from "@/config/features"
+import { useLanguage } from "@tui/context/language"
+import { spacerHeights, visibleRange } from "./message-window"
+import { RevertBanner } from "./revert-banner"
+import { sessionCommandLabels } from "./session-command-labels"
 import {
   dismissBackground as dismissBackgroundUtil,
   getBackgroundDismissed,
@@ -146,6 +151,8 @@ export function Session() {
   const kv = useKV()
   const server = useServer()
   const { theme } = useTheme()
+  const lang = useLanguage()
+  const commandLabels = sessionCommandLabels(lang)
   const promptRef = usePromptRef()
   const session = createMemo(() => sync.session.get(route.sessionID))
   const children = createMemo(() => {
@@ -166,6 +173,58 @@ export function Session() {
     return sync.data.session.filter((x) => workerIDs.has(x.id)).toSorted((a, b) => a.time.created - b.time.created)
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  /** Estimated row height per message for windowing (refined later from measured heights). */
+  const MESSAGE_HEIGHT_ESTIMATE = 6
+  const OVERSCAN = 5
+  const virtualizationEnabled = createMemo(() => features(sync.data.config).tui.messageVirtualization)
+  const [scrollPos, setScrollPos] = createSignal(0)
+  const [viewportH, setViewportH] = createSignal(24)
+  createEffect(() => {
+    if (!virtualizationEnabled()) return
+    const id = setInterval(() => {
+      if (!scroll) return
+      const y = typeof (scroll as { scrollTop?: number }).scrollTop === "number" ? (scroll as any).scrollTop : scroll.y
+      setScrollPos(typeof y === "number" ? y : 0)
+      const h = typeof scroll.height === "number" ? scroll.height : dimensions().height - 10
+      setViewportH(Math.max(1, h))
+    }, 50)
+    onCleanup(() => clearInterval(id))
+  })
+  /**
+   * Windowed message list for C1 virtualization. Flag off → full list (bit-identical).
+   * On any error → full list fallback.
+   */
+  const windowed = createMemo(() => {
+    const all = messages()
+    if (!virtualizationEnabled() || all.length === 0) {
+      return { items: all, top: 0, bottom: 0, baseIndex: 0 }
+    }
+    try {
+      const heights = all.map(() => MESSAGE_HEIGHT_ESTIMATE)
+      const total = heights.length * MESSAGE_HEIGHT_ESTIMATE
+      let scrollTop = scrollPos()
+      const vp = viewportH()
+      // Sticky-bottom: when near the end, pin window to the tail so streaming stays mounted.
+      if (scrollTop + vp >= total - MESSAGE_HEIGHT_ESTIMATE * 2) {
+        scrollTop = Math.max(0, total - vp)
+      }
+      const range = visibleRange({
+        heights,
+        scrollTop,
+        viewportHeight: vp,
+        overscan: OVERSCAN,
+      })
+      const spacers = spacerHeights(heights, range)
+      return {
+        items: all.slice(range.start, range.end),
+        top: spacers.top,
+        bottom: spacers.bottom,
+        baseIndex: range.start,
+      }
+    } catch {
+      return { items: all, top: 0, bottom: 0, baseIndex: 0 }
+    }
+  })
   const messageCreatedAt = createMemo(() =>
     Object.fromEntries(messages().map((message) => [message.id, message.time.created])),
   )
@@ -454,10 +513,10 @@ export function Session() {
   const command = useCommandDialog()
   command.register(() => [
     {
-      title: "Background subtask",
+      title: commandLabels.backgroundSubtask,
       value: "subtask.background",
       keybind: "subtask_background",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         const parentID = session()?.parentID
@@ -473,9 +532,9 @@ export function Session() {
       },
     },
     {
-      title: "Background agents",
+      title: commandLabels.backgroundAgents,
       value: "session.bg_agents",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "bg-agents",
         aliases: ["monitors", "agents"],
@@ -507,11 +566,11 @@ export function Session() {
       },
     },
     {
-      title: session()?.share?.url ? "Copy share link" : "Share session",
+      title: session()?.share?.url ? commandLabels.copyShareLink : commandLabels.share,
       value: "session.share",
       suggested: route.type === "session",
       keybind: "session_share",
-      category: "Session",
+      category: commandLabels.category,
       enabled: sync.data.config.share !== "disabled",
       slash: {
         name: "share",
@@ -521,7 +580,7 @@ export function Session() {
           Clipboard.copy(url)
             .then(() =>
               toast.show({
-                message: "Share URL copied to clipboard!",
+                message: lang.t("session.share.copied"),
                 variant: "success",
               }),
             )
@@ -591,10 +650,10 @@ export function Session() {
       },
     },
     {
-      title: "Rename session",
+      title: commandLabels.rename,
       value: "session.rename",
       keybind: "session_rename",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "rename",
       },
@@ -603,10 +662,10 @@ export function Session() {
       },
     },
     {
-      title: "Jump to message",
+      title: commandLabels.jumpToMessage,
       value: "session.timeline",
       keybind: "session_timeline",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "timeline",
       },
@@ -626,10 +685,10 @@ export function Session() {
       },
     },
     {
-      title: "Fork from message",
+      title: commandLabels.forkFromMessage,
       value: "session.fork",
       keybind: "session_fork",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "fork",
       },
@@ -648,10 +707,10 @@ export function Session() {
       },
     },
     {
-      title: "Compact session",
+      title: commandLabels.compact,
       value: "session.compact",
       keybind: "session_compact",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "compact",
         aliases: ["summarize"],
@@ -675,10 +734,10 @@ export function Session() {
       },
     },
     {
-      title: "Unshare session",
+      title: commandLabels.unshare,
       value: "session.unshare",
       keybind: "session_unshare",
-      category: "Session",
+      category: commandLabels.category,
       enabled: !!session()?.share?.url,
       slash: {
         name: "unshare",
@@ -712,10 +771,10 @@ export function Session() {
       },
     },
     {
-      title: "Undo previous message",
+      title: commandLabels.undo,
       value: "session.undo",
       keybind: "messages_undo",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "undo",
       },
@@ -750,10 +809,10 @@ export function Session() {
       },
     },
     {
-      title: "Redo",
+      title: commandLabels.redo,
       value: "session.redo",
       keybind: "messages_redo",
-      category: "Session",
+      category: commandLabels.category,
       enabled: !!session()?.revert?.messageID,
       slash: {
         name: "redo",
@@ -777,10 +836,10 @@ export function Session() {
       },
     },
     {
-      title: sidebarVisible() ? "Hide sidebar" : "Show sidebar",
+      title: sidebarVisible() ? commandLabels.hideSidebar : commandLabels.showSidebar,
       value: "session.sidebar.toggle",
       keybind: "sidebar_toggle",
-      category: "Session",
+      category: commandLabels.category,
       onSelect: (dialog) => {
         batch(() => {
           const isVisible = sidebarVisible()
@@ -791,19 +850,19 @@ export function Session() {
       },
     },
     {
-      title: "Toggle code concealment",
+      title: commandLabels.toggleConceal,
       value: "session.toggle.conceal",
       keybind: "messages_toggle_conceal" as any,
-      category: "Session",
+      category: commandLabels.category,
       onSelect: (dialog) => {
         setConceal((prev) => !prev)
         dialog.clear()
       },
     },
     {
-      title: showTimestamps() ? "Hide timestamps" : "Show timestamps",
+      title: showTimestamps() ? commandLabels.hideTimestamps : commandLabels.showTimestamps,
       value: "session.toggle.timestamps",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "timestamps",
         aliases: ["toggle-timestamps"],
@@ -814,9 +873,9 @@ export function Session() {
       },
     },
     {
-      title: showThinking() ? "Hide thinking" : "Show thinking",
+      title: showThinking() ? commandLabels.hideThinking : commandLabels.showThinking,
       value: "session.toggle.thinking",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "thinking",
         aliases: ["toggle-thinking"],
@@ -827,9 +886,9 @@ export function Session() {
       },
     },
     {
-      title: "Toggle diff wrapping",
+      title: commandLabels.toggleDiffWrap,
       value: "session.toggle.diffwrap",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "diffwrap",
       },
@@ -839,39 +898,39 @@ export function Session() {
       },
     },
     {
-      title: showDetails() ? "Hide tool details" : "Show tool details",
+      title: showDetails() ? commandLabels.hideToolDetails : commandLabels.showToolDetails,
       value: "session.toggle.actions",
       keybind: "tool_details",
-      category: "Session",
+      category: commandLabels.category,
       onSelect: (dialog) => {
         setShowDetails((prev) => !prev)
         dialog.clear()
       },
     },
     {
-      title: "Toggle session scrollbar",
+      title: commandLabels.toggleScrollbar,
       value: "session.toggle.scrollbar",
       keybind: "scrollbar_toggle",
-      category: "Session",
+      category: commandLabels.category,
       onSelect: (dialog) => {
         setShowScrollbar((prev) => !prev)
         dialog.clear()
       },
     },
     {
-      title: animationsEnabled() ? "Disable animations" : "Enable animations",
+      title: animationsEnabled() ? commandLabels.disableAnimations : commandLabels.enableAnimations,
       value: "session.toggle.animations",
-      category: "Session",
+      category: commandLabels.category,
       onSelect: (dialog) => {
         setAnimationsEnabled((prev) => !prev)
         dialog.clear()
       },
     },
     {
-      title: "Page up",
+      title: commandLabels.pageUp,
       value: "session.page.up",
       keybind: "messages_page_up",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollBy(-scroll.height / 2)
@@ -879,10 +938,10 @@ export function Session() {
       },
     },
     {
-      title: "Page down",
+      title: commandLabels.pageDown,
       value: "session.page.down",
       keybind: "messages_page_down",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollBy(scroll.height / 2)
@@ -890,10 +949,10 @@ export function Session() {
       },
     },
     {
-      title: "Line up",
+      title: commandLabels.lineUp,
       value: "session.line.up",
       keybind: "messages_line_up",
-      category: "Session",
+      category: commandLabels.category,
       disabled: true,
       onSelect: (dialog) => {
         scroll.scrollBy(-1)
@@ -901,10 +960,10 @@ export function Session() {
       },
     },
     {
-      title: "Line down",
+      title: commandLabels.lineDown,
       value: "session.line.down",
       keybind: "messages_line_down",
-      category: "Session",
+      category: commandLabels.category,
       disabled: true,
       onSelect: (dialog) => {
         scroll.scrollBy(1)
@@ -912,10 +971,10 @@ export function Session() {
       },
     },
     {
-      title: "Half page up",
+      title: commandLabels.halfPageUp,
       value: "session.half.page.up",
       keybind: "messages_half_page_up",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollBy(-scroll.height / 4)
@@ -923,10 +982,10 @@ export function Session() {
       },
     },
     {
-      title: "Half page down",
+      title: commandLabels.halfPageDown,
       value: "session.half.page.down",
       keybind: "messages_half_page_down",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollBy(scroll.height / 4)
@@ -934,10 +993,10 @@ export function Session() {
       },
     },
     {
-      title: "First message",
+      title: commandLabels.firstMessage,
       value: "session.first",
       keybind: "messages_first",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollTo(0)
@@ -945,10 +1004,10 @@ export function Session() {
       },
     },
     {
-      title: "Last message",
+      title: commandLabels.lastMessage,
       value: "session.last",
       keybind: "messages_last",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollTo(scroll.scrollHeight)
@@ -956,10 +1015,10 @@ export function Session() {
       },
     },
     {
-      title: "Jump to last user message",
+      title: commandLabels.lastUserMessage,
       value: "session.messages_last_user",
       keybind: "messages_last_user",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: () => {
         const messages = sync.data.message[route.sessionID]
@@ -988,26 +1047,26 @@ export function Session() {
       },
     },
     {
-      title: "Next message",
+      title: commandLabels.nextMessage,
       value: "session.message.next",
       keybind: "messages_next",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => scrollToMessage("next", dialog),
     },
     {
-      title: "Previous message",
+      title: commandLabels.prevMessage,
       value: "session.message.previous",
       keybind: "messages_previous",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => scrollToMessage("prev", dialog),
     },
     {
-      title: "Copy last assistant message",
+      title: commandLabels.copyLastAssistant,
       value: "messages.copy",
       keybind: "messages_copy",
-      category: "Session",
+      category: commandLabels.category,
       onSelect: (dialog) => {
         const revertID = session()?.revert?.messageID
         const lastAssistantMessage = messages().findLast(
@@ -1063,9 +1122,9 @@ export function Session() {
       },
     },
     {
-      title: "Copy session transcript",
+      title: commandLabels.copyTranscript,
       value: "session.copy",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "copy",
       },
@@ -1101,10 +1160,9 @@ export function Session() {
       },
     },
     {
-      title: "Export session transcript",
+      title: commandLabels.exportTranscript,
       value: "session.export",
-      keybind: "session_export",
-      category: "Session",
+      category: commandLabels.category,
       slash: {
         name: "export",
       },
@@ -1168,10 +1226,10 @@ export function Session() {
       },
     },
     {
-      title: "Next child session",
+      title: commandLabels.nextChild,
       value: "session.child.next",
       keybind: "session_child_cycle",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         moveChild(1)
@@ -1179,10 +1237,10 @@ export function Session() {
       },
     },
     {
-      title: "Previous child session",
+      title: commandLabels.prevChild,
       value: "session.child.previous",
       keybind: "session_child_cycle_reverse",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         moveChild(-1)
@@ -1190,10 +1248,10 @@ export function Session() {
       },
     },
     {
-      title: "Go to parent session",
+      title: commandLabels.parent,
       value: "session.parent",
       keybind: "session_parent",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: (dialog) => {
         const parentID = session()?.parentID
@@ -1208,10 +1266,10 @@ export function Session() {
       },
     },
     {
-      title: "Close subagent session",
+      title: commandLabels.closeSubagent,
       value: "session.child.close",
       keybind: "session_child_close",
-      category: "Session",
+      category: commandLabels.category,
       hidden: true,
       onSelect: async (dialog) => {
         const parentID = session()?.parentID
@@ -1329,76 +1387,21 @@ export function Session() {
               flexGrow={1}
               scrollAcceleration={scrollAcceleration()}
             >
-              <For each={messages()}>
+              <Show when={windowed().top > 0}>
+                <box height={windowed().top} flexShrink={0} />
+              </Show>
+              <For each={windowed().items}>
                 {(message, index) => (
                   <Switch>
                     <Match when={message.id === revert()?.messageID}>
-                      {(function () {
-                        const command = useCommandDialog()
-                        const [hover, setHover] = createSignal(false)
-                        const dialog = useDialog()
-
-                        const handleUnrevert = async () => {
-                          const confirmed = await DialogConfirm.show(
-                            dialog,
-                            "Confirm Redo",
-                            "Are you sure you want to restore the reverted messages?",
-                          )
-                          if (confirmed) {
-                            command.trigger("session.redo")
-                          }
-                        }
-
-                        return (
-                          <box
-                            onMouseOver={() => setHover(true)}
-                            onMouseOut={() => setHover(false)}
-                            onMouseUp={handleUnrevert}
-                            marginTop={1}
-                            flexShrink={0}
-                            border={["left"]}
-                            customBorderChars={SplitBorder.customBorderChars}
-                            borderColor={theme.backgroundPanel}
-                          >
-                            <box
-                              paddingTop={1}
-                              paddingBottom={1}
-                              paddingLeft={2}
-                              backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
-                            >
-                              <text fg={theme.textMuted}>{revert()!.reverted.length} message reverted</text>
-                              <text fg={theme.textMuted}>
-                                <span style={{ fg: theme.text }}>{keybind.print("messages_redo")}</span> or /redo to
-                                restore
-                              </text>
-                              <Show when={revert()!.diffFiles?.length}>
-                                <box marginTop={1}>
-                                  <For each={revert()!.diffFiles}>
-                                    {(file) => (
-                                      <text fg={theme.text}>
-                                        {file.filename}
-                                        <Show when={file.additions > 0}>
-                                          <span style={{ fg: theme.diffAdded }}> +{file.additions}</span>
-                                        </Show>
-                                        <Show when={file.deletions > 0}>
-                                          <span style={{ fg: theme.diffRemoved }}> -{file.deletions}</span>
-                                        </Show>
-                                      </text>
-                                    )}
-                                  </For>
-                                </box>
-                              </Show>
-                            </box>
-                          </box>
-                        )
-                      })()}
+                      <RevertBanner count={revert()!.reverted.length} diffFiles={revert()!.diffFiles} />
                     </Match>
                     <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
                       <></>
                     </Match>
                     <Match when={message.role === "user"}>
                       <UserMessage
-                        index={index()}
+                        index={windowed().baseIndex + index()}
                         onMouseUp={() => {
                           if (renderer.getSelection()?.getSelectedText()) return
                           dialog.replace(() => (
@@ -1424,6 +1427,9 @@ export function Session() {
                   </Switch>
                 )}
               </For>
+              <Show when={windowed().bottom > 0}>
+                <box height={windowed().bottom} flexShrink={0} />
+              </Show>
             </scrollbox>
             <box flexShrink={0}>
               <Show when={permissions().length > 0}>

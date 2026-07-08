@@ -1651,6 +1651,12 @@ export namespace Config {
                 .describe(
                   "Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.",
                 ),
+              messageVirtualization: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Window the session message list via message-window visibleRange instead of rendering all messages. Default off.",
+                ),
             })
             .optional(),
           requests: z

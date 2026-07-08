@@ -36,24 +36,14 @@ export function status(input: {
     return { type: "unsupported", reason: "model ref is not resolved" }
   }
 
+  // ADR (A4 / misty-moon 2026-07-08): OAuth sessions always use the AI SDK path.
+  // `@nikcli-ai/llm` streamRequest does not accept a provider `fetch` override yet,
+  // so openai OAuth (and any other oauth) stay unsupported here and fall back in llm.ts.
+  // Revisit when LLMRequest/runtime gains custom fetch; until then this is intentional.
   if (input.auth?.type === "oauth") {
-    if (input.provider.id !== "openai") {
-      return {
-        type: "unsupported",
-        reason: "OAuth auth is only supported for openai in native runtime",
-      }
-    }
-    const fetch = providerFetch(input)
-    if (!fetch) {
-      return {
-        type: "unsupported",
-        reason: "OAuth auth requires a provider fetch override",
-      }
-    }
-    // P0: OAuth fetch override is not wired into LLMRuntime.streamRequest yet — fall back to AI SDK.
     return {
       type: "unsupported",
-      reason: "OAuth native streaming is not enabled in P0 (use AI SDK)",
+      reason: "OAuth native streaming uses AI SDK (fetch override not wired into @nikcli-ai/llm)",
     }
   }
 
@@ -63,6 +53,46 @@ export function status(input: {
   }
 
   return { type: "supported" }
+}
+
+/**
+ * Race an async iterable against an AbortSignal so cancel maps to
+ * DOMException AbortError (MessageV2.fromError → MessageAbortedError).
+ * `@nikcli-ai/llm` streamRequest has no abort param yet (A2 wrapper).
+ */
+export async function* abortableIterable<T>(source: AsyncIterable<T>, abort: AbortSignal): AsyncGenerator<T> {
+  if (abort.aborted) {
+    throw new DOMException("Aborted", "AbortError")
+  }
+
+  const iterator = source[Symbol.asyncIterator]()
+  try {
+    while (true) {
+      if (abort.aborted) {
+        throw new DOMException("Aborted", "AbortError")
+      }
+
+      const next = await Promise.race([
+        iterator.next(),
+        new Promise<never>((_, reject) => {
+          if (abort.aborted) {
+            reject(new DOMException("Aborted", "AbortError"))
+            return
+          }
+          const onAbort = () => {
+            abort.removeEventListener("abort", onAbort)
+            reject(new DOMException("Aborted", "AbortError"))
+          }
+          abort.addEventListener("abort", onAbort, { once: true })
+        }),
+      ])
+
+      if (next.done) return
+      yield next.value
+    }
+  } finally {
+    await iterator.return?.()
+  }
 }
 
 export function streamRequestOnly(input: StreamInput): StreamResult {
@@ -76,7 +106,7 @@ export function streamRequestOnly(input: StreamInput): StreamResult {
 
   return {
     type: "supported",
-    events: llmStreamRequest(input.llmRequest),
+    events: abortableIterable(llmStreamRequest(input.llmRequest), input.abort),
   }
 }
 

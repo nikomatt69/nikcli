@@ -3,9 +3,8 @@ import path from "path"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_diagnostics.txt"
 import { LSP } from "@/lsp"
-import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
 const parameters = z.object({
@@ -17,11 +16,17 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
 
+async function instancePaths() {
+  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  return { directory: ctx.directory, worktree: ctx.worktree }
+}
+
 export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: number }>("context_diagnostics", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
     const limit = params.limit ?? 50
+    const { directory, worktree } = await instancePaths()
 
     await ctx.ask({
       permission: "context_diagnostics",
@@ -34,9 +39,7 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
     })
 
     if (params.filePath) {
-      const target = path.isAbsolute(params.filePath)
-        ? params.filePath
-        : path.resolve(Instance.directory, params.filePath)
+      const target = path.isAbsolute(params.filePath) ? params.filePath : path.resolve(directory, params.filePath)
       await assertExternalDirectory(ctx, target, { kind: "file" })
 
       const all = await runLSP(
@@ -49,7 +52,7 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
       const issues = all[target] ?? []
       if (issues.length === 0) {
         return {
-          title: path.relative(Instance.worktree, target),
+          title: path.relative(worktree, target),
           output: "No diagnostics found.",
           metadata: { count: 0 },
         }
@@ -60,7 +63,7 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
         .map((item) => LSP.Diagnostic.pretty(item))
         .join("\n")
       return {
-        title: path.relative(Instance.worktree, target),
+        title: path.relative(worktree, target),
         output,
         metadata: { count: issues.length },
       }

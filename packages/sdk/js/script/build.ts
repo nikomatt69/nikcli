@@ -8,7 +8,11 @@ import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
 
-await $`bun dev --print-logs generate > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../nikcli"))
+// Opt-in Effect OpenAPI: NIKCLI_SDK_OPENAPI=httpapi (or effect) → generate --httpapi.
+// Default remains Hono Server.openapi() until shape parity is reviewed (plan B2).
+const openapiFlag =
+  process.env.NIKCLI_SDK_OPENAPI === "httpapi" || process.env.NIKCLI_SDK_OPENAPI === "effect" ? " --httpapi" : ""
+await $`bun dev --print-logs generate${openapiFlag} > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../nikcli"))
 
 await createClient({
   input: "./openapi.json",

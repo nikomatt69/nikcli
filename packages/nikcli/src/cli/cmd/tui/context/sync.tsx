@@ -33,16 +33,7 @@ import { Log } from "@/util/log"
 import { createLru } from "@tui/util/lru-cache"
 import { createLatestOnlyAsync } from "@tui/util/signal"
 import type { Path } from "@nikcli-ai/sdk/v2"
-
-/** Parity flags in server Zod config; SDK client types may lag until SDK regen. */
-function experimentalParityFlags(config: Config) {
-  return config.experimental as
-    | (NonNullable<Config["experimental"]> & {
-        tui?: { cacheEviction?: boolean }
-        requests?: { latestOnlyLspRefresh?: boolean }
-      })
-    | undefined
-}
+import { features } from "@/config/features"
 
 type BackgroundJob = {
   jobID: string
@@ -533,7 +524,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "lsp.updated": {
-          if (experimentalParityFlags(store.config)?.requests?.latestOnlyLspRefresh === true) {
+          if (features(store.config).requests.latestOnlyLspRefresh) {
             refreshLspDebounced()
           } else {
             void sdk.client.lsp
@@ -660,7 +651,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     // that parent the active one are pinned. Re-opening an evicted session just re-runs sync().
     const sessionLru = createLru({ maxEntries: 25, ttlMs: 30 * 60_000 })
     function reapSessions(activeSessionID: string) {
-      if (experimentalParityFlags(store.config)?.tui?.cacheEviction !== true) return
+      if (!features(store.config).tui.cacheEviction) return
 
       sessionLru.touch(activeSessionID)
 

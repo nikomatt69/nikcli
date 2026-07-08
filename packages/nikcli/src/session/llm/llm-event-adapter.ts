@@ -1,4 +1,5 @@
 import type { LLMEvent } from "@nikcli-ai/llm"
+import { APICallError } from "@ai-sdk/provider"
 import type { streamText } from "ai"
 import { Log } from "@/util/log"
 
@@ -25,6 +26,46 @@ type AdapterState = ReturnType<typeof adapterState>
 function finishReason(value: string | undefined): string {
   const valid = ["stop", "length", "content-filter", "tool-calls", "end-turn"]
   return valid.includes(value ?? "") ? (value as string) : "unknown"
+}
+
+/**
+ * Map native `provider-error` events to `APICallError` so
+ * `MessageV2.fromError` classifies them as `APIError` with
+ * `isRetryable` preserved. Plain `Error` collapses to `UnknownError`
+ * and loses SessionRetry auto-retry for throttles/429s (F1.2).
+ */
+export function providerErrorToAPICallError(event: Extract<LLMEvent, { type: "provider-error" }>): APICallError {
+  const message = event.message || "Provider error"
+  const heuristicRetryable = /rate.?limit|throttl|overloaded|too many requests|\b429\b|\b503\b|\b529\b/i.test(message)
+  const isRetryable = event.retryable === true || (event.retryable !== false && heuristicRetryable)
+
+  let statusCode: number | undefined
+  const meta = event.providerMetadata
+  if (meta && typeof meta === "object") {
+    for (const value of Object.values(meta as Record<string, unknown>)) {
+      if (!value || typeof value !== "object") continue
+      const record = value as Record<string, unknown>
+      const status = record.statusCode ?? record.status ?? record.status_code
+      if (typeof status === "number" && Number.isFinite(status)) {
+        statusCode = status
+        break
+      }
+      if (typeof status === "string" && /^\d{3}$/.test(status)) {
+        statusCode = Number(status)
+        break
+      }
+    }
+  }
+
+  return new APICallError({
+    message,
+    url: "nikcli://native-llm/provider-error",
+    requestBodyValues: undefined,
+    statusCode,
+    responseHeaders: undefined,
+    responseBody: undefined,
+    isRetryable,
+  })
 }
 
 function usageToAISDK(usage: LLMEvent & { type: "step-finish" }) {
@@ -213,7 +254,7 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
       ]
 
     case "provider-error":
-      throw new Error(event.message)
+      throw providerErrorToAPICallError(event)
 
     default: {
       log.debug("unmapped llm event", {

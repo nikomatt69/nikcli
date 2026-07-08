@@ -2,7 +2,7 @@ import z from "zod"
 import path from "path"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_related.txt"
-import { Instance } from "@/project/instance"
+import { AppRuntime, InstanceState, withCurrentInstance } from "@/effect"
 import { assertExternalDirectory } from "./external-directory"
 
 const parameters = z.object({
@@ -10,11 +10,17 @@ const parameters = z.object({
   limit: z.number().int().min(1).max(200).optional().describe("Maximum related files"),
 })
 
+async function instancePaths() {
+  const ctx = await AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
+  return { directory: ctx.directory, worktree: ctx.worktree }
+}
+
 export const ContextRelatedTool = Tool.define<typeof parameters, { count: number }>("context_related", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
-    const entry = path.isAbsolute(params.filePath) ? params.filePath : path.resolve(Instance.directory, params.filePath)
+    const { directory, worktree } = await instancePaths()
+    const entry = path.isAbsolute(params.filePath) ? params.filePath : path.resolve(directory, params.filePath)
     const limit = params.limit ?? 50
 
     await ctx.ask({
@@ -37,7 +43,7 @@ export const ContextRelatedTool = Tool.define<typeof parameters, { count: number
     const text = await file.text().catch(() => "")
     if (!text) {
       return {
-        title: path.relative(Instance.worktree, entry),
+        title: path.relative(worktree, entry),
         output: "No related files found.",
         metadata: { count: 0 },
       }
@@ -48,14 +54,14 @@ export const ContextRelatedTool = Tool.define<typeof parameters, { count: number
 
     if (related.length === 0) {
       return {
-        title: path.relative(Instance.worktree, entry),
+        title: path.relative(worktree, entry),
         output: "No related files found.",
         metadata: { count: 0 },
       }
     }
 
     return {
-      title: path.relative(Instance.worktree, entry),
+      title: path.relative(worktree, entry),
       output: related.join("\n"),
       metadata: { count: related.length },
     }

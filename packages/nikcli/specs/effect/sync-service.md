@@ -1,8 +1,9 @@
 # Sync.Service extraction — design (Wave 4)
 
-> Status: design only. No code changes in this PR. Captures the path from
-> the current free-function namespace (`src/sync/index.ts`) to a typed
-> Effect `Service` so the bridge can surface `/sync/*` endpoints.
+> Status (2026-07-08): **`Sync.Service` + JSON routes landed** (`src/sync/index.ts`
+> `Service`/`layer`, `src/server/httpapi/sync.ts` for start/replay/history/snapshot).
+> This doc's "design only" framing is stale for CRUD; **SSE remains Hono special**
+> (misty-moon B5 ADR below).
 
 ## 1. Background — why this exists
 
@@ -105,7 +106,22 @@ The three pending bridge entries from
 - `POST /sync/replay` → `Sync.Service.push(...)` — manual outbox append
   (used by tests and recovery tools).
 
-### SSE branch stays out of the schema layer
+### SSE branch stays out of the schema layer (ADR misty-moon B5 — 2026-07-08)
+
+**Decision:** `GET /sync/stream` and legacy Hono sync paths (`/sync/event`,
+`/sync/outbox`, `/sync/stats`, `/sync/connect`, `/sync/disconnect`, `/sync/drain`,
+`/sync/config`) remain **Hono-only** for this cycle.
+
+| Surface                                                                            | Status                                      |
+| ---------------------------------------------------------------------------------- | ------------------------------------------- |
+| `POST /sync/start`, `POST /sync/replay`, `GET /sync/history`, `GET /sync/snapshot` | Bridged via `SyncHttpApi`                   |
+| `GET /sync/stream` (SSE)                                                           | **Hono special** — same pattern as `/event` |
+| Legacy outbox/event/stats/connect/…                                                | Hono until product deprecation              |
+
+**Do not** force SSE into `HttpApiEndpoint` schemas. Prefer either:
+
+1. Keep Hono forever for SSE (acceptable), or
+2. Later: Effect raw stream handler mirroring `HttpApiEvent` for `/event`.
 
 `GET /sync/stream` is an SSE feed (server-sent events) and does not fit
 schema-encoded bodies. The handler stays a "special" raw `Response` branch

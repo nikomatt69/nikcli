@@ -469,27 +469,27 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 6. [x] Resolved: no global session list route exists on this branch (`routes/global.ts` has only health, /event SSE, and dispose) — removed from scope.
 7. [x] Bridge read-only workspace adaptor/list routes. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 8. [x] Bridge workspace create/remove/session-restore routes. Evidence: `src/server/httpapi/workspace.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-workspace.test.ts`.
-9. [ ] Bridge sync start/replay/history routes.
+9. [x] Bridge sync start/replay/history/snapshot routes. Evidence: `src/server/httpapi/sync.ts`, `Sync.Service`, and `bun run script/httpapi-bridge-inventory.ts` (41 checks passed, 2026-07-08).
 10. [x] Bridge session read routes: list, status, get, children, todo, diff, and messages are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 11. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, and abort are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 12. [x] Bridge remaining session mutation routes: share/unshare/summarize/command/shell/deprecated-permissions are bridged (2026-06-12); init was removed by design. Only the streaming prompt routes (`POST /session/:id/message`, `POST /session/:id/prompt_async`) remain, tracked with the SSE work in step 13.
 13. [x] Replace event SSE with non-Hono HTTP (2026-06-12): `src/server/httpapi/event.ts` serves `GET /event` from the bridge as a web-standard ReadableStream SSE response (server.connected greeting, GlobalBus forwarding, 30s heartbeat) — no Hono dependency. The streaming prompt routes (`POST /session/:id/message`, `prompt_async`) follow the same raw-response pattern when they move.
 14. [x] Bridge doctor route. Evidence: `src/server/httpapi/doctor.ts`, `src/server/httpapi/bridge.ts`, and `bun test test/server/httpapi-doctor.test.ts`.
-15. [ ] (Wave 4 design: `/pty` CRUD now, WS later — see `specs/effect/pty-httpapi.md`) — CRUD endpoints (`list/create/get/update/remove`) move to `httpapi/pty.ts` mirroring `routes/pty.ts`, reusing the existing `Pty.CreateInput` / `Pty.UpdateInput` schemas. The WebSocket upgrade at `GET /pty/:ptyID/connect` stays a "special" branch served ahead of the schema router (parallel to `HttpApiEvent.handle()`). Two options:
+15. [x] `/pty` CRUD Path B landed (Wave 4; see `specs/effect/pty-httpapi.md`). CRUD endpoints (`list/create/get/update/remove`) live in `httpapi/pty.ts` mirroring `routes/pty.ts`. The WebSocket upgrade at `GET /pty/:ptyID/connect` stays a Hono "special" branch served ahead of the schema router (parallel to `HttpApiEvent.handle()`). Two options:
 
     - **Option A (preferred)**: keep the WS on the Effect backend by adapting `hono/bun`'s `upgradeWebSocket` via `HttpApiBuilder.handleRaw` — declared endpoint stays in the OpenAPI surface, runtime closes over the upgraded socket via `Effect.async`. Depends on `BunHttpServer` exposing an Effect-native WS upgrade.
-    - **Option B** (interim, **recommended for the next PR**): switch the CRUD surface to `HttpApi` while `/pty/:id/connect` continues to fall through to the Hono `PtyRoutes`. Smaller diff, no BunHttpServer dependency.
-      Decision deferred until the Wave 4 `Sync.Service` extraction closes (Pty currently depends on it through `PluginPtyEnvironment.ptyLayer`).
+    - **Option B** (interim, **adopted 2026-07-08**): switch the CRUD surface to `HttpApi` while `/pty/:id/connect` continues to fall through to the Hono `PtyRoutes`. Smaller diff, no BunHttpServer dependency.
+      Backend-flip work must preserve this explicit special until Effect/Bun websocket upgrade exists.
 
 16. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
-17. [ ] (Wave 4 design: `/sync` — see `specs/effect/sync-service.md`) — Blocked on `Sync.Service` extraction. The `eventlog` table is the natural candidate since `syncEvent` rows are already written through a Drizzle-backed store; see `src/sync/sync.sql.ts`. The new service should expose:
+17. [x] `/sync` JSON surface landed (Wave 4; see `specs/effect/sync-service.md`). `Sync.Service` extraction is present; JSON routes live in `httpapi/sync.ts`. The `eventlog` table is the natural candidate since `syncEvent` rows are already written through a Drizzle-backed store; see `src/sync/sync.sql.ts`. The service exposes:
 
     - `start({ url, token, projectID })`: kick the hub connection, idempotent
     - `push(projectID, { aggregate, data, origin? })`: write to local outbox + emit on `GlobalBus("event")`
     - `outbox(projectID, aggregate, since, limit?)`: paginated GET
     - `snapshot(aggregate, projectID)`: cold-start projection snapshot (already implemented at `SyncProjection.byAggregate`)
     - `state()`: configured/url/pending/failed stats
-      Routes `/sync/start`, `/sync/replay`, `/sync/history`, `/sync/snapshot` move to `httpapi/sync.ts` after the service exists; `/sync/stream` stays a "special" SSE branch parallel to `httpapi/event.ts`.
+      Routes `/sync/start`, `/sync/replay`, `/sync/history`, `/sync/snapshot` are in `httpapi/sync.ts`; `/sync/stream` stays a Hono "special" SSE branch parallel to `httpapi/event.ts` until an Effect raw-stream backend path is selected.
 
 18. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
 19. [ ] Flip `backend.ts` default from `hono` to `effect-httpapi`, keep `NIKCLI_EXPERIMENTAL_HTTPAPI` (or its inverse) as a short fallback flag, then delete replaced Hono route files.
@@ -506,8 +506,35 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 - [x] Complete exact Hono route inventory. Evidence: `bun run script/httpapi-bridge-inventory.ts` (31 cases including Wave 3a brain/connectors/chatbot/users/managed-worktree) and `specs/httpapi-bridge-inventory.md` mirror table.
 - [x] Resolve implemented-but-unmounted route groups. Evidence: `rg --files src/server/httpapi` lists only active route slices plus `public` and `bridge`; current slices `top-level`, `config`, `experimental`, `file`, `mcp`, `project`, `provider`, `question`, `permission`, and `workspace` are bridged.
 - [x] Port current top-level JSON reads. Evidence: `src/server/httpapi/top-level.ts` and `bun test test/server/httpapi-top-level.test.ts`. `GET /vcs/diff` is not present in the current Hono route registration and remains an inventory cleanup item.
-- [ ] Implement Effect `HttpApi` OpenAPI generation behind `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`.
+- [x] Implement Effect `HttpApi` OpenAPI generation behind `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Evidence: `src/cli/cmd/generate.ts` opt-in branch and `packages/sdk/js/script/build.ts` env passthrough (2026-07-08).
 - [ ] Close Effect-vs-Hono OpenAPI schema-shape gaps and flip the SDK generator default.
 - [ ] Flip the runtime backend default from `hono` to `effect-httpapi`, with a short fallback flag.
 - [ ] Delete replaced Hono route implementations.
 - [ ] Replace SSE/websocket/streaming Hono routes with non-Hono implementations (or remove with the rest of Hono).
+
+### B6 deletion readiness (2026-07-08)
+
+Source of truth: `src/server/backend.ts` `ServerBackend.honoDeletionGroups`.
+
+B4 bridge reuse: `src/server/httpapi/bridge.ts` now exports `HttpApiBridge.layer`
+and `HttpApiBridge.webHandler`, so the eventual pure Effect backend can mount the
+same `PublicHttpApi.layer` wiring used by the in-Hono bridge instead of duplicating
+Bun platform layers.
+
+B4 PoC runtime: `src/server/backend-runtime.ts` adds `BackendRuntime.serverLayer`
+and `BackendRuntime.launch(port, hostname)` that mount `HttpApiBridge.layer` on
+`BunHttpServer.layer({ port, hostname, idleTimeout: 0 })`. Smoke test in
+`test/server/backend-runtime.test.ts`. The production Hono path is untouched;
+this is the scaffold for the future full Effect backend.
+
+Candidate groups are **not** deletable until the SDK generator default flips to Effect OpenAPI; `ServerBackend.canDeleteHonoGroup(..., { sdkDefaultHttpApi: false })` must remain `false`.
+
+| Group            | Status    | Notes                                      |
+| ---------------- | --------- | ------------------------------------------ |
+| doctor           | candidate | JSON-only, bridged                         |
+| analytics        | candidate | JSON-only, bridged                         |
+| brain            | candidate | JSON-only, bridged                         |
+| connectors       | candidate | JSON-only, bridged                         |
+| pty-websocket    | blocked   | WS special `/pty/:id/connect` remains Hono |
+| sync-stream      | blocked   | SSE/legacy sync remains Hono               |
+| companion-mobile | blocked   | HTML/mobile separate surfaces              |

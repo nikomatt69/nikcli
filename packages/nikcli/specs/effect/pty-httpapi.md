@@ -1,8 +1,8 @@
 # /pty HttpApi port — design (Wave 4)
 
-> Status: design only. No code changes in this PR. Captures the path
-> from `routes/pty.ts` (Hono) to a typed Effect `HttpApi` group plus
-> the WebSocket upgrade "special" branch.
+> Status (2026-07-08): **CRUD Path B landed** (`src/server/httpapi/pty.ts` + bridge
+> inventory). WebSocket `GET /pty/:ptyID/connect` remains a **Hono special** until
+> `BunHttpServer.upgradeWebSocket` ships. This ADR freezes that decision for misty-moon B5.
 
 ## 1. Background
 
@@ -124,17 +124,21 @@ that already serves `/event` and `/chatbot/*`:
 | Dependencies                   | `BunHttpServer.upgradeWebSocket` | None new            |
 | Risk                           | Blocked on upstream              | Low                 |
 
-## 4. Recommended choice
+## 4. Decision (ADR misty-moon B5 — 2026-07-08)
 
-**Path B now.** Reasoning:
+**Path B adopted and shipped for CRUD.**
 
-- Same-day shippability — no upstream API dependency.
-- Mirrors the working pattern already in production for `/event` (SSE) and
-  `/chatbot/*` (webhooks). Both are still Hono "specials" until a clean
-  Effect-native API lands.
-- Path A is deferred to a follow-up PR once `BunHttpServer.upgradeWebSocket`
-  ships; the inventory entry will change from `Pty HTTP: special` to
-  `Pty HTTP: bridged (CRUD + WS)`.
+| Surface                                    | Source of truth                                          | Notes                                            |
+| ------------------------------------------ | -------------------------------------------------------- | ------------------------------------------------ |
+| PTY CRUD (`list/create/get/update/remove`) | Effect `PtyHttpApi` when `NIKCLI_EXPERIMENTAL_HTTPAPI=1` | Bridged; inventory green                         |
+| PTY WebSocket `/pty/:id/connect`           | **Hono forever-until-upstream**                          | Not in `implementedRoutes`; `routes/pty.ts` only |
+
+**Do not** attempt Path A in this cycle. Revisit only when:
+
+1. `@effect/platform-bun` (or BunHttpServer) exposes `upgradeWebSocket`, **and**
+2. Effect OpenAPI/SDK default flip is planned (B2 opt-in already exists).
+
+Reasoning unchanged: same-day shippability; mirrors `/event` SSE and `/chatbot/*` specials.
 
 ## 5. Inventory impact
 

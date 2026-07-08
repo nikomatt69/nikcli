@@ -61,6 +61,23 @@ describe("ProviderTransform.variants — openrouter fusion", () => {
     expect(result).toEqual({})
   })
 
+  it("exposes xhigh for grok multi-agent through OpenRouter's generic passthrough", () => {
+    const result = ProviderTransform.variants(
+      mockModel({
+        id: "x-ai/grok-4.20-multi-agent-0309",
+        apiId: "x-ai/grok-4.20-multi-agent-0309",
+        npm: "@openrouter/ai-sdk-provider",
+        reasoning: true,
+      }),
+    )
+    expect(result).toEqual({
+      low: { reasoning: { effort: "low" } },
+      medium: { reasoning: { effort: "medium" } },
+      high: { reasoning: { effort: "high" } },
+      xhigh: { reasoning: { effort: "xhigh" } },
+    })
+  })
+
   it("maps fusion variant options to the OpenRouter request body namespace", () => {
     const model = mockModel({
       id: "openrouter/fusion",
@@ -73,5 +90,46 @@ describe("ProviderTransform.variants — openrouter fusion", () => {
     expect(ProviderTransform.providerOptions(model, budget)).toEqual({
       openrouter: budget,
     })
+  })
+})
+
+describe("ProviderTransform.variants — xai reasoning efforts", () => {
+  const xaiModel = (id: string, reasoning = true) => mockModel({ id, apiId: id, npm: "@ai-sdk/xai", reasoning })
+
+  it("gives grok-4.5 low/medium/high", () => {
+    expect(ProviderTransform.variants(xaiModel("grok-4.5"))).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("gives grok multi-agent low/medium/high, dropping xhigh the SDK schema rejects", () => {
+    expect(ProviderTransform.variants(xaiModel("grok-4.20-multi-agent-0309"))).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("keeps grok-3-mini at low/high", () => {
+    expect(ProviderTransform.variants(xaiModel("grok-3-mini"))).toEqual({
+      low: { reasoningEffort: "low" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("gives fixed-depth grok reasoning models no variants", () => {
+    for (const id of ["grok-4.3", "grok-4.20-0309-reasoning", "grok-code-fast-1", "grok-build-0.1", "grok-4"]) {
+      expect(ProviderTransform.variants(xaiModel(id))).toEqual({})
+    }
+  })
+
+  it("gives non-grok models served under the xai provider no variants", () => {
+    expect(ProviderTransform.variants(xaiModel("composer-2.5"))).toEqual({})
+  })
+
+  it("does not treat non-reasoning grok models as effort-capable", () => {
+    expect(ProviderTransform.variants(xaiModel("grok-4.5", false))).toEqual({})
   })
 })
