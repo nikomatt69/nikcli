@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.148.0 (July 2026)
+
+## Core
+
+- Expand HTTP API with new Pty and Sync endpoints (@nikomatt69)
+- Enhance HTTP API bridge with new managed worktree endpoints (@nikomatt69)
+- Implement chatbot and brain HTTP API endpoints (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): implement chatbot and brain HTTP API endpoints
+  - feat(nikcli): enhance HTTP API bridge with new managed worktree endpoints
+  - feat(nikcli): expand HTTP API with new Pty and Sync endpoints
+
 ## v1.143.0 (July 2026)
 
 ## Core

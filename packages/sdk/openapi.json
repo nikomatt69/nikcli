@@ -27111,7 +27111,7 @@
             "type": "number"
           }
         },
-        "required": ["id", "name", "branch", "directory", "createdAt"],
+        "required": ["id", "parentId", "name", "branch", "directory", "createdAt"],
         "additionalProperties": false
       },
       "ManagedWorktreeCreateInput": {

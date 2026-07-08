@@ -3249,7 +3249,7 @@ export type McpResource = {
 
 export type ManagedWorktreeInfo = {
   id: string
-  parentId?: string | null
+  parentId: string | null
   name: string
   branch: string
   directory: string
