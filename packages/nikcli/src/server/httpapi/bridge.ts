@@ -1,15 +1,31 @@
-import { HttpRouter } from "effect/unstable/http";
-import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun";
-import { Context, Layer } from "effect";
-import { InstanceRef, sharedMemoMap } from "@/effect";
-import { Instance } from "@/project/instance";
-import { ChatbotHttp } from "./chatbot";
-import { HttpApiEvent } from "./event";
-import { HttpApiPrompt } from "./prompt";
-import { PublicHttpApi } from "./public";
-import { UsersHttp } from "./users";
+import { HttpRouter } from "effect/unstable/http"
+import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
+import { Context, Layer } from "effect"
+import { InstanceRef, sharedMemoMap } from "@/effect"
+import { Instance } from "@/project/instance"
+import { ChatbotHttp } from "./chatbot"
+import { HttpApiEvent } from "./event"
+import { HttpApiPrompt } from "./prompt"
+import { PublicHttpApi } from "./public"
+import { UsersHttp } from "./users"
+import { Auth } from "./auth"
 
 export namespace HttpApiBridge {
+  /**
+   * Test-only seam for the basic-auth shim in `handle()`. The production
+   * credentials are computed each request via `Auth.currentCredentials()`,
+   * which reads `Flag.NIKCLI_SERVER_PASSWORD` — but `Flag` is captured at
+   * module-load time, so the test runner cannot flip the env var to
+   * simulate a configured server. `overrideAuth(null|credentials)` lets a
+   * test temporarily substitute the credentials without spawning a child
+   * process. Reset in `finally` blocks so requests don't bleed across
+   * tests; production behavior is unchanged unless this is non-null.
+   */
+  let testAuthOverride: Auth.Credentials | null = null
+  export function overrideAuth(creds: Auth.Credentials | null) {
+    testAuthOverride = creds
+  }
+
   const implementedRoutes = [
     ["DELETE", /^\/provider\/[^/]+\/auth$/],
     ["DELETE", /^\/config\/mcp\/[^/]+$/],
@@ -99,7 +115,10 @@ export namespace HttpApiBridge {
     ["GET", /^\/session\/[^/]+\/v2\/entries$/],
     ["GET", /^\/session\/[^/]+\/v2\/state$/],
     ["GET", /^\/session\/[^/]+\/v2\/events$/],
+    ["POST", /^\/log$/],
     ["GET", /^\/skill$/],
+    ["POST", /^\/skill$/],
+    ["DELETE", /^\/skill\/[^/]+$/],
     ["GET", /^\/vcs$/],
     ["GET", /^\/vcs\/status$/],
     ["GET", /^\/vcs\/diff\/raw$/],
@@ -158,6 +177,12 @@ export namespace HttpApiBridge {
     ["POST", /^\/mcp\/[^/]+\/auth\/callback$/],
     ["POST", /^\/mcp\/[^/]+\/auth\/authenticate$/],
     ["DELETE", /^\/experimental\/worktree$/],
+    ["POST", /^\/experimental\/managed-worktree$/],
+    ["DELETE", /^\/experimental\/managed-worktree$/],
+    ["POST", /^\/experimental\/managed-worktree\/link$/],
+    ["GET", /^\/experimental\/managed-worktree\/children$/],
+    ["GET", /^\/experimental\/managed-worktree\/ancestors$/],
+    ["GET", /^\/experimental\/managed-worktree$/],
     ["GET", /^\/tui\/control\/next$/],
     ["POST", /^\/tui\/append-prompt$/],
     ["POST", /^\/tui\/open-help$/],
@@ -171,7 +196,7 @@ export namespace HttpApiBridge {
     ["POST", /^\/tui\/publish$/],
     ["POST", /^\/tui\/select-session$/],
     ["POST", /^\/tui\/control\/response$/],
-  ] as const;
+  ] as const
 
   /**
    * Instance-less routes served before the `/global` Hono mount. These must
@@ -190,76 +215,76 @@ export namespace HttpApiBridge {
     ["GET", /^\/user\/list$/],
     ["PATCH", /^\/user\/[^/]+$/],
     ["DELETE", /^\/user\/[^/]+$/],
-  ] as const;
+  ] as const
 
   const handler = HttpRouter.toWebHandler(
     PublicHttpApi.layer.pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          BunHttpServer.layerHttpServices,
-          BunFileSystem.layer,
-          BunPath.layer,
-        ),
-      ),
+      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
     ),
     { memoMap: sharedMemoMap },
-  ).handler;
+  ).handler
 
   export function supports(pathname: string, method = "GET") {
-    const normalizedMethod = method.toUpperCase();
+    const normalizedMethod = method.toUpperCase()
     return implementedRoutes.some(
-      ([routeMethod, pattern]) =>
-        routeMethod === normalizedMethod && pattern.test(pathname),
-    );
+      ([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname),
+    )
   }
 
   export function supportsGlobal(pathname: string, method = "GET") {
-    const normalizedMethod = method.toUpperCase();
-    return globalRoutes.some(
-      ([routeMethod, pattern]) =>
-        routeMethod === normalizedMethod && pattern.test(pathname),
-    );
+    const normalizedMethod = method.toUpperCase()
+    return globalRoutes.some(([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname))
   }
 
   /** Serve an instance-less `/global/*` or `/user/*` request. Reads no Instance ALS. */
   export async function handleGlobal(request: Request) {
-    const pathname = new URL(request.url).pathname;
+    const pathname = new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/global/event") {
-      return HttpApiEvent.handle();
+      return HttpApiEvent.handle()
     }
     if (pathname.startsWith("/user/")) {
       // Raw handlers: the legacy /user routes are outside the OpenAPI surface
       // and reuse one { error } body shape across statuses, which the HttpApi
       // error encoder cannot discriminate.
-      const response = await UsersHttp.handle(request);
-      if (response) return response;
+      const response = await UsersHttp.handle(request)
+      if (response) return response
     }
-    return handler(request, Context.empty() as Context.Context<any>);
+    return handler(request, Context.empty() as Context.Context<any>)
   }
 
   export function handle(request: Request) {
     // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
     // of the router — they are not schema-encoded HttpApi bodies.
-    const pathname = new URL(request.url).pathname;
+    const pathname = new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/event") {
-      return Promise.resolve(HttpApiEvent.handle());
+      return Promise.resolve(HttpApiEvent.handle())
     }
     if (request.method === "POST") {
-      const prompt = pathname.match(/^\/session\/([^/]+)\/message$/);
-      if (prompt)
-        return HttpApiPrompt.prompt(request, decodeURIComponent(prompt[1]));
-      const promptAsync = pathname.match(/^\/session\/([^/]+)\/prompt_async$/);
-      if (promptAsync)
-        return HttpApiPrompt.promptAsync(
-          request,
-          decodeURIComponent(promptAsync[1]),
-        );
+      const prompt = pathname.match(/^\/session\/([^/]+)\/message$/)
+      if (prompt) return HttpApiPrompt.prompt(request, decodeURIComponent(prompt[1]))
+      const promptAsync = pathname.match(/^\/session\/([^/]+)\/prompt_async$/)
+      if (promptAsync) return HttpApiPrompt.promptAsync(request, decodeURIComponent(promptAsync[1]))
       if (pathname.startsWith("/chatbot/")) {
         // Webhook receivers need the raw Request (signature verification), so
         // they bypass the schema-encoding router like the other specials.
-        return ChatbotHttp.handle(request).then(
-          (response) => response ?? new Response("Not Found", { status: 404 }),
-        );
+        return ChatbotHttp.handle(request).then((response) => response ?? new Response("Not Found", { status: 404 }))
+      }
+    }
+    // Auth shim — mirrors Hono's basic-auth middleware for routes the bridge
+    // serves. `password` may be `Option.none()` when the server is unsecured
+    // (loopback dev mode); in that case the request passes through.
+    const credentials = testAuthOverride ?? Auth.currentCredentials()
+    if (credentials.password._tag === "Some") {
+      const header = request.headers.get("authorization")
+      if (header && Auth.matchesBasicAuth(credentials, header)) {
+        // ok
+      } else {
+        return Promise.resolve(
+          new Response("Unauthorized", {
+            status: 401,
+            headers: { "www-authenticate": Auth.challenge },
+          }),
+        )
       }
     }
     return handler(
@@ -269,6 +294,6 @@ export namespace HttpApiBridge {
         worktree: Instance.worktree,
         project: Instance.project,
       }) as Context.Context<any>,
-    );
+    )
   }
 }

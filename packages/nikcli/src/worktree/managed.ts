@@ -43,7 +43,7 @@ export namespace ManagedWorktree {
   // Info returned by API
   export const InfoSchema = Schema.Struct({
     id: Schema.String,
-    parentId: Schema.optional(Schema.NullOr(Schema.String)),
+    parentId: Schema.NullOr(Schema.String),
     name: Schema.String,
     branch: Schema.String,
     directory: Schema.String,
