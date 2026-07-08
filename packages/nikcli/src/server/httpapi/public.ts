@@ -17,9 +17,11 @@ import { MissionHttpApi } from "./mission"
 import { PermissionHttpApi } from "./permission"
 import { ProjectHttpApi } from "./project"
 import { ProviderHttpApi } from "./provider"
+import { PtyHttpApi } from "./pty"
 import { LoopHttpApi } from "./loop"
 import { QuestionHttpApi } from "./question"
 import { SessionHttpApi } from "./session"
+import { SyncHttpApi } from "./sync"
 import { TopLevelHttpApi } from "./top-level"
 import { TuiHttpApi } from "./tui"
 import { WorkspaceHttpApi } from "./workspace"
@@ -42,8 +44,10 @@ export namespace PublicHttpApi {
     .add(ProviderHttpApi.Group)
     .add(QuestionHttpApi.Group)
     .add(PermissionHttpApi.Group)
+    .add(PtyHttpApi.Group)
     .add(LoopHttpApi.Group)
     .add(SessionHttpApi.Group)
+    .add(SyncHttpApi.Group)
     .add(TuiHttpApi.Group)
     .add(WorkspaceHttpApi.Group)
 
@@ -172,6 +176,15 @@ export namespace PublicHttpApi {
       .handle("oauthCallback", (request) => ProviderHttpApi.handlers.oauthCallback(request)),
   )
 
+  const PtyHandlersLive = HttpApiBuilder.group(Api, "pty", (handlers) =>
+    handlers
+      .handle("list", () => PtyHttpApi.handlers.list())
+      .handle("create", (request) => PtyHttpApi.handlers.create(request))
+      .handle("get", (request) => PtyHttpApi.handlers.get(request))
+      .handle("update", (request) => PtyHttpApi.handlers.update(request))
+      .handle("remove", (request) => PtyHttpApi.handlers.remove(request)),
+  )
+
   const LoopHandlersLive = HttpApiBuilder.group(Api, "loop", (handlers) =>
     handlers
       .handle("list", () => LoopHttpApi.handlers.list())
@@ -247,6 +260,14 @@ export namespace PublicHttpApi {
       .handle("execs", (request) => MissionHttpApi.handlers.execs(request)),
   )
 
+  const SyncHandlersLive = HttpApiBuilder.group(Api, "sync", (handlers) =>
+    handlers
+      .handle("start", (request) => SyncHttpApi.handlers.start(request))
+      .handle("replay", (request) => SyncHttpApi.handlers.replay(request))
+      .handle("history", (request) => SyncHttpApi.handlers.history(request))
+      .handle("snapshot", (request) => SyncHttpApi.handlers.snapshot(request)),
+  )
+
   const SessionHandlersLive = HttpApiBuilder.group(Api, "session", (handlers) =>
     handlers
       .handle("list", (request) => SessionHttpApi.handlers.list(request))
@@ -305,11 +326,13 @@ export namespace PublicHttpApi {
         McpHandlersLive.pipe(Layer.provide(McpHttpApi.DependenciesLive)),
         ProjectHandlersLive.pipe(Layer.provide(Project.defaultLayer)),
         ProviderHandlersLive.pipe(Layer.provide(ProviderHttpApi.DependenciesLive)),
+        PtyHandlersLive.pipe(Layer.provide(PtyHttpApi.DependenciesLive)),
         QuestionHandlersLive.pipe(Layer.provide(Question.defaultLayer)),
         PermissionHandlersLive.pipe(Layer.provide(PermissionNext.defaultLayer)),
         LoopHandlersLive,
         MissionHandlersLive,
         SessionHandlersLive.pipe(Layer.provide(SessionHttpApi.DependenciesLive)),
+        SyncHandlersLive.pipe(Layer.provide(SyncHttpApi.DependenciesLive)),
         TuiHandlersLive.pipe(Layer.provide(TuiHttpApi.DependenciesLive)),
         WorkspaceHandlersLive,
       ),

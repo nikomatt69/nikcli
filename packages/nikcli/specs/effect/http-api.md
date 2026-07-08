@@ -234,27 +234,27 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 
 ## Current Route Status
 
-| Area                      | Status            | Notes                                                                                                                                                                                                                   |
-| ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `question`                | `bridged`         | `src/server/httpapi/question.ts` implements list/reply/reject; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                        |
-| `permission`              | `bridged`         | `src/server/httpapi/permission.ts` implements list/reply; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                             |
-| `provider`                | `bridged` partial | `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth` are bridged; OAuth routes remain open                                                                  |
-| `config`                  | `bridged`         | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open                                                                                                                     |
-| `doctor`                  | `bridged`         | `GET /doctor` is bridged via `src/server/httpapi/doctor.ts`; covered by `test/server/httpapi-doctor.test.ts`                                                                                                            |
-| `analytics`               | `bridged`         | all five read routes bridged via `src/server/httpapi/analytics.ts`; covered by `test/server/httpapi-analytics.test.ts`                                                                                                  |
-| `global`                  | `bridged`         | `health`/`dispose` via `src/server/httpapi/global.ts`, `event` via raw SSE; served by the instance-less `handleGlobal` branch                                                                                           |
-| `mission`                 | `bridged`         | full CRUD + lifecycle + execs bridged via `src/server/httpapi/mission.ts`; covered by `test/server/httpapi-mission.test.ts`                                                                                             |
-| `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch                                                           |
-| `file`                    | `bridged`         | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open                                                                                                                                      |
-| `mcp`                     | `bridged`         | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle                                                                                      |
-| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found                                     |
-| top-level instance routes | `bridged`         | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /vcs/status`, `GET /vcs/diff/raw`, `POST /vcs/apply`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged                  |
-| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open                                                                          |
-| `session`                 | `bridged` partial | create/update/delete/fork/abort/revert/unrevert/list/status/get/children/todo/diff/messages plus single-message and part JSON routes are bridged; prompt, share, init, summarize, shell, and command routes remain Hono |
-| `sync`                    | `not ported`      | no current Effect `HttpApi` sync route exists                                                                                                                                                                           |
-| `event`                   | `not ported`      | current implementation uses Hono SSE                                                                                                                                                                                    |
-| `pty`                     | `special`         | current implementation uses Hono websocket                                                                                                                                                                              |
-| `tui`                     | `special`         | current implementation is a Hono UI bridge                                                                                                                                                                              |
+| Area                      | Status            | Notes                                                                                                                                                                                                                                                                                   |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `question`                | `bridged`         | `src/server/httpapi/question.ts` implements list/reply/reject; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                                                                                        |
+| `permission`              | `bridged`         | `src/server/httpapi/permission.ts` implements list/reply; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                                                                                             |
+| `provider`                | `bridged` partial | `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth` are bridged; OAuth routes remain open                                                                                                                                  |
+| `config`                  | `bridged`         | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open                                                                                                                                                                                     |
+| `doctor`                  | `bridged`         | `GET /doctor` is bridged via `src/server/httpapi/doctor.ts`; covered by `test/server/httpapi-doctor.test.ts`                                                                                                                                                                            |
+| `analytics`               | `bridged`         | all five read routes bridged via `src/server/httpapi/analytics.ts`; covered by `test/server/httpapi-analytics.test.ts`                                                                                                                                                                  |
+| `global`                  | `bridged`         | `health`/`dispose` via `src/server/httpapi/global.ts`, `event` via raw SSE; served by the instance-less `handleGlobal` branch                                                                                                                                                           |
+| `mission`                 | `bridged`         | full CRUD + lifecycle + execs bridged via `src/server/httpapi/mission.ts`; covered by `test/server/httpapi-mission.test.ts`                                                                                                                                                             |
+| `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch                                                                                                                           |
+| `file`                    | `bridged`         | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open                                                                                                                                                                                                      |
+| `mcp`                     | `bridged`         | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle                                                                                                                                                      |
+| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found                                                                                                     |
+| top-level instance routes | `bridged`         | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /vcs/status`, `GET /vcs/diff/raw`, `POST /vcs/apply`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged                                                                                  |
+| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open                                                                                                                                          |
+| `session`                 | `bridged` partial | create/update/delete/fork/abort/revert/unrevert/list/status/get/children/todo/diff/messages plus single-message and part JSON routes are bridged; prompt, share, init, summarize, shell, and command routes remain Hono                                                                 |
+| `sync`                    | `bridged` partial | 4 new endpoints bridged via `httpapi/sync.ts` (Wave 4, 2026-07-08). `/sync/stream` (SSE) stays Hono "special". Legacy `/sync/event`, `/sync/outbox`, `/sync/snapshot/:aggregateID`, `/sync/stats`, `/sync/config`, `/sync/connect`, `/sync/disconnect`, `/sync/drain` remain Hono-only. |
+| `event`                   | `not ported`      | current implementation uses Hono SSE                                                                                                                                                                                                                                                    |
+| `pty`                     | `special`         | current implementation uses Hono websocket                                                                                                                                                                                                                                              |
+| `tui`                     | `special`         | current implementation is a Hono UI bridge                                                                                                                                                                                                                                              |
 
 ## Full Route Checklist
 
@@ -392,9 +392,11 @@ Served by the instance-less `supportsGlobal`/`handleGlobal` bridge branch (mount
 
 ### Sync Routes
 
-- [ ] `POST /sync/start` - start workspace sync. Blocked by Phase I (`Sync.Service` does not exist as Effect service yet on this branch).
-- [ ] `POST /sync/replay` - replay sync events. Blocked by Phase I.
-- [ ] `POST /sync/history` - list sync event history. Blocked by Phase I.
+- [x] `POST /sync/start` - start remote hub sync. Evidence: `src/server/httpapi/sync.ts` `Sync.Service.start` (Wave 4, 2026-07-08).
+- [x] `POST /sync/replay` - manual outbox append. Evidence: `src/server/httpapi/sync.ts` `Sync.Service.push` (Wave 4, 2026-07-08).
+- [x] `GET /sync/history` - paginated sync event history. Evidence: `src/server/httpapi/sync.ts` `Sync.Service.outbox` (Wave 4, 2026-07-08).
+- [x] `GET /sync/snapshot` - cold-start projection snapshot. Evidence: `src/server/httpapi/sync.ts` `Sync.Service.snapshot` (Wave 4, 2026-07-08).
+- [ ] `GET /sync/stream` - SSE feed; replace with raw Effect HTTP/streaming (parallel to `/event`). See `specs/effect/sync-service.md` §4 "SSE branch stays out of the schema layer".
 
 ### Session Routes
 
@@ -432,12 +434,12 @@ Served by the instance-less `supportsGlobal`/`handleGlobal` bridge branch (mount
 
 ### PTY Routes
 
-- [ ] `GET /pty` - list PTY sessions.
-- [ ] `POST /pty` - create PTY session.
-- [ ] `GET /pty/:ptyID` - get PTY session.
-- [ ] `PUT /pty/:ptyID` - update PTY session.
-- [ ] `DELETE /pty/:ptyID` - remove PTY session.
-- [ ] `GET /pty/:ptyID/connect` - PTY websocket; replace with raw Effect HTTP/websocket support.
+- [x] `GET /pty` - list PTY sessions. Evidence: `src/server/httpapi/pty.ts` `pty.list` (Wave 4 Path B, 2026-07-08).
+- [x] `POST /pty` - create PTY session. Evidence: `src/server/httpapi/pty.ts` `pty.create` (Wave 4 Path B, 2026-07-08).
+- [x] `GET /pty/:ptyID` - get PTY session. Evidence: `src/server/httpapi/pty.ts` `pty.get` with declared 404 (Wave 4 Path B, 2026-07-08).
+- [x] `PUT /pty/:ptyID` - update PTY session. Evidence: `src/server/httpapi/pty.ts` `pty.update` (Wave 4 Path B, 2026-07-08).
+- [x] `DELETE /pty/:ptyID` - remove PTY session. Evidence: `src/server/httpapi/pty.ts` `pty.remove` (Wave 4 Path B, 2026-07-08).
+- [ ] `GET /pty/:ptyID/connect` - PTY websocket; replace with raw Effect HTTP/websocket support (blocked on `BunHttpServer.upgradeWebSocket`). CRUD landed first per Path B — see `specs/effect/pty-httpapi.md`.
 
 ### TUI Routes
 
@@ -475,14 +477,12 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 14. [x] Bridge doctor route. Evidence: `src/server/httpapi/doctor.ts`, `src/server/httpapi/bridge.ts`, and `bun test test/server/httpapi-doctor.test.ts`.
 15. [ ] (Wave 4 design: `/pty` CRUD now, WS later — see `specs/effect/pty-httpapi.md`) — CRUD endpoints (`list/create/get/update/remove`) move to `httpapi/pty.ts` mirroring `routes/pty.ts`, reusing the existing `Pty.CreateInput` / `Pty.UpdateInput` schemas. The WebSocket upgrade at `GET /pty/:ptyID/connect` stays a "special" branch served ahead of the schema router (parallel to `HttpApiEvent.handle()`). Two options:
 
-
     - **Option A (preferred)**: keep the WS on the Effect backend by adapting `hono/bun`'s `upgradeWebSocket` via `HttpApiBuilder.handleRaw` — declared endpoint stays in the OpenAPI surface, runtime closes over the upgraded socket via `Effect.async`. Depends on `BunHttpServer` exposing an Effect-native WS upgrade.
     - **Option B** (interim, **recommended for the next PR**): switch the CRUD surface to `HttpApi` while `/pty/:id/connect` continues to fall through to the Hono `PtyRoutes`. Smaller diff, no BunHttpServer dependency.
       Decision deferred until the Wave 4 `Sync.Service` extraction closes (Pty currently depends on it through `PluginPtyEnvironment.ptyLayer`).
 
 16. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
 17. [ ] (Wave 4 design: `/sync` — see `specs/effect/sync-service.md`) — Blocked on `Sync.Service` extraction. The `eventlog` table is the natural candidate since `syncEvent` rows are already written through a Drizzle-backed store; see `src/sync/sync.sql.ts`. The new service should expose:
-
 
     - `start({ url, token, projectID })`: kick the hub connection, idempotent
     - `push(projectID, { aggregate, data, origin? })`: write to local outbox + emit on `GlobalBus("event")`

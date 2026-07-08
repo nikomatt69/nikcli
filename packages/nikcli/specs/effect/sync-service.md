@@ -119,18 +119,24 @@ in `bridge.ts` `handle()`, parallel to:
 ## 5. Auth
 
 `/sync/*` already requires `cli-sync` or `studio` scope
-(`routes/sync.ts:30-65`). When the Effect `HttpApiSecurity` block lands
-in the new `httpapi/sync.ts` group, it should declare:
+(`routes/sync.ts:30-65`). The Effect backend implements the same scope
+guard inline in each handler via `authorizeSync(request)` (see
+`httpapi/sync.ts`):
 
-```ts
-HttpApiSecurity.apiKey({ in: "query", key: "token" })
-```
+- No `?token=` query parameter → request passes through (operator / basic-auth path).
+- Token present but `MobileAuth.verify(token)` returns `undefined` → 401 Unauthorized.
+- Token valid but scope is not in `{"cli-sync", "studio"}` → 403 Forbidden.
+- Token valid with the right scope → request continues.
 
-…and invoke `Auth.extractQueryToken(url)` at request time, then verify
-the scope against the bearer-token registry (mirroring `server.ts:306-317`).
+The check is enforced before any service work runs, mirroring the Hono
+`.use("*", ...)` middleware on `routes/sync.ts:93-104`. Mobile and
+websocket clients cannot set custom headers, hence the query parameter
+— this is the same scheme as `MobileAuth.bearer`.
 
-Mobile and websocket clients cannot set custom headers, hence the query
-parameter — this is the same scheme as `MobileAuth.bearer`.
+The OpenAPI-side `HttpApiSecurity.apiKey({ in: "query", key: "token" })`
+declaration is a follow-up (the `HttpApiBuilder.middlewareSecurity`
+plumbing is non-trivial). The runtime enforcement is in place and
+covered by `test/server/httpapi-sync.test.ts` (3 tests for 401, 403, 200).
 
 ## 6. Open questions / non-goals
 

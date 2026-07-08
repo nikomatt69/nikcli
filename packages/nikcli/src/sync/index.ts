@@ -1,6 +1,7 @@
 import { Log } from "@/util/log"
 import { Identifier } from "@/id/id"
 import { eq, and, asc, sql } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
 import { Database } from "@/database/database"
 import { syncEvent, syncSequence } from "./sync.sql"
 
@@ -396,4 +397,143 @@ export namespace Sync {
     const { SyncReducer } = await import("./reducer")
     return SyncReducer.replayWithSnapshot(key, initial, projectors)
   }
+
+  /**
+   * Effect service surface for the sync module. The free-function
+   * namespace above remains the source of truth for the actual work;
+   * the service is a thin, Effect-friendly wrapper so the HttpApi
+   * bridge and the workspace reducer can participate in Effect's
+   * resource model.
+   *
+   * Methods are 1:1 with the design in `specs/effect/sync-service.md`:
+   *  - `start`  → kick the hub connection, idempotent (mirrors `SyncCliInit.startForAllProjects`)
+   *  - `push`   → write to local outbox + emit on `GlobalBus("event")`
+   *  - `outbox` → paginated GET (mirrors `GET /sync/outbox` in `routes/sync.ts`)
+   *  - `snapshot` → cold-start projection (mirrors `SyncProjection.byAggregate`)
+   *  - `state`  → configured/url/pending/failed stats (mirrors `GET /sync/stats` in `routes/sync.ts`)
+   *
+   * All methods return `Effect<…, never, never>` (no service dependency)
+   * because they are plain async wrappers over the free functions and
+   * the database. Errors during a `push` are intentionally swallowed to
+   * the error channel of the underlying function so the bridge can
+   * surface them with the declared schema.
+   */
+  export interface Interface {
+    readonly start: (opts: {
+      url: string
+      token: string
+      projectID: string
+    }) => Effect.Effect<{ started: boolean; error?: string }, never>
+    readonly push: (
+      projectID: string,
+      input: { aggregate: string; data: unknown; origin?: string },
+    ) => Effect.Effect<void, never>
+    readonly outbox: (
+      projectID: string,
+      aggregate: string,
+      since: number,
+      limit?: number,
+    ) => Effect.Effect<{ events: SyncEventRecord[]; hasMore: boolean }, never>
+    readonly snapshot: (
+      aggregate: string,
+      projectID: string,
+    ) => Effect.Effect<{ lastSeq: number; state: unknown } | null, never>
+    readonly state: () => Effect.Effect<
+      {
+        configured: boolean
+        url?: string
+        pending: number
+        failed: number
+        lastSeq?: number
+      },
+      never
+    >
+  }
+
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Sync") {}
+
+  /**
+   * Default layer for `Sync.Service`. All methods are async wrappers over
+   * the existing free functions, so the layer carries no dependencies of
+   * its own. The `Database.syncDb()` handle inside the free functions
+   * resolves its own globals.
+   */
+  export const layer: Layer.Layer<Service> = Layer.succeed(
+    Service,
+    Service.of({
+      start: (opts) =>
+        Effect.promise(async () => {
+          try {
+            const { SyncCliInit } = await import("./cli-init")
+            const result = await SyncCliInit.startForAllProjects({
+              url: opts.url,
+              token: opts.token,
+            })
+            return { started: result.count > 0 }
+          } catch (err) {
+            return {
+              started: false,
+              error: err instanceof Error ? err.message : String(err),
+            }
+          }
+        }),
+      push: (projectID, input) =>
+        Effect.promise(async () => {
+          await emitRaw(projectID, input.aggregate, input.data, {
+            origin: input.origin,
+          })
+        }),
+      outbox: (projectID, aggregate, since, limit = 100) =>
+        Effect.promise(async () => {
+          const events = await getEvents(projectID, aggregate, since)
+          const trimmed = events.slice(0, limit)
+          return {
+            events: trimmed,
+            hasMore: events.length > limit,
+          }
+        }),
+      snapshot: (aggregate, projectID) =>
+        Effect.promise(async () => {
+          const { SyncProjection } = await import("./projection")
+          const result = await SyncProjection.byAggregate(projectID, aggregate)
+          return result ?? null
+        }),
+      state: () =>
+        Effect.promise(async () => {
+          const { SyncConfig } = await import("./sync-config")
+          const { Database } = await import("../database/database")
+          const { eq, sql } = await import("drizzle-orm")
+          const { syncOutbox, syncEvent } = await import("./sync.sql")
+          const resolved = await SyncConfig.resolve()
+          const db = Database.syncDb()
+          const pending =
+            db
+              .select({ count: sql<number>`cast(count(*) as integer)` })
+              .from(syncOutbox)
+              .where(eq(syncOutbox.status, "pending"))
+              .get()?.count ?? 0
+          const failed =
+            db
+              .select({ count: sql<number>`cast(count(*) as integer)` })
+              .from(syncOutbox)
+              .where(eq(syncOutbox.status, "failed"))
+              .get()?.count ?? 0
+          const latest = db
+            .select({ seq: syncEvent.seq })
+            .from(syncEvent)
+            .orderBy(sql`${syncEvent.seq} DESC`)
+            .limit(1)
+            .get()
+          return {
+            configured: resolved.configured,
+            url: resolved.url,
+            pending,
+            failed,
+            lastSeq: latest?.seq,
+          }
+        }),
+    }),
+  )
+
+  export const defaultLayer = layer
 }
