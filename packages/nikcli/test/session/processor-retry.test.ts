@@ -85,10 +85,10 @@ describe("SessionProcessor retry cleanup", () => {
                     cost: 0,
                     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
                   }
-                  yield* session.updateMessage(assistantMessage)
+                  yield* session.updateMessage(assistantMessage as any)
                   const processor = yield* SessionProcessor.Service
                   const result = yield* processor.create({
-                    assistantMessage,
+                    assistantMessage: assistantMessage as any,
                     sessionID: created.id,
                     model: { id: "test-model", providerID: "test-provider" } as any,
                     abort: new AbortController().signal,
