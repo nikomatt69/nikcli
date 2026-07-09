@@ -41,7 +41,7 @@ Historical target state to reintroduce intentionally:
 - `NIKCLI_EXPERIMENTAL_HTTPAPI` selects the backend at server startup. Default is still `hono`.
 - `server/backend.ts` picks one of `effect-httpapi` or `hono`; `server.ts` builds either a pure Effect `HttpApi` web handler or the legacy Hono app accordingly. The earlier in-Hono "bridge" model has been replaced by this fork-at-startup.
 - Legacy Hono routes remain mounted for the `hono` backend and remain the source for `hono-openapi` SDK generation.
-- An Effect `HttpApi` OpenAPI surface exists (`OpenApi.fromApi(PublicApi)` in `cli/cmd/generate.ts --httpapi`, `NIKCLI_SDK_OPENAPI=httpapi` in `packages/sdk/js/script/build.ts`) but is opt-in. The default SDK generation is still Hono.
+- An Effect `HttpApi` OpenAPI surface exists (`OpenApi.fromApi(PublicApi)` in `cli/cmd/generate.ts --httpapi`, `NIKCLI_SDK_OPENAPI=httpapi` in `packages/sdk/js/script/build.ts`) but is **opt-in**. The 2026-07-08 flip-all attempt was rolled back 2026-07-09: the Effect spec covers only the bridged route subset (23 SDK classes vs 78 from Hono), so generating the SDK from it dropped namespaces the TUI depends on (`path`, `find`, `lsp`, `auth`, `mobile`, `vcs`, `experimental.workspace`, `app.agents`, …) and crashed it at startup. The default flips only once PublicHttpApi reaches route parity with Hono.
 - `httpapi/public.ts` carries the Hono-compat normalization for the Effect-generated OpenAPI surface (auth scheme strip, request-body required flag, optional `null` arms, `BadRequestError` / `NotFoundError` remap, `$ref` self-cycle fix, `auth_token` query injection). Today's Effect-generated SDK is not byte-identical to the Hono-generated SDK — see Phase 4.
 - Auth is centrally configured for the Effect backend via Effect `Config` rather than re-attached in each route module.
 - Auth supports Basic auth and the legacy `auth_token` query parameter through `HttpApiSecurity.apiKey`.
@@ -491,7 +491,7 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
     - `state()`: configured/url/pending/failed stats
       Routes `/sync/start`, `/sync/replay`, `/sync/history`, `/sync/snapshot` are in `httpapi/sync.ts`; `/sync/stream` stays a Hono "special" SSE branch parallel to `httpapi/event.ts` until an Effect raw-stream backend path is selected.
 
-18. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
+18. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. A 2026-07-08 default flip was rolled back 2026-07-09 because the Effect surface lacks route parity (23 SDK classes vs 78) and the regenerated SDK crashed the TUI. Reach route parity in `PublicHttpApi` first, close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
 19. [ ] Flip `backend.ts` default from `hono` to `effect-httpapi`, keep `NIKCLI_EXPERIMENTAL_HTTPAPI` (or its inverse) as a short fallback flag, then delete replaced Hono route files.
 
 ## Checklist
@@ -527,7 +527,7 @@ and `BackendRuntime.launch(port, hostname)` that mount `HttpApiBridge.layer` on
 `test/server/backend-runtime.test.ts`. The production Hono path is untouched;
 this is the scaffold for the future full Effect backend.
 
-Candidate groups are **not** deletable until the SDK generator default flips to Effect OpenAPI; `ServerBackend.canDeleteHonoGroup(..., { sdkDefaultHttpApi: false })` must remain `false`.
+Candidate groups are **not** deletable until the SDK generator default flips to Effect OpenAPI; `ServerBackend.canDeleteHonoGroup(..., { sdkDefaultHttpApi: false })` must remain `false`. (The 2026-07-08 SDK default flip was rolled back 2026-07-09 pending route parity.)
 
 | Group            | Status    | Notes                                      |
 | ---------------- | --------- | ------------------------------------------ |

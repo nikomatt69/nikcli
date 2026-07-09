@@ -6,7 +6,7 @@ export interface OpenAIOptionsInput {
   readonly store?: boolean
   readonly promptCacheKey?: string
   readonly reasoningEffort?: ReasoningEffort
-  readonly reasoningSummary?: "auto"
+  readonly reasoningSummary?: "auto" | "concise" | "detailed"
   readonly includeEncryptedReasoning?: boolean
   readonly textVerbosity?: TextVerbosity
 }
@@ -41,7 +41,7 @@ export const gpt5DefaultOptions = (
   if (!id.includes("gpt-5") || id.includes("gpt-5-chat") || id.includes("gpt-5-pro")) return undefined
   return openAIProviderOptions({
     reasoningEffort: "medium",
-    reasoningSummary: "auto",
+    reasoningSummary: "detailed",
     textVerbosity:
       options.textVerbosity === true && id.includes("gpt-5.") && !id.includes("codex") && !id.includes("-chat")
         ? "low"

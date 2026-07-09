@@ -1,7 +1,7 @@
 import { HttpRouter } from "effect/unstable/http"
 import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
 import { Context, Layer } from "effect"
-import { InstanceRef, sharedMemoMap } from "@/effect"
+import { InstanceRef, LogRedirect, sharedMemoMap } from "@/effect"
 import { Instance } from "@/project/instance"
 import { ChatbotHttp } from "./chatbot"
 import { HttpApiEvent } from "./event"
@@ -226,9 +226,17 @@ export namespace HttpApiBridge {
     ["DELETE", /^\/user\/[^/]+$/],
   ] as const
 
-  /** Shared Effect HttpApi layer used by the in-Hono bridge today and by the future pure Effect backend. */
-  export const layer = PublicHttpApi.layer.pipe(
-    Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
+  /**
+   * Shared Effect HttpApi layer used by the in-Hono bridge today and by the
+   * future pure Effect backend. `LogRedirect` replaces Effect's console
+   * default logger so router-internal logs (HttpApi spans, encode errors)
+   * land in nikcli's `Log` sink instead of corrupting the TUI's stdout.
+   */
+  export const layer = Layer.mergeAll(
+    PublicHttpApi.layer.pipe(
+      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
+    ),
+    LogRedirect,
   )
 
   /** Web-standard request handler for the schema-encoded HttpApi routes. */
@@ -269,7 +277,10 @@ export namespace HttpApiBridge {
     // of the router — they are not schema-encoded HttpApi bodies.
     const pathname = new URL(request.url).pathname
     if (request.method === "GET" && pathname === "/event") {
-      return Promise.resolve(HttpApiEvent.handle())
+      // Instance-scoped SSE — plain {type, properties} from the instance Bus.
+      // handle() (the /global/event shape) wraps events in {payload}, which
+      // the TUI cannot parse; see HttpApiEvent.handleInstance.
+      return Promise.resolve(HttpApiEvent.handleInstance())
     }
     if (request.method === "POST") {
       const prompt = pathname.match(/^\/session\/([^/]+)\/message$/)

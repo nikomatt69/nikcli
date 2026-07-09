@@ -29,6 +29,20 @@ describe("features()", () => {
     expect(f.requests.latestOnlyLspRefresh).toBe(true)
   })
 
+  it("keeps explicit false off", () => {
+    const f = features({
+      experimental: {
+        nativeLlm: false,
+        tui: { cacheEviction: false, messageVirtualization: true },
+        requests: { latestOnlyLspRefresh: false },
+      },
+    } as any)
+    expect(f.nativeLlm).toBe(false)
+    expect(f.tui.cacheEviction).toBe(false)
+    expect(f.tui.messageVirtualization).toBe(true)
+    expect(f.requests.latestOnlyLspRefresh).toBe(false)
+  })
+
   it("treats truthy non-boolean as off", () => {
     const f = features({
       experimental: {

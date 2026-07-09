@@ -32,6 +32,17 @@ describe("llm-event-adapter", () => {
     expect(events.some((e) => e.type === "text-delta" && (e as any).text === "hi")).toBe(true)
   })
 
+  it("starts a text part when a native provider sends a bare delta", () => {
+    const events = mapLLMEvent(adapterState(), {
+      type: "text-delta",
+      text: "hello",
+    } as LLMEvent)
+
+    expect(events.map((event) => event.type)).toEqual(["text-start", "text-delta"])
+    expect((events[0] as any).id).toBeTruthy()
+    expect((events[1] as any).id).toBe((events[0] as any).id)
+  })
+
   it("maps tool-call to tool-input-start and tool-call", () => {
     const s = adapterState()
     const events = mapLLMEvent(s, {

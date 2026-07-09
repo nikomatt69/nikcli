@@ -1,3 +1,4 @@
+import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import { Log } from "@/util/log"
 
@@ -11,6 +12,75 @@ import { Log } from "@/util/log"
  */
 export namespace HttpApiEvent {
   const log = Log.create({ service: "httpapi.event" })
+
+  /**
+   * GET /event — instance-scoped SSE, same wire contract as the Hono
+   * `server.ts` handler: unwrapped `{type, properties}` payloads from the
+   * instance `Bus` (NOT the `{payload}`-wrapped GlobalBus shape of
+   * `/global/event`), `server.connected` greeting, 30s heartbeat, stream
+   * closed on `server.instance.disposed`. The TUI parses `data.type`
+   * directly, so serving the global envelope here silently drops every
+   * event client-side.
+   *
+   * Must be called synchronously within the instance ALS (the bridge runs
+   * inside the Hono instance middleware) — `Bus.subscribeAll` reads the
+   * current instance at subscription time.
+   */
+  export function handleInstance(): Response {
+    log.info("event connected")
+    const encoder = new TextEncoder()
+    let unsub: (() => void) | undefined
+    let heartbeat: ReturnType<typeof setInterval> | undefined
+
+    const cleanup = () => {
+      if (heartbeat) clearInterval(heartbeat)
+      unsub?.()
+      heartbeat = undefined
+      unsub = undefined
+      log.info("event disconnected")
+    }
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const send = (data: unknown) => {
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+          } catch (error) {
+            log.debug("sse write failed", { error })
+            cleanup()
+          }
+        }
+        send({ type: "server.connected", properties: {} })
+        // ReadableStream `start` runs synchronously at construction, so the
+        // instance ALS from the caller is still active here.
+        unsub = Bus.subscribeAll(async (event) => {
+          send(event)
+          if (event.type === Bus.InstanceDisposed.type) {
+            cleanup()
+            try {
+              controller.close()
+            } catch {
+              // already closed by the client
+            }
+          }
+        })
+        heartbeat = setInterval(() => {
+          send({ type: "server.heartbeat", properties: {} })
+        }, 30_000)
+      },
+      cancel() {
+        cleanup()
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      },
+    })
+  }
 
   export function handle(): Response {
     log.info("global event connected")

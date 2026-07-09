@@ -11,9 +11,11 @@ export function openApiSource(input: { readonly httpapi?: boolean; readonly env?
 /**
  * OpenAPI generation.
  *
- * Default: Hono `Server.openapi()` (production SDK path).
- * Opt-in Effect: `NIKCLI_SDK_OPENAPI=httpapi` or `--httpapi` → `OpenApi.fromApi(PublicHttpApi.Api)`.
- * Default stays Hono until SDK shape parity is reviewed (plan B2).
+ * Default: Hono `Server.openapi()` (production SDK path). The Effect
+ * PublicHttpApi surface covers only the bridged route subset, so generating
+ * the SDK from it drops namespaces clients depend on (path, find, lsp, auth,
+ * mobile, vcs, …). Opt-in Effect: `NIKCLI_SDK_OPENAPI=httpapi` or `--httpapi`.
+ * The default flips only once PublicHttpApi reaches route parity with Hono.
  */
 export const GenerateCommand = {
   command: "generate",

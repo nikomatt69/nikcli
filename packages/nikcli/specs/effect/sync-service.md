@@ -1,4 +1,6 @@
-# Sync.Service extraction — design (Wave 4)
+# Sync.Service extraction — implementation status (Wave 4)
+
+> **Status:** `Sync.Service` + JSON CRUD routes **landed** (`src/sync/index.ts` `Service`/`layer`, `src/server/httpapi/sync.ts` for start/replay/history/snapshot). SSE `/sync/stream` remains a Hono special per misty-moon B5 ADR.
 
 > Status (2026-07-08): **`Sync.Service` + JSON routes landed** (`src/sync/index.ts`
 > `Service`/`layer`, `src/server/httpapi/sync.ts` for start/replay/history/snapshot).

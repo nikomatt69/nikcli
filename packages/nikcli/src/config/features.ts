@@ -3,6 +3,9 @@
  *
  * Central place for opencode-parity / native-LLM gates so callers don't
  * cast `config.experimental` ad hoc. All flags default **off** until soak.
+ * (A 2026-07-08 flip-all attempt was rolled back 2026-07-09: with the flags
+ * on, the TUI stopped rendering streamed assistant parts. Re-flip one flag
+ * at a time after verifying the session stream end-to-end.)
  */
 import type { Config } from "./config"
 

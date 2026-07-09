@@ -156,7 +156,7 @@ Sessioni lunghe (native + tool) **aumentano carico TUI** → 02/04 aiutano; **no
 
 ### Fase 2 — Schema flag parity (~2–3 gg, parallelo)
 
-- Zod: `experimental.requests`, `.tui`, `.persist` (default off).
+- Zod: `experimental.requests`, `.tui`, `.persist` (**default on** as of misty-moon wave 4, 2026-07-08).
 - `config/features.ts`.
 - Aggiornare `opencode-parity/README.md` con chiavi config.
 - **Nessun** wiring behavior.
@@ -172,7 +172,7 @@ Sessioni lunghe (native + tool) **aumentano carico TUI** → 02/04 aiutano; **no
 5. **06** i18n (parallelo)
 6. **05** modularize (continuo)
 
-Ogni PR: gate F0 session tests + test spec; default flag **off**.
+Ogni PR: gate F0 session tests + test spec; **default flag on** as of misty-moon wave 4 (2026-07-08). Opt out per flag with `false` in user/project config.
 
 ---
 

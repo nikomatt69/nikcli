@@ -59,6 +59,10 @@ export function status(input: {
  * Race an async iterable against an AbortSignal so cancel maps to
  * DOMException AbortError (MessageV2.fromError → MessageAbortedError).
  * `@nikcli-ai/llm` streamRequest has no abort param yet (A2 wrapper).
+ *
+ * The abort listener is always detached after the race resolves (either
+ * by iterator.next() winning or by abort firing) to prevent listener
+ * accumulation on chatty streams.
  */
 export async function* abortableIterable<T>(source: AsyncIterable<T>, abort: AbortSignal): AsyncGenerator<T> {
   if (abort.aborted) {
@@ -72,6 +76,7 @@ export async function* abortableIterable<T>(source: AsyncIterable<T>, abort: Abo
         throw new DOMException("Aborted", "AbortError")
       }
 
+      let onAbort: (() => void) | undefined
       const next = await Promise.race([
         iterator.next(),
         new Promise<never>((_, reject) => {
@@ -79,13 +84,16 @@ export async function* abortableIterable<T>(source: AsyncIterable<T>, abort: Abo
             reject(new DOMException("Aborted", "AbortError"))
             return
           }
-          const onAbort = () => {
-            abort.removeEventListener("abort", onAbort)
+          onAbort = () => {
             reject(new DOMException("Aborted", "AbortError"))
           }
           abort.addEventListener("abort", onAbort, { once: true })
         }),
       ])
+      // Always detach the abort listener, regardless of which side won the race.
+      // `{ once: true }` only auto-removes on fire, so we must remove explicitly
+      // when iterator.next() wins to avoid listener accumulation.
+      if (onAbort) abort.removeEventListener("abort", onAbort)
 
       if (next.done) return
       yield next.value
@@ -108,13 +116,6 @@ export function streamRequestOnly(input: StreamInput): StreamResult {
     type: "supported",
     events: abortableIterable(llmStreamRequest(input.llmRequest), input.abort),
   }
-}
-
-function providerFetch(input: Pick<StreamInput, "provider" | "auth">): typeof globalThis.fetch | undefined {
-  if (input.provider.id !== "openai" || input.auth?.type !== "oauth") return undefined
-  const value: unknown = input.provider.options.fetch
-  if (typeof value !== "function") return undefined
-  return value as typeof globalThis.fetch
 }
 
 export * as LLMNativeRuntime from "./native-runtime"

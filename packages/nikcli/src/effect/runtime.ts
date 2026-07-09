@@ -1,16 +1,45 @@
 import { Instance } from "@/project/instance"
 import { Observability } from "@/observability"
-import { Effect, Layer, ManagedRuntime, Option } from "effect"
+import { Log } from "@/util/log"
+import { Cause, Effect, Layer, Logger, ManagedRuntime, Option } from "effect"
 import { InstanceRef, locallyInstance, type InstanceContext } from "./instance-ref"
 
 export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
 const runtimes = new WeakMap<Layer.Layer<any, any, never>, ManagedRuntime.ManagedRuntime<any, any>>()
 
+// Effect's default logger writes to the console, which corrupts the TUI when
+// runtime-internal logs fire (e.g. HttpApi span/error logs from the bridge).
+// Route Effect-emitted logs into nikcli's `Log` sink instead — a file in TUI
+// mode, stderr only when `--print-logs` is set.
+const effectLog = Log.create({ service: "effect" })
+export const LogRedirect = Logger.layer([
+  Logger.make(({ message, logLevel, cause }) => {
+    const text = Array.isArray(message) ? message.map((part) => String(part)).join(" ") : String(message)
+    const line = cause.reasons.length > 0 ? `${text} ${Cause.pretty(cause)}` : text
+    switch (logLevel) {
+      case "Fatal":
+      case "Error":
+        effectLog.error(line)
+        break
+      case "Warn":
+        effectLog.warn(line)
+        break
+      case "Debug":
+      case "Trace":
+        effectLog.debug(line)
+        break
+      default:
+        effectLog.info(line)
+    }
+  }),
+])
+
 export function makeRuntime<R, E>(layer: Layer.Layer<R, E, never>) {
   // Merge OTLP observability into every runtime base. Memoised via the shared
   // memo map, so a single exporter/HttpClient is built and reused. No-op when
-  // no OTEL endpoint is configured.
-  return ManagedRuntime.make(Layer.mergeAll(layer, Observability.layer), { memoMap: sharedMemoMap })
+  // no OTEL endpoint is configured. `LogRedirect` replaces the console default
+  // logger; the OTLP logger layer merges with whatever loggers are current.
+  return ManagedRuntime.make(Layer.mergeAll(layer, LogRedirect, Observability.layer), { memoMap: sharedMemoMap })
 }
 
 export const AppRuntime = makeRuntime(Layer.empty)

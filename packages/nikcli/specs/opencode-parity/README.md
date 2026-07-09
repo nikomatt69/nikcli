@@ -27,14 +27,14 @@ nikcli file where the same class of problem exists today.
 
 ## Gap analysis (evidence)
 
-| #     | opencode spec                | nikcli gap (verified)                                                                                                                                         | Evidence                                                                                                                                                                                                          |
-| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 01    | `01-persist-payload-limits`  | Prompt history/stash persist base64 image `dataUrl`s into a plaintext JSONL file with no size caps                                                            | `src/cli/cmd/tui/component/prompt/history.tsx` writes `PromptInfo[]` (parts include `FilePart.url = data:…;base64,…`) to `prompt-history.jsonl` via `Bun.write`; `MAX_HISTORY_ENTRIES=50` bounds count, not bytes |
-| 02    | `02-cache-eviction`          | TUI sync store keeps every visited session's messages/parts/diffs in memory; only `session.deleted` frees them — no LRU/TTL                                   | `src/cli/cmd/tui/context/sync.tsx` stores `message`/`part`/`session_diff`/`todo` keyed by session; eviction only via `delete draft.message[id]` on delete                                                         |
-| 03    | `03-request-throttling`      | `find.files` autocomplete fires one server call per keystroke, no debounce / abort / stale-result guard                                                       | `src/cli/cmd/tui/component/prompt/autocomplete.tsx:298` `createResource(() => filter(), …find.files)`; same uncoordinated call in `component/dialog-tag.tsx:18`                                                   |
-| 04    | `04-scroll-spy-optimization` | **Partial (2026-07-08):** pure `message-window.ts` + windowed render behind `experimental.tui.messageVirtualization` (default off). Flag-off still full list. | `routes/session/message-window.ts`; `index.tsx` `windowed()` + spacers                                                                                                                                            |
-| 05    | `05-modularize-and-dedupe`   | Mega-components: `routes/session/index.tsx` 3534 LOC, `component/prompt/index.tsx` 2323, `component/dialog-opentui-viz.tsx` 2290, `app.tsx` 1409              | `wc -l` over `src/cli/cmd/tui`                                                                                                                                                                                    |
-| 06/07 | `06/07-i18n-audit`           | `packages/nikcli` has **no** string-translation i18n; `src/util/locale.ts` is formatting-only (titlecase/number/duration). TUI copy is hardcoded English      | `src/util/locale.ts`; no `useLanguage`/`t(` in `src/cli/cmd/tui`                                                                                                                                                  |
+| #     | opencode spec                | nikcli gap (verified)                                                                                                                                                                                        | Evidence                                                                                                                                                                                                          |
+| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01    | `01-persist-payload-limits`  | Prompt history/stash persist base64 image `dataUrl`s into a plaintext JSONL file with no size caps                                                                                                           | `src/cli/cmd/tui/component/prompt/history.tsx` writes `PromptInfo[]` (parts include `FilePart.url = data:…;base64,…`) to `prompt-history.jsonl` via `Bun.write`; `MAX_HISTORY_ENTRIES=50` bounds count, not bytes |
+| 02    | `02-cache-eviction`          | TUI sync store keeps every visited session's messages/parts/diffs in memory; only `session.deleted` frees them — no LRU/TTL                                                                                  | `src/cli/cmd/tui/context/sync.tsx` stores `message`/`part`/`session_diff`/`todo` keyed by session; eviction only via `delete draft.message[id]` on delete                                                         |
+| 03    | `03-request-throttling`      | `find.files` autocomplete fires one server call per keystroke, no debounce / abort / stale-result guard                                                                                                      | `src/cli/cmd/tui/component/prompt/autocomplete.tsx:298` `createResource(() => filter(), …find.files)`; same uncoordinated call in `component/dialog-tag.tsx:18`                                                   |
+| 04    | `04-scroll-spy-optimization` | **Partial (2026-07-09):** pure `message-window.ts` + windowed render behind `experimental.tui.messageVirtualization` (default off — the 2026-07-08 default-on attempt broke streamed part rendering).        | `routes/session/message-window.ts`; `index.tsx` `windowed()` + spacers                                                                                                                                            |
+| 05    | `05-modularize-and-dedupe`   | Mega-components: `routes/session/index.tsx` 3534 LOC, `component/prompt/index.tsx` 2323, `component/dialog-opentui-viz.tsx` 2290, `app.tsx` 1409                                                             | `wc -l` over `src/cli/cmd/tui`                                                                                                                                                                                    |
+| 06/07 | `06/07-i18n-audit`           | `packages/nikcli` has **no** string-translation i18n; `src/util/locale.ts` is formatting-only (titlecase/number/duration). TUI copy is hardcoded English                                                     | `src/util/locale.ts`; no `useLanguage`/`t(` in `src/cli/cmd/tui`                                                                                                                                                  |
 
 opencode's `project.md` (multi-project/worktree session API) is **already implemented** in
 nikcli (`src/server/routes/project.ts`, `src/server/routes/workspace.ts`,
@@ -57,17 +57,20 @@ throws `APICallError` so `fromError` → `APIError` with `isRetryable` (see `llm
 
 ## Feature flags (spec names → config)
 
-Flags ship **off** first. Typed helper: `src/config/features.ts` (`features(cfg)`).
+Flags ship **off** first; set the field to `true` in the user/project config to
+opt in per flag. (A 2026-07-08 flip-all default-on attempt was rolled back on
+2026-07-09: with the `tui.*` flags on, the TUI stopped rendering streamed
+assistant parts.) Typed helper: `src/config/features.ts` (`features(cfg)`).
 
-| Spec   | Flag(s)                                                                          | Status (2026-07-08) |
-| ------ | -------------------------------------------------------------------------------- | ------------------- |
-| 03     | `requests.latestOnlyLspRefresh` (debounce file search is **always on**, no flag) | partial             |
-| 01     | blob path always-on (no separate persist.\* flags yet)                           | partial             |
-| 02     | `experimental.tui.cacheEviction`                                                 | landed, default off |
-| 04     | `experimental.tui.messageVirtualization`                                         | landed, default off |
-| 05     | `tui.scopedCacheShared`                                                          | not started         |
-| native | `experimental.nativeLlm`                                                         | landed, default off |
-| 06     | (structural; no runtime gate required for phase 1)                               | i18n catalog        |
+| Spec   | Flag(s)                                                                                       | Status (2026-07-09)  |
+| ------ | --------------------------------------------------------------------------------------------- | -------------------- |
+| 03     | `experimental.requests.latestOnlyLspRefresh` (debounce file search is **always on**, no flag) | partial, default off |
+| 01     | blob path always-on (no separate persist.\* flags yet)                                        | partial              |
+| 02     | `experimental.tui.cacheEviction`                                                              | landed, default off  |
+| 04     | `experimental.tui.messageVirtualization`                                                      | landed, default off  |
+| 05     | `experimental.tui.scopedCacheShared`                                                          | not started          |
+| native | `experimental.nativeLlm`                                                                      | landed, default off  |
+| 06     | (structural; no runtime gate required for phase 1)                                            | i18n catalog         |
 
 Independent kill switches: disabling one flag must not require disabling others.
 

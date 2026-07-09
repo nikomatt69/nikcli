@@ -154,6 +154,13 @@ export function Session() {
   const lang = useLanguage()
   const commandLabels = sessionCommandLabels(lang)
   const promptRef = usePromptRef()
+  // Refs and reactive primitives that are referenced from earlier `createEffect` /
+  // `createMemo` callbacks. Must be declared before any usage site to avoid TDZ
+  // errors when effects run before JSX `ref={(r) => …}` callbacks.
+  const dimensions = useTerminalDimensions()
+  let scroll: ScrollBoxRenderable
+  let prompt: PromptRef
+  let lastSwitch: string | undefined = undefined
   const session = createMemo(() => sync.session.get(route.sessionID))
   const children = createMemo(() => {
     const parentID = session()?.parentID ?? session()?.id
@@ -173,6 +180,10 @@ export function Session() {
     return sync.data.session.filter((x) => workerIDs.has(x.id)).toSorted((a, b) => a.time.created - b.time.created)
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  // The virtualizer uses estimated heights. While the assistant is streaming,
+  // the active row grows on every text delta, so those estimates no longer
+  // describe the scroll position and can window the live response out.
+  const streaming = createMemo(() => messages().some((x) => x.role === "assistant" && !x.time.completed))
   /** Estimated row height per message for windowing (refined later from measured heights). */
   const MESSAGE_HEIGHT_ESTIMATE = 6
   const OVERSCAN = 5
@@ -196,18 +207,16 @@ export function Session() {
    */
   const windowed = createMemo(() => {
     const all = messages()
-    if (!virtualizationEnabled() || all.length === 0) {
+    if (!virtualizationEnabled() || streaming() || all.length === 0) {
       return { items: all, top: 0, bottom: 0, baseIndex: 0 }
     }
     try {
       const heights = all.map(() => MESSAGE_HEIGHT_ESTIMATE)
-      const total = heights.length * MESSAGE_HEIGHT_ESTIMATE
-      let scrollTop = scrollPos()
+      const scrollTop = scrollPos()
       const vp = viewportH()
-      // Sticky-bottom: when near the end, pin window to the tail so streaming stays mounted.
-      if (scrollTop + vp >= total - MESSAGE_HEIGHT_ESTIMATE * 2) {
-        scrollTop = Math.max(0, total - vp)
-      }
+      // Sticky-bottom is owned by the scrollbox itself (stickyScroll=true,
+      // stickyStart="bottom"). Do NOT clamp scrollTop here — double-sticky
+      // causes jumpy viewport during streaming when the flag is on.
       const range = visibleRange({
         heights,
         scrollTop,
@@ -245,7 +254,6 @@ export function Session() {
     return messages().findLast((x) => x.role === "assistant")
   })
 
-  const dimensions = useTerminalDimensions()
   const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "auto")
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
   const [conceal, setConceal] = createSignal(true)
@@ -312,7 +320,6 @@ export function Session() {
     ),
   )
 
-  let lastSwitch: string | undefined = undefined
   onMount(() => {
     const autoBackgroundedTasks = new Set<string>()
     const off = sdk.event.on("message.part.updated", (evt) => {
@@ -351,8 +358,6 @@ export function Session() {
     onCleanup(() => off())
   })
 
-  let scroll: ScrollBoxRenderable
-  let prompt: PromptRef
   const keybind = useKeybind()
   const status = createMemo(() => sync.data.session_status?.[route.sessionID] ?? { type: "idle" as const })
 
@@ -1390,12 +1395,15 @@ export function Session() {
               <Show when={windowed().top > 0}>
                 <box height={windowed().top} flexShrink={0} />
               </Show>
+              {/* RevertBanner is rendered outside <For> so virtualization cannot
+                  unmount it on slice change — keeps click handlers alive when
+                  the user scrolls while the banner is visible. */}
+              <Show when={revert()}>
+                <RevertBanner count={revert()!.reverted.length} diffFiles={revert()!.diffFiles} />
+              </Show>
               <For each={windowed().items}>
                 {(message, index) => (
                   <Switch>
-                    <Match when={message.id === revert()?.messageID}>
-                      <RevertBanner count={revert()!.reverted.length} diffFiles={revert()!.diffFiles} />
-                    </Match>
                     <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
                       <></>
                     </Match>
@@ -1813,7 +1821,14 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
   const content = createMemo(() => {
     // Filter out redacted reasoning chunks from OpenRouter
     // OpenRouter sends encrypted reasoning data that appears as [REDACTED]
-    return props.part.text.replace("[REDACTED]", "").trim()
+    return (
+      props.part.text
+        .replace("[REDACTED]", "")
+        // OpenAI Responses reasoning summaries separate sections with empty
+        // HTML comments (`<!-- -->`); they are markers, not content.
+        .replace(/<!--\s*-->/g, "")
+        .trim()
+    )
   })
   const summary = createMemo(() => reasoningSummary(content()))
   const body = createMemo(() => (summary().body ? wrapDiagramsInFences(summary().body) : ""))
@@ -1910,12 +1925,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   return (
     <Show when={props.part.text.trim()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
-        <Show when={streamingSpeed.rate > 0}>
-          <box flexDirection="row" gap={1}>
-            <text fg={theme.textMuted}>●</text>
-            <text fg={theme.textMuted}>{streamingSpeed.rate} tok/s</text>
-          </box>
-        </Show>
+        
         <markdown
           streaming={!props.last ? false : true}
           syntaxStyle={syntax()}

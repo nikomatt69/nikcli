@@ -56,6 +56,36 @@ describe("LLMNativeRuntime.abortableIterable", () => {
     setTimeout(() => ac.abort(), 10)
     await expect(iter.next()).rejects.toMatchObject({ name: "AbortError" })
   })
+
+  it("does not accumulate abort listeners when iter wins the race", async () => {
+    // Many iterations with a signal that never fires. Without explicit
+    // removeEventListener, abort listener count would grow without bound.
+    async function* source(n: number) {
+      for (let i = 0; i < n; i++) yield i
+    }
+    const ac = new AbortController()
+    // Spy on addEventListener / removeEventListener to count net listener churn.
+    let added = 0
+    let removed = 0
+    const origAdd = ac.signal.addEventListener.bind(ac.signal)
+    const origRemove = ac.signal.removeEventListener.bind(ac.signal)
+    ac.signal.addEventListener = ((type: string, listener: any, opts?: any) => {
+      if (type === "abort") added++
+      return origAdd(type, listener, opts)
+    }) as typeof ac.signal.addEventListener
+    ac.signal.removeEventListener = ((type: string, listener: any, opts?: any) => {
+      if (type === "abort") removed++
+      return origRemove(type, listener, opts)
+    }) as typeof ac.signal.removeEventListener
+
+    const out: number[] = []
+    for await (const v of abortableIterable(source(50), ac.signal)) {
+      out.push(v)
+    }
+    expect(out.length).toBe(50)
+    // Every added listener must be removed.
+    expect(removed).toBe(added)
+  })
 })
 
 describe("LLMNativeRuntime.status OAuth", () => {

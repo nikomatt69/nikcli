@@ -136,7 +136,7 @@ that already serves `/event` and `/chatbot/*`:
 **Do not** attempt Path A in this cycle. Revisit only when:
 
 1. `@effect/platform-bun` (or BunHttpServer) exposes `upgradeWebSocket`, **and**
-2. Effect OpenAPI/SDK default flip is planned (B2 opt-in already exists).
+2. Effect OpenAPI/SDK default flipped to **on** (misty-moon wave 4, 2026-07-08). B2 opt-in path remains for opt-out.
 
 Reasoning unchanged: same-day shippability; mirrors `/event` SSE and `/chatbot/*` specials.
 

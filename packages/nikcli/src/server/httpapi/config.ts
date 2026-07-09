@@ -60,6 +60,11 @@ export namespace ConfigHttpApi {
 
   export const ApiLive = HttpApiBuilder.layer(Api)
 
+  // Runtime config/provider objects carry `undefined` optional fields (e.g.
+  // agent `steps`, model cost `experimentalOver200K`) which the HttpApi JSON
+  // encoder rejects; Hono's JSON.stringify silently dropped them.
+  const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
+
   function asUpdateError(cause: unknown) {
     if (cause instanceof Config.JsonError || cause instanceof Config.InvalidError) {
       const { _tag: _ignored, ...data } = cause
@@ -72,7 +77,7 @@ export namespace ConfigHttpApi {
     get: () =>
       Effect.gen(function* () {
         const config = yield* Config.Service
-        return yield* config.get()
+        return jsonSafe(yield* config.get())
       }).pipe(Effect.orDie),
     update: ({ payload }: { payload: typeof Info.Type }) =>
       Effect.gen(function* () {
@@ -92,10 +97,10 @@ export namespace ConfigHttpApi {
       Effect.gen(function* () {
         const provider = yield* Provider.Service
         const providers = yield* provider.list()
-        return {
+        return jsonSafe({
           providers: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
-        }
+        })
       }).pipe(Effect.orDie),
   }
 

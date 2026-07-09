@@ -158,6 +158,9 @@ Object.defineProperty(Flag, "NIKCLI_TUI_CONFIG", {
 
 Object.defineProperty(Flag, "NIKCLI_EXPERIMENTAL_HTTPAPI", {
   get() {
+    // Default on (2026-07-08 — misty-moon wave 4 flip-all). Set to "0"/"false"
+    // to opt out and fall back to pure Hono.
+    if (process.env["NIKCLI_EXPERIMENTAL_HTTPAPI"] === undefined) return true
     return truthy("NIKCLI_EXPERIMENTAL_HTTPAPI")
   },
   enumerable: true,

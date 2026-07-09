@@ -867,13 +867,15 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
       )
     case "@ai-sdk/openai": {
       // https://v5.ai-sdk.dev/providers/ai-sdk-providers/openai
+      // "detailed" gives the richest reasoning summary the Responses API
+      // exposes (the raw chain-of-thought is never returned).
       const efforts = openaiReasoningEfforts(model.api.id, model.release_date)
       return Object.fromEntries(
         efforts.map((effort) => [
           effort,
           {
             reasoningEffort: effort,
-            reasoningSummary: "auto",
+            reasoningSummary: "detailed",
             include: INCLUDE_ENCRYPTED_REASONING,
           },
         ]),
@@ -1200,7 +1202,9 @@ export function options(input: {
   if (input.model.api.id.includes("gpt-5") && !input.model.api.id.includes("gpt-5-chat")) {
     if (!input.model.api.id.includes("gpt-5-pro")) {
       result["reasoningEffort"] = "medium"
-      result["reasoningSummary"] = "auto"
+      // Direct OpenAI accepts "detailed" (richest summary the API exposes);
+      // gateways (Copilot, Azure, opencode) stay on "auto" for compatibility.
+      result["reasoningSummary"] = input.model.api.npm === "@ai-sdk/openai" ? "detailed" : "auto"
       if (input.model.api.npm === "@ai-sdk/openai") {
         result["include"] = INCLUDE_ENCRYPTED_REASONING
       }

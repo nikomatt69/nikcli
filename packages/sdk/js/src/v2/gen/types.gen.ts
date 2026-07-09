@@ -2877,18 +2877,22 @@ export type Config = {
      */
     mcp_timeout?: number
     /**
-     * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.
+     * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default on (2026-07-08).
      */
     nativeLlm?: boolean
     tui?: {
       /**
-       * Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.
+       * Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default on (2026-07-08).
        */
       cacheEviction?: boolean
+      /**
+       * Window the session message list via message-window visibleRange instead of rendering all messages. Default on (2026-07-08).
+       */
+      messageVirtualization?: boolean
     }
     requests?: {
       /**
-       * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.
+       * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default on (2026-07-08).
        */
       latestOnlyLspRefresh?: boolean
     }
@@ -3249,7 +3253,7 @@ export type McpResource = {
 
 export type ManagedWorktreeInfo = {
   id: string
-  parentId?: string | null
+  parentId: string | null
   name: string
   branch: string
   directory: string

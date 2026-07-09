@@ -33,9 +33,17 @@ function finishReason(value: string | undefined): string {
  * `MessageV2.fromError` classifies them as `APIError` with
  * `isRetryable` preserved. Plain `Error` collapses to `UnknownError`
  * and loses SessionRetry auto-retry for throttles/429s (F1.2).
+ *
+ * Defensive: the LLM event contract may evolve; we validate the
+ * expected fields at runtime so a missing/malformed event surfaces
+ * a clear error instead of `undefined` reads.
  */
 export function providerErrorToAPICallError(event: Extract<LLMEvent, { type: "provider-error" }>): APICallError {
-  const message = event.message || "Provider error"
+  if (!event || typeof event !== "object") {
+    throw new Error("providerErrorToAPICallError: event is not an object")
+  }
+  const rawMessage = (event as { message?: unknown }).message
+  const message = typeof rawMessage === "string" && rawMessage.length > 0 ? rawMessage : "Provider error"
   const heuristicRetryable = /rate.?limit|throttl|overloaded|too many requests|\b429\b|\b503\b|\b529\b/i.test(message)
   const isRetryable = event.retryable === true || (event.retryable !== false && heuristicRetryable)
 
@@ -148,14 +156,28 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
       ]
 
     case "text-delta":
-      return [
-        {
+      // Native providers may emit deltas without text-start. The processor
+      // needs a text part before it can persist the delta, so synthesize the
+      // missing start at the adapter boundary.
+      {
+        const id = event.id ?? state.currentTextID ?? `text-${state.text++}`
+        const out: ProcessorStreamEvent[] = []
+        if (!state.currentTextID) {
+          state.currentTextID = id
+          out.push({
+            type: "text-start",
+            id,
+            providerMetadata: event.providerMetadata,
+          } as ProcessorStreamEvent)
+        }
+        out.push({
           type: "text-delta",
-          id: event.id ?? state.currentTextID,
+          id,
           text: event.text,
           providerMetadata: event.providerMetadata,
-        } as ProcessorStreamEvent,
-      ]
+        } as ProcessorStreamEvent)
+        return out
+      }
 
     case "text-end":
       return [

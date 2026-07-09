@@ -21,7 +21,7 @@ Track C — TUI opencode-parity (client)   Track D — Soak & default-on
   B1 → B2 → B3 → B4 (+ B5/B6)              After internal dogfood per flag
 ```
 
-**Invariant:** every behavior change ships **flag-off** until soak passes.
+**Invariant:** every behavior change ships **flag-off** until soak passes. (A 2026-07-08 flip-all attempt — misty-moon wave 4 — was rolled back on 2026-07-09: with `tui.*` flags on the TUI stopped rendering streamed assistant parts, and the Effect-OpenAPI SDK default dropped client namespaces. Exception kept: `NIKCLI_EXPERIMENTAL_HTTPAPI` stays default-on after the /config jsonSafe fix and Effect log redirect.)
 
 ---
 

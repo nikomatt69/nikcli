@@ -85,6 +85,24 @@ describe("Config HttpApi bridge", () => {
     expect(body.name).toBe("ConfigJsonError")
     expect(String(body.data.path)).toContain("nikcli.json")
   })
+
+  it("serves configs whose parsed shape carries undefined fields (agent steps)", async () => {
+    const directory = await makeProjectDir()
+
+    // The config agent transform sets `steps: agent.steps ?? agent.maxSteps`,
+    // leaving an explicit `steps: undefined` key that the HttpApi JSON encoder
+    // rejected before the jsonSafe boundary (regression: GET /config → 400).
+    await fs.writeFile(
+      path.join(directory, "nikcli.json"),
+      JSON.stringify({ agent: { probe: { prompt: "probe agent" } } }),
+      "utf8",
+    )
+
+    const response = await request("/config", directory)
+    expect(response.status).toBe(200)
+    const config = (await response.json()) as { agent?: Record<string, { prompt?: string }> }
+    expect(config.agent?.probe?.prompt).toBe("probe agent")
+  })
 })
 
 afterEach(async () => {
