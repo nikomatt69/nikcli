@@ -3,6 +3,23 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.149.0 (July 2026)
+
+## Core
+
+- Cast assistantMessage to any for compatibility in session processing tests (@nikomatt69)
+- Enhance event subscription handling and introduce discard functionality (@nikomatt69)
+- Implement targeted fixes and enhancements based on Wave 3 analysis (@nikomatt69)
+- Introduce comprehensive action plan for closing verified gaps (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): introduce comprehensive action plan for closing verified gaps
+  - feat(nikcli): implement targeted fixes and enhancements based on Wave 3 analysis
+  - feat(nikcli): enhance event subscription handling and introduce discard functionality
+  - fix(nikcli): cast assistantMessage to any for compatibility in session processing tests
+
 ## v1.143.0 (July 2026)
 
 ## Core
