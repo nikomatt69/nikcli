@@ -213,6 +213,7 @@ export namespace SessionProcessor {
     // Hoisted: cleanup function used across retry iterations
     const cleanupRetryAttempt = async (attemptPartIDs: Set<string>) => {
       for (const partID of attemptPartIDs) {
+        coalescer.discard(["part", input.assistantMessage.id, partID])
         await removePart({
           sessionID: input.sessionID,
           messageID: input.assistantMessage.id,
@@ -242,9 +243,25 @@ export namespace SessionProcessor {
             attemptPartIDs.add(part.id)
             return part
           }
+          let currentText: MessageV2.TextPart | undefined
+          const reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+
+          const finishOpenReasoning = async () => {
+            for (const [id, part] of Object.entries(reasoningMap)) {
+              part.text = part.text.trimEnd()
+              part.time = {
+                ...part.time,
+                end: Date.now(),
+              }
+              Bus.publish(MessageV2.Event.PartUpdated, {
+                part,
+                delta: "",
+              })
+              await coalescer.flushNow(["part", part.messageID, part.id]).catch(() => {})
+              delete reasoningMap[id]
+            }
+          }
           try {
-            let currentText: MessageV2.TextPart | undefined
-            let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
             const stream = await LLM.stream(streamInput)
 
             for await (const value of stream.fullStream) {
@@ -643,6 +660,9 @@ export namespace SessionProcessor {
                   attempt,
                   MessageV2.APIError.isInstance(error) ? new MessageV2.APIError(error.data) : undefined,
                 )
+                for (const id of Object.keys(reasoningMap)) {
+                  delete reasoningMap[id]
+                }
                 await cleanupRetryAttempt(attemptPartIDs)
                 await setStatus(input.sessionID, {
                   type: "retry",
@@ -671,6 +691,8 @@ export namespace SessionProcessor {
               sessionID: input.assistantMessage.sessionID,
               error: input.assistantMessage.error,
             })
+          } finally {
+            await finishOpenReasoning()
           }
           if (snapshot) {
             const snapshotHash = snapshot

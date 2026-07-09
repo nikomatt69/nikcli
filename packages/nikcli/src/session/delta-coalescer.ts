@@ -91,6 +91,15 @@ export namespace DeltaCoalescer {
     await flush(id)
   }
 
+  /** Discard a pending write without persisting it. */
+  export function discard(key: string[]): void {
+    const id = cacheKey(key)
+    const entry = pending.get(id)
+    if (entry && entry.timer !== null) clearTimeout(entry.timer)
+    pending.delete(id)
+    _flushCallback.delete(id)
+  }
+
   /**
    * Flush all pending writes. Call this when the session ends or
    * before critical operations that need all data on disk.

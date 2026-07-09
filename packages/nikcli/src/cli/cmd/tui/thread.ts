@@ -52,16 +52,34 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
   return fn as typeof fetch
 }
 
-function createEventSource(client: RpcClient): EventSource {
+export function createEventSource(client: RpcClient): EventSource {
   return {
     subscribe: async (directory, handler) => {
-      const id = await client.call("subscribe", { directory })
-      const unsub = client.on<{ id: string; event: Event }>("event", (e) => {
-        if (e.id === id) handler(e.event)
-      })
+      let id: string | undefined
+      const buffered: { id: string; event: Event }[] = []
+      const receive = (event: { id: string; event: Event }) => {
+        if (id === undefined) {
+          buffered.push(event)
+          return
+        }
+        if (event.id === id) handler(event.event)
+      }
+      const unsub = client.on<{ id: string; event: Event }>("event", receive)
+
+      try {
+        id = await client.call("subscribe", { directory })
+      } catch (error) {
+        unsub()
+        throw error
+      }
+
+      for (const event of buffered) {
+        if (event.id === id) handler(event.event)
+      }
+
       return () => {
         unsub()
-        void client.call("unsubscribe", { id })
+        void client.call("unsubscribe", { id: id! })
       }
     },
   }
