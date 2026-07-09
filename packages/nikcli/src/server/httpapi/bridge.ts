@@ -272,7 +272,7 @@ export namespace HttpApiBridge {
     return webHandler(request, Context.empty() as Context.Context<any>)
   }
 
-  export function handle(request: Request) {
+  export function handle(request: Request, options?: { upstreamAuthVerified?: boolean }) {
     // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
     // of the router — they are not schema-encoded HttpApi bodies.
     const pathname = new URL(request.url).pathname
@@ -293,11 +293,12 @@ export namespace HttpApiBridge {
         return ChatbotHttp.handle(request).then((response) => response ?? new Response("Not Found", { status: 404 }))
       }
     }
-    // Auth shim — mirrors Hono's basic-auth middleware for routes the bridge
-    // serves. `password` may be `Option.none()` when the server is unsecured
-    // (loopback dev mode); in that case the request passes through.
+    // Requests normally arrive through Server.App(), whose Hono middleware
+    // has already accepted mobile/user Bearer tokens or legacy Basic auth.
+    // Keep this shim for direct bridge consumers and request-level tests, but
+    // do not reject an authentication method that upstream already verified.
     const credentials = testAuthOverride ?? Auth.currentCredentials()
-    if (credentials.password._tag === "Some") {
+    if (!options?.upstreamAuthVerified && credentials.password._tag === "Some") {
       const header = request.headers.get("authorization")
       if (header && Auth.matchesBasicAuth(credentials, header)) {
         // ok

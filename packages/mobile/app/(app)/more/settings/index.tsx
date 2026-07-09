@@ -269,6 +269,10 @@ export default function SettingsScreen() {
       setMessage("Server URL is required")
       return
     }
+    if (!token.trim()) {
+      setMessage("Mobile pairing token is required")
+      return
+    }
 
     if (selectedExecutionTarget === "container" && !bootstrap?.execution?.container?.available) {
       setMessage("Container sandbox requires Docker or Podman on the server")
@@ -281,7 +285,7 @@ export default function SettingsScreen() {
       await save({
         ...config,
         url: nextUrl,
-        token: token.trim() || undefined,
+        token: token.trim(),
         directory: directory.trim() || undefined,
         modelProviderID: selectedProviderID,
         modelID: selectedModelID,

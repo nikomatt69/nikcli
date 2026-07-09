@@ -13,6 +13,7 @@ const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
 const { Server } = await import("@/server/server")
 const { Auth } = await import("@/server/httpapi/auth")
+const { MobileAuth } = await import("@/mobile/auth")
 
 const projectDirs: string[] = []
 
@@ -23,7 +24,16 @@ async function makeProjectDir() {
   return resolved
 }
 
-async function request(pathname: string, directory: string, init?: RequestInit) {
+async function bridgeRequest(pathname: string, directory: string, init?: RequestInit) {
+  const url = new URL(pathname, "http://nikcli.local")
+  url.searchParams.set("directory", directory)
+  return Instance.provide({
+    directory,
+    fn: () => HttpApiBridge.handle(new Request(url, init)),
+  })
+}
+
+async function serverRequest(pathname: string, directory: string, init?: RequestInit) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
   return Server.App().fetch(new Request(url, init))
@@ -48,7 +58,7 @@ describe("HttpApiBridge basic-auth shim (Wave 3b request path)", () => {
       password: Option.some("swordfish"),
     })
     try {
-      const response = await request("/skill", directory)
+      const response = await bridgeRequest("/skill", directory)
       expect(response.status).toBe(401)
       expect(response.headers.get("www-authenticate")).toContain("Basic")
       const body = await response.text()
@@ -66,7 +76,7 @@ describe("HttpApiBridge basic-auth shim (Wave 3b request path)", () => {
     })
     try {
       const valid = `Basic ${Buffer.from("nikcli:swordfish").toString("base64")}`
-      const response = await request("/skill", directory, {
+      const response = await bridgeRequest("/skill", directory, {
         headers: { authorization: valid },
       })
       // The skill list returns 200 in any direction; we only assert
@@ -84,7 +94,7 @@ describe("HttpApiBridge basic-auth shim (Wave 3b request path)", () => {
       password: Option.none(),
     })
     try {
-      const response = await request("/skill", directory)
+      const response = await bridgeRequest("/skill", directory)
       expect(response.status).not.toBe(401)
     } finally {
       HttpApiBridge.overrideAuth(null)
@@ -101,6 +111,24 @@ describe("HttpApiBridge basic-auth shim (Wave 3b request path)", () => {
       expect(Auth.extractQueryToken(url)).toBe("abc123")
     } finally {
       HttpApiBridge.overrideAuth(null)
+    }
+  })
+
+  it("does not re-challenge a mobile bearer token already verified by Hono", async () => {
+    const directory = await makeProjectDir()
+    const created = await MobileAuth.create({ name: "bridge-mobile-test" })
+    HttpApiBridge.overrideAuth({
+      username: "nikcli",
+      password: Option.some("swordfish"),
+    })
+    try {
+      const response = await serverRequest("/skill", directory, {
+        headers: { authorization: `Bearer ${created.token}` },
+      })
+      expect(response.status).not.toBe(401)
+    } finally {
+      HttpApiBridge.overrideAuth(null)
+      await MobileAuth.remove(created.info.id)
     }
   })
 })

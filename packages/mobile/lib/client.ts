@@ -780,36 +780,36 @@ export class MobileClient {
   // ── PTY (Terminal) ──────────────────────────────────────────────────────────
 
   listPty() {
-    return this.request<PtyInfo[]>("/pty")
+    return this.request<PtyInfo[]>("/mobile/pty")
   }
 
   createPty(input: PtyCreateInput = {}) {
-    return this.request<PtyInfo>("/pty", {
+    return this.request<PtyInfo>("/mobile/pty", {
       method: "POST",
       body: JSON.stringify(input),
     })
   }
 
   getPty(ptyID: string) {
-    return this.request<PtyInfo>(`/pty/${encodeURIComponent(ptyID)}`)
+    return this.request<PtyInfo>(`/mobile/pty/${encodeURIComponent(ptyID)}`)
   }
 
   updatePty(ptyID: string, input: PtyUpdateInput) {
-    return this.request<PtyInfo>(`/pty/${encodeURIComponent(ptyID)}`, {
+    return this.request<PtyInfo>(`/mobile/pty/${encodeURIComponent(ptyID)}`, {
       method: "PUT",
       body: JSON.stringify(input),
     })
   }
 
   removePty(ptyID: string) {
-    return this.request<boolean>(`/pty/${encodeURIComponent(ptyID)}`, {
+    return this.request<boolean>(`/mobile/pty/${encodeURIComponent(ptyID)}`, {
       method: "DELETE",
     })
   }
 
   /** Returns the ws:// or wss:// URL to connect wterm's WebSocketTransport */
   ptyConnectUrl(ptyID: string): string {
-    const http = this.url(`/pty/${encodeURIComponent(ptyID)}/connect`)
+    const http = this.url(`/mobile/pty/${encodeURIComponent(ptyID)}/connect`)
     const ws = http.replace(/^https?:/, (m) => (m === "https:" ? "wss:" : "ws:"))
     const url = new URL(ws)
     // WebSocket does not support custom headers. Mirror the headers used by createPty()

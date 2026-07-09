@@ -109,6 +109,10 @@ export default function ConnectScreen() {
       setError("Server URL is required")
       return
     }
+    if (!form.token) {
+      setError("Mobile pairing token is required")
+      return
+    }
 
     try {
       setTesting(true)
@@ -200,7 +204,7 @@ export default function ConnectScreen() {
           <ActionButton
             label="Validate and continue"
             loading={testing}
-            disabled={!form.url}
+            disabled={!form.url || !form.token}
             onPress={() => void connect()}
           />
         </View>
@@ -211,7 +215,7 @@ export default function ConnectScreen() {
       <SurfaceCard
         eyebrow="Hosted server setup"
         title="Run a Railway-ready endpoint"
-        description="Set `NIKCLI_SERVER_PASSWORD` on Railway, deploy the hosted Nikcli server, then create a pairing token from that same server."
+        description="Deploy the hosted Nikcli server, then create a scoped pairing token from that same server. Mobile routes require the token even when Basic Auth is disabled."
       >
         <Text className="font-mono text-sm leading-6 text-soft">
           nikcli mobile serve --hostname 0.0.0.0 --port $PORT --public-url

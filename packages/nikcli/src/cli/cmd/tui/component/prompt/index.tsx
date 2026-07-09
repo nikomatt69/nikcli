@@ -51,7 +51,7 @@ import { DialogThemeCreate } from "../dialog-theme-create"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
-import { DialogTeleport } from "../dialog-teleport"
+import { DialogMobileConnect } from "../dialog-mobile-connect"
 import { DialogWebPreview } from "../dialog-web-preview"
 import os from "os"
 import path from "path"
@@ -1431,7 +1431,12 @@ export function Prompt(props: PromptProps) {
       enabled: !!props.sessionID,
       onSelect: (dialog) => {
         if (!props.sessionID) return
-        dialog.replace(() => <DialogTeleport sessionID={props.sessionID!} />)
+        dialog.replace(() => (
+          <DialogMobileConnect
+            sessionID={props.sessionID}
+            initialMode="teleport"
+          />
+        ))
       },
     },
   ])

@@ -25,16 +25,21 @@ afterAll(async () => {
 
 describe("resolveNetworkOptions", () => {
   let savedArgv: string[]
+  let savedTerminal: string | undefined
 
   beforeEach(async () => {
     savedArgv = [...process.argv]
+    savedTerminal = process.env.NIKCLI_TERMINAL
     delete process.env.PORT
+    delete process.env.NIKCLI_TERMINAL
     await writeGlobalConfig({})
   })
 
   afterEach(() => {
     process.argv = savedArgv
     delete process.env.PORT
+    if (savedTerminal === undefined) delete process.env.NIKCLI_TERMINAL
+    else process.env.NIKCLI_TERMINAL = savedTerminal
   })
 
   it("uses yargs defaults when no config, flags, or PORT", async () => {
@@ -97,6 +102,45 @@ describe("resolveNetworkOptions", () => {
       cors: [],
     })
     expect(r.port).toBe(7777)
+  })
+
+  it("ignores implicit server config and PORT inside a managed mobile terminal", async () => {
+    process.argv = ["bun", "cli"]
+    process.env.PORT = "4096"
+    process.env.NIKCLI_TERMINAL = "1"
+    await writeGlobalConfig({
+      server: {
+        port: 9000,
+        hostname: "0.0.0.0",
+        mdns: true,
+      },
+    })
+
+    const r = await resolveNetworkOptions({
+      port: 0,
+      hostname: "127.0.0.1",
+      mdns: false,
+      cors: [],
+    })
+
+    expect(r.port).toBe(0)
+    expect(r.hostname).toBe("127.0.0.1")
+    expect(r.mdns).toBe(false)
+  })
+
+  it("respects an explicit --port inside a managed mobile terminal", async () => {
+    process.argv = ["bun", "cli", "--port", "3000"]
+    process.env.PORT = "4096"
+    process.env.NIKCLI_TERMINAL = "1"
+
+    const r = await resolveNetworkOptions({
+      port: 3000,
+      hostname: "127.0.0.1",
+      mdns: false,
+      cors: [],
+    })
+
+    expect(r.port).toBe(3000)
   })
 
   it("sets hostname to 0.0.0.0 when mdns is on from config and hostname is unset in config", async () => {

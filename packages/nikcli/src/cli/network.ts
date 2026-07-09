@@ -98,17 +98,27 @@ export async function resolveNetworkOptions(args: Partial<NetworkOptions>): Prom
   const portExplicitlySet = process.argv.includes("--port")
   const hostnameExplicitlySet = process.argv.includes("--hostname")
   const mdnsExplicitlySet = process.argv.includes("--mdns")
-  const corsExplicitlySet = process.argv.includes("--cors")
+  const managedTerminal = process.env.NIKCLI_TERMINAL === "1"
 
   const envPortValue = Number.parseInt(process.env.PORT || "", 10)
   const envPort = Number.isInteger(envPortValue) && envPortValue > 0 ? envPortValue : undefined
 
-  const mdns = mdnsExplicitlySet ? (validArgs.mdns ?? false) : (config?.server?.mdns ?? validArgs.mdns ?? false)
+  const mdns = mdnsExplicitlySet
+    ? (validArgs.mdns ?? false)
+    : managedTerminal
+      ? (validArgs.mdns ?? false)
+      : (config?.server?.mdns ?? validArgs.mdns ?? false)
 
-  const port = portExplicitlySet ? (validArgs.port ?? 0) : (config?.server?.port ?? envPort ?? validArgs.port ?? 0)
+  const port = portExplicitlySet
+    ? (validArgs.port ?? 0)
+    : managedTerminal
+      ? (validArgs.port ?? 0)
+      : (config?.server?.port ?? envPort ?? validArgs.port ?? 0)
 
   const hostname = hostnameExplicitlySet
     ? (validArgs.hostname ?? "127.0.0.1")
+    : managedTerminal
+      ? (validArgs.hostname ?? "127.0.0.1")
     : mdns && !config?.server?.hostname
       ? "0.0.0.0"
       : (config?.server?.hostname ?? validArgs.hostname ?? "127.0.0.1")

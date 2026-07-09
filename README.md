@@ -4,14 +4,16 @@
 
 Nikcli is a **fork of [OpenCode](https://github.com/sst/opencode)** (the open-source project by [SST](https://sst.dev)) maintained by **nikomatt69**. Building on the OpenCode base, nikcli adds new commands (`goal`, `routine`, `mobile`, `ads`, `heap`, `locale`, `brain-model` / `image-model` / `speak-model`, `workspace-serve`, …), ACP integration, the Loops/Goal/Routines system, mobile pairing with a dedicated Expo app, the web companion UI, multi-channel bots, the Session v2 engine, and the in-progress migration to `Effect` Schema.
 
-> Full credits, history, and original license in the upstream repository: <https://github.com/sst/opencode>.
+> Full credits, history, and original license in the upstream repository: [https://github.com/sst/opencode](https://github.com/sst/opencode).
 
 - **Maintainer**: nikomatt69 — [GitHub](https://github.com/nikomatt69) · [X](https://x.com/nikomatt69)
-- **Version**: `1.64.0` · Package manager: `bun@1.3.14`
+- **Version**: `1.149.0` · Package manager: `bun@1.3.14`
 - **Upstream**: [github.com/sst/opencode](https://github.com/sst/opencode)
 - **License**: MIT (see `LICENSE`).
 
 ---
+
+
 
 ## Table of contents
 
@@ -36,6 +38,8 @@ Nikcli is a **fork of [OpenCode](https://github.com/sst/opencode)** (the open-so
 
 ---
 
+
+
 ## What nikcli is
 
 Nikcli is not just a CLI to chat with a model: it is a **complete agentic platform** that orchestrates models, tools, subagents and project context. Its main surfaces:
@@ -55,6 +59,8 @@ Nikcli is not just a CLI to chat with a model: it is a **complete agentic platfo
 Everything is orchestrated by an internal **event bus**, a **SQLite/Drizzle persistence** layer, and a service architecture built with `Effect` (typed schema validation, dependency injection, layer composition).
 
 ---
+
+
 
 ## Installation
 
@@ -81,6 +87,8 @@ nikcli upgrade --method scoop
 
 ---
 
+
+
 ## Build from source
 
 ```bash
@@ -89,6 +97,7 @@ bun run --cwd packages/nikcli --conditions=browser src/index.ts
 ```
 
 Useful development scripts:
+
 
 | Script                                         | Description                                                                          |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -100,7 +109,10 @@ Useful development scripts:
 | `cd packages/nikcli && bun run bench`          | TUI bench (`test/bench/viz.tsx`)                                                     |
 | `cd packages/nikcli && bun run sandbox:vercel` | Vercel sandbox smoke test                                                            |
 
+
 ---
+
+
 
 ## Quickstart
 
@@ -127,9 +139,12 @@ nikcli attach http://other-host:4096
 
 ---
 
+
+
 ## Monorepo architecture
 
 Bun workspace with centralized version catalog (`bunfig.toml`, `package.json`).
+
 
 | Package                                      | Role                                                                                          |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -156,6 +171,7 @@ Bun workspace with centralized version catalog (`bunfig.toml`, `package.json`).
 | `packages/http-recorder`                     | HTTP recorder for test/replay                                                                 |
 | `packages/containers`                        | Container bundles for deploy                                                                  |
 | `homebrew-tap` · `infra` · `nix` · `script`  | Packaging and IaC                                                                             |
+
 
 Internal layout of the core (`packages/nikcli/src`):
 
@@ -220,9 +236,12 @@ worktree/       # git worktree management
 
 ---
 
+
+
 ## CLI: all commands
 
 All main commands (registered in `packages/nikcli/src/index.ts`):
+
 
 | Command                                                                       | Purpose                                                                                               |
 | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -248,7 +267,7 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli agent create` / `agent list`                                          | Generate (via LLM) or list custom agents.                                                             |
 | `nikcli models [provider]`                                                    | List models from `models.dev`, refresh cache, filter by provider.                                     |
 | `nikcli brain-model` · `image-model` · `speak-model`                          | Configure brain, image-gen and TTS models.                                                            |
-| `nikcli locale [show\|set\|reset]`                                            | Set language/region/timezone/currency and the model reply language.                                   |
+| `nikcli locale [show|set|reset]`                                              | Set language/region/timezone/currency and the model reply language.                                   |
 | `nikcli stats` · `nikcli usage` · `nikcli ads`                                | Local metrics, session/project cost, configurable ads.                                                |
 | `nikcli heap`                                                                 | Show process memory metrics (rss, heap, external, arrayBuffers).                                      |
 | `nikcli session list`                                                         | List and manage saved sessions (with pager).                                                          |
@@ -261,13 +280,17 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli connectors`                                                           | Manage connectors (Linear, GitHub, Slack, Notion, …) with dedicated auth.                             |
 | `nikcli quickstart` · `nikcli doctor` · `nikcli upgrade` · `nikcli uninstall` | Onboarding, diagnostics, upgrade, uninstall.                                                          |
 | `nikcli completion`                                                           | Generate shell completion scripts.                                                                    |
-| Global flags                                                                  | `--print-logs`, `--log-level DEBUG\|INFO\|WARN\|ERROR`, `--help/-h`, `--version/-v`.                  |
+| Global flags                                                                  | `--print-logs`, `--log-level DEBUG|INFO|WARN|ERROR`, `--help/-h`, `--version/-v`.                     |
+
+
+
 
 ### OpenTelemetry / observability flags
 
 These environment variables configure the observability layer described in the
 [Observability docs](https://nikcli.store/docs/observability). They are read at process start
 and are not hot-reloadable.
+
 
 | Variable                      | Default | Purpose                                                             |
 | ----------------------------- | ------- | ------------------------------------------------------------------- |
@@ -276,7 +299,10 @@ and are not hot-reloadable.
 | `OTEL_RESOURCE_ATTRIBUTES`    | unset   | Comma-separated `key=value` pairs merged into every span resource.  |
 | `NIKCLI_DISABLE_OTEL_LIVE`    | `false` | Opt out of the in-process span capture (live panel).                |
 
+
 ---
+
+
 
 ## TUI: terminal user interface
 
@@ -291,6 +317,8 @@ The TUI (`packages/nikcli/src/cli/cmd/tui`) runs in a dedicated worker (`worker.
 - **Changes** — modified files with comments and header (PR-like review).
 - **Git graph** · **GitHub** — commit graph visualization and integrated PR/issue view.
 - **Workspace create / list / unavailable** — workspace management.
+
+
 
 ### Main dialogs
 
@@ -308,11 +336,15 @@ The TUI (`packages/nikcli/src/cli/cmd/tui`) runs in a dedicated worker (`worker.
 - **Image preview** — inline rendering of generated images (`tui-image`).
 - **TUI plugin system** — the TUI is extensible via `feature-plugins/` (home, loops, sidebar, system) and runtime plugins that can mount new slots, routes, and keymaps.
 
+
+
 ### TUI = server client
 
 The TUI can run as a client to a remote server (`nikcli attach`), so the same interface can control sessions on a different machine (workstation ↔ cloud server, etc.).
 
 ---
+
+
 
 ## Agents and subagents
 
@@ -320,8 +352,10 @@ The agent system (`packages/nikcli/src/agent/`) defines the LLM behavior, the ex
 
 ### Primary agents (built-in)
 
-- **`build`** — agent with full permissions (`edit`, `bash`, `write`, web, …), primary mode. Default agent for "build anything" use.
-- **`plan`** — read-only agent: can analyze code, do research, but cannot modify files or perform side-effects. Primary mode.
+- `build` — agent with full permissions (`edit`, `bash`, `write`, web, …), primary mode. Default agent for "build anything" use.
+- `plan` — read-only agent: can analyze code, do research, but cannot modify files or perform side-effects. Primary mode.
+
+
 
 ### Specialized subagents (built-in)
 
@@ -341,6 +375,8 @@ The agent system (`packages/nikcli/src/agent/`) defines the LLM behavior, the ex
 
 > `build` and `plan` are primary. Subagents are invoked by the primary via the `task` tool or through the `delegation` / `delegator` tools with supervised parallel execution.
 
+
+
 ### Custom agents
 
 `nikcli agent create` uses a meta-prompt (`agent/generate.txt`) to generate an agent from a description, picking the identifier, system prompt, enabled tools and mode. The resulting file is a Markdown with frontmatter saved to `~/.config/nikcli/agent/` or to the project's `.nikcli/agent/`. `nikcli agent list` shows the resolved list with the effective permissions.
@@ -351,15 +387,20 @@ The agent system (`packages/nikcli/src/agent/`) defines the LLM behavior, the ex
 - `subagent` — invokable only by other agents.
 - `all` — both roles.
 
+
+
 ### Delegation runtime
 
 The `delegation` and `delegator` tools let the primary agent start subagents in the background with a `delegation_id` and keep working; on completion, a supervisor session synthesizes the results. The `task` tool runs synchronous subagents.
 
 ---
 
+
+
 ## Toolset available to agents
 
 Tools are registered in `packages/nikcli/src/tool/`:
+
 
 | Tool                                                                             | Purpose                                                                                                                               |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -389,15 +430,20 @@ Tools are registered in `packages/nikcli/src/tool/`:
 | `opentui` · `chart-braille-line`                                                 | OpenTUI/chart render in-terminal.                                                                                                     |
 | `advisor`                                                                        | Background strategist for complex decisions.                                                                                          |
 
+
 Each tool has a description in `tool/<name>.txt` consulted by the primary agent for selection.
 
 ---
+
+
 
 ## Skills
 
 **Skills** (`packages/nikcli/src/skill/`) are Markdown + script packages (e.g. `computer-use`, `orca-cli`, `effect`, `opentui`, `bun-file-io`, `orchestration`, `find-skills`, `emil-design-eng`, …) that inject specialized instructions, hooks, and extra tools. They are dynamically loaded and filtered against the agent permissions. The `skill` tool lets the agent invoke them explicitly.
 
 ---
+
+
 
 ## Loops, Goal, Routines, Missions
 
@@ -412,7 +458,11 @@ Nikcli ships four continuous-orchestration primitives:
 
 ---
 
+
+
 ## Providers, models, connectors and MCP
+
+
 
 ### LLM providers
 
@@ -435,11 +485,15 @@ nikcli image-model openrouter openai/gpt-5-image
 nikcli speak-model elevenlabs YOq2y2Up4RgXP2HyXjE5
 ```
 
+
+
 ### Multimodal models
 
 - **Image**: `gpt-5-image` (OpenAI), `nano-banana-pro-2.5` (Google) — via OpenRouter.
 - **TTS**: ElevenLabs (high quality) and OpenRouter (OpenAI TTS, `gpt-audio-mini`).
 - **STT**: OpenRouter transcription.
+
+
 
 ### MCP (Model Context Protocol)
 
@@ -451,13 +505,19 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 - MCP tools are exposed as native tools in the agent (registered in `tool/registry.ts`).
 - Preconfigured MCP: **Exa** (`mcp-exa`).
 
+
+
 ### Connectors
 
 `packages/nikcli/src/connectors/` manages third-party integrations with dedicated credentials and auth (GitHub, GitLab, Linear, Slack, Notion, Jira, …). Commands `nikcli connectors` (add, list, auth, status) with both CLI and TUI support. Each connector exposes an API reused by the agent tools.
 
 ---
 
+
+
 ## Sessions, worktrees, sandboxes, sharing
+
+
 
 ### Sessions
 
@@ -480,6 +540,8 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 - `background/` — long-running jobs with monitoring.
 - `brain/` — brain scheduler that produces background reasoning with a dedicated model (`BRAIN_SESSION_TITLE`), used by the TUI for titles/tips.
 
+
+
 ### Permission system
 
 `permission/next.ts` + `evaluate.ts` + `schema.ts` with rules per tool/agent/path/command, 3-tier evaluation (`arity.ts`). The TUI asks for confirmation contextually.
@@ -490,7 +552,11 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 
 ---
 
+
+
 ## Server, web, mobile, remote control
+
+
 
 ### HTTP/SSE/WebSocket server
 
@@ -504,17 +570,23 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 - **Proxy** (`server/proxy.ts`) to route to container/sandbox instances.
 - **Auth**: optional basic auth (`hono/basic-auth`), `NIKCLI_SERVER_PASSWORD`, `NIKCLI_SERVER_TAILSCALE_AUTH` to trust Tailscale headers on loopback.
 
+
+
 ### Web apps
 
 - `packages/web` (Astro + Tailwind) — public site, install script, docs (hosted on Cloudflare Pages).
 - `packages/app` (SolidStart) — full web application.
 - `packages/companion` — companion UI and server routes for `nikcli companion serve`.
 
+
+
 ### Mobile companion
 
 - `packages/mobile` (Expo / React Native) with realtime SSE, iOS and Android support (`ios/`, `android/`, `eas.json`).
 - Pairing: `nikcli mobile` shows a QR + deep link `nikcli://connect?server=...&token=...&directory=...`.
 - `MobileAuth` server-side (`packages/nikcli/src/mobile/auth.ts`) handles tokens, device id, scope.
+
+
 
 ### Remote control
 
@@ -524,6 +596,8 @@ First-class MCP server with OAuth auth (`packages/nikcli/src/mcp`):
 - `packages/terminal-control` abstracts the terminal session across CLI, TUI and agents.
 
 ---
+
+
 
 ## Bots and chat adapters
 
@@ -548,7 +622,11 @@ Bot sessions are full nikcli sessions: prompt, tools, MCP, connectors, history.
 
 ---
 
+
+
 ## Plugins, skills and TUI sub-plugins
+
+
 
 ### Plugins (in-process)
 
@@ -572,6 +650,8 @@ Preconfigured plugins (`packages/plugin/plugins`):
 
 - `agent-memory` · `background` · `background-agents` · `context-analysis` · `direnv` · `dynamic-context-pruning` · `envsitter-guard` · `handoff` · `safety-net` · `smart-title`.
 
+
+
 ### Skills
 
 Skills (above) are a lighter format: just Markdown with a description and associated tools.
@@ -582,6 +662,8 @@ The TUI feature-plugins (`feature-plugins/home`, `loops`, `sidebar`, `system`) a
 
 ---
 
+
+
 ## Configuration
 
 Config resolution (in order of increasing priority):
@@ -591,7 +673,7 @@ Config resolution (in order of increasing priority):
 3. **Custom**: env vars `NIKCLI_CONFIG` (path) or `NIKCLI_CONFIG_CONTENT` (string).
 4. **Project**: `nikcli.jsonc` or `nikcli.json` walking up the directory tree.
 
-Schema published at: <https://nikcli.store/config.json>
+Schema published at: [https://nikcli.store/config.json](https://nikcli.store/config.json)
 
 Minimal example:
 
@@ -628,15 +710,17 @@ Recognized env flags (see `flag/flag.ts`): `NIKCLI_SERVER_PASSWORD`, `NIKCLI_SER
 
 ---
 
+
+
 ## Documentation and resources
 
-- **Site & docs**: <https://nikcli.store/docs>
-- **Config schema**: <https://nikcli.store/config.json>
-- **Quickstart**: <https://nikcli.store/docs/quickstart>
-- **Web app**: <https://app.nikcli.store>
-- **Slack bot**: <https://slack.nikcli.store>
-- **Upstream project**: <https://github.com/sst/opencode>
-- **This fork**: <https://github.com/nikomatt69/nikcli>
+- **Site & docs**: [https://nikcli.store/docs](https://nikcli.store/docs)
+- **Config schema**: [https://nikcli.store/config.json](https://nikcli.store/config.json)
+- **Quickstart**: [https://nikcli.store/docs/quickstart](https://nikcli.store/docs/quickstart)
+- **Web app**: [https://app.nikcli.store](https://app.nikcli.store)
+- **Slack bot**: [https://slack.nikcli.store](https://slack.nikcli.store)
+- **Upstream project**: [https://github.com/sst/opencode](https://github.com/sst/opencode)
+- **This fork**: [https://github.com/nikomatt69/nikcli](https://github.com/nikomatt69/nikcli)
 - **Issue tracker & discussions**: GitHub repository.
 - **Internal specs** (in `specs/`): performance, modularization, i18n, loops, OpenAPI cleanup.
 - **Changelog**: `CHANGELOG.md` (v1.5.0 — Effect Schema migration, Feb 2026 milestone).
@@ -651,6 +735,8 @@ Useful repository files:
 - `sst.config.ts` · `fly.toml` · `railway.toml` · `wrangler.toml` — deploy configs.
 
 ---
+
+
 
 ## License
 
