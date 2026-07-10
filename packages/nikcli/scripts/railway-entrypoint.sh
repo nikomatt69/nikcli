@@ -76,3 +76,4 @@ if [[ "${NIKCLI_SERVER_SSH_ENABLED:-true}" == "true" ]]; then
 fi
 
 exec "$@"
+ 
