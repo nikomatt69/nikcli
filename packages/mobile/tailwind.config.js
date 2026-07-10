@@ -65,8 +65,8 @@ module.exports = {
         "out-strong": "cubic-bezier(0.23, 1, 0.32, 1)",
         "in-out-strong": "cubic-bezier(0.77, 0, 0.175, 1)",
         drawer: "cubic-bezier(0.32, 0.72, 0, 1)",
-        spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
-        "spring-gentle": "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+        spring: "cubic-bezier(0.2, 0, 0, 1)",
+        momentum: "cubic-bezier(0.34, 1.18, 0.64, 1)",
         bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
         snappy: "cubic-bezier(0.2, 0, 0, 1)",
         // iOS 26 Liquid Glass

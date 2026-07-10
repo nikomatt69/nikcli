@@ -1,12 +1,14 @@
 import { BlurView, type BlurTint } from "expo-blur"
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect"
-import { Platform, type StyleProp, type ViewStyle } from "react-native"
+import { Platform, View, type StyleProp, type ViewStyle } from "react-native"
+import { usePrefersReducedTransparency } from "@/lib/animation"
 
 type AdaptiveBlurProps = {
   tint?: "light" | "dark" | "default" | "extraLight" | "regular" | "prominent" | string
   intensity?: number
   style?: StyleProp<ViewStyle>
   fallbackColor: string
+  opaqueFallbackColor?: string
   children?: React.ReactNode
   pointerEvents?: "none" | "auto" | "box-none" | "box-only"
   interactive?: boolean
@@ -43,12 +45,23 @@ function resolveBlurTint(tint: AdaptiveBlurProps["tint"]): BlurTint {
 export function AdaptiveBlur({
   style,
   fallbackColor,
+  opaqueFallbackColor = fallbackColor,
   children,
   pointerEvents,
   tint,
   intensity = 72,
   interactive = false,
 }: AdaptiveBlurProps) {
+  const prefersReducedTransparency = usePrefersReducedTransparency()
+
+  if (prefersReducedTransparency) {
+    return (
+      <View style={[style, { backgroundColor: opaqueFallbackColor }]} pointerEvents={pointerEvents}>
+        {children}
+      </View>
+    )
+  }
+
   if (Platform.OS === "ios" && isLiquidGlassAvailable()) {
     return (
       <GlassView

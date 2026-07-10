@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native"
 import { router, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import {
@@ -28,6 +28,8 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
 import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { triggerHaptic } from "@/lib/haptics"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { FileNode, GitState } from "@/lib/types"
@@ -86,7 +88,16 @@ function FileFilterRow({
     [pressedBackground, borderColor],
   )
   return (
-    <Pressable onPress={() => onOpen(path)} style={rowStyle}>
+    <Pressable
+      onPress={() => {
+        void triggerHaptic("selection")
+        onOpen(path)
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${path.split("/").pop() || path}`}
+      accessibilityHint={relativeParent(path)}
+      style={rowStyle}
+    >
       <View
         style={{
           width: 34,
@@ -164,12 +175,17 @@ function ChromeIconButton({
   const backgroundColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)"
   const buttonStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
-      borderRadius: 8,
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      borderCurve: "continuous" as const,
       borderWidth: 1,
       borderColor,
       backgroundColor,
-      padding: 10,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
       opacity: disabled ? 0.42 : pressed ? 0.68 : 1,
+      transform: [{ scale: pressed && !disabled ? 0.96 : 1 }],
     }),
     [borderColor, backgroundColor, disabled],
   )
@@ -309,6 +325,8 @@ export default function ExplorerScreen() {
   const [expandingPaths, setExpandingPaths] = useState<Set<string>>(new Set())
   const [expandErrors, setExpandErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [expandingAll, setExpandingAll] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [breadcrumbSegments, setBreadcrumbSegments] = useState<string[]>([])
   const [currentDir, setCurrentDir] = useState(directory ?? "")
@@ -330,19 +348,23 @@ export default function ExplorerScreen() {
   }, [directory])
 
   const load = useCallback(
-    async (dir: string) => {
+    async (dir: string, options?: { preserveContent?: boolean }) => {
+      const preserveContent = options?.preserveContent ?? false
       if (!client) {
         setNodes([])
         setError("Server connection is not available.")
         setLoading(false)
+        setRefreshing(false)
         return
       }
       try {
-        setLoading(true)
+        if (preserveContent) setRefreshing(true)
+        else setLoading(true)
         setError(null)
+        const workspaceClient = client.withDirectory(directory || dir)
         let [files, gitState] = await Promise.all([
-          client.listDirectory(dir),
-          client.getGitStatus().catch(
+          workspaceClient.listDirectory(dir),
+          workspaceClient.getGitStatus().catch(
             (): GitState => ({
               branch: "",
               staged: [],
@@ -354,7 +376,7 @@ export default function ExplorerScreen() {
           ),
         ])
         if (files.length === 0 && fallbackDirectory && fallbackDirectory !== dir) {
-          const fallbackFiles = await client.listDirectory(fallbackDirectory)
+          const fallbackFiles = await client.withDirectory(fallbackDirectory).listDirectory(fallbackDirectory)
           if (fallbackFiles.length > 0) {
             files = fallbackFiles
             setCurrentDir(fallbackDirectory)
@@ -371,10 +393,13 @@ export default function ExplorerScreen() {
         }
         setGitStatusMap(map)
         setNodes(sortFileNodes(files))
+        if (preserveContent) void triggerHaptic("success")
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
+        void triggerHaptic("error")
       } finally {
-        setLoading(false)
+        if (preserveContent) setRefreshing(false)
+        else setLoading(false)
       }
     },
     [client, directory, fallbackDirectory],
@@ -405,7 +430,7 @@ export default function ExplorerScreen() {
         delete next[node.absolute]
         return next
       })
-      const children = await client.listDirectory(node.absolute)
+      const children = await client.withDirectory(directory || currentDir).listDirectory(node.absolute)
       setChildrenCache((prev) => ({ ...prev, [node.absolute]: sortFileNodes(children) }))
       setExpandedPaths((prev) => {
         const next = new Set(prev)
@@ -506,9 +531,18 @@ export default function ExplorerScreen() {
   )
 
   async function expandVisibleDirectories() {
+    if (expandingAll) return
     const dirs = flatNodes.filter((node) => node.type === "directory" && !expandedPaths.has(node.absolute)).slice(0, 40)
     if (!dirs.length) return
-    await Promise.all(dirs.map((node) => expandDir(node)))
+    try {
+      setExpandingAll(true)
+      for (let index = 0; index < dirs.length; index += 6) {
+        await Promise.all(dirs.slice(index, index + 6).map((node) => expandDir(node)))
+      }
+      void triggerHaptic("success")
+    } finally {
+      setExpandingAll(false)
+    }
   }
 
   function collapseAll() {
@@ -530,7 +564,7 @@ export default function ExplorerScreen() {
       try {
         if (searchRequestRef.current !== requestId) return
         setFileSearchLoading(true)
-        const results = await client.searchFiles(fileQuery.trim())
+        const results = await client.withDirectory(directory || currentDir).searchFiles(fileQuery.trim())
         if (searchRequestRef.current !== requestId) return
         setFileResults(results.slice(0, 30))
       } catch {
@@ -542,7 +576,7 @@ export default function ExplorerScreen() {
       }
     }, 250)
     return () => clearTimeout(t)
-  }, [fileQuery, client])
+  }, [client, currentDir, directory, fileQuery])
 
   const renderNode = ({ item }: { item: TreeNode }) => {
     const isDir = item.type === "directory"
@@ -563,18 +597,28 @@ export default function ExplorerScreen() {
         <IndentGuides depth={item.depth} />
         <Pressable
           onPress={() => {
+            void triggerHaptic("selection")
             if (isDir) {
               isExpanded ? collapseDir(item) : void expandDir(item)
             } else {
               openFile(item)
             }
           }}
-          onLongPress={() => isDir && navigateInto(item)}
+          onLongPress={() => {
+            if (!isDir) return
+            void triggerHaptic("selection")
+            navigateInto(item)
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${isDir ? "Folder" : "File"} ${item.name}`}
+          accessibilityHint={isDir ? "Double tap to expand. Use the trailing button to open this folder." : "Opens in the editor."}
+          accessibilityState={isDir ? { expanded: isExpanded, busy: isExpanding } : undefined}
           style={({ pressed }) => ({
             marginHorizontal: 10,
             marginVertical: 3,
             marginLeft: 10 + item.depth * 16,
             borderRadius: 8,
+            borderCurve: "continuous",
             borderWidth: 1,
             borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
             backgroundColor: pressed
@@ -589,7 +633,7 @@ export default function ExplorerScreen() {
         >
           <View
             style={{
-              minHeight: 38,
+              minHeight: 44,
               flexDirection: "row",
               alignItems: "center",
               gap: 8,
@@ -632,6 +676,33 @@ export default function ExplorerScreen() {
             </Text>
 
             <GitTreeMarker status={gitStatus} dot={!gitStatus && hasChangedChild} />
+
+            {isDir ? (
+              <Pressable
+                onPress={(event) => {
+                  event.stopPropagation()
+                  void triggerHaptic("selection")
+                  navigateInto(item)
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open folder ${item.name}`}
+                hitSlop={8}
+                style={({ pressed }) => ({
+                  width: 30,
+                  height: 30,
+                  borderRadius: 9,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed
+                    ? isDark
+                      ? "rgba(255,255,255,0.12)"
+                      : "rgba(20,20,19,0.08)"
+                    : "transparent",
+                })}
+              >
+                <FolderOpen size={14} color={palette.muted} strokeWidth={2.1} />
+              </Pressable>
+            ) : null}
           </View>
 
           {expandError ? (
@@ -676,12 +747,12 @@ export default function ExplorerScreen() {
             <EditorBreadcrumb rootLabel={rootLabel} segments={breadcrumbSegments} onSegmentPress={navigateToSegment} />
           </View>
 
-          <ChromeIconButton icon={Search} label="Search text in workspace" onPress={() => setSearchVisible(true)} />
+          <ChromeIconButton icon={Search} label="Search file contents" onPress={() => setSearchVisible(true)} />
           <ChromeIconButton
             icon={RefreshCw}
             label="Refresh tree"
-            onPress={() => void load(currentDir)}
-            disabled={loading}
+            onPress={() => void load(currentDir, { preserveContent: true })}
+            disabled={loading || refreshing}
           />
         </View>
 
@@ -692,7 +763,8 @@ export default function ExplorerScreen() {
             alignItems: "center",
             marginTop: 10,
             gap: 8,
-            borderRadius: 8,
+            borderRadius: 12,
+            borderCurve: "continuous",
             borderWidth: 1,
             borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.7)",
             backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)",
@@ -704,7 +776,7 @@ export default function ExplorerScreen() {
           <TextInput
             value={fileQuery}
             onChangeText={setFileQuery}
-            placeholder="Filter files…"
+            placeholder="Filter filenames…"
             placeholderTextColor={palette.muted}
             autoCapitalize="none"
             autoCorrect={false}
@@ -713,7 +785,12 @@ export default function ExplorerScreen() {
           {fileSearchLoading ? (
             <ActivityIndicator size="small" color={palette.accent} />
           ) : fileQuery ? (
-            <Pressable onPress={() => setFileQuery("")} hitSlop={6}>
+            <Pressable
+              onPress={() => setFileQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear filename filter"
+              hitSlop={8}
+            >
               <X size={13} color={palette.muted} strokeWidth={2} />
             </Pressable>
           ) : null}
@@ -729,6 +806,7 @@ export default function ExplorerScreen() {
             icon={Maximize2}
             label="Expand visible directories"
             onPress={() => void expandVisibleDirectories()}
+            disabled={expandingAll}
           />
           <ChromeIconButton
             icon={Minimize2}
@@ -745,14 +823,28 @@ export default function ExplorerScreen() {
           <ActivityIndicator color={palette.accent} />
         </View>
       ) : error ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-          <Text style={{ color: palette.danger, fontSize: 14, textAlign: "center" }}>{error}</Text>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
+          <Text selectable style={{ color: palette.danger, fontSize: 14, lineHeight: 20, textAlign: "center" }}>
+            {error}
+          </Text>
+          <ActionButton
+            label="Retry"
+            variant="secondary"
+            onPress={() => void load(currentDir, { preserveContent: true })}
+          />
         </View>
       ) : showFileSearch ? (
         <FlatList
           data={fileResults}
           keyExtractor={(item, i) => `${item}:${i}`}
           contentContainerStyle={{ paddingBottom: 32 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void load(currentDir, { preserveContent: true })}
+              tintColor={palette.muted}
+            />
+          }
           ListEmptyComponent={
             !fileSearchLoading ? (
               <View style={{ alignItems: "center", padding: 32, gap: 8 }}>
@@ -771,6 +863,13 @@ export default function ExplorerScreen() {
           data={flatNodes}
           keyExtractor={(item, i) => `${item.absolute}:${i}`}
           contentContainerStyle={{ paddingBottom: 32 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void load(currentDir, { preserveContent: true })}
+              tintColor={palette.muted}
+            />
+          }
           renderItem={renderNode}
           ListEmptyComponent={
             <View style={{ alignItems: "center", padding: 32, gap: 8 }}>

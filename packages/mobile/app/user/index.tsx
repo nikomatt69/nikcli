@@ -38,23 +38,29 @@ import { TextField } from "@/components/ui/TextField"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { AdaptiveBlur } from "@/components/GlassView"
+import { SPRING_CONFIG, usePrefersReducedMotion } from "@/lib/animation"
 
 // ─── Animation helpers ────────────────────────────────────────────────────────
 
-const SPRING_CONFIG = { damping: 18, stiffness: 280, mass: 1 }
 const STAGGER_DELAY = 80
 
 function useEntranceAnimation(count: number, startDelay = 0) {
   const animations = useRef(count > 0 ? Array.from({ length: count }, () => new Animated.Value(0)) : []).current
   const [isReady, setIsReady] = useState(false)
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      animations.forEach((animation) => animation.setValue(1))
+      setIsReady(true)
+      return
+    }
+
     const batch = animations.map((anim, i) =>
       Animated.spring(anim, {
         toValue: 1,
         delay: startDelay + i * STAGGER_DELAY,
         ...SPRING_CONFIG,
-        useNativeDriver: true,
       }),
     )
     Animated.parallel(batch).start(() => setIsReady(true))
@@ -62,7 +68,7 @@ function useEntranceAnimation(count: number, startDelay = 0) {
       batch.forEach((a) => a.stop())
       setIsReady(false)
     }
-  }, [])
+  }, [animations, prefersReducedMotion, startDelay])
 
   return { animations, isReady }
 }
@@ -71,6 +77,7 @@ function useEntranceAnimation(count: number, startDelay = 0) {
 
 function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number }) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const pulseAnimRef = useRef<Animated.Value | null>(null)
   if (pulseAnimRef.current === null) pulseAnimRef.current = new Animated.Value(1)
   const pulseAnim = pulseAnimRef.current
@@ -82,6 +89,12 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
   const scaleAnim = scaleAnimRef.current
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      pulseAnim.setValue(1)
+      glowAnim.setValue(0.4)
+      return
+    }
+
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -120,7 +133,7 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
       pulse.stop()
       glow.stop()
     }
-  }, [])
+  }, [glowAnim, prefersReducedMotion, pulseAnim])
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, { toValue: 0.95, ...SPRING_CONFIG, useNativeDriver: true }).start()
@@ -498,6 +511,7 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
 
 function PremiumSection({ children, animation }: { children: React.ReactNode; animation: Animated.Value }) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const shimmerAnimRef = useRef<Animated.Value | null>(null)
   if (shimmerAnimRef.current === null) shimmerAnimRef.current = new Animated.Value(0)
   const shimmerAnim = shimmerAnimRef.current
@@ -506,6 +520,11 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
   const shimmerOpacity = shimmerOpacityRef.current
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      shimmerOpacity.setValue(0.5)
+      return
+    }
+
     const shimmer = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerOpacity, {
@@ -524,7 +543,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
     )
     shimmer.start()
     return () => shimmer.stop()
-  }, [])
+  }, [prefersReducedMotion, shimmerOpacity])
 
   return (
     <Animated.View

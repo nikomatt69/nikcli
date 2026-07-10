@@ -1,8 +1,9 @@
 import type { ReactNode } from "react"
-import { Pressable, View } from "react-native"
+import { Animated, Pressable, View } from "react-native"
 import { Settings } from "lucide-react-native"
 import { router } from "expo-router"
 import { InfoChip } from "@/components/ui/InfoChip"
+import { usePressAnimation } from "@/lib/animation"
 import { useAppTheme } from "@/lib/theme"
 
 export type HeaderChip = {
@@ -52,15 +53,21 @@ export function AppHeader({ chips, children, className = "gap-3 pb-5" }: AppHead
  */
 export function SettingsHeaderButton() {
   const { palette } = useAppTheme()
+  const press = usePressAnimation()
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Open settings"
-      hitSlop={12}
-      onPress={() => router.push("/more/settings")}
-    >
-      <Settings size={20} color={palette.ink} strokeWidth={2} />
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open settings"
+        hitSlop={12}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        onPress={() => router.push("/more/settings")}
+        style={({ pressed }) => ({ opacity: pressed ? 0.68 : 1 })}
+      >
+        <Settings size={20} color={palette.ink} strokeWidth={2} />
+      </Pressable>
+    </Animated.View>
   )
 }

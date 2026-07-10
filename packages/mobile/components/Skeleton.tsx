@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import { Animated, Easing, type DimensionValue, type ViewStyle } from "react-native"
+import { usePrefersReducedMotion } from "@/lib/animation"
 import { useAppTheme } from "@/lib/theme"
 
 export function SkeletonBox({
@@ -17,8 +18,14 @@ export function SkeletonBox({
   const opacityRef = useRef<Animated.Value | null>(null)
   if (opacityRef.current === null) opacityRef.current = new Animated.Value(0.48)
   const opacity = opacityRef.current
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      opacity.setValue(0.58)
+      return undefined
+    }
+
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
@@ -37,7 +44,7 @@ export function SkeletonBox({
     )
     animation.start()
     return () => animation.stop()
-  }, [opacity])
+  }, [opacity, prefersReducedMotion])
 
   return (
     <Animated.View

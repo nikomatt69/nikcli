@@ -16,6 +16,7 @@ import { AdaptiveBlur } from "@/components/GlassView"
 import type { SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
+import { SPRING_SETTLE, usePrefersReducedMotion } from "@/lib/animation"
 import { useAppTheme } from "@/lib/theme"
 
 type PublishSheetProps = {
@@ -50,6 +51,7 @@ export function PublishSheet({
   onPublish,
 }: PublishSheetProps) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const translateYRef = useRef<Animated.Value | null>(null)
   if (translateYRef.current === null) translateYRef.current = new Animated.Value(100)
   const translateY = translateYRef.current
@@ -68,18 +70,24 @@ export function PublishSheet({
 
   useEffect(() => {
     if (visible) {
+      if (prefersReducedMotion) {
+        translateY.setValue(0)
+        opacityAnim.setValue(1)
+        return
+      }
+
       Animated.parallel([
-        Animated.spring(translateY, { toValue: 0, damping: 20, stiffness: 240, mass: 0.85, useNativeDriver: true }),
-        Animated.spring(opacityAnim, { toValue: 1, damping: 18, stiffness: 280, mass: 0.8, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, ...SPRING_SETTLE }),
+        Animated.spring(opacityAnim, { toValue: 1, ...SPRING_SETTLE }),
       ]).start()
     } else {
       translateY.setValue(100)
       opacityAnim.setValue(0)
     }
-  }, [visible])
+  }, [opacityAnim, prefersReducedMotion, translateY, visible])
 
   useEffect(() => {
-    if (publishing) {
+    if (publishing && !prefersReducedMotion) {
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
@@ -91,10 +99,10 @@ export function PublishSheet({
     } else {
       pulseAnim.setValue(1)
     }
-  }, [publishing])
+  }, [prefersReducedMotion, publishing, pulseAnim])
 
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <View style={{ flex: 1 }}>
         {/* Full-screen blur backdrop */}
         <AdaptiveBlur
@@ -102,6 +110,7 @@ export function PublishSheet({
           intensity={isDark ? 22 : 15}
           style={StyleSheet.absoluteFill}
           fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
+          opaqueFallbackColor={isDark ? "#000000" : palette.background}
         />
         <View
           style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)" }]}

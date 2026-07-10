@@ -149,6 +149,10 @@ export function normalizeTeleportBaseUrl(raw: string): string | null {
 export class MobileClient {
   constructor(private readonly config: ServerConfig) {}
 
+  withDirectory(directory: string) {
+    return new MobileClient({ ...this.config, directory })
+  }
+
   headers(extra?: Record<string, string>) {
     return buildMobileHeaders(this.config, extra)
   }
@@ -197,6 +201,17 @@ export class MobileClient {
 
   getSession(sessionID: string) {
     return this.request<SessionDetail>(`/mobile/session/${encodeURIComponent(sessionID)}`)
+  }
+
+  compactSession(sessionID: string, model: ModelRef) {
+    return this.request<boolean>(`/session/${encodeURIComponent(sessionID)}/summarize`, {
+      method: "POST",
+      body: JSON.stringify({
+        providerID: model.providerID,
+        modelID: model.modelID,
+        auto: false,
+      }),
+    })
   }
 
   sendMessage(sessionID: string, text: string, options?: { model?: ModelRef; agent?: string }) {

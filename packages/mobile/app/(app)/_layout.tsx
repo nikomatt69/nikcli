@@ -40,10 +40,10 @@ export default function AppLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="more">
           <NativeTabs.Trigger.Icon
-            sf={{ default: "ellipsis.circle", selected: "ellipsis.circle.fill" }}
-            md="more_horiz"
+            sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }}
+            md="dashboard"
           />
-          <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>Tools</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     </View>

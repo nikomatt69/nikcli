@@ -39,12 +39,21 @@ export function NetworkBanner() {
   if (!config || isReachable) return null
 
   return (
-    <View className="flex-row items-center justify-between gap-3 bg-danger/10 px-4 py-2.5">
+    <View
+      className="flex-row items-center justify-between gap-3 bg-danger/10 px-4 py-2.5"
+      accessibilityLiveRegion="polite"
+    >
       <View className="flex-row items-center gap-2">
         <View className="h-2 w-2 rounded-full bg-danger" />
         <Text className="text-sm font-medium text-danger">Server unreachable</Text>
       </View>
-      <Pressable onPress={() => void checkReachability()}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Retry server connection"
+        hitSlop={10}
+        onPress={() => void checkReachability()}
+        style={({ pressed }) => ({ opacity: pressed ? 0.62 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+      >
         <Text className="text-sm font-semibold text-danger">Retry</Text>
       </Pressable>
     </View>

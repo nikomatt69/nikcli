@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
+import { Alert, Animated, Pressable, Text, View } from "react-native"
 import { ArrowRight, Square, Trash2 } from "lucide-react-native"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
+import { usePrefersReducedMotion, usePressAnimation } from "@/lib/animation"
 import type { SessionSummary } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
@@ -28,22 +29,7 @@ type SheetRowProps = {
 
 function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetRowProps) {
   const { palette } = useAppTheme()
-  const scaleAnimRef = useRef<Animated.Value | null>(null)
-  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
-  const scaleAnim = scaleAnimRef.current
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      damping: 20,
-      stiffness: 280,
-      mass: 0.85,
-      useNativeDriver: true,
-    }).start()
-  }
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, { toValue: 1, damping: 18, stiffness: 300, mass: 0.8, useNativeDriver: true }).start()
-  }
+  const press = usePressAnimation()
 
   const iconBg =
     tone === "danger"
@@ -64,15 +50,15 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={label}
       style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
     >
       <Animated.View
         style={{
-          transform: [{ scale: scaleAnim }],
+          transform: [{ scale: press.scale }],
           flexDirection: "row",
           alignItems: "center",
           gap: 14,
@@ -162,8 +148,7 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
           description="Jump to the session timeline"
           tone="accent"
           onPress={() => {
-            sheetRef.current?.dismiss()
-            setTimeout(onOpen, 120)
+            sheetRef.current?.dismiss(onOpen)
           }}
         />
 
@@ -174,8 +159,7 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
           description={isBusy ? "Stop the active run immediately" : "No active run to abort"}
           tone="neutral"
           onPress={() => {
-            sheetRef.current?.dismiss()
-            setTimeout(onStop, 120)
+            sheetRef.current?.dismiss(onStop)
           }}
         />
 
@@ -186,8 +170,16 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
           description="Permanently remove all data"
           tone="danger"
           onPress={() => {
-            sheetRef.current?.dismiss()
-            setTimeout(onDelete, 120)
+            sheetRef.current?.dismiss(() => {
+              Alert.alert(
+                "Delete session?",
+                `"${title || "Untitled session"}" and its local data will be permanently removed.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Delete", style: "destructive", onPress: onDelete },
+                ],
+              )
+            })
           }}
         />
         <View style={{ height: 20 }} />
@@ -215,6 +207,7 @@ export function SessionListItem(props: {
   index?: number
 }) {
   const { palette } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const status = props.item.status?.type ?? "idle"
   const summary = props.item.info.summary
   const opacityRef = useRef<Animated.Value | null>(null)
@@ -241,16 +234,24 @@ export function SessionListItem(props: {
   }, [])
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      opacity.setValue(1)
+      return undefined
+    }
+
     opacity.setValue(0)
     const delay = Math.min(props.index ?? 0, 8) * 25
     const animation = Animated.timing(opacity, { toValue: 1, duration: 200, delay, useNativeDriver: true })
     animation.start()
     return () => animation.stop()
-  }, [opacity, props.index])
+  }, [opacity, prefersReducedMotion, props.index])
 
   return (
     <Animated.View style={{ opacity }}>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={props.item.info.title || "Untitled session"}
+        accessibilityHint="Opens the session. Long press for session actions."
         onPress={props.onPress}
         onLongPress={openSheet}
         delayLongPress={380}

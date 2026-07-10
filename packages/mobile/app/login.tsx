@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native"
+import { Image } from "expo-image"
 import { useServer, userLogin, userRegister, userStatus } from "@/lib/server-context"
 import { router } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -23,29 +24,28 @@ import { TextField } from "@/components/ui/TextField"
 import { useAppTheme } from "@/lib/theme"
 import { getRememberedUser, setRememberedUser, clearRememberedUser, type RememberedUser } from "@/lib/storage"
 import { triggerHaptic } from "@/lib/haptics"
+import { usePrefersReducedMotion } from "@/lib/animation"
 import { AdaptiveBlur } from "@/components/GlassView"
 
 function AnimatedLogo({ scale, opacity }: { scale: Animated.Value; opacity: Animated.Value }) {
-  const { palette, isDark } = useAppTheme()
   return (
     <Animated.View
       style={{
         width: 56,
         height: 56,
-        borderRadius: 16,
-        backgroundColor: palette.accent,
-        alignItems: "center",
-        justifyContent: "center",
+        borderRadius: 14,
+        overflow: "hidden",
         marginBottom: 16,
-        shadowColor: palette.accent,
-        shadowOpacity: 0.4,
-        shadowRadius: 24,
-        shadowOffset: { width: 0, height: 12 },
         transform: [{ scale }],
         opacity,
       }}
     >
-      <Text style={{ color: isDark ? "#0a0a0a" : "#fff", fontWeight: "800", fontSize: 24 }}>N</Text>
+      <Image
+        source={require("@/assets/app-icon-mark.png")}
+        style={{ width: 56, height: 56 }}
+        contentFit="cover"
+        accessibilityLabel="nikcli"
+      />
     </Animated.View>
   )
 }
@@ -63,6 +63,7 @@ function AnimatedFormCard({
 }
 
 function SuccessCheckmark({ visible }: { visible: boolean }) {
+  const prefersReducedMotion = usePrefersReducedMotion()
   const scaleRef = useRef<Animated.Value | null>(null)
   if (scaleRef.current === null) scaleRef.current = new Animated.Value(0)
   const scale = scaleRef.current
@@ -71,6 +72,12 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
   const opacity = opacityRef.current
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      scale.setValue(visible ? 1 : 0)
+      opacity.setValue(visible ? 1 : 0)
+      return
+    }
+
     if (visible) {
       Animated.parallel([
         Animated.spring(scale, { toValue: 1, damping: 12, stiffness: 200, mass: 0.8, useNativeDriver: true }),
@@ -82,7 +89,7 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
         Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
       ]).start()
     }
-  }, [visible, scale, opacity])
+  }, [visible, scale, opacity, prefersReducedMotion])
 
   return (
     <Animated.View
@@ -117,6 +124,7 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
 
 export default function LoginScreen() {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const { top, bottom } = useSafeAreaInsets()
   const { config, setUserSession } = useServer()
 
@@ -153,6 +161,14 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!checkingStatus) {
+      if (prefersReducedMotion) {
+        logoScale.setValue(1)
+        logoOpacity.setValue(1)
+        formTranslateY.setValue(0)
+        formOpacity.setValue(1)
+        return
+      }
+
       Animated.stagger(80, [
         Animated.parallel([
           Animated.spring(logoScale, { toValue: 1, damping: 18, stiffness: 200, mass: 0.8, useNativeDriver: true }),
@@ -177,7 +193,7 @@ export default function LoginScreen() {
         }),
       ]).start()
     }
-  }, [checkingStatus, logoScale, logoOpacity, formTranslateY, formOpacity])
+  }, [checkingStatus, formOpacity, formTranslateY, logoOpacity, logoScale, prefersReducedMotion])
 
   useEffect(() => {
     if (!config) return
@@ -201,6 +217,11 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (error) {
+      if (prefersReducedMotion) {
+        shakeAnim.setValue(0)
+        return
+      }
+
       Animated.sequence([
         Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
         Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
@@ -210,7 +231,7 @@ export default function LoginScreen() {
         Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
       ]).start()
     }
-  }, [error, shakeAnim])
+  }, [error, prefersReducedMotion, shakeAnim])
 
   async function handleSubmit() {
     if (!config) return
@@ -237,7 +258,6 @@ export default function LoginScreen() {
 
       setSuccess(true)
       void triggerHaptic("success")
-      await new Promise((r) => setTimeout(r, 600))
       await setUserSession(result.token, result.user)
       router.replace("/sessions")
     } catch (err: any) {

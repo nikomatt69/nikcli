@@ -24,7 +24,7 @@ export const Ease = {
 
 /** Default spring lists & chip moments */
 export const SPRING_CONFIG = {
-  damping: 22,
+  damping: 30,
   stiffness: 260,
   mass: 0.82,
   useNativeDriver: true,
@@ -40,7 +40,7 @@ export const SPRING_SETTLE = {
 
 /** Buttons / tactile controls */
 export const PRESS_SPRING = {
-  damping: 17,
+  damping: 27,
   stiffness: 320,
   mass: 0.55,
   useNativeDriver: true,
@@ -48,7 +48,7 @@ export const PRESS_SPRING = {
 
 /** Lightweight chip / toggle motions */
 export const SPRING_MICRO = {
-  damping: 19,
+  damping: 23,
   stiffness: 280,
   mass: 0.45,
   useNativeDriver: true,
@@ -81,6 +81,22 @@ export function usePrefersReducedMotion(): boolean {
   }, [])
 
   return reduceMotion
+}
+
+/** Respects the platform preference that replaces translucent materials with solid surfaces. */
+export function usePrefersReducedTransparency(): boolean {
+  const [reduceTransparency, setReduceTransparency] = useState(false)
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceTransparencyEnabled()
+      .then((value) => setReduceTransparency(Boolean(value)))
+      .catch(() => undefined)
+
+    const subscription = AccessibilityInfo.addEventListener("reduceTransparencyChanged", setReduceTransparency)
+    return () => subscription.remove()
+  }, [])
+
+  return reduceTransparency
 }
 
 export type StaggerOptions = {
@@ -191,16 +207,29 @@ export function usePressAnimation() {
   const scaleRef = useRef<Animated.Value | null>(null)
   if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
   const scale = scaleRef.current
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   const onPressIn = () => {
+    scale.stopAnimation()
+    if (prefersReducedMotion) {
+      scale.setValue(0.985)
+      return
+    }
     Animated.spring(scale, { toValue: 0.976, ...PRESS_SPRING }).start()
   }
 
   const onPressOut = () => {
+    scale.stopAnimation()
+    if (prefersReducedMotion) {
+      scale.setValue(1)
+      return
+    }
     Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()
   }
 
-  return { scale, onPressIn, onPressOut }
+  useEffect(() => () => scale.stopAnimation(), [scale])
+
+  return { scale, onPressIn, onPressOut, prefersReducedMotion }
 }
 
 /** Progress 0 ↔ 1 for purely transform-driven toggles (`useNativeDriver: true`). */

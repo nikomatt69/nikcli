@@ -13,7 +13,7 @@ import {
 } from "react-native"
 import { router, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { CaseSensitive, Undo2, WrapText } from "lucide-react-native"
+import { CaseSensitive } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import * as SecureStore from "expo-secure-store"
 import {
@@ -22,8 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Ellipsis,
   Eye,
-  FileSearch,
   Pencil,
   Save,
   Search,
@@ -32,6 +32,7 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { ActionSheet, ActionSheetDivider, ActionSheetItem, useActionSheetRef } from "@/components/BottomSheet"
 import { SkeletonBox } from "@/components/Skeleton"
+import { ActionButton } from "@/components/ui/ActionButton"
 import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
 import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
 import { GitFileStatusBadge } from "@/components/git/GitFileStatusBadge"
@@ -81,6 +82,7 @@ export default function EditorScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [savedFeedback, setSavedFeedback] = useState(false)
   const [gitStatus, setGitStatus] = useState<FileNode["gitStatus"]>()
   const [findOpen, setFindOpen] = useState(false)
   const [fileSearchOpen, setFileSearchOpen] = useState(false)
@@ -100,6 +102,7 @@ export default function EditorScreen() {
 
   // ── Animation refs ─────────────────────────────────────────────
   const unsavedSheetRef = useActionSheetRef()
+  const toolsSheetRef = useActionSheetRef()
   const contentAnims = useStaggeredAnimation(2, 80)
   const findBarAnimRef = useRef<Animated.Value | null>(null)
   if (findBarAnimRef.current === null) findBarAnimRef.current = new Animated.Value(0)
@@ -110,18 +113,12 @@ export default function EditorScreen() {
   const findScaleRef = useRef<Animated.Value | null>(null)
   if (findScaleRef.current === null) findScaleRef.current = new Animated.Value(1)
   const findScale = findScaleRef.current
-  const fileSearchScaleRef = useRef<Animated.Value | null>(null)
-  if (fileSearchScaleRef.current === null) fileSearchScaleRef.current = new Animated.Value(1)
-  const fileSearchScale = fileSearchScaleRef.current
-  const copyScaleRef = useRef<Animated.Value | null>(null)
-  if (copyScaleRef.current === null) copyScaleRef.current = new Animated.Value(1)
-  const copyScale = copyScaleRef.current
   const modeScaleRef = useRef<Animated.Value | null>(null)
   if (modeScaleRef.current === null) modeScaleRef.current = new Animated.Value(1)
   const modeScale = modeScaleRef.current
-  const wrapScaleRef = useRef<Animated.Value | null>(null)
-  if (wrapScaleRef.current === null) wrapScaleRef.current = new Animated.Value(1)
-  const wrapScale = wrapScaleRef.current
+  const moreScaleRef = useRef<Animated.Value | null>(null)
+  if (moreScaleRef.current === null) moreScaleRef.current = new Animated.Value(1)
+  const moreScale = moreScaleRef.current
   const saveScaleRef = useRef<Animated.Value | null>(null)
   if (saveScaleRef.current === null) saveScaleRef.current = new Animated.Value(1)
   const saveScale = saveScaleRef.current
@@ -187,9 +184,10 @@ export default function EditorScreen() {
     try {
       setLoading(true)
       setError(null)
+      const scopedClient = directory ? client.withDirectory(directory) : client
       const [file, gitState] = await Promise.all([
-        stored ? Promise.resolve(null) : client.readFile(absolute),
-        client.getGitStatus().catch(() => null),
+        stored ? Promise.resolve(null) : scopedClient.readFile(absolute),
+        scopedClient.getGitStatus().catch(() => null),
       ])
       if (file && file.type === "text") {
         openFile({ path: filePath ?? absolute, absolute, content: file.content })
@@ -206,7 +204,7 @@ export default function EditorScreen() {
     } finally {
       setLoading(false)
     }
-  }, [client, absolute, filePath, stored, openFile])
+  }, [absolute, client, directory, filePath, openFile, stored])
 
   useEffect(() => {
     void load()
@@ -226,11 +224,18 @@ export default function EditorScreen() {
   // Scroll to highlighted line
   useEffect(() => {
     if (!loading && targetLine && targetLine > 1) {
-      const timer = setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: (targetLine - 1) * LINE_HEIGHT, animated: true })
-      }, 300)
-      return () => clearTimeout(timer)
+      let innerFrame = 0
+      const outerFrame = requestAnimationFrame(() => {
+        innerFrame = requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({ y: (targetLine - 1) * LINE_HEIGHT, animated: true })
+        })
+      })
+      return () => {
+        cancelAnimationFrame(outerFrame)
+        if (innerFrame) cancelAnimationFrame(innerFrame)
+      }
     }
+    return undefined
   }, [loading, targetLine])
 
   const handleFindQueryChange = useCallback((next: string) => {
@@ -257,12 +262,6 @@ export default function EditorScreen() {
     if (!findMatches.length) return
     void triggerHaptic("selection")
     setActiveFindIndex((index) => (index + delta + findMatches.length) % findMatches.length)
-  }
-
-  function handleUndo() {
-    if (!absolute) return
-    editInputRef.current?.focus()
-    void triggerHaptic("selection")
   }
 
   function openFind() {
@@ -292,16 +291,21 @@ export default function EditorScreen() {
     })
   }
 
-  async function save() {
-    if (!client || !absolute) return
+  async function save(): Promise<boolean> {
+    if (!client || !absolute) return false
     try {
       setSaving(true)
-      await client.writeFile(absolute, content)
+      setSavedFeedback(false)
+      const scopedClient = directory ? client.withDirectory(directory) : client
+      await scopedClient.writeFile(absolute, content)
       markSaved(absolute)
+      setSavedFeedback(true)
       void triggerHaptic("success")
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       void triggerHaptic("error")
+      return false
     } finally {
       setSaving(false)
     }
@@ -351,13 +355,16 @@ export default function EditorScreen() {
 
   // ── Shared chrome button style ─────────────────────────────────
   const chromeButtonBase = {
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderCurve: "continuous" as const,
     borderWidth: 1,
     borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
     backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
     overflow: "hidden" as const,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   }
 
   function renderChromeButton(
@@ -438,18 +445,10 @@ export default function EditorScreen() {
               padding: 12,
             }}
           >
-            {/* Inner glass fill */}
-            <AdaptiveBlur
-              tint={isDark ? "dark" : "extraLight"}
-              intensity={isDark ? 55 : 45}
-              style={StyleSheet.absoluteFill}
-              fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
-              pointerEvents="none"
-            />
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "rgba(24,24,24,0.52)" : "rgba(255,255,255,0.48)" },
+                { backgroundColor: isDark ? "rgba(24,24,24,0.72)" : "rgba(255,255,255,0.68)" },
               ]}
               pointerEvents="none"
             />
@@ -518,32 +517,16 @@ export default function EditorScreen() {
               {/* Action buttons */}
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {renderChromeButton(
-                  fileSearchScale,
-                  <FileSearch size={16} color={palette.ink} strokeWidth={2} />,
-                  openWorkspaceSearch,
-                  { label: "Search workspace files" },
-                )}
-                {renderChromeButton(
-                  wrapScale,
-                  <WrapText size={16} color={wordWrap ? palette.accentLight : palette.ink} strokeWidth={2} />,
-                  () => setWordWrap((v) => !v),
-                  { active: wordWrap, label: "Toggle word wrap" },
-                )}
-                {renderChromeButton(
                   findScale,
                   <Search size={16} color={findOpen ? palette.accentLight : palette.ink} strokeWidth={2} />,
                   openFind,
                   { active: findOpen, label: "Find in file" },
                 )}
                 {renderChromeButton(
-                  copyScale,
-                  copied ? (
-                    <Check size={16} color={palette.success ?? "#22c55e"} strokeWidth={2.2} />
-                  ) : (
-                    <Copy size={16} color={palette.ink} strokeWidth={2} />
-                  ),
-                  () => void copyContent(),
-                  { label: "Copy file content" },
+                  moreScale,
+                  <Ellipsis size={18} color={palette.ink} strokeWidth={2.2} />,
+                  () => toolsSheetRef.current?.present(),
+                  { active: wordWrap || copied, label: "More editor actions" },
                 )}
 
                 {/* View / Edit toggle with animated colors */}
@@ -554,7 +537,7 @@ export default function EditorScreen() {
                       if (isLargeFile && mode === "view") return
                       const nextMode = mode === "view" ? "edit" : "view"
                       setMode(nextMode)
-                      if (nextMode === "edit") setTimeout(() => editInputRef.current?.focus(), 100)
+                      if (nextMode === "edit") requestAnimationFrame(() => editInputRef.current?.focus())
                     }}
                     onPressIn={() => Animated.spring(modeScale, { toValue: 0.93, ...PRESS_SPRING }).start()}
                     onPressOut={() => Animated.spring(modeScale, { toValue: 1, ...PRESS_SPRING }).start()}
@@ -563,10 +546,13 @@ export default function EditorScreen() {
                   >
                     <Animated.View
                       style={{
-                        borderRadius: 8,
+                        width: 44,
+                        height: 44,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 12,
+                        borderCurve: "continuous",
                         borderWidth: 1,
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
                         overflow: "hidden",
                         borderColor: modeProgress.interpolate({
                           inputRange: [0, 1],
@@ -632,7 +618,14 @@ export default function EditorScreen() {
                     ]}
                     pointerEvents="none"
                   />
-                  <Pressable onPress={() => setCaseSensitive((v) => !v)} hitSlop={6} style={{ padding: 2 }}>
+                  <Pressable
+                    onPress={() => setCaseSensitive((v) => !v)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Case-sensitive search"
+                    accessibilityState={{ selected: caseSensitive }}
+                    hitSlop={8}
+                    style={{ padding: 4 }}
+                  >
                     <CaseSensitive size={14} color={caseSensitive ? palette.accent : palette.muted} strokeWidth={2.1} />
                   </Pressable>
                   <Search size={14} color={palette.muted} strokeWidth={2.1} />
@@ -652,10 +645,24 @@ export default function EditorScreen() {
                   >
                     {findMatches.length ? `${activeFindIndex + 1}/${findMatches.length}` : "0/0"}
                   </Text>
-                  <Pressable onPress={() => moveFind(-1)} disabled={!findMatches.length} hitSlop={6}>
+                  <Pressable
+                    onPress={() => moveFind(-1)}
+                    disabled={!findMatches.length}
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous match"
+                    accessibilityState={{ disabled: !findMatches.length }}
+                    hitSlop={8}
+                  >
                     <ChevronUp size={15} color={findMatches.length ? palette.ink : palette.muted} strokeWidth={2.3} />
                   </Pressable>
-                  <Pressable onPress={() => moveFind(1)} disabled={!findMatches.length} hitSlop={6}>
+                  <Pressable
+                    onPress={() => moveFind(1)}
+                    disabled={!findMatches.length}
+                    accessibilityRole="button"
+                    accessibilityLabel="Next match"
+                    accessibilityState={{ disabled: !findMatches.length }}
+                    hitSlop={8}
+                  >
                     <ChevronDown size={15} color={findMatches.length ? palette.ink : palette.muted} strokeWidth={2.3} />
                   </Pressable>
                   <Pressable
@@ -663,7 +670,9 @@ export default function EditorScreen() {
                       handleFindQueryChange("")
                       setFindOpen(false)
                     }}
-                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close find"
+                    hitSlop={8}
                   >
                     <X size={15} color={palette.muted} strokeWidth={2.3} />
                   </Pressable>
@@ -710,8 +719,11 @@ export default function EditorScreen() {
             </View>
           </View>
         ) : error ? (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-            <Text style={{ color: palette.danger, fontSize: 14, textAlign: "center" }}>{error}</Text>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
+            <Text selectable style={{ color: palette.danger, fontSize: 14, lineHeight: 20, textAlign: "center" }}>
+              {error}
+            </Text>
+            <ActionButton label="Retry" variant="secondary" onPress={() => void load()} />
           </View>
         ) : mode === "view" ? (
           <ScrollView
@@ -740,10 +752,10 @@ export default function EditorScreen() {
                 </Text>
               </View>
             ) : null}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row" }}>
+            <ScrollView horizontal={!wordWrap} scrollEnabled={!wordWrap} showsHorizontalScrollIndicator={!wordWrap}>
+              <View style={{ flexDirection: "row", minWidth: "100%" }}>
                 {renderLineNumbers(lineNumbers, [targetLine, activeFindLine])}
-                <View style={{ paddingTop: 14, paddingHorizontal: 14 }}>
+                <View style={{ flex: wordWrap ? 1 : undefined, minWidth: 0, paddingTop: 14, paddingHorizontal: 14 }}>
                   {isLargeFile ? (
                     <Text
                       selectable
@@ -783,13 +795,16 @@ export default function EditorScreen() {
         ) : (
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 80 }}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView horizontal={!wordWrap} scrollEnabled={!wordWrap} showsHorizontalScrollIndicator={!wordWrap}>
                 <View style={{ flexDirection: "row", minWidth: "100%" }}>
                   <View pointerEvents="none">{renderLineNumbers(lineNumbers, [activeFindLine])}</View>
                   <TextInput
                     ref={editInputRef}
                     value={content}
-                    onChangeText={(text) => updateContent(absolute, text)}
+                    onChangeText={(text) => {
+                      setSavedFeedback(false)
+                      updateContent(absolute, text)
+                    }}
                     multiline
                     scrollEnabled={false}
                     autoCapitalize="none"
@@ -857,6 +872,12 @@ export default function EditorScreen() {
             </Text>
             <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "500" }}>{language}</Text>
             {dirty && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#f59e0b" }} />}
+            {!dirty && savedFeedback ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Check size={12} color={palette.success} strokeWidth={2.2} />
+                <Text style={{ fontSize: 11, color: palette.success, fontWeight: "600" }}>Saved</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -914,6 +935,83 @@ export default function EditorScreen() {
         </View>
       </View>
 
+      <ActionSheet ref={toolsSheetRef} snapPoints={[390]}>
+        <View
+          style={{
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: palette.border,
+            paddingHorizontal: 20,
+            paddingBottom: 16,
+          }}
+        >
+          <Text style={{ color: palette.soft, fontSize: 12, fontWeight: "500" }}>Editor actions</Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              marginTop: 6,
+              color: palette.ink,
+              fontSize: 18,
+              lineHeight: 24,
+              fontWeight: "700",
+              letterSpacing: -0.3,
+            }}
+          >
+            {absolute?.split("/").pop() || "Current file"}
+          </Text>
+          <View
+            style={{
+              marginTop: 8,
+              alignSelf: "flex-start",
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+            }}
+          >
+            <Text style={{ color: palette.accentLight, fontSize: 10, fontWeight: "600", letterSpacing: 0.3 }}>
+              Choose an action
+            </Text>
+          </View>
+        </View>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+          bounces
+        >
+          <Text style={{ paddingHorizontal: 20, paddingBottom: 4, paddingTop: 14, color: palette.soft, fontSize: 12 }}>
+            Editor
+          </Text>
+          <ActionSheetItem
+            icon="search"
+            label="Search workspace files"
+            description="Find and open another file"
+            onPress={() => toolsSheetRef.current?.dismiss(openWorkspaceSearch)}
+          />
+          <ActionSheetItem
+            icon={wordWrap ? "check" : "wrap"}
+            label={wordWrap ? "Disable word wrap" : "Enable word wrap"}
+            description={wordWrap ? "Allow horizontal scrolling for long lines" : "Keep long lines within the editor width"}
+            tone={wordWrap ? "success" : "accent"}
+            onPress={() =>
+              toolsSheetRef.current?.dismiss(() => {
+                setWordWrap((value) => !value)
+                void triggerHaptic("selection")
+              })
+            }
+          />
+          <ActionSheetItem
+            icon="copy"
+            label={copied ? "Copied file content" : "Copy file content"}
+            description={copied ? "The file is ready on the clipboard" : "Copy the full file to the clipboard"}
+            tone={copied ? "success" : "neutral"}
+            onPress={() => toolsSheetRef.current?.dismiss(() => void copyContent())}
+          />
+        </ScrollView>
+      </ActionSheet>
+
       {/* ── Unsaved changes ActionSheet ── */}
       <ActionSheet ref={unsavedSheetRef} snapPoints={[260]}>
         <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
@@ -924,19 +1022,20 @@ export default function EditorScreen() {
         <ActionSheetItem
           icon="save"
           label="Save & Leave"
-          onPress={async () => {
-            unsavedSheetRef.current?.dismiss()
-            await save()
-            router.back()
-          }}
+          onPress={() =>
+            unsavedSheetRef.current?.dismiss(() => {
+              void save().then((saved) => {
+                if (saved) router.back()
+              })
+            })
+          }
         />
         <ActionSheetItem
           icon="trash"
           label="Leave without saving"
           destructive
           onPress={() => {
-            unsavedSheetRef.current?.dismiss()
-            router.back()
+            unsavedSheetRef.current?.dismiss(() => router.back())
           }}
         />
         <ActionSheetItem

@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native"
 import { ArrowUp, Code2, GitBranch, Lock, MapPin, Paperclip, Plus, Square, Terminal, X } from "lucide-react-native"
+import { SPRING_CONFIG, SPRING_MICRO, usePrefersReducedMotion } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -129,6 +130,7 @@ export function SessionComposer({
   onMcpManage,
 }: SessionComposerProps) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const insets = useSafeAreaInsets()
   const inputRef = useRef<TextInput>(null)
   const [isFocused, setIsFocused] = useState(false)
@@ -200,27 +202,26 @@ export function SessionComposer({
       useNativeDriver: false,
       easing: Easing.out(Easing.ease),
     }).start()
+    if (prefersReducedMotion) {
+      sendScaleAnim.setValue(isReady ? 1 : 0.88)
+      return
+    }
+
     if (isReady) {
       Animated.spring(sendScaleAnim, {
         toValue: 1,
-        useNativeDriver: true,
-        damping: 11,
-        stiffness: 260,
-        mass: 0.7,
+        ...SPRING_CONFIG,
       }).start()
     } else {
       Animated.spring(sendScaleAnim, {
         toValue: 0.88,
-        useNativeDriver: true,
-        damping: 14,
-        stiffness: 200,
-        mass: 0.8,
+        ...SPRING_CONFIG,
       }).start()
     }
-  }, [hasText, sendBlocked, sendColorAnim, sendScaleAnim])
+  }, [hasText, prefersReducedMotion, sendBlocked, sendColorAnim, sendScaleAnim])
 
   useEffect(() => {
-    if (!sending) {
+    if (!sending || prefersReducedMotion) {
       stopPulse.setValue(1)
       return
     }
@@ -242,35 +243,45 @@ export function SessionComposer({
     )
     pulse.start()
     return () => pulse.stop()
-  }, [sending, stopPulse])
+  }, [prefersReducedMotion, sending, stopPulse])
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      modeAnim.setValue(mode === "code" ? 1 : 0)
+      return
+    }
+
     Animated.timing(modeAnim, {
       toValue: mode === "code" ? 1 : 0,
       duration: 200,
       useNativeDriver: false,
       easing: Easing.out(Easing.quad),
     }).start()
-  }, [mode, modeAnim])
+  }, [mode, modeAnim, prefersReducedMotion])
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      slashAnim.setValue(showSlash ? 1 : 0)
+      return
+    }
+
     Animated.spring(slashAnim, {
       toValue: showSlash ? 1 : 0,
-      useNativeDriver: true,
-      damping: 18,
-      stiffness: 220,
-      mass: 0.9,
+      ...SPRING_MICRO,
     }).start()
-  }, [showSlash, slashAnim])
+  }, [prefersReducedMotion, showSlash, slashAnim])
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      statusAnim.setValue(showStatus ? 1 : 0)
+      return
+    }
+
     Animated.spring(statusAnim, {
       toValue: showStatus ? 1 : 0,
-      useNativeDriver: true,
-      damping: 16,
-      stiffness: 200,
+      ...SPRING_MICRO,
     }).start()
-  }, [showStatus, statusAnim])
+  }, [prefersReducedMotion, showStatus, statusAnim])
 
   // ── Derived animated styles ───────────────────────────────────────────────
 
@@ -332,16 +343,17 @@ export function SessionComposer({
           {/* Glass surface matching app tab bar language */}
           <View
             style={{
-              marginHorizontal: 14,
-              marginBottom: 6,
-              borderRadius: 18,
+              marginHorizontal: 16,
+              marginBottom: 8,
+              borderRadius: 22,
+              borderCurve: "continuous",
               overflow: "hidden",
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.78)",
+              borderColor: isDark ? "rgba(255,255,255,0.12)" : hexToRgba(palette.ink, 0.1),
               shadowColor: palette.shadow,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: isDark ? 0.2 : 0.08,
-              shadowRadius: 14,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: isDark ? 0.24 : 0.1,
+              shadowRadius: 20,
             }}
           >
             {/* Glass background */}
@@ -366,17 +378,18 @@ export function SessionComposer({
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
-                paddingHorizontal: 14,
-                paddingVertical: 8,
+                minHeight: 44,
+                paddingHorizontal: 18,
+                paddingVertical: 11,
                 borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                borderBottomColor: hexToRgba(palette.ink, 0.08),
               }}
             >
               <Text
                 style={{
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: "700",
-                  letterSpacing: 1.2,
+                  letterSpacing: 1.35,
                   textTransform: "uppercase",
                   color: palette.muted,
                 }}
@@ -389,7 +402,12 @@ export function SessionComposer({
             </View>
 
             {slashSuggestions.length ? (
-              <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="always">
+              <ScrollView
+                style={{ maxHeight: 320 }}
+                contentContainerStyle={{ padding: 8, gap: 4 }}
+                keyboardShouldPersistTaps="always"
+                showsVerticalScrollIndicator={slashSuggestions.length > 5}
+              >
                 {slashSuggestions.map((item, i) => (
                   <Pressable
                     key={item.name}
@@ -398,58 +416,68 @@ export function SessionComposer({
                       onSelectSlash(item.name)
                     }}
                     style={({ pressed }) => ({
-                      flexDirection: "row",
-                      alignItems: "center",
-                      paddingHorizontal: 14,
-                      paddingVertical: 11,
-                      backgroundColor: pressed ? hexToRgba(palette.ink, 0.05) : "transparent",
-                      borderBottomWidth: i < slashSuggestions.length - 1 ? StyleSheet.hairlineWidth : 0,
-                      borderBottomColor: hexToRgba(palette.ink, 0.06),
+                      borderRadius: 14,
+                      borderCurve: "continuous",
+                      overflow: "hidden",
+                      backgroundColor: pressed
+                        ? hexToRgba(palette.ink, isDark ? 0.1 : 0.06)
+                        : i === 0
+                          ? hexToRgba(palette.ink, isDark ? 0.055 : 0.035)
+                          : "transparent",
                     })}
                   >
-                    {/* Command name + description; fall back so a row is never blank */}
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: "600",
-                          letterSpacing: -0.2,
-                          color: palette.ink,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {item.name?.trim() ? `/${item.name}` : item.description || item.badge || "(unnamed command)"}
-                      </Text>
-                      {item.name?.trim() && item.description ? (
+                    <View
+                      style={{
+                        minHeight: 64,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      {/* Command name + description; fall back so a row is never blank */}
+                      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                         <Text
                           style={{
-                            color: palette.muted,
-                            fontSize: 12,
-                            marginTop: 2,
-                            lineHeight: 16,
+                            fontSize: 15,
+                            fontWeight: "600",
+                            letterSpacing: -0.15,
+                            lineHeight: 20,
+                            color: palette.ink,
                           }}
                           numberOfLines={1}
                         >
-                          {item.description}
+                          {item.name?.trim() ? `/${item.name}` : item.description || item.badge || "(unnamed command)"}
                         </Text>
+                        {item.name?.trim() && item.description ? (
+                          <Text style={{ color: palette.muted, fontSize: 12.5, lineHeight: 17 }} numberOfLines={2}>
+                            {item.description}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {/* Badge */}
+                      {item.badge ? (
+                        <View
+                          style={{
+                            maxWidth: 92,
+                            flexShrink: 0,
+                            alignSelf: "center",
+                            borderRadius: 999,
+                            borderWidth: StyleSheet.hairlineWidth,
+                            borderColor: hexToRgba(palette.ink, 0.1),
+                            backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.045),
+                            paddingHorizontal: 9,
+                            paddingVertical: 4,
+                          }}
+                        >
+                          <Text style={{ color: palette.soft, fontSize: 10, fontWeight: "600" }} numberOfLines={1}>
+                            {item.badge}
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
-
-                    {/* Badge */}
-                    {item.badge ? (
-                      <View
-                        style={{
-                          backgroundColor: hexToRgba(palette.ink, 0.05),
-                          borderRadius: 999,
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          marginLeft: 10,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Text style={{ color: palette.soft, fontSize: 10, fontWeight: "600" }}>{item.badge}</Text>
-                      </View>
-                    ) : null}
                   </Pressable>
                 ))}
               </ScrollView>

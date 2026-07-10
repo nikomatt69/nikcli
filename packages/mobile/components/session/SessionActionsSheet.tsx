@@ -1,5 +1,5 @@
 import type { RefObject } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
+import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native"
 import {
   Braces,
   Copy,
@@ -7,6 +7,7 @@ import {
   MonitorPlay,
   PencilLine,
   Rocket,
+  Shrink,
   TerminalSquare,
   type LucideIcon,
 } from "lucide-react-native"
@@ -22,6 +23,9 @@ type Props = {
   onExportMarkdown(): void
   onExportJSON(): void
   onCopyID(): void
+  onCompact(): void
+  compacting?: boolean
+  compactDisabled?: boolean
   onTeleport?(): void
   onOpenTerminal?(): void
   onOpenPreview?(): void
@@ -33,9 +37,11 @@ type RowProps = {
   description: string
   onPress(): void
   tone?: "accent" | "success" | "neutral"
+  disabled?: boolean
+  loading?: boolean
 }
 
-function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowProps) {
+function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled = false, loading = false }: RowProps) {
   const { palette, isDark } = useAppTheme()
   const scaleAnimRef = useRef<Animated.Value | null>(null)
   if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
@@ -92,12 +98,14 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled || loading}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={description}
-      style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      style={({ pressed }) => ({ opacity: disabled || loading ? 0.48 : pressed ? 0.72 : 1 })}
     >
       <Animated.View
         style={{
@@ -120,7 +128,7 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
             borderColor: iconBorder,
           }}
         >
-          <Icon size={19} color={iconColor} strokeWidth={2.1} />
+          {loading ? <ActivityIndicator size="small" color={iconColor} /> : <Icon size={19} color={iconColor} strokeWidth={2.1} />}
         </View>
         <View className="min-w-0 flex-1">
           <Text className="text-[15px] font-semibold leading-5 tracking-tight text-ink" numberOfLines={1}>
@@ -150,6 +158,9 @@ export function SessionActionsSheet({
   onExportMarkdown,
   onExportJSON,
   onCopyID,
+  onCompact,
+  compacting = false,
+  compactDisabled = false,
   onTeleport,
   onOpenTerminal,
   onOpenPreview,
@@ -178,14 +189,29 @@ export function SessionActionsSheet({
         </View>
       </View>
 
-      {/* Rows — plain View, no ScrollView (avoids flex collapse inside ActionSheet) */}
-      <View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+        bounces
+        nestedScrollEnabled
+        accessibilityLabel="Session actions"
+      >
         <SectionLabel label="Session" />
         <SheetRow
           Icon={PencilLine}
           label="Rename session"
           description="Update the title of this session"
           onPress={onRename}
+          tone="accent"
+        />
+        <SheetRow
+          Icon={Shrink}
+          label={compacting ? "Compacting context…" : "Compact context"}
+          description="Summarize earlier messages and preserve key details"
+          onPress={onCompact}
+          disabled={compactDisabled}
+          loading={compacting}
           tone="accent"
         />
         {onTeleport ? (
@@ -254,8 +280,7 @@ export function SessionActionsSheet({
           onPress={onCopyID}
           tone="neutral"
         />
-        <View className="h-5" />
-      </View>
+      </ScrollView>
     </ActionSheet>
   )
 }

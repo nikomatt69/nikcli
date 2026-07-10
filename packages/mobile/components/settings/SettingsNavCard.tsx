@@ -1,8 +1,8 @@
-import { forwardRef, useRef, type ComponentProps } from "react"
+import { forwardRef, type ComponentProps } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
 import { ChevronRight, type LucideIcon } from "lucide-react-native"
 import { useAppTheme } from "@/lib/theme"
-import { PRESS_SPRING } from "@/lib/animation"
+import { usePressAnimation } from "@/lib/animation"
 
 type SettingsNavCardProps = {
   eyebrow: string
@@ -19,23 +19,24 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
   ref,
 ) {
   const { palette, isDark } = useAppTheme()
-  const scaleRef = useRef<Animated.Value | null>(null)
-  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
-  const scale = scaleRef.current
+  const press = usePressAnimation()
   function handlePressIn(e: Parameters<NonNullable<ComponentProps<typeof Pressable>["onPressIn"]>>[0]) {
-    Animated.spring(scale, { toValue: 0.98, ...PRESS_SPRING }).start()
+    press.onPressIn()
     onPressIn?.(e)
   }
 
   function handlePressOut(e: Parameters<NonNullable<ComponentProps<typeof Pressable>["onPressOut"]>>[0]) {
-    Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()
+    press.onPressOut()
     onPressOut?.(e)
   }
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
       <Pressable
         ref={ref}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityHint={description}
         {...props}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}

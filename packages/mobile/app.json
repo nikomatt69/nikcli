@@ -11,11 +11,17 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#06121f"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ai.nikcli.mobile",
+      "appleTeamId": "5FAU2JSAM3",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.ai.nikcli.mobile"
+        ]
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Nikcli connects to the local CLI server running on your computer.",
@@ -39,7 +45,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#06121f"
+        "backgroundColor": "#000000"
       },
       "package": "ai.nikcli.mobile"
     },
@@ -53,7 +59,6 @@
       "expo-secure-store",
       "expo-font",
       "expo-notifications",
-      "expo-live-activity",
       "expo-asset",
       "expo-splash-screen",
       "./plugins/withSceneLifecycle",
@@ -64,7 +69,17 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "ai.nikcli.mobile.widgets",
+          "groupIdentifier": "group.ai.nikcli.mobile",
+          "enablePushNotifications": false
+        }
+      ],
+      "./plugins/withWidgetBrandMark",
+      "./plugins/withLocalNotificationsOnly"
     ],
     "experiments": {
       "typedRoutes": true,

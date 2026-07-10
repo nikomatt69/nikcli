@@ -11,18 +11,21 @@ import {
   GitBranch,
   Globe,
   Search,
+  Save,
   Shield,
   SquareTerminal,
   Trash2,
+  WrapText,
   Wrench,
   X,
   type LucideIcon,
 } from "lucide-react-native"
+import { Ease, SPRING_SETTLE, usePrefersReducedMotion, usePressAnimation } from "@/lib/animation"
 import { useAppTheme } from "@/lib/theme"
 
 export type ActionSheetRef = {
   present(): void
-  dismiss(): void
+  dismiss(onDismissed?: () => void): void
 }
 
 type ActionSheetIconName = string
@@ -34,6 +37,8 @@ function iconForName(name: ActionSheetIconName): LucideIcon {
   if (value.includes("branch") || value.includes("git")) return GitBranch
   if (value.includes("copy")) return Copy
   if (value.includes("search")) return Search
+  if (value.includes("save")) return Save
+  if (value.includes("wrap")) return WrapText
   if (value.includes("folder")) return Folder
   if (value.includes("globe") || value.includes("web")) return Globe
   if (value.includes("terminal") || value.includes("bash") || value.includes("shell")) return SquareTerminal
@@ -60,6 +65,7 @@ export const ActionSheet = React.forwardRef<
 >(function ActionSheet({ children, snapPoints = [280] }, ref) {
   const { height: windowHeight } = useWindowDimensions()
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const [visible, setVisible] = useState(false)
   const translateYRef = useRef<Animated.Value | null>(null)
   if (translateYRef.current === null) translateYRef.current = new Animated.Value(36)
@@ -69,15 +75,28 @@ export const ActionSheet = React.forwardRef<
   const opacity = opacityRef.current
   const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
 
-  const dismiss = useCallback(() => {
+  const dismiss = useCallback((onDismissed?: () => void) => {
+    opacity.stopAnimation()
+    translateY.stopAnimation()
+    if (prefersReducedMotion) translateY.setValue(0)
+
     const animation = Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 36, duration: 180, useNativeDriver: true }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: prefersReducedMotion ? 120 : 160,
+        easing: Ease.accelerate,
+        useNativeDriver: true,
+      }),
+      prefersReducedMotion
+        ? Animated.timing(translateY, { toValue: 0, duration: 120, useNativeDriver: true })
+        : Animated.spring(translateY, { toValue: 36, ...SPRING_SETTLE }),
     ])
     animation.start(({ finished }) => {
-      if (finished) setVisible(false)
+      if (!finished) return
+      setVisible(false)
+      onDismissed?.()
     })
-  }, [opacity, translateY])
+  }, [opacity, prefersReducedMotion, translateY])
 
   useImperativeHandle(
     ref,
@@ -94,38 +113,38 @@ export const ActionSheet = React.forwardRef<
     if (!visible) return
 
     opacity.setValue(0)
-    translateY.setValue(36)
+    translateY.setValue(prefersReducedMotion ? 0 : 36)
     const animation = Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 18,
-        stiffness: 220,
-        mass: 0.95,
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: prefersReducedMotion ? 140 : 180,
+        easing: Ease.decelerate,
         useNativeDriver: true,
       }),
+      prefersReducedMotion
+        ? Animated.timing(translateY, { toValue: 0, duration: 140, useNativeDriver: true })
+        : Animated.spring(translateY, { toValue: 0, ...SPRING_SETTLE }),
     ])
     animation.start()
     return () => animation.stop()
-  }, [opacity, translateY, visible])
+  }, [opacity, prefersReducedMotion, translateY, visible])
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={dismiss}>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={() => dismiss()}>
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
-        {/* Backdrop blur */}
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
-          <AdaptiveBlur
-            tint={isDark ? "dark" : "light"}
-            intensity={isDark ? 15 : 10}
-            style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
-          />
-          <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(20,20,19,0.16)" }]}
-          />
-        </Animated.View>
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            { opacity, backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(20,20,19,0.18)" },
+          ]}
+        />
 
-        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss actions"
+          style={StyleSheet.absoluteFill}
+          onPress={() => dismiss()}
+        />
 
         {/* Glass sheet — shadow on outer, clip on inner */}
         <Animated.View
@@ -154,6 +173,7 @@ export const ActionSheet = React.forwardRef<
               intensity={isDark ? 90 : 75}
               style={StyleSheet.absoluteFill}
               fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+              opaqueFallbackColor={isDark ? "#111111" : "#FFFFFF"}
             />
             <View
               style={[
@@ -169,17 +189,7 @@ export const ActionSheet = React.forwardRef<
             />
           </View>
 
-          {/* Drag handle */}
-          <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 8 }}>
-            <View
-              style={{
-                width: 42,
-                height: 5,
-                borderRadius: 999,
-                backgroundColor: isDark ? "rgba(255,255,255,0.20)" : "rgba(0,0,0,0.16)",
-              }}
-            />
-          </View>
+          <View style={{ height: 12 }} />
           <View style={{ flex: 1, paddingBottom: 8 }}>{children}</View>
         </Animated.View>
       </View>
@@ -190,66 +200,119 @@ export const ActionSheet = React.forwardRef<
 export function ActionSheetItem({
   icon,
   label,
+  description,
   onPress,
   destructive = false,
+  tone = "accent",
+  disabled = false,
 }: {
   icon: ActionSheetIconName
   label: string
+  description?: string
   onPress(): void
   destructive?: boolean
+  tone?: "accent" | "success" | "neutral"
+  disabled?: boolean
 }) {
   const Icon = iconForName(icon)
   const { palette, isDark } = useAppTheme()
+  const press = usePressAnimation()
+  const effectiveTone = destructive ? "destructive" : tone
+  const iconColor =
+    effectiveTone === "destructive"
+      ? palette.danger
+      : effectiveTone === "success"
+        ? palette.success
+        : effectiveTone === "neutral"
+          ? palette.soft
+          : palette.accentLight
+  const iconBackground =
+    effectiveTone === "destructive"
+      ? isDark
+        ? "rgba(248,113,113,0.10)"
+        : "rgba(207,45,86,0.08)"
+      : effectiveTone === "success"
+        ? isDark
+          ? "rgba(52,211,153,0.08)"
+          : "rgba(22,163,74,0.08)"
+        : isDark
+          ? "rgba(255,255,255,0.07)"
+          : "rgba(20,20,19,0.08)"
+  const iconBorder =
+    effectiveTone === "destructive"
+      ? isDark
+        ? "rgba(248,113,113,0.20)"
+        : "rgba(207,45,86,0.18)"
+      : effectiveTone === "success"
+        ? isDark
+          ? "rgba(52,211,153,0.18)"
+          : "rgba(22,163,74,0.16)"
+        : isDark
+          ? "rgba(255,255,255,0.11)"
+          : "rgba(20,20,19,0.16)"
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 14,
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        minHeight: 52,
-        opacity: pressed ? 0.76 : 1,
-      })}
-    >
-      <View
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 12,
-          backgroundColor: destructive
-            ? isDark
-              ? "rgba(143,143,143,0.10)"
-              : "rgba(207,45,86,0.10)"
-            : isDark
-              ? "rgba(255,255,255,0.07)"
-              : "rgba(20,20,19,0.08)",
-          borderWidth: 1,
-          borderColor: destructive
-            ? isDark
-              ? "rgba(143,143,143,0.18)"
-              : "rgba(207,45,86,0.18)"
-            : isDark
-              ? "rgba(255,255,255,0.11)"
-              : "rgba(20,20,19,0.18)",
+    <Animated.View style={{ width: "100%", transform: [{ scale: press.scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label || "Untitled action"}
+        accessibilityHint={description}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        style={({ pressed }) => ({
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-        }}
+          gap: 14,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+          minHeight: 64,
+          width: "100%",
+          opacity: disabled ? 0.48 : pressed ? 0.72 : 1,
+        })}
       >
-        <Icon size={18} color={destructive ? palette.danger : palette.accentLight} strokeWidth={2.1} />
-      </View>
-      <Text
-        style={{
-          color: destructive ? palette.danger : palette.ink,
-          fontSize: 15,
-          fontWeight: "600",
-        }}
-      >
-        {label || "Untitled action"}
-      </Text>
-    </Pressable>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            borderCurve: "continuous",
+            backgroundColor: iconBackground,
+            borderWidth: 1,
+            borderColor: iconBorder,
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={19} color={iconColor} strokeWidth={2.1} />
+        </View>
+        <View style={{ minWidth: 0, flex: 1 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              color: destructive ? palette.danger : palette.ink,
+              fontSize: 15,
+              lineHeight: 20,
+              fontWeight: "600",
+              letterSpacing: -0.2,
+            }}
+          >
+            {label || "Untitled action"}
+          </Text>
+          {description ? (
+            <Text
+              numberOfLines={1}
+              style={{ marginTop: 2, color: palette.soft, fontSize: 12.5, lineHeight: 16 }}
+            >
+              {description}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    </Animated.View>
   )
 }
 

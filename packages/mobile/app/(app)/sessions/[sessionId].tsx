@@ -4,6 +4,7 @@ import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -308,7 +309,11 @@ function formatAttachmentSize(base64: string) {
 
 export default function SessionScreen() {
   const { palette, isDark } = useAppTheme()
-  const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
+  const { sessionId, liveAction, requestID } = useLocalSearchParams<{
+    sessionId: string
+    liveAction?: "review" | "approveOnce" | "stop"
+    requestID?: string
+  }>()
   const { top } = useSafeAreaInsets()
   const { client, config, save } = useServer()
   const composerPreferences = useUIStore((state) => state.composer)
@@ -317,6 +322,7 @@ export default function SessionScreen() {
   const statusRef = useRef<SessionDetail["status"]>(undefined)
   const permissionIDsRef = useRef<Set<string>>(new Set())
   const questionIDsRef = useRef<Set<string>>(new Set())
+  const consumedLiveActionRef = useRef<string | null>(null)
   const followTranscriptRef = useRef(true)
   const initialScrollDoneRef = useRef(false)
   const scrollRafRef = useRef<number | null>(null)
@@ -324,6 +330,7 @@ export default function SessionScreen() {
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
+  const [compacting, setCompacting] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -722,9 +729,7 @@ export default function SessionScreen() {
     if (liveActivitySnapshot.mode === "upsert") {
       void upsertSessionLiveActivity({
         sessionID: sessionId,
-        title: liveActivitySnapshot.title,
-        subtitle: liveActivitySnapshot.subtitle,
-        countdownTo: liveActivitySnapshot.countdownTo,
+        activity: liveActivitySnapshot.activity,
       })
       return
     }
@@ -744,7 +749,13 @@ export default function SessionScreen() {
     if (!composerPreferences.slashSuggestions) return []
     if (!input.trimStart().startsWith("/")) return []
     const raw = input.trimStart().slice(1).split(/\s+/)[0]?.toLowerCase() ?? ""
-    return commands
+    const compactSuggestion = {
+      name: "compact",
+      description: "Summarize earlier context while preserving key details",
+      badge: "Session",
+    }
+    const remoteSuggestions = commands
+      .filter((command) => command.name !== "compact" && command.name !== "summarize")
       .filter((command) => {
         if (!raw) return true
         return (
@@ -767,6 +778,12 @@ export default function SessionScreen() {
                 ? `${command.hints.length} args`
                 : undefined,
       }))
+    return [compactSuggestion, ...remoteSuggestions]
+      .filter((command) => {
+        if (!raw) return true
+        return command.name.includes(raw) || command.description?.toLowerCase().includes(raw)
+      })
+      .slice(0, 20)
   }, [commands, composerPreferences.slashSuggestions, input])
   const activeMcpCount = useMemo(() => commands.filter((c) => c.mcp).length, [commands])
 
@@ -893,12 +910,45 @@ export default function SessionScreen() {
     setPublishOpen(true)
   }
 
+  async function compactContext() {
+    if (!client || !sessionId || compacting || cleaned) return
+    if (sessionBlocked) {
+      setError("Wait for the active run to finish before compacting the context.")
+      void triggerHaptic("error")
+      return
+    }
+
+    try {
+      setCompacting(true)
+      setError(null)
+      await client.compactSession(sessionId, preferredModel)
+      await load()
+      void triggerHaptic("success")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+      void triggerHaptic("error")
+    } finally {
+      setCompacting(false)
+    }
+  }
+
   async function send() {
     if (!client || !sessionId || !input.trim() || cleaned) return
     const submittedInput = input
     const submittedText = submittedInput.trim()
     const submittedSlashInput = slashInput
     const submittedAttachments = pendingAttachments
+
+    if (
+      submittedSlashInput &&
+      (submittedSlashInput.command.toLowerCase() === "compact" ||
+        submittedSlashInput.command.toLowerCase() === "summarize")
+    ) {
+      setInput("")
+      await compactContext()
+      return
+    }
+
     try {
       setSending(true)
       setError(null)
@@ -1049,6 +1099,65 @@ export default function SessionScreen() {
     void triggerHaptic("error")
   }
 
+  useEffect(() => {
+    if (!client || !sessionId || !liveAction) return
+
+    const actionKey = `${sessionId}:${liveAction}:${requestID ?? ""}`
+    if (consumedLiveActionRef.current === actionKey) return
+
+    if (liveAction === "review") {
+      consumedLiveActionRef.current = actionKey
+      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }))
+      void triggerHaptic("selection")
+      return
+    }
+
+    if (liveAction === "approveOnce") {
+      if (!detail || !requestID) return
+      consumedLiveActionRef.current = actionKey
+
+      if (!detail.permissions.some((permission) => permission.id === requestID)) {
+        setError("This approval is no longer pending.")
+        void load()
+        return
+      }
+
+      void (async () => {
+        try {
+          setError(null)
+          await client.respondToPermission(sessionId, requestID, "once")
+          void triggerHaptic("success")
+          await load()
+        } catch (error) {
+          setError(error instanceof Error ? error.message : String(error))
+          void triggerHaptic("error")
+        }
+      })()
+      return
+    }
+
+    consumedLiveActionRef.current = actionKey
+    Alert.alert("Stop this session?", "The active response will be cancelled. Existing changes will be kept.", [
+      { text: "Keep working", style: "cancel" },
+      {
+        text: "Stop",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              setError(null)
+              await client.abortSession(sessionId)
+              void triggerHaptic("error")
+              await load()
+            } catch (error) {
+              setError(error instanceof Error ? error.message : String(error))
+            }
+          })()
+        },
+      },
+    ])
+  }, [client, detail, liveAction, load, requestID, sessionId])
+
   async function publish() {
     if (!client || !sessionId || !detail?.info.github || sessionBlocked || cleaned) return
     try {
@@ -1136,6 +1245,19 @@ export default function SessionScreen() {
           setCommandPaletteOpen(false)
           void triggerHaptic("selection")
           openPublishModal()
+        },
+      },
+      {
+        id: "local.compact",
+        title: compacting ? "Compacting context…" : "Compact context",
+        description: "Summarize earlier messages while preserving decisions, progress, and relevant files.",
+        section: "Session",
+        badge: "/compact",
+        disabled: compacting || sessionBlocked || cleaned,
+        keywords: ["compact", "summarize", "context", "tokens"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          void compactContext()
         },
       },
       {
@@ -1257,10 +1379,13 @@ export default function SessionScreen() {
   }, [
     abort,
     client,
+    compacting,
+    compactContext,
     commandQuery,
     commands,
     detail?.info.github,
     detail?.permissions.length,
+    cleaned,
     input,
     loadMemories,
     promptPresets,
@@ -1475,7 +1600,7 @@ export default function SessionScreen() {
         setInput={setInput}
         slashSuggestions={slashSuggestions}
         slashLoading={commandsLoading}
-        sending={sending}
+        sending={sending || compacting}
         sessionBlocked={sessionBlocked}
         cleaned={cleaned}
         onOpenCommands={() => setCommandPaletteOpen(true)}
@@ -1549,6 +1674,11 @@ export default function SessionScreen() {
           if (sessionId) void Clipboard.setStringAsync(sessionId)
           void triggerHaptic("selection")
         }}
+        onCompact={() => {
+          actionsSheetRef.current?.dismiss(() => void compactContext())
+        }}
+        compacting={compacting}
+        compactDisabled={sessionBlocked || cleaned}
         onTeleport={() => {
           actionsSheetRef.current?.dismiss()
           setTimeout(() => setTeleportOpen(true), 220)

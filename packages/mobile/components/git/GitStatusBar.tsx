@@ -1,6 +1,7 @@
 import { Animated, Easing, Pressable, Text, View, useWindowDimensions } from "react-native"
 import { useEffect, useMemo, useRef } from "react"
 import { GitBranch, RefreshCw } from "lucide-react-native"
+import { SPRING_CONFIG, usePrefersReducedMotion } from "@/lib/animation"
 import type { GitState } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
 
@@ -11,14 +12,9 @@ interface GitStatusBarProps {
   onRefresh?: () => void
 }
 
-const ENTRANCE_CONFIG = {
-  damping: 20,
-  stiffness: 260,
-  mass: 0.8,
-}
-
 export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: GitStatusBarProps) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const entranceAnimRef = useRef<Animated.Value | null>(null)
   if (entranceAnimRef.current === null) entranceAnimRef.current = new Animated.Value(0)
   const entranceAnim = entranceAnimRef.current
@@ -50,19 +46,23 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
   const previousPulseKeysRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      entranceAnim.setValue(1)
+      return
+    }
+
     Animated.spring(entranceAnim, {
       toValue: 1,
-      ...ENTRANCE_CONFIG,
-      useNativeDriver: true,
+      ...SPRING_CONFIG,
     }).start()
-  }, [entranceAnim])
+  }, [entranceAnim, prefersReducedMotion])
 
   useEffect(() => {
     if (!gitState) return
     const prev = previousPulseKeysRef.current
     const hasChanged = ![...pulseKeys].every((key) => prev.has(key)) || ![...prev].every((key) => pulseKeys.has(key))
 
-    if (hasChanged) {
+    if (hasChanged && !prefersReducedMotion) {
       Animated.sequence([
         Animated.timing(statusTransitionAnim, {
           toValue: 0.8,
@@ -78,10 +78,19 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
         }),
       ]).start()
       previousPulseKeysRef.current = pulseKeys
+    } else if (hasChanged) {
+      statusTransitionAnim.setValue(1)
+      previousPulseKeysRef.current = pulseKeys
     }
-  }, [pulseKeys, gitState, statusTransitionAnim])
+  }, [gitState, prefersReducedMotion, pulseKeys, statusTransitionAnim])
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      pulseRefs.current.forEach((value) => value.loop.stop())
+      pulseRefs.current.clear()
+      return
+    }
+
     pulseKeys.forEach((key) => {
       if (!pulseRefs.current.has(key)) {
         const opacityAnim = new Animated.Value(1)
@@ -128,7 +137,7 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
       value.loop.stop()
       pulseRefs.current.delete(key)
     })
-  }, [pulseKeys])
+  }, [prefersReducedMotion, pulseKeys])
 
   useEffect(() => {
     return () => {

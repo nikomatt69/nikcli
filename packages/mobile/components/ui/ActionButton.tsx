@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { ActivityIndicator, Animated, Pressable, Text, type PressableProps } from "react-native"
 import { cn } from "@/lib/cn"
+import { usePressAnimation } from "@/lib/animation"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 type ActionButtonProps = PressableProps & {
@@ -25,15 +26,9 @@ export function ActionButton({
   ...props
 }: ActionButtonProps) {
   const { palette } = useAppTheme()
-  const scale = useRef(new Animated.Value(1)).current
+  const { scale, onPressIn, onPressOut } = usePressAnimation()
   const [pressed, setPressed] = useState(false)
   const inactive = Boolean(disabled || loading)
-
-  useEffect(() => {
-    return () => {
-      scale.stopAnimation()
-    }
-  }, [scale])
 
   const tone =
     variant === "secondary"
@@ -63,22 +58,23 @@ export function ActionButton({
   function handlePressIn(e: Parameters<NonNullable<PressableProps["onPressIn"]>>[0]) {
     if (!disabled && !loading) {
       setPressed(true)
-      scale.stopAnimation()
-      Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
+      onPressIn()
     }
     externalPressIn?.(e)
   }
 
   function handlePressOut(e: Parameters<NonNullable<PressableProps["onPressOut"]>>[0]) {
     setPressed(false)
-    scale.stopAnimation()
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start()
+    onPressOut()
     externalPressOut?.(e)
   }
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: inactive, busy: Boolean(loading) }}
         disabled={disabled || loading}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -102,7 +98,7 @@ export function ActionButton({
               textAlign: "center",
               fontSize: 15,
               fontWeight: "600",
-              letterSpacing: -0.1,
+              letterSpacing: 0,
             }}
           >
             {label}

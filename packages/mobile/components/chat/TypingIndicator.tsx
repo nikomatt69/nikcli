@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import { Animated, Text, View } from "react-native"
+import { usePrefersReducedMotion } from "@/lib/animation"
 import { useAppTheme } from "@/lib/theme"
 
 interface TypingIndicatorProps {
@@ -11,6 +12,7 @@ const EMPTY_USERS: NonNullable<TypingIndicatorProps["users"]> = []
 
 export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: TypingIndicatorProps) {
   const { isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const dot1Ref = useRef<Animated.Value | null>(null)
   if (dot1Ref.current === null) dot1Ref.current = new Animated.Value(0)
   const dot1 = dot1Ref.current
@@ -22,6 +24,13 @@ export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: Typin
   const dot3 = dot3Ref.current
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      dot1.setValue(0.62)
+      dot2.setValue(0.62)
+      dot3.setValue(0.62)
+      return undefined
+    }
+
     const makeDotAnim = (val: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
@@ -35,7 +44,7 @@ export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: Typin
     const anim = Animated.parallel([makeDotAnim(dot1, 0), makeDotAnim(dot2, 160), makeDotAnim(dot3, 320)])
     anim.start()
     return () => anim.stop()
-  }, [dot1, dot2, dot3])
+  }, [dot1, dot2, dot3, prefersReducedMotion])
 
   const bubbleBg = isDark ? "#2C2C2E" : "#E9E9EB"
   const dotColor = isDark ? "#8E8E93" : "#8E8E93"
@@ -54,7 +63,12 @@ export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: Typin
   const dots = [dot1, dot2, dot3]
 
   return (
-    <View className="mb-2 items-start pl-4">
+    <View
+      className="mb-2 items-start pl-4"
+      accessible
+      accessibilityLabel={text}
+      accessibilityLiveRegion="polite"
+    >
       <View className="flex-row items-center gap-3 rounded-2xl px-4 py-3" style={{ backgroundColor: bubbleBg }}>
         <View className="flex-row items-center gap-1">
           {dots.map((anim, i) => (
@@ -66,7 +80,9 @@ export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: Typin
                 opacity: anim,
                 transform: [
                   {
-                    translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }),
+                    translateY: prefersReducedMotion
+                      ? 0
+                      : anim.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }),
                   },
                 ],
               }}

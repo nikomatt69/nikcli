@@ -19,9 +19,9 @@ export default function MoreScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <View className="gap-4">
-        <ScreenBrandHeader title="More" />
+        <ScreenBrandHeader title="Tools" />
         <Text className="px-1 text-[13px] leading-[19px] text-soft">
-          Less-used tools and configuration for this workspace.
+          Automation and configuration for this workspace.
         </Text>
 
         <View

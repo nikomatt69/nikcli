@@ -1,10 +1,15 @@
 import * as Linking from "expo-linking"
-import * as LiveActivity from "expo-live-activity"
 import * as Notifications from "expo-notifications"
 import { AppState, Platform } from "react-native"
 import { getLiveActivityRegistry, setLiveActivityRegistry } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
-import type { SessionDetail } from "@/lib/types"
+import type { SessionDetail, ToolPart } from "@/lib/types"
+import {
+  getSessionLiveActivityInstances,
+  startSessionLiveActivity,
+  type SessionLiveActivityHandle,
+  type SessionLiveActivityProps,
+} from "@/widgets/session-live-activity"
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -19,15 +24,12 @@ Notifications.setNotificationHandler({
 const recentNotifications = new Map<string, number>()
 const MAX_DEDUPE_ENTRIES = 200
 const MOBILE_CHANNEL_ID = "nikcli-mobile"
-const liveActivityIDs = new Map<string, string>()
+const liveActivitySessions = new Set<string>()
+const liveActivityInstances = new Map<string, SessionLiveActivityHandle>()
 const liveActivitySignatures = new Map<string, string>()
-const liveActivitySessionsByID = new Map<string, string>()
 
-let liveActivityListenerBound = false
 let lastHandledNotificationResponseKey: string | null = null
 let liveActivityRegistryPromise: Promise<void> | null = null
-let liveActivityUnavailable = false
-const hydratedLiveActivitySessions = new Set<string>()
 
 function canNotify(kind: "sessionReady" | "permissions" | "failures") {
   const prefs = useUIStore.getState().notifications
@@ -38,7 +40,7 @@ function canNotify(kind: "sessionReady" | "permissions" | "failures") {
 }
 
 function canManageLiveActivities() {
-  if (liveActivityUnavailable || Platform.OS !== "ios") return false
+  if (Platform.OS !== "ios") return false
 
   const version = typeof Platform.Version === "string" ? Number.parseFloat(Platform.Version) : Number(Platform.Version)
   return Number.isFinite(version) && version >= 16.2
@@ -48,38 +50,52 @@ async function ensureLiveActivityRegistryLoaded() {
   if (!canManageLiveActivities()) return
   if (liveActivityRegistryPromise) return liveActivityRegistryPromise
 
-  liveActivityRegistryPromise = getLiveActivityRegistry()
-    .then((registry) => {
-      for (const [sessionID, activityID] of Object.entries(registry)) {
-        liveActivityIDs.set(sessionID, activityID)
-        liveActivitySessionsByID.set(activityID, sessionID)
-        hydratedLiveActivitySessions.add(sessionID)
-      }
-    })
+  liveActivityRegistryPromise = (async () => {
+    const registry = await getLiveActivityRegistry().catch(() => ({}))
+    for (const sessionID of Object.keys(registry)) {
+      liveActivitySessions.add(sessionID)
+    }
+
+    // expo-widgets deliberately hides native ActivityKit identifiers. End orphaned
+    // instances after a process restart, then rebuild them from the persisted session
+    // registry so every JavaScript handle remains mapped to the correct session.
+    const recovered = getSessionLiveActivityInstances()
+    await Promise.all(
+      recovered.map(async (instance) => {
+        try {
+          await instance.end("immediate")
+        } catch {
+          // The activity may already have been dismissed by the user.
+        }
+      }),
+    )
+  })()
     .catch(() => undefined)
+    .then(() => undefined)
 
   return liveActivityRegistryPromise
 }
 
 async function persistLiveActivityRegistry() {
-  await setLiveActivityRegistry(Object.fromEntries(liveActivityIDs.entries())).catch(() => undefined)
+  await setLiveActivityRegistry(
+    Object.fromEntries(Array.from(liveActivitySessions, (sessionID) => [sessionID, "expo-widgets"])),
+  ).catch(() => undefined)
 }
 
-async function purgeSessionLiveActivity(sessionID: string, title = "Nikcli session", subtitle = "Session unavailable") {
-  const activityID = liveActivityIDs.get(sessionID)
+async function purgeSessionLiveActivity(sessionID: string) {
+  const instance = liveActivityInstances.get(sessionID)
 
-  if (activityID && canManageLiveActivities()) {
+  if (instance && canManageLiveActivities()) {
     try {
-      await LiveActivity.stopActivity(activityID, buildLiveActivityState({ title, subtitle }))
+      await instance.end("immediate")
     } catch {
-      // ignore stop failures during forced cleanup
+      // Ignore cleanup failures for activities already dismissed by the user.
     }
   }
 
-  liveActivityIDs.delete(sessionID)
+  liveActivityInstances.delete(sessionID)
+  liveActivitySessions.delete(sessionID)
   liveActivitySignatures.delete(sessionID)
-  hydratedLiveActivitySessions.delete(sessionID)
-  if (activityID) liveActivitySessionsByID.delete(activityID)
   await persistLiveActivityRegistry()
 }
 
@@ -99,11 +115,21 @@ function sessionRoute(sessionID: string) {
   return `/sessions/${sessionID}`
 }
 
-function sessionDeepLink(sessionID: string) {
+type SessionDeepLinkAction = "review" | "approveOnce" | "stop"
+
+function sessionDeepLink(sessionID: string, action?: SessionDeepLinkAction, requestID?: string) {
+  const queryParams = action
+    ? {
+        liveAction: action,
+        ...(requestID ? { requestID } : {}),
+      }
+    : undefined
+
   try {
-    return Linking.createURL(sessionRoute(sessionID))
+    return Linking.createURL(sessionRoute(sessionID), queryParams ? { queryParams } : undefined)
   } catch {
-    return `nikcli://sessions/${sessionID}`
+    const query = queryParams ? `?${new URLSearchParams(queryParams).toString()}` : ""
+    return `nikcli://sessions/${encodeURIComponent(sessionID)}${query}`
   }
 }
 
@@ -116,11 +142,90 @@ export function compactActivityText(value: string | null | undefined, limit = 72
 }
 
 export type SessionLiveActivitySnapshot =
-  | { mode: "upsert"; title: string; subtitle?: string; countdownTo?: number }
+  | { mode: "upsert"; activity: SessionLiveActivityProps }
   | { mode: "stop"; title: string; subtitle?: string }
 
+function readableActivityLabel(value: string | null | undefined, fallback: string) {
+  const normalized = compactActivityText(value, 56)
+  if (!normalized) return fallback
+  return normalized
+    .replace(/^mcp[_:-]+/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (character) => character.toUpperCase())
+}
+
+function latestRunningTool(detail: SessionDetail) {
+  for (let messageIndex = detail.messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const parts = detail.messages[messageIndex]?.parts ?? []
+    for (let partIndex = parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = parts[partIndex]
+      if (part?.type !== "tool") continue
+      const tool = part as ToolPart
+      if (tool.state.status === "running") return tool
+    }
+  }
+  return null
+}
+
+function sessionStartedAt(detail: SessionDetail, runningTool: ToolPart | null) {
+  if (runningTool?.state.status === "running") return runningTool.state.time.start
+
+  for (let index = detail.messages.length - 1; index >= 0; index -= 1) {
+    const message = detail.messages[index]?.info
+    if (message?.role === "assistant" && !message.time.completed) return message.time.created
+  }
+
+  return detail.info.time.updated || detail.info.time.created
+}
+
+function sessionActivityContext(detail: SessionDetail) {
+  const github = detail.info.github
+  const normalizedDirectory = detail.info.directory.replace(/\/+$/, "")
+  const directoryName = normalizedDirectory.split("/").pop() || "workspace"
+
+  return {
+    repository: compactActivityText(github?.repo || directoryName, 28),
+    branch: compactActivityText(github?.worktree.branch || github?.headBranch || "local workspace", 52),
+  }
+}
+
+function activityProps(
+  detail: SessionDetail,
+  input: {
+    status: string
+    action: string
+    startedAt: number
+    timerEndsAt?: number
+    attention?: boolean
+    permissionID?: string
+    canStop?: boolean
+  },
+): SessionLiveActivityProps {
+  const context = sessionActivityContext(detail)
+  const reviewURL = sessionDeepLink(detail.info.id, "review", input.permissionID)
+
+  return {
+    sessionID: detail.info.id,
+    status: input.status,
+    action: compactActivityText(input.action, 72),
+    repository: context.repository,
+    branch: context.branch,
+    startedAt: input.startedAt,
+    ...(input.timerEndsAt ? { timerEndsAt: input.timerEndsAt } : {}),
+    attention: input.attention === true,
+    reviewURL,
+    ...(input.permissionID
+      ? { approveURL: sessionDeepLink(detail.info.id, "approveOnce", input.permissionID) }
+      : {}),
+    ...(input.canStop ? { stopURL: sessionDeepLink(detail.info.id, "stop") } : {}),
+  }
+}
+
 /**
- * Single source of truth for Live Activity title/subtitle/countdown from session detail.
+ * Single source of truth for every Lock Screen and Dynamic Island presentation.
  * Optional `publishing` / `cleaning` mirror transient UI state on the session screen.
  */
 export function buildSessionLiveActivitySnapshot(
@@ -128,40 +233,97 @@ export function buildSessionLiveActivitySnapshot(
   overlays?: { publishing?: boolean; cleaning?: boolean },
 ): SessionLiveActivitySnapshot | null {
   const title = compactActivityText(detail.info.title || "Nikcli session", 64)
+  const runningTool = latestRunningTool(detail)
+  const startedAt = sessionStartedAt(detail, runningTool)
 
   if (overlays?.publishing) {
-    return { mode: "upsert", title, subtitle: "Publishing GitHub workflow" }
+    return {
+      mode: "upsert",
+      activity: activityProps(detail, {
+        status: "Publishing",
+        action: "Publishing GitHub workflow",
+        startedAt,
+      }),
+    }
   }
 
   if (overlays?.cleaning) {
-    return { mode: "upsert", title, subtitle: "Cleaning GitHub worktree" }
+    return {
+      mode: "upsert",
+      activity: activityProps(detail, {
+        status: "Cleaning",
+        action: "Cleaning GitHub worktree",
+        startedAt,
+      }),
+    }
   }
 
   if (detail.permissions.length > 0) {
-    const firstPermission = compactActivityText(detail.permissions[0]?.permission || "Approval needed", 54)
-    const subtitle =
+    const firstPermission = detail.permissions[0]
+    const action =
       detail.permissions.length === 1
-        ? `Approval needed: ${firstPermission}`
+        ? readableActivityLabel(firstPermission?.permission, "Review approval")
         : `${detail.permissions.length} approvals pending`
 
-    return { mode: "upsert", title, subtitle }
+    return {
+      mode: "upsert",
+      activity: activityProps(detail, {
+        status: "Approval needed",
+        action,
+        startedAt,
+        attention: true,
+        permissionID: firstPermission?.id,
+      }),
+    }
+  }
+
+  if (detail.questions.length > 0) {
+    const firstQuestion = detail.questions[0]
+    const action =
+      detail.questions.length === 1
+        ? firstQuestion?.questions[0]?.question || "Review question"
+        : `${detail.questions.length} questions pending`
+
+    return {
+      mode: "upsert",
+      activity: activityProps(detail, {
+        status: "Response needed",
+        action,
+        startedAt,
+        attention: true,
+      }),
+    }
   }
 
   if (detail.status?.type === "retry") {
     return {
       mode: "upsert",
-      title,
-      subtitle: compactActivityText(`Retry ${detail.status.attempt}: ${detail.status.message}`, 72),
-      countdownTo: detail.status.next,
+      activity: activityProps(detail, {
+        status: `Retry ${detail.status.attempt}`,
+        action: detail.status.message,
+        startedAt,
+        timerEndsAt: detail.status.next,
+        attention: true,
+        canStop: true,
+      }),
     }
   }
 
   if (detail.status?.type === "busy") {
-    const workspace = compactActivityText(
-      detail.info.github?.fullName || detail.info.directory || "Running session",
-      72,
-    )
-    return { mode: "upsert", title, subtitle: workspace }
+    const action =
+      runningTool?.state.status === "running"
+        ? runningTool.state.title || readableActivityLabel(runningTool.tool, "Working")
+        : "Working on your request"
+
+    return {
+      mode: "upsert",
+      activity: activityProps(detail, {
+        status: "Working",
+        action,
+        startedAt,
+        canStop: true,
+      }),
+    }
   }
 
   if (detail.status?.type === "idle") {
@@ -170,98 +332,6 @@ export function buildSessionLiveActivitySnapshot(
   }
 
   return null
-}
-
-function buildLiveActivityState(input: {
-  title: string
-  subtitle?: string
-  countdownTo?: number
-  progress?: number
-}): LiveActivity.LiveActivityState {
-  return {
-    title: input.title,
-    ...(input.subtitle ? { subtitle: input.subtitle } : {}),
-    ...(typeof input.countdownTo === "number"
-      ? { progressBar: { date: input.countdownTo } }
-      : typeof input.progress === "number"
-        ? { progressBar: { progress: input.progress } }
-        : {}),
-  }
-}
-
-type LiveActivityStartTone = "attention" | "countdown" | "editorial" | "work"
-
-function deriveLiveActivityStartTone(payload: {
-  subtitle?: string
-  countdownTo?: number
-  progress?: number
-}): LiveActivityStartTone {
-  if (typeof payload.countdownTo === "number") return "countdown"
-  const raw = (payload.subtitle ?? "").trim()
-  const lower = raw.toLowerCase()
-  if (lower.startsWith("approval needed:")) return "attention"
-  if (/^\d+\s+approvals?\s+pending\.?$/i.test(raw)) return "attention"
-  if (lower === "publishing github workflow" || lower === "cleaning github worktree") return "editorial"
-  return "work"
-}
-
-/** Cosmetic attributes baked in at Activity request time (updates keep the frozen palette until the Activity ends). */
-const LIVE_ACTIVITY_PRESENTATION: Record<
-  LiveActivityStartTone,
-  Pick<
-    LiveActivity.LiveActivityConfig,
-    "backgroundColor" | "titleColor" | "subtitleColor" | "progressViewTint" | "progressViewLabelColor"
-  >
-> = {
-  attention: {
-    backgroundColor: "#29140f",
-    titleColor: "#fff5eb",
-    subtitleColor: "#ffc48a",
-    progressViewTint: "#fb923c",
-    progressViewLabelColor: "#fff1dc",
-  },
-  countdown: {
-    backgroundColor: "#0f172a",
-    titleColor: "#f8fafc",
-    subtitleColor: "#7dd3fc",
-    progressViewTint: "#38bdf8",
-    progressViewLabelColor: "#e0f2fe",
-  },
-  editorial: {
-    backgroundColor: "#141927",
-    titleColor: "#f4f6ff",
-    subtitleColor: "#a7b9da",
-    progressViewTint: "#818cf8",
-    progressViewLabelColor: "#e3e9ff",
-  },
-  work: {
-    backgroundColor: "#071816",
-    titleColor: "#ecfeff",
-    subtitleColor: "#5eead4",
-    progressViewTint: "#2dd4bf",
-    progressViewLabelColor: "#ccfbf1",
-  },
-}
-
-function bindLiveActivityListener() {
-  if (liveActivityListenerBound || !canManageLiveActivities()) return
-
-  try {
-    LiveActivity.addActivityUpdatesListener((event) => {
-      if (event.activityState !== "dismissed" && event.activityState !== "ended") return
-
-      const sessionID = liveActivitySessionsByID.get(event.activityID)
-      if (!sessionID) return
-
-      liveActivityIDs.delete(sessionID)
-      liveActivitySignatures.delete(sessionID)
-      liveActivitySessionsByID.delete(event.activityID)
-      void persistLiveActivityRegistry()
-    })
-    liveActivityListenerBound = true
-  } catch {
-    liveActivityUnavailable = true
-  }
 }
 
 function consumeNotificationHref(response?: Notifications.NotificationResponse | null) {
@@ -364,70 +434,34 @@ export function addNotificationNavigationListener(onNavigate: (href: string) => 
   }
 }
 
-export async function upsertSessionLiveActivity(input: {
-  sessionID: string
-  title: string
-  subtitle?: string
-  countdownTo?: number
-  progress?: number
-}) {
+export async function upsertSessionLiveActivity(input: { sessionID: string; activity: SessionLiveActivityProps }) {
   if (!canManageLiveActivities()) return false
 
   await ensureLiveActivityRegistryLoaded()
-  bindLiveActivityListener()
   if (!canManageLiveActivities()) return false
 
-  const tone = deriveLiveActivityStartTone({
-    subtitle: input.subtitle,
-    countdownTo: input.countdownTo,
-    progress: input.progress,
-  })
-  const presentation = LIVE_ACTIVITY_PRESENTATION[tone]
-
-  const state = buildLiveActivityState(input)
-  const signaturePayload = {
-    tone,
-    state,
-  }
-  const signature = JSON.stringify(signaturePayload)
+  const signature = JSON.stringify(input.activity)
   if (liveActivitySignatures.get(input.sessionID) === signature) return true
 
-  const activityID = liveActivityIDs.get(input.sessionID)
-  const config: LiveActivity.LiveActivityConfig = {
-    deepLinkUrl: sessionDeepLink(input.sessionID),
-    timerType: "digital",
-    ...presentation,
-  }
-
-  if (activityID) {
+  const instance = liveActivityInstances.get(input.sessionID)
+  if (instance) {
     try {
-      await LiveActivity.updateActivity(activityID, state)
-      hydratedLiveActivitySessions.delete(input.sessionID)
+      await instance.update(input.activity)
       liveActivitySignatures.set(input.sessionID, signature)
       return true
     } catch {
-      if (hydratedLiveActivitySessions.has(input.sessionID)) {
-        liveActivityIDs.delete(input.sessionID)
-        liveActivitySessionsByID.delete(activityID)
-        liveActivitySignatures.delete(input.sessionID)
-        hydratedLiveActivitySessions.delete(input.sessionID)
-        await persistLiveActivityRegistry()
-        return upsertSessionLiveActivity(input)
-      }
-
+      liveActivityInstances.delete(input.sessionID)
       liveActivitySignatures.delete(input.sessionID)
-      return false
     }
   }
 
   try {
-    const createdActivityID = LiveActivity.startActivity(state, config)
-    if (!createdActivityID) return false
+    const createdActivity = startSessionLiveActivity(input.activity, sessionDeepLink(input.sessionID, "review"))
+    if (!createdActivity) return false
 
-    liveActivityIDs.set(input.sessionID, createdActivityID)
+    liveActivityInstances.set(input.sessionID, createdActivity)
+    liveActivitySessions.add(input.sessionID)
     liveActivitySignatures.set(input.sessionID, signature)
-    liveActivitySessionsByID.set(createdActivityID, input.sessionID)
-    hydratedLiveActivitySessions.delete(input.sessionID)
     await persistLiveActivityRegistry()
     return true
   } catch {
@@ -439,20 +473,9 @@ export async function stopSessionLiveActivity(input: { sessionID: string; title:
   if (!canManageLiveActivities()) return false
 
   await ensureLiveActivityRegistryLoaded()
-  const activityID = liveActivityIDs.get(input.sessionID)
-  if (!activityID) return false
-
-  try {
-    await LiveActivity.stopActivity(activityID, buildLiveActivityState(input))
-    liveActivityIDs.delete(input.sessionID)
-    liveActivitySignatures.delete(input.sessionID)
-    liveActivitySessionsByID.delete(activityID)
-    hydratedLiveActivitySessions.delete(input.sessionID)
-    await persistLiveActivityRegistry()
-    return true
-  } catch {
-    return false
-  }
+  if (!liveActivitySessions.has(input.sessionID) && !liveActivityInstances.has(input.sessionID)) return false
+  await purgeSessionLiveActivity(input.sessionID)
+  return true
 }
 
 export async function reconcilePersistedLiveActivities(
@@ -463,7 +486,7 @@ export async function reconcilePersistedLiveActivities(
   await ensureLiveActivityRegistryLoaded()
 
   await Promise.all(
-    Array.from(liveActivityIDs.entries()).map(async ([sessionID]) => {
+    Array.from(liveActivitySessions).map(async (sessionID) => {
       const detail = await loadSession(sessionID).catch(() => null)
       if (!detail) {
         await purgeSessionLiveActivity(sessionID)
@@ -476,9 +499,7 @@ export async function reconcilePersistedLiveActivities(
       if (snapshot.mode === "upsert") {
         await upsertSessionLiveActivity({
           sessionID,
-          title: snapshot.title,
-          subtitle: snapshot.subtitle,
-          countdownTo: snapshot.countdownTo,
+          activity: snapshot.activity,
         })
         return
       }

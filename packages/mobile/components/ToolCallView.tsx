@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native"
 import type { ToolPart } from "@/lib/types"
+import { usePrefersReducedMotion } from "@/lib/animation"
 import { useAppTheme } from "@/lib/theme"
 
 function toolIcon(toolName: string): LucideIcon {
@@ -52,6 +53,7 @@ function stringifyValue(value: unknown): string {
 
 export function ToolCallView(props: { part: ToolPart }) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const [open, setOpen] = useState(false)
   const [showAllOutput, setShowAllOutput] = useState(false)
   const [copiedOutput, setCopiedOutput] = useState(false)
@@ -63,7 +65,7 @@ export function ToolCallView(props: { part: ToolPart }) {
   const pulseAnim = pulseAnimRef.current
 
   useEffect(() => {
-    if (status !== "running") {
+    if (status !== "running" || prefersReducedMotion) {
       pulseAnim.setValue(1)
       return
     }
@@ -75,15 +77,17 @@ export function ToolCallView(props: { part: ToolPart }) {
     )
     animation.start()
     return () => animation.stop()
-  }, [status, pulseAnim])
+  }, [prefersReducedMotion, pulseAnim, status])
 
   function toggle() {
-    LayoutAnimation.configureNext({
-      duration: 240,
-      create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
-      update: { type: LayoutAnimation.Types.spring, springDamping: 0.8, duration: 240 },
-      delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
-    })
+    if (!prefersReducedMotion) {
+      LayoutAnimation.configureNext({
+        duration: 240,
+        create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
+        update: { type: LayoutAnimation.Types.spring, springDamping: 1, duration: 240 },
+        delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
+      })
+    }
     setOpen((value) => !value)
   }
 

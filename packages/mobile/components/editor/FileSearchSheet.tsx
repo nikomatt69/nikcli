@@ -18,7 +18,7 @@ import { useAppTheme } from "@/lib/theme"
 import type { SearchMatch } from "@/lib/types"
 import { triggerHaptic } from "@/lib/haptics"
 import { AdaptiveBlur } from "@/components/GlassView"
-import { SPRING_CONFIG } from "@/lib/animation"
+import { SPRING_CONFIG, SPRING_SETTLE, usePrefersReducedMotion } from "@/lib/animation"
 import * as SecureStore from "expo-secure-store"
 
 const RECENT_SEARCHES_KEY = "file_search_recent"
@@ -216,6 +216,7 @@ export function FileSearchSheet(props: {
   onSelect(file: string, line: number): void
 }) {
   const { palette, isDark } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const { client } = useServer()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
@@ -239,14 +240,20 @@ export function FileSearchSheet(props: {
 
   useEffect(() => {
     if (props.visible) {
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 220, mass: 0.95, useNativeDriver: true }),
-        Animated.spring(sheetScale, { toValue: 1, damping: 20, stiffness: 240, mass: 0.8, useNativeDriver: true }),
-      ]).start()
-      const focusTimer = setTimeout(() => inputRef.current?.focus(), 200)
+      if (prefersReducedMotion) {
+        opacity.setValue(1)
+        translateY.setValue(0)
+        sheetScale.setValue(1)
+      } else {
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, ...SPRING_SETTLE }),
+          Animated.spring(sheetScale, { toValue: 1, ...SPRING_SETTLE }),
+        ]).start()
+      }
+      const focusFrame = requestAnimationFrame(() => inputRef.current?.focus())
       void loadRecentSearches()
-      return () => clearTimeout(focusTimer)
+      return () => cancelAnimationFrame(focusFrame)
     } else {
       opacity.setValue(0)
       translateY.setValue(40)
@@ -262,7 +269,7 @@ export function FileSearchSheet(props: {
       setResults([])
     }
     return undefined
-  }, [props.visible, opacity, translateY, sheetScale])
+  }, [opacity, prefersReducedMotion, props.visible, sheetScale, translateY])
 
   async function loadRecentSearches() {
     try {
