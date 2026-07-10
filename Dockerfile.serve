@@ -130,7 +130,7 @@ ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
 EXPOSE 4096 2222
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -s -o /dev/null "http://127.0.0.1:${PORT:-4096}/" || exit 1
+    CMD curl -fsS -o /dev/null "http://127.0.0.1:${PORT:-4096}/global/health" || exit 1
 
 ENTRYPOINT ["/usr/local/bin/nikcli-railway-entrypoint"]
 

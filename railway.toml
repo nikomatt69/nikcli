@@ -1,5 +1,9 @@
 [build]
 dockerfilePath = "Dockerfile.serve"
 
+[deploy]
+healthcheckPath = "/global/health"
+healthcheckTimeout = 300
+
 [[volumes]]
 mountPath = "/data"
