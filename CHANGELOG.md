@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.150.0 (July 2026)
+
+## Core
+
+- Update dependencies and enhance mobile pairing functionality (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): update dependencies and enhance mobile pairing functionality
+
 ## v1.143.0 (July 2026)
 
 ## Core
