@@ -2,7 +2,7 @@ FROM oven/bun:1
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates git ripgrep && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates git openssh-server ripgrep && rm -rf /var/lib/apt/lists/*
 
 # Copy root workspace files
 COPY package.json bun.lock ./
@@ -42,10 +42,25 @@ COPY github github
 ENV NIKCLI_CHANNEL=latest
 ENV NIKCLI_VERSION=0.0.7
 ENV XDG_DATA_HOME=/data
+ENV XDG_CACHE_HOME=/data/cache
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
     set -- dist/*-linux-*/bin/nikcli && cp "$1" /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
+
+COPY packages/nikcli/scripts/railway-entrypoint.sh /usr/local/bin/nikcli-railway-entrypoint
+RUN chmod +x /usr/local/bin/nikcli-railway-entrypoint
+
+ENV NIKCLI_SERVER_SSH_ENABLED=true
+ENV NIKCLI_SERVER_SSH_PORT=2222
+ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
+# Configure one of these Railway variables to enable key-only SSH:
+# NIKCLI_SSH_AUTHORIZED_KEYS="ssh-ed25519 AAAA..."
+# NIKCLI_SSH_AUTHORIZED_KEYS_B64="<base64 authorized_keys>"
+
+EXPOSE 4096 2222
+
+ENTRYPOINT ["/usr/local/bin/nikcli-railway-entrypoint"]
 
 # Default to the mobile host without auto-pairing
 CMD ["nikcli", "mobile", "serve", "--hostname", "0.0.0.0", "--port", "4096"]

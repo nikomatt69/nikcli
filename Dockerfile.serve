@@ -108,10 +108,9 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 # "exec: nikcli: not found" at container startup.
 RUN nikcli --version
 
-RUN mkdir -p /var/run/sshd /data /data/config /data/state && \
-    ssh-keygen -A && \
-    chmod 0755 /var/run/sshd && \
-    chmod 0644 /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ed25519_key
+COPY packages/nikcli/scripts/railway-entrypoint.sh /usr/local/bin/nikcli-railway-entrypoint
+RUN chmod +x /usr/local/bin/nikcli-railway-entrypoint && \
+    mkdir -p /data/nikcli /data/cache /data/config /data/state
 
 ENV PORT=4096
 ENV XDG_DATA_HOME=/data
@@ -122,7 +121,9 @@ ENV NIKCLI_SERVER_USERNAME=nikcli
 ENV NIKCLI_SERVER_SSH_ENABLED=true
 ENV NIKCLI_SERVER_SSH_PORT=2222
 ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
-ENV NIKCLI_TERMINAL=1
+# Configure one of these Railway variables to enable key-only SSH:
+# NIKCLI_SSH_AUTHORIZED_KEYS="ssh-ed25519 AAAA..."
+# NIKCLI_SSH_AUTHORIZED_KEYS_B64="<base64 authorized_keys>"
 # Comma-separated list of extra origins to allow for CORS (e.g. your web domain)
 # Set NIKCLI_SERVER_CORS_ORIGINS=https://yourdomain.com in Railway environment variables
 
@@ -131,4 +132,6 @@ EXPOSE 4096 2222
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -s -o /dev/null "http://127.0.0.1:${PORT:-4096}/" || exit 1
 
-CMD ["sh", "-c", "mkdir -p /data/nikcli /data/cache /data/config /data/state && if [ -n \"$NIKCLI_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_AUTH_JSON\" | base64 -d > /data/nikcli/auth.json; fi && if [ -n \"$NIKCLI_CONNECTORS_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_CONNECTORS_AUTH_JSON\" | base64 -d > /data/nikcli/connectors-auth.json; fi && exec nikcli mobile serve --hostname 0.0.0.0 --port ${PORT:-4096} --pair --public-url https://${RAILWAY_PUBLIC_DOMAIN:-nikcli-mobile-production.up.railway.app}"]
+ENTRYPOINT ["/usr/local/bin/nikcli-railway-entrypoint"]
+
+CMD ["sh", "-c", "exec nikcli mobile serve --hostname 0.0.0.0 --port ${PORT:-4096} --pair --public-url https://${RAILWAY_PUBLIC_DOMAIN:-nikcli-mobile-production.up.railway.app}"]
