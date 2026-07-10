@@ -34,15 +34,18 @@ import { setTeleportTarget } from "@/lib/storage"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
 import {
+  ArtifactViewerSheet,
   SessionPreviewStrip,
   SessionPreviewSheet,
   type SessionPreview,
   type SessionProjectPanel,
 } from "@/components/session/SessionPreviewStrip"
+import { extractSessionPreviews } from "@/lib/session-artifacts"
 import { GitStatusBar } from "@/components/git/GitStatusBar"
 import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { triggerHaptic } from "@/lib/haptics"
+import { useUIStore } from "@/lib/store"
 import { sessionWorkspaceDirectory, sessionWorkspaceFallback } from "@/lib/client"
 import {
   buildSessionLiveActivitySnapshot,
@@ -51,8 +54,14 @@ import {
   stopSessionLiveActivity,
   upsertSessionLiveActivity,
 } from "@/lib/notifications"
-import { enqueueOp } from "@/lib/offline"
-import { useUIStore } from "@/lib/store"
+import { SessionQueueBanner } from "@/components/SessionQueueBanner"
+import { SessionDetailSkeleton } from "@/components/session/SessionDetailSkeleton"
+import { countOfflineQueueForSession, enqueueOp, isOfflineSendError } from "@/lib/offline"
+import {
+  countQueuedUserMessages,
+  getPendingAssistantMessageId,
+  sessionIsProcessing,
+} from "@/lib/session-queue"
 import { useAppTheme } from "@/lib/theme"
 import {
   type CommandInfo,
@@ -130,117 +139,6 @@ function messagePlainText(message: MessageWithParts) {
   return ""
 }
 
-const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`)\]}]+/gi
-
-/** Hosts that appear in chat but are never the user's running app preview. */
-const PREVIEW_HOST_BLOCK_SUFFIXES = [
-  "github.com",
-  "gist.github.com",
-  "gitlab.com",
-  "bitbucket.org",
-  "npmjs.com",
-  "yarnpkg.com",
-  "jsdelivr.net",
-  "unpkg.com",
-  "raw.githubusercontent.com",
-  "developer.mozilla.org",
-  "mdn.io",
-  "mozilla.org",
-  "stackoverflow.com",
-  "reddit.com",
-  "medium.com",
-  "wikipedia.org",
-  "google.com",
-  "youtube.com",
-  "twitter.com",
-  "x.com",
-  "react.dev",
-  "nextjs.org",
-  "expo.dev",
-]
-
-function trimPreviewRawUrl(raw: string) {
-  return raw.replace(/[.,;:]+$/, "")
-}
-
-function isBlockedPreviewDocumentationHost(hostname: string): boolean {
-  const h = hostname.toLowerCase()
-  return PREVIEW_HOST_BLOCK_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`))
-}
-
-function isLoopbackPreviewHost(hostname: string): boolean {
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "")
-  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h === "::1"
-}
-
-function isPrivateOrLanPreviewHost(hostname: string): boolean {
-  const h = hostname.toLowerCase()
-  if (h.endsWith(".local")) return true
-  if (h.startsWith("10.")) return true
-  if (h.startsWith("192.168.")) return true
-  const m = /^172\.(\d+)\./.exec(h)
-  if (m) {
-    const n = Number(m[1])
-    if (n >= 16 && n <= 31) return true
-  }
-  return false
-}
-
-function serverPreviewHostname(serverUrl: string | undefined): string | null {
-  if (!serverUrl) return null
-  try {
-    return new URL(serverUrl).hostname.toLowerCase()
-  } catch {
-    return null
-  }
-}
-
-/** Public tunnel hostnames — dev server exposed to the device, not generic docs. */
-const PREVIEW_TUNNEL_SUFFIXES = [
-  ".exp.direct",
-  ".ngrok.io",
-  ".ngrok-free.app",
-  ".loca.lt",
-  ".localtunnel.me",
-  ".trycloudflare.com",
-]
-
-function isLikelyDevPreviewTunnel(hostname: string): boolean {
-  const h = hostname.toLowerCase()
-  return PREVIEW_TUNNEL_SUFFIXES.some((suffix) => h.endsWith(suffix))
-}
-
-/**
- * Keep only URLs that plausibly point at the app's dev server for this session:
- * loopback in the original link, same host as the nikcli server (incl. rewritten localhost), LAN, or dev tunnels.
- */
-function isSessionWorkspacePreviewUrl(raw: string, normalized: string, serverUrl?: string): boolean {
-  let rawParsed: URL
-  let normParsed: URL
-  try {
-    rawParsed = new URL(trimPreviewRawUrl(raw))
-    normParsed = new URL(normalized)
-  } catch {
-    return false
-  }
-
-  const rawHost = rawParsed.hostname.toLowerCase()
-  const normHost = normParsed.hostname.toLowerCase()
-
-  if (isBlockedPreviewDocumentationHost(rawHost) || isBlockedPreviewDocumentationHost(normHost)) return false
-
-  if (isLoopbackPreviewHost(rawHost)) return true
-
-  const serverHost = serverPreviewHostname(serverUrl)
-  if (serverHost && normHost === serverHost) return true
-
-  if (isPrivateOrLanPreviewHost(normHost)) return true
-
-  if (isLikelyDevPreviewTunnel(normHost)) return true
-
-  return false
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
@@ -248,57 +146,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function asToolState(value: unknown): ToolState | null {
   if (!isRecord(value) || typeof value.status !== "string") return null
   return value as ToolState
-}
-
-function toolPreviewText(part: MessageWithParts["parts"][number]) {
-  if (part.type !== "tool") return ""
-  const state = asToolState(part.state)
-  if (state?.status !== "completed") return ""
-  return `${state.title ?? ""}\n${state.output}`
-}
-
-function normalizePreviewUrl(raw: string, serverUrl?: string) {
-  try {
-    const url = new URL(trimPreviewRawUrl(raw))
-    if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname) && serverUrl) {
-      const host = new URL(serverUrl)
-      url.hostname = host.hostname
-      url.protocol = host.protocol
-    }
-    return url.toString()
-  } catch {
-    return null
-  }
-}
-
-function previewSource(url: string): SessionPreview["source"] {
-  try {
-    const parsed = new URL(url)
-    return parsed.port || ["localhost", "127.0.0.1", "0.0.0.0"].includes(parsed.hostname) ? "local" : "web"
-  } catch {
-    return "web"
-  }
-}
-
-function extractSessionPreviews(messages: MessageWithParts[], serverUrl?: string): SessionPreview[] {
-  const seen = new Set<string>()
-  const previews: SessionPreview[] = []
-
-  for (const message of messages) {
-    for (const part of message.parts) {
-      const text = part.type === "text" && typeof part.text === "string" ? part.text : toolPreviewText(part)
-
-      for (const match of text.matchAll(URL_PATTERN)) {
-        const url = normalizePreviewUrl(match[0], serverUrl)
-        if (!url || seen.has(url)) continue
-        if (!isSessionWorkspacePreviewUrl(match[0], url, serverUrl)) continue
-        seen.add(url)
-        previews.push({ id: `${message.info.id}:${previews.length}`, url, source: previewSource(url) })
-      }
-    }
-  }
-
-  return previews
 }
 
 function formatAttachmentSize(base64: string) {
@@ -319,6 +166,7 @@ export default function SessionScreen() {
   const { client, config, save } = useServer()
   const composerPreferences = useUIStore((state) => state.composer)
   const promptPresets = useUIStore((state) => state.promptPresets)
+  const offlineQueueRevision = useUIStore((state) => state.offlineQueueRevision)
   const listRef = useRef<FlashListRef<MessageWithParts>>(null)
   const statusRef = useRef<SessionDetail["status"]>(undefined)
   const permissionIDsRef = useRef<Set<string>>(new Set())
@@ -335,6 +183,7 @@ export default function SessionScreen() {
   const [publishing, setPublishing] = useState(false)
   const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [offlineQueuedCount, setOfflineQueuedCount] = useState(0)
   const [diffs, setDiffs] = useState<Record<string, FileDiff[]>>({})
   const [diffLoading, setDiffLoading] = useState<Record<string, boolean>>({})
   const [diffLoaded, setDiffLoaded] = useState<Record<string, boolean>>({})
@@ -375,6 +224,16 @@ export default function SessionScreen() {
   const [mcpServers, setMcpServers] = useState<Array<{ name: string; connected: boolean; enabled: boolean }>>([])
   const actionsSheetRef = useActionSheetRef()
   const previewSheetRef = useActionSheetRef()
+  const artifactViewerRef = useActionSheetRef()
+  const [selectedArtifact, setSelectedArtifact] = useState<SessionPreview | null>(null)
+
+  const openArtifact = useCallback((preview: SessionPreview) => {
+    setSelectedArtifact(preview)
+    requestAnimationFrame(() => {
+      artifactViewerRef.current?.present()
+    })
+    void triggerHaptic("selection")
+  }, [])
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -666,15 +525,20 @@ export default function SessionScreen() {
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
+  const pendingAssistantId = useMemo(() => getPendingAssistantMessageId(messages), [messages])
+  const queuedMessageCount = useMemo(
+    () => countQueuedUserMessages(messages, pendingAssistantId),
+    [messages, pendingAssistantId],
+  )
   // FlashList recycles rows, so changes that don't come from the `data` array
   // (active highlight, lazily loaded diffs) must be signalled via `extraData`.
   const listExtraData = useMemo(
-    () => ({ activeMessageID, diffs, diffLoaded, diffLoading }),
-    [activeMessageID, diffs, diffLoaded, diffLoading],
+    () => ({ activeMessageID, diffs, diffLoaded, diffLoading, pendingAssistantId }),
+    [activeMessageID, diffs, diffLoaded, diffLoading, pendingAssistantId],
   )
   const previews = useMemo(() => extractSessionPreviews(messages, config?.url), [config?.url, messages])
   const hasUserPrompt = useMemo(() => messages.some((item) => item.info.role === "user"), [messages])
-  const sessionBlocked = detail?.status?.type === "busy" || detail?.status?.type === "retry"
+  const sessionBlocked = sessionIsProcessing(detail?.status)
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
   const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
 
@@ -985,13 +849,22 @@ export default function SessionScreen() {
       }
       void triggerHaptic("send")
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
       void triggerHaptic("error")
-      setInput(submittedInput)
-      if (submittedAttachments.length > 0) setPendingAttachments(submittedAttachments)
-      // Queue for offline delivery on next foreground
-      if (sessionId && submittedText && !submittedSlashInput) {
-        void enqueueOp({ type: "sendMessage", sessionID: sessionId, text: submittedText })
+      const offline =
+        isOfflineSendError(error) &&
+        sessionId &&
+        submittedText &&
+        !submittedSlashInput &&
+        submittedAttachments.length === 0
+      if (offline) {
+        void enqueueOp({ type: "sendMessage", sessionID: sessionId, text: submittedText }).then(() =>
+          countOfflineQueueForSession(sessionId).then(setOfflineQueuedCount),
+        )
+        setError(null)
+      } else {
+        setError(error instanceof Error ? error.message : String(error))
+        setInput(submittedInput)
+        if (submittedAttachments.length > 0) setPendingAttachments(submittedAttachments)
       }
     } finally {
       setSending(false)
@@ -1165,12 +1038,16 @@ export default function SessionScreen() {
     try {
       setPublishing(true)
       setError(null)
-      await client.publishGithubSession(sessionId, {
+      const result = await client.publishGithubSession(sessionId, {
         title: publishTitle.trim() || detail.info.github.pullRequest?.title || detail.info.title,
         body: publishBody.trim() || undefined,
         commitMessage: commitMessage.trim() || detail.info.title,
       })
       void triggerHaptic("success")
+      useUIStore.getState().showToast({
+        message: result.pullRequest?.url ? `PR #${result.pullRequest.number} published` : "Pull request published",
+        kind: "success",
+      })
       void sendLocalNotification({
         kind: "sessionReady",
         title: detail.info.title,
@@ -1395,10 +1272,15 @@ export default function SessionScreen() {
     stashEntries,
   ])
 
+  useEffect(() => {
+    if (!sessionId) return
+    void countOfflineQueueForSession(sessionId).then(setOfflineQueuedCount)
+  }, [sessionId, offlineQueueRevision])
+
   if (loading && !detail) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={palette.accent} />
+      <View className="flex-1 bg-background" style={{ paddingTop: top + 8 }}>
+        <SessionDetailSkeleton />
       </View>
     )
   }
@@ -1409,6 +1291,11 @@ export default function SessionScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
+      <SessionQueueBanner
+        processing={sessionBlocked}
+        queuedCount={queuedMessageCount}
+        offlineQueuedCount={offlineQueuedCount}
+      />
       <View className="px-4 pb-3" style={{ paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
           <Pressable
@@ -1521,6 +1408,10 @@ export default function SessionScreen() {
             onFork={reuseMessage}
             onDismiss={dismissActiveMessage}
             onActivate={activateMessage}
+            onOpenArtifact={openArtifact}
+            queued={
+              item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false
+            }
           />
         )}
         ListHeaderComponent={
@@ -1536,7 +1427,7 @@ export default function SessionScreen() {
               onCleanup={() => void cleanup()}
               onOpenGit={() => setGitReviewOpen(true)}
             />
-            <SessionPreviewStrip previews={previews} project={sessionProjectPanel} />
+            <SessionPreviewStrip previews={previews} project={sessionProjectPanel} onSelectPreview={openArtifact} />
             {detail?.permissions.length ? (
               <View className="mb-2">
                 {detail.permissions.map((item) => (
@@ -1603,6 +1494,8 @@ export default function SessionScreen() {
         slashSuggestions={slashSuggestions}
         slashLoading={commandsLoading}
         sending={sending || compacting}
+        sessionProcessing={sessionBlocked}
+        queuedMessageCount={queuedMessageCount}
         sessionBlocked={sessionBlocked}
         cleaned={cleaned}
         onOpenCommands={() => setCommandPaletteOpen(true)}
@@ -1696,7 +1589,10 @@ export default function SessionScreen() {
         title={detail?.info.title ?? "Session"}
         previews={previews}
         project={sessionProjectPanel}
+        onSelectPreview={openArtifact}
       />
+
+      <ArtifactViewerSheet ref={artifactViewerRef} preview={selectedArtifact} />
 
       <SessionRenameSheet
         visible={renameOpen}

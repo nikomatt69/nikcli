@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { AppState } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary"
+import { ToastHost } from "@/components/ui/ToastHost"
 import { ServerProvider } from "@/lib/server-provider"
 import { useServer } from "@/lib/server-context"
 import { setupOfflineDrainOnForeground } from "@/lib/offline"
@@ -177,6 +178,7 @@ function RootLayoutInner() {
             <NotificationCoordinator />
             <LiveActivityCoordinator />
             <StatusBar style={colorScheme === "light" ? "dark" : "light"} />
+            <ToastHost />
             <Stack
               screenOptions={{
                 headerStyle: { backgroundColor: palette.background },

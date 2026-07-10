@@ -10,6 +10,14 @@ import type {
   ThemeMode,
 } from "@/lib/types"
 
+export type ToastKind = "success" | "error" | "info"
+
+export type ToastEntry = {
+  id: string
+  message: string
+  kind: ToastKind
+}
+
 export interface AppShellState {
   themeMode: ThemeMode
   visibleSettingsSections: Record<SettingsSectionID, boolean>
@@ -19,6 +27,9 @@ export interface AppShellState {
   composer: ComposerPreferences
   promptPresets: PromptPreset[]
   preferencesReady: boolean
+  toasts: ToastEntry[]
+  offlineQueueCount: number
+  offlineQueueRevision: number
   hydratePreferences(preferences: AppPreferences): void
   setThemeMode(mode: ThemeMode): void
   setSettingsSectionVisible(section: SettingsSectionID, visible: boolean): void
@@ -27,6 +38,9 @@ export interface AppShellState {
   setGesturePreference<K extends keyof GesturePreferences>(key: K, value: GesturePreferences[K]): void
   setComposerPreference<K extends keyof ComposerPreferences>(key: K, value: ComposerPreferences[K]): void
   setPromptPresets(presets: PromptPreset[]): void
+  showToast(input: { message: string; kind?: ToastKind }): void
+  dismissToast(id: string): void
+  setOfflineQueueCount(count: number): void
 }
 
 const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
@@ -104,6 +118,9 @@ export const useUIStore = create<AppShellState>((set) => ({
   composer: defaultComposer,
   promptPresets: defaultPromptPresets,
   preferencesReady: false,
+  toasts: [],
+  offlineQueueCount: 0,
+  offlineQueueRevision: 0,
   hydratePreferences: (preferences) =>
     set({
       themeMode: preferences.themeMode,
@@ -167,4 +184,11 @@ export const useUIStore = create<AppShellState>((set) => ({
       },
     })),
   setPromptPresets: (presets) => set({ promptPresets: presets }),
+  showToast: (input) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const entry: ToastEntry = { id, message: input.message, kind: input.kind ?? "info" }
+    set((state) => ({ toasts: [...state.toasts, entry].slice(-3) }))
+  },
+  dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
+  setOfflineQueueCount: (count) => set({ offlineQueueCount: count }),
 }))

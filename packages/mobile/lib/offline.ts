@@ -1,6 +1,7 @@
 import { AppState } from "react-native"
 import * as SecureStore from "expo-secure-store"
 import { getMobileClient } from "./client"
+import { useUIStore } from "./store"
 
 const QUEUE_KEY = "nikcli_offline_queue"
 const MAX_ENTRIES = 50
@@ -30,20 +31,70 @@ async function writeQueue(queue: OfflineOp[]): Promise<void> {
   }
 }
 
+function syncQueueCount(queue: OfflineOp[]) {
+  useUIStore.setState((state) => ({
+    offlineQueueCount: queue.length,
+    offlineQueueRevision: state.offlineQueueRevision + 1,
+  }))
+}
+
+/** True when fetch failed because the device cannot reach the server (not HTTP/business errors). */
+export function isOfflineSendError(error: unknown): boolean {
+  if (!error) return false
+
+  if (error instanceof TypeError) {
+    const msg = error.message.toLowerCase()
+    return msg.includes("network request failed") || msg.includes("failed to fetch")
+  }
+
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    if (msg.includes("request to") && msg.includes("failed with")) return false
+    return (
+      msg.includes("network request failed") ||
+      msg.includes("failed to fetch") ||
+      msg.includes("network error") ||
+      msg.includes("timeout") ||
+      msg.includes("timed out") ||
+      msg.includes("could not connect") ||
+      msg.includes("connection refused") ||
+      msg.includes("internet connection") ||
+      msg.includes("offline")
+    )
+  }
+
+  return false
+}
+
+export async function refreshOfflineQueueCount(): Promise<number> {
+  const queue = await readQueue()
+  syncQueueCount(queue)
+  return queue.length
+}
+
+export async function countOfflineQueueForSession(sessionID: string): Promise<number> {
+  const queue = await readQueue()
+  return queue.filter((op) => op.sessionID === sessionID).length
+}
+
 export async function enqueueOp(op: OfflineOp): Promise<void> {
   const queue = await readQueue()
   queue.push(op)
-  // LRU eviction: keep last MAX_ENTRIES
   const trimmed = queue.length > MAX_ENTRIES ? queue.slice(queue.length - MAX_ENTRIES) : queue
   await writeQueue(trimmed)
+  syncQueueCount(trimmed)
 }
 
 export async function drainQueue(): Promise<void> {
   const client = await getMobileClient()
   if (!client) return
   const queue = await readQueue()
-  if (!queue.length) return
+  if (!queue.length) {
+    syncQueueCount([])
+    return
+  }
 
+  const before = queue.length
   const results = await Promise.allSettled(
     queue.map(async (op) => {
       if (op.type === "sendMessage") {
@@ -53,9 +104,20 @@ export async function drainQueue(): Promise<void> {
   )
   const remaining: OfflineOp[] = queue.filter((_, i) => results[i].status === "rejected")
   await writeQueue(remaining)
+  syncQueueCount(remaining)
+
+  const sent = before - remaining.length
+  if (sent > 0 && remaining.length === 0) {
+    useUIStore.getState().showToast({
+      message: sent === 1 ? "Queued message sent" : `${sent} queued messages sent`,
+      kind: "success",
+    })
+  }
 }
 
 export function setupOfflineDrainOnForeground(): () => void {
+  void refreshOfflineQueueCount()
+
   let draining = false
   const subscription = AppState.addEventListener("change", (state) => {
     if (state === "active" && !draining) {

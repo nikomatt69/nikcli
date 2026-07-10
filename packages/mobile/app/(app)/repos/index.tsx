@@ -53,6 +53,7 @@ export default function ReposScreen() {
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [githubError, setGithubError] = useState<string | null>(null)
   const [sandboxName, setSandboxName] = useState("")
   const [busy, setBusy] = useState(false)
   const [importingRepo, setImportingRepo] = useState<string | null>(null)
@@ -80,10 +81,16 @@ export default function ReposScreen() {
     try {
       setRefreshing(true)
       setError(null)
-      const [projectList, githubRepos] = await Promise.all([
-        client.listProjects(),
-        client.listGithubRepos().catch(() => []),
-      ])
+      setGithubError(null)
+      const projectList = await client.listProjects()
+      let githubRepos: Awaited<ReturnType<typeof client.listGithubRepos>> = []
+      try {
+        githubRepos = await client.listGithubRepos()
+      } catch (githubLoadError) {
+        setGithubError(
+          githubLoadError instanceof Error ? githubLoadError.message : String(githubLoadError),
+        )
+      }
       setProjects(projectList)
       setRepos(githubRepos)
       setBaseBranchByRepo((current) => {
@@ -336,6 +343,13 @@ export default function ReposScreen() {
             />
 
             {error ? <ErrorBanner message={error} /> : null}
+            {githubError ? (
+              <ErrorBanner
+                message={`Could not load GitHub repositories: ${githubError}`}
+                actionLabel="Open GitHub settings"
+                onAction={() => router.push("/more/settings/github")}
+              />
+            ) : null}
 
             <SurfaceCard
               eyebrow="New sandbox"
@@ -440,7 +454,7 @@ export default function ReposScreen() {
                 <EmptyState
                   title="Connect GitHub first"
                   description="Open Settings to enable OAuth or install a server token, then come back here to browse repositories and launch branch-native sessions."
-                  action={<ActionButton label="Open GitHub controls" onPress={() => router.push("/more/settings")} />}
+                  action={<ActionButton label="Open GitHub settings" onPress={() => router.push("/more/settings/github")} />}
                 />
               ) : (
                 <SurfaceCard

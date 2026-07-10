@@ -1,8 +1,12 @@
 import { AlertTriangle } from "lucide-react-native"
-import { Text, View } from "react-native"
+import { Pressable, Text, View } from "react-native"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
-export function ErrorBanner(props: { message: string }) {
+export function ErrorBanner(props: {
+  message: string
+  actionLabel?: string
+  onAction?(): void
+}) {
   const { palette } = useAppTheme()
 
   return (
@@ -23,6 +27,16 @@ export function ErrorBanner(props: { message: string }) {
           <Text selectable className="text-sm leading-5 text-soft">
             {props.message}
           </Text>
+          {props.actionLabel && props.onAction ? (
+            <Pressable
+              onPress={props.onAction}
+              accessibilityRole="button"
+              accessibilityLabel={props.actionLabel}
+              style={({ pressed }) => ({ marginTop: 8, opacity: pressed ? 0.75 : 1, alignSelf: "flex-start" })}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: palette.danger }}>{props.actionLabel}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </View>

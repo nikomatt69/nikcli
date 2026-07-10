@@ -30,6 +30,8 @@ export type SessionComposerProps = {
   }>
   slashLoading?: boolean
   sending: boolean
+  sessionProcessing?: boolean
+  queuedMessageCount?: number
   sessionBlocked: boolean
   cleaned: boolean
   onOpenCommands(): void
@@ -105,6 +107,8 @@ export function SessionComposer({
   slashSuggestions = EMPTY_SLASH_SUGGESTIONS,
   slashLoading,
   sending,
+  sessionProcessing = false,
+  queuedMessageCount = 0,
   sessionBlocked,
   cleaned,
   onOpenCommands,
@@ -137,13 +141,15 @@ export function SessionComposer({
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<ComposerTab>("tools")
 
-  const sendBlocked = sessionBlocked || cleaned || !input.trim()
+  const sendBlocked = cleaned || !input.trim()
   const sendDisabled = sending || sendBlocked
   const showSlash = input.trimStart().startsWith("/")
   const hasText = input.trim().length > 0
   const charCount = input.length
   const showCharCount = charCount > CHAR_COUNT_THRESHOLD
-  const showStatus = sessionBlocked || cleaned
+  const showProcessingBanner = sessionProcessing && !cleaned
+  const showStatus = showProcessingBanner || cleaned
+  const showStop = Boolean(onStop && (sessionProcessing || sending))
   const hasAttachments = pendingAttachments.length > 0
 
   // ── Animation values ──────────────────────────────────────────────────────
@@ -221,7 +227,7 @@ export function SessionComposer({
   }, [hasText, prefersReducedMotion, sendBlocked, sendColorAnim, sendScaleAnim])
 
   useEffect(() => {
-    if (!sending || prefersReducedMotion) {
+    if (!showStop || prefersReducedMotion) {
       stopPulse.setValue(1)
       return
     }
@@ -243,7 +249,7 @@ export function SessionComposer({
     )
     pulse.start()
     return () => pulse.stop()
-  }, [prefersReducedMotion, sending, stopPulse])
+  }, [prefersReducedMotion, showStop, stopPulse])
 
   useEffect(() => {
     if (prefersReducedMotion) {
@@ -331,6 +337,49 @@ export function SessionComposer({
       <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: "transparent" }} />
 
       {/* Status banner — glass pill, animated slide-down */}
+
+      {/* Processing / cleaned status banner */}
+      {showStatus ? (
+        <Animated.View
+          style={{
+            opacity: statusAnim,
+            transform: [{ translateY: statusTranslateY }],
+            marginHorizontal: 16,
+            marginBottom: 8,
+          }}
+        >
+          <View
+            style={{
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: cleaned
+                ? hexToRgba(palette.danger, 0.22)
+                : isDark
+                  ? "rgba(255,255,255,0.10)"
+                  : "rgba(218,216,209,0.72)",
+              backgroundColor: cleaned
+                ? hexToRgba(palette.danger, 0.08)
+                : isDark
+                  ? "rgba(255,255,255,0.045)"
+                  : "rgba(255,255,255,0.72)",
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            {cleaned ? <Lock size={14} color={palette.danger} strokeWidth={2.2} /> : null}
+            <Text style={{ flex: 1, color: cleaned ? palette.danger : palette.accentLight, fontSize: 12, fontWeight: "600" }}>
+              {cleaned
+                ? "This worktree was cleaned up"
+                : queuedMessageCount > 0
+                  ? `${queuedMessageCount} queued · agent working`
+                  : "Agent working · new messages queue automatically"}
+            </Text>
+          </View>
+        </Animated.View>
+      ) : null}
 
       {/* Slash autocomplete — animated fade + slide up */}
       {showSlash && (
@@ -795,7 +844,7 @@ export function SessionComposer({
                 ) : null}
 
                 {/* Send / Stop */}
-                {sending ? (
+                {showStop ? (
                   <Animated.View style={{ transform: [{ scale: stopPulse }] }}>
                     <Pressable
                       onPress={() => {

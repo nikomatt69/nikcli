@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { Animated, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
-import { ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
+import { Box, ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import Markdown, { type ASTNode, type RenderRules } from "react-native-markdown-display"
 import { Swipeable } from "react-native-gesture-handler"
@@ -17,7 +17,9 @@ import { relativeTime } from "@/lib/types"
 import { highlightCode } from "@/lib/syntax"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"
+import { ArtifactMicroThumb } from "@/components/session/SessionPreviewStrip"
 import { triggerHaptic } from "@/lib/haptics"
+import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/session-artifacts"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 
@@ -83,6 +85,88 @@ function stableMarkdownCodeKey(node: ASTNode, messageId: string): string {
   let h = 0
   for (let i = 0; i < Math.min(code.length, 240); i++) h = (h * 31 + code.charCodeAt(i)) | 0
   return `${messageId}:cb:${lang}:${code.length}:${h}`
+}
+
+function isArtifactFenceLanguage(language: string) {
+  const lang = language.toLowerCase()
+  if (lang === "html" || lang === "htm" || lang === "svg" || lang === "mermaid") return true
+  if (lang.startsWith("artifact:")) {
+    const sub = lang.slice("artifact:".length)
+    return sub === "html" || sub === "htm" || sub === "svg" || sub === "mermaid"
+  }
+  return false
+}
+
+function ArtifactFencePlaceholder(props: { language: string }) {
+  return (
+    <View className="my-2 rounded-[8px] border border-border/70 bg-surface px-3 py-2">
+      <Text className="text-[11px] font-semibold text-muted">
+        {props.language.toUpperCase()} artifact — open below
+      </Text>
+    </View>
+  )
+}
+
+function MessageArtifactSection(props: {
+  artifacts: SessionPreview[]
+  onOpen(preview: SessionPreview): void
+}) {
+  const { palette, isDark } = useAppTheme()
+
+  return (
+    <View className="border-t border-border/80 px-3.5 py-3">
+      <View className="rounded-[8px] border border-border bg-background/55 p-3">
+        <View className="flex-row items-center gap-2">
+          <Box size={15} color={palette.accentLight} strokeWidth={2.2} />
+          <Text className="flex-1 text-sm font-semibold text-ink">
+            {props.artifacts.length === 1 ? "Generated artifact" : `${props.artifacts.length} artifacts`}
+          </Text>
+        </View>
+        <View className="mt-3 gap-2">
+          {props.artifacts.map((artifact) => (
+            <Pressable
+              key={artifact.id}
+              onPress={() => {
+                void triggerHaptic("selection")
+                props.onOpen(artifact)
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${kindLabel(artifact.kind)} artifact`}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
+                paddingHorizontal: 12,
+                paddingVertical: 11,
+                opacity: pressed ? 0.82 : 1,
+              })}
+            >
+              <ArtifactMicroThumb preview={artifact} />
+              <View className="min-w-0 flex-1">
+                <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                  {kindLabel(artifact.kind)}
+                </Text>
+                <Text numberOfLines={1} className="mt-0.5 text-[13px] font-semibold text-ink">
+                  {artifact.title}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Text className="text-[12px] font-semibold" style={{ color: palette.accentLight }}>
+                  Open
+                </Text>
+                <ChevronRight size={14} color={palette.accentLight} strokeWidth={2.2} />
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </View>
+  )
 }
 
 function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
@@ -249,6 +333,8 @@ type MessageBubbleProps = {
   onFork?: (message: MessageWithParts) => void
   onDismiss?: () => void
   onActivate?(messageID: string): void
+  onOpenArtifact?(preview: SessionPreview): void
+  queued?: boolean
   isActive?: boolean
 }
 
@@ -263,6 +349,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
   const patch = useMemo(() => patchPart(props.message.parts), [props.message.parts])
   const tools = useMemo(() => toolParts(props.message.parts), [props.message.parts])
+  const messageArtifacts = useMemo(() => extractMessageArtifacts(props.message), [props.message])
+  const hasArtifactFences = messageArtifacts.length > 0
   const isUser = props.message.info.role === "user"
   const hasReusableText = Boolean(text.trim())
   const canCopy = hasReusableText && props.onCopy
@@ -281,34 +369,57 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const reasoningExpanded = showReasoning || wordCount === 0
   const markdownRules = useMemo<RenderRules>(
     () => ({
-      code_block: (node, _children, _parent, styles, inheritedStyles = {}) => (
-        <ScrollableCodeBlock
-          key={stableMarkdownCodeKey(node, props.message.info.id)}
-          node={node}
-          textStyle={[inheritedStyles, styles.code_block]}
-          backgroundColor={palette.codeBackground}
-          borderColor={palette.border}
-        />
-      ),
-      fence: (node, _children, _parent, styles, inheritedStyles = {}) => (
-        <ScrollableCodeBlock
-          key={stableMarkdownCodeKey(node, props.message.info.id)}
-          node={node}
-          textStyle={[inheritedStyles, styles.fence]}
-          backgroundColor={palette.codeBackground}
-          borderColor={palette.border}
-        />
-      ),
+      code_block: (node, _children, _parent, styles, inheritedStyles = {}) => {
+        const language = getLanguage(node)
+        if (hasArtifactFences && isArtifactFenceLanguage(language)) {
+          return (
+            <ArtifactFencePlaceholder
+              key={stableMarkdownCodeKey(node, props.message.info.id)}
+              language={language}
+            />
+          )
+        }
+        return (
+          <ScrollableCodeBlock
+            key={stableMarkdownCodeKey(node, props.message.info.id)}
+            node={node}
+            textStyle={[inheritedStyles, styles.code_block]}
+            backgroundColor={palette.codeBackground}
+            borderColor={palette.border}
+          />
+        )
+      },
+      fence: (node, _children, _parent, styles, inheritedStyles = {}) => {
+        const language = getLanguage(node)
+        if (hasArtifactFences && isArtifactFenceLanguage(language)) {
+          return (
+            <ArtifactFencePlaceholder
+              key={stableMarkdownCodeKey(node, props.message.info.id)}
+              language={language}
+            />
+          )
+        }
+        return (
+          <ScrollableCodeBlock
+            key={stableMarkdownCodeKey(node, props.message.info.id)}
+            node={node}
+            textStyle={[inheritedStyles, styles.fence]}
+            backgroundColor={palette.codeBackground}
+            borderColor={palette.border}
+          />
+        )
+      },
     }),
-    [palette.border, palette.codeBackground, props.message.info.id],
+    [hasArtifactFences, palette.border, palette.codeBackground, props.message.info.id],
   )
   const summaryLine = useMemo(() => {
     const items = [] as string[]
     if (tools.length) items.push(`${tools.length} tool${tools.length === 1 ? "" : "s"}`)
     if (patch?.files.length) items.push(`${patch.files.length} file${patch.files.length === 1 ? "" : "s"}`)
+    if (messageArtifacts.length) items.push(`${messageArtifacts.length} artifact${messageArtifacts.length === 1 ? "" : "s"}`)
     if (reasoning.length) items.push(`reasoning`)
     return items.join(" · ")
-  }, [patch?.files.length, reasoning.length, tools.length])
+  }, [messageArtifacts.length, patch?.files.length, reasoning.length, tools.length])
   const timeLabel = relativeTime(props.message.info.time.created)
 
   function toggleReasoning() {
@@ -375,6 +486,18 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   }}
                 >
                   <Text className="text-[12px] font-medium text-muted">{isUser ? "You" : "Nikcli"}</Text>
+                  {props.queued ? (
+                    <View
+                      style={{
+                        borderRadius: 999,
+                        paddingHorizontal: 7,
+                        paddingVertical: 2,
+                        backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
+                      }}
+                    >
+                      <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">Queued</Text>
+                    </View>
+                  ) : null}
                 </View>
                 {summaryLine ? <Text className="text-[11px] leading-4 text-soft">{summaryLine}</Text> : null}
               </View>
@@ -493,7 +616,15 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   </Text>
                 </View>
               ) : null}
+
             </View>
+          ) : null}
+
+          {messageArtifacts.length > 0 && props.onOpenArtifact ? (
+            <MessageArtifactSection
+              artifacts={messageArtifacts}
+              onOpen={(preview) => props.onOpenArtifact?.(preview)}
+            />
           ) : null}
 
           {reasoningVisible ? (
@@ -635,7 +766,9 @@ function messageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubblePr
     prev.onCopy === next.onCopy &&
     prev.onFork === next.onFork &&
     prev.onDismiss === next.onDismiss &&
-    prev.onActivate === next.onActivate
+    prev.onActivate === next.onActivate &&
+    prev.onOpenArtifact === next.onOpenArtifact &&
+    prev.queued === next.queued
   )
 }
 

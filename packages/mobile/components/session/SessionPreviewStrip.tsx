@@ -1,39 +1,41 @@
-import { forwardRef, useMemo, useState, type ReactNode } from "react"
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
-import { ExternalLink, FolderOpen, Github, MonitorPlay, RefreshCw } from "lucide-react-native"
+import { forwardRef, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
+import { Code2, ExternalLink, FolderOpen, Github, Globe, Image, MonitorPlay, RefreshCw, Share2 } from "lucide-react-native"
 import { WebView } from "react-native-webview"
 import * as WebBrowser from "expo-web-browser"
+import * as Clipboard from "expo-clipboard"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { EmptyState } from "@/components/ui/EmptyState"
+import {
+  kindLabel,
+  labelForUrl,
+  previewDocumentHtml,
+  previewSourceText,
+  type SessionPreview,
+} from "@/lib/session-artifacts"
+import { triggerHaptic } from "@/lib/haptics"
+import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 
-export type SessionPreview = {
-  id: string
-  url: string
-  source: "local" | "web"
-}
+export type { SessionPreview } from "@/lib/session-artifacts"
 
 /** Workspace context for the project tied to this session (repo, paths, quick actions). */
 export type SessionProjectPanel = {
   sessionTitle: string
-  /** Primary label: `owner/repo` or root directory */
   workspacePrimary: string
-  /** Optional second line, e.g. worktree path */
   pathDetail?: string
-  /** e.g. current branch for GitHub worktrees */
   branchLabel?: string
   githubUrl?: string
   onBrowseWorkspace?(): void
-}
-
-function labelForUrl(value: string) {
-  try {
-    const url = new URL(value)
-    const host = url.host.replace(/^www\./, "")
-    return url.pathname && url.pathname !== "/" ? `${host}${url.pathname}` : host
-  } catch {
-    return value
-  }
 }
 
 function sourceLabel(source: SessionPreview["source"]) {
@@ -58,6 +60,13 @@ function statusTone(status: "loading" | "ready" | "failed", palette: ReturnType<
   if (status === "ready") return { label: "Ready", color: palette.success }
   if (status === "failed") return { label: "Can't load", color: palette.warn }
   return { label: "Loading…", color: palette.muted }
+}
+
+function kindIcon(kind: SessionPreview["kind"], color: string) {
+  if (kind === "url") return <Globe size={13} color={color} strokeWidth={2.2} />
+  if (kind === "svg") return <Image size={13} color={color} strokeWidth={2.2} />
+  if (kind === "mermaid") return <MonitorPlay size={13} color={color} strokeWidth={2.2} />
+  return <Code2 size={13} color={color} strokeWidth={2.2} />
 }
 
 function SectionHeader(props: {
@@ -160,17 +169,169 @@ function ProjectWorkspaceCard(props: {
   )
 }
 
+function PreviewViewport(props: {
+  preview: SessionPreview
+  reloadKey: number
+  isDark: boolean
+  scrollEnabled?: boolean
+  onLoadStart(): void
+  onLoad(): void
+  onError(): void
+}) {
+  const documentHtml = useMemo(
+    () => previewDocumentHtml(props.preview, props.isDark),
+    [props.isDark, props.preview],
+  )
+
+  if (props.preview.kind === "url" && props.preview.url) {
+    return (
+      <WebView
+        key={`${props.preview.id}:${props.reloadKey}`}
+        source={{ uri: props.preview.url }}
+        startInLoadingState
+        scrollEnabled={props.scrollEnabled ?? false}
+        setSupportMultipleWindows={false}
+        onLoadStart={props.onLoadStart}
+        onLoad={props.onLoad}
+        onError={props.onError}
+        style={{ flex: 1, backgroundColor: "transparent" }}
+      />
+    )
+  }
+
+  if (!documentHtml) return null
+
+  return (
+    <WebView
+      key={`${props.preview.id}:${props.reloadKey}`}
+      originWhitelist={["*"]}
+      source={{ html: documentHtml, baseUrl: "" }}
+      scrollEnabled={props.scrollEnabled ?? false}
+      setSupportMultipleWindows={false}
+      javaScriptEnabled
+      domStorageEnabled={false}
+      onLoadStart={props.onLoadStart}
+      onLoad={props.onLoad}
+      onError={props.onError}
+      style={{ flex: 1, backgroundColor: "transparent" }}
+    />
+  )
+}
+
+export function ArtifactMicroThumb(props: { preview: SessionPreview }) {
+  const { isDark } = useAppTheme()
+
+  return (
+    <View
+      style={{
+        width: 56,
+        height: 40,
+        overflow: "hidden",
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+        backgroundColor: isDark ? "#101010" : "#f8fafc",
+      }}
+    >
+      <PreviewViewport
+        preview={props.preview}
+        reloadKey={0}
+        isDark={isDark}
+        onLoadStart={() => undefined}
+        onLoad={() => undefined}
+        onError={() => undefined}
+      />
+    </View>
+  )
+}
+
+export function InlineArtifactCard(props: {
+  preview: SessionPreview
+  onPress(): void
+}) {
+  const { palette, isDark } = useAppTheme()
+  const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading")
+
+  return (
+    <Pressable
+      onPress={() => {
+        void triggerHaptic("selection")
+        props.onPress()
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${kindLabel(props.preview.kind)} artifact`}
+      style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}
+    >
+      <View
+        className="overflow-hidden rounded-[8px] border border-border/80 bg-background/55"
+        style={{ marginTop: 8 }}
+      >
+        <View
+          style={{
+            height: 168,
+            overflow: "hidden",
+            backgroundColor: isDark ? "#101010" : "#f8fafc",
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+          }}
+        >
+          <PreviewViewport
+            preview={props.preview}
+            reloadKey={0}
+            isDark={isDark}
+            onLoadStart={() => setStatus("loading")}
+            onLoad={() => setStatus("ready")}
+            onError={() => setStatus("failed")}
+          />
+          {status !== "ready" ? (
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  backgroundColor: isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
+                },
+              ]}
+            >
+              {status === "loading" ? <ActivityIndicator color={palette.accentLight} /> : null}
+              <Text style={{ color: palette.ink, fontSize: 11, fontWeight: "700" }}>
+                {status === "failed" ? "Preview unavailable" : "Loading preview…"}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <View className="flex-row items-center justify-between gap-3 px-3 py-2.5">
+          <View className="min-w-0 flex-1 flex-row items-center gap-2">
+            {kindIcon(props.preview.kind, palette.accentLight)}
+            <Text numberOfLines={1} className="flex-1 text-[12px] font-semibold text-ink">
+              {props.preview.title}
+            </Text>
+          </View>
+          <Text className="text-[11px] font-semibold text-muted">Expand</Text>
+        </View>
+      </View>
+    </Pressable>
+  )
+}
+
 export function SessionPreviewStrip({
   previews,
   project,
+  onSelectPreview,
 }: {
   previews: SessionPreview[]
   project?: SessionProjectPanel | null
+  onSelectPreview?(preview: SessionPreview): void
 }) {
   const { palette, isDark } = useAppTheme()
   const [reloadKeys, setReloadKeys] = useState<Record<string, number>>({})
   const [previewStates, setPreviewStates] = useState<Record<string, "loading" | "ready" | "failed">>({})
   const visible = useMemo(() => previews.slice(0, 6), [previews])
+  const liveCount = visible.filter((item) => item.kind === "url").length
+  const generatedCount = visible.length - liveCount
 
   if (!project && !visible.length) return null
 
@@ -191,8 +352,10 @@ export function SessionPreviewStrip({
         <>
           <SectionHeader
             icon={<MonitorPlay size={15} color={palette.accentLight} strokeWidth={2.2} />}
-            title="App previews"
-            right={`${visible.length}`}
+            title="Artifacts & previews"
+            right={[liveCount ? `${liveCount} live` : null, generatedCount ? `${generatedCount} generated` : null]
+              .filter(Boolean)
+              .join(" · ")}
             palette={palette}
           />
           <ScrollView
@@ -214,6 +377,7 @@ export function SessionPreviewStrip({
                 onReload={() =>
                   setReloadKeys((current) => ({ ...current, [preview.id]: (current[preview.id] ?? 0) + 1 }))
                 }
+                onOpen={() => onSelectPreview?.(preview)}
               />
             ))}
           </ScrollView>
@@ -223,15 +387,15 @@ export function SessionPreviewStrip({
   )
 }
 
-/** Full-screen sheet: session folder + in-chat dev URLs (mobile-first copy). */
 export type SessionPreviewSheetProps = {
   title: string
   previews: SessionPreview[]
   project?: SessionProjectPanel | null
+  onSelectPreview?(preview: SessionPreview): void
 }
 
 export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewSheetProps>(function SessionPreviewSheet(
-  { title, previews, project },
+  { title, previews, project, onSelectPreview },
   ref,
 ) {
   const { palette, isDark } = useAppTheme()
@@ -253,7 +417,7 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>
-            Folder, repo & dev URLs
+            Live URLs, HTML, SVG & diagrams
           </Text>
         </View>
       </View>
@@ -265,17 +429,235 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
         nestedScrollEnabled
       >
         {hasContent ? (
-          <SessionPreviewStrip previews={previews} project={project} />
+          <SessionPreviewStrip previews={previews} project={project} onSelectPreview={onSelectPreview} />
         ) : (
           <EmptyState
-            title="No app previews yet"
-            description="Dev links from the chat show here when they point at your server or local tunnel. Your session folder is above."
+            title="No artifacts yet"
+            description="Dev server links and generated HTML, SVG, or Mermaid blocks from the chat appear here."
           />
         )}
       </ScrollView>
     </ActionSheet>
   )
 })
+
+export type ArtifactViewerSheetProps = {
+  preview: SessionPreview | null
+}
+
+export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerSheetProps>(function ArtifactViewerSheet(
+  { preview },
+  ref,
+) {
+  const { palette, isDark } = useAppTheme()
+  const [tab, setTab] = useState<"preview" | "source">("preview")
+  const [reloadKey, setReloadKey] = useState(0)
+  const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading")
+
+  const sourceText = preview ? previewSourceText(preview) : ""
+  const statusMeta = statusTone(status, palette)
+
+  useEffect(() => {
+    setTab("preview")
+    setReloadKey(0)
+    setStatus("loading")
+  }, [preview?.id])
+
+  async function copySource() {
+    if (!sourceText) return
+    await Clipboard.setStringAsync(sourceText)
+    void triggerHaptic("success")
+    useUIStore.getState().showToast({ message: "Copied to clipboard", kind: "success" })
+  }
+
+  async function shareSource() {
+    if (!preview) return
+    if (preview.kind === "url" && preview.url) {
+      await Share.share({ url: preview.url, message: preview.url })
+      return
+    }
+    await Share.share({ message: sourceText })
+  }
+
+  return (
+    <ActionSheet ref={ref} snapPoints={["94%"]}>
+      {preview ? (
+        <>
+          <View className="border-b border-border px-5 pb-4">
+            <View className="flex-row items-start justify-between gap-3">
+              <View className="min-w-0 flex-1">
+                <Text className="text-[12px] font-medium text-muted">{kindLabel(preview.kind)} artifact</Text>
+                <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={2}>
+                  {preview.title}
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingTop: 4 }}>
+                <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: statusMeta.color }} />
+                <Text style={{ color: statusMeta.color, fontSize: 10, fontWeight: "800" }}>{statusMeta.label}</Text>
+              </View>
+            </View>
+
+            <View className="mt-3 flex-row rounded-[8px] border border-border bg-surface p-1">
+              {(["preview", "source"] as const).map((value) => {
+                const active = tab === value
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => {
+                      setTab(value)
+                      void triggerHaptic("selection")
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      borderRadius: 6,
+                      paddingVertical: 8,
+                      alignItems: "center",
+                      opacity: pressed ? 0.8 : 1,
+                      backgroundColor: active
+                        ? isDark
+                          ? "rgba(255,255,255,0.10)"
+                          : "rgba(20,20,19,0.08)"
+                        : "transparent",
+                    })}
+                  >
+                    <Text
+                      style={{
+                        color: active ? palette.ink : palette.muted,
+                        fontSize: 12,
+                        fontWeight: active ? "800" : "600",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {value}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </View>
+
+          <View style={{ flex: 1, minHeight: 320 }}>
+            {tab === "preview" ? (
+              <View style={{ flex: 1, backgroundColor: isDark ? "#101010" : "#f8fafc" }}>
+                <PreviewViewport
+                  preview={preview}
+                  reloadKey={reloadKey}
+                  isDark={isDark}
+                  scrollEnabled
+                  onLoadStart={() => setStatus("loading")}
+                  onLoad={() => setStatus("ready")}
+                  onError={() => setStatus("failed")}
+                />
+              </View>
+            ) : (
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                <Text
+                  selectable
+                  style={{
+                    color: palette.codeText,
+                    fontFamily: "Menlo",
+                    fontSize: 12,
+                    lineHeight: 18,
+                  }}
+                >
+                  {sourceText}
+                </Text>
+              </ScrollView>
+            )}
+          </View>
+
+          <View
+            style={{
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: 20,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <ActionChip label="Copy" icon={Code2} onPress={() => void copySource()} palette={palette} isDark={isDark} />
+            <ActionChip label="Share" icon={Share2} onPress={() => void shareSource()} palette={palette} isDark={isDark} />
+            <ActionChip
+              label="Reload"
+              icon={RefreshCw}
+              onPress={() => {
+                setReloadKey((value) => value + 1)
+                setStatus("loading")
+                void triggerHaptic("selection")
+              }}
+              palette={palette}
+              isDark={isDark}
+            />
+            {preview.kind === "url" && preview.url ? (
+              <ActionChip
+                label="Browser"
+                icon={ExternalLink}
+                accent
+                onPress={() => void openPreviewExternally(preview.url!)}
+                palette={palette}
+                isDark={isDark}
+              />
+            ) : null}
+          </View>
+        </>
+      ) : null}
+    </ActionSheet>
+  )
+})
+
+function ActionChip(props: {
+  label: string
+  icon: typeof Code2
+  onPress(): void
+  palette: ReturnType<typeof useAppTheme>["palette"]
+  isDark: boolean
+  accent?: boolean
+}) {
+  const Icon = props.icon
+  return (
+    <Pressable
+      onPress={props.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={props.label}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        borderRadius: 8,
+        borderWidth: props.accent ? 0 : 1,
+        borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+        backgroundColor: props.accent
+          ? props.isDark
+            ? "rgba(255,255,255,0.10)"
+            : "rgba(20,20,19,0.10)"
+          : "transparent",
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Icon size={13} color={props.accent ? props.palette.accentLight : props.palette.ink} strokeWidth={2.2} />
+      <Text
+        style={{
+          color: props.accent ? props.palette.accentLight : props.palette.ink,
+          fontSize: 12,
+          fontWeight: props.accent ? "800" : "700",
+        }}
+      >
+        {props.label}
+      </Text>
+    </Pressable>
+  )
+}
 
 function PreviewCard(props: {
   preview: SessionPreview
@@ -287,8 +669,11 @@ function PreviewCard(props: {
   onLoad(): void
   onError(): void
   onReload(): void
+  onOpen?(): void
 }) {
   const status = statusTone(props.status, props.palette)
+  const subtitle =
+    props.preview.kind === "url" && props.preview.url ? labelForUrl(props.preview.url) : props.preview.title
 
   return (
     <View
@@ -301,111 +686,133 @@ function PreviewCard(props: {
         backgroundColor: props.isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.86)",
       }}
     >
-      <View
-        style={{
-          height: 168,
-          overflow: "hidden",
-          backgroundColor: props.isDark ? "#101010" : "#f8fafc",
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+      <Pressable
+        onPress={() => {
+          void triggerHaptic("selection")
+          props.onOpen?.()
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${kindLabel(props.preview.kind)} preview`}
       >
-        <WebView
-          key={`${props.preview.id}:${props.reloadKey}`}
-          source={{ uri: props.preview.url }}
-          startInLoadingState
-          scrollEnabled={false}
-          setSupportMultipleWindows={false}
-          onLoadStart={props.onLoadStart}
-          onLoad={props.onLoad}
-          onError={props.onError}
-          style={{ flex: 1, backgroundColor: "transparent" }}
-        />
-        {props.status !== "ready" ? (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                paddingHorizontal: 18,
-                backgroundColor: props.isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
-              },
-            ]}
-          >
-            {props.status === "loading" ? <ActivityIndicator color={props.palette.accentLight} /> : null}
-            <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "800", textAlign: "center" }}>
-              {props.status === "failed" ? "Can't load page" : "Loading…"}
-            </Text>
-            <Text numberOfLines={1} style={{ color: props.palette.muted, fontSize: 10, textAlign: "center" }}>
-              {labelForUrl(props.preview.url)}
-            </Text>
-          </View>
-        ) : null}
-      </View>
+        <View
+          style={{
+            height: 168,
+            overflow: "hidden",
+            backgroundColor: props.isDark ? "#101010" : "#f8fafc",
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+          }}
+        >
+          <PreviewViewport
+            preview={props.preview}
+            reloadKey={props.reloadKey}
+            isDark={props.isDark}
+            onLoadStart={props.onLoadStart}
+            onLoad={props.onLoad}
+            onError={props.onError}
+          />
+          {props.status !== "ready" ? (
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingHorizontal: 18,
+                  backgroundColor: props.isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
+                },
+              ]}
+            >
+              {props.status === "loading" ? <ActivityIndicator color={props.palette.accentLight} /> : null}
+              <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "800", textAlign: "center" }}>
+                {props.status === "failed" ? "Can't load preview" : "Loading…"}
+              </Text>
+              <Text numberOfLines={1} style={{ color: props.palette.muted, fontSize: 10, textAlign: "center" }}>
+                {subtitle}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
 
       <View style={{ padding: 12, gap: 10 }}>
-        <View style={{ minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <Text
-              style={{ color: props.palette.accentLight, fontSize: 10, fontWeight: "800", textTransform: "uppercase" }}
-            >
-              {sourceLabel(props.preview.source)}
-            </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: status.color }} />
-              <Text style={{ color: status.color, fontSize: 10, fontWeight: "800" }}>{status.label}</Text>
+          <View style={{ minWidth: 0 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                {kindIcon(props.preview.kind, props.palette.accentLight)}
+                <Text
+                  style={{
+                    color: props.palette.accentLight,
+                    fontSize: 10,
+                    fontWeight: "800",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {props.preview.kind === "url" ? sourceLabel(props.preview.source) : kindLabel(props.preview.kind)}
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: status.color }} />
+                <Text style={{ color: status.color, fontSize: 10, fontWeight: "800" }}>{status.label}</Text>
+              </View>
             </View>
+            <Text numberOfLines={1} style={{ marginTop: 3, color: props.palette.ink, fontSize: 13, fontWeight: "800" }}>
+              {subtitle}
+            </Text>
           </View>
-          <Text numberOfLines={1} style={{ marginTop: 3, color: props.palette.ink, fontSize: 13, fontWeight: "800" }}>
-            {labelForUrl(props.preview.url)}
-          </Text>
-        </View>
 
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            onPress={props.onReload}
-            accessibilityRole="button"
-            accessibilityLabel="Reload this page"
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
-              paddingVertical: 9,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
-            <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => void openPreviewExternally(props.preview.url)}
-            accessibilityRole="button"
-            accessibilityLabel="Open in browser"
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              borderRadius: 8,
-              backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
-              paddingVertical: 9,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <ExternalLink size={13} color={props.palette.accentLight} strokeWidth={2.2} />
-            <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>Browser</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={() => props.onReload()}
+              accessibilityRole="button"
+              accessibilityLabel="Reload this preview"
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                paddingVertical: 9,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
+              <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (props.preview.kind === "url" && props.preview.url) {
+                  void openPreviewExternally(props.preview.url)
+                  return
+                }
+                props.onOpen?.()
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={props.preview.kind === "url" ? "Open in browser" : "Open full preview"}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                borderRadius: 8,
+                backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
+                paddingVertical: 9,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <ExternalLink size={13} color={props.palette.accentLight} strokeWidth={2.2} />
+              <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>
+                {props.preview.kind === "url" ? "Browser" : "Open"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
     </View>
   )
 }
