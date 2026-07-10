@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.153.0 (July 2026)
+
+## Mobile
+
+- Update dependencies and enhance mobile app functionality (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): update dependencies and enhance mobile app functionality
+
 ## v1.143.0 (July 2026)
 
 ## Core

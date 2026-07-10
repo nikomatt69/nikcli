@@ -80,9 +80,7 @@ export namespace MissionHttpApi {
   const UpdateInputZod = MissionDefinitionSchema
 
   const FeatureMutatePayload = Schema.Struct({
-    status: Schema.optional(
-      Schema.Literals(["pending", "running", "done", "blocked", "skipped", "error"]),
-    ),
+    status: Schema.optional(Schema.Literals(["pending", "running", "done", "blocked", "skipped", "error"])),
     error: Schema.optional(Schema.String),
     appendDependsOn: Schema.optional(Schema.Array(Schema.String)),
   }).annotate({ identifier: "MissionFeatureMutateInput" })

@@ -63,12 +63,7 @@ export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: Typin
   const dots = [dot1, dot2, dot3]
 
   return (
-    <View
-      className="mb-2 items-start pl-4"
-      accessible
-      accessibilityLabel={text}
-      accessibilityLiveRegion="polite"
-    >
+    <View className="mb-2 items-start pl-4" accessible accessibilityLabel={text} accessibilityLiveRegion="polite">
       <View className="flex-row items-center gap-3 rounded-2xl px-4 py-3" style={{ backgroundColor: bubbleBg }}>
         <View className="flex-row items-center gap-1">
           {dots.map((anim, i) => (
