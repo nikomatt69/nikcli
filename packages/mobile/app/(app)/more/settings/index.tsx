@@ -9,6 +9,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
+import { ScreenBrandHeader } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
 import { getAppPreferences, setAppPreferences } from "@/lib/storage"
 import { ensureNotificationPermissions } from "@/lib/notifications"
@@ -848,6 +849,7 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingBottom: 36 }}
         ListHeaderComponent={
           <View style={{ gap: 20 }}>
+            <ScreenBrandHeader title="Settings" />
             <View className="flex-row flex-wrap gap-2">
               <InfoChip label={config ? "Host linked" : "Host offline"} tone={config ? "good" : "warn"} />
               <InfoChip

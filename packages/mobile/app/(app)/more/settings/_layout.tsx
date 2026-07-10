@@ -15,7 +15,7 @@ export default function SettingsLayout() {
         animation: "slide_from_right",
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Settings", headerLargeTitle: true }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
     </Stack>
   )
 }

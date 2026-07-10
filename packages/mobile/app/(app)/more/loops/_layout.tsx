@@ -1,5 +1,4 @@
 import { Stack } from "expo-router"
-import { SettingsHeaderButton } from "@/components/layout/AppHeader"
 import { useAppTheme } from "@/lib/theme"
 
 export default function LoopsLayout() {
@@ -16,10 +15,7 @@ export default function LoopsLayout() {
         animation: "slide_from_right",
       }}
     >
-      <Stack.Screen
-        name="index"
-        options={{ title: "Loops", headerLargeTitle: true, headerRight: () => <SettingsHeaderButton /> }}
-      />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="[loopId]" options={{ title: "Loop" }} />
     </Stack>
   )

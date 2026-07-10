@@ -23,7 +23,8 @@ import { triggerHaptic } from "@/lib/haptics"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { SettingsHeaderButton } from "@/components/layout/AppHeader"
+import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { BrandMark } from "@/components/layout/BrandMark"
 import type { PtyInfo } from "@/lib/types"
 
 // require() returns a number (resource ID) in Metro — we load the content async
@@ -338,6 +339,45 @@ function TabBar({
   )
 }
 
+// ── Compact in-content header (bare wordmark, no native glass bubble) ─────────
+
+const TERMINAL_BRAND_HEIGHT = 12
+
+function TerminalScreenHeader() {
+  const { palette } = useAppTheme()
+  const insets = useSafeAreaInsets()
+
+  return (
+    <View
+      style={{
+        paddingTop: insets.top,
+        paddingHorizontal: 16,
+        paddingBottom: 6,
+        backgroundColor: palette.background,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
+        <BrandMark height={TERMINAL_BRAND_HEIGHT} />
+        <Text
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontSize: 17,
+            fontWeight: "600",
+            color: palette.ink,
+          }}
+        >
+          Terminal
+        </Text>
+        <SettingsCircleButton />
+      </View>
+    </View>
+  )
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function TerminalScreen() {
@@ -495,16 +535,7 @@ export default function TerminalScreen() {
   if (tabs.length === 0) {
     return (
       <View style={{ flex: 1, backgroundColor: isDark ? "#0d0d0d" : "#f6f9fc" }}>
-        <View
-          style={{
-            position: "absolute",
-            top: insets.top + 8,
-            right: 16,
-            zIndex: 1,
-          }}
-        >
-          <SettingsHeaderButton />
-        </View>
+        <TerminalScreenHeader />
         <View
           style={{
             flex: 1,
@@ -539,6 +570,7 @@ export default function TerminalScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0d0d0d" }}>
+      <TerminalScreenHeader />
       {/* Tab bar */}
       <View style={{}}>
         <TabBar
@@ -628,9 +660,6 @@ export default function TerminalScreen() {
           >
             <Trash2 size={16} color={isDark ? "rgba(255,123,114,0.85)" : palette.danger} strokeWidth={2} />
           </Pressable>
-
-          {/* Settings */}
-          <SettingsHeaderButton />
         </View>
       </View>
 

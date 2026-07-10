@@ -7,6 +7,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { AppHeader } from "@/components/layout/AppHeader"
+import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { LoopDefinition, LoopRuntime, LoopRuntimeStatus } from "@/lib/types"
@@ -151,16 +152,20 @@ export default function LoopsScreen() {
   ).length
 
   const hero = (
-    <AppHeader
-      chips={[
-        { label: `${loops.length} loops`, tone: "accent" },
-        { label: `${loops.filter((loop) => loop.enabled).length} enabled`, tone: "good" },
-        runningCount > 0 ? { label: `${runningCount} running`, tone: "accent" } : null,
-      ]}
-    >
-      <ActionButton label="New loop" onPress={() => router.push("/more/loops/new" as Href)} />
-      {error ? <ErrorBanner message={error} /> : null}
-    </AppHeader>
+    <View style={{ gap: 12 }}>
+      <ScreenBrandHeader title="Loops" right={<SettingsCircleButton />} />
+      <AppHeader
+        className="gap-3 pb-4"
+        chips={[
+          { label: `${loops.length} loops`, tone: "accent" },
+          { label: `${loops.filter((loop) => loop.enabled).length} enabled`, tone: "good" },
+          runningCount > 0 ? { label: `${runningCount} running`, tone: "accent" } : null,
+        ]}
+      >
+        <ActionButton label="New loop" onPress={() => router.push("/more/loops/new" as Href)} />
+        {error ? <ErrorBanner message={error} /> : null}
+      </AppHeader>
+    </View>
   )
 
   return (
