@@ -20,7 +20,10 @@ start_ssh() {
   local ssh_state_dir="/data/ssh"
 
   if [[ -n "${NIKCLI_SSH_AUTHORIZED_KEYS_B64:-}" ]]; then
-    authorized_keys="$(printf '%s' "$NIKCLI_SSH_AUTHORIZED_KEYS_B64" | base64 -d)"
+    if ! authorized_keys="$(printf '%s' "$NIKCLI_SSH_AUTHORIZED_KEYS_B64" | base64 -d)"; then
+      echo "SSH disabled: NIKCLI_SSH_AUTHORIZED_KEYS_B64 is not valid base64." >&2
+      return 1
+    fi
   elif [[ -n "${NIKCLI_SSH_AUTHORIZED_KEYS:-}" ]]; then
     authorized_keys="$NIKCLI_SSH_AUTHORIZED_KEYS"
   fi
@@ -30,15 +33,15 @@ start_ssh() {
     return
   fi
 
-  install -d -m 700 /root/.ssh "$ssh_state_dir"
-  printf '%s\n' "$authorized_keys" > /root/.ssh/authorized_keys
-  chmod 600 /root/.ssh/authorized_keys
+  install -d -m 700 /root/.ssh "$ssh_state_dir" || return 1
+  printf '%s\n' "$authorized_keys" > /root/.ssh/authorized_keys || return 1
+  chmod 600 /root/.ssh/authorized_keys || return 1
 
   if [[ ! -f "$ssh_state_dir/ssh_host_ed25519_key" ]]; then
-    ssh-keygen -q -t ed25519 -N "" -f "$ssh_state_dir/ssh_host_ed25519_key"
+    ssh-keygen -q -t ed25519 -N "" -f "$ssh_state_dir/ssh_host_ed25519_key" || return 1
   fi
-  chmod 600 "$ssh_state_dir/ssh_host_ed25519_key"
-  mkdir -p /run/sshd
+  chmod 600 "$ssh_state_dir/ssh_host_ed25519_key" || return 1
+  mkdir -p /run/sshd || return 1
 
   local sshd_options=(
     -o "Port=$ssh_port"
@@ -52,8 +55,8 @@ start_ssh() {
     -o "AuthorizedKeysFile=/root/.ssh/authorized_keys"
   )
 
-  /usr/sbin/sshd -t "${sshd_options[@]}"
-  /usr/sbin/sshd "${sshd_options[@]}"
+  /usr/sbin/sshd -t "${sshd_options[@]}" || return 1
+  /usr/sbin/sshd "${sshd_options[@]}" || return 1
 
   echo "SSH listening inside Railway on ${ssh_host}:${ssh_port}"
   if [[ -n "${RAILWAY_TCP_PROXY_DOMAIN:-}" && -n "${RAILWAY_TCP_PROXY_PORT:-}" ]]; then
@@ -72,8 +75,9 @@ start_ssh() {
 }
 
 if [[ "${NIKCLI_SERVER_SSH_ENABLED:-true}" == "true" ]]; then
-  start_ssh
+  if ! start_ssh; then
+    echo "Warning: SSH setup failed; continuing with the nikcli mobile server." >&2
+  fi
 fi
 
 exec "$@"
- 

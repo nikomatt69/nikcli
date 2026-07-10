@@ -102,6 +102,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'nikcli-mobile' }}
+          RAILWAY_HEALTH_URL: ${{ vars.RAILWAY_HEALTH_URL || 'https://nikcli-mobile-production.up.railway.app/global/health' }}
         run: |
           if [ -z "${RAILWAY_TOKEN:-}" ]; then
             echo "✗ RAILWAY_TOKEN not configured — skipping deploy"
@@ -109,13 +110,21 @@ jobs:
           fi
           echo "→ Deploying to Railway service: ${RAILWAY_SERVICE:-nikcli-mobile}"
           mkdir -p tmp
-          if ./script/railway-deploy.sh --detach >tmp/railway.log 2>&1; then
-            echo "✓ Railway deploy triggered (service=${RAILWAY_SERVICE:-nikcli-mobile})"
-          else
+          if ! ./script/railway-deploy.sh >tmp/railway.log 2>&1; then
             echo "✗ Railway deploy failed (last 30 lines):"
             tail -n 30 tmp/railway.log || true
             exit 1
           fi
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error --max-time 10 "$RAILWAY_HEALTH_URL" > /dev/null; then
+              echo "✓ Railway deploy is healthy (service=${RAILWAY_SERVICE:-nikcli-mobile})"
+              exit 0
+            fi
+            [ "$attempt" -eq 18 ] || sleep 10
+          done
+          echo "✗ Railway deploy completed but failed its health check: $RAILWAY_HEALTH_URL"
+          tail -n 30 tmp/railway.log || true
+          exit 1
 
   autofix:
     needs: validate

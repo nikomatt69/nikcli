@@ -298,22 +298,25 @@ describe("railway-deploy coherence", () => {
     expect(after).toContain("refs/heads/live-main")
   })
 
-  it("railway-deploy uses the existing deploy script in detach mode", async () => {
+  it("railway-deploy waits for the existing deploy script and health check", async () => {
     const yml = await read(PIPELINE_YML)
     const rdIdx = yml.indexOf("\n  railway-deploy:")
-    const after = yml.slice(rdIdx, rdIdx + 1500)
-    expect(after).toContain("./script/railway-deploy.sh --detach")
+    const after = yml.slice(rdIdx, rdIdx + 2500)
+    expect(after).toContain("./script/railway-deploy.sh >tmp/railway.log")
+    expect(after).not.toContain("railway-deploy.sh --detach")
     expect(after).toContain("RAILWAY_TOKEN")
+    expect(after).toContain("RAILWAY_HEALTH_URL")
+    expect(after).toContain("curl --fail --silent --show-error")
   })
 
-  it("railway-deploy is silent: redirects logs and only emits one-line status", async () => {
+  it("railway-deploy redirects logs and reports a healthy deployment", async () => {
     const yml = await read(PIPELINE_YML)
     const rdIdx = yml.indexOf("\n  railway-deploy:")
-    const after = yml.slice(rdIdx, rdIdx + 1500)
+    const after = yml.slice(rdIdx, rdIdx + 2500)
     // Output is redirected to a log file (not /dev/null) so failures can be
     // tailed for diagnosis, while success stays a single one-line status.
     expect(after).toContain(">tmp/railway.log")
-    expect(after).toContain("✓ Railway deploy triggered")
+    expect(after).toContain("✓ Railway deploy is healthy")
   })
 
   it("railway-deploy.sh script exists and is executable", async () => {
