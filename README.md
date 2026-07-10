@@ -388,6 +388,7 @@ Tools are registered in `packages/nikcli/src/tool/`:
 | `truncation` · `truncation-dir`                                                  | Output truncation to avoid context saturation.                                                                                        |
 | `opentui` · `chart-braille-line`                                                 | OpenTUI/chart render in-terminal.                                                                                                     |
 | `advisor`                                                                        | Background strategist for complex decisions.                                                                                          |
+- [JMT x402 Agent Tools](https://jmt-x402-proxy.jmthomasofficial.workers.dev) — 25 paid x402 endpoints on Base mainnet: web search, AI analysis, crypto/stock data, SEC filings, company intel, news, sentiment, macro dashboard. $0.001-$0.15/call USDC. Local LLM-powered.
 
 Each tool has a description in `tool/<name>.txt` consulted by the primary agent for selection.
 
