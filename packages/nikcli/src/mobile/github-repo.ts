@@ -124,6 +124,10 @@ export namespace MobileGithubRepo {
     return entry
   }
 
+  const GIT_AUTHOR_NAME = "nikcli[bot]"
+  const GIT_AUTHOR_EMAIL = "nikcli[bot]@users.noreply.github.com"
+  const GIT_IDENTITY_ARGS = ["-c", `user.name=${GIT_AUTHOR_NAME}`, "-c", `user.email=${GIT_AUTHOR_EMAIL}`] as const
+
   function gitEnv(token?: string | null) {
     if (!token) return process.env
 
@@ -141,7 +145,7 @@ export namespace MobileGithubRepo {
     const entries = Object.entries(gitEnv(options.token)).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
     )
-    const proc = Bun.spawn(["git", ...args], {
+    const proc = Bun.spawn(["git", ...GIT_IDENTITY_ARGS, ...args], {
       cwd: options.cwd,
       env: Object.fromEntries(entries),
       stdout: "pipe",

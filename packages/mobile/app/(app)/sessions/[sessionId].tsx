@@ -43,6 +43,7 @@ import { GitStatusBar } from "@/components/git/GitStatusBar"
 import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { triggerHaptic } from "@/lib/haptics"
+import { sessionWorkspaceDirectory, sessionWorkspaceFallback } from "@/lib/client"
 import {
   buildSessionLiveActivitySnapshot,
   compactActivityText,
@@ -425,7 +426,9 @@ export default function SessionScreen() {
 
     try {
       setGitLoading(true)
-      const state = await client.getGitStatus()
+      const gitDir = detail?.info ? sessionWorkspaceDirectory(detail.info) : undefined
+      const gitClient = gitDir ? client.withDirectory(gitDir) : client
+      const state = await gitClient.getGitStatus()
       setGitState(state)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -434,7 +437,7 @@ export default function SessionScreen() {
     } finally {
       setGitLoading(false)
     }
-  }, [client])
+  }, [client, detail?.info])
 
   const loadPlugins = useCallback(async () => {
     if (!client) {
@@ -677,20 +680,14 @@ export default function SessionScreen() {
 
   const openSessionExplorer = useCallback(() => {
     if (!sessionId || !detail) return
-    const dir =
-      detail.info.directory ?? detail.info.github?.worktree.directory ?? detail.info.github?.repositoryDirectory ?? ""
+    const dir = sessionWorkspaceDirectory(detail.info)
     if (!dir) return
-    const fallbackDirectory =
-      detail.info.github?.worktree.directory && detail.info.github.worktree.directory !== dir
-        ? detail.info.github.worktree.directory
-        : detail.info.github?.repositoryDirectory && detail.info.github.repositoryDirectory !== dir
-          ? detail.info.github.repositoryDirectory
-          : undefined
+    const fallbackDirectory = sessionWorkspaceFallback(detail.info)
     void triggerHaptic("selection")
     router.push({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pathname: "/sessions/explorer" as any,
-      params: { sessionId, directory: dir, fallbackDirectory },
+      params: { sessionId, directory: dir, fallbackDirectory: fallbackDirectory ?? "" },
     })
   }, [detail, sessionId])
 
@@ -698,10 +695,9 @@ export default function SessionScreen() {
     if (!detail) return null
     const gh = detail.info.github
     const workspacePrimary = gh?.fullName ?? detail.info.directory ?? "Workspace"
-    const localPath = detail.info.directory ?? gh?.worktree.directory ?? ""
+    const localPath = sessionWorkspaceDirectory(detail.info) ?? ""
     const pathDetail = localPath && localPath !== workspacePrimary ? localPath : undefined
-    const explorerDir =
-      detail.info.directory ?? detail.info.github?.worktree.directory ?? detail.info.github?.repositoryDirectory ?? ""
+    const explorerDir = sessionWorkspaceDirectory(detail.info) ?? ""
     return {
       sessionTitle: detail.info.title || "Session",
       workspacePrimary,
@@ -910,6 +906,11 @@ export default function SessionScreen() {
     setPublishOpen(true)
   }
 
+  const sessionGitDir = useMemo(
+    () => (detail?.info ? sessionWorkspaceDirectory(detail.info) : undefined),
+    [detail?.info],
+  )
+
   async function compactContext() {
     if (!client || !sessionId || compacting || cleaned) return
     if (sessionBlocked) {
@@ -921,7 +922,8 @@ export default function SessionScreen() {
     try {
       setCompacting(true)
       setError(null)
-      await client.compactSession(sessionId, preferredModel)
+      const scopedClient = sessionGitDir ? client.withDirectory(sessionGitDir) : client
+      await scopedClient.compactSession(sessionId, preferredModel)
       await load()
       void triggerHaptic("success")
     } catch (error) {
@@ -1715,6 +1717,7 @@ export default function SessionScreen() {
         visible={gitReviewOpen}
         onClose={() => setGitReviewOpen(false)}
         sessionID={sessionId ?? ""}
+        directory={sessionGitDir}
         github={
           detail?.info.github
             ? {
@@ -1728,7 +1731,8 @@ export default function SessionScreen() {
         }
         onCommit={async (message, files, options) => {
           if (!client) return
-          await client.createGitCommit(message, files, options)
+          const gitClient = sessionGitDir ? client.withDirectory(sessionGitDir) : client
+          await gitClient.createGitCommit(message, files, options)
         }}
         onPublish={openPublishModal}
       />

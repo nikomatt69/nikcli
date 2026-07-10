@@ -50,6 +50,7 @@ import type {
   SessionSummary,
   SkillInfo,
   TeleportResult,
+  WorktreeInfo,
 } from "@/lib/types"
 
 type JsonObject = Record<string, unknown>
@@ -128,6 +129,44 @@ export function buildMobileUrl(config: Pick<ServerConfig, "url">, pathname: stri
   const base = trimTrailingSlash(config.url)
   const path = pathname.startsWith("/") ? pathname.slice(1) : pathname
   return `${base}/${path}`
+}
+
+/** Primary filesystem directory for a session (execution cwd). */
+export function sessionWorkspaceDirectory(session: Pick<Session, "directory" | "github">): string | undefined {
+  const directory =
+    session.directory?.trim() ||
+    session.github?.worktree.directory?.trim() ||
+    session.github?.repositoryDirectory?.trim() ||
+    ""
+  return directory || undefined
+}
+
+/** Secondary directory when the primary path differs from the repo root or worktree. */
+export function sessionWorkspaceFallback(session: Pick<Session, "directory" | "github">): string | undefined {
+  const primary = sessionWorkspaceDirectory(session)
+  for (const candidate of [
+    session.github?.worktree.directory?.trim(),
+    session.github?.repositoryDirectory?.trim(),
+  ]) {
+    if (candidate && candidate !== primary) return candidate
+  }
+  return undefined
+}
+
+/** Git operations for a session use the same directory as workspace file access. */
+export const sessionGitDirectory = sessionWorkspaceDirectory
+
+/** Resolve the parent project directory used for worktree create/reset/remove calls. */
+export function projectDirectoryForWorktree(
+  projects: ProjectInfo[],
+  selectedDirectory?: string,
+  fallback?: ProjectInfo,
+): string | undefined {
+  const selected = projects.find((item) => {
+    const sandboxes = Array.isArray(item.sandboxes) ? item.sandboxes : []
+    return item.worktree === selectedDirectory || sandboxes.includes(selectedDirectory || "")
+  })
+  return selected?.worktree || fallback?.worktree
 }
 
 /**
@@ -446,6 +485,13 @@ export class MobileClient {
     })
   }
 
+  checkoutGitBranch(branch: string, options?: { create?: boolean }) {
+    return this.request<{ success: true }>("/mobile/git/checkout", {
+      method: "POST",
+      body: JSON.stringify({ branch, create: options?.create }),
+    })
+  }
+
   // ── File System ──────────────────────────────────────────────────────────
 
   listDirectory(dirPath: string) {
@@ -582,22 +628,26 @@ export class MobileClient {
     })
   }
 
-  createWorktree(name?: string) {
-    return this.request<{ name: string; branch: string; directory: string }>("/mobile/worktree", {
+  createWorktree(input?: string | { name?: string; projectDirectory?: string }) {
+    const options = typeof input === "string" ? { name: input } : input
+    const scoped = options?.projectDirectory ? this.withDirectory(options.projectDirectory) : this
+    return scoped.request<WorktreeInfo>("/mobile/worktree", {
       method: "POST",
-      body: JSON.stringify(name ? { name } : {}),
+      body: JSON.stringify(options?.name ? { name: options.name } : {}),
     })
   }
 
-  resetWorktree(directory: string) {
-    return this.request<{ success: true }>("/mobile/worktree/reset", {
+  resetWorktree(directory: string, projectDirectory?: string) {
+    const scoped = projectDirectory ? this.withDirectory(projectDirectory) : this
+    return scoped.request<{ success: true }>("/mobile/worktree/reset", {
       method: "POST",
       body: JSON.stringify({ directory }),
     })
   }
 
-  removeWorktree(directory: string) {
-    return this.request<{ success: true }>("/mobile/worktree", {
+  removeWorktree(directory: string, projectDirectory?: string) {
+    const scoped = projectDirectory ? this.withDirectory(projectDirectory) : this
+    return scoped.request<{ success: true }>("/mobile/worktree", {
       method: "DELETE",
       body: JSON.stringify({ directory }),
     })

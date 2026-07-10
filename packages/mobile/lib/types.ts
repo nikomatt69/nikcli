@@ -386,6 +386,14 @@ export type ProjectInfo = {
   }
 }
 
+export type MobileProjectType = {
+  detected: boolean
+  platforms?: string[]
+  primaryPlatform?: string
+  method?: string
+  root?: string
+}
+
 export type MobileBootstrap = {
   version: string
   auth: {
@@ -419,6 +427,12 @@ export type MobileBootstrap = {
       avatar_url?: string
     }
   }
+  expo?: {
+    available: boolean
+    easAvailable: boolean
+    details: string[]
+  }
+  mobileProject?: MobileProjectType
 }
 
 export type HostMcpStatus =
@@ -517,10 +531,18 @@ export type SessionDetail = {
   questions: QuestionRequest[]
 }
 
+export type WorktreeInfo = {
+  name: string
+  branch?: string
+  directory: string
+}
+
 export type TeleportResult = {
   sessionID: string
   title?: string
   messageCount: number
+  directory?: string
+  workspace: boolean
 }
 
 export type GitHubRepo = {
@@ -572,11 +594,7 @@ export type GitHubBranch = {
 
 export type GitHubSessionCreateResult = {
   session: Session
-  worktree: {
-    name: string
-    branch: string
-    directory: string
-  }
+  worktree: WorktreeInfo
   project: ProjectInfo
   workspace?: {
     id: string

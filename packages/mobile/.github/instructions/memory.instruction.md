@@ -8,29 +8,32 @@
 - Requests scoped by `x-nikcli-directory` or `?directory=...`; workspaces by `x-nikcli-workspace`
 - Mobile client sends bearer auth via `Authorization: Bearer <token>` and directory via `x-nikcli-directory`
 
-### Client/Backend Mismatches (CRITICAL)
+### Client/Backend Alignment
 
-Mobile client calls `/git/*` but backend defines endpoints under `/mobile/git/*`:
+Git and worktree endpoints live under `/mobile/git/*` and `/mobile/worktree*`. The mobile client scopes requests with `x-nikcli-directory`:
 
-- `GET /mobile/git/status` — returns `{ branch, staged[], unstaged[], untracked[], commitsAhead, commitsBehind, lastCommit? }`
-- `GET /mobile/git/diff` — returns `{ file, oldPath?, hunks, isBinary, additions, deletions }[]`
-- `GET /mobile/git/commits` — returns `{ sha, message, author: {name, email}, timestamp, filesCount, additions, deletions }[]`
-- `POST /mobile/git/stage` — expects `{ files: string[] }` but mobile sends `{ paths }`
-- `POST /mobile/git/commit` — expects `{ message, files?, amend? }`, returns `{ sha, message }`; mobile client types as `boolean`
+- Session git/file ops: `sessionWorkspaceDirectory(session)` (session cwd first)
+- Worktree sandbox ops: parent project `worktree` via `withDirectory()` / `projectDirectoryForWorktree()`
 
 ### Client Methods (from `lib/client.ts`)
 
 ```
-getGitStatus()         -> GET /git/status          ❌ should be /mobile/git/status
-getGitCommits(limit)   -> GET /git/commits          ❌ should be /mobile/git/commits
-getGitDiff()           -> GET /git/diff             ❌ should be /mobile/git/diff
-stageGitFiles(paths)   -> POST /git/stage { paths } ❌ wrong path + wrong body
-createGitCommit(msg)   -> POST /git/commit          ❌ wrong path, return type boolean
-listDirectory(dir)    -> GET /file?path
+getGitStatus()         -> GET /mobile/git/status
+getGitCommits(limit)   -> GET /mobile/git/commits
+getGitDiff()           -> GET /mobile/git/diff
+stageGitFiles(files)   -> POST /mobile/git/stage { files: string[] }
+createGitCommit(msg)   -> POST /mobile/git/commit { message, files?, stagedOnly? } -> { sha, message }
+checkoutGitBranch()    -> POST /mobile/git/checkout { branch, create? }
+createWorktree()       -> POST /mobile/worktree (scoped via x-nikcli-directory to parent project)
+resetWorktree()        -> POST /mobile/worktree/reset { directory }
+removeWorktree()       -> DELETE /mobile/worktree { directory }
+listDirectory(dir)     -> GET /file?path
 readFile(file)         -> GET /file/content?path
 writeFile(path, content) -> PUT /file/content
-ptyConnectUrl(id)      -> ws(s)://.../pty/:id/connect?token=...
+ptyConnectUrl(id)      -> ws(s)://.../mobile/pty/:id/connect?token=...
 ```
+
+Worktree create/reset/remove require `x-nikcli-directory` to point at the **parent project** worktree, not the sandbox path. Session git/file access uses `sessionWorkspaceDirectory()` for consistent scoping.
 
 ### Git Backend Bugs
 

@@ -13,6 +13,7 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { ScreenBrandHeader, SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
+import { projectDirectoryForWorktree } from "@/lib/client"
 import { useServer } from "@/lib/server-context"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
@@ -62,6 +63,7 @@ export default function ReposScreen() {
   const [baseBranchByRepo, setBaseBranchByRepo] = useState<Record<string, string>>({})
   const [sessionTitleByRepo, setSessionTitleByRepo] = useState<Record<string, string>>({})
   const [repoSearch, setRepoSearch] = useState("")
+  const [sandboxAction, setSandboxAction] = useState<string | null>(null)
 
   const selectedDirectory = config?.directory
   const executionTarget = config?.executionTarget ?? "local"
@@ -152,10 +154,21 @@ export default function ReposScreen() {
 
   async function createSandbox() {
     if (!client) return
+    const projectDirectory =
+      projectDirectoryForWorktree(projects, selectedDirectory, selectedProject ?? bootstrap?.currentProject) ??
+      selectedProject?.worktree
+    if (!projectDirectory) {
+      setError("Select a workspace before creating a sandbox.")
+      return
+    }
+
     try {
       setBusy(true)
       setError(null)
-      const worktree = await client.createWorktree(sandboxName.trim() || undefined)
+      const worktree = await client.createWorktree({
+        name: sandboxName.trim() || undefined,
+        projectDirectory,
+      })
       if (config) await save({ ...config, directory: worktree.directory })
       setSandboxName("")
       await load()
@@ -163,6 +176,37 @@ export default function ReposScreen() {
       setError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function resetSandbox(directory: string) {
+    if (!client || !selectedProject) return
+    try {
+      setSandboxAction(directory)
+      setError(null)
+      await client.resetWorktree(directory, selectedProject.worktree)
+      await load()
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
+    } finally {
+      setSandboxAction(null)
+    }
+  }
+
+  async function removeSandbox(directory: string) {
+    if (!client || !selectedProject) return
+    try {
+      setSandboxAction(directory)
+      setError(null)
+      await client.removeWorktree(directory, selectedProject.worktree)
+      if (config?.directory === directory) {
+        await save({ ...config, directory: selectedProject.worktree })
+      }
+      await load()
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
+    } finally {
+      setSandboxAction(null)
     }
   }
 
@@ -309,9 +353,52 @@ export default function ReposScreen() {
                 <ActionButton label="Create sandbox" loading={busy} onPress={() => void createSandbox()} />
               </View>
               {selectedProject ? (
-                <Text className="mt-3 text-xs text-soft">Current workspace: {selectedProject.worktree}</Text>
-              ) : null}
+                <Text className="mt-3 text-xs text-soft">Parent workspace: {selectedProject.worktree}</Text>
+              ) : (
+                <Text className="mt-3 text-xs text-soft">Select a workspace below before creating a sandbox.</Text>
+              )}
             </SurfaceCard>
+
+            {selectedProject && selectedProject.sandboxes.length > 0 ? (
+              <View>
+                <SectionHeader label="Sandboxes" />
+                {selectedProject.sandboxes.map((sandbox, index) => (
+                  <View key={sandbox}>
+                    {index > 0 ? <Divider inset={24} /> : null}
+                    <ListRow
+                      leading={
+                        <StatusDot
+                          color={
+                            selectedDirectory === sandbox ? palette.secondary : hexToRgba(palette.ink, 0.25)
+                          }
+                        />
+                      }
+                      title={sandbox.split("/").filter(Boolean).pop() || sandbox}
+                      subtitle={sandbox}
+                      trailing={
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <ActionButton
+                            label="Reset"
+                            variant="secondary"
+                            loading={sandboxAction === sandbox}
+                            disabled={sandboxAction !== null && sandboxAction !== sandbox}
+                            onPress={() => void resetSandbox(sandbox)}
+                          />
+                          <ActionButton
+                            label="Remove"
+                            variant="danger"
+                            loading={sandboxAction === sandbox}
+                            disabled={sandboxAction !== null && sandboxAction !== sandbox}
+                            onPress={() => void removeSandbox(sandbox)}
+                          />
+                        </View>
+                      }
+                      onPress={() => config && void save({ ...config, directory: sandbox })}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
             <View>
               <SectionHeader label="Server workspaces" />
@@ -336,7 +423,10 @@ export default function ReposScreen() {
                     title={projectLabel(project)}
                     subtitle={project.worktree}
                     trailing={
-                      selectedDirectory === project.worktree ? <InfoChip label="Selected" tone="accent" /> : undefined
+                      selectedDirectory === project.worktree ||
+                      project.sandboxes.includes(selectedDirectory || "") ? (
+                        <InfoChip label="Selected" tone="accent" />
+                      ) : undefined
                     }
                     onPress={() => void selectProject(project)}
                   />

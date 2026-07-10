@@ -50,6 +50,7 @@ interface GitReviewModalProps {
   visible: boolean
   onClose: () => void
   sessionID: string
+  directory?: string
   github?: {
     owner: string
     repo: string
@@ -142,29 +143,17 @@ function MiniGitButton({
   )
 }
 
-function BranchPill({ branch }: { branch: GitBranchInfo }) {
+function BranchPill({
+  branch,
+  onPress,
+}: {
+  branch: GitBranchInfo
+  onPress?: () => void
+}) {
   const { palette, isDark } = useAppTheme()
   const active = branch.isCurrent
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 7,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: active ? palette.accent : palette.border,
-        backgroundColor: active
-          ? isDark
-            ? "rgba(255,255,255,0.16)"
-            : "rgba(20,20,19,0.10)"
-          : isDark
-            ? "rgba(255,255,255,0.04)"
-            : "rgba(255,255,255,0.64)",
-        paddingHorizontal: 10,
-        paddingVertical: 7,
-      }}
-    >
+  const content = (
+    <>
       <GitBranch size={12} color={active ? palette.accentLight : palette.muted} strokeWidth={2.2} />
       <Text style={{ color: active ? palette.ink : palette.soft, fontSize: 11, fontWeight: "700" }} numberOfLines={1}>
         {branch.name.replace(/^remotes\//, "")}
@@ -175,11 +164,67 @@ function BranchPill({ branch }: { branch: GitBranchInfo }) {
           {branch.behindBy ? ` -${branch.behindBy}` : ""}
         </Text>
       ) : null}
-    </View>
+    </>
+  )
+
+  if (active || !onPress) {
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 7,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: active ? palette.accent : palette.border,
+          backgroundColor: active
+            ? isDark
+              ? "rgba(255,255,255,0.16)"
+              : "rgba(20,20,19,0.10)"
+            : isDark
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(255,255,255,0.64)",
+          paddingHorizontal: 10,
+          paddingVertical: 7,
+        }}
+      >
+        {content}
+      </View>
+    )
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Switch to branch ${branch.name}`}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 7,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: palette.border,
+        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.64)",
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+        opacity: pressed ? 0.72 : 1,
+      })}
+    >
+      {content}
+    </Pressable>
   )
 }
 
-export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, onPublish }: GitReviewModalProps) {
+export function GitReviewModal({
+  visible,
+  onClose,
+  sessionID,
+  directory,
+  github,
+  onCommit,
+  onPublish,
+}: GitReviewModalProps) {
   const { palette, isDark } = useAppTheme()
   const { top, bottom } = useSafeAreaInsets()
   const [tab, setTab] = useState<TabType>("changes")
@@ -194,7 +239,16 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
   const [activeFileIndex, setActiveFileIndex] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [commitMessage, setCommitMessage] = useState("")
-  const [gitAction, setGitAction] = useState<"stage" | "unstage" | "discard" | "commit" | "push" | null>(null)
+  const [gitAction, setGitAction] = useState<"stage" | "unstage" | "discard" | "commit" | "push" | "checkout" | null>(
+    null,
+  )
+
+  const resolveGitClient = useCallback(async () => {
+    const { getMobileClient } = await import("@/lib/client")
+    const client = await getMobileClient()
+    if (!client) return null
+    return directory ? client.withDirectory(directory) : client
+  }, [directory])
 
   const entranceAnimRef = useRef<Animated.Value | null>(null)
   if (entranceAnimRef.current === null) entranceAnimRef.current = new Animated.Value(0)
@@ -301,8 +355,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
   const fetchGitData = useCallback(async () => {
     setLoading(true)
     try {
-      const { getMobileClient } = await import("@/lib/client")
-      const client = await getMobileClient()
+      const client = await resolveGitClient()
       if (!client) return
 
       const [state, commitsData, branchData, unstagedDiffs, stagedDiffs] = await Promise.all([
@@ -336,7 +389,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [resolveGitClient])
 
   useEffect(() => {
     if (visible) {
@@ -368,7 +421,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
     if (!gitState) return
     const allPaths = [...gitState.unstaged.map((f) => f.path), ...gitState.untracked]
     if (!allPaths.length) return
-    const client = await import("@/lib/client").then((m) => m.getMobileClient())
+    const client = await resolveGitClient()
     if (!client) return
     try {
       setGitAction("stage")
@@ -401,7 +454,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
     if (!gitState) return
     const paths = selectedWorktreePaths.length ? selectedWorktreePaths : [...worktreePaths]
     if (!paths.length) return
-    const client = await import("@/lib/client").then((m) => m.getMobileClient())
+    const client = await resolveGitClient()
     if (!client) return
     try {
       setGitAction("stage")
@@ -421,7 +474,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
     if (!gitState) return
     const paths = selectedStagedPaths.length ? selectedStagedPaths : [...stagedPaths]
     if (!paths.length) return
-    const client = await import("@/lib/client").then((m) => m.getMobileClient())
+    const client = await resolveGitClient()
     if (!client) return
     try {
       setGitAction("unstage")
@@ -457,7 +510,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
   }
 
   async function discardFiles(paths: string[]) {
-    const client = await import("@/lib/client").then((m) => m.getMobileClient())
+    const client = await resolveGitClient()
     if (!client) return
     try {
       setGitAction("discard")
@@ -473,11 +526,29 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
     }
   }
 
+  async function checkoutBranch(branch: GitBranchInfo) {
+    if (branch.isCurrent || gitAction) return
+    const branchName = branch.name.replace(/^remotes\/origin\//, "").replace(/^remotes\//, "")
+    const client = await resolveGitClient()
+    if (!client) return
+    try {
+      setGitAction("checkout")
+      await client.checkoutGitBranch(branchName)
+      void triggerHaptic("success")
+      await fetchGitData()
+    } catch (error) {
+      console.error("Failed to checkout branch:", error)
+      void triggerHaptic("error")
+    } finally {
+      setGitAction(null)
+    }
+  }
+
   async function commitAndPush() {
     const staged = gitState?.staged ?? []
     const message = commitMessage.trim()
     if (!message || !staged.length || committing) return
-    const client = await import("@/lib/client").then((m) => m.getMobileClient())
+    const client = await resolveGitClient()
     if (!client) return
     try {
       setCommitting(true)
@@ -930,7 +1001,11 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
                   </Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                     {branches.slice(0, 8).map((branch) => (
-                      <BranchPill key={`${branch.name}:${branch.isCurrent ? "current" : "branch"}`} branch={branch} />
+                      <BranchPill
+                        key={`${branch.name}:${branch.isCurrent ? "current" : "branch"}`}
+                        branch={branch}
+                        onPress={branch.isCurrent ? undefined : () => void checkoutBranch(branch)}
+                      />
                     ))}
                   </View>
                 </View>
