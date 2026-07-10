@@ -34,17 +34,25 @@ mock.module("@/session/retry", () => ({
   },
 }))
 
-const [{ SessionProcessor }, { Session }, { locallyInstance }, { Identifier }, { Bus }, { MessageV2 }, { Instance }, { Effect }] =
-  await Promise.all([
-    import("@/session/processor"),
-    import("@/session"),
-    import("@/effect"),
-    import("@/id/id"),
-    import("@/bus"),
-    import("@/session/message-v2"),
-    import("@/project/instance"),
-    import("effect"),
-  ])
+const [
+  { SessionProcessor },
+  { Session },
+  { locallyInstance },
+  { Identifier },
+  { Bus },
+  { MessageV2 },
+  { Instance },
+  { Effect },
+] = await Promise.all([
+  import("@/session/processor"),
+  import("@/session"),
+  import("@/effect"),
+  import("@/id/id"),
+  import("@/bus"),
+  import("@/session/message-v2"),
+  import("@/project/instance"),
+  import("effect"),
+])
 
 afterAll(async () => {
   await fs.rm(testHome, { recursive: true, force: true })

@@ -144,10 +144,7 @@ export function sessionWorkspaceDirectory(session: Pick<Session, "directory" | "
 /** Secondary directory when the primary path differs from the repo root or worktree. */
 export function sessionWorkspaceFallback(session: Pick<Session, "directory" | "github">): string | undefined {
   const primary = sessionWorkspaceDirectory(session)
-  for (const candidate of [
-    session.github?.worktree.directory?.trim(),
-    session.github?.repositoryDirectory?.trim(),
-  ]) {
+  for (const candidate of [session.github?.worktree.directory?.trim(), session.github?.repositoryDirectory?.trim()]) {
     if (candidate && candidate !== primary) return candidate
   }
   return undefined

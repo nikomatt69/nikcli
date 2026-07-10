@@ -368,9 +368,7 @@ export default function ReposScreen() {
                     <ListRow
                       leading={
                         <StatusDot
-                          color={
-                            selectedDirectory === sandbox ? palette.secondary : hexToRgba(palette.ink, 0.25)
-                          }
+                          color={selectedDirectory === sandbox ? palette.secondary : hexToRgba(palette.ink, 0.25)}
                         />
                       }
                       title={sandbox.split("/").filter(Boolean).pop() || sandbox}
@@ -423,8 +421,7 @@ export default function ReposScreen() {
                     title={projectLabel(project)}
                     subtitle={project.worktree}
                     trailing={
-                      selectedDirectory === project.worktree ||
-                      project.sandboxes.includes(selectedDirectory || "") ? (
+                      selectedDirectory === project.worktree || project.sandboxes.includes(selectedDirectory || "") ? (
                         <InfoChip label="Selected" tone="accent" />
                       ) : undefined
                     }

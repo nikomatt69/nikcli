@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.154.0 (July 2026)
+
+## Core
+
+- Add Git identity configuration for mobile Git operations (@nikomatt69)
+
+## Mobile
+
+- Update layout and header components across multiple screens (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): add Git identity configuration for mobile Git operations
+  - refactor: update layout and header components across multiple screens
+
 ## v1.143.0 (July 2026)
 
 ## Core

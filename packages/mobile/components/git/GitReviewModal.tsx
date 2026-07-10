@@ -143,13 +143,7 @@ function MiniGitButton({
   )
 }
 
-function BranchPill({
-  branch,
-  onPress,
-}: {
-  branch: GitBranchInfo
-  onPress?: () => void
-}) {
+function BranchPill({ branch, onPress }: { branch: GitBranchInfo; onPress?: () => void }) {
   const { palette, isDark } = useAppTheme()
   const active = branch.isCurrent
   const content = (
