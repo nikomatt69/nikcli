@@ -119,9 +119,9 @@ export async function resolveNetworkOptions(args: Partial<NetworkOptions>): Prom
     ? (validArgs.hostname ?? "127.0.0.1")
     : managedTerminal
       ? (validArgs.hostname ?? "127.0.0.1")
-    : mdns && !config?.server?.hostname
-      ? "0.0.0.0"
-      : (config?.server?.hostname ?? validArgs.hostname ?? "127.0.0.1")
+      : mdns && !config?.server?.hostname
+        ? "0.0.0.0"
+        : (config?.server?.hostname ?? validArgs.hostname ?? "127.0.0.1")
 
   const configCors = config?.server?.cors ?? []
   const argsCors = Array.isArray(validArgs.cors) ? validArgs.cors : validArgs.cors ? [validArgs.cors] : []

@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.152.0 (July 2026)
+
+## Core
+
+- Add missing newline at end of railway-entrypoint.sh (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(nikcli): add missing newline at end of railway-entrypoint.sh
+
 ## v1.143.0 (July 2026)
 
 ## Core
