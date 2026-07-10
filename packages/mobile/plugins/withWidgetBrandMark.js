@@ -54,11 +54,7 @@ const withWidgetBrandMarkFiles = (config) =>
       const source = path.join(cfg.modRequest.projectRoot, "assets", MARK)
       if (!fs.existsSync(source)) return cfg
 
-      const widgetAssets = path.join(
-        cfg.modRequest.platformProjectRoot,
-        ASSETS_CATALOG,
-        IMAGESET,
-      )
+      const widgetAssets = path.join(cfg.modRequest.platformProjectRoot, ASSETS_CATALOG, IMAGESET)
       writeImageset(widgetAssets, source)
       return cfg
     },

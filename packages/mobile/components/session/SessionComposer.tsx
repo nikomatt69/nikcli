@@ -370,7 +370,14 @@ export function SessionComposer({
             }}
           >
             {cleaned ? <Lock size={14} color={palette.danger} strokeWidth={2.2} /> : null}
-            <Text style={{ flex: 1, color: cleaned ? palette.danger : palette.accentLight, fontSize: 12, fontWeight: "600" }}>
+            <Text
+              style={{
+                flex: 1,
+                color: cleaned ? palette.danger : palette.accentLight,
+                fontSize: 12,
+                fontWeight: "600",
+              }}
+            >
               {cleaned
                 ? "This worktree was cleaned up"
                 : queuedMessageCount > 0

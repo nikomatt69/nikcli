@@ -43,12 +43,7 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
 
   const brandMark = (size: number, label: string) =>
     props.attention ? (
-      <Image
-        systemName="hand.raised.fill"
-        size={size}
-        color={accent}
-        modifiers={[accessibilityLabel(label)]}
-      />
+      <Image systemName="hand.raised.fill" size={size} color={accent} modifiers={[accessibilityLabel(label)]} />
     ) : (
       <Image assetName="BrandMark" size={size} modifiers={[accessibilityLabel(label)]} />
     )
@@ -68,13 +63,7 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
 
   const context = (
     <HStack spacing={5}>
-      <Text
-        modifiers={[
-          font({ size: 13, weight: "semibold" }),
-          foregroundStyle("#F2F2F7"),
-          lineLimit(1),
-        ]}
-      >
+      <Text modifiers={[font({ size: 13, weight: "semibold" }), foregroundStyle("#F2F2F7"), lineLimit(1)]}>
         {props.repository}
       </Text>
       <Text
@@ -103,15 +92,8 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
             accessibilityLabel("Approve once"),
           ]}
         >
-          <Image
-            systemName="checkmark"
-            size={11}
-            color="#111113"
-            modifiers={[accessibilityHidden()]}
-          />
-          <Text modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle("#111113")]}>
-            Approve once
-          </Text>
+          <Image systemName="checkmark" size={11} color="#111113" modifiers={[accessibilityHidden()]} />
+          <Text modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle("#111113")]}>Approve once</Text>
         </HStack>
       </Link>
       <Link destination={props.reviewURL}>
@@ -124,15 +106,8 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
             accessibilityLabel("Review request in nikcli"),
           ]}
         >
-          <Image
-            systemName="arrow.up.forward.app"
-            size={11}
-            color="#F2F2F7"
-            modifiers={[accessibilityHidden()]}
-          />
-          <Text modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle("#F2F2F7")]}>
-            Review
-          </Text>
+          <Image systemName="arrow.up.forward.app" size={11} color="#F2F2F7" modifiers={[accessibilityHidden()]} />
+          <Text modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle("#F2F2F7")]}>Review</Text>
         </HStack>
       </Link>
       <Spacer />
@@ -152,10 +127,7 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
       >
         <HStack alignment="firstTextBaseline" spacing={8}>
           <Text
-            modifiers={[
-              font({ size: 13, weight: "semibold" }),
-              foregroundStyle(props.attention ? accent : secondary),
-            ]}
+            modifiers={[font({ size: 13, weight: "semibold" }), foregroundStyle(props.attention ? accent : secondary)]}
           >
             {props.status}
           </Text>
@@ -206,10 +178,7 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
       <HStack spacing={6} modifiers={[padding({ leading: 4 })]}>
         {brandMark(13, props.status)}
         <Text
-          modifiers={[
-            font({ size: 12, weight: "semibold" }),
-            foregroundStyle(props.attention ? accent : secondary),
-          ]}
+          modifiers={[font({ size: 12, weight: "semibold" }), foregroundStyle(props.attention ? accent : secondary)]}
         >
           {props.status}
         </Text>

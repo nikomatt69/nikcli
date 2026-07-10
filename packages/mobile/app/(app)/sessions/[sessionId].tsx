@@ -57,11 +57,7 @@ import {
 import { SessionQueueBanner } from "@/components/SessionQueueBanner"
 import { SessionDetailSkeleton } from "@/components/session/SessionDetailSkeleton"
 import { countOfflineQueueForSession, enqueueOp, isOfflineSendError } from "@/lib/offline"
-import {
-  countQueuedUserMessages,
-  getPendingAssistantMessageId,
-  sessionIsProcessing,
-} from "@/lib/session-queue"
+import { countQueuedUserMessages, getPendingAssistantMessageId, sessionIsProcessing } from "@/lib/session-queue"
 import { useAppTheme } from "@/lib/theme"
 import {
   type CommandInfo,
@@ -1409,9 +1405,7 @@ export default function SessionScreen() {
             onDismiss={dismissActiveMessage}
             onActivate={activateMessage}
             onOpenArtifact={openArtifact}
-            queued={
-              item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false
-            }
+            queued={item.info.role === "user" && pendingAssistantId ? item.info.id > pendingAssistantId : false}
           />
         )}
         ListHeaderComponent={

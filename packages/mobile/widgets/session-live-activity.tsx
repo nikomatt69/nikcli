@@ -21,7 +21,10 @@ export type SessionLiveActivityHandle = {
   ): Promise<void>
 }
 
-export function startSessionLiveActivity(_props: SessionLiveActivityProps, _url: string): SessionLiveActivityHandle | null {
+export function startSessionLiveActivity(
+  _props: SessionLiveActivityProps,
+  _url: string,
+): SessionLiveActivityHandle | null {
   return null
 }
 

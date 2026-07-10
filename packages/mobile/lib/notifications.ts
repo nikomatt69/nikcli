@@ -217,9 +217,7 @@ function activityProps(
     ...(input.timerEndsAt ? { timerEndsAt: input.timerEndsAt } : {}),
     attention: input.attention === true,
     reviewURL,
-    ...(input.permissionID
-      ? { approveURL: sessionDeepLink(detail.info.id, "approveOnce", input.permissionID) }
-      : {}),
+    ...(input.permissionID ? { approveURL: sessionDeepLink(detail.info.id, "approveOnce", input.permissionID) } : {}),
     ...(input.canStop ? { stopURL: sessionDeepLink(detail.info.id, "stop") } : {}),
   }
 }

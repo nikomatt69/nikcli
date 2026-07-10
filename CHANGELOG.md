@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.155.0 (July 2026)
+
+## Mobile
+
+- Introduce artifact viewer and enhance session previews (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(session): introduce artifact viewer and enhance session previews
+
 ## v1.143.0 (July 2026)
 
 ## Core

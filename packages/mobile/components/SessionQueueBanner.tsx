@@ -1,11 +1,7 @@
 import { Text, View } from "react-native"
 import { useAppTheme } from "@/lib/theme"
 
-export function SessionQueueBanner(props: {
-  queuedCount: number
-  processing: boolean
-  offlineQueuedCount?: number
-}) {
+export function SessionQueueBanner(props: { queuedCount: number; processing: boolean; offlineQueuedCount?: number }) {
   const { palette, isDark } = useAppTheme()
   const offlineCount = props.offlineQueuedCount ?? 0
 
@@ -26,8 +22,7 @@ export function SessionQueueBanner(props: {
       : null
 
   const session =
-    !offline &&
-    (props.processing || props.queuedCount > 0)
+    !offline && (props.processing || props.queuedCount > 0)
       ? {
           label:
             props.queuedCount > 0

@@ -200,9 +200,9 @@ export namespace SessionHttpApi {
   // Returning `T` keeps handler signatures inferable for HttpApi.
   const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
-  const InstructionList = Schema.Array(
-    Schema.Struct({ path: Schema.String, name: Schema.String }),
-  ).annotate({ identifier: "SessionInstructionList" })
+  const InstructionList = Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })).annotate({
+    identifier: "SessionInstructionList",
+  })
 
   const ContextTogglePayload = Schema.Struct({
     kind: Schema.Literals(["mcp", "skill", "instruction", "tool"]),
@@ -883,21 +883,13 @@ export namespace SessionHttpApi {
         Effect.orDie,
       ),
     backgroundCancel: ({ params }: { params: typeof DelegationPath.Type }) =>
-      Effect.promise(() => Delegation.cancelJobForSession(params.sessionID, params.delegationID)).pipe(
-        Effect.orDie,
-      ),
+      Effect.promise(() => Delegation.cancelJobForSession(params.sessionID, params.delegationID)).pipe(Effect.orDie),
     monitor: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
         const record = yield* Effect.promise(() => Monitor.get(params.sessionID, params.monitorID))
         return jsonSafe(record ?? null) as unknown
       }).pipe(declaredErrors),
-    monitorLog: ({
-      params,
-      query,
-    }: {
-      params: typeof MonitorPath.Type
-      query: typeof MonitorLogQuery.Type
-    }) =>
+    monitorLog: ({ params, query }: { params: typeof MonitorPath.Type; query: typeof MonitorLogQuery.Type }) =>
       Effect.gen(function* () {
         const snapshot = yield* Effect.promise(() =>
           Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),

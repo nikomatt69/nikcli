@@ -47,12 +47,7 @@ export function ToastHost() {
       {toasts.map((toast) => {
         const colors = toastColors(toast.kind, palette, isDark)
         return (
-          <ToastItem
-            key={toast.id}
-            message={toast.message}
-            colors={colors}
-            onDismiss={() => dismissToast(toast.id)}
-          />
+          <ToastItem key={toast.id} message={toast.message} colors={colors} onDismiss={() => dismissToast(toast.id)} />
         )
       })}
     </View>

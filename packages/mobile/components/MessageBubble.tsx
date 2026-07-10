@@ -100,17 +100,12 @@ function isArtifactFenceLanguage(language: string) {
 function ArtifactFencePlaceholder(props: { language: string }) {
   return (
     <View className="my-2 rounded-[8px] border border-border/70 bg-surface px-3 py-2">
-      <Text className="text-[11px] font-semibold text-muted">
-        {props.language.toUpperCase()} artifact — open below
-      </Text>
+      <Text className="text-[11px] font-semibold text-muted">{props.language.toUpperCase()} artifact — open below</Text>
     </View>
   )
 }
 
-function MessageArtifactSection(props: {
-  artifacts: SessionPreview[]
-  onOpen(preview: SessionPreview): void
-}) {
+function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(preview: SessionPreview): void }) {
   const { palette, isDark } = useAppTheme()
 
   return (
@@ -373,10 +368,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         const language = getLanguage(node)
         if (hasArtifactFences && isArtifactFenceLanguage(language)) {
           return (
-            <ArtifactFencePlaceholder
-              key={stableMarkdownCodeKey(node, props.message.info.id)}
-              language={language}
-            />
+            <ArtifactFencePlaceholder key={stableMarkdownCodeKey(node, props.message.info.id)} language={language} />
           )
         }
         return (
@@ -393,10 +385,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         const language = getLanguage(node)
         if (hasArtifactFences && isArtifactFenceLanguage(language)) {
           return (
-            <ArtifactFencePlaceholder
-              key={stableMarkdownCodeKey(node, props.message.info.id)}
-              language={language}
-            />
+            <ArtifactFencePlaceholder key={stableMarkdownCodeKey(node, props.message.info.id)} language={language} />
           )
         }
         return (
@@ -416,7 +405,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     const items = [] as string[]
     if (tools.length) items.push(`${tools.length} tool${tools.length === 1 ? "" : "s"}`)
     if (patch?.files.length) items.push(`${patch.files.length} file${patch.files.length === 1 ? "" : "s"}`)
-    if (messageArtifacts.length) items.push(`${messageArtifacts.length} artifact${messageArtifacts.length === 1 ? "" : "s"}`)
+    if (messageArtifacts.length)
+      items.push(`${messageArtifacts.length} artifact${messageArtifacts.length === 1 ? "" : "s"}`)
     if (reasoning.length) items.push(`reasoning`)
     return items.join(" · ")
   }, [messageArtifacts.length, patch?.files.length, reasoning.length, tools.length])
@@ -616,7 +606,6 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   </Text>
                 </View>
               ) : null}
-
             </View>
           ) : null}
 
