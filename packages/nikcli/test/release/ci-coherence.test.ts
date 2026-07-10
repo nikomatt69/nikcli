@@ -298,15 +298,13 @@ describe("railway-deploy coherence", () => {
     expect(after).toContain("refs/heads/live-main")
   })
 
-  it("railway-deploy waits for the existing deploy script and health check", async () => {
+  it("railway-deploy waits for Railway to report a healthy deployment", async () => {
     const yml = await read(PIPELINE_YML)
     const rdIdx = yml.indexOf("\n  railway-deploy:")
     const after = yml.slice(rdIdx, rdIdx + 2500)
     expect(after).toContain("./script/railway-deploy.sh >tmp/railway.log")
     expect(after).not.toContain("railway-deploy.sh --detach")
     expect(after).toContain("RAILWAY_TOKEN")
-    expect(after).toContain("RAILWAY_HEALTH_URL")
-    expect(after).toContain("curl --fail --silent --show-error")
   })
 
   it("railway-deploy redirects logs and reports a healthy deployment", async () => {
@@ -327,6 +325,9 @@ describe("railway-deploy coherence", () => {
   it("railway.toml references the serve Dockerfile", async () => {
     const toml = await read("railway.toml")
     expect(toml).toContain("Dockerfile.serve")
+    expect(toml).toContain('healthcheckPath = "/global/health"')
+    expect(toml).toContain('requiredMountPath = "/data"')
+    expect(toml).not.toContain("[[volumes]]")
   })
 })
 

@@ -252,12 +252,11 @@ describe("railway-deploy job specifics", () => {
     expect(yml).toMatch(/RAILWAY_TOKEN\b[\s\S]{0,200}exit 0/)
   })
 
-  it("waits for deployment completion and verifies server health", async () => {
+  it("waits for Railway to report a healthy deployment", async () => {
     const yml = await read(".github/workflows/ci-pipeline.yml")
     expect(yml).toContain("./script/railway-deploy.sh >tmp/railway.log")
     expect(yml).not.toContain("railway-deploy.sh --detach")
-    expect(yml).toContain("RAILWAY_HEALTH_URL")
-    expect(yml).toContain("curl --fail --silent --show-error")
+    expect(yml).toContain("✓ Railway deploy is healthy")
   })
 })
 
