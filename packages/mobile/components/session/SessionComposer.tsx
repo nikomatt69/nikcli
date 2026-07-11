@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -10,94 +10,118 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native"
-import { ArrowUp, Code2, GitBranch, Lock, MapPin, Paperclip, Plus, Square, Terminal, X } from "lucide-react-native"
-import { SPRING_CONFIG, SPRING_MICRO, usePrefersReducedMotion } from "@/lib/animation"
-import { triggerHaptic } from "@/lib/haptics"
-import { hexToRgba, useAppTheme } from "@/lib/theme"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { ComposerToolDrawer, type ComposerTab } from "./ComposerToolDrawer"
+} from "react-native";
+import {
+  ArrowUp,
+  Code2,
+  GitBranch,
+  Lock,
+  MapPin,
+  Paperclip,
+  Plus,
+  Square,
+  Terminal,
+  X,
+} from "lucide-react-native";
+import {
+  SPRING_CONFIG,
+  SPRING_MICRO,
+  usePrefersReducedMotion,
+} from "@/lib/animation";
+import { triggerHaptic } from "@/lib/haptics";
+import { hexToRgba, useAppTheme } from "@/lib/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ComposerToolDrawer, type ComposerTab } from "./ComposerToolDrawer";
 
 export type SessionComposerProps = {
-  mode: "plan" | "code"
-  setMode(mode: "plan" | "code"): void
-  input: string
-  setInput(value: string): void
+  mode: "plan" | "code";
+  setMode(mode: "plan" | "code"): void;
+  input: string;
+  setInput(value: string): void;
   slashSuggestions?: Array<{
-    name: string
-    description?: string
-    badge?: string
-  }>
-  slashLoading?: boolean
-  sending: boolean
-  sessionProcessing?: boolean
-  queuedMessageCount?: number
-  sessionBlocked: boolean
-  cleaned: boolean
-  onOpenCommands(): void
-  onSelectSlash(name: string): void
-  onSend(): void
-  onAttach?(): void
-  onOpenGit?(): void
-  onStop?(): void
+    name: string;
+    description?: string;
+    badge?: string;
+  }>;
+  slashLoading?: boolean;
+  sending: boolean;
+  sessionProcessing?: boolean;
+  queuedMessageCount?: number;
+  offlineQueuedMessageCount?: number;
+  sessionBlocked: boolean;
+  cleaned: boolean;
+  onOpenCommands(): void;
+  onSelectSlash(name: string): void;
+  onSend(): void;
+  onAttach?(): void;
+  onOpenGit?(): void;
+  onStop?(): void;
   pendingAttachments?: Array<{
-    id: string
-    mime?: string
-    filename?: string
-    base64?: string
-    previewUri?: string
-    sizeLabel?: string
-    uri?: string
-    name?: string
-    type?: string
-  }>
+    id: string;
+    mime?: string;
+    filename?: string;
+    base64?: string;
+    previewUri?: string;
+    sizeLabel?: string;
+    uri?: string;
+    name?: string;
+    type?: string;
+  }>;
   onAddAttachment?(item: {
-    id: string
-    mime?: string
-    filename?: string
-    base64?: string
-    previewUri?: string
-    sizeLabel?: string
-    uri?: string
-    name?: string
-    type?: string
-  }): void
-  onRemoveAttachment?(id: string): void
-  modelLabel?: string
-  activeMcpCount?: number
-  availableModels?: Array<{ id: string; name: string; badge?: string }>
-  skills?: Array<{ name: string; description?: string; category?: string }>
-  tools?: Array<{ name: string; description?: string; enabled: boolean }>
-  mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>
-  onModelSelect?(id: string): void
-  onSkillSelect?(name: string): void
-  onToolToggle?(name: string, enabled: boolean): void
-  onMcpToggle?(name: string, enabled: boolean): void
-  onSkillsManage?(): void
-  onToolsManage?(): void
-  onMcpManage?(): void
-}
+    id: string;
+    mime?: string;
+    filename?: string;
+    base64?: string;
+    previewUri?: string;
+    sizeLabel?: string;
+    uri?: string;
+    name?: string;
+    type?: string;
+  }): void;
+  onRemoveAttachment?(id: string): void;
+  modelLabel?: string;
+  activeMcpCount?: number;
+  availableModels?: Array<{ id: string; name: string; badge?: string }>;
+  skills?: Array<{ name: string; description?: string; category?: string }>;
+  tools?: Array<{ name: string; description?: string; enabled: boolean }>;
+  mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>;
+  onModelSelect?(id: string): void;
+  onSkillSelect?(name: string): void;
+  onToolToggle?(name: string, enabled: boolean): void;
+  onMcpToggle?(name: string, enabled: boolean): void;
+  onSkillsManage?(): void;
+  onToolsManage?(): void;
+  onMcpManage?(): void;
+};
 
-const CHAR_COUNT_THRESHOLD = 100
+const CHAR_COUNT_THRESHOLD = 100;
 // Each segment width — pill animates between [2, SEGMENT_W + 2]
-const SEGMENT_W = 68
+const SEGMENT_W = 68;
 // TextInput line metrics
-const INPUT_LINE_HEIGHT = 22
-const INPUT_PADDING_TOP = 14
-const INPUT_PADDING_BOTTOM = 10
-const INPUT_MIN_ROWS = 2
-const INPUT_MAX_ROWS = 6
-const INPUT_MIN_HEIGHT = INPUT_PADDING_TOP + INPUT_MIN_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 68
-const INPUT_MAX_HEIGHT = INPUT_PADDING_TOP + INPUT_MAX_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 156
+const INPUT_LINE_HEIGHT = 22;
+const INPUT_PADDING_TOP = 14;
+const INPUT_PADDING_BOTTOM = 10;
+const INPUT_MIN_ROWS = 2;
+const INPUT_MAX_ROWS = 6;
+const INPUT_MIN_HEIGHT =
+  INPUT_PADDING_TOP + INPUT_MIN_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM; // 68
+const INPUT_MAX_HEIGHT =
+  INPUT_PADDING_TOP + INPUT_MAX_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM; // 156
 
 // Stable empty defaults so memo() on child components sees the same
 // reference across renders and doesn't redraw.
-const EMPTY_SLASH_SUGGESTIONS: NonNullable<SessionComposerProps["slashSuggestions"]> = []
-const EMPTY_PENDING_ATTACHMENTS: NonNullable<SessionComposerProps["pendingAttachments"]> = []
-const EMPTY_AVAILABLE_MODELS: NonNullable<SessionComposerProps["availableModels"]> = []
-const EMPTY_SKILLS: NonNullable<SessionComposerProps["skills"]> = []
-const EMPTY_TOOLS: NonNullable<SessionComposerProps["tools"]> = []
-const EMPTY_MCP_SERVERS: NonNullable<SessionComposerProps["mcpServers"]> = []
+const EMPTY_SLASH_SUGGESTIONS: NonNullable<
+  SessionComposerProps["slashSuggestions"]
+> = [];
+const EMPTY_PENDING_ATTACHMENTS: NonNullable<
+  SessionComposerProps["pendingAttachments"]
+> = [];
+const EMPTY_AVAILABLE_MODELS: NonNullable<
+  SessionComposerProps["availableModels"]
+> = [];
+const EMPTY_SKILLS: NonNullable<SessionComposerProps["skills"]> = [];
+const EMPTY_TOOLS: NonNullable<SessionComposerProps["tools"]> = [];
+const EMPTY_MCP_SERVERS: NonNullable<SessionComposerProps["mcpServers"]> = [];
 
 export function SessionComposer({
   mode,
@@ -109,6 +133,7 @@ export function SessionComposer({
   sending,
   sessionProcessing = false,
   queuedMessageCount = 0,
+  offlineQueuedMessageCount = 0,
   sessionBlocked,
   cleaned,
   onOpenCommands,
@@ -133,61 +158,71 @@ export function SessionComposer({
   onToolsManage,
   onMcpManage,
 }: SessionComposerProps) {
-  const { palette, isDark } = useAppTheme()
-  const prefersReducedMotion = usePrefersReducedMotion()
-  const insets = useSafeAreaInsets()
-  const inputRef = useRef<TextInput>(null)
-  const [isFocused, setIsFocused] = useState(false)
-  const [drawerVisible, setDrawerVisible] = useState(false)
-  const [activeTab, setActiveTab] = useState<ComposerTab>("tools")
+  const { palette, isDark } = useAppTheme();
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const insets = useSafeAreaInsets();
+  const inputRef = useRef<TextInput>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<ComposerTab>("tools");
 
-  const sendBlocked = cleaned || !input.trim()
-  const sendDisabled = sending || sendBlocked
-  const showSlash = input.trimStart().startsWith("/")
-  const hasText = input.trim().length > 0
-  const charCount = input.length
-  const showCharCount = charCount > CHAR_COUNT_THRESHOLD
-  const showProcessingBanner = sessionProcessing && !cleaned
-  const showStatus = showProcessingBanner || cleaned
-  const showStop = Boolean(onStop && (sessionProcessing || sending))
-  const hasAttachments = pendingAttachments.length > 0
+  const sendBlocked = cleaned || !input.trim();
+  const sendDisabled = sending || sendBlocked;
+  const showSlash = input.trimStart().startsWith("/");
+  const hasText = input.trim().length > 0;
+  const charCount = input.length;
+  const showCharCount = charCount > CHAR_COUNT_THRESHOLD;
+  const showProcessingBanner = sessionProcessing && !cleaned;
+  const showOfflineBanner = offlineQueuedMessageCount > 0 && !cleaned;
+  const showStatus = showProcessingBanner || showOfflineBanner || cleaned;
+  const showStop = Boolean(onStop && (sessionProcessing || sending));
+  const hasAttachments = pendingAttachments.length > 0;
 
   // ── Animation values ──────────────────────────────────────────────────────
 
   // Focus: border glow (non-native — drives borderColor interpolation)
-  const focusAnimRef = useRef<Animated.Value | null>(null)
-  if (focusAnimRef.current === null) focusAnimRef.current = new Animated.Value(0)
-  const focusAnim = focusAnimRef.current
+  const focusAnimRef = useRef<Animated.Value | null>(null);
+  if (focusAnimRef.current === null)
+    focusAnimRef.current = new Animated.Value(0);
+  const focusAnim = focusAnimRef.current;
 
   // Send button: color transition (non-native)
-  const sendColorAnimRef = useRef<Animated.Value | null>(null)
-  if (sendColorAnimRef.current === null) sendColorAnimRef.current = new Animated.Value(hasText && !sendBlocked ? 1 : 0)
-  const sendColorAnim = sendColorAnimRef.current
+  const sendColorAnimRef = useRef<Animated.Value | null>(null);
+  if (sendColorAnimRef.current === null)
+    sendColorAnimRef.current = new Animated.Value(
+      hasText && !sendBlocked ? 1 : 0,
+    );
+  const sendColorAnim = sendColorAnimRef.current;
 
   // Send button: scale spring pop (native)
-  const sendScaleAnimRef = useRef<Animated.Value | null>(null)
-  if (sendScaleAnimRef.current === null) sendScaleAnimRef.current = new Animated.Value(1)
-  const sendScaleAnim = sendScaleAnimRef.current
+  const sendScaleAnimRef = useRef<Animated.Value | null>(null);
+  if (sendScaleAnimRef.current === null)
+    sendScaleAnimRef.current = new Animated.Value(1);
+  const sendScaleAnim = sendScaleAnimRef.current;
 
   // Stop button: pulsing scale (native)
-  const stopPulseRef = useRef<Animated.Value | null>(null)
-  if (stopPulseRef.current === null) stopPulseRef.current = new Animated.Value(1)
-  const stopPulse = stopPulseRef.current
+  const stopPulseRef = useRef<Animated.Value | null>(null);
+  if (stopPulseRef.current === null)
+    stopPulseRef.current = new Animated.Value(1);
+  const stopPulse = stopPulseRef.current;
 
   // Mode segmented control: sliding pill (non-native for left position)
-  const modeAnimRef = useRef<Animated.Value | null>(null)
-  if (modeAnimRef.current === null) modeAnimRef.current = new Animated.Value(mode === "code" ? 1 : 0)
-  const modeAnim = modeAnimRef.current
+  const modeAnimRef = useRef<Animated.Value | null>(null);
+  if (modeAnimRef.current === null)
+    modeAnimRef.current = new Animated.Value(mode === "code" ? 1 : 0);
+  const modeAnim = modeAnimRef.current;
 
   // Slash panel: fade + slide (native)
-  const slashAnimRef = useRef<Animated.Value | null>(null)
-  if (slashAnimRef.current === null) slashAnimRef.current = new Animated.Value(0)
-  const slashAnim = slashAnimRef.current
+  const slashAnimRef = useRef<Animated.Value | null>(null);
+  if (slashAnimRef.current === null)
+    slashAnimRef.current = new Animated.Value(0);
+  const slashAnim = slashAnimRef.current;
 
   // Status banner: slide down (native)
-  const statusAnimRef = useRef<Animated.Value | null>(null)
-  if (statusAnimRef.current === null) statusAnimRef.current = new Animated.Value(0)
-  const statusAnim = statusAnimRef.current
+  const statusAnimRef = useRef<Animated.Value | null>(null);
+  if (statusAnimRef.current === null)
+    statusAnimRef.current = new Animated.Value(0);
+  const statusAnim = statusAnimRef.current;
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -197,39 +232,45 @@ export function SessionComposer({
       duration: 220,
       useNativeDriver: false,
       easing: Easing.out(Easing.ease),
-    }).start()
-  }, [isFocused, focusAnim])
+    }).start();
+  }, [isFocused, focusAnim]);
 
   useEffect(() => {
-    const isReady = hasText && !sendBlocked
+    const isReady = hasText && !sendBlocked;
     Animated.timing(sendColorAnim, {
       toValue: isReady ? 1 : 0,
       duration: 200,
       useNativeDriver: false,
       easing: Easing.out(Easing.ease),
-    }).start()
+    }).start();
     if (prefersReducedMotion) {
-      sendScaleAnim.setValue(isReady ? 1 : 0.88)
-      return
+      sendScaleAnim.setValue(isReady ? 1 : 0.88);
+      return;
     }
 
     if (isReady) {
       Animated.spring(sendScaleAnim, {
         toValue: 1,
         ...SPRING_CONFIG,
-      }).start()
+      }).start();
     } else {
       Animated.spring(sendScaleAnim, {
         toValue: 0.88,
         ...SPRING_CONFIG,
-      }).start()
+      }).start();
     }
-  }, [hasText, prefersReducedMotion, sendBlocked, sendColorAnim, sendScaleAnim])
+  }, [
+    hasText,
+    prefersReducedMotion,
+    sendBlocked,
+    sendColorAnim,
+    sendScaleAnim,
+  ]);
 
   useEffect(() => {
     if (!showStop || prefersReducedMotion) {
-      stopPulse.setValue(1)
-      return
+      stopPulse.setValue(1);
+      return;
     }
     const pulse = Animated.loop(
       Animated.sequence([
@@ -246,15 +287,15 @@ export function SessionComposer({
           easing: Easing.inOut(Easing.ease),
         }),
       ]),
-    )
-    pulse.start()
-    return () => pulse.stop()
-  }, [prefersReducedMotion, showStop, stopPulse])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [prefersReducedMotion, showStop, stopPulse]);
 
   useEffect(() => {
     if (prefersReducedMotion) {
-      modeAnim.setValue(mode === "code" ? 1 : 0)
-      return
+      modeAnim.setValue(mode === "code" ? 1 : 0);
+      return;
     }
 
     Animated.timing(modeAnim, {
@@ -262,39 +303,42 @@ export function SessionComposer({
       duration: 200,
       useNativeDriver: false,
       easing: Easing.out(Easing.quad),
-    }).start()
-  }, [mode, modeAnim, prefersReducedMotion])
+    }).start();
+  }, [mode, modeAnim, prefersReducedMotion]);
 
   useEffect(() => {
     if (prefersReducedMotion) {
-      slashAnim.setValue(showSlash ? 1 : 0)
-      return
+      slashAnim.setValue(showSlash ? 1 : 0);
+      return;
     }
 
     Animated.spring(slashAnim, {
       toValue: showSlash ? 1 : 0,
       ...SPRING_MICRO,
-    }).start()
-  }, [prefersReducedMotion, showSlash, slashAnim])
+    }).start();
+  }, [prefersReducedMotion, showSlash, slashAnim]);
 
   useEffect(() => {
     if (prefersReducedMotion) {
-      statusAnim.setValue(showStatus ? 1 : 0)
-      return
+      statusAnim.setValue(showStatus ? 1 : 0);
+      return;
     }
 
     Animated.spring(statusAnim, {
       toValue: showStatus ? 1 : 0,
       ...SPRING_MICRO,
-    }).start()
-  }, [prefersReducedMotion, showStatus, statusAnim])
+    }).start();
+  }, [prefersReducedMotion, showStatus, statusAnim]);
 
   // ── Derived animated styles ───────────────────────────────────────────────
 
   const borderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [palette.border, isDark ? "rgba(255,255,255,0.28)" : "rgba(20,20,19,0.28)"],
-  })
+    outputRange: [
+      palette.border,
+      isDark ? "rgba(255,255,255,0.28)" : "rgba(20,20,19,0.28)",
+    ],
+  });
 
   // Send button matches the circular chrome buttons: surface fill + hairline.
 
@@ -302,20 +346,32 @@ export function SessionComposer({
   const segmentPillLeft = modeAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [2, SEGMENT_W + 2], // [2, 70] with SEGMENT_W=68
-  })
+  });
 
   const segmentLabelPlan = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [isDark ? palette.accentLight : palette.accentLight, palette.muted],
-  })
+    outputRange: [
+      isDark ? palette.accentLight : palette.accentLight,
+      palette.muted,
+    ],
+  });
 
   const segmentLabelCode = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [palette.muted, isDark ? palette.accentLight : palette.accentLight],
-  })
+    outputRange: [
+      palette.muted,
+      isDark ? palette.accentLight : palette.accentLight,
+    ],
+  });
 
-  const slashTranslateY = slashAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] })
-  const statusTranslateY = statusAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] })
+  const slashTranslateY = slashAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [8, 0],
+  });
+  const statusTranslateY = statusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-6, 0],
+  });
 
   // ── Icon button style — bare icons, no chrome (Cursor-style toolbar) ─────
   const iconBtn = useMemo(
@@ -324,7 +380,7 @@ export function SessionComposer({
       backgroundColor: "transparent" as const,
     }),
     [],
-  )
+  );
 
   return (
     <View
@@ -334,7 +390,12 @@ export function SessionComposer({
       }}
     >
       {/* Top hairline separator — intentionally transparent */}
-      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: "transparent" }} />
+      <View
+        style={{
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: "transparent",
+        }}
+      />
 
       {/* Status banner — glass pill, animated slide-down */}
 
@@ -354,14 +415,18 @@ export function SessionComposer({
               borderWidth: 1,
               borderColor: cleaned
                 ? hexToRgba(palette.danger, 0.22)
-                : isDark
-                  ? "rgba(255,255,255,0.10)"
-                  : "rgba(218,216,209,0.72)",
+                : showOfflineBanner
+                  ? hexToRgba(palette.warn, 0.22)
+                  : isDark
+                    ? "rgba(255,255,255,0.10)"
+                    : "rgba(218,216,209,0.72)",
               backgroundColor: cleaned
                 ? hexToRgba(palette.danger, 0.08)
-                : isDark
-                  ? "rgba(255,255,255,0.045)"
-                  : "rgba(255,255,255,0.72)",
+                : showOfflineBanner
+                  ? hexToRgba(palette.warn, 0.1)
+                  : isDark
+                    ? "rgba(255,255,255,0.045)"
+                    : "rgba(255,255,255,0.72)",
               paddingHorizontal: 14,
               paddingVertical: 10,
               flexDirection: "row",
@@ -369,13 +434,30 @@ export function SessionComposer({
               gap: 8,
             }}
           >
-            {cleaned ? <Lock size={14} color={palette.danger} strokeWidth={2.2} /> : null}
-            <Text style={{ flex: 1, color: cleaned ? palette.danger : palette.accentLight, fontSize: 12, fontWeight: "600" }}>
+            {cleaned ? (
+              <Lock size={14} color={palette.danger} strokeWidth={2.2} />
+            ) : null}
+            <Text
+              style={{
+                flex: 1,
+                color: cleaned
+                  ? palette.danger
+                  : showOfflineBanner
+                    ? palette.warn
+                    : palette.accentLight,
+                fontSize: 12,
+                fontWeight: "600",
+              }}
+            >
               {cleaned
                 ? "This worktree was cleaned up"
-                : queuedMessageCount > 0
-                  ? `${queuedMessageCount} queued · agent working`
-                  : "Agent working · new messages queue automatically"}
+                : showOfflineBanner
+                  ? offlineQueuedMessageCount === 1
+                    ? "1 message saved · will send when the server is reachable"
+                    : `${offlineQueuedMessageCount} messages saved · will send when the server is reachable`
+                  : queuedMessageCount > 0
+                    ? `${queuedMessageCount} queued · agent working`
+                    : "Agent working · new messages queue automatically"}
             </Text>
           </View>
         </Animated.View>
@@ -398,7 +480,9 @@ export function SessionComposer({
               borderCurve: "continuous",
               overflow: "hidden",
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : hexToRgba(palette.ink, 0.1),
+              borderColor: isDark
+                ? "rgba(255,255,255,0.12)"
+                : hexToRgba(palette.ink, 0.1),
               shadowColor: palette.shadow,
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: isDark ? 0.24 : 0.1,
@@ -409,14 +493,22 @@ export function SessionComposer({
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)" },
+                {
+                  backgroundColor: isDark
+                    ? "rgba(17,17,17,0.94)"
+                    : "rgba(255,255,255,0.96)",
+                },
               ]}
               pointerEvents="none"
             />
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(239,237,232,0.12)" },
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.012)"
+                    : "rgba(239,237,232,0.12)",
+                },
               ]}
               pointerEvents="none"
             />
@@ -447,7 +539,9 @@ export function SessionComposer({
                   ? `${slashSuggestions.length} command${slashSuggestions.length > 1 ? "s" : ""}`
                   : "Commands"}
               </Text>
-              {slashLoading && <ActivityIndicator size="small" color={palette.accent} />}
+              {slashLoading && (
+                <ActivityIndicator size="small" color={palette.accent} />
+              )}
             </View>
 
             {slashSuggestions.length ? (
@@ -461,8 +555,8 @@ export function SessionComposer({
                   <Pressable
                     key={item.name}
                     onPress={() => {
-                      void triggerHaptic("selection")
-                      onSelectSlash(item.name)
+                      void triggerHaptic("selection");
+                      onSelectSlash(item.name);
                     }}
                     style={({ pressed }) => ({
                       borderRadius: 14,
@@ -497,10 +591,21 @@ export function SessionComposer({
                           }}
                           numberOfLines={1}
                         >
-                          {item.name?.trim() ? `/${item.name}` : item.description || item.badge || "(unnamed command)"}
+                          {item.name?.trim()
+                            ? `/${item.name}`
+                            : item.description ||
+                              item.badge ||
+                              "(unnamed command)"}
                         </Text>
                         {item.name?.trim() && item.description ? (
-                          <Text style={{ color: palette.muted, fontSize: 12.5, lineHeight: 17 }} numberOfLines={2}>
+                          <Text
+                            style={{
+                              color: palette.muted,
+                              fontSize: 12.5,
+                              lineHeight: 17,
+                            }}
+                            numberOfLines={2}
+                          >
                             {item.description}
                           </Text>
                         ) : null}
@@ -516,12 +621,22 @@ export function SessionComposer({
                             borderRadius: 999,
                             borderWidth: StyleSheet.hairlineWidth,
                             borderColor: hexToRgba(palette.ink, 0.1),
-                            backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.045),
+                            backgroundColor: hexToRgba(
+                              palette.ink,
+                              isDark ? 0.08 : 0.045,
+                            ),
                             paddingHorizontal: 9,
                             paddingVertical: 4,
                           }}
                         >
-                          <Text style={{ color: palette.soft, fontSize: 10, fontWeight: "600" }} numberOfLines={1}>
+                          <Text
+                            style={{
+                              color: palette.soft,
+                              fontSize: 10,
+                              fontWeight: "600",
+                            }}
+                            numberOfLines={1}
+                          >
                             {item.badge}
                           </Text>
                         </View>
@@ -532,7 +647,15 @@ export function SessionComposer({
               </ScrollView>
             ) : !slashLoading ? (
               <View style={{ alignItems: "center", paddingVertical: 16 }}>
-                <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "500" }}>No matching commands</Text>
+                <Text
+                  style={{
+                    color: palette.muted,
+                    fontSize: 13,
+                    fontWeight: "500",
+                  }}
+                >
+                  No matching commands
+                </Text>
               </View>
             ) : null}
           </View>
@@ -558,7 +681,9 @@ export function SessionComposer({
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: isDark ? "rgba(17,17,17,0.92)" : "rgba(255,255,255,0.95)",
+                  backgroundColor: isDark
+                    ? "rgba(17,17,17,0.92)"
+                    : "rgba(255,255,255,0.95)",
                 },
               ]}
               pointerEvents="none"
@@ -568,14 +693,19 @@ export function SessionComposer({
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(247,246,242,0.2)",
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.015)"
+                    : "rgba(247,246,242,0.2)",
                 },
               ]}
               pointerEvents="none"
             />
             {/* Animated border overlay */}
             <Animated.View
-              style={[StyleSheet.absoluteFill, { borderRadius: 24, borderWidth: 1, borderColor }]}
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: 24, borderWidth: 1, borderColor },
+              ]}
               pointerEvents="none"
             />
 
@@ -592,7 +722,11 @@ export function SessionComposer({
               keyboardAppearance={isDark ? "dark" : "light"}
               returnKeyType="default"
               placeholder={
-                cleaned ? "Worktree cleaned up" : mode === "plan" ? "What would you like to plan?" : "Plan, ask, build…"
+                cleaned
+                  ? "Worktree cleaned up"
+                  : mode === "plan"
+                    ? "What would you like to plan?"
+                    : "Plan, ask, build…"
               }
               placeholderTextColor={palette.muted}
               style={{
@@ -613,21 +747,25 @@ export function SessionComposer({
               style={{
                 height: StyleSheet.hairlineWidth,
                 marginHorizontal: 16,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(20,20,19,0.08)",
               }}
             />
 
             {/* Toolbar */}
             <View style={styles.toolbar}>
               {/* Left cluster - icons with spacing */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
                 {/* Attach */}
                 {onAttach ? (
                   <Pressable
                     onPress={() => {
-                      void triggerHaptic("selection")
-                      Keyboard.dismiss()
-                      onAttach()
+                      void triggerHaptic("selection");
+                      Keyboard.dismiss();
+                      onAttach();
                     }}
                     disabled={cleaned}
                     accessibilityRole="button"
@@ -676,9 +814,9 @@ export function SessionComposer({
                 {/* Commands */}
                 <Pressable
                   onPress={() => {
-                    void triggerHaptic("selection")
-                    Keyboard.dismiss()
-                    onOpenCommands()
+                    void triggerHaptic("selection");
+                    Keyboard.dismiss();
+                    onOpenCommands();
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Open command palette"
@@ -698,9 +836,9 @@ export function SessionComposer({
                 {onOpenGit ? (
                   <Pressable
                     onPress={() => {
-                      void triggerHaptic("selection")
-                      Keyboard.dismiss()
-                      onOpenGit()
+                      void triggerHaptic("selection");
+                      Keyboard.dismiss();
+                      onOpenGit();
                     }}
                     accessibilityRole="button"
                     accessibilityLabel="Open Git panel"
@@ -720,9 +858,9 @@ export function SessionComposer({
                 {/* Plus - opens tools drawer */}
                 <Pressable
                   onPress={() => {
-                    void triggerHaptic("selection")
-                    Keyboard.dismiss()
-                    setDrawerVisible(true)
+                    void triggerHaptic("selection");
+                    Keyboard.dismiss();
+                    setDrawerVisible(true);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Open tools"
@@ -741,8 +879,8 @@ export function SessionComposer({
                 {/* Mode segmented control */}
                 <Pressable
                   onPress={() => {
-                    void triggerHaptic("selection")
-                    setMode(mode === "plan" ? "code" : "plan")
+                    void triggerHaptic("selection");
+                    setMode(mode === "plan" ? "code" : "plan");
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={`Switch composer mode. Current mode is ${mode}`}
@@ -756,7 +894,11 @@ export function SessionComposer({
                   <View
                     style={[
                       styles.segment,
-                      { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(218,216,209,0.78)" },
+                      {
+                        borderColor: isDark
+                          ? "rgba(255,255,255,0.13)"
+                          : "rgba(218,216,209,0.78)",
+                      },
                     ]}
                   >
                     {/* Sliding pill indicator */}
@@ -765,8 +907,12 @@ export function SessionComposer({
                         styles.segmentPill,
                         {
                           left: segmentPillLeft,
-                          backgroundColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.95)",
-                          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.18)",
+                          backgroundColor: isDark
+                            ? "rgba(255,255,255,0.13)"
+                            : "rgba(255,255,255,0.95)",
+                          borderColor: isDark
+                            ? "rgba(255,255,255,0.18)"
+                            : "rgba(20,20,19,0.18)",
                         },
                       ]}
                     />
@@ -774,39 +920,70 @@ export function SessionComposer({
                     <View style={styles.segmentItem}>
                       <MapPin
                         size={10}
-                        color={mode === "plan" ? palette.accentLight : palette.muted}
+                        color={
+                          mode === "plan" ? palette.accentLight : palette.muted
+                        }
                         strokeWidth={2.2}
                       />
-                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelPlan }]}>Plan</Animated.Text>
+                      <Animated.Text
+                        style={[
+                          styles.segmentLabel,
+                          { color: segmentLabelPlan },
+                        ]}
+                      >
+                        Plan
+                      </Animated.Text>
                     </View>
                     {/* Code segment */}
                     <View style={styles.segmentItem}>
                       <Code2
                         size={10}
-                        color={mode === "code" ? palette.accentLight : palette.muted}
+                        color={
+                          mode === "code" ? palette.accentLight : palette.muted
+                        }
                         strokeWidth={2.2}
                       />
-                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>Code</Animated.Text>
+                      <Animated.Text
+                        style={[
+                          styles.segmentLabel,
+                          { color: segmentLabelCode },
+                        ]}
+                      >
+                        Code
+                      </Animated.Text>
                     </View>
                   </View>
                 </Pressable>
               </View>
 
               {/* Right cluster */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
                 {modelLabel ? (
                   <View
                     style={{
                       maxWidth: 108,
                       borderRadius: 999,
                       borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(218,216,209,0.70)",
-                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.62)",
+                      borderColor: isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(218,216,209,0.70)",
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.05)"
+                        : "rgba(255,255,255,0.62)",
                       paddingHorizontal: 8,
                       paddingVertical: 5,
                     }}
                   >
-                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700" }} numberOfLines={1}>
+                    <Text
+                      style={{
+                        color: palette.muted,
+                        fontSize: 10,
+                        fontWeight: "700",
+                      }}
+                      numberOfLines={1}
+                    >
                       {modelLabel}
                     </Text>
                   </View>
@@ -816,14 +993,23 @@ export function SessionComposer({
                     style={{
                       borderRadius: 999,
                       borderWidth: 1,
-                      borderColor: isDark ? "rgba(52,199,89,0.30)" : "rgba(31,138,101,0.22)",
-                      backgroundColor: isDark ? "rgba(52,199,89,0.11)" : "rgba(31,138,101,0.08)",
+                      borderColor: isDark
+                        ? "rgba(52,199,89,0.30)"
+                        : "rgba(31,138,101,0.22)",
+                      backgroundColor: isDark
+                        ? "rgba(52,199,89,0.11)"
+                        : "rgba(31,138,101,0.08)",
                       paddingHorizontal: 8,
                       paddingVertical: 5,
                     }}
                   >
                     <Text
-                      style={{ color: palette.success, fontSize: 10, fontWeight: "800", fontVariant: ["tabular-nums"] }}
+                      style={{
+                        color: palette.success,
+                        fontSize: 10,
+                        fontWeight: "800",
+                        fontVariant: ["tabular-nums"],
+                      }}
                     >
                       MCP {activeMcpCount}
                     </Text>
@@ -848,8 +1034,8 @@ export function SessionComposer({
                   <Animated.View style={{ transform: [{ scale: stopPulse }] }}>
                     <Pressable
                       onPress={() => {
-                        void triggerHaptic("error")
-                        onStop?.()
+                        void triggerHaptic("error");
+                        onStop?.();
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Stop current run"
@@ -867,19 +1053,26 @@ export function SessionComposer({
                         transform: [{ scale: pressed ? 0.93 : 1 }],
                       })}
                     >
-                      <Square size={12} color={palette.ink} strokeWidth={0} fill={palette.ink} />
+                      <Square
+                        size={12}
+                        color={palette.ink}
+                        strokeWidth={0}
+                        fill={palette.ink}
+                      />
                     </Pressable>
                   </Animated.View>
                 ) : (
-                  <Animated.View style={{ transform: [{ scale: sendScaleAnim }] }}>
+                  <Animated.View
+                    style={{ transform: [{ scale: sendScaleAnim }] }}
+                  >
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Send message"
                       accessibilityState={{ disabled: sendDisabled }}
                       disabled={sendDisabled}
                       onPress={() => {
-                        void triggerHaptic("send")
-                        onSend()
+                        void triggerHaptic("send");
+                        onSend();
                       }}
                       style={({ pressed }) => ({
                         width: 34,
@@ -891,13 +1084,22 @@ export function SessionComposer({
                         alignItems: "center",
                         justifyContent: "center",
                         overflow: "hidden",
-                        opacity: pressed && !sendDisabled ? 0.7 : sendDisabled ? 0.55 : 1,
-                        transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
+                        opacity:
+                          pressed && !sendDisabled
+                            ? 0.7
+                            : sendDisabled
+                              ? 0.55
+                              : 1,
+                        transform: [
+                          { scale: pressed && !sendDisabled ? 0.93 : 1 },
+                        ],
                       })}
                     >
                       <ArrowUp
                         size={18}
-                        color={hasText && !sendBlocked ? palette.ink : palette.muted}
+                        color={
+                          hasText && !sendBlocked ? palette.ink : palette.muted
+                        }
                         strokeWidth={2.4}
                       />
                     </Pressable>
@@ -928,7 +1130,7 @@ export function SessionComposer({
         onMcpManage={onMcpManage}
       />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -978,4 +1180,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.2,
   },
-})
+});
