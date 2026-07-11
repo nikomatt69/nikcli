@@ -16,11 +16,7 @@ type Props = {
   onSelect(modelKey: string, variant?: string): void
 }
 
-function VariantChip(props: {
-  label: string
-  active: boolean
-  onPress(): void
-}) {
+function VariantChip(props: { label: string; active: boolean; onPress(): void }) {
   const { palette } = useAppTheme()
   return (
     <Pressable
@@ -50,13 +46,7 @@ function VariantChip(props: {
   )
 }
 
-export function ModelPickerSheet({
-  sheetRef,
-  models,
-  activeModelKey,
-  activeVariant,
-  onSelect,
-}: Props) {
+export function ModelPickerSheet({ sheetRef, models, activeModelKey, activeVariant, onSelect }: Props) {
   const { palette } = useAppTheme()
   const [query, setQuery] = useState("")
   const [draftModelKey, setDraftModelKey] = useState(activeModelKey)
@@ -188,9 +178,7 @@ export function ModelPickerSheet({
                   {model.title}
                 </Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                  {model.badge ? (
-                    <Text className="text-[10px] font-semibold text-muted">{model.badge}</Text>
-                  ) : null}
+                  {model.badge ? <Text className="text-[10px] font-semibold text-muted">{model.badge}</Text> : null}
                   {model.variants.length > 0 ? (
                     <Text className="text-[10px] font-semibold text-muted">
                       {model.variants.length} thinking levels

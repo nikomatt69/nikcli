@@ -409,8 +409,7 @@
         bar.style.bottom = `${keyboardHeight}px`
         bar.querySelectorAll("button").forEach((button) => {
           const sticky = button.dataset.sticky
-          const active =
-            (sticky === "ctrl" && mobileCtrlActive) || (sticky === "shift" && mobileShiftActive)
+          const active = (sticky === "ctrl" && mobileCtrlActive) || (sticky === "shift" && mobileShiftActive)
           button.classList.toggle("active", active)
         })
       }

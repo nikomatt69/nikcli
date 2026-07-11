@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.156.0 (July 2026)
+
+## Core
+
+- Enhance session management with project grouping and workspace switching (@nikomatt69)
+
+## Mobile
+
+- Remove top queue banner and enhance session composer feedback (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(session): remove top queue banner and enhance session composer feedback
+  - feat(session): enhance session management with project grouping and workspace switching
+
 ## v1.143.0 (July 2026)
 
 ## Core

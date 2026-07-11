@@ -611,7 +611,9 @@ export default function ExplorerScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel={`${isDir ? "Folder" : "File"} ${item.name}`}
-          accessibilityHint={isDir ? "Double tap to expand. Use the trailing button to open this folder." : "Opens in the editor."}
+          accessibilityHint={
+            isDir ? "Double tap to expand. Use the trailing button to open this folder." : "Opens in the editor."
+          }
           accessibilityState={isDir ? { expanded: isExpanded, busy: isExpanding } : undefined}
           style={({ pressed }) => ({
             marginHorizontal: 10,

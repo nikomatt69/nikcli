@@ -1664,9 +1664,7 @@ export namespace Config {
               latestOnlyLspRefresh: z
                 .boolean()
                 .optional()
-                .describe(
-                  "Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.",
-                ),
+                .describe("Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off."),
             })
             .optional(),
         })

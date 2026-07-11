@@ -993,7 +993,9 @@ export default function EditorScreen() {
           <ActionSheetItem
             icon={wordWrap ? "check" : "wrap"}
             label={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-            description={wordWrap ? "Allow horizontal scrolling for long lines" : "Keep long lines within the editor width"}
+            description={
+              wordWrap ? "Allow horizontal scrolling for long lines" : "Keep long lines within the editor width"
+            }
             tone={wordWrap ? "success" : "accent"}
             onPress={() =>
               toolsSheetRef.current?.dismiss(() => {
