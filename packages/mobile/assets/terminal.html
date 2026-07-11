@@ -35,24 +35,18 @@
         --term-cursor: #58a6ff;
       }
 
-      /* RN WKWebView: 100dvh often matches the full device, not the embedded view — WTerm then
-         allocates hundreds of empty rows and the prompt sits on the last line (huge black gap). */
-      html {
-        width: 100dvw;
-        height: 100dvh;
+      /* Fill the WebView frame exactly — never use dvh (maps to device height in WKWebView). */
+      html,
+      body {
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         background: var(--term-bg);
       }
 
       body {
-        position: fixed;
-        inset: 0;
-        width: 100dvw;
-        height: 100dvh;
-        max-height: 100dvh;
+        position: relative;
         margin: 0;
-        background: var(--term-bg);
-        overflow: hidden;
       }
 
       #terminal {
@@ -234,6 +228,47 @@
       #retry-btn:hover {
         background: rgba(88, 166, 255, 0.25);
       }
+
+      #mobile-keybar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        z-index: 150;
+        display: none;
+        flex-direction: row;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 6px 8px;
+        background: rgba(13, 17, 23, 0.96);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        -webkit-overflow-scrolling: touch;
+      }
+      #mobile-keybar.visible {
+        display: flex;
+      }
+      #mobile-keybar button {
+        flex: 0 0 auto;
+        min-width: 42px;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.08);
+        color: #b1bac4;
+        font-family: system-ui, sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      #mobile-keybar button.active {
+        border-color: rgba(88, 166, 255, 0.45);
+        background: rgba(88, 166, 255, 0.18);
+        color: #79c0ff;
+      }
+      #mobile-keybar button.accent {
+        border-color: rgba(255, 123, 114, 0.35);
+        background: rgba(255, 123, 114, 0.12);
+        color: #ffa198;
+      }
     </style>
   </head>
   <body>
@@ -245,6 +280,7 @@
       <p class="url-display" id="error-url"></p>
       <button id="retry-btn" onclick="manualRetry()">Retry Connection</button>
     </div>
+    <div id="mobile-keybar" aria-label="Terminal keys"></div>
 
     <!--
     @wterm/dom — loaded from esm.sh CDN (supports WASM bundled as base64, no separate fetch needed).
@@ -311,8 +347,99 @@
       let connectionTimeoutId = null
       let statusHideTimer = null
       let stopped = false
+      let mobileCtrlActive = false
+      let mobileShiftActive = false
       const MAX_RETRIES = 5
       const RETRY_DELAY_MS = 2000
+
+      const MOBILE_KEYS = [
+        { id: "tab", label: "Tab", data: "\t" },
+        { id: "esc", label: "Esc", data: "\x1b" },
+        { id: "ctrl", label: "Ctrl", sticky: "ctrl" },
+        { id: "shift", label: "Shift", sticky: "shift" },
+        { id: "up", label: "↑", data: "\x1b[A" },
+        { id: "down", label: "↓", data: "\x1b[B" },
+        { id: "left", label: "←", data: "\x1b[D" },
+        { id: "right", label: "→", data: "\x1b[C" },
+        { id: "home", label: "Home", data: "\x01" },
+        { id: "end", label: "End", data: "\x05" },
+        { id: "ctrl-w", label: "Ctrl+W", data: "\x17", accent: true },
+        { id: "ctrl-c", label: "Ctrl+C", data: "\x03", accent: true },
+      ]
+
+      function sendTerminalInput(data) {
+        if (!data) return
+        wt?.focus()
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(data)
+      }
+
+      function ctrlChar(char) {
+        const code = char.toUpperCase().charCodeAt(0)
+        if (code >= 65 && code <= 90) return String.fromCharCode(code - 64)
+        return char
+      }
+
+      function resolveMobileKey(key) {
+        if (key.sticky === "ctrl") {
+          mobileCtrlActive = !mobileCtrlActive
+          if (mobileCtrlActive) mobileShiftActive = false
+          return null
+        }
+        if (key.sticky === "shift") {
+          mobileShiftActive = !mobileShiftActive
+          return null
+        }
+        let data = key.data
+        if (mobileCtrlActive && data.length === 1) data = ctrlChar(data)
+        if (mobileShiftActive && data.length === 1 && /[a-z]/.test(data)) data = data.toUpperCase()
+        if (mobileShiftActive && data === "\t") data = "\x1b[Z"
+        mobileCtrlActive = false
+        mobileShiftActive = false
+        return data
+      }
+
+      function syncMobileKeybar() {
+        const bar = document.getElementById("mobile-keybar")
+        const vv = window.visualViewport
+        if (!bar || !vv) return
+        const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+        const visible = keyboardHeight > 80
+        bar.classList.toggle("visible", visible)
+        if (!visible) return
+        bar.style.bottom = `${keyboardHeight}px`
+        bar.querySelectorAll("button").forEach((button) => {
+          const sticky = button.dataset.sticky
+          const active =
+            (sticky === "ctrl" && mobileCtrlActive) || (sticky === "shift" && mobileShiftActive)
+          button.classList.toggle("active", active)
+        })
+      }
+
+      function mountMobileKeybar() {
+        const bar = document.getElementById("mobile-keybar")
+        if (!bar || bar.dataset.ready === "1") return
+        bar.dataset.ready = "1"
+        for (const key of MOBILE_KEYS) {
+          const button = document.createElement("button")
+          button.type = "button"
+          button.textContent = key.label
+          if (key.sticky) button.dataset.sticky = key.sticky
+          if (key.accent) button.classList.add("accent")
+          button.addEventListener("click", (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            const data = resolveMobileKey(key)
+            syncMobileKeybar()
+            if (data) sendTerminalInput(data)
+          })
+          bar.appendChild(button)
+        }
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", syncMobileKeybar)
+          window.visualViewport.addEventListener("scroll", syncMobileKeybar)
+        }
+        syncMobileKeybar()
+      }
 
       async function initTerminal() {
         wt = new WTerm(el, { autoResize: true })
@@ -327,6 +454,24 @@
         wt.onResize = (cols, rows) => {
           postRN({ type: "resize", cols, rows })
         }
+        // Tap anywhere on the terminal surface to focus input (like a desktop terminal).
+        const focusTerminal = () => wt?.focus()
+        el.addEventListener("pointerdown", focusTerminal, { passive: true })
+        el.addEventListener("click", focusTerminal)
+        mountMobileKeybar()
+        mountViewportObserver()
+      }
+
+      function mountViewportObserver() {
+        if (!window.ResizeObserver) return
+        const observer = new ResizeObserver(() => {
+          syncMobileKeybar()
+          if (wt?.cols && wt?.rows) {
+            postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
+          }
+        })
+        observer.observe(el)
+        if (document.body) observer.observe(document.body)
       }
 
       function postRN(payload) {
@@ -351,6 +496,15 @@
           } else if (msg.type === "paste") {
             if (typeof msg.data !== "string") return
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
+          } else if (msg.type === "input") {
+            if (typeof msg.data !== "string") return
+            wt?.focus()
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
+          } else if (msg.type === "focus") {
+            wt?.focus()
+          } else if (msg.type === "reconnect") {
+            if (msg.wsUrl) wsUrl = msg.wsUrl
+            manualRetry()
           } else if (msg.type === "copy") {
             postRN({ type: "copy", text: collectTerminalText() })
           } else if (msg.type === "reconnect" && msg.wsUrl) {

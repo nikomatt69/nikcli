@@ -41,6 +41,10 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
+import {
+  formatVariantLabel,
+  type MobileModelOption,
+} from "@/lib/model-catalog"
 
 const styles = StyleSheet.create({
   gitBranchChip: {
@@ -73,8 +77,11 @@ export type ComposerToolDrawerProps = {
   activeTab: ComposerTab
   onTabChange(tab: ComposerTab): void
   modelLabel?: string
-  availableModels?: Array<{ id: string; name: string; badge?: string }>
-  onModelSelect?(id: string): void
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
+  onModelSelect?(id: string, variant?: string): void
+  onOpenModelPicker?(): void
   mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>
   onMcpToggle?(name: string, enabled: boolean): void
   onMcpManage?(): void
@@ -137,8 +144,11 @@ export function ComposerToolDrawer({
   activeTab,
   onTabChange,
   modelLabel,
+  activeModelKey,
+  activeVariant,
   availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
+  onOpenModelPicker,
   mcpServers = EMPTY_MCP_SERVERS,
   onMcpToggle,
   onMcpManage,
@@ -345,8 +355,11 @@ export function ComposerToolDrawer({
                 {activeTab === "model" && (
                   <ModelContent
                     modelLabel={modelLabel}
+                    activeModelKey={activeModelKey}
+                    activeVariant={activeVariant}
                     availableModels={availableModels}
                     onModelSelect={onModelSelect}
+                    onOpenModelPicker={onOpenModelPicker}
                   />
                 )}
                 {activeTab === "mcp" && (
@@ -692,25 +705,102 @@ function AnimatedToggleSwitch({
 
 function ModelContent({
   modelLabel,
+  activeModelKey,
+  activeVariant,
   availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
+  onOpenModelPicker,
 }: {
   modelLabel?: string
-  availableModels?: Array<{ id: string; name: string; badge?: string }>
-  onModelSelect?(id: string): void
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
+  onModelSelect?(id: string, variant?: string): void
+  onOpenModelPicker?(): void
 }) {
   const { palette, isDark } = useAppTheme()
+  const selected = availableModels.find((model) => model.id === activeModelKey)
 
   return (
     <ScrollView style={{ flex: 1, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
+      {onOpenModelPicker ? (
+        <Pressable
+          onPress={() => {
+            void triggerHaptic("selection")
+            onOpenModelPicker()
+          }}
+          style={({ pressed }) => ({
+            marginHorizontal: 16,
+            marginBottom: 12,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.16)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.05)",
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            opacity: pressed ? 0.72 : 1,
+          })}
+        >
+          <Text style={{ fontSize: 12, fontWeight: "700", color: palette.accentLight }}>Open full model picker</Text>
+          <Text style={{ fontSize: 11, color: palette.muted, marginTop: 4 }}>
+            Search models and choose thinking effort like the CLI.
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {selected && selected.variants.length > 0 ? (
+        <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: palette.ink, marginBottom: 8 }}>Thinking effort</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            <Pressable
+              onPress={() => onModelSelect?.(selected.id, undefined)}
+              style={{
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderWidth: 1,
+                borderColor: !activeVariant ? palette.accent : palette.border,
+                backgroundColor: !activeVariant ? "rgba(52,199,89,0.12)" : "transparent",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: !activeVariant ? palette.accentLight : palette.soft }}>
+                Default
+              </Text>
+            </Pressable>
+            {selected.variants.map((variant) => {
+              const active = activeVariant === variant
+              return (
+                <Pressable
+                  key={variant}
+                  onPress={() => onModelSelect?.(selected.id, variant)}
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderWidth: 1,
+                    borderColor: active ? palette.accent : palette.border,
+                    backgroundColor: active ? "rgba(52,199,89,0.12)" : "transparent",
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: active ? palette.accentLight : palette.soft }}>
+                    {formatVariantLabel(variant)}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {availableModels.map((model, i) => {
-        const isActive = Boolean(modelLabel && model.name === modelLabel)
+        const isActive = model.id === activeModelKey
         return (
           <AnimatedItemCard
             key={model.id}
             onPress={() => {
               void triggerHaptic("selection")
-              onModelSelect?.(model.id)
+              if (model.variants.length === 0) onModelSelect?.(model.id, undefined)
+              else onModelSelect?.(model.id, model.variants[0])
             }}
             isDark={isDark}
             borderBottom={i < availableModels.length - 1}
@@ -729,10 +819,10 @@ function ModelContent({
                     : "rgba(20,20,19,0.08)",
               }}
             >
-              <Code2 size={15} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2.2} />
+              <Brain size={15} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2.2} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink }}>{model.name}</Text>
+              <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink }}>{model.title}</Text>
               <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                 {isActive && (
                   <View
@@ -760,6 +850,11 @@ function ModelContent({
                     <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
                   </View>
                 )}
+                {model.variants.length > 0 ? (
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: palette.muted }}>
+                    {model.variants.length} thinking levels
+                  </Text>
+                ) : null}
               </View>
             </View>
             <ChevronRight size={14} color={palette.muted} strokeWidth={2} />

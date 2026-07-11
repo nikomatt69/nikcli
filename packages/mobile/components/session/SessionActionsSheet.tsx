@@ -259,7 +259,7 @@ export function SessionActionsSheet({
         <SheetRow
           Icon={TerminalSquare}
           label="Open terminal"
-          description="Launch a shell on the nikcli server"
+          description="Launch a shell in this session workspace"
           onPress={() => {
             sheetRef.current?.dismiss()
             if (onOpenTerminal) {

@@ -32,6 +32,7 @@ import { triggerHaptic } from "@/lib/haptics";
 import { hexToRgba, useAppTheme } from "@/lib/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ComposerToolDrawer, type ComposerTab } from "./ComposerToolDrawer";
+import type { MobileModelOption } from "@/lib/model-catalog";
 
 export type SessionComposerProps = {
   mode: "plan" | "code";
@@ -80,12 +81,15 @@ export type SessionComposerProps = {
   }): void;
   onRemoveAttachment?(id: string): void;
   modelLabel?: string;
+  activeModelKey?: string;
+  activeVariant?: string;
   activeMcpCount?: number;
-  availableModels?: Array<{ id: string; name: string; badge?: string }>;
+  availableModels?: MobileModelOption[];
   skills?: Array<{ name: string; description?: string; category?: string }>;
   tools?: Array<{ name: string; description?: string; enabled: boolean }>;
   mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>;
-  onModelSelect?(id: string): void;
+  onModelSelect?(id: string, variant?: string): void;
+  onOpenModelPicker?(): void;
   onSkillSelect?(name: string): void;
   onToolToggle?(name: string, enabled: boolean): void;
   onMcpToggle?(name: string, enabled: boolean): void;
@@ -145,12 +149,15 @@ export function SessionComposer({
   pendingAttachments = EMPTY_PENDING_ATTACHMENTS,
   onRemoveAttachment,
   modelLabel,
+  activeModelKey,
+  activeVariant,
   activeMcpCount = 0,
   availableModels = EMPTY_AVAILABLE_MODELS,
   skills = EMPTY_SKILLS,
   tools = EMPTY_TOOLS,
   mcpServers = EMPTY_MCP_SERVERS,
   onModelSelect,
+  onOpenModelPicker,
   onSkillSelect,
   onToolToggle,
   onMcpToggle,
@@ -175,7 +182,10 @@ export function SessionComposer({
   const showProcessingBanner = sessionProcessing && !cleaned;
   const showOfflineBanner = offlineQueuedMessageCount > 0 && !cleaned;
   const showStatus = showProcessingBanner || showOfflineBanner || cleaned;
-  const showStop = Boolean(onStop && (sessionProcessing || sending));
+  const queueOnSend = sessionProcessing && hasText && !sendBlocked;
+  const showStop = Boolean(
+    onStop && (sessionProcessing || sending) && !hasText,
+  );
   const hasAttachments = pendingAttachments.length > 0;
 
   // ── Animation values ──────────────────────────────────────────────────────
@@ -961,9 +971,15 @@ export function SessionComposer({
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
                 {modelLabel ? (
-                  <View
-                    style={{
-                      maxWidth: 108,
+                  <Pressable
+                    onPress={() => {
+                      void triggerHaptic("selection");
+                      onOpenModelPicker?.();
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Model: ${modelLabel}. Tap to change model or thinking effort.`}
+                    style={({ pressed }) => ({
+                      maxWidth: 132,
                       borderRadius: 999,
                       borderWidth: 1,
                       borderColor: isDark
@@ -974,7 +990,8 @@ export function SessionComposer({
                         : "rgba(255,255,255,0.62)",
                       paddingHorizontal: 8,
                       paddingVertical: 5,
-                    }}
+                      opacity: pressed ? 0.72 : 1,
+                    })}
                   >
                     <Text
                       style={{
@@ -986,7 +1003,7 @@ export function SessionComposer({
                     >
                       {modelLabel}
                     </Text>
-                  </View>
+                  </Pressable>
                 ) : null}
                 {activeMcpCount > 0 ? (
                   <View
@@ -1067,7 +1084,9 @@ export function SessionComposer({
                   >
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Send message"
+                      accessibilityLabel={
+                        queueOnSend ? "Queue message" : "Send message"
+                      }
                       accessibilityState={{ disabled: sendDisabled }}
                       disabled={sendDisabled}
                       onPress={() => {
@@ -1117,8 +1136,14 @@ export function SessionComposer({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         modelLabel={modelLabel}
+        activeModelKey={activeModelKey}
+        activeVariant={activeVariant}
         availableModels={availableModels}
         onModelSelect={onModelSelect}
+        onOpenModelPicker={() => {
+          setDrawerVisible(false);
+          onOpenModelPicker?.();
+        }}
         skills={skills}
         onSkillSelect={onSkillSelect}
         onSkillsManage={onSkillsManage}

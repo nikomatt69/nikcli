@@ -10,7 +10,11 @@ type OfflineOp = {
   type: "sendMessage"
   sessionID: string
   text: string
-  options?: { model?: { providerID: string; modelID: string }; agent?: string }
+  options?: {
+    model?: { providerID: string; modelID: string }
+    agent?: string
+    variant?: string
+  }
 }
 
 async function readQueue(): Promise<OfflineOp[]> {

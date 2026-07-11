@@ -124,6 +124,7 @@ export type UserMessage = {
   time: { created: number }
   agent: string
   model: { providerID: string; modelID: string }
+  variant?: string
 }
 
 export type AssistantMessage = {
@@ -318,6 +319,7 @@ export type ProviderModel = {
     url: string
     npm: string
   }
+  variants?: Record<string, unknown>
 }
 
 export type ProviderInfo = {

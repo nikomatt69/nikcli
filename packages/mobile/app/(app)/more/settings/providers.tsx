@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native"
 import { Stack, useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -7,6 +7,8 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-context"
+import { formatVariantLabel, listEnabledVariants } from "@/lib/model-catalog"
+import { getModelVariant, setModelVariant } from "@/lib/model-preferences"
 import { MOBILE_DEFAULT_MODEL_ID, MOBILE_DEFAULT_PROVIDER_ID, type ProviderCatalog } from "@/lib/types"
 
 function optionChipClass(active: boolean) {
@@ -41,6 +43,7 @@ export default function ProvidersSettingsScreen() {
   const [modelSearch, setModelSearch] = useState("")
   const [selectedProviderID, setSelectedProviderID] = useState(config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID)
   const [selectedModelID, setSelectedModelID] = useState(config?.modelID ?? MOBILE_DEFAULT_MODEL_ID)
+  const [selectedVariant, setSelectedVariant] = useState<string | undefined>()
   const selectedProviderIDRef = useRef(selectedProviderID)
   const selectedModelIDRef = useRef(selectedModelID)
   selectedProviderIDRef.current = selectedProviderID
@@ -135,12 +138,30 @@ export default function ProvidersSettingsScreen() {
   }, [modelSearch, providerCatalog, selectedProvider])
 
   const providerConnected = selectedProvider ? connectedProviders.has(selectedProvider.id) : false
+  const selectedModel = selectedProvider?.models[selectedModelID] ?? null
+  const modelVariants = useMemo(
+    () => listEnabledVariants(selectedModel?.variants),
+    [selectedModel?.variants],
+  )
+
+  useEffect(() => {
+    if (!selectedProviderID || !selectedModelID) return
+    void getModelVariant(selectedProviderID, selectedModelID).then((variant) => {
+      setSelectedVariant(variant)
+    })
+  }, [selectedModelID, selectedProviderID])
 
   function chooseProvider(providerID: string) {
     setSelectedProviderID(providerID)
     setModelSearch("")
+    setSelectedVariant(undefined)
     const nextModel = modelFallback(providerCatalog, providerID)
     if (nextModel) setSelectedModelID(nextModel)
+  }
+
+  function chooseModel(modelID: string) {
+    setSelectedModelID(modelID)
+    setSelectedVariant(undefined)
   }
 
   async function saveSessionDefaults() {
@@ -156,7 +177,9 @@ export default function ProvidersSettingsScreen() {
         modelProviderID: selectedProviderID,
         modelID: selectedModelID,
       })
-      setMessage(`New mobile sessions now start with ${selectedModelID}`)
+      await setModelVariant(selectedProviderID, selectedModelID, selectedVariant)
+      const variantLabel = selectedVariant ? ` (${formatVariantLabel(selectedVariant)})` : ""
+      setMessage(`New mobile sessions now start with ${selectedModelID}${variantLabel}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
     } finally {
@@ -215,6 +238,7 @@ export default function ProvidersSettingsScreen() {
           />
           <InfoChip label={selectedProvider?.name || selectedProviderID || "Select a provider"} />
           <InfoChip label={selectedModelID || MOBILE_DEFAULT_MODEL_ID} tone="accent" />
+          {selectedVariant ? <InfoChip label={formatVariantLabel(selectedVariant)} tone="accent" /> : null}
         </View>
       </SurfaceCard>
 
@@ -283,7 +307,7 @@ export default function ProvidersSettingsScreen() {
                     return (
                       <Pressable
                         key={model.id}
-                        onPress={() => setSelectedModelID(model.id)}
+                        onPress={() => chooseModel(model.id)}
                         className={`rounded-[18px] border px-3 py-2 ${optionChipClass(active)}`}
                       >
                         <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{model.name}</Text>
@@ -294,6 +318,35 @@ export default function ProvidersSettingsScreen() {
                     )
                   })}
                 </View>
+                {modelVariants.length > 0 ? (
+                  <View className="gap-2">
+                    <Text className="text-[12px] font-semibold text-ink">Thinking effort</Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      <Pressable
+                        onPress={() => setSelectedVariant(undefined)}
+                        className={`rounded-[18px] border px-3 py-2 ${optionChipClass(!selectedVariant)}`}
+                      >
+                        <Text className={`text-[12px] font-semibold ${optionChipTextClass(!selectedVariant)}`}>
+                          Default
+                        </Text>
+                      </Pressable>
+                      {modelVariants.map((variant) => {
+                        const active = selectedVariant === variant
+                        return (
+                          <Pressable
+                            key={variant}
+                            onPress={() => setSelectedVariant(variant)}
+                            className={`rounded-[18px] border px-3 py-2 ${optionChipClass(active)}`}
+                          >
+                            <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>
+                              {formatVariantLabel(variant)}
+                            </Text>
+                          </Pressable>
+                        )
+                      })}
+                    </View>
+                  </View>
+                ) : null}
                 <ActionButton
                   label="Use this model for new mobile sessions"
                   loading={defaultsSaving}

@@ -28,12 +28,23 @@ import {
 import { ComposerApprovalBar } from "@/components/session/ComposerApprovalBar";
 import { SessionActionsSheet } from "@/components/session/SessionActionsSheet";
 import { AttachmentPickerSheet } from "@/components/session/AttachmentPickerSheet";
+import { ModelPickerSheet } from "@/components/session/ModelPickerSheet";
 import { SessionComposer } from "@/components/session/SessionComposer";
 import { ComposerToolbar } from "@/components/session/ComposerToolbar";
 import { type ComposerTab } from "@/components/session/ComposerToolDrawer";
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet";
 import { SessionTeleportSheet } from "@/components/session/SessionTeleportSheet";
 import { setTeleportTarget } from "@/lib/storage";
+import { setTerminalLaunchIntent } from "@/lib/terminal-launch";
+import {
+  buildModelCatalog,
+  findModelOption,
+  formatVariantLabel,
+  modelKey,
+  parseModelKey,
+  type MobileModelOption,
+} from "@/lib/model-catalog";
+import { getModelVariant, setModelVariant } from "@/lib/model-preferences";
 import { PublishSheet } from "@/components/session/PublishSheet";
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard";
 import {
@@ -202,6 +213,8 @@ export default function SessionScreen() {
   const followTranscriptRef = useRef(true);
   const initialScrollDoneRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
+  const sessionModelBootstrappedRef = useRef<string | null>(null);
+  const userModelOverrideRef = useRef(false);
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -255,13 +268,16 @@ export default function SessionScreen() {
   const [gitState, setGitState] = useState<GitState | null>(null);
   const [gitLoading, setGitLoading] = useState(false);
   const [gitReviewOpen, setGitReviewOpen] = useState(false);
-  const [availableModels, setAvailableModels] = useState<
-    Array<{ id: string; name: string; badge?: string }>
-  >([]);
+  const [availableModels, setAvailableModels] = useState<MobileModelOption[]>(
+    [],
+  );
+  const [activeModelKey, setActiveModelKey] = useState("");
+  const [activeVariant, setActiveVariant] = useState<string | undefined>();
   const [mcpServers, setMcpServers] = useState<
     Array<{ name: string; connected: boolean; enabled: boolean }>
   >([]);
   const actionsSheetRef = useActionSheetRef();
+  const modelPickerRef = useActionSheetRef();
   const previewSheetRef = useActionSheetRef();
   const artifactViewerRef = useActionSheetRef();
   const [selectedArtifact, setSelectedArtifact] =
@@ -395,17 +411,7 @@ export default function SessionScreen() {
     if (!client) return;
     try {
       const providers = await client.listProviders();
-      const connectedSet = new Set(providers.connected);
-      const models = providers.all
-        .filter((p) => connectedSet.has(p.id))
-        .flatMap((p) =>
-          Object.values(p.models).map((m) => ({
-            id: `${p.id}/${m.id}`,
-            name: `${p.name} — ${m.name}`,
-            badge: m.id === providers.default[p.id] ? "Default" : undefined,
-          })),
-        );
-      setAvailableModels(models);
+      setAvailableModels(buildModelCatalog(providers, { connectedOnly: true }));
     } catch (error) {
       console.warn("Failed to load models:", error);
       setAvailableModels([]);
@@ -452,6 +458,37 @@ export default function SessionScreen() {
       detail.permissions.map((item) => item.id),
     );
   }, [detail]);
+
+  useEffect(() => {
+    userModelOverrideRef.current = false
+    sessionModelBootstrappedRef.current = null
+    setActiveModelKey("")
+    setActiveVariant(undefined)
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!config || !sessionId || loading) return
+    if (userModelOverrideRef.current) return
+    if (sessionModelBootstrappedRef.current === sessionId) return
+
+    sessionModelBootstrappedRef.current = sessionId
+
+    const lastUser = [...(detail?.messages ?? [])]
+      .reverse()
+      .find((item) => item.info.role === "user")
+    if (lastUser?.info.role === "user") {
+      setActiveModelKey(
+        modelKey(lastUser.info.model.providerID, lastUser.info.model.modelID),
+      )
+      setActiveVariant(lastUser.info.variant)
+      return
+    }
+
+    const providerID = config.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID
+    const modelID = config.modelID ?? MOBILE_DEFAULT_MODEL_ID
+    setActiveModelKey(modelKey(providerID, modelID))
+    void getModelVariant(providerID, modelID).then(setActiveVariant)
+  }, [config, detail?.messages, loading, sessionId, config?.modelID, config?.modelProviderID])
 
   useSessionStream({
     config,
@@ -646,10 +683,6 @@ export default function SessionScreen() {
     () => extractSessionPreviews(messages, config?.url),
     [config?.url, messages],
   );
-  const hasUserPrompt = useMemo(
-    () => messages.some((item) => item.info.role === "user"),
-    [messages],
-  );
   const sessionBlocked = sessionIsProcessing(detail?.status);
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt);
   const sessionLocation =
@@ -699,12 +732,21 @@ export default function SessionScreen() {
         : null,
     [cleaning, detail, publishing, sessionId],
   );
-  const preferredModel = useMemo(
-    () => ({
+  const activeModel = useMemo(() => {
+    const parsed = parseModelKey(activeModelKey);
+    if (parsed) return parsed;
+    return {
       providerID: config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID,
       modelID: config?.modelID ?? MOBILE_DEFAULT_MODEL_ID,
+    };
+  }, [activeModelKey, config?.modelID, config?.modelProviderID]);
+
+  const sendOptions = useMemo(
+    () => ({
+      model: activeModel,
+      variant: activeVariant,
     }),
-    [config?.modelID, config?.modelProviderID],
+    [activeModel, activeVariant],
   );
 
   useEffect(() => {
@@ -725,9 +767,23 @@ export default function SessionScreen() {
     });
   }, [liveActivitySnapshot, sessionId]);
   const modelLabel = useMemo(() => {
-    const id = config?.modelID ?? MOBILE_DEFAULT_MODEL_ID;
-    return id.split(/[-/]/).pop() ?? id;
-  }, [config?.modelID]);
+    const option = findModelOption(
+      availableModels,
+      activeModel.providerID,
+      activeModel.modelID,
+    );
+    const base =
+      option?.shortName ??
+      activeModel.modelID.split(/[-/:]/).pop() ??
+      activeModel.modelID;
+    if (!activeVariant) return base;
+    return `${base} · ${formatVariantLabel(activeVariant)}`;
+  }, [activeModel, activeVariant, availableModels]);
+
+  const openModelPicker = useCallback(() => {
+    modelPickerRef.current?.present();
+    void triggerHaptic("selection");
+  }, []);
   const slashInput = useMemo(() => parseSlashCommand(input), [input]);
   const slashSuggestions = useMemo(() => {
     if (!composerPreferences.slashSuggestions) return [];
@@ -782,21 +838,30 @@ export default function SessionScreen() {
   );
 
   const handleModelSelect = useCallback(
-    (id: string) => {
-      if (!client || id === "default") return;
+    (id: string, variant?: string) => {
+      if (!config || id === "default") return
+      const parsed = parseModelKey(id)
+      if (!parsed) return
+      userModelOverrideRef.current = true
+      setActiveModelKey(id)
+      setActiveVariant(variant)
       void (async () => {
         try {
-          const [providerID, modelID] = id.split("/");
-          await client.updateConfig({ modelID, modelProviderID: providerID });
-          void triggerHaptic("selection");
+          await save({
+            ...config,
+            modelProviderID: parsed.providerID,
+            modelID: parsed.modelID,
+          })
+          await setModelVariant(parsed.providerID, parsed.modelID, variant)
+          void triggerHaptic("selection")
         } catch (error) {
-          console.warn("Failed to update model:", error);
-          void triggerHaptic("error");
+          console.warn("Failed to update model:", error)
+          void triggerHaptic("error")
         }
-      })();
+      })()
     },
-    [client],
-  );
+    [config, save],
+  )
 
   const handleMcpToggle = useCallback(
     (name: string, enabled: boolean) => {
@@ -932,7 +997,7 @@ export default function SessionScreen() {
       const scopedClient = sessionGitDir
         ? client.withDirectory(sessionGitDir)
         : client;
-      await scopedClient.compactSession(sessionId, preferredModel);
+      await scopedClient.compactSession(sessionId, activeModel);
       await load();
       void triggerHaptic("success");
     } catch (error) {
@@ -972,7 +1037,7 @@ export default function SessionScreen() {
           submittedSlashInput.command,
           submittedSlashInput.argumentsText,
           {
-            model: hasUserPrompt ? undefined : preferredModel,
+            ...sendOptions,
           },
         );
         void triggerHaptic("command");
@@ -992,13 +1057,13 @@ export default function SessionScreen() {
         await client.sendParts(
           sessionId,
           [{ type: "text", text: payload }, ...fileParts],
-          hasUserPrompt ? undefined : { model: preferredModel },
+          sendOptions,
         );
       } else {
         await client.sendMessage(
           sessionId,
           payload,
-          hasUserPrompt ? undefined : { model: preferredModel },
+          sendOptions,
         );
       }
       void triggerHaptic("send");
@@ -1015,6 +1080,7 @@ export default function SessionScreen() {
           type: "sendMessage",
           sessionID: sessionId,
           text: submittedText,
+          options: sendOptions,
         }).then(() =>
           countOfflineQueueForSession(sessionId).then(setOfflineQueuedCount),
         );
@@ -1729,6 +1795,8 @@ export default function SessionScreen() {
         onModelSelect={handleModelSelect}
         onMcpToggle={handleMcpToggle}
         modelLabel={modelLabel}
+        activeModelKey={activeModelKey}
+        activeVariant={activeVariant}
         availableModels={availableModels}
         mcpServers={mcpServers}
         skills={drawerSkills}
@@ -1779,13 +1847,24 @@ export default function SessionScreen() {
         onRemoveAttachment={handleRemoveAttachment}
         modelLabel={modelLabel}
         activeMcpCount={activeMcpCount}
+        activeModelKey={activeModelKey}
+        activeVariant={activeVariant}
         availableModels={availableModels}
         mcpServers={mcpServers}
         skills={drawerSkills}
         tools={drawerTools}
         onModelSelect={handleModelSelect}
+        onOpenModelPicker={openModelPicker}
         onSkillSelect={insertSlashCommand}
         onMcpToggle={handleMcpToggle}
+      />
+
+      <ModelPickerSheet
+        sheetRef={modelPickerRef}
+        models={availableModels}
+        activeModelKey={activeModelKey}
+        activeVariant={activeVariant}
+        onSelect={handleModelSelect}
       />
 
       <AttachmentPickerSheet
@@ -1851,6 +1930,16 @@ export default function SessionScreen() {
         onOpenPreview={() => {
           previewSheetRef.current?.present();
           void triggerHaptic("selection");
+        }}
+        onOpenTerminal={() => {
+          actionsSheetRef.current?.dismiss();
+          const cwd = detail ? sessionWorkspaceDirectory(detail.info) : undefined;
+          setTerminalLaunchIntent({
+            cwd: cwd ?? undefined,
+            title: detail?.info.title ? `${detail.info.title} shell` : undefined,
+            sessionId,
+          });
+          router.push("/terminal" as Parameters<typeof router.push>[0]);
         }}
       />
 

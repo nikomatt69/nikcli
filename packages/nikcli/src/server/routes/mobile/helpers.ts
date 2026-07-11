@@ -334,6 +334,7 @@ export const MobileSessionCommandInput = z
         modelID: z.string(),
       })
       .optional(),
+    variant: z.string().optional(),
   })
   .meta({ ref: "MobileSessionCommandInput" })
 

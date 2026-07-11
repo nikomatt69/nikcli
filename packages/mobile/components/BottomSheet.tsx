@@ -190,7 +190,7 @@ export const ActionSheet = React.forwardRef<
           </View>
 
           <View style={{ height: 12 }} />
-          <View style={{ flex: 1, paddingBottom: 8 }}>{children}</View>
+          <View style={{ flex: 1, width: "100%", paddingBottom: 8 }}>{children}</View>
         </Animated.View>
       </View>
     </Modal>

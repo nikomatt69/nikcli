@@ -30,6 +30,10 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
+import {
+  formatVariantLabel,
+  type MobileModelOption,
+} from "@/lib/model-catalog"
 
 const TABS: TabConfig[] = [
   { id: "attach", icon: Plus, label: "Attach" },
@@ -51,12 +55,14 @@ export type ComposerToolbarTab = "attach" | "tools" | "skills" | "mcp" | "model"
 export type ComposerToolbarProps = {
   onAttach?(): void
   onGitPress?(): void
-  onModelSelect?(id: string): void
+  onModelSelect?(id: string, variant?: string): void
   onMcpToggle?(name: string, enabled: boolean): void
   onSkillSelect?(name: string): void
   onToolSelect?(name: string): void
   modelLabel?: string
-  availableModels?: Array<{ id: string; name: string; badge?: string }>
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
   mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>
   skills?: Array<{ name: string; description?: string }>
   tools?: Array<{ name: string; description?: string; enabled?: boolean }>
@@ -76,6 +82,8 @@ export function ComposerToolbar({
   onSkillSelect,
   onToolSelect,
   modelLabel,
+  activeModelKey,
+  activeVariant,
   availableModels = EMPTY_AVAILABLE_MODELS,
   mcpServers = EMPTY_MCP_SERVERS,
   skills = EMPTY_SKILLS,
@@ -108,6 +116,8 @@ export function ComposerToolbar({
       onClose={closeDrawer}
       onTabChange={setActiveTab}
       modelLabel={modelLabel}
+      activeModelKey={activeModelKey}
+      activeVariant={activeVariant}
       availableModels={availableModels}
       onModelSelect={onModelSelect}
       mcpServers={mcpServers}
@@ -126,8 +136,10 @@ type ComposerDrawerProps = {
   onClose(): void
   onTabChange(tab: ComposerToolbarTab): void
   modelLabel?: string
-  availableModels?: Array<{ id: string; name: string; badge?: string }>
-  onModelSelect?(id: string): void
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
+  onModelSelect?(id: string, variant?: string): void
   mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>
   onMcpToggle?(name: string, enabled: boolean): void
   skills?: Array<{ name: string; description?: string }>
@@ -151,6 +163,8 @@ function ComposerDrawer({
   onClose,
   onTabChange,
   modelLabel,
+  activeModelKey,
+  activeVariant,
   availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
   mcpServers = EMPTY_MCP_SERVERS,
@@ -335,9 +349,11 @@ function ComposerDrawer({
             {activeTab === "model" && (
               <ModelContent
                 modelLabel={modelLabel}
+                activeModelKey={activeModelKey}
+                activeVariant={activeVariant}
                 availableModels={availableModels}
-                onModelSelect={(id) => {
-                  onModelSelect?.(id)
+                onModelSelect={(id, variant) => {
+                  onModelSelect?.(id, variant)
                   onClose()
                 }}
               />
@@ -370,14 +386,19 @@ function ComposerDrawer({
 
 function ModelContent({
   modelLabel,
+  activeModelKey,
+  activeVariant,
   availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
 }: {
   modelLabel?: string
-  availableModels?: Array<{ id: string; name: string; badge?: string }>
-  onModelSelect?(id: string): void
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
+  onModelSelect?(id: string, variant?: string): void
 }) {
   const { palette, isDark } = useAppTheme()
+  const selected = availableModels.find((model) => model.id === activeModelKey)
 
   return (
     <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
@@ -399,12 +420,57 @@ function ModelContent({
         </View>
       )}
 
-      {availableModels.map((model, i) => (
+      {selected && selected.variants.length > 0 ? (
+        <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: palette.ink, marginBottom: 8 }}>Thinking effort</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            <Pressable
+              onPress={() => onModelSelect?.(selected.id, undefined)}
+              style={{
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderWidth: 1,
+                borderColor: !activeVariant ? palette.accent : palette.border,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: !activeVariant ? palette.accentLight : palette.soft }}>
+                Default
+              </Text>
+            </Pressable>
+            {selected.variants.map((variant) => {
+              const active = activeVariant === variant
+              return (
+                <Pressable
+                  key={variant}
+                  onPress={() => onModelSelect?.(selected.id, variant)}
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderWidth: 1,
+                    borderColor: active ? palette.accent : palette.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: active ? palette.accentLight : palette.soft }}>
+                    {formatVariantLabel(variant)}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {availableModels.map((model, i) => {
+        const isActive = model.id === activeModelKey
+        return (
         <AnimatedListItem
           key={model.id}
           onPress={() => {
             void triggerHaptic("selection")
-            onModelSelect?.(model.id)
+            if (model.variants.length === 0) onModelSelect?.(model.id, undefined)
+            else onModelSelect?.(model.id, model.variants[0])
           }}
           isDark={isDark}
           palette={palette}
@@ -412,23 +478,42 @@ function ModelContent({
           borderBottom={i < availableModels.length - 1}
         >
           <View
-            style={[styles.modelIcon, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.07)" }]}
+            style={[
+              styles.modelIcon,
+              {
+                backgroundColor: isActive
+                  ? "rgba(52,199,89,0.14)"
+                  : isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(20,20,19,0.07)",
+              },
+            ]}
           >
-            <MapPin size={16} color={palette.accentLight} strokeWidth={2} />
+            <Brain size={16} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{model.name}</Text>
-            {model.badge && (
-              <View
-                style={[styles.badge, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" }]}
-              >
-                <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
-              </View>
-            )}
+            <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{model.title}</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {isActive ? (
+                <View
+                  style={[styles.badge, { backgroundColor: "rgba(52,199,89,0.15)" }]}
+                >
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#34C759" }}>Active</Text>
+                </View>
+              ) : null}
+              {model.badge && (
+                <View
+                  style={[styles.badge, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" }]}
+                >
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
+                </View>
+              )}
+            </View>
           </View>
           <ChevronRight size={14} color={palette.muted} strokeWidth={2} />
         </AnimatedListItem>
-      ))}
+        )
+      })}
       {availableModels.length === 0 && !modelLabel && (
         <View style={{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 }}>
           <View

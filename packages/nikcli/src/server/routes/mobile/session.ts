@@ -486,6 +486,7 @@ export const SessionRoutes = () =>
           arguments: body.arguments,
           agent: body.agent,
           model: body.model ? `${body.model.providerID}/${body.model.modelID}` : undefined,
+          variant: body.variant,
         }
 
         if (session.workspaceID) {
