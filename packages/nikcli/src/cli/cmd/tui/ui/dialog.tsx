@@ -177,6 +177,11 @@ function init() {
       const found = find(renderer.root)
       if (!found) return
       focus.focus()
+      // Second pass: some dialogs unmount asynchronously; reclaim once more.
+      setTimeout(() => {
+        if (!focus || focus.isDestroyed) return
+        if (!focus.focused) focus.focus()
+      }, 30)
     }, 1)
   }
 

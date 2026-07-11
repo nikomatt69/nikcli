@@ -33,9 +33,10 @@
         --term-color-14: #56d4dd;
         --term-color-15: #f0f6fc;
         --term-cursor: #58a6ff;
+        --term-font-size: 13px;
+        --term-row-height: 17px;
       }
 
-      /* Fill the WebView frame exactly — never use dvh (maps to device height in WKWebView). */
       html,
       body {
         width: 100%;
@@ -47,6 +48,8 @@
       body {
         position: relative;
         margin: 0;
+        -webkit-user-select: text;
+        user-select: text;
       }
 
       #terminal {
@@ -54,16 +57,15 @@
         inset: 0;
         width: 100%;
         height: 100%;
-        font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Menlo", "Monaco", "Courier New", monospace;
-        font-size: 13px;
+        font-family: "JetBrainsMono", "JetBrains Mono", "Menlo", "Monaco", "Courier New", monospace;
+        font-size: var(--term-font-size);
       }
 
-      /* wterm structural styles (color vars come from :root above) */
       .wterm {
-        --term-font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Menlo", "Monaco", "Courier New", monospace;
-        --term-font-size: 13px;
-        --term-line-height: 1.2;
-        --term-row-height: 17px;
+        --term-font-family: "JetBrainsMono", "JetBrains Mono", "Menlo", "Monaco", "Courier New", monospace;
+        --term-font-size: inherit;
+        --term-line-height: 1.25;
+        --term-row-height: inherit;
         position: relative;
         background: var(--term-bg);
         color: var(--term-fg);
@@ -72,12 +74,12 @@
         line-height: var(--term-line-height);
         outline: none;
         overflow: hidden;
+        -webkit-overflow-scrolling: touch;
       }
       .wterm:focus,
       .wterm:focus-visible {
         outline: none;
       }
-      /* full-screen overrides */
       #terminal.wterm {
         padding: 4px 8px;
         border-radius: 0;
@@ -131,9 +133,10 @@
       }
       .wterm.has-scrollback {
         overflow-y: auto;
+        overscroll-behavior: contain;
       }
       .wterm ::selection {
-        background: rgba(86, 156, 214, 0.3);
+        background: rgba(86, 156, 214, 0.35);
       }
 
       #status {
@@ -150,6 +153,7 @@
         pointer-events: none;
         transition: opacity 0.3s ease;
         opacity: 0;
+        z-index: 50;
       }
       #status.connecting {
         background: rgba(210, 153, 34, 0.18);
@@ -172,7 +176,6 @@
         opacity: 1;
       }
 
-      /* Error overlay */
       #error-overlay {
         position: fixed;
         top: 50%;
@@ -225,50 +228,6 @@
         cursor: pointer;
         margin-top: 4px;
       }
-      #retry-btn:hover {
-        background: rgba(88, 166, 255, 0.25);
-      }
-
-      #mobile-keybar {
-        position: fixed;
-        left: 0;
-        right: 0;
-        z-index: 150;
-        display: none;
-        flex-direction: row;
-        gap: 6px;
-        overflow-x: auto;
-        padding: 6px 8px;
-        background: rgba(13, 17, 23, 0.96);
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        -webkit-overflow-scrolling: touch;
-      }
-      #mobile-keybar.visible {
-        display: flex;
-      }
-      #mobile-keybar button {
-        flex: 0 0 auto;
-        min-width: 42px;
-        height: 32px;
-        padding: 0 10px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: rgba(255, 255, 255, 0.08);
-        color: #b1bac4;
-        font-family: system-ui, sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-      }
-      #mobile-keybar button.active {
-        border-color: rgba(88, 166, 255, 0.45);
-        background: rgba(88, 166, 255, 0.18);
-        color: #79c0ff;
-      }
-      #mobile-keybar button.accent {
-        border-color: rgba(255, 123, 114, 0.35);
-        background: rgba(255, 123, 114, 0.12);
-        color: #ffa198;
-      }
     </style>
   </head>
   <body>
@@ -280,442 +239,416 @@
       <p class="url-display" id="error-url"></p>
       <button id="retry-btn" onclick="manualRetry()">Retry Connection</button>
     </div>
-    <div id="mobile-keybar" aria-label="Terminal keys"></div>
 
-    <!--
-    @wterm/dom — loaded from esm.sh CDN (supports WASM bundled as base64, no separate fetch needed).
-    The WASM binary (~12 KB) is inlined in @wterm/core so no extra file hosting is required.
-  -->
-    <script type="module">
-      import { WTerm } from "https://esm.sh/@wterm/dom@0.2.1"
-
-      // ── Config injected by React Native via injectedJavaScriptBeforeContentLoaded ──
-      const cfg = window.__NIKCLI_PTY_CONFIG || {}
-      let wsUrl = cfg.wsUrl || null
-      const theme = cfg.theme || "dark"
-
-      // Apply light palette
-      if (theme === "light") {
-        const root = document.documentElement
-        root.style.setProperty("--term-bg", "#ffffff")
-        root.style.setProperty("--term-fg", "#24292f")
-        root.style.setProperty("--term-color-0", "#57606a")
-        root.style.setProperty("--term-color-1", "#cf222e")
-        root.style.setProperty("--term-color-2", "#116329")
-        root.style.setProperty("--term-color-3", "#4d2d00")
-        root.style.setProperty("--term-color-4", "#0550ae")
-        root.style.setProperty("--term-color-5", "#6639ba")
-        root.style.setProperty("--term-color-6", "#1b7c83")
-        root.style.setProperty("--term-color-7", "#8c959f")
-        root.style.setProperty("--term-color-8", "#6e7781")
-        root.style.setProperty("--term-color-9", "#a40e26")
-        root.style.setProperty("--term-color-10", "#1a7f37")
-        root.style.setProperty("--term-color-11", "#633c01")
-        root.style.setProperty("--term-color-12", "#0969da")
-        root.style.setProperty("--term-color-13", "#8250df")
-        root.style.setProperty("--term-color-14", "#1b7c83")
-        root.style.setProperty("--term-color-15", "#24292f")
-        root.style.setProperty("--term-cursor", "#0550ae")
-        document.body.style.background = "#ffffff"
-      }
-
-      const el = document.getElementById("terminal")
-      const statusEl = document.getElementById("status")
-      const errorOverlay = document.getElementById("error-overlay")
-      const errorMessage = document.getElementById("error-message")
-      const errorUrl = document.getElementById("error-url")
-
-      function setStatus(state, text) {
-        statusEl.className = state
-        statusEl.textContent = text
-      }
-
-      function showError(message, url) {
-        errorMessage.textContent = message
-        errorUrl.textContent = url ? `URL: ${url}` : ""
-        errorOverlay.classList.add("visible")
-      }
-
-      function hideError() {
-        errorOverlay.classList.remove("visible")
-      }
-
-      let wt = null
-      let ws = null
-      let reconnectTimer = null
-      let connectAttempts = 0
-      let connectionTimeoutId = null
-      let statusHideTimer = null
-      let stopped = false
-      let mobileCtrlActive = false
-      let mobileShiftActive = false
-      let terminalFocusReported = null
-      const FOCUS_IN = "\x1b[I"
-      const FOCUS_OUT = "\x1b[O"
-      const MAX_RETRIES = 5
-      const RETRY_DELAY_MS = 2000
-
-      function reportTerminalFocus(focused) {
-        if (terminalFocusReported === focused) return
-        terminalFocusReported = focused
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(focused ? FOCUS_IN : FOCUS_OUT)
-        }
-      }
-
-      function mountFocusReporting() {
-        const textarea = el.querySelector("textarea")
-        if (!textarea || el.dataset.focusReady === "1") return
-        el.dataset.focusReady = "1"
-
-        textarea.addEventListener("focus", () => reportTerminalFocus(true))
-        textarea.addEventListener("blur", () => {
-          setTimeout(() => {
-            const active = document.activeElement
-            if (active === textarea || el.contains(active)) return
-            reportTerminalFocus(false)
-          }, 0)
-        })
-
-        document.addEventListener("visibilitychange", () => {
-          if (document.hidden) {
-            reportTerminalFocus(false)
-            return
-          }
-          if (document.activeElement === textarea || el.classList.contains("focused")) {
-            reportTerminalFocus(true)
-          }
-        })
-      }
-
-      const MOBILE_KEYS = [
-        { id: "tab", label: "Tab", data: "\t" },
-        { id: "esc", label: "Esc", data: "\x1b" },
-        { id: "ctrl", label: "Ctrl", sticky: "ctrl" },
-        { id: "shift", label: "Shift", sticky: "shift" },
-        { id: "up", label: "↑", data: "\x1b[A" },
-        { id: "down", label: "↓", data: "\x1b[B" },
-        { id: "left", label: "←", data: "\x1b[D" },
-        { id: "right", label: "→", data: "\x1b[C" },
-        { id: "home", label: "Home", data: "\x01" },
-        { id: "end", label: "End", data: "\x05" },
-        { id: "ctrl-w", label: "Ctrl+W", data: "\x17", accent: true },
-        { id: "ctrl-c", label: "Ctrl+C", data: "\x03", accent: true },
-      ]
-
-      function focusTerminalSurface() {
-        wt?.focus()
-        reportTerminalFocus(true)
-      }
-
-      function sendTerminalInput(data) {
-        if (!data) return
-        focusTerminalSurface()
-        if (ws && ws.readyState === WebSocket.OPEN) ws.send(data)
-      }
-
-      function ctrlChar(char) {
-        const code = char.toUpperCase().charCodeAt(0)
-        if (code >= 65 && code <= 90) return String.fromCharCode(code - 64)
-        return char
-      }
-
-      function resolveMobileKey(key) {
-        if (key.sticky === "ctrl") {
-          mobileCtrlActive = !mobileCtrlActive
-          if (mobileCtrlActive) mobileShiftActive = false
-          return null
-        }
-        if (key.sticky === "shift") {
-          mobileShiftActive = !mobileShiftActive
-          return null
-        }
-        let data = key.data
-        if (mobileCtrlActive && data.length === 1) data = ctrlChar(data)
-        if (mobileShiftActive && data.length === 1 && /[a-z]/.test(data)) data = data.toUpperCase()
-        if (mobileShiftActive && data === "\t") data = "\x1b[Z"
-        mobileCtrlActive = false
-        mobileShiftActive = false
-        return data
-      }
-
-      function syncMobileKeybar() {
-        const bar = document.getElementById("mobile-keybar")
-        const vv = window.visualViewport
-        if (!bar || !vv) return
-        const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-        const visible = keyboardHeight > 80
-        bar.classList.toggle("visible", visible)
-        if (!visible) return
-        bar.style.bottom = `${keyboardHeight}px`
-        bar.querySelectorAll("button").forEach((button) => {
-          const sticky = button.dataset.sticky
-          const active =
-            (sticky === "ctrl" && mobileCtrlActive) || (sticky === "shift" && mobileShiftActive)
-          button.classList.toggle("active", active)
-        })
-      }
-
-      function mountMobileKeybar() {
-        const bar = document.getElementById("mobile-keybar")
-        if (!bar || bar.dataset.ready === "1") return
-        bar.dataset.ready = "1"
-        for (const key of MOBILE_KEYS) {
-          const button = document.createElement("button")
-          button.type = "button"
-          button.textContent = key.label
-          if (key.sticky) button.dataset.sticky = key.sticky
-          if (key.accent) button.classList.add("accent")
-          button.addEventListener("click", (event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            const data = resolveMobileKey(key)
-            syncMobileKeybar()
-            if (data) sendTerminalInput(data)
-          })
-          bar.appendChild(button)
-        }
-        if (window.visualViewport) {
-          window.visualViewport.addEventListener("resize", syncMobileKeybar)
-          window.visualViewport.addEventListener("scroll", syncMobileKeybar)
-        }
-        syncMobileKeybar()
-      }
-
-      async function initTerminal() {
-        wt = new WTerm(el, { autoResize: true })
-        await wt.init()
-        // Keyboard input → WebSocket as a text frame (server expects plain strings).
-        wt.onData = (data) => {
-          if (ws && ws.readyState === WebSocket.OPEN) ws.send(data)
-        }
-        wt.onTitle = (title) => postRN({ type: "title", title })
-        // Forward terminal resize to React Native so it can use the REST PTY update endpoint.
-        // Do not send this over the PTY WebSocket: older hosts may treat it as shell input.
-        wt.onResize = (cols, rows) => {
-          postRN({ type: "resize", cols, rows })
-        }
-        mountFocusReporting()
-        // Tap anywhere on the terminal surface to focus input (like a desktop terminal).
-        el.addEventListener("pointerdown", focusTerminalSurface, { passive: true })
-        el.addEventListener("click", focusTerminalSurface)
-        mountMobileKeybar()
-        mountViewportObserver()
-        if (el.querySelector("textarea") === document.activeElement || el.classList.contains("focused")) {
-          reportTerminalFocus(true)
-        }
-      }
-
-      function mountViewportObserver() {
-        if (!window.ResizeObserver) return
-        const observer = new ResizeObserver(() => {
-          syncMobileKeybar()
-          if (wt?.cols && wt?.rows) {
-            postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
-          }
-        })
-        observer.observe(el)
-        if (document.body) observer.observe(document.body)
-      }
-
-      function postRN(payload) {
-        try {
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify(payload))
-          }
-        } catch {}
-      }
-
-      function handleNativeMessage(evt) {
-        try {
-          if (!evt?.data || typeof evt.data !== "string") return
-          const msg = JSON.parse(evt.data)
-          if (!msg || typeof msg !== "object") return
-          if (msg.type === "resize") {
-            if (typeof msg.cols !== "number" || typeof msg.rows !== "number") return
-            wt?.resize(msg.cols, msg.rows)
-          } else if (msg.type === "write") {
-            if (typeof msg.data !== "string") return
-            wt?.write(msg.data)
-          } else if (msg.type === "paste") {
-            if (typeof msg.data !== "string") return
-            if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
-          } else if (msg.type === "input") {
-            if (typeof msg.data !== "string") return
-            focusTerminalSurface()
-            if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
-          } else if (msg.type === "focus") {
-            focusTerminalSurface()
-          } else if (msg.type === "blur") {
-            reportTerminalFocus(false)
-          } else if (msg.type === "reconnect") {
-            if (msg.wsUrl) wsUrl = msg.wsUrl
-            manualRetry()
-          } else if (msg.type === "copy") {
-            postRN({ type: "copy", text: collectTerminalText() })
-          } else if (msg.type === "reconnect" && msg.wsUrl) {
-            wsUrl = msg.wsUrl
-            manualRetry()
-          }
-        } catch {}
-      }
-
-      window.addEventListener("message", handleNativeMessage)
-      document.addEventListener("message", handleNativeMessage)
-
-      function collectTerminalText() {
-        const selection = window.getSelection?.()?.toString?.() ?? ""
-        if (selection.trim()) return selection
-        const rows = Array.from(document.querySelectorAll(".term-row"))
-        if (rows.length)
-          return rows
-            .map((row) => row.textContent ?? "")
-            .join("\n")
-            .trimEnd()
-        return el?.textContent ?? ""
-      }
-
-      function clearLifecycleTimers() {
-        clearTimeout(reconnectTimer)
-        clearTimeout(connectionTimeoutId)
-        clearTimeout(statusHideTimer)
-        reconnectTimer = null
-        connectionTimeoutId = null
-        statusHideTimer = null
-      }
-
-      function closeSocket() {
-        if (!ws) return
-        ws.onopen = null
-        ws.onmessage = null
-        ws.onclose = null
-        ws.onerror = null
-        try {
-          ws.close()
-        } catch {}
-        ws = null
-      }
-
-      function startConnectionTimeout(url) {
-        clearTimeout(connectionTimeoutId)
-        connectionTimeoutId = setTimeout(() => {
-          if (statusEl.className !== "connected") {
-            connectAttempts++
-            setStatus("error", "Timeout")
-            showError("Connection timed out. Server may be unavailable.", url)
-            postRN({ type: "status", status: "error" })
-            closeSocket()
-            if (!stopped && connectAttempts <= MAX_RETRIES) {
-              scheduleReconnect(url)
-            }
-          }
-        }, 30000)
-      }
-
-      function stopTerminal() {
-        stopped = true
-        clearLifecycleTimers()
-        closeSocket()
-      }
-
-      window.addEventListener("beforeunload", stopTerminal)
-      window.addEventListener("pagehide", stopTerminal)
-
-      function scheduleReconnect(url) {
-        if (stopped) return
-        const delay = Math.min(RETRY_DELAY_MS * Math.pow(1.5, connectAttempts), 30000)
-        reconnectTimer = setTimeout(() => connect(url), delay)
-      }
-
-      function connect(url) {
-        if (!url) {
-          setStatus("error", "No server")
-          showError("No PTY URL provided. Check server connection.", null)
-          wt?.write("\r\n\x1b[31mNo PTY URL provided.\x1b[0m\r\n")
-          postRN({ type: "status", status: "no_url" })
+    <!-- Offline wterm IIFE (WASM inlined). Injected by RN at load time. -->
+    <script>
+      __WTERM_BUNDLE__
+    </script>
+    <script>
+      ;(function () {
+        const WTerm = globalThis.WTermLib && globalThis.WTermLib.WTerm
+        if (!WTerm) {
+          document.getElementById("error-overlay").classList.add("visible")
+          document.getElementById("error-message").textContent = "Terminal runtime failed to load"
           return
         }
 
-        clearTimeout(reconnectTimer)
-        clearTimeout(connectionTimeoutId)
-        closeSocket()
+        const cfg = window.__NIKCLI_PTY_CONFIG || {}
+        let wsUrl = cfg.wsUrl || null
+        let theme = cfg.theme || "dark"
+        let fontSize = typeof cfg.fontSize === "number" ? cfg.fontSize : 13
 
-        hideError()
-        setStatus("connecting", connectAttempts > 0 ? `Retrying… (${connectAttempts}/${MAX_RETRIES})` : "Connecting…")
+        const LIGHT = {
+          "--term-bg": "#ffffff",
+          "--term-fg": "#24292f",
+          "--term-color-0": "#57606a",
+          "--term-color-1": "#cf222e",
+          "--term-color-2": "#116329",
+          "--term-color-3": "#4d2d00",
+          "--term-color-4": "#0550ae",
+          "--term-color-5": "#6639ba",
+          "--term-color-6": "#1b7c83",
+          "--term-color-7": "#8c959f",
+          "--term-color-8": "#6e7781",
+          "--term-color-9": "#a40e26",
+          "--term-color-10": "#1a7f37",
+          "--term-color-11": "#633c01",
+          "--term-color-12": "#0969da",
+          "--term-color-13": "#8250df",
+          "--term-color-14": "#1b7c83",
+          "--term-color-15": "#24292f",
+          "--term-cursor": "#0550ae",
+        }
+        const DARK = {
+          "--term-bg": "#0d0d0d",
+          "--term-fg": "#e6edf3",
+          "--term-color-0": "#484f58",
+          "--term-color-1": "#ff7b72",
+          "--term-color-2": "#3fb950",
+          "--term-color-3": "#d29922",
+          "--term-color-4": "#58a6ff",
+          "--term-color-5": "#bc8cff",
+          "--term-color-6": "#39c5cf",
+          "--term-color-7": "#b1bac4",
+          "--term-color-8": "#6e7681",
+          "--term-color-9": "#ffa198",
+          "--term-color-10": "#56d364",
+          "--term-color-11": "#e3b341",
+          "--term-color-12": "#79c0ff",
+          "--term-color-13": "#d2a8ff",
+          "--term-color-14": "#56d4dd",
+          "--term-color-15": "#f0f6fc",
+          "--term-cursor": "#58a6ff",
+        }
 
-        ws = new WebSocket(url)
-        ws.binaryType = "arraybuffer"
-        startConnectionTimeout(url)
+        function applyTheme(next) {
+          theme = next === "light" ? "light" : "dark"
+          const palette = theme === "light" ? LIGHT : DARK
+          const root = document.documentElement
+          for (const [k, v] of Object.entries(palette)) root.style.setProperty(k, v)
+          document.body.style.background = palette["--term-bg"]
+        }
 
-        ws.onopen = () => {
-          clearTimeout(connectionTimeoutId)
-          connectAttempts = 0
-          setStatus("connected", "Connected")
-          postRN({ type: "status", status: "connected" })
-          hideError()
-          // Sync current terminal size immediately so the PTY knows its dimensions.
-          if (wt?.cols && wt?.rows) {
-            postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
+        function applyFontSize(px) {
+          const size = Math.max(11, Math.min(16, Math.round(px)))
+          fontSize = size
+          const row = Math.ceil(size * 1.25)
+          const root = document.documentElement
+          root.style.setProperty("--term-font-size", size + "px")
+          root.style.setProperty("--term-row-height", row + "px")
+          el.style.fontSize = size + "px"
+          if (wt) {
+            // Force remount metrics via resize observer by nudging layout
+            el.style.setProperty("--term-row-height", row + "px")
+            if (wt.cols && wt.rows) postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
           }
-          terminalFocusReported = null
-          if (el.classList.contains("focused") || el.querySelector("textarea") === document.activeElement) {
+        }
+
+        applyTheme(theme)
+        applyFontSize(fontSize)
+
+        const el = document.getElementById("terminal")
+        const statusEl = document.getElementById("status")
+        const errorOverlay = document.getElementById("error-overlay")
+        const errorMessage = document.getElementById("error-message")
+        const errorUrl = document.getElementById("error-url")
+
+        function setStatus(state, text) {
+          statusEl.className = state
+          statusEl.textContent = text
+        }
+
+        function showError(message, url) {
+          errorMessage.textContent = message
+          // Never leak auth tokens from the WS URL in the overlay.
+          let safe = ""
+          if (url) {
+            try {
+              const u = new URL(url)
+              u.searchParams.delete("token")
+              safe = "URL: " + u.toString()
+            } catch {
+              safe = ""
+            }
+          }
+          errorUrl.textContent = safe
+          errorOverlay.classList.add("visible")
+        }
+
+        function hideError() {
+          errorOverlay.classList.remove("visible")
+        }
+
+        let wt = null
+        let ws = null
+        let reconnectTimer = null
+        let connectAttempts = 0
+        let connectionTimeoutId = null
+        let statusHideTimer = null
+        let stopped = false
+        let terminalFocusReported = null
+        const FOCUS_IN = "\x1b[I"
+        const FOCUS_OUT = "\x1b[O"
+        const MAX_RETRIES = 5
+        const RETRY_DELAY_MS = 2000
+
+        function reportTerminalFocus(focused) {
+          if (terminalFocusReported === focused) return
+          terminalFocusReported = focused
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(focused ? FOCUS_IN : FOCUS_OUT)
+          }
+        }
+
+        function mountFocusReporting() {
+          const textarea = el.querySelector("textarea")
+          if (!textarea || el.dataset.focusReady === "1") return
+          el.dataset.focusReady = "1"
+
+          textarea.addEventListener("focus", () => reportTerminalFocus(true))
+          textarea.addEventListener("blur", () => {
+            setTimeout(() => {
+              const active = document.activeElement
+              if (active === textarea || el.contains(active)) return
+              reportTerminalFocus(false)
+            }, 0)
+          })
+
+          document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+              reportTerminalFocus(false)
+              return
+            }
+            if (document.activeElement === textarea || el.classList.contains("focused")) {
+              reportTerminalFocus(true)
+            }
+          })
+        }
+
+        function focusTerminalSurface() {
+          wt?.focus()
+          reportTerminalFocus(true)
+        }
+
+        function blurTerminalSurface() {
+          const textarea = el.querySelector("textarea")
+          if (textarea && document.activeElement === textarea) textarea.blur()
+          reportTerminalFocus(false)
+        }
+
+        async function initTerminal() {
+          wt = new WTerm(el, { autoResize: true, cursorBlink: true })
+          await wt.init()
+          wt.onData = (data) => {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(data)
+          }
+          wt.onTitle = (title) => postRN({ type: "title", title })
+          wt.onResize = (cols, rows) => {
+            postRN({ type: "resize", cols, rows })
+          }
+          mountFocusReporting()
+          el.addEventListener("pointerdown", focusTerminalSurface, { passive: true })
+          el.addEventListener("click", focusTerminalSurface)
+          // Long-press selection: notify RN when selection changes
+          document.addEventListener("selectionchange", () => {
+            const sel = window.getSelection?.()?.toString?.() ?? ""
+            if (sel.trim()) postRN({ type: "selection", text: sel })
+          })
+          mountViewportObserver()
+          if (el.querySelector("textarea") === document.activeElement || el.classList.contains("focused")) {
             reportTerminalFocus(true)
           }
+        }
+
+        function mountViewportObserver() {
+          if (!window.ResizeObserver) return
+          const observer = new ResizeObserver(() => {
+            if (wt?.cols && wt?.rows) {
+              postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
+            }
+          })
+          observer.observe(el)
+          if (document.body) observer.observe(document.body)
+        }
+
+        function postRN(payload) {
+          try {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify(payload))
+            }
+          } catch {}
+        }
+
+        function handleNativeMessage(evt) {
+          try {
+            if (!evt?.data || typeof evt.data !== "string") return
+            const msg = JSON.parse(evt.data)
+            if (!msg || typeof msg !== "object") return
+            if (msg.type === "resize") {
+              if (typeof msg.cols !== "number" || typeof msg.rows !== "number") return
+              wt?.resize(msg.cols, msg.rows)
+            } else if (msg.type === "write") {
+              if (typeof msg.data !== "string") return
+              wt?.write(msg.data)
+            } else if (msg.type === "paste") {
+              if (typeof msg.data !== "string") return
+              if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
+            } else if (msg.type === "input") {
+              if (typeof msg.data !== "string") return
+              focusTerminalSurface()
+              if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
+            } else if (msg.type === "focus") {
+              focusTerminalSurface()
+            } else if (msg.type === "blur") {
+              blurTerminalSurface()
+            } else if (msg.type === "reconnect") {
+              if (typeof msg.wsUrl === "string" && msg.wsUrl) wsUrl = msg.wsUrl
+              manualRetry()
+            } else if (msg.type === "copy") {
+              postRN({ type: "copy", text: collectTerminalText() })
+            } else if (msg.type === "theme") {
+              applyTheme(msg.theme === "light" ? "light" : "dark")
+            } else if (msg.type === "fontSize") {
+              if (typeof msg.size === "number") applyFontSize(msg.size)
+            }
+          } catch {}
+        }
+
+        window.addEventListener("message", handleNativeMessage)
+        document.addEventListener("message", handleNativeMessage)
+
+        function collectTerminalText() {
+          const selection = window.getSelection?.()?.toString?.() ?? ""
+          if (selection.trim()) return selection
+          const rows = Array.from(document.querySelectorAll(".term-row:not(.term-scrollback-row)"))
+          if (rows.length)
+            return rows
+              .map((row) => row.textContent ?? "")
+              .join("\n")
+              .trimEnd()
+          return el?.textContent ?? ""
+        }
+
+        function clearLifecycleTimers() {
+          clearTimeout(reconnectTimer)
+          clearTimeout(connectionTimeoutId)
           clearTimeout(statusHideTimer)
-          statusHideTimer = setTimeout(() => {
-            if (statusEl.className === "connected") statusEl.style.opacity = "0"
-          }, 2000)
+          reconnectTimer = null
+          connectionTimeoutId = null
+          statusHideTimer = null
         }
 
-        ws.onmessage = (e) => {
-          // Server sends PTY output as text strings; handle binary just in case.
-          const data = e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data
-          wt?.write(data)
+        function closeSocket() {
+          if (!ws) return
+          ws.onopen = null
+          ws.onmessage = null
+          ws.onclose = null
+          ws.onerror = null
+          try {
+            ws.close()
+          } catch {}
+          ws = null
         }
 
-        ws.onclose = () => {
-          postRN({ type: "status", status: "disconnected" })
+        function startConnectionTimeout(url) {
+          clearTimeout(connectionTimeoutId)
+          connectionTimeoutId = setTimeout(() => {
+            if (statusEl.className !== "connected") {
+              connectAttempts++
+              setStatus("error", "Timeout")
+              showError("Connection timed out. Server may be unavailable.", url)
+              postRN({ type: "status", status: "error" })
+              closeSocket()
+              if (!stopped && connectAttempts <= MAX_RETRIES) {
+                scheduleReconnect(url)
+              }
+            }
+          }, 30000)
+        }
+
+        function stopTerminal() {
+          stopped = true
+          clearLifecycleTimers()
+          closeSocket()
+        }
+
+        window.addEventListener("beforeunload", stopTerminal)
+        window.addEventListener("pagehide", stopTerminal)
+
+        function scheduleReconnect(url) {
           if (stopped) return
-          connectAttempts++
-          if (connectAttempts <= MAX_RETRIES) {
-            setStatus("reconnecting", "Reconnecting…")
-            statusEl.style.opacity = "1"
-            scheduleReconnect(url)
+          const delay = Math.min(RETRY_DELAY_MS * Math.pow(1.5, connectAttempts), 30000)
+          reconnectTimer = setTimeout(() => connect(url), delay)
+        }
+
+        function connect(url) {
+          if (!url) {
+            setStatus("error", "No server")
+            showError("No PTY URL provided. Check server connection.", null)
+            wt?.write("\r\n\x1b[31mNo PTY URL provided.\x1b[0m\r\n")
+            postRN({ type: "status", status: "no_url" })
+            return
+          }
+
+          clearTimeout(reconnectTimer)
+          clearTimeout(connectionTimeoutId)
+          closeSocket()
+
+          hideError()
+          setStatus("connecting", connectAttempts > 0 ? `Retrying… (${connectAttempts}/${MAX_RETRIES})` : "Connecting…")
+          postRN({ type: "status", status: "connecting" })
+
+          ws = new WebSocket(url)
+          ws.binaryType = "arraybuffer"
+          startConnectionTimeout(url)
+
+          ws.onopen = () => {
+            clearTimeout(connectionTimeoutId)
+            connectAttempts = 0
+            setStatus("connected", "Connected")
+            postRN({ type: "status", status: "connected" })
+            hideError()
+            if (wt?.cols && wt?.rows) {
+              postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
+            }
+            terminalFocusReported = null
+            if (el.classList.contains("focused") || el.querySelector("textarea") === document.activeElement) {
+              reportTerminalFocus(true)
+            }
+            clearTimeout(statusHideTimer)
+            statusHideTimer = setTimeout(() => {
+              if (statusEl.className === "connected") statusEl.style.opacity = "0"
+            }, 2000)
+          }
+
+          ws.onmessage = (e) => {
+            const data = e.data instanceof ArrayBuffer ? new Uint8Array(e.data) : e.data
+            wt?.write(data)
+          }
+
+          ws.onclose = () => {
+            postRN({ type: "status", status: "disconnected" })
+            if (stopped) return
+            connectAttempts++
+            if (connectAttempts <= MAX_RETRIES) {
+              setStatus("reconnecting", "Reconnecting…")
+              statusEl.style.opacity = "1"
+              scheduleReconnect(url)
+            } else {
+              setStatus("error", "Failed")
+              showError("Connection lost. Max retries reached.", url)
+              postRN({ type: "status", status: "error" })
+            }
+          }
+
+          ws.onerror = () => {
+            wt?.write(`\r\n\x1b[31mWebSocket error.\x1b[0m\r\n`)
+          }
+        }
+
+        window.manualRetry = function () {
+          stopped = false
+          connectAttempts = 0
+          if (wsUrl) {
+            connect(wsUrl)
           } else {
-            setStatus("error", "Failed")
-            showError("Connection lost. Max retries reached.", url)
+            showError("No server URL available", null)
+          }
+        }
+
+        async function start() {
+          try {
+            await initTerminal()
+            connect(wsUrl)
+          } catch (error) {
+            setStatus("error", "Init failed")
+            showError(`Terminal init failed: ${error.message}`, wsUrl)
             postRN({ type: "status", status: "error" })
           }
         }
 
-        ws.onerror = () => {
-          // onclose fires right after onerror — let that handle retry logic.
-          wt?.write(`\r\n\x1b[31mWebSocket error.\x1b[0m\r\n`)
-        }
-      }
-
-      window.manualRetry = function () {
-        stopped = false
-        connectAttempts = 0
-        if (wsUrl) {
-          connect(wsUrl)
-        } else {
-          showError("No server URL available", null)
-        }
-      }
-
-      async function start() {
-        try {
-          await initTerminal()
-          connect(wsUrl)
-        } catch (error) {
-          setStatus("error", "Init failed")
-          showError(`Terminal init failed: ${error.message}`, wsUrl)
-          postRN({ type: "status", status: "error" })
-        }
-      }
-
-      start()
+        start()
+      })()
     </script>
   </body>
 </html>

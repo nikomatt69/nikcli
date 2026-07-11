@@ -8,21 +8,25 @@ type Props = {
   disabled?: boolean
   ctrlActive?: boolean
   shiftActive?: boolean
+  keyboardVisible?: boolean
   onToggleModifiers?(next: { ctrl: boolean; shift: boolean }): void
   onFocusTerminal(): void
   onSendInput(data: string): void
+  onHideKeyboard?(): void
 }
 
-/** Approximate docked key bar height for layout math (strip + safe area). */
-export const TERMINAL_KEYBAR_DOCK_HEIGHT = 52
+/** Approximate docked key bar height for layout math (strip + bottom padding). */
+export const TERMINAL_KEYBAR_DOCK_HEIGHT = 64
 
 export function TerminalKeyBar({
   disabled = false,
   ctrlActive: ctrlActiveProp,
   shiftActive: shiftActiveProp,
+  keyboardVisible = false,
   onToggleModifiers,
   onFocusTerminal,
   onSendInput,
+  onHideKeyboard,
 }: Props) {
   const insets = useSafeAreaInsets()
   const [localCtrl, setLocalCtrl] = useState(false)
@@ -38,6 +42,10 @@ export function TerminalKeyBar({
     }
   }
 
+  // When the soft keyboard is open, the dock already has keyboardInset padding —
+  // skip the home-indicator gap so the strip sits flush above the keyboard.
+  const bottomPad = keyboardVisible ? 6 : Math.max(insets.bottom, 8)
+
   return (
     <TerminalKeyStripContainer docked>
       <TerminalKeyStrip
@@ -48,8 +56,9 @@ export function TerminalKeyBar({
         onToggleModifiers={handleToggleModifiers}
         onFocusTerminal={onFocusTerminal}
         onSendInput={onSendInput}
+        onHideKeyboard={onHideKeyboard}
       />
-      <View style={{ height: Math.max(insets.bottom, 8) }} />
+      <View style={{ height: bottomPad }} />
     </TerminalKeyStripContainer>
   )
 }

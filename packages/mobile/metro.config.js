@@ -7,6 +7,10 @@ const workspaceRoot = path.resolve(projectRoot, "../..")
 
 const config = getDefaultConfig(projectRoot)
 
+// Treat terminal runtime bundles as assets (not JS modules).
+config.resolver.assetExts = Array.from(new Set([...(config.resolver.assetExts ?? []), "txt", "html"]))
+config.resolver.sourceExts = (config.resolver.sourceExts ?? []).filter((ext) => ext !== "txt")
+
 // Include workspace root so Metro can see packages hoisted by Bun
 config.watchFolders = [workspaceRoot]
 

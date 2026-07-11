@@ -970,16 +970,20 @@ export function SessionComposer({
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
-                {modelLabel ? (
+                {modelLabel || onOpenModelPicker ? (
                   <Pressable
                     onPress={() => {
                       void triggerHaptic("selection");
                       onOpenModelPicker?.();
                     }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Model: ${modelLabel}. Tap to change model or thinking effort.`}
+                    accessibilityLabel={
+                      modelLabel
+                        ? `Model: ${modelLabel}. Tap to change model or thinking effort.`
+                        : "Choose model"
+                    }
                     style={({ pressed }) => ({
-                      maxWidth: 132,
+                      flexShrink: 0,
                       borderRadius: 999,
                       borderWidth: 1,
                       borderColor: isDark
@@ -1001,7 +1005,7 @@ export function SessionComposer({
                       }}
                       numberOfLines={1}
                     >
-                      {modelLabel}
+                      Model
                     </Text>
                   </Pressable>
                 ) : null}

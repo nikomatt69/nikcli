@@ -20,7 +20,9 @@ export default function AppLayout() {
         sidebarAdaptable
         tintColor={palette.accent}
         iconColor={{ default: palette.textMuted, selected: palette.accent }}
-        tabBarRespectsIMEInsets
+        // Terminal manages its own keyboard inset (dock paddingBottom). Leaving
+        // this on can double-pad the terminal viewport on iOS when the keybar is open.
+        tabBarRespectsIMEInsets={false}
       >
         <NativeTabs.Trigger name="sessions">
           <NativeTabs.Trigger.Icon sf={{ default: "terminal", selected: "terminal.fill" }} md="terminal" />

@@ -13,7 +13,7 @@ import {
 import { WebView, type WebViewMessageEvent } from "react-native-webview"
 import { useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { TerminalSquare, Plus, Trash2, RefreshCw } from "lucide-react-native"
+import { TerminalSquare, Plus, Trash2, RefreshCw, ALargeSmall } from "lucide-react-native"
 import { Copy, ClipboardPaste } from "lucide-react-native"
 import { Asset } from "expo-asset"
 import { File } from "expo-file-system"
@@ -35,31 +35,42 @@ import {
 } from "@/lib/terminal-keys"
 import type { PtyCreateInput, PtyInfo } from "@/lib/types"
 
-// require() returns a number (resource ID) in Metro — we load the content async
 const TERMINAL_HTML_MODULE = require("../../../assets/terminal.html") as number
+const WTERM_BUNDLE_MODULE = require("../../../assets/wterm.bundle.txt") as number
+
 let terminalHtmlPromise: Promise<string> | null = null
+
+async function loadAssetText(moduleId: number): Promise<string> {
+  const [asset] = await Asset.loadAsync(moduleId)
+  const uri = asset.localUri ?? asset.uri
+  if (!uri) throw new Error("Terminal asset URI is unavailable")
+  return new File(uri).text()
+}
 
 async function loadTerminalHtml(): Promise<string> {
   if (terminalHtmlPromise) return terminalHtmlPromise
   terminalHtmlPromise = (async () => {
-    const [asset] = await Asset.loadAsync(TERMINAL_HTML_MODULE)
-    const uri = asset.localUri ?? asset.uri
-    if (!uri) throw new Error("Terminal asset URI is unavailable")
-    return new File(uri).text()
+    const [html, bundle] = await Promise.all([
+      loadAssetText(TERMINAL_HTML_MODULE),
+      loadAssetText(WTERM_BUNDLE_MODULE),
+    ])
+    if (!html.includes("__WTERM_BUNDLE__")) {
+      throw new Error("Terminal HTML is missing wterm injection marker")
+    }
+    return html.replace("__WTERM_BUNDLE__", bundle)
   })()
   return terminalHtmlPromise
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 type WVMessage =
   | {
       type: "status"
-      status: "connected" | "disconnected" | "error" | "no_url"
+      status: "connected" | "disconnected" | "error" | "no_url" | "connecting"
     }
   | { type: "title"; title: string }
   | { type: "resize"; cols: number; rows: number }
   | { type: "copy"; text: string }
+  | { type: "selection"; text: string }
 
 type TerminalCommand =
   | { id: number; type: "copy" }
@@ -67,28 +78,44 @@ type TerminalCommand =
   | { id: number; type: "focus" }
   | { id: number; type: "blur" }
   | { id: number; type: "input"; data: string }
-  | { id: number; type: "reconnect" }
+  | { id: number; type: "reconnect"; wsUrl?: string }
+  | { id: number; type: "theme"; theme: "dark" | "light" }
+  | { id: number; type: "fontSize"; size: number }
+
 type TerminalCommandInput =
   | { type: "copy" }
   | { type: "paste"; text: string }
   | { type: "focus" }
   | { type: "blur" }
   | { type: "input"; data: string }
-  | { type: "reconnect" }
-
-// ── PtyTab ────────────────────────────────────────────────────────────────────
+  | { type: "reconnect"; wsUrl?: string }
+  | { type: "theme"; theme: "dark" | "light" }
+  | { type: "fontSize"; size: number }
 
 type PtyTab = {
   pty: PtyInfo
   title: string
+  directory?: string
 }
 
-// ── TerminalWebView ───────────────────────────────────────────────────────────
+function commandPayload(command: TerminalCommand): Record<string, unknown> {
+  if (command.type === "paste") return { type: "paste", data: command.text }
+  if (command.type === "input") return { type: "input", data: command.data }
+  if (command.type === "focus") return { type: "focus" }
+  if (command.type === "blur") return { type: "blur" }
+  if (command.type === "reconnect") {
+    return command.wsUrl ? { type: "reconnect", wsUrl: command.wsUrl } : { type: "reconnect" }
+  }
+  if (command.type === "theme") return { type: "theme", theme: command.theme }
+  if (command.type === "fontSize") return { type: "fontSize", size: command.size }
+  return { type: "copy" }
+}
 
 function TerminalWebView({
   ptyId,
   wsUrl,
   theme,
+  fontSize,
   visible,
   onTitle,
   onResize,
@@ -99,6 +126,7 @@ function TerminalWebView({
   ptyId: string
   wsUrl: string
   theme: "dark" | "light"
+  fontSize: number
   visible: boolean
   onTitle: (t: string) => void
   onResize: (ptyId: string, cols: number, rows: number) => void
@@ -109,6 +137,8 @@ function TerminalWebView({
   const webviewRef = useRef<WebView>(null)
   const [wsStatus, setWsStatus] = useState<PtyConnectionStatus>("connecting")
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
+  const lastThemeRef = useRef(theme)
+  const lastFontRef = useRef(fontSize)
 
   useEffect(() => {
     loadTerminalHtml()
@@ -116,26 +146,14 @@ function TerminalWebView({
       .catch(() => setWsStatus("error"))
   }, [])
 
-  // Inject config before the page JS runs
   const injectedJS = `
-    window.__NIKCLI_PTY_CONFIG = ${JSON.stringify({ wsUrl, theme })};
+    window.__NIKCLI_PTY_CONFIG = ${JSON.stringify({ wsUrl, theme, fontSize })};
     true;
   `
 
   useEffect(() => {
     if (!command || !htmlContent) return
-    const payload =
-      command.type === "paste"
-        ? { type: "paste", data: command.text }
-        : command.type === "input"
-          ? { type: "input", data: command.data }
-          : command.type === "focus"
-            ? { type: "focus" }
-            : command.type === "blur"
-              ? { type: "blur" }
-              : command.type === "reconnect"
-                ? { type: "reconnect" }
-                : { type: "copy" }
+    const payload = commandPayload(command)
     webviewRef.current?.injectJavaScript(
       `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify(payload))} })); true;`,
     )
@@ -154,6 +172,22 @@ function TerminalWebView({
       `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify({ type: "blur" }))} })); true;`,
     )
   }, [htmlContent, visible])
+
+  useEffect(() => {
+    if (!htmlContent || lastThemeRef.current === theme) return
+    lastThemeRef.current = theme
+    webviewRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify({ type: "theme", theme }))} })); true;`,
+    )
+  }, [htmlContent, theme])
+
+  useEffect(() => {
+    if (!htmlContent || lastFontRef.current === fontSize) return
+    lastFontRef.current = fontSize
+    webviewRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify({ type: "fontSize", size: fontSize }))} })); true;`,
+    )
+  }, [fontSize, htmlContent])
 
   const handleMessage = useCallback(
     (e: WebViewMessageEvent) => {
@@ -182,7 +216,10 @@ function TerminalWebView({
     [onCopyText, onResize, onStatusChange, onTitle, ptyId],
   )
 
-  const showBlockingOverlay = wsStatus !== "connected" || !htmlContent
+  const showConnecting = !htmlContent || wsStatus === "connecting"
+  const showError = wsStatus === "error"
+  const showDisconnected = wsStatus === "disconnected"
+
   return (
     <View
       style={[StyleSheet.absoluteFill, { opacity: visible ? 1 : 0 }]}
@@ -209,7 +246,7 @@ function TerminalWebView({
           style={StyleSheet.absoluteFill}
         />
       ) : null}
-      {showBlockingOverlay && wsStatus === "connecting" && (
+      {showConnecting && (
         <View
           style={[
             StyleSheet.absoluteFill,
@@ -222,28 +259,12 @@ function TerminalWebView({
           pointerEvents="none"
         >
           <ActivityIndicator color="#58a6ff" />
-          <Text
-            style={{
-              color: "#58a6ff",
-              fontSize: 12,
-              marginTop: 8,
-              fontWeight: "600",
-            }}
-          >
+          <Text style={{ color: "#58a6ff", fontSize: 12, marginTop: 8, fontWeight: "600" }}>
             Connecting to terminal…
-          </Text>
-          <Text
-            style={{
-              color: "rgba(88,166,255,0.5)",
-              fontSize: 10,
-              marginTop: 4,
-            }}
-          >
-            This may take a moment
           </Text>
         </View>
       )}
-      {showBlockingOverlay && wsStatus === "error" && (
+      {showError && (
         <View
           style={[
             StyleSheet.absoluteFill,
@@ -251,37 +272,43 @@ function TerminalWebView({
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: "rgba(13,17,23,0.85)",
+              paddingHorizontal: 32,
             },
           ]}
           pointerEvents="none"
         >
-          <Text
-            style={{
-              color: "#ff7b72",
-              fontSize: 14,
-              fontWeight: "600",
-              marginBottom: 8,
-            }}
-          >
+          <Text style={{ color: "#ff7b72", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
             Connection Failed
           </Text>
-          <Text
-            style={{
-              color: "rgba(230,237,243,0.6)",
-              fontSize: 12,
-              textAlign: "center",
-              paddingHorizontal: 32,
-            }}
-          >
-            Unable to connect to the terminal server. Check that nikcli server is running.
+          <Text style={{ color: "rgba(230,237,243,0.6)", fontSize: 12, textAlign: "center" }}>
+            Unable to connect to the terminal server. Use reconnect in the toolbar.
+          </Text>
+        </View>
+      )}
+      {showDisconnected && !showConnecting && (
+        <View
+          style={{
+            position: "absolute",
+            left: 12,
+            right: 12,
+            top: 12,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            backgroundColor: "rgba(88,166,255,0.16)",
+            borderWidth: 1,
+            borderColor: "rgba(88,166,255,0.35)",
+          }}
+          pointerEvents="none"
+        >
+          <Text style={{ color: "#79c0ff", fontSize: 12, fontWeight: "600" }}>
+            Disconnected — reconnecting or tap the refresh icon
           </Text>
         </View>
       )}
     </View>
   )
 }
-
-// ── Tab bar ───────────────────────────────────────────────────────────────────
 
 const TAB_BAR_CLOSE_BUTTON_STYLE = { marginLeft: 2 }
 const TAB_BAR_ITEM_BASE = {
@@ -374,7 +401,7 @@ function TabBar({
     <FlatList
       horizontal
       data={tabs}
-      keyExtractor={(_, i) => String(i)}
+      keyExtractor={(tab) => tab.pty.id}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}
       style={{
@@ -397,8 +424,6 @@ function TabBar({
     />
   )
 }
-
-// ── Compact in-content header (bare wordmark, no native glass bubble) ─────────
 
 const TERMINAL_BRAND_HEIGHT = 12
 
@@ -437,8 +462,6 @@ function TerminalScreenHeader() {
   )
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
-
 export default function TerminalScreen() {
   const { client } = useServer()
   const { palette, isDark, colorScheme } = useAppTheme()
@@ -452,65 +475,93 @@ export default function TerminalScreen() {
   const [keyModifiers, setKeyModifiers] = useState({ ctrl: false, shift: false })
   const [keyboardVisible, setKeyboardVisible] = useState(false)
   const [keyboardInset, setKeyboardInset] = useState(0)
+  const [fontSize, setFontSize] = useState(13)
   const commandIdRef = useRef(0)
   const creatingRef = useRef(false)
   const activeTabRef = useRef<PtyTab | null>(null)
+  const resizeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
-  // ── Load existing PTY sessions on mount ───────────────────────────────────
+  const syncRunningPty = useCallback(async () => {
+    if (!client) return
+    try {
+      const list = await client.listPty()
+      const running = new Map(list.filter((p) => p.status === "running").map((p) => [p.id, p]))
+      setTabs((prev) => {
+        if (prev.length === 0 && running.size > 0) {
+          const next = [...running.values()].map((pty) => ({ pty, title: pty.title }))
+          setActiveIndex(next.length - 1)
+          return next
+        }
+        let changed = false
+        const next = prev.map((tab) => {
+          const live = running.get(tab.pty.id)
+          if (!live) {
+            changed = true
+            setPtyStatuses((statuses) => ({ ...statuses, [tab.pty.id]: "exited" }))
+            return { ...tab, pty: { ...tab.pty, status: "exited" as const } }
+          }
+          if (live.title !== tab.pty.title || live.cwd !== tab.pty.cwd) {
+            changed = true
+            return { ...tab, pty: live, title: tab.title || live.title }
+          }
+          return tab
+        })
+        return changed ? next : prev
+      })
+    } catch {
+      // ignore transient list failures
+    }
+  }, [client])
 
   useEffect(() => {
-    if (!client) return
-    let cancelled = false
-    client
-      .listPty()
-      .then((list) => {
-        if (cancelled) return
-        const existing = list.filter((p) => p.status === "running")
-        if (existing.length === 0) return
-        setTabs(existing.map((pty) => ({ pty, title: pty.title })))
-        setActiveIndex(existing.length - 1)
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : "Failed to load terminals")
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [client])
+    void syncRunningPty()
+  }, [syncRunningPty])
 
-  // ── Create a new PTY ──────────────────────────────────────────────────────
-
-  const createTerminal = useCallback(async (input: PtyCreateInput = {}) => {
-    if (!client || creatingRef.current) return
-    creatingRef.current = true
-    setCreating(true)
-    setError(null)
-    try {
-      const pty = await client.createPty(input)
-      const newTab: PtyTab = { pty, title: input.title?.trim() || pty.title }
-      setTabs((prev) => {
-        const next = [...prev, newTab]
-        setActiveIndex(next.length - 1)
-        return next
-      })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create terminal")
-    } finally {
-      creatingRef.current = false
-      setCreating(false)
-    }
-  }, [client])
+  const createTerminal = useCallback(
+    async (input: PtyCreateInput & { directory?: string } = {}) => {
+      if (!client || creatingRef.current) return
+      creatingRef.current = true
+      setCreating(true)
+      setError(null)
+      try {
+        const directory = input.directory ?? input.cwd
+        const scoped = directory ? client.withDirectory(directory) : client
+        const { directory: _dir, ...body } = input
+        const pty = await scoped.createPty(body)
+        const newTab: PtyTab = {
+          pty,
+          title: input.title?.trim() || pty.title,
+          directory: directory ?? undefined,
+        }
+        setTabs((prev) => {
+          const next = [...prev, newTab]
+          setActiveIndex(next.length - 1)
+          return next
+        })
+        setPtyStatuses((prev) => ({ ...prev, [pty.id]: "connecting" }))
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to create terminal")
+      } finally {
+        creatingRef.current = false
+        setCreating(false)
+      }
+    },
+    [client],
+  )
 
   useFocusEffect(
     useCallback(() => {
+      void syncRunningPty()
       const intent = consumeTerminalLaunchIntent()
       if (!intent || !client) return
       void createTerminal({
         cwd: intent.cwd,
-        title: intent.title ?? "Session shell",
+        directory: intent.cwd,
+        title: intent.title ?? (intent.command ? "nikcli" : "Session shell"),
+        command: intent.command,
+        args: intent.args,
       })
-    }, [client, createTerminal]),
+    }, [client, createTerminal, syncRunningPty]),
   )
 
   useEffect(() => {
@@ -530,14 +581,25 @@ export default function TerminalScreen() {
     }
   }, [])
 
-  // ── Close a tab ───────────────────────────────────────────────────────────
-
   const closeTab = useCallback(
     (index: number) => {
       const tab = tabs[index]
       if (!tab) return
-      // Fire-and-forget removal on backend
+      if (resizeTimersRef.current[tab.pty.id]) {
+        clearTimeout(resizeTimersRef.current[tab.pty.id])
+        delete resizeTimersRef.current[tab.pty.id]
+      }
       client?.removePty(tab.pty.id).catch(() => {})
+      setTerminalCommands((prev) => {
+        const next = { ...prev }
+        delete next[tab.pty.id]
+        return next
+      })
+      setPtyStatuses((prev) => {
+        const next = { ...prev }
+        delete next[tab.pty.id]
+        return next
+      })
       setTabs((prev) => {
         const next = prev.filter((_, i) => i !== index)
         setActiveIndex((cur) => {
@@ -551,8 +613,6 @@ export default function TerminalScreen() {
     [client, tabs],
   )
 
-  // ── Confirm close all ─────────────────────────────────────────────────────
-
   const closeAll = useCallback(() => {
     if (tabs.length === 0) return
     Alert.alert("Close all terminals?", "All running sessions will be terminated.", [
@@ -564,18 +624,17 @@ export default function TerminalScreen() {
           tabs.forEach((t) => client?.removePty(t.pty.id).catch(() => {}))
           setTabs([])
           setActiveIndex(0)
+          setTerminalCommands({})
+          setPtyStatuses({})
         },
       },
     ])
   }, [client, tabs])
 
-  // ── Update tab title from wterm title escape ──────────────────────────────
-
   const handleTitle = useCallback((index: number, title: string) => {
     setTabs((prev) => prev.map((t, i) => (i === index ? { ...t, title: title || t.pty.title } : t)))
   }, [])
 
-  const resizeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const handleResize = useCallback(
     (ptyId: string, cols: number, rows: number) => {
       if (!client || !Number.isFinite(cols) || !Number.isFinite(rows)) return
@@ -642,26 +701,65 @@ export default function TerminalScreen() {
     [activeTab, sendTerminalCommand],
   )
 
-  const reconnectTerminal = useCallback(() => {
-    if (!activeTab) return
-    void triggerHaptic("selection")
-    sendTerminalCommand(activeTab.pty.id, { type: "reconnect" })
+  const hideKeyboard = useCallback(() => {
+    Keyboard.dismiss()
+    // Keep OpenTUI focus reporting in-sync: blur soft keyboard but re-assert PTY focus.
+    if (activeTab) {
+      sendTerminalCommand(activeTab.pty.id, { type: "focus" })
+    }
   }, [activeTab, sendTerminalCommand])
+
+  const reconnectTerminal = useCallback(() => {
+    if (!activeTab || !client) return
+    void triggerHaptic("selection")
+    const scoped = activeTab.directory ? client.withDirectory(activeTab.directory) : client
+    const wsUrl = scoped.ptyConnectUrl(activeTab.pty.id)
+    sendTerminalCommand(activeTab.pty.id, { type: "reconnect", wsUrl })
+  }, [activeTab, client, sendTerminalCommand])
+
+  const restartExitedTab = useCallback(async () => {
+    if (!activeTab) return
+    const { cwd, title } = activeTab.pty
+    const directory = activeTab.directory
+    closeTab(activeIndex)
+    await createTerminal({
+      cwd,
+      directory,
+      title: title || "Terminal",
+    })
+  }, [activeIndex, activeTab, closeTab, createTerminal])
+
+  const cycleFontSize = useCallback(() => {
+    setFontSize((prev) => {
+      const next = prev >= 16 ? 11 : prev + 1
+      void triggerHaptic("selection")
+      return next
+    })
+  }, [])
 
   const handlePtyStatusChange = useCallback((ptyId: string, status: PtyConnectionStatus) => {
     setPtyStatuses((prev) => ({ ...prev, [ptyId]: status }))
   }, [])
 
-  const activeConnectionStatus = activeTab ? (ptyStatuses[activeTab.pty.id] ?? "connecting") : "connecting"
-  const canReconnect = activeConnectionStatus === "error" || activeConnectionStatus === "disconnected"
+  const activeConnectionStatus = activeTab
+    ? activeTab.pty.status === "exited"
+      ? "exited"
+      : (ptyStatuses[activeTab.pty.id] ?? "connecting")
+    : "connecting"
+  const canReconnect =
+    activeConnectionStatus === "error" ||
+    activeConnectionStatus === "disconnected" ||
+    activeConnectionStatus === "exited"
 
   const keyBarProps = {
     disabled: !activeTab,
     ctrlActive: keyModifiers.ctrl,
     shiftActive: keyModifiers.shift,
+    keyboardVisible,
     onToggleModifiers: setKeyModifiers,
     onFocusTerminal: focusTerminal,
     onSendInput: sendTerminalInput,
+    onHideKeyboard: hideKeyboard,
   }
 
   const handleCopyText = useCallback(async (text: string) => {
@@ -674,20 +772,13 @@ export default function TerminalScreen() {
     void triggerHaptic("success")
   }, [])
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+  const theme = (colorScheme === "light" ? "light" : "dark") as "dark" | "light"
 
   if (tabs.length === 0) {
     return (
       <View style={{ flex: 1, backgroundColor: isDark ? "#0d0d0d" : "#f6f9fc" }}>
         <TerminalScreenHeader />
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            paddingHorizontal: 24,
-            gap: 12,
-          }}
-        >
+        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 }}>
           {error && (
             <Pressable onPress={() => setError(null)}>
               <ErrorBanner message={error} />
@@ -695,14 +786,26 @@ export default function TerminalScreen() {
           )}
           <EmptyState
             title="No terminals"
-            description="Open a shell session directly on your nikcli server."
+            description="Open a remote shell, or launch nikcli TUI in a PTY. Sessions remains the primary agent UI."
             action={
-              <ActionButton
-                label={creating ? "Opening…" : "New terminal"}
-                loading={creating}
-                disabled={!client || creating}
-                onPress={() => void createTerminal()}
-              />
+              <View style={{ gap: 10, width: "100%" }}>
+                <ActionButton
+                  label={creating ? "Opening…" : "New shell"}
+                  loading={creating}
+                  disabled={!client || creating}
+                  onPress={() => void createTerminal()}
+                />
+                <ActionButton
+                  label="Open nikcli"
+                  disabled={!client || creating}
+                  onPress={() =>
+                    void createTerminal({
+                      command: "nikcli",
+                      title: "nikcli",
+                    })
+                  }
+                />
+              </View>
             }
           />
         </View>
@@ -710,11 +813,8 @@ export default function TerminalScreen() {
     )
   }
 
-  // ── Terminal view ─────────────────────────────────────────────────────────
-
   return (
     <View style={styles.screen}>
-      {/* Top chrome — fixed height, never scrolls or shifts */}
       <View style={styles.chrome}>
         <TerminalScreenHeader />
         <TabBar
@@ -726,7 +826,6 @@ export default function TerminalScreen() {
           isDark={isDark}
         />
         <View style={[styles.toolbar, isDark ? styles.toolbarDark : styles.toolbarLight]}>
-          {/* Connection + cwd */}
           <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
               <View
@@ -748,10 +847,15 @@ export default function TerminalScreen() {
               </Text>
               {canReconnect ? (
                 <Pressable
-                  onPress={reconnectTerminal}
+                  onPress={() => {
+                    if (activeConnectionStatus === "exited") void restartExitedTab()
+                    else reconnectTerminal()
+                  }}
                   hitSlop={8}
                   accessibilityRole="button"
-                  accessibilityLabel="Reconnect terminal"
+                  accessibilityLabel={
+                    activeConnectionStatus === "exited" ? "Restart terminal" : "Reconnect terminal"
+                  }
                   style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
                 >
                   <RefreshCw size={14} color={isDark ? "#58a6ff" : palette.accentLight} strokeWidth={2.2} />
@@ -770,21 +874,23 @@ export default function TerminalScreen() {
             </Text>
           </View>
 
-          {/* Toolbar actions */}
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <Pressable
-              onPress={copyTerminal}
+              onPress={cycleFontSize}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="Copy terminal content"
+              accessibilityLabel={`Font size ${fontSize}`}
             >
+              <ALargeSmall size={16} color={isDark ? "rgba(230,237,243,0.75)" : palette.soft} strokeWidth={2} />
+            </Pressable>
+            <Pressable onPress={copyTerminal} hitSlop={8} accessibilityRole="button" accessibilityLabel="Copy">
               <Copy size={16} color={isDark ? "rgba(230,237,243,0.75)" : palette.soft} strokeWidth={2} />
             </Pressable>
             <Pressable
               onPress={() => void pasteTerminal()}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="Paste clipboard into terminal"
+              accessibilityLabel="Paste"
             >
               <ClipboardPaste size={16} color={isDark ? "rgba(230,237,243,0.75)" : palette.soft} strokeWidth={2} />
             </Pressable>
@@ -793,7 +899,6 @@ export default function TerminalScreen() {
               disabled={creating || !client}
               accessibilityRole="button"
               accessibilityLabel="Open new terminal tab"
-              accessibilityState={{ disabled: creating || !client }}
               style={{ opacity: creating || !client ? 0.4 : 1 }}
               hitSlop={8}
             >
@@ -808,7 +913,6 @@ export default function TerminalScreen() {
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Close all terminal tabs"
-              accessibilityHint="Terminates every open shell session"
               style={{ opacity: tabs.length === 0 ? 0.4 : 1 }}
             >
               <Trash2 size={16} color={isDark ? "rgba(255,123,114,0.85)" : palette.danger} strokeWidth={2} />
@@ -817,32 +921,30 @@ export default function TerminalScreen() {
         </View>
       </View>
 
-      {/* Terminal dock — fills remaining space, anchored to bottom; shrinks upward when keyboard opens */}
-      <View
-        style={[
-          styles.terminalDock,
-          keyboardInset > 0 ? { paddingBottom: keyboardInset } : null,
-        ]}
-      >
+      <View style={[styles.terminalDock, keyboardInset > 0 ? { paddingBottom: keyboardInset } : null]}>
         <View style={styles.terminalViewport} collapsable={false}>
           {client
-            ? tabs.map((tab, index) => (
-                <TerminalWebView
-                  key={tab.pty.id}
-                  ptyId={tab.pty.id}
-                  wsUrl={client.ptyConnectUrl(tab.pty.id)}
-                  theme={colorScheme as "dark" | "light"}
-                  visible={index === activeIndex}
-                  onTitle={(t) => handleTitle(index, t)}
-                  onResize={handleResize}
-                  onStatusChange={handlePtyStatusChange}
-                  command={terminalCommands[tab.pty.id]}
-                  onCopyText={handleCopyText}
-                />
-              ))
+            ? tabs.map((tab, index) => {
+                const scoped = tab.directory ? client.withDirectory(tab.directory) : client
+                return (
+                  <TerminalWebView
+                    key={tab.pty.id}
+                    ptyId={tab.pty.id}
+                    wsUrl={scoped.ptyConnectUrl(tab.pty.id)}
+                    theme={theme}
+                    fontSize={fontSize}
+                    visible={index === activeIndex}
+                    onTitle={(t) => handleTitle(index, t)}
+                    onResize={handleResize}
+                    onStatusChange={handlePtyStatusChange}
+                    command={terminalCommands[tab.pty.id]}
+                    onCopyText={handleCopyText}
+                  />
+                )
+              })
             : null}
         </View>
-        {!keyboardVisible ? <TerminalKeyBar {...keyBarProps} /> : null}
+        <TerminalKeyBar {...keyBarProps} />
       </View>
     </View>
   )

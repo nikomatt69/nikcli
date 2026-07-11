@@ -1252,6 +1252,15 @@ export function Prompt(props: PromptProps) {
     ),
   )
 
+  onMount(() => {
+    // Ensure the prompt owns OpenTUI focus on first paint (mobile PTY has no mouse autoFocus).
+    if (props.visible !== false) {
+      queueMicrotask(() => {
+        if (!input?.isDestroyed) input?.focus()
+      })
+    }
+  })
+
   function restoreExtmarksFromParts(parts: PromptInfo["parts"]) {
     input.extmarks.clear()
     setStore("extmarkToPartIndex", new Map())

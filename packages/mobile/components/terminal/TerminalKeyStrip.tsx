@@ -14,6 +14,7 @@ type Props = {
   onToggleModifiers(next: { ctrl: boolean; shift: boolean }): void
   onFocusTerminal(): void
   onSendInput(data: string): void
+  onHideKeyboard?(): void
   compact?: boolean
 }
 
@@ -25,6 +26,7 @@ export function TerminalKeyStrip({
   onToggleModifiers,
   onFocusTerminal,
   onSendInput,
+  onHideKeyboard,
   compact = false,
 }: Props) {
   const { palette } = useAppTheme()
@@ -35,10 +37,10 @@ export function TerminalKeyStrip({
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="always"
       contentContainerStyle={{
-        paddingHorizontal: compact ? 8 : 10,
-        paddingTop: compact ? 6 : 8,
-        paddingBottom: compact ? 6 : 4,
-        gap: 6,
+        paddingHorizontal: compact ? 10 : 12,
+        paddingTop: compact ? 8 : 10,
+        paddingBottom: compact ? 8 : 6,
+        gap: 8,
       }}
     >
       {keys.map((key) => {
@@ -52,17 +54,21 @@ export function TerminalKeyStrip({
             disabled={disabled}
             onPress={() => {
               if (disabled) return
-              onFocusTerminal()
               void triggerHaptic("selection")
               const result = resolveTerminalKeyInput(key, { ctrl: ctrlActive, shift: shiftActive })
               onToggleModifiers(result.nextModifiers)
+              if (result.action === "hide-keyboard") {
+                onHideKeyboard?.()
+                return
+              }
+              onFocusTerminal()
               if (result.data) onSendInput(result.data)
             }}
             style={({ pressed }) => ({
-              minWidth: key.label.length > 4 ? 56 : 44,
-              height: compact ? 32 : 34,
-              paddingHorizontal: 10,
-              borderRadius: 8,
+              minWidth: key.label.length > 4 ? 68 : 52,
+              height: compact ? 40 : 44,
+              paddingHorizontal: 12,
+              borderRadius: 10,
               borderWidth: 1,
               alignItems: "center",
               justifyContent: "center",
@@ -79,7 +85,7 @@ export function TerminalKeyStrip({
           >
             <Text
               style={{
-                fontSize: key.label.length === 1 ? 16 : 11,
+                fontSize: key.label.length === 1 ? 18 : 13,
                 fontWeight: stickyOn || key.accent ? "700" : "600",
                 color: stickyOn ? palette.accentLight : key.accent ? palette.danger : palette.soft,
                 fontVariant: ["tabular-nums"],

@@ -2,6 +2,9 @@ export type TerminalLaunchIntent = {
   cwd?: string
   title?: string
   sessionId?: string
+  /** Optional command to spawn instead of the login shell (e.g. "nikcli"). */
+  command?: string
+  args?: string[]
 }
 
 let pending: TerminalLaunchIntent | null = null
