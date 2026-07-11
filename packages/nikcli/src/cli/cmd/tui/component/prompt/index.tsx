@@ -1249,7 +1249,6 @@ export function Prompt(props: PromptProps) {
         if (visible !== false) input?.focus()
         if (visible === false) input?.blur()
       },
-      { defer: true },
     ),
   )
 

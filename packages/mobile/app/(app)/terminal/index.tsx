@@ -65,12 +65,14 @@ type TerminalCommand =
   | { id: number; type: "copy" }
   | { id: number; type: "paste"; text: string }
   | { id: number; type: "focus" }
+  | { id: number; type: "blur" }
   | { id: number; type: "input"; data: string }
   | { id: number; type: "reconnect" }
 type TerminalCommandInput =
   | { type: "copy" }
   | { type: "paste"; text: string }
   | { type: "focus" }
+  | { type: "blur" }
   | { type: "input"; data: string }
   | { type: "reconnect" }
 
@@ -129,9 +131,11 @@ function TerminalWebView({
           ? { type: "input", data: command.data }
           : command.type === "focus"
             ? { type: "focus" }
-            : command.type === "reconnect"
-              ? { type: "reconnect" }
-              : { type: "copy" }
+            : command.type === "blur"
+              ? { type: "blur" }
+              : command.type === "reconnect"
+                ? { type: "reconnect" }
+                : { type: "copy" }
     webviewRef.current?.injectJavaScript(
       `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify(payload))} })); true;`,
     )
@@ -141,6 +145,13 @@ function TerminalWebView({
     if (!visible || !htmlContent) return
     webviewRef.current?.injectJavaScript(
       `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify({ type: "focus" }))} })); true;`,
+    )
+  }, [htmlContent, visible])
+
+  useEffect(() => {
+    if (visible || !htmlContent) return
+    webviewRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify({ type: "blur" }))} })); true;`,
     )
   }, [htmlContent, visible])
 
@@ -443,6 +454,7 @@ export default function TerminalScreen() {
   const [keyboardInset, setKeyboardInset] = useState(0)
   const commandIdRef = useRef(0)
   const creatingRef = useRef(false)
+  const activeTabRef = useRef<PtyTab | null>(null)
 
   // ── Load existing PTY sessions on mount ───────────────────────────────────
 
@@ -577,6 +589,10 @@ export default function TerminalScreen() {
 
   const activeTab = tabs[activeIndex] ?? null
 
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
+
   const sendTerminalCommand = useCallback((ptyId: string, command: TerminalCommandInput) => {
     commandIdRef.current += 1
     setTerminalCommands((prev) => ({
@@ -584,6 +600,17 @@ export default function TerminalScreen() {
       [ptyId]: { ...command, id: commandIdRef.current } as TerminalCommand,
     }))
   }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      const tab = activeTabRef.current
+      if (tab) sendTerminalCommand(tab.pty.id, { type: "focus" })
+      return () => {
+        const current = activeTabRef.current
+        if (current) sendTerminalCommand(current.pty.id, { type: "blur" })
+      }
+    }, [sendTerminalCommand]),
+  )
 
   const copyTerminal = useCallback(() => {
     if (!activeTab) return

@@ -1295,6 +1295,13 @@ function App() {
   );
 
   onMount(() => {
+    const refocusPrompt = () => {
+      if (route.data.type !== "session" && route.data.type !== "home") return;
+      const ref = promptRef.current;
+      if (ref && !ref.focused) ref.focus();
+    };
+    renderer.on("focus", refocusPrompt);
+
     const unsubs = [
       sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
         command.trigger(evt.properties.command);
@@ -1463,6 +1470,7 @@ function App() {
     ];
 
     onCleanup(() => {
+      renderer.off("focus", refocusPrompt);
       unsubs.forEach((fn) => fn());
       Sound.dispose();
     });

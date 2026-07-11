@@ -349,8 +349,44 @@
       let stopped = false
       let mobileCtrlActive = false
       let mobileShiftActive = false
+      let terminalFocusReported = null
+      const FOCUS_IN = "\x1b[I"
+      const FOCUS_OUT = "\x1b[O"
       const MAX_RETRIES = 5
       const RETRY_DELAY_MS = 2000
+
+      function reportTerminalFocus(focused) {
+        if (terminalFocusReported === focused) return
+        terminalFocusReported = focused
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(focused ? FOCUS_IN : FOCUS_OUT)
+        }
+      }
+
+      function mountFocusReporting() {
+        const textarea = el.querySelector("textarea")
+        if (!textarea || el.dataset.focusReady === "1") return
+        el.dataset.focusReady = "1"
+
+        textarea.addEventListener("focus", () => reportTerminalFocus(true))
+        textarea.addEventListener("blur", () => {
+          setTimeout(() => {
+            const active = document.activeElement
+            if (active === textarea || el.contains(active)) return
+            reportTerminalFocus(false)
+          }, 0)
+        })
+
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            reportTerminalFocus(false)
+            return
+          }
+          if (document.activeElement === textarea || el.classList.contains("focused")) {
+            reportTerminalFocus(true)
+          }
+        })
+      }
 
       const MOBILE_KEYS = [
         { id: "tab", label: "Tab", data: "\t" },
@@ -367,9 +403,14 @@
         { id: "ctrl-c", label: "Ctrl+C", data: "\x03", accent: true },
       ]
 
+      function focusTerminalSurface() {
+        wt?.focus()
+        reportTerminalFocus(true)
+      }
+
       function sendTerminalInput(data) {
         if (!data) return
-        wt?.focus()
+        focusTerminalSurface()
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(data)
       }
 
@@ -454,12 +495,15 @@
         wt.onResize = (cols, rows) => {
           postRN({ type: "resize", cols, rows })
         }
+        mountFocusReporting()
         // Tap anywhere on the terminal surface to focus input (like a desktop terminal).
-        const focusTerminal = () => wt?.focus()
-        el.addEventListener("pointerdown", focusTerminal, { passive: true })
-        el.addEventListener("click", focusTerminal)
+        el.addEventListener("pointerdown", focusTerminalSurface, { passive: true })
+        el.addEventListener("click", focusTerminalSurface)
         mountMobileKeybar()
         mountViewportObserver()
+        if (el.querySelector("textarea") === document.activeElement || el.classList.contains("focused")) {
+          reportTerminalFocus(true)
+        }
       }
 
       function mountViewportObserver() {
@@ -498,10 +542,12 @@
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
           } else if (msg.type === "input") {
             if (typeof msg.data !== "string") return
-            wt?.focus()
+            focusTerminalSurface()
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
           } else if (msg.type === "focus") {
-            wt?.focus()
+            focusTerminalSurface()
+          } else if (msg.type === "blur") {
+            reportTerminalFocus(false)
           } else if (msg.type === "reconnect") {
             if (msg.wsUrl) wsUrl = msg.wsUrl
             manualRetry()
@@ -610,6 +656,10 @@
           // Sync current terminal size immediately so the PTY knows its dimensions.
           if (wt?.cols && wt?.rows) {
             postRN({ type: "resize", cols: wt.cols, rows: wt.rows })
+          }
+          terminalFocusReported = null
+          if (el.classList.contains("focused") || el.querySelector("textarea") === document.activeElement) {
+            reportTerminalFocus(true)
           }
           clearTimeout(statusHideTimer)
           statusHideTimer = setTimeout(() => {
