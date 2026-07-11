@@ -30,10 +30,7 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
-import {
-  formatVariantLabel,
-  type MobileModelOption,
-} from "@/lib/model-catalog"
+import { formatVariantLabel, type MobileModelOption } from "@/lib/model-catalog"
 
 const TABS: TabConfig[] = [
   { id: "attach", icon: Plus, label: "Attach" },
@@ -434,7 +431,9 @@ function ModelContent({
                 borderColor: !activeVariant ? palette.accent : palette.border,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: !activeVariant ? palette.accentLight : palette.soft }}>
+              <Text
+                style={{ fontSize: 12, fontWeight: "700", color: !activeVariant ? palette.accentLight : palette.soft }}
+              >
                 Default
               </Text>
             </Pressable>
@@ -465,53 +464,54 @@ function ModelContent({
       {availableModels.map((model, i) => {
         const isActive = model.id === activeModelKey
         return (
-        <AnimatedListItem
-          key={model.id}
-          onPress={() => {
-            void triggerHaptic("selection")
-            if (model.variants.length === 0) onModelSelect?.(model.id, undefined)
-            else onModelSelect?.(model.id, model.variants[0])
-          }}
-          isDark={isDark}
-          palette={palette}
-          index={i}
-          borderBottom={i < availableModels.length - 1}
-        >
-          <View
-            style={[
-              styles.modelIcon,
-              {
-                backgroundColor: isActive
-                  ? "rgba(52,199,89,0.14)"
-                  : isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(20,20,19,0.07)",
-              },
-            ]}
+          <AnimatedListItem
+            key={model.id}
+            onPress={() => {
+              void triggerHaptic("selection")
+              if (model.variants.length === 0) onModelSelect?.(model.id, undefined)
+              else onModelSelect?.(model.id, model.variants[0])
+            }}
+            isDark={isDark}
+            palette={palette}
+            index={i}
+            borderBottom={i < availableModels.length - 1}
           >
-            <Brain size={16} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{model.title}</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-              {isActive ? (
-                <View
-                  style={[styles.badge, { backgroundColor: "rgba(52,199,89,0.15)" }]}
-                >
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#34C759" }}>Active</Text>
-                </View>
-              ) : null}
-              {model.badge && (
-                <View
-                  style={[styles.badge, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" }]}
-                >
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
-                </View>
-              )}
+            <View
+              style={[
+                styles.modelIcon,
+                {
+                  backgroundColor: isActive
+                    ? "rgba(52,199,89,0.14)"
+                    : isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(20,20,19,0.07)",
+                },
+              ]}
+            >
+              <Brain size={16} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2} />
             </View>
-          </View>
-          <ChevronRight size={14} color={palette.muted} strokeWidth={2} />
-        </AnimatedListItem>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{model.title}</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                {isActive ? (
+                  <View style={[styles.badge, { backgroundColor: "rgba(52,199,89,0.15)" }]}>
+                    <Text style={{ fontSize: 9, fontWeight: "700", color: "#34C759" }}>Active</Text>
+                  </View>
+                ) : null}
+                {model.badge && (
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)" },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <ChevronRight size={14} color={palette.muted} strokeWidth={2} />
+          </AnimatedListItem>
         )
       })}
       {availableModels.length === 0 && !modelLabel && (

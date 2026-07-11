@@ -18,9 +18,7 @@
       "bundleIdentifier": "ai.nikcli.mobile",
       "appleTeamId": "5FAU2JSAM3",
       "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.ai.nikcli.mobile"
-        ]
+        "com.apple.security.application-groups": ["group.ai.nikcli.mobile"]
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

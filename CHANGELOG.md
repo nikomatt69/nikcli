@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.158.0 (July 2026)
+
+## TUI
+
+- Enhance terminal key bar and key strip layout (@nikomatt69)
+- Add focus and blur command handling for terminal interactions (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(terminal): add focus and blur command handling for terminal interactions
+  - feat(terminal): enhance terminal key bar and key strip layout
+
 ## v1.143.0 (July 2026)
 
 ## Core

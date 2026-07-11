@@ -26185,6 +26185,10 @@
                   "cacheEviction": {
                     "description": "Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.",
                     "type": "boolean"
+                  },
+                  "messageVirtualization": {
+                    "description": "Window the session message list via message-window visibleRange instead of rendering all messages. Default off.",
+                    "type": "boolean"
                   }
                 }
               },
@@ -27111,7 +27115,7 @@
             "type": "number"
           }
         },
-        "required": ["id", "name", "branch", "directory", "createdAt"],
+        "required": ["id", "parentId", "name", "branch", "directory", "createdAt"],
         "additionalProperties": false
       },
       "ManagedWorktreeCreateInput": {
@@ -28849,6 +28853,9 @@
               }
             },
             "required": ["providerID", "modelID"]
+          },
+          "variant": {
+            "type": "string"
           }
         },
         "required": ["command"]

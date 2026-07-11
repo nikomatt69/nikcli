@@ -41,10 +41,7 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
-import {
-  formatVariantLabel,
-  type MobileModelOption,
-} from "@/lib/model-catalog"
+import { formatVariantLabel, type MobileModelOption } from "@/lib/model-catalog"
 
 const styles = StyleSheet.create({
   gitBranchChip: {
@@ -763,7 +760,9 @@ function ModelContent({
                 backgroundColor: !activeVariant ? "rgba(52,199,89,0.12)" : "transparent",
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: !activeVariant ? palette.accentLight : palette.soft }}>
+              <Text
+                style={{ fontSize: 12, fontWeight: "700", color: !activeVariant ? palette.accentLight : palette.soft }}
+              >
                 Default
               </Text>
             </Pressable>

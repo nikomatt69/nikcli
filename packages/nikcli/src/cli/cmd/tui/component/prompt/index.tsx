@@ -1439,12 +1439,7 @@ export function Prompt(props: PromptProps) {
       enabled: !!props.sessionID,
       onSelect: (dialog) => {
         if (!props.sessionID) return
-        dialog.replace(() => (
-          <DialogMobileConnect
-            sessionID={props.sessionID}
-            initialMode="teleport"
-          />
-        ))
+        dialog.replace(() => <DialogMobileConnect sessionID={props.sessionID} initialMode="teleport" />)
       },
     },
   ])

@@ -24,11 +24,7 @@ const withEntitlementsFile = (config) =>
     "ios",
     (cfg) => {
       const projectName = cfg.modRequest.projectName || cfg.name
-      const entitlementsPath = path.join(
-        cfg.modRequest.platformProjectRoot,
-        projectName,
-        `${projectName}.entitlements`,
-      )
+      const entitlementsPath = path.join(cfg.modRequest.platformProjectRoot, projectName, `${projectName}.entitlements`)
       if (fs.existsSync(entitlementsPath)) {
         const next = stripPushEntitlement(fs.readFileSync(entitlementsPath, "utf8"))
         fs.writeFileSync(entitlementsPath, next)

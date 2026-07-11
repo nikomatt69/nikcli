@@ -40,8 +40,12 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
       try {
         // Lazy: analytics.ts pulls the session/message repos (drizzle chain),
         // which must not be evaluated during TUI module load.
-        const { loadPersistedAnalyticsFromDataRoot, mergeGlobalAnalytics, mergeDailyAnalyticsLists, mergeSessionAnalyticsLists } =
-          await import("@/analytics/analytics")
+        const {
+          loadPersistedAnalyticsFromDataRoot,
+          mergeGlobalAnalytics,
+          mergeDailyAnalyticsLists,
+          mergeSessionAnalyticsLists,
+        } = await import("@/analytics/analytics")
         const dataRoot = Global.Path.data
         const disk = await loadPersistedAnalyticsFromDataRoot(dataRoot)
         if (disk.global) gotHistorical = true
