@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.159.0 (July 2026)
+
+## Core
+
+- Enhance workspace and event handling for improved user experience (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): enhance workspace and event handling for improved user experience
+
 ## v1.143.0 (July 2026)
 
 ## Core

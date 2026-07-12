@@ -75,28 +75,31 @@ export const ActionSheet = React.forwardRef<
   const opacity = opacityRef.current
   const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
 
-  const dismiss = useCallback((onDismissed?: () => void) => {
-    opacity.stopAnimation()
-    translateY.stopAnimation()
-    if (prefersReducedMotion) translateY.setValue(0)
+  const dismiss = useCallback(
+    (onDismissed?: () => void) => {
+      opacity.stopAnimation()
+      translateY.stopAnimation()
+      if (prefersReducedMotion) translateY.setValue(0)
 
-    const animation = Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: prefersReducedMotion ? 120 : 160,
-        easing: Ease.accelerate,
-        useNativeDriver: true,
-      }),
-      prefersReducedMotion
-        ? Animated.timing(translateY, { toValue: 0, duration: 120, useNativeDriver: true })
-        : Animated.spring(translateY, { toValue: 36, ...SPRING_SETTLE }),
-    ])
-    animation.start(({ finished }) => {
-      if (!finished) return
-      setVisible(false)
-      onDismissed?.()
-    })
-  }, [opacity, prefersReducedMotion, translateY])
+      const animation = Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: prefersReducedMotion ? 120 : 160,
+          easing: Ease.accelerate,
+          useNativeDriver: true,
+        }),
+        prefersReducedMotion
+          ? Animated.timing(translateY, { toValue: 0, duration: 120, useNativeDriver: true })
+          : Animated.spring(translateY, { toValue: 36, ...SPRING_SETTLE }),
+      ])
+      animation.start(({ finished }) => {
+        if (!finished) return
+        setVisible(false)
+        onDismissed?.()
+      })
+    },
+    [opacity, prefersReducedMotion, translateY],
+  )
 
   useImperativeHandle(
     ref,
@@ -303,10 +306,7 @@ export function ActionSheetItem({
             {label || "Untitled action"}
           </Text>
           {description ? (
-            <Text
-              numberOfLines={1}
-              style={{ marginTop: 2, color: palette.soft, fontSize: 12.5, lineHeight: 16 }}
-            >
+            <Text numberOfLines={1} style={{ marginTop: 2, color: palette.soft, fontSize: 12.5, lineHeight: 16 }}>
               {description}
             </Text>
           ) : null}

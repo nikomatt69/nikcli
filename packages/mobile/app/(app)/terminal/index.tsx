@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Keyboard,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native"
+import { ActivityIndicator, Alert, FlatList, Keyboard, Platform, Pressable, StyleSheet, Text, View } from "react-native"
 import { WebView, type WebViewMessageEvent } from "react-native-webview"
 import { useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -28,11 +18,7 @@ import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { BrandMark } from "@/components/layout/BrandMark"
 import { TerminalKeyBar } from "@/components/terminal/TerminalKeyBar"
 import { consumeTerminalLaunchIntent } from "@/lib/terminal-launch"
-import {
-  ptyStatusColor,
-  ptyStatusLabel,
-  type PtyConnectionStatus,
-} from "@/lib/terminal-keys"
+import { ptyStatusColor, ptyStatusLabel, type PtyConnectionStatus } from "@/lib/terminal-keys"
 import type { PtyCreateInput, PtyInfo } from "@/lib/types"
 
 const TERMINAL_HTML_MODULE = require("../../../assets/terminal.html") as number
@@ -50,10 +36,7 @@ async function loadAssetText(moduleId: number): Promise<string> {
 async function loadTerminalHtml(): Promise<string> {
   if (terminalHtmlPromise) return terminalHtmlPromise
   terminalHtmlPromise = (async () => {
-    const [html, bundle] = await Promise.all([
-      loadAssetText(TERMINAL_HTML_MODULE),
-      loadAssetText(WTERM_BUNDLE_MODULE),
-    ])
+    const [html, bundle] = await Promise.all([loadAssetText(TERMINAL_HTML_MODULE), loadAssetText(WTERM_BUNDLE_MODULE)])
     if (!html.includes("__WTERM_BUNDLE__")) {
       throw new Error("Terminal HTML is missing wterm injection marker")
     }
@@ -277,9 +260,7 @@ function TerminalWebView({
           ]}
           pointerEvents="none"
         >
-          <Text style={{ color: "#ff7b72", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>
-            Connection Failed
-          </Text>
+          <Text style={{ color: "#ff7b72", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>Connection Failed</Text>
           <Text style={{ color: "rgba(230,237,243,0.6)", fontSize: 12, textAlign: "center" }}>
             Unable to connect to the terminal server. Use reconnect in the toolbar.
           </Text>
@@ -853,9 +834,7 @@ export default function TerminalScreen() {
                   }}
                   hitSlop={8}
                   accessibilityRole="button"
-                  accessibilityLabel={
-                    activeConnectionStatus === "exited" ? "Restart terminal" : "Reconnect terminal"
-                  }
+                  accessibilityLabel={activeConnectionStatus === "exited" ? "Restart terminal" : "Reconnect terminal"}
                   style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
                 >
                   <RefreshCw size={14} color={isDark ? "#58a6ff" : palette.accentLight} strokeWidth={2.2} />

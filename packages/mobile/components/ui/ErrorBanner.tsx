@@ -2,11 +2,7 @@ import { AlertTriangle } from "lucide-react-native"
 import { Pressable, Text, View } from "react-native"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
-export function ErrorBanner(props: {
-  message: string
-  actionLabel?: string
-  onAction?(): void
-}) {
+export function ErrorBanner(props: { message: string; actionLabel?: string; onAction?(): void }) {
   const { palette } = useAppTheme()
 
   return (

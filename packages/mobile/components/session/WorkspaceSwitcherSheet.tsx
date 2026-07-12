@@ -126,13 +126,7 @@ function WorkspaceRow({ Icon, label, description, selected, loading, disabled, o
   )
 }
 
-export function WorkspaceSwitcherSheet({
-  sheetRef,
-  projects,
-  selectedDirectory,
-  switchingDirectory,
-  onSelect,
-}: Props) {
+export function WorkspaceSwitcherSheet({ sheetRef, projects, selectedDirectory, switchingDirectory, onSelect }: Props) {
   const { palette } = useAppTheme()
 
   return (

@@ -139,10 +139,7 @@ export default function ProvidersSettingsScreen() {
 
   const providerConnected = selectedProvider ? connectedProviders.has(selectedProvider.id) : false
   const selectedModel = selectedProvider?.models[selectedModelID] ?? null
-  const modelVariants = useMemo(
-    () => listEnabledVariants(selectedModel?.variants),
-    [selectedModel?.variants],
-  )
+  const modelVariants = useMemo(() => listEnabledVariants(selectedModel?.variants), [selectedModel?.variants])
 
   useEffect(() => {
     if (!selectedProviderID || !selectedModelID) return

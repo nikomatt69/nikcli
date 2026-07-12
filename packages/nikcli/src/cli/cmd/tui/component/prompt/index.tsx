@@ -212,7 +212,8 @@ export function Prompt(props: PromptProps) {
   const activeContext = createMemo(() => {
     const current = route.data
     return sessionRequestContext({
-      routeWorkspaceID: current.type === "session" && current.sessionID === props.sessionID ? current.workspaceID : undefined,
+      routeWorkspaceID:
+        current.type === "session" && current.sessionID === props.sessionID ? current.workspaceID : undefined,
       sessionWorkspaceID: activeSession()?.workspaceID,
       fallbackWorkspaceID: props.workspaceID,
       sessionDirectory: activeSession()?.directory,

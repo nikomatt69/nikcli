@@ -2877,22 +2877,22 @@ export type Config = {
      */
     mcp_timeout?: number
     /**
-     * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default on (2026-07-08).
+     * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.
      */
     nativeLlm?: boolean
     tui?: {
       /**
-       * Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default on (2026-07-08).
+       * Bound in-memory TUI sync payload (message/part/diff/todo) with LRU eviction on session sync. Default off.
        */
       cacheEviction?: boolean
       /**
-       * Window the session message list via message-window visibleRange instead of rendering all messages. Default on (2026-07-08).
+       * Window the session message list via message-window visibleRange instead of rendering all messages. Default off.
        */
       messageVirtualization?: boolean
     }
     requests?: {
       /**
-       * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default on (2026-07-08).
+       * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.
        */
       latestOnlyLspRefresh?: boolean
     }
@@ -3218,6 +3218,12 @@ export type Workspace = {
         containerName: string
         port: number
         serverUrl: string
+        eventLimit?: number
+      }
+    | {
+        directory: string
+        type: "branch"
+        branch?: string
         eventLimit?: number
       }
 }
@@ -3831,6 +3837,7 @@ export type MobileSessionCommandInput = {
     providerID: string
     modelID: string
   }
+  variant?: string
 }
 
 export type MobileGithubPublishResult = {
@@ -5950,6 +5957,12 @@ export type ExperimentalWorkspaceCreateData = {
           containerName: string
           port: number
           serverUrl: string
+          eventLimit?: number
+        }
+      | {
+          directory: string
+          type: "branch"
+          branch?: string
           eventLimit?: number
         }
   }
