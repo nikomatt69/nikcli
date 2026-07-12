@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll } from "bun:test"
 import { Database } from "@/database/database"
 import { Sync, type SyncEventRecord } from "@/sync"
-import { SyncProjector, type WorkspaceState } from "@/sync/projector"
+import { SyncProjector, type WorkspaceState, type SessionState } from "@/sync/projector"
 import { SyncSnapshot } from "@/sync/snapshot"
 import { SyncReducer } from "@/sync/reducer"
 import { Outbox } from "@/sync/outbox"
@@ -126,6 +126,29 @@ describe("SyncProjector — pure reducer", () => {
 })
 
 describe("SyncReducer — replay with snapshot cache", () => {
+  it("cold-replays an explicitly cleared session workspaceID", async () => {
+    const projectID = `test_proj_session_clear_${Date.now()}`
+    const aggregate = `ses_clear_${Date.now()}`
+    await Sync.emitRaw(projectID, aggregate, {
+      type: "session.created",
+      workspaceID: "wrk_attached",
+      title: "attached",
+    })
+    await Sync.emitRaw(projectID, aggregate, {
+      type: "session.updated",
+      workspaceID: null,
+    })
+
+    const result = await SyncReducer.replayWithSnapshot<SessionState>(
+      { projectID, aggregate, aggregateID: aggregate },
+      { id: aggregate, projectID, workspaceID: "wrk_stale", title: "", lastTouchedAt: 0 },
+      [SyncProjector.session],
+    )
+    expect(result.state.workspaceID).toBeUndefined()
+    expect(result.state.title).toBe("attached")
+    expect(result.lastSeq).toBe(2)
+  })
+
   it("replays from seq=0 when no snapshot exists", async () => {
     const projectID = "test_proj_replay"
     const aggregate = "wrk_replay"

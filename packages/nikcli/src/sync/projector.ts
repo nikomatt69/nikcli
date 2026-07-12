@@ -76,7 +76,7 @@ export const SyncProjector = {
           id: event.aggregate,
           projectID: event.projectId,
           name: typeof data.name === "string" ? data.name : state.name,
-          branch: data.branch ?? state.branch ?? null,
+          branch: data.branch !== undefined ? data.branch : (state.branch ?? null),
           config: data.config ?? state.config,
           removed: false,
           timeUsed: typeof data.timeUsed === "number" ? data.timeUsed : state.timeUsed,
@@ -87,7 +87,9 @@ export const SyncProjector = {
         return {
           ...state,
           config: data.config ?? state.config,
-          branch: data.branch ?? state.branch,
+          // Explicit null clears the branch (worktree went detached);
+          // undefined means "unchanged".
+          branch: data.branch !== undefined ? data.branch : state.branch,
           lastTouchedAt: event.timestamp,
         }
       }
@@ -114,10 +116,11 @@ export const SyncProjector = {
       ...state,
       id: event.aggregate,
       projectID: event.projectId,
-      workspaceID:
-        (data.workspaceID as string | undefined) ??
-        (data.properties?.workspaceID as string | undefined) ??
-        state.workspaceID,
+      workspaceID: Object.hasOwn(data, "workspaceID")
+        ? (data.workspaceID ?? undefined)
+        : Object.hasOwn(data.properties ?? {}, "workspaceID")
+          ? (data.properties.workspaceID ?? undefined)
+          : state.workspaceID,
       title: data.title ?? data.properties?.title ?? state.title,
       parentID: data.parentID ?? data.properties?.parentID ?? state.parentID,
       lastTouchedAt: event.timestamp,

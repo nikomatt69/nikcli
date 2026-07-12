@@ -19,17 +19,21 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
   name: "Worktree",
   description: "Create a local git worktree",
   async create(_from: WorktreeConfig, branch: string | null | undefined, _workspaceID?: string) {
+    // Never detached by default: without an explicit branch the worktree gets
+    // the generated `nikcli/<name>` branch (opencode parity — a detached
+    // worktree has no branch to switch to, so workspace switching would look
+    // like a no-op in git).
     const next = await runWorktree(
       Effect.gen(function* () {
         const worktree = yield* Worktree.Service
         return yield* worktree.makeWorktreeInfo({
           branch: branch ?? undefined,
-          detached: !branch,
         })
       }),
     )
     return {
       name: next.name,
+      branch: next.branch ?? null,
       config: {
         type: "worktree",
         directory: next.directory,

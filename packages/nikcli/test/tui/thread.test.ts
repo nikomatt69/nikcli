@@ -53,38 +53,42 @@ describe("TUI thread bootstrap", () => {
     }
   })
 
-  it("replays events emitted while a direct worker subscription is starting", async () => {
-    type TestEvent = {
-      type: string
-      properties: { sessionID: string; status: { type: string } }
+  it("forwards global.event envelopes from the worker to the subscriber", async () => {
+    type TestEnvelope = {
+      directory?: string
+      payload: { type: string; properties: Record<string, unknown> }
     }
-    const event: TestEvent = {
-      type: "session.status",
-      properties: { sessionID: "ses_test", status: { type: "busy" } },
+    const envelope: TestEnvelope = {
+      directory: "/tmp/worktree-a",
+      payload: {
+        type: "session.status",
+        properties: { sessionID: "ses_test", status: { type: "busy" } },
+      },
     }
-    let listener: ((event: { id: string; event: TestEvent }) => void) | undefined
+    let listener: ((event: TestEnvelope) => void) | undefined
+    let channel: string | undefined
     const client = {
-      on: (_name: string, callback: typeof listener) => {
+      on: (name: string, callback: typeof listener) => {
+        channel = name
         listener = callback
         return () => {
           listener = undefined
         }
       },
-      call: async (name: string) => {
-        if (name === "subscribe") {
-          listener?.({ id: "stream_test", event })
-          return "stream_test"
-        }
-        return undefined
-      },
+      call: async () => undefined,
     } as never
-    const received: TestEvent[] = []
+    const received: TestEnvelope[] = []
 
     const unsubscribe = await createEventSource(client).subscribe(undefined, (value) =>
-      received.push(value as TestEvent),
+      received.push(value as TestEnvelope),
     )
+    expect(channel).toBe("global.event")
 
-    expect(received).toEqual([event])
+    listener?.(envelope)
+    // Envelopes without a typed payload are dropped instead of crashing consumers.
+    listener?.({ payload: undefined as never })
+
+    expect(received).toEqual([envelope])
     unsubscribe()
   })
 })

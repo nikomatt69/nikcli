@@ -88,6 +88,26 @@ describe("WorkspaceProjection", () => {
     expect(WorkspaceDB.getStatus(workspaceID)).toBe("connected")
   })
 
+  it("keeps an explicitly cleared branch cleared across replay", async () => {
+    const projectID = `proj_workspace_projection_clear_${run}`
+    const workspaceID = `wrk_projection_clear_${run}`
+
+    await WorkspaceProjection.emitLifecycle(projectID, workspaceID, "workspace.created", {
+      name: "detached-space",
+      branch: "feature/before-detach",
+      config: { type: "worktree", directory: "/tmp/detached-space" },
+      timeUsed: 2500,
+    })
+    await WorkspaceProjection.emitLifecycle(projectID, workspaceID, "workspace.configUpdated", {
+      branch: null,
+      config: { type: "worktree", directory: "/tmp/detached-space" },
+    })
+
+    expect((await WorkspaceProjection.project(projectID, workspaceID)).info?.branch).toBeNull()
+    expect((await WorkspaceProjection.project(projectID, workspaceID)).info?.branch).toBeNull()
+    expect(WorkspaceDB.get(workspaceID)?.branch).toBeNull()
+  })
+
   it("projects workspace.removed by deleting the workspace row", async () => {
     const projectID = `proj_workspace_projection_remove_${run}`
     const workspaceID = `wrk_projection_remove_${run}`

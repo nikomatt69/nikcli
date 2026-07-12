@@ -3,8 +3,22 @@ import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, onCleanup, onMount } from "solid-js"
 
+/**
+ * GlobalBus envelope as forwarded by `/global/event` (HTTP mode) and the
+ * worker's `global.event` RPC channel (embedded mode). `directory` is the
+ * instance directory the event was published on — worktree instances carry
+ * their worktree path here, which is how workspace-session events are told
+ * apart from root-instance events (opencode parity: the TUI listens to the
+ * global stream and filters client-side, instead of an instance-scoped SSE
+ * that would never see worktree events).
+ */
+export type GlobalEnvelope = {
+  directory?: string
+  payload: Event
+}
+
 export type EventSource = {
-  subscribe: (directory: string | undefined, handler: (event: Event) => void) => Promise<() => void>
+  subscribe: (directory: string | undefined, handler: (event: GlobalEnvelope) => void) => Promise<() => void>
 }
 
 export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
@@ -28,26 +42,32 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       [key in Event["type"]]: Extract<Event, { type: key }>
     }>()
 
-    let queue: Event[] = []
+    const envelopeHandlers = new Set<(envelope: GlobalEnvelope) => void>()
+
+    let queue: GlobalEnvelope[] = []
     let timer: Timer | undefined
     let last = 0
 
     const flush = () => {
       if (queue.length === 0) return
-      const events = queue
+      const envelopes = queue
       queue = []
       timer = undefined
       last = Date.now()
       // Batch all event emissions so all store updates result in a single render
       batch(() => {
-        for (const event of events) {
-          emitter.emit(event.type, event)
+        for (const envelope of envelopes) {
+          for (const handler of envelopeHandlers) handler(envelope)
+          emitter.emit(envelope.payload.type, envelope.payload)
         }
       })
     }
 
-    const handleEvent = (event: Event) => {
-      queue.push(event)
+    const handleEnvelope = (envelope: GlobalEnvelope) => {
+      const type = (envelope?.payload as { type?: string } | undefined)?.type
+      if (!type) return
+      if (type === "server.heartbeat" || type === "server.connected") return
+      queue.push(envelope)
       const elapsed = Date.now() - last
 
       if (timer) return
@@ -71,22 +91,21 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
           while (true) {
             if (abort.signal.aborted || ctrl.signal.aborted) break
             try {
-              const events = await sdk.event.subscribe(
-                {},
-                {
-                  signal: ctrl.signal,
-                },
-              )
+              // Global stream: events from every instance (root + worktrees)
+              // wrapped in {directory, payload} envelopes.
+              const events = await sdk.global.event({
+                signal: ctrl.signal,
+              })
 
               // successful connect → reset backoff
               backoff = 250
 
-              for await (const event of events.stream) {
+              for await (const envelope of events.stream) {
                 if (ctrl.signal.aborted) break
                 try {
-                  handleEvent(event)
+                  handleEnvelope(envelope as GlobalEnvelope)
                 } catch (handlerError) {
-                  console.error("[sse]", "handleEvent threw", handlerError)
+                  console.error("[sse]", "handleEnvelope threw", handlerError)
                 }
               }
 
@@ -115,7 +134,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
 
     onMount(async () => {
       if (props.events) {
-        const unsub = await props.events.subscribe(props.directory, handleEvent)
+        const unsub = await props.events.subscribe(props.directory, handleEnvelope)
         onCleanup(unsub)
         return
       }
@@ -127,6 +146,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       abort.abort()
       sse?.abort()
       if (timer) clearTimeout(timer)
+      envelopeHandlers.clear()
     })
 
     return {
@@ -135,6 +155,14 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       },
       directory: props.directory,
       event: emitter,
+      /** Subscribe to raw {directory, payload} envelopes when the consumer
+       *  needs to know which instance emitted the event (e.g. vcs updates). */
+      onEnvelope(handler: (envelope: GlobalEnvelope) => void) {
+        envelopeHandlers.add(handler)
+        return () => {
+          envelopeHandlers.delete(handler)
+        }
+      },
       fetch: props.fetch ?? fetch,
       url: props.url,
     }

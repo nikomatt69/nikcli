@@ -63,34 +63,20 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
 }
 
 export function createEventSource(client: RpcClient): EventSource {
+  // The worker forwards every GlobalBus event over the "global.event" RPC
+  // channel with its {directory, payload} envelope intact, so the TUI sees
+  // events from every instance (root + worktree workspaces) — same contract
+  // as the HTTP /global/event stream.
   return {
-    subscribe: async (directory, handler) => {
-      let id: string | undefined;
-      const buffered: { id: string; event: Event }[] = [];
-      const receive = (event: { id: string; event: Event }) => {
-        if (id === undefined) {
-          buffered.push(event);
-          return;
-        }
-        if (event.id === id) handler(event.event);
-      };
-      const unsub = client.on<{ id: string; event: Event }>("event", receive);
-
-      try {
-        id = await client.call("subscribe", { directory });
-      } catch (error) {
-        unsub();
-        throw error;
-      }
-
-      for (const event of buffered) {
-        if (event.id === id) handler(event.event);
-      }
-
-      return () => {
-        unsub();
-        void client.call("unsubscribe", { id: id! });
-      };
+    subscribe: async (_directory, handler) => {
+      const unsub = client.on<{ directory?: string; payload: Event }>(
+        "global.event",
+        (envelope) => {
+          if (!envelope?.payload?.type) return;
+          handler(envelope);
+        },
+      );
+      return unsub;
     },
   };
 }

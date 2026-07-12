@@ -24,13 +24,19 @@ export type Adaptor<T extends Config = Config> = {
     from: T,
     branch?: string | null,
     workspaceID?: string,
-  ): Promise<{ config: T; init: () => Promise<void>; name?: string }>
+  ): Promise<{ config: T; init: () => Promise<void>; name?: string; branch?: string | null }>
   /**
    * Optional discovery: enumerate workspaces that exist for the current project
    * but may not be tracked in the DB yet (e.g. git worktrees). Used by
    * `Workspace.syncList` to auto-register them, the same way opencode does.
    */
   list?(): Promise<ListedWorkspace<T>[]>
+  /**
+   * Optional activation hook, run by `Workspace.restore` every time the
+   * workspace is opened. In-place adaptors use it to make the live checkout
+   * match the workspace (e.g. `git switch` for branch workspaces).
+   */
+  restore?(config: T): Promise<void>
   remove(from: T): Promise<void>
   target(config: T): Target | Promise<Target>
   /**

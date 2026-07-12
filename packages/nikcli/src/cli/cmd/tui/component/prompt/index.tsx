@@ -172,6 +172,19 @@ do {
 }
 `
 
+export function sessionRequestContext(input: {
+  routeWorkspaceID?: string
+  sessionWorkspaceID?: string
+  fallbackWorkspaceID?: string
+  sessionDirectory?: string
+  fallbackDirectory: string
+}) {
+  return {
+    workspace: input.routeWorkspaceID ?? input.sessionWorkspaceID ?? input.fallbackWorkspaceID,
+    directory: input.sessionDirectory ?? input.fallbackDirectory,
+  }
+}
+
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
   let anchor: BoxRenderable
@@ -195,6 +208,17 @@ export function Prompt(props: PromptProps) {
   const kv = useKV()
   const lang = useLanguage()
   const editor = useEditorContext()
+  const activeSession = createMemo(() => (props.sessionID ? sync.session.get(props.sessionID) : undefined))
+  const activeContext = createMemo(() => {
+    const current = route.data
+    return sessionRequestContext({
+      routeWorkspaceID: current.type === "session" && current.sessionID === props.sessionID ? current.workspaceID : undefined,
+      sessionWorkspaceID: activeSession()?.workspaceID,
+      fallbackWorkspaceID: props.workspaceID,
+      sessionDirectory: activeSession()?.directory,
+      fallbackDirectory: sync.data.path.directory,
+    })
+  })
   const editorContextVisible = createMemo(() => kv.get("editor_context_visibility", true) as boolean)
   const editorPath = createMemo(() => editor.selection()?.filePath)
   const editorSelectionLabel = createMemo(() => {
@@ -417,14 +441,20 @@ export function Prompt(props: PromptProps) {
     const text = await response.text().catch(() => "")
     if (!text) return response.statusText
     try {
-      const parsed = JSON.parse(text) as { error?: { message?: string }; message?: string }
+      const parsed = JSON.parse(text) as {
+        error?: { message?: string }
+        message?: string
+      }
       return parsed.error?.message ?? parsed.message ?? text
     } catch {
       return text
     }
   }
 
-  async function resolveOpenRouterConfig(): Promise<{ apiKey: string; baseURL: string }> {
+  async function resolveOpenRouterConfig(): Promise<{
+    apiKey: string
+    baseURL: string
+  }> {
     const auth = await runAuth(
       Effect.gen(function* () {
         const auth = yield* Auth.Service
@@ -662,7 +692,11 @@ export function Prompt(props: PromptProps) {
           voiceAutoStopTimer = undefined
         }
         setVoiceStatus("idle")
-        toast.show({ variant: "error", message: "Failed to start voice recording", duration: 3000 })
+        toast.show({
+          variant: "error",
+          message: "Failed to start voice recording",
+          duration: 3000,
+        })
       }
     } finally {
       isStartingRecording = false
@@ -749,7 +783,11 @@ export function Prompt(props: PromptProps) {
         renderer.requestRender()
       }, 0)
 
-      toast.show({ variant: "success", message: "Voice transcript inserted and copied", duration: 2000 })
+      toast.show({
+        variant: "success",
+        message: "Voice transcript inserted and copied",
+        duration: 2000,
+      })
     } catch (error) {
       const message = friendlyErrorMessage(error, "Voice transcription failed")
       toast.show({ variant: "error", message, duration: 4000 })
@@ -900,7 +938,10 @@ export function Prompt(props: PromptProps) {
     let lastIndex = 0
     for (const match of tip.matchAll(regex)) {
       if (match.index! > lastIndex) {
-        parts.push({ text: tip.slice(lastIndex, match.index), highlight: false })
+        parts.push({
+          text: tip.slice(lastIndex, match.index),
+          highlight: false,
+        })
       }
       parts.push({ text: match[1], highlight: true })
       lastIndex = match.index! + match[0].length
@@ -1439,12 +1480,7 @@ export function Prompt(props: PromptProps) {
       enabled: !!props.sessionID,
       onSelect: (dialog) => {
         if (!props.sessionID) return
-        dialog.replace(() => (
-          <DialogMobileConnect
-            sessionID={props.sessionID}
-            initialMode="teleport"
-          />
-        ))
+        dialog.replace(() => <DialogMobileConnect sessionID={props.sessionID} initialMode="teleport" />)
       },
     },
   ])
@@ -1544,6 +1580,8 @@ export function Prompt(props: PromptProps) {
 
       sdk.client.session.command({
         sessionID,
+        workspace: activeContext().workspace,
+        directory: activeContext().directory,
         command: command.slice(1),
         arguments: args,
         agent: local.agent.current().name,
@@ -1561,6 +1599,8 @@ export function Prompt(props: PromptProps) {
       sdk.client.session
         .prompt({
           sessionID,
+          workspace: activeContext().workspace,
+          directory: activeContext().directory,
           ...selectedModel,
           messageID,
           agent: local.agent.current().name,
@@ -1731,7 +1771,10 @@ export function Prompt(props: PromptProps) {
     // active / paused: yellow while the agent is actively working it, green otherwise
     const working = status().type === "busy" || status().type === "retry"
     if (working) return { color: theme.warning, status: "running" }
-    return { color: theme.success, status: g.status === "paused" ? "paused" : "active" }
+    return {
+      color: theme.success,
+      status: g.status === "paused" ? "paused" : "active",
+    }
   })
 
   const spinnerDef = createMemo(() => {
@@ -2174,7 +2217,15 @@ export function Prompt(props: PromptProps) {
                   <text fg={theme.textMuted}>Sponsored:</text>
                   <text fg={theme.text}>
                     <For each={parseTipParts(sponsoredTip()!)}>
-                      {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
+                      {(part) => (
+                        <span
+                          style={{
+                            fg: part.highlight ? theme.text : theme.textMuted,
+                          }}
+                        >
+                          {part.text}
+                        </span>
+                      )}
                     </For>
                   </text>
                 </Show>
@@ -2266,7 +2317,11 @@ export function Prompt(props: PromptProps) {
                 </Show>
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
-                  <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
+                  <span
+                    style={{
+                      fg: store.interrupt > 0 ? theme.primary : theme.textMuted,
+                    }}
+                  >
                     {store.interrupt > 0 ? lang.t("prompt.interruptAgain") : lang.t("prompt.interrupt")}
                   </span>
                 </text>
@@ -2275,7 +2330,15 @@ export function Prompt(props: PromptProps) {
                   <text fg={theme.textMuted}>Sponsored:</text>
                   <text fg={theme.text}>
                     <For each={parseTipParts(sponsoredTip()!)}>
-                      {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
+                      {(part) => (
+                        <span
+                          style={{
+                            fg: part.highlight ? theme.text : theme.textMuted,
+                          }}
+                        >
+                          {part.text}
+                        </span>
+                      )}
                     </For>
                   </text>
                 </Show>

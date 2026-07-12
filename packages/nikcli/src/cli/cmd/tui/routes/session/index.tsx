@@ -11,12 +11,14 @@ import {
   onMount,
   Show,
   Switch,
+  untrack,
   useContext,
 } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import path from "path"
 import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
+import { useProject } from "@tui/context/project"
 import { SplitBorder } from "@tui/component/border"
 import { Spinner } from "@tui/component/spinner"
 import { useTheme, selectedForeground, tint } from "@tui/context/theme"
@@ -288,21 +290,36 @@ export function Session() {
   })
   const toast = useToast()
   const sdk = useSDK()
+  const project = useProject()
 
   createEffect(async () => {
+    const sessionID = route.sessionID
+    // Opencode parity: opening a session that belongs to a different
+    // workspace switches the TUI's current workspace and re-bootstraps the
+    // scoped data (path/vcs/config/sessions) so the whole UI reflects the
+    // worktree (branch, directory, ...) instead of the root checkout.
+    const workspaceID = route.workspaceID ?? untrack(() => sync.session.get(sessionID)?.workspaceID)
+    const previousWorkspace = untrack(() => project.workspace.current())
+    if (workspaceID !== previousWorkspace) {
+      project.workspace.set(workspaceID)
+      try {
+        await sync.bootstrap()
+      } catch {}
+    }
+    if (route.sessionID !== sessionID) return
     await sync.session
-      .sync(route.sessionID)
+      .sync(sessionID)
       .then(() => {
         if (scroll) scroll.scrollBy(100_000)
       })
       .catch(() => {
         toast.show({
-          message: `Session not found: ${route.sessionID}`,
+          message: `Session not found: ${sessionID}`,
           variant: "error",
         })
         return navigate({
           type: "home",
-          workspaceID: sync.session.get(route.sessionID)?.workspaceID,
+          workspaceID: sync.session.get(sessionID)?.workspaceID,
         })
       })
   })

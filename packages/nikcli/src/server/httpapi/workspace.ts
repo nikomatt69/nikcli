@@ -29,6 +29,12 @@ export namespace WorkspaceHttpApi {
       serverUrl: Schema.String,
       eventLimit: Schema.optional(Schema.Number),
     }),
+    Schema.Struct({
+      type: Schema.Literal("branch"),
+      directory: Schema.String,
+      branch: Schema.optional(Schema.String),
+      eventLimit: Schema.optional(Schema.Number),
+    }),
   ]).annotate({ identifier: "WorkspaceConfig" })
 
   const WorkspaceInfo = Schema.Struct({
@@ -79,9 +85,21 @@ export namespace WorkspaceHttpApi {
   }).annotate({ identifier: "WorkspaceConnectionStatus" })
 
   export const Group = HttpApiGroup.make("workspace")
-    .add(HttpApiEndpoint.get("adaptors", "/adaptor", { success: Schema.Array(AdaptorInfo) }))
-    .add(HttpApiEndpoint.post("syncList", "/sync-list", { success: HttpApiSchema.NoContent }))
-    .add(HttpApiEndpoint.get("status", "/status", { success: Schema.Array(ConnectionStatus) }))
+    .add(
+      HttpApiEndpoint.get("adaptors", "/adaptor", {
+        success: Schema.Array(AdaptorInfo),
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("syncList", "/sync-list", {
+        success: HttpApiSchema.NoContent,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.get("status", "/status", {
+        success: Schema.Array(ConnectionStatus),
+      }),
+    )
     .add(
       HttpApiEndpoint.post("create", "/:id", {
         params: WorkspacePath,
@@ -89,8 +107,17 @@ export namespace WorkspaceHttpApi {
         success: WorkspaceInfo,
       }),
     )
-    .add(HttpApiEndpoint.get("list", "/", { success: Schema.Array(WorkspaceInfo) }))
-    .add(HttpApiEndpoint.delete("remove", "/:id", { params: WorkspacePath, success: OptionalWorkspaceInfo }))
+    .add(
+      HttpApiEndpoint.get("list", "/", {
+        success: Schema.Array(WorkspaceInfo),
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("remove", "/:id", {
+        params: WorkspacePath,
+        success: OptionalWorkspaceInfo,
+      }),
+    )
     .add(
       HttpApiEndpoint.post("restore", "/:id/restore", {
         params: WorkspacePath,
@@ -163,7 +190,11 @@ export namespace WorkspaceHttpApi {
           timeoutMs: query.timeoutMs ?? 30_000,
         }),
       ).pipe(
-        Effect.map((result) => ({ ...result, events: result.events ?? [], sessions: result.sessions ?? [] })),
+        Effect.map((result) => ({
+          ...result,
+          events: result.events ?? [],
+          sessions: result.sessions ?? [],
+        })),
         Effect.orDie,
       ),
     sessionRestore: ({ params, query }: { params: typeof SessionRestorePath.Type; query: typeof RestoreQuery.Type }) =>
@@ -174,7 +205,11 @@ export namespace WorkspaceHttpApi {
           timeoutMs: query.timeoutMs ?? 30_000,
         }),
       ).pipe(
-        Effect.map((result) => ({ ...result, events: result.events ?? [], sessions: result.sessions ?? [] })),
+        Effect.map((result) => ({
+          ...result,
+          events: result.events ?? [],
+          sessions: result.sessions ?? [],
+        })),
         Effect.orDie,
       ),
     warp: ({ payload }: { payload: typeof WarpPayload.Type }) =>

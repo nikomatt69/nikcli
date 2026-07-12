@@ -6,6 +6,7 @@ import { Global } from "@/global"
 import type { Config } from "../config"
 import type { Adaptor, Target } from "./types"
 import { WorktreeAdaptor } from "./worktree"
+import { BranchAdaptor } from "./branch"
 
 type ContainerConfig = Extract<Config, { type: "container" }>
 
@@ -287,6 +288,7 @@ export function listAdaptors(): Array<{ type: string; adaptor: Adaptor<any> }> {
   const adaptors = new Map<string, Adaptor<any>>([
     ["worktree", WorktreeAdaptor as Adaptor<any>],
     ["container", ContainerAdaptor as Adaptor<any>],
+    ["branch", BranchAdaptor as Adaptor<any>],
   ])
   for (const [type, adaptor] of adaptorRegistry) adaptors.set(type, adaptor)
   return Array.from(adaptors, ([type, adaptor]) => ({ type, adaptor }))
@@ -300,5 +302,7 @@ export function getAdaptor(config: Config): Adaptor {
       return WorktreeAdaptor
     case "container":
       return ContainerAdaptor
+    case "branch":
+      return BranchAdaptor
   }
 }

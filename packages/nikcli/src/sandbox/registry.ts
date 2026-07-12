@@ -32,6 +32,11 @@ function stateFromWorkspace(workspace: Workspace.Info): Sandbox.State {
         workspaceID: workspace.id,
         serverURL: workspace.config.serverUrl,
       }
+    case "branch":
+      return {
+        kind: "worktree",
+        workspaceID: workspace.id,
+      }
   }
 }
 
@@ -53,7 +58,10 @@ export namespace SandboxRegistry {
   }
 
   export async function fromSession(input: Pick<Session.Info, "directory" | "workspaceID">): Promise<Sandbox.Handle> {
-    log.debug("fromSession", { directory: input.directory, workspaceID: input.workspaceID })
+    log.debug("fromSession", {
+      directory: input.directory,
+      workspaceID: input.workspaceID,
+    })
     return resolve(refForSession(input))
   }
 
@@ -106,7 +114,10 @@ export namespace SandboxRegistry {
 
     // Cache the handle
     resolveCache.set(cacheKey, { handle, expires: now + CACHE_TTL_MS })
-    log.info("resolved sandbox handle", { workspaceID: workspace.id, type: workspace.config.type })
+    log.info("resolved sandbox handle", {
+      workspaceID: workspace.id,
+      type: workspace.config.type,
+    })
 
     return handle
   }
@@ -129,7 +140,10 @@ export namespace SandboxRegistry {
       branch: input.branch ?? null,
       config: input.config as any,
     })
-    log.info("sandbox created", { workspaceID: workspace.id, type: workspace.config.type })
+    log.info("sandbox created", {
+      workspaceID: workspace.id,
+      type: workspace.config.type,
+    })
     return resolve({ type: "workspace", workspaceID: workspace.id })
   }
 
@@ -139,7 +153,9 @@ export namespace SandboxRegistry {
    */
   export async function delete_(ref: Sandbox.Ref): Promise<void> {
     if (ref.type === "local") {
-      log.warn("delete: local sandbox has no persistent state to delete", { directory: ref.directory })
+      log.warn("delete: local sandbox has no persistent state to delete", {
+        directory: ref.directory,
+      })
       return
     }
     log.info("sandbox deleting", { workspaceID: ref.workspaceID })
@@ -157,7 +173,9 @@ export namespace SandboxRegistry {
     }
     const workspace = await Workspace.get(ref.workspaceID)
     if (!workspace) {
-      log.warn("healthCheck: workspace not found", { workspaceID: ref.workspaceID })
+      log.warn("healthCheck: workspace not found", {
+        workspaceID: ref.workspaceID,
+      })
       return false
     }
     const adaptor = getAdaptor(workspace.config)
@@ -178,7 +196,12 @@ export namespace SandboxRegistry {
 declare module "./types" {
   export namespace Sandbox {
     export type ConfigInput =
-      | { type: "worktree"; directory: string; strategy?: "git" | "cow"; eventLimit?: number }
+      | {
+          type: "worktree"
+          directory: string
+          strategy?: "git" | "cow"
+          eventLimit?: number
+        }
       | {
           type: "container"
           directory: string
@@ -187,6 +210,12 @@ declare module "./types" {
           containerName: string
           port: number
           serverUrl: string
+          eventLimit?: number
+        }
+      | {
+          type: "branch"
+          directory: string
+          branch?: string
           eventLimit?: number
         }
   }

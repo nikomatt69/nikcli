@@ -37,10 +37,14 @@ export const { use: useProject, provider: ProjectProvider } = createSimpleContex
     })
 
     async function sync() {
-      const pathResult = await sdk.client.path.get().catch((err) => {
+      // Scoped by the current workspace so the instance path reflects the
+      // active worktree, not the root checkout (opencode parity).
+      const workspace = store.workspace.current
+      const pathResult = await sdk.client.path.get({ workspace }).catch((err) => {
         log.warn("path sync failed", { error: err })
         return undefined
       })
+      if (store.workspace.current !== workspace) return
       batch(() => {
         setStore("instance", "path", reconcile(pathResult?.data || defaultPath))
       })

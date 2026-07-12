@@ -19,6 +19,17 @@ const ContainerConfig = Schema.Struct({
   eventLimit: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
 })
 
-export const ConfigSchema = Schema.Union([WorktreeConfig, ContainerConfig])
+// In-place branch workspace: no separate directory — the project's primary
+// checkout is switched to `branch` on restore, so external tools (VS Code,
+// terminals) follow the workspace switch. `branch` is optional at create
+// time; the adaptor fills it in the config it returns.
+const BranchConfig = Schema.Struct({
+  directory: Schema.String,
+  type: Schema.Literal("branch"),
+  branch: Schema.optional(Schema.String),
+  eventLimit: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+})
+
+export const ConfigSchema = Schema.Union([WorktreeConfig, ContainerConfig, BranchConfig])
 export const Config = zod(ConfigSchema)
 export type Config = Schema.Schema.Type<typeof ConfigSchema>

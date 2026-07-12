@@ -140,6 +140,12 @@ export function DialogWorkspaceList() {
 
   async function selectWorkspace(workspaceID: string) {
     if (workspaceID === "__local__") {
+      // Back to the root checkout: drop the workspace scope and re-fetch
+      // path/vcs/sessions from the local instance (opencode parity).
+      if (project.workspace.current() !== undefined) {
+        project.workspace.set(undefined)
+        void sync.bootstrap().catch(() => undefined)
+      }
       if (localCount() > 0) {
         dialog.replace(() => <DialogSessionList localOnly={true} />)
         return
@@ -299,6 +305,7 @@ export function DialogWorkspaceList() {
               return
             }
             if (currentWorkspaceID() === option.value) {
+              project.workspace.set(undefined)
               route.navigate({
                 type: "home",
               })

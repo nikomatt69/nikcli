@@ -6,15 +6,20 @@ import { useKeybind } from "../../context/keybind"
 import { tint, useTheme } from "../../context/theme"
 import type { QuestionAnswer, QuestionRequest } from "@nikcli-ai/sdk/v2"
 import { useSDK } from "../../context/sdk"
+import { useSync } from "../../context/sync"
 import { SplitBorder } from "../../component/border"
 import { useTextareaKeybindings } from "../../component/textarea-keybindings"
 import { useDialog } from "../../ui/dialog"
 
 export function QuestionPrompt(props: { request: QuestionRequest }) {
   const sdk = useSDK()
+  const sync = useSync()
   const { theme } = useTheme()
   const keybind = useKeybind()
   const bindings = useTextareaKeybindings()
+  // Replies must reach the instance that asked: for a workspace session that
+  // is the worktree instance, so scope the request by the session's workspace.
+  const workspace = createMemo(() => sync.session.get(props.request.sessionID)?.workspaceID)
 
   const questions = createMemo(() => props.request.questions)
   const single = createMemo(() => questions().length === 1 && questions()[0]?.multiple !== true)
@@ -47,12 +52,14 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
     sdk.client.question.reply({
       requestID: props.request.id,
       answers,
+      workspace: workspace(),
     })
   }
 
   function reject() {
     sdk.client.question.reject({
       requestID: props.request.id,
+      workspace: workspace(),
     })
   }
 
@@ -69,6 +76,7 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
       sdk.client.question.reply({
         requestID: props.request.id,
         answers: [[answer]],
+        workspace: workspace(),
       })
       return
     }

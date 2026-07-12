@@ -29,8 +29,18 @@ const { runPromiseWithLayer, withCurrentInstance } = await import("@/effect")
 const { Effect } = await import("effect")
 
 async function git(directory: string, ...args: string[]) {
-  const proc = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
-  if ((await proc.exited) !== 0) throw new Error(`git ${args.join(" ")} failed`)
+  const proc = Bun.spawn(["git", ...args], {
+    cwd: directory,
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  const [exitCode, stdout, stderr] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ])
+  if (exitCode !== 0) throw new Error(`git ${args.join(" ")} failed: ${stderr || stdout}`)
+  return stdout.trim()
 }
 
 describe("workspace warp (hono route)", () => {
@@ -55,7 +65,7 @@ describe("workspace warp (hono route)", () => {
         )
         const ws = await Workspace.create({
           projectID: Instance.project.id,
-          branch: "warp/wt",
+          branch: null,
           config: { type: "worktree", directory: "" } as never,
         })
 
@@ -63,16 +73,45 @@ describe("workspace warp (hono route)", () => {
           Server.App().fetch(
             new Request("http://nikcli.local/experimental/workspace/warp", {
               method: "POST",
-              headers: { "content-type": "application/json", "x-nikcli-directory": dir },
+              headers: {
+                "content-type": "application/json",
+                "x-nikcli-directory": dir,
+              },
               body: JSON.stringify({ id, sessionID: session.id }),
             }),
           )
 
         const toWorktree = await warp(ws.id)
         expect(toWorktree.status).toBe(204)
+        const warped = await runPromiseWithLayer(
+          Session.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const svc = yield* Session.Service
+              return yield* svc.getAnyProject(session.id)
+            }),
+          ),
+        )
+        expect(ws.branch).toMatch(/^nikcli\//)
+        const generatedBranch = ws.branch
+        if (!generatedBranch) throw new Error("Expected workspace creation to generate a branch")
+        expect(warped.workspaceID).toBe(ws.id)
+        expect(warped.directory).toBe(ws.config.directory)
+        expect(await git(ws.config.directory, "branch", "--show-current")).toBe(generatedBranch)
 
         const toLocal = await warp(null)
         expect(toLocal.status).toBe(204)
+        const detached = await runPromiseWithLayer(
+          Session.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const svc = yield* Session.Service
+              return yield* svc.getAnyProject(session.id)
+            }),
+          ),
+        )
+        expect(detached.workspaceID).toBeUndefined()
+        expect(detached.directory).toBe(dir)
       },
     })
   })

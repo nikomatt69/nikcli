@@ -197,6 +197,7 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
             sdk.client.permission.reply({
               reply: "always",
               requestID: props.request.id,
+              workspace: session()?.workspaceID,
             })
           }}
         />
@@ -208,6 +209,7 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
               reply: "reject",
               requestID: props.request.id,
               message: message || undefined,
+              workspace: session()?.workspaceID,
             })
           }}
           onCancel={() => {
@@ -303,12 +305,14 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
                   sdk.client.permission.reply({
                     reply: "reject",
                     requestID: props.request.id,
+                    workspace: session()?.workspaceID,
                   })
                   return
                 }
                 sdk.client.permission.reply({
                   reply: "once",
                   requestID: props.request.id,
+                  workspace: session()?.workspaceID,
                 })
               }}
             />

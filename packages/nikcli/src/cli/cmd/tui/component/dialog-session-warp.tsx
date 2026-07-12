@@ -70,7 +70,10 @@ export function DialogSessionWarp(props: { sessionID: string }) {
   async function deleteWorkspace(id: string) {
     if (id === "__local__" || id === "__create__") return
     if (id === currentWorkspaceID()) {
-      toast.show({ message: "Cannot delete the workspace this session lives in", variant: "error" })
+      toast.show({
+        message: "Cannot delete the workspace this session lives in",
+        variant: "error",
+      })
       return
     }
     if (toDelete() !== id) {
@@ -130,6 +133,7 @@ export function DialogSessionWarp(props: { sessionID: string }) {
             sessionID: props.sessionID,
             noReply: true,
             ...(workspaceID ? { workspace: workspaceID } : {}),
+            directory: newDirectory,
             parts: [
               {
                 id: Identifier.ascending("part"),

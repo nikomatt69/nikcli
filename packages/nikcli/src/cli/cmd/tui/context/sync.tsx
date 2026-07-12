@@ -21,8 +21,10 @@ import type {
   Workspace,
 } from "@nikcli-ai/sdk/v2"
 import type { Config } from "@nikcli-ai/sdk/v2/client"
+import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
+import { useProject } from "@tui/context/project"
 import { Binary } from "@nikcli-ai/util/binary"
 import { createSimpleContext } from "./helper"
 import { useExit } from "./exit"
@@ -141,7 +143,22 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     })
 
     const sdk = useSDK()
+    const project = useProject()
     const backgroundRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+    /** Client scoped to the currently selected workspace (opencode parity):
+     *  when a workspace is active every bootstrap fetch runs against the
+     *  worktree instance, so path/vcs/config/sessions reflect the worktree. */
+    function scopedClient() {
+      const workspace = project.workspace.current()
+      if (!workspace) return sdk.client
+      return createNikcliClient({
+        baseUrl: sdk.url,
+        fetch: sdk.fetch,
+        directory: sdk.directory,
+        workspace,
+      })
+    }
 
     const refreshLspLatest = createLatestOnlyAsync<[], Awaited<ReturnType<typeof sdk.client.lsp.status>>>(async () =>
       sdk.client.lsp.status(),
@@ -535,11 +552,16 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
-        case "vcs.branch.updated": {
-          setStore("vcs", { branch: event.properties.branch })
-          break
-        }
       }
+    })
+
+    // vcs.branch.updated is directory-scoped: with the global event stream we
+    // receive branch updates from every instance (root + each worktree), so
+    // only apply the one matching the currently displayed scope.
+    sdk.onEnvelope(({ directory, payload }) => {
+      if (payload.type !== "vcs.branch.updated") return
+      if (directory && store.path.directory && directory !== store.path.directory) return
+      setStore("vcs", { branch: payload.properties.branch })
     })
 
     const { exit } = useExit()
@@ -560,7 +582,11 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       })
     }
 
+    let bootstrapVersion = 0
+
     async function bootstrap() {
+      const version = ++bootstrapVersion
+      const current = () => version === bootstrapVersion
       syncedSessions.clear()
       sessionLru.clear()
       setStore(
@@ -575,53 +601,65 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           draft.session_goal = {}
         }),
       )
+      // Scoped to the current workspace (if any) so switching workspaces
+      // re-fetches path/vcs/config/agents/sessions from the worktree instance.
+      const client = scopedClient()
       const start = Date.now() - 30 * 24 * 60 * 60 * 1000
-      const sessionListPromise = sdk.client.session
+      const sessionListPromise = client.session
         .list({ start: start })
-        .then((x) => setStore("session", reconcile((x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id)))))
+        .then((x) => {
+          if (current()) setStore("session", reconcile((x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id))))
+        })
 
       // blocking - include session.list when continuing a session
       const blockingRequests: Promise<unknown>[] = [
-        sdk.client.config.providers({}, { throwOnError: true }).then((x) => {
+        client.config.providers({}, { throwOnError: true }).then((x) => {
+          if (!current()) return
           batch(() => {
             setStore("provider", reconcile(x.data!.providers))
             setStore("provider_default", reconcile(x.data!.default))
           })
         }),
-        sdk.client.provider.list({}, { throwOnError: true }).then((x) => {
+        client.provider.list({}, { throwOnError: true }).then((x) => {
+          if (!current()) return
           batch(() => {
             setStore("provider_next", reconcile(x.data!))
           })
         }),
-        sdk.client.app.agents({}, { throwOnError: true }).then((x) => setStore("agent", reconcile(x.data ?? []))),
-        sdk.client.config.get({}, { throwOnError: true }).then((x) => setStore("config", reconcile(x.data!))),
+        client.app.agents({}, { throwOnError: true }).then((x) => current() && setStore("agent", reconcile(x.data ?? []))),
+        client.config.get({}, { throwOnError: true }).then((x) => current() && setStore("config", reconcile(x.data!))),
         ...(args.continue ? [sessionListPromise] : []),
       ]
 
       await Promise.all(blockingRequests)
         .then(() => {
+          if (!current()) return
           if (store.status !== "complete") setStore("status", "partial")
           // non-blocking
           Promise.all([
             ...(args.continue ? [] : [sessionListPromise]),
-            sdk.client.command.list().then((x) => setStore("command", reconcile(x.data ?? []))),
-            sdk.client.lsp.status().then((x) => setStore("lsp", reconcile(x.data!))),
-            sdk.client.mcp.status().then((x) => setStore("mcp", reconcile(x.data!))),
-            sdk.client.experimental.resource.list().then((x) => setStore("mcp_resource", reconcile(x.data ?? {}))),
-            sdk.client.connectors.status().then((x) => setStore("connectors", reconcile(x.data!))),
-            sdk.client.formatter.status().then((x) => setStore("formatter", reconcile(x.data!))),
-            sdk.client.session.status().then((x) => {
+            client.command.list().then((x) => current() && setStore("command", reconcile(x.data ?? []))),
+            client.lsp.status().then((x) => current() && setStore("lsp", reconcile(x.data!))),
+            client.mcp.status().then((x) => current() && setStore("mcp", reconcile(x.data!))),
+            client.experimental.resource.list().then((x) => current() && setStore("mcp_resource", reconcile(x.data ?? {}))),
+            client.connectors.status().then((x) => current() && setStore("connectors", reconcile(x.data!))),
+            client.formatter.status().then((x) => current() && setStore("formatter", reconcile(x.data!))),
+            client.session.status().then((x) => {
+              if (!current()) return
               setStore("session_status", reconcile(x.data!))
             }),
-            sdk.client.provider.auth().then((x) => setStore("provider_auth", reconcile(x.data ?? {}))),
-            sdk.client.vcs.get().then((x) => setStore("vcs", reconcile(x.data))),
-            sdk.client.path.get().then((x) => setStore("path", reconcile(x.data!))),
+            client.provider.auth().then((x) => current() && setStore("provider_auth", reconcile(x.data ?? {}))),
+            client.vcs.get().then((x) => current() && setStore("vcs", reconcile(x.data))),
+            client.path.get().then((x) => current() && setStore("path", reconcile(x.data!))),
+            project.sync(),
             syncWorkspaces(),
           ])
             .then(() => {
+              if (!current()) return
               setStore("status", "complete")
             })
             .catch((e) => {
+              if (!current()) return
               Log.Default.warn("tui bootstrap non-blocking refresh failed", {
                 error: e instanceof Error ? e.message : String(e),
                 name: e instanceof Error ? e.name : undefined,
@@ -630,6 +668,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             })
         })
         .catch(async (e) => {
+          if (!current()) return
           Log.Default.error("tui bootstrap failed", {
             error: e instanceof Error ? e.message : String(e),
             name: e instanceof Error ? e.name : undefined,

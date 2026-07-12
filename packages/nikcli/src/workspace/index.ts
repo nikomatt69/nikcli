@@ -28,6 +28,8 @@ import { SyncUnifyMigration } from "@/sync/migrate-from-workspace"
 import { zod, zodObject } from "@/util/effect-zod"
 import { Effect, Schema } from "effect"
 import { runService, withInstanceAsync, withCurrentInstance } from "@/effect"
+import path from "path"
+import fs from "fs/promises"
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runService(Session, effect, withCurrentInstance)
@@ -202,7 +204,9 @@ export namespace Workspace {
         projectID: input.projectID,
         name: created.name ?? deriveName(config),
         timeUsed: Date.now(),
-        branch: input.branch,
+        // The adaptor may have generated a branch (e.g. worktree's
+        // `nikcli/<name>`) when the caller didn't request one explicitly.
+        branch: created.branch ?? input.branch,
         config,
       }
 
@@ -278,12 +282,20 @@ export namespace Workspace {
    */
   export async function syncList(project: Project.Info) {
     const existing = await list(project)
-    const knownDirectories = new Set(
-      existing.map((space) => space.config.directory).filter((directory): directory is string => Boolean(directory)),
+    const canonicalDirectory = async (directory: string) => {
+      const resolved = path.resolve(directory)
+      return fs.realpath(resolved).catch(() => resolved)
+    }
+    const existingDirectories = await Promise.all(
+      existing
+        .filter((space): space is Info & { config: { directory: string } } => Boolean(space.config.directory))
+        .map(async (space) => [await canonicalDirectory(space.config.directory), space] as const),
     )
+    const byDirectory = new Map(existingDirectories)
+    const knownDirectories = new Set(byDirectory.keys())
     const knownNames = new Set(existing.map((space) => space.name).filter(Boolean))
 
-    const discovered = (
+    const discoveredRaw = (
       await Promise.all(
         listAdaptors().map(({ type, adaptor }) =>
           adaptor.list
@@ -295,11 +307,45 @@ export namespace Workspace {
         ),
       )
     ).flat()
+    const discovered = Array.from(
+      new Map(
+        await Promise.all(
+          discoveredRaw.map(
+            async (item) =>
+              [
+                item.config.directory ? await canonicalDirectory(item.config.directory) : `${item.type}:${item.name}`,
+                item,
+              ] as const,
+          ),
+        ),
+      ).values(),
+    )
 
     for (const item of discovered) {
-      if (item.config.directory && knownDirectories.has(item.config.directory)) continue
+      const directory = item.config.directory ? await canonicalDirectory(item.config.directory) : undefined
+      if (directory && knownDirectories.has(directory)) {
+        // Already tracked: refresh drifted live state (branch can change via
+        // manual checkout, or gain one when a detached worktree is repaired).
+        // Goes through the event log so a cold-start projection replay
+        // reconstructs the same branch instead of reverting to the stale one.
+        const tracked = byDirectory.get(directory)
+        if (!tracked) continue
+        if (tracked.branch !== (item.branch ?? null)) {
+          await WorkspaceProjection.emitLifecycle(tracked.projectID, tracked.id, "workspace.configUpdated", {
+            config: tracked.config,
+            branch: item.branch ?? null,
+          }).catch((error) => {
+            log.warn("workspace.configUpdated projection failed (branch drift)", {
+              workspaceID: tracked.id,
+              error,
+            })
+            WorkspaceDB.upsert({ ...tracked, branch: item.branch ?? null })
+          })
+        }
+        continue
+      }
       if (item.name && knownNames.has(item.name)) continue
-      knownDirectories.add(item.config.directory ?? "")
+      if (directory) knownDirectories.add(directory)
       knownNames.add(item.name)
 
       const info: Info = {
@@ -322,6 +368,7 @@ export namespace Workspace {
         })
         WorkspaceDB.upsert(info)
       })
+      if (directory) byDirectory.set(directory, info)
       WorkspaceDB.setStatusColumn(info.id, info.config.type === "worktree" ? "connected" : "connecting")
       startSpaceSync(info)
     }
@@ -512,11 +559,14 @@ export namespace Workspace {
     }),
     async ({ workspaceID, sessionID, timeoutMs, signal }) => {
       await restore({ workspaceID, timeoutMs, signal })
+      const target = await targetWorkspace(workspaceID)
+      const directory = target?.type === "local" ? target.directory : Instance.project.worktree
       await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
           yield* session.update(sessionID, (draft) => {
             draft.workspaceID = workspaceID
+            draft.directory = directory
           })
         }),
       )
@@ -591,6 +641,7 @@ export namespace Workspace {
       const target = workspaceID
         ? await restore({ workspaceID, timeoutMs, signal }).then(() => targetWorkspace(workspaceID))
         : undefined
+      const targetDirectory = target?.type === "local" ? target.directory : Instance.project.worktree
 
       const sourcePatch =
         copyChanges && current.workspaceID
@@ -607,7 +658,7 @@ export namespace Workspace {
       if (sourcePatch) {
         await applyWorkspacePatch({
           workspaceID,
-          fallbackDirectory: current.directory,
+          fallbackDirectory: targetDirectory,
           patch: sourcePatch,
           signal: signal as AbortSignal | undefined,
         })
@@ -618,23 +669,38 @@ export namespace Workspace {
           const session = yield* Session.Service
           yield* session.update(sessionID, (draft) => {
             draft.workspaceID = workspaceID ?? undefined
+            draft.directory = targetDirectory
           })
         }),
       )
 
       if (workspaceID && target?.type === "remote") {
-        const headers = new Headers(target.headers)
-        headers.set("content-type", "application/json")
-        headers.set("x-nikcli-workspace", workspaceID)
-        const response = await fetch(new URL("/sync/steal", target.url), {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ sessionID }),
-          signal,
-        })
-        if (!response.ok) {
-          const body = await response.text().catch(() => "")
-          throw new Error(`Failed to warp session into workspace ${workspaceID}: HTTP ${response.status} ${body}`)
+        try {
+          const headers = new Headers(target.headers)
+          headers.set("content-type", "application/json")
+          headers.set("x-nikcli-workspace", workspaceID)
+          const response = await fetch(new URL("/sync/steal", target.url), {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ sessionID }),
+            signal,
+          })
+          if (!response.ok) {
+            const body = await response.text().catch(() => "")
+            throw new Error(`Failed to warp session into workspace ${workspaceID}: HTTP ${response.status} ${body}`)
+          }
+        } catch (error) {
+          await runSession(
+            Effect.gen(function* () {
+              const session = yield* Session.Service
+              yield* session.update(sessionID, (draft) => {
+                if (draft.workspaceID !== workspaceID || draft.directory !== targetDirectory) return
+                draft.workspaceID = current.workspaceID
+                draft.directory = current.directory
+              })
+            }),
+          )
+          throw error
         }
       }
 
