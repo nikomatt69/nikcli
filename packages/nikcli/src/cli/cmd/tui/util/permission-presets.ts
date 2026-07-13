@@ -205,11 +205,7 @@ export function getPermissionRuleDefault(value: unknown): PermissionAction | und
   return getPermissionAction((value as Record<string, unknown>)["*"])
 }
 
-export function getPermissionActionFor(
-  map: PermissionMap,
-  id: string,
-  fallback: PermissionAction = "allow",
-) {
+export function getPermissionActionFor(map: PermissionMap, id: string, fallback: PermissionAction = "allow") {
   const direct = getPermissionRuleDefault(map[id])
   if (direct) return direct
 

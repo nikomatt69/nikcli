@@ -2617,6 +2617,12 @@ export class Workspace extends HeyApiClient {
             serverUrl: string
             eventLimit?: number
           }
+        | {
+            directory: string
+            type: "branch"
+            branch?: string
+            eventLimit?: number
+          }
     },
     options?: Options<never, ThrowOnError>,
   ): RequestResult<ExperimentalWorkspaceCreateResponses, ExperimentalWorkspaceCreateErrors, ThrowOnError> {

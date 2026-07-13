@@ -23,19 +23,12 @@ async function writeVariants(store: VariantStore): Promise<void> {
   }
 }
 
-export async function getModelVariant(
-  providerID: string,
-  modelID: string,
-): Promise<string | undefined> {
+export async function getModelVariant(providerID: string, modelID: string): Promise<string | undefined> {
   const store = await readVariants()
   return store[modelKey(providerID, modelID)]
 }
 
-export async function setModelVariant(
-  providerID: string,
-  modelID: string,
-  variant: string | undefined,
-): Promise<void> {
+export async function setModelVariant(providerID: string, modelID: string, variant: string | undefined): Promise<void> {
   const store = await readVariants()
   const key = modelKey(providerID, modelID)
   if (variant) store[key] = variant

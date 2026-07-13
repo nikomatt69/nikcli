@@ -155,29 +155,28 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
         } as ProcessorStreamEvent,
       ]
 
-    case "text-delta":
-      // Native providers may emit deltas without text-start. The processor
-      // needs a text part before it can persist the delta, so synthesize the
-      // missing start at the adapter boundary.
-      {
-        const id = event.id ?? state.currentTextID ?? `text-${state.text++}`
-        const out: ProcessorStreamEvent[] = []
-        if (!state.currentTextID) {
-          state.currentTextID = id
-          out.push({
-            type: "text-start",
-            id,
-            providerMetadata: event.providerMetadata,
-          } as ProcessorStreamEvent)
-        }
+    case "text-delta": // Native providers may emit deltas without text-start. The processor
+    // needs a text part before it can persist the delta, so synthesize the
+    // missing start at the adapter boundary.
+    {
+      const id = event.id ?? state.currentTextID ?? `text-${state.text++}`
+      const out: ProcessorStreamEvent[] = []
+      if (!state.currentTextID) {
+        state.currentTextID = id
         out.push({
-          type: "text-delta",
+          type: "text-start",
           id,
-          text: event.text,
           providerMetadata: event.providerMetadata,
         } as ProcessorStreamEvent)
-        return out
       }
+      out.push({
+        type: "text-delta",
+        id,
+        text: event.text,
+        providerMetadata: event.providerMetadata,
+      } as ProcessorStreamEvent)
+      return out
+    }
 
     case "text-end":
       return [

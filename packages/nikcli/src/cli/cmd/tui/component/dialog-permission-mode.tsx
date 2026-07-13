@@ -23,10 +23,7 @@ import {
   type PermissionPreset,
 } from "@tui/util/permission-presets"
 
-type RowValue =
-  | { kind: "preset"; preset: PermissionPreset }
-  | { kind: "tool"; id: string }
-  | { kind: "scope" }
+type RowValue = { kind: "preset"; preset: PermissionPreset } | { kind: "tool"; id: string } | { kind: "scope" }
 
 const ACTION_CYCLE: PermissionAction[] = ["allow", "ask", "deny"]
 
@@ -47,10 +44,7 @@ function actionLabel(action: PermissionAction) {
 }
 
 /** Distinct color per approval mode for prompt footer / badges. */
-export function permissionModeColor(
-  mode: PermissionMode,
-  theme: ReturnType<typeof useTheme>["theme"],
-) {
+export function permissionModeColor(mode: PermissionMode, theme: ReturnType<typeof useTheme>["theme"]) {
   switch (mode) {
     case "require_approval":
       return theme.warning
@@ -80,9 +74,7 @@ function ActionBadge(props: { action: PermissionAction }) {
 function PresetBadge(props: { active: boolean; mode: PermissionMode }) {
   const { theme } = useTheme()
   if (!props.active) return <span style={{ fg: theme.textMuted }}>○</span>
-  return (
-    <span style={{ fg: permissionModeColor(props.mode, theme), attributes: TextAttributes.BOLD }}>✓ active</span>
-  )
+  return <span style={{ fg: permissionModeColor(props.mode, theme), attributes: TextAttributes.BOLD }}>✓ active</span>
 }
 
 export function DialogPermissionMode() {
@@ -230,9 +222,7 @@ export function DialogPermissionMode() {
       ref={setRef}
       title={`Permissions · ${Locale.titlecase(agentName())}`}
       current={
-        mode() === "custom"
-          ? undefined
-          : ({ kind: "preset", preset: mode() as PermissionPreset } satisfies RowValue)
+        mode() === "custom" ? undefined : ({ kind: "preset", preset: mode() as PermissionPreset } satisfies RowValue)
       }
       options={options()}
       keybind={keybinds()}
@@ -259,10 +249,7 @@ export function permissionModeShortLabel(mode: PermissionMode) {
   }
 }
 
-export function currentAgentPermissionMode(
-  config: Record<string, any> | undefined,
-  agentName: string,
-): PermissionMode {
+export function currentAgentPermissionMode(config: Record<string, any> | undefined, agentName: string): PermissionMode {
   const agentPerm = config?.agent?.[agentName]?.permission
   if (agentPerm !== undefined && agentPerm !== null) return detectPermissionMode(agentPerm)
   return detectPermissionMode(config?.permission)

@@ -9,14 +9,7 @@ import { ChatbotWebhook } from "@/chatbot/webhook"
  * raw-response pattern as `/event`.
  */
 export namespace ChatbotHttp {
-  const PLATFORMS: readonly ChatbotWebhook.Platform[] = [
-    "discord",
-    "slack",
-    "teams",
-    "gchat",
-    "linear",
-    "github",
-  ]
+  const PLATFORMS: readonly ChatbotWebhook.Platform[] = ["discord", "slack", "teams", "gchat", "linear", "github"]
 
   /** Route a `/chatbot/*` webhook request. Returns null when unmatched. */
   export async function handle(request: Request): Promise<Response | null> {

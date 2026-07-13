@@ -87,9 +87,7 @@ export default function ReposScreen() {
       try {
         githubRepos = await client.listGithubRepos()
       } catch (githubLoadError) {
-        setGithubError(
-          githubLoadError instanceof Error ? githubLoadError.message : String(githubLoadError),
-        )
+        setGithubError(githubLoadError instanceof Error ? githubLoadError.message : String(githubLoadError))
       }
       setProjects(projectList)
       setRepos(githubRepos)
@@ -382,9 +380,7 @@ export default function ReposScreen() {
                     <ListRow
                       leading={
                         <StatusDot
-                          color={
-                            selectedDirectory === sandbox ? palette.secondary : hexToRgba(palette.ink, 0.25)
-                          }
+                          color={selectedDirectory === sandbox ? palette.secondary : hexToRgba(palette.ink, 0.25)}
                         />
                       }
                       title={sandbox.split("/").filter(Boolean).pop() || sandbox}
@@ -437,8 +433,7 @@ export default function ReposScreen() {
                     title={projectLabel(project)}
                     subtitle={project.worktree}
                     trailing={
-                      selectedDirectory === project.worktree ||
-                      project.sandboxes.includes(selectedDirectory || "") ? (
+                      selectedDirectory === project.worktree || project.sandboxes.includes(selectedDirectory || "") ? (
                         <InfoChip label="Selected" tone="accent" />
                       ) : undefined
                     }
@@ -454,7 +449,9 @@ export default function ReposScreen() {
                 <EmptyState
                   title="Connect GitHub first"
                   description="Open Settings to enable OAuth or install a server token, then come back here to browse repositories and launch branch-native sessions."
-                  action={<ActionButton label="Open GitHub settings" onPress={() => router.push("/more/settings/github")} />}
+                  action={
+                    <ActionButton label="Open GitHub settings" onPress={() => router.push("/more/settings/github")} />
+                  }
                 />
               ) : (
                 <SurfaceCard

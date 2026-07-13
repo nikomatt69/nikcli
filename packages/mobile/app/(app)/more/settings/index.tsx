@@ -1356,7 +1356,6 @@ export default function SettingsScreen() {
               </SurfaceCard>
             ) : null}
 
-
             {visibleSettingsSections.advanced ? (
               <SurfaceCard
                 eyebrow="Advanced fallback"

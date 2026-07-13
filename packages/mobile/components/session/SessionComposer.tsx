@@ -336,10 +336,7 @@ export function SessionComposer({
   // Idle: same chrome as the header buttons. With text: fills with ink.
   const sendBackgroundColor = sendColorAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [
-      isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)",
-      palette.ink,
-    ],
+    outputRange: [isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)", palette.ink],
   })
   const sendIconColor = hasText && !sendBlocked ? palette.background : palette.muted
 
@@ -1111,12 +1108,8 @@ export function SessionComposer({
                         borderRadius: 999,
                         borderCurve: "continuous",
                         borderWidth: 1,
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.16)"
-                          : "rgba(218,216,209,0.82)",
-                        backgroundColor: isDark
-                          ? "rgba(22,22,22,0.88)"
-                          : "rgba(255,255,255,0.88)",
+                        borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
+                        backgroundColor: isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)",
                         alignItems: "center",
                         justifyContent: "center",
                         opacity: pressed ? 0.7 : 1,
@@ -1142,9 +1135,7 @@ export function SessionComposer({
                         height: 44,
                         borderRadius: 999,
                         borderWidth: 1,
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.16)"
-                          : "rgba(218,216,209,0.82)",
+                        borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
                         backgroundColor: "transparent",
                         alignItems: "center",
                         justifyContent: "center",

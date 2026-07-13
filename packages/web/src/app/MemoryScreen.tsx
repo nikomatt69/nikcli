@@ -234,7 +234,10 @@ export function MemoryScreen(props: { client: WebNikcliClient | null; navigate(p
               ) : (
                 <div className="space-y-2">
                   {stash.map((entry) => (
-                    <div key={entry.id} className="rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3">
+                    <div
+                      key={entry.id}
+                      className="rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3"
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="line-clamp-3 text-sm text-terminal-text">{entry.input}</div>

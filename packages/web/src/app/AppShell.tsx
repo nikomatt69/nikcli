@@ -692,23 +692,20 @@ function QuestionCard(props: {
   const [custom, setCustom] = useState<string[]>(() => props.request.questions.map(() => ""))
   const [submitting, setSubmitting] = useState(false)
 
-  const toggleOption = useCallback(
-    (questionIndex: number, label: string, multiple: boolean) => {
-      setSelections((current) => {
-        const next = [...current]
-        const selected = next[questionIndex] ?? []
-        if (multiple) {
-          next[questionIndex] = selected.includes(label)
-            ? selected.filter((item) => item !== label)
-            : [...selected, label]
-        } else {
-          next[questionIndex] = selected.includes(label) ? [] : [label]
-        }
-        return next
-      })
-    },
-    [],
-  )
+  const toggleOption = useCallback((questionIndex: number, label: string, multiple: boolean) => {
+    setSelections((current) => {
+      const next = [...current]
+      const selected = next[questionIndex] ?? []
+      if (multiple) {
+        next[questionIndex] = selected.includes(label)
+          ? selected.filter((item) => item !== label)
+          : [...selected, label]
+      } else {
+        next[questionIndex] = selected.includes(label) ? [] : [label]
+      }
+      return next
+    })
+  }, [])
 
   const answers = useMemo(
     () =>
@@ -1347,7 +1344,12 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
               </Button>
             ) : null}
             {detail.info.github ? (
-              <Button variant="ghost" busy={cleaning} onClick={() => void cleanup()} disabled={sessionBlocked || cleaned}>
+              <Button
+                variant="ghost"
+                busy={cleaning}
+                onClick={() => void cleanup()}
+                disabled={sessionBlocked || cleaned}
+              >
                 Cleanup
               </Button>
             ) : null}
@@ -2538,12 +2540,12 @@ function ClientApp(props: { initialPath: string }) {
             : activeRoute.screen === "git"
               ? "Git"
               : activeRoute.screen === "memory"
-              ? "Memory"
-              : activeRoute.screen === "terminal"
-                ? "Terminal"
-                : activeRoute.screen === "settings"
-                  ? "Settings"
-                  : "Connect"
+                ? "Memory"
+                : activeRoute.screen === "terminal"
+                  ? "Terminal"
+                  : activeRoute.screen === "settings"
+                    ? "Settings"
+                    : "Connect"
 
   const contentWidthClass = activeRoute.screen === "connect" ? "max-w-[74rem]" : "max-w-full"
 

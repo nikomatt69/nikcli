@@ -1,9 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { triggerHaptic } from "@/lib/haptics"
-import {
-  resolveTerminalKeyInput,
-  type TerminalKeyAction,
-} from "@/lib/terminal-keys"
+import { resolveTerminalKeyInput, type TerminalKeyAction } from "@/lib/terminal-keys"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 type Props = {
@@ -44,8 +41,7 @@ export function TerminalKeyStrip({
       }}
     >
       {keys.map((key) => {
-        const stickyOn =
-          (key.sticky === "ctrl" && ctrlActive) || (key.sticky === "shift" && shiftActive)
+        const stickyOn = (key.sticky === "ctrl" && ctrlActive) || (key.sticky === "shift" && shiftActive)
         return (
           <Pressable
             key={key.id}
@@ -78,9 +74,7 @@ export function TerminalKeyStrip({
                 : key.accent
                   ? hexToRgba(palette.danger, 0.12)
                   : hexToRgba(palette.ink, 0.08),
-              borderColor: stickyOn
-                ? hexToRgba(palette.accentLight, 0.35)
-                : hexToRgba(palette.ink, 0.14),
+              borderColor: stickyOn ? hexToRgba(palette.accentLight, 0.35) : hexToRgba(palette.ink, 0.14),
             })}
           >
             <Text

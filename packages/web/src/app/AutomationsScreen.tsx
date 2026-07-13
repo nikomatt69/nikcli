@@ -372,12 +372,23 @@ export function AutomationsScreen(props: { client: WebNikcliClient | null; navig
                           </div>
                           <Chip
                             label={status}
-                            tone={status === "running" ? "accent" : status === "error" ? "warn" : loop.enabled ? "good" : "neutral"}
+                            tone={
+                              status === "running"
+                                ? "accent"
+                                : status === "error"
+                                  ? "warn"
+                                  : loop.enabled
+                                    ? "good"
+                                    : "neutral"
+                            }
                             caps
                           />
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <Chip label={loop.enabled ? "Enabled" : "Disabled"} tone={loop.enabled ? "good" : "neutral"} />
+                          <Chip
+                            label={loop.enabled ? "Enabled" : "Disabled"}
+                            tone={loop.enabled ? "good" : "neutral"}
+                          />
                           {loop.paused ? <Chip label="Paused" tone="warn" /> : null}
                           {loop.createPR ? <Chip label="Creates PR" tone="accent" /> : null}
                           {runtime?.runs ? <Chip label={`${runtime.runs} runs`} tone="neutral" /> : null}
@@ -429,7 +440,10 @@ export function AutomationsScreen(props: { client: WebNikcliClient | null; navig
                             {loop.paused ? "Resume" : "Pause"}
                           </Button>
                           {runtime?.sessionID ? (
-                            <Button variant="ghost" onClick={() => props.navigate(`/app/sessions/${runtime.sessionID}`)}>
+                            <Button
+                              variant="ghost"
+                              onClick={() => props.navigate(`/app/sessions/${runtime.sessionID}`)}
+                            >
                               Session
                             </Button>
                           ) : null}
@@ -437,7 +451,11 @@ export function AutomationsScreen(props: { client: WebNikcliClient | null; navig
                             variant="danger"
                             busy={busyKey === `loop-delete-${loop.id}`}
                             onClick={() =>
-                              void withAction(`loop-delete-${loop.id}`, () => client!.deleteLoop(loop.id), "Loop deleted")
+                              void withAction(
+                                `loop-delete-${loop.id}`,
+                                () => client!.deleteLoop(loop.id),
+                                "Loop deleted",
+                              )
                             }
                           >
                             Delete

@@ -128,7 +128,11 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled
             borderColor: iconBorder,
           }}
         >
-          {loading ? <ActivityIndicator size="small" color={iconColor} /> : <Icon size={19} color={iconColor} strokeWidth={2.1} />}
+          {loading ? (
+            <ActivityIndicator size="small" color={iconColor} />
+          ) : (
+            <Icon size={19} color={iconColor} strokeWidth={2.1} />
+          )}
         </View>
         <View className="min-w-0 flex-1">
           <Text className="text-[15px] font-semibold leading-5 tracking-tight text-ink" numberOfLines={1}>

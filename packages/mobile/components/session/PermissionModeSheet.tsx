@@ -1,18 +1,7 @@
 import type { RefObject } from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
-import {
-  Ban,
-  Check,
-  CircleCheck,
-  ListChecks,
-  Settings,
-  type LucideIcon,
-} from "lucide-react-native"
-import {
-  ActionSheet,
-  ActionSheetDivider,
-  type ActionSheetRef,
-} from "@/components/BottomSheet"
+import { Ban, Check, CircleCheck, ListChecks, Settings, type LucideIcon } from "lucide-react-native"
+import { ActionSheet, ActionSheetDivider, type ActionSheetRef } from "@/components/BottomSheet"
 import { triggerHaptic } from "@/lib/haptics"
 import {
   PERMISSION_PRESETS,
@@ -57,37 +46,21 @@ function toneForMode(mode: PermissionMode, palette: ReturnType<typeof useAppThem
   }
 }
 
-export function PermissionModeSheet({
-  sheetRef,
-  mode,
-  saving = false,
-  onSelect,
-  onOpenDetailed,
-}: Props) {
+export function PermissionModeSheet({ sheetRef, mode, saving = false, onSelect, onOpenDetailed }: Props) {
   const { palette, isDark } = useAppTheme()
 
   return (
     <ActionSheet ref={sheetRef} snapPoints={[420]}>
       <View className="border-b border-border px-5 pb-4">
         <Text className="text-[12px] font-medium text-muted">Permissions</Text>
-        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink">
-          {permissionModeTitle(mode)}
-        </Text>
+        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink">{permissionModeTitle(mode)}</Text>
         <Text className="mt-1 text-[12px] leading-4 text-muted">
-          Choose how the host asks before tool actions. Changes apply to this server for all
-          sessions.
+          Choose how the host asks before tool actions. Changes apply to this server for all sessions.
         </Text>
       </View>
 
       <View style={{ paddingTop: 6, paddingBottom: 4 }}>
-        {mode === "custom" ? (
-          <PresetRow
-            mode="custom"
-            active
-            disabled
-            onPress={() => undefined}
-          />
-        ) : null}
+        {mode === "custom" ? <PresetRow mode="custom" active disabled onPress={() => undefined} /> : null}
 
         {PERMISSION_PRESETS.map((preset, index) => (
           <PresetRow

@@ -192,11 +192,7 @@ export function GitScreen(props: { client: WebNikcliClient | null }) {
           </div>
           <div className="flex flex-wrap gap-2">
             {file.status !== "deleted" ? (
-              <Button
-                variant="ghost"
-                busy={busyKey === `diff-${key}`}
-                onClick={() => void loadDiff(file.path, staged)}
-              >
+              <Button variant="ghost" busy={busyKey === `diff-${key}`} onClick={() => void loadDiff(file.path, staged)}>
                 {diffOpen === key ? "Hide diff" : "Diff"}
               </Button>
             ) : null}

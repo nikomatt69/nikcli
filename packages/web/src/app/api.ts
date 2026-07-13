@@ -458,9 +458,7 @@ export class WebNikcliClient {
   }
 
   generateLoop(description: string, options?: { model?: string; agent?: string }) {
-    return unwrap<MobileLoop>(
-      this.sdk.mobile.loop.generate({ mobileLoopGenerateInput: { description, ...options } }),
-    )
+    return unwrap<MobileLoop>(this.sdk.mobile.loop.generate({ mobileLoopGenerateInput: { description, ...options } }))
   }
 
   listRecentLoopRuns(limit?: number) {
@@ -516,7 +514,9 @@ export class WebNikcliClient {
   }
 
   createStash(input: string) {
-    return unwrap<MobilePromptStashEntry>(this.sdk.mobile.memory.stash.create({ mobilePromptStashCreateInput: { input } }))
+    return unwrap<MobilePromptStashEntry>(
+      this.sdk.mobile.memory.stash.create({ mobilePromptStashCreateInput: { input } }),
+    )
   }
 
   deleteStash(id: string) {

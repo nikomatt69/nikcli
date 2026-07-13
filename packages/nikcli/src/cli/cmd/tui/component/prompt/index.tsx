@@ -48,11 +48,7 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
-import {
-  currentAgentPermissionMode,
-  permissionModeColor,
-  permissionModeShortLabel,
-} from "../dialog-permission-mode"
+import { currentAgentPermissionMode, permissionModeColor, permissionModeShortLabel } from "../dialog-permission-mode"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
@@ -220,7 +216,8 @@ export function Prompt(props: PromptProps) {
   const activeContext = createMemo(() => {
     const current = route.data
     return sessionRequestContext({
-      routeWorkspaceID: current.type === "session" && current.sessionID === props.sessionID ? current.workspaceID : undefined,
+      routeWorkspaceID:
+        current.type === "session" && current.sessionID === props.sessionID ? current.workspaceID : undefined,
       sessionWorkspaceID: activeSession()?.workspaceID,
       fallbackWorkspaceID: props.workspaceID,
       sessionDirectory: activeSession()?.directory,

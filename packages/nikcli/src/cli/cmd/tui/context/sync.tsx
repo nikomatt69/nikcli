@@ -551,7 +551,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           }
           break
         }
-
       }
     })
 
@@ -605,11 +604,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       // re-fetches path/vcs/config/agents/sessions from the worktree instance.
       const client = scopedClient()
       const start = Date.now() - 30 * 24 * 60 * 60 * 1000
-      const sessionListPromise = client.session
-        .list({ start: start })
-        .then((x) => {
-          if (current()) setStore("session", reconcile((x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id))))
-        })
+      const sessionListPromise = client.session.list({ start: start }).then((x) => {
+        if (current()) setStore("session", reconcile((x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id))))
+      })
 
       // blocking - include session.list when continuing a session
       const blockingRequests: Promise<unknown>[] = [
@@ -626,7 +623,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             setStore("provider_next", reconcile(x.data!))
           })
         }),
-        client.app.agents({}, { throwOnError: true }).then((x) => current() && setStore("agent", reconcile(x.data ?? []))),
+        client.app
+          .agents({}, { throwOnError: true })
+          .then((x) => current() && setStore("agent", reconcile(x.data ?? []))),
         client.config.get({}, { throwOnError: true }).then((x) => current() && setStore("config", reconcile(x.data!))),
         ...(args.continue ? [sessionListPromise] : []),
       ]
@@ -641,7 +640,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             client.command.list().then((x) => current() && setStore("command", reconcile(x.data ?? []))),
             client.lsp.status().then((x) => current() && setStore("lsp", reconcile(x.data!))),
             client.mcp.status().then((x) => current() && setStore("mcp", reconcile(x.data!))),
-            client.experimental.resource.list().then((x) => current() && setStore("mcp_resource", reconcile(x.data ?? {}))),
+            client.experimental.resource
+              .list()
+              .then((x) => current() && setStore("mcp_resource", reconcile(x.data ?? {}))),
             client.connectors.status().then((x) => current() && setStore("connectors", reconcile(x.data!))),
             client.formatter.status().then((x) => current() && setStore("formatter", reconcile(x.data!))),
             client.session.status().then((x) => {

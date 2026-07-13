@@ -77,9 +77,7 @@ export default function PermissionsSettingsScreen() {
     const before = permission
     const existing = before[id]
     const nextValue =
-      existing && typeof existing === "object" && !Array.isArray(existing)
-        ? { ...existing, "*": action }
-        : action
+      existing && typeof existing === "object" && !Array.isArray(existing) ? { ...existing, "*": action } : action
     const next = { ...before, [id]: nextValue }
     setPermission(next)
     try {
@@ -107,12 +105,8 @@ export default function PermissionsSettingsScreen() {
 
         <SurfaceCard>
           <Text className="text-[12px] font-medium text-muted">Presets</Text>
-          <Text className="mt-1 text-[15px] font-semibold text-ink">
-            {permissionModeTitle(mode)}
-          </Text>
-          <Text className="mt-1 text-[13px] leading-[18px] text-soft">
-            {permissionModeDescription(mode)}
-          </Text>
+          <Text className="mt-1 text-[15px] font-semibold text-ink">{permissionModeTitle(mode)}</Text>
+          <Text className="mt-1 text-[13px] leading-[18px] text-soft">{permissionModeDescription(mode)}</Text>
 
           <View className="mt-4 gap-2">
             {PERMISSION_PRESETS.map((preset) => {
@@ -144,16 +138,10 @@ export default function PermissionsSettingsScreen() {
                 >
                   <View className="flex-row items-center justify-between gap-3">
                     <View className="min-w-0 flex-1">
-                      <Text className="text-[14px] font-semibold text-ink">
-                        {permissionModeTitle(preset)}
-                      </Text>
-                      <Text className="mt-1 text-[12px] leading-4 text-soft">
-                        {permissionModeDescription(preset)}
-                      </Text>
+                      <Text className="text-[14px] font-semibold text-ink">{permissionModeTitle(preset)}</Text>
+                      <Text className="mt-1 text-[12px] leading-4 text-soft">{permissionModeDescription(preset)}</Text>
                     </View>
-                    {active ? (
-                      <Check size={16} color={palette.accentLight} strokeWidth={2.4} />
-                    ) : null}
+                    {active ? <Check size={16} color={palette.accentLight} strokeWidth={2.4} /> : null}
                   </View>
                 </Pressable>
               )
@@ -165,8 +153,8 @@ export default function PermissionsSettingsScreen() {
           <Text className="text-[12px] font-medium text-muted">Tools</Text>
           <Text className="mt-1 text-[15px] font-semibold text-ink">Per-tool rules</Text>
           <Text className="mt-1 text-[13px] leading-[18px] text-soft">
-            Override individual tools. Choosing Ask, Allow, or Deny here switches the host into
-            Custom mode when it no longer matches a preset.
+            Override individual tools. Choosing Ask, Allow, or Deny here switches the host into Custom mode when it no
+            longer matches a preset.
           </Text>
 
           <View className="mt-4">
@@ -178,9 +166,7 @@ export default function PermissionsSettingsScreen() {
                   style={{
                     paddingVertical: 12,
                     borderTopWidth: index === 0 ? 0 : StyleSheet.hairlineWidth,
-                    borderTopColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : hexToRgba(palette.ink, 0.08),
+                    borderTopColor: isDark ? "rgba(255,255,255,0.08)" : hexToRgba(palette.ink, 0.08),
                   }}
                 >
                   <Text className="text-[14px] font-semibold text-ink">{item.title}</Text>
@@ -204,9 +190,7 @@ export default function PermissionsSettingsScreen() {
                             backgroundColor: active
                               ? hexToRgba(palette.accentLight, 0.16)
                               : hexToRgba(palette.ink, 0.06),
-                            borderColor: active
-                              ? hexToRgba(palette.accentLight, 0.32)
-                              : hexToRgba(palette.ink, 0.12),
+                            borderColor: active ? hexToRgba(palette.accentLight, 0.32) : hexToRgba(palette.ink, 0.12),
                           })}
                         >
                           <Text
