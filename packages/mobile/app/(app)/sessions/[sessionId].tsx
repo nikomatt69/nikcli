@@ -30,9 +30,17 @@ import { SessionActionsSheet } from "@/components/session/SessionActionsSheet";
 import { AttachmentPickerSheet } from "@/components/session/AttachmentPickerSheet";
 import { ModelPickerSheet } from "@/components/session/ModelPickerSheet";
 import { SessionComposer } from "@/components/session/SessionComposer";
-import { ComposerToolbar } from "@/components/session/ComposerToolbar";
-import { type ComposerTab } from "@/components/session/ComposerToolDrawer";
+import { JumpToLatestPill } from "@/components/session/JumpToLatestPill";
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet";
+import { PermissionModeSheet } from "@/components/session/PermissionModeSheet";
+import {
+  detectPermissionMode,
+  permissionModeTitle,
+  permissionPresetPatch,
+  toPermissionMap,
+  type PermissionMap,
+  type PermissionPreset,
+} from "@/lib/permission-presets";
 import { SessionTeleportSheet } from "@/components/session/SessionTeleportSheet";
 import { setTeleportTarget } from "@/lib/storage";
 import { setTerminalLaunchIntent } from "@/lib/terminal-launch";
@@ -82,7 +90,7 @@ import {
   getPendingAssistantMessageId,
   sessionIsProcessing,
 } from "@/lib/session-queue";
-import { useAppTheme } from "@/lib/theme";
+import { hexToRgba, useAppTheme } from "@/lib/theme";
 import {
   type CommandInfo,
   MOBILE_DEFAULT_MODEL_ID,
@@ -96,6 +104,12 @@ import {
   type SessionStreamEvent,
   type ToolState,
 } from "@/lib/types";
+
+const STARTER_PROMPTS = [
+  "Explain this codebase",
+  "What changed recently?",
+  "Fix the failing tests",
+];
 
 export type PendingAttachment = {
   id: string;
@@ -211,6 +225,7 @@ export default function SessionScreen() {
   const questionIDsRef = useRef<Set<string>>(new Set());
   const consumedLiveActionRef = useRef<string | null>(null);
   const followTranscriptRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
   const initialScrollDoneRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
   const sessionModelBootstrappedRef = useRef<string | null>(null);
@@ -223,6 +238,8 @@ export default function SessionScreen() {
   const [publishing, setPublishing] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(true);
+  const [unseenCount, setUnseenCount] = useState(0);
   const [offlineQueuedCount, setOfflineQueuedCount] = useState(0);
   const [diffs, setDiffs] = useState<Record<string, FileDiff[]>>({});
   const [diffLoading, setDiffLoading] = useState<Record<string, boolean>>({});
@@ -280,6 +297,9 @@ export default function SessionScreen() {
   const modelPickerRef = useActionSheetRef();
   const previewSheetRef = useActionSheetRef();
   const artifactViewerRef = useActionSheetRef();
+  const permissionSheetRef = useActionSheetRef();
+  const [permissionMap, setPermissionMap] = useState<PermissionMap>({});
+  const [permissionSaving, setPermissionSaving] = useState(false);
   const [selectedArtifact, setSelectedArtifact] =
     useState<SessionPreview | null>(null);
 
@@ -445,6 +465,9 @@ export default function SessionScreen() {
   useEffect(() => {
     followTranscriptRef.current = composerPreferences.autoFollowTranscript;
     initialScrollDoneRef.current = false;
+    prevMessageCountRef.current = 0;
+    setIsFollowing(composerPreferences.autoFollowTranscript);
+    setUnseenCount(0);
   }, [composerPreferences.autoFollowTranscript, sessionId]);
 
   useEffect(() => {
@@ -784,6 +807,48 @@ export default function SessionScreen() {
     modelPickerRef.current?.present();
     void triggerHaptic("selection");
   }, []);
+
+  const permissionMode = useMemo(
+    () => detectPermissionMode(permissionMap),
+    [permissionMap],
+  );
+
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    client
+      .getConfig()
+      .then((config) => {
+        if (!cancelled) setPermissionMap(toPermissionMap(config.permission));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
+  const applyPermissionPreset = useCallback(
+    async (preset: PermissionPreset) => {
+      if (!client || permissionSaving) return;
+      const before = permissionMap;
+      const patch = permissionPresetPatch(preset);
+      setPermissionMap({ ...toPermissionMap(before), ...patch });
+      try {
+        setPermissionSaving(true);
+        await client.updateConfig({ permission: patch } as Parameters<
+          typeof client.updateConfig
+        >[0]);
+        void triggerHaptic("success");
+        permissionSheetRef.current?.dismiss();
+      } catch (error) {
+        setPermissionMap(before);
+        setError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setPermissionSaving(false);
+      }
+    },
+    [client, permissionMap, permissionSaving],
+  );
   const slashInput = useMemo(() => parseSlashCommand(input), [input]);
   const slashSuggestions = useMemo(() => {
     if (!composerPreferences.slashSuggestions) return [];
@@ -1115,6 +1180,8 @@ export default function SessionScreen() {
 
   function scrollToBottom() {
     followTranscriptRef.current = true;
+    setIsFollowing(true);
+    setUnseenCount(0);
     listRef.current?.scrollToEnd({ animated: true });
   }
 
@@ -1151,8 +1218,21 @@ export default function SessionScreen() {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const distanceFromBottom =
       contentSize.height - (layoutMeasurement.height + contentOffset.y);
-    followTranscriptRef.current = distanceFromBottom < 96;
+    const following = distanceFromBottom < 96;
+    followTranscriptRef.current = following;
+    setIsFollowing(following);
+    if (following) setUnseenCount(0);
   }
+
+  // Count messages that arrive while the user is scrolled away from the
+  // bottom; the initial load (prev === 0) never counts as unseen.
+  useEffect(() => {
+    const prev = prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    if (prev !== 0 && messages.length > prev && !followTranscriptRef.current) {
+      setUnseenCount((count) => count + (messages.length - prev));
+    }
+  }, [messages.length]);
 
   const copyMessage = useCallback(async (message: MessageWithParts) => {
     const value = messagePlainText(message);
@@ -1686,12 +1766,15 @@ export default function SessionScreen() {
         FlashList v2 enables maintainVisibleContentPosition by default; it is disabled
         here to keep the existing manual scroll-to-latest logic authoritative.
       */}
+      <View style={{ flex: 1 }}>
       <FlashList
         ref={listRef}
         style={{ flex: 1 }}
         maintainVisibleContentPosition={{ disabled: true }}
         getItemType={(item) => item.info.role}
         contentInsetAdjustmentBehavior="automatic"
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         onLayout={() => {
           if (detail && !initialScrollDoneRef.current) {
             initialScrollDoneRef.current = true;
@@ -1741,7 +1824,6 @@ export default function SessionScreen() {
               sessionBlocked={sessionBlocked}
               cleaned={cleaned}
               cleaning={cleaning}
-              error={error}
               onPublish={openPublishModal}
               onAbort={() => void abort()}
               onCleanup={() => void cleanup()}
@@ -1767,8 +1849,41 @@ export default function SessionScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            title="No transcript yet"
-            description="Send the first instruction to start this execution timeline, stream tool activity, and capture approvals here."
+            title="No messages yet"
+            description="Tell the agent what to do — it will work in this session and report back here."
+            action={
+              <View style={{ gap: 8 }}>
+                {STARTER_PROMPTS.map((prompt) => (
+                  <Pressable
+                    key={prompt}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      void triggerHaptic("selection");
+                      setInput(prompt);
+                    }}
+                    style={({ pressed }) => ({
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: hexToRgba(palette.ink, 0.12),
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      alignItems: "center",
+                      backgroundColor: pressed
+                        ? hexToRgba(palette.ink, 0.06)
+                        : "transparent",
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <Text
+                      className="text-sm font-medium text-ink"
+                      numberOfLines={1}
+                    >
+                      {prompt}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            }
           />
         }
         contentContainerStyle={{
@@ -1778,32 +1893,23 @@ export default function SessionScreen() {
         }}
       />
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-        {detail?.info.github && (
+      <JumpToLatestPill
+        visible={!isFollowing && messages.length > 0}
+        count={unseenCount}
+        onPress={scrollToBottom}
+      />
+      </View>
+
+      {detail?.info.github ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
           <GitStatusBar
             gitState={gitState}
             loading={gitLoading}
             onPress={() => setGitReviewOpen(true)}
             onRefresh={() => void loadGitState()}
           />
-        )}
-      </View>
-
-      <ComposerToolbar
-        onAttach={() => setAttachmentPickerOpen(true)}
-        onGitPress={() => setGitReviewOpen(true)}
-        onModelSelect={handleModelSelect}
-        onMcpToggle={handleMcpToggle}
-        modelLabel={modelLabel}
-        activeModelKey={activeModelKey}
-        activeVariant={activeVariant}
-        availableModels={availableModels}
-        mcpServers={mcpServers}
-        skills={drawerSkills}
-        tools={drawerTools}
-        onSkillSelect={insertSlashCommand}
-        onToolSelect={insertSlashCommand}
-      />
+        </View>
+      ) : null}
 
       <ComposerApprovalBar
         approvals={[
@@ -1857,6 +1963,24 @@ export default function SessionScreen() {
         onOpenModelPicker={openModelPicker}
         onSkillSelect={insertSlashCommand}
         onMcpToggle={handleMcpToggle}
+        permissionModeLabel={permissionModeTitle(permissionMode)}
+        onOpenPermissions={() => {
+          permissionSheetRef.current?.present();
+        }}
+        error={error}
+        onDismissError={() => setError(null)}
+      />
+
+      <PermissionModeSheet
+        sheetRef={permissionSheetRef}
+        mode={permissionMode}
+        saving={permissionSaving}
+        onSelect={(preset) => void applyPermissionPreset(preset)}
+        onOpenDetailed={() =>
+          router.push(
+            "/more/settings/permissions" as Parameters<typeof router.push>[0],
+          )
+        }
       />
 
       <ModelPickerSheet
@@ -1902,8 +2026,7 @@ export default function SessionScreen() {
         sheetRef={actionsSheetRef}
         title={detail?.info.title ?? ""}
         onRename={() => {
-          actionsSheetRef.current?.dismiss();
-          setTimeout(() => setRenameOpen(true), 220);
+          actionsSheetRef.current?.dismiss(() => setRenameOpen(true));
         }}
         onExportMarkdown={() => {
           actionsSheetRef.current?.dismiss();
@@ -1924,8 +2047,7 @@ export default function SessionScreen() {
         compacting={compacting}
         compactDisabled={sessionBlocked || cleaned}
         onTeleport={() => {
-          actionsSheetRef.current?.dismiss();
-          setTimeout(() => setTeleportOpen(true), 220);
+          actionsSheetRef.current?.dismiss(() => setTeleportOpen(true));
         }}
         onOpenPreview={() => {
           previewSheetRef.current?.present();

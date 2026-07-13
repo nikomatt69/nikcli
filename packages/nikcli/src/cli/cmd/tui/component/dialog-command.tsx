@@ -79,7 +79,11 @@ function init() {
     if (suspended()) return
     if (dialog.stack.length > 0) return
     if (route.data.type === "changes") {
-      if (keybind.match("agent_cycle", evt) || keybind.match("agent_cycle_reverse", evt)) {
+      if (
+        keybind.match("agent_cycle", evt) ||
+        keybind.match("agent_cycle_reverse", evt) ||
+        keybind.match("permission_mode", evt)
+      ) {
         return
       }
     }

@@ -104,19 +104,82 @@ function PermissionApprovalView(props: {
   onRespond: (response: "once" | "always" | "reject") => void
 }) {
   const { isDark } = props
+  const permissionName = (props.request.permission || "Action")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+  const metadataCommand = props.request.metadata.command
+  const command =
+    typeof metadataCommand === "string" && metadataCommand.trim()
+      ? metadataCommand.trim()
+      : props.request.patterns.find((pattern) => pattern.trim())?.trim()
 
   return (
-    <View style={{ flex: 1, minWidth: 0 }}>
+    <View style={{ gap: 8 }}>
       <Text
-        numberOfLines={1}
+        selectable
+        numberOfLines={2}
         style={{
-          fontSize: 12,
+          fontSize: 11.5,
+          lineHeight: 16,
           fontWeight: "500",
-          color: isDark ? "rgba(255,255,255,0.82)" : "rgba(30,20,0,0.82)",
+          color: isDark ? "rgba(255,255,255,0.78)" : "#55534d",
         }}
       >
-        {props.request.permission}
+        {command ? `${permissionName} wants to run ` : `${permissionName} needs your approval`}
+        {command ? (
+          <Text
+            selectable
+            style={{
+              color: isDark ? "#ececea" : "#141413",
+              fontFamily: "monospace",
+              fontSize: 10.5,
+              fontWeight: "600",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.06)",
+            }}
+          >
+            {command}
+          </Text>
+        ) : null}
       </Text>
+
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Pressable
+          onPress={() => props.onRespond("reject")}
+          accessibilityRole="button"
+          accessibilityLabel={`Deny ${props.request.permission}`}
+          style={({ pressed }) => ({
+            flex: 1,
+            minHeight: 34,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(255,255,255,0.16)" : "#dad8d1",
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.60)",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.7 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+        >
+          <Text style={{ color: isDark ? "#8f8f8b" : "#75746e", fontSize: 11.5, fontWeight: "700" }}>Deny</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => props.onRespond("once")}
+          accessibilityRole="button"
+          accessibilityLabel={`Allow ${props.request.permission} once`}
+          style={({ pressed }) => ({
+            flex: 1,
+            minHeight: 34,
+            borderRadius: 999,
+            backgroundColor: isDark ? "#ececea" : "#141413",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.76 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+        >
+          <Text style={{ color: isDark ? "#141413" : "#f7f6f2", fontSize: 11.5, fontWeight: "700" }}>Allow once</Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
@@ -124,7 +187,7 @@ function PermissionApprovalView(props: {
 function QuestionApprovalView(props: {
   request: QuestionRequest
   isDark: boolean
-  selectedAnswers: number[]
+  selectedAnswers: number[][]
   onSelectAnswer: (questionIndex: number, optionIndex: number, toggle: boolean) => void
 }) {
   const { isDark, selectedAnswers, onSelectAnswer } = props
@@ -136,10 +199,7 @@ function QuestionApprovalView(props: {
   const isMultiple = question?.multiple === true
 
   // Get selected option index for current question
-  const currentSelected = selectedAnswers[currentQuestion] ?? -1
-
-  // Adjust selected index when switching questions
-  const effectiveSelected = currentQuestion < selectedAnswers.length ? selectedAnswers[currentQuestion] : -1
+  const effectiveSelected = selectedAnswers[currentQuestion] ?? []
 
   if (!question) return null
 
@@ -180,12 +240,14 @@ function QuestionApprovalView(props: {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ flexDirection: "column", gap: 10, paddingVertical: 10 }}
+        contentContainerStyle={{
+          flexDirection: "column",
+          gap: 10,
+          paddingVertical: 10,
+        }}
       >
         {options.map((option, optIdx) => {
-          const isSelected = isMultiple
-            ? false // For multiple, we just highlight on tap
-            : optIdx === effectiveSelected
+          const isSelected = effectiveSelected.includes(optIdx)
 
           return (
             <Pressable
@@ -265,7 +327,7 @@ function QuestionApprovalView(props: {
                 backgroundColor:
                   idx === currentQuestion
                     ? accentColor
-                    : idx < selectedAnswers.length && selectedAnswers[idx] >= 0
+                    : (selectedAnswers[idx]?.length ?? 0) > 0
                       ? isDark
                         ? "rgba(96,165,250,0.5)"
                         : "rgba(59,130,246,0.5)"
@@ -290,7 +352,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
   const opacityAnimRef = useRef<Animated.Value | null>(null)
   if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
   const opacityAnim = opacityAnimRef.current
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([])
+  const [selectedAnswers, setSelectedAnswers] = useState<number[][]>([])
 
   const count = props.approvals.length
   const current = props.approvals[Math.min(index, count - 1)]
@@ -338,7 +400,10 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
 
   if (!current) return null
 
-  const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] })
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-8, 0],
+  })
 
   function handlePermissionRespond(response: "once" | "always" | "reject") {
     void triggerHaptic(response === "reject" ? "error" : "success")
@@ -354,19 +419,13 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
     const isMultiple = question?.multiple === true
 
     setSelectedAnswers((prev) => {
-      const updated = [...prev]
-      updated[questionIndex] = optionIndex
-
-      // For single-select, also submit
-      if (!isMultiple) {
-        const answers = updated.map((optIdx, qIdx) => {
-          if (qIdx >= (current as QuestionRequest).questions.length) return []
-          const options = (current as QuestionRequest).questions[qIdx].options
-          return optIdx >= 0 && optIdx < options.length ? [options[optIdx].label] : []
-        })
-        props.onQuestionAnswer(current.id, answers)
-      }
-
+      const updated = prev.map((answer) => [...answer])
+      const currentSelection = updated[questionIndex] ?? []
+      updated[questionIndex] = isMultiple
+        ? currentSelection.includes(optionIndex)
+          ? currentSelection.filter((value) => value !== optionIndex)
+          : [...currentSelection, optionIndex]
+        : [optionIndex]
       return updated
     })
   }
@@ -375,11 +434,11 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
     if (currentType !== "question") return
 
     const questions = (current as QuestionRequest).questions
-    const answers = selectedAnswers.map((optIdx, qIdx) => {
-      if (qIdx >= questions.length) return []
-      const options = questions[qIdx].options
-      return optIdx >= 0 && optIdx < options.length ? [options[optIdx].label] : []
-    })
+    const answers = questions.map((question, questionIndex) =>
+      (selectedAnswers[questionIndex] ?? [])
+        .map((optionIndex) => question.options[optionIndex]?.label)
+        .filter((label): label is string => Boolean(label)),
+    )
     props.onQuestionAnswer(current.id, answers)
     setIndex((prev) => Math.max(0, Math.min(prev, count - 2)))
   }
@@ -400,14 +459,38 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
       }
     }
     return {
-      border: isDark ? "rgba(255,200,50,0.18)" : "rgba(192,110,46,0.22)",
-      background: isDark ? "rgba(40,30,10,0.92)" : "rgba(255,251,235,0.96)",
+      border: isDark ? "rgba(217,161,74,0.24)" : "rgba(192,110,46,0.28)",
+      background: isDark ? "rgba(217,161,74,0.07)" : "rgba(192,110,46,0.07)",
       tint: isDark ? "rgba(255,180,0,0.04)" : "rgba(192,110,46,0.04)",
     }
   }
 
   const barColors = getBarColors()
-  const label = currentType === "question" ? "Question" : "Approval required"
+
+  if (currentType === "permission") {
+    return (
+      <Animated.View style={{ opacity: opacityAnim, transform: [{ translateY }] }}>
+        <View
+          style={{
+            marginHorizontal: 14,
+            borderRadius: 16,
+            borderCurve: "continuous",
+            borderWidth: 1,
+            borderColor: barColors.border,
+            backgroundColor: barColors.background,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+          }}
+        >
+          <PermissionApprovalView
+            request={current as PermissionRequest}
+            isDark={isDark}
+            onRespond={handlePermissionRespond}
+          />
+        </View>
+      </Animated.View>
+    )
+  }
 
   return (
     <Animated.View
@@ -442,27 +525,15 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
           }}
         >
           {/* Icon */}
-          <ApprovalItemIcon
-            type={currentType!}
-            permission={currentType === "permission" ? (current as PermissionRequest).permission : undefined}
-            isDark={isDark}
-          />
+          <ApprovalItemIcon type="question" isDark={isDark} />
 
-          {/* Content based on type */}
-          {currentType === "permission" ? (
-            <PermissionApprovalView
-              request={current as PermissionRequest}
-              isDark={isDark}
-              onRespond={handlePermissionRespond}
-            />
-          ) : (
-            <QuestionApprovalView
-              request={current as QuestionRequest}
-              isDark={isDark}
-              selectedAnswers={selectedAnswers}
-              onSelectAnswer={handleQuestionSelectAnswer}
-            />
-          )}
+          <QuestionApprovalView
+            request={current as QuestionRequest}
+            key={current.id}
+            isDark={isDark}
+            selectedAnswers={selectedAnswers}
+            onSelectAnswer={handleQuestionSelectAnswer}
+          />
 
           {/* Navigation arrows (only when multiple) */}
           {count > 1 && (
@@ -513,97 +584,52 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
             }}
           />
 
-          {/* Action buttons based on type */}
-          {currentType === "permission" ? (
-            <View style={{ flexDirection: "row", gap: 16, flexShrink: 0 }}>
-              {/* Reject */}
-              <Pressable
-                onPress={() => handlePermissionRespond("reject")}
-                hitSlop={4}
-                style={({ pressed }) => ({
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(207,45,86,0.22)",
-                  backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(207,45,86,0.08)",
-                  padding: 7,
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.92 : 1 }],
-                })}
-              >
-                <X size={13} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
-              </Pressable>
+          <View style={{ flexDirection: "row", gap: 4, flexShrink: 0 }}>
+            {/* Dismiss question */}
+            <Pressable
+              onPress={handleQuestionReject}
+              hitSlop={4}
+              style={({ pressed }) => ({
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(207,45,86,0.22)",
+                backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(207,45,86,0.08)",
+                padding: 7,
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.92 : 1 }],
+              })}
+            >
+              <X size={13} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
+            </Pressable>
 
-              {/* Allow once */}
-              <Pressable
-                onPress={() => handlePermissionRespond("once")}
-                hitSlop={4}
-                style={({ pressed }) => ({
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.78)",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
-                  padding: 7,
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.92 : 1 }],
-                })}
-              >
-                <Check size={13} color={isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.55)"} strokeWidth={2.4} />
-              </Pressable>
-
-              {/* Always allow */}
-              <Pressable
-                onPress={() => handlePermissionRespond("always")}
-                hitSlop={4}
-                style={({ pressed }) => ({
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(52,211,153,0.28)" : "rgba(16,185,129,0.22)",
-                  backgroundColor: isDark ? "rgba(6,40,28,0.82)" : "rgba(16,185,129,0.08)",
-                  padding: 7,
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.92 : 1 }],
-                })}
-              >
-                <ShieldCheck size={13} color={isDark ? "#34d399" : "#059669"} strokeWidth={2.2} />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={{ flexDirection: "row", gap: 4, flexShrink: 0 }}>
-              {/* Dismiss question */}
-              <Pressable
-                onPress={handleQuestionReject}
-                hitSlop={4}
-                style={({ pressed }) => ({
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(207,45,86,0.22)",
-                  backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(207,45,86,0.08)",
-                  padding: 7,
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.92 : 1 }],
-                })}
-              >
-                <X size={13} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
-              </Pressable>
-
-              {/* Submit answer (only if single-select answered or for explicit submit) */}
-              <Pressable
-                onPress={handleQuestionSubmit}
-                hitSlop={4}
-                style={({ pressed }) => ({
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(96,165,250,0.30)" : "rgba(59,130,246,0.22)",
-                  backgroundColor: isDark ? "rgba(30,50,80,0.80)" : "rgba(59,130,246,0.08)",
-                  padding: 7,
-                  opacity: pressed ? 0.7 : 1,
-                  transform: [{ scale: pressed ? 0.92 : 1 }],
-                })}
-              >
-                <ArrowRight size={13} color={isDark ? "#60a5fa" : "#3b82f6"} strokeWidth={2.4} />
-              </Pressable>
-            </View>
-          )}
+            {/* Submit answer (only if single-select answered or for explicit submit) */}
+            <Pressable
+              onPress={handleQuestionSubmit}
+              disabled={(current as QuestionRequest).questions.some(
+                (_, questionIndex) => (selectedAnswers[questionIndex]?.length ?? 0) === 0,
+              )}
+              accessibilityRole="button"
+              accessibilityLabel="Submit answers"
+              hitSlop={4}
+              style={({ pressed }) => ({
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(96,165,250,0.30)" : "rgba(59,130,246,0.22)",
+                backgroundColor: isDark ? "rgba(30,50,80,0.80)" : "rgba(59,130,246,0.08)",
+                padding: 7,
+                opacity: (current as QuestionRequest).questions.some(
+                  (_, questionIndex) => (selectedAnswers[questionIndex]?.length ?? 0) === 0,
+                )
+                  ? 0.4
+                  : pressed
+                    ? 0.7
+                    : 1,
+                transform: [{ scale: pressed ? 0.92 : 1 }],
+              })}
+            >
+              <ArrowRight size={13} color={isDark ? "#60a5fa" : "#3b82f6"} strokeWidth={2.4} />
+            </Pressable>
+          </View>
         </View>
       </View>
     </Animated.View>

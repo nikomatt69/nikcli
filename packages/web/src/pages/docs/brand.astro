@@ -1,0 +1,203 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Wordmark variants", href: "#variants", depth: 2 },
+  { title: "Theme switching", href: "#theme", depth: 2 },
+  { title: "Where the assets live", href: "#locations", depth: 2 },
+  { title: "Usage in code", href: "#usage", depth: 2 },
+  { title: "Do and don't", href: "#guidelines", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Brand assets"
+  subtitle="The nikcli wordmark variants, how they're themed across surfaces, and where the assets live in each package."
+  description="Reference for nikcli wordmark files, theme variants, asset locations, and usage guidelines."
+  toc={toc}
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      nikcli ships three pixel wordmark variants, all derived from a single master
+      (<code>packages/mobile/assets/wordmark.png</code>). The web package, the mobile app, and the
+      Studio / dashboard reuse the same files so the brand stays consistent across surfaces.
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="Light letters" eyebrow="dark backgrounds">
+        <p><code>wordmark-dark.png</code> — pale grey letters, transparent background. Use on dark or photographic surfaces.</p>
+      </DocCard>
+      <DocCard title="Dark letters" eyebrow="light backgrounds">
+        <p><code>wordmark-light.png</code> — ink grey letters, transparent background. Use on light surfaces.</p>
+      </DocCard>
+      <DocCard title="Master file" eyebrow="default">
+        <p><code>wordmark.png</code> — original source asset, identical to <code>wordmark-dark.png</code>. Kept for archival and export pipelines.</p>
+      </DocCard>
+    </div>
+    <DocCallout type="info" title="Single source of truth">
+      <p>
+        All variants live in <code>packages/mobile/assets/</code>. The web package copies them into
+        <code>public/brand/</code> at build time so the docs site can serve them statically without
+        depending on the mobile package at build.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="variants" class="doc-section">
+    <h2>Wordmark variants</h2>
+    <table class="doc-table">
+      <thead><tr><th>File</th><th>Letter color</th><th>Background</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td><code>wordmark-dark.png</code></td><td>Pale grey, ~70% luminance</td><td>Transparent</td><td>Dark theme, photographic backgrounds, terminal chrome on macOS.</td></tr>
+        <tr><td><code>wordmark-light.png</code></td><td>Ink grey, ~30% luminance</td><td>Transparent</td><td>Light theme, paper-like backgrounds, print material.</td></tr>
+        <tr><td><code>wordmark.png</code></td><td>Pale grey, ~70% luminance</td><td>Transparent</td><td>Master / archival — same content as <code>wordmark-dark.png</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      All three PNGs share the same dimensions: <code>632 × 206</code> pixels at native scale,
+      RGBA, non-interlaced. The intrinsic aspect ratio (<code>≈ 3.07:1</code>) lets us compute
+      width from a chosen height with <code>width = height × (632 / 206)</code>.
+    </p>
+  </section>
+
+  <section id="theme" class="doc-section">
+    <h2>Theme switching</h2>
+    <p>
+      Every consumer switches the wordmark variant using the same pattern: render one image for
+      the light theme, one for the dark theme, and toggle visibility through CSS.
+    </p>
+    <h3>Web (Tailwind / Astro)</h3>
+    <p>
+      Tailwind's dark mode is configured with the <code>[data-theme="dark"]</code> selector in
+      <code>tailwind.config.mjs</code>. Two images are emitted, only one is visible at a time:
+    </p>
+    <DocCode language="html">
+&lt;img src="/brand/wordmark-light.png" class="h-8 w-auto dark:hidden" /&gt;
+&lt;img src="/brand/wordmark-dark.png"  class="h-8 w-auto hidden dark:block" /&gt;
+    </DocCode>
+    <p>
+      The navbar, footer, and the dashboard connect screen all use this pattern.
+    </p>
+    <h3>Mobile (React Native)</h3>
+    <p>
+      <code>components/layout/BrandMark.tsx</code> consumes the same files through
+      <code>useAppTheme()</code> and chooses the variant at render time:
+    </p>
+    <DocCode language="tsx">
+import &#123; Image &#125; from "react-native"
+import &#123; useAppTheme &#125; from "@/lib/theme"
+
+const WORDMARK_DARK = require("@/assets/wordmark-dark.png")
+const WORDMARK_LIGHT = require("@/assets/wordmark-light.png")
+
+export function BrandMark(&#123; height = 18 &#125;: &#123; height?: number &#125;) &#123;
+  const &#123; isDark &#125; = useAppTheme()
+  const width = Math.round(height * (632 / 206))
+  return (
+    &lt;Image
+      source=&#123;isDark ? WORDMARK_DARK : WORDMARK_LIGHT&#125;
+      style=&#123;&#123; width, height &#125;&#125;
+      resizeMode="contain"
+      accessibilityLabel="NIKCLI"
+    /&gt;
+  )
+&#125;
+    </DocCode>
+    <p>
+      <code>ScreenBrandHeader</code> wraps the brand mark in a screen-aware container used by the
+      Sessions, Repos, and More tabs.
+    </p>
+  </section>
+
+  <section id="locations" class="doc-section">
+    <h2>Where the assets live</h2>
+    <table class="doc-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>packages/mobile/assets/wordmark.png</code></td><td>Master / archival source. Mobile app icons and splash derive from it.</td></tr>
+        <tr><td><code>packages/mobile/assets/wordmark-dark.png</code></td><td>Used by the mobile app for dark themes and by the web package's navbar / footer.</td></tr>
+        <tr><td><code>packages/mobile/assets/wordmark-light.png</code></td><td>Used by the mobile app for light themes and by the web package's navbar / footer.</td></tr>
+        <tr><td><code>packages/web/public/brand/wordmark.png</code></td><td>Mirrored copy of the master, served as a static asset.</td></tr>
+        <tr><td><code>packages/web/public/brand/wordmark-dark.png</code></td><td>Served by the docs navbar, footer, and dashboard connect screen.</td></tr>
+        <tr><td><code>packages/web/public/brand/wordmark-light.png</code></td><td>Served by the docs navbar, footer, and dashboard connect screen.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="Don't re-export from another package">
+      <p>
+        Don't <code>import</code> the wordmark directly from <code>packages/mobile</code> into
+        <code>packages/web</code>. Astro / Vite would need to bundle a React Native module just to
+        load a PNG. The web package copies the PNGs into <code>public/brand/</code> and serves
+        them as plain static files.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="usage" class="doc-section">
+    <h2>Usage in code</h2>
+    <h3>Navbar (web)</h3>
+    <p>
+      The docs navbar uses a single wordmark link, no icon plate. Both variants are rendered and
+      swapped by Tailwind's <code>dark:</code> selector:
+    </p>
+    <DocCode language="html">
+&lt;a href="/" class="group flex items-center shrink-0" aria-label="nikcli home"&gt;
+  &lt;img src="/brand/wordmark-light.png" alt="nikcli" width="158" height="52"
+       loading="eager" decoding="async" class="h-8 w-auto dark:hidden" /&gt;
+  &lt;img src="/brand/wordmark-dark.png"  alt="nikcli" width="158" height="52"
+       loading="eager" decoding="async" class="h-8 w-auto hidden dark:block" /&gt;
+&lt;/a&gt;
+    </DocCode>
+    <p>
+      <code>loading="eager"</code> and the explicit <code>width</code>/<code>height</code>
+      attributes keep the brand from shifting the layout while the rest of the page streams.
+    </p>
+    <h3>Footer</h3>
+    <p>
+      Footer wordmarks are smaller (height 20 px instead of 32 px) to match the typographic scale
+      of the copyright line. The same two-image swap is used.
+    </p>
+    <h3>Dashboard connect screen</h3>
+    <p>
+      <code>packages/web/src/dashboard/components/DashboardShell.tsx</code> uses the wordmark at
+      <code>h-10</code> (40 px) so the brand reads clearly above the connect form. The screen
+      renders both variants and lets <code>dark:</code> choose.
+    </p>
+  </section>
+
+  <section id="guidelines" class="doc-section">
+    <h2>Do and don't</h2>
+    <table class="doc-table">
+      <thead><tr><th>Do</th><th>Don't</th></tr></thead>
+      <tbody>
+        <tr><td>Use the dark-letter variant on light backgrounds and vice versa.</td><td>Tint, recolor, or apply opacity to the wordmark on top of busy backgrounds.</td></tr>
+        <tr><td>Preserve the 632 × 206 aspect ratio.</td><td>Stretch, skew, or rotate the wordmark.</td></tr>
+        <tr><td>Pair the wordmark with quiet, single-tone UI chrome.</td><td>Place the wordmark on top of saturated color, gradients, or photographs without a tonal check.</td></tr>
+        <tr><td>Reuse <code>BrandMark</code> on mobile or the navbar / footer pattern on web.</td><td>Hand-rasterize the wordmark from scratch per surface.</td></tr>
+        <tr><td>Reference <code>wordmark.png</code> only for archival / export pipelines.</td><td>Reference <code>wordmark.png</code> from a runtime surface — pick the themed variant instead.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Source wordmarks</td><td><code>packages/mobile/assets/wordmark*.png</code></td></tr>
+        <tr><td>Web static copies</td><td><code>packages/web/public/brand/wordmark*.png</code></td></tr>
+        <tr><td>Web navbar</td><td><code>packages/web/src/components/Navbar.astro</code></td></tr>
+        <tr><td>Web footer (marketing)</td><td><code>packages/web/src/layouts/Layout.astro</code></td></tr>
+        <tr><td>Web footer (docs)</td><td><code>packages/web/src/layouts/DocsLayout.astro</code></td></tr>
+        <tr><td>Dashboard connect</td><td><code>packages/web/src/dashboard/components/DashboardShell.tsx</code></td></tr>
+        <tr><td>Mobile brand mark</td><td><code>packages/mobile/components/layout/BrandMark.tsx</code></td></tr>
+        <tr><td>Mobile screen header</td><td><code>packages/mobile/components/layout/ScreenBrandHeader.tsx</code></td></tr>
+        <tr><td>Mobile theme hook</td><td><code>packages/mobile/lib/theme.tsx</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

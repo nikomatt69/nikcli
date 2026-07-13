@@ -2,7 +2,6 @@ import { Linking, Text, View } from "react-native"
 import { GitPullRequest } from "lucide-react-native"
 import { relativeTime, type SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
-import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
@@ -12,7 +11,6 @@ type SessionSummaryCardProps = {
   sessionBlocked: boolean
   cleaned: boolean
   cleaning: boolean
-  error?: string | null
   onPublish(): void
   onAbort(): void
   onCleanup(): void
@@ -85,7 +83,6 @@ export function SessionSummaryCard({
   sessionBlocked,
   cleaned,
   cleaning,
-  error,
   onPublish,
   onAbort,
   onCleanup,
@@ -241,12 +238,6 @@ export function SessionSummaryCard({
           </View>
         </View>
       </SurfaceCard>
-
-      {error ? (
-        <View className="mt-4">
-          <ErrorBanner message={error} />
-        </View>
-      ) : null}
     </View>
   )
 }

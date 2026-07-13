@@ -6,18 +6,26 @@ import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
+  { title: "App preview", href: "#preview", depth: 2 },
+  { title: "Brand wordmark", href: "#brand", depth: 2 },
   { title: "Host setup", href: "#host-setup", depth: 2 },
+  { title: "Pair from the TUI", href: "#pair-tui", depth: 2 },
+  { title: "Deploy as a server", href: "#deploy", depth: 2 },
   { title: "Connect the app", href: "#connect", depth: 2 },
   { title: "Deep link & QR", href: "#deep-link", depth: 2 },
+  { title: "Pairing commands", href: "#pairing-commands", depth: 3 },
   { title: "Login & accounts", href: "#login", depth: 2 },
   { title: "Sessions list", href: "#sessions", depth: 2 },
+  { title: "Workspace switcher", href: "#workspace-switcher", depth: 2 },
   { title: "Chat & composer", href: "#chat", depth: 2 },
   { title: "Tool calls", href: "#tool-calls", depth: 2 },
   { title: "Approvals & permissions", href: "#approvals", depth: 2 },
   { title: "Files & diffs", href: "#files-diffs", depth: 2 },
+  { title: "Session artifacts", href: "#artifacts", depth: 2 },
   { title: "Repos & GitHub", href: "#repos", depth: 2 },
   { title: "Routines", href: "#routines", depth: 2 },
   { title: "Loops", href: "#loops", depth: 2 },
+  { title: "Teleport", href: "#teleport", depth: 2 },
   { title: "Terminal", href: "#terminal", depth: 2 },
   { title: "Settings", href: "#settings", depth: 2 },
   { title: "Profile & account", href: "#profile", depth: 2 },
@@ -53,12 +61,342 @@ const toc = [
     </div>
   </section>
 
+  <section id="preview" class="doc-section">
+    <h2>App preview</h2>
+    <p>
+      The Expo app is built for one-handed control of a running nikcli host. Pair it over a QR code,
+      then drive sessions, terminals, repos, routines, loops, and settings from the same surface you
+      already use to check your messages.
+    </p>
+
+    <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
+    <div class="appstore-hero not-prose">
+      <div class="appstore-hero__copy">
+        <span class="appstore-eyebrow">iOS · Android · Expo</span>
+        <h3 class="appstore-hero__title">Run nikcli from anywhere.</h3>
+        <p class="appstore-hero__lede">
+          One app, six tabs, every surface of your host in your pocket. Pair once over
+          <code>nikcli://</code>, then stream sessions, approve tool calls, browse your worktrees,
+          and ship a pull request without opening a laptop.
+        </p>
+        <ul class="appstore-hero__chips">
+          <li>Live SSE streaming</li>
+          <li>Plan / Code modes</li>
+          <li>Multi-tab PTY</li>
+          <li>Offline queue</li>
+        </ul>
+      </div>
+      <div class="appstore-hero__device">
+        <div class="appstore-phone-frame">
+          <img
+            src="/brand/IMG_2818.PNG"
+            alt="Sessions list — landing screen"
+            width="1179"
+            height="2556"
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+        <div class="appstore-hero__glow" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <!-- ─── Alternating feature rows ────────────────────────────────────── -->
+    <div class="appstore-features not-prose">
+      <article class="appstore-feature">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2824.PNG" alt="Chat & composer inside a session" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Chat & composer</span>
+          <h4>Stream agent output, on the go.</h4>
+          <p>
+            A scrollable transcript above a fixed composer with attach, command palette, Git review,
+            and tool drawer shortcuts. Toggle <strong>Plan</strong> to think before acting, or
+            <strong>Code</strong> to send as-is. Slash commands surface inline with skill / MCP / arg
+            badges.
+          </p>
+          <p>
+            Replies stream over SSE with reasoning, text, tool cards, and — when present — a
+            per-message cost and token count.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature appstore-feature--reverse">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2819.PNG" alt="Workspaces tab with sandboxes and repos" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Workspaces & repos</span>
+          <h4>One portfolio for every worktree.</h4>
+          <p>
+            The Workspaces tab merges <em>server worktrees</em> and <em>GitHub repos</em> in one view,
+            with a summary card showing live counts, the active worktree, the execution target, and
+            your GitHub login.
+          </p>
+          <p>
+            Provision a fresh isolated sandbox, import a repo with one tap, or walk through a guided
+            3-step launch (repo → branch → session) without leaving the app.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2826.PNG" alt="Repository tree file explorer" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Files & diffs</span>
+          <h4>Browse, search, and open files.</h4>
+          <p>
+            The <strong>Repository tree</strong> shows every folder under the active worktree with git
+            status markers (A / M / D), a fuzzy filename filter, ripgrep-backed workspace search, and
+            stat chips for files, dirs, open, and changed.
+          </p>
+          <p>
+            Tapping a file opens the in-app editor with syntax highlighting, find-in-file, copy,
+            and a View/Edit toggle — large files over ~5,000 lines open read-only.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature appstore-feature--reverse">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2827.PNG" alt="In-app code editor with syntax highlighting" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Editor</span>
+          <h4>A real editor, in your pocket.</h4>
+          <p>
+            Syntax-tinted code, line numbers, breadcrumbs, and a TYPESCRIPT chip with live line and
+            character counts. Edits stay local until you tap <strong>Save</strong>, which writes the
+            file back to the host; leaving with unsaved changes prompts Save, Discard, or Cancel.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2823.PNG" alt="Appearance and theme picker" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Themes & preferences</span>
+          <h4>Make it yours.</h4>
+          <p>
+            100+ named color themes (Nikcli default, Nord, Dracula, Tokyo Night, Catppuccin,
+            Gruvbox, Solarized, GitHub, One Dark, Kanagawa, Rose Pine…). System / Light / Dark
+            mode and the theme apply instantly and persist on the device.
+          </p>
+          <p>
+            Toggle which Settings sections stay visible — Profile, Interaction, Commands, Memories,
+            Models, GitHub, MCP, Connectors, Skills, Agents, Tokens, Plugins, Advanced — and switch
+            them per device.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature appstore-feature--reverse">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2822.PNG" alt="Settings control plane" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Settings</span>
+          <h4>One control plane for everything.</h4>
+          <p>
+            Providers, connectors, MCP servers, skills, agents, slash commands, memories, mobile
+            tokens, plugins, connection, execution target, Git identity, and teleport defaults —
+            all under one scrolling control plane.
+          </p>
+          <p>
+            Provider and model defaults flow through the host catalog; the app caches the catalog so
+            the composer preselects the right model even before the network round-trip completes.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2820.PNG" alt="Routines tab empty state" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Routines</span>
+          <h4>Schedule the boring work.</h4>
+          <p>
+            Saved prompts that run as sessions — on a cron schedule, via an HTTP webhook, or on
+            demand. Each routine has a status chip, a trigger summary, the last-run time, and
+            <strong>Run now</strong> / <strong>Edit</strong> buttons right from the list.
+          </p>
+          <p>
+            The API trigger endpoint is assigned by the host at create time, so external systems can
+            fire a routine with no bearer token.
+          </p>
+        </div>
+      </article>
+
+      <article class="appstore-feature appstore-feature--reverse">
+        <div class="appstore-feature__device">
+          <div class="appstore-phone-frame appstore-phone-frame--sm">
+            <img src="/brand/IMG_2821.PNG" alt="Loops tab empty state" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+        </div>
+        <div class="appstore-feature__copy">
+          <span class="appstore-eyebrow appstore-eyebrow--accent">Loops</span>
+          <h4>Compose multi-stage workflows.</h4>
+          <p>
+            A loop is a named, persisted workflow that runs an ordered list of stages, each driven
+            by a single <code>goal</code> command. Loops keep running when the app is closed; the
+            engine lives in the host process.
+          </p>
+          <p>
+            The list view mirrors status, schedule, stage chain, and last run; the detail editor
+            handles per-stage agent / model / token budget and an interval or manual schedule.
+          </p>
+        </div>
+      </article>
+    </div>
+
+    <!-- ─── Carousel: all 9 screens ─────────────────────────────────────── -->
+    <div class="appstore-carousel-wrap not-prose">
+      <div class="appstore-carousel-head">
+        <div>
+          <h3 class="appstore-carousel-title">All screens</h3>
+          <p class="appstore-carousel-sub">Every surface of the mobile app, in one swipeable strip.</p>
+        </div>
+        <div class="appstore-carousel-nav" aria-label="Carousel navigation">
+          <button type="button" class="appstore-carousel-btn" data-carousel-prev aria-label="Previous screen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button type="button" class="appstore-carousel-btn" data-carousel-next aria-label="Next screen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="appstore-carousel" data-carousel>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2818.PNG" alt="Sessions list — landing screen" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">01</span>
+            <span class="appstore-card__name">Sessions</span>
+            <span class="appstore-card__hint">Landing · list · create</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2824.PNG" alt="Chat & composer inside a session" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">02</span>
+            <span class="appstore-card__name">Chat & composer</span>
+            <span class="appstore-card__hint">Plan / Code · streaming · tools</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2819.PNG" alt="Workspaces tab with sandboxes and repos" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">03</span>
+            <span class="appstore-card__name">Workspaces</span>
+            <span class="appstore-card__hint">Sandboxes · repos · branches</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2826.PNG" alt="Repository tree file explorer" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">04</span>
+            <span class="appstore-card__name">File explorer</span>
+            <span class="appstore-card__hint">Search · status · open</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2827.PNG" alt="In-app code editor with syntax highlighting" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">05</span>
+            <span class="appstore-card__name">Editor</span>
+            <span class="appstore-card__hint">Syntax · find · save</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2822.PNG" alt="Settings control plane" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">06</span>
+            <span class="appstore-card__name">Settings</span>
+            <span class="appstore-card__hint">Providers · MCP · tokens</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2823.PNG" alt="Appearance and theme picker" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">07</span>
+            <span class="appstore-card__name">Appearance</span>
+            <span class="appstore-card__hint">Themes · mode · visibility</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2820.PNG" alt="Routines tab" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">08</span>
+            <span class="appstore-card__name">Routines</span>
+            <span class="appstore-card__hint">Cron · webhook · run now</span>
+          </figcaption>
+        </figure>
+        <figure class="appstore-card">
+          <div class="appstore-card__shot">
+            <img src="/brand/IMG_2821.PNG" alt="Loops tab" width="1179" height="2556" loading="lazy" decoding="async" />
+          </div>
+          <figcaption>
+            <span class="appstore-card__step">09</span>
+            <span class="appstore-card__name">Loops</span>
+            <span class="appstore-card__hint">Stages · intervals · history</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
   <section id="host-setup" class="doc-section">
     <h2>Host setup</h2>
     <p>
       The app connects to a host process exposing the mobile API. Two commands cover the common
-      cases. The server binds to <code>0.0.0.0</code> by default.
+      cases. The server binds to <code>0.0.0.0</code> by default. For a full cloud / Docker
+      deployment guide see <a href="#deploy">Deploy as a server</a>.
     </p>
+    <DocCallout type="info" title="Pairing from inside the TUI">
+      <p>
+        You can pair the phone without touching a terminal. Inside the interactive TUI run
+        <code>/mobile</code> (alias <code>/link</code>) to open the <strong>Connect Nikcli
+        Mobile</strong> dialog — it handles local LAN pairing, cloud-server pairing, and
+        session teleport from one menu. See <a href="#pair-tui">Pair from the TUI</a> for the
+        full walkthrough.
+      </p>
+    </DocCallout>
     <h3>Start and pair in one step</h3>
     <p>Use this to start the host and immediately print a pairing token + QR code.</p>
     <DocCode language="bash">
@@ -110,6 +448,228 @@ nikcli mobile token revoke &lt;id&gt;     # revoke a token by ID
         Public or LAN-facing hosting requires <code>NIKCLI_SERVER_PASSWORD</code> to be set. The
         server refuses to start with a non-loopback address or <code>--public-url</code> unless this
         variable is present (or Tailscale auth is active).
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="deploy" class="doc-section">
+    <h2>Deploy as a server</h2>
+    <p>
+      For phone access outside your LAN you need a publicly reachable HTTPS endpoint running
+      <code>nikcli mobile serve</code>. The repository ships two Dockerfiles that build a
+      production-ready image; you can run it on any container host — a VPS, Fly.io, Render,
+      Google Cloud Run, Kubernetes, or Railway.
+    </p>
+
+    <h3>Docker images</h3>
+    <table class="doc-table">
+      <thead><tr><th>File</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>Dockerfile.serve</code></td>
+          <td>
+            <strong>Recommended.</strong> Multi-stage build with arm64/x64 support, a startup
+            healthcheck, Linuxbrew for agent workflows, and the shared
+            <code>railway-entrypoint.sh</code> entrypoint.
+          </td>
+        </tr>
+        <tr>
+          <td><code>Dockerfile</code></td>
+          <td>
+            Simpler single-stage image with the same mobile-host default command. Useful for quick
+            local experiments; production deploys should prefer <code>Dockerfile.serve</code>.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Both images compile the <code>nikcli</code> binary inside the container, expose port
+      <code>4096</code> for the mobile API and <code>2222</code> for optional SSH, and default to:
+    </p>
+    <DocCode language="bash">
+nikcli mobile serve --hostname 0.0.0.0 --port 4096
+    </DocCode>
+    <p>
+      Persistent state (sessions, config, cache) is written under <code>/data</code> via
+      <code>XDG_DATA_HOME</code>, <code>XDG_CONFIG_HOME</code>, <code>XDG_CACHE_HOME</code>, and
+      <code>XDG_STATE_HOME</code>. Mount a volume at <code>/data</code> so restarts and redeploys
+      keep your data.
+    </p>
+
+    <h3>Build and run locally</h3>
+    <DocCode language="bash">
+# From the repository root
+docker build -f Dockerfile.serve -t nikcli-mobile .
+
+docker run -d \
+  --name nikcli-mobile \
+  -p 4096:4096 \
+  -v nikcli-data:/data \
+  -e NIKCLI_SERVER_PASSWORD='choose-a-strong-password' \
+  -e PORT=4096 \
+  nikcli-mobile \
+  nikcli mobile serve \
+    --hostname 0.0.0.0 \
+    --port 4096 \
+    --public-url https://your-host.example.com \
+    --pair --pair-name iphone --pair-expiry-days 90
+    </DocCode>
+    <p>
+      Replace <code>https://your-host.example.com</code> with the HTTPS URL your phone can reach.
+      <code>--public-url</code> is required for QR pairing from outside the container network.
+      The <code>--pair</code> flags print a bearer token and QR code in the container logs on first
+      start — copy them before the process restarts without <code>--pair</code>.
+    </p>
+    <DocCallout type="info" title="Pair after deploy">
+      <p>
+        If the container is already running, mint a new token with
+        <code>nikcli mobile pair --public-url https://your-host.example.com</code> on the host
+        (or <code>docker exec</code> into the container) instead of restarting with
+        <code>--pair</code>.
+      </p>
+    </DocCallout>
+
+    <h3>Required environment variables</h3>
+    <table class="doc-table">
+      <thead><tr><th>Variable</th><th>Required</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>NIKCLI_SERVER_PASSWORD</code></td>
+          <td>Yes (public)</td>
+          <td>
+            HTTP basic-auth password for every API request. The server refuses to bind publicly
+            without it (unless Tailscale auth is active).
+          </td>
+        </tr>
+        <tr>
+          <td><code>NIKCLI_SERVER_USERNAME</code></td>
+          <td>No</td>
+          <td>Basic-auth username. Defaults to <code>nikcli</code>.</td>
+        </tr>
+        <tr>
+          <td><code>PORT</code></td>
+          <td>No</td>
+          <td>HTTP listen port inside the container. Defaults to <code>4096</code>.</td>
+        </tr>
+        <tr>
+          <td><code>NIKCLI_SERVER_CORS_ORIGINS</code></td>
+          <td>No</td>
+          <td>
+            Comma-separated extra origins allowed for browser clients (e.g. your web app domain).
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Optional: restore auth and connectors</h3>
+    <p>
+      The entrypoint (<code>packages/nikcli/scripts/railway-entrypoint.sh</code>) can hydrate
+      provider keys and connector credentials from base64-encoded JSON before the server starts:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Variable</th><th>Writes to</th></tr></thead>
+      <tbody>
+        <tr><td><code>NIKCLI_AUTH_JSON</code></td><td><code>/data/nikcli/auth.json</code> (provider API keys)</td></tr>
+        <tr><td><code>NIKCLI_CONNECTORS_AUTH_JSON</code></td><td><code>/data/nikcli/connectors-auth.json</code> (Slack, GitHub, etc.)</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Encode with <code>base64 -w0 auth.json</code> (Linux) or <code>base64 -i auth.json</code>
+      (macOS) and set the result as the environment variable. With a <code>/data</code> volume these
+      files persist across redeploys even without the env vars.
+    </p>
+
+    <h3>Optional: SSH into the container</h3>
+    <p>
+      Both Dockerfiles enable an OpenSSH server on port <code>2222</code> when you provide an
+      authorized key:
+    </p>
+    <DocCode language="bash">
+# Plain text (one or more keys, newline-separated)
+NIKCLI_SSH_AUTHORIZED_KEYS="ssh-ed25519 AAAA... you@laptop"
+
+# Or base64-encoded authorized_keys file
+NIKCLI_SSH_AUTHORIZED_KEYS_B64="c3NoLWVkMjU1MTkgQUFBQS4uLg=="
+    </DocCode>
+    <p>
+      Map port <code>2222</code> if your platform exposes TCP services (Railway TCP proxy, Fly
+      <code>[[services.ports]]</code>, etc.). SSH is key-only — password login is disabled.
+    </p>
+
+    <h3>Deploy on any container platform</h3>
+    <p>The same image works everywhere. The checklist is always:</p>
+    <ol>
+      <li>Build from <code>Dockerfile.serve</code> (or push to a registry your platform pulls from).</li>
+      <li>Expose port <code>4096</code> (or set <code>PORT</code> to match your platform's injected port).</li>
+      <li>Mount persistent storage at <code>/data</code>.</li>
+      <li>Set <code>NIKCLI_SERVER_PASSWORD</code> (and provider keys via env or volume).</li>
+      <li>Terminate TLS at the platform edge so the public URL is <code>https://…</code>.</li>
+      <li>Start with <code>--public-url https://your-domain</code> and pair the phone.</li>
+    </ol>
+    <p>Examples for common hosts:</p>
+    <table class="doc-table">
+      <thead><tr><th>Platform</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>VPS / bare metal</strong></td>
+          <td>
+            <code>docker run</code> as above, or run the binary directly with systemd. Put Caddy or
+            nginx in front for HTTPS.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Fly.io</strong></td>
+          <td>
+            <code>fly launch</code> with <code>dockerfile = "Dockerfile.serve"</code>, attach a
+            volume at <code>/data</code>, set secrets for <code>NIKCLI_SERVER_PASSWORD</code>.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Render / Railway / similar</strong></td>
+          <td>
+            Point the service at <code>Dockerfile.serve</code>, add a disk/volume on
+            <code>/data</code>, configure env vars in the dashboard.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Kubernetes</strong></td>
+          <td>
+            Deployment + Service on port 4096, PVC mounted at <code>/data</code>, Ingress for HTTPS.
+            Override <code>CMD</code> to pass <code>--public-url</code>.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Example: Railway</h3>
+    <p>
+      The repo includes a convenience script and config for Railway, but the same Dockerfile.serve
+      image is not Railway-specific — it is just one way to publish it.
+    </p>
+    <ul>
+      <li><code>railway.toml</code> — sets <code>dockerfilePath = "Dockerfile.serve"</code> and mounts <code>/data</code>.</li>
+      <li><code>script/railway-deploy.sh</code> — builds a minimal upload context (~10 MB), syncs only the packages needed to compile nikcli, and runs <code>railway up</code>.</li>
+    </ul>
+    <DocCode language="bash">
+# One-time: link the project (railway link)
+export NIKCLI_SERVER_PASSWORD='choose-a-strong-password'
+export RAILWAY_SERVICE=nikcli-mobile   # override if your service name differs
+
+./script/railway-deploy.sh          # deploy and stream logs
+./script/railway-deploy.sh --detach # trigger deploy in background
+    </DocCode>
+    <p>
+      Railway injects <code>RAILWAY_PUBLIC_DOMAIN</code>; the default container command uses it for
+      <code>--public-url</code> and auto-pairs on boot. Set
+      <code>NIKCLI_SERVER_PASSWORD</code> in the Railway dashboard before the first deploy. For SSH,
+      add a TCP proxy targeting port <code>2222</code> and set
+      <code>NIKCLI_SSH_AUTHORIZED_KEYS</code>.
+    </p>
+    <DocCallout type="warn" title="HTTPS is mandatory for mobile">
+      <p>
+        The Expo app expects a stable <code>https://</code> base URL. Self-signed certificates and
+        plain HTTP work only on local development builds — production pairing should always go
+        through a trusted TLS terminator.
       </p>
     </DocCallout>
   </section>
@@ -189,6 +749,28 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
     </DocCallout>
   </section>
 
+  <section id="brand" class="doc-section">
+    <h2>Brand wordmark</h2>
+    <p>
+      The mobile app renders the same nikcli pixel wordmark as the docs site and the dashboard
+      connect screen. <code>components/layout/BrandMark.tsx</code> consumes
+      <code>wordmark-dark.png</code> and <code>wordmark-light.png</code> from
+      <code>assets/</code> and picks the right variant through <code>useAppTheme()</code>.
+    </p>
+    <p>
+      <code>components/layout/ScreenBrandHeader.tsx</code> wraps the wordmark in a screen-aware
+      header used by the Sessions, Repos, and More tabs. Width is derived from the requested
+      height so the image never stretches or squashes.
+    </p>
+    <DocCallout type="info" title="See also">
+      <p>
+        Read the full asset and theme guide in the <a href="/docs/brand">brand assets</a>
+        reference — it documents where the source files live, why we keep three PNGs, and how
+        the theme switch is implemented across surfaces.
+      </p>
+    </DocCallout>
+  </section>
+
   <section id="sessions" class="doc-section">
     <h2>Sessions list</h2>
     <p>
@@ -203,6 +785,29 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
       <li><strong>Actions</strong> — long-press or the overflow button opens a sheet: Open, Abort (when busy), or Delete (optimistic, re-fetches on error).</li>
       <li><strong>Pull-to-refresh</strong> reloads the list.</li>
     </ul>
+  </section>
+
+  <section id="workspace-switcher" class="doc-section">
+    <h2>Workspace switcher</h2>
+    <p>
+      <code>components/session/WorkspaceSwitcherSheet.tsx</code> is the bottom sheet opened from
+      the session header. It lists every workspace the host knows about, lets you pick one, and
+      forwards the selection as <code>x-nikcli-directory</code> so subsequent calls land in the
+      right project.
+    </p>
+    <ul>
+      <li><strong>Active highlight</strong> — the current workspace is marked with the accent color and a checkmark.</li>
+      <li><strong>Status pill</strong> — connected, error, or connecting state mirrored from the host bus event.</li>
+      <li><strong>Switch action</strong> — sends the new <code>directory</code> + <code>workspace</code> through the SDK, then refreshes the session list and active workspace id in the store.</li>
+      <li><strong>Refresh</strong> — pull-to-refresh re-queries the host workspace list, useful after a fresh <code>nikcli workspace create</code>.</li>
+    </ul>
+    <DocCallout type="info" title="Fallback directory">
+      <p>
+        When the host returns a session without a workspace id, the app falls back to the saved
+        directory through <code>sessionWorkspaceFallback()</code> in
+        <code>lib/client.ts</code>, so legacy sessions still load cleanly.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="chat" class="doc-section">
@@ -300,6 +905,32 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
       lines open read-only). Edits are tracked locally; <strong>Save</strong> writes the file back to
       the host, and leaving with unsaved changes prompts to Save, Discard, or Cancel.
     </p>
+  </section>
+
+  <section id="artifacts" class="doc-section">
+    <h2>Session artifacts</h2>
+    <p>
+      <code>lib/session-artifacts.ts</code> extracts inline previews from assistant messages so the
+      chat surface can render URLs, HTML, SVG, and Mermaid diagrams without leaving the app. The
+      top queue banner (<code>SessionQueueBanner</code>) summarizes queued offline messages, and
+      every artifact link is queued the same way when the device is offline.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Kind</th><th>Source</th><th>Rendered as</th></tr></thead>
+      <tbody>
+        <tr><td><code>url</code></td><td>First <code>https?://</code> link in a message (filtered against well-known hosts).</td><td>Inline link card with title, host, and an Open button.</td></tr>
+        <tr><td><code>html</code></td><td><code>html</code> / <code>iframe</code> fenced code block.</td><td>Inline preview through a sandboxed WebView.</td></tr>
+        <tr><td><code>svg</code></td><td><code>svg</code> fenced code block.</td><td>Inline SVG, with a Copy SVG action.</td></tr>
+        <tr><td><code>mermaid</code></td><td><code>mermaid</code> fenced code block.</td><td>Inline Mermaid render with a Copy source action.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Hosted preview safe list">
+      <p>
+        Hosts like <code>github.com</code>, <code>npmjs.com</code>, and
+        <code>developer.mozilla.org</code> are excluded from URL previews — they appear as text
+        links, never as the "your running app" card.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="repos" class="doc-section">
@@ -408,6 +1039,8 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
       <li><strong>Multiple tabs</strong> stay connected in the background; only the active one is visible.</li>
       <li><strong>Toolbar</strong> shows the working directory and offers Copy (selection or visible text), Paste (sends clipboard into the PTY), New tab, and Close all.</li>
       <li><strong>Reconnect</strong> — up to five automatic retries before a "Connection Failed" overlay with a Retry button.</li>
+      <li><strong>Key bar</strong> (<code>components/terminal/TerminalKeyBar.tsx</code>) provides one-tap shortcuts for Tab, Ctrl-C, arrow keys, and a configurable "extra" key (often Escape) on small screens.</li>
+      <li><strong>Key strip</strong> (<code>TerminalKeyStrip.tsx</code>) is a compact alt-row used when the soft keyboard is hidden, derived from <code>lib/terminal-keys.ts</code>.</li>
     </ul>
     <DocCallout type="warn" title="Server-local & non-persistent">
       <p>
@@ -415,6 +1048,50 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
         app restarts — though host PTYs may keep running until they time out or are cleaned up.
       </p>
     </DocCallout>
+
+  <section id="teleport" class="doc-section">
+    <h2>Teleport</h2>
+    <p>
+      <code>nikcli teleport</code> ships a session (and optionally the working tree) to a remote
+      nikcli host so you can pick it up from your phone. The CLI archives the session messages,
+      uploads them through <code>POST /mobile/teleport</code>, and the remote host re-hydrates the
+      session in its own storage.
+    </p>
+    <DocCode language="bash">
+# Pick the most recent session and ship it to a remote host
+nikcli teleport --url https://my-host.example.com --token &lt;mobile-token&gt;
+
+# Ship a specific session, including the source files (no binaries)
+nikcli teleport ses_abc123 \
+  --url https://my-host.example.com \
+  --token &lt;mobile-token&gt; \
+  --content --git=false --save
+    </DocCode>
+    <h3>Teleport sheet</h3>
+    <p>
+      From the session header overflow menu on mobile, <strong>Teleport to…</strong> opens
+      <code>components/session/SessionTeleportSheet.tsx</code>. The sheet prefills the last
+      successful URL + token from <code>lib/storage.getTeleportTarget()</code>, so repeat teleports
+      are one tap.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Flag</th><th>Default</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>--url</code></td><td>saved / env</td><td>Remote host base URL. Saved to <code>nikcli.json</code> with <code>--save</code>.</td></tr>
+        <tr><td><code>--token</code></td><td>saved / env</td><td>Mobile bearer token for the remote host.</td></tr>
+        <tr><td><code>--content</code></td><td><code>true</code></td><td>Clone the working tree (source files only) into the archive.</td></tr>
+        <tr><td><code>--git</code></td><td><code>false</code></td><td>Include the full <code>.git</code> history. Large; off by default.</td></tr>
+        <tr><td><code>--save</code></td><td><code>true</code></td><td>Remember the URL + token for next time.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="URL normalization">
+      <p>
+        The CLI strips trailing slashes and any <code>/mobile</code> or <code>/mobile/teleport</code>
+        suffix before posting, so the QR-encoded <code>https://host/mobile</code> form and the bare
+        <code>https://host</code> form both work.
+      </p>
+    </DocCallout>
+  </section>
   </section>
 
   <section id="settings" class="doc-section">
@@ -439,8 +1116,16 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
         <tr><td><strong>Plugins</strong></td><td>Save API keys for Codex (openai), Cursor, and GitHub Copilot on the host.</td></tr>
         <tr><td><strong>Connection</strong></td><td>Server URL, bearer token, default directory; Save connection, Forget server, Sign out.</td></tr>
         <tr><td><strong>Execution</strong></td><td>Execution target: local worktree (default) or container sandbox (when Docker/Podman is available).</td></tr>
+        <tr><td><strong>Git identity</strong></td><td>Per-host Git user name and email used by Git operations from the mobile app (commit, push, publish PR). Backed by the host <code>git_identity</code> config.</td></tr>
+        <tr><td><strong>Teleport defaults</strong></td><td>Default remote URL + token for the session teleport sheet.</td></tr>
       </tbody>
     </table>
+    <p>
+      Provider and model defaults flow through <code>lib/model-catalog.ts</code> and
+      <code>lib/model-preferences.ts</code>. The catalog is fetched once per host connection and
+      cached, while preferences are stored locally so the composer can preselect the right model
+      even before the network round-trip completes.
+    </p>
   </section>
 
   <section id="profile" class="doc-section">
@@ -488,6 +1173,20 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
       (oldest evicted) and drained with per-operation retry — successful sends are removed, failures
       stay for the next attempt.
     </p>
+    <h3>Session queue</h3>
+    <p>
+      <code>lib/session-queue.ts</code> plus <code>components/SessionQueueBanner.tsx</code> give the
+      user visible feedback about pending offline work: a banner shows how many messages are
+      queued and whether the next send was deferred. The banner appears on every screen that
+      consumes the same session id and disappears automatically once the queue drains.
+    </p>
+    <DocCallout type="info" title="Network awareness">
+      <p>
+        <code>lib/offline.ts</code> watches the device's network status. When the connection
+        drops, new sends are queued without surfacing an error; reconnecting drains the queue
+        without user action.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="themes" class="doc-section">
@@ -512,4 +1211,66 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
       </tbody>
     </table>
   </section>
+
+  <script>
+    // App Store-style horizontal carousel for the mobile-app screenshots.
+    // Pure progressive enhancement: the track is already a native CSS scroll-snap strip,
+    // we just wire the prev/next buttons + keyboard arrows + drag inertia.
+    const initCarousel = () => {
+      const carousels = document.querySelectorAll<HTMLElement>("[data-carousel]");
+      carousels.forEach((track) => {
+        const prev = track.parentElement?.querySelector<HTMLButtonElement>("[data-carousel-prev]");
+        const next = track.parentElement?.querySelector<HTMLButtonElement>("[data-carousel-next]");
+        if (!prev || !next) return;
+
+        const step = () => {
+          const first = track.querySelector<HTMLElement>(".appstore-card");
+          if (!first) return track.clientWidth * 0.85;
+          const gap = parseFloat(getComputedStyle(track).columnGap || "0") || 0;
+          return first.getBoundingClientRect().width + gap;
+        };
+
+        const update = () => {
+          const max = track.scrollWidth - track.clientWidth - 1;
+          prev.toggleAttribute("disabled", track.scrollLeft <= 0);
+          next.toggleAttribute("disabled", track.scrollLeft >= max);
+        };
+
+        const scrollByOne = (dir: number) => {
+          track.scrollBy({ left: dir * step(), behavior: "smooth" });
+        };
+
+        prev.addEventListener("click", () => scrollByOne(-1));
+        next.addEventListener("click", () => scrollByOne(1));
+        track.addEventListener("scroll", update, { passive: true });
+        window.addEventListener("resize", update);
+        update();
+      });
+    };
+
+    const initFeatureReveal = () => {
+      // Soft fade-in for each feature row as it scrolls into view.
+      const rows = document.querySelectorAll<HTMLElement>(".appstore-feature");
+      if (!rows.length) return;
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              io.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.18 },
+      );
+      rows.forEach((row) => io.observe(row));
+    };
+
+    initCarousel();
+    initFeatureReveal();
+    document.addEventListener("astro:after-swap", () => {
+      initCarousel();
+      initFeatureReveal();
+    });
+  </script>
 </DocsLayout>

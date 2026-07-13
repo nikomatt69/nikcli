@@ -336,3 +336,432 @@ html {
     transition: none !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Mobile-app App Store-style preview
+   ───────────────────────────────────────────────────────────── */
+
+/* Eyebrow chip used in hero + feature rows */
+.appstore-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: rgb(var(--terminal-accent) / 0.08);
+  border: 1px solid rgb(var(--terminal-accent) / 0.22);
+  color: rgb(var(--terminal-accent));
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.appstore-eyebrow--accent {
+  background: rgb(var(--terminal-accent) / 0.1);
+}
+
+/* Phone frame — dark bezel, soft shadow, rounded corners.
+   Aspect ratio of the source PNG (1179 × 2556) is preserved. */
+.appstore-phone-frame {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1179 / 2556;
+  border-radius: 38px;
+  padding: 6px;
+  background: linear-gradient(
+    160deg,
+    rgb(var(--terminal-text) / 0.92) 0%,
+    rgb(var(--terminal-text) / 0.78) 50%,
+    rgb(var(--terminal-text) / 0.65) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-text) / 0.08),
+    0 30px 60px -20px rgb(var(--terminal-text) / 0.35),
+    0 14px 28px -10px rgb(var(--terminal-text) / 0.18);
+  transition:
+    transform 280ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 280ms cubic-bezier(0.23, 1, 0.32, 1);
+  isolation: isolate;
+}
+.appstore-phone-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 32px;
+  object-fit: cover;
+  background: rgb(var(--terminal-bg));
+}
+.appstore-phone-frame:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-accent) / 0.25),
+    0 40px 80px -22px rgb(var(--terminal-text) / 0.45),
+    0 18px 36px -12px rgb(var(--terminal-accent) / 0.22);
+}
+
+/* Smaller phone frame for feature rows */
+.appstore-phone-frame--sm {
+  max-width: 260px;
+  border-radius: 32px;
+  padding: 5px;
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-text) / 0.08),
+    0 18px 36px -14px rgb(var(--terminal-text) / 0.28),
+    0 8px 16px -8px rgb(var(--terminal-text) / 0.16);
+}
+.appstore-phone-frame--sm img {
+  border-radius: 27px;
+}
+
+/* ─── Hero block ─────────────────────────────────────────────────────── */
+.appstore-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin-block: 2.5rem;
+  padding: 1.75rem;
+  border-radius: var(--radius-shell);
+  background:
+    radial-gradient(circle at 20% 20%, rgb(var(--terminal-accent) / 0.08), transparent 55%),
+    radial-gradient(circle at 80% 80%, rgb(var(--terminal-success) / 0.05), transparent 50%), var(--terminal-window-bg);
+  border: 1px solid rgb(var(--terminal-border) / 0.7);
+  overflow: hidden;
+  position: relative;
+}
+
+@media (min-width: 900px) {
+  .appstore-hero {
+    grid-template-columns: 1.05fr 1fr;
+    gap: 3rem;
+    padding: 3rem 3rem 3rem 3.25rem;
+  }
+}
+
+.appstore-hero__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  z-index: 1;
+}
+
+.appstore-hero__title {
+  font-family: "Syne", system-ui, sans-serif;
+  font-size: clamp(1.85rem, 3.4vw, 2.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  font-weight: 800;
+  color: rgb(var(--terminal-text));
+  margin: 0;
+}
+
+.appstore-hero__lede {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: rgb(var(--terminal-muted));
+  max-width: 38ch;
+  margin: 0;
+}
+.appstore-hero__lede code {
+  font-size: 0.9em;
+  background: rgb(var(--terminal-accent) / 0.1);
+  color: rgb(var(--terminal-accent));
+  padding: 0.1rem 0.4rem;
+  border-radius: 5px;
+  border: 1px solid rgb(var(--terminal-accent) / 0.2);
+}
+
+.appstore-hero__chips {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.appstore-hero__chips li {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgb(var(--terminal-panel));
+  border: 1px solid rgb(var(--terminal-border));
+  color: rgb(var(--terminal-text));
+}
+
+.appstore-hero__device {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 460px;
+}
+.appstore-hero__device .appstore-phone-frame {
+  max-width: 280px;
+  transform: rotate(-3deg);
+}
+.appstore-hero__device .appstore-phone-frame:hover {
+  transform: rotate(-1deg) translateY(-4px);
+}
+.appstore-hero__glow {
+  position: absolute;
+  inset: 8% 12% 8% 12%;
+  background: radial-gradient(ellipse at center, rgb(var(--terminal-accent) / 0.18), transparent 65%);
+  filter: blur(40px);
+  z-index: -1;
+}
+
+/* ─── Alternating feature rows ───────────────────────────────────────── */
+.appstore-features {
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+  margin-block: 2.5rem;
+}
+
+.appstore-feature {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--terminal-window-bg);
+  border: 1px solid rgb(var(--terminal-border) / 0.6);
+  box-shadow: var(--shadow-soft);
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 600ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 600ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.appstore-feature.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (min-width: 860px) {
+  .appstore-feature {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 2.5rem;
+    padding: 2.25rem 2.5rem;
+  }
+  .appstore-feature--reverse {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  }
+  .appstore-feature--reverse .appstore-feature__device {
+    order: 2;
+  }
+  .appstore-feature--reverse .appstore-feature__copy {
+    order: 1;
+  }
+}
+
+.appstore-feature__device {
+  display: flex;
+  justify-content: center;
+}
+.appstore-feature__device .appstore-phone-frame {
+  transform: rotate(-2deg);
+}
+.appstore-feature__device .appstore-phone-frame:hover {
+  transform: rotate(0deg);
+}
+
+.appstore-feature__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.appstore-feature__copy h4 {
+  font-family: "Syne", system-ui, sans-serif;
+  font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  color: rgb(var(--terminal-text));
+  margin: 0.15rem 0 0.1rem;
+}
+.appstore-feature__copy p {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: rgb(var(--terminal-muted));
+  margin: 0;
+}
+.appstore-feature__copy strong {
+  color: rgb(var(--terminal-text));
+}
+
+/* ─── Carousel ───────────────────────────────────────────────────────── */
+.appstore-carousel-wrap {
+  margin-block: 2.5rem 1rem;
+  position: relative;
+}
+
+.appstore-carousel-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.appstore-carousel-title {
+  font-family: "Syne", system-ui, sans-serif;
+  font-size: clamp(1.4rem, 2.6vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: rgb(var(--terminal-text));
+}
+.appstore-carousel-sub {
+  font-size: 0.95rem;
+  color: rgb(var(--terminal-muted));
+  margin: 0.2rem 0 0;
+}
+
+.appstore-carousel-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+.appstore-carousel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgb(var(--terminal-panel));
+  border: 1px solid rgb(var(--terminal-border));
+  color: rgb(var(--terminal-text));
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+.appstore-carousel-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.appstore-carousel-btn:hover:not([disabled]) {
+  background: rgb(var(--terminal-accent) / 0.1);
+  border-color: rgb(var(--terminal-accent) / 0.4);
+  color: rgb(var(--terminal-accent));
+  transform: translateY(-1px);
+}
+.appstore-carousel-btn:active:not([disabled]) {
+  transform: translateY(0) scale(0.96);
+}
+.appstore-carousel-btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.appstore-carousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 240px);
+  gap: 1.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0.25rem;
+  padding: 0.5rem 0.25rem 1rem;
+  margin-inline: -0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--terminal-border)) transparent;
+}
+.appstore-carousel::-webkit-scrollbar {
+  height: 6px;
+}
+.appstore-carousel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.appstore-carousel::-webkit-scrollbar-thumb {
+  background: rgb(var(--terminal-border));
+  border-radius: 999px;
+}
+
+.appstore-card {
+  scroll-snap-align: start;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.appstore-card:hover {
+  transform: translateY(-4px);
+}
+
+.appstore-card__shot {
+  position: relative;
+  aspect-ratio: 1179 / 2556;
+  border-radius: 28px;
+  overflow: hidden;
+  background: rgb(var(--terminal-text));
+  padding: 4px;
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-text) / 0.08),
+    0 14px 28px -10px rgb(var(--terminal-text) / 0.3);
+}
+.appstore-card__shot img {
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  object-fit: cover;
+  display: block;
+}
+
+.appstore-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.1rem 0.25rem;
+}
+.appstore-card__step {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgb(var(--terminal-accent));
+  text-transform: uppercase;
+}
+.appstore-card__name {
+  font-family: "Syne", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgb(var(--terminal-text));
+  letter-spacing: -0.01em;
+}
+.appstore-card__hint {
+  font-size: 12px;
+  color: rgb(var(--terminal-muted));
+  line-height: 1.4;
+}
+
+/* Larger carousel cards on wide screens */
+@media (min-width: 1100px) {
+  .appstore-carousel {
+    grid-auto-columns: minmax(240px, 260px);
+    gap: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appstore-feature {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .appstore-phone-frame,
+  .appstore-card,
+  .appstore-carousel-btn {
+    transition: none !important;
+  }
+}

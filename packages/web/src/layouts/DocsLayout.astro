@@ -118,14 +118,26 @@ const ogImage = "https://nikcli.store/og.png";
     <footer class="border-t border-terminal-border/50 bg-terminal-panel/50 py-8 sm:py-10 mt-auto">
       <div class="page-shell flex flex-col items-center justify-between gap-5 sm:flex-row">
         <div class="flex items-center gap-2.5">
-          <div class="w-6 h-6 rounded-[6px] bg-terminal-accent/12 border border-terminal-accent/25 flex items-center justify-center" aria-hidden="true">
-            <svg viewBox="0 0 16 16" class="w-3.5 h-3.5 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
-              <path d="M9 12.5H13.5" />
-            </svg>
-          </div>
+          <img
+            src="/brand/wordmark-light.png"
+            alt="nikcli"
+            width="79"
+            height="26"
+            loading="lazy"
+            decoding="async"
+            class="h-5 w-auto dark:hidden"
+          />
+          <img
+            src="/brand/wordmark-dark.png"
+            alt="nikcli"
+            width="79"
+            height="26"
+            loading="lazy"
+            decoding="async"
+            class="h-5 w-auto hidden dark:block"
+          />
           <span class="text-[13px] font-medium text-terminal-muted">
-            &copy; {new Date().getFullYear()} <span class="font-display font-bold text-terminal-text uppercase tracking-[0.06em] text-[12px]">nikcli</span>. MIT License.
+            &copy; {new Date().getFullYear()}. MIT License.
           </span>
         </div>
         <nav class="flex gap-5" aria-label="Footer">

@@ -14,7 +14,7 @@ import {
   monospacedDigit,
   padding,
 } from "@expo/ui/swift-ui/modifiers"
-import { createLiveActivity, type LiveActivity } from "expo-widgets"
+import type { LiveActivity } from "expo-widgets"
 
 export type SessionLiveActivityProps = {
   sessionID: string
@@ -264,12 +264,28 @@ const SessionActivity = (props: SessionLiveActivityProps) => {
   }
 }
 
-const sessionActivityFactory = createLiveActivity("NikcliSessionActivity", SessionActivity)
-
-export function startSessionLiveActivity(props: SessionLiveActivityProps, url: string) {
-  return sessionActivityFactory.start(props, url)
+// expo-widgets resolves the ExpoWidgets native module at import time, which
+// does not exist in Expo Go — load it lazily so environments without the
+// module lose live activities instead of crashing every route that imports
+// lib/notifications.ts.
+let sessionActivityFactory: {
+  start(props: SessionLiveActivityProps, url: string): SessionLiveActivityHandle
+  getInstances(): SessionLiveActivityHandle[]
+} | null = null
+try {
+  const { createLiveActivity } = require("expo-widgets") as typeof import("expo-widgets")
+  sessionActivityFactory = createLiveActivity("NikcliSessionActivity", SessionActivity)
+} catch {
+  sessionActivityFactory = null
 }
 
-export function getSessionLiveActivityInstances() {
-  return sessionActivityFactory.getInstances()
+export function startSessionLiveActivity(
+  props: SessionLiveActivityProps,
+  url: string,
+): SessionLiveActivityHandle | null {
+  return sessionActivityFactory ? sessionActivityFactory.start(props, url) : null
+}
+
+export function getSessionLiveActivityInstances(): SessionLiveActivityHandle[] {
+  return sessionActivityFactory ? sessionActivityFactory.getInstances() : []
 }

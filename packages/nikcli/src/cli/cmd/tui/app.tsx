@@ -52,6 +52,7 @@ import {
   useCommandDialog,
 } from "@tui/component/dialog-command";
 import { DialogAgent } from "@tui/component/dialog-agent";
+import { DialogPermissionMode } from "@tui/component/dialog-permission-mode";
 import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model";
 import { DialogSessionList } from "@tui/component/dialog-session-list";
 import { DialogSessionWarp } from "@tui/component/dialog-session-warp";
@@ -918,6 +919,19 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogAgent />);
+      },
+    },
+    {
+      title: "Permission mode",
+      value: "permission.mode",
+      keybind: "permission_mode",
+      category: "Agent",
+      slash: {
+        name: "permissions",
+        aliases: ["permission"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogPermissionMode />);
       },
     },
     {

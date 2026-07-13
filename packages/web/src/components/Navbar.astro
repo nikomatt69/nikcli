@@ -21,20 +21,27 @@ const pathname = Astro.url.pathname;
     <!-- Logo -->
     <a
       href="/"
-      class="group flex items-center gap-2.5 shrink-0"
+      class="group flex items-center shrink-0 transition-opacity duration-150 ease-out hover:opacity-90 active:opacity-80"
       aria-label="nikcli home"
     >
-      <!-- Icon mark -->
-      <div class="relative flex h-8 w-8 items-center justify-center rounded-[8px] bg-terminal-accent/12 border border-terminal-accent/25 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out group-hover:bg-terminal-accent/20 group-hover:border-terminal-accent/40 group-hover:shadow-[0_0_16px_-2px_rgb(var(--terminal-accent)/0.35)] group-active:scale-[0.97]">
-        <svg viewBox="0 0 16 16" class="w-4 h-4 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
-          <path d="M9 12.5H13.5" />
-        </svg>
-      </div>
-      <!-- Wordmark -->
-      <span class="font-display text-[15px] font-bold tracking-[0.04em] text-terminal-text uppercase transition-colors duration-150 group-hover:text-terminal-accent">
-        nikcli
-      </span>
+      <img
+        src="/brand/wordmark-light.png"
+        alt="nikcli"
+        width="158"
+        height="52"
+        loading="eager"
+        decoding="async"
+        class="h-8 w-auto dark:hidden transition-opacity duration-150"
+      />
+      <img
+        src="/brand/wordmark-dark.png"
+        alt="nikcli"
+        width="158"
+        height="52"
+        loading="eager"
+        decoding="async"
+        class="h-8 w-auto hidden dark:block transition-opacity duration-150"
+      />
     </a>
 
     <!-- Desktop nav -->

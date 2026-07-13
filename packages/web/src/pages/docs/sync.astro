@@ -1,0 +1,313 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "What gets synced", href: "#what-syncs", depth: 2 },
+  { title: "Event log", href: "#event-log", depth: 2 },
+  { title: "Projections and snapshots", href: "#projections", depth: 2 },
+  { title: "Outbox and idempotency", href: "#outbox", depth: 2 },
+  { title: "Remote transport", href: "#transport", depth: 2 },
+  { title: "CLI command", href: "#cli", depth: 2 },
+  { title: "TUI sync dialog", href: "#tui-dialog", depth: 2 },
+  { title: "Auth, scopes, rate limits", href: "#auth", depth: 2 },
+  { title: "Bootstrapping", href: "#bootstrap", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Sync"
+  subtitle="How nikcli journals local events, projects them into typed snapshots, ships them through an idempotent outbox, and replays them onto an optional remote hub."
+  description="Reference for nikcli's local event log, projections, outbox, remote hub transport, sync CLI, TUI dialog, and bootstrapping."
+  toc={toc}
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      The sync subsystem is the bridge between a local nikcli process and the optional
+      <strong>remote hub</strong> (such as <code>https://s.nikcli.store</code>). It turns the
+      ephemeral bus events a session produces into a durable, ordered, replayable log, then ships
+      that log over HTTP when (and only when) a remote is configured.
+    </p>
+    <p>
+      Sync is <strong>opt-in</strong>. With no <code>NIKCLI_REMOTE_URL</code> and no <code>sync</code>
+      block in the global config file, the local event log and projections still exist, but no
+      outbound transport runs. Nothing about the local CLI, TUI, or server depends on the hub
+      being reachable.
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="Local event log" eyebrow="Durable">
+        <p>Append-only per-project event store backed by SQLite (<code>syncEvent</code>, <code>syncSequence</code>).</p>
+      </DocCard>
+      <DocCard title="Projections" eyebrow="Typed">
+        <p>Per-aggregate reducers rebuild typed state (<code>session</code>, <code>message</code>, <code>permission</code>, …) from the log.</p>
+      </DocCard>
+      <DocCard title="Outbox" eyebrow="Reliable">
+        <p>Outgoing events are kept locally until the hub confirms them, so retries are idempotent and crash-safe.</p>
+      </DocCard>
+      <DocCard title="Hub transport" eyebrow="Optional">
+        <p>Batched push of confirmed events with token-scope checks, rate limiting, and audit logs.</p>
+      </DocCard>
+    </div>
+    <DocCallout type="info" title="Sync is layered, not coupled">
+      <p>
+        The event log, projections, outbox, and remote transport are independent. You can disable
+        only the hub transport by clearing <code>sync.url</code> / <code>NIKCLI_REMOTE_URL</code>
+        while keeping local journaling for fast cold-starts and snapshot restores.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="what-syncs" class="doc-section">
+    <h2>What gets synced</h2>
+    <p>
+      Anything published on <code>GlobalBus</code> is fair game, but the persisted log filters that
+      stream down to the aggregates that are useful to replay on another machine. The reducer in
+      <code>src/sync/reducer.ts</code> maps each event type to its aggregate and project id.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Aggregate</th><th>Examples</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td><code>session</code></td><td>Session created, updated, archived, deleted, parent changed.</td><td>Project-wide session list, mobile cold-start.</td></tr>
+        <tr><td><code>message</code></td><td>User / assistant / tool parts streamed, edited, or removed.</td><td>Transcript replay and snapshot restore.</td></tr>
+        <tr><td><code>permission</code></td><td>Ask, reply, auto-allowed rules.</td><td>Hydrating pending approval bars after reconnect.</td></tr>
+        <tr><td><code>question</code></td><td>Ask, reply.</td><td>Hydrating open questions across reconnects.</td></tr>
+        <tr><td><code>todo</code></td><td>Todo list updates and notifications.</td><td>Cross-device task state.</td></tr>
+        <tr><td><code>workspace</code></td><td>Workspace connection status and lifecycle events.</td><td>Remote workspace dashboards.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Per-project scope">
+      <p>
+        Events carry <code>projectID</code> and (when applicable) <code>workspaceID</code>. The
+        local log and the hub both key on these, so two projects in the same data root never see
+        each other's events.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="event-log" class="doc-section">
+    <h2>Event log</h2>
+    <p>
+      <code>src/sync/sync.sql.ts</code> defines two SQLite tables under the data root:
+      <code>syncEvent</code> (one row per event) and <code>syncSequence</code> (last-seen seq per
+      project + aggregate). The storage layer in <code>sync/index.ts</code> exposes load/save
+      helpers and applies two practical limits:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><code>MAX_EVENTS_PER_AGGREGATE</code></td><td><code>1000</code></td><td>Caps per-aggregate growth between compactions.</td></tr>
+        <tr><td><code>COMPACTION_TRIM_TO</code></td><td><code>500</code></td><td>After compaction, keep 500 most recent events per aggregate.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Compaction rewrites the table transactionally: it deletes all rows for a project and
+      re-inserts the surviving window in one transaction, so a crash mid-compaction cannot leave a
+      partial log. <code>saveEvents</code> and <code>saveSequence</code> are the only writers
+      outside projection tests.
+    </p>
+  </section>
+
+  <section id="projections" class="doc-section">
+    <h2>Projections and snapshots</h2>
+    <p>
+      Projections turn the log into typed state. There are two complementary paths:
+    </p>
+    <ol>
+      <li>
+        <strong>Live projection</strong> in <code>src/sync/projector.ts</code> and
+        <code>src/sync/projection.ts</code>: a per-aggregate reducer updates in-memory state on
+        every event. TUI routes and the SDK <code>sync</code> provider subscribe to it.
+      </li>
+      <li>
+        <strong>Cold-start snapshot</strong> in <code>src/sync/snapshot.ts</code>: when the SDK
+        reconnects (cold start, server restart, app foreground), it asks the server for a single
+        typed snapshot rather than replaying thousands of events. Snapshots are produced from the
+        same projection state, so live and cold-start paths converge.
+      </li>
+    </ol>
+    <DocCode language="bash">
+# Cold-start endpoint used by SDK clients
+curl "http://127.0.0.1:4096/sync/snapshot?directory=$PWD"
+    </DocCode>
+    <DocCallout type="info" title="Hot reload aware">
+      <p>
+        Projections are reset on <code>SIGUSR2</code> worker reloads — the next event simply
+        rebuilds state from the surviving event log, and snapshot consumers refresh on reconnect.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="outbox" class="doc-section">
+    <h2>Outbox and idempotency</h2>
+    <p>
+      The outbox (<code>src/sync/outbox.ts</code>) is the only writer that talks to the hub. It
+      exists so a crash between "event written" and "hub acknowledged" never produces a duplicate
+      or a missed event.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Concept</th><th>Implementation</th><th>Guarantee</th></tr></thead>
+      <tbody>
+        <tr><td>Idempotency</td><td>Each event carries a stable <code>id</code> plus <code>origin</code> / <code>originSeq</code>.</td><td>The hub can dedup replays on the same key.</td></tr>
+        <tr><td>Per-aggregate seq</td><td><code>syncSequence</code> tracks the last seq the hub confirmed per aggregate.</td><td>Outbox only pushes newer events after each ack.</td></tr>
+        <tr><td>Retry</td><td>Failed batches stay in the outbox with backoff metadata; retries are bounded by scope and rate-limit windows.</td><td>Process crashes, network blips, and hub restarts do not lose events.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+nikcli sync status
+# target:        https://s.nikcli.store (config file)
+# outbox pending: 12
+# outbox failed:  0
+# outbox total:   1024
+    </DocCode>
+  </section>
+
+  <section id="transport" class="doc-section">
+    <h2>Remote transport</h2>
+    <p>
+      The remote client (<code>src/sync/remote-client.ts</code>) batches confirmed outbox entries
+      and POSTs them to the hub's <code>/sync/push</code> endpoint. The remote sync loop
+      (<code>src/sync/remote-sync.ts</code>) wires that client to the outbox and projection:
+    </p>
+    <ul>
+      <li>Reads the local projection state at startup to catch up after a crash.</li>
+      <li>Subscribes to the live event stream for new entries.</li>
+      <li>Reconciles after transient failures using stored seq counters.</li>
+    </ul>
+    <DocCallout type="info" title="Hub is optional">
+      <p>
+        Without a configured hub, the transport loop never starts. Local journaling, projections,
+        and snapshot endpoints continue to work — they just don't leave the machine.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="cli" class="doc-section">
+    <h2>CLI command</h2>
+    <p>
+      <code>nikcli sync</code> is the user-facing entrypoint. It exposes status, an explicit
+      connect/disconnect flow, and a token issuer for new CLI machines.
+    </p>
+    <DocCode language="bash">
+# Set the target hub for this shell
+export NIKCLI_REMOTE_URL=https://s.nikcli.store
+export NIKCLI_REMOTE_TOKEN=&lt;cli-sync token&gt;
+
+nikcli sync status              # outbox state + source of truth
+nikcli sync connect             # force a connection (Ctrl-C to disconnect)
+nikcli sync disconnect          # how to end the connect session
+nikcli sync token create --name laptop --expiry-days 90
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Subcommand</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>status</code></td><td>Prints resolved URL/token source, plus pending / failed / total outbox counts.</td></tr>
+        <tr><td><code>connect</code></td><td>Boots the remote sync loop and keeps it running until interrupted.</td></tr>
+        <tr><td><code>disconnect</code></td><td>There is no separate stop API — ending the connect process is the way to disconnect.</td></tr>
+        <tr><td><code>token create</code></td><td>Issues a <code>cli-sync</code> scoped mobile token for a new CLI machine.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tui-dialog" class="doc-section">
+    <h2>TUI sync dialog</h2>
+    <p>
+      The TUI exposes sync through <code>dialog-sync.tsx</code> and the
+      <code>remote-sync</code> context. From the command palette the user can:
+    </p>
+    <ul>
+      <li>Save URL + token to the global config (written through <code>POST /sync/config</code>).</li>
+      <li>Watch live stats polled from <code>/sync/stats</code> every two seconds.</li>
+      <li>Toggle the <code>autostart</code> flag so <code>nikcli</code> connects on bootstrap.</li>
+      <li>Inspect outbox pending / failed counts and trigger a reconnect.</li>
+    </ul>
+    <p>
+      <code>SyncConfig.invalidate()</code> is called after every config write so the next
+      resolve is fresh, even though the read path caches values for five seconds.
+    </p>
+  </section>
+
+  <section id="auth" class="doc-section">
+    <h2>Auth, scopes, rate limits</h2>
+    <p>
+      Tokens used for hub push are minted by the host's mobile auth flow. There are two distinct
+      scopes:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Scope</th><th>Issued by</th><th>Permits</th></tr></thead>
+      <tbody>
+        <tr><td><code>mobile</code></td><td><code>nikcli mobile pair</code> / <code>serve --pair</code></td><td>Full phone workflow: bootstrap, sessions, repos, git, terminals, approvals, routines.</td></tr>
+        <tr><td><code>cli-sync</code></td><td><code>nikcli sync token create</code></td><td>Hub push only. Cannot open sessions or read messages.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Hub endpoints enforce scope at the route group level and apply a per-token rate limit
+      (sliding window) and an audit log entry per push. The audit log records <code>tokenID</code>,
+      aggregate count, and seq range so the CLI side can correlate its own outbox state with what
+      the hub saw.
+    </p>
+    <DocCallout type="warn" title="Use the narrowest scope">
+      <p>
+        Use <code>cli-sync</code> tokens on headless machines. <code>mobile</code> tokens are
+        full-power and should stay on phones or paired devices only.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="bootstrap" class="doc-section">
+    <h2>Bootstrapping</h2>
+    <p>
+      The bootstrap flow decides whether to autostart sync. Two flags are honored, in priority
+      order:
+    </p>
+    <ol>
+      <li><code>NIKCLI_REMOTE_AUTOSTART=1</code> — force autostart regardless of config.</li>
+      <li><code>config.sync.autostart: true</code> — autostart when both URL and token are present.</li>
+    </ol>
+    <p>
+      With either set and both URL + token resolved, <code>RemoteSync.start</code> runs once per
+      <code>nikcli</code> bootstrap. The CLI keeps the sync loop running alongside the TUI or
+      session; <code>--print-logs</code> surfaces retry / failure messages from the hub client.
+    </p>
+  </section>
+
+  <section id="failure-modes" class="doc-section">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>remote sync not configured</code></td><td>Neither env vars nor <code>sync</code> block are populated.</td><td>Set <code>NIKCLI_REMOTE_URL</code> + <code>NIKCLI_REMOTE_TOKEN</code>, or use the TUI /sync dialog.</td></tr>
+        <tr><td><code>outbox failed</code> grows on every push</td><td>Hub rejected the token or exceeded the rate limit.</td><td>Check token scope, rotate via <code>nikcli sync token create</code>, then reconnect.</td></tr>
+        <tr><td>TUI stats seem stale</td><td>Config cache TTL is five seconds; recent writes may not have flushed.</td><td>Reopen the dialog or call <code>SyncConfig.invalidate()</code> after a write.</td></tr>
+        <tr><td>Cold start missing sessions</td><td>Hub snapshot returned an older revision than the local log.</td><td>Verify <code>projectID</code> matches; the local log is still the source of truth.</td></tr>
+        <tr><td>Compaction truncated events I needed</td><td>An aggregate exceeded <code>MAX_EVENTS_PER_AGGREGATE</code>.</td><td>Take a snapshot first; the next compaction keeps the latest 500 events plus the snapshot.</td></tr>
+        <tr><td>Hot reload drops live state</td><td>Worker reload rebuilds projection state from the event log.</td><td>Wait for the next event; reconnect SDK clients to refresh from a snapshot.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Event log schema</td><td><code>packages/nikcli/src/sync/sync.sql.ts</code></td></tr>
+        <tr><td>Local storage helpers</td><td><code>packages/nikcli/src/sync/index.ts</code></td></tr>
+        <tr><td>Live projection</td><td><code>packages/nikcli/src/sync/projector.ts</code>, <code>projection.ts</code></td></tr>
+        <tr><td>Cold-start snapshot</td><td><code>packages/nikcli/src/sync/snapshot.ts</code></td></tr>
+        <tr><td>Event reducer</td><td><code>packages/nikcli/src/sync/reducer.ts</code></td></tr>
+        <tr><td>Outbox</td><td><code>packages/nikcli/src/sync/outbox.ts</code></td></tr>
+        <tr><td>Hub transport</td><td><code>packages/nikcli/src/sync/remote-client.ts</code>, <code>remote-sync.ts</code></td></tr>
+        <tr><td>Hub sync CLI</td><td><code>packages/nikcli/src/cli/cmd/sync.ts</code></td></tr>
+        <tr><td>TUI sync dialog</td><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-sync.tsx</code></td></tr>
+        <tr><td>TUI sync context</td><td><code>packages/nikcli/src/cli/cmd/tui/context/remote-sync.tsx</code></td></tr>
+        <tr><td>Sync config</td><td><code>packages/nikcli/src/sync/sync-config.ts</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

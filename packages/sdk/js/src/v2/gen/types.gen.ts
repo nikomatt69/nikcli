@@ -1756,6 +1756,10 @@ export type KeybindsConfig = {
    */
   agent_cycle_reverse?: string
   /**
+   * Open permission presets for the current primary agent
+   */
+  permission_mode?: string
+  /**
    * Cycle model variants
    */
   variant_cycle?: string

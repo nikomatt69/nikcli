@@ -60,6 +60,7 @@ const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
   tokens: true,
   routines: true,
   plugins: true,
+  permissions: true,
 }
 
 const defaultNotifications: NotificationPreferences = {

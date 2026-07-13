@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
-import { Link, useFocusEffect } from "expo-router"
+import { Link, useFocusEffect, type Href } from "expo-router"
 import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
 import { useColorScheme } from "nativewind"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -104,6 +104,7 @@ const SETTINGS_SECTIONS: Array<{ id: SettingsSectionID; label: string }> = [
   { id: "skills", label: "Skills" },
   { id: "agents", label: "Agents" },
   { id: "tokens", label: "Tokens" },
+  { id: "permissions", label: "Permissions" },
   { id: "plugins", label: "Plugins" },
   { id: "advanced", label: "Advanced" },
 ]
@@ -969,6 +970,16 @@ export default function SettingsScreen() {
                       title="Access Tokens"
                       description="Create and revoke long-lived mobile bearer tokens for this server connection."
                       badges={["Bearer auth"]}
+                    />
+                  </Link>
+                ) : null}
+                {visibleSettingsSections.permissions ? (
+                  <Link href={"/more/settings/permissions" as Href} asChild>
+                    <SettingsNavCard
+                      eyebrow="Security"
+                      title="Tool permissions"
+                      description="Require approval, approve for me, or full access — plus per-tool Allow / Ask / Deny rules."
+                      badges={["Presets", "Per-tool"]}
                     />
                   </Link>
                 ) : null}

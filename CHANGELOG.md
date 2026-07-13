@@ -1,6 +1,47 @@
 # Changelog
 
 <!-- UNRELEASED:START -->
+
+## Unreleased
+
+### Core
+
+- Sync subsystem: per-project SQLite event journal, typed projections, cold-start snapshots, idempotent outbox, and optional remote hub transport (`/sync` route group + `nikcli sync` CLI + TUI dialog).
+- Workspace session proxying: route-session lookup recovers the original workspace context for `/session/:id` requests, and remote workspaces are proxied through `ServerProxy`.
+- HTTP API: new typed groups for `brain`, `chatbot`, `sync`, `pty`, `doctor`, `analytics`, and `loop`; classic route groups extended with `/sync`, `/brain`, `/mission`, `/doctor`, `/workspace`, and `/loop`.
+- Telegram-style bot webhooks expanded to all six connectors (Slack, Discord, Teams, Google Chat, Linear, GitHub) with consistent handler registration.
+- Brain model and scheduler exposed through the server, the TUI feature plugin, and the CLI (`nikcli brain-model`).
+- Workspace lifecycle events and projection surfaced through `workspace/connection.ts` and the mobile workspace switcher sheet.
+- New CLI commands: `nikcli sync` (status / connect / disconnect / token create), `nikcli teleport` (archive + upload a session to a remote host), and `nikcli brain-model`.
+- Mobile pairing flow rewritten: deeper connect screen, host-scoped tokens, Git identity config, and a session teleport sheet that prefills the last successful target.
+- Session artifacts (URLs, HTML, SVG, Mermaid) rendered inline inside the mobile chat surface.
+- Session queue banner surfaces pending offline messages and the queue is drained on reconnect.
+
+### TUI
+
+- Island plugin: macOS notch integration via `plugin/island/bridge.ts`. The bridge writes one JSON snapshot per session under `~/Library/Application Support/NikcliIsland/state.d/` and the TUI plugin toggles it without races.
+- New internal feature plugins: `brain`, `browser`, `chatbot`, `computer`, `connectors`, `deepsec`, `island`, `observability`.
+- New dialogs: `dialog-browser-use`, `dialog-mobile-connect`, `dialog-sync`, `dialog-teleport`, `dialog-routine`.
+- Workspace and event handling: typed event catch-up on every workspace on TUI start / reconnect; command palette dedup, slash projection, and trigger API preserved.
+- Terminal key bar / key strip: focus / blur command handling, opt-in scroll behavior, and a new compact key strip on small screens.
+
+### Mobile
+
+- Brand wordmark now shared across surfaces: `BrandMark` consumes the same PNGs as the docs navbar, footer, and dashboard connect screen.
+- Workspace switcher sheet (`WorkspaceSwitcherSheet`) for swapping the active workspace from the session header.
+- Session teleport sheet (`SessionTeleportSheet`) prefills the last successful URL + token.
+- Session artifacts viewer with inline URL, HTML, SVG, and Mermaid previews.
+- Terminal key bar and key strip with configurable "extra" key.
+- Session queue banner for offline messages.
+- Per-host Git identity settings for commit / push / publish PR from mobile.
+
+### Web (docs site)
+
+- Replaced the SVG icon + text logo in the navbar, footer, dashboard connect screen, and docs footer with the nikcli pixel wordmark. The same PNGs are mirrored into `public/brand/` so the docs site serves them statically.
+- New reference pages: `/docs/sync` (event log, projections, outbox, hub transport, CLI, TUI dialog) and `/docs/brand` (wordmark variants, theme switching, asset locations, usage guidelines).
+- Updated `tui.astro`, `plugins.astro`, `server-api.astro`, and `mobile.astro` to cover the new subsystems, routes, dialogs, plugins, and mobile sheets.
+- Docs landing page now links to "What's new" so the new surfaces are discoverable.
+
 <!-- UNRELEASED:END -->
 
 ## v1.143.0 (July 2026)

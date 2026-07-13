@@ -84,6 +84,19 @@ export function reduceSessionDetail(detail: MobileSessionDetail, event: NikcliEv
     }
   }
 
+  if (event.type === "question.asked") {
+    const alreadyPresent = detail.questions.some((item) => item.id === event.properties.id)
+    if (alreadyPresent) return detail
+    return { ...detail, questions: [...detail.questions, event.properties] }
+  }
+
+  if (event.type === "question.replied" || event.type === "question.rejected") {
+    return {
+      ...detail,
+      questions: detail.questions.filter((item) => item.id !== event.properties.requestID),
+    }
+  }
+
   return detail
 }
 

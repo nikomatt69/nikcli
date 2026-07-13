@@ -68,6 +68,7 @@ export type SettingsSectionID =
   | "tokens"
   | "routines"
   | "plugins"
+  | "permissions"
 
 export type NotificationPreferences = {
   enabled: boolean

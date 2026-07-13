@@ -97,6 +97,7 @@ const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   tokens: true,
   routines: true,
   plugins: true,
+  permissions: true,
 }
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {

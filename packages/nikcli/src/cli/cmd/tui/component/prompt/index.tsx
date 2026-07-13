@@ -48,6 +48,11 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
+import {
+  currentAgentPermissionMode,
+  permissionModeColor,
+  permissionModeShortLabel,
+} from "../dialog-permission-mode"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
@@ -199,6 +204,9 @@ export function Prompt(props: PromptProps) {
   const dialog = useDialog()
   const toast = useToast()
   const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" })
+  const permissionMode = createMemo(() =>
+    currentAgentPermissionMode(sync.data.config as Record<string, any>, local.agent.current().name),
+  )
   const history = usePromptHistory()
   const stash = usePromptStash()
   const command = useCommandDialog()
@@ -2145,6 +2153,14 @@ export function Prompt(props: PromptProps) {
                 <text fg={highlight()}>
                   {store.mode === "shell" ? lang.t("prompt.shell") : Locale.titlecase(local.agent.current().name)}{" "}
                 </text>
+              </Show>
+              <Show when={store.mode === "normal" && kv.get("show_agent", true)}>
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.textMuted}>·</text>
+                  <text fg={permissionModeColor(permissionMode(), theme)}>
+                    {permissionModeShortLabel(permissionMode())}
+                  </text>
+                </box>
               </Show>
               <Show when={store.mode === "normal" && kv.get("show_model", true)}>
                 <box flexDirection="row" gap={1}>

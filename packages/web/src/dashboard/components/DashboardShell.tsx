@@ -1,12 +1,12 @@
-import React, { type ReactNode, useState, useEffect } from "react"
-import { AuthProvider, useAuth } from "../auth/AuthContext"
-import { getErrorMessage, requestJson } from "../lib/studio-api"
+import React, { type ReactNode, useState, useEffect } from "react";
+import { AuthProvider, useAuth } from "../auth/AuthContext";
+import { getErrorMessage, requestJson } from "../lib/studio-api";
 
-const DEFAULT_SERVER_URL = "https://s.nikcli.store"
+const DEFAULT_SERVER_URL = "https://s.nikcli.store";
 
 interface DashboardShellProps {
-  title: string
-  children: ReactNode
+  title: string;
+  children: ReactNode;
 }
 
 // SVG icon helpers — 16x16 viewBox, 1.5 stroke, inherits currentColor
@@ -25,11 +25,18 @@ const Icon = ({ d, d2 }: { d: string; d2?: string }) => (
     <path d={d} />
     {d2 && <path d={d2} />}
   </svg>
-)
+);
 
 const icons = {
-  overview: () => <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" d2="M9 22V12h6v10" />,
-  sessions: () => <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  overview: () => (
+    <Icon
+      d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+      d2="M9 22V12h6v10"
+    />
+  ),
+  sessions: () => (
+    <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  ),
   mcp: () => <Icon d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
   profiles: () => (
     <svg
@@ -83,7 +90,9 @@ const icons = {
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   ),
-  backup: () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+  backup: () => (
+    <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+  ),
   users: () => (
     <svg
       width="16"
@@ -117,62 +126,70 @@ const icons = {
       <circle cx="12" cy="12" r="3" />
     </svg>
   ),
-}
+};
 
 function ServerSetup() {
-  const { setServerUrl } = useAuth()
-  const [url, setUrl] = useState(DEFAULT_SERVER_URL)
-  const [error, setError] = useState<string | null>(null)
-  const [checking, setChecking] = useState(false)
+  const { setServerUrl } = useAuth();
+  const [url, setUrl] = useState(DEFAULT_SERVER_URL);
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setChecking(true)
+    e.preventDefault();
+    setError(null);
+    setChecking(true);
     try {
       // /global/health is public — proves the server is reachable before we ask for a token.
       await requestJson<unknown>("/global/health", {
         serverUrl: url,
         signal: AbortSignal.timeout(5000),
-      })
-      setServerUrl(url)
-      window.location.href = "/dashboard/login"
+      });
+      setServerUrl(url);
+      window.location.href = "/dashboard/login";
     } catch (err) {
-      setError(getErrorMessage(err) || "Cannot reach the nikcli server. Make sure it is running.")
+      setError(
+        getErrorMessage(err) ||
+          "Cannot reach the nikcli server. Make sure it is running.",
+      );
     } finally {
-      setChecking(false)
+      setChecking(false);
     }
-  }
+  };
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-terminal-bg p-8">
       <div className="w-full max-w-md space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-terminal-accent/10 border border-terminal-accent/25">
-            <svg
-              viewBox="0 0 16 16"
-              className="w-5 h-5 text-terminal-accent"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
-              <path d="M9 12.5H13.5" />
-            </svg>
-          </div>
-          <div>
-            <div className="font-display text-[15px] font-bold tracking-[0.04em] uppercase text-terminal-text">
-              nikcli
-            </div>
-            <div className="text-[12px] text-terminal-muted">Connect to your server</div>
+        <div className="flex flex-col items-start gap-3">
+          <img
+            src="/brand/wordmark-light.png"
+            alt="nikcli"
+            width={158}
+            height={52}
+            loading="eager"
+            decoding="async"
+            className="h-10 w-auto dark:hidden"
+          />
+          <img
+            src="/brand/wordmark-dark.png"
+            alt="nikcli"
+            width={158}
+            height={52}
+            loading="eager"
+            decoding="async"
+            className="h-10 w-auto hidden dark:block"
+          />
+          <div className="text-[12px] text-terminal-muted">
+            Connect to your server
           </div>
         </div>
 
         <div className="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-6">
-          <h2 className="mb-1 text-[15px] font-semibold text-terminal-text">Server URL</h2>
-          <p className="mb-4 text-[13px] text-terminal-muted">Enter the address of your running nikcli server</p>
+          <h2 className="mb-1 text-[15px] font-semibold text-terminal-text">
+            Server URL
+          </h2>
+          <p className="mb-4 text-[13px] text-terminal-muted">
+            Enter the address of your running nikcli server
+          </p>
           <form onSubmit={handleConnect} className="space-y-3">
             {error && (
               <div className="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/8 px-4 py-3 text-[13px] text-terminal-error">
@@ -198,7 +215,7 @@ function ServerSetup() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function Spinner() {
@@ -206,16 +223,26 @@ function Spinner() {
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-terminal-bg">
       <div className="h-7 w-7 animate-spin rounded-full border-2 border-terminal-border border-t-terminal-accent" />
     </div>
-  )
+  );
 }
 
-type NavItem = { href: string; label: string; icon: () => React.ReactElement; exact?: boolean }
+type NavItem = {
+  href: string;
+  label: string;
+  icon: () => React.ReactElement;
+  exact?: boolean;
+};
 
 const navSections: Array<{ heading: string; items: NavItem[] }> = [
   {
     heading: "Dashboard",
     items: [
-      { href: "/dashboard", label: "Overview", icon: icons.overview, exact: true },
+      {
+        href: "/dashboard",
+        label: "Overview",
+        icon: icons.overview,
+        exact: true,
+      },
       { href: "/dashboard/sessions", label: "Sessions", icon: icons.sessions },
     ],
   },
@@ -237,50 +264,53 @@ const navSections: Array<{ heading: string; items: NavItem[] }> = [
       { href: "/dashboard/settings", label: "Settings", icon: icons.settings },
     ],
   },
-]
+];
 
 function DashboardShellInner({ title, children }: DashboardShellProps) {
-  const { user, loading, logout, serverUrl, connected } = useAuth()
-  const [mounted, setMounted] = useState(false)
-  const [navOpen, setNavOpen] = useState(false)
+  const { user, loading, logout, serverUrl, connected } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // Lock body scroll while the mobile nav drawer is open
   useEffect(() => {
-    if (typeof document === "undefined") return
-    document.body.style.overflow = navOpen ? "hidden" : ""
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = navOpen ? "hidden" : "";
     return () => {
-      document.body.style.overflow = ""
-    }
-  }, [navOpen])
+      document.body.style.overflow = "";
+    };
+  }, [navOpen]);
 
   // Close the drawer on Escape
   useEffect(() => {
-    if (!navOpen) return
+    if (!navOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setNavOpen(false)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [navOpen])
+      if (e.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
 
   useEffect(() => {
     if (mounted && !loading && !connected && serverUrl) {
-      window.location.href = "/dashboard/login"
+      window.location.href = "/dashboard/login";
     }
-  }, [mounted, loading, connected, serverUrl])
+  }, [mounted, loading, connected, serverUrl]);
 
-  if (!mounted) return <Spinner />
-  if (!serverUrl) return <ServerSetup />
-  if (loading && !connected) return <Spinner />
-  if (!connected || !user) return null
+  if (!mounted) return <Spinner />;
+  if (!serverUrl) return <ServerSetup />;
+  if (loading && !connected) return <Spinner />;
+  if (!connected || !user) return null;
 
-  const pathname = typeof window !== "undefined" ? window.location.pathname : ""
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "";
   const isActive = (href: string, exact?: boolean) =>
-    exact ? pathname === href : pathname === href || pathname.startsWith(href + "/")
+    exact
+      ? pathname === href
+      : pathname === href || pathname.startsWith(href + "/");
 
   return (
     <div className="flex">
@@ -312,7 +342,7 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
                 {section.heading}
               </div>
               {section.items.map(({ href, label, icon: IconFn, exact }) => {
-                const active = isActive(href, exact)
+                const active = isActive(href, exact);
                 return (
                   <a
                     key={href}
@@ -332,12 +362,18 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
                         aria-hidden="true"
                       />
                     )}
-                    <span className={active ? "text-terminal-accent" : "text-terminal-muted/70"}>
+                    <span
+                      className={
+                        active
+                          ? "text-terminal-accent"
+                          : "text-terminal-muted/70"
+                      }
+                    >
                       <IconFn />
                     </span>
                     {label}
                   </a>
-                )
+                );
               })}
             </div>
           ))}
@@ -354,7 +390,9 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
                 <div className="text-[12px] font-semibold text-terminal-text truncate">
                   {user.displayName || user.username}
                 </div>
-                <div className="text-[11px] text-terminal-muted truncate">{user.email}</div>
+                <div className="text-[11px] text-terminal-muted truncate">
+                  {user.email}
+                </div>
               </div>
             </div>
             <button
@@ -369,7 +407,9 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
           {serverUrl && (
             <div className="mt-2.5 flex items-center gap-2 px-1">
               <div className="h-1.5 w-1.5 rounded-full bg-terminal-success shrink-0" />
-              <span className="font-mono text-[10.5px] text-terminal-muted/60 truncate">{serverUrl}</span>
+              <span className="font-mono text-[10.5px] text-terminal-muted/60 truncate">
+                {serverUrl}
+              </span>
             </div>
           )}
         </div>
@@ -397,10 +437,16 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              {navOpen ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M4 6h16M4 12h16M4 18h16" />}
+              {navOpen ? (
+                <path d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              )}
             </svg>
           </button>
-          <span className="hidden text-[12.5px] font-medium text-terminal-muted/70 sm:inline">Studio</span>
+          <span className="hidden text-[12.5px] font-medium text-terminal-muted/70 sm:inline">
+            Studio
+          </span>
           <svg
             className="mx-1.5 hidden w-3 h-3 text-terminal-muted/40 sm:block"
             fill="none"
@@ -408,14 +454,21 @@ function DashboardShellInner({ title, children }: DashboardShellProps) {
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9 5l7 7-7 7"
+            />
           </svg>
-          <span className="truncate text-[12.5px] font-medium text-terminal-text">{title}</span>
+          <span className="truncate text-[12.5px] font-medium text-terminal-text">
+            {title}
+          </span>
         </div>
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
-  )
+  );
 }
 
 export function DashboardShell({ title, children }: DashboardShellProps) {
@@ -423,5 +476,5 @@ export function DashboardShell({ title, children }: DashboardShellProps) {
     <AuthProvider>
       <DashboardShellInner title={title}>{children}</DashboardShellInner>
     </AuthProvider>
-  )
+  );
 }

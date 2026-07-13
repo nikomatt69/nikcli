@@ -59,6 +59,8 @@ const toolIndex = [
   { id: "get_goal", file: "src/tool/goal.ts", desc: "Read the current goal state for this session." },
   { id: "update_goal", file: "src/tool/goal.ts", desc: "Mark the session goal as complete or blocked." },
   { id: "invalid", file: "src/tool/invalid.ts", desc: "Rejected invalid tool-call shape." },
+  { id: "browser", file: "src/tool/browser.ts", desc: "Drive a remote browser: navigate, snapshot, click, type, and capture the action log." },
+  { id: "computer", file: "src/tool/computer.ts", desc: "Computer-use tool: capture screenshots, send mouse and keyboard input to a desktop session." },
 ];
 ---
 
@@ -151,6 +153,12 @@ const toolIndex = [
       </DocCard>
       <DocCard title="skill" eyebrow="Instruction packs">
         <p>Load a skill to bring focused instructions into the current session.</p>
+      </DocCard>
+      <DocCard title="browser" eyebrow="Browser automation">
+        <p>Navigate, snapshot, click, type, and capture the action log of a remote browser session.</p>
+      </DocCard>
+      <DocCard title="computer" eyebrow="Computer use">
+        <p>Capture screenshots and send mouse / keyboard input to a desktop session for computer-use workflows.</p>
       </DocCard>
     </div>
   </section>

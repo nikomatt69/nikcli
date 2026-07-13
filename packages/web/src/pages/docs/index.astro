@@ -9,6 +9,7 @@ const toc = [
   { title: "Architecture Snapshot", href: "#architecture-snapshot", depth: 2 },
   { title: "Platform Surfaces", href: "#platform-surfaces", depth: 2 },
   { title: "Codebase Roadmap", href: "#codebase-roadmap", depth: 2 },
+  { title: "What's new", href: "#whats-new", depth: 2 },
   { title: "Next Steps", href: "#next-steps", depth: 2 },
 ];
 ---
@@ -125,12 +126,63 @@ const toc = [
     <div class="doc-grid not-prose my-2">
       <DocCard title="Core runtime" eyebrow="packages/nikcli" href="/docs/architecture">
         <p>
-          Commands, agents, sessions, tools, connectors, sharing, storage, and HTTP routes.
+          Commands, agents, sessions, tools, connectors, sharing, storage, sync, and HTTP routes.
         </p>
       </DocCard>
       <DocCard title="Supporting surfaces" eyebrow="packages/mobile + packages/web" href="/docs/mobile">
         <p>
-          Mobile session control, notifications, GitHub flows, and the docs experience itself.
+          Mobile session control, teleport, session artifacts, workspace switcher, and the docs
+          experience itself.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="whats-new" class="doc-section">
+    <h2>What's new</h2>
+    <p>
+      Recent releases added the <a href="/docs/sync">sync subsystem</a> (event journal, projections,
+      idempotent outbox, remote hub), the macOS Island plugin (notch UI), new TUI feature
+      plugins (Brain, Browser, ChatBot, Computer, DeepSec, Observability), and several mobile
+      sheets (teleport, session artifacts, workspace switcher). The brand wordmarks are now
+      shared between web and mobile — see the <a href="/docs/brand">brand assets</a> reference.
+    </p>
+    <div class="doc-grid not-prose my-2">
+      <DocCard title="Sync subsystem" eyebrow="Opt-in hub" href="/docs/sync">
+        <p>Local event log, typed projections, cold-start snapshots, idempotent outbox, remote hub transport.</p>
+      </DocCard>
+      <DocCard title="Island plugin" eyebrow="macOS notch">
+        <p>
+          Mirrors live session state into the file contract that <code>NikcliIsland.app</code>
+          reads, with one snapshot per session under
+          <code>~/Library/Application Support/NikcliIsland/state.d/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="New TUI feature plugins" eyebrow="TUI surface" href="/docs/tui">
+        <p>
+          Brain (model + scheduler), Browser (computer-use), ChatBot (Slack / Discord / Teams
+          / GChat / Linear / GitHub webhooks), Computer, DeepSec, and Observability are now
+          first-class TUI plugins.
+        </p>
+      </DocCard>
+      <DocCard title="Teleport and artifacts" eyebrow="Mobile" href="/docs/mobile">
+        <p>
+          <code>nikcli teleport</code> ships a session (and optionally the working tree) to a
+          remote host, the mobile app exposes a teleport sheet, and session artifact viewer
+          surfaces URLs, HTML, SVG, and Mermaid previews inline.
+        </p>
+      </DocCard>
+      <DocCard title="Workspace switcher" eyebrow="Mobile" href="/docs/mobile">
+        <p>
+          The mobile app can browse workspaces from the host, swap the active directory, and
+          deep-link into the right session in one tap.
+        </p>
+      </DocCard>
+      <DocCard title="Shared wordmark" eyebrow="Brand" href="/docs/brand">
+        <p>
+          Three PNG variants are now used consistently across the docs navbar, footer, dashboard
+          connect screen, and mobile app via a single source of truth in
+          <code>packages/mobile/assets/</code>.
         </p>
       </DocCard>
     </div>

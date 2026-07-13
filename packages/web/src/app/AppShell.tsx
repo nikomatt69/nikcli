@@ -10,6 +10,7 @@ import type {
   MobileProject,
   MobileSessionDetail,
   MobileSessionSummary,
+  QuestionRequest,
 } from "@nikcli-ai/sdk/v2/client"
 import {
   clearServerConfig,
@@ -35,6 +36,30 @@ import {
   upsertPart,
   type MessageWithParts,
 } from "@/app/session-state"
+import {
+  AppNavButton,
+  Banner,
+  Button,
+  Chip,
+  cn,
+  currentProjectLabel,
+  EmptyState,
+  Field,
+  Modal,
+  PathBadge,
+  safeJson,
+  SelectField,
+  sleep,
+  Spinner,
+  StatusPill,
+  Surface,
+  TextAreaField,
+  truncateMiddle,
+} from "@/app/ui"
+import { AutomationsScreen } from "@/app/AutomationsScreen"
+import { GitScreen } from "@/app/GitScreen"
+import { MemoryScreen } from "@/app/MemoryScreen"
+import { TerminalScreen } from "@/app/TerminalScreen"
 
 type GithubRepo = Awaited<ReturnType<WebNikcliClient["listGithubRepos"]>>[number]
 
@@ -44,6 +69,10 @@ type AppRoute =
   | { screen: "sessions" }
   | { screen: "session"; sessionId: string }
   | { screen: "repos" }
+  | { screen: "automations" }
+  | { screen: "git" }
+  | { screen: "memory" }
+  | { screen: "terminal" }
   | { screen: "settings" }
 
 type AppContextValue = {
@@ -59,35 +88,6 @@ type AppContextValue = {
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
-
-function cn(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ")
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function safeJson(value: unknown) {
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
-}
-
-function truncateMiddle(value: string, max = 64) {
-  if (value.length <= max) return value
-  const slice = Math.max(12, Math.floor((max - 3) / 2))
-  return `${value.slice(0, slice)}...${value.slice(-slice)}`
-}
-
-function currentProjectLabel(project?: { name?: string; worktree?: string }) {
-  if (!project) return "No active workspace"
-  if (project.name) return project.name
-  if (!project.worktree) return "No active workspace"
-  return project.worktree.split("/").filter(Boolean).pop() || project.worktree
-}
 
 function safeDecodeSegment(value: string) {
   try {
@@ -125,6 +125,10 @@ function parseAppRoute(pathname: string): AppRoute {
   if (normalized === "/app/connect") return { screen: "connect" }
   if (normalized === "/app/sessions") return { screen: "sessions" }
   if (normalized === "/app/repos") return { screen: "repos" }
+  if (normalized === "/app/automations") return { screen: "automations" }
+  if (normalized === "/app/git") return { screen: "git" }
+  if (normalized === "/app/memory") return { screen: "memory" }
+  if (normalized === "/app/terminal") return { screen: "terminal" }
   if (normalized === "/app/settings") return { screen: "settings" }
 
   const sessionMatch = normalized.match(/^\/app\/sessions\/([^/]+)$/)
@@ -299,278 +303,6 @@ function useAppContext() {
   const value = useContext(AppContext)
   if (!value) throw new Error("App context is unavailable")
   return value
-}
-
-function Spinner(props: { label?: string }) {
-  return (
-    <div className="inline-flex items-center gap-3 text-sm text-terminal-muted">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-terminal-border border-t-terminal-accent" />
-      {props.label ? <span>{props.label}</span> : null}
-    </div>
-  )
-}
-
-function Banner(props: { tone?: "error" | "good" | "warn"; children: ReactNode }) {
-  const tone = props.tone ?? "error"
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border px-4 py-3 text-sm shadow-soft",
-        tone === "error" && "border-terminal-error/30 bg-terminal-error/10 text-terminal-text",
-        tone === "good" && "border-terminal-accent/30 bg-terminal-accent/10 text-terminal-text",
-        tone === "warn" && "border-terminal-warning/30 bg-terminal-warning/10 text-terminal-text",
-      )}
-    >
-      {props.children}
-    </div>
-  )
-}
-
-function Chip(props: {
-  label: string
-  tone?: "neutral" | "accent" | "good" | "warn"
-  caps?: boolean
-  mono?: boolean
-  className?: string
-}) {
-  const tone = props.tone ?? "neutral"
-  const caps = props.caps ?? false
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium leading-none",
-        caps ? "text-[11px] font-semibold uppercase tracking-[0.14em]" : "normal-case tracking-normal",
-        props.mono && "font-mono text-[11px]",
-        tone === "neutral" && "border-terminal-border/80 bg-terminal-panel/80 text-terminal-text",
-        tone === "accent" && "border-terminal-accent/20 bg-terminal-accent/10 text-terminal-accent",
-        tone === "good" && "border-terminal-success/20 bg-terminal-success/10 text-terminal-success",
-        tone === "warn" && "border-terminal-warning/20 bg-terminal-warning/10 text-terminal-warning",
-        props.className,
-      )}
-    >
-      {tone !== "neutral" ? <span className="h-1.5 w-1.5 rounded-full bg-current" /> : null}
-      {props.label}
-    </span>
-  )
-}
-
-function StatusPill(props: { status?: MobileSessionSummary["status"] | MobileSessionDetail["status"] }) {
-  const status = props.status?.type ?? "idle"
-  const tone = status === "busy" ? "accent" : status === "retry" ? "warn" : "good"
-  return <Chip label={status} tone={tone} caps />
-}
-
-function PathBadge(props: { path: string }) {
-  return (
-    <div
-      title={props.path}
-      className="min-w-0 w-full rounded-2xl border border-terminal-border/80 bg-terminal-panel px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
-    >
-      <code className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[12px] text-terminal-text">
-        {truncateMiddle(props.path, 72)}
-      </code>
-    </div>
-  )
-}
-
-function Button(props: {
-  children: ReactNode
-  onClick?: () => void
-  type?: "button" | "submit"
-  variant?: "primary" | "secondary" | "ghost" | "danger"
-  busy?: boolean
-  disabled?: boolean
-  className?: string
-}) {
-  const variant = props.variant ?? "primary"
-  const disabled = props.disabled || props.busy
-  return (
-    <button
-      type={props.type ?? "button"}
-      onClick={props.onClick}
-      disabled={disabled}
-      className={cn(
-        "inline-flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-semibold transition duration-150",
-        variant === "primary" &&
-          "border-terminal-accent/20 bg-terminal-accent text-terminal-bg shadow-glow hover:bg-terminal-accent/90 disabled:bg-terminal-accent/40",
-        variant === "secondary" &&
-          "border-terminal-border bg-terminal-panel text-terminal-text hover:bg-surface-hover disabled:opacity-50",
-        variant === "ghost" &&
-          "border-transparent bg-transparent text-terminal-muted hover:border-terminal-border hover:text-terminal-text",
-        variant === "danger" &&
-          "border-terminal-error/20 bg-terminal-error/10 text-terminal-error hover:bg-terminal-error/15 disabled:opacity-50",
-        disabled && "cursor-not-allowed opacity-60",
-        props.className,
-      )}
-    >
-      {props.busy ? <Spinner label="Working" /> : props.children}
-    </button>
-  )
-}
-
-function Field(props: {
-  label: string
-  value: string
-  onChange(value: string): void
-  placeholder?: string
-  type?: string
-  help?: string
-  autoComplete?: string
-  spellCheck?: boolean
-  action?: ReactNode
-}) {
-  return (
-    <label className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">{props.label}</span>
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-        <input
-          type={props.type ?? "text"}
-          value={props.value}
-          onChange={(event) => props.onChange(event.target.value)}
-          placeholder={props.placeholder}
-          autoComplete={props.autoComplete}
-          spellCheck={props.spellCheck}
-          className="min-w-0 w-full rounded-2xl border border-terminal-border bg-terminal-panel px-4 py-3 text-sm text-terminal-text placeholder:text-terminal-muted/70"
-        />
-        {props.action ? (
-          <div className="w-full shrink-0 sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">{props.action}</div>
-        ) : null}
-      </div>
-      {props.help ? <span className="block text-xs text-terminal-muted">{props.help}</span> : null}
-    </label>
-  )
-}
-
-function TextAreaField(props: {
-  label: string
-  value: string
-  onChange(value: string): void
-  placeholder?: string
-  rows?: number
-}) {
-  return (
-    <label className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">{props.label}</span>
-      <textarea
-        value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
-        placeholder={props.placeholder}
-        rows={props.rows ?? 4}
-        className="w-full rounded-2xl border border-terminal-border bg-terminal-panel px-4 py-3 text-sm text-terminal-text placeholder:text-terminal-muted/70"
-      />
-    </label>
-  )
-}
-
-function SelectField(props: {
-  label: string
-  value: string
-  onChange(value: string): void
-  options: Array<{ value: string; label: string }>
-  disabled?: boolean
-}) {
-  return (
-    <label className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">{props.label}</span>
-      <select
-        value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
-        disabled={props.disabled}
-        className="w-full rounded-2xl border border-terminal-border bg-terminal-panel px-4 py-3 text-sm text-terminal-text disabled:opacity-50"
-      >
-        {props.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
-function Surface(props: {
-  eyebrow?: string
-  title?: string
-  description?: string
-  actions?: ReactNode
-  children?: ReactNode
-  className?: string
-}) {
-  return (
-    <section
-      className={cn(
-        "relative overflow-hidden rounded-[24px] border border-terminal-border bg-terminal-panel/95 px-4 py-4 shadow-strong sm:rounded-[28px] sm:px-5 sm:py-5",
-        props.className,
-      )}
-    >
-      <div className="pointer-events-none absolute inset-x-6 top-px h-px bg-white/60 dark:bg-white/10" />
-      <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-terminal-accent/10 blur-2xl" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-terminal-bg/30 to-transparent" />
-      {(props.eyebrow || props.title || props.description || props.actions) && (
-        <div className="relative flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            {props.eyebrow ? (
-              <div className="text-eyebrow uppercase text-terminal-accent/90">{props.eyebrow}</div>
-            ) : null}
-            {props.title ? <h2 className="text-panel-title text-terminal-text">{props.title}</h2> : null}
-            {props.description ? (
-              <p className="max-w-3xl text-body-sm text-terminal-muted">{props.description}</p>
-            ) : null}
-          </div>
-          {props.actions ? <div className="relative shrink-0">{props.actions}</div> : null}
-        </div>
-      )}
-      {props.children ? (
-        <div className={cn(props.title || props.description || props.eyebrow ? "relative mt-4" : "relative")}>
-          {props.children}
-        </div>
-      ) : null}
-    </section>
-  )
-}
-
-function EmptyState(props: { title: string; description: string; action?: ReactNode }) {
-  return (
-    <div className="rounded-[24px] border border-dashed border-terminal-border bg-terminal-panel/60 px-4 py-6 text-center shadow-soft sm:rounded-[28px] sm:px-6 sm:py-8">
-      <h3 className="text-lg font-semibold text-terminal-text">{props.title}</h3>
-      <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">{props.description}</p>
-      {props.action ? <div className="mt-5 flex justify-center">{props.action}</div> : null}
-    </div>
-  )
-}
-
-function Modal(props: { open: boolean; title: string; children: ReactNode; onClose(): void }) {
-  if (!props.open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 py-3 backdrop-blur-sm sm:items-center sm:px-4 sm:py-8">
-      <div className="max-h-[calc(100vh-0.75rem)] w-full max-w-2xl overflow-y-auto no-scrollbar rounded-[28px] border border-terminal-border bg-terminal-panel p-4 shadow-strong sm:max-h-[calc(100vh-2rem)] sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h3 className="text-xl font-semibold text-terminal-text">{props.title}</h3>
-          <Button variant="ghost" onClick={props.onClose}>
-            Close
-          </Button>
-        </div>
-        {props.children}
-      </div>
-    </div>
-  )
-}
-
-function AppNavButton(props: { label: string; active?: boolean; onClick(): void; hint?: string }) {
-  return (
-    <button
-      onClick={props.onClick}
-      className={cn(
-        "flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left transition sm:flex-row sm:items-center sm:justify-between",
-        props.active
-          ? "border-terminal-accent/20 bg-terminal-accent/10 text-terminal-text shadow-soft"
-          : "border-terminal-border bg-terminal-panel/70 text-terminal-muted hover:bg-surface-hover hover:text-terminal-text",
-      )}
-    >
-      <span className="font-semibold">{props.label}</span>
-      {props.hint ? <span className="text-[11px] uppercase tracking-[0.16em]">{props.hint}</span> : null}
-    </button>
-  )
 }
 
 function ConnectScreen(props: { navigate(path: string, options?: { replace?: boolean }): void }) {
@@ -951,6 +683,121 @@ function PermissionCard(props: {
   )
 }
 
+function QuestionCard(props: {
+  request: QuestionRequest
+  onRespond(answers: string[][]): Promise<void> | void
+  onReject(): void
+}) {
+  const [selections, setSelections] = useState<string[][]>(() => props.request.questions.map(() => []))
+  const [custom, setCustom] = useState<string[]>(() => props.request.questions.map(() => ""))
+  const [submitting, setSubmitting] = useState(false)
+
+  const toggleOption = useCallback(
+    (questionIndex: number, label: string, multiple: boolean) => {
+      setSelections((current) => {
+        const next = [...current]
+        const selected = next[questionIndex] ?? []
+        if (multiple) {
+          next[questionIndex] = selected.includes(label)
+            ? selected.filter((item) => item !== label)
+            : [...selected, label]
+        } else {
+          next[questionIndex] = selected.includes(label) ? [] : [label]
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const answers = useMemo(
+    () =>
+      props.request.questions.map((_, index) => {
+        const selected = selections[index] ?? []
+        const typed = custom[index]?.trim()
+        if (typed) return [...selected, typed]
+        return selected
+      }),
+    [custom, props.request.questions, selections],
+  )
+
+  const complete = answers.every((answer) => answer.length > 0)
+
+  return (
+    <div className="rounded-[28px] border border-terminal-accent/20 bg-terminal-panel px-4 py-4 shadow-soft">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-terminal-accent">
+        Question from Nikcli
+      </div>
+      <div className="mt-3 space-y-5">
+        {props.request.questions.map((question, index) => {
+          const selected = selections[index] ?? []
+          return (
+            <div key={`${props.request.id}-${index}`} className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Chip label={question.header} tone="accent" caps />
+                {question.multiple ? <Chip label="Multi-select" tone="neutral" caps /> : null}
+              </div>
+              <div className="text-sm leading-6 text-terminal-text">{question.question}</div>
+              <div className="flex flex-wrap gap-2">
+                {question.options.map((option) => {
+                  const active = selected.includes(option.label)
+                  return (
+                    <button
+                      key={option.label}
+                      title={option.description}
+                      onClick={() => toggleOption(index, option.label, Boolean(question.multiple))}
+                      className={cn(
+                        "rounded-2xl border px-3 py-2 text-left text-sm transition",
+                        active
+                          ? "border-terminal-accent/30 bg-terminal-accent/10 text-terminal-accent"
+                          : "border-terminal-border bg-terminal-code text-terminal-text hover:border-terminal-accent/30",
+                      )}
+                    >
+                      <span className="font-semibold">{option.label}</span>
+                      {option.description ? (
+                        <span className="mt-0.5 block max-w-md text-xs text-terminal-muted">{option.description}</span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+              {question.custom === false ? null : (
+                <Field
+                  label="Custom answer"
+                  value={custom[index] ?? ""}
+                  onChange={(value) =>
+                    setCustom((current) => {
+                      const next = [...current]
+                      next[index] = value
+                      return next
+                    })
+                  }
+                  placeholder="Type your own answer (optional)"
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          busy={submitting}
+          disabled={!complete}
+          onClick={() => {
+            setSubmitting(true)
+            void Promise.resolve(props.onRespond(answers)).finally(() => setSubmitting(false))
+          }}
+        >
+          Submit answer
+        </Button>
+        <Button variant="danger" onClick={props.onReject}>
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function DiffViewer(props: { diffs: FileDiff[] }) {
   return (
     <div className="min-w-0 space-y-3">
@@ -1063,8 +910,10 @@ function MessageCard(props: {
   return (
     <article
       className={cn(
-        "min-w-0 rounded-[28px] border px-4 py-4 shadow-soft",
-        isUser ? "border-terminal-accent/20 bg-terminal-accent/10" : "border-terminal-border bg-terminal-panel",
+        "min-w-0 rounded-[24px] border px-4 py-4 shadow-soft",
+        isUser
+          ? "ml-auto w-fit min-w-[14rem] max-w-[94%] rounded-br-lg border-terminal-accent/20 bg-terminal-accent/10 sm:max-w-[80%]"
+          : "mr-auto w-full rounded-bl-lg border-terminal-border bg-terminal-panel",
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1383,6 +1232,36 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
     [client, detail],
   )
 
+  const respondQuestion = useCallback(
+    async (requestID: string, answers: string[][]) => {
+      if (!client || !detail) return
+      try {
+        await client.respondToQuestion(detail.info.id, requestID, answers)
+        setDetail((current) =>
+          current ? { ...current, questions: current.questions.filter((item) => item.id !== requestID) } : current,
+        )
+      } catch (error) {
+        setMessage(getErrorMessage(error))
+      }
+    },
+    [client, detail],
+  )
+
+  const rejectQuestion = useCallback(
+    async (requestID: string) => {
+      if (!client || !detail) return
+      try {
+        await client.rejectQuestion(detail.info.id, requestID)
+        setDetail((current) =>
+          current ? { ...current, questions: current.questions.filter((item) => item.id !== requestID) } : current,
+        )
+      } catch (error) {
+        setMessage(getErrorMessage(error))
+      }
+    },
+    [client, detail],
+  )
+
   const abort = useCallback(async () => {
     if (!client || !detail) return
     try {
@@ -1444,53 +1323,37 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
   }
 
   return (
-    <div className="space-y-6">
-      <Surface
-        eyebrow="Execution timeline"
-        title={detail.info.title || "Session"}
-        description={sessionLocation(detail.info)}
-        actions={
-          <div className="grid gap-2 sm:flex sm:flex-wrap">
-            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => props.navigate("/app/sessions")}>
+    <div className="flex flex-col gap-4">
+      <Surface>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-eyebrow uppercase text-terminal-accent/90">Session</div>
+            <h2 className="mt-1 break-words text-lg font-semibold text-terminal-text sm:text-xl">
+              {detail.info.title || "Session"}
+            </h2>
+            <div className="mt-1 break-words text-xs text-terminal-muted">{sessionLocation(detail.info)}</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill status={detail.status} />
+            <Button variant="ghost" onClick={() => props.navigate("/app/sessions")}>
               Back
             </Button>
-            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => void load()}>
+            <Button variant="ghost" onClick={() => void load()}>
               Refresh
             </Button>
             {detail.info.github ? (
-              <Button
-                className="w-full sm:w-auto"
-                variant="secondary"
-                onClick={openPublish}
-                disabled={sessionBlocked || cleaned}
-              >
+              <Button variant="secondary" onClick={openPublish} disabled={sessionBlocked || cleaned}>
                 Publish
               </Button>
             ) : null}
-            <Button
-              className="w-full sm:w-auto"
-              variant="danger"
-              onClick={() => void abort()}
-              disabled={!sessionBlocked}
-            >
-              Abort
-            </Button>
             {detail.info.github ? (
-              <Button
-                className="w-full sm:w-auto"
-                variant="secondary"
-                busy={cleaning}
-                onClick={() => void cleanup()}
-                disabled={sessionBlocked || cleaned}
-              >
+              <Button variant="ghost" busy={cleaning} onClick={() => void cleanup()} disabled={sessionBlocked || cleaned}>
                 Cleanup
               </Button>
             ) : null}
           </div>
-        }
-      >
-        <div className="flex flex-wrap gap-2">
-          <StatusPill status={detail.status} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
           {detail.info.github?.fullName ? <Chip label={detail.info.github.fullName} tone="accent" /> : null}
           {detail.info.github?.baseBranch ? (
             <Chip label={`base ${detail.info.github.baseBranch}`} tone="neutral" />
@@ -1503,7 +1366,7 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
           <Chip label={`Updated ${formatRelativeTime(detail.info.time.updated)}`} tone="neutral" />
         </div>
         {detail.info.github?.pullRequest ? (
-          <div className="mt-4 rounded-2xl border border-terminal-border bg-terminal-code px-4 py-3 text-sm text-terminal-text">
+          <div className="mt-3 rounded-2xl border border-terminal-border bg-terminal-code px-4 py-3 text-sm text-terminal-text">
             Pull request:{" "}
             <a
               className="font-semibold text-terminal-accent underline"
@@ -1519,133 +1382,149 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
 
       {message ? <Banner>{message}</Banner> : null}
 
-      {detail.permissions.length ? (
-        <div className="space-y-3">
-          {detail.permissions.map((item) => (
-            <PermissionCard key={item.id} item={item} onRespond={(response) => void respond(item.id, response)} />
-          ))}
-        </div>
-      ) : null}
+      <div
+        ref={transcriptRef}
+        className="h-[52dvh] min-h-[20rem] space-y-4 overflow-y-auto no-scrollbar rounded-[24px] border border-terminal-border bg-terminal-bg/40 p-3 sm:h-[56dvh] sm:p-4"
+      >
+        {detail.messages.length === 0 ? (
+          <EmptyState
+            title="No transcript yet"
+            description="Send the first instruction below to start this conversation."
+          />
+        ) : (
+          detail.messages.map((entry) => (
+            <MessageCard
+              key={entry.info.id}
+              message={entry}
+              diffs={diffs[entry.info.id]}
+              diffLoaded={Boolean(diffLoaded[entry.info.id])}
+              diffLoading={Boolean(diffLoading[entry.info.id])}
+              onLoadDiff={loadDiff}
+              onReuse={(text) => setInput(text)}
+            />
+          ))
+        )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.38fr)_minmax(340px,0.92fr)] xl:items-start">
-        <Surface
-          title="Transcript"
-          description="Live output, tool activity, reasoning, and diffs stream into this timeline from the same mobile session route."
-          className="xl:min-h-[calc(100vh-18rem)]"
-        >
-          <div
-            ref={transcriptRef}
-            className="space-y-4 xl:max-h-[calc(100vh-24rem)] xl:overflow-y-auto no-scrollbar xl:pr-1"
-          >
-            {detail.messages.length === 0 ? (
-              <EmptyState
-                title="No transcript yet"
-                description="Send the first instruction to start this execution timeline."
+        {detail.permissions.length
+          ? detail.permissions.map((item) => (
+              <PermissionCard key={item.id} item={item} onRespond={(response) => void respond(item.id, response)} />
+            ))
+          : null}
+
+        {detail.questions?.length
+          ? detail.questions.map((item) => (
+              <QuestionCard
+                key={item.id}
+                request={item}
+                onRespond={(answers) => respondQuestion(item.id, answers)}
+                onReject={() => void rejectQuestion(item.id)}
               />
-            ) : (
-              detail.messages.map((entry) => (
-                <MessageCard
-                  key={entry.info.id}
-                  message={entry}
-                  diffs={diffs[entry.info.id]}
-                  diffLoaded={Boolean(diffLoaded[entry.info.id])}
-                  diffLoading={Boolean(diffLoading[entry.info.id])}
-                  onLoadDiff={loadDiff}
-                  onReuse={(text) => setInput(text)}
-                />
-              ))
-            )}
+            ))
+          : null}
+
+        {sessionBlocked ? (
+          <div className="mr-auto flex w-fit items-center gap-3 rounded-[24px] rounded-bl-lg border border-terminal-border bg-terminal-panel px-4 py-3 shadow-soft">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-terminal-accent" />
+            <span className="text-sm text-terminal-muted">
+              {detail.status?.type === "retry" ? "Retrying the last step..." : "Nikcli is working..."}
+            </span>
           </div>
-        </Surface>
+        ) : null}
+      </div>
 
-        <div className="space-y-6 xl:sticky xl:top-6">
-          <Surface
-            eyebrow="Composer"
-            title="Send the next instruction"
-            description="Use plain prompts or slash commands. The first send can optionally force your chosen local model preference before the transcript has user context."
-          >
-            <div className="grid gap-2 sm:flex sm:flex-wrap">
-              <Button
-                className="w-full sm:w-auto"
-                variant={mode === "code" ? "primary" : "secondary"}
-                onClick={() => setMode("code")}
-              >
-                Code
-              </Button>
-              <Button
-                className="w-full sm:w-auto"
-                variant={mode === "plan" ? "primary" : "secondary"}
-                onClick={() => setMode("plan")}
-              >
-                Plan
-              </Button>
-              <Chip
-                label={cleaned ? "Session cleaned" : sessionBlocked ? "Busy" : "Ready"}
-                tone={cleaned ? "warn" : sessionBlocked ? "accent" : "good"}
-              />
+      <div className="rounded-[24px] border border-terminal-border bg-terminal-panel/90 p-3 shadow-strong backdrop-blur">
+        {input.trimStart().startsWith("/") ? (
+          <div className="mb-3 rounded-2xl border border-terminal-border bg-terminal-code px-3 py-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-terminal-muted">
+                Slash commands
+              </div>
+              {commandsLoading ? <Spinner /> : null}
             </div>
-            <div className="mt-4 space-y-3">
-              <TextAreaField
-                label="Instruction"
-                value={input}
-                onChange={setInput}
-                rows={5}
-                placeholder="Ask Nikcli to inspect, implement, review, or publish work..."
-              />
-              {input.trimStart().startsWith("/") ? (
-                <div className="rounded-2xl border border-terminal-border bg-terminal-code px-4 py-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-terminal-muted">
-                      Slash suggestions
-                    </div>
-                    {commandsLoading ? <Spinner /> : null}
-                  </div>
-                  <div className="max-h-44 overflow-y-auto no-scrollbar">
-                    <div className="flex flex-wrap gap-2">
-                      {slashSuggestions.length ? (
-                        slashSuggestions.map((command) => (
-                          <button
-                            key={command.name}
-                            onClick={() => {
-                              const current = input.trimStart()
-                              const match = current.match(/^\/([^\s]+)(.*)$/s)
-                              const remainder = match?.[2] ?? ""
-                              const nextRemainder =
-                                remainder.startsWith(" ") || remainder === "" ? remainder : ` ${remainder}`
-                              setInput(`/${command.name}${nextRemainder || " "}`)
-                            }}
-                            className="rounded-full border border-terminal-border bg-terminal-panel px-3 py-2 text-xs font-semibold text-terminal-text hover:border-terminal-accent/30 hover:text-terminal-accent"
-                          >
-                            /{command.name}
-                          </button>
-                        ))
-                      ) : (
-                        <div className="text-sm text-terminal-muted">No matching commands found for this session.</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              <div className="grid gap-3 sm:flex sm:flex-wrap">
-                <Button
-                  className="w-full sm:w-auto"
-                  busy={sending}
-                  disabled={!input.trim() || cleaned}
-                  onClick={() => void send()}
-                >
-                  Send
-                </Button>
-                <Button
-                  className="w-full sm:w-auto"
-                  variant="secondary"
-                  onClick={() => setInput("")}
-                  disabled={!input.trim()}
-                >
-                  Clear draft
-                </Button>
+            <div className="max-h-36 overflow-y-auto no-scrollbar">
+              <div className="flex flex-wrap gap-2">
+                {slashSuggestions.length ? (
+                  slashSuggestions.map((command) => (
+                    <button
+                      key={command.name}
+                      onClick={() => {
+                        const current = input.trimStart()
+                        const match = current.match(/^\/([^\s]+)(.*)$/s)
+                        const remainder = match?.[2] ?? ""
+                        const nextRemainder =
+                          remainder.startsWith(" ") || remainder === "" ? remainder : ` ${remainder}`
+                        setInput(`/${command.name}${nextRemainder || " "}`)
+                      }}
+                      className="rounded-full border border-terminal-border bg-terminal-panel px-3 py-1.5 text-xs font-semibold text-terminal-text hover:border-terminal-accent/30 hover:text-terminal-accent"
+                    >
+                      /{command.name}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-sm text-terminal-muted">No matching commands found for this session.</div>
+                )}
               </div>
             </div>
-          </Surface>
+          </div>
+        ) : null}
+        <textarea
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              if (input.trim() && !cleaned && !sending) void send()
+            }
+          }}
+          rows={Math.min(6, Math.max(2, input.split("\n").length))}
+          disabled={cleaned}
+          placeholder={
+            cleaned
+              ? "This session was cleaned and is read-only"
+              : "Message Nikcli... ( / for commands, Shift+Enter for a new line )"
+          }
+          className="w-full resize-none bg-transparent px-1 text-sm leading-6 text-terminal-text outline-none placeholder:text-terminal-muted/70 disabled:opacity-60"
+        />
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setMode("code")}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                mode === "code"
+                  ? "border-terminal-accent/30 bg-terminal-accent/10 text-terminal-accent"
+                  : "border-terminal-border text-terminal-muted hover:text-terminal-text",
+              )}
+            >
+              Code
+            </button>
+            <button
+              onClick={() => setMode("plan")}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                mode === "plan"
+                  ? "border-terminal-accent/30 bg-terminal-accent/10 text-terminal-accent"
+                  : "border-terminal-border text-terminal-muted hover:text-terminal-text",
+              )}
+            >
+              Plan
+            </button>
+            <Chip
+              label={cleaned ? "Cleaned" : sessionBlocked ? "Busy" : "Ready"}
+              tone={cleaned ? "warn" : sessionBlocked ? "accent" : "good"}
+              caps
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {sessionBlocked ? (
+              <Button variant="danger" onClick={() => void abort()}>
+                Stop
+              </Button>
+            ) : null}
+            <Button busy={sending} disabled={!input.trim() || cleaned} onClick={() => void send()}>
+              Send
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -2626,7 +2505,7 @@ function SettingsScreen() {
 }
 
 function ClientApp(props: { initialPath: string }) {
-  const { configReady, config, bootstrap, bootstrapLoading, bootstrapError } = useAppContext()
+  const { configReady, config, client, bootstrap, bootstrapLoading, bootstrapError } = useAppContext()
   const { theme, toggleTheme } = useThemeMode()
   const { route, navigate } = useAppRouter(props.initialPath)
 
@@ -2654,9 +2533,17 @@ function ClientApp(props: { initialPath: string }) {
         ? "Sessions"
         : activeRoute.screen === "repos"
           ? "Repos"
-          : activeRoute.screen === "settings"
-            ? "Settings"
-            : "Connect"
+          : activeRoute.screen === "automations"
+            ? "Automations"
+            : activeRoute.screen === "git"
+              ? "Git"
+              : activeRoute.screen === "memory"
+              ? "Memory"
+              : activeRoute.screen === "terminal"
+                ? "Terminal"
+                : activeRoute.screen === "settings"
+                  ? "Settings"
+                  : "Connect"
 
   const contentWidthClass = activeRoute.screen === "connect" ? "max-w-[74rem]" : "max-w-full"
 
@@ -2715,7 +2602,31 @@ function ClientApp(props: { initialPath: string }) {
               label="Repos"
               active={activeRoute.screen === "repos"}
               onClick={() => navigate("/app/repos")}
-              hint="Git"
+              hint="Launch"
+            />
+            <AppNavButton
+              label="Git"
+              active={activeRoute.screen === "git"}
+              onClick={() => navigate("/app/git")}
+              hint="VCS"
+            />
+            <AppNavButton
+              label="Automations"
+              active={activeRoute.screen === "automations"}
+              onClick={() => navigate("/app/automations")}
+              hint="Cron"
+            />
+            <AppNavButton
+              label="Memory"
+              active={activeRoute.screen === "memory"}
+              onClick={() => navigate("/app/memory")}
+              hint="Recall"
+            />
+            <AppNavButton
+              label="Terminal"
+              active={activeRoute.screen === "terminal"}
+              onClick={() => navigate("/app/terminal")}
+              hint="Shell"
             />
             <AppNavButton
               label="Settings"
@@ -2795,6 +2706,10 @@ function ClientApp(props: { initialPath: string }) {
               <SessionScreen sessionId={activeRoute.sessionId} navigate={navigate} />
             ) : null}
             {activeRoute.screen === "repos" ? <ReposScreen navigate={navigate} /> : null}
+            {activeRoute.screen === "automations" ? <AutomationsScreen client={client} navigate={navigate} /> : null}
+            {activeRoute.screen === "git" ? <GitScreen client={client} /> : null}
+            {activeRoute.screen === "memory" ? <MemoryScreen client={client} navigate={navigate} /> : null}
+            {activeRoute.screen === "terminal" ? <TerminalScreen client={client} /> : null}
             {activeRoute.screen === "settings" ? <SettingsScreen /> : null}
           </div>
         </section>

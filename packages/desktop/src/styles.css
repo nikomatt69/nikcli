@@ -943,6 +943,14 @@ button.desktop-sidebar__list-item:hover {
   width: 44px !important;
   border-left: 1px solid var(--border-weak-base);
   background: color-mix(in srgb, var(--background-stronger) 90%, black 10%);
+  /* Review/terminal/files modes set pointer-events:none on .desktop-tools so the
+     in-app panels receive clicks. When collapsed those panels are hidden, but the
+     mode classes can remain — restore hits so the reopen trigger still works. */
+  pointer-events: auto;
+}
+
+[data-component="desktop-shell"]:has(.desktop-tools--collapsed) .desktop-workbench__collapsed-trigger {
+  pointer-events: auto;
 }
 
 [data-component="desktop-shell"]:has(.desktop-tools--collapsed)

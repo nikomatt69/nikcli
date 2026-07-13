@@ -134,6 +134,7 @@ const TIPS = [
   "Use {highlight}$ARGUMENTS{/highlight}, {highlight}$1{/highlight}, {highlight}$2{/highlight} in custom commands for dynamic input",
   "Use backticks in commands to inject shell output (e.g., {highlight}`git status`{/highlight})",
   "Add {highlight}.md{/highlight} files to {highlight}.nikcli/agent/{/highlight} for specialized AI personas",
+  "Configure per-agent permissions with {highlight}ctrl+s{/highlight} — presets and per-tool Allow / Ask / Deny",
   "Configure per-agent permissions for {highlight}edit{/highlight}, {highlight}bash{/highlight}, and {highlight}webfetch{/highlight} tools",
   'Use patterns like {highlight}"git *": "allow"{/highlight} for granular bash permissions',
   'Set {highlight}"rm -rf *": "deny"{/highlight} to block destructive commands',

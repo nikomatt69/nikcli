@@ -9,14 +9,22 @@
     "scheme": "nikcli",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/splash-light.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "image": "./assets/splash-dark.png",
+        "backgroundColor": "#000000"
+      }
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ai.nikcli.mobile",
       "appleTeamId": "5FAU2JSAM3",
+      "icon": {
+        "dark": "./assets/icon-dark.png",
+        "light": "./assets/icon-light.png"
+      },
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.ai.nikcli.mobile"
@@ -60,7 +68,19 @@
       "expo-font",
       "expo-notifications",
       "expo-asset",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-light.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-dark.png",
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
       "./plugins/withSceneLifecycle",
       [
         "expo-build-properties",

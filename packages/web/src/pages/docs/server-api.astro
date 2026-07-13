@@ -174,12 +174,19 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
         <tr><td><code>/provider</code></td><td><code>routes/provider.ts</code></td><td>Provider catalog, auth, refresh, and model metadata.</td></tr>
         <tr><td><code>/companion</code></td><td><code>routes/companion.ts</code></td><td>Companion app endpoints and embedded assets.</td></tr>
         <tr><td><code>/user</code></td><td><code>routes/users.ts</code></td><td>Local account login, registration, profile, and user admin.</td></tr>
-        <tr><td><code>/mobile</code></td><td><code>routes/mobile.ts</code></td><td>Mobile bootstrap, sessions, repos, git, approvals, routines, terminals.</td></tr>
+        <tr><td><code>/mobile</code></td><td><code>routes/mobile.ts</code></td><td>Mobile bootstrap, sessions, repos, git, approvals, routines, terminals, teleport.</td></tr>
         <tr><td><code>/connectors</code></td><td><code>routes/connectors.ts</code></td><td>Connector status, auth, logout, cache invalidation.</td></tr>
         <tr><td><code>/chatbot</code></td><td><code>routes/chatbot.ts</code></td><td>Slack, Discord, Teams, Google Chat, Linear, and GitHub bot webhooks.</td></tr>
+        <tr><td><code>/brain</code></td><td><code>routes/brain.ts</code></td><td>Brain model selection, periodic re-evaluation, and idle nudge scheduler state.</td></tr>
+        <tr><td><code>/mission</code></td><td><code>routes/mission.ts</code></td><td>Mission list, draft, validation review, and run endpoints.</td></tr>
+        <tr><td><code>/sync</code></td><td><code>routes/sync.ts</code></td><td>Hub config, stats, outbox snapshot, and push endpoint. See <a href="/docs/sync">Sync</a>.</td></tr>
         <tr><td><code>/mcp</code></td><td><code>routes/mcp.ts</code></td><td>MCP status, add, OAuth, connect, disconnect, toggle.</td></tr>
         <tr><td><code>/tui</code></td><td><code>routes/tui.ts</code></td><td>Remote control endpoints that publish TUI command events.</td></tr>
         <tr><td><code>/analytics</code></td><td><code>routes/analytics.ts</code></td><td>Analytics summaries and drilldowns for usage, sessions, tools, projects, and runs.</td></tr>
+        <tr><td><code>/doctor</code></td><td><code>routes/doctor.ts</code></td><td>Health, connectivity, and runtime diagnostics surfaced through the host CLI and web app.</td></tr>
+        <tr><td><code>/global</code></td><td><code>routes/global.ts</code></td><td>Global SSE stream and metadata used by SDK clients and UI surfaces.</td></tr>
+        <tr><td><code>/workspace</code></td><td><code>routes/workspace.ts</code></td><td>Workspace list, status, event history, and session proxy routing.</td></tr>
+        <tr><td><code>/loop</code></td><td><code>routes/loop.ts</code></td><td><a href="/docs/loops">Loops</a> CRUD, run, pause, resume, and schedule endpoints.</td></tr>
       </tbody>
     </table>
   </section>
@@ -253,6 +260,13 @@ NIKCLI_SERVER_TAILSCALE_USERS=alice@example.com,bob@example.com \
         <tr><td>Provider</td><td><code>httpapi/provider.ts</code></td><td>Provider list, auth methods, API token write, auth removal.</td></tr>
         <tr><td>Config</td><td><code>httpapi/config.ts</code></td><td>Read and update config plus provider summary.</td></tr>
         <tr><td>Workspace</td><td><code>httpapi/workspace.ts</code></td><td>Adaptors, create/list/remove/restore, session restore, warp.</td></tr>
+        <tr><td>Brain</td><td><code>httpapi/brain.ts</code></td><td>Brain model picker and scheduler state, periodic re-evaluation triggers.</td></tr>
+        <tr><td>ChatBot</td><td><code>httpapi/chatbot.ts</code></td><td>Bot config CRUD, restart, and webhook delivery state.</td></tr>
+        <tr><td>Sync</td><td><code>httpapi/sync.ts</code></td><td>Hub push, snapshot, config, and stats endpoints. See <a href="/docs/sync">Sync</a>.</td></tr>
+        <tr><td>Pty</td><td><code>httpapi/pty.ts</code></td><td>PTY lifecycle: create, list, input, resize, close, websocket upgrade.</td></tr>
+        <tr><td>Doctor</td><td><code>httpapi/doctor.ts</code></td><td>Health diagnostics used by the <code>nikcli doctor</code> command and the web app.</td></tr>
+        <tr><td>Analytics</td><td><code>httpapi/analytics.ts</code></td><td>Typed analytics summaries and drilldowns.</td></tr>
+        <tr><td>Loop</td><td><code>httpapi/loop.ts</code></td><td>Typed CRUD and run / pause / resume / schedule for <a href="/docs/loops">Loops</a>.</td></tr>
         <tr><td>Top-level</td><td><code>httpapi/top-level.ts</code></td><td>Path, VCS, command, agent, skill, LSP, formatter, dispose.</td></tr>
       </tbody>
     </table>
@@ -317,9 +331,13 @@ curl http://127.0.0.1:4096/doc
         <tr><td>Typed session API</td><td><code>packages/nikcli/src/server/httpapi/session.ts</code></td></tr>
         <tr><td>Mobile API</td><td><code>packages/nikcli/src/server/routes/mobile.ts</code></td></tr>
         <tr><td>MCP typed API</td><td><code>packages/nikcli/src/server/httpapi/mcp.ts</code></td></tr>
+        <tr><td>Sync routes and bridge</td><td><code>packages/nikcli/src/server/routes/sync.ts</code>, <code>httpapi/sync.ts</code>, <code>src/sync/</code></td></tr>
+        <tr><td>Brain routes and bridge</td><td><code>packages/nikcli/src/server/routes/brain.ts</code>, <code>httpapi/brain.ts</code></td></tr>
+        <tr><td>ChatBot routes and bridge</td><td><code>packages/nikcli/src/server/routes/chatbot.ts</code>, <code>httpapi/chatbot.ts</code></td></tr>
+        <tr><td>Pty routes and bridge</td><td><code>packages/nikcli/src/server/routes/pty.ts</code>, <code>httpapi/pty.ts</code></td></tr>
+        <tr><td>Doctor / analytics / global routes</td><td><code>packages/nikcli/src/server/routes/doctor.ts</code>, <code>routes/analytics.ts</code>, <code>routes/global.ts</code></td></tr>
         <tr><td>Workspace proxying</td><td><code>packages/nikcli/src/server/proxy.ts</code>, <code>packages/nikcli/src/workspace</code></td></tr>
         <tr><td>Auth tokens</td><td><code>packages/nikcli/src/mobile/auth.ts</code>, <code>packages/nikcli/src/server/routes/users.ts</code></td></tr>
-        <tr><td>Analytics routes</td><td><code>packages/nikcli/src/server/routes/analytics.ts</code></td></tr>
       </tbody>
     </table>
   </section>

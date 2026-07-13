@@ -15,6 +15,7 @@ const toc = [
   { title: "Routes", href: "#routes", depth: 2 },
   { title: "Commands and keybinds", href: "#commands-keybinds", depth: 2 },
   { title: "Event flow", href: "#event-flow", depth: 2 },
+  { title: "Island plugin", href: "#island", depth: 2 },
   { title: "HTTP control routes", href: "#http-control", depth: 2 },
   { title: "Config and plugins", href: "#config-plugins", depth: 2 },
   { title: "Remote and attach", href: "#remote-attach", depth: 2 },
@@ -176,8 +177,24 @@ const toc = [
         <tr><td><code>mission</code></td><td><a href="/docs/missions">Missions</a> home and detail views, draft dialog, validation review dialog. Mirrors the mission SDK contract.</td></tr>
         <tr><td><code>sidebar</code></td><td>Sidebar slots shared across the home, session, and workspace routes.</td></tr>
         <tr><td><code>system</code></td><td>System chrome: status bar, attention handling, command palette entries.</td></tr>
+        <tr><td><code>brain</code></td><td>Brain model picker + scheduler (periodic re-evaluation, idle nudges). See <code>dialog-brain</code>.</td></tr>
+        <tr><td><code>browser</code></td><td>Browser-use control surface for the <code>browser</code> tool (page navigation, snapshots, action log).</td></tr>
+        <tr><td><code>chatbot</code></td><td>ChatBot control panel — list configured bots, restart the runtime, inspect webhook delivery state.</td></tr>
+        <tr><td><code>computer</code></td><td>Computer-use tool surface: mouse / keyboard capture, screenshots, action log.</td></tr>
+        <tr><td><code>connectors</code></td><td>First-party connector status, health, and config inside the TUI.</td></tr>
+        <tr><td><code>deepsec</code></td><td>Deep security checks (filesystem / network audit, secret scanning) when enabled.</td></tr>
+        <tr><td><code>island</code></td><td>Toggles the macOS Island notch integration for the current TUI session. See <a href="#island">Island plugin</a> below.</td></tr>
+        <tr><td><code>observability</code></td><td>Live OpenTelemetry spans and OTLP endpoint dialogs (see <a href="/docs/observability">Observability</a>).</td></tr>
       </tbody>
     </table>
+    <DocCallout type="info" title="TUI plugin runtime">
+      <p>
+        Plugins register commands, routes, dialogs, keybinds, and sidebar / status slots through
+        <code>cli/cmd/tui/plugin/api.tsx</code>. Runtime cleanup runs on exit through
+        <code>TuiPluginRuntime.dispose()</code> — plugins should not rely on process exit for
+        teardown.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="dialogs" class="doc-section">
@@ -193,10 +210,14 @@ const toc = [
         <tr><td><code>dialog-telemetry-live</code></td><td><code>dialog-telemetry-live.tsx</code></td><td>Scrolling, filterable list of live OpenTelemetry spans (see <a href="/docs/observability">Observability</a>).</td></tr>
         <tr><td><code>dialog-opentelemetry</code></td><td><code>dialog-opentelemetry.tsx</code></td><td>OTLP configuration dialog: shows the resolved endpoint, the resource block, and a "Copy as env" action.</td></tr>
         <tr><td><code>dialog-advisor-model</code></td><td><code>dialog-advisor-model.tsx</code></td><td>Pick the model used by the <code>advisor</code> tool.</td></tr>
+        <tr><td><code>dialog-browser-use</code></td><td><code>dialog-browser-use.tsx</code></td><td>Browser-use control surface: live snapshot, navigation, action log for the <code>browser</code> tool.</td></tr>
         <tr><td><code>dialog-routine</code></td><td><code>dialog-routine.tsx</code></td><td>Routine create/edit dialog backed by the routine SDK.</td></tr>
         <tr><td><code>dialog-session-warp</code></td><td><code>dialog-session-warp.tsx</code></td><td>Quick-jump to another session by fuzzy match.</td></tr>
         <tr><td><code>dialog-session-rename</code></td><td><code>dialog-session-rename.tsx</code></td><td>Rename the active session.</td></tr>
         <tr><td><code>dialog-session-delete-failed</code></td><td><code>dialog-session-delete-failed.tsx</code></td><td>Confirmation when a session delete failed and the local cache is stale.</td></tr>
+        <tr><td><code>dialog-mobile-connect</code></td><td><code>dialog-mobile-connect.tsx</code></td><td>Show a pairing QR code and bearer token, plus copy-to-clipboard, from inside the TUI.</td></tr>
+        <tr><td><code>dialog-sync</code></td><td><code>dialog-sync.tsx</code></td><td><a href="/docs/sync">Sync</a> status, hub URL/token config, autostart toggle, and reconnect.</td></tr>
+        <tr><td><code>dialog-teleport</code></td><td><code>dialog-teleport.tsx</code></td><td>Pick a session and remote target, then ship the session through <code>nikcli teleport</code>.</td></tr>
         <tr><td><code>dialog-workspace-create</code></td><td><code>dialog-workspace-create.tsx</code></td><td>Create a new multi-project workspace.</td></tr>
         <tr><td><code>dialog-workspace-list</code></td><td><code>dialog-workspace-list.tsx</code></td><td>Switch between workspaces.</td></tr>
         <tr><td><code>dialog-workspace-unavailable</code></td><td><code>dialog-workspace-unavailable.tsx</code></td><td>Show the error that prevents entering a workspace.</td></tr>
@@ -273,6 +294,69 @@ const toc = [
         <tr><td><code>tui.session.select</code></td><td><code>sessionID</code></td><td>Navigate to the requested session after the server validates it exists.</td></tr>
       </tbody>
     </table>
+    <DocCallout type="info" title="Workspace event catch-up">
+      <p>
+        The session sync layer replays missed events for every workspace when the TUI starts or
+        reconnects, so per-project state is identical to the server at render time.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="island" class="doc-section">
+    <h2>Island plugin</h2>
+    <p>
+      The Island plugin is the CLI-side mirror of the macOS <code>NikcliIsland.app</code> notch
+      UI. It writes a per-session JSON snapshot under
+      <code>~/Library/Application Support/NikcliIsland/state.d/</code> on every relevant event,
+      and the native app polls that directory to render live session state without keeping a
+      separate IPC channel.
+    </p>
+    <p>
+      The bridge lives in <code>packages/nikcli/src/plugin/island/bridge.ts</code> and is
+      self-activating: <code>Bus.publish</code> itself calls <code>start()</code> on first
+      publish (idempotent, no-op after the first real call). That matters because the TUI's real
+      session / bus activity runs inside a <code>Worker</code> thread with isolated module state —
+      a listener registered only in the parent process would never see those events.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>State</th><th>Source</th><th>Display</th></tr></thead>
+      <tbody>
+        <tr><td><code>idle</code></td><td><code>session.status</code> → <code>idle</code></td><td>Empty pill on the notch.</td></tr>
+        <tr><td><code>thinking</code></td><td><code>session.status</code> → <code>busy</code> / <code>retry</code></td><td>"Thinking…" or "Retrying (N)…".</td></tr>
+        <tr><td><code>tool</code></td><td><code>message.part.updated</code> tool status</td><td>Friendly label plus file basename, lingers for ~1.9 s after completion.</td></tr>
+        <tr><td><code>permission</code></td><td><code>permission.asked</code></td><td>"Awaiting permission" + the request id for one-tap approval.</td></tr>
+        <tr><td><code>error</code></td><td><code>session.error</code></td><td>"Error" pill.</td></tr>
+        <tr><td><code>done</code></td><td>(reserved)</td><td>Used by the native app to mark a completed row before archival.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Each snapshot also carries the parent session id, agent title, project, cwd, the
+      process pid, the local server port (when one is running), and a server URL — enough for
+      the native app to call <code>POST /permission/:requestID/reply</code> directly when you
+      approve a pending request from the notch.
+    </p>
+    <DocCode language="bash">
+# Inspect Island state
+cat ~/Library/Application\ Support/NikcliIsland/state.d/nikcli-ses_abc.json
+
+# Disable Island for this run without uninstalling the app
+NIKCLI_ISLAND_DISABLE=1 nikcli
+    </DocCode>
+    <DocCallout type="warn" title="macOS only">
+      <p>
+        Island is a no-op on Windows and Linux: the native app is a macOS-only notch UI. The
+        <code>NIKCLI_ISLAND_TEST_FORCE_DARWIN=1</code> flag exists only for the bridge's own
+        test suite — never set it in production.
+      </p>
+    </DocCallout>
+    <DocCallout type="info" title="Toggling from inside the TUI">
+      <p>
+        The Island feature plugin's activate / deactivate calls
+        <code>IslandBridge.setEnabled()</code> — toggling off clears the current snapshots and
+        stops writing, toggling back on resumes through the already-registered listener without
+        any race window.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="http-control" class="doc-section">
@@ -399,15 +483,22 @@ curl -i -X POST http://127.0.0.1:4096/tui/open-help
       <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
       <tbody>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/thread.ts</code></td><td>Default command, worker startup, network mode selection, session validation, prompt input, restart, and shutdown.</td></tr>
-        <tr><td><code>packages/nikcli/src/cli/cmd/tui/worker.ts</code></td><td>RPC server, worker fetch, event stream bridge, server startup, reload, upgrade, and cleanup.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/worker.ts</code></td><td>RPC server, worker fetch, event stream bridge, server startup, reload, upgrade, cleanup, and <code>IslandBridge.stop()</code>.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/app.tsx</code></td><td>OpenTUI renderer config, provider tree, route rendering, dialogs, command registration, plugin runtime, and event handlers.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/sdk.tsx</code></td><td>SDK client creation, direct event source support, SSE retry loop, event batching, and cleanup.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/route.tsx</code></td><td>Route shapes, route store initialization from <code>NIKCLI_ROUTE</code>, navigation, and override provider.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/remote-sync.tsx</code></td><td>Remote sync state and stats used by the sync dialog.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-command.tsx</code></td><td>Command registry, slash command projection, keybind handling, suspension, and palette dialog.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-sync.tsx</code></td><td>Sync dialog: URL / token config, autostart toggle, reconnect.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-teleport.tsx</code></td><td>Teleport dialog: pick a session and remote target, then ship it.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-mobile-connect.tsx</code></td><td>Pairing QR + bearer token from inside the TUI.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-browser-use.tsx</code></td><td>Browser-use control surface for the <code>browser</code> tool.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/event.ts</code></td><td>Typed TUI bus events and zod payload schemas.</td></tr>
         <tr><td><code>packages/nikcli/src/server/routes/tui.ts</code></td><td>Remote TUI control HTTP routes and queue bridge.</td></tr>
         <tr><td><code>packages/nikcli/src/config/tui.ts</code></td><td>TUI config loading, migration, keybind parsing, plugin deduplication, and plugin metadata.</td></tr>
         <tr><td><code>packages/nikcli/src/cli/cmd/tui/attach.ts</code></td><td>Attach command path for connecting the renderer to an existing server URL.</td></tr>
+        <tr><td><code>packages/nikcli/src/plugin/island/bridge.ts</code></td><td>Island file-contract writer, <code>setEnabled</code>, and shutdown semantics.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/island/index.tsx</code></td><td>TUI-side Island plugin (activate / deactivate the bridge).</td></tr>
       </tbody>
     </table>
   </section>

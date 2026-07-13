@@ -6,6 +6,13 @@ import {
   type MobileBootstrap,
   type MobileCommand,
   type MobileExecutionTarget,
+  type MobileGitBranchesResponse,
+  type MobileGitCommitResponse,
+  type MobileGitCommitsResponse,
+  type MobileGitDiffResponse,
+  type MobileGitPullResponse,
+  type MobileGitPushResponse,
+  type MobileGitStatusResponse,
   type MobileGithubBranch,
   type MobileGithubDeviceAuthPollResult,
   type MobileGithubDeviceAuthStart,
@@ -14,14 +21,46 @@ import {
   type MobileGithubPublishResult,
   type MobileGithubSessionCreateInput,
   type MobileGithubSessionCreateResult,
+  type MobileLoop,
+  type MobileLoopListResponse,
+  type MobileLoopRun,
+  type MobileLoopRuntime,
+  type MobileLoopTemplate,
+  type MobileLoopWriteInput,
+  type MobileMemorySearchHit,
   type MobileProject,
+  type MobilePromptHistoryEntry,
+  type MobilePromptStashEntry,
+  type MobileRoutine,
+  type MobileRoutineCreateInput,
+  type MobileRoutineUpdateInput,
   type MobileSessionCreateInput,
   type MobileSessionDetail,
   type MobileSessionSummary,
   type ProviderListResponse,
+  type Pty,
   type Session,
   type Worktree,
 } from "@nikcli-ai/sdk/v2/client"
+
+export type {
+  MobileGitBranchesResponse,
+  MobileGitCommitsResponse,
+  MobileGitDiffResponse,
+  MobileGitStatusResponse,
+  MobileLoop,
+  MobileLoopRun,
+  MobileLoopRuntime,
+  MobileLoopTemplate,
+  MobileLoopWriteInput,
+  MobileMemorySearchHit,
+  MobilePromptHistoryEntry,
+  MobilePromptStashEntry,
+  MobileRoutine,
+  MobileRoutineCreateInput,
+  MobileRoutineUpdateInput,
+  Pty,
+}
 
 export type AppServerConfig = {
   url: string
@@ -178,10 +217,14 @@ async function unwrap<T>(value: Promise<unknown>): Promise<T> {
 
 export class WebNikcliClient {
   private readonly sdk
+  private readonly baseUrl: string
+  private readonly token?: string
 
   constructor(config: AppServerConfig) {
+    this.baseUrl = normalizeServerUrl(config.url)
+    this.token = config.token
     this.sdk = createNikcliClient({
-      baseUrl: normalizeServerUrl(config.url),
+      baseUrl: this.baseUrl,
       directory: config.directory,
       headers: authorizationHeaders(config),
       responseStyle: "data",
@@ -368,6 +411,184 @@ export class WebNikcliClient {
 
   revokeAuthToken(id: string) {
     return unwrap<{ revoked: boolean }>(this.sdk.mobile.auth.token.revoke({ id }))
+  }
+
+  respondToQuestion(sessionID: string, requestID: string, answers: string[][]) {
+    return unwrap<{ success: true }>(this.sdk.mobile.question.respond({ sessionID, requestID, answers }))
+  }
+
+  rejectQuestion(sessionID: string, requestID: string) {
+    return unwrap<{ success: true }>(this.sdk.mobile.question.reject({ sessionID, requestID }))
+  }
+
+  listRoutines() {
+    return unwrap<MobileRoutine[]>(this.sdk.mobile.routine.list())
+  }
+
+  createRoutine(input: MobileRoutineCreateInput) {
+    return unwrap<MobileRoutine>(this.sdk.mobile.routine.create({ mobileRoutineCreateInput: input }))
+  }
+
+  updateRoutine(id: string, input: MobileRoutineUpdateInput) {
+    return unwrap<MobileRoutine>(this.sdk.mobile.routine.update({ id, mobileRoutineUpdateInput: input }))
+  }
+
+  deleteRoutine(id: string) {
+    return unwrap<{ success: true }>(this.sdk.mobile.routine.delete({ id }))
+  }
+
+  runRoutine(id: string, text?: string) {
+    return unwrap<Session>(this.sdk.mobile.routine.run({ id, mobileRoutineRunInput: text ? { text } : undefined }))
+  }
+
+  pauseRoutine(id: string) {
+    return unwrap<MobileRoutine>(this.sdk.mobile.routine.pause({ id }))
+  }
+
+  resumeRoutine(id: string) {
+    return unwrap<MobileRoutine>(this.sdk.mobile.routine.resume({ id }))
+  }
+
+  listLoops() {
+    return unwrap<MobileLoopListResponse>(this.sdk.mobile.loop.list())
+  }
+
+  listLoopTemplates() {
+    return unwrap<{ templates: MobileLoopTemplate[] }>(this.sdk.mobile.loop.templates())
+  }
+
+  generateLoop(description: string, options?: { model?: string; agent?: string }) {
+    return unwrap<MobileLoop>(
+      this.sdk.mobile.loop.generate({ mobileLoopGenerateInput: { description, ...options } }),
+    )
+  }
+
+  listRecentLoopRuns(limit?: number) {
+    return unwrap<{ runs: MobileLoopRun[] }>(this.sdk.mobile.loop.runs2.recent({ limit }))
+  }
+
+  listLoopRuns(id: string, limit?: number) {
+    return unwrap<{ runs: MobileLoopRun[] }>(this.sdk.mobile.loop.runs({ id, limit }))
+  }
+
+  createLoop(input: MobileLoopWriteInput) {
+    return unwrap<MobileLoop>(this.sdk.mobile.loop.create({ mobileLoopWriteInput: input }))
+  }
+
+  updateLoop(id: string, input: MobileLoopWriteInput) {
+    return unwrap<MobileLoop>(this.sdk.mobile.loop.update({ id, mobileLoopWriteInput: input }))
+  }
+
+  deleteLoop(id: string) {
+    return unwrap<{ success: true }>(this.sdk.mobile.loop.delete({ id }))
+  }
+
+  runLoop(id: string) {
+    return unwrap<{ success: true }>(this.sdk.mobile.loop.run({ id }))
+  }
+
+  abortLoop(id: string) {
+    return unwrap<{ success: true }>(this.sdk.mobile.loop.abort({ id }))
+  }
+
+  toggleLoop(id: string, enabled: boolean) {
+    return unwrap<MobileLoop>(this.sdk.mobile.loop.toggle({ id, enabled }))
+  }
+
+  pauseLoop(id: string) {
+    return unwrap<MobileLoop>(this.sdk.mobile.loop.pause({ id }))
+  }
+
+  resumeLoop(id: string) {
+    return unwrap<MobileLoop>(this.sdk.mobile.loop.resume({ id }))
+  }
+
+  memoryHistory() {
+    return unwrap<MobilePromptHistoryEntry[]>(this.sdk.mobile.memory.history())
+  }
+
+  memorySearch(query: string) {
+    return unwrap<MobileMemorySearchHit[]>(this.sdk.mobile.memory.search({ query }))
+  }
+
+  listStash() {
+    return unwrap<MobilePromptStashEntry[]>(this.sdk.mobile.memory.stash.list())
+  }
+
+  createStash(input: string) {
+    return unwrap<MobilePromptStashEntry>(this.sdk.mobile.memory.stash.create({ mobilePromptStashCreateInput: { input } }))
+  }
+
+  deleteStash(id: string) {
+    return unwrap<{ success: true }>(this.sdk.mobile.memory.stash.delete({ id }))
+  }
+
+  gitStatus() {
+    return unwrap<MobileGitStatusResponse>(this.sdk.mobile.git.status())
+  }
+
+  gitDiff(options?: { file?: string; staged?: boolean }) {
+    return unwrap<MobileGitDiffResponse>(
+      this.sdk.mobile.git.diff({
+        file: options?.file,
+        staged: options?.staged === undefined ? undefined : options.staged ? "true" : "false",
+      }),
+    )
+  }
+
+  gitCommits(limit?: number) {
+    return unwrap<MobileGitCommitsResponse>(this.sdk.mobile.git.commits({ limit }))
+  }
+
+  gitBranches() {
+    return unwrap<MobileGitBranchesResponse>(this.sdk.mobile.git.branches())
+  }
+
+  gitCommit(input: { message: string; files?: string[]; amend?: boolean; stagedOnly?: boolean }) {
+    return unwrap<MobileGitCommitResponse>(this.sdk.mobile.git.commit(input))
+  }
+
+  gitCheckout(branch: string, create?: boolean) {
+    return unwrap<{ success: true }>(this.sdk.mobile.git.checkout({ branch, create }))
+  }
+
+  gitStage(files: string[]) {
+    return unwrap<{ success: true }>(this.sdk.mobile.git.stage({ files }))
+  }
+
+  gitUnstage(files: string[]) {
+    return unwrap<{ success: true }>(this.sdk.mobile.git.unstage({ files }))
+  }
+
+  gitDiscard(files: string[]) {
+    return unwrap<{ success: true }>(this.sdk.mobile.git.discard({ files }))
+  }
+
+  gitPush(upstream?: string) {
+    return unwrap<MobileGitPushResponse>(this.sdk.mobile.git.push({ upstream }))
+  }
+
+  gitPull() {
+    return unwrap<MobileGitPullResponse>(this.sdk.mobile.git.pull())
+  }
+
+  listPtys() {
+    return unwrap<Pty[]>(this.sdk.mobile.pty.list())
+  }
+
+  createPty(input?: { command?: string; args?: string[]; cwd?: string; title?: string }) {
+    return unwrap<Pty>(this.sdk.mobile.pty.create(input))
+  }
+
+  removePty(ptyID: string) {
+    return unwrap<boolean>(this.sdk.mobile.pty.remove({ ptyID }))
+  }
+
+  ptySocketUrl(ptyID: string) {
+    const url = new URL(`${this.baseUrl}/mobile/pty/${encodeURIComponent(ptyID)}/connect`)
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
+    if (this.token) url.searchParams.set("token", this.token)
+    return url.toString()
   }
 
   async streamSession(input: {

@@ -1,7 +1,7 @@
 export type DocsNavGroup = {
-  title: string
-  items: Array<{ title: string; href: string }>
-}
+  title: string;
+  items: Array<{ title: string; href: string }>;
+};
 
 export const docsSidebar: DocsNavGroup[] = [
   {
@@ -35,6 +35,7 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "Server & API", href: "/docs/server-api" },
       { title: "Web App & Studio", href: "/docs/web-app" },
       { title: "Mobile", href: "/docs/mobile" },
+      { title: "Sync", href: "/docs/sync" },
       { title: "MCP", href: "/docs/mcp" },
       { title: "LSP", href: "/docs/lsp" },
       { title: "Storage", href: "/docs/storage" },
@@ -46,8 +47,9 @@ export const docsSidebar: DocsNavGroup[] = [
     title: "Reference",
     items: [
       { title: "Packages & Suite", href: "/docs/packages" },
+      { title: "Brand assets", href: "/docs/brand" },
       { title: "Source Map", href: "/docs/source-map" },
       { title: "CLI Debug", href: "/docs/cli-debug" },
     ],
   },
-]
+];
