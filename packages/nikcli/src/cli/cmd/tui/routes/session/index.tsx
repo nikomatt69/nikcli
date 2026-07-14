@@ -2430,8 +2430,30 @@ function Bash(props: ToolProps<typeof BashTool>) {
 function ExecCode(props: ToolProps<any>) {
   const { theme, syntax } = useTheme()
 
-  const input = createMemo(() => (props.input ?? {}) as { code?: string; timeout?: number })
-  const meta = createMemo(() => (props.metadata ?? {}) as { success?: boolean; durationMs?: number })
+  type CodeModeCall = {
+    tool: string
+    status: "running" | "completed" | "error"
+    input?: Record<string, unknown>
+  }
+
+  const input = createMemo(
+    () =>
+      (props.input ?? {}) as {
+        code?: string
+        timeout?: number
+        maxToolCalls?: number
+        maxOutputBytes?: number
+      },
+  )
+  const meta = createMemo(
+    () =>
+      (props.metadata ?? {}) as {
+        success?: boolean
+        durationMs?: number
+        toolCalls?: CodeModeCall[]
+      },
+  )
+  const toolCalls = createMemo(() => meta().toolCalls?.filter(isCodeModeCall) ?? [])
 
   const code = createMemo<string>(() => input().code ?? "")
   const codeLines = createMemo(() => code().split("\n"))
@@ -2442,7 +2464,8 @@ function ExecCode(props: ToolProps<any>) {
   const outputOverflow = createMemo(() => outputLines().length > 10)
 
   const [expanded, setExpanded] = createSignal(false)
-  const overflow = createMemo(() => codeOverflow() || outputOverflow())
+  const callsOverflow = createMemo(() => toolCalls().length > 12)
+  const overflow = createMemo(() => codeOverflow() || outputOverflow() || callsOverflow())
 
   const limitedCode = createMemo(() => {
     if (expanded() || !codeOverflow()) return code()
@@ -2454,14 +2477,20 @@ function ExecCode(props: ToolProps<any>) {
     return [...outputLines().slice(0, 10), "…"].join("\n")
   })
 
-  const success = createMemo(() => meta().success !== false)
+  const visibleToolCalls = createMemo(() => {
+    if (expanded() || !callsOverflow()) return toolCalls()
+    return toolCalls().slice(-12)
+  })
+
+  const success = createMemo(() => meta().success !== false && props.part.state.status !== "error")
   const duration = createMemo(() => meta().durationMs)
   const accent = createMemo(() => (success() ? theme.success : theme.error))
 
   const title = createMemo(() => {
     const ms = duration() != null ? ` · ${duration()}ms` : ""
     const icon = success() ? "✓" : "✗"
-    return `# Execute Code${ms} ${icon}`
+    const label = props.tool === "code_mode" ? "Code Mode" : "Execute Code"
+    return `# ${label}${ms} ${icon}`
   })
 
   const firstLine = createMemo(() => {
@@ -2489,6 +2518,7 @@ function ExecCode(props: ToolProps<any>) {
                 content={limitedCode()}
               />
             </line_number>
+            <CodeModeToolCalls calls={visibleToolCalls()} />
             <Show when={output().length > 0}>
               <text fg={theme.textMuted}>── output ──</text>
               <text fg={success() ? theme.text : theme.error}>{limitedOutput()}</text>
@@ -2500,12 +2530,56 @@ function ExecCode(props: ToolProps<any>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="⚡" iconColor={theme.warning} pending="Running code..." complete={code()} part={props.part}>
-          {props.tool} {firstLine()}
-        </InlineTool>
+        <>
+          <InlineTool icon="⚡" iconColor={theme.warning} pending="Running code..." complete={code()} part={props.part}>
+            {props.tool} {firstLine()}
+          </InlineTool>
+          <CodeModeToolCalls calls={visibleToolCalls()} />
+        </>
       </Match>
     </Switch>
   )
+
+  function isCodeModeCall(value: unknown): value is CodeModeCall {
+    if (!value || typeof value !== "object") return false
+    const call = value as Partial<CodeModeCall>
+    return (
+      typeof call.tool === "string" &&
+      (call.status === "running" || call.status === "completed" || call.status === "error")
+    )
+  }
+
+  function CodeModeToolCalls(callProps: { calls: CodeModeCall[] }) {
+    return (
+      <Show when={callProps.calls.length > 0}>
+        <box paddingLeft={3} gap={0}>
+          <text fg={theme.textMuted}>── nested tools ──</text>
+          <For each={callProps.calls}>
+            {(call) => {
+              const marker = call.status === "running" ? "◌" : call.status === "completed" ? "✓" : "✗"
+              const color =
+                call.status === "running" ? theme.warning : call.status === "completed" ? theme.success : theme.error
+              const details = summarizeCodeModeInput(call.input)
+              return (
+                <text fg={color}>
+                  {marker} {call.tool}
+                  <Show when={details.length > 0}>
+                    <span style={{ fg: theme.textMuted }}> {details}</span>
+                  </Show>
+                </text>
+              )
+            }}
+          </For>
+        </box>
+      </Show>
+    )
+  }
+}
+
+function summarizeCodeModeInput(value?: Record<string, unknown>) {
+  if (!value) return ""
+  const summary = input(value)
+  return summary.length > 120 ? summary.slice(0, 119) + "…" : summary
 }
 
 function Write(props: ToolProps<typeof WriteTool>) {

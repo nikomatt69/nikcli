@@ -27,7 +27,7 @@ async function makeProjectDir() {
   return resolved
 }
 
-function makeCtx(): ToolType.Context {
+function makeCtx(overrides: Partial<ToolType.Context> = {}): ToolType.Context {
   return {
     sessionID: "test-session",
     messageID: "test-message",
@@ -35,7 +35,35 @@ function makeCtx(): ToolType.Context {
     abort: new AbortController().signal,
     metadata: () => {},
     ask: async () => {},
+    ...overrides,
   }
+}
+
+async function executeInProject(
+  directory: string,
+  input: Parameters<Awaited<ReturnType<typeof CodeModeTool.init>>["executeAsync"]>[0],
+  ctx = makeCtx(),
+) {
+  return Effect.runPromise(
+    InstanceScope.with(
+      { directory },
+      Effect.promise(async () => {
+        const def = await CodeModeTool.init()
+        return def.executeAsync(input, ctx)
+      }),
+    ),
+  )
+}
+
+async function executeFailure(
+  directory: string,
+  input: Parameters<Awaited<ReturnType<typeof CodeModeTool.init>>["executeAsync"]>[0],
+  ctx = makeCtx(),
+) {
+  return executeInProject(directory, input, ctx).then(
+    () => undefined,
+    (error: unknown) => error as Error,
+  )
 }
 
 describe("CodeModeTool", () => {
@@ -64,8 +92,9 @@ describe("CodeModeTool", () => {
         { directory },
         Effect.promise(async () => {
           const def = await CodeModeTool.init()
-          expect(def.description).toContain("Available tools:")
-          expect(def.description).not.toContain("code_mode,")
+          expect(def.description).toContain("## Available tools (")
+          expect(def.description).toContain("tools.glob(input:")
+          expect(def.description).not.toContain("tools.code_mode(input:")
           return def.executeAsync(
             {
               code: `
@@ -87,7 +116,10 @@ describe("CodeModeTool", () => {
 
     expect(result.output).toContain('"count": 1')
     expect(result.output).toContain("a.txt")
-    const toolCalls = result.metadata.toolCalls as { tool: string; status: string }[]
+    const toolCalls = result.metadata.toolCalls as {
+      tool: string
+      status: string
+    }[]
     expect(toolCalls.length).toBeGreaterThanOrEqual(3)
     expect(toolCalls.every((call) => call.status === "completed")).toBe(true)
   })
@@ -108,6 +140,155 @@ describe("CodeModeTool", () => {
     )
     expect(failure).toBeInstanceOf(Error)
     expect(failure!.message).toMatch(/process/)
+  })
+
+  it("publishes running and completed metadata for nested calls", async () => {
+    const directory = await makeProjectDir()
+    const filePath = path.join(directory, "progress.txt")
+    await fs.writeFile(filePath, "progress")
+    const updates: Array<{
+      toolCalls?: Array<{ tool: string; status: string }>
+    }> = []
+
+    await executeInProject(
+      directory,
+      { code: `return await tools.read({ filePath: ${JSON.stringify(filePath)} })` },
+      makeCtx({
+        metadata: ({ metadata }) => updates.push((metadata ?? {}) as (typeof updates)[number]),
+      }),
+    )
+
+    expect(updates.some((update) => update.toolCalls?.some((call) => call.status === "running"))).toBe(true)
+    expect(updates.at(-1)?.toolCalls?.[0]?.status).toBe("completed")
+  })
+
+  it("propagates permission denial and marks the nested call as errored", async () => {
+    const directory = await makeProjectDir()
+    const updates: Array<{
+      toolCalls?: Array<{ tool: string; status: string }>
+      success?: boolean
+    }> = []
+    const failure = await executeFailure(
+      directory,
+      {
+        code: `return await tools.bash({ command: "pwd", description: "Print working directory" })`,
+      },
+      makeCtx({
+        ask: async () => {
+          throw new Error("rejected permission")
+        },
+        metadata: ({ metadata }) => updates.push((metadata ?? {}) as (typeof updates)[number]),
+      }),
+    )
+
+    expect(failure).toBeInstanceOf(Error)
+    expect(failure!.message).toContain("rejected permission")
+    expect(updates.at(-1)?.success).toBe(false)
+    expect(updates.at(-1)?.toolCalls?.[0]?.status).toBe("error")
+  })
+
+  it("aborts a running orchestration through the parent tool signal", async () => {
+    const directory = await makeProjectDir()
+    const controller = new AbortController()
+    const failure = await executeFailure(
+      directory,
+      {
+        code: `return await tools.bash({ command: "sleep 10", description: "Wait for cancellation" })`,
+      },
+      makeCtx({
+        abort: controller.signal,
+        metadata: ({ metadata }) => {
+          const calls = (metadata?.toolCalls ?? []) as Array<{
+            status: string
+          }>
+          if (calls.some((call) => call.status === "running")) controller.abort()
+        },
+      }),
+    )
+
+    expect(failure).toBeInstanceOf(Error)
+    expect(failure!.message).toContain("Execution cancelled")
+  })
+
+  it("keeps excluded tools outside the confined namespace", async () => {
+    const directory = await makeProjectDir()
+    const failure = await executeFailure(directory, {
+      code: `return await tools.code_mode({ code: "return 1" })`,
+    })
+
+    expect(failure).toBeInstanceOf(Error)
+    expect(failure!.message).toMatch(/code_mode|Unknown tool/)
+  })
+
+  it("enforces maxToolCalls across a multi-tool program", async () => {
+    const directory = await makeProjectDir()
+    const failure = await executeFailure(directory, {
+      code: `
+        await tools.glob({ pattern: "*.txt" })
+        return await tools.glob({ pattern: "*.md" })
+      `,
+      maxToolCalls: 1,
+    })
+
+    expect(failure).toBeInstanceOf(Error)
+    expect(failure!.message).toContain("tool-call limit of 1")
+  })
+
+  it("bounds retained result bytes and exposes truncation metadata", async () => {
+    const directory = await makeProjectDir()
+    const result = await executeInProject(directory, {
+      code: `return "x".repeat(512)`,
+      maxOutputBytes: 96,
+    })
+
+    expect(result.output).toContain("result truncated")
+    expect(result.metadata.truncated).toBe(true)
+  })
+
+  it("orchestrates independent nested tools concurrently", async () => {
+    const directory = await makeProjectDir()
+    const left = path.join(directory, "left.txt")
+    const right = path.join(directory, "right.txt")
+    await Promise.all([
+      fs.writeFile(left, "left"),
+      fs.writeFile(right, "right"),
+    ])
+    const result = await executeInProject(directory, {
+      code: `
+        const values = await Promise.all([
+          tools.read({ filePath: ${JSON.stringify(left)} }),
+          tools.read({ filePath: ${JSON.stringify(right)} }),
+        ])
+        return {
+          left: values[0].includes("left"),
+          right: values[1].includes("right"),
+        }
+      `,
+      maxToolCalls: 2,
+    })
+
+    expect(result.output).toContain('"left": true')
+    expect(result.output).toContain('"right": true')
+    const calls = result.metadata.toolCalls as Array<{ status: string }>
+    expect(calls).toHaveLength(2)
+    expect(calls.every((call) => call.status === "completed")).toBe(true)
+  })
+
+  it("records a failed nested call when the program recovers", async () => {
+    const directory = await makeProjectDir()
+    const missing = path.join(directory, "missing.txt")
+    const result = await executeInProject(directory, {
+      code: `
+        try {
+          await tools.read({ filePath: ${JSON.stringify(missing)} })
+        } catch (error) {
+          return "recovered"
+        }
+      `,
+    })
+
+    expect(result.output).toBe("recovered")
+    expect((result.metadata.toolCalls as Array<{ status: string }>)[0]?.status).toBe("error")
   })
 })
 

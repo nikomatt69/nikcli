@@ -7,13 +7,21 @@ import DESCRIPTION from "./code_mode.txt"
 
 const Parameters = z.object({
   code: z.string().describe("Program body executed by the confined interpreter. Tools live under `tools.*`."),
-  timeout: z
+  timeout: z.number().int().min(1).max(120).optional().describe("Execution timeout in seconds (default: 30, max: 120)"),
+  maxToolCalls: z
     .number()
     .int()
-    .min(1)
-    .max(120)
+    .min(0)
+    .max(1000)
     .optional()
-    .describe("Execution timeout in seconds (default: 30, max: 120)"),
+    .describe("Maximum admitted nested tool calls (default: unlimited, max: 1000)"),
+  maxOutputBytes: z
+    .number()
+    .int()
+    .min(0)
+    .max(10_000_000)
+    .optional()
+    .describe("Maximum UTF-8 bytes retained from the result and logs (default: unlimited, max: 10000000)"),
 })
 
 const log = Log.create({ service: "tool.code_mode" })
@@ -36,50 +44,59 @@ const EXCLUDED = new Set([
   "speak",
 ])
 
-type CallEntry = { tool: string; status: "running" | "completed" | "error"; input?: Record<string, unknown> }
+type CallEntry = {
+  tool: string
+  status: "running" | "completed" | "error"
+  input?: Record<string, unknown>
+}
 
 function renderSchema(parameters: z.ZodType): ConfinedTool.JsonSchema {
   // Render-only signature for the program; real validation stays in the tool's own zod parse.
   try {
-    return z.toJSONSchema(parameters, { io: "input" }) as ConfinedTool.JsonSchema
+    return z.toJSONSchema(parameters, {
+      io: "input",
+    }) as ConfinedTool.JsonSchema
   } catch {
     return { type: "object" }
   }
 }
 
 export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_mode", async (initCtx) => {
-  // Use ids() instead of tools() — tools() would call init() on every tool recursively
   const { ToolRegistry } = await import("./registry")
   const { runPromiseWithLayer, AppRuntime } = await import("@/effect")
-  const allIds = await runPromiseWithLayer(
+  // Exclude recursive/UI-only tools before init so the model-visible catalog can use
+  // CodeMode's exact, token-budgeted call signatures rather than a flat name list.
+  const bridgeable = await runPromiseWithLayer(
     ToolRegistry.defaultLayer,
     Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service
-      return yield* registry.ids()
+      return yield* registry.tools({ providerID: "", modelID: "" }, initCtx?.agent, { exclude: EXCLUDED })
     }),
   )
-  const availableNames = allIds.filter((id) => !EXCLUDED.has(id)).join(", ")
+
+  const catalogTree: Record<string, ConfinedTool.Definition> = {}
+  for (const tool of bridgeable) {
+    catalogTree[tool.id] = ConfinedTool.make({
+      description: tool.description.split("\n", 1)[0] ?? "",
+      input: renderSchema(tool.parameters),
+      run: () => Effect.die("Catalog-only Code Mode tool cannot execute"),
+    })
+  }
+  const catalog = CodeMode.make({ tools: catalogTree }).instructions()
 
   return {
-    description: `${DESCRIPTION}\n\nAvailable tools: ${availableNames}`,
+    description: `${DESCRIPTION}\n\n${catalog}`,
     parameters: Parameters,
 
-    async execute({ code, timeout }, ctx) {
+    async execute({ code, timeout, maxToolCalls, maxOutputBytes }, ctx) {
       const timeoutMs = Math.min((timeout ?? 30) * 1000, 120_000)
 
-      // Safe to call tools() here: init above uses ids(), breaking the recursion
-      const { ToolRegistry: TR } = await import("./registry")
-      const availableTools = await runPromiseWithLayer(
-        TR.defaultLayer,
-        Effect.gen(function* () {
-          const registry = yield* TR.Service
-          return yield* registry.tools({ providerID: "", modelID: "" }, initCtx?.agent)
-        }),
-      )
-      const bridgeable = availableTools.filter((t) => !EXCLUDED.has(t.id))
-
       const calls: CallEntry[] = []
-      const publish = () => ctx.metadata({ title: "code_mode", metadata: { toolCalls: calls.map((c) => ({ ...c })) } })
+      const publish = () =>
+        ctx.metadata({
+          title: "code_mode",
+          metadata: { toolCalls: calls.map((c) => ({ ...c })) },
+        })
 
       const tree: Record<string, ConfinedTool.Definition> = {}
       for (const t of bridgeable) {
@@ -100,20 +117,28 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
 
       const runtime = CodeMode.make({
         tools: tree,
-        limits: { timeoutMs },
+        limits: { timeoutMs, maxToolCalls, maxOutputBytes },
         onToolCallStart: ({ index, name, input }) =>
           Effect.sync(() => {
             const shown =
               input !== null && typeof input === "object" && !Array.isArray(input)
                 ? (input as Record<string, unknown>)
                 : undefined
-            calls[index] = { tool: name, status: "running", ...(shown && Object.keys(shown).length > 0 ? { input: shown } : {}) }
+            calls[index] = {
+              tool: name,
+              status: "running",
+              ...(shown && Object.keys(shown).length > 0 ? { input: shown } : {}),
+            }
             publish()
           }),
         onToolCallEnd: ({ index, outcome }) =>
           Effect.sync(() => {
             const current = calls[index]
-            if (current) calls[index] = { ...current, status: outcome === "success" ? "completed" : "error" }
+            if (current)
+              calls[index] = {
+                ...current,
+                status: outcome === "success" ? "completed" : "error",
+              }
             publish()
           }),
       })
@@ -130,13 +155,20 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
         toolCalls: calls.map((call) => ({ name: call.tool })),
       })
 
-      log.info("code_mode start", { codeLength: code.length, toolCount: Object.keys(tree).length })
+      log.info("code_mode start", {
+        codeLength: code.length,
+        toolCount: Object.keys(tree).length,
+      })
       const started = Date.now()
       const result = await AppRuntime.runPromise(
         Effect.raceFirst(runtime.execute(code), abort.pipe(Effect.map(cancelled))),
       )
       const durationMs = Date.now() - started
-      log.info("code_mode done", { ok: result.ok, durationMs, toolCalls: result.toolCalls.length })
+      log.info("code_mode done", {
+        ok: result.ok,
+        durationMs,
+        toolCalls: result.toolCalls.length,
+      })
 
       const logs = result.logs ?? []
       const withLogs = (text: string) => {
@@ -145,23 +177,33 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
       }
 
       if (!result.ok) {
+        ctx.metadata({
+          title: `code_mode (${durationMs}ms)`,
+          metadata: {
+            success: false,
+            truncated: result.truncated ?? false,
+            toolCalls: calls,
+            durationMs,
+          },
+        })
         const hints = (result.error.suggestions ?? []).filter((hint) => !result.error.message.includes(hint))
         throw new Error(withLogs([result.error.message, ...hints].join("\n")))
       }
 
       const output =
-        typeof result.value === "string" ? result.value : (JSON.stringify(result.value, null, 2) ?? String(result.value))
+        typeof result.value === "string"
+          ? result.value
+          : (JSON.stringify(result.value, null, 2) ?? String(result.value))
 
       return {
         title: `code_mode (${durationMs}ms)`,
         output: withLogs(output) || "(no output)",
         metadata: {
-          truncated: false,
+          success: true,
+          truncated: result.truncated ?? false,
           toolCalls: calls,
           durationMs,
-          ...(result.warnings && result.warnings.length > 0
-            ? { warnings: result.warnings.map((w) => w.message) }
-            : {}),
+          ...(result.warnings && result.warnings.length > 0 ? { warnings: result.warnings.map((w) => w.message) } : {}),
         },
       }
     },

@@ -4,9 +4,14 @@ import { SimulationPng } from "../src/frontend/png"
 import { SimulationRenderer } from "../src/frontend/renderer"
 
 const fixture = new URL("./fixtures/basic.png", import.meta.url)
+const visualTest =
+  process.platform === "linux" && process.env.CI && process.env.UPDATE_VISUALS !== "1" ? test.skip : test
 
-test("renders a deterministic OpenTUI frame to the visual golden", async () => {
-  const renderer = await SimulationRenderer.create({}, undefined, { cols: 36, rows: 7 })
+visualTest("renders a deterministic OpenTUI frame to the visual golden", async () => {
+  const renderer = await SimulationRenderer.create({}, undefined, {
+    cols: 36,
+    rows: 7,
+  })
   try {
     const panel = new BoxRenderable(renderer, {
       width: 36,

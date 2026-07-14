@@ -16,6 +16,10 @@
     "@nikcli-ai/app#test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "@nikcli-ai/simulation#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
     }
   }
 }

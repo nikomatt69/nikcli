@@ -455,6 +455,7 @@ export namespace SessionProcessor {
                         status: "error",
                         input: value.input ?? match.state.input,
                         error: (value.error as any).toString(),
+                        metadata: match.state.metadata,
                         time: {
                           start: match.state.time.start,
                           end: Date.now(),

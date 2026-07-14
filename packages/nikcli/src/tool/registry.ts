@@ -91,7 +91,7 @@ export namespace ToolRegistry {
         modelID: string
       },
       agent?: Agent.Info,
-      options?: { slim?: boolean },
+      options?: { slim?: boolean; exclude?: ReadonlySet<string> },
     ) => Effect.Effect<Resolved[], unknown>
   }
 
@@ -289,13 +289,14 @@ export namespace ToolRegistry {
           modelID: string
         },
         agent?: Agent.Info,
-        options?: { slim?: boolean },
+        options?: { slim?: boolean; exclude?: ReadonlySet<string> },
       ) {
         const tools = yield* all()
         const result = yield* Effect.promise(() =>
           Promise.all(
             tools
               .filter((t) => {
+                if (options?.exclude?.has(t.id)) return false
                 if (options?.slim) return SLIM_TOOLS.has(t.id)
 
                 if (t.id === "codesearch" || t.id === "websearch") {
