@@ -39,7 +39,7 @@ function makeCtx(): ToolType.Context {
 }
 
 describe("CodeModeTool", () => {
-  it("is registered by default alongside exec_code", async () => {
+  it("is registered by default and replaces exec_code", async () => {
     const directory = await makeProjectDir()
     const ids = await Effect.runPromise(
       InstanceScope.with(
@@ -51,7 +51,7 @@ describe("CodeModeTool", () => {
       ),
     )
     expect(ids).toContain("code_mode")
-    expect(ids).toContain("exec_code")
+    expect(ids).not.toContain("exec_code")
   })
 
   it("runs a confined program that chains registry tools", async () => {

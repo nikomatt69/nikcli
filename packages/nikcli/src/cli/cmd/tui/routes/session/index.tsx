@@ -2069,7 +2069,7 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           <Match when={props.part.tool === "bash"}>
             <Bash {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "exec_code"}>
+          <Match when={props.part.tool === "exec_code" || props.part.tool === "code_mode"}>
             <ExecCode {...toolprops} />
           </Match>
           <Match when={props.part.tool === "glob"}>
@@ -2501,7 +2501,7 @@ function ExecCode(props: ToolProps<any>) {
       </Match>
       <Match when={true}>
         <InlineTool icon="⚡" iconColor={theme.warning} pending="Running code..." complete={code()} part={props.part}>
-          exec_code {firstLine()}
+          {props.tool} {firstLine()}
         </InlineTool>
       </Match>
     </Switch>

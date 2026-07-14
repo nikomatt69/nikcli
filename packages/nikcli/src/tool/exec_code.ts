@@ -1,3 +1,6 @@
+// DEPRECATED: no longer registered in ToolRegistry — replaced by code_mode
+// (src/tool/code_mode.ts), which runs programs in a confined interpreter instead
+// of a real JS Worker. Kept for reference until removal; see specs/codemode.md.
 import { Effect, Schema } from "effect"
 import { zodObject } from "@/util/effect-zod"
 import { Tool } from "./tool"

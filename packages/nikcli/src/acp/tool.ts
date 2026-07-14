@@ -63,6 +63,7 @@ export function toToolKind(toolName: string): ToolKind {
     case "bash":
     case "shell":
     case "exec_code":
+    case "code_mode":
       return "execute"
 
     case "webfetch":
@@ -125,7 +126,8 @@ export function toLocations(toolName: string, input: ToolInput, cwd?: string): T
   switch (tool) {
     case "bash":
     case "shell":
-    case "exec_code": {
+    case "exec_code":
+    case "code_mode": {
       const workdir = shellWorkdir(input, cwd)
       return workdir ? [{ path: workdir }] : []
     }
@@ -433,7 +435,7 @@ function shellCommand(input: ToolInput): string | undefined {
 
 function isShell(toolName: string): boolean {
   const tool = toolName.toLocaleLowerCase()
-  return tool === "bash" || tool === "shell" || tool === "exec_code"
+  return tool === "bash" || tool === "shell" || tool === "exec_code" || tool === "code_mode"
 }
 
 function locationFrom(...values: unknown[]): ToolCallLocation[] {

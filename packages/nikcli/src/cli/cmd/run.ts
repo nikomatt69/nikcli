@@ -59,6 +59,7 @@ const TOOL: Record<string, [string, string]> = {
   repo_clone: ["Repo", UI.Style.TEXT_INFO_BOLD],
   repo_overview: ["Repo", UI.Style.TEXT_INFO_BOLD],
   exec_code: ["Exec", UI.Style.TEXT_DANGER_BOLD],
+  code_mode: ["Exec", UI.Style.TEXT_WARNING_BOLD],
   plan_enter: ["Plan", UI.Style.TEXT_WARNING_BOLD],
   advisor: ["Advisor", UI.Style.TEXT_HIGHLIGHT_BOLD],
   context_collect: ["Context", UI.Style.TEXT_DIM_BOLD],

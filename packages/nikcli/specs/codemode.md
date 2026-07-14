@@ -61,8 +61,11 @@ Nuovo `src/tool/code_mode.ts` + `code_mode.txt`, modellato su `exec_code`:
 - Cancellazione: `ctx.abort` interrompe l'esecuzione (race con l'Effect di execute).
 - Gating: `Flag.NIKCLI_EXPERIMENTAL_CODE_MODE` — **default on**, opt-out con
   `NIKCLI_DISABLE_CODE_MODE` (stesso pattern di browser/computer tool). Registrato in `registry.ts`.
-- `exec_code`/NativeExecutor restano invariati in questa fase; la sostituzione è una decisione
-  successiva quando code_mode ha maturità (il DSL è un subset: non tutto il JS gira).
+- `exec_code` è **deprecato**: rimosso dal registry di default (2026-07-14, richiesta esplicita),
+  sorgente mantenuto con nota di deprecazione in `src/tool/exec_code.ts` fino alla rimozione.
+  I rendering TUI/ACP/run mantengono il ramo `exec_code` per le sessioni storiche.
+- Rendering: `code_mode` riusa il componente TUI `ExecCode` (session/index.tsx), kind ACP
+  `execute` (acp/tool.ts) e la label "Exec" in `run.ts`, come exec_code.
 
 ## Rischi / note
 
@@ -88,9 +91,8 @@ Nuovo `src/tool/code_mode.ts` + `code_mode.txt`, modellato su `exec_code`:
 
 ## Follow-up possibili
 
-- Valutare la deprecazione di `exec_code` (NativeExecutor con `new Function` in Worker) a favore
-  di `code_mode`: oggi convivono e si sovrappongono; tenere entrambi ha senso solo finché il DSL
-  confinato non copre i casi d'uso reali.
+- Rimuovere del tutto `exec_code.ts` + `session/native-executor.ts` dopo un ciclo di release
+  (oggi deprecati e non registrati).
 - Esporre `CodeMode.instructions()` (catalogo firmato dei tool) nel system prompt invece della
   sola lista di nomi nella description del tool.
 - Port del layer `openapi/` upstream per generare tool codemode da spec OpenAPI (connectors/MCP).
