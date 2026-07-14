@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Connectors } from "@/connectors"
 import { ConnectorAuth } from "@/connectors/auth"
@@ -36,13 +36,13 @@ export namespace ConnectorsHttpApi {
         payload: AuthPayload,
         success: Success,
         error: AuthError,
-      }),
+      }).annotate(OpenApi.Identifier, "connectors.auth.set"),
     )
     .add(
       HttpApiEndpoint.delete("authRemove", "/:name/auth", {
         params: NamePath,
         success: Success,
-      }),
+      }).annotate(OpenApi.Identifier, "connectors.auth.remove"),
     )
     .add(
       HttpApiEndpoint.post("invalidate", "/invalidate", {

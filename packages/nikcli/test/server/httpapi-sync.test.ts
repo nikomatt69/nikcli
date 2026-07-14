@@ -33,138 +33,96 @@ async function request(method: string, pathname: string, directory: string, body
 }
 
 /**
- * Wave 4, Sync.Service extraction. Four new HTTP routes:
- *  - POST /sync/start    — kick the hub connection
- *  - POST /sync/replay   — manual outbox append
- *  - GET  /sync/history  — paginated event history
- *  - GET  /sync/snapshot — cold-start projection snapshot
- *
- * `/sync/stream` (SSE feed) intentionally stays a Hono "special" branch,
- * parallel to `/event` and `/chatbot/*` — schema routing is the wrong
- * abstraction for streaming. Auth scope enforcement (`cli-sync` / `studio`
- * on a bearer token) is deferred — see `specs/effect/sync-service.md` §5.
- *
- * The tests below exercise the schema/bridge boundary without actually
- * pushing events to a remote hub:
- *  - route advertisement for the four new endpoints
- *  - schema validation (400 on bad payloads / missing query)
- *  - GET /sync/snapshot returns null when the aggregate is unknown
- *  - GET /sync/history returns an empty page when no events exist
+ * The `/sync/*` surface is served by Hono (`routes/sync.ts`); the Effect
+ * `SyncHttpApi.Group` is a contract-only mirror of those routes inside
+ * `PublicApi` (no handlers, not bridged). An earlier Wave 4 group exposed
+ * four invented endpoints (`/sync/start|replay|history|snapshot`) that never
+ * existed on the Hono side — they were dropped when the spec was realigned.
  */
-describe("Sync HttpApi (Wave 4)", () => {
-  it("advertises the four new /sync/* routes", () => {
-    expect(HttpApiBridge.supports("/sync/start", "POST")).toBe(true)
-    expect(HttpApiBridge.supports("/sync/replay", "POST")).toBe(true)
-    expect(HttpApiBridge.supports("/sync/history", "GET")).toBe(true)
-    expect(HttpApiBridge.supports("/sync/snapshot", "GET")).toBe(true)
+describe("Sync HttpApi contract (realigned to Hono routes)", () => {
+  it("no longer advertises the removed Wave 4 phantom routes on the bridge", () => {
+    expect(HttpApiBridge.supports("/sync/start", "POST")).toBe(false)
+    expect(HttpApiBridge.supports("/sync/replay", "POST")).toBe(false)
+    expect(HttpApiBridge.supports("/sync/history", "GET")).toBe(false)
+    expect(HttpApiBridge.supports("/sync/snapshot", "GET")).toBe(false)
   })
 
-  it("rejects malformed /sync/start payloads with 400 (schema validation)", async () => {
-    const directory = await makeProjectDir()
-    const response = await request("POST", "/sync/start", directory, {
-      // Missing required `token` and `projectID`.
-      url: "https://hub.example.com",
-    })
-    expect([400, 500]).toContain(response.status)
-  })
-
-  it("rejects malformed /sync/replay payloads with 400 (schema validation)", async () => {
-    const directory = await makeProjectDir()
-    const response = await request("POST", "/sync/replay", directory, {
-      projectID: "proj_1",
-      // Missing `aggregate` and `data`.
-    })
-    expect([400, 500]).toContain(response.status)
-  })
-
-  it("GET /sync/snapshot returns null for unknown aggregate kinds", async () => {
-    const directory = await makeProjectDir()
-    const response = await request("GET", "/sync/snapshot?projectID=proj_1&aggregate=unknown_aggregate", directory)
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as unknown
-    expect(body).toBeNull()
-  })
-
-  it("GET /sync/history returns an empty page when no events exist", async () => {
-    const directory = await makeProjectDir()
-    const response = await request("GET", "/sync/history?projectID=proj_1&aggregate=wrk_test", directory)
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      events: unknown[]
-      hasMore: boolean
+  it("describes the real /sync routes with the Hono operationIds", async () => {
+    const { OpenApi } = await import("effect/unstable/httpapi")
+    const { PublicApi } = await import("@/server/httpapi/public")
+    const spec = OpenApi.fromApi(PublicApi) as {
+      paths: Record<string, Record<string, { operationId?: string }>>
     }
+    const op = (p: string, m: string) => spec.paths[p]?.[m]?.operationId
+    expect(op("/sync/event", "post")).toBe("sync.event.push")
+    expect(op("/sync/outbox", "get")).toBe("sync.outbox.list")
+    expect(op("/sync/snapshot/{aggregateID}", "get")).toBe("sync.snapshot.get")
+    expect(op("/sync/stream", "get")).toBe("sync.event.stream")
+    expect(op("/sync/stats", "get")).toBe("sync.stats")
+    expect(op("/sync/config", "post")).toBe("sync.config.set")
+    expect(op("/sync/connect", "post")).toBe("sync.connect")
+    expect(op("/sync/disconnect", "post")).toBe("sync.disconnect")
+    expect(op("/sync/drain", "post")).toBe("sync.drain")
+    // The phantom endpoints must not resurface.
+    expect(spec.paths["/sync/start"]).toBeUndefined()
+    expect(spec.paths["/sync/history"]).toBeUndefined()
+  })
+
+  it("GET /sync/outbox returns an empty page when no events exist (Hono)", async () => {
+    const directory = await makeProjectDir()
+    const response = await request("GET", "/sync/outbox?projectID=proj_1", directory)
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { events: unknown[]; hasMore: boolean }
     expect(Array.isArray(body.events)).toBe(true)
     expect(body.events.length).toBe(0)
     expect(body.hasMore).toBe(false)
+  })
+
+  it("GET /sync/snapshot/:aggregateID rejects unsupported aggregate kinds (Hono)", async () => {
+    const directory = await makeProjectDir()
+    const response = await request("GET", "/sync/snapshot/unknown_1?projectID=proj_1", directory)
+    expect(response.status).toBe(400)
   })
 })
 
 /**
  * Auth tests for the `?token=` security scheme on `/sync/*`. Mirrors the
- * Hono scope guard at `routes/sync.ts:93-104`:
+ * Hono scope guard at `routes/sync.ts`:
  *  - invalid token → 401
- *  - valid token with non-sync scope (`mobile`) → 403
- *  - valid token with sync scope (`cli-sync`) → 200
- *
- * The operator path (no token) is exercised by the schema-layer tests
- * above — no token means the request falls through to the bridge-level
- * basic-auth shim.
+ *  - valid token with sync-capable scope (`mobile`, `cli-sync`) → 200
  */
-describe("Sync HttpApi auth_token scope guard (Wave 4 follow-up)", () => {
+describe("Sync auth_token scope guard", () => {
   it("rejects ?token=<unknown> with 401 Unauthorized", async () => {
     const directory = await makeProjectDir()
-    const response = await request(
-      "GET",
-      "/sync/history?token=invalid_token_xyz&projectID=proj_1&aggregate=wrk_test",
-      directory,
-    )
+    const response = await request("GET", "/sync/outbox?token=invalid_token_xyz&projectID=proj_1", directory)
     expect(response.status).toBe(401)
     const body = await response.text()
     expect(body).toContain("Unauthorized")
   })
 
-  it("accepts ?token=<mobile-scope> on the schema path", async () => {
+  it("accepts ?token=<mobile-scope>", async () => {
     const { MobileAuth } = await import("@/mobile/auth")
-    const { Database } = await import("@/database/database")
     const directory = await makeProjectDir()
     const created = await MobileAuth.create({
       name: "test-mobile",
       scope: "mobile",
     })
-    try {
-      const response = await request(
-        "GET",
-        `/sync/history?token=${created.token}&projectID=proj_1&aggregate=wrk_test`,
-        directory,
-      )
-      expect(response.status).toBe(200)
-      const body = (await response.json()) as {
-        events: unknown[]
-        hasMore: boolean
-      }
-      expect(Array.isArray(body.events)).toBe(true)
-    } finally {
-      void Database
-    }
+    const response = await request("GET", `/sync/outbox?token=${created.token}&projectID=proj_1`, directory)
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { events: unknown[]; hasMore: boolean }
+    expect(Array.isArray(body.events)).toBe(true)
   })
 
-  it("accepts ?token=<cli-sync-scope> (200 on the schema path)", async () => {
+  it("accepts ?token=<cli-sync-scope>", async () => {
     const { MobileAuth } = await import("@/mobile/auth")
     const directory = await makeProjectDir()
     const created = await MobileAuth.create({
       name: "test-cli-sync",
       scope: "cli-sync",
     })
-    const response = await request(
-      "GET",
-      `/sync/history?token=${created.token}&projectID=proj_1&aggregate=wrk_test`,
-      directory,
-    )
+    const response = await request("GET", `/sync/outbox?token=${created.token}&projectID=proj_1`, directory)
     expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      events: unknown[]
-      hasMore: boolean
-    }
+    const body = (await response.json()) as { events: unknown[]; hasMore: boolean }
     expect(Array.isArray(body.events)).toBe(true)
   })
 })
@@ -174,8 +132,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
-  await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true }).catch(() => undefined)))
+  await fs.rm(testHome, { recursive: true, force: true }).catch(() => undefined)
 })

@@ -88,6 +88,13 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
   options?: {
     readonly groupNames?: Readonly<Record<string, string>>
     readonly omitEndpoints?: ReadonlySet<string>
+    /**
+     * Derive client method paths from `group.endpointName` instead of the
+     * `OpenApi.Identifier` annotation. Use when identifiers are pinned to an
+     * external OpenAPI contract whose dotted ids collide as client paths
+     * (e.g. both `provider.auth` and `provider.auth.remove` exist).
+     */
+    readonly clientPathsFromEndpointNames?: boolean
   },
 ): Contract {
   const endpoints: Array<Endpoint> = []
@@ -150,9 +157,13 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
 
       const clientPath = clientEndpointPath(
         group.identifier,
-        Context.getOrElse(endpoint.annotations, OpenApi.Identifier, () =>
-          group.topLevel ? endpoint.name : `${group.identifier}.${endpoint.name}`,
-        ),
+        options?.clientPathsFromEndpointNames
+          ? group.topLevel
+            ? endpoint.name
+            : `${group.identifier}.${endpoint.name}`
+          : Context.getOrElse(endpoint.annotations, OpenApi.Identifier, () =>
+              group.topLevel ? endpoint.name : `${group.identifier}.${endpoint.name}`,
+            ),
       )
       endpoints.push({
         group: groupName,

@@ -249,14 +249,6 @@ import type {
   SessionMonitorLogOutput,
   SessionMonitorCancelInput,
   SessionMonitorCancelOutput,
-  SyncStartInput,
-  SyncStartOutput,
-  SyncReplayInput,
-  SyncReplayOutput,
-  SyncHistoryInput,
-  SyncHistoryOutput,
-  SyncSnapshotInput,
-  SyncSnapshotOutput,
   TuiAppendPromptInput,
   TuiAppendPromptOutput,
   TuiOpenHelpOutput,
@@ -290,6 +282,206 @@ import type {
   WorkspaceSessionRestoreOutput,
   WorkspaceWarpInput,
   WorkspaceWarpOutput,
+  SyncEventInput,
+  SyncEventOutput,
+  SyncOutboxInput,
+  SyncOutboxOutput,
+  SyncSnapshotInput,
+  SyncSnapshotOutput,
+  SyncStreamInput,
+  SyncStreamOutput,
+  SyncStatsInput,
+  SyncStatsOutput,
+  SyncConfigInput,
+  SyncConfigOutput,
+  SyncConnectOutput,
+  SyncDisconnectOutput,
+  SyncDrainOutput,
+  AuthRemoveInput,
+  AuthRemoveOutput,
+  ConfigManagementReloadOutput,
+  ConfigManagementMcpAddInput,
+  ConfigManagementMcpAddOutput,
+  ConfigManagementMcpUpdateInput,
+  ConfigManagementMcpUpdateOutput,
+  ConfigManagementMcpRemoveInput,
+  ConfigManagementMcpRemoveOutput,
+  ConfigManagementProfileCreateInput,
+  ConfigManagementProfileCreateOutput,
+  ConfigManagementProfileActivateInput,
+  ConfigManagementProfileActivateOutput,
+  SessionPromptPromptInput,
+  SessionPromptPromptOutput,
+  SessionPromptPromptAsyncInput,
+  SessionPromptPromptAsyncOutput,
+  ShareShortInput,
+  ShareShortOutput,
+  SharePageInput,
+  SharePageOutput,
+  ShareApiInput,
+  ShareApiOutput,
+  ShareDataInput,
+  ShareDataOutput,
+  EventsSubscribeOutput,
+  EventsGlobalOutput,
+  WorkspaceExtraEventsInput,
+  WorkspaceExtraEventsOutput,
+  WorkspaceExtraSessionWarpInput,
+  WorkspaceExtraSessionWarpOutput,
+  UsersRegisterInput,
+  UsersRegisterOutput,
+  UsersLoginInput,
+  UsersLoginOutput,
+  UsersUpdateInput,
+  UsersUpdateOutput,
+  MobileAuthTokenListOutput,
+  MobileAuthTokenCreateInput,
+  MobileAuthTokenCreateOutput,
+  MobileAuthTokenRevokeInput,
+  MobileAuthTokenRevokeOutput,
+  MobileBootstrapOutput,
+  MobileCommandListOutput,
+  MobileProjectListOutput,
+  MobileMemoryHistoryOutput,
+  MobileMemorySearchInput,
+  MobileMemorySearchOutput,
+  MobileMemoryStashListOutput,
+  MobileMemoryStashCreateInput,
+  MobileMemoryStashCreateOutput,
+  MobileMemoryStashDeleteInput,
+  MobileMemoryStashDeleteOutput,
+  MobileGithubReposOutput,
+  MobileGithubBranchesInput,
+  MobileGithubBranchesOutput,
+  MobileGithubImportsOutput,
+  MobileGithubOauthClientInput,
+  MobileGithubOauthClientOutput,
+  MobileGithubOauthDeviceStartOutput,
+  MobileGithubOauthDevicePollInput,
+  MobileGithubOauthDevicePollOutput,
+  MobileGithubAuthSetInput,
+  MobileGithubAuthSetOutput,
+  MobileGithubAuthRemoveOutput,
+  MobileGithubImportInput,
+  MobileGithubImportOutput,
+  MobileGithubSessionCreateInput,
+  MobileGithubSessionCreateOutput,
+  MobileSessionListInput,
+  MobileSessionListOutput,
+  MobileSessionCreateInput,
+  MobileSessionCreateOutput,
+  MobileSessionDetailInput,
+  MobileSessionDetailOutput,
+  MobileSessionDeleteInput,
+  MobileSessionDeleteOutput,
+  MobileSessionDiffInput,
+  MobileSessionDiffOutput,
+  MobileSessionCommandListInput,
+  MobileSessionCommandListOutput,
+  MobileSessionCommandInput,
+  MobileSessionCommandOutput,
+  MobileSessionMessageInput,
+  MobileSessionMessageOutput,
+  MobileSessionAbortInput,
+  MobileSessionAbortOutput,
+  MobilePermissionRespondInput,
+  MobilePermissionRespondOutput,
+  MobileQuestionRespondInput,
+  MobileQuestionRespondOutput,
+  MobileQuestionRejectInput,
+  MobileQuestionRejectOutput,
+  MobileSessionPublishInput,
+  MobileSessionPublishOutput,
+  MobileSessionCleanupInput,
+  MobileSessionCleanupOutput,
+  MobileSessionStreamInput,
+  MobileSessionStreamOutput,
+  MobileSessionRenameInput,
+  MobileSessionRenameOutput,
+  MobileTeleportUploadBeginOutput,
+  MobileTeleportUploadChunkInput,
+  MobileTeleportUploadChunkOutput,
+  MobileTeleportInInput,
+  MobileTeleportInOutput,
+  MobileTeleportOutInput,
+  MobileTeleportOutOutput,
+  MobileWorktreeCreateInput,
+  MobileWorktreeCreateOutput,
+  MobileWorktreeRemoveInput,
+  MobileWorktreeRemoveOutput,
+  MobileWorktreeResetInput,
+  MobileWorktreeResetOutput,
+  MobileGitStatusOutput,
+  MobileGitDiffInput,
+  MobileGitDiffOutput,
+  MobileGitCommitsInput,
+  MobileGitCommitsOutput,
+  MobileGitBranchesOutput,
+  MobileGitCommitInput,
+  MobileGitCommitOutput,
+  MobileGitCheckoutInput,
+  MobileGitCheckoutOutput,
+  MobileGitStageInput,
+  MobileGitStageOutput,
+  MobileGitUnstageInput,
+  MobileGitUnstageOutput,
+  MobileGitDiscardInput,
+  MobileGitDiscardOutput,
+  MobileGitPushInput,
+  MobileGitPushOutput,
+  MobileGitPullOutput,
+  MobileLoopListOutput,
+  MobileLoopCreateInput,
+  MobileLoopCreateOutput,
+  MobileLoopTemplatesOutput,
+  MobileLoopGenerateInput,
+  MobileLoopGenerateOutput,
+  MobileLoopRunsRecentInput,
+  MobileLoopRunsRecentOutput,
+  MobileLoopGetInput,
+  MobileLoopGetOutput,
+  MobileLoopDeleteInput,
+  MobileLoopDeleteOutput,
+  MobileLoopUpdateInput,
+  MobileLoopUpdateOutput,
+  MobileLoopRunsInput,
+  MobileLoopRunsOutput,
+  MobileLoopRunInput,
+  MobileLoopRunOutput,
+  MobileLoopAbortInput,
+  MobileLoopAbortOutput,
+  MobileLoopToggleInput,
+  MobileLoopToggleOutput,
+  MobileLoopPauseInput,
+  MobileLoopPauseOutput,
+  MobileLoopResumeInput,
+  MobileLoopResumeOutput,
+  MobileRoutineListOutput,
+  MobileRoutineCreateInput,
+  MobileRoutineCreateOutput,
+  MobileRoutineGetInput,
+  MobileRoutineGetOutput,
+  MobileRoutineDeleteInput,
+  MobileRoutineDeleteOutput,
+  MobileRoutineUpdateInput,
+  MobileRoutineUpdateOutput,
+  MobileRoutineRunInput,
+  MobileRoutineRunOutput,
+  MobileRoutinePauseInput,
+  MobileRoutinePauseOutput,
+  MobileRoutineResumeInput,
+  MobileRoutineResumeOutput,
+  MobileRoutineTriggerInput,
+  MobileRoutineTriggerOutput,
+  MobilePtyListOutput,
+  MobilePtyCreateInput,
+  MobilePtyCreateOutput,
+  MobilePtyGetInput,
+  MobilePtyGetOutput,
+  MobilePtyUpdateInput,
+  MobilePtyUpdateOutput,
+  MobilePtyRemoveInput,
+  MobilePtyRemoveOutput,
 } from "./types.js"
 import { ClientError } from "./client-error.js"
 
@@ -1935,66 +2127,6 @@ export function make(options: ClientOptions) {
           requestOptions,
         ),
     },
-    sync: {
-      start: (input: SyncStartInput, requestOptions?: RequestOptions) =>
-        request<SyncStartOutput>(
-          {
-            method: "POST",
-            path: `/sync/start`,
-            body: { url: input["url"], token: input["token"], projectID: input["projectID"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      replay: (input: SyncReplayInput, requestOptions?: RequestOptions) =>
-        request<SyncReplayOutput>(
-          {
-            method: "POST",
-            path: `/sync/replay`,
-            body: {
-              projectID: input["projectID"],
-              aggregate: input["aggregate"],
-              data: input["data"],
-              origin: input["origin"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      history: (input: SyncHistoryInput, requestOptions?: RequestOptions) =>
-        request<SyncHistoryOutput>(
-          {
-            method: "GET",
-            path: `/sync/history`,
-            query: {
-              projectID: input["projectID"],
-              aggregate: input["aggregate"],
-              since: input["since"],
-              limit: input["limit"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      snapshot: (input: SyncSnapshotInput, requestOptions?: RequestOptions) =>
-        request<SyncSnapshotOutput>(
-          {
-            method: "GET",
-            path: `/sync/snapshot`,
-            query: { projectID: input["projectID"], aggregate: input["aggregate"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
     tui: {
       appendPrompt: (input: TuiAppendPromptInput, requestOptions?: RequestOptions) =>
         request<TuiAppendPromptOutput>(
@@ -2204,6 +2336,1262 @@ export function make(options: ClientOptions) {
             successStatus: 204,
             declaredStatuses: [],
             empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    sync: {
+      event: (input: SyncEventInput, requestOptions?: RequestOptions) =>
+        request<SyncEventOutput>(
+          {
+            method: "POST",
+            path: `/sync/event`,
+            body: { event: input["event"], projectID: input["projectID"] },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+      outbox: (input: SyncOutboxInput, requestOptions?: RequestOptions) =>
+        request<SyncOutboxOutput>(
+          {
+            method: "GET",
+            path: `/sync/outbox`,
+            query: { projectID: input["projectID"], since: input["since"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      snapshot: (input: SyncSnapshotInput, requestOptions?: RequestOptions) =>
+        request<SyncSnapshotOutput>(
+          {
+            method: "GET",
+            path: `/sync/snapshot/${encodeURIComponent(input.aggregateID)}`,
+            query: { projectID: input["projectID"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      stream: (input: SyncStreamInput, requestOptions?: RequestOptions): AsyncIterable<SyncStreamOutput> =>
+        sse<SyncStreamOutput>(
+          {
+            method: "GET",
+            path: `/sync/stream`,
+            query: { projectID: input["projectID"], token: input["token"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      stats: (input?: SyncStatsInput, requestOptions?: RequestOptions) =>
+        request<SyncStatsOutput>(
+          {
+            method: "GET",
+            path: `/sync/stats`,
+            query: { projectID: input?.["projectID"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      config: (input: SyncConfigInput, requestOptions?: RequestOptions) =>
+        request<SyncConfigOutput>(
+          {
+            method: "POST",
+            path: `/sync/config`,
+            body: { url: input["url"], token: input["token"], autostart: input["autostart"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      connect: (requestOptions?: RequestOptions) =>
+        request<SyncConnectOutput>(
+          { method: "POST", path: `/sync/connect`, successStatus: 204, declaredStatuses: [], empty: true },
+          requestOptions,
+        ),
+      disconnect: (requestOptions?: RequestOptions) =>
+        request<SyncDisconnectOutput>(
+          { method: "POST", path: `/sync/disconnect`, successStatus: 204, declaredStatuses: [], empty: true },
+          requestOptions,
+        ),
+      drain: (requestOptions?: RequestOptions) =>
+        request<SyncDrainOutput>(
+          { method: "POST", path: `/sync/drain`, successStatus: 204, declaredStatuses: [], empty: true },
+          requestOptions,
+        ),
+    },
+    auth: {
+      remove: (input: AuthRemoveInput, requestOptions?: RequestOptions) =>
+        request<AuthRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/auth/${encodeURIComponent(input.providerID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    "config-management": {
+      reload: (requestOptions?: RequestOptions) =>
+        request<ConfigManagementReloadOutput>(
+          { method: "POST", path: `/config/reload`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      mcpAdd: (input: ConfigManagementMcpAddInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementMcpAddOutput>(
+          {
+            method: "POST",
+            path: `/config/mcp`,
+            body: { name: input["name"], config: input["config"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      mcpUpdate: (input: ConfigManagementMcpUpdateInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementMcpUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/config/mcp/${encodeURIComponent(input.name)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      mcpRemove: (input: ConfigManagementMcpRemoveInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementMcpRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/config/mcp/${encodeURIComponent(input.name)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      profileCreate: (input: ConfigManagementProfileCreateInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementProfileCreateOutput>(
+          {
+            method: "POST",
+            path: `/config/profiles`,
+            body: { name: input["name"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      profileActivate: (input: ConfigManagementProfileActivateInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementProfileActivateOutput>(
+          {
+            method: "POST",
+            path: `/config/profiles/activate/${encodeURIComponent(input.name)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    "session-prompt": {
+      prompt: (input: SessionPromptPromptInput, requestOptions?: RequestOptions) =>
+        request<SessionPromptPromptOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message`,
+            body: {
+              messageID: input["messageID"],
+              model: input["model"],
+              agent: input["agent"],
+              noReply: input["noReply"],
+              tools: input["tools"],
+              format: input["format"],
+              system: input["system"],
+              variant: input["variant"],
+              parts: input["parts"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      promptAsync: (input: SessionPromptPromptAsyncInput, requestOptions?: RequestOptions) =>
+        request<SessionPromptPromptAsyncOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/prompt_async`,
+            body: {
+              messageID: input["messageID"],
+              model: input["model"],
+              agent: input["agent"],
+              noReply: input["noReply"],
+              tools: input["tools"],
+              format: input["format"],
+              system: input["system"],
+              variant: input["variant"],
+              parts: input["parts"],
+            },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    share: {
+      short: (input: ShareShortInput, requestOptions?: RequestOptions) =>
+        request<ShareShortOutput>(
+          {
+            method: "GET",
+            path: `/s/${encodeURIComponent(input.shareID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      page: (input: SharePageInput, requestOptions?: RequestOptions) =>
+        request<SharePageOutput>(
+          {
+            method: "GET",
+            path: `/share/${encodeURIComponent(input.shareID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      api: (input: ShareApiInput, requestOptions?: RequestOptions) =>
+        request<ShareApiOutput>(
+          {
+            method: "GET",
+            path: `/api/share/${encodeURIComponent(input.shareID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      data: (input: ShareDataInput, requestOptions?: RequestOptions) =>
+        request<ShareDataOutput>(
+          {
+            method: "GET",
+            path: `/api/share/${encodeURIComponent(input.shareID)}/data`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    events: {
+      subscribe: (requestOptions?: RequestOptions): AsyncIterable<EventsSubscribeOutput> =>
+        sse<EventsSubscribeOutput>(
+          { method: "GET", path: `/event`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      global: (requestOptions?: RequestOptions): AsyncIterable<EventsGlobalOutput> =>
+        sse<EventsGlobalOutput>(
+          { method: "GET", path: `/global/event`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+    },
+    "workspace-extra": {
+      events: (input: WorkspaceExtraEventsInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceExtraEventsOutput>(
+          {
+            method: "GET",
+            path: `/experimental/workspace/${encodeURIComponent(input.id)}/events`,
+            query: { from: input["from"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionWarp: (input: WorkspaceExtraSessionWarpInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceExtraSessionWarpOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/session/${encodeURIComponent(input.sessionID)}/warp`,
+            body: {
+              workspaceID: input["workspaceID"],
+              copyChanges: input["copyChanges"],
+              timeoutMs: input["timeoutMs"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    users: {
+      register: (input: UsersRegisterInput, requestOptions?: RequestOptions) =>
+        request<UsersRegisterOutput>(
+          {
+            method: "POST",
+            path: `/user/register`,
+            body: {
+              username: input["username"],
+              email: input["email"],
+              password: input["password"],
+              displayName: input["displayName"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      login: (input: UsersLoginInput, requestOptions?: RequestOptions) =>
+        request<UsersLoginOutput>(
+          {
+            method: "POST",
+            path: `/user/login`,
+            body: { email: input["email"], password: input["password"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      update: (input: UsersUpdateInput, requestOptions?: RequestOptions) =>
+        request<UsersUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/user/${encodeURIComponent(input.id)}`,
+            body: { displayName: input["displayName"], password: input["password"], role: input["role"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    mobile: {
+      authTokenList: (requestOptions?: RequestOptions) =>
+        request<MobileAuthTokenListOutput>(
+          { method: "GET", path: `/mobile/auth/token`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      authTokenCreate: (input?: MobileAuthTokenCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileAuthTokenCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/auth/token`,
+            body: { name: input?.["name"], expiresInDays: input?.["expiresInDays"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      authTokenRevoke: (input: MobileAuthTokenRevokeInput, requestOptions?: RequestOptions) =>
+        request<MobileAuthTokenRevokeOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/auth/token/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      bootstrap: (requestOptions?: RequestOptions) =>
+        request<MobileBootstrapOutput>(
+          { method: "GET", path: `/mobile/bootstrap`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      commandList: (requestOptions?: RequestOptions) =>
+        request<MobileCommandListOutput>(
+          { method: "GET", path: `/mobile/command`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      projectList: (requestOptions?: RequestOptions) =>
+        request<MobileProjectListOutput>(
+          { method: "GET", path: `/mobile/project`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      memoryHistory: (requestOptions?: RequestOptions) =>
+        request<MobileMemoryHistoryOutput>(
+          { method: "GET", path: `/mobile/memory/history`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      memorySearch: (input: MobileMemorySearchInput, requestOptions?: RequestOptions) =>
+        request<MobileMemorySearchOutput>(
+          {
+            method: "GET",
+            path: `/mobile/memory/search`,
+            query: { query: input["query"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      memoryStashList: (requestOptions?: RequestOptions) =>
+        request<MobileMemoryStashListOutput>(
+          { method: "GET", path: `/mobile/memory/stash`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      memoryStashCreate: (input: MobileMemoryStashCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileMemoryStashCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/memory/stash`,
+            body: { input: input["input"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      memoryStashDelete: (input: MobileMemoryStashDeleteInput, requestOptions?: RequestOptions) =>
+        request<MobileMemoryStashDeleteOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/memory/stash/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubRepos: (requestOptions?: RequestOptions) =>
+        request<MobileGithubReposOutput>(
+          { method: "GET", path: `/mobile/github/repos`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      githubBranches: (input: MobileGithubBranchesInput, requestOptions?: RequestOptions) =>
+        request<MobileGithubBranchesOutput>(
+          {
+            method: "GET",
+            path: `/mobile/github/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/branches`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubImports: (requestOptions?: RequestOptions) =>
+        request<MobileGithubImportsOutput>(
+          { method: "GET", path: `/mobile/github/imports`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      githubOauthClient: (input: MobileGithubOauthClientInput, requestOptions?: RequestOptions) =>
+        request<MobileGithubOauthClientOutput>(
+          {
+            method: "POST",
+            path: `/mobile/github/oauth/client`,
+            body: { clientId: input["clientId"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubOauthDeviceStart: (requestOptions?: RequestOptions) =>
+        request<MobileGithubOauthDeviceStartOutput>(
+          {
+            method: "POST",
+            path: `/mobile/github/oauth/device`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubOauthDevicePoll: (input: MobileGithubOauthDevicePollInput, requestOptions?: RequestOptions) =>
+        request<MobileGithubOauthDevicePollOutput>(
+          {
+            method: "POST",
+            path: `/mobile/github/oauth/device/poll`,
+            body: { deviceCode: input["deviceCode"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubAuthSet: (input: MobileGithubAuthSetInput, requestOptions?: RequestOptions) =>
+        request<MobileGithubAuthSetOutput>(
+          {
+            method: "POST",
+            path: `/mobile/github/auth`,
+            body: { token: input["token"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubAuthRemove: (requestOptions?: RequestOptions) =>
+        request<MobileGithubAuthRemoveOutput>(
+          { method: "DELETE", path: `/mobile/github/auth`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      githubImport: (input: MobileGithubImportInput, requestOptions?: RequestOptions) =>
+        request<MobileGithubImportOutput>(
+          {
+            method: "POST",
+            path: `/mobile/github/import`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      githubSessionCreate: (input: MobileGithubSessionCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileGithubSessionCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/github/session`,
+            body: {
+              owner: input["owner"],
+              repo: input["repo"],
+              cloneUrl: input["cloneUrl"],
+              htmlUrl: input["htmlUrl"],
+              defaultBranch: input["defaultBranch"],
+              baseBranch: input["baseBranch"],
+              private: input["private"],
+              title: input["title"],
+              executionTarget: input["executionTarget"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionList: (input?: MobileSessionListInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionListOutput>(
+          {
+            method: "GET",
+            path: `/mobile/session`,
+            query: { limit: input?.["limit"], search: input?.["search"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionCreate: (input?: MobileSessionCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session`,
+            body: {
+              parentID: input?.["parentID"],
+              title: input?.["title"],
+              permission: input?.["permission"],
+              github: input?.["github"],
+              executionTarget: input?.["executionTarget"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionDetail: (input: MobileSessionDetailInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionDetailOutput>(
+          {
+            method: "GET",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionDelete: (input: MobileSessionDeleteInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionDeleteOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionDiff: (input: MobileSessionDiffInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionDiffOutput>(
+          {
+            method: "GET",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/diff/${encodeURIComponent(input.messageID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionCommandList: (input: MobileSessionCommandListInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionCommandListOutput>(
+          {
+            method: "GET",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/command`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionCommand: (input: MobileSessionCommandInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionCommandOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/command`,
+            body: {
+              command: input["command"],
+              arguments: input["arguments"],
+              agent: input["agent"],
+              model: input["model"],
+              variant: input["variant"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionMessage: (input: MobileSessionMessageInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionMessageOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/message`,
+            body: {
+              messageID: input["messageID"],
+              model: input["model"],
+              agent: input["agent"],
+              noReply: input["noReply"],
+              tools: input["tools"],
+              format: input["format"],
+              system: input["system"],
+              variant: input["variant"],
+              parts: input["parts"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionAbort: (input: MobileSessionAbortInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionAbortOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/abort`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      permissionRespond: (input: MobilePermissionRespondInput, requestOptions?: RequestOptions) =>
+        request<MobilePermissionRespondOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/permissions/${encodeURIComponent(input.permissionID)}`,
+            body: { response: input["response"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      questionRespond: (input: MobileQuestionRespondInput, requestOptions?: RequestOptions) =>
+        request<MobileQuestionRespondOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/question/${encodeURIComponent(input.requestID)}`,
+            body: { answers: input["answers"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      questionReject: (input: MobileQuestionRejectInput, requestOptions?: RequestOptions) =>
+        request<MobileQuestionRejectOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/question/${encodeURIComponent(input.requestID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionPublish: (input: MobileSessionPublishInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionPublishOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/publish`,
+            body: { title: input["title"], body: input["body"], commitMessage: input["commitMessage"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionCleanup: (input: MobileSessionCleanupInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionCleanupOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/cleanup`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionStream: (
+        input: MobileSessionStreamInput,
+        requestOptions?: RequestOptions,
+      ): AsyncIterable<MobileSessionStreamOutput> =>
+        sse<MobileSessionStreamOutput>(
+          {
+            method: "GET",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/stream`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionRename: (input: MobileSessionRenameInput, requestOptions?: RequestOptions) =>
+        request<MobileSessionRenameOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/rename`,
+            body: { title: input["title"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      teleportUploadBegin: (requestOptions?: RequestOptions) =>
+        request<MobileTeleportUploadBeginOutput>(
+          { method: "POST", path: `/mobile/teleport/upload`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      teleportUploadChunk: (input: MobileTeleportUploadChunkInput, requestOptions?: RequestOptions) =>
+        request<MobileTeleportUploadChunkOutput>(
+          {
+            method: "POST",
+            path: `/mobile/teleport/upload/${encodeURIComponent(input.uploadID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      teleportIn: (input: MobileTeleportInInput, requestOptions?: RequestOptions) =>
+        request<MobileTeleportInOutput>(
+          {
+            method: "POST",
+            path: `/mobile/teleport`,
+            body: {
+              title: input["title"],
+              name: input["name"],
+              origin: input["origin"],
+              permission: input["permission"],
+              messages: input["messages"],
+              uploadID: input["uploadID"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      teleportOut: (input: MobileTeleportOutInput, requestOptions?: RequestOptions) =>
+        request<MobileTeleportOutOutput>(
+          {
+            method: "POST",
+            path: `/mobile/session/${encodeURIComponent(input.sessionID)}/teleport`,
+            body: {
+              url: input["url"],
+              token: input["token"],
+              content: input["content"],
+              includeGit: input["includeGit"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      worktreeCreate: (input: MobileWorktreeCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileWorktreeCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/worktree`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      worktreeRemove: (input: MobileWorktreeRemoveInput, requestOptions?: RequestOptions) =>
+        request<MobileWorktreeRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/worktree`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      worktreeReset: (input: MobileWorktreeResetInput, requestOptions?: RequestOptions) =>
+        request<MobileWorktreeResetOutput>(
+          {
+            method: "POST",
+            path: `/mobile/worktree/reset`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitStatus: (requestOptions?: RequestOptions) =>
+        request<MobileGitStatusOutput>(
+          { method: "GET", path: `/mobile/git/status`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      gitDiff: (input?: MobileGitDiffInput, requestOptions?: RequestOptions) =>
+        request<MobileGitDiffOutput>(
+          {
+            method: "GET",
+            path: `/mobile/git/diff`,
+            query: { file: input?.["file"], staged: input?.["staged"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitCommits: (input?: MobileGitCommitsInput, requestOptions?: RequestOptions) =>
+        request<MobileGitCommitsOutput>(
+          {
+            method: "GET",
+            path: `/mobile/git/commits`,
+            query: { limit: input?.["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitBranches: (requestOptions?: RequestOptions) =>
+        request<MobileGitBranchesOutput>(
+          { method: "GET", path: `/mobile/git/branches`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      gitCommit: (input: MobileGitCommitInput, requestOptions?: RequestOptions) =>
+        request<MobileGitCommitOutput>(
+          {
+            method: "POST",
+            path: `/mobile/git/commit`,
+            body: {
+              message: input["message"],
+              files: input["files"],
+              amend: input["amend"],
+              stagedOnly: input["stagedOnly"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitCheckout: (input: MobileGitCheckoutInput, requestOptions?: RequestOptions) =>
+        request<MobileGitCheckoutOutput>(
+          {
+            method: "POST",
+            path: `/mobile/git/checkout`,
+            body: { branch: input["branch"], create: input["create"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitStage: (input: MobileGitStageInput, requestOptions?: RequestOptions) =>
+        request<MobileGitStageOutput>(
+          {
+            method: "POST",
+            path: `/mobile/git/stage`,
+            body: { files: input["files"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitUnstage: (input: MobileGitUnstageInput, requestOptions?: RequestOptions) =>
+        request<MobileGitUnstageOutput>(
+          {
+            method: "POST",
+            path: `/mobile/git/unstage`,
+            body: { files: input["files"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitDiscard: (input: MobileGitDiscardInput, requestOptions?: RequestOptions) =>
+        request<MobileGitDiscardOutput>(
+          {
+            method: "POST",
+            path: `/mobile/git/discard`,
+            body: { files: input["files"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitPush: (input?: MobileGitPushInput, requestOptions?: RequestOptions) =>
+        request<MobileGitPushOutput>(
+          {
+            method: "POST",
+            path: `/mobile/git/push`,
+            query: { upstream: input?.["upstream"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      gitPull: (requestOptions?: RequestOptions) =>
+        request<MobileGitPullOutput>(
+          { method: "POST", path: `/mobile/git/pull`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      loopList: (requestOptions?: RequestOptions) =>
+        request<MobileLoopListOutput>(
+          { method: "GET", path: `/mobile/loops`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      loopCreate: (input: MobileLoopCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopTemplates: (requestOptions?: RequestOptions) =>
+        request<MobileLoopTemplatesOutput>(
+          { method: "GET", path: `/mobile/loops/templates`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      loopGenerate: (input: MobileLoopGenerateInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopGenerateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops/generate`,
+            body: { description: input["description"], model: input["model"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopRunsRecent: (input?: MobileLoopRunsRecentInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopRunsRecentOutput>(
+          {
+            method: "GET",
+            path: `/mobile/loops/runs/recent`,
+            query: { limit: input?.["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopGet: (input: MobileLoopGetInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopGetOutput>(
+          {
+            method: "GET",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopDelete: (input: MobileLoopDeleteInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopDeleteOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopUpdate: (input: MobileLoopUpdateInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopRuns: (input: MobileLoopRunsInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopRunsOutput>(
+          {
+            method: "GET",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}/runs`,
+            query: { limit: input["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopRun: (input: MobileLoopRunInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopRunOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}/run`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopAbort: (input: MobileLoopAbortInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopAbortOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}/abort`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopToggle: (input: MobileLoopToggleInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopToggleOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}/toggle`,
+            body: { enabled: input["enabled"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopPause: (input: MobileLoopPauseInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopPauseOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}/pause`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      loopResume: (input: MobileLoopResumeInput, requestOptions?: RequestOptions) =>
+        request<MobileLoopResumeOutput>(
+          {
+            method: "POST",
+            path: `/mobile/loops/${encodeURIComponent(input.id)}/resume`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineList: (requestOptions?: RequestOptions) =>
+        request<MobileRoutineListOutput>(
+          { method: "GET", path: `/mobile/routines`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      routineCreate: (input: MobileRoutineCreateInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/routines`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineGet: (input: MobileRoutineGetInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineGetOutput>(
+          {
+            method: "GET",
+            path: `/mobile/routines/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineDelete: (input: MobileRoutineDeleteInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineDeleteOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/routines/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineUpdate: (input: MobileRoutineUpdateInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/mobile/routines/${encodeURIComponent(input.id)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineRun: (input: MobileRoutineRunInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineRunOutput>(
+          {
+            method: "POST",
+            path: `/mobile/routines/${encodeURIComponent(input.id)}/run`,
+            body: { text: input["text"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routinePause: (input: MobileRoutinePauseInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutinePauseOutput>(
+          {
+            method: "POST",
+            path: `/mobile/routines/${encodeURIComponent(input.id)}/pause`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineResume: (input: MobileRoutineResumeInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineResumeOutput>(
+          {
+            method: "POST",
+            path: `/mobile/routines/${encodeURIComponent(input.id)}/resume`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      routineTrigger: (input: MobileRoutineTriggerInput, requestOptions?: RequestOptions) =>
+        request<MobileRoutineTriggerOutput>(
+          {
+            method: "POST",
+            path: `/mobile/routines/trigger/${encodeURIComponent(input.token)}`,
+            body: { text: input["text"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      ptyList: (requestOptions?: RequestOptions) =>
+        request<MobilePtyListOutput>(
+          { method: "GET", path: `/mobile/pty`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      ptyCreate: (input?: MobilePtyCreateInput, requestOptions?: RequestOptions) =>
+        request<MobilePtyCreateOutput>(
+          {
+            method: "POST",
+            path: `/mobile/pty`,
+            body: {
+              command: input?.["command"],
+              args: input?.["args"],
+              cwd: input?.["cwd"],
+              title: input?.["title"],
+              env: input?.["env"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      ptyGet: (input: MobilePtyGetInput, requestOptions?: RequestOptions) =>
+        request<MobilePtyGetOutput>(
+          {
+            method: "GET",
+            path: `/mobile/pty/${encodeURIComponent(input.ptyID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      ptyUpdate: (input: MobilePtyUpdateInput, requestOptions?: RequestOptions) =>
+        request<MobilePtyUpdateOutput>(
+          {
+            method: "PUT",
+            path: `/mobile/pty/${encodeURIComponent(input.ptyID)}`,
+            body: { title: input["title"], size: input["size"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      ptyRemove: (input: MobilePtyRemoveInput, requestOptions?: RequestOptions) =>
+        request<MobilePtyRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/mobile/pty/${encodeURIComponent(input.ptyID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
           },
           requestOptions,
         ),

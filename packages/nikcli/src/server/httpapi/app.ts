@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Log } from "@/util/log"
 import { Skill } from "@/skill"
@@ -73,13 +73,13 @@ export namespace AppHttpApi {
       HttpApiEndpoint.post("skillCreate", "/skill", {
         payload: SkillCreateInput,
         success: SkillInfo,
-      }),
+      }).annotate(OpenApi.Identifier, "app.skill.create"),
     )
     .add(
       HttpApiEndpoint.delete("skillDelete", "/skill/:name", {
         params: SkillNameParam,
         success: Schema.Boolean,
-      }),
+      }).annotate(OpenApi.Identifier, "app.skill.delete"),
     )
 
   export const Api = HttpApi.make("nikcli").add(Group)

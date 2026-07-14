@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Cause, Effect, Layer, Schema, SchemaGetter } from "effect"
 import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
@@ -250,7 +250,7 @@ export namespace SessionHttpApi {
         params: SessionIDPath,
         success: BooleanResult,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "session.delete"),
     )
     .add(
       HttpApiEndpoint.patch("update", "/:sessionID", {
@@ -333,7 +333,7 @@ export namespace SessionHttpApi {
         payload: PermissionRespondPayload,
         success: BooleanResult,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "permission.respond"),
     )
     .add(
       HttpApiEndpoint.get("children", "/:sessionID/children", {
@@ -384,7 +384,7 @@ export namespace SessionHttpApi {
         params: PartPath,
         success: BooleanResult,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "part.delete"),
     )
     .add(
       HttpApiEndpoint.patch("partUpdate", "/:sessionID/message/:messageID/part/:partID", {
@@ -392,28 +392,28 @@ export namespace SessionHttpApi {
         payload: MessagePart,
         success: MessagePart,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "part.update"),
     )
     .add(
       HttpApiEndpoint.get("v2Entries", "/:sessionID/v2/entries", {
         params: SessionIDPath,
         success: SessionV2EntryList,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "session.v2.entries"),
     )
     .add(
       HttpApiEndpoint.get("v2State", "/:sessionID/v2/state", {
         params: SessionIDPath,
         success: SessionV2State,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "session.v2.state"),
     )
     .add(
       HttpApiEndpoint.get("v2Events", "/:sessionID/v2/events", {
         params: SessionIDPath,
         success: SessionV2EventList,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "session.v2.events"),
     )
     .add(
       HttpApiEndpoint.get("instructions", "/:sessionID/instructions", {
@@ -427,7 +427,7 @@ export namespace SessionHttpApi {
         params: SessionIDPath,
         success: Schema.Unknown,
         error: [NotFound, Busy],
-      }),
+      }).annotate(OpenApi.Identifier, "session.context"),
     )
     .add(
       HttpApiEndpoint.post("contextToggle", "/:sessionID/context/toggle", {
@@ -454,19 +454,19 @@ export namespace SessionHttpApi {
       HttpApiEndpoint.get("backgroundInspect", "/:sessionID/background/:delegationID", {
         params: DelegationPath,
         success: Schema.Unknown,
-      }),
+      }).annotate(OpenApi.Identifier, "session.background.inspect"),
     )
     .add(
       HttpApiEndpoint.get("backgroundRead", "/:sessionID/background/:delegationID/read", {
         params: DelegationPath,
         success: Schema.String,
-      }),
+      }).annotate(OpenApi.Identifier, "session.background.read"),
     )
     .add(
       HttpApiEndpoint.post("backgroundCancel", "/:sessionID/background/:delegationID/cancel", {
         params: DelegationPath,
         success: Schema.Boolean,
-      }),
+      }).annotate(OpenApi.Identifier, "session.background.cancel"),
     )
     .add(
       HttpApiEndpoint.get("monitor", "/:sessionID/monitor/:monitorID", {

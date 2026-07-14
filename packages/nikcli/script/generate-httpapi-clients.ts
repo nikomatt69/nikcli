@@ -4,11 +4,18 @@ import { BunFileSystem } from "@effect/platform-bun"
 import { compile, emitEffectImported, emitEffectShape, emitPromise, write } from "@nikcli-ai/httpapi-codegen"
 import { Effect } from "effect"
 import { fileURLToPath } from "node:url"
-import { PublicHttpApi } from "../src/server/httpapi/public"
+import { PublicApi } from "../src/server/httpapi/public"
 
-const contract = compile(PublicHttpApi.Api, {
-  // WebSocket upgrade endpoint; neither generated HTTP transport owns it.
-  omitEndpoints: new Set(["pty.connect"]),
+const contract = compile(PublicApi, {
+  // WebSocket upgrade endpoints; neither generated HTTP transport owns them.
+  // `auth.set` is contract-only with a union payload, which
+  // `HttpApiClient.ForApi` narrows to the first member — omit it until the
+  // upstream union-payload derivation is fixed.
+  omitEndpoints: new Set(["pty-connect.connect", "mobile.ptyConnect", "auth.set"]),
+  // OpenApi.Identifier annotations pin operationIds to the Hono OpenAPI
+  // contract (dotted ids that collide as client paths); keep client method
+  // names derived from the Effect endpoint names instead.
+  clientPathsFromEndpointNames: true,
 })
 
 await Effect.runPromise(

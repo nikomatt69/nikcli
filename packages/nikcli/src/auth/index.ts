@@ -54,7 +54,7 @@ export namespace Auth {
   }).annotate({ identifier: "WellKnownAuth" })
   export const WellKnown = zodObject(WellKnownSchema)
 
-  const InfoSchema = Schema.Union([OauthSchema, ApiSchema, WellKnownSchema]).annotate({ identifier: "Auth" })
+  export const InfoSchema = Schema.Union([OauthSchema, ApiSchema, WellKnownSchema]).annotate({ identifier: "Auth" })
   export const Info = zod(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 

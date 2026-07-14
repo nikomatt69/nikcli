@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { zodToJsonSchema } from "zod-to-json-schema"
 import { InstanceState } from "@/effect"
@@ -87,68 +87,80 @@ export namespace ExperimentalHttpApi {
     of: Schema.String,
   }).annotate({ identifier: "ManagedWorktreeTraversalInput" })
 
+  // OpenApi.Identifier pins each operationId to the value the Hono OpenAPI
+  // emits, so the SDK generated from either source has the same class tree.
   export const Group = HttpApiGroup.make("experimental")
-    .add(HttpApiEndpoint.get("toolIDs", "/tool/ids", { success: ToolIDs }))
+    .add(HttpApiEndpoint.get("toolIDs", "/tool/ids", { success: ToolIDs }).annotate(OpenApi.Identifier, "tool.ids"))
     .add(
       HttpApiEndpoint.get("tools", "/tool", {
         query: ToolQuery,
         success: ToolList,
-      }),
+      }).annotate(OpenApi.Identifier, "tool.list"),
     )
     .add(
       HttpApiEndpoint.post("worktreeCreate", "/worktree", {
         payload: WorktreeCreateInput,
         success: WorktreeInfo,
-      }),
+      }).annotate(OpenApi.Identifier, "worktree.create"),
     )
-    .add(HttpApiEndpoint.get("worktree", "/worktree", { success: WorktreeList }))
+    .add(
+      HttpApiEndpoint.get("worktree", "/worktree", { success: WorktreeList }).annotate(
+        OpenApi.Identifier,
+        "worktree.list",
+      ),
+    )
     .add(
       HttpApiEndpoint.delete("worktreeRemove", "/worktree", {
         payload: WorktreeDirectoryInput,
         success: Schema.Boolean,
-      }),
+      }).annotate(OpenApi.Identifier, "worktree.remove"),
     )
     .add(
       HttpApiEndpoint.post("worktreeReset", "/worktree/reset", {
         payload: WorktreeDirectoryInput,
         success: Schema.Boolean,
-      }),
+      }).annotate(OpenApi.Identifier, "worktree.reset"),
     )
-    .add(HttpApiEndpoint.get("resource", "/resource", { success: ResourceMap }))
+    .add(
+      HttpApiEndpoint.get("resource", "/resource", { success: ResourceMap }).annotate(
+        OpenApi.Identifier,
+        "experimental.resource.list",
+      ),
+    )
     .add(
       HttpApiEndpoint.post("managedWorktreeCreate", "/managed-worktree", {
         payload: ManagedWorktreeCreateInput,
         success: ManagedWorktreeInfo,
-      }),
+      }).annotate(OpenApi.Identifier, "managed-worktree.create"),
     )
     .add(
       HttpApiEndpoint.delete("managedWorktreeRemove", "/managed-worktree", {
         payload: ManagedWorktreeRemoveInput,
         success: Schema.Null,
-      }),
+      }).annotate(OpenApi.Identifier, "managed-worktree.remove"),
     )
     .add(
       HttpApiEndpoint.post("managedWorktreeLink", "/managed-worktree/link", {
         payload: ManagedWorktreeLinkInput,
         success: ManagedWorktreeInfo,
-      }),
+      }).annotate(OpenApi.Identifier, "managed-worktree.link"),
     )
     .add(
       HttpApiEndpoint.get("managedWorktreeChildren", "/managed-worktree/children", {
         query: ManagedWorktreeTraversalInput,
         success: ManagedWorktreeList,
-      }),
+      }).annotate(OpenApi.Identifier, "managed-worktree.children"),
     )
     .add(
       HttpApiEndpoint.get("managedWorktreeAncestors", "/managed-worktree/ancestors", {
         query: ManagedWorktreeTraversalInput,
         success: ManagedWorktreeList,
-      }),
+      }).annotate(OpenApi.Identifier, "managed-worktree.ancestors"),
     )
     .add(
       HttpApiEndpoint.get("managedWorktreeList", "/managed-worktree", {
         success: ManagedWorktreeList,
-      }),
+      }).annotate(OpenApi.Identifier, "managed-worktree.list"),
     )
     .prefix("/experimental")
 

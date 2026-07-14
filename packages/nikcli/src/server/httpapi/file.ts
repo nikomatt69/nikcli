@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import path from "path"
 import { File } from "@/file"
@@ -115,19 +115,34 @@ export namespace FileHttpApi {
     status: Schema.Literals(["added", "deleted", "modified"]),
   }).annotate({ identifier: "File" })
 
+  // OpenApi.Identifier pins each operationId to the value the Hono OpenAPI
+  // emits, so the SDK generated from either source has the same class tree.
   export const Group = HttpApiGroup.make("file")
-    .add(HttpApiEndpoint.get("findText", "/find", { query: TextSearchParams, success: Schema.Array(SearchMatch) }))
     .add(
-      HttpApiEndpoint.get("findFile", "/find/file", { query: FileSearchParams, success: Schema.Array(Schema.String) }),
+      HttpApiEndpoint.get("findText", "/find", { query: TextSearchParams, success: Schema.Array(SearchMatch) }).annotate(
+        OpenApi.Identifier,
+        "find.text",
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("findFile", "/find/file", {
+        query: FileSearchParams,
+        success: Schema.Array(Schema.String),
+      }).annotate(OpenApi.Identifier, "find.files"),
     )
     .add(
       HttpApiEndpoint.get("findSymbol", "/find/symbol", {
         query: SymbolSearchParams,
         success: Schema.Array(SymbolInfo),
-      }),
+      }).annotate(OpenApi.Identifier, "find.symbols"),
     )
     .add(HttpApiEndpoint.get("list", "/file", { query: PathParams, success: Schema.Array(FileNode) }))
-    .add(HttpApiEndpoint.get("content", "/file/content", { query: PathParams, success: FileContent }))
+    .add(
+      HttpApiEndpoint.get("content", "/file/content", { query: PathParams, success: FileContent }).annotate(
+        OpenApi.Identifier,
+        "file.read",
+      ),
+    )
     .add(HttpApiEndpoint.put("write", "/file/content", { payload: WritePayload, success: WriteSuccess }))
     .add(HttpApiEndpoint.get("status", "/file/status", { success: Schema.Array(FileInfo) }))
 

@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { InstanceState } from "@/effect"
 import { Workspace } from "@/workspace"
@@ -84,59 +84,61 @@ export namespace WorkspaceHttpApi {
     status: Schema.Literals(["connected", "connecting", "disconnected", "error"]),
   }).annotate({ identifier: "WorkspaceConnectionStatus" })
 
+  // OpenApi.Identifier pins each operationId to the value the Hono OpenAPI
+  // emits, so the SDK generated from either source has the same class tree.
   export const Group = HttpApiGroup.make("workspace")
     .add(
       HttpApiEndpoint.get("adaptors", "/adaptor", {
         success: Schema.Array(AdaptorInfo),
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.adaptor.list"),
     )
     .add(
       HttpApiEndpoint.post("syncList", "/sync-list", {
         success: HttpApiSchema.NoContent,
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.syncList"),
     )
     .add(
       HttpApiEndpoint.get("status", "/status", {
         success: Schema.Array(ConnectionStatus),
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.status"),
     )
     .add(
       HttpApiEndpoint.post("create", "/:id", {
         params: WorkspacePath,
         payload: CreatePayload,
         success: WorkspaceInfo,
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.create"),
     )
     .add(
       HttpApiEndpoint.get("list", "/", {
         success: Schema.Array(WorkspaceInfo),
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.list"),
     )
     .add(
       HttpApiEndpoint.delete("remove", "/:id", {
         params: WorkspacePath,
         success: OptionalWorkspaceInfo,
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.remove"),
     )
     .add(
       HttpApiEndpoint.post("restore", "/:id/restore", {
         params: WorkspacePath,
         query: RestoreQuery,
         success: RestorePayload,
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.restore"),
     )
     .add(
       HttpApiEndpoint.post("sessionRestore", "/:id/session/:sessionID/restore", {
         params: SessionRestorePath,
         query: RestoreQuery,
         success: SessionRestorePayload,
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.session.restore"),
     )
     .add(
       HttpApiEndpoint.post("warp", "/warp", {
         payload: WarpPayload,
         success: HttpApiSchema.NoContent,
-      }),
+      }).annotate(OpenApi.Identifier, "experimental.workspace.warp"),
     )
     .prefix("/experimental/workspace")
 

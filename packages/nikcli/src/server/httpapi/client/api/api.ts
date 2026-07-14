@@ -1097,102 +1097,58 @@ export interface SessionApi<E = never> {
   readonly monitorCancel: SessionMonitorCancelOperation<E>
 }
 
-type Endpoint19_0Request = Parameters<RawClient["sync"]["start"]>[0]
-export type Endpoint19_0Input = {
-  readonly url: Endpoint19_0Request["payload"]["url"]
-  readonly token: Endpoint19_0Request["payload"]["token"]
-  readonly projectID: Endpoint19_0Request["payload"]["projectID"]
-}
-export type Endpoint19_0Output = EffectValue<ReturnType<RawClient["sync"]["start"]>>
-export type SyncStartOperation<E = never> = (input: Endpoint19_0Input) => Effect.Effect<Endpoint19_0Output, E>
+type Endpoint19_0Request = Parameters<RawClient["tui"]["appendPrompt"]>[0]
+export type Endpoint19_0Input = { readonly payload: Endpoint19_0Request["payload"] }
+export type Endpoint19_0Output = EffectValue<ReturnType<RawClient["tui"]["appendPrompt"]>>
+export type TuiAppendPromptOperation<E = never> = (input: Endpoint19_0Input) => Effect.Effect<Endpoint19_0Output, E>
 
-type Endpoint19_1Request = Parameters<RawClient["sync"]["replay"]>[0]
-export type Endpoint19_1Input = {
-  readonly projectID: Endpoint19_1Request["payload"]["projectID"]
-  readonly aggregate: Endpoint19_1Request["payload"]["aggregate"]
-  readonly data: Endpoint19_1Request["payload"]["data"]
-  readonly origin?: Endpoint19_1Request["payload"]["origin"]
-}
-export type Endpoint19_1Output = EffectValue<ReturnType<RawClient["sync"]["replay"]>>
-export type SyncReplayOperation<E = never> = (input: Endpoint19_1Input) => Effect.Effect<Endpoint19_1Output, E>
+export type Endpoint19_1Output = EffectValue<ReturnType<RawClient["tui"]["openHelp"]>>
+export type TuiOpenHelpOperation<E = never> = () => Effect.Effect<Endpoint19_1Output, E>
 
-type Endpoint19_2Request = Parameters<RawClient["sync"]["history"]>[0]
-export type Endpoint19_2Input = {
-  readonly projectID: Endpoint19_2Request["query"]["projectID"]
-  readonly aggregate: Endpoint19_2Request["query"]["aggregate"]
-  readonly since?: Endpoint19_2Request["query"]["since"]
-  readonly limit?: Endpoint19_2Request["query"]["limit"]
-}
-export type Endpoint19_2Output = EffectValue<ReturnType<RawClient["sync"]["history"]>>
-export type SyncHistoryOperation<E = never> = (input: Endpoint19_2Input) => Effect.Effect<Endpoint19_2Output, E>
+export type Endpoint19_2Output = EffectValue<ReturnType<RawClient["tui"]["openSessions"]>>
+export type TuiOpenSessionsOperation<E = never> = () => Effect.Effect<Endpoint19_2Output, E>
 
-type Endpoint19_3Request = Parameters<RawClient["sync"]["snapshot"]>[0]
-export type Endpoint19_3Input = {
-  readonly projectID: Endpoint19_3Request["query"]["projectID"]
-  readonly aggregate: Endpoint19_3Request["query"]["aggregate"]
-}
-export type Endpoint19_3Output = EffectValue<ReturnType<RawClient["sync"]["snapshot"]>>
-export type SyncSnapshotOperation<E = never> = (input: Endpoint19_3Input) => Effect.Effect<Endpoint19_3Output, E>
+export type Endpoint19_3Output = EffectValue<ReturnType<RawClient["tui"]["openThemes"]>>
+export type TuiOpenThemesOperation<E = never> = () => Effect.Effect<Endpoint19_3Output, E>
 
-export interface SyncApi<E = never> {
-  readonly start: SyncStartOperation<E>
-  readonly replay: SyncReplayOperation<E>
-  readonly history: SyncHistoryOperation<E>
-  readonly snapshot: SyncSnapshotOperation<E>
-}
+export type Endpoint19_4Output = EffectValue<ReturnType<RawClient["tui"]["openModels"]>>
+export type TuiOpenModelsOperation<E = never> = () => Effect.Effect<Endpoint19_4Output, E>
 
-type Endpoint20_0Request = Parameters<RawClient["tui"]["appendPrompt"]>[0]
-export type Endpoint20_0Input = { readonly payload: Endpoint20_0Request["payload"] }
-export type Endpoint20_0Output = EffectValue<ReturnType<RawClient["tui"]["appendPrompt"]>>
-export type TuiAppendPromptOperation<E = never> = (input: Endpoint20_0Input) => Effect.Effect<Endpoint20_0Output, E>
+export type Endpoint19_5Output = EffectValue<ReturnType<RawClient["tui"]["submitPrompt"]>>
+export type TuiSubmitPromptOperation<E = never> = () => Effect.Effect<Endpoint19_5Output, E>
 
-export type Endpoint20_1Output = EffectValue<ReturnType<RawClient["tui"]["openHelp"]>>
-export type TuiOpenHelpOperation<E = never> = () => Effect.Effect<Endpoint20_1Output, E>
+export type Endpoint19_6Output = EffectValue<ReturnType<RawClient["tui"]["clearPrompt"]>>
+export type TuiClearPromptOperation<E = never> = () => Effect.Effect<Endpoint19_6Output, E>
 
-export type Endpoint20_2Output = EffectValue<ReturnType<RawClient["tui"]["openSessions"]>>
-export type TuiOpenSessionsOperation<E = never> = () => Effect.Effect<Endpoint20_2Output, E>
+type Endpoint19_7Request = Parameters<RawClient["tui"]["executeCommand"]>[0]
+export type Endpoint19_7Input = { readonly payload: Endpoint19_7Request["payload"] }
+export type Endpoint19_7Output = EffectValue<ReturnType<RawClient["tui"]["executeCommand"]>>
+export type TuiExecuteCommandOperation<E = never> = (input: Endpoint19_7Input) => Effect.Effect<Endpoint19_7Output, E>
 
-export type Endpoint20_3Output = EffectValue<ReturnType<RawClient["tui"]["openThemes"]>>
-export type TuiOpenThemesOperation<E = never> = () => Effect.Effect<Endpoint20_3Output, E>
+type Endpoint19_8Request = Parameters<RawClient["tui"]["showToast"]>[0]
+export type Endpoint19_8Input = { readonly payload: Endpoint19_8Request["payload"] }
+export type Endpoint19_8Output = EffectValue<ReturnType<RawClient["tui"]["showToast"]>>
+export type TuiShowToastOperation<E = never> = (input: Endpoint19_8Input) => Effect.Effect<Endpoint19_8Output, E>
 
-export type Endpoint20_4Output = EffectValue<ReturnType<RawClient["tui"]["openModels"]>>
-export type TuiOpenModelsOperation<E = never> = () => Effect.Effect<Endpoint20_4Output, E>
+type Endpoint19_9Request = Parameters<RawClient["tui"]["publish"]>[0]
+export type Endpoint19_9Input = { readonly payload: Endpoint19_9Request["payload"] }
+export type Endpoint19_9Output = EffectValue<ReturnType<RawClient["tui"]["publish"]>>
+export type TuiPublishOperation<E = never> = (input: Endpoint19_9Input) => Effect.Effect<Endpoint19_9Output, E>
 
-export type Endpoint20_5Output = EffectValue<ReturnType<RawClient["tui"]["submitPrompt"]>>
-export type TuiSubmitPromptOperation<E = never> = () => Effect.Effect<Endpoint20_5Output, E>
+type Endpoint19_10Request = Parameters<RawClient["tui"]["selectSession"]>[0]
+export type Endpoint19_10Input = { readonly payload: Endpoint19_10Request["payload"] }
+export type Endpoint19_10Output = EffectValue<ReturnType<RawClient["tui"]["selectSession"]>>
+export type TuiSelectSessionOperation<E = never> = (input: Endpoint19_10Input) => Effect.Effect<Endpoint19_10Output, E>
 
-export type Endpoint20_6Output = EffectValue<ReturnType<RawClient["tui"]["clearPrompt"]>>
-export type TuiClearPromptOperation<E = never> = () => Effect.Effect<Endpoint20_6Output, E>
+export type Endpoint19_11Output = EffectValue<ReturnType<RawClient["tui"]["controlNext"]>>
+export type TuiControlNextOperation<E = never> = () => Effect.Effect<Endpoint19_11Output, E>
 
-type Endpoint20_7Request = Parameters<RawClient["tui"]["executeCommand"]>[0]
-export type Endpoint20_7Input = { readonly payload: Endpoint20_7Request["payload"] }
-export type Endpoint20_7Output = EffectValue<ReturnType<RawClient["tui"]["executeCommand"]>>
-export type TuiExecuteCommandOperation<E = never> = (input: Endpoint20_7Input) => Effect.Effect<Endpoint20_7Output, E>
-
-type Endpoint20_8Request = Parameters<RawClient["tui"]["showToast"]>[0]
-export type Endpoint20_8Input = { readonly payload: Endpoint20_8Request["payload"] }
-export type Endpoint20_8Output = EffectValue<ReturnType<RawClient["tui"]["showToast"]>>
-export type TuiShowToastOperation<E = never> = (input: Endpoint20_8Input) => Effect.Effect<Endpoint20_8Output, E>
-
-type Endpoint20_9Request = Parameters<RawClient["tui"]["publish"]>[0]
-export type Endpoint20_9Input = { readonly payload: Endpoint20_9Request["payload"] }
-export type Endpoint20_9Output = EffectValue<ReturnType<RawClient["tui"]["publish"]>>
-export type TuiPublishOperation<E = never> = (input: Endpoint20_9Input) => Effect.Effect<Endpoint20_9Output, E>
-
-type Endpoint20_10Request = Parameters<RawClient["tui"]["selectSession"]>[0]
-export type Endpoint20_10Input = { readonly payload: Endpoint20_10Request["payload"] }
-export type Endpoint20_10Output = EffectValue<ReturnType<RawClient["tui"]["selectSession"]>>
-export type TuiSelectSessionOperation<E = never> = (input: Endpoint20_10Input) => Effect.Effect<Endpoint20_10Output, E>
-
-export type Endpoint20_11Output = EffectValue<ReturnType<RawClient["tui"]["controlNext"]>>
-export type TuiControlNextOperation<E = never> = () => Effect.Effect<Endpoint20_11Output, E>
-
-type Endpoint20_12Request = Parameters<RawClient["tui"]["controlResponse"]>[0]
-export type Endpoint20_12Input = { readonly payload: Endpoint20_12Request["payload"] }
-export type Endpoint20_12Output = EffectValue<ReturnType<RawClient["tui"]["controlResponse"]>>
+type Endpoint19_12Request = Parameters<RawClient["tui"]["controlResponse"]>[0]
+export type Endpoint19_12Input = { readonly payload: Endpoint19_12Request["payload"] }
+export type Endpoint19_12Output = EffectValue<ReturnType<RawClient["tui"]["controlResponse"]>>
 export type TuiControlResponseOperation<E = never> = (
-  input: Endpoint20_12Input,
-) => Effect.Effect<Endpoint20_12Output, E>
+  input: Endpoint19_12Input,
+) => Effect.Effect<Endpoint19_12Output, E>
 
 export interface TuiApi<E = never> {
   readonly appendPrompt: TuiAppendPromptOperation<E>
@@ -1210,60 +1166,60 @@ export interface TuiApi<E = never> {
   readonly controlResponse: TuiControlResponseOperation<E>
 }
 
-export type Endpoint21_0Output = EffectValue<ReturnType<RawClient["workspace"]["adaptors"]>>
-export type WorkspaceAdaptorsOperation<E = never> = () => Effect.Effect<Endpoint21_0Output, E>
+export type Endpoint20_0Output = EffectValue<ReturnType<RawClient["workspace"]["adaptors"]>>
+export type WorkspaceAdaptorsOperation<E = never> = () => Effect.Effect<Endpoint20_0Output, E>
 
-export type Endpoint21_1Output = EffectValue<ReturnType<RawClient["workspace"]["syncList"]>>
-export type WorkspaceSyncListOperation<E = never> = () => Effect.Effect<Endpoint21_1Output, E>
+export type Endpoint20_1Output = EffectValue<ReturnType<RawClient["workspace"]["syncList"]>>
+export type WorkspaceSyncListOperation<E = never> = () => Effect.Effect<Endpoint20_1Output, E>
 
-export type Endpoint21_2Output = EffectValue<ReturnType<RawClient["workspace"]["status"]>>
-export type WorkspaceStatusOperation<E = never> = () => Effect.Effect<Endpoint21_2Output, E>
+export type Endpoint20_2Output = EffectValue<ReturnType<RawClient["workspace"]["status"]>>
+export type WorkspaceStatusOperation<E = never> = () => Effect.Effect<Endpoint20_2Output, E>
 
-type Endpoint21_3Request = Parameters<RawClient["workspace"]["create"]>[0]
-export type Endpoint21_3Input = {
-  readonly id: Endpoint21_3Request["params"]["id"]
-  readonly branch: Endpoint21_3Request["payload"]["branch"]
-  readonly config: Endpoint21_3Request["payload"]["config"]
+type Endpoint20_3Request = Parameters<RawClient["workspace"]["create"]>[0]
+export type Endpoint20_3Input = {
+  readonly id: Endpoint20_3Request["params"]["id"]
+  readonly branch: Endpoint20_3Request["payload"]["branch"]
+  readonly config: Endpoint20_3Request["payload"]["config"]
 }
-export type Endpoint21_3Output = EffectValue<ReturnType<RawClient["workspace"]["create"]>>
-export type WorkspaceCreateOperation<E = never> = (input: Endpoint21_3Input) => Effect.Effect<Endpoint21_3Output, E>
+export type Endpoint20_3Output = EffectValue<ReturnType<RawClient["workspace"]["create"]>>
+export type WorkspaceCreateOperation<E = never> = (input: Endpoint20_3Input) => Effect.Effect<Endpoint20_3Output, E>
 
-export type Endpoint21_4Output = EffectValue<ReturnType<RawClient["workspace"]["list"]>>
-export type WorkspaceListOperation<E = never> = () => Effect.Effect<Endpoint21_4Output, E>
+export type Endpoint20_4Output = EffectValue<ReturnType<RawClient["workspace"]["list"]>>
+export type WorkspaceListOperation<E = never> = () => Effect.Effect<Endpoint20_4Output, E>
 
-type Endpoint21_5Request = Parameters<RawClient["workspace"]["remove"]>[0]
-export type Endpoint21_5Input = { readonly id: Endpoint21_5Request["params"]["id"] }
-export type Endpoint21_5Output = EffectValue<ReturnType<RawClient["workspace"]["remove"]>>
-export type WorkspaceRemoveOperation<E = never> = (input: Endpoint21_5Input) => Effect.Effect<Endpoint21_5Output, E>
+type Endpoint20_5Request = Parameters<RawClient["workspace"]["remove"]>[0]
+export type Endpoint20_5Input = { readonly id: Endpoint20_5Request["params"]["id"] }
+export type Endpoint20_5Output = EffectValue<ReturnType<RawClient["workspace"]["remove"]>>
+export type WorkspaceRemoveOperation<E = never> = (input: Endpoint20_5Input) => Effect.Effect<Endpoint20_5Output, E>
 
-type Endpoint21_6Request = Parameters<RawClient["workspace"]["restore"]>[0]
-export type Endpoint21_6Input = {
-  readonly id: Endpoint21_6Request["params"]["id"]
-  readonly timeoutMs?: Endpoint21_6Request["query"]["timeoutMs"]
+type Endpoint20_6Request = Parameters<RawClient["workspace"]["restore"]>[0]
+export type Endpoint20_6Input = {
+  readonly id: Endpoint20_6Request["params"]["id"]
+  readonly timeoutMs?: Endpoint20_6Request["query"]["timeoutMs"]
 }
-export type Endpoint21_6Output = EffectValue<ReturnType<RawClient["workspace"]["restore"]>>
-export type WorkspaceRestoreOperation<E = never> = (input: Endpoint21_6Input) => Effect.Effect<Endpoint21_6Output, E>
+export type Endpoint20_6Output = EffectValue<ReturnType<RawClient["workspace"]["restore"]>>
+export type WorkspaceRestoreOperation<E = never> = (input: Endpoint20_6Input) => Effect.Effect<Endpoint20_6Output, E>
 
-type Endpoint21_7Request = Parameters<RawClient["workspace"]["sessionRestore"]>[0]
-export type Endpoint21_7Input = {
-  readonly id: Endpoint21_7Request["params"]["id"]
-  readonly sessionID: Endpoint21_7Request["params"]["sessionID"]
-  readonly timeoutMs?: Endpoint21_7Request["query"]["timeoutMs"]
+type Endpoint20_7Request = Parameters<RawClient["workspace"]["sessionRestore"]>[0]
+export type Endpoint20_7Input = {
+  readonly id: Endpoint20_7Request["params"]["id"]
+  readonly sessionID: Endpoint20_7Request["params"]["sessionID"]
+  readonly timeoutMs?: Endpoint20_7Request["query"]["timeoutMs"]
 }
-export type Endpoint21_7Output = EffectValue<ReturnType<RawClient["workspace"]["sessionRestore"]>>
+export type Endpoint20_7Output = EffectValue<ReturnType<RawClient["workspace"]["sessionRestore"]>>
 export type WorkspaceSessionRestoreOperation<E = never> = (
-  input: Endpoint21_7Input,
-) => Effect.Effect<Endpoint21_7Output, E>
+  input: Endpoint20_7Input,
+) => Effect.Effect<Endpoint20_7Output, E>
 
-type Endpoint21_8Request = Parameters<RawClient["workspace"]["warp"]>[0]
-export type Endpoint21_8Input = {
-  readonly id: Endpoint21_8Request["payload"]["id"]
-  readonly sessionID: Endpoint21_8Request["payload"]["sessionID"]
-  readonly copyChanges?: Endpoint21_8Request["payload"]["copyChanges"]
-  readonly timeoutMs?: Endpoint21_8Request["payload"]["timeoutMs"]
+type Endpoint20_8Request = Parameters<RawClient["workspace"]["warp"]>[0]
+export type Endpoint20_8Input = {
+  readonly id: Endpoint20_8Request["payload"]["id"]
+  readonly sessionID: Endpoint20_8Request["payload"]["sessionID"]
+  readonly copyChanges?: Endpoint20_8Request["payload"]["copyChanges"]
+  readonly timeoutMs?: Endpoint20_8Request["payload"]["timeoutMs"]
 }
-export type Endpoint21_8Output = EffectValue<ReturnType<RawClient["workspace"]["warp"]>>
-export type WorkspaceWarpOperation<E = never> = (input: Endpoint21_8Input) => Effect.Effect<Endpoint21_8Output, E>
+export type Endpoint20_8Output = EffectValue<ReturnType<RawClient["workspace"]["warp"]>>
+export type WorkspaceWarpOperation<E = never> = (input: Endpoint20_8Input) => Effect.Effect<Endpoint20_8Output, E>
 
 export interface WorkspaceApi<E = never> {
   readonly adaptors: WorkspaceAdaptorsOperation<E>
@@ -1275,6 +1231,932 @@ export interface WorkspaceApi<E = never> {
   readonly restore: WorkspaceRestoreOperation<E>
   readonly sessionRestore: WorkspaceSessionRestoreOperation<E>
   readonly warp: WorkspaceWarpOperation<E>
+}
+
+type Endpoint21_0Request = Parameters<RawClient["sync"]["event"]>[0]
+export type Endpoint21_0Input = {
+  readonly event: Endpoint21_0Request["payload"]["event"]
+  readonly projectID: Endpoint21_0Request["payload"]["projectID"]
+}
+export type Endpoint21_0Output = EffectValue<ReturnType<RawClient["sync"]["event"]>>
+export type SyncEventOperation<E = never> = (input: Endpoint21_0Input) => Effect.Effect<Endpoint21_0Output, E>
+
+type Endpoint21_1Request = Parameters<RawClient["sync"]["outbox"]>[0]
+export type Endpoint21_1Input = {
+  readonly projectID: Endpoint21_1Request["query"]["projectID"]
+  readonly since?: Endpoint21_1Request["query"]["since"]
+}
+export type Endpoint21_1Output = EffectValue<ReturnType<RawClient["sync"]["outbox"]>>
+export type SyncOutboxOperation<E = never> = (input: Endpoint21_1Input) => Effect.Effect<Endpoint21_1Output, E>
+
+type Endpoint21_2Request = Parameters<RawClient["sync"]["snapshot"]>[0]
+export type Endpoint21_2Input = {
+  readonly aggregateID: Endpoint21_2Request["params"]["aggregateID"]
+  readonly projectID: Endpoint21_2Request["query"]["projectID"]
+}
+export type Endpoint21_2Output = EffectValue<ReturnType<RawClient["sync"]["snapshot"]>>
+export type SyncSnapshotOperation<E = never> = (input: Endpoint21_2Input) => Effect.Effect<Endpoint21_2Output, E>
+
+type Endpoint21_3Request = Parameters<RawClient["sync"]["stream"]>[0]
+export type Endpoint21_3Input = {
+  readonly projectID: Endpoint21_3Request["query"]["projectID"]
+  readonly token: Endpoint21_3Request["query"]["token"]
+}
+export type Endpoint21_3Output = StreamValue<EffectValue<ReturnType<RawClient["sync"]["stream"]>>>
+export type SyncStreamOperation<E = never> = (input: Endpoint21_3Input) => Stream.Stream<Endpoint21_3Output, E>
+
+type Endpoint21_4Request = Parameters<RawClient["sync"]["stats"]>[0]
+export type Endpoint21_4Input = { readonly projectID?: Endpoint21_4Request["query"]["projectID"] }
+export type Endpoint21_4Output = EffectValue<ReturnType<RawClient["sync"]["stats"]>>
+export type SyncStatsOperation<E = never> = (input?: Endpoint21_4Input) => Effect.Effect<Endpoint21_4Output, E>
+
+type Endpoint21_5Request = Parameters<RawClient["sync"]["config"]>[0]
+export type Endpoint21_5Input = {
+  readonly url: Endpoint21_5Request["payload"]["url"]
+  readonly token?: Endpoint21_5Request["payload"]["token"]
+  readonly autostart?: Endpoint21_5Request["payload"]["autostart"]
+}
+export type Endpoint21_5Output = EffectValue<ReturnType<RawClient["sync"]["config"]>>
+export type SyncConfigOperation<E = never> = (input: Endpoint21_5Input) => Effect.Effect<Endpoint21_5Output, E>
+
+export type Endpoint21_6Output = EffectValue<ReturnType<RawClient["sync"]["connect"]>>
+export type SyncConnectOperation<E = never> = () => Effect.Effect<Endpoint21_6Output, E>
+
+export type Endpoint21_7Output = EffectValue<ReturnType<RawClient["sync"]["disconnect"]>>
+export type SyncDisconnectOperation<E = never> = () => Effect.Effect<Endpoint21_7Output, E>
+
+export type Endpoint21_8Output = EffectValue<ReturnType<RawClient["sync"]["drain"]>>
+export type SyncDrainOperation<E = never> = () => Effect.Effect<Endpoint21_8Output, E>
+
+export interface SyncApi<E = never> {
+  readonly event: SyncEventOperation<E>
+  readonly outbox: SyncOutboxOperation<E>
+  readonly snapshot: SyncSnapshotOperation<E>
+  readonly stream: SyncStreamOperation<E>
+  readonly stats: SyncStatsOperation<E>
+  readonly config: SyncConfigOperation<E>
+  readonly connect: SyncConnectOperation<E>
+  readonly disconnect: SyncDisconnectOperation<E>
+  readonly drain: SyncDrainOperation<E>
+}
+
+type Endpoint22_0Request = Parameters<RawClient["auth"]["remove"]>[0]
+export type Endpoint22_0Input = { readonly providerID: Endpoint22_0Request["params"]["providerID"] }
+export type Endpoint22_0Output = EffectValue<ReturnType<RawClient["auth"]["remove"]>>
+export type AuthRemoveOperation<E = never> = (input: Endpoint22_0Input) => Effect.Effect<Endpoint22_0Output, E>
+
+export interface AuthApi<E = never> {
+  readonly remove: AuthRemoveOperation<E>
+}
+
+export type Endpoint23_0Output = EffectValue<ReturnType<RawClient["config-management"]["reload"]>>
+export type ConfigManagementReloadOperation<E = never> = () => Effect.Effect<Endpoint23_0Output, E>
+
+type Endpoint23_1Request = Parameters<RawClient["config-management"]["mcpAdd"]>[0]
+export type Endpoint23_1Input = {
+  readonly name: Endpoint23_1Request["payload"]["name"]
+  readonly config: Endpoint23_1Request["payload"]["config"]
+}
+export type Endpoint23_1Output = EffectValue<ReturnType<RawClient["config-management"]["mcpAdd"]>>
+export type ConfigManagementMcpAddOperation<E = never> = (
+  input: Endpoint23_1Input,
+) => Effect.Effect<Endpoint23_1Output, E>
+
+type Endpoint23_2Request = Parameters<RawClient["config-management"]["mcpUpdate"]>[0]
+export type Endpoint23_2Input = {
+  readonly name: Endpoint23_2Request["params"]["name"]
+  readonly payload: Endpoint23_2Request["payload"]
+}
+export type Endpoint23_2Output = EffectValue<ReturnType<RawClient["config-management"]["mcpUpdate"]>>
+export type ConfigManagementMcpUpdateOperation<E = never> = (
+  input: Endpoint23_2Input,
+) => Effect.Effect<Endpoint23_2Output, E>
+
+type Endpoint23_3Request = Parameters<RawClient["config-management"]["mcpRemove"]>[0]
+export type Endpoint23_3Input = { readonly name: Endpoint23_3Request["params"]["name"] }
+export type Endpoint23_3Output = EffectValue<ReturnType<RawClient["config-management"]["mcpRemove"]>>
+export type ConfigManagementMcpRemoveOperation<E = never> = (
+  input: Endpoint23_3Input,
+) => Effect.Effect<Endpoint23_3Output, E>
+
+type Endpoint23_4Request = Parameters<RawClient["config-management"]["profileCreate"]>[0]
+export type Endpoint23_4Input = { readonly name: Endpoint23_4Request["payload"]["name"] }
+export type Endpoint23_4Output = EffectValue<ReturnType<RawClient["config-management"]["profileCreate"]>>
+export type ConfigManagementProfileCreateOperation<E = never> = (
+  input: Endpoint23_4Input,
+) => Effect.Effect<Endpoint23_4Output, E>
+
+type Endpoint23_5Request = Parameters<RawClient["config-management"]["profileActivate"]>[0]
+export type Endpoint23_5Input = { readonly name: Endpoint23_5Request["params"]["name"] }
+export type Endpoint23_5Output = EffectValue<ReturnType<RawClient["config-management"]["profileActivate"]>>
+export type ConfigManagementProfileActivateOperation<E = never> = (
+  input: Endpoint23_5Input,
+) => Effect.Effect<Endpoint23_5Output, E>
+
+export interface ConfigManagementApi<E = never> {
+  readonly reload: ConfigManagementReloadOperation<E>
+  readonly mcpAdd: ConfigManagementMcpAddOperation<E>
+  readonly mcpUpdate: ConfigManagementMcpUpdateOperation<E>
+  readonly mcpRemove: ConfigManagementMcpRemoveOperation<E>
+  readonly profileCreate: ConfigManagementProfileCreateOperation<E>
+  readonly profileActivate: ConfigManagementProfileActivateOperation<E>
+}
+
+type Endpoint24_0Request = Parameters<RawClient["session-prompt"]["prompt"]>[0]
+export type Endpoint24_0Input = {
+  readonly sessionID: Endpoint24_0Request["params"]["sessionID"]
+  readonly messageID?: Endpoint24_0Request["payload"]["messageID"]
+  readonly model?: Endpoint24_0Request["payload"]["model"]
+  readonly agent?: Endpoint24_0Request["payload"]["agent"]
+  readonly noReply?: Endpoint24_0Request["payload"]["noReply"]
+  readonly tools?: Endpoint24_0Request["payload"]["tools"]
+  readonly format?: Endpoint24_0Request["payload"]["format"]
+  readonly system?: Endpoint24_0Request["payload"]["system"]
+  readonly variant?: Endpoint24_0Request["payload"]["variant"]
+  readonly parts: Endpoint24_0Request["payload"]["parts"]
+}
+export type Endpoint24_0Output = EffectValue<ReturnType<RawClient["session-prompt"]["prompt"]>>
+export type SessionPromptPromptOperation<E = never> = (input: Endpoint24_0Input) => Effect.Effect<Endpoint24_0Output, E>
+
+type Endpoint24_1Request = Parameters<RawClient["session-prompt"]["promptAsync"]>[0]
+export type Endpoint24_1Input = {
+  readonly sessionID: Endpoint24_1Request["params"]["sessionID"]
+  readonly messageID?: Endpoint24_1Request["payload"]["messageID"]
+  readonly model?: Endpoint24_1Request["payload"]["model"]
+  readonly agent?: Endpoint24_1Request["payload"]["agent"]
+  readonly noReply?: Endpoint24_1Request["payload"]["noReply"]
+  readonly tools?: Endpoint24_1Request["payload"]["tools"]
+  readonly format?: Endpoint24_1Request["payload"]["format"]
+  readonly system?: Endpoint24_1Request["payload"]["system"]
+  readonly variant?: Endpoint24_1Request["payload"]["variant"]
+  readonly parts: Endpoint24_1Request["payload"]["parts"]
+}
+export type Endpoint24_1Output = EffectValue<ReturnType<RawClient["session-prompt"]["promptAsync"]>>
+export type SessionPromptPromptAsyncOperation<E = never> = (
+  input: Endpoint24_1Input,
+) => Effect.Effect<Endpoint24_1Output, E>
+
+export interface SessionPromptApi<E = never> {
+  readonly prompt: SessionPromptPromptOperation<E>
+  readonly promptAsync: SessionPromptPromptAsyncOperation<E>
+}
+
+type Endpoint25_0Request = Parameters<RawClient["share"]["short"]>[0]
+export type Endpoint25_0Input = { readonly shareID: Endpoint25_0Request["params"]["shareID"] }
+export type Endpoint25_0Output = EffectValue<ReturnType<RawClient["share"]["short"]>>
+export type ShareShortOperation<E = never> = (input: Endpoint25_0Input) => Effect.Effect<Endpoint25_0Output, E>
+
+type Endpoint25_1Request = Parameters<RawClient["share"]["page"]>[0]
+export type Endpoint25_1Input = { readonly shareID: Endpoint25_1Request["params"]["shareID"] }
+export type Endpoint25_1Output = EffectValue<ReturnType<RawClient["share"]["page"]>>
+export type SharePageOperation<E = never> = (input: Endpoint25_1Input) => Effect.Effect<Endpoint25_1Output, E>
+
+type Endpoint25_2Request = Parameters<RawClient["share"]["api"]>[0]
+export type Endpoint25_2Input = { readonly shareID: Endpoint25_2Request["params"]["shareID"] }
+export type Endpoint25_2Output = EffectValue<ReturnType<RawClient["share"]["api"]>>
+export type ShareApiOperation<E = never> = (input: Endpoint25_2Input) => Effect.Effect<Endpoint25_2Output, E>
+
+type Endpoint25_3Request = Parameters<RawClient["share"]["data"]>[0]
+export type Endpoint25_3Input = { readonly shareID: Endpoint25_3Request["params"]["shareID"] }
+export type Endpoint25_3Output = EffectValue<ReturnType<RawClient["share"]["data"]>>
+export type ShareDataOperation<E = never> = (input: Endpoint25_3Input) => Effect.Effect<Endpoint25_3Output, E>
+
+export interface ShareApi<E = never> {
+  readonly short: ShareShortOperation<E>
+  readonly page: SharePageOperation<E>
+  readonly api: ShareApiOperation<E>
+  readonly data: ShareDataOperation<E>
+}
+
+export type Endpoint26_0Output = StreamValue<EffectValue<ReturnType<RawClient["events"]["subscribe"]>>>
+export type EventsSubscribeOperation<E = never> = () => Stream.Stream<Endpoint26_0Output, E>
+
+export type Endpoint26_1Output = StreamValue<EffectValue<ReturnType<RawClient["events"]["global"]>>>
+export type EventsGlobalOperation<E = never> = () => Stream.Stream<Endpoint26_1Output, E>
+
+export interface EventsApi<E = never> {
+  readonly subscribe: EventsSubscribeOperation<E>
+  readonly global: EventsGlobalOperation<E>
+}
+
+type Endpoint27_0Request = Parameters<RawClient["workspace-extra"]["events"]>[0]
+export type Endpoint27_0Input = {
+  readonly id: Endpoint27_0Request["params"]["id"]
+  readonly from?: Endpoint27_0Request["query"]["from"]
+}
+export type Endpoint27_0Output = EffectValue<ReturnType<RawClient["workspace-extra"]["events"]>>
+export type WorkspaceExtraEventsOperation<E = never> = (
+  input: Endpoint27_0Input,
+) => Effect.Effect<Endpoint27_0Output, E>
+
+type Endpoint27_1Request = Parameters<RawClient["workspace-extra"]["sessionWarp"]>[0]
+export type Endpoint27_1Input = {
+  readonly sessionID: Endpoint27_1Request["params"]["sessionID"]
+  readonly workspaceID: Endpoint27_1Request["payload"]["workspaceID"]
+  readonly copyChanges?: Endpoint27_1Request["payload"]["copyChanges"]
+  readonly timeoutMs?: Endpoint27_1Request["payload"]["timeoutMs"]
+}
+export type Endpoint27_1Output = EffectValue<ReturnType<RawClient["workspace-extra"]["sessionWarp"]>>
+export type WorkspaceExtraSessionWarpOperation<E = never> = (
+  input: Endpoint27_1Input,
+) => Effect.Effect<Endpoint27_1Output, E>
+
+export interface WorkspaceExtraApi<E = never> {
+  readonly events: WorkspaceExtraEventsOperation<E>
+  readonly sessionWarp: WorkspaceExtraSessionWarpOperation<E>
+}
+
+type Endpoint28_0Request = Parameters<RawClient["users"]["register"]>[0]
+export type Endpoint28_0Input = {
+  readonly username: Endpoint28_0Request["payload"]["username"]
+  readonly email: Endpoint28_0Request["payload"]["email"]
+  readonly password: Endpoint28_0Request["payload"]["password"]
+  readonly displayName?: Endpoint28_0Request["payload"]["displayName"]
+}
+export type Endpoint28_0Output = EffectValue<ReturnType<RawClient["users"]["register"]>>
+export type UsersRegisterOperation<E = never> = (input: Endpoint28_0Input) => Effect.Effect<Endpoint28_0Output, E>
+
+type Endpoint28_1Request = Parameters<RawClient["users"]["login"]>[0]
+export type Endpoint28_1Input = {
+  readonly email: Endpoint28_1Request["payload"]["email"]
+  readonly password: Endpoint28_1Request["payload"]["password"]
+}
+export type Endpoint28_1Output = EffectValue<ReturnType<RawClient["users"]["login"]>>
+export type UsersLoginOperation<E = never> = (input: Endpoint28_1Input) => Effect.Effect<Endpoint28_1Output, E>
+
+type Endpoint28_2Request = Parameters<RawClient["users"]["update"]>[0]
+export type Endpoint28_2Input = {
+  readonly id: Endpoint28_2Request["params"]["id"]
+  readonly displayName?: Endpoint28_2Request["payload"]["displayName"]
+  readonly password?: Endpoint28_2Request["payload"]["password"]
+  readonly role?: Endpoint28_2Request["payload"]["role"]
+}
+export type Endpoint28_2Output = EffectValue<ReturnType<RawClient["users"]["update"]>>
+export type UsersUpdateOperation<E = never> = (input: Endpoint28_2Input) => Effect.Effect<Endpoint28_2Output, E>
+
+export interface UsersApi<E = never> {
+  readonly register: UsersRegisterOperation<E>
+  readonly login: UsersLoginOperation<E>
+  readonly update: UsersUpdateOperation<E>
+}
+
+export type Endpoint29_0Output = EffectValue<ReturnType<RawClient["mobile"]["authTokenList"]>>
+export type MobileAuthTokenListOperation<E = never> = () => Effect.Effect<Endpoint29_0Output, E>
+
+type Endpoint29_1Request = Parameters<RawClient["mobile"]["authTokenCreate"]>[0]
+export type Endpoint29_1Input = {
+  readonly name?: Endpoint29_1Request["payload"]["name"]
+  readonly expiresInDays?: Endpoint29_1Request["payload"]["expiresInDays"]
+}
+export type Endpoint29_1Output = EffectValue<ReturnType<RawClient["mobile"]["authTokenCreate"]>>
+export type MobileAuthTokenCreateOperation<E = never> = (
+  input?: Endpoint29_1Input,
+) => Effect.Effect<Endpoint29_1Output, E>
+
+type Endpoint29_2Request = Parameters<RawClient["mobile"]["authTokenRevoke"]>[0]
+export type Endpoint29_2Input = { readonly id: Endpoint29_2Request["params"]["id"] }
+export type Endpoint29_2Output = EffectValue<ReturnType<RawClient["mobile"]["authTokenRevoke"]>>
+export type MobileAuthTokenRevokeOperation<E = never> = (
+  input: Endpoint29_2Input,
+) => Effect.Effect<Endpoint29_2Output, E>
+
+export type Endpoint29_3Output = EffectValue<ReturnType<RawClient["mobile"]["bootstrap"]>>
+export type MobileBootstrapOperation<E = never> = () => Effect.Effect<Endpoint29_3Output, E>
+
+export type Endpoint29_4Output = EffectValue<ReturnType<RawClient["mobile"]["commandList"]>>
+export type MobileCommandListOperation<E = never> = () => Effect.Effect<Endpoint29_4Output, E>
+
+export type Endpoint29_5Output = EffectValue<ReturnType<RawClient["mobile"]["projectList"]>>
+export type MobileProjectListOperation<E = never> = () => Effect.Effect<Endpoint29_5Output, E>
+
+export type Endpoint29_6Output = EffectValue<ReturnType<RawClient["mobile"]["memoryHistory"]>>
+export type MobileMemoryHistoryOperation<E = never> = () => Effect.Effect<Endpoint29_6Output, E>
+
+type Endpoint29_7Request = Parameters<RawClient["mobile"]["memorySearch"]>[0]
+export type Endpoint29_7Input = { readonly query: Endpoint29_7Request["query"]["query"] }
+export type Endpoint29_7Output = EffectValue<ReturnType<RawClient["mobile"]["memorySearch"]>>
+export type MobileMemorySearchOperation<E = never> = (input: Endpoint29_7Input) => Effect.Effect<Endpoint29_7Output, E>
+
+export type Endpoint29_8Output = EffectValue<ReturnType<RawClient["mobile"]["memoryStashList"]>>
+export type MobileMemoryStashListOperation<E = never> = () => Effect.Effect<Endpoint29_8Output, E>
+
+type Endpoint29_9Request = Parameters<RawClient["mobile"]["memoryStashCreate"]>[0]
+export type Endpoint29_9Input = { readonly input: Endpoint29_9Request["payload"]["input"] }
+export type Endpoint29_9Output = EffectValue<ReturnType<RawClient["mobile"]["memoryStashCreate"]>>
+export type MobileMemoryStashCreateOperation<E = never> = (
+  input: Endpoint29_9Input,
+) => Effect.Effect<Endpoint29_9Output, E>
+
+type Endpoint29_10Request = Parameters<RawClient["mobile"]["memoryStashDelete"]>[0]
+export type Endpoint29_10Input = { readonly id: Endpoint29_10Request["params"]["id"] }
+export type Endpoint29_10Output = EffectValue<ReturnType<RawClient["mobile"]["memoryStashDelete"]>>
+export type MobileMemoryStashDeleteOperation<E = never> = (
+  input: Endpoint29_10Input,
+) => Effect.Effect<Endpoint29_10Output, E>
+
+export type Endpoint29_11Output = EffectValue<ReturnType<RawClient["mobile"]["githubRepos"]>>
+export type MobileGithubReposOperation<E = never> = () => Effect.Effect<Endpoint29_11Output, E>
+
+type Endpoint29_12Request = Parameters<RawClient["mobile"]["githubBranches"]>[0]
+export type Endpoint29_12Input = {
+  readonly owner: Endpoint29_12Request["params"]["owner"]
+  readonly repo: Endpoint29_12Request["params"]["repo"]
+}
+export type Endpoint29_12Output = EffectValue<ReturnType<RawClient["mobile"]["githubBranches"]>>
+export type MobileGithubBranchesOperation<E = never> = (
+  input: Endpoint29_12Input,
+) => Effect.Effect<Endpoint29_12Output, E>
+
+export type Endpoint29_13Output = EffectValue<ReturnType<RawClient["mobile"]["githubImports"]>>
+export type MobileGithubImportsOperation<E = never> = () => Effect.Effect<Endpoint29_13Output, E>
+
+type Endpoint29_14Request = Parameters<RawClient["mobile"]["githubOauthClient"]>[0]
+export type Endpoint29_14Input = { readonly clientId: Endpoint29_14Request["payload"]["clientId"] }
+export type Endpoint29_14Output = EffectValue<ReturnType<RawClient["mobile"]["githubOauthClient"]>>
+export type MobileGithubOauthClientOperation<E = never> = (
+  input: Endpoint29_14Input,
+) => Effect.Effect<Endpoint29_14Output, E>
+
+export type Endpoint29_15Output = EffectValue<ReturnType<RawClient["mobile"]["githubOauthDeviceStart"]>>
+export type MobileGithubOauthDeviceStartOperation<E = never> = () => Effect.Effect<Endpoint29_15Output, E>
+
+type Endpoint29_16Request = Parameters<RawClient["mobile"]["githubOauthDevicePoll"]>[0]
+export type Endpoint29_16Input = { readonly deviceCode: Endpoint29_16Request["payload"]["deviceCode"] }
+export type Endpoint29_16Output = EffectValue<ReturnType<RawClient["mobile"]["githubOauthDevicePoll"]>>
+export type MobileGithubOauthDevicePollOperation<E = never> = (
+  input: Endpoint29_16Input,
+) => Effect.Effect<Endpoint29_16Output, E>
+
+type Endpoint29_17Request = Parameters<RawClient["mobile"]["githubAuthSet"]>[0]
+export type Endpoint29_17Input = { readonly token: Endpoint29_17Request["payload"]["token"] }
+export type Endpoint29_17Output = EffectValue<ReturnType<RawClient["mobile"]["githubAuthSet"]>>
+export type MobileGithubAuthSetOperation<E = never> = (
+  input: Endpoint29_17Input,
+) => Effect.Effect<Endpoint29_17Output, E>
+
+export type Endpoint29_18Output = EffectValue<ReturnType<RawClient["mobile"]["githubAuthRemove"]>>
+export type MobileGithubAuthRemoveOperation<E = never> = () => Effect.Effect<Endpoint29_18Output, E>
+
+type Endpoint29_19Request = Parameters<RawClient["mobile"]["githubImport"]>[0]
+export type Endpoint29_19Input = { readonly payload: Endpoint29_19Request["payload"] }
+export type Endpoint29_19Output = EffectValue<ReturnType<RawClient["mobile"]["githubImport"]>>
+export type MobileGithubImportOperation<E = never> = (
+  input: Endpoint29_19Input,
+) => Effect.Effect<Endpoint29_19Output, E>
+
+type Endpoint29_20Request = Parameters<RawClient["mobile"]["githubSessionCreate"]>[0]
+export type Endpoint29_20Input = {
+  readonly owner: Endpoint29_20Request["payload"]["owner"]
+  readonly repo: Endpoint29_20Request["payload"]["repo"]
+  readonly cloneUrl: Endpoint29_20Request["payload"]["cloneUrl"]
+  readonly htmlUrl?: Endpoint29_20Request["payload"]["htmlUrl"]
+  readonly defaultBranch: Endpoint29_20Request["payload"]["defaultBranch"]
+  readonly baseBranch: Endpoint29_20Request["payload"]["baseBranch"]
+  readonly private?: Endpoint29_20Request["payload"]["private"]
+  readonly title?: Endpoint29_20Request["payload"]["title"]
+  readonly executionTarget?: Endpoint29_20Request["payload"]["executionTarget"]
+}
+export type Endpoint29_20Output = EffectValue<ReturnType<RawClient["mobile"]["githubSessionCreate"]>>
+export type MobileGithubSessionCreateOperation<E = never> = (
+  input: Endpoint29_20Input,
+) => Effect.Effect<Endpoint29_20Output, E>
+
+type Endpoint29_21Request = Parameters<RawClient["mobile"]["sessionList"]>[0]
+export type Endpoint29_21Input = {
+  readonly limit?: Endpoint29_21Request["query"]["limit"]
+  readonly search?: Endpoint29_21Request["query"]["search"]
+}
+export type Endpoint29_21Output = EffectValue<ReturnType<RawClient["mobile"]["sessionList"]>>
+export type MobileSessionListOperation<E = never> = (
+  input?: Endpoint29_21Input,
+) => Effect.Effect<Endpoint29_21Output, E>
+
+type Endpoint29_22Request = Parameters<RawClient["mobile"]["sessionCreate"]>[0]
+export type Endpoint29_22Input = {
+  readonly parentID?: Endpoint29_22Request["payload"]["parentID"]
+  readonly title?: Endpoint29_22Request["payload"]["title"]
+  readonly permission?: Endpoint29_22Request["payload"]["permission"]
+  readonly github?: Endpoint29_22Request["payload"]["github"]
+  readonly executionTarget?: Endpoint29_22Request["payload"]["executionTarget"]
+}
+export type Endpoint29_22Output = EffectValue<ReturnType<RawClient["mobile"]["sessionCreate"]>>
+export type MobileSessionCreateOperation<E = never> = (
+  input?: Endpoint29_22Input,
+) => Effect.Effect<Endpoint29_22Output, E>
+
+type Endpoint29_23Request = Parameters<RawClient["mobile"]["sessionDetail"]>[0]
+export type Endpoint29_23Input = { readonly sessionID: Endpoint29_23Request["params"]["sessionID"] }
+export type Endpoint29_23Output = EffectValue<ReturnType<RawClient["mobile"]["sessionDetail"]>>
+export type MobileSessionDetailOperation<E = never> = (
+  input: Endpoint29_23Input,
+) => Effect.Effect<Endpoint29_23Output, E>
+
+type Endpoint29_24Request = Parameters<RawClient["mobile"]["sessionDelete"]>[0]
+export type Endpoint29_24Input = { readonly sessionID: Endpoint29_24Request["params"]["sessionID"] }
+export type Endpoint29_24Output = EffectValue<ReturnType<RawClient["mobile"]["sessionDelete"]>>
+export type MobileSessionDeleteOperation<E = never> = (
+  input: Endpoint29_24Input,
+) => Effect.Effect<Endpoint29_24Output, E>
+
+type Endpoint29_25Request = Parameters<RawClient["mobile"]["sessionDiff"]>[0]
+export type Endpoint29_25Input = {
+  readonly sessionID: Endpoint29_25Request["params"]["sessionID"]
+  readonly messageID: Endpoint29_25Request["params"]["messageID"]
+}
+export type Endpoint29_25Output = EffectValue<ReturnType<RawClient["mobile"]["sessionDiff"]>>
+export type MobileSessionDiffOperation<E = never> = (input: Endpoint29_25Input) => Effect.Effect<Endpoint29_25Output, E>
+
+type Endpoint29_26Request = Parameters<RawClient["mobile"]["sessionCommandList"]>[0]
+export type Endpoint29_26Input = { readonly sessionID: Endpoint29_26Request["params"]["sessionID"] }
+export type Endpoint29_26Output = EffectValue<ReturnType<RawClient["mobile"]["sessionCommandList"]>>
+export type MobileSessionCommandListOperation<E = never> = (
+  input: Endpoint29_26Input,
+) => Effect.Effect<Endpoint29_26Output, E>
+
+type Endpoint29_27Request = Parameters<RawClient["mobile"]["sessionCommand"]>[0]
+export type Endpoint29_27Input = {
+  readonly sessionID: Endpoint29_27Request["params"]["sessionID"]
+  readonly command: Endpoint29_27Request["payload"]["command"]
+  readonly arguments?: Endpoint29_27Request["payload"]["arguments"]
+  readonly agent?: Endpoint29_27Request["payload"]["agent"]
+  readonly model?: Endpoint29_27Request["payload"]["model"]
+  readonly variant?: Endpoint29_27Request["payload"]["variant"]
+}
+export type Endpoint29_27Output = EffectValue<ReturnType<RawClient["mobile"]["sessionCommand"]>>
+export type MobileSessionCommandOperation<E = never> = (
+  input: Endpoint29_27Input,
+) => Effect.Effect<Endpoint29_27Output, E>
+
+type Endpoint29_28Request = Parameters<RawClient["mobile"]["sessionMessage"]>[0]
+export type Endpoint29_28Input = {
+  readonly sessionID: Endpoint29_28Request["params"]["sessionID"]
+  readonly messageID?: Endpoint29_28Request["payload"]["messageID"]
+  readonly model?: Endpoint29_28Request["payload"]["model"]
+  readonly agent?: Endpoint29_28Request["payload"]["agent"]
+  readonly noReply?: Endpoint29_28Request["payload"]["noReply"]
+  readonly tools?: Endpoint29_28Request["payload"]["tools"]
+  readonly format?: Endpoint29_28Request["payload"]["format"]
+  readonly system?: Endpoint29_28Request["payload"]["system"]
+  readonly variant?: Endpoint29_28Request["payload"]["variant"]
+  readonly parts: Endpoint29_28Request["payload"]["parts"]
+}
+export type Endpoint29_28Output = EffectValue<ReturnType<RawClient["mobile"]["sessionMessage"]>>
+export type MobileSessionMessageOperation<E = never> = (
+  input: Endpoint29_28Input,
+) => Effect.Effect<Endpoint29_28Output, E>
+
+type Endpoint29_29Request = Parameters<RawClient["mobile"]["sessionAbort"]>[0]
+export type Endpoint29_29Input = { readonly sessionID: Endpoint29_29Request["params"]["sessionID"] }
+export type Endpoint29_29Output = EffectValue<ReturnType<RawClient["mobile"]["sessionAbort"]>>
+export type MobileSessionAbortOperation<E = never> = (
+  input: Endpoint29_29Input,
+) => Effect.Effect<Endpoint29_29Output, E>
+
+type Endpoint29_30Request = Parameters<RawClient["mobile"]["permissionRespond"]>[0]
+export type Endpoint29_30Input = {
+  readonly sessionID: Endpoint29_30Request["params"]["sessionID"]
+  readonly permissionID: Endpoint29_30Request["params"]["permissionID"]
+  readonly response: Endpoint29_30Request["payload"]["response"]
+}
+export type Endpoint29_30Output = EffectValue<ReturnType<RawClient["mobile"]["permissionRespond"]>>
+export type MobilePermissionRespondOperation<E = never> = (
+  input: Endpoint29_30Input,
+) => Effect.Effect<Endpoint29_30Output, E>
+
+type Endpoint29_31Request = Parameters<RawClient["mobile"]["questionRespond"]>[0]
+export type Endpoint29_31Input = {
+  readonly sessionID: Endpoint29_31Request["params"]["sessionID"]
+  readonly requestID: Endpoint29_31Request["params"]["requestID"]
+  readonly answers: Endpoint29_31Request["payload"]["answers"]
+}
+export type Endpoint29_31Output = EffectValue<ReturnType<RawClient["mobile"]["questionRespond"]>>
+export type MobileQuestionRespondOperation<E = never> = (
+  input: Endpoint29_31Input,
+) => Effect.Effect<Endpoint29_31Output, E>
+
+type Endpoint29_32Request = Parameters<RawClient["mobile"]["questionReject"]>[0]
+export type Endpoint29_32Input = {
+  readonly sessionID: Endpoint29_32Request["params"]["sessionID"]
+  readonly requestID: Endpoint29_32Request["params"]["requestID"]
+}
+export type Endpoint29_32Output = EffectValue<ReturnType<RawClient["mobile"]["questionReject"]>>
+export type MobileQuestionRejectOperation<E = never> = (
+  input: Endpoint29_32Input,
+) => Effect.Effect<Endpoint29_32Output, E>
+
+type Endpoint29_33Request = Parameters<RawClient["mobile"]["sessionPublish"]>[0]
+export type Endpoint29_33Input = {
+  readonly sessionID: Endpoint29_33Request["params"]["sessionID"]
+  readonly title?: Endpoint29_33Request["payload"]["title"]
+  readonly body?: Endpoint29_33Request["payload"]["body"]
+  readonly commitMessage?: Endpoint29_33Request["payload"]["commitMessage"]
+}
+export type Endpoint29_33Output = EffectValue<ReturnType<RawClient["mobile"]["sessionPublish"]>>
+export type MobileSessionPublishOperation<E = never> = (
+  input: Endpoint29_33Input,
+) => Effect.Effect<Endpoint29_33Output, E>
+
+type Endpoint29_34Request = Parameters<RawClient["mobile"]["sessionCleanup"]>[0]
+export type Endpoint29_34Input = { readonly sessionID: Endpoint29_34Request["params"]["sessionID"] }
+export type Endpoint29_34Output = EffectValue<ReturnType<RawClient["mobile"]["sessionCleanup"]>>
+export type MobileSessionCleanupOperation<E = never> = (
+  input: Endpoint29_34Input,
+) => Effect.Effect<Endpoint29_34Output, E>
+
+type Endpoint29_35Request = Parameters<RawClient["mobile"]["sessionStream"]>[0]
+export type Endpoint29_35Input = { readonly sessionID: Endpoint29_35Request["params"]["sessionID"] }
+export type Endpoint29_35Output = StreamValue<EffectValue<ReturnType<RawClient["mobile"]["sessionStream"]>>>
+export type MobileSessionStreamOperation<E = never> = (
+  input: Endpoint29_35Input,
+) => Stream.Stream<Endpoint29_35Output, E>
+
+type Endpoint29_36Request = Parameters<RawClient["mobile"]["sessionRename"]>[0]
+export type Endpoint29_36Input = {
+  readonly sessionID: Endpoint29_36Request["params"]["sessionID"]
+  readonly title: Endpoint29_36Request["payload"]["title"]
+}
+export type Endpoint29_36Output = EffectValue<ReturnType<RawClient["mobile"]["sessionRename"]>>
+export type MobileSessionRenameOperation<E = never> = (
+  input: Endpoint29_36Input,
+) => Effect.Effect<Endpoint29_36Output, E>
+
+export type Endpoint29_37Output = EffectValue<ReturnType<RawClient["mobile"]["teleportUploadBegin"]>>
+export type MobileTeleportUploadBeginOperation<E = never> = () => Effect.Effect<Endpoint29_37Output, E>
+
+type Endpoint29_38Request = Parameters<RawClient["mobile"]["teleportUploadChunk"]>[0]
+export type Endpoint29_38Input = { readonly uploadID: Endpoint29_38Request["params"]["uploadID"] }
+export type Endpoint29_38Output = EffectValue<ReturnType<RawClient["mobile"]["teleportUploadChunk"]>>
+export type MobileTeleportUploadChunkOperation<E = never> = (
+  input: Endpoint29_38Input,
+) => Effect.Effect<Endpoint29_38Output, E>
+
+type Endpoint29_39Request = Parameters<RawClient["mobile"]["teleportIn"]>[0]
+export type Endpoint29_39Input = {
+  readonly title?: Endpoint29_39Request["payload"]["title"]
+  readonly name?: Endpoint29_39Request["payload"]["name"]
+  readonly origin?: Endpoint29_39Request["payload"]["origin"]
+  readonly permission?: Endpoint29_39Request["payload"]["permission"]
+  readonly messages: Endpoint29_39Request["payload"]["messages"]
+  readonly uploadID?: Endpoint29_39Request["payload"]["uploadID"]
+}
+export type Endpoint29_39Output = EffectValue<ReturnType<RawClient["mobile"]["teleportIn"]>>
+export type MobileTeleportInOperation<E = never> = (input: Endpoint29_39Input) => Effect.Effect<Endpoint29_39Output, E>
+
+type Endpoint29_40Request = Parameters<RawClient["mobile"]["teleportOut"]>[0]
+export type Endpoint29_40Input = {
+  readonly sessionID: Endpoint29_40Request["params"]["sessionID"]
+  readonly url: Endpoint29_40Request["payload"]["url"]
+  readonly token: Endpoint29_40Request["payload"]["token"]
+  readonly content?: Endpoint29_40Request["payload"]["content"]
+  readonly includeGit?: Endpoint29_40Request["payload"]["includeGit"]
+}
+export type Endpoint29_40Output = EffectValue<ReturnType<RawClient["mobile"]["teleportOut"]>>
+export type MobileTeleportOutOperation<E = never> = (input: Endpoint29_40Input) => Effect.Effect<Endpoint29_40Output, E>
+
+type Endpoint29_41Request = Parameters<RawClient["mobile"]["worktreeCreate"]>[0]
+export type Endpoint29_41Input = { readonly payload: Endpoint29_41Request["payload"] }
+export type Endpoint29_41Output = EffectValue<ReturnType<RawClient["mobile"]["worktreeCreate"]>>
+export type MobileWorktreeCreateOperation<E = never> = (
+  input: Endpoint29_41Input,
+) => Effect.Effect<Endpoint29_41Output, E>
+
+type Endpoint29_42Request = Parameters<RawClient["mobile"]["worktreeRemove"]>[0]
+export type Endpoint29_42Input = { readonly payload: Endpoint29_42Request["payload"] }
+export type Endpoint29_42Output = EffectValue<ReturnType<RawClient["mobile"]["worktreeRemove"]>>
+export type MobileWorktreeRemoveOperation<E = never> = (
+  input: Endpoint29_42Input,
+) => Effect.Effect<Endpoint29_42Output, E>
+
+type Endpoint29_43Request = Parameters<RawClient["mobile"]["worktreeReset"]>[0]
+export type Endpoint29_43Input = { readonly payload: Endpoint29_43Request["payload"] }
+export type Endpoint29_43Output = EffectValue<ReturnType<RawClient["mobile"]["worktreeReset"]>>
+export type MobileWorktreeResetOperation<E = never> = (
+  input: Endpoint29_43Input,
+) => Effect.Effect<Endpoint29_43Output, E>
+
+export type Endpoint29_44Output = EffectValue<ReturnType<RawClient["mobile"]["gitStatus"]>>
+export type MobileGitStatusOperation<E = never> = () => Effect.Effect<Endpoint29_44Output, E>
+
+type Endpoint29_45Request = Parameters<RawClient["mobile"]["gitDiff"]>[0]
+export type Endpoint29_45Input = {
+  readonly file?: Endpoint29_45Request["query"]["file"]
+  readonly staged?: Endpoint29_45Request["query"]["staged"]
+}
+export type Endpoint29_45Output = EffectValue<ReturnType<RawClient["mobile"]["gitDiff"]>>
+export type MobileGitDiffOperation<E = never> = (input?: Endpoint29_45Input) => Effect.Effect<Endpoint29_45Output, E>
+
+type Endpoint29_46Request = Parameters<RawClient["mobile"]["gitCommits"]>[0]
+export type Endpoint29_46Input = { readonly limit?: Endpoint29_46Request["query"]["limit"] }
+export type Endpoint29_46Output = EffectValue<ReturnType<RawClient["mobile"]["gitCommits"]>>
+export type MobileGitCommitsOperation<E = never> = (input?: Endpoint29_46Input) => Effect.Effect<Endpoint29_46Output, E>
+
+export type Endpoint29_47Output = EffectValue<ReturnType<RawClient["mobile"]["gitBranches"]>>
+export type MobileGitBranchesOperation<E = never> = () => Effect.Effect<Endpoint29_47Output, E>
+
+type Endpoint29_48Request = Parameters<RawClient["mobile"]["gitCommit"]>[0]
+export type Endpoint29_48Input = {
+  readonly message: Endpoint29_48Request["payload"]["message"]
+  readonly files?: Endpoint29_48Request["payload"]["files"]
+  readonly amend?: Endpoint29_48Request["payload"]["amend"]
+  readonly stagedOnly?: Endpoint29_48Request["payload"]["stagedOnly"]
+}
+export type Endpoint29_48Output = EffectValue<ReturnType<RawClient["mobile"]["gitCommit"]>>
+export type MobileGitCommitOperation<E = never> = (input: Endpoint29_48Input) => Effect.Effect<Endpoint29_48Output, E>
+
+type Endpoint29_49Request = Parameters<RawClient["mobile"]["gitCheckout"]>[0]
+export type Endpoint29_49Input = {
+  readonly branch: Endpoint29_49Request["payload"]["branch"]
+  readonly create?: Endpoint29_49Request["payload"]["create"]
+}
+export type Endpoint29_49Output = EffectValue<ReturnType<RawClient["mobile"]["gitCheckout"]>>
+export type MobileGitCheckoutOperation<E = never> = (input: Endpoint29_49Input) => Effect.Effect<Endpoint29_49Output, E>
+
+type Endpoint29_50Request = Parameters<RawClient["mobile"]["gitStage"]>[0]
+export type Endpoint29_50Input = { readonly files: Endpoint29_50Request["payload"]["files"] }
+export type Endpoint29_50Output = EffectValue<ReturnType<RawClient["mobile"]["gitStage"]>>
+export type MobileGitStageOperation<E = never> = (input: Endpoint29_50Input) => Effect.Effect<Endpoint29_50Output, E>
+
+type Endpoint29_51Request = Parameters<RawClient["mobile"]["gitUnstage"]>[0]
+export type Endpoint29_51Input = { readonly files: Endpoint29_51Request["payload"]["files"] }
+export type Endpoint29_51Output = EffectValue<ReturnType<RawClient["mobile"]["gitUnstage"]>>
+export type MobileGitUnstageOperation<E = never> = (input: Endpoint29_51Input) => Effect.Effect<Endpoint29_51Output, E>
+
+type Endpoint29_52Request = Parameters<RawClient["mobile"]["gitDiscard"]>[0]
+export type Endpoint29_52Input = { readonly files: Endpoint29_52Request["payload"]["files"] }
+export type Endpoint29_52Output = EffectValue<ReturnType<RawClient["mobile"]["gitDiscard"]>>
+export type MobileGitDiscardOperation<E = never> = (input: Endpoint29_52Input) => Effect.Effect<Endpoint29_52Output, E>
+
+type Endpoint29_53Request = Parameters<RawClient["mobile"]["gitPush"]>[0]
+export type Endpoint29_53Input = { readonly upstream?: Endpoint29_53Request["query"]["upstream"] }
+export type Endpoint29_53Output = EffectValue<ReturnType<RawClient["mobile"]["gitPush"]>>
+export type MobileGitPushOperation<E = never> = (input?: Endpoint29_53Input) => Effect.Effect<Endpoint29_53Output, E>
+
+export type Endpoint29_54Output = EffectValue<ReturnType<RawClient["mobile"]["gitPull"]>>
+export type MobileGitPullOperation<E = never> = () => Effect.Effect<Endpoint29_54Output, E>
+
+export type Endpoint29_55Output = EffectValue<ReturnType<RawClient["mobile"]["loopList"]>>
+export type MobileLoopListOperation<E = never> = () => Effect.Effect<Endpoint29_55Output, E>
+
+type Endpoint29_56Request = Parameters<RawClient["mobile"]["loopCreate"]>[0]
+export type Endpoint29_56Input = { readonly payload: Endpoint29_56Request["payload"] }
+export type Endpoint29_56Output = EffectValue<ReturnType<RawClient["mobile"]["loopCreate"]>>
+export type MobileLoopCreateOperation<E = never> = (input: Endpoint29_56Input) => Effect.Effect<Endpoint29_56Output, E>
+
+export type Endpoint29_57Output = EffectValue<ReturnType<RawClient["mobile"]["loopTemplates"]>>
+export type MobileLoopTemplatesOperation<E = never> = () => Effect.Effect<Endpoint29_57Output, E>
+
+type Endpoint29_58Request = Parameters<RawClient["mobile"]["loopGenerate"]>[0]
+export type Endpoint29_58Input = {
+  readonly description: Endpoint29_58Request["payload"]["description"]
+  readonly model?: Endpoint29_58Request["payload"]["model"]
+}
+export type Endpoint29_58Output = EffectValue<ReturnType<RawClient["mobile"]["loopGenerate"]>>
+export type MobileLoopGenerateOperation<E = never> = (
+  input: Endpoint29_58Input,
+) => Effect.Effect<Endpoint29_58Output, E>
+
+type Endpoint29_59Request = Parameters<RawClient["mobile"]["loopRunsRecent"]>[0]
+export type Endpoint29_59Input = { readonly limit?: Endpoint29_59Request["query"]["limit"] }
+export type Endpoint29_59Output = EffectValue<ReturnType<RawClient["mobile"]["loopRunsRecent"]>>
+export type MobileLoopRunsRecentOperation<E = never> = (
+  input?: Endpoint29_59Input,
+) => Effect.Effect<Endpoint29_59Output, E>
+
+type Endpoint29_60Request = Parameters<RawClient["mobile"]["loopGet"]>[0]
+export type Endpoint29_60Input = { readonly id: Endpoint29_60Request["params"]["id"] }
+export type Endpoint29_60Output = EffectValue<ReturnType<RawClient["mobile"]["loopGet"]>>
+export type MobileLoopGetOperation<E = never> = (input: Endpoint29_60Input) => Effect.Effect<Endpoint29_60Output, E>
+
+type Endpoint29_61Request = Parameters<RawClient["mobile"]["loopDelete"]>[0]
+export type Endpoint29_61Input = { readonly id: Endpoint29_61Request["params"]["id"] }
+export type Endpoint29_61Output = EffectValue<ReturnType<RawClient["mobile"]["loopDelete"]>>
+export type MobileLoopDeleteOperation<E = never> = (input: Endpoint29_61Input) => Effect.Effect<Endpoint29_61Output, E>
+
+type Endpoint29_62Request = Parameters<RawClient["mobile"]["loopUpdate"]>[0]
+export type Endpoint29_62Input = {
+  readonly id: Endpoint29_62Request["params"]["id"]
+  readonly payload: Endpoint29_62Request["payload"]
+}
+export type Endpoint29_62Output = EffectValue<ReturnType<RawClient["mobile"]["loopUpdate"]>>
+export type MobileLoopUpdateOperation<E = never> = (input: Endpoint29_62Input) => Effect.Effect<Endpoint29_62Output, E>
+
+type Endpoint29_63Request = Parameters<RawClient["mobile"]["loopRuns"]>[0]
+export type Endpoint29_63Input = {
+  readonly id: Endpoint29_63Request["params"]["id"]
+  readonly limit?: Endpoint29_63Request["query"]["limit"]
+}
+export type Endpoint29_63Output = EffectValue<ReturnType<RawClient["mobile"]["loopRuns"]>>
+export type MobileLoopRunsOperation<E = never> = (input: Endpoint29_63Input) => Effect.Effect<Endpoint29_63Output, E>
+
+type Endpoint29_64Request = Parameters<RawClient["mobile"]["loopRun"]>[0]
+export type Endpoint29_64Input = { readonly id: Endpoint29_64Request["params"]["id"] }
+export type Endpoint29_64Output = EffectValue<ReturnType<RawClient["mobile"]["loopRun"]>>
+export type MobileLoopRunOperation<E = never> = (input: Endpoint29_64Input) => Effect.Effect<Endpoint29_64Output, E>
+
+type Endpoint29_65Request = Parameters<RawClient["mobile"]["loopAbort"]>[0]
+export type Endpoint29_65Input = { readonly id: Endpoint29_65Request["params"]["id"] }
+export type Endpoint29_65Output = EffectValue<ReturnType<RawClient["mobile"]["loopAbort"]>>
+export type MobileLoopAbortOperation<E = never> = (input: Endpoint29_65Input) => Effect.Effect<Endpoint29_65Output, E>
+
+type Endpoint29_66Request = Parameters<RawClient["mobile"]["loopToggle"]>[0]
+export type Endpoint29_66Input = {
+  readonly id: Endpoint29_66Request["params"]["id"]
+  readonly enabled: Endpoint29_66Request["payload"]["enabled"]
+}
+export type Endpoint29_66Output = EffectValue<ReturnType<RawClient["mobile"]["loopToggle"]>>
+export type MobileLoopToggleOperation<E = never> = (input: Endpoint29_66Input) => Effect.Effect<Endpoint29_66Output, E>
+
+type Endpoint29_67Request = Parameters<RawClient["mobile"]["loopPause"]>[0]
+export type Endpoint29_67Input = { readonly id: Endpoint29_67Request["params"]["id"] }
+export type Endpoint29_67Output = EffectValue<ReturnType<RawClient["mobile"]["loopPause"]>>
+export type MobileLoopPauseOperation<E = never> = (input: Endpoint29_67Input) => Effect.Effect<Endpoint29_67Output, E>
+
+type Endpoint29_68Request = Parameters<RawClient["mobile"]["loopResume"]>[0]
+export type Endpoint29_68Input = { readonly id: Endpoint29_68Request["params"]["id"] }
+export type Endpoint29_68Output = EffectValue<ReturnType<RawClient["mobile"]["loopResume"]>>
+export type MobileLoopResumeOperation<E = never> = (input: Endpoint29_68Input) => Effect.Effect<Endpoint29_68Output, E>
+
+export type Endpoint29_69Output = EffectValue<ReturnType<RawClient["mobile"]["routineList"]>>
+export type MobileRoutineListOperation<E = never> = () => Effect.Effect<Endpoint29_69Output, E>
+
+type Endpoint29_70Request = Parameters<RawClient["mobile"]["routineCreate"]>[0]
+export type Endpoint29_70Input = { readonly payload: Endpoint29_70Request["payload"] }
+export type Endpoint29_70Output = EffectValue<ReturnType<RawClient["mobile"]["routineCreate"]>>
+export type MobileRoutineCreateOperation<E = never> = (
+  input: Endpoint29_70Input,
+) => Effect.Effect<Endpoint29_70Output, E>
+
+type Endpoint29_71Request = Parameters<RawClient["mobile"]["routineGet"]>[0]
+export type Endpoint29_71Input = { readonly id: Endpoint29_71Request["params"]["id"] }
+export type Endpoint29_71Output = EffectValue<ReturnType<RawClient["mobile"]["routineGet"]>>
+export type MobileRoutineGetOperation<E = never> = (input: Endpoint29_71Input) => Effect.Effect<Endpoint29_71Output, E>
+
+type Endpoint29_72Request = Parameters<RawClient["mobile"]["routineDelete"]>[0]
+export type Endpoint29_72Input = { readonly id: Endpoint29_72Request["params"]["id"] }
+export type Endpoint29_72Output = EffectValue<ReturnType<RawClient["mobile"]["routineDelete"]>>
+export type MobileRoutineDeleteOperation<E = never> = (
+  input: Endpoint29_72Input,
+) => Effect.Effect<Endpoint29_72Output, E>
+
+type Endpoint29_73Request = Parameters<RawClient["mobile"]["routineUpdate"]>[0]
+export type Endpoint29_73Input = {
+  readonly id: Endpoint29_73Request["params"]["id"]
+  readonly payload: Endpoint29_73Request["payload"]
+}
+export type Endpoint29_73Output = EffectValue<ReturnType<RawClient["mobile"]["routineUpdate"]>>
+export type MobileRoutineUpdateOperation<E = never> = (
+  input: Endpoint29_73Input,
+) => Effect.Effect<Endpoint29_73Output, E>
+
+type Endpoint29_74Request = Parameters<RawClient["mobile"]["routineRun"]>[0]
+export type Endpoint29_74Input = {
+  readonly id: Endpoint29_74Request["params"]["id"]
+  readonly text?: Endpoint29_74Request["payload"]["text"]
+}
+export type Endpoint29_74Output = EffectValue<ReturnType<RawClient["mobile"]["routineRun"]>>
+export type MobileRoutineRunOperation<E = never> = (input: Endpoint29_74Input) => Effect.Effect<Endpoint29_74Output, E>
+
+type Endpoint29_75Request = Parameters<RawClient["mobile"]["routinePause"]>[0]
+export type Endpoint29_75Input = { readonly id: Endpoint29_75Request["params"]["id"] }
+export type Endpoint29_75Output = EffectValue<ReturnType<RawClient["mobile"]["routinePause"]>>
+export type MobileRoutinePauseOperation<E = never> = (
+  input: Endpoint29_75Input,
+) => Effect.Effect<Endpoint29_75Output, E>
+
+type Endpoint29_76Request = Parameters<RawClient["mobile"]["routineResume"]>[0]
+export type Endpoint29_76Input = { readonly id: Endpoint29_76Request["params"]["id"] }
+export type Endpoint29_76Output = EffectValue<ReturnType<RawClient["mobile"]["routineResume"]>>
+export type MobileRoutineResumeOperation<E = never> = (
+  input: Endpoint29_76Input,
+) => Effect.Effect<Endpoint29_76Output, E>
+
+type Endpoint29_77Request = Parameters<RawClient["mobile"]["routineTrigger"]>[0]
+export type Endpoint29_77Input = {
+  readonly token: Endpoint29_77Request["params"]["token"]
+  readonly text?: Endpoint29_77Request["payload"]["text"]
+}
+export type Endpoint29_77Output = EffectValue<ReturnType<RawClient["mobile"]["routineTrigger"]>>
+export type MobileRoutineTriggerOperation<E = never> = (
+  input: Endpoint29_77Input,
+) => Effect.Effect<Endpoint29_77Output, E>
+
+export type Endpoint29_78Output = EffectValue<ReturnType<RawClient["mobile"]["ptyList"]>>
+export type MobilePtyListOperation<E = never> = () => Effect.Effect<Endpoint29_78Output, E>
+
+type Endpoint29_79Request = Parameters<RawClient["mobile"]["ptyCreate"]>[0]
+export type Endpoint29_79Input = {
+  readonly command?: Endpoint29_79Request["payload"]["command"]
+  readonly args?: Endpoint29_79Request["payload"]["args"]
+  readonly cwd?: Endpoint29_79Request["payload"]["cwd"]
+  readonly title?: Endpoint29_79Request["payload"]["title"]
+  readonly env?: Endpoint29_79Request["payload"]["env"]
+}
+export type Endpoint29_79Output = EffectValue<ReturnType<RawClient["mobile"]["ptyCreate"]>>
+export type MobilePtyCreateOperation<E = never> = (input?: Endpoint29_79Input) => Effect.Effect<Endpoint29_79Output, E>
+
+type Endpoint29_80Request = Parameters<RawClient["mobile"]["ptyGet"]>[0]
+export type Endpoint29_80Input = { readonly ptyID: Endpoint29_80Request["params"]["ptyID"] }
+export type Endpoint29_80Output = EffectValue<ReturnType<RawClient["mobile"]["ptyGet"]>>
+export type MobilePtyGetOperation<E = never> = (input: Endpoint29_80Input) => Effect.Effect<Endpoint29_80Output, E>
+
+type Endpoint29_81Request = Parameters<RawClient["mobile"]["ptyUpdate"]>[0]
+export type Endpoint29_81Input = {
+  readonly ptyID: Endpoint29_81Request["params"]["ptyID"]
+  readonly title?: Endpoint29_81Request["payload"]["title"]
+  readonly size?: Endpoint29_81Request["payload"]["size"]
+}
+export type Endpoint29_81Output = EffectValue<ReturnType<RawClient["mobile"]["ptyUpdate"]>>
+export type MobilePtyUpdateOperation<E = never> = (input: Endpoint29_81Input) => Effect.Effect<Endpoint29_81Output, E>
+
+type Endpoint29_82Request = Parameters<RawClient["mobile"]["ptyRemove"]>[0]
+export type Endpoint29_82Input = { readonly ptyID: Endpoint29_82Request["params"]["ptyID"] }
+export type Endpoint29_82Output = EffectValue<ReturnType<RawClient["mobile"]["ptyRemove"]>>
+export type MobilePtyRemoveOperation<E = never> = (input: Endpoint29_82Input) => Effect.Effect<Endpoint29_82Output, E>
+
+export interface MobileApi<E = never> {
+  readonly authTokenList: MobileAuthTokenListOperation<E>
+  readonly authTokenCreate: MobileAuthTokenCreateOperation<E>
+  readonly authTokenRevoke: MobileAuthTokenRevokeOperation<E>
+  readonly bootstrap: MobileBootstrapOperation<E>
+  readonly commandList: MobileCommandListOperation<E>
+  readonly projectList: MobileProjectListOperation<E>
+  readonly memoryHistory: MobileMemoryHistoryOperation<E>
+  readonly memorySearch: MobileMemorySearchOperation<E>
+  readonly memoryStashList: MobileMemoryStashListOperation<E>
+  readonly memoryStashCreate: MobileMemoryStashCreateOperation<E>
+  readonly memoryStashDelete: MobileMemoryStashDeleteOperation<E>
+  readonly githubRepos: MobileGithubReposOperation<E>
+  readonly githubBranches: MobileGithubBranchesOperation<E>
+  readonly githubImports: MobileGithubImportsOperation<E>
+  readonly githubOauthClient: MobileGithubOauthClientOperation<E>
+  readonly githubOauthDeviceStart: MobileGithubOauthDeviceStartOperation<E>
+  readonly githubOauthDevicePoll: MobileGithubOauthDevicePollOperation<E>
+  readonly githubAuthSet: MobileGithubAuthSetOperation<E>
+  readonly githubAuthRemove: MobileGithubAuthRemoveOperation<E>
+  readonly githubImport: MobileGithubImportOperation<E>
+  readonly githubSessionCreate: MobileGithubSessionCreateOperation<E>
+  readonly sessionList: MobileSessionListOperation<E>
+  readonly sessionCreate: MobileSessionCreateOperation<E>
+  readonly sessionDetail: MobileSessionDetailOperation<E>
+  readonly sessionDelete: MobileSessionDeleteOperation<E>
+  readonly sessionDiff: MobileSessionDiffOperation<E>
+  readonly sessionCommandList: MobileSessionCommandListOperation<E>
+  readonly sessionCommand: MobileSessionCommandOperation<E>
+  readonly sessionMessage: MobileSessionMessageOperation<E>
+  readonly sessionAbort: MobileSessionAbortOperation<E>
+  readonly permissionRespond: MobilePermissionRespondOperation<E>
+  readonly questionRespond: MobileQuestionRespondOperation<E>
+  readonly questionReject: MobileQuestionRejectOperation<E>
+  readonly sessionPublish: MobileSessionPublishOperation<E>
+  readonly sessionCleanup: MobileSessionCleanupOperation<E>
+  readonly sessionStream: MobileSessionStreamOperation<E>
+  readonly sessionRename: MobileSessionRenameOperation<E>
+  readonly teleportUploadBegin: MobileTeleportUploadBeginOperation<E>
+  readonly teleportUploadChunk: MobileTeleportUploadChunkOperation<E>
+  readonly teleportIn: MobileTeleportInOperation<E>
+  readonly teleportOut: MobileTeleportOutOperation<E>
+  readonly worktreeCreate: MobileWorktreeCreateOperation<E>
+  readonly worktreeRemove: MobileWorktreeRemoveOperation<E>
+  readonly worktreeReset: MobileWorktreeResetOperation<E>
+  readonly gitStatus: MobileGitStatusOperation<E>
+  readonly gitDiff: MobileGitDiffOperation<E>
+  readonly gitCommits: MobileGitCommitsOperation<E>
+  readonly gitBranches: MobileGitBranchesOperation<E>
+  readonly gitCommit: MobileGitCommitOperation<E>
+  readonly gitCheckout: MobileGitCheckoutOperation<E>
+  readonly gitStage: MobileGitStageOperation<E>
+  readonly gitUnstage: MobileGitUnstageOperation<E>
+  readonly gitDiscard: MobileGitDiscardOperation<E>
+  readonly gitPush: MobileGitPushOperation<E>
+  readonly gitPull: MobileGitPullOperation<E>
+  readonly loopList: MobileLoopListOperation<E>
+  readonly loopCreate: MobileLoopCreateOperation<E>
+  readonly loopTemplates: MobileLoopTemplatesOperation<E>
+  readonly loopGenerate: MobileLoopGenerateOperation<E>
+  readonly loopRunsRecent: MobileLoopRunsRecentOperation<E>
+  readonly loopGet: MobileLoopGetOperation<E>
+  readonly loopDelete: MobileLoopDeleteOperation<E>
+  readonly loopUpdate: MobileLoopUpdateOperation<E>
+  readonly loopRuns: MobileLoopRunsOperation<E>
+  readonly loopRun: MobileLoopRunOperation<E>
+  readonly loopAbort: MobileLoopAbortOperation<E>
+  readonly loopToggle: MobileLoopToggleOperation<E>
+  readonly loopPause: MobileLoopPauseOperation<E>
+  readonly loopResume: MobileLoopResumeOperation<E>
+  readonly routineList: MobileRoutineListOperation<E>
+  readonly routineCreate: MobileRoutineCreateOperation<E>
+  readonly routineGet: MobileRoutineGetOperation<E>
+  readonly routineDelete: MobileRoutineDeleteOperation<E>
+  readonly routineUpdate: MobileRoutineUpdateOperation<E>
+  readonly routineRun: MobileRoutineRunOperation<E>
+  readonly routinePause: MobileRoutinePauseOperation<E>
+  readonly routineResume: MobileRoutineResumeOperation<E>
+  readonly routineTrigger: MobileRoutineTriggerOperation<E>
+  readonly ptyList: MobilePtyListOperation<E>
+  readonly ptyCreate: MobilePtyCreateOperation<E>
+  readonly ptyGet: MobilePtyGetOperation<E>
+  readonly ptyUpdate: MobilePtyUpdateOperation<E>
+  readonly ptyRemove: MobilePtyRemoveOperation<E>
 }
 
 export interface AppApi<E = never> {
@@ -1297,7 +2179,15 @@ export interface AppApi<E = never> {
   readonly pty: PtyApi<E>
   readonly loop: LoopApi<E>
   readonly session: SessionApi<E>
-  readonly sync: SyncApi<E>
   readonly tui: TuiApi<E>
   readonly workspace: WorkspaceApi<E>
+  readonly sync: SyncApi<E>
+  readonly auth: AuthApi<E>
+  readonly "config-management": ConfigManagementApi<E>
+  readonly "session-prompt": SessionPromptApi<E>
+  readonly share: ShareApi<E>
+  readonly events: EventsApi<E>
+  readonly "workspace-extra": WorkspaceExtraApi<E>
+  readonly users: UsersApi<E>
+  readonly mobile: MobileApi<E>
 }

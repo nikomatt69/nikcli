@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Auth } from "@/auth"
 import { Config } from "@/config/config"
@@ -61,22 +61,31 @@ export namespace ProviderHttpApi {
     .add(HttpApiEndpoint.get("list", "/", { success: ListResponse }))
     .add(HttpApiEndpoint.get("auth", "/auth", { success: AuthMethods }))
     .add(
-      HttpApiEndpoint.post("api", "/:providerID/api", { params: ProviderPath, payload: ApiPayload, success: Success }),
+      HttpApiEndpoint.post("api", "/:providerID/api", {
+        params: ProviderPath,
+        payload: ApiPayload,
+        success: Success,
+      }).annotate(OpenApi.Identifier, "provider.api.set"),
     )
-    .add(HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", { params: ProviderPath, success: Success }))
+    .add(
+      HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", { params: ProviderPath, success: Success }).annotate(
+        OpenApi.Identifier,
+        "provider.auth.remove",
+      ),
+    )
     .add(
       HttpApiEndpoint.post("oauthAuthorize", "/:providerID/oauth/authorize", {
         params: ProviderPath,
         payload: AuthorizePayload,
         success: AuthorizeResponse,
-      }),
+      }).annotate(OpenApi.Identifier, "provider.oauth.authorize"),
     )
     .add(
       HttpApiEndpoint.post("oauthCallback", "/:providerID/oauth/callback", {
         params: ProviderPath,
         payload: CallbackPayload,
         success: Schema.Boolean,
-      }),
+      }).annotate(OpenApi.Identifier, "provider.oauth.callback"),
     )
     .prefix("/provider")
 

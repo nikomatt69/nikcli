@@ -1,238 +1,145 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
-import { Effect, Layer, Schema } from "effect"
-import { HttpServerResponse } from "effect/unstable/http"
-import { Sync } from "@/sync"
-import { Auth } from "./auth"
-import { MobileAuth } from "@/mobile/auth"
-import { Log } from "@/util/log"
-
-type HttpResponse = ReturnType<typeof HttpServerResponse.fromWeb>
-
-const log = Log.create({ service: "sync-httpapi-auth" })
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
+import { Schema } from "effect"
 
 /**
- * Verify a `?token=` query parameter against the bearer-token registry
- * and the `cli-sync` / `studio` scope list. Mirrors the Hono `.use("*", ...)`
- * middleware on `routes/sync.ts:93-104`:
- *  - No token present → request passes through (operator / basic-auth path)
- *  - Token present but invalid → 401 Unauthorized
- *  - Token valid but wrong scope → 403 Forbidden
- *  - Token valid with the right scope → request continues
+ * Contract-only Effect schema for the real `/sync/*` surface served by Hono
+ * (`routes/sync.ts`). This group is part of `PublicApi` (the generation
+ * contract) but NOT of the served `PublicHttpApi.Api`: every `/sync` request
+ * is handled by the Hono router today, so no Effect handlers exist here.
  *
- * The `request` parameter is the Effect `HttpServerRequest` exposed on
- * every typed HttpApi handler — it carries the raw URL, so we can
- * extract the token via `Auth.extractQueryToken` without depending on
- * the schema-decoded payload.
- */
-function authorizeSync(request: { readonly url: string }): Effect.Effect<undefined | HttpResponse, never, never> {
-  const url = new URL(request.url, "http://nikcli.local")
-  const token = Auth.extractQueryToken(url)
-  if (!token) return Effect.succeed(undefined)
-  return Effect.gen(function* () {
-    const verified = yield* Effect.promise(() => MobileAuth.verify(token))
-    if (!verified) {
-      log.warn("sync token verify failed", { url: url.pathname })
-      return HttpServerResponse.fromWeb(new Response("Unauthorized: invalid auth_token", { status: 401 }))
-    }
-    if (!MobileAuth.SYNC_SCOPES.has((verified.scope ?? "mobile") as MobileAuth.Scope)) {
-      log.warn("sync access denied: insufficient scope", {
-        tokenID: verified.id,
-        scope: verified.scope,
-        url: url.pathname,
-      })
-      return HttpServerResponse.fromWeb(
-        new Response("Forbidden: sync requires a mobile, cli-sync, or studio token", {
-          status: 403,
-        }),
-      )
-    }
-    return undefined
-  })
-}
-
-/**
- * Effect backend for the `/sync/*` JSON surface (Wave 4, Sync.Service
- * extraction). Mirrors the design in `specs/effect/sync-service.md`:
+ * History: an earlier Wave 4 group exposed four invented endpoints
+ * (`POST /sync/start`, `POST /sync/replay`, `GET /sync/history`,
+ * `GET /sync/snapshot`) that never existed on the Hono side and had no
+ * callers. They were dropped when the spec was realigned with the real
+ * routes — the Effect handler migration for the real surface below is a
+ * follow-up tied to the Sync.Service extraction (`specs/effect/sync-service.md`).
  *
- *  - `POST /sync/start`    → `Sync.Service.start(...)`
- *      payload: `{ url, token, projectID }`
- *      success: `{ started: boolean; error?: string }`
- *
- *  - `POST /sync/replay`   → `Sync.Service.push(...)`
- *      payload: `{ projectID, aggregate, data, origin? }`
- *      success: `{ accepted: true }`
- *
- *  - `GET  /sync/history`  → `Sync.Service.outbox(...)`
- *      query:   `{ projectID, aggregate, since?, limit? }`
- *      success: `{ events: SyncEventRecord[]; hasMore: boolean }`
- *
- *  - `GET  /sync/snapshot` → `Sync.Service.snapshot(...)`
- *      query:   `{ projectID, aggregate }`
- *      success: `{ lastSeq: number; state: unknown } | null`
- *
- * `/sync/stream` (SSE feed) stays a Hono "special" branch parallel to
- * `HttpApiEvent.handle()` and the `/chatbot/*` webhook receivers — schema
- * routing is the wrong abstraction for streaming.
- *
- * Auth (Wave 4 follow-up, landed 2026-07-08): every handler calls
- * `authorizeSync(request)` first, which mirrors the Hono
- * `.use("*", ...)` scope guard at `routes/sync.ts:93-104`. When the
- * caller presents a `?token=` query parameter we verify it through
- * the bearer-token registry (`MobileAuth.verify`); a valid token must
- * carry `cli-sync` or `studio` scope. When no token is presented, the
- * request falls through to the bridge-level basic-auth shim. The
- * OpenAPI-side `HttpApiSecurity.apiKey({ in: "query", key: "token" })`
- * declaration is a follow-up. Closes the gap from
- * `specs/effect/sync-service.md` §5.
+ * `OpenApi.Identifier` pins each operationId to the value the Hono OpenAPI
+ * emits, so the SDK generated from either source has the same class tree.
  */
 export namespace SyncHttpApi {
-  const StartPayload = Schema.Struct({
-    url: Schema.String.annotate({ description: "Remote hub URL" }),
-    token: Schema.String.annotate({ description: "Remote hub bearer token" }),
-    projectID: Schema.String.annotate({
-      description: "Project to register with the hub",
-    }),
-  }).annotate({ identifier: "SyncStartInput" })
-
-  const StartResponse = Schema.Struct({
-    started: Schema.Boolean,
-    error: Schema.optional(Schema.String),
-  }).annotate({ identifier: "SyncStartResponse" })
-
-  const ReplayPayload = Schema.Struct({
-    projectID: Schema.String,
+  const SyncEventRecord = Schema.Struct({
+    id: Schema.String,
+    projectId: Schema.String,
+    workspaceId: Schema.optional(Schema.String),
     aggregate: Schema.String,
+    seq: Schema.Number,
+    type: Schema.String,
     data: Schema.Unknown,
+    timestamp: Schema.Number,
     origin: Schema.optional(Schema.String),
-  }).annotate({ identifier: "SyncReplayInput" })
+    originSeq: Schema.optional(Schema.Number),
+  }).annotate({ identifier: "SyncEventRecord" })
 
-  const ReplayResponse = Schema.Struct({
-    accepted: Schema.Literal(true),
-  }).annotate({ identifier: "SyncReplayResponse" })
-
-  const HistoryQuery = Schema.Struct({
+  const EventPushPayload = Schema.Struct({
+    event: SyncEventRecord,
     projectID: Schema.String,
-    aggregate: Schema.String,
-    since: Schema.optional(Schema.Number).annotate({
-      description: "Filter events with seq > since",
-    }),
-    limit: Schema.optional(Schema.Number).annotate({
-      description: "Page size (default 100, max 1000)",
-    }),
-  }).annotate({ identifier: "SyncHistoryQuery" })
+  }).annotate({ identifier: "SyncEventPushInput" })
 
-  const HistoryResponse = Schema.Struct({
-    events: Schema.Array(
-      Schema.Struct({
-        id: Schema.String,
-        projectId: Schema.String,
-        workspaceId: Schema.optional(Schema.String),
-        aggregate: Schema.String,
-        seq: Schema.Number,
-        type: Schema.String,
-        data: Schema.Unknown,
-        timestamp: Schema.Number,
-        origin: Schema.optional(Schema.String),
-        originSeq: Schema.optional(Schema.Number),
-      }).annotate({ identifier: "SyncEventRecord" }),
-    ),
+  const OutboxQuery = Schema.Struct({
+    projectID: Schema.String,
+    since: Schema.optional(Schema.NumberFromString).annotate({
+      description: "Return events with seq > since (default 0)",
+    }),
+  })
+
+  const OutboxResponse = Schema.Struct({
+    events: Schema.Array(Schema.Unknown),
     hasMore: Schema.Boolean,
-  }).annotate({ identifier: "SyncHistoryResponse" })
+  }).annotate({ identifier: "SyncOutboxResponse" })
+
+  const SnapshotPath = Schema.Struct({
+    aggregateID: Schema.String,
+  })
 
   const SnapshotQuery = Schema.Struct({
     projectID: Schema.String,
-    aggregate: Schema.String,
-  }).annotate({ identifier: "SyncSnapshotQuery" })
+  })
 
-  const SnapshotResponse = Schema.NullOr(
-    Schema.Struct({
-      lastSeq: Schema.Number,
-      state: Schema.Unknown,
+  const SnapshotResponse = Schema.Struct({
+    lastSeq: Schema.Number,
+    state: Schema.Unknown,
+  }).annotate({ identifier: "SyncSnapshotResponse" })
+
+  const StreamQuery = Schema.Struct({
+    projectID: Schema.String,
+    token: Schema.String.annotate({
+      description: "Bearer token via query parameter — EventSource cannot send custom headers",
     }),
-  ).annotate({ identifier: "SyncSnapshotResponse" })
+  })
+
+  const StatsQuery = Schema.Struct({
+    projectID: Schema.optional(Schema.String),
+  })
+
+  const ConfigSetPayload = Schema.Struct({
+    url: Schema.String,
+    token: Schema.optional(Schema.String).annotate({
+      description: "Omit to keep the token already saved in the config file",
+    }),
+    autostart: Schema.optional(Schema.Boolean),
+  }).annotate({ identifier: "SyncConfigSetInput" })
+
+  const ConfigSetResponse = Schema.Struct({
+    configured: Schema.Boolean,
+    url: Schema.optional(Schema.String),
+    source: Schema.optional(Schema.Literals(["env", "config"])),
+    started: Schema.Boolean,
+    error: Schema.optional(Schema.String),
+  }).annotate({ identifier: "SyncConfigSetResponse" })
 
   export const Group = HttpApiGroup.make("sync")
     .add(
-      HttpApiEndpoint.post("start", "/start", {
-        payload: StartPayload,
-        success: StartResponse,
-      }),
+      HttpApiEndpoint.post("event", "/event", {
+        payload: EventPushPayload,
+        success: HttpApiSchema.NoContent,
+      }).annotate(OpenApi.Identifier, "sync.event.push"),
     )
     .add(
-      HttpApiEndpoint.post("replay", "/replay", {
-        payload: ReplayPayload,
-        success: ReplayResponse,
-      }),
+      HttpApiEndpoint.get("outbox", "/outbox", {
+        query: OutboxQuery,
+        success: OutboxResponse,
+      }).annotate(OpenApi.Identifier, "sync.outbox.list"),
     )
     .add(
-      HttpApiEndpoint.get("history", "/history", {
-        query: HistoryQuery,
-        success: HistoryResponse,
-      }),
-    )
-    .add(
-      HttpApiEndpoint.get("snapshot", "/snapshot", {
+      HttpApiEndpoint.get("snapshot", "/snapshot/:aggregateID", {
+        params: SnapshotPath,
         query: SnapshotQuery,
         success: SnapshotResponse,
-      }),
+      }).annotate(OpenApi.Identifier, "sync.snapshot.get"),
+    )
+    .add(
+      HttpApiEndpoint.get("stream", "/stream", {
+        query: StreamQuery,
+        success: HttpApiSchema.StreamSse({ data: Schema.Unknown }),
+      }).annotate(OpenApi.Identifier, "sync.event.stream"),
+    )
+    .add(
+      HttpApiEndpoint.get("stats", "/stats", {
+        query: StatsQuery,
+        success: Schema.Unknown,
+      }).annotate(OpenApi.Identifier, "sync.stats"),
+    )
+    .add(
+      HttpApiEndpoint.post("config", "/config", {
+        payload: ConfigSetPayload,
+        success: ConfigSetResponse,
+      }).annotate(OpenApi.Identifier, "sync.config.set"),
+    )
+    .add(
+      HttpApiEndpoint.post("connect", "/connect", {
+        success: HttpApiSchema.NoContent,
+      }).annotate(OpenApi.Identifier, "sync.connect"),
+    )
+    .add(
+      HttpApiEndpoint.post("disconnect", "/disconnect", {
+        success: HttpApiSchema.NoContent,
+      }).annotate(OpenApi.Identifier, "sync.disconnect"),
+    )
+    .add(
+      HttpApiEndpoint.post("drain", "/drain", {
+        success: HttpApiSchema.NoContent,
+      }).annotate(OpenApi.Identifier, "sync.drain"),
     )
     .prefix("/sync")
-
-  export const Api = HttpApi.make("nikcli").add(Group)
-  export const ApiLive = HttpApiBuilder.layer(Api)
-
-  export const handlers = {
-    start: ({ payload, request }: { payload: typeof StartPayload.Type; request: { readonly url: string } }) =>
-      Effect.gen(function* () {
-        const auth = yield* authorizeSync(request)
-        if (auth) return auth
-        const service = yield* Sync.Service
-        return yield* service.start({
-          url: payload.url,
-          token: payload.token,
-          projectID: payload.projectID,
-        })
-      }).pipe(Effect.orDie),
-
-    replay: ({ payload, request }: { payload: typeof ReplayPayload.Type; request: { readonly url: string } }) =>
-      Effect.gen(function* () {
-        const auth = yield* authorizeSync(request)
-        if (auth) return auth
-        const service = yield* Sync.Service
-        yield* service.push(payload.projectID, {
-          aggregate: payload.aggregate,
-          data: payload.data,
-          origin: payload.origin,
-        })
-        return { accepted: true as const }
-      }).pipe(Effect.orDie),
-
-    history: ({ query, request }: { query: typeof HistoryQuery.Type; request: { readonly url: string } }) =>
-      Effect.gen(function* () {
-        const auth = yield* authorizeSync(request)
-        if (auth) return auth
-        const service = yield* Sync.Service
-        return yield* service.outbox(query.projectID, query.aggregate, query.since ?? 0, query.limit)
-      }).pipe(Effect.orDie),
-
-    snapshot: ({ query, request }: { query: typeof SnapshotQuery.Type; request: { readonly url: string } }) =>
-      Effect.gen(function* () {
-        const auth = yield* authorizeSync(request)
-        if (auth) return auth
-        const service = yield* Sync.Service
-        return yield* service.snapshot(query.aggregate, query.projectID)
-      }).pipe(Effect.orDie),
-  }
-
-  export const HandlersLive = HttpApiBuilder.group(Api, "sync", (builder) =>
-    builder
-      .handle("start", (request) => handlers.start(request))
-      .handle("replay", (request) => handlers.replay(request))
-      .handle("history", (request) => handlers.history(request))
-      .handle("snapshot", (request) => handlers.snapshot(request)),
-  )
-
-  export const DependenciesLive = Sync.defaultLayer
-
-  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Bus } from "@/bus"
 import { generateFromDescription } from "@/mission/generate"
@@ -128,7 +128,7 @@ export namespace MissionHttpApi {
         params: MissionIDPath,
         success: BooleanResult,
         error: NotFound,
-      }),
+      }).annotate(OpenApi.Identifier, "mission.delete"),
     )
     .add(
       HttpApiEndpoint.post("start", "/:id/start", {
@@ -157,7 +157,7 @@ export namespace MissionHttpApi {
         payload: FeatureMutatePayload,
         success: UnknownJson,
         error: [NotFound, ValidationError],
-      }),
+      }).annotate(OpenApi.Identifier, "mission.feature.mutate"),
     )
     .add(
       HttpApiEndpoint.get("execs", "/:id/execs", {

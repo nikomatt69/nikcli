@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
 import { MCP } from "@/mcp"
@@ -106,23 +106,28 @@ export namespace McpHttpApi {
         params: NamePath,
         success: StartAuthResponse,
         error: OAuthUnsupported,
-      }),
+      }).annotate(OpenApi.Identifier, "mcp.auth.start"),
     )
     .add(
       HttpApiEndpoint.post("authCallback", "/:name/auth/callback", {
         params: NamePath,
         payload: AuthCallbackPayload,
         success: Status,
-      }),
+      }).annotate(OpenApi.Identifier, "mcp.auth.callback"),
     )
     .add(
       HttpApiEndpoint.post("authenticate", "/:name/auth/authenticate", {
         params: NamePath,
         success: Status,
         error: OAuthUnsupported,
-      }),
+      }).annotate(OpenApi.Identifier, "mcp.auth.authenticate"),
     )
-    .add(HttpApiEndpoint.delete("removeAuth", "/:name/auth", { params: NamePath, success: Success }))
+    .add(
+      HttpApiEndpoint.delete("removeAuth", "/:name/auth", { params: NamePath, success: Success }).annotate(
+        OpenApi.Identifier,
+        "mcp.auth.remove",
+      ),
+    )
     .add(HttpApiEndpoint.post("connect", "/:name/connect", { params: NamePath, success: Schema.Boolean }))
     .add(HttpApiEndpoint.post("disconnect", "/:name/disconnect", { params: NamePath, success: Schema.Boolean }))
     .add(

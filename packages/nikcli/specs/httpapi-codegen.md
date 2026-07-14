@@ -115,3 +115,29 @@ La scrittura dei tre output avviene in parallelo e ogni directory usa
 `emitEffect` standalone resta intenzionalmente inadatto alla `PublicHttpApi` completa quando uno
 schema non è ricostruibile fuori dal modulo sorgente. La produzione usa `emitEffectImported`, come
 il client opencode v2 di riferimento, quindi questo non è un limite dell'integrazione.
+
+## Parity del contratto con Hono (2026-07-14)
+
+La generazione parte ora da `PublicApi` (contract = `PublicHttpApi.Api` servita + gruppi
+contract-only senza handler: `sync` riallineato alle route Hono reali, `auth`,
+`config-management`, `session-prompt`, `share`, `events`, `workspace-extra`, `users`,
+`pty-connect`, `mobile` — 84 op). Ogni endpoint pinna l'operationId Hono via
+`OpenApi.Identifier`; `generate.ts --httpapi` inietta i query param globali
+`directory`/`workspace`. Misure:
+
+- OpenAPI: Hono 280 op vs Effect 281 (extra: `DELETE /session/:id/message/:messageID`,
+  endpoint reale del bridge), **0 op mancanti, 0 operationId divergenti**.
+- SDK hey-api dalla spec Effect: **stesso albero di 78 classi/metodi** dell'SDK Hono.
+- Typecheck repo con l'SDK da Effect: pulito ovunque tranne `@nikcli-ai/plugin`
+  (importa i tipi nominati `Event`/`Message`/`UserMessage`/`Part`/`Todo`/`Model`/
+  `SessionStatus`, oggi `Schema.Unknown` nel contract). Unico blocker rimasto per il
+  flip del default — si chiude con lo schema split (MessageV2/Bus events in Effect Schema).
+
+Estensione al generatore per questo lavoro: `compile(..., { clientPathsFromEndpointNames: true })`
+— i client generati continuano a derivare i nomi dei metodi dai nomi endpoint Effect invece che
+dagli `OpenApi.Identifier` (gli id Hono puntati, es. `provider.auth` + `provider.auth.remove`,
+collidono come path client). Esclusioni client: `pty-connect.connect`, `mobile.ptyConnect`
+(upgrade WebSocket) e `auth.set` (payload union: `HttpApiClient.ForApi` lo restringe al primo
+membro — bug upstream da verificare a ogni bump di effect).
+
+Client generati correnti: **30 gruppi / 278 endpoint** (Promise + Effect + shape).

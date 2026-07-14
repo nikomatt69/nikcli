@@ -5,6 +5,8 @@ import { Project } from "@/project/project"
 import { Question } from "@/question"
 import { AnalyticsHttpApi } from "./analytics"
 import { AppHttpApi } from "./app"
+import { ContractExtraHttpApi } from "./contract-extra"
+import { MobileHttpApi } from "./mobile"
 import { BrainHttpApi } from "./brain"
 import { ConfigHttpApi } from "./config"
 import { ConnectorsHttpApi } from "./connectors"
@@ -27,6 +29,11 @@ import { TuiHttpApi } from "./tui"
 import { WorkspaceHttpApi } from "./workspace"
 
 export namespace PublicHttpApi {
+  /**
+   * The *served* Effect surface: every group here has handlers below and is
+   * reachable through the HttpApi bridge. Contract-only groups (schemas for
+   * routes still served by Hono) live on `PublicApi` instead.
+   */
   export const Api = HttpApi.make("nikcli")
     .add(TopLevelHttpApi.Group)
     .add(AnalyticsHttpApi.Group)
@@ -47,7 +54,6 @@ export namespace PublicHttpApi {
     .add(PtyHttpApi.Group)
     .add(LoopHttpApi.Group)
     .add(SessionHttpApi.Group)
-    .add(SyncHttpApi.Group)
     .add(TuiHttpApi.Group)
     .add(WorkspaceHttpApi.Group)
 
@@ -260,14 +266,6 @@ export namespace PublicHttpApi {
       .handle("execs", (request) => MissionHttpApi.handlers.execs(request)),
   )
 
-  const SyncHandlersLive = HttpApiBuilder.group(Api, "sync", (handlers) =>
-    handlers
-      .handle("start", (request) => SyncHttpApi.handlers.start(request))
-      .handle("replay", (request) => SyncHttpApi.handlers.replay(request))
-      .handle("history", (request) => SyncHttpApi.handlers.history(request))
-      .handle("snapshot", (request) => SyncHttpApi.handlers.snapshot(request)),
-  )
-
   const SessionHandlersLive = HttpApiBuilder.group(Api, "session", (handlers) =>
     handlers
       .handle("list", (request) => SessionHttpApi.handlers.list(request))
@@ -332,7 +330,6 @@ export namespace PublicHttpApi {
         LoopHandlersLive,
         MissionHandlersLive,
         SessionHandlersLive.pipe(Layer.provide(SessionHttpApi.DependenciesLive)),
-        SyncHandlersLive.pipe(Layer.provide(SyncHttpApi.DependenciesLive)),
         TuiHandlersLive.pipe(Layer.provide(TuiHttpApi.DependenciesLive)),
         WorkspaceHandlersLive,
       ),
@@ -340,5 +337,19 @@ export namespace PublicHttpApi {
   )
 }
 
-/** Authoritative public contract used by generated Effect clients. */
-export const PublicApi = PublicHttpApi.Api
+/**
+ * Authoritative public contract used for OpenAPI/SDK generation and by the
+ * generated Effect clients. Superset of the served `PublicHttpApi.Api`:
+ * contract-only groups describe routes that Hono still serves, so they have
+ * schemas here but no Effect handlers yet.
+ */
+export const PublicApi = PublicHttpApi.Api.add(SyncHttpApi.Group)
+  .add(ContractExtraHttpApi.AuthGroup)
+  .add(ContractExtraHttpApi.ConfigManagementGroup)
+  .add(ContractExtraHttpApi.SessionPromptGroup)
+  .add(ContractExtraHttpApi.ShareGroup)
+  .add(ContractExtraHttpApi.EventsGroup)
+  .add(ContractExtraHttpApi.WorkspaceExtraGroup)
+  .add(ContractExtraHttpApi.UsersGroup)
+  .add(ContractExtraHttpApi.PtyConnectGroup)
+  .add(MobileHttpApi.Group)

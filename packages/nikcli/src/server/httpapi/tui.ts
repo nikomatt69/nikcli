@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import z from "zod"
 import { Bus } from "@/bus"
@@ -129,13 +129,13 @@ export namespace TuiHttpApi {
     .add(
       HttpApiEndpoint.get("controlNext", "/control/next", {
         success: TuiRequest,
-      }),
+      }).annotate(OpenApi.Identifier, "tui.control.next"),
     )
     .add(
       HttpApiEndpoint.post("controlResponse", "/control/response", {
         payload: AnyPayload,
         success: BooleanResult,
-      }),
+      }).annotate(OpenApi.Identifier, "tui.control.response"),
     )
     .prefix("/tui")
 

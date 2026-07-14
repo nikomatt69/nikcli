@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Agent } from "@/agent/agent"
 import { Command } from "@/command"
@@ -107,24 +107,66 @@ export namespace TopLevelHttpApi {
 
   export const DisposeResult = Schema.Boolean.annotate({ identifier: "InstanceDisposeResult" })
 
+  // OpenApi.Identifier pins each operationId to the value the Hono OpenAPI
+  // emits, so the SDK generated from either source has the same class tree.
   export const Group = HttpApiGroup.make("top-level")
-    .add(HttpApiEndpoint.post("dispose", "/instance/dispose", { success: DisposeResult }))
-    .add(HttpApiEndpoint.get("path", "/path", { success: Path }))
-    .add(HttpApiEndpoint.get("vcs", "/vcs", { success: VcsInfo }))
-    .add(HttpApiEndpoint.get("vcsStatus", "/vcs/status", { success: Schema.Array(Vcs.FileStatusSchema) }))
-    .add(HttpApiEndpoint.get("vcsDiffRaw", "/vcs/diff/raw", { success: VcsDiffRaw }))
+    .add(
+      HttpApiEndpoint.post("dispose", "/instance/dispose", { success: DisposeResult }).annotate(
+        OpenApi.Identifier,
+        "instance.dispose",
+      ),
+    )
+    .add(HttpApiEndpoint.get("path", "/path", { success: Path }).annotate(OpenApi.Identifier, "path.get"))
+    .add(HttpApiEndpoint.get("vcs", "/vcs", { success: VcsInfo }).annotate(OpenApi.Identifier, "vcs.get"))
+    .add(
+      HttpApiEndpoint.get("vcsStatus", "/vcs/status", { success: Schema.Array(Vcs.FileStatusSchema) }).annotate(
+        OpenApi.Identifier,
+        "vcs.status",
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("vcsDiffRaw", "/vcs/diff/raw", { success: VcsDiffRaw }).annotate(
+        OpenApi.Identifier,
+        "vcs.diff.raw",
+      ),
+    )
     .add(
       HttpApiEndpoint.post("vcsApply", "/vcs/apply", {
         payload: Vcs.ApplyInputSchema,
         success: Vcs.ApplyResultSchema,
         error: VcsApplyError,
-      }),
+      }).annotate(OpenApi.Identifier, "vcs.apply"),
     )
-    .add(HttpApiEndpoint.get("command", "/command", { success: Schema.Array(CommandInfo) }))
-    .add(HttpApiEndpoint.get("agent", "/agent", { success: Schema.Array(AgentInfo) }))
-    .add(HttpApiEndpoint.get("skill", "/skill", { success: Schema.Array(SkillInfo) }))
-    .add(HttpApiEndpoint.get("lsp", "/lsp", { success: Schema.Array(LspStatus) }))
-    .add(HttpApiEndpoint.get("formatter", "/formatter", { success: Schema.Array(FormatterStatus) }))
+    .add(
+      HttpApiEndpoint.get("command", "/command", { success: Schema.Array(CommandInfo) }).annotate(
+        OpenApi.Identifier,
+        "command.list",
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("agent", "/agent", { success: Schema.Array(AgentInfo) }).annotate(
+        OpenApi.Identifier,
+        "app.agents",
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("skill", "/skill", { success: Schema.Array(SkillInfo) }).annotate(
+        OpenApi.Identifier,
+        "app.skills",
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("lsp", "/lsp", { success: Schema.Array(LspStatus) }).annotate(
+        OpenApi.Identifier,
+        "lsp.status",
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("formatter", "/formatter", { success: Schema.Array(FormatterStatus) }).annotate(
+        OpenApi.Identifier,
+        "formatter.status",
+      ),
+    )
 
   export const Api = HttpApi.make("nikcli").add(Group)
 

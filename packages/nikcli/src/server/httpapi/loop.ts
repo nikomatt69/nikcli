@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Bus } from "@/bus"
 import { generateFromDescription } from "@/loop/generate"
@@ -106,7 +106,7 @@ export namespace LoopHttpApi {
         params: LoopIDPath,
         success: BooleanResult,
         error: NotFound,
-      }),
+      }).annotate(OpenApi.Identifier, "loop.delete"),
     )
     .add(
       HttpApiEndpoint.post("toggle", "/:id/toggle", {

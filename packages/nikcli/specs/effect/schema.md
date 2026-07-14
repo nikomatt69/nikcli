@@ -439,6 +439,17 @@ piecewise.
 
 ## Notes
 
+- **2026-07-14 — SDK-flip blocker is now schema-shaped**: the Effect `PublicApi`
+  contract reached full endpoint/operationId parity with Hono (see
+  `specs/effect/http-api.md`, "full contract parity reached"). The only thing
+  keeping SDK generation on Hono is that the contract types domain objects as
+  `Schema.Unknown` where their canonical definition is still zod: the
+  hey-api SDK generated from the Effect spec then lacks the named types
+  `Event` (Bus event union), `Message`, `UserMessage`, `Part`, `Todo`,
+  `Model`, and `SessionStatus` that `@nikcli-ai/plugin` re-exports. Migrating
+  `session/message-v2.ts`, the Bus event payloads, and `SessionStatus` to
+  Effect Schema closes the flip.
+
 - **Walker now available**: `src/util/effect-zod.ts` ships the Effect Schema → Zod walker. Exports: `zod(schema)`, `zodObject(schema)`, `withStatics(...)`, `zodOverride(fn)`, `ZodOverrideId`, `DeepMutable<T>`. Coverage: structs, arrays, unions, literals, records, NullOr, optional, primitives, the canonical refinements (`isInt`, `isGreaterThan*`, `isLessThan*`, `isPattern`, `isUUID`, `isMinLength`, `isMaxLength`), Suspend/lazy, Declaration surrogates, Enums, and opt-in discriminated unions (`.annotate({ discriminator: "<key>" })` → `z.discriminatedUnion`). Validated by `bun test test/util/effect-zod.test.ts` (28 tests). Constructs not yet supported fall back to `z.unknown()`; extend the walker switch when a new construct first appears in `src/`.
 - Use `@/util/effect-zod` for all Schema → Zod conversion.
 - Prefer one canonical schema definition. Avoid maintaining parallel Zod and
