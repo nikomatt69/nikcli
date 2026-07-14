@@ -93,7 +93,7 @@ function configGet(ctx?: InstanceContext): Promise<Config.Info> {
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
-  const OPENAI_HEADER_TIMEOUT_DEFAULT = 60_000
+  const OPENAI_HEADER_TIMEOUT_DEFAULT = 120_000
 
   function normalizeBaseURL(baseURL: string): string {
     return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL

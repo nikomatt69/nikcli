@@ -14,11 +14,13 @@ function getChanges(result: void | RunResult): number {
 export namespace MobileAuth {
   /**
    * Token scope: `mobile` (paired mobile device), `cli-sync` (CLI↔hub sync),
-   * `studio` (desktop UI). The `/sync/*` routes require `cli-sync` or
-   * `studio` when a bearer token is used.
+   * `studio` (desktop UI). `/sync/*` accepts any of these when a bearer
+   * token or `?token=` query param is presented.
    */
   export const Scope = z.enum(["mobile", "cli-sync", "studio"])
   export type Scope = z.infer<typeof Scope>
+
+  export const SYNC_SCOPES = new Set<Scope>(["mobile", "cli-sync", "studio"])
 
   export const Token = z
     .object({

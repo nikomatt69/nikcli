@@ -10,8 +10,6 @@ type HttpResponse = ReturnType<typeof HttpServerResponse.fromWeb>
 
 const log = Log.create({ service: "sync-httpapi-auth" })
 
-const SYNC_SCOPES = new Set(["cli-sync", "studio"])
-
 /**
  * Verify a `?token=` query parameter against the bearer-token registry
  * and the `cli-sync` / `studio` scope list. Mirrors the Hono `.use("*", ...)`
@@ -36,14 +34,14 @@ function authorizeSync(request: { readonly url: string }): Effect.Effect<undefin
       log.warn("sync token verify failed", { url: url.pathname })
       return HttpServerResponse.fromWeb(new Response("Unauthorized: invalid auth_token", { status: 401 }))
     }
-    if (!SYNC_SCOPES.has(verified.scope ?? "mobile")) {
+    if (!MobileAuth.SYNC_SCOPES.has((verified.scope ?? "mobile") as MobileAuth.Scope)) {
       log.warn("sync access denied: insufficient scope", {
         tokenID: verified.id,
         scope: verified.scope,
         url: url.pathname,
       })
       return HttpServerResponse.fromWeb(
-        new Response("Forbidden: sync requires a cli-sync or studio token", {
+        new Response("Forbidden: sync requires a mobile, cli-sync, or studio token", {
           status: 403,
         }),
       )

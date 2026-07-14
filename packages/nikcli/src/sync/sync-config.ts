@@ -52,7 +52,7 @@ export namespace SyncConfig {
       token,
       configured,
       source: configured ? (envUrl && envToken ? "env" : "config") : undefined,
-      autostart: Flag.NIKCLI_REMOTE_AUTOSTART && saved?.autostart !== false,
+      autostart: configured && Flag.NIKCLI_REMOTE_AUTOSTART && (saved?.autostart ?? true),
     }
   }
 

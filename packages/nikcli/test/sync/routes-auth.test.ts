@@ -51,17 +51,10 @@ function pushRequest(projectID: string) {
 }
 
 describe("SyncRoutes auth", () => {
-  it("rejects bearer tokens without a sync-capable scope", async () => {
-    const app = appWith({ id: `mat_${run}_mobile`, name: "iphone", scope: "mobile", createdAt: Date.now() })
+  it("accepts mobile, cli-sync, and studio bearer scopes", async () => {
+    const mobile = appWith({ id: `mat_${run}_mobile`, name: "iphone", scope: "mobile", createdAt: Date.now() })
+    expect((await mobile.request(pushRequest(`proj_auth_${run}`))).status).toBe(204)
 
-    const push = await app.request(pushRequest(`proj_auth_${run}`))
-    expect(push.status).toBe(403)
-
-    const stats = await app.request("http://localhost/sync/stats")
-    expect(stats.status).toBe(403)
-  })
-
-  it("accepts cli-sync and studio scopes, and operator (no token) access", async () => {
     const cliSync = appWith({ id: `mat_${run}_cli`, name: "cli", scope: "cli-sync", createdAt: Date.now() })
     expect((await cliSync.request(pushRequest(`proj_auth_${run}`))).status).toBe(204)
 

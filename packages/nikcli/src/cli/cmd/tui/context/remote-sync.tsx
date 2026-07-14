@@ -91,17 +91,35 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
 
     let pollTimer: ReturnType<typeof setInterval> | undefined
     let cancelled = false
+    let autoConnectAttempted = false
+    let cachedProjectID: string | undefined
+
+    async function resolveProjectID(): Promise<string> {
+      if (cachedProjectID) return cachedProjectID
+      const result = await sdk.client.project.current().catch(() => undefined)
+      cachedProjectID = result?.data?.id ?? ""
+      return cachedProjectID
+    }
+
+    async function maybeAutoConnect() {
+      if (autoConnectAttempted || cancelled) return
+      if (!status.configured || status.connected) return
+      autoConnectAttempted = true
+      await connect()
+    }
 
     /**
      * Direct fetch against the same base URL the SDK uses. We use this
      * for the `/sync/*` endpoints that are not part of the generated
      * SDK yet (the SDK is regenerated from `server.ts` separately).
+     * Must use `sdk.fetch` so embedded TUI mode (`http://nikcli.local`
+     * via worker RPC) works — plain `fetch` cannot reach that host.
      */
     async function syncFetch<T>(path: string, init?: RequestInit): Promise<T | undefined> {
-      const base = (sdk as any).url as string | undefined
+      const base = sdk.url
       if (!base) return undefined
       try {
-        const res = await fetch(`${base.replace(/\/$/, "")}${path}`, {
+        const res = await sdk.fetch(`${base.replace(/\/$/, "")}${path}`, {
           ...init,
           signal: AbortSignal.timeout(10_000),
           headers: {
@@ -119,7 +137,7 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
     async function poll() {
       if (cancelled) return
       try {
-        const projectID = sdk.directory
+        const projectID = await resolveProjectID()
         const stats = await syncFetch<{
           url?: string
           configured: boolean
@@ -142,7 +160,7 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
             origin: string
             dataPreview: string
           }>
-        }>(`/sync/stats?projectID=${encodeURIComponent(projectID ?? "")}`)
+        }>(`/sync/stats?projectID=${encodeURIComponent(projectID)}`)
 
         if (!stats) {
           setStatus(
@@ -183,6 +201,9 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
             }
           }),
         )
+        if (stats.configured && !stats.connected) {
+          void maybeAutoConnect()
+        }
       } catch (error) {
         setStatus(
           produce((s) => {
@@ -194,20 +215,20 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
     }
 
     async function connect() {
-      const projectID = sdk.directory
-      await syncFetch(`/sync/connect?projectID=${encodeURIComponent(projectID ?? "")}`, { method: "POST" })
+      const projectID = await resolveProjectID()
+      await syncFetch(`/sync/connect?projectID=${encodeURIComponent(projectID)}`, { method: "POST" })
       await poll()
     }
 
     async function disconnect() {
-      const projectID = sdk.directory
-      await syncFetch(`/sync/disconnect?projectID=${encodeURIComponent(projectID ?? "")}`, { method: "POST" })
+      const projectID = await resolveProjectID()
+      await syncFetch(`/sync/disconnect?projectID=${encodeURIComponent(projectID)}`, { method: "POST" })
       await poll()
     }
 
     async function drain() {
-      const projectID = sdk.directory
-      await syncFetch(`/sync/drain?projectID=${encodeURIComponent(projectID ?? "")}`, { method: "POST" })
+      const projectID = await resolveProjectID()
+      await syncFetch(`/sync/drain?projectID=${encodeURIComponent(projectID)}`, { method: "POST" })
       await poll()
     }
 
@@ -218,11 +239,12 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
     async function saveConfig(input: {
       url: string
       token?: string
+      autostart?: boolean
     }): Promise<{ ok: boolean; started?: boolean; source?: "env" | "config"; error?: string }> {
-      const base = (sdk as any).url as string | undefined
+      const base = sdk.url
       if (!base) return { ok: false, error: "server unavailable" }
       try {
-        const res = await fetch(`${base.replace(/\/$/, "")}/sync/config`, {
+        const res = await sdk.fetch(`${base.replace(/\/$/, "")}/sync/config`, {
           method: "POST",
           signal: AbortSignal.timeout(15_000),
           headers: { "content-type": "application/json" },

@@ -55,7 +55,21 @@ export type RemoteSyncHandle = {
 export namespace RemoteSync {
   const active = new Map<string, { handle: RemoteSyncHandle; url: string }>()
   const enqueueTargets = new Set<string>()
+  const hubErrors = new Map<string, string>()
   let removeEmitHook: (() => void) | undefined
+
+  function normalizeUrl(url: string) {
+    return url.replace(/\/$/, "")
+  }
+
+  function noteHubError(url: string, error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    hubErrors.set(normalizeUrl(url), message)
+  }
+
+  function clearHubError(url: string) {
+    hubErrors.delete(normalizeUrl(url))
+  }
 
   function ensureEmitHook() {
     if (removeEmitHook) return
@@ -103,8 +117,29 @@ export namespace RemoteSync {
 
   const starting = new Map<string, Promise<RemoteSyncHandle>>()
 
+  /** Whether a live remote-sync session is running for the given hub/project. */
+  export function isActive(input?: { url?: string; projectID?: string }): boolean {
+    if (input?.url && input.projectID) {
+      return active.has(`${normalizeUrl(input.url)}::${input.projectID}`)
+    }
+    if (input?.url) {
+      const normalized = normalizeUrl(input.url)
+      return [...active.values()].some((entry) => entry.url === normalized)
+    }
+    if (input?.projectID) {
+      return [...active.keys()].some((key) => key.endsWith(`::${input.projectID}`))
+    }
+    return active.size > 0
+  }
+
+  /** Last hub transport error for the URL, if any (e.g. HTTP 403). */
+  export function lastHubError(url: string): string | undefined {
+    return hubErrors.get(normalizeUrl(url))
+  }
+
   export function start(opts: RemoteSyncOptions): Promise<RemoteSyncHandle> {
-    const key = `${opts.url}::${opts.projectID}`
+    const normalizedUrl = normalizeUrl(opts.url)
+    const key = `${normalizedUrl}::${opts.projectID}`
     const existing = active.get(key)
     if (existing) return Promise.resolve(existing.handle)
     let inflight = starting.get(key)
@@ -120,6 +155,7 @@ export namespace RemoteSync {
   }
 
   async function doStart(opts: RemoteSyncOptions, key: string): Promise<RemoteSyncHandle> {
+    const hubUrl = normalizeUrl(opts.url)
     const originTag = `remote:${opts.clientId ?? "cli"}`
     const drainInterval = opts.drainIntervalMs ?? 5_000
     let connected = true
@@ -163,7 +199,9 @@ export namespace RemoteSync {
         }
         if (!page.hasMore) break
       }
+      clearHubError(hubUrl)
     } catch (error) {
+      noteHubError(hubUrl, error)
       log.warn("initial catch-up failed", { error })
     }
 
@@ -185,11 +223,15 @@ export namespace RemoteSync {
     })
 
     const drainHandle = scheduler.interval(() => {
-      void Outbox.drain(opts.url, async (eventId) => {
+      void Outbox.drain(hubUrl, async (eventId) => {
         const event = loadEvent(eventId)
         if (!event) return { ok: false, permanent: true, error: "event not found" }
         const outcome = await transport.push(event)
-        if (outcome.ok) return { ok: true }
+        if (outcome.ok) {
+          clearHubError(hubUrl)
+          return { ok: true }
+        }
+        if (outcome.error) noteHubError(hubUrl, outcome.error)
         return {
           ok: false,
           permanent: outcome.permanent === true,
@@ -200,7 +242,7 @@ export namespace RemoteSync {
       })
     }, drainInterval)
 
-    enqueueTargets.add(opts.url)
+    enqueueTargets.add(hubUrl)
     ensureEmitHook()
 
     const handle: RemoteSyncHandle = {
@@ -208,8 +250,11 @@ export namespace RemoteSync {
         drainHandle.clear()
         transport.close()
         active.delete(key)
-        const urlStillUsed = [...active.values()].some((entry) => entry.url === opts.url)
-        if (!urlStillUsed) enqueueTargets.delete(opts.url)
+        const urlStillUsed = [...active.values()].some((entry) => entry.url === hubUrl)
+        if (!urlStillUsed) {
+          enqueueTargets.delete(hubUrl)
+          hubErrors.delete(hubUrl)
+        }
         if (active.size === 0) removeEmitHook?.()
         connected = false
         log.info("remote sync stopped")
@@ -221,7 +266,7 @@ export namespace RemoteSync {
       }),
     }
 
-    active.set(key, { handle, url: opts.url })
+    active.set(key, { handle, url: hubUrl })
     return handle
   }
 }

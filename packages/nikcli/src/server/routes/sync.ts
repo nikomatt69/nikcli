@@ -7,15 +7,15 @@
  *  - GET  /sync/stream  — SSE stream of new events
  *  - GET  /sync/snapshot/:aggregate/:id — cold-start snapshot fetch
  *
- * All routes require a `Bearer` token whose scope is `cli-sync` or
- * `studio` (the auth middleware in server.ts enforces this).
+ * All routes accept a `Bearer` token (or `?token=` on SSE) with scope
+ * `mobile`, `cli-sync`, or `studio` when bearer auth is used.
  */
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { z } from "zod"
 import { eq, and, gt, sql } from "drizzle-orm"
 import { Database } from "@/database/database"
-import type { MobileAuth } from "@/mobile/auth"
+import { MobileAuth } from "@/mobile/auth"
 import { syncEvent, syncOutbox } from "@/sync/sync.sql"
 import { SyncConfig } from "@/sync/sync-config"
 import { GlobalBus } from "@/bus/global"
@@ -27,8 +27,6 @@ const log = Log.create({ service: "server.sync" })
 // Scopes allowed to use the sync surface when a bearer token is presented.
 // Operator-level auth paths (basic auth, tailscale identity, unsecured
 // loopback server) do not carry a token and pass through.
-const SYNC_SCOPES = new Set(["cli-sync", "studio"])
-
 function syncToken(c: { get?: (key: string) => unknown }): MobileAuth.PublicToken | undefined {
   return (c as any).get?.("mobileAuth") as MobileAuth.PublicToken | undefined
 }
@@ -92,13 +90,13 @@ export const SyncRoutes = new Hono()
   // narrows what a valid-but-mobile token may reach.
   .use("*", async (c, next) => {
     const token = syncToken(c)
-    if (token && !SYNC_SCOPES.has(token.scope ?? "mobile")) {
+    if (token && !MobileAuth.SYNC_SCOPES.has((token.scope ?? "mobile") as MobileAuth.Scope)) {
       log.warn("sync access denied: insufficient scope", {
         tokenID: token.id,
         scope: token.scope,
         path: c.req.path,
       })
-      return c.text("Forbidden: sync requires a cli-sync or studio token", 403)
+      return c.text("Forbidden: sync requires a mobile, cli-sync, or studio token", 403)
     }
     return next()
   })
@@ -343,6 +341,15 @@ export const SyncRoutes = new Hono()
       const remote = await SyncConfig.resolve()
       const url = remote.url
       const configured = remote.configured
+      const { RemoteSync } = await import("@/sync/remote-sync")
+      const connected = configured && Boolean(url && RemoteSync.isActive({ url }))
+      const lastError = formatHubError(url ? RemoteSync.lastHubError(url) : undefined)
+      if (configured && remote.autostart && url && remote.token && !connected) {
+        const { SyncCliInit } = await import("@/sync/cli-init")
+        void SyncCliInit.startForAllProjects({ url, token: remote.token }).catch((error) => {
+          log.warn("sync autostart failed", { error })
+        })
+      }
       // Outbox counters
       const pending = db
         .select({ count: sql<number>`cast(count(*) as integer)` })
@@ -354,8 +361,9 @@ export const SyncRoutes = new Hono()
         .from(syncOutbox)
         .where(eq(syncOutbox.status, "failed"))
         .get()
+      const filterProjectID = await resolveStatsProjectID(projectID)
       // Latest event for the project (if any)
-      const where = projectID ? eq(syncEvent.projectId, projectID) : undefined
+      const where = filterProjectID ? eq(syncEvent.projectId, filterProjectID) : undefined
       const latest = where
         ? db
             .select()
@@ -389,12 +397,12 @@ export const SyncRoutes = new Hono()
         url,
         configured,
         source: remote.source,
-        connected: configured && Boolean(latest),
+        connected,
         pending: pending?.count ?? 0,
         failed: failed?.count ?? 0,
         total: (pending?.count ?? 0) + (failed?.count ?? 0),
         lastSeq: latest?.seq ?? 0,
-        lastError: undefined as string | undefined,
+        lastError,
         lastChange: Date.now(),
         events: recent.map((row) => ({
           id: row.id,
@@ -452,6 +460,7 @@ export const SyncRoutes = new Hono()
       const patch: { sync: { url: string; token?: string; autostart?: boolean } } = { sync: { url } }
       if (body.token) patch.sync.token = body.token
       if (body.autostart !== undefined) patch.sync.autostart = body.autostart
+      else patch.sync.autostart = true
       await configUpdateGlobal(patch)
       SyncConfig.invalidate()
       const resolved = await SyncConfig.resolve()
@@ -519,6 +528,30 @@ export const SyncRoutes = new Hono()
       return c.body(null, 204)
     },
   )
+
+function formatHubError(error: string | undefined): string | undefined {
+  if (!error) return undefined
+  if (error.includes("401")) {
+    return `${error} — check the token is valid on the hub`
+  }
+  return error
+}
+
+/** Map a TUI directory path to the git-derived project id used in sync_event. */
+async function resolveStatsProjectID(raw: string): Promise<string> {
+  if (!raw) return ""
+  if (!raw.includes("/") && !raw.includes("\\")) return raw
+  try {
+    const { Instance } = await import("@/project/instance")
+    if (!Instance.has(raw)) return ""
+    return await Instance.provide({
+      directory: raw,
+      fn: () => Instance.project.id,
+    })
+  } catch {
+    return ""
+  }
+}
 
 /** Accepts values with or without a scheme/trailing slash; https by default. */
 function normalizeHubUrl(raw: string): string | undefined {

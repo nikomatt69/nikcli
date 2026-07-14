@@ -21,6 +21,7 @@
  */
 import { Log } from "@/util/log"
 import type { SyncEventRecord } from "./index"
+import { EventSource as EventSourcePolyfill } from "eventsource"
 
 const log = Log.create({ service: "sync.remote.transport" })
 
@@ -57,6 +58,13 @@ export type SchedulerHandle = {
   clear(): void
 }
 
+function resolveEventSource(eventSourceImpl?: typeof EventSource): typeof EventSource {
+  if (eventSourceImpl) return eventSourceImpl
+  const native = (globalThis as { EventSource?: typeof EventSource }).EventSource
+  if (native) return native
+  return EventSourcePolyfill as unknown as typeof EventSource
+}
+
 // ---------- HTTP + EventSource adapter (default) ----------
 
 export type HttpRemoteTransportOptions = {
@@ -70,11 +78,7 @@ export type HttpRemoteTransportOptions = {
 
 export function createHttpRemoteTransport(opts: HttpRemoteTransportOptions): RemoteTransport {
   const fetchImpl = opts.fetchImpl ?? fetch
-  const EventSourceImpl: typeof EventSource | undefined =
-    opts.eventSourceImpl ?? (globalThis as { EventSource?: typeof EventSource }).EventSource
-  if (!EventSourceImpl) {
-    throw new Error("HttpRemoteTransport: no EventSource implementation available in this runtime")
-  }
+  const EventSourceImpl = resolveEventSource(opts.eventSourceImpl)
 
   const base = opts.url.replace(/\/$/, "")
   let source: EventSource | undefined

@@ -173,7 +173,7 @@ describe("Provider.Service", () => {
         ),
       )
 
-      expect(providerInfo?.options.headerTimeout).toBe(60_000)
+      expect(providerInfo?.options.headerTimeout).toBe(120_000)
     })
   })
 

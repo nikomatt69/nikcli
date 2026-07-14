@@ -123,11 +123,10 @@ describe("Sync HttpApi auth_token scope guard (Wave 4 follow-up)", () => {
     expect(body).toContain("Unauthorized")
   })
 
-  it("rejects ?token=<mobile-scope> with 403 Forbidden (insufficient scope)", async () => {
+  it("accepts ?token=<mobile-scope> on the schema path", async () => {
     const { MobileAuth } = await import("@/mobile/auth")
     const { Database } = await import("@/database/database")
     const directory = await makeProjectDir()
-    // Provision a token with the wrong (default) scope.
     const created = await MobileAuth.create({
       name: "test-mobile",
       scope: "mobile",
@@ -138,11 +137,13 @@ describe("Sync HttpApi auth_token scope guard (Wave 4 follow-up)", () => {
         `/sync/history?token=${created.token}&projectID=proj_1&aggregate=wrk_test`,
         directory,
       )
-      expect(response.status).toBe(403)
-      const body = await response.text()
-      expect(body).toContain("Forbidden")
+      expect(response.status).toBe(200)
+      const body = (await response.json()) as {
+        events: unknown[]
+        hasMore: boolean
+      }
+      expect(Array.isArray(body.events)).toBe(true)
     } finally {
-      // The token cleanup path is internal; the test home is wiped in afterAll.
       void Database
     }
   })

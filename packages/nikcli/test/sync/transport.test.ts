@@ -119,15 +119,14 @@ describe("InMemoryScheduler", () => {
 })
 
 describe("HttpRemoteTransport", () => {
-  it("throws when no EventSource is available", () => {
-    expect(() =>
-      createHttpRemoteTransport({
-        url: "http://localhost",
-        token: "x",
-        projectID: "p",
-        eventSourceImpl: undefined as never,
-      }),
-    ).toThrow(/EventSource/)
+  it("uses the eventsource polyfill when the runtime has no native EventSource", () => {
+    const transport = createHttpRemoteTransport({
+      url: "http://localhost",
+      token: "x",
+      projectID: "p",
+      eventSourceImpl: undefined as never,
+    })
+    transport.close()
   })
 
   it("delegates push and pullBacklog to the injected fetch", async () => {

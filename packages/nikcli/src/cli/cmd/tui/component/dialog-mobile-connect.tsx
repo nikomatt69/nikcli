@@ -424,7 +424,7 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
           <>
             <text fg={theme.textMuted} wrapMode="word">
               {props.mode === "cloud"
-                ? "Use a mobile-scoped Bearer token from the remote nikcli server. Remote-sync tokens are not valid here."
+                ? "Use a mobile-scoped Bearer token from the remote nikcli server."
                 : "Send the current session and workspace to a remote nikcli server."}
             </text>
             <box flexDirection="row" gap={1} alignItems="center">

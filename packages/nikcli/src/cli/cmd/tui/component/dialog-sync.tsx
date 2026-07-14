@@ -101,7 +101,7 @@ export function DialogSync() {
     }
     setForm("busy", true)
     setForm("status", "Saving…")
-    const result = await remote.saveConfig({ url, token: token || undefined })
+    const result = await remote.saveConfig({ url, token: token || undefined, autostart: true })
     setForm("busy", false)
     if (!result.ok) {
       setForm("status", result.error ?? "Save failed")
@@ -244,7 +244,7 @@ export function DialogSync() {
                     setForm("status", "")
                   }}
                   placeholder={
-                    status().configured ? "leave blank to keep the current token" : "cli-sync scoped bearer token"
+                    status().configured ? "leave blank to keep the current token" : "mobile or cli-sync bearer token"
                   }
                   cursorColor={theme.primary}
                   focusedTextColor={theme.text}

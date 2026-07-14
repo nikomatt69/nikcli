@@ -1405,7 +1405,7 @@ export namespace Config {
           token: z
             .string()
             .optional()
-            .describe("cli-sync scoped bearer token for the remote hub. NIKCLI_REMOTE_TOKEN overrides this."),
+            .describe("Bearer token for the remote hub (mobile, cli-sync, or studio scope). NIKCLI_REMOTE_TOKEN overrides this."),
           autostart: z
             .boolean()
             .optional()
