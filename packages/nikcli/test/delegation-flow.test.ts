@@ -48,9 +48,11 @@ function createContext(sessionID: string): Tool.Context {
   return {
     sessionID,
     messageID: "msg_test",
+    callID: "call_test",
     agent: "build",
     abort: new AbortController().signal,
     metadata() {},
+    async progress() {},
     async ask() {},
   }
 }

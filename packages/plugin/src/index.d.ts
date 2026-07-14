@@ -224,6 +224,8 @@ export interface Hooks {
     input: {
       tool: string
       sessionID: string
+      agent: string
+      messageID: string
       callID: string
     },
     output: {
@@ -234,6 +236,8 @@ export interface Hooks {
     input: {
       tool: string
       sessionID: string
+      agent: string
+      messageID: string
       callID: string
     },
     output: {

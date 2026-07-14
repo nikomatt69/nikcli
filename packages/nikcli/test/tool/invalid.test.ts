@@ -1,6 +1,9 @@
 import { afterAll, describe, expect, it } from "bun:test"
 import z from "zod"
 import { InvalidTool } from "../../src/tool/invalid"
+import { Tool } from "../../src/tool/tool"
+import { Effect } from "effect"
+import { Tool as EffectPluginTool } from "@nikcli-ai/plugin/v2/effect"
 import { recordBenchmark, flushBenchmarkRun } from "../benchmarks/runner"
 
 describe("InvalidTool", () => {
@@ -18,15 +21,96 @@ describe("InvalidTool", () => {
       {
         sessionID: "ses_test",
         messageID: "msg_test",
+        callID: "call_test",
         agent: "build",
         abort: new AbortController().signal,
         metadata() {},
+        async progress() {},
         async ask() {},
       },
     )
     expect(result.title).toBe("Invalid Tool")
     expect(result.output).toContain("missing path")
     expect(result.output).toContain("invalid")
+  })
+
+  it("forwards progress from Promise and Effect tool implementations", async () => {
+    const updates: Tool.Progress[] = []
+    const context: Tool.Context = {
+      sessionID: "ses_progress",
+      messageID: "msg_progress",
+      callID: "call_progress",
+      agent: "build",
+      abort: new AbortController().signal,
+      metadata() {},
+      async progress(update) {
+        updates.push(update)
+      },
+      async ask() {},
+    }
+    const parameters = z.object({ value: z.string() })
+    const promiseTool = Tool.define("promise-progress", {
+      description: "Promise progress test",
+      parameters,
+      async execute(args, ctx) {
+        await ctx.progress({ structured: { phase: args.value } })
+        return { title: "", metadata: {}, output: args.value }
+      },
+    })
+    const effectTool = Tool.define("effect-progress", {
+      description: "Effect progress test",
+      parameters,
+      execute: (args, ctx) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            ctx.progress({
+              structured: { phase: args.value },
+              content: [{ type: "text", text: "working" }],
+            }),
+          )
+          return { title: "", metadata: {}, output: args.value }
+        }),
+    })
+
+    await (await promiseTool.init()).executeAsync({ value: "promise" }, context)
+    await (await effectTool.init()).executeAsync({ value: "effect" }, context)
+
+    expect(updates).toEqual([
+      { structured: { phase: "promise" } },
+      { structured: { phase: "effect" }, content: [{ type: "text", text: "working" }] },
+    ])
+  })
+
+  it("adapts Effect plugin progress to the Promise plugin host contract", async () => {
+    const updates: Tool.Progress[] = []
+    const definition = EffectPluginTool.tool({
+      description: "Effect plugin progress test",
+      args: { value: z.string() },
+      execute: (args, ctx) =>
+        Effect.gen(function* () {
+          yield* ctx.progress({ structured: { value: args.value } })
+          return args.value
+        }),
+    })
+
+    const result = await definition.execute(
+      { value: "ready" },
+      {
+        sessionID: "ses_plugin_progress",
+        messageID: "msg_plugin_progress",
+        callID: "call_plugin_progress",
+        agent: "build",
+        abort: new AbortController().signal,
+        metadata() {},
+        async progress(update) {
+          updates.push(update)
+        },
+        async ask() {},
+      },
+    )
+
+    expect(result).toBe("ready")
+    expect(updates).toEqual([{ structured: { value: "ready" } }])
   })
 })
 

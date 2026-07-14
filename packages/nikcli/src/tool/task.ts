@@ -922,6 +922,14 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
           researchMetadata?.question,
         reused: true,
       }
+      if (existing.sessionID) {
+        await ctx.progress({
+          structured: {
+            sessionID: existing.sessionID,
+            status: "running",
+          },
+        })
+      }
       ctx.metadata({ title: params.description, metadata })
       return {
         title: params.description,
@@ -960,6 +968,13 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
 
   const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
   if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
+
+  await ctx.progress({
+    structured: {
+      sessionID: session.id,
+      status: "running",
+    },
+  })
 
   ctx.metadata({
     title: params.description,

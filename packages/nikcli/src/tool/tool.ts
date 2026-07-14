@@ -19,6 +19,20 @@ export namespace Tool {
 
   export type Metadata = Record<string, unknown>
 
+  export type ProgressContent =
+    | { readonly type: "text"; readonly text: string }
+    | {
+        readonly type: "file"
+        readonly data: string
+        readonly mime: string
+        readonly name?: string
+      }
+
+  export type Progress = {
+    readonly structured: Readonly<Record<string, unknown>>
+    readonly content?: ReadonlyArray<ProgressContent>
+  }
+
   export interface StrictMetadata extends z.ZodType<Record<string, unknown>> {}
 
   export interface InitContext {
@@ -30,10 +44,11 @@ export namespace Tool {
     messageID: string
     agent: string
     abort: AbortSignal
-    callID?: string
+    callID: string
     extra?: Record<string, unknown>
     messages?: MessageV2.WithParts[]
     metadata(input: { title?: string; metadata?: M }): void
+    progress(input: Progress): Promise<void>
     ask(input: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">): Promise<void>
   }
 

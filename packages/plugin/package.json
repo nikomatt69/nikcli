@@ -30,6 +30,22 @@
     "./v2/tui/*": {
       "import": "./src/v2/tui/*.ts",
       "types": "./src/v2/tui/*.ts"
+    },
+    "./v2/effect": {
+      "import": "./src/v2/effect/index.ts",
+      "types": "./src/v2/effect/index.ts"
+    },
+    "./v2/effect/tool": {
+      "import": "./src/v2/effect/tool.ts",
+      "types": "./src/v2/effect/tool.ts"
+    },
+    "./v2/promise": {
+      "import": "./src/v2/promise/index.ts",
+      "types": "./src/v2/promise/index.ts"
+    },
+    "./v2/promise/tool": {
+      "import": "./src/v2/promise/tool.ts",
+      "types": "./src/v2/promise/tool.ts"
     }
   },
   "files": [
@@ -41,13 +57,18 @@
       "./tool": "./dist/tool.js",
       "./tui": "./dist/tui.js",
       "./v2/tui": "./dist/v2/tui/index.js",
-      "./v2/tui/*": "./dist/v2/tui/*.js"
+      "./v2/tui/*": "./dist/v2/tui/*.js",
+      "./v2/effect": "./dist/v2/effect/index.js",
+      "./v2/effect/tool": "./dist/v2/effect/tool.js",
+      "./v2/promise": "./dist/v2/promise/index.js",
+      "./v2/promise/tool": "./dist/v2/promise/tool.js"
     }
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
     "@opentui/core": "0.1.91",
     "@opentui/solid": "0.1.91",
+    "effect": "4.0.0-beta.83",
     "zod": "catalog:"
   },
   "devDependencies": {

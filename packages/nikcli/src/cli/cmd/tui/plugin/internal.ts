@@ -18,11 +18,14 @@ import Observability from "../feature-plugins/observability"
 import Island from "../feature-plugins/island"
 
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
+import type { Definition } from "@nikcli-ai/plugin/v2/tui/plugin"
 
-export type InternalTuiPlugin = TuiPluginModule & {
-  id: string
-  tui: TuiPlugin
-}
+export type InternalTuiPlugin =
+  | (TuiPluginModule & {
+      id: string
+      tui: TuiPlugin
+    })
+  | Definition
 
 export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   HomeTips,

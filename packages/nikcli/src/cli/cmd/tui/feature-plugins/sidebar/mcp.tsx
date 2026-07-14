@@ -1,67 +1,54 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
-import { createMemo, For, Match, Show, Switch, createSignal } from "solid-js"
+import { Plugin } from "@nikcli-ai/plugin/v2/tui"
+import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js"
+import { useSync } from "@tui/context/sync"
+import { useTheme } from "@tui/context/theme"
 
-const id = "internal:sidebar-mcp"
-
-function View(props: { api: TuiPluginApi }) {
+function View() {
+  const sync = useSync()
+  const theme = useTheme().theme
   const [open, setOpen] = createSignal(true)
-  const theme = () => props.api.theme.current
-  const list = createMemo(() => props.api.state.mcp())
-  const on = createMemo(() => list().filter((item) => item.status === "connected").length)
-  const bad = createMemo(
+  const list = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
+  const active = createMemo(() => list().filter(([, item]) => item.status === "connected").length)
+  const failed = createMemo(
     () =>
-      list().filter(
-        (item) =>
-          item.status === "failed" || item.status === "needs_auth" || item.status === "needs_client_registration",
-      ).length,
+      list().filter(([, item]) => ["failed", "needs_auth", "needs_client_registration"].includes(item.status)).length,
   )
-
-  const dot = (status: string) => {
-    if (status === "connected") return theme().success
-    if (status === "failed") return theme().error
-    if (status === "disabled") return theme().textMuted
-    if (status === "needs_auth") return theme().warning
-    if (status === "needs_client_registration") return theme().error
-    return theme().textMuted
+  const color = (status: string) => {
+    if (status === "connected") return theme.success
+    if (status === "failed" || status === "needs_client_registration") return theme.error
+    if (status === "needs_auth") return theme.warning
+    return theme.textMuted
   }
 
   return (
     <Show when={list().length > 0}>
       <box>
-        <box flexDirection="row" gap={1} onMouseDown={() => list().length > 2 && setOpen((x) => !x)}>
+        <box flexDirection="row" gap={1} onMouseDown={() => list().length > 2 && setOpen((value) => !value)}>
           <Show when={list().length > 2}>
-            <text fg={theme().text}>{open() ? "▼" : "▶"}</text>
+            <text fg={theme.text}>{open() ? "▼" : "▶"}</text>
           </Show>
-          <text fg={theme().text}>
+          <text fg={theme.text}>
             <b>MCP</b>
             <Show when={!open()}>
-              <span style={{ fg: theme().textMuted }}>
-                {" "}
-                ({on()} active{bad() > 0 ? `, ${bad()} error${bad() > 1 ? "s" : ""}` : ""})
+              <span style={{ fg: theme.textMuted }}>
+                {` (${active()} active${failed() ? `, ${failed()} error${failed() > 1 ? "s" : ""}` : ""})`}
               </span>
             </Show>
           </text>
         </box>
         <Show when={list().length <= 2 || open()}>
           <For each={list()}>
-            {(item) => (
+            {([name, item]) => (
               <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: dot(item.status),
-                  }}
-                >
+                <text flexShrink={0} fg={color(item.status)}>
                   •
                 </text>
-                <text fg={theme().text} wrapMode="word">
-                  {item.name}{" "}
-                  <span style={{ fg: theme().textMuted }}>
+                <text fg={theme.text} wrapMode="word">
+                  {name}{" "}
+                  <span style={{ fg: theme.textMuted }}>
                     <Switch fallback={item.status}>
                       <Match when={item.status === "connected"}>Connected</Match>
-                      <Match when={item.status === "failed"}>
-                        <i>{item.error}</i>
-                      </Match>
+                      <Match when={item.status === "failed" && item}>{(value) => <i>{value().error}</i>}</Match>
                       <Match when={item.status === "disabled"}>Disabled</Match>
                       <Match when={item.status === "needs_auth"}>Needs auth</Match>
                       <Match when={item.status === "needs_client_registration"}>Needs client ID</Match>
@@ -77,20 +64,9 @@ function View(props: { api: TuiPluginApi }) {
   )
 }
 
-const tui: TuiPlugin = async (api) => {
-  api.slots.register({
-    order: 200,
-    slots: {
-      sidebar_content() {
-        return <View api={api} />
-      },
-    },
-  })
-}
-
-const plugin: TuiPluginModule & { id: string } = {
-  id,
-  tui,
-}
-
-export default plugin
+export default Plugin.define({
+  id: "internal:sidebar-mcp",
+  setup(ctx) {
+    ctx.ui.slot("sidebar.content", () => <View />)
+  },
+})

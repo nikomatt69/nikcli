@@ -113,17 +113,28 @@ export async function resolveTools(input: {
     metadata: async (val: { title?: string; metadata?: Record<string, unknown> }) => {
       const match = input.processor.partFromToolCall(options.toolCallId)
       if (match && match.state.status === "running") {
+        match.state = {
+          ...match.state,
+          title: val.title,
+          metadata: val.metadata,
+        }
         await sessionUpdatePart({
           ...match,
-          state: {
-            title: val.title,
-            metadata: val.metadata,
-            status: "running",
-            input: args,
-            time: {
-              start: Date.now(),
-            },
-          },
+          state: match.state,
+        })
+      }
+    },
+    progress: async (update) => {
+      const match = input.processor.partFromToolCall(options.toolCallId)
+      if (match && match.state.status === "running") {
+        match.state = {
+          ...match.state,
+          structured: { ...update.structured },
+          content: [...(update.content ?? [])],
+        }
+        await sessionUpdatePart({
+          ...match,
+          state: match.state,
         })
       }
     },
@@ -161,6 +172,8 @@ export async function resolveTools(input: {
               {
                 tool: item.id,
                 sessionID: ctx.sessionID,
+                agent: ctx.agent,
+                messageID: ctx.messageID,
                 callID: ctx.callID,
               },
               {
@@ -181,6 +194,8 @@ export async function resolveTools(input: {
               {
                 tool: item.id,
                 sessionID: ctx.sessionID,
+                agent: ctx.agent,
+                messageID: ctx.messageID,
                 callID: ctx.callID,
               },
               result,
@@ -222,6 +237,8 @@ export async function resolveTools(input: {
             {
               tool: key,
               sessionID: ctx.sessionID,
+              agent: ctx.agent,
+              messageID: ctx.messageID,
               callID: opts.toolCallId,
             },
             {
@@ -250,6 +267,8 @@ export async function resolveTools(input: {
             {
               tool: key,
               sessionID: ctx.sessionID,
+              agent: ctx.agent,
+              messageID: ctx.messageID,
               callID: opts.toolCallId,
             },
             result,
@@ -333,6 +352,8 @@ export async function resolveTools(input: {
             {
               tool: key,
               sessionID: ctx.sessionID,
+              agent: ctx.agent,
+              messageID: ctx.messageID,
               callID: opts.toolCallId,
             },
             {
@@ -361,6 +382,8 @@ export async function resolveTools(input: {
             {
               tool: key,
               sessionID: ctx.sessionID,
+              agent: ctx.agent,
+              messageID: ctx.messageID,
               callID: opts.toolCallId,
             },
             result,

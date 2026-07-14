@@ -31,9 +31,11 @@ function makeCtx(overrides: Partial<ToolType.Context> = {}): ToolType.Context {
   return {
     sessionID: "test-session",
     messageID: "test-message",
+    callID: "test-call",
     agent: "test",
     abort: new AbortController().signal,
     metadata: () => {},
+    progress: async () => {},
     ask: async () => {},
     ...overrides,
   }

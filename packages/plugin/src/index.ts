@@ -226,11 +226,11 @@ export interface Hooks {
     output: { parts: Part[] },
   ) => Promise<void>
   "tool.execute.before"?: (
-    input: { tool: string; sessionID: string; callID: string },
+    input: { tool: string; sessionID: string; agent: string; messageID: string; callID: string },
     output: { args: any },
   ) => Promise<void>
   "tool.execute.after"?: (
-    input: { tool: string; sessionID: string; callID: string },
+    input: { tool: string; sessionID: string; agent: string; messageID: string; callID: string },
     output: {
       title: string
       output: string

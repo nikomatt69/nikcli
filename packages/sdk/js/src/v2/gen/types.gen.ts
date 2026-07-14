@@ -384,6 +384,21 @@ export type ToolStateRunning = {
   metadata?: {
     [key: string]: unknown
   }
+  structured?: {
+    [key: string]: unknown
+  }
+  content?: Array<
+    | {
+        type: "text"
+        text: string
+      }
+    | {
+        type: "file"
+        data: string
+        mime: string
+        name?: string
+      }
+  >
   time: {
     start: number
   }

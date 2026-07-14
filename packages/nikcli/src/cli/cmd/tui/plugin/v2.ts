@@ -1,5 +1,5 @@
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
-import type { Context, Data, Destination, Route } from "@nikcli-ai/plugin/v2/tui/context"
+import type { Context, Destination, Route } from "@nikcli-ai/plugin/v2/tui/context"
 import type { Definition } from "@nikcli-ai/plugin/v2/tui/plugin"
 import { isRecord } from "@/util/record"
 
@@ -55,43 +55,6 @@ function navigate(api: TuiPluginApi, owner: string, destination: Destination) {
   api.route.navigate(routeName(id, destination.name), destination.data)
 }
 
-function createData(api: TuiPluginApi): Data {
-  return {
-    on(type, handler) {
-      return api.event.on(type, handler)
-    },
-    listen(handler) {
-      return api.event.listen(handler)
-    },
-    get ready() {
-      return api.state.ready
-    },
-    get config() {
-      return api.state.config
-    },
-    get provider() {
-      return api.state.provider
-    },
-    get path() {
-      return api.state.path
-    },
-    get vcs() {
-      return api.state.vcs
-    },
-    workspace: api.state.workspace,
-    session: api.state.session,
-    part(messageID) {
-      return api.state.part(messageID)
-    },
-    lsp() {
-      return api.state.lsp()
-    },
-    mcp() {
-      return api.state.mcp()
-    },
-  }
-}
-
 export function adaptV2TuiPlugin(definition: Definition): TuiPlugin {
   return async (api, options) => {
     const pages = new Set<string>()
@@ -99,7 +62,7 @@ export function adaptV2TuiPlugin(definition: Definition): TuiPlugin {
     const context: Context = {
       options: options ?? {},
       client: api.client,
-      data: createData(api),
+      data: api.data,
       ui: {
         router: {
           register(page) {

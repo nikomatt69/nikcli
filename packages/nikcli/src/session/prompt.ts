@@ -790,7 +790,9 @@ export namespace SessionPrompt {
               {
                 tool: "task",
                 sessionID,
-                callID: part.id,
+                agent: task.agent,
+                messageID: assistantMessage.id,
+                callID: part.callID,
               },
               { args: taskArgs },
             )
@@ -812,13 +814,27 @@ export namespace SessionPrompt {
             parentModel: lastUser.model,
           },
           async metadata(input) {
+            if (part.state.status !== "running") return
+            part.state = {
+              ...part.state,
+              ...input,
+            }
             await sessionUpdatePart({
               ...part,
               type: "tool",
-              state: {
-                ...part.state,
-                ...input,
-              },
+              state: part.state,
+            } satisfies MessageV2.ToolPart)
+          },
+          async progress(update) {
+            if (part.state.status !== "running") return
+            part.state = {
+              ...part.state,
+              structured: { ...update.structured },
+              content: [...(update.content ?? [])],
+            }
+            await sessionUpdatePart({
+              ...part,
+              state: part.state,
             } satisfies MessageV2.ToolPart)
           },
           async ask(req) {
@@ -842,7 +858,9 @@ export namespace SessionPrompt {
               {
                 tool: "task",
                 sessionID,
-                callID: part.id,
+                agent: task.agent,
+                messageID: assistantMessage.id,
+                callID: part.callID,
               },
               result,
             )
@@ -1440,8 +1458,10 @@ export namespace SessionPrompt {
                     abort: new AbortController().signal,
                     agent: input.agent!,
                     messageID: info.id,
+                    callID: part.id ?? info.id,
                     extra: { bypassCwdCheck: true, model },
                     metadata: async () => {},
+                    progress: async () => {},
                     ask: async () => {},
                   }
                   const result = await tool.executeAsync(args, readCtx)
@@ -1498,8 +1518,10 @@ export namespace SessionPrompt {
                   abort: new AbortController().signal,
                   agent: input.agent!,
                   messageID: info.id,
+                  callID: part.id ?? info.id,
                   extra: { bypassCwdCheck: true },
                   metadata: async () => {},
+                  progress: async () => {},
                   ask: async () => {},
                 }
                 const result = await ListTool.init().then((t) => t.executeAsync(args, listCtx))

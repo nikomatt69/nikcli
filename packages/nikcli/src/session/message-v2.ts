@@ -360,12 +360,28 @@ export namespace MessageV2 {
 
   export type ToolStatePending = z.infer<typeof ToolStatePending>
 
+  export const ToolProgressContent = z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("text"),
+      text: z.string(),
+    }),
+    z.object({
+      type: z.literal("file"),
+      data: z.string(),
+      mime: z.string(),
+      name: z.string().optional(),
+    }),
+  ])
+  export type ToolProgressContent = z.infer<typeof ToolProgressContent>
+
   export const ToolStateRunning = z
     .object({
       status: z.literal("running"),
       input: z.record(z.string(), z.any()),
       title: z.string().optional(),
       metadata: z.record(z.string(), z.any()).optional(),
+      structured: z.record(z.string(), z.unknown()).optional(),
+      content: ToolProgressContent.array().optional(),
       time: z.object({
         start: z.number(),
       }),

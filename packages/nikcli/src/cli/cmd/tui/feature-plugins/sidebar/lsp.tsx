@@ -1,42 +1,37 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
-import { createMemo, For, Show, createSignal } from "solid-js"
+import { Plugin } from "@nikcli-ai/plugin/v2/tui"
+import { createSignal, For, Show } from "solid-js"
+import { useSync } from "@tui/context/sync"
+import { useTheme } from "@tui/context/theme"
 
-const id = "internal:sidebar-lsp"
-
-function View(props: { api: TuiPluginApi }) {
+function View() {
+  const sync = useSync()
+  const theme = useTheme().theme
   const [open, setOpen] = createSignal(true)
-  const theme = () => props.api.theme.current
-  const list = createMemo(() => props.api.state.lsp())
-  const off = createMemo(() => props.api.state.config.lsp === false)
-
   return (
     <box>
-      <box flexDirection="row" gap={1} onMouseDown={() => list().length > 2 && setOpen((x) => !x)}>
-        <Show when={list().length > 2}>
-          <text fg={theme().text}>{open() ? "▼" : "▶"}</text>
+      <box flexDirection="row" gap={1} onMouseDown={() => sync.data.lsp.length > 2 && setOpen((value) => !value)}>
+        <Show when={sync.data.lsp.length > 2}>
+          <text fg={theme.text}>{open() ? "▼" : "▶"}</text>
         </Show>
-        <text fg={theme().text}>
+        <text fg={theme.text}>
           <b>LSP</b>
         </text>
       </box>
-      <Show when={list().length <= 2 || open()}>
-        <Show when={list().length === 0}>
-          <text fg={theme().textMuted}>
-            {off() ? "LSPs have been disabled in settings" : "LSPs will activate as files are read"}
+      <Show when={sync.data.lsp.length <= 2 || open()}>
+        <Show when={sync.data.lsp.length === 0}>
+          <text fg={theme.textMuted}>
+            {sync.data.config.lsp === false
+              ? "LSPs have been disabled in settings"
+              : "LSPs will activate as files are read"}
           </text>
         </Show>
-        <For each={list()}>
+        <For each={sync.data.lsp}>
           {(item) => (
             <box flexDirection="row" gap={1}>
-              <text
-                flexShrink={0}
-                style={{
-                  fg: item.status === "connected" ? theme().success : theme().error,
-                }}
-              >
+              <text flexShrink={0} fg={item.status === "connected" ? theme.success : theme.error}>
                 •
               </text>
-              <text fg={theme().textMuted}>
+              <text fg={theme.textMuted}>
                 {item.id} {item.root}
               </text>
             </box>
@@ -47,20 +42,9 @@ function View(props: { api: TuiPluginApi }) {
   )
 }
 
-const tui: TuiPlugin = async (api) => {
-  api.slots.register({
-    order: 300,
-    slots: {
-      sidebar_content() {
-        return <View api={api} />
-      },
-    },
-  })
-}
-
-const plugin: TuiPluginModule & { id: string } = {
-  id,
-  tui,
-}
-
-export default plugin
+export default Plugin.define({
+  id: "internal:sidebar-lsp",
+  setup(ctx) {
+    ctx.ui.slot("sidebar.content", () => <View />)
+  },
+})

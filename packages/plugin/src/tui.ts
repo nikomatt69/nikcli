@@ -16,6 +16,7 @@ import type {
 import type { CliRenderer, ParsedKey, RGBA } from "@opentui/core"
 import type { JSX, SolidPlugin } from "@opentui/solid"
 import type { Config as PluginConfig, PluginOptions } from "./index.js"
+import type { Data as TuiV2Data } from "./v2/tui/context.js"
 
 export type { CliRenderer, SlotMode } from "@opentui/core"
 
@@ -444,6 +445,8 @@ export type TuiPluginApi = {
   readonly tuiConfig: Frozen<TuiConfigView>
   kv: TuiKV
   state: TuiState
+  /** Full reactive data contract used by v2 TUI plugins. */
+  data: TuiV2Data
   theme: TuiTheme
   client: NikcliClient
   event: TuiEventBus

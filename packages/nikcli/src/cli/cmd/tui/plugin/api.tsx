@@ -19,6 +19,7 @@ import { DialogSelect, type DialogSelectOption as SelectOption } from "../ui/dia
 import type { useToast } from "../ui/toast"
 import { Installation } from "@/installation"
 import { TuiPluginRuntime } from "./runtime"
+import { createV2Data } from "./data"
 
 type RouteEntry = {
   key: symbol
@@ -313,6 +314,7 @@ export function createTuiApi(input: Input): TuiPluginApi {
       input.command.show()
     },
   }
+  const data = createV2Data(input)
 
   return {
     app: appApi(),
@@ -415,6 +417,7 @@ export function createTuiApi(input: Input): TuiPluginApi {
       },
     },
     state: stateApi(input.sync),
+    data,
     get client() {
       return input.sdk.client
     },

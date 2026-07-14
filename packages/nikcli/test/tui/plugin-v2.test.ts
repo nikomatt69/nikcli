@@ -14,6 +14,7 @@ function host() {
 
   const api = {
     client: { marker: "client" },
+    data: { marker: "data" },
     state: {
       ready: true,
       config: {},
@@ -110,7 +111,7 @@ describe("v2 tui plugin compatibility", () => {
     await module!.tui(runtime.api, { enabled: true }, {} as never)
 
     expect(context?.options).toEqual({ enabled: true })
-    expect(context?.data.ready).toBe(true)
+    expect(context?.data).toBe(runtime.api.data)
     expect(runtime.routes).toHaveLength(1)
     expect(runtime.slots).toHaveLength(1)
 

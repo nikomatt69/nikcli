@@ -43,7 +43,7 @@ import { Installation } from "@/installation"
 import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"
 import { setupSlots, Slot as View } from "./slots"
 import type { HostPluginApi, HostSlots } from "./slots"
-import { readV2TuiPlugin } from "./v2"
+import { adaptV2TuiPlugin, readV2TuiPlugin } from "./v2"
 
 type PluginLoad = {
   item?: Config.PluginSpec
@@ -301,6 +301,13 @@ function createMeta(
 function loadInternalPlugin(item: InternalTuiPlugin): PluginLoad {
   const spec = item.id
   const target = spec
+  const module: TuiPluginModule =
+    "setup" in item
+      ? {
+          id: item.id,
+          tui: adaptV2TuiPlugin(item),
+        }
+      : item
 
   return {
     spec,
@@ -308,7 +315,7 @@ function loadInternalPlugin(item: InternalTuiPlugin): PluginLoad {
     retry: false,
     source: "internal",
     id: item.id,
-    module: item,
+    module,
     install_theme: createThemeInstaller(
       {
         scope: "global",
@@ -339,14 +346,16 @@ function createPluginScope(load: PluginLoad, id: string) {
 
   const track = (fn: (() => void) | undefined) => {
     if (!fn) return () => {}
-    const off = onDispose(fn)
     let drop = false
-    return () => {
+    let off = () => {}
+    const wrapped = () => {
       if (drop) return
       drop = true
       off()
       fn()
     }
+    off = onDispose(wrapped)
+    return wrapped
   }
 
   const lifecycle: TuiPluginApi["lifecycle"] = {
@@ -583,6 +592,7 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
     tuiConfig: api.tuiConfig,
     kv: api.kv,
     state: api.state,
+    data: api.data,
     theme,
     get client() {
       return api.client

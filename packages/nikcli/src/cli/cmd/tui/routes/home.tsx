@@ -4,7 +4,6 @@ import { useTheme } from "@tui/context/theme"
 import { useKeybind } from "@tui/context/keybind"
 import { Logo } from "../component/logo"
 import { BgPulse, type BgPulseMask } from "../component/bg-pulse"
-import { Tips } from "../component/tips"
 import { Locale } from "@/util/locale"
 import { useSync } from "../context/sync"
 import { useRemoteSync } from "../context/remote-sync"
@@ -14,20 +13,15 @@ import { useDirectory } from "../context/directory"
 import { useRouteData } from "@tui/context/route"
 import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
-import { useKV } from "../context/kv"
-import { useCommandDialog } from "../component/dialog-command"
 import type { BoxRenderable } from "@opentui/core"
 import { TuiPluginRuntime } from "../plugin"
 export function Home() {
   const sync = useSync()
   const remote = useRemoteSync()
-  const kv = useKV()
   const { theme } = useTheme()
   const route = useRouteData("home")
   const promptRef = usePromptRef()
-  const command = useCommandDialog()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
-  const ads = createMemo(() => sync.data.config.ads)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
   })
@@ -35,27 +29,6 @@ export function Home() {
   const connectedMcpCount = createMemo(() => {
     return Object.values(sync.data.mcp).filter((x) => x.status === "connected").length
   })
-
-  const isFirstTimeUser = createMemo(() => sync.data.session.length === 0)
-  const tipsHidden = createMemo(() => kv.get("tips_hidden", false))
-  const showTips = createMemo(() => {
-    // Don't show tips for first-time users
-    if (isFirstTimeUser()) return false
-    return !tipsHidden()
-  })
-
-  command.register(() => [
-    {
-      title: tipsHidden() ? "Show tips" : "Hide tips",
-      value: "tips.toggle",
-      keybind: "tips_toggle",
-      category: "System",
-      onSelect: (dialog) => {
-        kv.set("tips_hidden", !tipsHidden())
-        dialog.clear()
-      },
-    },
-  ])
 
   const Hint = (
     <Show when={connectedMcpCount() > 0}>
@@ -134,11 +107,6 @@ export function Home() {
             hint={Hint}
             workspaceID={route.workspaceID}
           />
-        </box>
-        <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>
-          <Show when={showTips()}>
-            <Tips ads={ads()} />
-          </Show>
         </box>
         <TuiPluginRuntime.Slot name="home.bottom" />
         <box flexGrow={1} minHeight={0} />

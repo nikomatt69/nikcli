@@ -2,6 +2,7 @@ import { z } from "zod"
 export type ToolContext = {
   sessionID: string
   messageID: string
+  callID: string
   agent: string
   abort: AbortSignal
   metadata(input: {
@@ -10,7 +11,23 @@ export type ToolContext = {
       [key: string]: any
     }
   }): void
+  progress(input: ToolProgress): Promise<void>
   ask(input: AskInput): Promise<void>
+}
+export type ToolProgressContent =
+  | {
+      readonly type: "text"
+      readonly text: string
+    }
+  | {
+      readonly type: "file"
+      readonly data: string
+      readonly mime: string
+      readonly name?: string
+    }
+export type ToolProgress = {
+  readonly structured: Readonly<Record<string, unknown>>
+  readonly content?: ReadonlyArray<ToolProgressContent>
 }
 type AskInput = {
   permission: string

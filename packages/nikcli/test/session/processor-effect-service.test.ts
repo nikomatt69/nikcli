@@ -1,8 +1,25 @@
 import { describe, expect, it } from "bun:test"
 import { SessionProcessor } from "@/session/processor"
+import { MessageV2 } from "@/session/message-v2"
 import { Effect } from "effect"
 
 describe("SessionProcessor.Service", () => {
+  it("accepts structured and content progress on running tool parts", () => {
+    const state = MessageV2.ToolStateRunning.parse({
+      status: "running",
+      input: { description: "inspect" },
+      structured: { sessionID: "ses_child", status: "running" },
+      content: [
+        { type: "text", text: "working" },
+        { type: "file", data: "aGVsbG8=", mime: "text/plain", name: "progress.txt" },
+      ],
+      time: { start: 1 },
+    })
+
+    expect(state.structured?.sessionID).toBe("ses_child")
+    expect(state.content).toHaveLength(2)
+  })
+
   it("creates processor instances through the Effect service boundary", async () => {
     const assistantMessage = {
       id: "msg_test",

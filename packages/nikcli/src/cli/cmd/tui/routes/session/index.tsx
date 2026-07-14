@@ -2041,7 +2041,11 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
 
   const toolprops = {
     get metadata() {
-      return props.part.state.status === "pending" ? {} : (props.part.state.metadata ?? {})
+      if (props.part.state.status === "pending") return {}
+      return {
+        ...(props.part.state.metadata ?? {}),
+        ...(props.part.state.status === "running" ? (props.part.state.structured ?? {}) : {}),
+      }
     },
     get input() {
       return props.part.state.input ?? {}
@@ -3283,26 +3287,30 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const local = useLocal()
   const sync = useSync()
 
-  const meta = props.metadata as Record<string, any>
-  const input = props.input as Record<string, any>
+  const meta = createMemo(() => props.metadata as Record<string, any>)
+  const input = createMemo(() => props.part.state.input as Record<string, any>)
   const metadataSessionID = createMemo(() =>
-    typeof meta.sessionId === "string" ? (meta.sessionId as string) : undefined,
+    typeof meta().sessionID === "string"
+      ? (meta().sessionID as string)
+      : typeof meta().sessionId === "string"
+        ? (meta().sessionId as string)
+        : undefined,
   )
   const rootDelegationID = createMemo(() => {
-    if (typeof meta.rootDelegationId === "string") return meta.rootDelegationId as string
-    if (typeof meta.delegationId === "string") return meta.delegationId as string
+    if (typeof meta().rootDelegationId === "string") return meta().rootDelegationId as string
+    if (typeof meta().delegationId === "string") return meta().delegationId as string
     return undefined
   })
-  const isBackground = createMemo(() => Boolean(meta.background || meta.delegationId))
-  const kind = createMemo(() => (typeof meta.kind === "string" ? meta.kind : undefined))
-  const question = createMemo(() => (typeof meta.question === "string" ? meta.question.trim() : ""))
+  const isBackground = createMemo(() => Boolean(meta().background || meta().delegationId))
+  const kind = createMemo(() => (typeof meta().kind === "string" ? meta().kind : undefined))
+  const question = createMemo(() => (typeof meta().question === "string" ? meta().question.trim() : ""))
   const backgroundJob = createMemo(() => {
     const delegationID = rootDelegationID()
     if (!delegationID) return undefined
     return sync.background.get(props.part.sessionID, delegationID)
   })
   const sessionID = createMemo(() => metadataSessionID() ?? backgroundJob()?.workerSessionID)
-  const liveSummary = createMemo(() => (typeof meta.liveSummary === "string" ? meta.liveSummary.trim() : ""))
+  const liveSummary = createMemo(() => (typeof meta().liveSummary === "string" ? meta().liveSummary.trim() : ""))
   const derivedLiveSummary = createMemo(() => {
     const child = sessionID()
     if (!child) return ""
@@ -3341,7 +3349,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
   })
 
   const current = createMemo(() => {
-    const summary = meta.summary as
+    const summary = meta().summary as
       | Array<{
           id: string
           tool: string
@@ -3354,11 +3362,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
     }
     return undefined
   })
-  const color = createMemo(() => local.agent.color(input.subagent_type ?? "unknown"))
+  const color = createMemo(() => local.agent.color(input().subagent_type ?? "unknown"))
 
   return (
     <BlockTool
-      title={"# " + Locale.titlecase(input.subagent_type ?? "unknown") + " Task"}
+      title={"# " + Locale.titlecase(input().subagent_type ?? "unknown") + " Task"}
       titleColor={color()}
       accentColor={color()}
       onClick={
@@ -3375,8 +3383,8 @@ function Task(props: ToolProps<typeof TaskTool>) {
     >
       <box>
         <text style={{ fg: theme.textMuted }}>
-          {input.description}
-          <Show when={meta.summary?.length}> ({meta.summary?.length} toolcalls)</Show>
+          {input().description}
+          <Show when={meta().summary?.length}> ({meta().summary?.length} toolcalls)</Show>
         </text>
         <Show when={kind() === "research" && question()}>
           <text style={{ fg: theme.textMuted }}>└ {question()}</text>
@@ -3406,7 +3414,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
         <Show when={rootDelegationID() && isBackground()}>
           <text style={{ fg: theme.textMuted }}>└ job {rootDelegationID()}</text>
         </Show>
-        <Show when={meta.reused && isBackground()}>
+        <Show when={meta().reused && isBackground()}>
           <text style={{ fg: theme.textMuted }}>└ reused existing background research</text>
         </Show>
       </box>
