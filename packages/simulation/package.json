@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/simulation",
+  "version": "1.160.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./backend": "./src/backend/index.ts",
+    "./backend/*": "./src/backend/*.ts",
+    "./frontend": "./src/frontend/simulation.ts",
+    "./frontend/*": "./src/frontend/*.ts",
+    "./protocol": "./src/protocol/index.ts",
+    "./recording": "./src/recording.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/adwaita-mono": "5.2.1",
+    "@napi-rs/canvas": "1.0.2",
+    "@nikcli-ai/http-recorder": "workspace:*",
+    "@nikcli-ai/llm": "workspace:*",
+    "@opentui/core": "0.1.95",
+    "effect": "4.0.0-beta.83"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}

@@ -124,9 +124,13 @@ export function tui(input: {
         const unguard = win32InstallCtrlCGuard()
         win32DisableProcessedInput()
         const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
-        const renderer = await createCliRenderer(rendererConfig(tuiCfg))
-        void renderer.getPalette({ size: 16 }).catch(() => undefined)
-        const mode = (await (renderer as any).waitForThemeMode?.(1000)) ?? "dark"
+        const drive = Boolean(process.env.NIKCLI_DRIVE)
+        const headless = drive && process.env.NIKCLI_DRIVE_RENDERER === "headless"
+        const renderer = drive
+          ? await (await import("@nikcli-ai/simulation/frontend")).Drive.create(rendererConfig(tuiCfg))
+          : await createCliRenderer(rendererConfig(tuiCfg))
+        if (!headless) void renderer.getPalette({ size: 16 }).catch(() => undefined)
+        const mode = headless ? "dark" : ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark")
         const onExit = async () => {
           unguard?.()
           await input.onExit?.()

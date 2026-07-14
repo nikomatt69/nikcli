@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@clack/prompts": "1.0.0-alpha.1",
-    "@effect/platform-node": "4.0.0-beta.65",
+    "@effect/platform-node": "4.0.0-beta.83",
     "@nikcli-ai/http-recorder": "workspace:*",
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",
@@ -50,6 +50,6 @@
     "@smithy/util-utf8": "4.2.2",
     "aws4fetch": "1.0.20",
     "ai": "catalog:",
-    "effect": "4.0.0-beta.65"
+    "effect": "4.0.0-beta.83"
   }
 }

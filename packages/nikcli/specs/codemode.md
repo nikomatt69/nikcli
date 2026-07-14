@@ -1,6 +1,7 @@
 # Codemode — confined code execution over schema-described tools
 
-Status: **implementato** (port da opencode v2, 2026-07-14)
+Status: **implementato** (port da opencode v2, 2026-07-14; effect pin allineato a beta.83 lo
+stesso giorno — vedi la sezione "Bump effect" in `specs/httpapi-codegen.md`)
 
 ## Cosa
 
@@ -69,8 +70,10 @@ Nuovo `src/tool/code_mode.ts` + `code_mode.txt`, modellato su `exec_code`:
 
 ## Rischi / note
 
-- **Drift effect**: upstream è su `effect@4.0.0-beta.83`, nikcli su `beta.65`. Possibili API
-  mancanti/rinominate; si risolve al typecheck. Non bumpare effect per questo.
+- **Drift effect**: risolto — nikcli ora è su `effect@4.0.0-beta.83`, stessa versione upstream.
+  Il sorgente di `src/codemode/` è pristino 1:1 tranne `tool-error.ts` (`Schema.Defect()` come
+  funzione, non `Schema.Defect` costante — la shape è cambiata tra le beta, verificata al
+  typecheck). Se il repo bumpa ulteriormente effect in futuro, ricontrollare quel simbolo.
 - Il DSL è un subset JS documentato upstream in `interpreter-support.md`: syntax non supportata →
   diagnostic `UnsupportedSyntax`, niente classi/generatori/thenable assimilation.
 - Promises eager e supervisionate: ciò che non è awaited al return viene interrotto; rejection
