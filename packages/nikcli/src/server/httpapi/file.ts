@@ -119,10 +119,10 @@ export namespace FileHttpApi {
   // emits, so the SDK generated from either source has the same class tree.
   export const Group = HttpApiGroup.make("file")
     .add(
-      HttpApiEndpoint.get("findText", "/find", { query: TextSearchParams, success: Schema.Array(SearchMatch) }).annotate(
-        OpenApi.Identifier,
-        "find.text",
-      ),
+      HttpApiEndpoint.get("findText", "/find", {
+        query: TextSearchParams,
+        success: Schema.Array(SearchMatch),
+      }).annotate(OpenApi.Identifier, "find.text"),
     )
     .add(
       HttpApiEndpoint.get("findFile", "/find/file", {

@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.167.0 (July 2026)
+
+## Core
+
+- Migrate message-v2/SessionStatus/Todo/FileDiff to Effect Schema, wire into PublicApi (@nikomatt69)
+- Embedded in-process SDK over the real Hono router (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(sdk-next): embedded in-process SDK over the real Hono router
+  - feat(schema): migrate message-v2/SessionStatus/Todo/FileDiff to Effect Schema, wire into PublicApi
+
 ## v1.162.0 (July 2026)
 
 ## Core
