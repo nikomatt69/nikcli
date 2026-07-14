@@ -691,6 +691,20 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/sdk-next": {
+      "name": "@nikcli-ai/sdk-next",
+      "dependencies": {
+        "@nikcli-ai/sdk": "workspace:*",
+        "effect": "4.0.0-beta.83",
+        "nikcli-ai": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/bun": "catalog:",
+        "@types/bun": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "zod": "catalog:",
+      },
+    },
     "packages/sdk/js": {
       "name": "@nikcli-ai/sdk",
       "version": "1.162.0",
@@ -1893,6 +1907,8 @@
     "@nikcli-ai/script": ["@nikcli-ai/script@workspace:packages/script"],
 
     "@nikcli-ai/sdk": ["@nikcli-ai/sdk@workspace:packages/sdk/js"],
+
+    "@nikcli-ai/sdk-next": ["@nikcli-ai/sdk-next@workspace:packages/sdk-next"],
 
     "@nikcli-ai/simulation": ["@nikcli-ai/simulation@workspace:packages/simulation"],
 
