@@ -11,6 +11,7 @@
     "./frontend": "./src/frontend/simulation.ts",
     "./frontend/*": "./src/frontend/*.ts",
     "./protocol": "./src/protocol/index.ts",
+    "./driver": "./src/driver.ts",
     "./recording": "./src/recording.ts",
     "./manifest": "./src/manifest.ts"
   },

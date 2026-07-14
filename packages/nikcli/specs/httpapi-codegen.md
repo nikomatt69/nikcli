@@ -1,7 +1,7 @@
 # httpapi-codegen — Effect-native + Promise SDK generation from HttpApi definitions
 
-Status: **package ported and green; blocked on route-level parity for full nikcli coverage**
-(2026-07-14, updated after bumping the repo's effect pin to 4.0.0-beta.83)
+Status: **completo e integrato nella `PublicHttpApi` reale di nikcli**
+(2026-07-14, Effect 4.0.0-beta.83)
 
 ## Cosa
 
@@ -46,7 +46,7 @@ generazione SDK nativa.
   (`Schema.Defect()` come funzione, non `Schema.Defect` costante — coerente con lo stesso fix qui).
 - Branding: `@opencode-ai/httpapi-codegen` → `@nikcli-ai/httpapi-codegen`; `OpenCode` →
   `NikCli` come nome del namespace del client generato. Unica differenza permanente dall'upstream.
-- Test: **78/78 pass** (73 + 5 test SSE, ripristinati col bump), `bun run typecheck` pulito.
+- Test: **82/82 pass**, `bun run typecheck` pulito.
 - Script `script/generate-fixture.ts` per rigenerare gli snapshot di test da `test/fixture.ts`
   dopo modifiche all'emitter (mirror del pattern upstream `packages/client/script/build.ts`).
 
@@ -61,72 +61,56 @@ Verifica post-bump:
 - `bun install` pulito (nessun conflitto di risoluzione).
 - `bun run typecheck` pulito su tutti e 4 i package + su `packages/nikcli` per intero.
 - `bun test test/codemode test/tool test/acp` in nikcli: **828/828 pass**, invariato.
-- `bun test` in httpapi-codegen: **78/78 pass** (+5 rispetto a beta.65, i test SSE ripristinati).
+- `bun test` in httpapi-codegen: **82/82 pass**.
 - Nessuna patch beta.65-specifica è sopravvissuta tranne il fix `Schema.Defect()` in
   `src/codemode/tool-error.ts` (stesso simbolo, comportamento opposto tra le due versioni).
 
-## Verifica contro la vera `PublicHttpApi` di nikcli (sotto beta.83)
+## Integrazione nella vera `PublicHttpApi`
 
-Compilazione diretta (`compile(PublicHttpApi.Api)`) di tutti i 170 endpoint reali:
+La generazione di produzione parte da `PublicHttpApi.Api` tramite
+`packages/nikcli/script/generate-httpapi-clients.ts` e copre **22 gruppi / 170 endpoint HTTP**.
+L'unica esclusione è `pty.connect`: è un upgrade WebSocket e non appartiene al trasporto HTTP dei
+due client. L'API riflessa contiene quindi 171 endpoint totali.
 
-- **154/170 endpoint (91%) compilano puliti nel contratto.**
-- 16 endpoint falliscono con `Input schema must be a struct` — payload deliberatamente
-  non tipizzati (`Schema.Unknown` o `Schema.Record(Schema.String, Schema.Unknown)`), pattern
-  intenzionale in nikcli per bridge/config a schema libero: `config.update`, `connectors.authSet`,
-  `mission.upsert`/`update`, `loop.upsert`/`update`, `session.update`/`partUpdate`,
-  `project.update`, `pty.update`, tutti i `tui.*` (`appendPrompt`, `executeCommand`, `showToast`,
-  `publish`, `selectSession`, `controlResponse`). Non è un bug del generatore: è un vincolo di
-  design (payload libero → nessun campo tipizzato da derivare per il client Promise).
+Il generatore è stato esteso nei punti emersi dall'audit reale:
 
-Emissione sul sottoinsieme compilabile (154 endpoint) — **due emitter Effect, non uno**:
+- payload non-struct (`Schema.Unknown` e `Schema.Record`) diventano un singolo input opaco
+  `payload`, mantenendo intatto il body JSON invece di inventarne i campi;
+- `omitEndpoints` usa sempre la chiave qualificata `gruppo.nome`, senza esclusioni collaterali;
+- gli errori dichiarati senza discriminatore letterale vengono emessi come tipi strutturali; gli
+  errori tagged/name-discriminated mantengono anche il type guard;
+- le response `Text` (incluso `top-level.vcsDiffRaw`, `text/x-diff`) usano `Response.text()`;
+- `relativeImportExtension: ".js"` produce import compatibili con TypeScript `NodeNext`.
 
-- `emitEffect` (ricostruisce ogni schema da zero, per un'API "generated") **fallisce** su
-  `file.findFile`: il suo `query.limit` usa `Schema.NumberFromString` (una trasformazione), e la
-  ricostruzione richiede che ogni schema coinvolto sia "portabile" — cioè riproducibile fuori dal
-  modulo sorgente. Sotto beta.65 questo passava per via di una mia patch al marker di portabilità
-  poi rimossa col bump: il comportamento pristino (corretto) lo boccia.
-- `emitEffectImported` — **il vero emitter di produzione**, quello che opencode usa realmente per
-  generare `packages/client` (`emitEffectImported(effectContract, { module: "...", api: "..." })`,
-  vedi `packages/client/script/build.ts` upstream) — importa l'oggetto `HttpApi` autoritativo
-  invece di ricostruirlo, quindi **non richiede portabilità** e genera pulito su **tutti e 154 gli
-  endpoint**, `file.findFile` incluso. Il fallimento di `emitEffect` sopra è normale: quell'emitter
-  serve solo a distribuire un client come pacchetto npm autonomo senza importare lo schema server.
-- `emitPromise` è **molto più severo**: richiede errori con discriminatore letterale
-  (`declaredErrorFields`) e success encoding Json/Uint8Array-only. Su nikcli fallisce già dal primo
-  endpoint aggiuntivo escluso (`top-level.vcsApply`, poi a cascata su gran parte di `session.*` e
-  `loop.*`) perché la tassonomia di errori reale di nikcli non è (ancora) modellata con
-  discriminatori letterali ovunque. Il client Promise upstream funziona perché l'intera loro API è
-  stata disegnata per quel constraint fin dall'inizio.
-- Nota tecnica sul port: `omitEndpoints` filtra per **nome endpoint nudo**, non per
-  `gruppo.nome` — su un'API con 78+ classi e nomi ripetuti fra gruppi (`update`, `get`, `create`
-  ricorrono in decine di gruppi), questo causa esclusioni collaterali. Innocuo per l'API upstream
-  (più piccola, nomi meno ripetuti); da qualificare per gruppo se si vuole un generate mirato su
-  nikcli.
+Gli output sono separati in base alle dipendenze runtime:
 
-**Conclusione aggiornata**: usando l'emitter giusto (`emitEffectImported`, non `emitEffect`), il
-client Effect-native si genera oggi, puro, su 154/170 endpoint (91%) — il blocco reale è solo il
-client Promise (tassonomia errori) e i 16 endpoint a payload libero.
+- **Promise SDK pubblico**: `packages/sdk/js/src/httpapi/generated`, esportato come
+  `@nikcli-ai/sdk/httpapi`; non dipende da Effect a runtime.
+- **Effect client interno**: `packages/nikcli/src/server/httpapi/client/generated`, con shape API in
+  `client/api`; importa `PublicApi` da `server/httpapi/public.ts`, quindi usa sempre lo schema
+  autoritativo e supporta anche trasformazioni non portabili come `Schema.NumberFromString`.
 
-## Perché è "non un quick win" (confermato)
+Comandi:
 
-Il blocco non è nel generatore (che porta e funziona), ma nella **forma delle route reali**:
-1. I payload a schema libero (`Schema.Unknown`/`Record`) sono design intenzionale su ~10% delle
-   route — richiederebbero o schemi tipizzati (rompendo la flessibilità voluta) o un'estensione
-   del generatore per emettere un campo payload opaco (`unknown`/`JsonValue`) invece di fallire.
-2. Il client Promise richiede una convenzione di errore (discriminatore letterale ovunque) che le
-   route nikcli non seguono sistematicamente — servirebbe un audit/rifattorizzazione della
-   tassonomia errori attraverso 22 gruppi.
-3. Nessuna delle due cose si fa "in un colpo" senza toccare le definizioni delle route reali —
-   da qui l'aggancio alla migrazione Effect più ampia, non a questo pacchetto isolato.
+```bash
+cd packages/nikcli
+bun run generate:httpapi-clients
 
-## Follow-up possibili (medio termine, fuori scope oggi)
+cd ../sdk/js
+bun run generate:httpapi
+```
 
-- Estendere `normalizeTransport`/`inputFields` per emettere un campo `payload: unknown` opaco
-  quando lo schema non è uno struct, invece di lanciare — sbloccherebbe i 16 endpoint a schema
-  libero senza toccarne la definizione.
-  L'audit qui sopra fornisce la lista esatta di endpoint da coprire.
-- Qualificare `omitEndpoints` per `gruppo.nome` per evitare le collisioni di nome nude su un'API
-  di queste dimensioni.
-- Solo dopo: uno script `script/generate-clients.ts` reale (mirror di
-  `packages/client/script/build.ts` upstream) che scrive in `packages/sdk/js/src/v2` o analogo,
-  sostituendo gradualmente il round-trip Hono→OpenAPI per i gruppi già compatibili.
+La scrittura dei tre output avviene in parallelo e ogni directory usa
+`.httpapi-codegen.json` per eliminare esclusivamente i file generati diventati orfani.
+
+## Verifica finale
+
+- `bun run generate:httpapi-clients`: **22 gruppi / 170 endpoint generati**.
+- `bun run typecheck` in `packages/httpapi-codegen`: pulito.
+- `bun test` in `packages/httpapi-codegen`: **82/82 pass**.
+- `bun run typecheck` in `packages/nikcli`: pulito, incluso il client Effect generato.
+- `bun run typecheck` in `packages/sdk/js`: pulito in modalità NodeNext, incluso il client Promise.
+
+`emitEffect` standalone resta intenzionalmente inadatto alla `PublicHttpApi` completa quando uno
+schema non è ricostruibile fuori dal modulo sorgente. La produzione usa `emitEffectImported`, come
+il client opencode v2 di riferimento, quindi questo non è un limite dell'integrazione.

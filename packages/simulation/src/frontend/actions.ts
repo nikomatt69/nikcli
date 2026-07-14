@@ -4,7 +4,6 @@ import { extname, join, resolve } from "node:path"
 import { TextareaRenderable, type CliRenderer, type Renderable } from "@opentui/core"
 import { createMockKeys, createMockMouse, type MockInput, type MockMouse } from "@opentui/core/testing"
 import type { SimulationProtocol } from "../protocol"
-import { SimulationPng } from "./png"
 import { SimulationRenderer } from "./renderer"
 
 export type Action = SimulationProtocol.Frontend.Action
@@ -102,6 +101,7 @@ export function matches(harness: Pick<Harness, "screen">, text: string) {
 
 export async function screenshot(harness: Harness, name?: string) {
   await harness.renderOnce()
+  const { SimulationPng } = await import("./png")
   const image = SimulationPng.screenshot(harness.renderer)
   const filename = name ?? `screenshot-${crypto.randomUUID()}`
   if (!filename || filename.includes("/") || filename.includes("\\") || extname(filename)) {

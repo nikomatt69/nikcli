@@ -297,6 +297,7 @@ export function emitPromise(
   options?: {
     readonly outputTypes?: Readonly<Record<string, { readonly name: string; readonly import: string }>>
     readonly mutableOutputs?: boolean
+    readonly relativeImportExtension?: ".js"
   },
 ): Output {
   const groups = contract.groups
@@ -313,12 +314,13 @@ export function emitPromise(
       },
       {
         path: "client.ts",
-        content: normalizePromiseClientContent(renderPromiseClient(groups), groups),
+        content: normalizePromiseClientContent(renderPromiseClient(groups), groups)
+          .replace('from "./types"', `from "./types${options?.relativeImportExtension ?? ""}"`)
+          .replace('from "./client-error"', `from "./client-error${options?.relativeImportExtension ?? ""}"`),
       },
       {
         path: "index.ts",
-        content:
-          'export { ClientError, type ClientErrorReason } from "./client-error"\nexport * as NikCli from "./client"\nexport * from "./types"\n',
+        content: `export { ClientError, type ClientErrorReason } from "./client-error${options?.relativeImportExtension ?? ""}"\nexport * as NikCli from "./client${options?.relativeImportExtension ?? ""}"\nexport * from "./types${options?.relativeImportExtension ?? ""}"\n`,
       },
     ],
   }
@@ -419,7 +421,7 @@ function assertPromiseEndpoint(endpoint: Endpoint) {
     }
   } else if (!HttpApiSchema.isNoContent(success.ast)) {
     const encoding = resolveHttpApiEncoding(success.ast)?._tag ?? "Json"
-    if (encoding !== "Json" && encoding !== "Uint8Array") {
+    if (encoding !== "Json" && encoding !== "Uint8Array" && encoding !== "Text") {
       throw new GenerationError({ reason: `Unsupported Promise success encoding: ${name}` })
     }
   }
@@ -708,7 +710,7 @@ function renderPromiseClient(groups: ReadonlyArray<Group>) {
         endpoint.payloads.length === 0 ? undefined : `body: ${part("payload")}`,
       ].filter((value): value is string => value !== undefined)
       const declaredStatuses = [...new Set(endpoint.errors.map((error) => error.status))]
-      const descriptor = `{ method: ${JSON.stringify(endpoint.endpoint.method)}, path: ${path}${parts.length === 0 ? "" : `, ${parts.join(", ")}`}, successStatus: ${resolveHttpApiStatus(endpoint.successes[0].ast) ?? 200}, declaredStatuses: [${declaredStatuses.join(", ")}], empty: ${endpoint.operation.success === "void"}${isBinarySchema(endpoint.successes[0]) ? ", binary: true" : ""} }`
+      const descriptor = `{ method: ${JSON.stringify(endpoint.endpoint.method)}, path: ${path}${parts.length === 0 ? "" : `, ${parts.join(", ")}`}, successStatus: ${resolveHttpApiStatus(endpoint.successes[0].ast) ?? 200}, declaredStatuses: [${declaredStatuses.join(", ")}], empty: ${endpoint.operation.success === "void"}${isBinarySchema(endpoint.successes[0]) ? ", binary: true" : ""}${isTextSchema(endpoint.successes[0]) ? ", text: true" : ""} }`
       if (endpoint.operation.success === "stream") {
         const success = endpoint.successes[0]
         if (!isStreamSchema(success) || success._tag !== "StreamSse" || success.sseMode !== "data") {
@@ -884,6 +886,7 @@ function structuralType(schema: Schema.Top) {
 function normalizePromiseClientContent(content: string, groups: ReadonlyArray<Group>) {
   const endpoints = groups.flatMap((group) => group.endpoints)
   const usesBinary = endpoints.some((endpoint) => isBinarySchema(endpoint.successes[0]))
+  const usesText = endpoints.some((endpoint) => isTextSchema(endpoint.successes[0]))
   const usesWildcard = endpoints.some((endpoint) => promiseWildcardInput(endpoint) !== undefined)
 
   const sseReady = replaceOne(content, "let next: ReadableStreamReadResult<Uint8Array>", "let next")
@@ -894,13 +897,20 @@ function normalizePromiseClientContent(content: string, groups: ReadonlyArray<Gr
         "if (descriptor.binary) return new Uint8Array(await response.arrayBuffer()) as A\n    if (descriptor.empty) {",
       )
     : sseReady
+  const textReady = usesText
+    ? replaceOne(
+        replaceOne(binaryReady, "readonly empty: boolean\n", "readonly empty: boolean\n  readonly text?: true\n"),
+        "if (descriptor.empty) {",
+        "if (descriptor.text) return await response.text() as A\n    if (descriptor.empty) {",
+      )
+    : binaryReady
   return usesWildcard
     ? replaceOne(
-        binaryReady,
+        textReady,
         "function appendQuery(params: URLSearchParams, key: string, value: unknown): void {",
         'function encodePath(value: string): string {\n  return value.split("/").map(encodeURIComponent).join("/")\n}\n\nfunction appendQuery(params: URLSearchParams, key: string, value: unknown): void {',
       )
-    : binaryReady
+    : textReady
 }
 
 function replaceOne(input: string, search: string, replacement: string) {
@@ -935,6 +945,10 @@ function promiseWildcardInput(endpoint: Endpoint): PromiseInputField | undefined
 
 function isBinarySchema(schema: Schema.Top) {
   return (resolveHttpApiEncoding(schema.ast)?._tag ?? "Json") === "Uint8Array"
+}
+
+function isTextSchema(schema: Schema.Top) {
+  return resolveHttpApiEncoding(schema.ast)?._tag === "Text"
 }
 
 function promisePath(path: string, input: ReadonlyArray<InputField>, wildcard?: PromiseInputField) {

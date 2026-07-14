@@ -67,6 +67,16 @@ describe("HttpApiCodegen.generate", () => {
     expect(types).toContain("export type SessionEventsOutput = EventWire")
   })
 
+  test("supports NodeNext relative imports in the Promise client", () => {
+    const output = emitPromise(
+      compileContract(api(HttpApiEndpoint.get("get", "/session", { success: Schema.String }))),
+      { relativeImportExtension: ".js" },
+    )
+
+    expect(output.files.find((file) => file.path === "client.ts")?.content).toContain('from "./types.js"')
+    expect(output.files.find((file) => file.path === "index.ts")?.content).toContain('from "./client.js"')
+  })
+
   test("emits an Effect client against an imported authoritative API", () => {
     const output = emitEffectImported(
       compileContract(
@@ -647,18 +657,6 @@ describe("HttpApiCodegen.generate", () => {
 
   test("rejects Promise transports that are not implemented", () => {
     expect(() =>
-      emitPromise(
-        compileContract(
-          api(
-            HttpApiEndpoint.get("text", "/text", {
-              success: Schema.String.pipe(HttpApiSchema.asText()),
-            }),
-          ),
-        ),
-      ),
-    ).toThrow("Unsupported Promise success encoding: session.text")
-
-    expect(() =>
       emitPromise(compileContract(api(HttpApiEndpoint.get("read", "/file/*/tail", { success: Schema.String })))),
     ).toThrow("Unsupported Promise path wildcard: /file/*/tail")
 
@@ -733,6 +731,22 @@ describe("HttpApiCodegen.generate", () => {
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
+  })
+
+  test("decodes emitted text responses without JSON parsing", () => {
+    const output = emitPromise(
+      compileContract(
+        api(
+          HttpApiEndpoint.get("diff", "/diff", {
+            success: Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/x-diff" })),
+          }),
+        ),
+      ),
+    )
+    const client = output.files.find((file) => file.path === "client.ts")?.content
+
+    expect(client).toContain("text: true")
+    expect(client).toContain("return await response.text() as A")
   })
 
   test("executes an emitted binary wildcard GET through fetch", async () => {

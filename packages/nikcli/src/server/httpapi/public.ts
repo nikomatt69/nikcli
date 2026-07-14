@@ -339,3 +339,6 @@ export namespace PublicHttpApi {
     ),
   )
 }
+
+/** Authoritative public contract used by generated Effect clients. */
+export const PublicApi = PublicHttpApi.Api

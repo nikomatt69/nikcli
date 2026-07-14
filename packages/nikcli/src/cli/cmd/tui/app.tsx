@@ -206,7 +206,7 @@ export function tui(input: {
               </ArgsProvider>
             </ErrorBoundary>
           )
-        })
+        }, renderer)
       } catch (err) {
         reject(err)
       }
@@ -340,36 +340,40 @@ function App() {
 
   onMount(() => {
     void (async () => {
-      // Lazy: UserDB pulls drizzle and the onboarding dialog pulls the speak/
-      // provider chain; neither may be evaluated during TUI module load.
-      const [{ UserDB }, { DialogOnboarding }] = await Promise.all([
-        import("@/user/users"),
-        import("@tui/component/dialog-onboarding"),
-      ])
-      const isFirstRun = !UserDB.hasUsers()
+      // Drive instances use an injected local provider and must not depend on
+      // interactive account/onboarding state from the host machine.
+      if (!process.env.NIKCLI_DRIVE) {
+        // Lazy: UserDB pulls drizzle and the onboarding dialog pulls the speak/
+        // provider chain; neither may be evaluated during TUI module load.
+        const [{ UserDB }, { DialogOnboarding }] = await Promise.all([
+          import("@/user/users"),
+          import("@tui/component/dialog-onboarding"),
+        ])
+        const isFirstRun = !UserDB.hasUsers()
 
-      const storedToken = UserDB.getActiveSessionSync()
-      const validUser = storedToken ? UserDB.verifySession(storedToken) : null
+        const storedToken = UserDB.getActiveSessionSync()
+        const validUser = storedToken ? UserDB.verifySession(storedToken) : null
 
-      if (isFirstRun && !kv.get("onboarding_complete", false)) {
-        // First-time user: unified onboarding handles account creation + provider setup
-        setOnboardingActive(true)
-        await DialogOnboarding.run(dialog)
-        setOnboardingActive(false)
-        // Mark complete only if an account was actually created
-        const postToken = UserDB.getActiveSessionSync()
-        const postUser = postToken ? UserDB.verifySession(postToken) : null
-        if (postUser) {
-          kv.set("onboarding_complete", true)
-          const needsProvider = untrack(() => sync.status === "complete" && sync.data.provider.length === 0)
-          if (needsProvider && dialog.stack.length === 0) {
-            dialog.replace(() => <DialogProviderList />)
+        if (isFirstRun && !kv.get("onboarding_complete", false)) {
+          // First-time user: unified onboarding handles account creation + provider setup
+          setOnboardingActive(true)
+          await DialogOnboarding.run(dialog)
+          setOnboardingActive(false)
+          // Mark complete only if an account was actually created
+          const postToken = UserDB.getActiveSessionSync()
+          const postUser = postToken ? UserDB.verifySession(postToken) : null
+          if (postUser) {
+            kv.set("onboarding_complete", true)
+            const needsProvider = untrack(() => sync.status === "complete" && sync.data.provider.length === 0)
+            if (needsProvider && dialog.stack.length === 0) {
+              dialog.replace(() => <DialogProviderList />)
+            }
           }
+        } else if (!validUser) {
+          // Returning user with no active session: standard login
+          const { DialogLogin } = await import("@tui/component/dialog-login")
+          await DialogLogin.run(dialog)
         }
-      } else if (!validUser) {
-        // Returning user with no active session: standard login
-        const { DialogLogin } = await import("@tui/component/dialog-login")
-        await DialogLogin.run(dialog)
       }
 
       const tuiConfig = await withInstanceAsync({ directory: sdk.directory || process.cwd() }, async () => {

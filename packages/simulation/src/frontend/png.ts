@@ -1,6 +1,9 @@
 import { fileURLToPath } from "node:url"
-import { GlobalFonts, createCanvas } from "@napi-rs/canvas"
 import { TextAttributes, type CapturedFrame, type CliRenderer, type RGBA } from "@opentui/core"
+
+const CanvasModule = await import("@napi-rs/canvas")
+const Canvas = (CanvasModule.GlobalFonts ? CanvasModule : CanvasModule.default) as typeof CanvasModule
+const { GlobalFonts, createCanvas } = Canvas
 
 const CellWidth = 10
 const CellHeight = 20

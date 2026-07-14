@@ -4,6 +4,7 @@ import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect } from "effect"
+import { workerEnv } from "../src/backend"
 import { SimulationLLMExchange } from "../src/backend/llm-exchange"
 import { SimulationNetwork, type Server } from "../src/backend/network"
 
@@ -37,6 +38,17 @@ const prompt = (url: string, body: unknown = { model: "sim-model", messages: [],
   })
 
 describe("driver-backed OpenAI mock", () => {
+  test("injects an isolated deterministic provider into the nikcli worker", () => {
+    const env = workerEnv("http://127.0.0.1:40960", JSON.stringify({ theme: "system" }))
+    const config = JSON.parse(env.NIKCLI_CONFIG_CONTENT!)
+
+    expect(config.theme).toBe("system")
+    expect(config.model).toBe("simulation/deterministic")
+    expect(config.provider.simulation.options.baseURL).toBe("http://127.0.0.1:40960/v1")
+    expect(config.provider.simulation.models.deterministic).toMatchObject({ cost: { input: 0, output: 0 } })
+    expect(env.NIKCLI_DISABLE_MODELS_FETCH).toBe("1")
+  })
+
   test("streams driver chunks through real OpenAI SSE framing", async () => {
     const server = await SimulationNetwork.start({ endpoint: "http://127.0.0.1:0", mode: "driver" })
     servers.push(server)

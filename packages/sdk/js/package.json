@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build": "./script/build.ts"
+    "build": "./script/build.ts",
+    "generate:httpapi": "bun run --cwd ../../nikcli generate:httpapi-clients"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -16,7 +17,8 @@
     "./cloud": "./src/cloud/index.ts",
     "./v2": "./src/v2/index.ts",
     "./v2/client": "./src/v2/client.ts",
-    "./v2/server": "./src/v2/server.ts"
+    "./v2/server": "./src/v2/server.ts",
+    "./httpapi": "./src/httpapi/index.ts"
   },
   "files": [
     "dist"
@@ -39,7 +41,8 @@
       "./cloud": "./cloud/index.js",
       "./v2": "./v2/index.js",
       "./v2/client": "./v2/client.js",
-      "./v2/server": "./v2/server.js"
+      "./v2/server": "./v2/server.js",
+      "./httpapi": "./httpapi/index.js"
     }
   }
 }
