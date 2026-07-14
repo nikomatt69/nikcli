@@ -3,7 +3,14 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect, FileSystem, Schema, SchemaAST, SchemaGetter } from "effect"
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+  HttpApiMiddleware,
+  HttpApiSchema,
+  OpenApi,
+} from "effect/unstable/httpapi"
 import { format } from "prettier"
 import {
   compile as compileContract,
@@ -394,13 +401,16 @@ describe("HttpApiCodegen.generate", () => {
           .add(HttpApiEndpoint.get("get", "/pty", { success: Schema.String }))
           .add(HttpApiEndpoint.get("connect", "/pty/connect", { success: Schema.Boolean })),
       )
-      .add(HttpApiGroup.make("other").add(HttpApiEndpoint.get("connect", "/other/connect", { success: Schema.Boolean })))
+      .add(
+        HttpApiGroup.make("other").add(HttpApiEndpoint.get("connect", "/other/connect", { success: Schema.Boolean })),
+      )
     const contract = compileContract(source, { omitEndpoints: new Set(["pty.connect"]) })
 
-    expect(contract.groups.flatMap((group) => group.endpoints.map((endpoint) => `${group.identifier}.${endpoint.endpoint.name}`))).toEqual([
-      "pty.get",
-      "other.connect",
-    ])
+    expect(
+      contract.groups.flatMap((group) =>
+        group.endpoints.map((endpoint) => `${group.identifier}.${endpoint.endpoint.name}`),
+      ),
+    ).toEqual(["pty.get", "other.connect"])
   })
 
   test("treats non-struct JSON payloads as one opaque payload input", () => {
@@ -583,7 +593,9 @@ describe("HttpApiCodegen.generate", () => {
     const types = output.files.find((file) => file.path === "types.ts")?.content
 
     expect(types).toContain('readonly "values": ReadonlyArray<string>')
-    expect(types).toContain('export type SessionCreateOutput = ({ "data": Array<{ "values": Array<string> }> })["data"]')
+    expect(types).toContain(
+      'export type SessionCreateOutput = ({ "data": Array<{ "values": Array<string> }> })["data"]',
+    )
   })
 
   test("retains distinct Promise references at identifier boundaries", () => {

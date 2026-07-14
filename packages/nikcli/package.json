@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "1.160.0",
+  "version": "1.162.0",
   "name": "nikcli-ai",
   "type": "module",
   "license": "MIT",
@@ -99,8 +99,8 @@
     "@hono/zod-validator": "catalog:",
     "@modelcontextprotocol/sdk": "1.25.2",
     "@nikcli-ai/companion": "workspace:*",
-    "@nikcli-ai/llm": "workspace:*",
     "@nikcli-ai/httpapi-codegen": "workspace:*",
+    "@nikcli-ai/llm": "workspace:*",
     "@nikcli-ai/plugin": "workspace:*",
     "@nikcli-ai/remote": "workspace:*",
     "@nikcli-ai/script": "workspace:*",

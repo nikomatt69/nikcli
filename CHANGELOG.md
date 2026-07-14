@@ -3,6 +3,27 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.162.0 (July 2026)
+
+## Core
+
+- Enhance CodeMode with tool call tracking and execution limits (@nikomatt69)
+- Enhance Promise client with relative imports and text response handling (@nikomatt69)
+- Add new package for HTTP API code generation (@nikomatt69)
+- Deprecate exec_code in favor of code_mode (@nikomatt69)
+- Implement confined code execution with CodeMode (@nikomatt69)
+- Update acorn and eventsource versions (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(dependencies): update acorn and eventsource versions
+  - feat(nikcli): implement confined code execution with CodeMode
+  - feat(nikcli): deprecate exec_code in favor of code_mode
+  - feat(httpapi-codegen): add new package for HTTP API code generation
+  - feat(httpapi-codegen): enhance Promise client with relative imports and text response handling
+  - feat(nikcli): enhance CodeMode with tool call tracking and execution limits
+
 ## v1.160.0 (July 2026)
 
 ## Core

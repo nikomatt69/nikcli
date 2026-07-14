@@ -1,9 +1,4 @@
-import {
-  type AstNode,
-  CodeModeFunction,
-  InterpreterRuntimeError,
-  supportedSyntaxMessage,
-} from "../interpreter/model"
+import { type AstNode, CodeModeFunction, InterpreterRuntimeError, supportedSyntaxMessage } from "../interpreter/model"
 import { copyIn, copyOut } from "../tool-runtime"
 
 export const invokeJsonMethod = (name: string, args: Array<unknown>, node: AstNode): unknown => {

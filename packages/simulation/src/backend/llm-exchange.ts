@@ -94,7 +94,9 @@ export async function reset() {
   state.exchanges.clear()
   state.listeners.clear()
   state.counter = 0
-  await Promise.all(exchanges.map((exchange) => Effect.runPromise(Queue.shutdown(exchange.queue)).catch(() => undefined)))
+  await Promise.all(
+    exchanges.map((exchange) => Effect.runPromise(Queue.shutdown(exchange.queue)).catch(() => undefined)),
+  )
 }
 
 export * as SimulationLLMExchange from "./llm-exchange"

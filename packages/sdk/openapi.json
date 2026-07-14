@@ -25727,7 +25727,7 @@
                 "type": "string"
               },
               "token": {
-                "description": "cli-sync scoped bearer token for the remote hub. NIKCLI_REMOTE_TOKEN overrides this.",
+                "description": "Bearer token for the remote hub (mobile, cli-sync, or studio scope). NIKCLI_REMOTE_TOKEN overrides this.",
                 "type": "string"
               },
               "autostart": {

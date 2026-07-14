@@ -58,6 +58,7 @@ la versione è pinnata esplicitamente in ogni `package.json`. File aggiornati:
 `packages/httpapi-codegen/package.json` (sia `effect` sia `@effect/platform-bun`/`platform-node`).
 
 Verifica post-bump:
+
 - `bun install` pulito (nessun conflitto di risoluzione).
 - `bun run typecheck` pulito su tutti e 4 i package + su `packages/nikcli` per intero.
 - `bun test test/codemode test/tool test/acp` in nikcli: **828/828 pass**, invariato.

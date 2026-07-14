@@ -145,7 +145,9 @@ export async function start(options: Options): Promise<Server> {
     }
     if (!HttpRecorder.defaultMatcher(snapshot, interaction.request)) {
       const diff = HttpRecorder.requestDiff(interaction.request, snapshot).join("\n")
-      throw new Error(`Simulation cassette "${cassetteName}" request mismatch at interaction ${state.cursor + 1}:\n${diff}`)
+      throw new Error(
+        `Simulation cassette "${cassetteName}" request mismatch at interaction ${state.cursor + 1}:\n${diff}`,
+      )
     }
     state.cursor++
     return fixtureResponse(interaction)
@@ -167,11 +169,10 @@ export async function start(options: Options): Promise<Server> {
         bodyEncoding: "text",
       },
     }
-    recorded = HttpRecorder.cassetteFor(
-      cassetteName,
-      [...(recorded?.interactions ?? []), interaction],
-      { source: "nikcli-simulation", upstream: new URL(upstream).origin },
-    )
+    recorded = HttpRecorder.cassetteFor(cassetteName, [...(recorded?.interactions ?? []), interaction], {
+      source: "nikcli-simulation",
+      upstream: new URL(upstream).origin,
+    })
     const findings = HttpRecorder.cassetteSecretFindings(recorded)
     if (findings.length > 0) {
       throw new Error(
@@ -197,7 +198,10 @@ export async function start(options: Options): Promise<Server> {
       }
       if (request.method !== "POST" || url.pathname !== "/v1/chat/completions") {
         recordLog({ time: Date.now(), method: request.method, url: url.toString(), mode, matched: false })
-        return Response.json({ error: { message: `Simulation denied unregistered route: ${request.method} ${url.pathname}` } }, { status: 404 })
+        return Response.json(
+          { error: { message: `Simulation denied unregistered route: ${request.method} ${url.pathname}` } },
+          { status: 404 },
+        )
       }
       recordLog({
         time: Date.now(),

@@ -60,8 +60,7 @@ export function createHarness(renderer: CliRenderer): Harness {
         renderer.requestRender()
         await renderer.idle()
       }),
-    screen: () =>
-      setup?.captureCharFrame() ?? decoder.decode(renderer.currentRenderBuffer.getRealCharBytes(false)),
+    screen: () => setup?.captureCharFrame() ?? decoder.decode(renderer.currentRenderBuffer.getRealCharBytes(false)),
   }
 }
 
@@ -137,7 +136,12 @@ export async function execute(harness: Harness, action: Action) {
       await harness.mockMouse.click(action.x, action.y)
       break
     case "ui.resize":
-      if (!Number.isSafeInteger(action.cols) || action.cols <= 0 || !Number.isSafeInteger(action.rows) || action.rows <= 0) {
+      if (
+        !Number.isSafeInteger(action.cols) ||
+        action.cols <= 0 ||
+        !Number.isSafeInteger(action.rows) ||
+        action.rows <= 0
+      ) {
         throw new Error("resize cols and rows must be positive integers")
       }
       harness.resize(action.cols, action.rows)

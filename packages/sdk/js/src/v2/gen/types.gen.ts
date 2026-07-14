@@ -2658,7 +2658,7 @@ export type Config = {
      */
     url?: string
     /**
-     * cli-sync scoped bearer token for the remote hub. NIKCLI_REMOTE_TOKEN overrides this.
+     * Bearer token for the remote hub (mobile, cli-sync, or studio scope). NIKCLI_REMOTE_TOKEN overrides this.
      */
     token?: string
     /**

@@ -47,7 +47,11 @@ async function handle(
         y: request.params.y,
       })
     case "ui.resize":
-      return SimulationActions.execute(harness, { type: "ui.resize", cols: request.params.cols, rows: request.params.rows })
+      return SimulationActions.execute(harness, {
+        type: "ui.resize",
+        cols: request.params.cols,
+        rows: request.params.rows,
+      })
   }
 }
 

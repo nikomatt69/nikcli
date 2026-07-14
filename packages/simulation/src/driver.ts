@@ -83,7 +83,9 @@ export async function connect(url: string, options: { readonly timeoutMs?: numbe
       const result = new Promise<T>((resolve, reject) => {
         pending.set(requestID, { resolve: resolve as (value: unknown) => void, reject })
       })
-      socket.send(JSON.stringify({ jsonrpc: "2.0", id: requestID, method, ...(params === undefined ? {} : { params }) }))
+      socket.send(
+        JSON.stringify({ jsonrpc: "2.0", id: requestID, method, ...(params === undefined ? {} : { params }) }),
+      )
       return timeout(result, timeoutMs, `${method} response`).finally(() => pending.delete(requestID))
     },
     next<T = unknown>(method: string, waitMs = timeoutMs) {

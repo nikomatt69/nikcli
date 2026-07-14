@@ -604,7 +604,8 @@ function renderPromiseTypes(
       for (const error of endpoint.errors) {
         const tagged = declaredErrorFields(error.schema)
         const identifier = tagged?.identifier ?? SchemaAST.resolveIdentifier(error.schema.ast)
-        if (identifier !== undefined && !errors.has(identifier)) errors.set(identifier, { schema: error.schema, tagged })
+        if (identifier !== undefined && !errors.has(identifier))
+          errors.set(identifier, { schema: error.schema, tagged })
       }
     }
   }
@@ -668,7 +669,9 @@ function renderPromiseTypes(
     rendered.types.reduce((result, type, index) => result.replaceAll(`__PROMISE_TYPE_${index}__`, type), source)
   const resolvedErrors = errorTypes.map(resolve)
   const resolvedOperations = resolve(operations)
-  const json = [...rendered.definitions, ...resolvedErrors, resolvedOperations].some((type) => type.includes("JsonValue"))
+  const json = [...rendered.definitions, ...resolvedErrors, resolvedOperations].some((type) =>
+    type.includes("JsonValue"),
+  )
     ? `export type JsonValue = null | boolean | number | string | ${mutableOutputs ? "Array<JsonValue> | { [key: string]: JsonValue }" : "ReadonlyArray<JsonValue> | { readonly [key: string]: JsonValue }"}`
     : ""
   const imports = [...new Set(Object.values(outputTypes ?? {}).map((override) => override.import))]
@@ -1430,8 +1433,7 @@ function renderGroup(group: Group, groupIndex: number) {
       .flatMap((source) => {
         const slot = schemaBySource[source]
         if (slot === undefined) return []
-        const fields = operation.input
-          .filter((field) => field.source === source)
+        const fields = operation.input.filter((field) => field.source === source)
         if (fields[0]?.whole) {
           return [
             `${source}: input${operation.operation.inputMode === "optional" ? "?." : ""}[${JSON.stringify(fields[0].name)}]`,

@@ -249,10 +249,7 @@ describe("CodeModeTool", () => {
     const directory = await makeProjectDir()
     const left = path.join(directory, "left.txt")
     const right = path.join(directory, "right.txt")
-    await Promise.all([
-      fs.writeFile(left, "left"),
-      fs.writeFile(right, "right"),
-    ])
+    await Promise.all([fs.writeFile(left, "left"), fs.writeFile(right, "right")])
     const result = await executeInProject(directory, {
       code: `
         const values = await Promise.all([
