@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.165.0 (July 2026)
+
+## Core
+
+- Add missing semicolons and improve type definitions (@nikomatt69)
+- Drive the real TUI end-to-end past OpenTUI's runtime Bun plugin (@nikomatt69)
+- Full OpenAPI/SDK contract parity between Effect PublicApi and Hono (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(httpapi): full OpenAPI/SDK contract parity between Effect PublicApi and Hono
+  - fix(simulation): drive the real TUI end-to-end past OpenTUI's runtime Bun plugin
+  - fix(inference-dashboard): add missing semicolons and improve type definitions
+
 ## v1.162.0 (July 2026)
 
 ## Core

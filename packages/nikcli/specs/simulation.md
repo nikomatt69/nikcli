@@ -94,7 +94,7 @@ specifier dell'intero grafo. Due conseguenze per la simulation:
    in cache fallisce con "require() async module is unsupported" e un import
    ESM di un pacchetto CJS (es. `@napi-rs/canvas`) restituisce un namespace
    vuoto. Era questo a uccidere `png.ts` dentro la TUI reale.
-2. Pre-caricare l'intero frontend simulation *prima* del plugin non è una fix:
+2. Pre-caricare l'intero frontend simulation _prima_ del plugin non è una fix:
    crea un **secondo grafo modulo parallelo** (harness e app su istanze
    diverse) e la UI va in blank dopo il submit.
 
