@@ -1,5 +1,4 @@
 import { cmd } from "../cmd"
-import { tui } from "./app"
 
 export const AttachCommand = cmd({
   command: "attach <url>",
@@ -22,6 +21,10 @@ export const AttachCommand = cmd({
       }),
   handler: async (args) => {
     if (args.dir) process.chdir(args.dir)
+    // Lazy: ./app pulls in TuiPluginRuntime, whose OpenTUI runtime Bun plugin
+    // must not install during CLI startup (startup-graph rule; it also breaks
+    // require() of not-yet-cached CJS deps once installed).
+    const { tui } = await import("./app")
     await tui({
       url: args.url,
       args: { sessionID: args.session },

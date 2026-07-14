@@ -169,8 +169,26 @@ export const TuiThreadCommand = cmd({
       process.exit(1)
     }
 
+    // Drive mode: the deterministic OpenAI mock and the driver control
+    // websocket run in this (TUI) process; the worker is routed to them via
+    // NIKCLI_CONFIG_CONTENT so its default model resolves against the mock.
+    const simulation = await iife(async () => {
+      if (!process.env.NIKCLI_DRIVE) return undefined
+      // Resolve the @napi-rs/canvas CJS binding before `./app` loads
+      // TuiPluginRuntime: OpenTUI's runtime Bun plugin registers a catch-all
+      // async onLoad, after which require() of a not-yet-cached CJS dep
+      // fails. Only the binding is preloaded (dependency-free module) — the
+      // frontend graph itself must load *after* the plugin so the harness
+      // and the app share one rewritten module graph.
+      const canvas = await import("@nikcli-ai/simulation/frontend/canvas")
+      canvas.preload()
+      const { SimulationBackend, simulationWorkerEnv } = await import("@nikcli-ai/simulation/backend")
+      const backend = await SimulationBackend.start()
+      return { backend, env: simulationWorkerEnv(backend.openai) }
+    })
+
     const worker = new Worker(workerPath, {
-      env: createWorkerEnv(),
+      env: createWorkerEnv(simulation?.env),
     })
     worker.onerror = (e) => {
       Log.Default.error("worker error", {
@@ -209,6 +227,7 @@ export const TuiThreadCommand = cmd({
         })
       })
       worker.terminate()
+      simulation?.backend.stop()
     }
 
     const restart = async () => {

@@ -191,6 +191,9 @@ export async function start(options: Options): Promise<Server> {
   const bun = Bun.serve({
     hostname: endpoint.hostname,
     port: Number(endpoint.port),
+    // Driver-mode SSE streams stay open until the driver pushes chunks; a
+    // slow driver must not trip Bun's default 10s idle timeout mid-exchange.
+    idleTimeout: 0,
     async fetch(request) {
       const url = new URL(request.url)
       if (request.method === "GET" && url.pathname === "/health") {

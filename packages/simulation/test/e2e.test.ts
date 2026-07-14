@@ -97,17 +97,35 @@ test("drives the real nikcli TUI through a deterministic OpenAI exchange and cap
 
     await ui.call("ui.type", { text: "Reply with the deterministic fixture" })
     await ui.call("ui.enter")
-    const exchange = await backend.next<SimulationProtocol.Backend.OpenedExchange>("llm.request", 20_000)
-    expect(exchange.body).toMatchObject({ model: "deterministic", stream: true })
-    await backend.call("llm.chunk", {
-      id: exchange.id,
-      items: [{ type: "textDelta", text: "deterministic fixture reply" }],
-    })
-    await backend.call("llm.finish", { id: exchange.id, reason: "stop" })
+
+    // The prompt fans out into several exchanges (title generation + the chat
+    // turn itself); answer each one deterministically until the reply renders.
+    const answered: SimulationProtocol.Backend.OpenedExchange[] = []
+    const responder = (async () => {
+      while (true) {
+        const exchange = await backend!
+          .next<SimulationProtocol.Backend.OpenedExchange>("llm.request", 3_000)
+          .catch(() => undefined)
+        if (!exchange) return
+        answered.push(exchange)
+        await backend!.call("llm.chunk", {
+          id: exchange.id,
+          items: [{ type: "textDelta", text: "deterministic fixture reply" }],
+        })
+        await backend!.call("llm.finish", { id: exchange.id, reason: "stop" })
+      }
+    })()
 
     await eventually(async () =>
       (await ui!.call<boolean>("ui.matches", { text: "deterministic fixture reply" })) ? true : undefined,
     )
+    await responder
+    expect(
+      answered.some((exchange) => {
+        const body = exchange.body as { model?: unknown; stream?: unknown } | null
+        return body?.model === "deterministic" && body?.stream === true
+      }),
+    ).toBeTrue()
     const screenshot = await ui.call<string>("ui.screenshot", { name: "real-tui" })
     expect(screenshot).toBe(join(media, "real-tui.png"))
     expect([...(await readFile(screenshot)).subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])

@@ -1,8 +1,12 @@
 import { fileURLToPath } from "node:url"
 import { TextAttributes, type CapturedFrame, type CliRenderer, type RGBA } from "@opentui/core"
 
-const CanvasModule = await import("@napi-rs/canvas")
-const Canvas = (CanvasModule.GlobalFonts ? CanvasModule : CanvasModule.default) as typeof CanvasModule
+import * as SimulationCanvas from "./canvas"
+
+// See ./canvas — the binding is resolved pre-plugin and cached on
+// globalThis so this module keeps working when OpenTUI's runtime Bun plugin
+// re-evaluates the frontend graph under rewritten specifiers.
+const Canvas = SimulationCanvas.binding()
 const { GlobalFonts, createCanvas } = Canvas
 
 const CellWidth = 10
