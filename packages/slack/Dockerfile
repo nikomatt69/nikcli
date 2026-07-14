@@ -23,6 +23,8 @@ COPY packages/llm/package.json packages/llm/
 COPY packages/tui-image/package.json packages/tui-image/
 COPY packages/webrenderer/package.json packages/webrenderer/
 COPY packages/http-recorder/package.json packages/http-recorder/
+COPY packages/httpapi-codegen/package.json packages/httpapi-codegen/
+COPY packages/simulation/package.json packages/simulation/
 # Explicit workspace member referenced by root package.json
 COPY github/package.json github/
 
@@ -41,6 +43,8 @@ COPY packages/llm packages/llm
 COPY packages/tui-image packages/tui-image
 COPY packages/webrenderer packages/webrenderer
 COPY packages/http-recorder packages/http-recorder
+COPY packages/httpapi-codegen packages/httpapi-codegen
+COPY packages/simulation packages/simulation
 
 RUN mkdir -p /app/repos
 
