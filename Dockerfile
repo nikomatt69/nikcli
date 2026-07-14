@@ -19,8 +19,16 @@ COPY packages/remote/package.json packages/remote/
 COPY packages/plugin/package.json packages/plugin/
 COPY packages/companion/package.json packages/companion/
 COPY packages/slack/package.json packages/slack/
+COPY packages/llm/package.json packages/llm/
+COPY packages/http-recorder/package.json packages/http-recorder/
+COPY packages/httpapi-codegen/package.json packages/httpapi-codegen/
+COPY packages/simulation/package.json packages/simulation/
 COPY packages/tui-image/package.json packages/tui-image/
 COPY github/package.json github/
+
+# Stub webrenderer (native Rust build not required for the nikcli binary)
+RUN mkdir -p packages/webrenderer && \
+    printf '{"name":"@opentui/webrenderer","version":"0.0.0","private":true}\n' > packages/webrenderer/package.json
 
 # Install dependencies (resolves workspace:*)
 RUN bun install
@@ -34,6 +42,10 @@ COPY packages/remote packages/remote
 COPY packages/plugin packages/plugin
 COPY packages/companion packages/companion
 COPY packages/slack packages/slack
+COPY packages/llm packages/llm
+COPY packages/http-recorder packages/http-recorder
+COPY packages/httpapi-codegen packages/httpapi-codegen
+COPY packages/simulation packages/simulation
 COPY packages/tui-image packages/tui-image
 COPY github github
 

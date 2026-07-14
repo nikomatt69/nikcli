@@ -34,6 +34,8 @@ mkdir -p \
   "$CTX/packages/slack" \
   "$CTX/packages/llm" \
   "$CTX/packages/http-recorder" \
+  "$CTX/packages/httpapi-codegen" \
+  "$CTX/packages/simulation" \
   "$CTX/packages/tui-image" \
   "$CTX/github"
 
@@ -57,6 +59,8 @@ cp "$ROOT/packages/companion/package.json" "$CTX/packages/companion/package.json
 cp "$ROOT/packages/slack/package.json" "$CTX/packages/slack/package.json"
 cp "$ROOT/packages/llm/package.json" "$CTX/packages/llm/package.json"
 cp "$ROOT/packages/http-recorder/package.json" "$CTX/packages/http-recorder/package.json"
+cp "$ROOT/packages/httpapi-codegen/package.json" "$CTX/packages/httpapi-codegen/package.json"
+cp "$ROOT/packages/simulation/package.json" "$CTX/packages/simulation/package.json"
 cp "$ROOT/packages/tui-image/package.json" "$CTX/packages/tui-image/package.json"
 cp "$ROOT/github/package.json" "$CTX/github/package.json"
 
@@ -95,6 +99,8 @@ rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/companion/"     "$CTX/packages/companio
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/slack/"         "$CTX/packages/slack/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/llm/"           "$CTX/packages/llm/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/http-recorder/" "$CTX/packages/http-recorder/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/httpapi-codegen/" "$CTX/packages/httpapi-codegen/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/simulation/"     "$CTX/packages/simulation/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui-image/"     "$CTX/packages/tui-image/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/github/"                 "$CTX/github/"
 
@@ -125,6 +131,10 @@ rm -rf \
   "$CTX/packages/llm/.turbo" \
   "$CTX/packages/http-recorder/.cache" \
   "$CTX/packages/http-recorder/.turbo" \
+  "$CTX/packages/httpapi-codegen/.cache" \
+  "$CTX/packages/httpapi-codegen/.turbo" \
+  "$CTX/packages/simulation/.cache" \
+  "$CTX/packages/simulation/.turbo" \
   "$CTX/packages/tui-image/.cache" \
   "$CTX/packages/tui-image/.turbo" \
   "$CTX/github/.cache" \

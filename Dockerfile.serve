@@ -32,6 +32,8 @@ COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
 COPY packages/llm/package.json /app/packages/llm/
 COPY packages/http-recorder/package.json /app/packages/http-recorder/
+COPY packages/httpapi-codegen/package.json /app/packages/httpapi-codegen/
+COPY packages/simulation/package.json /app/packages/simulation/
 COPY packages/tui-image/package.json /app/packages/tui-image/
 COPY github/package.json /app/github/
 
@@ -82,12 +84,14 @@ COPY packages/companion /app/packages/companion
 COPY packages/slack /app/packages/slack
 COPY packages/llm /app/packages/llm
 COPY packages/http-recorder /app/packages/http-recorder
+COPY packages/httpapi-codegen /app/packages/httpapi-codegen
+COPY packages/simulation /app/packages/simulation
 COPY packages/tui-image /app/packages/tui-image
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
 ENV NIKCLI_VERSION=1.5.0
-RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform-bun@4.0.0-beta.65
+RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform-bun@4.0.0-beta.83
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
 
 FROM base AS runtime
