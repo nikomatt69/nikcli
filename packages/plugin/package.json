@@ -22,6 +22,14 @@
     "./tui": {
       "import": "./src/tui.ts",
       "types": "./src/tui.ts"
+    },
+    "./v2/tui": {
+      "import": "./src/v2/tui/index.ts",
+      "types": "./src/v2/tui/index.ts"
+    },
+    "./v2/tui/*": {
+      "import": "./src/v2/tui/*.ts",
+      "types": "./src/v2/tui/*.ts"
     }
   },
   "files": [
@@ -31,7 +39,9 @@
     "exports": {
       ".": "./dist/index.js",
       "./tool": "./dist/tool.js",
-      "./tui": "./dist/tui.js"
+      "./tui": "./dist/tui.js",
+      "./v2/tui": "./dist/v2/tui/index.js",
+      "./v2/tui/*": "./dist/v2/tui/*.js"
     }
   },
   "dependencies": {

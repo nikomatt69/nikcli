@@ -1437,6 +1437,10 @@ function App() {
           }}
         </Match>
       </Switch>
+      <box flexShrink={0}>
+        <TuiPluginRuntime.Slot name="app.bottom" />
+      </box>
+      <TuiPluginRuntime.Slot name="app" />
       <StartupLoading ready={pluginsReady} />
     </box>
   )

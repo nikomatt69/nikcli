@@ -17,6 +17,7 @@ import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
 import type { BoxRenderable } from "@opentui/core"
+import { TuiPluginRuntime } from "../plugin"
 export function Home() {
   const sync = useSync()
   const remote = useRemoteSync()
@@ -139,6 +140,7 @@ export function Home() {
             <Tips ads={ads()} />
           </Show>
         </box>
+        <TuiPluginRuntime.Slot name="home.bottom" />
         <box flexGrow={1} minHeight={0} />
         <Toast />
       </box>
@@ -197,6 +199,7 @@ export function Home() {
           <text fg={theme.textMuted}>{Installation.VERSION}</text>
         </box>
       </box>
+      <TuiPluginRuntime.Slot name="home.footer" />
     </>
   )
 }

@@ -418,11 +418,21 @@ export function createTuiApi(input: Input): TuiPluginApi {
     get client() {
       return input.sdk.client
     },
-    event: input.sdk.event,
+    event: {
+      on(type, handler) {
+        return input.sdk.event.on(type, handler)
+      },
+      listen(handler) {
+        return input.sdk.onEnvelope((event) => handler({ details: event.payload }))
+      },
+    },
     renderer: input.renderer,
     slots: {
       register() {
         throw new Error("slots.register is only available in plugin context")
+      },
+      registerDisposable() {
+        throw new Error("slots.registerDisposable is only available in plugin context")
       },
     },
     plugins: {

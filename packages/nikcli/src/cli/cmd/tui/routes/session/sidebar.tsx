@@ -8,6 +8,7 @@ import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { useSDK } from "../../context/sdk"
 import { TodoItem } from "../../component/todo-item"
+import { TuiPluginRuntime } from "../../plugin"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
@@ -296,10 +297,12 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </Show>
               </box>
             </Show>
+            <TuiPluginRuntime.Slot name="sidebar.content" sessionID={props.sessionID} />
           </box>
         </scrollbox>
 
         <box flexShrink={0} gap={1} paddingTop={1}>
+          <TuiPluginRuntime.Slot name="sidebar.footer" sessionID={props.sessionID} />
           <Show when={!hasProviders() && !gettingStartedDismissed()}>
             <box
               backgroundColor={theme.backgroundElement}

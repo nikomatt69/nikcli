@@ -43,6 +43,7 @@ import { Installation } from "@/installation"
 import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"
 import { setupSlots, Slot as View } from "./slots"
 import type { HostPluginApi, HostSlots } from "./slots"
+import { readV2TuiPlugin } from "./v2"
 
 type PluginLoad = {
   item?: Config.PluginSpec
@@ -241,7 +242,8 @@ async function loadExternalPlugin(
 
   const mod = await import(entry)
     .then((raw) => {
-      return readV1Plugin(raw as Record<string, unknown>, spec, "tui", "detect") as TuiPluginModule | undefined
+      const value = raw as Record<string, unknown>
+      return (readV1Plugin(value, spec, "tui", "detect") as TuiPluginModule | undefined) ?? readV2TuiPlugin(value, spec)
     })
     .catch((error) => {
       fail("failed to load tui plugin", { path: spec, target: entry, retry, error })
@@ -547,17 +549,27 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
     on(type, handler) {
       return scope.track(api.event.on(type, handler))
     },
+    listen(handler) {
+      return scope.track(api.event.listen(handler))
+    },
   }
 
   let count = 0
 
+  const registerSlot = (plugin: Parameters<TuiPluginApi["slots"]["register"]>[0]) => {
+    const id = count ? `${base}:${count}` : base
+    count += 1
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dispose = scope.track(host.register({ ...plugin, id } as any))
+    return { id, dispose }
+  }
+
   const slots: TuiPluginApi["slots"] = {
     register(plugin) {
-      const id = count ? `${base}:${count}` : base
-      count += 1
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      scope.track(host.register({ ...plugin, id } as any))
-      return id
+      return registerSlot(plugin).id
+    },
+    registerDisposable(plugin) {
+      return registerSlot(plugin).dispose
     },
   }
 

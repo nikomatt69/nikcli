@@ -327,6 +327,16 @@ export type TuiSlotMap = {
   sidebar_footer: {
     session_id: string
   }
+  /** V2 plugin slots. Dotted names intentionally do not collide with v1 slots. */
+  "app.bottom": {}
+  "home.bottom": {}
+  "home.footer": {}
+  "sidebar.content": {
+    sessionID: string
+  }
+  "sidebar.footer": {
+    sessionID: string
+  }
 }
 
 export type TuiSlotContext = {
@@ -341,10 +351,13 @@ export type TuiSlotPlugin = Omit<SlotCore, "id"> & {
 
 export type TuiSlots = {
   register: (plugin: TuiSlotPlugin) => string
+  /** Host-backed disposable registration used by the v2 compatibility runtime. */
+  registerDisposable: (plugin: TuiSlotPlugin) => () => void
 }
 
 export type TuiEventBus = {
   on: <Type extends Event["type"]>(type: Type, handler: (event: Extract<Event, { type: Type }>) => void) => () => void
+  listen: (handler: (event: { details: Event }) => void) => () => void
 }
 
 export type TuiDispose = () => void | Promise<void>
