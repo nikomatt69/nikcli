@@ -25,8 +25,10 @@ export namespace LSP {
   }
 
   const PositionSchema = Schema.Struct({ line: Schema.Number, character: Schema.Number })
-  const RangeSchema = Schema.Struct({ start: PositionSchema, end: PositionSchema })
-  export const Range = zodObject(RangeSchema).meta({ ref: "Range" })
+  export const RangeSchema = Schema.Struct({ start: PositionSchema, end: PositionSchema }).annotate({
+    identifier: "Range",
+  })
+  export const Range = zodObject(RangeSchema)
   export type Range = Schema.Schema.Type<typeof RangeSchema>
 
   const SymbolSchema = Schema.Struct({

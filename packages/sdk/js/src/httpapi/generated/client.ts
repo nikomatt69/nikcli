@@ -219,8 +219,6 @@ import type {
   SessionMessageRemoveOutput,
   SessionPartRemoveInput,
   SessionPartRemoveOutput,
-  SessionPartUpdateInput,
-  SessionPartUpdateOutput,
   SessionV2EntriesInput,
   SessionV2EntriesOutput,
   SessionV2StateInput,
@@ -1952,18 +1950,6 @@ export function make(options: ClientOptions) {
           {
             method: "DELETE",
             path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}/part/${encodeURIComponent(input.partID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      partUpdate: (input: SessionPartUpdateInput, requestOptions?: RequestOptions) =>
-        request<SessionPartUpdateOutput>(
-          {
-            method: "PATCH",
-            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}/part/${encodeURIComponent(input.partID)}`,
-            body: input["payload"],
             successStatus: 200,
             declaredStatuses: [404, 409],
             empty: false,

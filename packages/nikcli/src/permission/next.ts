@@ -4,7 +4,7 @@ import { InstanceState } from "@/effect"
 import { Identifier } from "@/id/id"
 import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
-import { zod, zodObject } from "@/util/effect-zod"
+import { zod, zodObject, type DeepMutable } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 import { PermissionRepo } from "./permission-repo"
@@ -46,7 +46,7 @@ export namespace PermissionNext {
     ),
   }).annotate({ identifier: "PermissionRequest" })
   export const Request = zodObject(RequestSchema)
-  export type Request = Schema.Schema.Type<typeof RequestSchema>
+  export type Request = DeepMutable<Schema.Schema.Type<typeof RequestSchema>>
 
   const ReplySchema = Schema.Literals(["once", "always", "reject"])
   export const Reply = zod(ReplySchema)

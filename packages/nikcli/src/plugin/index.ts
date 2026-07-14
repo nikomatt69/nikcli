@@ -804,7 +804,6 @@ export namespace Plugin {
     const hooks = state.hooks
     const config = await configGet()
     for (const hook of hooks) {
-      // @ts-expect-error this is because we haven't moved plugin to sdk v2
       await hook.config?.(config)
     }
     if (state.subscribed) return

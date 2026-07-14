@@ -4044,16 +4044,7 @@ export type Symbol = {
   kind: number
   location: {
     uri: string
-    range: {
-      start: {
-        line: number
-        character: number
-      }
-      end: {
-        line: number
-        character: number
-      }
-    }
+    range: Range
   }
 }
 
@@ -7782,7 +7773,10 @@ export type SessionShellResponses = {
   /**
    * Created message
    */
-  200: AssistantMessage
+  200: {
+    info: Message
+    parts: Array<Part>
+  }
 }
 
 export type SessionShellResponse = SessionShellResponses[keyof SessionShellResponses]

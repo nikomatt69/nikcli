@@ -439,6 +439,23 @@ piecewise.
 
 ## Notes
 
+- **2026-07-15 — message-v2/SessionStatus/Todo/FileDiff migrated; flip blockers left: Model + Event**:
+  `session/message-v2.ts` data shapes (all Part variants, ToolState union, OutputFormat,
+  UserMessage/AssistantMessage/Message, WithParts, the `{name,data}` error bodies) are now
+  Effect Schema canonical with walker-derived zod exports under the original names; every
+  struct opts into `zodObjectMode("strip")` to preserve legacy z.object parse semantics on
+  persisted messages. `Snapshot.FileDiff` and `LSP.RangeSchema` migrated/exported the same
+  way; `SessionStatus.InfoSchema` and `Todo.InfoSchema` are exported and wired into
+  `httpapi/session.ts` (SessionStatusMap, TodoList, MessageList, MessageWithParts,
+  MessagePart→`Part`, FileDiffList, shell→MessageWithParts — the old spec claimed a bare
+  AssistantMessage for `session.shell` while the handler returns `{info, parts}`; both the
+  Hono spec and the Effect contract now tell the truth). Walker typing changed to emit
+  `DeepMutable` outputs (`zod()`, `zodObject()` overload 2, `FieldToZod`) so derived zod
+  stays a drop-in for consumers that mutate parsed values; `zod()` now types both zod
+  generics so `z.input` keeps inferring. `session.partUpdate` joins `auth.set` in
+  `omitEndpoints` (upstream `HttpApiClient.ForApi` union-payload narrowing). Remaining
+  flip blockers: `Model` (provider) and the Bus `Event` union.
+
 - **2026-07-14 — SDK-flip blocker is now schema-shaped**: the Effect `PublicApi`
   contract reached full endpoint/operationId parity with Hono (see
   `specs/effect/http-api.md`, "full contract parity reached"). The only thing

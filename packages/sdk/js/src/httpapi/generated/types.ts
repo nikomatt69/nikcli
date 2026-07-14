@@ -241,21 +241,164 @@ export type SessionList = Array<any>
 
 export type SessionInfo = any
 
-export type SessionStatusMap = { [x: string]: any }
+export type SessionStatus =
+  | { type: "idle" }
+  | { type: "retry"; attempt: number; message: string; next: number }
+  | { type: "busy"; since: number }
+  | { type: "busy" }
 
 export type BooleanResult = boolean
 
-export type MessageWithParts = any
+export type OutputFormatText = { type: "text" }
 
-export type AssistantMessage = any
+export type JSONSchema = { [x: string]: any }
 
-export type TodoList = Array<any>
+export type FileDiff = {
+  file: string
+  patch: string
+  additions: number
+  deletions: number
+  status?: "added" | "deleted" | "modified" | undefined
+  before: string
+  after: string
+}
 
-export type FileDiffList = Array<any>
+export type ProviderAuthError = { name: "ProviderAuthError"; data: { providerID: string; message: string } }
 
-export type MessageList = Array<any>
+export type UnknownError = { name: "UnknownError"; data: { message: string } }
 
-export type MessagePart = any
+export type MessageOutputLengthError = { name: "MessageOutputLengthError"; data: {} }
+
+export type MessageContextOverflowError = {
+  name: "MessageContextOverflowError"
+  data: { message: string; responseBody?: string | undefined }
+}
+
+export type MessageAbortedError = { name: "MessageAbortedError"; data: { message: string } }
+
+export type StructuredOutputError = { name: "StructuredOutputError"; data: { message: string; retries: number } }
+
+export type APIError = {
+  name: "APIError"
+  data: {
+    message: string
+    statusCode?: number | undefined
+    isRetryable: boolean
+    responseHeaders?: { [x: string]: string } | undefined
+    responseBody?: string | undefined
+    metadata?: { [x: string]: string } | undefined
+  }
+}
+
+export type TextPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "text"
+  text: string
+  synthetic?: boolean | undefined
+  ignored?: boolean | undefined
+  time?: { start: number; end?: number | undefined } | undefined
+  metadata?: { [x: string]: any } | undefined
+}
+
+export type SubtaskPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "subtask"
+  prompt: string
+  description: string
+  agent: string
+  model?: { providerID: string; modelID: string } | undefined
+  command?: string | undefined
+  background?: boolean | undefined
+}
+
+export type ReasoningPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "reasoning"
+  text: string
+  metadata?: { [x: string]: any } | undefined
+  time: { start: number; end?: number | undefined }
+}
+
+export type FilePartSourceText = { value: string; start: number; end: number }
+
+export type Range = { start: { line: number; character: number }; end: { line: number; character: number } }
+
+export type ToolStatePending = { status: "pending"; input: { [x: string]: any }; raw: string }
+
+export type ToolStateRunning = {
+  status: "running"
+  input: { [x: string]: any }
+  title?: string | undefined
+  metadata?: { [x: string]: any } | undefined
+  structured?: { [x: string]: any } | undefined
+  content?:
+    | Array<{ type: "text"; text: string } | { type: "file"; data: string; mime: string; name?: string | undefined }>
+    | undefined
+  time: { start: number }
+}
+
+export type ToolStateError = {
+  status: "error"
+  input: { [x: string]: any }
+  error: string
+  metadata?: { [x: string]: any } | undefined
+  time: { start: number; end: number }
+}
+
+export type StepStartPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "step-start"
+  snapshot?: string | undefined
+}
+
+export type StepFinishPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "step-finish"
+  reason: string
+  snapshot?: string | undefined
+  cost: number
+  tokens: {
+    total?: number | undefined
+    input: number
+    output: number
+    reasoning: number
+    cache: { read: number; write: number }
+  }
+}
+
+export type SnapshotPart = { id: string; sessionID: string; messageID: string; type: "snapshot"; snapshot: string }
+
+export type PatchPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "patch"
+  hash: string
+  files: Array<string>
+}
+
+export type AgentPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "agent"
+  name: string
+  source?: { value: string; start: number; end: number } | undefined
+}
+
+export type CompactionPart = { id: string; sessionID: string; messageID: string; type: "compaction"; auto: boolean }
+
+export type Todo = { content: string; status: string; priority: string; id: string }
 
 export type SessionV2EntryList = Array<any>
 
@@ -498,6 +641,70 @@ export type QuestionInfo = {
 
 export type PtyList = Array<Pty>
 
+export type SessionStatusMap = { [x: string]: SessionStatus }
+
+export type OutputFormatJsonSchema = { type: "json_schema"; schema: JSONSchema; retryCount: number }
+
+export type FileDiffList = Array<FileDiff>
+
+export type AssistantMessage = {
+  id: string
+  sessionID: string
+  role: "assistant"
+  time: { created: number; completed?: number | undefined }
+  error?:
+    | ProviderAuthError
+    | UnknownError
+    | MessageOutputLengthError
+    | MessageContextOverflowError
+    | MessageAbortedError
+    | StructuredOutputError
+    | APIError
+    | undefined
+  parentID: string
+  modelID: string
+  providerID: string
+  mode: string
+  agent: string
+  path: { cwd: string; root: string }
+  summary?: boolean | undefined
+  cost: number
+  tokens: {
+    total?: number | undefined
+    input: number
+    output: number
+    reasoning: number
+    cache: { read: number; write: number }
+  }
+  structured?: any | undefined
+  finish?: string | undefined
+}
+
+export type RetryPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "retry"
+  attempt: number
+  error: APIError
+  time: { created: number }
+}
+
+export type FileSource = { text: FilePartSourceText; type: "file"; path: string }
+
+export type ResourceSource = { text: FilePartSourceText; type: "resource"; clientName: string; uri: string }
+
+export type SymbolSource = {
+  text: FilePartSourceText
+  type: "symbol"
+  path: string
+  range: Range
+  name: string
+  kind: number
+}
+
+export type TodoList = Array<Todo>
+
 export type Workspace = {
   id: string
   name: string
@@ -567,7 +774,79 @@ export type QuestionRequest = {
   tool?: { messageID: string; callID: string } | undefined
 }
 
+export type OutputFormat = OutputFormatText | OutputFormatJsonSchema
+
+export type FilePartSource = FileSource | SymbolSource | ResourceSource
+
 export type OptionalWorkspace = Workspace | null
+
+export type UserMessage = {
+  id: string
+  sessionID: string
+  role: "user"
+  time: { created: number }
+  format?: OutputFormat | undefined
+  summary?: { title?: string | undefined; body?: string | undefined; diffs: Array<FileDiff> } | undefined
+  agent: string
+  model: { providerID: string; modelID: string }
+  system?: string | undefined
+  tools?: { [x: string]: boolean } | undefined
+  variant?: string | undefined
+}
+
+export type FilePart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "file"
+  mime: string
+  filename?: string | undefined
+  url: string
+  source?: FilePartSource | undefined
+}
+
+export type Message = UserMessage | AssistantMessage
+
+export type ToolStateCompleted = {
+  status: "completed"
+  input: { [x: string]: any }
+  output: string
+  title: string
+  metadata: { [x: string]: any }
+  time: { start: number; end: number; compacted?: number | undefined }
+  attachments?: Array<FilePart> | undefined
+}
+
+export type ToolState = ToolStatePending | ToolStateRunning | ToolStateCompleted | ToolStateError
+
+export type ToolPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "tool"
+  callID: string
+  tool: string
+  state: ToolState
+  metadata?: { [x: string]: any } | undefined
+}
+
+export type Part =
+  | TextPart
+  | SubtaskPart
+  | ReasoningPart
+  | FilePart
+  | ToolPart
+  | StepStartPart
+  | StepFinishPart
+  | SnapshotPart
+  | PatchPart
+  | AgentPart
+  | RetryPart
+  | CompactionPart
+
+export type MessageWithParts = { info: Message; parts: Array<Part> }
+
+export type MessageList = Array<{ info: Message; parts: Array<Part> }>
 
 export type VcsApplyError = {
   readonly name: "VcsApplyError"
@@ -1608,7 +1887,7 @@ export type SessionShellInput = {
   }["command"]
 }
 
-export type SessionShellOutput = AssistantMessage
+export type SessionShellOutput = MessageWithParts
 
 export type SessionPermissionRespondInput = {
   readonly sessionID: { readonly sessionID: string; readonly permissionID: string }["sessionID"]
@@ -1661,15 +1940,6 @@ export type SessionPartRemoveInput = {
 }
 
 export type SessionPartRemoveOutput = BooleanResult
-
-export type SessionPartUpdateInput = {
-  readonly sessionID: { readonly sessionID: string; readonly messageID: string; readonly partID: string }["sessionID"]
-  readonly messageID: { readonly sessionID: string; readonly messageID: string; readonly partID: string }["messageID"]
-  readonly partID: { readonly sessionID: string; readonly messageID: string; readonly partID: string }["partID"]
-  readonly payload: unknown
-}
-
-export type SessionPartUpdateOutput = MessagePart
 
 export type SessionV2EntriesInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
 

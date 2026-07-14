@@ -3,7 +3,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { InstanceState } from "@/effect"
 import { Identifier } from "@/id/id"
 import { Log } from "@/util/log"
-import { zod, zodObject } from "@/util/effect-zod"
+import { zod, zodObject, type DeepMutable } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 
@@ -31,7 +31,7 @@ export namespace Question {
     }),
   }).annotate({ identifier: "QuestionInfo" })
   export const Info = zodObject(InfoSchema)
-  export type Info = Schema.Schema.Type<typeof InfoSchema>
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   export const Request = z
     .object({
@@ -52,7 +52,7 @@ export namespace Question {
 
   const AnswerSchema = Schema.Array(Schema.String).annotate({ identifier: "QuestionAnswer" })
   export const Answer = zod(AnswerSchema)
-  export type Answer = Schema.Schema.Type<typeof AnswerSchema>
+  export type Answer = DeepMutable<Schema.Schema.Type<typeof AnswerSchema>>
 
   export const Reply = z.object({
     answers: z

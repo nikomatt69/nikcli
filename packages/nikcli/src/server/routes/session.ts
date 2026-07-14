@@ -1551,7 +1551,10 @@ export const SessionRoutes = lazy(() =>
             description: "Created message",
             content: {
               "application/json": {
-                schema: resolver(MessageV2.Assistant),
+                // The handler returns `{ info, parts }` (SessionPrompt.shell); the spec
+                // used to claim a bare AssistantMessage, which Unknown-typed clients
+                // never caught. Keep the schema aligned with the real payload.
+                schema: resolver(MessageV2.WithParts),
               },
             },
           },

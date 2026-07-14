@@ -553,7 +553,9 @@ export function messageSearchText(message: MessageV2.WithParts) {
     .trim()
   if (text) return text
   if (message.info.role === "assistant") {
-    return message.info.error?.data?.message?.trim() ?? ""
+    // MessageOutputLengthError carries an empty `data`, so the union has no common
+    // `message` key; widen through the optional shape instead of narrowing per arm.
+    return (message.info.error?.data as { message?: string } | undefined)?.message?.trim() ?? ""
   }
   return ""
 }

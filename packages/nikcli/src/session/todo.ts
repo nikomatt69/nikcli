@@ -21,7 +21,7 @@ type MacIcon = {
 }
 
 export namespace Todo {
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     content: Schema.String.annotate({
       description: "Brief description of the task",
     }),

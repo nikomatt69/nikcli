@@ -8,10 +8,10 @@ import { PublicApi } from "../src/server/httpapi/public"
 
 const contract = compile(PublicApi, {
   // WebSocket upgrade endpoints; neither generated HTTP transport owns them.
-  // `auth.set` is contract-only with a union payload, which
-  // `HttpApiClient.ForApi` narrows to the first member — omit it until the
+  // `auth.set` and `part.update` carry union payloads, which
+  // `HttpApiClient.ForApi` narrows to the first member — omit them until the
   // upstream union-payload derivation is fixed.
-  omitEndpoints: new Set(["pty-connect.connect", "mobile.ptyConnect", "auth.set"]),
+  omitEndpoints: new Set(["pty-connect.connect", "mobile.ptyConnect", "auth.set", "session.partUpdate"]),
   // OpenApi.Identifier annotations pin operationIds to the Hono OpenAPI
   // contract (dotted ids that collide as client paths); keep client method
   // names derived from the Effect endpoint names instead.

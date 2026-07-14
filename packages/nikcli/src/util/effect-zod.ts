@@ -523,8 +523,8 @@ function walk(ast: AST): z.ZodType {
  * remaining Zod-only consumer (hono-openapi route validators, AI SDK tool
  * parameter schemas, legacy SDK output).
  */
-export function zod<S extends Schema.Top>(schema: S): z.ZodType<S["Type"]> {
-  return walk(schema.ast) as z.ZodType<S["Type"]>
+export function zod<S extends Schema.Top>(schema: S): z.ZodType<DeepMutable<S["Type"]>, DeepMutable<S["Type"]>> {
+  return walk(schema.ast) as z.ZodType<DeepMutable<S["Type"]>, DeepMutable<S["Type"]>>
 }
 
 /**
@@ -537,10 +537,13 @@ export function zod<S extends Schema.Top>(schema: S): z.ZodType<S["Type"]> {
  * `.shape`, `.partial`, `.omit`, `.merge`, `.extend` are all available on
  * the result.
  */
+// Legacy hand-written zod schemas inferred fully mutable types; Effect's `Type`
+// marks properties/arrays readonly. Emit `DeepMutable` so the derived zod stays a
+// drop-in replacement for consumers that mutate parsed values.
 type FieldToZod<F> = F extends Schema.Top
   ? F["~type.optionality"] extends "optional"
-    ? z.ZodOptional<z.ZodType<F["Type"], F["Type"]>>
-    : z.ZodType<F["Type"], F["Type"]>
+    ? z.ZodOptional<z.ZodType<DeepMutable<F["Type"]>, DeepMutable<F["Type"]>>>
+    : z.ZodType<DeepMutable<F["Type"]>, DeepMutable<F["Type"]>>
   : z.ZodType<unknown, unknown>
 
 type FieldsToShape<Fields extends Schema.Struct.Fields> = {
@@ -555,7 +558,7 @@ export function zodObject<Fields extends Schema.Struct.Fields>(
 // Loses the precise field shape but still gives a `z.ZodObject` with the correct output type.
 export function zodObject<S extends Schema.Top & { readonly Type: object }>(
   schema: S,
-): z.ZodType<S["Type"]> & z.ZodObject<z.ZodRawShape>
+): z.ZodType<DeepMutable<S["Type"]>, DeepMutable<S["Type"]>> & z.ZodObject<z.ZodRawShape>
 export function zodObject(schema: Schema.Top): z.ZodObject<any> {
   const out = walk(schema.ast)
   if (out instanceof z.ZodObject) {

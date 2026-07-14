@@ -7,7 +7,7 @@ import { Log } from "../util/log"
 import type { WSContext } from "hono/ws"
 import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject, type DeepMutable } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { PtyEnvironment } from "./environment"
 
@@ -32,7 +32,7 @@ export namespace Pty {
     pid: Schema.Number,
   }).annotate({ identifier: "Pty" })
   export const Info = zodObject(InfoSchema)
-  export type Info = Schema.Schema.Type<typeof InfoSchema>
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   const CreateInputSchema = Schema.Struct({
     command: Schema.optional(Schema.String),

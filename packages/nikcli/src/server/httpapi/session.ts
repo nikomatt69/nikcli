@@ -12,6 +12,7 @@ import { Session } from "@/session"
 import { SessionContext } from "@/session/context-breakdown"
 import { SessionGoal } from "@/session/goal"
 import { ShareNext } from "@/share/share-next"
+import { Snapshot } from "@/snapshot"
 import { Storage } from "@/storage/storage"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionCompaction } from "@/session/compaction"
@@ -93,9 +94,6 @@ export namespace SessionHttpApi {
     ),
     command: Schema.String,
   }).annotate({ identifier: "SessionShellInput" })
-  const AssistantMessage = Schema.Unknown.annotate({
-    identifier: "AssistantMessage",
-  })
   const PermissionRespondPath = Schema.Struct({
     sessionID: Schema.String,
     permissionID: Schema.String,
@@ -107,17 +105,17 @@ export namespace SessionHttpApi {
   const SessionList = Schema.Array(Schema.Unknown).annotate({
     identifier: "SessionList",
   })
-  const MessageList = Schema.Array(Schema.Unknown).annotate({
+  const MessageList = Schema.Array(MessageV2.WithPartsSchema).annotate({
     identifier: "MessageList",
   })
-  const FileDiffList = Schema.Array(Schema.Unknown).annotate({
+  const FileDiffList = Schema.Array(Snapshot.FileDiffSchema).annotate({
     identifier: "FileDiffList",
   })
   const SessionInfo = Schema.Unknown.annotate({ identifier: "SessionInfo" })
-  const SessionStatusMap = Schema.Record(Schema.String, Schema.Unknown).annotate({
+  const SessionStatusMap = Schema.Record(Schema.String, SessionStatus.InfoSchema).annotate({
     identifier: "SessionStatusMap",
   })
-  const TodoList = Schema.Array(Schema.Unknown).annotate({
+  const TodoList = Schema.Array(Todo.InfoSchema).annotate({
     identifier: "TodoList",
   })
   const BooleanResult = Schema.Boolean.annotate({
@@ -135,10 +133,10 @@ export namespace SessionHttpApi {
     messageID: Schema.String,
     partID: Schema.String,
   })
-  const MessageWithParts = Schema.Unknown.annotate({
+  const MessageWithParts = MessageV2.WithPartsSchema.annotate({
     identifier: "MessageWithParts",
   })
-  const MessagePart = Schema.Unknown.annotate({ identifier: "MessagePart" })
+  const MessagePart = MessageV2.PartSchema
   const SessionV2EntryList = Schema.Array(Schema.Unknown).annotate({
     identifier: "SessionV2EntryList",
   })
@@ -323,7 +321,7 @@ export namespace SessionHttpApi {
       HttpApiEndpoint.post("shell", "/:sessionID/shell", {
         params: SessionIDPath,
         payload: ShellPayload,
-        success: AssistantMessage,
+        success: MessageWithParts,
         error: [NotFound, Busy],
       }),
     )
