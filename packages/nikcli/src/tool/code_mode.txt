@@ -1,0 +1,25 @@
+Run an orchestration script in a confined interpreter that calls other tools programmatically. Intermediate tool results are NOT added to the conversation context — only the value your program returns (plus console.log output) comes back. This keeps the context window clean when chaining many tool calls.
+
+Use this tool when you need to:
+- Process a large number of files and aggregate or filter results
+- Chain multiple tool calls in a loop without bloating the context
+- Transform tool outputs before returning them
+- Execute multi-step operations where only the final result matters
+
+The language is a JavaScript subset executed by a confined interpreter, NOT a real JavaScript runtime:
+- No import/require, fetch, process, filesystem, timers, or host globals
+- No eval, Function, classes, or generators
+- Tool calls start eagerly; await every call whose completion matters — anything still running when the program returns is interrupted
+- Tool arguments and results are plain JSON data
+- An omitted return yields the final top-level expression
+
+Tools are available under the `tools` namespace as async functions.
+
+Example:
+  const files = await tools.glob({ pattern: "src/**/*.ts" })
+  const todos = []
+  for (const f of files.split("\n")) {
+    const content = await tools.read({ filePath: f })
+    if (content.includes("TODO")) todos.push(f)
+  }
+  return todos

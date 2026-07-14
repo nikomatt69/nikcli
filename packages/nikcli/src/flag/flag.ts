@@ -114,6 +114,9 @@ export namespace Flag {
   export const NIKCLI_EXPERIMENTAL_WORKSPACES_TUI = true
   export const NIKCLI_EXPERIMENTAL_SECURITY_TOOL = true
   export const NIKCLI_EXPERIMENTAL_WEBSOCKETS = true
+  // Confined code-mode tool (interpreter port from opencode v2 codemode); see specs/codemode.md.
+  // Default-on; opt out with NIKCLI_DISABLE_CODE_MODE.
+  export const NIKCLI_EXPERIMENTAL_CODE_MODE = !truthy("NIKCLI_DISABLE_CODE_MODE")
 
   // Computer & browser use ("computer use" like Codex / Claude Code).
   // Browser tasks run through Browser Use SDK v3; desktop computer-use sends

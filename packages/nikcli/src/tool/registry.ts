@@ -46,6 +46,7 @@ import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
 import { DelegatorTool } from "./delegator"
 import { ExecCodeTool } from "./exec_code"
+import { CodeModeTool } from "./code_mode"
 import { SearchToolsTool } from "./search_tools"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 import { BrowserTool } from "./browser"
@@ -268,6 +269,7 @@ export namespace ToolRegistry {
           DelegatorTool,
           SearchToolsTool,
           ExecCodeTool,
+          ...(Flag.NIKCLI_EXPERIMENTAL_CODE_MODE ? [CodeModeTool] : []),
           ...(Flag.NIKCLI_EXPERIMENTAL_BROWSER_TOOL ? [BrowserTool] : []),
           ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_TOOL ? [ComputerTool] : []),
           ...custom,
