@@ -35,6 +35,7 @@ COPY packages/http-recorder/package.json /app/packages/http-recorder/
 COPY packages/httpapi-codegen/package.json /app/packages/httpapi-codegen/
 COPY packages/simulation/package.json /app/packages/simulation/
 COPY packages/tui-image/package.json /app/packages/tui-image/
+COPY packages/terminal-control/package.json /app/packages/terminal-control/
 COPY github/package.json /app/github/
 
 # Stub package.json for workspace packages not built in this image
@@ -87,6 +88,7 @@ COPY packages/http-recorder /app/packages/http-recorder
 COPY packages/httpapi-codegen /app/packages/httpapi-codegen
 COPY packages/simulation /app/packages/simulation
 COPY packages/tui-image /app/packages/tui-image
+COPY packages/terminal-control /app/packages/terminal-control
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest

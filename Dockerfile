@@ -24,6 +24,7 @@ COPY packages/http-recorder/package.json packages/http-recorder/
 COPY packages/httpapi-codegen/package.json packages/httpapi-codegen/
 COPY packages/simulation/package.json packages/simulation/
 COPY packages/tui-image/package.json packages/tui-image/
+COPY packages/terminal-control/package.json packages/terminal-control/
 COPY github/package.json github/
 
 # Stub webrenderer (native Rust build not required for the nikcli binary)
@@ -47,6 +48,7 @@ COPY packages/http-recorder packages/http-recorder
 COPY packages/httpapi-codegen packages/httpapi-codegen
 COPY packages/simulation packages/simulation
 COPY packages/tui-image packages/tui-image
+COPY packages/terminal-control packages/terminal-control
 COPY github github
 
 # Build nikcli binary for the current platform (linux-x64)

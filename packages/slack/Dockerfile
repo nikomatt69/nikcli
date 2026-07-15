@@ -25,6 +25,7 @@ COPY packages/webrenderer/package.json packages/webrenderer/
 COPY packages/http-recorder/package.json packages/http-recorder/
 COPY packages/httpapi-codegen/package.json packages/httpapi-codegen/
 COPY packages/simulation/package.json packages/simulation/
+COPY packages/terminal-control/package.json packages/terminal-control/
 # Explicit workspace member referenced by root package.json
 COPY github/package.json github/
 
@@ -45,6 +46,7 @@ COPY packages/webrenderer packages/webrenderer
 COPY packages/http-recorder packages/http-recorder
 COPY packages/httpapi-codegen packages/httpapi-codegen
 COPY packages/simulation packages/simulation
+COPY packages/terminal-control packages/terminal-control
 
 RUN mkdir -p /app/repos
 
