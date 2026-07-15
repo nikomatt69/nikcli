@@ -400,6 +400,17 @@ function walk(ast: AST): z.ZodType {
       // in JSON Schema").
       const filtered = unionAst.types.filter((t) => (t as any)._tag !== "Undefined")
       if (filtered.length === 0) return finalize(z.never())
+      // A union made purely of string literals becomes `z.enum([...])` so the JSON
+      // Schema output is `enum: [...]` — byte-identical to the legacy hand-written
+      // `z.enum` declarations — instead of an `anyOf` of single-value consts.
+      const stringLiterals = filtered.map((t) =>
+        (t as any)._tag === "Literal" && typeof (t as any).literal === "string"
+          ? ((t as any).literal as string)
+          : undefined,
+      )
+      if (filtered.length >= 2 && stringLiterals.every((s) => s !== undefined)) {
+        return finalize(z.enum(stringLiterals as [string, ...string[]]))
+      }
       const variants = filtered.map((t) => walk(t))
       if (variants.length === 1) return finalize(variants[0])
       if (ann.discriminator) {

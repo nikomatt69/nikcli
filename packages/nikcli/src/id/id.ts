@@ -1,5 +1,6 @@
 import z from "zod"
 import { randomBytes } from "crypto"
+import { Schema as EffectSchema } from "effect"
 
 export namespace Identifier {
   const prefixes = {
@@ -24,6 +25,11 @@ export namespace Identifier {
 
   export function schema(prefix: keyof typeof prefixes) {
     return z.string().startsWith(prefixes[prefix])
+  }
+
+  /** Effect Schema counterpart of `schema()` — same startsWith constraint. */
+  export function schemaEffect(prefix: keyof typeof prefixes) {
+    return EffectSchema.String.pipe(EffectSchema.check(EffectSchema.isStartsWith(prefixes[prefix])))
   }
 
   const LENGTH = 26

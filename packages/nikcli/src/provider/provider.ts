@@ -877,7 +877,7 @@ export namespace Provider {
     pdf: Schema.Boolean,
   })
 
-  const ModelSchema = Schema.Struct({
+  export const ModelSchema = Schema.Struct({
     id: Schema.String,
     providerID: Schema.String,
     api: Schema.Struct({
@@ -927,7 +927,7 @@ export namespace Provider {
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
 
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     id: Schema.String,
     name: Schema.String,
     source: Schema.Literals(["env", "config", "custom", "api"]),

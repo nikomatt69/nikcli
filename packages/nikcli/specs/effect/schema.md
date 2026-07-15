@@ -439,6 +439,26 @@ piecewise.
 
 ## Notes
 
+- **2026-07-15 (2) — Event-union groundwork: walker `z.enum`, `BusEvent.schema`, Session.Info Effect**:
+  the walker now emits `z.enum([...])` for unions made purely of ≥2 string literals, restoring
+  the legacy JSON Schema `enum` form (the committed spec had absorbed `anyOf`-const churn from
+  earlier migrations — this regen moves `Model`, `Provider`, `Agent`, `Pty`, `LogLevel`,
+  `PermissionAction`, monitor/permission events, etc. back to `enum`; hey-api gen output is
+  unchanged since both forms produce the same TS unions). `BusEvent.schema(type, Struct)` is the
+  Effect-flavored `define` — it auto-annotates the payload with strip mode, registers both the
+  walker-derived zod payload and the Effect schema, and `BusEvent.schemas()` builds the Effect
+  `Event` union (throws listing `unmigrated()` types, so the contract can never publish a partial
+  union). `Identifier.schemaEffect(prefix)` mirrors `Identifier.schema` for Effect structs.
+  `Session.Info`/`GithubInfo`/`MobileInfo`/`ShareInfo` migrated to Effect Schema
+  (`Session.InfoSchema` exported, identifier "Session" — byte-identical component);
+  `Provider.ModelSchema`/`InfoSchema` exported; `Snapshot.FileDiffSchema` dropped its
+  `zodOverride` (walker enum covers it). **Runtime lesson (bridge validates responses)**: wiring
+  `Provider.InfoSchema` into `httpapi/config.ts` broke the TUI at bootstrap — the Effect bridge
+  validates response bodies at runtime and real provider data lacks `api.url` on custom-provider
+  models (Hono never validated, so the strict spec lied harmlessly). `ConfigHttpApi.ProviderInfo`
+  stays deliberately loose until the data is fixed; any future contract tightening must be
+  curl-verified against a running server (`/config/providers`, `/config`, `/agent`, `/session`).
+
 - **2026-07-15 — message-v2/SessionStatus/Todo/FileDiff migrated; flip blockers left: Model + Event**:
   `session/message-v2.ts` data shapes (all Part variants, ToolState union, OutputFormat,
   UserMessage/AssistantMessage/Message, WithParts, the `{name,data}` error bodies) are now

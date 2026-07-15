@@ -1,6 +1,5 @@
 import fs from "fs/promises"
 import path from "path"
-import z from "zod"
 import { formatPatch, structuredPatch } from "diff"
 import { Config } from "../config/config"
 import { Git } from "@/git"
@@ -9,7 +8,7 @@ import { Scheduler } from "../scheduler"
 import { Lock } from "@/util/lock"
 import { Log } from "../util/log"
 import { InstanceState, type InstanceContext, runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { zodObject, zodObjectMode, zodOverride, type DeepMutable } from "@/util/effect-zod"
+import { zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Snapshot {
@@ -531,13 +530,7 @@ export namespace Snapshot {
     patch: Schema.String,
     additions: Schema.Number,
     deletions: Schema.Number,
-    // zodOverride keeps the JSON Schema `enum` form (the walker emits literal
-    // unions as `anyOf` consts, which would churn the generated OpenAPI).
-    status: Schema.optional(
-      Schema.Literals(["added", "deleted", "modified"]).annotate({
-        ...zodOverride(() => z.enum(["added", "deleted", "modified"])),
-      }),
-    ),
+    status: Schema.optional(Schema.Literals(["added", "deleted", "modified"])),
     before: Schema.String,
     after: Schema.String,
   }).annotate({ ...zodObjectMode("strip"), identifier: "FileDiff" })

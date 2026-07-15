@@ -8,6 +8,10 @@ import { mapValues } from "remeda"
 export namespace ConfigHttpApi {
   export const Info = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "Config" })
 
+  // NOTE: deliberately looser than Provider.InfoSchema. The Effect bridge
+  // validates response bodies at runtime (Hono never did), and real provider
+  // data violates the strict Model schema — e.g. custom providers without
+  // `api.url`. Tightening this requires fixing the data first.
   const Model = Schema.Struct({
     id: Schema.String,
     providerID: Schema.optional(Schema.String),

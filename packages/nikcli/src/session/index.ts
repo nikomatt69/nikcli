@@ -33,6 +33,7 @@ import {
   type InstanceContext,
 } from "@/effect"
 import { Context, Effect, Layer, Schema } from "effect"
+import { zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
 import { SessionRepo } from "./repo"
 import { MessageRepo } from "./message-repo"
@@ -62,140 +63,130 @@ export namespace Session {
   const log = Log.create({ service: "session" })
   const analyticsLog = Log.create({ service: "session-analytics" })
 
-  const GithubInfo = z
-    .object({
-      owner: z.string(),
-      repo: z.string(),
-      fullName: z.string(),
-      baseBranch: z.string(),
-      headBranch: z.string(),
-      repositoryDirectory: z.string().optional(),
-      cloneUrl: z.string().optional(),
-      htmlUrl: z.string().optional(),
-      private: z.boolean().optional(),
-      worktree: z.object({
-        name: z.string(),
-        branch: z.string(),
-        directory: z.string(),
-        cleanedAt: z.number().optional(),
-      }),
-      pullRequest: z
-        .object({
-          number: z.number(),
-          url: z.string(),
-          title: z.string(),
-        })
-        .optional(),
-      lastCommitSha: z.string().optional(),
-      publishedAt: z.number().optional(),
-      publishError: z.string().optional(),
-    })
-    .meta({
-      ref: "SessionGithub",
-    })
+  const strip = zodObjectMode("strip")
 
-  const MobileInfo = z
-    .object({
-      platforms: z.array(z.enum(["ios", "android", "expo", "flutter", "react-native"])),
-      primaryPlatform: z.string(),
-      method: z.string(),
-      detectedAt: z.number(),
-      buildStatus: z.enum(["unknown", "building", "succeeded", "failed"]).optional(),
-      lastBuildAt: z.number().optional(),
-      artifacts: z
-        .array(
-          z.object({
-            platform: z.string(),
-            path: z.string(),
-            size: z.number().optional(),
-            createdAt: z.number().optional(),
-          }),
-        )
-        .optional(),
-    })
-    .meta({
-      ref: "SessionMobile",
-    })
+  export const GithubInfoSchema = Schema.Struct({
+    owner: Schema.String,
+    repo: Schema.String,
+    fullName: Schema.String,
+    baseBranch: Schema.String,
+    headBranch: Schema.String,
+    repositoryDirectory: Schema.optional(Schema.String),
+    cloneUrl: Schema.optional(Schema.String),
+    htmlUrl: Schema.optional(Schema.String),
+    private: Schema.optional(Schema.Boolean),
+    worktree: Schema.Struct({
+      name: Schema.String,
+      branch: Schema.String,
+      directory: Schema.String,
+      cleanedAt: Schema.optional(Schema.Number),
+    }).annotate(strip),
+    pullRequest: Schema.optional(
+      Schema.Struct({
+        number: Schema.Number,
+        url: Schema.String,
+        title: Schema.String,
+      }).annotate(strip),
+    ),
+    lastCommitSha: Schema.optional(Schema.String),
+    publishedAt: Schema.optional(Schema.Number),
+    publishError: Schema.optional(Schema.String),
+  }).annotate({ ...strip, identifier: "SessionGithub" })
+  const GithubInfo = zodObject(GithubInfoSchema)
 
-  export type MobileInfo = z.infer<typeof MobileInfo>
+  export const MobileInfoSchema = Schema.Struct({
+    platforms: Schema.Array(Schema.Literals(["ios", "android", "expo", "flutter", "react-native"])),
+    primaryPlatform: Schema.String,
+    method: Schema.String,
+    detectedAt: Schema.Number,
+    buildStatus: Schema.optional(Schema.Literals(["unknown", "building", "succeeded", "failed"])),
+    lastBuildAt: Schema.optional(Schema.Number),
+    artifacts: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          platform: Schema.String,
+          path: Schema.String,
+          size: Schema.optional(Schema.Number),
+          createdAt: Schema.optional(Schema.Number),
+        }).annotate(strip),
+      ),
+    ),
+  }).annotate({ ...strip, identifier: "SessionMobile" })
+  const MobileInfo = zodObject(MobileInfoSchema)
+
+  export type MobileInfo = DeepMutable<Schema.Schema.Type<typeof MobileInfoSchema>>
 
   const createDefaultTitle = SessionPrimitives.createDefaultTitle
   export const isDefaultTitle = SessionPrimitives.isDefaultTitle
 
-  export const Info = z
-    .object({
-      id: Identifier.schema("session"),
-      slug: z.string(),
-      projectID: z.string(),
-      directory: z.string(),
-      parentID: Identifier.schema("session").optional(),
-      workspaceID: z.string().optional(),
-      summary: z
-        .object({
-          additions: z.number(),
-          deletions: z.number(),
-          files: z.number(),
-          diffs: Snapshot.FileDiff.array().optional(),
-        })
-        .optional(),
-      share: z
-        .object({
-          url: z.string(),
-        })
-        .optional(),
-      github: GithubInfo.optional(),
-      mobile: MobileInfo.optional(),
-      title: z.string(),
-      activeCommand: z.string().optional(),
-      version: z.string(),
-      time: z.object({
-        created: z.number(),
-        updated: z.number(),
-        compacting: z.number().optional(),
-        archived: z.number().optional(),
-      }),
-      permission: PermissionNext.Ruleset.optional(),
-      skills: z.array(z.string()).optional(),
-      /**
-       * Paths of custom instruction files (AGENTS.md, CLAUDE.md, etc.) that
-       * the user has explicitly disabled for this session. The server
-       * filters these out of the system prompt at build time so the model
-       * never sees them — the only way to actually shrink that part of the
-       * context.
-       */
-      disabledInstructions: z.array(z.string()).optional(),
-      /**
-       * Tool IDs the user has disabled for this session. Both the schema
-       * (so the model never sees them) and the permission rule are
-       * suppressed. Map value is unused but kept as a record for forward
-       * compatibility with "true/false" partial disables.
-       */
-      disabledTools: z.record(z.string(), z.boolean()).optional(),
-      revert: z
-        .object({
-          messageID: z.string(),
-          partID: z.string().optional(),
-          snapshot: z.string().optional(),
-          diff: z.string().optional(),
-        })
-        .optional(),
-    })
-    .meta({
-      ref: "Session",
-    })
-  export type Info = z.output<typeof Info>
+  export const InfoSchema = Schema.Struct({
+    id: Identifier.schemaEffect("session"),
+    slug: Schema.String,
+    projectID: Schema.String,
+    directory: Schema.String,
+    parentID: Schema.optional(Identifier.schemaEffect("session")),
+    workspaceID: Schema.optional(Schema.String),
+    summary: Schema.optional(
+      Schema.Struct({
+        additions: Schema.Number,
+        deletions: Schema.Number,
+        files: Schema.Number,
+        diffs: Schema.optional(Schema.Array(Snapshot.FileDiffSchema)),
+      }).annotate(strip),
+    ),
+    share: Schema.optional(
+      Schema.Struct({
+        url: Schema.String,
+      }).annotate(strip),
+    ),
+    github: Schema.optional(GithubInfoSchema),
+    mobile: Schema.optional(MobileInfoSchema),
+    title: Schema.String,
+    activeCommand: Schema.optional(Schema.String),
+    version: Schema.String,
+    time: Schema.Struct({
+      created: Schema.Number,
+      updated: Schema.Number,
+      compacting: Schema.optional(Schema.Number),
+      archived: Schema.optional(Schema.Number),
+    }).annotate(strip),
+    permission: Schema.optional(PermissionNext.RulesetSchema),
+    skills: Schema.optional(Schema.Array(Schema.String)),
+    /**
+     * Paths of custom instruction files (AGENTS.md, CLAUDE.md, etc.) that
+     * the user has explicitly disabled for this session. The server
+     * filters these out of the system prompt at build time so the model
+     * never sees them — the only way to actually shrink that part of the
+     * context.
+     */
+    disabledInstructions: Schema.optional(Schema.Array(Schema.String)),
+    /**
+     * Tool IDs the user has disabled for this session. Both the schema
+     * (so the model never sees them) and the permission rule are
+     * suppressed. Map value is unused but kept as a record for forward
+     * compatibility with "true/false" partial disables.
+     */
+    disabledTools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
+    revert: Schema.optional(
+      Schema.Struct({
+        messageID: Schema.String,
+        partID: Schema.optional(Schema.String),
+        snapshot: Schema.optional(Schema.String),
+        diff: Schema.optional(Schema.String),
+      }).annotate(strip),
+    ),
+  }).annotate({ ...strip, identifier: "Session" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
-  export const ShareInfo = z
-    .object({
-      id: z.string().optional(),
-      mode: z.enum(["remote", "local"]).optional(),
-      secret: z.string().optional(),
-      url: z.string(),
-    })
-    .meta({
-      ref: "SessionShare",
-    })
-  export type ShareInfo = z.output<typeof ShareInfo>
+  export const ShareInfoSchema = Schema.Struct({
+    id: Schema.optional(Schema.String),
+    mode: Schema.optional(Schema.Literals(["remote", "local"])),
+    secret: Schema.optional(Schema.String),
+    url: Schema.String,
+  }).annotate({ ...strip, identifier: "SessionShare" })
+  export const ShareInfo = zodObject(ShareInfoSchema)
+  export type ShareInfo = DeepMutable<Schema.Schema.Type<typeof ShareInfoSchema>>
 
   export const ID = SessionPrimitives.ID
 
