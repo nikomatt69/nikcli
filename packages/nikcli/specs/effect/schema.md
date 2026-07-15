@@ -439,6 +439,26 @@ piecewise.
 
 ## Notes
 
+- **2026-07-15 (3) — all 70 `BusEvent.define` callsites converted to `BusEvent.schema`**:
+  every bus event payload (33 files) is now an Effect `Schema.Struct`; `BusEvent.unmigrated()`
+  returns `[]` with the full server import graph loaded and `BusEvent.schemas()` builds a
+  67-member Effect `Event` union. Prerequisite migrations done in the same sweep:
+  `Question.RequestSchema` (identifier "QuestionRequest", strip), `SessionGoal.StateEffect`/
+  `StatusEffect` (identifier "SessionGoalState", strip), `LoopRunStatusEffect` +
+  `ExecStatusEffect` (loop/mission schema.ts — zod now derived via `zod()`),
+  `Workspace.ConnectionStatusSchema` export, `MessageV2.AssistantErrorSchema` export (used by
+  the `session.error` event). Parity rules learned: `BusEvent.schema` auto-strips only
+  ANONYMOUS payload structs — named schemas (identifier set, e.g. PermissionRequest, Project)
+  pass through untouched or their shared component loses `additionalProperties: false`;
+  `zodOverride` must be the SOLE source for a field (pairing it with an Effect-side check emits
+  the constraint twice as `allOf`, and a `description` annotation on a checked string is
+  dropped) — see tui.toast.show `duration` and tui.session.select `sessionID`. The walker types
+  overridden `.default()` fields as required, so toast call sites type `duration` optional via a
+  local shim (ui/toast.tsx, session/toast.tsx). OpenAPI regen: byte-identical except
+  `Event.file.watcher.updated` anyOf→enum (deliberate walker normalization). Verified: tsgo
+  clean, walker+bus+server tests green, `serve` bootstrap endpoints 200, SSE `/event` streams,
+  TUI alive.
+
 - **2026-07-15 (2) — Event-union groundwork: walker `z.enum`, `BusEvent.schema`, Session.Info Effect**:
   the walker now emits `z.enum([...])` for unions made purely of ≥2 string literals, restoring
   the legacy JSON Schema `enum` form (the committed spec had absorbed `anyOf`-const churn from
