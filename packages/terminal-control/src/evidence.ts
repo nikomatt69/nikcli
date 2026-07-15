@@ -257,10 +257,13 @@ export function assertCompleteGitHubTuiEvidence(evidence: readonly GitHubTuiEvid
     throw new Error("TUI verification was requested, but no new artifacts/tui evidence bundle was produced.")
   }
   for (const item of evidence) {
-    const missing = [!item.preview && "preview.gif", !item.video && "demo.mp4", !item.recording && "recording.termctrl"].filter(
-      Boolean,
-    )
-    if (missing.length > 0) throw new Error(`Incomplete TUI evidence bundle ${item.manifest}: missing ${missing.join(", ")}`)
+    const missing = [
+      !item.preview && "preview.gif",
+      !item.video && "demo.mp4",
+      !item.recording && "recording.termctrl",
+    ].filter(Boolean)
+    if (missing.length > 0)
+      throw new Error(`Incomplete TUI evidence bundle ${item.manifest}: missing ${missing.join(", ")}`)
   }
 }
 

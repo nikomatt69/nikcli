@@ -3,6 +3,25 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.169.0 (July 2026)
+
+## Core
+
+- Integrate terminal-control package and enhance GitHub workflow (@nikomatt69)
+- Add all-events module to register bus events for Effect Schema (@nikomatt69)
+- Document the BusEvent.define→schema sweep (landed in cce9da311) (@nikomatt69)
+- Add missing semicolons and improve type definitions in inference-dashboard (@nikomatt69)
+- Event-union groundwork — walker z.enum, BusEvent.schema, Session.Info to Effect (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(schema): Event-union groundwork — walker z.enum, BusEvent.schema, Session.Info to Effect
+  - fix: add missing semicolons and improve type definitions in inference-dashboard
+  - docs(schema): document the BusEvent.define→schema sweep (landed in cce9da311)
+  - feat(bus): add all-events module to register bus events for Effect Schema
+  - feat(terminal-control): integrate terminal-control package and enhance GitHub workflow
+
 ## v1.167.0 (July 2026)
 
 ## Core

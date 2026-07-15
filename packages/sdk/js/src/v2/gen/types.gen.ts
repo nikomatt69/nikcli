@@ -1143,6 +1143,13 @@ export type EventPtyDeleted = {
   }
 }
 
+export type EventIdeInstalled = {
+  type: "ide.installed"
+  properties: {
+    ide: string
+  }
+}
+
 export type EventFileEdited = {
   type: "file.edited"
   properties: {
@@ -1345,6 +1352,7 @@ export type Event =
   | EventPtyUpdated
   | EventPtyExited
   | EventPtyDeleted
+  | EventIdeInstalled
   | EventFileEdited
   | EventWorkspaceReady
   | EventWorkspaceFailed
@@ -3106,7 +3114,7 @@ export type Model = {
   providerID: string
   api: {
     id: string
-    url: string
+    url?: string
     npm: string
   }
   name: string

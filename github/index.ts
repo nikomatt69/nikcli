@@ -229,12 +229,7 @@ try {
         evidence,
         `${useContext().repo.owner}/${useContext().repo.repo}`,
       )
-      const pr = await createPR(
-        repoData.data.default_branch,
-        branch,
-        summary,
-        body,
-      )
+      const pr = await createPR(repoData.data.default_branch, branch, summary, body)
       await updateComment(`Created PR #${pr}${footer({ image: true })}`)
     } else {
       await updateComment(`${response}${footer({ image: true })}`)
@@ -296,10 +291,7 @@ async function beginTuiEvidence(requested: boolean): Promise<GitHubTuiEvidenceSn
   return snapshotGitHubTuiEvidence(await discoverGitHubTuiEvidence(repositoryRoot))
 }
 
-async function finishTuiEvidence(
-  requested: boolean,
-  before: GitHubTuiEvidenceSnapshot,
-): Promise<GitHubTuiEvidence[]> {
+async function finishTuiEvidence(requested: boolean, before: GitHubTuiEvidenceSnapshot): Promise<GitHubTuiEvidence[]> {
   if (!requested) return []
   const evidence = changedGitHubTuiEvidence(await discoverGitHubTuiEvidence(repositoryRoot), before)
   assertCompleteGitHubTuiEvidence(evidence)
