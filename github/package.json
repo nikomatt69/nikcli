@@ -16,6 +16,7 @@
     "@octokit/graphql": "9.0.1",
     "@octokit/rest": "catalog:",
     "@octokit/webhooks-types": "7.6.1",
-    "@nikcli-ai/sdk": "workspace:*"
+    "@nikcli-ai/sdk": "workspace:*",
+    "@nikcli-ai/terminal-control": "workspace:*"
   }
 }

@@ -71,3 +71,52 @@ export {
   type ExportVideoOptions,
   type ExportVideoResult,
 } from "./render"
+
+// Agent-facing control uses the upstream native driver for PTY lifecycle,
+// OpenTUI negotiation and byte-accurate VT rendering. Aliases avoid colliding
+// with the dependency-light legacy Session/Screen API above.
+export {
+  TerminalControl,
+  TerminalControlError,
+  IncompleteCaptureError,
+  resolveTerminalControlBinary,
+  Session as ControlledSession,
+  Screen as ControlledScreen,
+  Keyboard as ControlledKeyboard,
+  Logs as ControlledLogs,
+  Transcript as ControlledTranscript,
+} from "@kitlangton/terminal-control"
+export type {
+  ArtifactManifest as ControlArtifactManifest,
+  ArtifactOptions as ControlArtifactOptions,
+  CaptureOptions as ControlCaptureOptions,
+  CaptureReason as ControlCaptureReason,
+  CaptureResult as ControlCaptureResult,
+  DriverOptions as ControlDriverOptions,
+  Frame as ControlFrame,
+  LaunchOptions as ControlLaunchOptions,
+  ScreenSnapshot as ControlScreenSnapshot,
+  SessionStatus as ControlSessionStatus,
+  Viewport as ControlViewport,
+} from "@kitlangton/terminal-control"
+
+export {
+  assertCompleteGitHubTuiEvidence,
+  changedGitHubTuiEvidence,
+  createEvidenceBundle,
+  discoverGitHubTuiEvidence,
+  GITHUB_TUI_EVIDENCE_END,
+  GITHUB_TUI_EVIDENCE_START,
+  mergeGitHubTuiEvidence,
+  renderGitHubTuiEvidence,
+  renderPullRequestMarkdown,
+  requestsTuiEvidence,
+  snapshotGitHubTuiEvidence,
+  type EvidenceArtifact,
+  type EvidenceBundle,
+  type EvidenceBundleOptions,
+  type EvidenceManifest,
+  type GitHubTuiEvidence,
+  type GitHubTuiEvidenceSnapshot,
+  type VerificationResult,
+} from "./evidence"

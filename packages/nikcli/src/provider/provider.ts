@@ -236,7 +236,13 @@ export namespace Provider {
           reasoning: false,
           attachment: false,
           toolcall: false,
-          input: { text: true, audio: false, image: false, video: false, pdf: false },
+          input: {
+            text: true,
+            audio: false,
+            image: false,
+            video: false,
+            pdf: false,
+          },
           output: {
             text: true,
             audio: false,
@@ -334,7 +340,13 @@ export namespace Provider {
             video: false,
             pdf: false,
           },
-          output: { text: true, audio: false, image: false, video: false, pdf: false },
+          output: {
+            text: true,
+            audio: false,
+            image: false,
+            video: false,
+            pdf: false,
+          },
           interleaved: false,
         },
         release_date: "2026-01-01",
@@ -882,7 +894,11 @@ export namespace Provider {
     providerID: Schema.String,
     api: Schema.Struct({
       id: Schema.String,
-      url: Schema.String,
+      // Optional: custom / config-only providers often leave the base URL
+      // implicit (resolved later from provider options.baseURL or npm defaults).
+      // Required here would reject real /config/providers payloads at the
+      // Effect HttpApi boundary even though Hono never validated them.
+      url: Schema.optional(Schema.String),
       npm: Schema.String,
     }),
     name: Schema.String,
@@ -1081,7 +1097,9 @@ export namespace Provider {
 
     // Auto-detect local Ollama and expose it as a provider when available.
     const ollama = await loadOllamaProvider(config).catch((error) => {
-      log.debug("ollama provider unavailable", { error: error instanceof Error ? error.message : String(error) })
+      log.debug("ollama provider unavailable", {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return undefined
     })
     if (ollama && isProviderAllowed(ollama.id)) {
@@ -1283,7 +1301,13 @@ export namespace Provider {
 
       // Load for the main provider if auth exists
       if (auth) {
-        const options = await plugin.auth.loader(() => authGet(providerID) as any, database[plugin.auth.provider])
+        // SDK Model.api.url is still required until the OpenAPI/SDK regen after
+        // optional-url; cast at the plugin boundary (runtime already tolerates
+        // missing urls via options.baseURL).
+        const options = await plugin.auth.loader(
+          () => authGet(providerID) as any,
+          database[plugin.auth.provider] as any,
+        )
         mergeProvider(plugin.auth.provider, {
           source: "custom",
           options: options,
@@ -1298,7 +1322,7 @@ export namespace Provider {
           if (enterpriseAuth) {
             const enterpriseOptions = await plugin.auth.loader(
               () => authGet(enterpriseProviderID) as any,
-              database[enterpriseProviderID],
+              database[enterpriseProviderID] as any,
             )
             mergeProvider(enterpriseProviderID, {
               source: "custom",
@@ -1347,9 +1371,12 @@ export namespace Provider {
       if (!provider) continue
       const pluginAuth = await authGet(p.id)
       provider.models = await p
-        .models(provider, { auth: pluginAuth ?? undefined })
+        // See auth.loader cast above — SDK Provider/Model lag the optional api.url.
+        .models(provider as any, { auth: pluginAuth ?? undefined })
         .then((next) =>
-          Object.fromEntries(Object.entries(next).map(([id, model]) => [id, { ...model, id, providerID: p.id }])),
+          Object.fromEntries(
+            Object.entries(next).map(([id, model]) => [id, { ...model, id, providerID: p.id } as Model]),
+          ),
         )
         .catch((e) => {
           log.warn("plugin provider.models failed", { id: p.id, error: e })
@@ -1613,7 +1640,10 @@ export namespace Provider {
         model.providerID === "google-vertex-anthropic" ? "@ai-sdk/google-vertex/anthropic" : model.api.npm
       const bundledFn = BUNDLED_PROVIDERS[bundledKey]
       if (bundledFn) {
-        log.info("using bundled provider", { providerID: model.providerID, pkg: bundledKey })
+        log.info("using bundled provider", {
+          providerID: model.providerID,
+          pkg: bundledKey,
+        })
         const create = await bundledFn()
         const loaded = create({
           name: model.providerID,
@@ -1635,7 +1665,10 @@ export namespace Provider {
 
       const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
       if (!createKey) {
-        log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
+        log.error("No create function found in provider module", {
+          npm: model.api.npm,
+          keys: Object.keys(mod),
+        })
         throw Object.assign(new InitError({ providerID: model.providerID }), {
           cause: new Error("Provider module missing create function"),
         })
@@ -1655,7 +1688,9 @@ export namespace Provider {
         error: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
       })
-      throw Object.assign(new InitError({ providerID: model.providerID }), { cause: e })
+      throw Object.assign(new InitError({ providerID: model.providerID }), {
+        cause: e,
+      })
     }
   }
 
@@ -1663,17 +1698,31 @@ export namespace Provider {
     const provider = s.providers[providerID]
     if (!provider) {
       const availableProviders = Object.keys(s.providers)
-      const matches = fuzzysort.go(providerID, availableProviders, { limit: 3, threshold: -10000 })
+      const matches = fuzzysort.go(providerID, availableProviders, {
+        limit: 3,
+        threshold: -10000,
+      })
       const suggestions = matches.map((m) => m.target)
-      throw new ModelNotFoundError({ providerID, modelID, suggestions: suggestions as string[] })
+      throw new ModelNotFoundError({
+        providerID,
+        modelID,
+        suggestions: suggestions as string[],
+      })
     }
 
     const info = provider.models[modelID]
     if (!info) {
       const availableModels = Object.keys(provider.models)
-      const matches = fuzzysort.go(modelID, availableModels, { limit: 3, threshold: -10000 })
+      const matches = fuzzysort.go(modelID, availableModels, {
+        limit: 3,
+        threshold: -10000,
+      })
       const suggestions = matches.map((m) => m.target)
-      throw new ModelNotFoundError({ providerID, modelID, suggestions: suggestions as string[] })
+      throw new ModelNotFoundError({
+        providerID,
+        modelID,
+        suggestions: suggestions as string[],
+      })
     }
     return info
   }
@@ -1695,7 +1744,11 @@ export namespace Provider {
         case "@ai-sdk/openai":
           // OpenAI SDK is shared by OpenAI, Azure, and GitHub Copilot — disambiguate by providerID.
           if (providerID.includes("github-copilot")) {
-            return GitHubCopilot.model(id, { baseURL, apiKey, headers: model.headers } as any)
+            return GitHubCopilot.model(id, {
+              baseURL,
+              apiKey,
+              headers: model.headers,
+            } as any)
           }
           if (providerID.includes("azure")) {
             const resourceName =
@@ -1751,11 +1804,18 @@ export namespace Provider {
           // Try to match against known OpenAI-compatible profiles
           const profile = providerProfiles[providerID]
           if (profile) {
-            return OpenAICompatible.profileModel(profile, id, { apiKey, baseURL } as any)
+            return OpenAICompatible.profileModel(profile, id, {
+              apiKey,
+              baseURL,
+            } as any)
           }
           // Generic fallback for custom OpenAI-compatible providers
           if (baseURL) {
-            return OpenAICompatible.model(id, { provider: providerID, baseURL, apiKey } as any)
+            return OpenAICompatible.model(id, {
+              provider: providerID,
+              baseURL,
+              apiKey,
+            } as any)
           }
           // No baseURL — can't construct a valid route without an endpoint
           return undefined
@@ -1937,7 +1997,10 @@ export namespace Provider {
           const sorted = sort(allModels)
           if (sorted.length > 0) {
             const best = sorted[0]
-            return { providerID: (best as any).providerID as string, modelID: best.id }
+            return {
+              providerID: (best as any).providerID as string,
+              modelID: best.id,
+            }
           }
           return { providerID: "nikcli", modelID: "" }
         }

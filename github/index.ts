@@ -7,6 +7,17 @@ import * as github from "@actions/github"
 import type { Context as GitHubContext } from "@actions/github/lib/context"
 import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/webhooks-types"
 import { createNikcliClient } from "@nikcli-ai/sdk"
+import {
+  assertCompleteGitHubTuiEvidence,
+  changedGitHubTuiEvidence,
+  discoverGitHubTuiEvidence,
+  mergeGitHubTuiEvidence,
+  renderGitHubTuiEvidence,
+  requestsTuiEvidence,
+  snapshotGitHubTuiEvidence,
+  type GitHubTuiEvidence,
+  type GitHubTuiEvidenceSnapshot,
+} from "@nikcli-ai/terminal-control/evidence"
 import { spawn } from "node:child_process"
 
 type GitHubAuthor = {
@@ -123,6 +134,7 @@ let session: { id: string; title: string; version: string }
 let shareId: string | undefined
 let exitCode = 0
 type PromptFiles = Awaited<ReturnType<typeof getUserPrompt>>["promptFiles"]
+const repositoryRoot = path.resolve(import.meta.dir, "..")
 
 try {
   assertContextEvent("issue_comment", "pull_request_review_comment")
@@ -140,6 +152,7 @@ try {
   })
 
   const { userPrompt, promptFiles } = await getUserPrompt()
+  const tuiEvidenceRequested = requestsTuiEvidence(userPrompt)
   await configureGit(accessToken)
   await assertPermissions()
 
@@ -148,7 +161,9 @@ try {
 
   // Setup nikcli session
   const repoData = await fetchRepo()
+  if (tuiEvidenceRequested) await assertTerminalControlSkillAvailable()
   session = await client.session.create<true>().then((r) => r.data)
+  if (tuiEvidenceRequested) await activateTerminalControlSkill()
   await subscribeSessionEvents()
   shareId = await (async () => {
     if (useEnvShare() === false) return
@@ -170,24 +185,30 @@ try {
     // Local PR
     if (prData.headRepository.nameWithOwner === prData.baseRepository.nameWithOwner) {
       await checkoutLocalBranch(prData)
+      const evidenceBefore = await beginTuiEvidence(tuiEvidenceRequested)
       const dataPrompt = buildPromptDataForPR(prData)
-      const response = await chat(`${userPrompt}\n\n${dataPrompt}`, promptFiles)
+      const response = await chat(githubAgentPrompt(userPrompt, dataPrompt, tuiEvidenceRequested), promptFiles)
+      const evidence = await finishTuiEvidence(tuiEvidenceRequested, evidenceBefore)
       if (await branchIsDirty()) {
         const summary = await summarize(response)
         await pushToLocalBranch(summary)
       }
+      if (evidence.length > 0) await updatePullRequestTuiEvidence(evidence, prData.headRepository.nameWithOwner)
       const hasShared = prData.comments.nodes.some((c) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
       await updateComment(`${response}${footer({ image: !hasShared })}`)
     }
     // Fork PR
     else {
       await checkoutForkBranch(prData)
+      const evidenceBefore = await beginTuiEvidence(tuiEvidenceRequested)
       const dataPrompt = buildPromptDataForPR(prData)
-      const response = await chat(`${userPrompt}\n\n${dataPrompt}`, promptFiles)
+      const response = await chat(githubAgentPrompt(userPrompt, dataPrompt, tuiEvidenceRequested), promptFiles)
+      const evidence = await finishTuiEvidence(tuiEvidenceRequested, evidenceBefore)
       if (await branchIsDirty()) {
         const summary = await summarize(response)
         await pushToForkBranch(summary, prData)
       }
+      if (evidence.length > 0) await updatePullRequestTuiEvidence(evidence, prData.headRepository.nameWithOwner)
       const hasShared = prData.comments.nodes.some((c) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
       await updateComment(`${response}${footer({ image: !hasShared })}`)
     }
@@ -195,17 +216,24 @@ try {
   // Issue
   else {
     const branch = await checkoutNewBranch()
+    const evidenceBefore = await beginTuiEvidence(tuiEvidenceRequested)
     const issueData = await fetchIssue()
     const dataPrompt = buildPromptDataForIssue(issueData)
-    const response = await chat(`${userPrompt}\n\n${dataPrompt}`, promptFiles)
+    const response = await chat(githubAgentPrompt(userPrompt, dataPrompt, tuiEvidenceRequested), promptFiles)
+    const evidence = await finishTuiEvidence(tuiEvidenceRequested, evidenceBefore)
     if (await branchIsDirty()) {
       const summary = await summarize(response)
       await pushToNewBranch(summary, branch)
+      const body = await mergeCommittedTuiEvidence(
+        `${response}\n\nCloses #${useIssueId()}${footer({ image: true })}`,
+        evidence,
+        `${useContext().repo.owner}/${useContext().repo.repo}`,
+      )
       const pr = await createPR(
         repoData.data.default_branch,
         branch,
         summary,
-        `${response}\n\nCloses #${useIssueId()}${footer({ image: true })}`,
+        body,
       )
       await updateComment(`Created PR #${pr}${footer({ image: true })}`)
     } else {
@@ -231,6 +259,69 @@ try {
   await revokeAppToken()
 }
 process.exit(exitCode)
+
+function githubAgentPrompt(userPrompt: string, dataPrompt: string, tuiEvidenceRequested: boolean) {
+  if (!tuiEvidenceRequested) return `${userPrompt}\n\n${dataPrompt}`
+  return `${userPrompt}\n\n${dataPrompt}
+
+<github_tui_evidence_contract>
+Use the active terminal-control skill. Test the real application TUI in a PTY; do not substitute a fixture, shell demo, transcript, or headless simulation. The environment already sets NIKCLI_TERMINAL=1 for OpenTUI compatibility.
+
+Create the final bundle under artifacts/tui/<descriptive-name> and pass --include-recording. The bundle must contain preview.gif, demo.mp4, recording.termctrl, screen.png, and manifest.json. Inspect the visible screen and recording for secrets before finishing. Do not put local file:// URLs in the response: this GitHub runner publishes immutable commit-addressed links in the PR automatically.
+</github_tui_evidence_contract>`
+}
+
+async function assertTerminalControlSkillAvailable() {
+  if (!server) throw new Error("nikcli server is not running")
+  const response = await fetch(`${server.url}/app/skill`)
+  if (!response.ok) throw new Error(`Failed to list nikcli skills: HTTP ${response.status}`)
+  const skills = (await response.json()) as Array<{ name?: string }>
+  if (!skills.some((skill) => skill.name === "terminal-control")) {
+    throw new Error("TUI verification requires the terminal-control skill, but the GitHub runner did not discover it.")
+  }
+}
+
+async function activateTerminalControlSkill() {
+  if (!server) throw new Error("nikcli server is not running")
+  const response = await fetch(`${server.url}/session/${session.id}/context/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind: "skill", key: "terminal-control", enabled: true }),
+  })
+  if (!response.ok) throw new Error(`Failed to activate terminal-control skill: HTTP ${response.status}`)
+}
+
+async function beginTuiEvidence(requested: boolean): Promise<GitHubTuiEvidenceSnapshot> {
+  if (!requested) return new Map()
+  return snapshotGitHubTuiEvidence(await discoverGitHubTuiEvidence(repositoryRoot))
+}
+
+async function finishTuiEvidence(
+  requested: boolean,
+  before: GitHubTuiEvidenceSnapshot,
+): Promise<GitHubTuiEvidence[]> {
+  if (!requested) return []
+  const evidence = changedGitHubTuiEvidence(await discoverGitHubTuiEvidence(repositoryRoot), before)
+  assertCompleteGitHubTuiEvidence(evidence)
+  return evidence
+}
+
+async function currentRevision() {
+  return (await $`git rev-parse HEAD`.text()).trim()
+}
+
+async function mergeCommittedTuiEvidence(body: string, evidence: GitHubTuiEvidence[], repository: string) {
+  if (evidence.length === 0) return body
+  const markdown = renderGitHubTuiEvidence({ evidence, repository, revision: await currentRevision() })
+  return mergeGitHubTuiEvidence(body, markdown)
+}
+
+async function updatePullRequestTuiEvidence(evidence: GitHubTuiEvidence[], repository: string) {
+  const { repo } = useContext()
+  const current = await octoRest.rest.pulls.get({ owner: repo.owner, repo: repo.repo, pull_number: useIssueId() })
+  const body = await mergeCommittedTuiEvidence(current.data.body ?? "", evidence, repository)
+  await octoRest.rest.pulls.update({ owner: repo.owner, repo: repo.repo, pull_number: useIssueId(), body })
+}
 
 function createNikcli() {
   const host = "127.0.0.1"
@@ -510,6 +601,7 @@ async function getUserPrompt() {
 
 async function subscribeSessionEvents() {
   console.log("Subscribing to session events...")
+  if (!server) throw new Error("nikcli server is not running")
 
   const TOOL: Record<string, [string, string]> = {
     todowrite: ["Todo", "\x1b[33m\x1b[1m"],

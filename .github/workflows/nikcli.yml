@@ -19,7 +19,7 @@ jobs:
         github.event.comment.body == '/nikcli'
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
@@ -40,6 +40,7 @@ jobs:
           MODEL: minimax-coding-plan/MiniMax-M3
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           NIKCLI_PERMISSION: '{"*": "allow"}'
+          NIKCLI_TERMINAL: "1"
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -541,7 +541,7 @@ export function BrailleLineChart(props: {
     <box gap={0}>
       {/* Legend */}
       <Show when={props.showLegend !== false && chart().legend.length > 0}>
-        <box flexDirection="row" gap={3} paddingBottom={1}>
+        <box flexDirection="row" gap={3} paddingBottom={1} flexWrap="wrap">
           <For each={chart().legend}>
             {(item) => (
               <box flexDirection="row" gap={1} alignItems="center">
@@ -555,29 +555,22 @@ export function BrailleLineChart(props: {
         </box>
       </Show>
 
-      <box flexDirection="row" gap={0}>
-        {/* Y-axis labels */}
-        <Show when={props.showAxis !== false}>
-          <box flexDirection="column" gap={0}>
-            <For each={chart().yLabels}>
-              {(yl) => (
-                <text fg={theme.textMuted} width={6} wrapMode="none">
-                  {yl.label.padStart(6)}
-                </text>
-              )}
-            </For>
-          </box>
-          {/* Axis line */}
-          <text fg={theme.border} wrapMode="none">
-            {"│".repeat(1)}
-          </text>
-        </Show>
-
-        {/* Chart area: one box per row, with per-color text segments inside */}
-        <box flexDirection="column" gap={0}>
-          <For each={chart().rowSegments}>
-            {(segments) => (
+      {/* One physical row per chart row keeps Y labels and the axis aligned
+          with the braille plot at every chart height. */}
+      <box flexDirection="column" gap={0}>
+        <For each={chart().rowSegments}>
+          {(segments, row) => {
+            const yLabel = () => chart().yLabels.find((label) => label.pos === row())?.label ?? ""
+            return (
               <box flexDirection="row" gap={0}>
+                <Show when={props.showAxis !== false}>
+                  <text fg={theme.textMuted} width={6} wrapMode="none">
+                    {yLabel().padStart(6)}
+                  </text>
+                  <text fg={theme.border} wrapMode="none">
+                    │
+                  </text>
+                </Show>
                 <For each={segments}>
                   {(seg) => (
                     <text fg={seg.color} wrapMode="none">
@@ -586,9 +579,9 @@ export function BrailleLineChart(props: {
                   )}
                 </For>
               </box>
-            )}
-          </For>
-        </box>
+            )
+          }}
+        </For>
       </box>
 
       {/* X axis: baseline + first/mid/last labels, indented to line up with
@@ -758,7 +751,7 @@ export function StackedBarChartV2(props: {
     if (t === 0)
       return props.segments.map((s) => ({
         ...s,
-        width: Math.floor(props.width / props.segments.length),
+        width: 0,
         pct: 0,
       }))
 
@@ -766,7 +759,10 @@ export function StackedBarChartV2(props: {
     // zero segments take none, and the widths still sum to exactly `width`.
     // Pass 1: floor + guarantee ≥1 for non-zero. Pass 2: hand leftover cells
     // to the largest segments by fractional remainder.
-    const raw = props.segments.map((s) => ({ seg: s, exact: (s.value / t) * props.width }))
+    const raw = props.segments.map((s) => ({
+      seg: s,
+      exact: (s.value / t) * props.width,
+    }))
     let used = 0
     const widths = raw.map((r) => {
       const w = r.seg.value <= 0 ? 0 : Math.max(1, Math.floor(r.exact))
@@ -776,7 +772,11 @@ export function StackedBarChartV2(props: {
     let leftover = props.width - used
     if (leftover !== 0) {
       const order = raw
-        .map((r, i) => ({ i, frac: r.exact - Math.floor(r.exact), nonZero: r.seg.value > 0 }))
+        .map((r, i) => ({
+          i,
+          frac: r.exact - Math.floor(r.exact),
+          nonZero: r.seg.value > 0,
+        }))
         .filter((o) => o.nonZero)
         .sort((a, b) => b.frac - a.frac)
       let k = 0
@@ -795,22 +795,35 @@ export function StackedBarChartV2(props: {
         leftover++
       }
     }
-    return props.segments.map((s, i) => ({ ...s, width: widths[i] ?? 0, pct: (s.value / t) * 100 }))
+    return props.segments.map((s, i) => ({
+      ...s,
+      width: widths[i] ?? 0,
+      pct: (s.value / t) * 100,
+    }))
   })
 
   return (
     <box flexDirection="column" gap={0}>
       {/* Bar */}
       <box flexDirection="row" gap={0}>
-        <For each={bars()}>
-          {(seg) => (
-            <Show when={seg.width > 0}>
-              <text fg={seg.color} wrapMode="none">
-                {"█".repeat(seg.width)}
-              </text>
-            </Show>
-          )}
-        </For>
+        <Show
+          when={total() > 0}
+          fallback={
+            <text fg={theme.borderSubtle} wrapMode="none">
+              {"░".repeat(Math.max(0, props.width))}
+            </text>
+          }
+        >
+          <For each={bars()}>
+            {(seg) => (
+              <Show when={seg.width > 0}>
+                <text fg={seg.color} wrapMode="none">
+                  {"█".repeat(seg.width)}
+                </text>
+              </Show>
+            )}
+          </For>
+        </Show>
       </box>
       <Show when={props.showLabels}>
         <box flexDirection="row" gap={3} flexWrap="wrap">
@@ -856,7 +869,7 @@ export function HBarPrecision(props: {
     const idx = Math.round(frac * 8)
     return chars[Math.min(idx, 7)] ?? ""
   })
-  const pct = createMemo(() => Math.round((props.value / props.max) * 100))
+  const pct = createMemo(() => (props.max > 0 ? Math.round((props.value / props.max) * 100) : 0))
 
   return (
     <box flexDirection="row" gap={1} alignItems="center">
@@ -1010,10 +1023,11 @@ export function ModelCard(props: {
   cacheReadTokens?: number
   cacheWriteTokens?: number
   color: RGBA
+  barWidth?: number
 }) {
   const { theme } = useTheme()
   const viz = createMemo(() => getChartColors(theme))
-  const barWidth = 20
+  const barWidth = () => Math.max(4, props.barWidth ?? 20)
 
   // Scale every bar against the largest category on THIS card so the breakdown
   // is readable per-model (cache reads often dwarf input/output).
@@ -1032,15 +1046,27 @@ export function ModelCard(props: {
     [
       { label: "Input", value: props.inputTokens, color: viz().input },
       { label: "Output", value: props.outputTokens, color: viz().output },
-      { label: "Reason", value: props.reasoningTokens ?? 0, color: viz().reasoning },
-      { label: "Cache R", value: props.cacheReadTokens ?? 0, color: viz().cache },
-      { label: "Cache W", value: props.cacheWriteTokens ?? 0, color: viz().cacheWrite },
+      {
+        label: "Reason",
+        value: props.reasoningTokens ?? 0,
+        color: viz().reasoning,
+      },
+      {
+        label: "Cache R",
+        value: props.cacheReadTokens ?? 0,
+        color: viz().cache,
+      },
+      {
+        label: "Cache W",
+        value: props.cacheWriteTokens ?? 0,
+        color: viz().cacheWrite,
+      },
     ].filter((r) => r.value > 0),
   )
 
   return (
     <box flexDirection="column" gap={0} border borderColor={theme.borderSubtle} paddingLeft={1} paddingRight={1}>
-      <box flexDirection="row" gap={2} alignItems="center">
+      <box flexDirection="row" gap={2} alignItems="center" flexWrap="wrap">
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
           {props.name}
         </text>
@@ -1055,7 +1081,7 @@ export function ModelCard(props: {
         </Show>
       </box>
       <For each={rows()}>
-        {(r) => <ModelBar label={r.label} value={r.value} max={localMax()} width={barWidth} color={r.color} />}
+        {(r) => <ModelBar label={r.label} value={r.value} max={localMax()} width={barWidth()} color={r.color} />}
       </For>
     </box>
   )

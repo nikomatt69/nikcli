@@ -2,10 +2,14 @@ import { describe, expect, it } from "bun:test"
 import {
   buildTabPrompt,
   buildTabTitle,
+  buildDurationHistogram,
+  computeAnalyticsDialogLayout,
   formatCompact,
   formatDeltaPct,
+  formatRelativeTime,
   periodDelta,
   sampleForSparkline,
+  weightedToolSuccess,
 } from "../../src/cli/cmd/tui/util/analytics-utils"
 import type { AggregatedStats, DayStats } from "../../src/cli/cmd/tui/util/analytics-aggregator"
 
@@ -200,6 +204,94 @@ describe("formatCompact", () => {
   it("falls back to 0 for non-finite input", () => {
     expect(formatCompact(NaN)).toBe("0")
     expect(formatCompact(Infinity)).toBe("0")
+  })
+})
+
+describe("dashboard data shaping", () => {
+  it("derives every dashboard width from the xlarge dialog chrome", () => {
+    expect(computeAnalyticsDialogLayout(160, 50)).toEqual({
+      dialogWidth: 116,
+      contentWidth: 99,
+      sectionWidth: 97,
+      contentHeight: 38,
+      columns: 4,
+      compact: false,
+    })
+    expect(computeAnalyticsDialogLayout(72, 30)).toMatchObject({
+      dialogWidth: 64,
+      contentWidth: 47,
+      sectionWidth: 45,
+      columns: 2,
+      compact: false,
+    })
+    expect(computeAnalyticsDialogLayout(50, 18)).toMatchObject({
+      dialogWidth: 42,
+      contentWidth: 25,
+      sectionWidth: 23,
+      contentHeight: 6,
+      columns: 1,
+      compact: true,
+    })
+
+    for (let width = 1; width <= 180; width++) {
+      const measured = computeAnalyticsDialogLayout(width, 40)
+      expect(measured.dialogWidth).toBeLessThanOrEqual(Math.max(1, width - 8))
+      expect(measured.contentWidth).toBeLessThanOrEqual(measured.dialogWidth)
+      expect(measured.sectionWidth).toBeLessThanOrEqual(measured.contentWidth)
+      expect(measured.contentWidth).toBeGreaterThanOrEqual(1)
+    }
+
+    expect(computeAnalyticsDialogLayout(Number.NaN, Number.NaN)).toMatchObject({
+      dialogWidth: 1,
+      contentWidth: 1,
+      sectionWidth: 1,
+      contentHeight: 1,
+      columns: 1,
+      compact: true,
+    })
+  })
+
+  it("builds a duration histogram without dropping sessions", () => {
+    const bins = buildDurationHistogram([
+      { duration: 0 },
+      { duration: 59_999 },
+      { duration: 60_000 },
+      { duration: 5 * 60_000 },
+      { duration: 15 * 60_000 },
+      { duration: 60 * 60_000 },
+      { duration: Number.NaN },
+    ])
+
+    expect(bins.map((bin) => [bin.label, bin.count])).toEqual([
+      ["<1m", 3],
+      ["1-5m", 1],
+      ["5-15m", 1],
+      ["15-60m", 1],
+      ["1h+", 1],
+    ])
+    expect(bins.reduce((sum, bin) => sum + bin.count, 0)).toBe(7)
+  })
+
+  it("computes call-weighted tool success", () => {
+    expect(
+      weightedToolSuccess({
+        tools: [
+          { name: "read", count: 90, successRate: 100 },
+          { name: "bash", count: 10, successRate: 50 },
+        ],
+      }),
+    ).toBe(95)
+    expect(weightedToolSuccess({ tools: [] })).toBe(0)
+  })
+
+  it("formats recent and historical timestamps for timelines", () => {
+    const now = Date.parse("2026-07-15T12:00:00.000Z")
+    expect(formatRelativeTime(now - 30_000, now)).toBe("now")
+    expect(formatRelativeTime(now - 12 * 60_000, now)).toBe("12m ago")
+    expect(formatRelativeTime(now - 3 * 60 * 60_000, now)).toBe("3h ago")
+    expect(formatRelativeTime(now - 2 * 24 * 60 * 60_000, now)).toBe("2d ago")
+    expect(formatRelativeTime(Date.parse("2026-06-01T00:00:00.000Z"), now)).toBe("2026-06-01")
+    expect(formatRelativeTime(0, now)).toBe("unknown")
   })
 })
 

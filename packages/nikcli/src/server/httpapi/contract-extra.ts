@@ -1,6 +1,10 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Schema } from "effect"
 import { Auth } from "@/auth"
+// Side-effect import: registers every BusEvent so BusEvent.schemas() is complete.
+import "@/bus/all-events"
+import { BusEvent } from "@/bus/bus-event"
+import { MessageV2 } from "@/session/message-v2"
 
 /**
  * Contract-only Effect groups for routes that Hono still serves and that do
@@ -14,6 +18,30 @@ import { Auth } from "@/auth"
  * which backend produced the spec.
  */
 export namespace ContractExtraHttpApi {
+  /** Drop session-owned keys and make `id` optional — mirrors zod PromptInput parts. */
+  function promptPartInput<S extends Schema.Struct.Fields, Id extends string>(
+    schema: Schema.Struct<S>,
+    identifier: Id,
+  ) {
+    return schema
+      .mapFields((fields) => {
+        const {
+          messageID: _m,
+          sessionID: _s,
+          id,
+          ...rest
+        } = fields as S & {
+          messageID?: Schema.Top
+          sessionID?: Schema.Top
+          id?: Schema.Top
+        }
+        return {
+          ...rest,
+          ...(id ? { id: Schema.optional(id) } : {}),
+        } as Schema.Struct.Fields
+      })
+      .annotate({ identifier })
+  }
   const SuccessFlag = Schema.Struct({
     success: Schema.Boolean,
   }).annotate({ identifier: "SuccessFlag" })
@@ -104,9 +132,19 @@ export namespace ContractExtraHttpApi {
     sessionID: Schema.String,
   })
 
+  const TextPartInput = promptPartInput(MessageV2.TextPartSchema, "TextPartInput")
+  const FilePartInput = promptPartInput(MessageV2.FilePartSchema, "FilePartInput")
+  const AgentPartInput = promptPartInput(MessageV2.AgentPartSchema, "AgentPartInput")
+  const SubtaskPartInput = promptPartInput(MessageV2.SubtaskPartSchema, "SubtaskPartInput")
+
+  const PromptPartInput = Schema.Union([TextPartInput, FilePartInput, AgentPartInput, SubtaskPartInput]).annotate({
+    identifier: "PromptPartInput",
+    discriminator: "type",
+  })
+
   /**
-   * Top level of `SessionPrompt.PromptInput` (minus `sessionID`); the part
-   * union stays opaque until MessageV2 gets Effect schemas (schema split).
+   * Top level of `SessionPrompt.PromptInput` (minus `sessionID`), using the
+   * MessageV2 Effect schemas so OpenAPI emits named Part/Format components.
    */
   const PromptPayload = Schema.Struct({
     messageID: Schema.optional(Schema.String),
@@ -119,15 +157,15 @@ export namespace ContractExtraHttpApi {
     agent: Schema.optional(Schema.String),
     noReply: Schema.optional(Schema.Boolean),
     tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
-    format: Schema.optional(Schema.Unknown),
+    format: Schema.optional(MessageV2.FormatSchema),
     system: Schema.optional(Schema.String),
     variant: Schema.optional(Schema.String),
-    parts: Schema.Array(Schema.Unknown),
+    parts: Schema.Array(PromptPartInput),
   }).annotate({ identifier: "SessionPromptInput" })
 
-  const PromptResponse = Schema.Unknown.annotate({
+  // prompt() returns `{ info: AssistantMessage, parts: Part[] }` (WithParts).
+  const PromptResponse = MessageV2.WithPartsSchema.annotate({
     identifier: "SessionPromptResponse",
-    description: "{ info: AssistantMessage, parts: Part[] }",
   })
 
   export const SessionPromptGroup = HttpApiGroup.make("session-prompt")
@@ -157,7 +195,9 @@ export namespace ContractExtraHttpApi {
     .add(
       HttpApiEndpoint.get("short", "/s/:shareID", {
         params: SharePath,
-        success: Schema.Unknown.annotate({ description: "308 redirect to /share/:shareID" }),
+        success: Schema.Unknown.annotate({
+          description: "308 redirect to /share/:shareID",
+        }),
       }).annotate(OpenApi.Identifier, "getS:shareID"),
     )
     .add(
@@ -181,18 +221,25 @@ export namespace ContractExtraHttpApi {
 
   // --- SSE event feeds — served raw by the bridge specials (`HttpApiEvent`);
   // the instance feed emits plain {type, properties}, the global feed wraps
-  // them in {directory, payload}. Data stays opaque until Bus events get
-  // Effect schemas (schema split). ---
+  // them in {directory, payload}. Typed with the full BusEvent Effect union
+  // so OpenAPI emits the named `Event` component the SDK/plugin re-export. ---
+
+  const EventSchema = BusEvent.schemas()
+
+  const GlobalEventEnvelope = Schema.Struct({
+    directory: Schema.String,
+    payload: EventSchema,
+  }).annotate({ identifier: "GlobalEvent" })
 
   export const EventsGroup = HttpApiGroup.make("events")
     .add(
       HttpApiEndpoint.get("subscribe", "/event", {
-        success: HttpApiSchema.StreamSse({ data: Schema.Unknown }),
+        success: HttpApiSchema.StreamSse({ data: EventSchema }),
       }).annotate(OpenApi.Identifier, "event.subscribe"),
     )
     .add(
       HttpApiEndpoint.get("global", "/global/event", {
-        success: HttpApiSchema.StreamSse({ data: Schema.Unknown }),
+        success: HttpApiSchema.StreamSse({ data: GlobalEventEnvelope }),
       }).annotate(OpenApi.Identifier, "global.event"),
     )
 

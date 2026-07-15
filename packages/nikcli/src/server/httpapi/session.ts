@@ -102,7 +102,9 @@ export namespace SessionHttpApi {
     response: Schema.Literals(["once", "always", "reject"]),
   }).annotate({ identifier: "SessionPermissionRespondInput" })
 
-  const SessionList = Schema.Array(Schema.Unknown).annotate({
+  // Named domain schemas so the Effect OpenAPI/SDK surface emits the same
+  // components as Hono (`Session`, `SessionStatus`, `Todo`, `Message`, …).
+  const SessionList = Schema.Array(Session.InfoSchema).annotate({
     identifier: "SessionList",
   })
   const MessageList = Schema.Array(MessageV2.WithPartsSchema).annotate({
@@ -111,7 +113,7 @@ export namespace SessionHttpApi {
   const FileDiffList = Schema.Array(Snapshot.FileDiffSchema).annotate({
     identifier: "FileDiffList",
   })
-  const SessionInfo = Schema.Unknown.annotate({ identifier: "SessionInfo" })
+  const SessionInfo = Session.InfoSchema
   const SessionStatusMap = Schema.Record(Schema.String, SessionStatus.InfoSchema).annotate({
     identifier: "SessionStatusMap",
   })
@@ -817,10 +819,20 @@ export namespace SessionHttpApi {
           const mcp = yield* MCP.Service
           yield* (enabled ? mcp.connect(key) : mcp.disconnect(key)).pipe(
             Effect.catch((e: unknown) =>
-              Effect.sync(() => log.warn("mcp toggle connect/disconnect failed", { key, error: String(e) })),
+              Effect.sync(() =>
+                log.warn("mcp toggle connect/disconnect failed", {
+                  key,
+                  error: String(e),
+                }),
+              ),
             ),
             Effect.catchDefect((e) =>
-              Effect.sync(() => log.warn("mcp toggle connect/disconnect failed", { key, error: String(e) })),
+              Effect.sync(() =>
+                log.warn("mcp toggle connect/disconnect failed", {
+                  key,
+                  error: String(e),
+                }),
+              ),
             ),
           )
         } else if (kind === "skill") {

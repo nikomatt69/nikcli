@@ -149,7 +149,13 @@ export namespace ShareNext {
         await sync(evt.properties.info.sessionID, [
           {
             type: "model",
-            data: [await providerGetModel(evt.properties.info.model.providerID, evt.properties.info.model.modelID)],
+            // SDK Model.api.url is still required until OpenAPI/SDK regen; runtime models may omit it.
+            data: [
+              (await providerGetModel(
+                evt.properties.info.model.providerID,
+                evt.properties.info.model.modelID,
+              )) as SDK.Model,
+            ],
           },
         ])
       }
@@ -285,7 +291,8 @@ export namespace ShareNext {
       if (modelMap.has(id)) continue
       const resolved = await providerGetModel(model.providerID, model.modelID).catch(() => undefined)
       if (!resolved) continue
-      modelMap.set(id, resolved)
+      // SDK Model.api.url still required until OpenAPI/SDK regen with optional url.
+      modelMap.set(id, resolved as SDK.Model)
     }
 
     return [
@@ -389,7 +396,11 @@ export namespace ShareNext {
     log.info("creating share", { sessionID })
 
     try {
-      const result = await requestJSON<{ id: string; url: string; secret: string }>(`${await urlImpl()}/api/share`, {
+      const result = await requestJSON<{
+        id: string
+        url: string
+        secret: string
+      }>(`${await urlImpl()}/api/share`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

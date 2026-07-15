@@ -27,21 +27,33 @@ import {
   VerticalBarChart,
   getChartColors,
 } from "./chart-braille-line"
-import { periodDelta, sampleForSparkline, formatCompact } from "../util/analytics-utils"
+import {
+  buildDurationHistogram,
+  computeAnalyticsDialogLayout,
+  formatCompact,
+  formatRelativeTime,
+  periodDelta,
+  sampleForSparkline,
+  weightedToolSuccess,
+} from "../util/analytics-utils"
 
 // ===== Color utilities =====
 
 function colorToString(color: string | { r: number; g: number; b: number; a?: number }): string {
   if (typeof color === "string") return color
   const { r, g, b, a = 1 } = color
+  const byte = (value: number) => Math.max(0, Math.min(255, Math.round(value <= 1 ? value * 255 : value)))
+  const red = byte(r)
+  const green = byte(g)
+  const blue = byte(b)
   if (a === 1) {
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+    return `#${red.toString(16).padStart(2, "0")}${green.toString(16).padStart(2, "0")}${blue
+      .toString(16)
+      .padStart(2, "0")}`
   }
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}${Math.round(
-    a * 255,
-  )
+  return `#${red.toString(16).padStart(2, "0")}${green.toString(16).padStart(2, "0")}${blue
     .toString(16)
-    .padStart(2, "0")}`
+    .padStart(2, "0")}${byte(a).toString(16).padStart(2, "0")}`
 }
 
 // Format helpers
@@ -67,23 +79,24 @@ function formatDuration(ms: number): string {
 //   dialog width = min(116, term-8)
 //   − dialog box padding (2+2)  − root box padding (3+3)
 //   − scroll border (1+1)       − inner box padding (2+2)  − scrollbar (1)
-//   − collapsible-section indent (2, applied to most charts)
-// ≈ dialog − 19. Charts must never exceed this or they wrap/overflow.
+// = dialog − 17. Collapsible chart sections reserve another 2 columns.
 function useContentWidth() {
   const dims = useTerminalDimensions()
-  return createMemo(() => Math.max(20, Math.min(116, Math.max(1, dims().width - 8)) - 19))
+  return createMemo(() => computeAnalyticsDialogLayout(dims().width, dims().height).contentWidth)
 }
 
 // Responsive chart width capped so charts don't get comically wide on
 // ultra-wide terminals. `cap` is the maximum drawn width.
 function useChartWidth(cap = 72) {
-  const content = useContentWidth()
-  return createMemo(() => Math.max(24, Math.min(cap, content())))
+  const dims = useTerminalDimensions()
+  return createMemo(() => Math.min(cap, computeAnalyticsDialogLayout(dims().width, dims().height).sectionWidth))
 }
 
 // ===== MAIN DIALOG =====
 
 type TabId = "overview" | "tokens" | "models" | "tools" | "projects" | "sessions"
+type AnalyticsSource = "live" | "live+history"
+type DashboardStatus = "info" | "success" | "warning" | "error"
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "◈" },
@@ -104,18 +117,19 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
   const analyticsCtx = useAnalytics()
   const dialog = useDialog()
   const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
 
   const [loading, setLoading] = createSignal(true)
   const [stats, setStats] = createSignal<AggregatedStats | null>(null)
   const [activeTab, setActiveTab] = createSignal<TabId>("overview")
+  const [loadError, setLoadError] = createSignal<string>()
+  const [source, setSource] = createSignal<AnalyticsSource>("live")
+  const [refreshedAt, setRefreshedAt] = createSignal(0)
 
   // Cap the scrollable content area to the visible terminal so the panel
   // never spills below the viewport. Header (2) + tab strip (2) + scroll bar
   // (1) + gaps/border/padding reserve ~12 rows; the rest scrolls inside.
-  const contentHeight = createMemo(() => {
-    const h = dimensions().height
-    return Math.max(10, Math.min(h - 12, Math.floor(h * 0.82)))
-  })
+  const contentHeight = createMemo(() => layout().contentHeight)
 
   // Animated spinner frame, advanced on a timer only while loading.
   const [spinner, setSpinner] = createSignal(0)
@@ -193,6 +207,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
 
   async function loadAnalytics() {
     setLoading(true)
+    setLoadError(undefined)
     try {
       await waitForSyncBootstrap()
       const liveStats = aggregateAnalytics({
@@ -207,6 +222,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
       try {
         if (sdk.url) {
           const gotHistorical = await analyticsCtx.refresh()
+          setSource(gotHistorical ? "live+history" : "live")
           let stats: AggregatedStats = gotHistorical
             ? mergeWithHistorical(liveStats, {
                 global: analyticsCtx.global(),
@@ -223,13 +239,17 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
           }
           setStats(stats)
         } else {
+          setSource("live")
           setStats(liveStats)
         }
       } catch {
+        setSource("live")
         setStats(liveStats)
       }
+      setRefreshedAt(Date.now())
     } catch (e) {
       console.error("Failed to load analytics:", e)
+      setLoadError(e instanceof Error ? e.message : "Analytics could not be loaded")
     } finally {
       setLoading(false)
     }
@@ -256,6 +276,12 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
   // the OpenTUI dashboard. Handled keys are stopped so the scrollbox doesn't
   // also act on them. Arrows are kept as a best-effort fallback.
   useKeyboard((evt) => {
+    if (evt.name === "r" && loadError()) {
+      void loadAnalytics()
+      evt.preventDefault?.()
+      evt.stopPropagation?.()
+      return
+    }
     if (/^[1-6]$/.test(evt.name)) {
       const idx = parseInt(evt.name, 10) - 1
       if (idx >= 0 && idx < TABS.length) {
@@ -284,7 +310,7 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
   return (
     <box paddingLeft={3} paddingRight={3} gap={1} paddingBottom={1}>
       {/* Header: title + live summary on the left, controls hint on the right */}
-      <box flexDirection="row" justifyContent="space-between" alignItems="flex-start">
+      <box flexDirection="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
         <box flexDirection="column" gap={0}>
           <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
             ◈ ANALYTICS
@@ -315,7 +341,50 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         </box>
       </Show>
 
-      <Show when={!loading() && stats()}>
+      <Show when={!loading() && !stats()}>
+        <box
+          height={contentHeight()}
+          border
+          borderColor={theme.error}
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <box flexDirection="column" gap={1} alignItems="center" paddingLeft={2} paddingRight={2}>
+            <text fg={theme.error} attributes={TextAttributes.BOLD} wrapMode="none">
+              ✗ Analytics unavailable
+            </text>
+            <text fg={theme.textMuted} wrapMode="word">
+              {loadError() ?? "No analytics data was returned"}
+            </text>
+            <text fg={theme.primary} onMouseUp={() => void loadAnalytics()} wrapMode="none">
+              [r / click to retry]
+            </text>
+          </box>
+        </box>
+      </Show>
+
+      <Show when={!loading() && stats() && (layout().contentWidth < 25 || layout().contentHeight < 4)}>
+        <box
+          height={contentHeight()}
+          border
+          borderColor={theme.warning}
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <box flexDirection="column" gap={1} alignItems="center" paddingLeft={1} paddingRight={1}>
+            <text fg={theme.warning} attributes={TextAttributes.BOLD} wrapMode="none">
+              ⚠ Terminal too narrow
+            </text>
+            <text fg={theme.textMuted} wrapMode="word">
+              Resize to at least 50 columns and 16 rows to render analytics charts without clipping.
+            </text>
+          </box>
+        </box>
+      </Show>
+
+      <Show when={!loading() && stats() && layout().contentWidth >= 25 && layout().contentHeight >= 4}>
         {/* Tab strip — full chip row: icon + number + label, active chip
             highlighted with an accent background, underline bar, and border.
             Each chip is clickable; numbers map to the 1-6 shortcuts. */}
@@ -377,7 +446,12 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
                 {(tab) => (
                   <>
                     <Show when={tab === "overview"}>
-                      <OverviewTab stats={stats()!} last30Days={last30Days()} />
+                      <OverviewTab
+                        stats={stats()!}
+                        last30Days={last30Days()}
+                        source={source()}
+                        refreshedAt={refreshedAt()}
+                      />
                     </Show>
                     <Show when={tab === "tokens"}>
                       <TokensTab stats={stats()!} last14Days={last14Days()} />
@@ -444,6 +518,219 @@ function EmptyState(props: { icon?: string; message: string }) {
   )
 }
 
+function DataSourceBanner(props: { stats: AggregatedStats; source: AnalyticsSource; refreshedAt: number }) {
+  const { theme } = useTheme()
+  const firstDay = () => props.stats.days.find((day) => day.tokens > 0 || day.messages > 0 || day.cost > 0)?.date
+  const lastDay = () =>
+    [...props.stats.days].reverse().find((day) => day.tokens > 0 || day.messages > 0 || day.cost > 0)?.date
+  const range = () => (firstDay() && lastDay() ? `${firstDay()} → ${lastDay()}` : "current activity")
+  const sourceLabel = () => (props.source === "live+history" ? "live sync + persisted history" : "live sync")
+  const refreshed = () =>
+    props.refreshedAt > 0
+      ? new Date(props.refreshedAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "now"
+
+  return (
+    <box
+      border
+      borderColor={props.source === "live+history" ? theme.info : theme.borderSubtle}
+      paddingLeft={1}
+      paddingRight={1}
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      flexWrap="wrap"
+      gap={1}
+    >
+      <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
+        <text fg={theme.info} attributes={TextAttributes.BOLD} wrapMode="none">
+          ℹ DATA SOURCE
+        </text>
+        <text fg={theme.text} wrapMode="word">
+          {sourceLabel()}
+        </text>
+        <text fg={theme.textMuted} wrapMode="word">
+          · {range()}
+        </text>
+      </box>
+      <text fg={theme.textMuted} wrapMode="none">
+        refreshed {refreshed()}
+      </text>
+    </box>
+  )
+}
+
+function TabHeading(props: { icon: string; title: string; description: string; meta?: string }) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
+      <box flexDirection="column" gap={0}>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+            {props.icon}
+          </text>
+          <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+            {props.title}
+          </text>
+        </box>
+        <text fg={theme.textMuted} wrapMode="word">
+          {props.description}
+        </text>
+      </box>
+      <Show when={props.meta}>
+        <text fg={theme.secondary} wrapMode="none">
+          {props.meta}
+        </text>
+      </Show>
+    </box>
+  )
+}
+
+function dashboardStatusColor(theme: Theme, status: DashboardStatus): RGBA {
+  if (status === "success") return theme.success
+  if (status === "warning") return theme.warning
+  if (status === "error") return theme.error
+  return theme.info
+}
+
+const DASHBOARD_STATUS_ICON: Record<DashboardStatus, string> = {
+  info: "ℹ",
+  success: "✓",
+  warning: "⚠",
+  error: "✗",
+}
+
+function AnalyticsStatusGrid(props: { items: Array<{ label: string; detail: string; status: DashboardStatus }> }) {
+  const { theme } = useTheme()
+  const dimensions = useTerminalDimensions()
+  const columns = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height).columns)
+  const rows = createMemo(() => {
+    const result: Array<typeof props.items> = []
+    for (let i = 0; i < props.items.length; i += columns()) result.push(props.items.slice(i, i + columns()))
+    return result
+  })
+
+  return (
+    <box flexDirection="column" gap={1}>
+      <For each={rows()}>
+        {(row) => (
+          <box flexDirection="row" gap={1} flexWrap="wrap">
+            <For each={row}>
+              {(item) => {
+                const color = () => dashboardStatusColor(theme, item.status)
+                return (
+                  <box
+                    border
+                    borderColor={color()}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    minWidth={18}
+                    flexGrow={1}
+                    flexShrink={1}
+                  >
+                    <box flexDirection="row" gap={1} alignItems="center">
+                      <text fg={color()} attributes={TextAttributes.BOLD} wrapMode="none">
+                        {DASHBOARD_STATUS_ICON[item.status]}
+                      </text>
+                      <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+                        {item.label}
+                      </text>
+                    </box>
+                    <text fg={theme.textMuted} wrapMode="word">
+                      {item.detail}
+                    </text>
+                  </box>
+                )
+              }}
+            </For>
+          </box>
+        )}
+      </For>
+    </box>
+  )
+}
+
+function AnalyticsHistogram(props: { bins: Array<{ label: string; count: number }>; width: number; color: RGBA }) {
+  const { theme } = useTheme()
+  const max = createMemo(() => Math.max(1, ...props.bins.map((bin) => bin.count)))
+  const barWidth = createMemo(() => Math.max(6, props.width - 14))
+
+  return (
+    <box flexDirection="column" gap={0}>
+      <For each={props.bins}>
+        {(bin) => {
+          const filled = () => Math.round((bin.count / max()) * barWidth())
+          return (
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={theme.textMuted} width={7} wrapMode="none">
+                {bin.label.padEnd(7)}
+              </text>
+              <text fg={props.color} wrapMode="none">
+                {"▆".repeat(filled())}
+              </text>
+              <text fg={theme.borderSubtle} wrapMode="none">
+                {"·".repeat(Math.max(0, barWidth() - filled()))}
+              </text>
+              <text fg={theme.text} width={4} wrapMode="none">
+                {String(bin.count).padStart(4)}
+              </text>
+            </box>
+          )
+        }}
+      </For>
+    </box>
+  )
+}
+
+function RecentSessionTimeline(props: { sessions: AggregatedStats["sessions"] }) {
+  const { theme } = useTheme()
+  const chartW = useChartWidth(72)
+  const recent = createMemo(() => [...props.sessions].sort((a, b) => b.updated - a.updated).slice(0, 6))
+  const titleW = createMemo(() => Math.max(8, Math.min(36, chartW() - 2)))
+
+  return (
+    <Show when={recent().length > 0} fallback={<EmptyState message="No recent sessions" />}>
+      <box flexDirection="column" gap={0}>
+        <For each={recent()}>
+          {(session, index) => {
+            const tokens = () => session.tokens.input + session.tokens.output + session.tokens.reasoning
+            const isLast = () => index() === recent().length - 1
+            return (
+              <box flexDirection="column" gap={0}>
+                <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
+                  <text fg={theme.success} attributes={TextAttributes.BOLD} wrapMode="none">
+                    ✓
+                  </text>
+                  <text fg={theme.text} attributes={TextAttributes.BOLD} width={titleW()} wrapMode="none">
+                    {(session.title || "Untitled session").slice(0, titleW())}
+                  </text>
+                  <text fg={theme.primary} wrapMode="none">
+                    {formatTokens(tokens())}
+                  </text>
+                  <text fg={theme.success} wrapMode="none">
+                    {money.format(session.cost)}
+                  </text>
+                  <text fg={theme.textMuted} wrapMode="none">
+                    {formatRelativeTime(session.updated)}
+                  </text>
+                </box>
+                <Show when={!isLast()}>
+                  <text fg={theme.borderSubtle} wrapMode="none">
+                    │
+                  </text>
+                </Show>
+              </box>
+            )
+          }}
+        </For>
+      </box>
+    </Show>
+  )
+}
+
 function LegendDot(props: { color: ReturnType<typeof getChartColors>["input"]; label: string }) {
   const { theme } = useTheme()
   return (
@@ -468,7 +755,13 @@ function CollapsibleSection(
 ) {
   const { theme } = useTheme()
   return (
-    <box flexDirection="column" gap={1}>
+    <box
+      flexDirection="column"
+      gap={1}
+      border={["left"]}
+      borderColor={props.open ? theme.borderActive : theme.borderSubtle}
+      paddingLeft={1}
+    >
       <box flexDirection="row" gap={1} alignItems="center" onMouseUp={() => props.onToggle()}>
         {/* Accent chevron = the clickable affordance for the section. */}
         <text fg={theme.accent} wrapMode="none">
@@ -524,12 +817,7 @@ const OVERVIEW_SECTIONS = ["activity", "trend", "daily", "providers"] as const
 // either "no activity" or one of 4 intensity levels at a glance.
 
 function lerpRgba(a: RGBA, b: RGBA, t: number): RGBA {
-  return RGBA.fromInts(
-    Math.round(a.r + (b.r - a.r) * t),
-    Math.round(a.g + (b.g - a.g) * t),
-    Math.round(a.b + (b.b - a.b) * t),
-    255,
-  )
+  return RGBA.fromValues(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1)
 }
 
 /**
@@ -589,6 +877,7 @@ function ActivityStat(props: { label: string; value: string; hint?: string }) {
 
 function ActivityHeatmap(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
+  const chartW = useChartWidth(110)
 
   // Metric switcher: 0=tokens, 1=cost, 2=messages. Lets the user pivot
   // the heatmap between consumption (tokens), spending (cost) and engagement
@@ -603,8 +892,12 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
     metric() === "cost" ? d.cost : metric() === "messages" ? d.messages : d.tokens
   const cycleMetric = () => setMetricIdx((m) => ((m + 1) % 3) as 0 | 1 | 2)
 
-  const grid = createMemo(() => buildActivityGrid(props.stats.days, 365, metricSelector))
-  const stats = createMemo(() => computeActivityStats(props.stats.days, metricSelector))
+  // One week consumes one terminal column; reserve four columns for the
+  // day-label gutter. This keeps the grid inside the measured section width.
+  const lookbackDays = createMemo(() => Math.min(365, Math.max(7, (chartW() - 4) * 7)))
+  const visibleDays = createMemo(() => props.stats.days.slice(-lookbackDays()))
+  const grid = createMemo(() => buildActivityGrid(visibleDays(), lookbackDays(), metricSelector))
+  const stats = createMemo(() => computeActivityStats(visibleDays(), metricSelector))
 
   const palette = createMemo(() => activityPalette(theme))
 
@@ -662,9 +955,11 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
           <text fg={theme.primary} attributes={TextAttributes.BOLD} wrapMode="none">
             {metricLabel()}
           </text>
-          <text fg={theme.textMuted} wrapMode="none">
-            [tap to cycle]
-          </text>
+          <Show when={chartW() >= 36}>
+            <text fg={theme.textMuted} wrapMode="none">
+              [tap to cycle]
+            </text>
+          </Show>
         </box>
       </box>
 
@@ -723,7 +1018,7 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
         </box>
 
         {/* Legend: Less ─ ▢▢▢▢▢ ─ More */}
-        <box flexDirection="row" gap={1} alignItems="center">
+        <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
           <text fg={theme.textMuted} wrapMode="none">
             Less
           </text>
@@ -751,20 +1046,34 @@ function ActivityHeatmap(props: { stats: AggregatedStats }) {
   )
 }
 
-function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.stats.days }) {
+function OverviewTab(props: {
+  stats: AggregatedStats
+  last30Days: typeof props.stats.days
+  source: AnalyticsSource
+  refreshedAt: number
+}) {
   const { theme } = useTheme()
   const g = () => props.stats.global
   const viz = () => getChartColors(theme)
 
   const chartW = useChartWidth(72)
-  // Two gauges side-by-side: each gets half the width minus the row gap.
-  const gaugeW = createMemo(() => Math.max(16, Math.min(26, Math.floor((chartW() - 4) / 2))))
+  const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
+  // Gauge width is the track only; reserve six columns for its percentage.
+  const gaugeW = createMemo(() =>
+    layout().compact
+      ? Math.max(6, layout().sectionWidth - 6)
+      : Math.max(6, Math.min(26, Math.floor((layout().sectionWidth - 4) / 2) - 6)),
+  )
   // Daily breakdown row reserves: date(6) + tokens(8) + cost(9) + 3 gaps(6).
   const dailyBarW = createMemo(() => Math.max(12, chartW() - 30))
   // Four KPI cards share the full content width; min 20 so subtitles fit.
   // When the terminal is too narrow for 4-up the row wraps to 2×2.
   const contentW = useContentWidth()
-  const cardW = createMemo(() => Math.max(20, Math.min(26, Math.floor((contentW() - 6) / 4))))
+  const cardW = createMemo(() => {
+    const columns = layout().columns
+    return Math.max(18, Math.min(28, Math.floor((contentW() - (columns - 1) * 2) / columns)))
+  })
   // Date labels for the trend chart's X axis.
   const trendDates = createMemo(() => props.last30Days.map((d) => d.date.slice(5)))
   const [dailyRange, setDailyRange] = createSignal<7 | 14 | 30>(7)
@@ -823,16 +1132,74 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
     const denom = t.input + t.output
     return denom > 0 ? (t.output / denom) * 100 : 0
   })
+  const activeSessionRatio = createMemo(() =>
+    g().sessions > 0 ? ((g().sessions - g().archivedSessions) / g().sessions) * 100 : 0,
+  )
+  const backgroundSuccess = createMemo(() =>
+    props.stats.backgroundRuns.total > 0 ? props.stats.backgroundRuns.successRate : 0,
+  )
+  const tokenMix = createMemo(() => [
+    { label: "Input", value: tk().input, color: viz().input },
+    { label: "Output", value: tk().output, color: viz().output },
+    {
+      label: "Cache",
+      value: tk().cacheRead + tk().cacheWrite,
+      color: viz().cache,
+    },
+    { label: "Reasoning", value: tk().reasoning, color: viz().reasoning },
+  ])
   // 30-day volume histogram: first/last day labelled for the axis caption.
-  const volumeBars = createMemo(() =>
-    props.last30Days.map((d, i, arr) => ({
+  const volumeBars = createMemo(() => {
+    const days = props.last30Days.slice(-Math.max(2, Math.min(props.last30Days.length, chartW())))
+    return days.map((d, i, arr) => ({
       value: d.tokens,
       label: i === 0 ? d.date.slice(5) : i === arr.length - 1 ? d.date.slice(5) : undefined,
-    })),
-  )
+    }))
+  })
+  const operationalStatus = createMemo<Array<{ label: string; detail: string; status: DashboardStatus }>>(() => {
+    const activeDays = props.stats.days.filter((day) => day.tokens > 0 || day.messages > 0 || day.cost > 0).length
+    const toolSuccess = weightedToolSuccess(props.stats.toolUsage)
+    const bg = props.stats.backgroundRuns
+    const ws = props.stats.workspaces
+    return [
+      {
+        label: "Activity",
+        detail: activeDays > 0 ? `${activeDays} active days in the loaded range` : "No recorded activity yet",
+        status: activeDays > 0 ? "success" : "info",
+      },
+      {
+        label: "Tools",
+        detail:
+          props.stats.toolUsage.total > 0 ? `${toolSuccess.toFixed(1)}% weighted success` : "No tool calls recorded",
+        status:
+          props.stats.toolUsage.total === 0
+            ? "info"
+            : toolSuccess >= 90
+              ? "success"
+              : toolSuccess >= 70
+                ? "warning"
+                : "error",
+      },
+      {
+        label: "Background",
+        detail:
+          bg.total === 0
+            ? "No background runs"
+            : `${bg.completed} completed · ${bg.running} running · ${bg.error} failed`,
+        status: bg.error > 0 ? "error" : bg.running > 0 ? "info" : bg.total > 0 ? "success" : "info",
+      },
+      {
+        label: "Workspaces",
+        detail: ws.total === 0 ? "No workspaces connected" : `${ws.active} active · ${ws.disconnected} disconnected`,
+        status: ws.disconnected > 0 ? (ws.active === 0 ? "error" : "warning") : ws.active > 0 ? "success" : "info",
+      },
+    ]
+  })
 
   return (
     <box flexDirection="column" gap={2}>
+      <DataSourceBanner stats={props.stats} source={props.source} refreshedAt={props.refreshedAt} />
+
       {/* KPI Cards — each carries a 14-cell sparkline + 7-day delta. Wrap so
           the four cards reflow to 2×2 instead of overflowing on narrow
           terminals. */}
@@ -841,7 +1208,7 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           label="SESSIONS"
           value={g().sessions.toString()}
           color={viz().series[0]!}
-          subtitle={`${g().sessions - g().archivedSessions} active`}
+          subtitle={`${g().sessions - g().archivedSessions} unarchived`}
           sparkline={sessionsSpark()}
           delta={{ pct: sessionsDelta().pct }}
           width={cardW()}
@@ -876,7 +1243,7 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
 
       {/* 30-day volume histogram + headline ratio gauges — an at-a-glance
           graphical summary above the collapsible deep-dives. */}
-      <Show when={volumeBars().length > 1}>
+      <Show when={volumeBars().length > 1 && volumeBars().some((bar) => bar.value > 0)}>
         <box flexDirection="column" gap={1}>
           <text fg={theme.textMuted} wrapMode="none">
             Tokens / day · last {volumeBars().length} days
@@ -884,31 +1251,88 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           <VerticalBarChart bars={volumeBars()} height={6} color={viz().input} highlightMax showAxis />
         </box>
       </Show>
+      <Show when={props.last30Days.some((day) => day.cost > 0)}>
+        <box flexDirection="column" gap={1}>
+          <text fg={theme.textMuted} wrapMode="none">
+            Cost / day · last {props.last30Days.length} days
+          </text>
+          <BrailleAreaChart
+            data={props.last30Days.map((day) => day.cost)}
+            width={chartW()}
+            height={4}
+            color={viz().output}
+          />
+        </box>
+      </Show>
+
+      <box flexDirection="column" gap={1}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+          Usage composition
+        </text>
+        <StackedBarChartV2 segments={tokenMix()} width={chartW()} showLabels />
+      </box>
+
+      <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+        Efficiency gauges
+      </text>
       <box flexDirection="row" gap={4} flexWrap="wrap">
-        <Gauge
-          label="Cache hit ratio"
-          value={cacheHit()}
-          max={100}
-          width={gaugeW()}
-          color={viz().cache}
-          format={(v) => v.toFixed(0)}
-          unit="%"
-        />
-        <Gauge
-          label="Output / (in+out)"
-          value={outputRatio()}
-          max={100}
-          width={gaugeW()}
-          color={viz().output}
-          format={(v) => v.toFixed(0)}
-          unit="%"
-        />
+        <Show when={tk().cacheRead + tk().input > 0}>
+          <Gauge
+            label="Cache hit ratio"
+            value={cacheHit()}
+            max={100}
+            width={gaugeW()}
+            color={viz().cache}
+            format={(v) => v.toFixed(0)}
+            unit="%"
+          />
+        </Show>
+        <Show when={tk().input + tk().output > 0}>
+          <Gauge
+            label="Output / (in+out)"
+            value={outputRatio()}
+            max={100}
+            width={gaugeW()}
+            color={viz().output}
+            format={(v) => v.toFixed(0)}
+            unit="%"
+          />
+        </Show>
+        <Show when={g().sessions > 0}>
+          <Gauge
+            label="Unarchived sessions"
+            value={activeSessionRatio()}
+            max={100}
+            width={gaugeW()}
+            color={viz().input}
+            format={(v) => v.toFixed(0)}
+            unit="%"
+          />
+        </Show>
+        <Show when={props.stats.backgroundRuns.total > 0}>
+          <Gauge
+            label="Background success"
+            value={backgroundSuccess()}
+            max={100}
+            width={gaugeW()}
+            color={backgroundSuccess() >= 90 ? viz().cache : backgroundSuccess() >= 70 ? viz().output : viz().alert}
+            format={(v) => v.toFixed(0)}
+            unit="%"
+          />
+        </Show>
+      </box>
+
+      <box flexDirection="column" gap={1}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+          Operational health
+        </text>
+        <AnalyticsStatusGrid items={operationalStatus()} />
       </box>
 
       {/* Activity Heatmap (GitHub-style) */}
       <CollapsibleSection
         title="Activity"
-        hint={`(last ${Math.min(365, props.stats.days.length)} days)`}
+        hint="(responsive history window)"
         open={open().activity}
         onToggle={() => toggle("activity")}
       >
@@ -916,7 +1340,7 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
       </CollapsibleSection>
 
       {/* Braille Line Chart - Token Usage Over Time */}
-      <Show when={props.last30Days.length > 0}>
+      <Show when={props.last30Days.some((day) => day.tokens > 0)}>
         <CollapsibleSection
           title="Token Usage Over Time"
           hint="(30 days)"
@@ -968,45 +1392,59 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
           <For each={dailyDays()}>
             {(day) => {
               const isPeak = () => day.tokens > 0 && day.tokens === dailyMax()
+              const segments = [
+                { label: "Input", value: day.input, color: viz().input },
+                { label: "Output", value: day.output, color: viz().output },
+                {
+                  label: "Cache",
+                  value: day.cacheRead + day.cacheWrite,
+                  color: viz().cache,
+                },
+                {
+                  label: "Reason",
+                  value: day.reasoning,
+                  color: viz().reasoning,
+                },
+              ]
               return (
-                <box flexDirection="row" gap={2} alignItems="center">
-                  <text
-                    fg={isPeak() ? theme.primary : theme.textMuted}
-                    attributes={isPeak() ? TextAttributes.BOLD : undefined}
-                    width={6}
-                    wrapMode="none"
-                  >
-                    {day.date.slice(5)}
-                  </text>
-                  <StackedBarChartV2
-                    segments={[
-                      { label: "Input", value: day.input, color: viz().input },
-                      {
-                        label: "Output",
-                        value: day.output,
-                        color: viz().output,
-                      },
-                      {
-                        label: "Cache",
-                        value: day.cacheRead + day.cacheWrite,
-                        color: viz().cache,
-                      },
-                      {
-                        label: "Reason",
-                        value: day.reasoning,
-                        color: viz().reasoning,
-                      },
-                    ]}
-                    width={dailyBarW()}
-                    showLabels={false}
-                  />
-                  <text fg={theme.textMuted} width={8} wrapMode="none">
-                    {formatTokens(day.tokens).padStart(8)}
-                  </text>
-                  <text fg={theme.success} width={9} wrapMode="none">
-                    {(day.cost > 0 ? money.format(day.cost) : "—").padStart(9)}
-                  </text>
-                </box>
+                <Show
+                  when={!layout().compact}
+                  fallback={
+                    <box flexDirection="column" gap={0}>
+                      <box flexDirection="row" gap={2} alignItems="center" justifyContent="space-between">
+                        <text
+                          fg={isPeak() ? theme.primary : theme.textMuted}
+                          attributes={isPeak() ? TextAttributes.BOLD : undefined}
+                          wrapMode="none"
+                        >
+                          {day.date.slice(5)}
+                        </text>
+                        <text fg={theme.textMuted} wrapMode="none">
+                          {formatTokens(day.tokens)} · {day.cost > 0 ? money.format(day.cost) : "—"}
+                        </text>
+                      </box>
+                      <StackedBarChartV2 segments={segments} width={chartW()} showLabels={false} />
+                    </box>
+                  }
+                >
+                  <box flexDirection="row" gap={2} alignItems="center">
+                    <text
+                      fg={isPeak() ? theme.primary : theme.textMuted}
+                      attributes={isPeak() ? TextAttributes.BOLD : undefined}
+                      width={6}
+                      wrapMode="none"
+                    >
+                      {day.date.slice(5)}
+                    </text>
+                    <StackedBarChartV2 segments={segments} width={dailyBarW()} showLabels={false} />
+                    <text fg={theme.textMuted} width={8} wrapMode="none">
+                      {formatTokens(day.tokens).padStart(8)}
+                    </text>
+                    <text fg={theme.success} width={9} wrapMode="none">
+                      {(day.cost > 0 ? money.format(day.cost) : "—").padStart(9)}
+                    </text>
+                  </box>
+                </Show>
               )
             }}
           </For>
@@ -1014,7 +1452,7 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
             <EmptyState icon="▦" message="No usage in this range" />
           </Show>
           {/* Legend + range control */}
-          <box flexDirection="row" gap={3} alignItems="center">
+          <box flexDirection="row" gap={3} alignItems="center" flexWrap="wrap">
             <LegendDot color={viz().input} label="Input" />
             <LegendDot color={viz().output} label="Output" />
             <LegendDot color={viz().cache} label="Cache" />
@@ -1035,11 +1473,11 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
       >
         <For each={Array.from(props.stats.providers.values()).slice(0, 5)}>
           {(prov) => (
-            <box flexDirection="row" gap={2} alignItems="center">
-              <text fg={theme.primary} width={12} wrapMode="none">
+            <box flexDirection="row" gap={2} alignItems="center" flexWrap="wrap">
+              <text fg={theme.primary} width={layout().compact ? 10 : 12} wrapMode="none">
                 {prov.providerID}
               </text>
-              <text fg={theme.textMuted} width={14} wrapMode="none">
+              <text fg={theme.textMuted} width={layout().compact ? 10 : 14} wrapMode="none">
                 {prov.sessions}s / {prov.messages}m
               </text>
               <text fg={theme.success} wrapMode="none">
@@ -1062,7 +1500,7 @@ function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.s
                   value: p.cost,
                   color: viz().series[i % viz().series.length]!,
                 }))}
-              width={Math.max(20, chartW() - 6)}
+              width={Math.max(6, chartW() - 2)}
               showLabels
             />
           </box>
@@ -1086,33 +1524,52 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
   const totalWithCache = createMemo(() => total() + tokens().cacheRead + tokens().cacheWrite)
   const { open, toggle } = useCollapsibleGroup(TOKENS_SECTIONS)
   const chartW = useChartWidth(64)
+  const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
   // HBarPrecision draws label(10) + bar + value + pct columns, so leave ~26
   // cols of headroom around the bar itself.
-  const barW = createMemo(() => Math.max(14, Math.min(30, chartW() - 26)))
+  const barW = createMemo(() =>
+    layout().compact ? Math.max(4, chartW() - 17) : Math.max(6, Math.min(30, chartW() - 26)),
+  )
   const cacheHit = createMemo(() => {
     const t = tokens()
     const denom = t.cacheRead + t.input
     return denom > 0 ? (t.cacheRead / denom) * 100 : 0
   })
-  const tokenBars = createMemo(() =>
-    props.last14Days.map((d, i, arr) => ({
+  const tokenBars = createMemo(() => {
+    const days = props.last14Days.slice(-Math.max(2, Math.min(props.last14Days.length, chartW())))
+    return days.map((d, i, arr) => ({
       value: d.tokens,
       label: i === 0 ? d.date.slice(5) : i === arr.length - 1 ? d.date.slice(5) : undefined,
-    })),
-  )
+    }))
+  })
 
   return (
     <box flexDirection="column" gap={2}>
+      <TabHeading
+        icon="▦"
+        title="Token economics"
+        description="Composition, cache effectiveness, daily trend and cost efficiency."
+        meta={`${formatTokens(totalWithCache())} incl. cache`}
+      />
+
       {/* Token Breakdown Bars with 8-level precision */}
       <CollapsibleSection title="Token Breakdown" open={open().breakdown} onToggle={() => toggle("breakdown")}>
-        <HBarPrecision label="input" value={tokens().input} max={total()} width={barW()} color={viz().input} showPct />
+        <HBarPrecision
+          label="input"
+          value={tokens().input}
+          max={total()}
+          width={barW()}
+          color={viz().input}
+          showPct={!layout().compact}
+        />
         <HBarPrecision
           label="output"
           value={tokens().output}
           max={total()}
           width={barW()}
           color={viz().output}
-          showPct
+          showPct={!layout().compact}
         />
         <HBarPrecision
           label="reasoning"
@@ -1120,7 +1577,7 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
           max={total()}
           width={barW()}
           color={viz().reasoning}
-          showPct
+          showPct={!layout().compact}
         />
         <HBarPrecision
           label="cache-read"
@@ -1128,7 +1585,7 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
           max={totalWithCache()}
           width={barW()}
           color={viz().cache}
-          showPct
+          showPct={!layout().compact}
         />
         <HBarPrecision
           label="cache-write"
@@ -1136,24 +1593,26 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
           max={totalWithCache()}
           width={barW()}
           color={viz().cacheWrite}
-          showPct
+          showPct={!layout().compact}
         />
         {/* Cache effectiveness gauge — cache reads vs fresh input. */}
         <box paddingTop={1}>
-          <Gauge
-            label="Cache hit ratio"
-            value={cacheHit()}
-            max={100}
-            width={barW()}
-            color={viz().cache}
-            format={(v) => v.toFixed(0)}
-            unit="%"
-          />
+          <Show when={tokens().cacheRead + tokens().input > 0}>
+            <Gauge
+              label="Cache hit ratio"
+              value={cacheHit()}
+              max={100}
+              width={Math.max(6, chartW() - 6)}
+              color={viz().cache}
+              format={(v) => v.toFixed(0)}
+              unit="%"
+            />
+          </Show>
         </box>
       </CollapsibleSection>
 
       {/* Braille Area Chart + column histogram for token trend */}
-      <Show when={props.last14Days.length > 0}>
+      <Show when={props.last14Days.some((day) => day.tokens > 0)}>
         <CollapsibleSection title="14-Day Token Trend" open={open().trend} onToggle={() => toggle("trend")}>
           <BrailleAreaChart
             data={props.last14Days.map((d) => d.tokens)}
@@ -1169,7 +1628,7 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
 
       {/* Efficiency Metrics */}
       <CollapsibleSection title="Efficiency Metrics" open={open().efficiency} onToggle={() => toggle("efficiency")}>
-        <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="column" gap={0}>
             <text fg={theme.textMuted}>Cost/1K tokens</text>
             <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
@@ -1204,6 +1663,8 @@ function ModelsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
   const viz = () => getChartColors(theme)
   const chartW = useChartWidth(64)
+  const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
   const models = createMemo(() => props.stats.models.slice(0, 8))
   const shareSegments = createMemo(() =>
     models().map((m, i) => ({
@@ -1213,14 +1674,18 @@ function ModelsTab(props: { stats: AggregatedStats }) {
     })),
   )
   // Split-bar total width: name(18) + value(8) + 4 gaps leave the rest.
-  const nameW = 18
-  const splitW = createMemo(() => Math.max(16, Math.min(30, chartW() - 30)))
+  const nameW = createMemo(() => (layout().compact ? 8 : 18))
+  const splitW = createMemo(() => Math.max(4, Math.min(30, chartW() - nameW() - 10)))
+  const modelBarW = createMemo(() => Math.max(4, Math.min(20, chartW() - 18)))
 
   return (
     <box flexDirection="column" gap={1}>
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Model Usage ({props.stats.models.length} models)
-      </text>
+      <TabHeading
+        icon="◆"
+        title="Model portfolio"
+        description="Token share, request volume and per-model input/output/cache composition."
+        meta={`${props.stats.models.length} models`}
+      />
 
       {/* Token share across top models — one proportional bar. */}
       <Show when={models().length > 1}>
@@ -1228,14 +1693,18 @@ function ModelsTab(props: { stats: AggregatedStats }) {
           <text fg={theme.textMuted} wrapMode="none">
             Token share
           </text>
-          <StackedBarChartV2 segments={shareSegments()} width={Math.max(20, chartW())} showLabels />
+          <StackedBarChartV2 segments={shareSegments()} width={chartW()} showLabels />
         </box>
       </Show>
 
       <For each={models()}>
         {(model) => (
           <ModelCard
-            name={model.modelID}
+            name={
+              model.modelID.length > chartW() - 4
+                ? "…" + model.modelID.slice(-Math.max(4, chartW() - 5))
+                : model.modelID
+            }
             provider={model.providerID}
             requests={model.messages}
             inputTokens={model.tokens.input}
@@ -1244,6 +1713,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
             cacheReadTokens={model.tokens.cacheRead}
             cacheWriteTokens={model.tokens.cacheWrite}
             color={viz().series[4]!}
+            barWidth={modelBarW()}
           />
         )}
       </For>
@@ -1270,9 +1740,9 @@ function ModelsTab(props: { stats: AggregatedStats }) {
             const reasWidth = Math.max(0, w - inWidth - outWidth)
             return (
               <box flexDirection="row" gap={1} alignItems="center">
-                <text fg={theme.text} width={nameW} wrapMode="none">
-                  {(model.modelID.length > nameW ? "…" + model.modelID.slice(-(nameW - 1)) : model.modelID).padEnd(
-                    nameW,
+                <text fg={theme.text} width={nameW()} wrapMode="none">
+                  {(model.modelID.length > nameW() ? "…" + model.modelID.slice(-(nameW() - 1)) : model.modelID).padEnd(
+                    nameW(),
                   )}
                 </text>
                 <text fg={viz().input} wrapMode="none">
@@ -1292,7 +1762,7 @@ function ModelsTab(props: { stats: AggregatedStats }) {
           }}
         </For>
         {/* Legend */}
-        <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="row" gap={1} alignItems="center">
             <text fg={viz().input} wrapMode="none">
               ■
@@ -1323,6 +1793,10 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
   const viz = () => getChartColors(theme)
 
   const chartW = useChartWidth(60)
+  const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
+  const nameW = createMemo(() => (layout().compact ? 8 : 18))
+  const rankedBarW = createMemo(() => Math.max(4, chartW() - nameW() - 10))
   const vcsStats = createMemo(() => {
     const git = props.stats.projects.filter((p) => p.vcs === "git").length
     const local = props.stats.projects.filter((p) => p.vcs === "local" || p.vcs === "unknown").length
@@ -1333,19 +1807,22 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
     [...props.stats.projects]
       .sort((a, b) => b.totalTokens - a.totalTokens)
       .slice(0, 8)
-      .map((p) => ({ name: p.name.slice(-18), value: p.totalTokens })),
+      .map((p) => ({ name: p.name, value: p.totalTokens })),
   )
 
   return (
     <box flexDirection="column" gap={1}>
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Projects ({g().projects.length})
-      </text>
+      <TabHeading
+        icon="▣"
+        title="Project distribution"
+        description="Where sessions, token volume and spend are concentrated."
+        meta={`${g().projects.length} projects`}
+      />
 
       {/* VCS Breakdown — text summary + proportional stacked bar so the
           git-vs-local mix is visible at a glance (was a flat row of
           numbers before). */}
-      <box flexDirection="row" gap={3}>
+      <box flexDirection="row" gap={3} flexWrap="wrap">
         <box flexDirection="row" gap={1} alignItems="center">
           <text fg={theme.textMuted}>Git:</text>
           <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
@@ -1372,7 +1849,7 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
             { label: "Git", value: vcsStats().git, color: viz().cache },
             { label: "Local", value: vcsStats().local, color: viz().input },
           ]}
-          width={Math.max(20, chartW())}
+          width={chartW()}
           showLabels
         />
       </Show>
@@ -1385,8 +1862,8 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
           </text>
           <RankedBarList
             items={topProjects()}
-            nameWidth={18}
-            barWidth={Math.max(14, chartW() - 30)}
+            nameWidth={nameW()}
+            barWidth={rankedBarW()}
             formatValue={(v) => formatTokens(v)}
           />
         </box>
@@ -1400,16 +1877,17 @@ function ProjectsTab(props: { stats: AggregatedStats }) {
               flexDirection="row"
               gap={2}
               alignItems="center"
+              flexWrap="wrap"
               border={["bottom"]}
               borderColor={theme.borderSubtle}
               paddingLeft={1}
               paddingRight={1}
             >
-              <text fg={proj.vcs === "git" ? theme.success : theme.textMuted} width={3}>
+              <text fg={proj.vcs === "git" ? theme.success : theme.textMuted} width={2} wrapMode="none">
                 {proj.vcs === "git" ? "●" : "○"}
               </text>
-              <text fg={theme.text} width={16}>
-                {proj.name.slice(-16)}
+              <text fg={theme.text} width={nameW()} wrapMode="none">
+                {proj.name.length > nameW() ? "…" + proj.name.slice(-(nameW() - 1)) : proj.name}
               </text>
               <text fg={theme.textMuted}>{proj.sessionCount}s</text>
               <text fg={theme.primary}>{formatTokens(proj.totalTokens)}</text>
@@ -1430,24 +1908,26 @@ function ToolsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
   const tools = () => props.stats.toolUsage
   const chartW = useChartWidth(60)
+  const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
+  const nameW = createMemo(() => (layout().compact ? 8 : 18))
+  const barW = createMemo(() => Math.max(4, chartW() - nameW() - (layout().compact ? 10 : 16)))
   const successColor = (rate: number): RGBA => {
     if (rate >= 90) return theme.success
     if (rate >= 70) return theme.warning
     return theme.error
   }
   // Call-weighted overall success rate across every tracked tool.
-  const overallSuccess = createMemo(() => {
-    const list = tools().tools
-    const total = list.reduce((s, t) => s + t.count, 0)
-    if (total === 0) return 0
-    return list.reduce((s, t) => s + t.count * t.successRate, 0) / total
-  })
+  const overallSuccess = createMemo(() => weightedToolSuccess(tools()))
 
   return (
     <box flexDirection="column" gap={1}>
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Tool Usage ({tools().total} calls)
-      </text>
+      <TabHeading
+        icon="✦"
+        title="Tool reliability"
+        description="Call volume and call-weighted success, colored by reliability threshold."
+        meta={`${formatCompact(tools().total)} calls`}
+      />
 
       {/* Overall call-weighted success gauge — recolors warning/error as the
           aggregate reliability drops. */}
@@ -1456,7 +1936,7 @@ function ToolsTab(props: { stats: AggregatedStats }) {
           label="Overall success rate"
           value={overallSuccess()}
           max={100}
-          width={Math.max(20, chartW())}
+          width={Math.max(6, chartW() - 6)}
           format={(v) => v.toFixed(1)}
           unit="%"
           color={successColor(overallSuccess())}
@@ -1470,13 +1950,13 @@ function ToolsTab(props: { stats: AggregatedStats }) {
         items={tools()
           .mostUsed.slice(0, 10)
           .map((t) => ({
-            name: t.name.length > 18 ? "…" + t.name.slice(-17) : t.name,
+            name: t.name,
             value: t.count,
-            subValue: `${t.successRate.toFixed(0)}%`,
+            subValue: layout().compact ? undefined : `${t.successRate.toFixed(0)}%`,
             color: successColor(t.successRate),
           }))}
-        nameWidth={18}
-        barWidth={Math.max(14, chartW() - 34)}
+        nameWidth={nameW()}
+        barWidth={barW()}
         formatValue={(v) => formatCompact(v)}
       />
 
@@ -1485,7 +1965,7 @@ function ToolsTab(props: { stats: AggregatedStats }) {
       </Show>
 
       {/* Legend */}
-      <box flexDirection="row" gap={3}>
+      <box flexDirection="row" gap={3} flexWrap="wrap">
         <box flexDirection="row" gap={1} alignItems="center">
           <text fg={colorToString(theme.success)} wrapMode="none">
             ■
@@ -1509,7 +1989,16 @@ function ToolsTab(props: { stats: AggregatedStats }) {
   )
 }
 
-const SESSIONS_SECTIONS = ["sessions", "top", "background", "agents", "workspaces"] as const
+const SESSIONS_SECTIONS = [
+  "sessions",
+  "duration",
+  "recent",
+  "top",
+  "background",
+  "agents",
+  "todos",
+  "workspaces",
+] as const
 
 function SessionsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
@@ -1519,10 +2008,23 @@ function SessionsTab(props: { stats: AggregatedStats }) {
   const topSessions = createMemo(() => props.stats.sessions.slice(0, 5))
   const bg = () => props.stats.backgroundRuns
   const chartW = useChartWidth(48)
+  const dimensions = useTerminalDimensions()
+  const layout = createMemo(() => computeAnalyticsDialogLayout(dimensions().width, dimensions().height))
+  const nameW = createMemo(() => (layout().compact ? 8 : 18))
+  const rankedBarW = createMemo(() => Math.max(4, chartW() - nameW() - 12))
+  const durationBins = createMemo(() => buildDurationHistogram(props.stats.sessions))
+  const todo = () => props.stats.todos
   const { open, toggle } = useCollapsibleGroup(SESSIONS_SECTIONS)
 
   return (
     <box flexDirection="column" gap={2}>
+      <TabHeading
+        icon="⊞"
+        title="Session operations"
+        description="Lifecycle, duration, recency, background execution and workspace state."
+        meta={`${g().sessions} sessions`}
+      />
+
       {/* Session Stats */}
       <CollapsibleSection
         title="Sessions"
@@ -1530,7 +2032,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         open={open().sessions}
         onToggle={() => toggle("sessions")}
       >
-        <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="row" gap={1} alignItems="center">
             <text fg={theme.textMuted}>Total:</text>
             <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
@@ -1538,7 +2040,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
             </text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Active:</text>
+            <text fg={theme.textMuted}>Unarchived:</text>
             <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
               {g().sessions - g().archivedSessions}
             </text>
@@ -1552,22 +2054,39 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         </box>
       </CollapsibleSection>
 
+      <CollapsibleSection
+        title="Duration Distribution"
+        hint={`(${props.stats.sessions.length} measured)`}
+        open={open().duration}
+        onToggle={() => toggle("duration")}
+      >
+        <Show when={props.stats.sessions.length > 0} fallback={<EmptyState message="No session duration data" />}>
+          <AnalyticsHistogram bins={durationBins()} width={chartW()} color={viz().input} />
+        </Show>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Recent Activity"
+        hint="(latest updates)"
+        open={open().recent}
+        onToggle={() => toggle("recent")}
+      >
+        <RecentSessionTimeline sessions={props.stats.sessions} />
+      </CollapsibleSection>
+
       {/* Top Sessions */}
       <CollapsibleSection title="Top by Tokens" open={open().top} onToggle={() => toggle("top")}>
-        <For each={topSessions()}>
-          {(session) => {
-            const total = session.tokens.input + session.tokens.output + session.tokens.reasoning
-            return (
-              <box flexDirection="row" gap={1} alignItems="center">
-                <text fg={theme.text} width={14}>
-                  {session.title.slice(-14)}
-                </text>
-                <text fg={theme.primary}>{formatTokens(total)}</text>
-                <text fg={theme.success}>{money.format(session.cost)}</text>
-              </box>
-            )
-          }}
-        </For>
+        <RankedBarList
+          items={topSessions().map((session) => ({
+            name: session.title || "Untitled session",
+            value: session.tokens.input + session.tokens.output + session.tokens.reasoning,
+            subValue: layout().compact ? undefined : money.format(session.cost),
+            color: viz().input,
+          }))}
+          nameWidth={nameW()}
+          barWidth={rankedBarW()}
+          formatValue={(value) => formatTokens(value)}
+        />
         <Show when={topSessions().length === 0}>
           <EmptyState message="No sessions yet" />
         </Show>
@@ -1592,10 +2111,10 @@ function SessionsTab(props: { stats: AggregatedStats }) {
                 color: viz().reasoning,
               },
             ]}
-            width={Math.max(20, chartW())}
+            width={chartW()}
             showLabels
           />
-          <box flexDirection="row" gap={3}>
+          <box flexDirection="row" gap={3} flexWrap="wrap">
             <box flexDirection="row" gap={1} alignItems="center">
               <text fg={theme.textMuted}>Success:</text>
               <text fg={colorToString(theme.success)}>{bg().successRate.toFixed(0)}%</text>
@@ -1622,12 +2141,45 @@ function SessionsTab(props: { stats: AggregatedStats }) {
               value: a.count,
               color: viz().input,
             }))}
-            nameWidth={18}
-            barWidth={Math.max(14, chartW() - 30)}
+            nameWidth={nameW()}
+            barWidth={rankedBarW()}
             formatValue={(v) => formatCompact(v)}
           />
         </CollapsibleSection>
       </Show>
+
+      <CollapsibleSection
+        title="Task Progress"
+        hint={`(${todo().total} todos)`}
+        open={open().todos}
+        onToggle={() => toggle("todos")}
+      >
+        <Show when={todo().total > 0} fallback={<EmptyState message="No todos recorded" />}>
+          <Gauge
+            label="Completion rate"
+            value={todo().completionRate}
+            max={100}
+            width={Math.max(6, chartW() - 6)}
+            color={viz().cache}
+            format={(value) => value.toFixed(0)}
+            unit="%"
+          />
+          <StackedBarChartV2
+            segments={[
+              { label: "Done", value: todo().completed, color: viz().cache },
+              { label: "Active", value: todo().inProgress, color: viz().input },
+              { label: "Pending", value: todo().pending, color: viz().output },
+              {
+                label: "Cancelled",
+                value: todo().cancelled,
+                color: viz().reasoning,
+              },
+            ]}
+            width={chartW()}
+            showLabels
+          />
+        </Show>
+      </CollapsibleSection>
 
       {/* Workspaces Summary */}
       <CollapsibleSection
@@ -1636,7 +2188,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         open={open().workspaces}
         onToggle={() => toggle("workspaces")}
       >
-        <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={3} flexWrap="wrap">
           <box flexDirection="row" gap={1} alignItems="center">
             <text fg={theme.textMuted}>Total:</text>
             <text fg={colorToString(theme.primary)}>{ws().total}</text>
@@ -1654,7 +2206,7 @@ function SessionsTab(props: { stats: AggregatedStats }) {
         {/* Type breakdown */}
         <Show when={Object.keys(ws().byType).length > 0}>
           <text fg={theme.textMuted}>By type:</text>
-          <box flexDirection="row" gap={2}>
+          <box flexDirection="row" gap={2} flexWrap="wrap">
             <For each={Object.entries(ws().byType)}>
               {([type, count]) => (
                 <box flexDirection="row" gap={1} alignItems="center">

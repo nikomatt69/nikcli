@@ -5,7 +5,7 @@
  * These are kept dependency-free (no OpenTUI/Solid imports) so they can be
  * unit-tested in isolation, mirroring the style of `analytics-aggregator.ts`.
  */
-import type { DayStats } from "@/cli/cmd/tui/util/analytics-aggregator"
+import type { DayStats, SessionStats, ToolUsageStats } from "@/cli/cmd/tui/util/analytics-aggregator"
 
 // ===== Period deltas =====
 
@@ -87,12 +87,12 @@ export function periodDelta(
  */
 export function sampleForSparkline(data: number[], width: number): number[] {
   if (width <= 0) return []
-  if (data.length === 0) return new Array(width).fill(0)
+  if (data.length === 0) return Array.from({ length: width }, () => 0)
 
   if (data.length === width) return [...data]
 
   if (data.length > width) {
-    const out: number[] = new Array(width)
+    const out: number[] = Array.from({ length: width }, () => 0)
     const bucketSize = data.length / width
     for (let i = 0; i < width; i++) {
       const start = Math.floor(i * bucketSize)
@@ -108,7 +108,7 @@ export function sampleForSparkline(data: number[], width: number): number[] {
   }
 
   // data.length < width: repeat with linear interpolation to fill
-  const out: number[] = new Array(width)
+  const out: number[] = Array.from({ length: width }, () => 0)
   for (let i = 0; i < width; i++) {
     const t = (i / (width - 1)) * (data.length - 1)
     const lo = Math.floor(t)
@@ -160,6 +160,101 @@ export function formatCompact(n: number): string {
   if (abs < 1_000_000) return `${sign}${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`
   if (abs < 1_000_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`
   return `${sign}${(abs / 1_000_000_000).toFixed(2)}B`
+}
+
+// ===== Dashboard data shaping =====
+
+export interface DurationHistogramBin {
+  label: string
+  count: number
+  minMs: number
+  maxMs: number
+}
+
+export interface AnalyticsDialogLayout {
+  dialogWidth: number
+  contentWidth: number
+  sectionWidth: number
+  contentHeight: number
+  columns: 1 | 2 | 4
+  compact: boolean
+}
+
+/**
+ * Exact width budget for the xlarge analytics dialog.
+ *
+ * Horizontal chrome: Dialog padding (4) + analytics root padding (6) +
+ * scroll border (2) + scroll content padding (4) + scrollbar (1) = 17.
+ * Collapsible sections add a left border and one column of padding = 2.
+ */
+export function computeAnalyticsDialogLayout(terminalWidth: number, terminalHeight: number): AnalyticsDialogLayout {
+  const width = Number.isFinite(terminalWidth) ? Math.max(1, Math.floor(terminalWidth)) : 1
+  const height = Number.isFinite(terminalHeight) ? Math.max(1, Math.floor(terminalHeight)) : 1
+  const dialogWidth = Math.min(116, Math.max(1, width - 8))
+  const contentWidth = Math.max(1, dialogWidth - 17)
+  const sectionWidth = Math.max(1, contentWidth - 2)
+  const contentHeight = Math.max(1, Math.min(Math.max(1, height - 12), Math.max(1, Math.floor(height * 0.82))))
+  const columns: AnalyticsDialogLayout["columns"] = contentWidth >= 88 ? 4 : contentWidth >= 44 ? 2 : 1
+  return {
+    dialogWidth,
+    contentWidth,
+    sectionWidth,
+    contentHeight,
+    columns,
+    compact: contentWidth < 44,
+  }
+}
+
+/**
+ * Bucket real session durations into stable ranges used by the analytics
+ * histogram. The upper bound is exclusive, except for the final open-ended
+ * bucket. Zero-duration sessions remain visible in the first bucket.
+ */
+export function buildDurationHistogram(
+  sessions: ReadonlyArray<Pick<SessionStats, "duration">>,
+): DurationHistogramBin[] {
+  const bins: DurationHistogramBin[] = [
+    { label: "<1m", count: 0, minMs: 0, maxMs: 60_000 },
+    { label: "1-5m", count: 0, minMs: 60_000, maxMs: 5 * 60_000 },
+    { label: "5-15m", count: 0, minMs: 5 * 60_000, maxMs: 15 * 60_000 },
+    { label: "15-60m", count: 0, minMs: 15 * 60_000, maxMs: 60 * 60_000 },
+    {
+      label: "1h+",
+      count: 0,
+      minMs: 60 * 60_000,
+      maxMs: Number.POSITIVE_INFINITY,
+    },
+  ]
+
+  for (const session of sessions) {
+    const duration = Number.isFinite(session.duration) ? Math.max(0, session.duration) : 0
+    const bin = bins.find((item) => duration >= item.minMs && duration < item.maxMs)
+    if (bin) bin.count++
+  }
+
+  return bins
+}
+
+/** Call-weighted success rate, so a rarely-used tool cannot skew the total. */
+export function weightedToolSuccess(toolUsage: Pick<ToolUsageStats, "tools">): number {
+  const calls = toolUsage.tools.reduce((sum, tool) => sum + Math.max(0, tool.count), 0)
+  if (calls === 0) return 0
+  const weighted = toolUsage.tools.reduce(
+    (sum, tool) => sum + Math.max(0, tool.count) * Math.max(0, Math.min(100, tool.successRate)),
+    0,
+  )
+  return weighted / calls
+}
+
+/** Compact relative timestamp for the recent-session timeline. */
+export function formatRelativeTime(timestamp: number, now = Date.now()): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "unknown"
+  const elapsed = Math.max(0, now - timestamp)
+  if (elapsed < 60_000) return "now"
+  if (elapsed < 60 * 60_000) return `${Math.floor(elapsed / 60_000)}m ago`
+  if (elapsed < 24 * 60 * 60_000) return `${Math.floor(elapsed / (60 * 60_000))}h ago`
+  if (elapsed < 7 * 24 * 60 * 60_000) return `${Math.floor(elapsed / (24 * 60 * 60_000))}d ago`
+  return new Date(timestamp).toISOString().slice(0, 10)
 }
 
 // ===== Tab-specific prompts for background agents =====

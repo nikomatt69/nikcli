@@ -439,6 +439,20 @@ piecewise.
 
 ## Notes
 
+- **2026-07-15 (4) — PR1 OpenAPI components unblocked (Session/Prompt/Event/Model)**:
+  Effect `PublicApi` now emits named SDK components `Event`, `Session`, `Message`,
+  `UserMessage`, `AssistantMessage`, `Part`, `Todo`, `Model`, `SessionStatus` (verified
+  via `OpenApi.fromApi(PublicApi)` → 334 components, 0 missing). Wiring:
+  `httpapi/session.ts` uses `Session.InfoSchema` for list/info; `contract-extra.ts`
+  imports `@/bus/all-events` and types SSE with `BusEvent.schemas()`, prompt payload
+  with MessageV2 Format/Part inputs and `WithPartsSchema` response; `httpapi/config.ts`
+  uses `Provider.InfoSchema`/`ModelSchema`. `Model.api.url` is optional so real
+  custom-provider data encodes (466 models, 0 encode failures including
+  `custom-no-url` with `url: undefined`). Gate test:
+  `test/server/httpapi-openapi-components.test.ts`. SDK still defaults to Hono until
+  PR2; temporary `as any` casts at plugin/SDK boundaries until OpenAPI/SDK regen
+  makes optional `url` public.
+
 - **2026-07-15 (3) — all 70 `BusEvent.define` callsites converted to `BusEvent.schema`**:
   every bus event payload (33 files) is now an Effect `Schema.Struct`; `BusEvent.unmigrated()`
   returns `[]` with the full server import graph loaded and `BusEvent.schemas()` builds a
