@@ -10,17 +10,17 @@ import { MCP } from "../mcp"
 import { Connectors } from "../connectors"
 import { Skill } from "../skill"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Command {
   export const Event = {
-    Executed: BusEvent.define(
+    Executed: BusEvent.schema(
       "command.executed",
-      z.object({
-        name: z.string(),
-        sessionID: Identifier.schema("session"),
-        arguments: z.string(),
-        messageID: Identifier.schema("message"),
+      Schema.Struct({
+        name: Schema.String,
+        sessionID: Identifier.schemaEffect("session"),
+        arguments: Schema.String,
+        messageID: Identifier.schemaEffect("message"),
       }),
     ),
   }

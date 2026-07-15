@@ -7,6 +7,8 @@
  */
 
 import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Log } from "../util/log"
 
 export const MIN_INTERVAL_MS = 30_000
@@ -80,8 +82,9 @@ export const LoopDefinitionSchema = z.object({
 })
 export type LoopDefinition = z.infer<typeof LoopDefinitionSchema>
 
-export const LoopRunStatusSchema = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
-export type LoopRunStatus = z.infer<typeof LoopRunStatusSchema>
+export const LoopRunStatusEffect = Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
+export const LoopRunStatusSchema = zod(LoopRunStatusEffect)
+export type LoopRunStatus = Schema.Schema.Type<typeof LoopRunStatusEffect>
 
 /** Compact reference to a GitHub PR created/updated by a loop run. */
 export const LoopPullRequestRefSchema = z.object({

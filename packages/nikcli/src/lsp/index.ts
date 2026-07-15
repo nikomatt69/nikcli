@@ -21,7 +21,7 @@ export namespace LSP {
   export type Diagnostic = LSPClient.Diagnostic
 
   export const Event = {
-    Updated: BusEvent.define("lsp.updated", z.object({})),
+    Updated: BusEvent.schema("lsp.updated", Schema.Struct({})),
   }
 
   const PositionSchema = Schema.Struct({ line: Schema.Number, character: Schema.Number })

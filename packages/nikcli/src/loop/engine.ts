@@ -29,11 +29,12 @@ import { Instance } from "../project/instance"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import * as Manager from "./manager"
 import {
   DEFAULT_RUN_TIMEOUT_MS,
   LOOP_RUN_LEASE_MS,
+  LoopRunStatusEffect,
   LoopRunStatusSchema,
   MAX_CONCURRENT_RUNS,
   MAX_RUN_TIMEOUT_MS,
@@ -50,51 +51,51 @@ const log = Log.create({ service: "loop.engine" })
 // ── Bus events ────────────────────────────────────────────────────────────────
 
 export const LoopEvent = {
-  Upserted: BusEvent.define(
+  Upserted: BusEvent.schema(
     "loop.upserted",
-    z.object({
-      loopID: z.string(),
+    Schema.Struct({
+      loopID: Schema.String,
     }),
   ),
-  Removed: BusEvent.define(
+  Removed: BusEvent.schema(
     "loop.removed",
-    z.object({
-      loopID: z.string(),
+    Schema.Struct({
+      loopID: Schema.String,
     }),
   ),
-  RunStarted: BusEvent.define(
+  RunStarted: BusEvent.schema(
     "loop.run.started",
-    z.object({
-      loopID: z.string(),
-      runID: z.string(),
-      sessionID: z.string(),
+    Schema.Struct({
+      loopID: Schema.String,
+      runID: Schema.String,
+      sessionID: Schema.String,
     }),
   ),
-  RunFinished: BusEvent.define(
+  RunFinished: BusEvent.schema(
     "loop.run.finished",
-    z.object({
-      loopID: z.string(),
-      runID: z.string(),
-      sessionID: z.string().optional(),
-      status: LoopRunStatusSchema,
-      ok: z.boolean(),
-      error: z.string().optional(),
+    Schema.Struct({
+      loopID: Schema.String,
+      runID: Schema.String,
+      sessionID: Schema.optional(Schema.String),
+      status: LoopRunStatusEffect,
+      ok: Schema.Boolean,
+      error: Schema.optional(Schema.String),
     }),
   ),
   /** Emitted whenever the engine's live runtime map changes (subscribed by the TUI sidebar). */
-  RuntimeChanged: BusEvent.define(
+  RuntimeChanged: BusEvent.schema(
     "loop.runtime.changed",
-    z.object({
-      loopID: z.string(),
+    Schema.Struct({
+      loopID: Schema.String,
     }),
   ),
   /** Emitted when the engine refuses to start a run (or aborts one in flight). */
-  Aborted: BusEvent.define(
+  Aborted: BusEvent.schema(
     "loop.aborted",
-    z.object({
-      loopID: z.string(),
-      runID: z.string().optional(),
-      reason: z.string(),
+    Schema.Struct({
+      loopID: Schema.String,
+      runID: Schema.optional(Schema.String),
+      reason: Schema.String,
     }),
   ),
 }

@@ -8,7 +8,7 @@ import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Log } from "../util/log"
 import { Flag } from "../flag/flag"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { TodoRepo } from "./todo-repo"
@@ -39,15 +39,15 @@ export namespace Todo {
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const Event = {
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "todo.updated",
-      z.object({
-        sessionID: z.string(),
-        todos: z.array(Info),
-        diff: z.object({
-          added: z.array(Info),
-          completed: z.array(Info),
-        }),
+      Schema.Struct({
+        sessionID: Schema.String,
+        todos: Schema.Array(InfoSchema),
+        diff: Schema.Struct({
+          added: Schema.Array(InfoSchema),
+          completed: Schema.Array(InfoSchema),
+        }).annotate(zodObjectMode("strip")),
       }),
     ),
   }

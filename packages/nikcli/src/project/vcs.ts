@@ -13,10 +13,10 @@ const log = Log.create({ service: "vcs" })
 
 export namespace Vcs {
   export const Event = {
-    BranchUpdated: BusEvent.define(
+    BranchUpdated: BusEvent.schema(
       "vcs.branch.updated",
-      z.object({
-        branch: z.string().optional(),
+      Schema.Struct({
+        branch: Schema.optional(Schema.String),
       }),
     ),
   }

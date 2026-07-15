@@ -6,7 +6,7 @@ import { Bus } from "@/bus"
 import { Global } from "@/global"
 import { Log } from "@/util/log"
 import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { Instance } from "./instance"
 
 /**
@@ -29,19 +29,19 @@ export namespace InstanceReload {
   const DEBOUNCE_MS = 300
 
   export const Event = {
-    Started: BusEvent.define(
+    Started: BusEvent.schema(
       "instance.reload.started",
-      z.object({
-        directory: z.string(),
-        files: z.string().array(),
+      Schema.Struct({
+        directory: Schema.String,
+        files: Schema.Array(Schema.String),
       }),
     ),
-    Completed: BusEvent.define(
+    Completed: BusEvent.schema(
       "instance.reloaded",
-      z.object({
-        directory: z.string(),
-        files: z.string().array(),
-        durationMs: z.number(),
+      Schema.Struct({
+        directory: Schema.String,
+        files: Schema.Array(Schema.String),
+        durationMs: Schema.Number,
       }),
     ),
   }

@@ -18,6 +18,8 @@
  */
 
 import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Log } from "../util/log"
 import { isValidModel } from "../loop/schema"
 
@@ -120,8 +122,9 @@ export type MissionDefinition = z.infer<typeof MissionDefinitionSchema>
 export const ExecKindSchema = z.enum(["feature", "validation"])
 export type ExecKind = z.infer<typeof ExecKindSchema>
 
-export const ExecStatusSchema = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
-export type ExecStatus = z.infer<typeof ExecStatusSchema>
+export const ExecStatusEffect = Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
+export const ExecStatusSchema = zod(ExecStatusEffect)
+export type ExecStatus = Schema.Schema.Type<typeof ExecStatusEffect>
 
 export const MissionExecSchema = z.object({
   id: z.string().min(1),

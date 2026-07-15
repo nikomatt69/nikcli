@@ -1,6 +1,7 @@
 import z from "zod"
 import type { ZodType } from "zod"
 import { Schema } from "effect"
+import { resolve } from "effect/SchemaAST"
 import { zodObject, zodObjectMode } from "../util/effect-zod"
 import { Log } from "../util/log"
 
@@ -26,15 +27,20 @@ export namespace BusEvent {
   }
 
   /**
-   * Effect-Schema flavored `define`. The struct is annotated with strip mode at the
-   * top level so the derived zod payload keeps the legacy `z.object` parse semantics
-   * (legacy defines used plain `z.object(...)`, i.e. strip; the walker defaults to strict).
+   * Effect-Schema flavored `define`. Anonymous payload structs are annotated with
+   * strip mode at the top level so the derived zod payload keeps the legacy
+   * `z.object` parse semantics (legacy defines used plain `z.object(...)`, i.e.
+   * strip; the walker defaults to strict). Named schemas (with an `identifier`
+   * annotation, e.g. PermissionRequest) are shared OpenAPI components whose mode
+   * is their own — they pass through untouched.
    */
   export function schema<Type extends string, Fields extends Schema.Struct.Fields>(
     type: Type,
     properties: Schema.Struct<Fields>,
   ) {
-    const annotated = properties.annotate(zodObjectMode("strip"))
+    const annotations = resolve(properties.ast) as Record<PropertyKey, unknown> | undefined
+    const hasIdentifier = typeof annotations?.identifier === "string"
+    const annotated = hasIdentifier ? properties : properties.annotate(zodObjectMode("strip"))
     const result = {
       type,
       properties: zodObject(annotated),

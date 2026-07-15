@@ -68,10 +68,10 @@ export namespace SessionCompaction {
   }
 
   export const Event = {
-    Compacted: BusEvent.define(
+    Compacted: BusEvent.schema(
       "session.compacted",
-      z.object({
-        sessionID: z.string(),
+      Schema.Struct({
+        sessionID: Schema.String,
       }),
     ),
   }

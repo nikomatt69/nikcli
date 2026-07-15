@@ -30,18 +30,18 @@ export namespace SessionStatus {
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const Event = {
-    Status: BusEvent.define(
+    Status: BusEvent.schema(
       "session.status",
-      z.object({
-        sessionID: z.string(),
-        status: Info,
+      Schema.Struct({
+        sessionID: Schema.String,
+        status: InfoSchema,
       }),
     ),
     // deprecated
-    Idle: BusEvent.define(
+    Idle: BusEvent.schema(
       "session.idle",
-      z.object({
-        sessionID: z.string(),
+      Schema.Struct({
+        sessionID: Schema.String,
       }),
     ),
   }

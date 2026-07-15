@@ -18,7 +18,7 @@
  */
 
 import z from "zod"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { BusEvent } from "../bus/bus-event"
 import { Bus } from "../bus"
 import { Log } from "../util/log"
@@ -29,6 +29,7 @@ import { runPromiseWithLayer, withCurrentInstance } from "../effect"
 import * as Manager from "./manager"
 import {
   DEFAULT_FEATURE_TIMEOUT_MS,
+  ExecStatusEffect,
   ExecStatusSchema,
   MAX_CONCURRENT_MISSIONS,
   MAX_FEATURE_TIMEOUT_MS,
@@ -50,42 +51,42 @@ const log = Log.create({ service: "mission.orchestrator" })
 // ── Bus events ────────────────────────────────────────────────────────────────
 
 export const MissionEvent = {
-  Upserted: BusEvent.define("mission.upserted", z.object({ missionID: z.string() })),
-  Removed: BusEvent.define("mission.removed", z.object({ missionID: z.string() })),
-  Started: BusEvent.define("mission.started", z.object({ missionID: z.string() })),
-  Finished: BusEvent.define(
+  Upserted: BusEvent.schema("mission.upserted", Schema.Struct({ missionID: Schema.String })),
+  Removed: BusEvent.schema("mission.removed", Schema.Struct({ missionID: Schema.String })),
+  Started: BusEvent.schema("mission.started", Schema.Struct({ missionID: Schema.String })),
+  Finished: BusEvent.schema(
     "mission.finished",
-    z.object({
-      missionID: z.string(),
-      status: z.enum(["complete", "error", "paused", "frozen"]),
-      error: z.string().optional(),
+    Schema.Struct({
+      missionID: Schema.String,
+      status: Schema.Literals(["complete", "error", "paused", "frozen"]),
+      error: Schema.optional(Schema.String),
     }),
   ),
-  ExecStarted: BusEvent.define(
+  ExecStarted: BusEvent.schema(
     "mission.exec.started",
-    z.object({
-      missionID: z.string(),
-      execID: z.string(),
-      kind: z.enum(["feature", "validation"]),
-      targetID: z.string(),
-      targetName: z.string(),
-      sessionID: z.string(),
+    Schema.Struct({
+      missionID: Schema.String,
+      execID: Schema.String,
+      kind: Schema.Literals(["feature", "validation"]),
+      targetID: Schema.String,
+      targetName: Schema.String,
+      sessionID: Schema.String,
     }),
   ),
-  ExecFinished: BusEvent.define(
+  ExecFinished: BusEvent.schema(
     "mission.exec.finished",
-    z.object({
-      missionID: z.string(),
-      execID: z.string(),
-      kind: z.enum(["feature", "validation"]),
-      targetID: z.string(),
-      status: ExecStatusSchema,
-      ok: z.boolean(),
-      error: z.string().optional(),
+    Schema.Struct({
+      missionID: Schema.String,
+      execID: Schema.String,
+      kind: Schema.Literals(["feature", "validation"]),
+      targetID: Schema.String,
+      status: ExecStatusEffect,
+      ok: Schema.Boolean,
+      error: Schema.optional(Schema.String),
     }),
   ),
-  RuntimeChanged: BusEvent.define("mission.runtime.changed", z.object({ missionID: z.string() })),
-  Aborted: BusEvent.define("mission.aborted", z.object({ missionID: z.string(), reason: z.string() })),
+  RuntimeChanged: BusEvent.schema("mission.runtime.changed", Schema.Struct({ missionID: Schema.String })),
+  Aborted: BusEvent.schema("mission.aborted", Schema.Struct({ missionID: Schema.String, reason: Schema.String })),
 }
 
 // ── Live runtime state ──────────────────────────────────────────────────────

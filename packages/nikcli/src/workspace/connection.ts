@@ -38,7 +38,7 @@ import z from "zod"
 
 const log = Log.create({ service: "workspace-connection" })
 
-const ConnectionStatusSchema = Schema.Literals(["connecting", "connected", "disconnected", "error"])
+export const ConnectionStatusSchema = Schema.Literals(["connecting", "connected", "disconnected", "error"])
 export const ConnectionStatus = zod(ConnectionStatusSchema)
 export type ConnectionStatus = Schema.Schema.Type<typeof ConnectionStatusSchema>
 
@@ -49,11 +49,11 @@ const ConnectionStatusInfoSchema = Schema.Struct({
 export const ConnectionStatusInfo = zodObject(ConnectionStatusInfoSchema)
 export type ConnectionStatusInfo = Schema.Schema.Type<typeof ConnectionStatusInfoSchema>
 
-const StatusEvent = BusEvent.define(
+const StatusEvent = BusEvent.schema(
   "workspace.status",
-  z.object({
-    workspaceID: Identifier.schema("workspace"),
-    status: ConnectionStatus,
+  Schema.Struct({
+    workspaceID: Identifier.schemaEffect("workspace"),
+    status: ConnectionStatusSchema,
   }),
 )
 

@@ -60,13 +60,13 @@ export namespace PermissionNext {
   )
 
   export const Event = {
-    Asked: BusEvent.define("permission.asked", Request),
-    Replied: BusEvent.define(
+    Asked: BusEvent.schema("permission.asked", RequestSchema),
+    Replied: BusEvent.schema(
       "permission.replied",
-      z.object({
-        sessionID: z.string(),
-        requestID: z.string(),
-        reply: Reply,
+      Schema.Struct({
+        sessionID: Schema.String,
+        requestID: Schema.String,
+        reply: ReplySchema,
       }),
     ),
   }

@@ -49,30 +49,31 @@ export namespace Workspace {
   // without forcing eager evaluation of the connection module's runtime
   // bindings (which would create a TDZ when both files import each other).
   // The runtime `ConnectionStatus` value (used by `Event.Status` schema) is
-  // declared locally as a Zod enum mirroring the connection module so the
-  // namespace exposes both a value and a type at the same name.
-  export const ConnectionStatus = z.enum(["connecting", "connected", "disconnected", "error"])
+  // declared locally as a literal schema mirroring the connection module so
+  // the namespace exposes both a value and a type at the same name.
+  const ConnectionStatusSchema = Schema.Literals(["connecting", "connected", "disconnected", "error"])
+  export const ConnectionStatus = zod(ConnectionStatusSchema)
   export type ConnectionStatus = import("./connection").ConnectionStatus
   export type ConnectionStatusInfo = import("./connection").ConnectionStatusInfo
 
   export const Event = {
-    Ready: BusEvent.define(
+    Ready: BusEvent.schema(
       "workspace.ready",
-      z.object({
-        name: z.string(),
+      Schema.Struct({
+        name: Schema.String,
       }),
     ),
-    Failed: BusEvent.define(
+    Failed: BusEvent.schema(
       "workspace.failed",
-      z.object({
-        message: z.string(),
+      Schema.Struct({
+        message: Schema.String,
       }),
     ),
-    Status: BusEvent.define(
+    Status: BusEvent.schema(
       "workspace.status",
-      z.object({
-        workspaceID: Identifier.schema("workspace"),
-        status: ConnectionStatus,
+      Schema.Struct({
+        workspaceID: Identifier.schemaEffect("workspace"),
+        status: ConnectionStatusSchema,
       }),
     ),
   }

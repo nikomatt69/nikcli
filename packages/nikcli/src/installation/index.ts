@@ -19,18 +19,20 @@ export namespace Installation {
   export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
 
   export const Event = {
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "installation.updated",
-      z.object({
-        version: z.string(),
+      Schema.Struct({
+        version: Schema.String,
       }),
     ),
-    UpdateAvailable: BusEvent.define(
+    UpdateAvailable: BusEvent.schema(
       "installation.update-available",
-      z.object({
-        version: z.string(),
-        method: z.enum(["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]).optional(),
-        current: z.string().optional(),
+      Schema.Struct({
+        version: Schema.String,
+        method: Schema.optional(
+          Schema.Literals(["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]),
+        ),
+        current: Schema.optional(Schema.String),
       }),
     ),
   }

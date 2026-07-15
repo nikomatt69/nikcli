@@ -71,7 +71,7 @@ export namespace Project {
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   export const Event = {
-    Updated: BusEvent.define("project.updated", Info),
+    Updated: BusEvent.schema("project.updated", InfoSchema),
   }
 
   const UpdateInputSchema = Schema.Struct({

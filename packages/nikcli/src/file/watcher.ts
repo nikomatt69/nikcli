@@ -14,7 +14,7 @@ import { Git } from "@/git"
 import { Flag } from "@/flag/flag"
 import { readdir } from "fs/promises"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000
 
@@ -24,11 +24,11 @@ export namespace FileWatcher {
   const log = Log.create({ service: "file.watcher" })
 
   export const Event = {
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "file.watcher.updated",
-      z.object({
-        file: z.string(),
-        event: z.union([z.literal("add"), z.literal("change"), z.literal("unlink")]),
+      Schema.Struct({
+        file: Schema.String,
+        event: Schema.Literals(["add", "change", "unlink"]),
       }),
     ),
   }

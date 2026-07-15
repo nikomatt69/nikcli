@@ -7,7 +7,9 @@ import { TextAttributes } from "@opentui/core"
 import z from "zod"
 import { TuiEvent } from "../event"
 
-type ToastInput = z.input<typeof TuiEvent.ToastShow.properties>
+// `duration` stays optional at the call site: the zod schema fills the 5000ms
+// default at parse time, but the walker types the field as required.
+type ToastInput = Omit<z.input<typeof TuiEvent.ToastShow.properties>, "duration"> & { duration?: number }
 type ToastParsed = z.output<typeof TuiEvent.ToastShow.properties>
 type ToastCurrent = Omit<ToastParsed, "duration">
 

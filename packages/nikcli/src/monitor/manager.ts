@@ -119,41 +119,41 @@ export namespace Monitor {
   export type LogSnapshot = Schema.Schema.Type<typeof LogSnapshotSchema>
 
   export const Event = {
-    Created: BusEvent.define(
+    Created: BusEvent.schema(
       "monitor.created",
-      z.object({
-        sessionID: z.string(),
-        record: Record,
+      Schema.Struct({
+        sessionID: Schema.String,
+        record: RecordSchema,
       }),
     ),
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "monitor.updated",
-      z.object({
-        sessionID: z.string(),
-        record: Record,
+      Schema.Struct({
+        sessionID: Schema.String,
+        record: RecordSchema,
       }),
     ),
-    Output: BusEvent.define(
+    Output: BusEvent.schema(
       "monitor.output",
-      z.object({
-        sessionID: z.string(),
-        monitorID: z.string(),
-        delta: z.string(),
-        preview: z.string(),
-        bytes: z.number(),
-        status: Status,
+      Schema.Struct({
+        sessionID: Schema.String,
+        monitorID: Schema.String,
+        delta: Schema.String,
+        preview: Schema.String,
+        bytes: Schema.Number,
+        status: StatusSchema,
       }),
     ),
-    Completed: BusEvent.define(
+    Completed: BusEvent.schema(
       "monitor.completed",
-      z.object({
-        sessionID: z.string(),
-        monitorID: z.string(),
-        title: z.string(),
-        status: Status,
-        exitCode: z.number().nullable(),
-        logPath: z.string(),
-        wake: z.boolean(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        monitorID: Schema.String,
+        title: Schema.String,
+        status: StatusSchema,
+        exitCode: Schema.NullOr(Schema.Number),
+        logPath: Schema.String,
+        wake: Schema.Boolean,
       }),
     ),
   }

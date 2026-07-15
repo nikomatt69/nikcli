@@ -32,11 +32,11 @@ export namespace LSPClient {
   export type Error = InitializeError
 
   export const Event = {
-    Diagnostics: BusEvent.define(
+    Diagnostics: BusEvent.schema(
       "lsp.client.diagnostics",
-      z.object({
-        serverID: z.string(),
-        path: z.string(),
+      Schema.Struct({
+        serverID: Schema.String,
+        path: Schema.String,
       }),
     ),
   }

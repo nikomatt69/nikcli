@@ -10,16 +10,16 @@ import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Log } from "@/util/log"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
-const DelegationCompletedEvent = BusEvent.define(
+const DelegationCompletedEvent = BusEvent.schema(
   "delegation.completed",
-  z.object({
-    delegationID: z.string(),
-    parentSessionID: z.string(),
-    status: z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
-    title: z.string(),
+  Schema.Struct({
+    delegationID: Schema.String,
+    parentSessionID: Schema.String,
+    status: Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
+    title: Schema.String,
   }),
 )
 

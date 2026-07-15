@@ -57,10 +57,13 @@ export namespace Pty {
   export type UpdateInput = Schema.Schema.Type<typeof UpdateInputSchema>
 
   export const Event = {
-    Created: BusEvent.define("pty.created", z.object({ info: Info })),
-    Updated: BusEvent.define("pty.updated", z.object({ info: Info })),
-    Exited: BusEvent.define("pty.exited", z.object({ id: Identifier.schema("pty"), exitCode: z.number() })),
-    Deleted: BusEvent.define("pty.deleted", z.object({ id: Identifier.schema("pty") })),
+    Created: BusEvent.schema("pty.created", Schema.Struct({ info: InfoSchema })),
+    Updated: BusEvent.schema("pty.updated", Schema.Struct({ info: InfoSchema })),
+    Exited: BusEvent.schema(
+      "pty.exited",
+      Schema.Struct({ id: Identifier.schemaEffect("pty"), exitCode: Schema.Number }),
+    ),
+    Deleted: BusEvent.schema("pty.deleted", Schema.Struct({ id: Identifier.schemaEffect("pty") })),
   }
 
   interface ActiveSession {

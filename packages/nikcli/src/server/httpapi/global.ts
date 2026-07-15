@@ -11,7 +11,7 @@ import { Instance } from "@/project/instance"
  * `BusEvent.define` must run once per event type, so the Hono route imports
  * this constant instead of defining its own.
  */
-export const GlobalDisposedEvent = BusEvent.define("global.disposed", z.object({}))
+export const GlobalDisposedEvent = BusEvent.schema("global.disposed", Schema.Struct({}))
 
 /**
  * Global (instance-less) JSON routes for the Effect backend: `/global/health`

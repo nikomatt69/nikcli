@@ -154,10 +154,10 @@ export namespace File {
   }
 
   export const Event = {
-    Edited: BusEvent.define(
+    Edited: BusEvent.schema(
       "file.edited",
-      z.object({
-        file: z.string(),
+      Schema.Struct({
+        file: Schema.String,
       }),
     ),
   }

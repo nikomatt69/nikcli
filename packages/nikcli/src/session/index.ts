@@ -249,36 +249,36 @@ export namespace Session {
   type UsageInput = z.infer<typeof UsageInput>
 
   export const Event = {
-    Created: BusEvent.define(
+    Created: BusEvent.schema(
       "session.created",
-      z.object({
-        info: Info,
+      Schema.Struct({
+        info: InfoSchema,
       }),
     ),
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       SessionPrimitives.EventName.updated,
-      z.object({
-        info: Info,
+      Schema.Struct({
+        info: InfoSchema,
       }),
     ),
-    Deleted: BusEvent.define(
+    Deleted: BusEvent.schema(
       SessionPrimitives.EventName.deleted,
-      z.object({
-        info: Info,
+      Schema.Struct({
+        info: InfoSchema,
       }),
     ),
-    Diff: BusEvent.define(
+    Diff: BusEvent.schema(
       SessionPrimitives.EventName.diff,
-      z.object({
-        sessionID: z.string(),
-        diff: Snapshot.FileDiff.array(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        diff: Schema.Array(Snapshot.FileDiffSchema),
       }),
     ),
-    Error: BusEvent.define(
+    Error: BusEvent.schema(
       SessionPrimitives.EventName.error,
-      z.object({
-        sessionID: z.string().optional(),
-        error: MessageV2.Assistant.shape.error,
+      Schema.Struct({
+        sessionID: Schema.optional(Schema.String),
+        error: Schema.optional(MessageV2.AssistantErrorSchema),
       }),
     ),
   }

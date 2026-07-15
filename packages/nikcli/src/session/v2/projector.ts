@@ -3,6 +3,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
 import z from "zod"
+import { Schema } from "effect"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
 import { SessionEvent } from "./event"
@@ -41,10 +42,10 @@ export namespace SessionProjector {
   const log = Log.create({ service: "session.v2.projector" })
 
   export const Event = {
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "session.v2.updated",
-      z.object({
-        sessionID: z.string(),
+      Schema.Struct({
+        sessionID: Schema.String,
       }),
     ),
   }

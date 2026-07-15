@@ -58,18 +58,18 @@ export namespace MCP {
     .meta({ ref: "McpResource" })
   export type Resource = z.infer<typeof Resource>
 
-  export const ToolsChanged = BusEvent.define(
+  export const ToolsChanged = BusEvent.schema(
     "mcp.tools.changed",
-    z.object({
-      server: z.string(),
+    Schema.Struct({
+      server: Schema.String,
     }),
   )
 
-  export const BrowserOpenFailed = BusEvent.define(
+  export const BrowserOpenFailed = BusEvent.schema(
     "mcp.browser.open.failed",
-    z.object({
-      mcpName: z.string(),
-      url: z.string(),
+    Schema.Struct({
+      mcpName: Schema.String,
+      url: Schema.String,
     }),
   )
 

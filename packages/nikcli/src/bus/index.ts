@@ -2,7 +2,7 @@ import z from "zod"
 import { Log } from "../util/log"
 import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, runtimeFor, withCurrentInstance } from "@/effect"
 import { IslandBridge } from "@/plugin/island/bridge"
 
@@ -10,10 +10,10 @@ export namespace Bus {
   const log = Log.create({ service: "bus" })
   type Subscription = (event: any) => void | Promise<void>
 
-  export const InstanceDisposed = BusEvent.define(
+  export const InstanceDisposed = BusEvent.schema(
     "server.instance.disposed",
-    z.object({
-      directory: z.string(),
+    Schema.Struct({
+      directory: Schema.String,
     }),
   )
 

@@ -16,10 +16,10 @@ export namespace Ide {
   const log = Log.create({ service: "ide" })
 
   export const Event = {
-    Installed: BusEvent.define(
+    Installed: BusEvent.schema(
       "ide.installed",
-      z.object({
-        ide: z.string(),
+      Schema.Struct({
+        ide: Schema.String,
       }),
     ),
   }

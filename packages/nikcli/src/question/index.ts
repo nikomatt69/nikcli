@@ -3,7 +3,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { InstanceState } from "@/effect"
 import { Identifier } from "@/id/id"
 import { Log } from "@/util/log"
-import { zod, zodObject, type DeepMutable } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 
@@ -33,22 +33,19 @@ export namespace Question {
   export const Info = zodObject(InfoSchema)
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
-  export const Request = z
-    .object({
-      id: Identifier.schema("question"),
-      sessionID: Identifier.schema("session"),
-      questions: z.array(Info).describe("Questions to ask"),
-      tool: z
-        .object({
-          messageID: z.string(),
-          callID: z.string(),
-        })
-        .optional(),
-    })
-    .meta({
-      ref: "QuestionRequest",
-    })
-  export type Request = z.infer<typeof Request>
+  export const RequestSchema = Schema.Struct({
+    id: Identifier.schemaEffect("question"),
+    sessionID: Identifier.schemaEffect("session"),
+    questions: Schema.Array(InfoSchema).annotate({ description: "Questions to ask" }),
+    tool: Schema.optional(
+      Schema.Struct({
+        messageID: Schema.String,
+        callID: Schema.String,
+      }).annotate(zodObjectMode("strip")),
+    ),
+  }).annotate({ ...zodObjectMode("strip"), identifier: "QuestionRequest" })
+  export const Request = zodObject(RequestSchema)
+  export type Request = DeepMutable<Schema.Schema.Type<typeof RequestSchema>>
 
   const AnswerSchema = Schema.Array(Schema.String).annotate({ identifier: "QuestionAnswer" })
   export const Answer = zod(AnswerSchema)
@@ -62,20 +59,20 @@ export namespace Question {
   export type Reply = z.infer<typeof Reply>
 
   export const Event = {
-    Asked: BusEvent.define("question.asked", Request),
-    Replied: BusEvent.define(
+    Asked: BusEvent.schema("question.asked", RequestSchema),
+    Replied: BusEvent.schema(
       "question.replied",
-      z.object({
-        sessionID: z.string(),
-        requestID: z.string(),
-        answers: z.array(Answer),
+      Schema.Struct({
+        sessionID: Schema.String,
+        requestID: Schema.String,
+        answers: Schema.Array(AnswerSchema),
       }),
     ),
-    Rejected: BusEvent.define(
+    Rejected: BusEvent.schema(
       "question.rejected",
-      z.object({
-        sessionID: z.string(),
-        requestID: z.string(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        requestID: Schema.String,
       }),
     ),
   }

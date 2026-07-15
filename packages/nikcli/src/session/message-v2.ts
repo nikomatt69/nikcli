@@ -507,6 +507,17 @@ export namespace MessageV2 {
   export const Part = zod(PartSchema)
   export type Part = DeepMutable<Schema.Schema.Type<typeof PartSchema>>
 
+  /** The assistant-message error union, also embedded in `session.error` events. */
+  export const AssistantErrorSchema = Schema.Union([
+    AuthErrorBody,
+    UnknownErrorBody,
+    OutputLengthErrorBody,
+    ContextOverflowErrorBody,
+    AbortedErrorBody,
+    StructuredOutputErrorBody,
+    APIErrorBody,
+  ]).annotate({ discriminator: "name" })
+
   export const AssistantSchema = Schema.Struct({
     ...MessageBaseFields,
     role: Schema.Literal("assistant"),
@@ -514,17 +525,7 @@ export namespace MessageV2 {
       created: Schema.Number,
       completed: Schema.optional(Schema.Number),
     }).annotate(strip),
-    error: Schema.optional(
-      Schema.Union([
-        AuthErrorBody,
-        UnknownErrorBody,
-        OutputLengthErrorBody,
-        ContextOverflowErrorBody,
-        AbortedErrorBody,
-        StructuredOutputErrorBody,
-        APIErrorBody,
-      ]).annotate({ discriminator: "name" }),
-    ),
+    error: Schema.optional(AssistantErrorSchema),
     parentID: Schema.String,
     modelID: Schema.String,
     providerID: Schema.String,
@@ -563,32 +564,32 @@ export namespace MessageV2 {
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   export const Event = {
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "message.updated",
-      z.object({
-        info: Info,
+      Schema.Struct({
+        info: InfoSchema,
       }),
     ),
-    Removed: BusEvent.define(
+    Removed: BusEvent.schema(
       "message.removed",
-      z.object({
-        sessionID: z.string(),
-        messageID: z.string(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        messageID: Schema.String,
       }),
     ),
-    PartUpdated: BusEvent.define(
+    PartUpdated: BusEvent.schema(
       "message.part.updated",
-      z.object({
-        part: Part,
-        delta: z.string().optional(),
+      Schema.Struct({
+        part: PartSchema,
+        delta: Schema.optional(Schema.String),
       }),
     ),
-    PartRemoved: BusEvent.define(
+    PartRemoved: BusEvent.schema(
       "message.part.removed",
-      z.object({
-        sessionID: z.string(),
-        messageID: z.string(),
-        partID: z.string(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        messageID: Schema.String,
+        partID: Schema.String,
       }),
     ),
   }

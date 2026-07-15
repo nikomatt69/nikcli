@@ -1,5 +1,6 @@
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
+import { zod, zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Identifier } from "@/id/id"
 import { Storage } from "@/storage/storage"
 import { storageRead, storageRemove, storageUpdate, storageWrite } from "@/storage/effect"
@@ -9,32 +10,39 @@ import { Bus } from "@/bus"
 export namespace SessionGoal {
   export const MAX_ITERATIONS = 50
 
-  export const StatusSchema = z.enum(["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"])
-  export type Status = z.infer<typeof StatusSchema>
+  export const StatusEffect = Schema.Literals([
+    "active",
+    "paused",
+    "blocked",
+    "usage_limited",
+    "budget_limited",
+    "complete",
+  ])
+  export const StatusSchema = zod(StatusEffect)
+  export type Status = Schema.Schema.Type<typeof StatusEffect>
 
-  export const StateSchema = z
-    .object({
-      sessionID: z.string(),
-      goalID: z.string(),
-      objective: z.string(),
-      status: StatusSchema,
-      tokenBudget: z.number().optional(),
-      tokensUsed: z.number(),
-      timeUsedSeconds: z.number(),
-      iterationCount: z.number(),
-      timeCreated: z.number(),
-      timeUpdated: z.number(),
-    })
-    .meta({ ref: "SessionGoalState" })
-  export type State = z.infer<typeof StateSchema>
+  export const StateEffect = Schema.Struct({
+    sessionID: Schema.String,
+    goalID: Schema.String,
+    objective: Schema.String,
+    status: StatusEffect,
+    tokenBudget: Schema.optional(Schema.Number),
+    tokensUsed: Schema.Number,
+    timeUsedSeconds: Schema.Number,
+    iterationCount: Schema.Number,
+    timeCreated: Schema.Number,
+    timeUpdated: Schema.Number,
+  }).annotate({ ...zodObjectMode("strip"), identifier: "SessionGoalState" })
+  export const StateSchema = zodObject(StateEffect)
+  export type State = DeepMutable<Schema.Schema.Type<typeof StateEffect>>
 
   /** Broadcast whenever a session's goal state is created, updated, or cleared. */
   export const Event = {
-    Updated: BusEvent.define(
+    Updated: BusEvent.schema(
       "session.goal",
-      z.object({
-        sessionID: z.string(),
-        goal: StateSchema.nullable(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        goal: Schema.NullOr(StateEffect),
       }),
     ),
   }
