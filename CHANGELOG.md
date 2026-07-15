@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.168.0 (July 2026)
+
+## Core
+
+- Update legacy sync routes and enhance island plugin integration (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(httpapi): update legacy sync routes and enhance island plugin integration
+
 ## v1.167.0 (July 2026)
 
 ## Core
