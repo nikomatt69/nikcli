@@ -19,6 +19,17 @@ import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 
 const MAX_METADATA_LENGTH = 30_000
+export const MAX_OUTPUT_LENGTH = 5 * 1024 * 1024
+
+export function appendOutput(current: string, chunk: Buffer): { output: string; truncated: boolean } {
+  const text = chunk.toString()
+  const remaining = MAX_OUTPUT_LENGTH - current.length
+  if (text.length <= remaining) return { output: current + text, truncated: false }
+  return {
+    output: current + text.slice(0, Math.max(0, remaining)),
+    truncated: true,
+  }
+}
 const DEFAULT_TIMEOUT = Flag.NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
 
 const SHELL_FILE_ARG_COMMANDS = new Set([
@@ -225,8 +236,12 @@ export const BashTool = Tool.define("bash", async () => {
       .replaceAll("${maxBytes}", String(Truncate.MAX_BYTES)),
     parameters: zod(
       Schema.Struct({
-        command: Schema.String.annotate({ description: "The command to execute" }),
-        timeout: Schema.optional(Schema.Number).annotate({ description: "Optional timeout in milliseconds" }),
+        command: Schema.String.annotate({
+          description: "The command to execute",
+        }),
+        timeout: Schema.optional(Schema.Number).annotate({
+          description: "Optional timeout in milliseconds",
+        }),
         workdir: Schema.optional(Schema.String).annotate({
           description: `The working directory to run the command in. Defaults to ${Instance.directory}. Use this instead of 'cd' commands.`,
         }),
@@ -258,6 +273,7 @@ export const BashTool = Tool.define("bash", async () => {
       })
 
       let output = ""
+      let outputTruncated = false
 
       ctx.metadata({
         metadata: {
@@ -267,7 +283,11 @@ export const BashTool = Tool.define("bash", async () => {
       })
 
       const append = (chunk: Buffer) => {
-        output += chunk.toString()
+        if (!outputTruncated) {
+          const result = appendOutput(output, chunk)
+          output = result.output
+          outputTruncated = result.truncated
+        }
         ctx.metadata({
           metadata: {
             output: output.length > MAX_METADATA_LENGTH ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..." : output,
@@ -329,6 +349,10 @@ export const BashTool = Tool.define("bash", async () => {
 
       if (aborted) {
         resultMetadata.push("User aborted the command")
+      }
+
+      if (outputTruncated) {
+        resultMetadata.push(`Output truncated after ${MAX_OUTPUT_LENGTH} characters to protect memory`)
       }
 
       if (resultMetadata.length > 0) {

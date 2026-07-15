@@ -59,10 +59,10 @@ writes the state files itself.
 ./scripts/install.sh
 ```
 
-Then just use `nikcli` normally — the bridge is already wired into every invocation; the
-app wakes itself (`open -g -b com.nikcli.island`) the first time a session does
-anything. Set `NIKCLI_ISLAND_DISABLE=1` in your environment to opt a machine out of the
-bridge entirely.
+Start nikcli with `--island` to enable the bridge for that invocation; the app wakes
+itself (`open -g -b com.nikcli.island`) the first time a session does anything. The
+bridge is disabled by default. Set `NIKCLI_ISLAND_DISABLE=1` in your environment to
+force it off even when the flag is present.
 
 ## Visual design
 

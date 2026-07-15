@@ -3,13 +3,13 @@
  *
  * Surfaces the macOS notch companion app (`packages/nikcli-island`, driven by
  * `src/plugin/island/bridge.ts`) as a toggleable plugin, the same way
- * Computer/Browser wrap their own backing drivers. Activating this plugin
- * (including the default at TUI startup) turns the bridge on for the current
+ * Computer/Browser wrap their own backing drivers. The plugin is loaded only
+ * when the CLI is started with `--island`; activating it turns the bridge on for the current
  * session; deactivating it via the Plugin Manager clears this session's
  * snapshot and stops writing until re-enabled — the toggle persists like any
  * other plugin's enabled state. Non-TUI entrypoints (`nikcli run`, `serve`)
  * aren't affected by this toggle: they self-activate through `Bus.publish`
- * independently, gated only by `NIKCLI_ISLAND_DISABLE`.
+ * independently, gated by `--island` and `NIKCLI_ISLAND_DISABLE`.
  */
 import { IslandBridge } from "@/plugin/island/bridge"
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"

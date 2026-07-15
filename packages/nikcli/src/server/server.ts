@@ -1066,23 +1066,37 @@ export namespace Server {
           async (c) => {
             log.info("event connected")
             return streamSSE(c, async (stream) => {
+              let resolvePromise: (() => void) | undefined
+              let cleaned = false
+              let heartbeat: ReturnType<typeof setInterval> | undefined
+              let unsub: (() => void) | undefined
+              const cleanup = () => {
+                if (cleaned) return
+                cleaned = true
+                if (heartbeat) clearInterval(heartbeat)
+                unsub?.()
+                resolvePromise?.()
+                log.info("event disconnected")
+              }
               stream.writeSSE({
                 data: JSON.stringify({
                   type: "server.connected",
                   properties: {},
                 }),
               })
-              const unsub = Bus.subscribeAll(async (event) => {
-                await stream.writeSSE({
-                  data: JSON.stringify(event),
+              unsub = Bus.subscribeAll(async (event) => {
+                await stream.writeSSE({ data: JSON.stringify(event) }).catch((error) => {
+                  log.debug("event sse write failed", { error })
+                  cleanup()
                 })
                 if (event.type === Bus.InstanceDisposed.type) {
+                  cleanup()
                   stream.close()
                 }
               })
 
               // Send heartbeat every 30s to prevent WKWebView timeout (60s default)
-              const heartbeat = setInterval(() => {
+              heartbeat = setInterval(() => {
                 stream
                   .writeSSE({
                     data: JSON.stringify({
@@ -1092,15 +1106,14 @@ export namespace Server {
                   })
                   .catch((error) => {
                     log.debug("sse heartbeat failed", { error })
+                    cleanup()
                   })
               }, 30000)
 
               await new Promise<void>((resolve) => {
+                resolvePromise = resolve
                 stream.onAbort(() => {
-                  clearInterval(heartbeat)
-                  unsub()
-                  resolve()
-                  log.info("event disconnected")
+                  cleanup()
                 })
               })
             })

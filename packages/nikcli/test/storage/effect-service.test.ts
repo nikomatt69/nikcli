@@ -44,6 +44,17 @@ describe("Storage.Service", () => {
     )
   })
 
+  it("creates parent directories for nested records", async () => {
+    await runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        const key = ["nested", "path", "record"]
+        yield* storage.write(key, { ok: true })
+        expect(yield* storage.read<{ ok: boolean }>(key)).toEqual({ ok: true })
+      }),
+    )
+  })
+
   it("surfaces a tagged Storage.NotFoundError when reading a missing key", async () => {
     await runStorage(
       Effect.gen(function* () {

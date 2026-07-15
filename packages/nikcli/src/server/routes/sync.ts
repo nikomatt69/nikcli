@@ -38,7 +38,10 @@ const PUSH_WINDOW_MS = 60_000
 const PUSH_LIMIT_PER_WINDOW = 100
 const pushWindows = new Map<string, { windowStart: number; count: number }>()
 
-function pushAllowed(identity: string): { allowed: boolean; retryAfterMs: number } {
+function pushAllowed(identity: string): {
+  allowed: boolean
+  retryAfterMs: number
+} {
   const now = Date.now()
   const window = pushWindows.get(identity)
   if (!window || now - window.windowStart >= PUSH_WINDOW_MS) {
@@ -52,7 +55,10 @@ function pushAllowed(identity: string): { allowed: boolean; retryAfterMs: number
     return { allowed: true, retryAfterMs: 0 }
   }
   if (window.count >= PUSH_LIMIT_PER_WINDOW) {
-    return { allowed: false, retryAfterMs: window.windowStart + PUSH_WINDOW_MS - now }
+    return {
+      allowed: false,
+      retryAfterMs: window.windowStart + PUSH_WINDOW_MS - now,
+    }
   }
   window.count++
   return { allowed: true, retryAfterMs: 0 }
@@ -273,11 +279,23 @@ export const SyncRoutes = new Hono()
       const { projectID, token } = c.req.valid("query")
       // Token check happens in the global middleware; we just attach
       // the listener and forward bus events as SSE messages.
+      let close: (() => void) | undefined
+      const abortHandler = () => close?.()
       const stream = new ReadableStream<Uint8Array>({
+        cancel() {
+          close?.()
+        },
         start(controller) {
           const encoder = new TextEncoder()
-          const send = (data: unknown) =>
-            controller.enqueue(encoder.encode(`event: sync\ndata: ${JSON.stringify(data)}\n\n`))
+          let closed = false
+          const send = (data: unknown) => {
+            if (closed) return
+            try {
+              controller.enqueue(encoder.encode(`event: sync\ndata: ${JSON.stringify(data)}\n\n`))
+            } catch {
+              close?.()
+            }
+          }
           // initial comment to open the stream promptly
           controller.enqueue(encoder.encode(`: connected\n\n`))
           const handler = (raw: unknown) => {
@@ -287,11 +305,19 @@ export const SyncRoutes = new Hono()
           }
           GlobalBus.on("event", handler as never)
           const ping = setInterval(() => {
-            controller.enqueue(encoder.encode(`: ping\n\n`))
+            if (closed) return
+            try {
+              controller.enqueue(encoder.encode(`: ping\n\n`))
+            } catch {
+              close?.()
+            }
           }, 15_000)
-          const close = () => {
+          close = () => {
+            if (closed) return
+            closed = true
             clearInterval(ping)
             GlobalBus.off("event", handler as never)
+            c.req.raw.signal.removeEventListener("abort", abortHandler)
             try {
               controller.close()
             } catch {}
@@ -301,7 +327,7 @@ export const SyncRoutes = new Hono()
           // accept the token param because EventSource cannot send
           // custom headers.
           void token
-          c.req.raw.signal.addEventListener("abort", close)
+          c.req.raw.signal.addEventListener("abort", abortHandler)
         },
       })
       return new Response(stream, {
@@ -346,7 +372,10 @@ export const SyncRoutes = new Hono()
       const lastError = formatHubError(url ? RemoteSync.lastHubError(url) : undefined)
       if (configured && remote.autostart && url && remote.token && !connected) {
         const { SyncCliInit } = await import("@/sync/cli-init")
-        void SyncCliInit.startForAllProjects({ url, token: remote.token }).catch((error) => {
+        void SyncCliInit.startForAllProjects({
+          url,
+          token: remote.token,
+        }).catch((error) => {
           log.warn("sync autostart failed", { error })
         })
       }
@@ -457,7 +486,9 @@ export const SyncRoutes = new Hono()
       const body = c.req.valid("json")
       const url = normalizeHubUrl(body.url)
       if (!url) return c.text("Invalid hub URL", 400)
-      const patch: { sync: { url: string; token?: string; autostart?: boolean } } = { sync: { url } }
+      const patch: {
+        sync: { url: string; token?: string; autostart?: boolean }
+      } = { sync: { url } }
       if (body.token) patch.sync.token = body.token
       if (body.autostart !== undefined) patch.sync.autostart = body.autostart
       else patch.sync.autostart = true
@@ -469,13 +500,20 @@ export const SyncRoutes = new Hono()
       if (resolved.configured) {
         try {
           const { SyncCliInit } = await import("@/sync/cli-init")
-          const result = await SyncCliInit.startForAllProjects({ url: resolved.url!, token: resolved.token! })
+          const result = await SyncCliInit.startForAllProjects({
+            url: resolved.url!,
+            token: resolved.token!,
+          })
           started = result.count > 0
         } catch (err) {
           error = err instanceof Error ? err.message : String(err)
         }
       }
-      log.info("sync config saved from TUI", { url, configured: resolved.configured, started })
+      log.info("sync config saved from TUI", {
+        url,
+        configured: resolved.configured,
+        started,
+      })
       return c.json({
         configured: resolved.configured,
         url: resolved.url,
@@ -497,7 +535,10 @@ export const SyncRoutes = new Hono()
       const resolved = await SyncConfig.resolve()
       if (resolved.configured) {
         const { SyncCliInit } = await import("@/sync/cli-init")
-        await SyncCliInit.startForAllProjects({ url: resolved.url!, token: resolved.token! }).catch((error) => {
+        await SyncCliInit.startForAllProjects({
+          url: resolved.url!,
+          token: resolved.token!,
+        }).catch((error) => {
           log.warn("sync connect failed", { error })
         })
       }

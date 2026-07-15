@@ -266,7 +266,7 @@ export namespace IslandBridge {
   // register/unregister the listener each time — toggling off just clears
   // the current snapshots and stops writing; toggling back on resumes
   // through the already-registered listener.
-  let enabled = process.env.NIKCLI_ISLAND_DISABLE !== "1"
+  let enabled = process.env.NIKCLI_ISLAND === "1" && process.env.NIKCLI_ISLAND_DISABLE !== "1"
 
   /** Idempotent. No-op off macOS. Safe to call from any CLI entrypoint. */
   export function start(): void {
@@ -280,7 +280,11 @@ export namespace IslandBridge {
         case "session.status": {
           const { sessionID, status } = properties
           if (status.type === "idle") {
-            void write(sessionID, directory, { state: "idle", label: "", startedAt: 0 })
+            void write(sessionID, directory, {
+              state: "idle",
+              label: "",
+              startedAt: 0,
+            })
           } else if (status.type === "busy") {
             void write(sessionID, directory, {
               state: "thinking",
@@ -288,7 +292,10 @@ export namespace IslandBridge {
               startedAt: (status.since ?? Date.now()) / 1000,
             })
           } else if (status.type === "retry") {
-            void write(sessionID, directory, { state: "thinking", label: `Retrying (${status.attempt})…` })
+            void write(sessionID, directory, {
+              state: "thinking",
+              label: `Retrying (${status.attempt})…`,
+            })
           }
           break
         }
@@ -302,12 +309,20 @@ export namespace IslandBridge {
           break
         }
         case "permission.replied": {
-          void write(properties.sessionID, directory, { state: "thinking", label: "Thinking…", permissionID: "" })
+          void write(properties.sessionID, directory, {
+            state: "thinking",
+            label: "Thinking…",
+            permissionID: "",
+          })
           break
         }
         case "session.error": {
           const sessionID = properties?.sessionID
-          if (sessionID) void write(sessionID, directory, { state: "error", label: "Error" })
+          if (sessionID)
+            void write(sessionID, directory, {
+              state: "error",
+              label: "Error",
+            })
           break
         }
         case "session.deleted": {

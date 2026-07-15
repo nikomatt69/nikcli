@@ -87,12 +87,18 @@ const cli = yargs(hideBin(process.argv))
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  .option("island", {
+    describe: "enable the nikcli Island macOS companion app",
+    type: "boolean",
+    default: false,
+  })
   .middleware(async (opts) => {
     await initialize()
+    process.env.NIKCLI_ISLAND = opts.island ? "1" : "0"
     // IslandBridge.start() itself is called from inside Bus.publish (src/bus/index.ts) —
     // the one choke point every session/permission/tool event already flows through in
-    // any realm, so it self-activates without this entrypoint (or the TUI's worker
-    // thread) needing to remember to call it. Only the cleanup half is wired per
+    // any realm, so the enabled bridge self-activates without this entrypoint (or the
+    // TUI's worker thread) needing to remember to call it. Only the cleanup half is wired per
     // entrypoint: safe here specifically because this is the plain (non-worker) case —
     // "this process" and "the OS process" are the same thing. The TUI's worker thread
     // (src/cli/cmd/tui/worker.ts) calls IslandBridge.stop() from its own shutdown

@@ -23,9 +23,10 @@ process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 process.env.ISLAND_SUPPORT_DIR = supportDir
 process.env.NIKCLI_ISLAND_TEST_FORCE_DARWIN = "1"
+process.env.NIKCLI_ISLAND = "1"
 process.env.NIKCLI_PORT = "4123" // short-circuits the dynamic @/server/server import
 
-IslandBridge.start()
+IslandBridge.setEnabled(true)
 
 const projectDirs: string[] = []
 async function withProject<T>(fn: () => Promise<T> | T): Promise<T> {
@@ -81,7 +82,10 @@ function createSession(input: { title: string; parentID?: string }) {
     withCurrentInstance(
       Effect.gen(function* () {
         const svc = yield* Session.Service
-        return yield* svc.createNext({ directory: Instance.directory, ...input })
+        return yield* svc.createNext({
+          directory: Instance.directory,
+          ...input,
+        })
       }),
     ),
   )
@@ -228,7 +232,10 @@ describe("IslandBridge", () => {
   it("stamps parentID/agentTitle for a subagent so the island can tell it apart from its orchestrator", async () => {
     await withProject(async () => {
       const parent = await createSession({ title: "orchestrator run" })
-      const child = await createSession({ title: "security-review subagent", parentID: parent.id })
+      const child = await createSession({
+        title: "security-review subagent",
+        parentID: parent.id,
+      })
 
       await Bus.publish(PermissionNext.Event.Asked, {
         id: "per_subagent1",

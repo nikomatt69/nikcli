@@ -74,9 +74,20 @@ export const GlobalRoutes = lazy(() =>
               },
             }),
           })
+          let resolvePromise: (() => void) | undefined
+          let cleaned = false
+          const cleanup = () => {
+            if (cleaned) return
+            cleaned = true
+            clearInterval(heartbeat)
+            GlobalBus.off("event", handler)
+            resolvePromise?.()
+            log.info("global event disconnected")
+          }
           async function handler(event: any) {
-            await stream.writeSSE({
-              data: JSON.stringify(event),
+            await stream.writeSSE({ data: JSON.stringify(event) }).catch((error) => {
+              log.debug("global sse write failed", { error })
+              cleanup()
             })
           }
           GlobalBus.on("event", handler)
@@ -94,15 +105,14 @@ export const GlobalRoutes = lazy(() =>
               })
               .catch((error) => {
                 log.debug("sse heartbeat failed", { error })
+                cleanup()
               })
           }, 30000)
 
           await new Promise<void>((resolve) => {
+            resolvePromise = resolve
             stream.onAbort(() => {
-              clearInterval(heartbeat)
-              GlobalBus.off("event", handler)
-              resolve()
-              log.info("global event disconnected")
+              cleanup()
             })
           })
         })

@@ -104,7 +104,7 @@ export namespace Bus {
             log.debug("publishing", {
               type: def.type,
             })
-            // Self-activating, not dependent on any one CLI entrypoint
+            // Self-activating when opted in, not dependent on any one CLI entrypoint
             // remembering to wire it in: `publish` is the single choke point
             // every session/permission/tool event already flows through, in
             // whichever realm is actually running the session (the TUI's own

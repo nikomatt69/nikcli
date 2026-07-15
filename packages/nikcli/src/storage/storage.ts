@@ -1,4 +1,5 @@
 import { Log } from "../util/log"
+import fs from "fs/promises"
 import path from "path"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
@@ -10,6 +11,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 namespace Cache {
   const store = new Map<string, { value: unknown; expires: number }>()
   const DEFAULT_TTL_MS = 5_000
+  const MAX_ENTRIES = 10_000
 
   export function get<T>(key: string): T | undefined {
     const entry = store.get(key)
@@ -18,11 +20,19 @@ namespace Cache {
       store.delete(key)
       return undefined
     }
+    store.delete(key)
+    store.set(key, entry)
     return entry.value as T
   }
 
   export function set<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_MS): void {
+    store.delete(key)
     store.set(key, { value, expires: Date.now() + ttlMs })
+    while (store.size > MAX_ENTRIES) {
+      const oldest = store.keys().next().value
+      if (oldest === undefined) break
+      store.delete(oldest)
+    }
   }
 
   export function invalidate(key: string): void {
@@ -281,6 +291,7 @@ export namespace Storage {
     using _ = await Lock.write(target)
     const content = structuredClone(await Bun.file(target).json())
     fn(content)
+    await fs.mkdir(path.dirname(target), { recursive: true })
     await Bun.write(target, JSON.stringify(content, null, 2))
     Cache.set(key.join("/"), content as T)
     return content as T
@@ -289,16 +300,19 @@ export namespace Storage {
   async function writeImpl<T>(dir: string, key: string[], content: T) {
     const target = path.join(dir, ...key) + ".json"
     using _ = await Lock.write(target)
+    await fs.mkdir(path.dirname(target), { recursive: true })
     await Bun.write(target, JSON.stringify(content, null, 2))
     Cache.set(key.join("/"), content)
   }
 
   const glob = new Bun.Glob("**/*")
   async function listImpl(dir: string, prefix: string[]) {
+    const base = path.join(dir, ...prefix)
+    if (!(await Filesystem.isDir(base))) return []
     try {
       const result = await Array.fromAsync(
         glob.scan({
-          cwd: path.join(dir, ...prefix),
+          cwd: base,
           onlyFiles: true,
         }),
       ).then((results) => results.map((x) => [...prefix, ...x.slice(0, -5).split(path.sep)]))
@@ -362,6 +376,7 @@ export namespace Storage {
     for (const op of ops) {
       if (op.type === "write") {
         const target = path.join(dir, ...op.key) + ".json"
+        await fs.mkdir(path.dirname(target), { recursive: true })
         await Bun.write(target, JSON.stringify(op.content, null, 2))
         Cache.set(op.key.join("/"), op.content)
       } else if (op.type === "remove") {

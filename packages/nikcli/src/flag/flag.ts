@@ -14,6 +14,7 @@ export namespace Flag {
   export const NIKCLI_DISABLE_TERMINAL_TITLE = truthy("NIKCLI_DISABLE_TERMINAL_TITLE")
   export const NIKCLI_PERMISSION = process.env["NIKCLI_PERMISSION"]
   export const NIKCLI_DISABLE_DEFAULT_PLUGINS = truthy("NIKCLI_DISABLE_DEFAULT_PLUGINS")
+  export declare const NIKCLI_ISLAND: boolean
   export const NIKCLI_DISABLE_LSP_DOWNLOAD = truthy("NIKCLI_DISABLE_LSP_DOWNLOAD")
   export const NIKCLI_ENABLE_EXPERIMENTAL_MODELS = truthy("NIKCLI_ENABLE_EXPERIMENTAL_MODELS")
   export const NIKCLI_DISABLE_AUTOCOMPACT = truthy("NIKCLI_DISABLE_AUTOCOMPACT")
@@ -137,6 +138,14 @@ export namespace Flag {
 Object.defineProperty(Flag, "NIKCLI_DISABLE_PROJECT_CONFIG", {
   get() {
     return truthy("NIKCLI_DISABLE_PROJECT_CONFIG")
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+Object.defineProperty(Flag, "NIKCLI_ISLAND", {
+  get() {
+    return truthy("NIKCLI_ISLAND")
   },
   enumerable: true,
   configurable: false,
