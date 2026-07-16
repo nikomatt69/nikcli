@@ -62,7 +62,9 @@ export const ArtifactTool = Tool.define("artifact", {
 
     const lines = [
       `Published "${info.title}" (${info.kind}, v${info.version})`,
-      info.url,
+      // The ?key= capability link opens without a store login; the bare URL
+      // is the login-gated page for the owner's account.
+      Artifact.viewerUrl(info),
       params.artifactID ? "Updated in place — anyone with the page open sees the new version." : undefined,
       `To update this artifact later, call the artifact tool with artifactID: ${info.id}`,
     ].filter(Boolean)

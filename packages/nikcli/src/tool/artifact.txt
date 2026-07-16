@@ -6,8 +6,8 @@ Supported files: .html/.htm, .md/.markdown, .txt, images (.png, .jpg, .jpeg, .gi
 
 HTML pages must be fully self-contained: inline all CSS and JavaScript and embed images as data: URIs — the hosted page cannot load external scripts, styles, or media (strict CSP).
 
-Publishing returns the artifact URL (https://nikcli.store/artifact/{id}). Include that URL in your response so the user can open it. Artifacts are private: only the publisher's nikcli.store account can view them.
+Publishing returns a capability link (https://nikcli.store/artifact/{id}?key=...) that opens immediately in any browser. Include that URL in your response so the user can open it. Artifacts are private by default: without the ?key= link, only the publisher's logged-in account can view the page.
+
+Publishing never requires a login or password. When the CLI has an active user session it ties the artifact to that account; otherwise the artifact is anonymous and reachable only through its capability link.
 
 To publish a new version of an existing artifact (same URL), pass its artifactID. Without artifactID a new artifact with a new URL is created.
-
-If publishing fails because the user is not logged in, tell them to run `nikcli artifact login` once (or set NIKCLI_STORE_TOKEN).

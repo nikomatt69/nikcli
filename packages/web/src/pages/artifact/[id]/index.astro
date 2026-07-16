@@ -78,7 +78,10 @@ const pageTitle = meta
         <main class="empty">
           <form class="gate" id="login-form">
             <h1>Private artifact</h1>
-            <p>Sign in with your nikcli.store account to view it.</p>
+            <p>
+              Sign in with the publisher's nikcli account to view it, or open the link exactly as it was shared
+              (including its <code>?key=</code> part).
+            </p>
             <input name="email" type="email" placeholder="Email" autocomplete="email" required />
             <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
             <button type="submit" id="login-submit">Sign in</button>
@@ -116,30 +119,34 @@ const pageTitle = meta
       })
 
       const form = document.getElementById("login-form")
-      form?.addEventListener("submit", async (event) => {
-        event.preventDefault()
-        const submit = document.getElementById("login-submit")
-        const errorLine = document.getElementById("login-error")
-        const data = new FormData(form)
-        submit.disabled = true
-        errorLine.hidden = true
-        try {
-          const response = await fetch("/user/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: data.get("email"), password: data.get("password") }),
-          })
-          const payload = await response.json().catch(() => ({}))
-          if (!response.ok || !payload.token) {
-            throw new Error(payload.error || "Login failed")
+      if (form instanceof HTMLFormElement) {
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault()
+          const submit = document.getElementById("login-submit") as HTMLButtonElement | null
+          const errorLine = document.getElementById("login-error")
+          const data = new FormData(form)
+          if (submit) submit.disabled = true
+          if (errorLine) errorLine.hidden = true
+          try {
+            const response = await fetch("/user/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: data.get("email"), password: data.get("password") }),
+            })
+            const payload = (await response.json().catch(() => ({}))) as { token?: string; error?: string }
+            if (!response.ok || !payload.token) {
+              throw new Error(payload.error || "Login failed")
+            }
+            window.location.reload()
+          } catch (error) {
+            if (errorLine) {
+              errorLine.textContent = error instanceof Error ? error.message : "Login failed"
+              errorLine.hidden = false
+            }
+            if (submit) submit.disabled = false
           }
-          window.location.reload()
-        } catch (error) {
-          errorLine.textContent = error instanceof Error ? error.message : "Login failed"
-          errorLine.hidden = false
-          submit.disabled = false
-        }
-      })
+        })
+      }
     </script>
 
     <style is:global>

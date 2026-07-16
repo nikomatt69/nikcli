@@ -119,10 +119,14 @@ export async function writeArtifact(bucket: R2Bucket, stored: StoredArtifact, co
   await bucket.put(metaKey(stored.id), metaJson, {
     httpMetadata: { contentType: "application/json" },
   })
-  // Owner index for "my artifacts" listings (public meta only).
-  await bucket.put(ownerKey(stored.owner, stored.id), JSON.stringify(publicMeta(stored)), {
-    httpMetadata: { contentType: "application/json" },
-  })
+  // Owner index for "my artifacts" listings (public meta only). Anonymous
+  // artifacts (owner "") are reachable only via their viewKey capability and
+  // are never listed, so they get no index entry.
+  if (stored.owner) {
+    await bucket.put(ownerKey(stored.owner, stored.id), JSON.stringify(publicMeta(stored)), {
+      httpMetadata: { contentType: "application/json" },
+    })
+  }
 }
 
 export async function listArtifactsByOwner(bucket: R2Bucket, userId: string): Promise<ArtifactMeta[]> {
@@ -149,9 +153,29 @@ function parseCookies(header: string | null): Record<string, string> {
 }
 
 /**
- * Resolve the logged-in nikcli.store user from a request, accepting the same
+ * Validate a caller-supplied nikcli server URL (the `X-Nikcli-Server` header
+ * the CLI sends). Identities are namespaced by that server's host, so callers
+ * verifying against their own server can only claim identities under it.
+ */
+function callerAuthServer(request: Request): string | null {
+  const header = request.headers.get("X-Nikcli-Server")
+  if (!header) return null
+  try {
+    const url = new URL(header)
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resolve the logged-in nikcli user from a request, accepting the same
  * tokens the web app uses (`Authorization: Bearer` from /user/login) or the
- * viewer cookie set by the artifact login gate.
+ * viewer cookie set by the artifact login gate. The token is verified against
+ * the caller's own nikcli server when `X-Nikcli-Server` names a reachable one,
+ * falling back to the default auth server; the resulting id is namespaced by
+ * the verifying server's host.
  */
 export async function resolveViewerUserId(
   env: Pick<CloudflareEnv, "NIKCLI_AUTH_SERVER">,
@@ -164,7 +188,8 @@ export async function resolveViewerUserId(
   const token = bearer ?? cookie
   if (!token?.startsWith("nku_")) return null
 
-  const authServer = (env.NIKCLI_AUTH_SERVER || DEFAULT_NIKCLI_AUTH_SERVER).replace(/\/$/, "")
+  const authServer =
+    callerAuthServer(request) ?? (env.NIKCLI_AUTH_SERVER || DEFAULT_NIKCLI_AUTH_SERVER).replace(/\/$/, "")
   try {
     const response = await fetcher(`${authServer}/user/me`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },

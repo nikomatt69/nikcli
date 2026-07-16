@@ -37,9 +37,10 @@ export const ArtifactLoginCommand = cmd({
       prompts.log.info("The web app, Studio, mobile, and artifact publishing use this same CLI account.")
       prompts.outro("Done")
     } catch (error) {
-      spinner.stop("Login failed", 1)
+      spinner.stop("No active CLI user", 1)
       log.error("artifact login failed", { error })
-      prompts.log.error(error instanceof Error ? error.message : "Unknown error")
+      prompts.log.warn(error instanceof Error ? error.message : "Unknown error")
+      prompts.log.info("Publishing still works without a login — artifacts are then reachable only via their ?key= capability link.")
       prompts.outro("Done")
     }
   },

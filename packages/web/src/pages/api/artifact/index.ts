@@ -15,15 +15,16 @@ export const prerender = false
  * secret authorizes updates, the viewKey grants read access without a login
  * (capability link, used by the CLI and for mobile previews).
  *
- * A nikcli.store Bearer token (same tokens as /user/login) is required. The
- * viewKey remains a read-only capability for the publisher's mobile clients.
+ * Auth is optional so the CLI can always publish without a password. When a
+ * verifiable nikcli token is present (Bearer + optional X-Nikcli-Server), the
+ * artifact is owned by that account and appears in its listings; otherwise it
+ * is anonymous and reachable only through its viewKey capability link.
  */
 export const POST: APIRoute = async (context) => {
   const env = (context.locals as App.Locals).runtime?.env
   if (!env?.ARTIFACTS) return artifactJson({ error: "Artifact storage unavailable" }, 503)
 
   const userId = await resolveViewerUserId(env, context.request)
-  if (!userId) return artifactJson({ error: "Unauthorized" }, 401)
 
   let body: ArtifactPayload
   try {
@@ -54,7 +55,7 @@ export const POST: APIRoute = async (context) => {
       size: parsed.content.byteLength,
       version: 1,
       sessionID: parsed.sessionID,
-      owner: userId,
+      owner: userId ?? "",
       author: parsed.author,
       time: { created: now, updated: now },
     },
@@ -84,6 +85,6 @@ export const OPTIONS: APIRoute = () =>
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Nikcli-Server",
     },
   })

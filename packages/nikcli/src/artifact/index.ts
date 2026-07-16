@@ -10,9 +10,12 @@ import { UserDB } from "@/user/users"
  *
  * The CLI publishes a local file (html/markdown/image/video) to the
  * nikcli.store worker (`POST /api/artifact`), which stores it in R2 and
- * serves it at `https://nikcli.store/artifact/{id}`. Viewing requires the
- * publisher's CLI user session (same `nku_` token as /user/login) or the artifact's
- * viewKey capability, which the mobile app uses for inline previews.
+ * serves it at `https://nikcli.store/artifact/{id}`. Publishing never asks
+ * for a password: the active CLI user session (same `nku_` token as
+ * /user/login, from src/user) binds ownership when the store can verify it
+ * against this host's server; otherwise the publish is anonymous. Viewing
+ * requires the owner's login or the artifact's viewKey capability, which the
+ * CLI-printed link and the mobile app's inline previews use.
  */
 export namespace Artifact {
   const log = Log.create({ service: "artifact" })
@@ -97,13 +100,35 @@ export namespace Artifact {
     )
   }
 
-  /** Use the active CLI/TUI user session. Artifact auth never stores a second credential. */
+  /**
+   * Use the active CLI/TUI user session. Artifact auth never stores a second
+   * credential, and it never blocks publishing: the store worker is the
+   * authority on whether the token binds ownership, so local verification is
+   * best-effort only (a DB hiccup must not strip the token).
+   */
   export async function token(): Promise<string | undefined> {
     const env = process.env["NIKCLI_STORE_TOKEN"]
     if (env) return env
     const active = UserDB.getActiveSessionSync()
     if (!active) return undefined
-    return UserDB.verifySession(active) ? active : undefined
+    try {
+      return UserDB.verifySession(active) ? active : undefined
+    } catch (error) {
+      log.warn("local session verification unavailable, sending token anyway", { error })
+      return active
+    }
+  }
+
+  /** Display identity attached to anonymous publishes (best-effort). */
+  function localAuthor(): string | undefined {
+    try {
+      const active = UserDB.getActiveSessionSync()
+      if (!active) return undefined
+      const user = UserDB.verifySession(active)
+      return user ? user.email : undefined
+    } catch {
+      return undefined
+    }
   }
 
   /** Resolve the active CLI identity; kept as a command-friendly status check. */
@@ -190,20 +215,23 @@ export namespace Artifact {
       return info
     }
 
+    // Publishing never requires a password or a store login: without a token
+    // the artifact is anonymous (readable only via its viewKey capability
+    // link). A token from the local CLI user session binds ownership when the
+    // store worker can verify it against this host's server.
     const storeToken = await token()
-    if (!storeToken) throw new NotLoggedInError()
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (storeToken) {
+      headers["Authorization"] = `Bearer ${storeToken}`
+      headers["X-Nikcli-Server"] = authServerUrl()
+    }
 
     const response = await fetch(`${baseUrl()}/api/artifact`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${storeToken}`,
-        "X-Nikcli-Server": authServerUrl(),
-      },
-      body: JSON.stringify(body),
+      headers,
+      body: JSON.stringify({ ...body, author: localAuthor() }),
     })
     const payload = (await response.json().catch(() => ({}))) as ApiResponse
-    if (response.status === 401) throw new NotLoggedInError()
     if (!response.ok || !payload.id || !payload.url || !payload.secret || !payload.viewKey) {
       throw new Error(payload.error ?? `Artifact publish failed (${response.status})`)
     }
