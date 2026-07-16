@@ -5,9 +5,9 @@ export const POST: APIRoute = async (context) => {
   const env = (context.locals as App.Locals).runtime?.env
   const authServer = (env?.NIKCLI_AUTH_SERVER || DEFAULT_NIKCLI_AUTH_SERVER).replace(/\/$/, "")
   const authorization = context.request.headers.get("Authorization")
-  const cookie = context.request.headers.get("Cookie")?.match(
-    new RegExp(`(?:^|;\\s*)${ARTIFACT_TOKEN_COOKIE}=([^;]+)`),
-  )?.[1]
+  const cookie = context.request.headers
+    .get("Cookie")
+    ?.match(new RegExp(`(?:^|;\\s*)${ARTIFACT_TOKEN_COOKIE}=([^;]+)`))?.[1]
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : cookie
 
   if (token?.startsWith("nku_")) {

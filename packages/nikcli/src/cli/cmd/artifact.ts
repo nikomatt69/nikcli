@@ -12,11 +12,7 @@ export const ArtifactCommand = cmd({
   command: "artifact",
   describe: "manage published artifacts (nikcli.store/artifact)",
   builder: (yargs: Argv) =>
-    yargs
-      .command(ArtifactLoginCommand)
-      .command(ArtifactLogoutCommand)
-      .command(ArtifactListCommand)
-      .demandCommand(),
+    yargs.command(ArtifactLoginCommand).command(ArtifactLogoutCommand).command(ArtifactListCommand).demandCommand(),
   async handler() {},
 })
 
@@ -52,7 +48,9 @@ export const ArtifactLogoutCommand = cmd({
     UI.empty()
     prompts.intro("nikcli.store account")
     await Artifact.logout()
-    prompts.log.info("Artifacts have no separate login. Sign out from the CLI/TUI account screen to end the shared session.")
+    prompts.log.info(
+      "Artifacts have no separate login. Sign out from the CLI/TUI account screen to end the shared session.",
+    )
     prompts.outro("Done")
   },
 })

@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.171.0 (July 2026)
+
+## Core
+
+- Add expo-video dependency and integrate video handling in mobile app (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(video): add expo-video dependency and integrate video handling in mobile app
+
 ## v1.169.0 (July 2026)
 
 ## Core
