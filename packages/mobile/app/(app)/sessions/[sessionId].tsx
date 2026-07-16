@@ -605,7 +605,10 @@ export default function SessionScreen() {
     }),
     [activeMessageID, diffs, diffLoaded, diffLoading, pendingAssistantId],
   )
-  const previews = useMemo(() => extractSessionPreviews(messages, config?.url), [config?.url, messages])
+  const previews = useMemo(
+    () => extractSessionPreviews(messages, config?.url, detail?.artifacts),
+    [config?.url, detail?.artifacts, messages],
+  )
   const sessionBlocked = sessionIsProcessing(detail?.status)
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
   const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
@@ -1777,6 +1780,7 @@ export default function SessionScreen() {
           previewSheetRef.current?.present()
           void triggerHaptic("selection")
         }}
+        previewCount={previews.length}
         onOpenTerminal={() => {
           actionsSheetRef.current?.dismiss()
           const cwd = detail ? sessionWorkspaceDirectory(detail.info) : undefined

@@ -1,0 +1,379 @@
+---
+import {
+  canViewArtifact,
+  publicMeta,
+  readArtifact,
+  readArtifactContent,
+  resolveViewerUserId,
+} from "../../../lib/artifact"
+import { renderMarkdown } from "../../../lib/artifact-markdown"
+
+export const prerender = false
+
+const env = (Astro.locals as App.Locals).runtime?.env
+const id = Astro.params.id ?? ""
+
+const stored = env?.ARTIFACTS && id ? await readArtifact(env.ARTIFACTS, id) : null
+if (!stored) {
+  Astro.response.status = 404
+}
+
+const key = Astro.url.searchParams.get("key")
+const userId = stored && env ? await resolveViewerUserId(env, Astro.request) : null
+const authorized = stored ? canViewArtifact(stored, { userId, key }) : false
+if (stored && !authorized) {
+  Astro.response.status = userId ? 403 : 401
+}
+
+const meta = stored && authorized ? publicMeta(stored) : null
+
+// Markdown and plain text render inside the viewer shell, so fetch the body here.
+let textBody = ""
+if (env?.ARTIFACTS && meta && (meta.kind === "markdown" || meta.kind === "text")) {
+  const object = await readArtifactContent(env.ARTIFACTS, meta.id, meta.version)
+  textBody = object ? await object.text() : ""
+}
+const markdownHtml = meta?.kind === "markdown" ? renderMarkdown(textBody) : ""
+
+// When access came from a ?key capability, media/iframe requests need it too
+// (the browser has no login cookie in that case).
+const rawUrl = meta ? `/artifact/${meta.id}/raw${key ? `?key=${encodeURIComponent(key)}` : ""}` : ""
+const updated = meta ? new Date(meta.time.updated).toUTCString() : ""
+const pageTitle = meta
+  ? `${meta.title} — nikcli artifact`
+  : stored
+    ? "Private artifact — nikcli"
+    : "Artifact not found — nikcli"
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{pageTitle}</title>
+    {meta?.description ? <meta name="description" content={meta.description} /> : null}
+  </head>
+  <body>
+    <header class="bar">
+      <div class="bar-left">
+        <a class="brand" href="/" aria-label="nikcli home">nikcli<span class="brand-dot">.store</span></a>
+        {meta ? <span class="kind">{meta.kind}</span> : null}
+        {meta ? <span class="title" title={meta.filename}>{meta.title}</span> : null}
+      </div>
+      <div class="bar-right">
+        {meta ? <span class="meta-line">v{meta.version} · {updated}</span> : null}
+        {meta ? <button class="copy" id="copy-link" type="button">Copy link</button> : null}
+      </div>
+    </header>
+
+    {
+      !stored ? (
+        <main class="empty">
+          <h1>Artifact not found</h1>
+          <p>This artifact does not exist or was removed.</p>
+        </main>
+      ) : !authorized ? (
+        <main class="empty">
+          <form class="gate" id="login-form">
+            <h1>Private artifact</h1>
+            <p>Sign in with your nikcli.store account to view it.</p>
+            <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+            <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
+            <button type="submit" id="login-submit">Sign in</button>
+            <p class="gate-error" id="login-error" hidden></p>
+          </form>
+        </main>
+      ) : meta!.kind === "html" ? (
+        <iframe class="frame" src={rawUrl} sandbox="allow-scripts allow-popups" title={meta!.title} />
+      ) : meta!.kind === "image" ? (
+        <main class="media">
+          <img src={rawUrl} alt={meta!.title} />
+        </main>
+      ) : meta!.kind === "video" ? (
+        <main class="media">
+          <video src={rawUrl} controls playsinline preload="metadata" />
+        </main>
+      ) : meta!.kind === "markdown" ? (
+        <main class="doc" set:html={markdownHtml} />
+      ) : (
+        <main class="doc">
+          <pre class="plain">{textBody}</pre>
+        </main>
+      )
+    }
+
+    <script>
+      const copyButton = document.getElementById("copy-link")
+      copyButton?.addEventListener("click", () => {
+        void navigator.clipboard.writeText(window.location.href).then(() => {
+          copyButton.textContent = "Copied"
+          setTimeout(() => {
+            copyButton.textContent = "Copy link"
+          }, 1500)
+        })
+      })
+
+      const form = document.getElementById("login-form")
+      form?.addEventListener("submit", async (event) => {
+        event.preventDefault()
+        const submit = document.getElementById("login-submit")
+        const errorLine = document.getElementById("login-error")
+        const data = new FormData(form)
+        submit.disabled = true
+        errorLine.hidden = true
+        try {
+          const response = await fetch("/user/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: data.get("email"), password: data.get("password") }),
+          })
+          const payload = await response.json().catch(() => ({}))
+          if (!response.ok || !payload.token) {
+            throw new Error(payload.error || "Login failed")
+          }
+          window.location.reload()
+        } catch (error) {
+          errorLine.textContent = error instanceof Error ? error.message : "Login failed"
+          errorLine.hidden = false
+          submit.disabled = false
+        }
+      })
+    </script>
+
+    <style is:global>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8f7f4;
+        --surface: #ffffff;
+        --ink: #141413;
+        --muted: #6b6a66;
+        --border: rgba(20, 20, 19, 0.12);
+        --accent: #0d7d61;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a0a0a;
+          --surface: #131312;
+          --ink: #f5f5f4;
+          --muted: #a3a29d;
+          --border: rgba(255, 255, 255, 0.12);
+          --accent: #34d399;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .bar-left,
+      .bar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .brand {
+        font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--ink);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .brand-dot {
+        color: var(--accent);
+      }
+      .kind {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px 8px;
+        white-space: nowrap;
+      }
+      .title {
+        font-size: 13px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .meta-line {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .copy {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      .copy:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .frame {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        background: #ffffff;
+      }
+      .media {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        overflow: auto;
+      }
+      .media img,
+      .media video {
+        max-width: 100%;
+        max-height: calc(100vh - 110px);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #000;
+      }
+      .media img {
+        background: transparent;
+      }
+      .doc {
+        flex: 1;
+        overflow: auto;
+        padding: 32px 20px 64px;
+      }
+      .doc > * {
+        max-width: 760px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        line-height: 1.25;
+      }
+      .doc pre {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        overflow-x: auto;
+      }
+      .doc code {
+        font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+        font-size: 0.9em;
+      }
+      .doc a {
+        color: var(--accent);
+      }
+      .doc blockquote {
+        border-left: 3px solid var(--accent);
+        margin: 12px auto;
+        padding: 2px 14px;
+        color: var(--muted);
+      }
+      .plain {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+        font-size: 13px;
+      }
+      .empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: var(--muted);
+        padding: 24px;
+      }
+      .empty h1 {
+        color: var(--ink);
+        font-size: 20px;
+        margin: 0;
+      }
+      .gate {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: min(340px, 100%);
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface);
+        text-align: center;
+      }
+      .gate p {
+        margin: 0;
+        font-size: 13px;
+      }
+      .gate input {
+        font: inherit;
+        font-size: 14px;
+        color: var(--ink);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      .gate input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .gate button {
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--bg);
+        background: var(--accent);
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      .gate button[disabled] {
+        opacity: 0.6;
+      }
+      .gate-error {
+        color: #dc2626;
+        font-size: 12px;
+      }
+    </style>
+  </body>
+</html>

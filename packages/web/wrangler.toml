@@ -2,6 +2,9 @@ name = "nikcli-web"
 main = "./dist/_worker.js"
 compatibility_date = "2025-01-25"
 
+[vars]
+NIKCLI_AUTH_SERVER = "https://s.nikcli.store"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"
@@ -13,3 +16,9 @@ id = "e9dfbfcd44c14909b03cef0629b4f80f"
 [[kv_namespaces]]
 binding = "USERS"
 id = "bb2d5e50ff1644b482c71b7355a7684c"
+
+# Published artifacts (nikcli.store/artifact/:id) — content + metadata.
+# Create the bucket once with: wrangler r2 bucket create nikcli-artifact
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "nikcli-artifact"

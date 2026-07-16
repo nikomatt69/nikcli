@@ -179,6 +179,7 @@ export namespace MobileHttpApi {
     info: SessionInfo,
     status: Schema.optional(Schema.Unknown),
     messages: Schema.Array(Schema.Unknown),
+    artifacts: Schema.Array(Schema.Unknown),
     permissions: Schema.Array(Schema.Unknown),
     questions: Schema.Array(Schema.Unknown),
   }).annotate({ identifier: "MobileSessionDetail" })

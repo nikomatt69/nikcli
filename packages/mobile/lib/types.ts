@@ -173,16 +173,29 @@ export type FilePart = {
 }
 
 export type ToolState =
-  | { status: "pending"; input: Record<string, unknown>; raw: string }
-  | { status: "running"; input: Record<string, unknown>; title?: string; time: { start: number } }
+  | { status: "pending"; input: Record<string, unknown>; raw: string; metadata?: Record<string, unknown> }
+  | {
+      status: "running"
+      input: Record<string, unknown>
+      title?: string
+      metadata?: Record<string, unknown>
+      time: { start: number }
+    }
   | {
       status: "completed"
       input: Record<string, unknown>
       output: string
       title: string
+      metadata?: Record<string, unknown>
       time: { start: number; end: number }
     }
-  | { status: "error"; input: Record<string, unknown>; error: string; time: { start: number; end: number } }
+  | {
+      status: "error"
+      input: Record<string, unknown>
+      error: string
+      metadata?: Record<string, unknown>
+      time: { start: number; end: number }
+    }
 
 export type ToolPart = {
   id: string
@@ -526,10 +539,27 @@ export type SessionSummary = {
   status?: SessionStatus
 }
 
+export type SessionArtifact = {
+  id: string
+  title: string
+  description?: string
+  filename: string
+  contentType: string
+  kind: "html" | "markdown" | "image" | "video" | "text"
+  url: string
+  viewerUrl: string
+  previewUrl: string
+  version: number
+  sessionID: string
+  size: number
+  time: { created: number; updated: number }
+}
+
 export type SessionDetail = {
   info: Session
   status?: SessionStatus
   messages: MessageWithParts[]
+  artifacts?: SessionArtifact[]
   permissions: PermissionRequest[]
   questions: QuestionRequest[]
 }

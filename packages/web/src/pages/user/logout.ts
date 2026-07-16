@@ -1,19 +1,27 @@
 import type { APIRoute } from "astro"
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  })
-}
+import { ARTIFACT_TOKEN_COOKIE, DEFAULT_NIKCLI_AUTH_SERVER } from "../../lib/artifact"
 
 export const POST: APIRoute = async (context) => {
   const env = (context.locals as App.Locals).runtime?.env
-  if (!env?.SESSIONS) return json({ success: true })
+  const authServer = (env?.NIKCLI_AUTH_SERVER || DEFAULT_NIKCLI_AUTH_SERVER).replace(/\/$/, "")
+  const authorization = context.request.headers.get("Authorization")
+  const cookie = context.request.headers.get("Cookie")?.match(
+    new RegExp(`(?:^|;\\s*)${ARTIFACT_TOKEN_COOKIE}=([^;]+)`),
+  )?.[1]
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : cookie
 
-  const auth = context.request.headers.get("Authorization")
-  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null
-  if (token) await env.SESSIONS.delete(`token:${token}`)
+  if (token?.startsWith("nku_")) {
+    await fetch(`${authServer}/user/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    }).catch(() => undefined)
+  }
 
-  return json({ success: true })
+  const secure = context.url.protocol === "https:" ? "; Secure" : ""
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `${ARTIFACT_TOKEN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`,
+    },
+  })
 }

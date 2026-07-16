@@ -9,7 +9,7 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { MobileClient } from "@/lib/client"
-import { useServer } from "@/lib/server-context"
+import { useServer, userStatus } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { ServerConfig } from "@/lib/types"
 
@@ -59,8 +59,9 @@ export default function ConnectScreen() {
       setToken(config.token ?? "")
       setDirectory(config.directory ?? "")
 
-      const client = new MobileClient(config)
-      void client.ping().then((ok) => {
+      const auth = userToken ? { ...config, token: userToken } : config
+      const check = userToken || config.token ? new MobileClient(auth).ping() : userStatus(config.url).then(() => true)
+      void check.then((ok) => {
         if (!cancelled && ok) {
           setConnected(true)
           router.replace(nextRouteAfterConnect(userToken))
@@ -109,16 +110,11 @@ export default function ConnectScreen() {
       setError("Server URL is required")
       return
     }
-    if (!form.token) {
-      setError("Mobile pairing token is required")
-      return
-    }
-
     try {
       setTesting(true)
       setError(null)
-      const client = new MobileClient(form)
-      await client.bootstrap()
+      if (form.token) await new MobileClient(form).bootstrap()
+      else await userStatus(form.url)
       await save({
         ...config,
         ...form,
@@ -148,9 +144,9 @@ export default function ConnectScreen() {
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: top + 16, paddingBottom: 28, gap: 18 }}
     >
       <SurfaceCard
-        eyebrow="Secure mobile airlock"
-        title="Direct command access for your hosted Nikcli server."
-        description="Pair once, verify the hosted endpoint, then move from repo selection to approvals and pull requests without leaving your phone."
+        eyebrow="One nikcli account"
+        title="Your CLI account, everywhere."
+        description="Connect to the same Nikcli server, then sign in with the account already used by the local CLI, web app, and Studio."
         className="px-6 py-7"
       >
         <View className="absolute -right-10 -top-10 size-40 rounded-full bg-accent/15" />
@@ -164,16 +160,16 @@ export default function ConnectScreen() {
       </SurfaceCard>
 
       <SurfaceCard
-        eyebrow="Secure pairing"
+        eyebrow="Account server"
         title="Connect to your server"
-        description="Use the fixed public HTTPS address for your hosted Nikcli server, then pair with a token created from that server."
+        description="Use the server that owns your CLI account. A pairing token is optional and remains available for unattended or legacy setups."
         tone="panel"
       >
         <View className="mb-4 flex-row items-center justify-between gap-4">
           <View>
             <Text className="text-sm font-semibold text-ink">Endpoint trust check</Text>
             <Text className="mt-1 text-xs leading-5 text-soft">
-              The app validates bootstrap access before it saves anything locally.
+              The app validates the public user endpoint before opening the shared account login.
             </Text>
           </View>
           <ConnectionStatus connected={connected} label={connected ? "Online" : "Waiting"} />
@@ -188,11 +184,11 @@ export default function ConnectScreen() {
             placeholder="https://nikcli-mobile-production.up.railway.app"
           />
           <TextField
-            label="Bearer token"
+            label="Pairing token (optional)"
             value={token}
             onChangeText={setToken}
             autoCapitalize="none"
-            placeholder="Bearer token from nikcli mobile pair"
+            placeholder="nkm_… fallback for automation"
           />
           <TextField
             label="Default server directory"
@@ -204,7 +200,7 @@ export default function ConnectScreen() {
           <ActionButton
             label="Validate and continue"
             loading={testing}
-            disabled={!form.url || !form.token}
+            disabled={!form.url}
             onPress={() => void connect()}
           />
         </View>
@@ -213,9 +209,9 @@ export default function ConnectScreen() {
       {error ? <ErrorBanner message={error} /> : null}
 
       <SurfaceCard
-        eyebrow="Hosted server setup"
-        title="Run a Railway-ready endpoint"
-        description="Deploy the hosted Nikcli server, then create a scoped pairing token from that same server. Mobile routes require the token even when Basic Auth is disabled."
+        eyebrow="Shared identity"
+        title="One account, one server"
+        description="The next screen calls /user/login on this server and stores the same nku_ session used by the CLI account. Pairing tokens are no longer required for a person signing in."
       >
         <Text className="font-mono text-sm leading-6 text-soft">
           nikcli mobile serve --hostname 0.0.0.0 --port $PORT --public-url

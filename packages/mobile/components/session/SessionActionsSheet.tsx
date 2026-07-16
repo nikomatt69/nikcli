@@ -29,6 +29,7 @@ type Props = {
   onTeleport?(): void
   onOpenTerminal?(): void
   onOpenPreview?(): void
+  previewCount?: number
 }
 
 type RowProps = {
@@ -168,6 +169,7 @@ export function SessionActionsSheet({
   onTeleport,
   onOpenTerminal,
   onOpenPreview,
+  previewCount = 0,
 }: Props) {
   const { palette, isDark } = useAppTheme()
 
@@ -246,14 +248,17 @@ export function SessionActionsSheet({
         />
 
         <SectionDivider />
-        <SectionLabel label="Preview" />
+        <SectionLabel label="Artifacts" />
         <SheetRow
           Icon={MonitorPlay}
-          label="Session preview"
-          description="Workspace folder and dev URLs from this chat"
+          label="Artifacts & previews"
+          description={
+            previewCount > 0
+              ? `${previewCount} artifact${previewCount === 1 ? "" : "s"}, media, and live preview${previewCount === 1 ? "" : "s"}`
+              : "Published artifacts, images, video, and live previews"
+          }
           onPress={() => {
-            onOpenPreview?.()
-            setTimeout(() => sheetRef.current?.dismiss(), 120)
+            sheetRef.current?.dismiss(() => onOpenPreview?.())
           }}
           tone="accent"
         />

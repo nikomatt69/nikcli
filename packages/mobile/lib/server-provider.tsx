@@ -20,8 +20,12 @@ export function ServerProvider(props: PropsWithChildren) {
   const [userToken, setUserTokenState] = useState<string | null>(null)
   const [userLoading, setUserLoading] = useState(true)
 
-  // Stable client instance — only recreated when config changes
-  const client = useMemo(() => (config ? new MobileClient(config) : null), [config])
+  // The canonical CLI user session authenticates every app API. A legacy
+  // pairing token remains a fallback only until the user signs in.
+  const client = useMemo(
+    () => (config ? new MobileClient({ ...config, token: userToken ?? config.token }) : null),
+    [config, userToken],
+  )
 
   useEffect(() => {
     let mounted = true

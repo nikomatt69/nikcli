@@ -1,16 +1,18 @@
 import { forwardRef, useEffect, useMemo, useState, type ReactNode } from "react"
-import { ActivityIndicator, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native"
+import { ActivityIndicator, Animated, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native"
 import {
   Code2,
   ExternalLink,
   FolderOpen,
   Github,
   Globe,
-  Image,
+  Image as ImageIcon,
   MonitorPlay,
   RefreshCw,
   Share2,
 } from "lucide-react-native"
+import { Image } from "expo-image"
+import { useVideoPlayer, VideoView } from "expo-video"
 import { WebView } from "react-native-webview"
 import * as WebBrowser from "expo-web-browser"
 import * as Clipboard from "expo-clipboard"
@@ -24,6 +26,7 @@ import {
   type SessionPreview,
 } from "@/lib/session-artifacts"
 import { triggerHaptic } from "@/lib/haptics"
+import { usePressAnimation } from "@/lib/animation"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 
@@ -41,6 +44,20 @@ export type SessionProjectPanel = {
 
 function sourceLabel(source: SessionPreview["source"]) {
   return source === "local" ? "Local" : "Remote"
+}
+
+function formatBytes(value: number | undefined) {
+  if (value === undefined) return null
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`
+  return `${value} B`
+}
+
+function artifactDetail(preview: SessionPreview) {
+  if (!preview.artifact) return null
+  return [preview.artifact.filename, `v${preview.artifact.version}`, formatBytes(preview.artifact.size)]
+    .filter(Boolean)
+    .join(" · ")
 }
 
 async function openPreviewExternally(url: string) {
@@ -65,8 +82,8 @@ function statusTone(status: "loading" | "ready" | "failed", palette: ReturnType<
 
 function kindIcon(kind: SessionPreview["kind"], color: string) {
   if (kind === "url") return <Globe size={13} color={color} strokeWidth={2.2} />
-  if (kind === "svg") return <Image size={13} color={color} strokeWidth={2.2} />
-  if (kind === "mermaid") return <MonitorPlay size={13} color={color} strokeWidth={2.2} />
+  if (kind === "svg" || kind === "image") return <ImageIcon size={13} color={color} strokeWidth={2.2} />
+  if (kind === "mermaid" || kind === "video") return <MonitorPlay size={13} color={color} strokeWidth={2.2} />
   return <Code2 size={13} color={color} strokeWidth={2.2} />
 }
 
@@ -175,17 +192,48 @@ function PreviewViewport(props: {
   reloadKey: number
   isDark: boolean
   scrollEnabled?: boolean
+  active?: boolean
   onLoadStart(): void
   onLoad(): void
   onError(): void
 }) {
   const documentHtml = useMemo(() => previewDocumentHtml(props.preview, props.isDark), [props.isDark, props.preview])
+  const mediaUrl = props.preview.previewUrl ?? props.preview.viewerUrl ?? props.preview.url
 
-  if (props.preview.kind === "url" && props.preview.url) {
+  if (props.preview.kind === "image" && mediaUrl) {
+    return (
+      <Image
+        key={`${props.preview.id}:${props.reloadKey}`}
+        source={{ uri: mediaUrl }}
+        contentFit="contain"
+        transition={180}
+        onLoadStart={props.onLoadStart}
+        onLoad={props.onLoad}
+        onError={props.onError}
+        style={{ flex: 1, width: "100%", backgroundColor: "transparent" }}
+      />
+    )
+  }
+
+  if (props.preview.kind === "video" && mediaUrl) {
+    return (
+      <ArtifactVideoViewport
+        key={`${props.preview.id}:${props.reloadKey}`}
+        uri={mediaUrl}
+        controls={props.scrollEnabled ?? false}
+        active={props.active ?? false}
+        onLoadStart={props.onLoadStart}
+        onLoad={props.onLoad}
+        onError={props.onError}
+      />
+    )
+  }
+
+  if (mediaUrl) {
     return (
       <WebView
         key={`${props.preview.id}:${props.reloadKey}`}
-        source={{ uri: props.preview.url }}
+        source={{ uri: mediaUrl }}
         startInLoadingState
         scrollEnabled={props.scrollEnabled ?? false}
         setSupportMultipleWindows={false}
@@ -212,6 +260,42 @@ function PreviewViewport(props: {
       onLoad={props.onLoad}
       onError={props.onError}
       style={{ flex: 1, backgroundColor: "transparent" }}
+    />
+  )
+}
+
+function ArtifactVideoViewport(props: {
+  uri: string
+  controls: boolean
+  active: boolean
+  onLoadStart(): void
+  onLoad(): void
+  onError(): void
+}) {
+  const player = useVideoPlayer(props.uri)
+
+  useEffect(() => {
+    props.onLoadStart()
+    if (player.status === "readyToPlay") props.onLoad()
+    if (player.status === "error") props.onError()
+
+    const subscription = player.addListener("statusChange", ({ status }) => {
+      if (status === "readyToPlay") props.onLoad()
+      if (status === "error") props.onError()
+    })
+    return () => subscription.remove()
+  }, [player])
+
+  useEffect(() => {
+    if (!props.active) player.pause()
+  }, [player, props.active])
+
+  return (
+    <VideoView
+      player={player}
+      nativeControls={props.controls}
+      contentFit="contain"
+      style={{ flex: 1, width: "100%", backgroundColor: "transparent" }}
     />
   )
 }
@@ -245,19 +329,23 @@ export function ArtifactMicroThumb(props: { preview: SessionPreview }) {
 
 export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): void }) {
   const { palette, isDark } = useAppTheme()
+  const press = usePressAnimation()
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading")
 
   return (
-    <Pressable
-      onPress={() => {
-        void triggerHaptic("selection")
-        props.onPress()
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${kindLabel(props.preview.kind)} artifact`}
-      style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}
-    >
-      <View className="overflow-hidden rounded-[8px] border border-border/80 bg-background/55" style={{ marginTop: 8 }}>
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+      <Pressable
+        onPress={() => {
+          void triggerHaptic("selection")
+          props.onPress()
+        }}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${kindLabel(props.preview.kind)} artifact`}
+        style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}
+      >
+        <View className="overflow-hidden rounded-[8px] border border-border/80 bg-background/55" style={{ marginTop: 8 }}>
         <View
           style={{
             height: 168,
@@ -302,10 +390,13 @@ export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): 
               {props.preview.title}
             </Text>
           </View>
-          <Text className="text-[11px] font-semibold text-muted">Expand</Text>
+          <Text className="text-[11px] font-semibold text-muted">
+            {props.preview.artifact ? `v${props.preview.artifact.version}` : "Expand"}
+          </Text>
         </View>
-      </View>
-    </Pressable>
+        </View>
+      </Pressable>
+    </Animated.View>
   )
 }
 
@@ -322,8 +413,9 @@ export function SessionPreviewStrip({
   const [reloadKeys, setReloadKeys] = useState<Record<string, number>>({})
   const [previewStates, setPreviewStates] = useState<Record<string, "loading" | "ready" | "failed">>({})
   const visible = useMemo(() => previews.slice(0, 6), [previews])
-  const liveCount = visible.filter((item) => item.kind === "url").length
-  const generatedCount = visible.length - liveCount
+  const publishedCount = visible.filter((item) => item.artifact).length
+  const liveCount = visible.filter((item) => item.kind === "url" && !item.artifact).length
+  const generatedCount = visible.length - publishedCount - liveCount
 
   if (!project && !visible.length) return null
 
@@ -345,7 +437,11 @@ export function SessionPreviewStrip({
           <SectionHeader
             icon={<MonitorPlay size={15} color={palette.accentLight} strokeWidth={2.2} />}
             title="Artifacts & previews"
-            right={[liveCount ? `${liveCount} live` : null, generatedCount ? `${generatedCount} generated` : null]
+            right={[
+              publishedCount ? `${publishedCount} published` : null,
+              liveCount ? `${liveCount} live` : null,
+              generatedCount ? `${generatedCount} generated` : null,
+            ]
               .filter(Boolean)
               .join(" · ")}
             palette={palette}
@@ -409,7 +505,7 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>
-            Live URLs, HTML, SVG & diagrams
+            Published pages, images, video, live URLs & generated previews
           </Text>
         </View>
       </View>
@@ -425,7 +521,7 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
         ) : (
           <EmptyState
             title="No artifacts yet"
-            description="Dev server links and generated HTML, SVG, or Mermaid blocks from the chat appear here."
+            description="Published nikcli.store artifacts, dev server links, and generated previews from the chat appear here."
           />
         )}
       </ScrollView>
@@ -445,6 +541,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
   const [tab, setTab] = useState<"preview" | "source">("preview")
   const [reloadKey, setReloadKey] = useState(0)
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading")
+  const [visible, setVisible] = useState(false)
 
   const sourceText = preview ? previewSourceText(preview) : ""
   const statusMeta = statusTone(status, palette)
@@ -464,7 +561,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
 
   async function shareSource() {
     if (!preview) return
-    if (preview.kind === "url" && preview.url) {
+    if (preview.url) {
       await Share.share({ url: preview.url, message: preview.url })
       return
     }
@@ -472,7 +569,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
   }
 
   return (
-    <ActionSheet ref={ref} snapPoints={["94%"]}>
+    <ActionSheet ref={ref} snapPoints={["94%"]} onVisibilityChange={setVisible}>
       {preview ? (
         <>
           <View className="border-b border-border px-5 pb-4">
@@ -482,6 +579,18 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                 <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={2}>
                   {preview.title}
                 </Text>
+                {preview.artifact ? (
+                  <>
+                    <Text className="mt-1 text-[11px] font-semibold text-muted" numberOfLines={1}>
+                      {artifactDetail(preview)}
+                    </Text>
+                    {preview.artifact.description ? (
+                      <Text className="mt-1 text-[12px] leading-4 text-soft" numberOfLines={2}>
+                        {preview.artifact.description}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : null}
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingTop: 4 }}>
                 <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: statusMeta.color }} />
@@ -522,7 +631,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                         textTransform: "capitalize",
                       }}
                     >
-                      {value}
+                      {value === "source" && preview.artifact ? "link" : value}
                     </Text>
                   </Pressable>
                 )
@@ -538,6 +647,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                   reloadKey={reloadKey}
                   isDark={isDark}
                   scrollEnabled
+                  active={visible && tab === "preview"}
                   onLoadStart={() => setStatus("loading")}
                   onLoad={() => setStatus("ready")}
                   onError={() => setStatus("failed")}
@@ -595,12 +705,12 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
               palette={palette}
               isDark={isDark}
             />
-            {preview.kind === "url" && preview.url ? (
+            {preview.viewerUrl || preview.url ? (
               <ActionChip
                 label="Browser"
                 icon={ExternalLink}
                 accent
-                onPress={() => void openPreviewExternally(preview.url!)}
+                onPress={() => void openPreviewExternally(preview.viewerUrl ?? preview.url!)}
                 palette={palette}
                 isDark={isDark}
               />
@@ -621,39 +731,44 @@ function ActionChip(props: {
   accent?: boolean
 }) {
   const Icon = props.icon
+  const press = usePressAnimation()
   return (
-    <Pressable
-      onPress={props.onPress}
-      accessibilityRole="button"
-      accessibilityLabel={props.label}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        borderRadius: 8,
-        borderWidth: props.accent ? 0 : 1,
-        borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
-        backgroundColor: props.accent
-          ? props.isDark
-            ? "rgba(255,255,255,0.10)"
-            : "rgba(20,20,19,0.10)"
-          : "transparent",
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      <Icon size={13} color={props.accent ? props.palette.accentLight : props.palette.ink} strokeWidth={2.2} />
-      <Text
-        style={{
-          color: props.accent ? props.palette.accentLight : props.palette.ink,
-          fontSize: 12,
-          fontWeight: props.accent ? "800" : "700",
-        }}
+    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+      <Pressable
+        onPress={props.onPress}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="button"
+        accessibilityLabel={props.label}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          borderRadius: 8,
+          borderWidth: props.accent ? 0 : 1,
+          borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+          backgroundColor: props.accent
+            ? props.isDark
+              ? "rgba(255,255,255,0.10)"
+              : "rgba(20,20,19,0.10)"
+            : "transparent",
+          paddingHorizontal: 12,
+          paddingVertical: 9,
+          opacity: pressed ? 0.7 : 1,
+        })}
       >
-        {props.label}
-      </Text>
-    </Pressable>
+        <Icon size={13} color={props.accent ? props.palette.accentLight : props.palette.ink} strokeWidth={2.2} />
+        <Text
+          style={{
+            color: props.accent ? props.palette.accentLight : props.palette.ink,
+            fontSize: 12,
+            fontWeight: props.accent ? "800" : "700",
+          }}
+        >
+          {props.label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   )
 }
 
@@ -669,9 +784,14 @@ function PreviewCard(props: {
   onReload(): void
   onOpen?(): void
 }) {
+  const cardPress = usePressAnimation()
+  const reloadPress = usePressAnimation()
+  const browserPress = usePressAnimation()
   const status = statusTone(props.status, props.palette)
   const subtitle =
     props.preview.kind === "url" && props.preview.url ? labelForUrl(props.preview.url) : props.preview.title
+  const browserUrl = props.preview.viewerUrl ?? (props.preview.kind === "url" ? props.preview.url : undefined)
+  const detail = artifactDetail(props.preview)
 
   return (
     <View
@@ -684,14 +804,18 @@ function PreviewCard(props: {
         backgroundColor: props.isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.86)",
       }}
     >
-      <Pressable
-        onPress={() => {
-          void triggerHaptic("selection")
-          props.onOpen?.()
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${kindLabel(props.preview.kind)} preview`}
-      >
+      <Animated.View style={{ transform: [{ scale: cardPress.scale }] }}>
+        <Pressable
+          onPress={() => {
+            void triggerHaptic("selection")
+            props.onOpen?.()
+          }}
+          onPressIn={cardPress.onPressIn}
+          onPressOut={cardPress.onPressOut}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${kindLabel(props.preview.kind)} preview`}
+          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
+        >
         <View
           style={{
             height: 168,
@@ -733,7 +857,8 @@ function PreviewCard(props: {
             </View>
           ) : null}
         </View>
-      </Pressable>
+        </Pressable>
+      </Animated.View>
 
       <View style={{ padding: 12, gap: 10 }}>
         <View style={{ minWidth: 0 }}>
@@ -759,56 +884,70 @@ function PreviewCard(props: {
           <Text numberOfLines={1} style={{ marginTop: 3, color: props.palette.ink, fontSize: 13, fontWeight: "800" }}>
             {subtitle}
           </Text>
+          {detail ? (
+            <Text numberOfLines={1} style={{ marginTop: 3, color: props.palette.muted, fontSize: 10, fontWeight: "600" }}>
+              {detail}
+            </Text>
+          ) : null}
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            onPress={() => props.onReload()}
-            accessibilityRole="button"
-            accessibilityLabel="Reload this preview"
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
-              paddingVertical: 9,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
-            <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              if (props.preview.kind === "url" && props.preview.url) {
-                void openPreviewExternally(props.preview.url)
-                return
-              }
-              props.onOpen?.()
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={props.preview.kind === "url" ? "Open in browser" : "Open full preview"}
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              borderRadius: 8,
-              backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
-              paddingVertical: 9,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <ExternalLink size={13} color={props.palette.accentLight} strokeWidth={2.2} />
-            <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>
-              {props.preview.kind === "url" ? "Browser" : "Open"}
-            </Text>
-          </Pressable>
+          <Animated.View style={{ flex: 1, transform: [{ scale: reloadPress.scale }] }}>
+            <Pressable
+              onPress={() => {
+                props.onReload()
+                void triggerHaptic("selection")
+              }}
+              onPressIn={reloadPress.onPressIn}
+              onPressOut={reloadPress.onPressOut}
+              accessibilityRole="button"
+              accessibilityLabel="Reload this preview"
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                paddingVertical: 9,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <RefreshCw size={13} color={props.palette.ink} strokeWidth={2.2} />
+              <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "700" }}>Reload</Text>
+            </Pressable>
+          </Animated.View>
+          <Animated.View style={{ flex: 1, transform: [{ scale: browserPress.scale }] }}>
+            <Pressable
+              onPress={() => {
+                if (browserUrl) {
+                  void openPreviewExternally(browserUrl)
+                  return
+                }
+                props.onOpen?.()
+              }}
+              onPressIn={browserPress.onPressIn}
+              onPressOut={browserPress.onPressOut}
+              accessibilityRole="button"
+              accessibilityLabel={browserUrl ? "Open in browser" : "Open full preview"}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                borderRadius: 8,
+                backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
+                paddingVertical: 9,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <ExternalLink size={13} color={props.palette.accentLight} strokeWidth={2.2} />
+              <Text style={{ color: props.palette.accentLight, fontSize: 12, fontWeight: "800" }}>
+                {browserUrl ? "Browser" : "Open"}
+              </Text>
+            </Pressable>
+          </Animated.View>
         </View>
       </View>
     </View>

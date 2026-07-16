@@ -61,8 +61,12 @@ function snapPointHeight(value: string | number | undefined, windowHeight: numbe
 
 export const ActionSheet = React.forwardRef<
   ActionSheetRef,
-  { children: React.ReactNode; snapPoints?: (string | number)[] }
->(function ActionSheet({ children, snapPoints = [280] }, ref) {
+  {
+    children: React.ReactNode
+    snapPoints?: (string | number)[]
+    onVisibilityChange?(visible: boolean): void
+  }
+>(function ActionSheet({ children, snapPoints = [280], onVisibilityChange }, ref) {
   const { height: windowHeight } = useWindowDimensions()
   const { palette, isDark } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -77,6 +81,7 @@ export const ActionSheet = React.forwardRef<
 
   const dismiss = useCallback(
     (onDismissed?: () => void) => {
+      onVisibilityChange?.(false)
       opacity.stopAnimation()
       translateY.stopAnimation()
       if (prefersReducedMotion) translateY.setValue(0)
@@ -98,18 +103,19 @@ export const ActionSheet = React.forwardRef<
         onDismissed?.()
       })
     },
-    [opacity, prefersReducedMotion, translateY],
+    [onVisibilityChange, opacity, prefersReducedMotion, translateY],
   )
 
   useImperativeHandle(
     ref,
     () => ({
       present() {
+        onVisibilityChange?.(true)
         setVisible(true)
       },
       dismiss,
     }),
-    [dismiss],
+    [dismiss, onVisibilityChange],
   )
 
   useEffect(() => {

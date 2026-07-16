@@ -4,18 +4,34 @@ import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, onCleanup } from "solid-js"
 import { usePlatform } from "./platform"
 import { useServer } from "./server"
+import { useAccount } from "./account"
 
 export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleContext({
   name: "GlobalSDK",
   init: () => {
     const server = useServer()
+    const account = useAccount()
     const platform = usePlatform()
     const abort = new AbortController()
+    const baseFetch = platform.fetch ?? globalThis.fetch
+    const authenticatedFetch = Object.assign(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const headers = new Headers(input instanceof Request ? input.headers : undefined)
+        new Headers(init?.headers).forEach((value, key) => headers.set(key, value))
+        if (account.token && !headers.has("Authorization")) {
+          headers.set("Authorization", `Bearer ${account.token}`)
+        }
+        return baseFetch(input, { ...init, headers })
+      },
+      {
+        preconnect: (...args: Parameters<typeof globalThis.fetch.preconnect>) => globalThis.fetch.preconnect?.(...args),
+      },
+    )
 
     const eventSdk = createNikcliClient({
       baseUrl: server.url,
       signal: abort.signal,
-      fetch: platform.fetch,
+      fetch: authenticatedFetch,
     })
     const emitter = createGlobalEmitter<{
       [key: string]: Event
@@ -99,10 +115,10 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
 
     const sdk = createNikcliClient({
       baseUrl: server.url,
-      fetch: platform.fetch,
+      fetch: authenticatedFetch,
       throwOnError: true,
     })
 
-    return { url: server.url, client: sdk, event: emitter }
+    return { url: server.url, client: sdk, event: emitter, fetch: authenticatedFetch }
   },
 })

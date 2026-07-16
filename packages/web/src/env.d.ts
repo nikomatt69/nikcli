@@ -2,10 +2,14 @@
 /// <reference types="astro/client" />
 
 type KVNamespace = import("@cloudflare/workers-types").KVNamespace
+type R2Bucket = import("@cloudflare/workers-types").R2Bucket
 
 interface CloudflareEnv {
   USERS: KVNamespace
   SESSIONS: KVNamespace
+  ARTIFACTS: R2Bucket
+  /** Nikcli server that owns the canonical UserDB accounts. */
+  NIKCLI_AUTH_SERVER?: string
   ASSETS: { fetch(req: Request): Promise<Response> }
 }
 

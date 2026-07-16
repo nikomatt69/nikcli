@@ -43,6 +43,7 @@ import { CompanionCommand } from "./cli/cmd/companion"
 import { MobileCommand } from "./cli/cmd/mobile"
 import { PluginCommand } from "./cli/cmd/plug"
 import { AccountCommand } from "./cli/cmd/account"
+import { ArtifactCommand } from "./cli/cmd/artifact"
 import { HeapCommand } from "./cli/cmd/heap"
 import { RoutineCommand } from "./cli/cmd/routine"
 import { UsageCommand } from "./cli/cmd/usage"
@@ -136,6 +137,7 @@ const cli = yargs(hideBin(process.argv))
   .command(DebugCommand)
   .command(AuthCommand)
   .command(AccountCommand)
+  .command(ArtifactCommand)
   .command(AgentCommand)
   .command(UpgradeCommand)
   .command(QuickstartCommand)

@@ -1,0 +1,13 @@
+Publish a local file as a hosted artifact on nikcli.store — a live page the user can open in a browser or the nikcli mobile app.
+
+Use this when the output is better viewed as a page than as terminal text: an HTML report or dashboard, a Markdown document, an image, or a video. The file must already exist on disk — write it first (Write tool), then publish it with this tool.
+
+Supported files: .html/.htm, .md/.markdown, .txt, images (.png, .jpg, .jpeg, .gif, .webp, .svg) and videos (.mp4, .webm, .mov, .m4v). Maximum size 25MB.
+
+HTML pages must be fully self-contained: inline all CSS and JavaScript and embed images as data: URIs — the hosted page cannot load external scripts, styles, or media (strict CSP).
+
+Publishing returns the artifact URL (https://nikcli.store/artifact/{id}). Include that URL in your response so the user can open it. Artifacts are private: only the publisher's nikcli.store account can view them.
+
+To publish a new version of an existing artifact (same URL), pass its artifactID. Without artifactID a new artifact with a new URL is created.
+
+If publishing fails because the user is not logged in, tell them to run `nikcli artifact login` once (or set NIKCLI_STORE_TOKEN).

@@ -61,6 +61,7 @@ import type { MonitorTool } from "@/tool/monitor"
 import type { QuestionTool } from "@/tool/question"
 import type { BrowserTool } from "@/tool/browser"
 import type { ComputerTool } from "@/tool/computer"
+import type { ArtifactTool } from "@/tool/artifact"
 import { normalizeVizComponents, type OpenTUIVizTool } from "@/tool/opentui"
 import type { LSP } from "@/lsp"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
@@ -111,6 +112,7 @@ import {
   undismissBackground as undismissBackgroundUtil,
 } from "../../util/background"
 import { friendlyErrorMessage } from "../../util/error-message"
+import { Link } from "../../ui/link"
 
 addDefaultParsers(parsers.parsers)
 
@@ -2127,6 +2129,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           <Match when={props.part.tool === "computer"}>
             <ComputerUse {...toolprops} />
           </Match>
+          <Match when={props.part.tool === "artifact"}>
+            <ArtifactView {...toolprops} />
+          </Match>
           <Match when={true}>
             <GenericTool {...toolprops} />
           </Match>
@@ -2218,6 +2223,41 @@ function ComputerUse(props: ToolProps<typeof ComputerTool>) {
           part={props.part}
         >
           {label()} · {action()}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
+function ArtifactView(props: ToolProps<typeof ArtifactTool>) {
+  const { theme } = useTheme()
+  const title = createMemo(() => props.metadata.title ?? props.input.title ?? "Artifact")
+  const url = createMemo(() => props.metadata.url)
+  const detail = createMemo(() => {
+    const kind = props.metadata.kind ? String(props.metadata.kind).toUpperCase() : "ARTIFACT"
+    const version = props.metadata.version ? ` · v${props.metadata.version}` : ""
+    return `${kind}${version}`
+  })
+
+  return (
+    <Switch>
+      <Match when={props.output !== undefined}>
+        <BlockTool title={`# Published · ${title()}`} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
+          <box gap={1}>
+            <text fg={theme.textMuted}>{detail()}</text>
+            <Show when={url()}>{(value) => <Link href={value()} fg={theme.primary} />}</Show>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool
+          icon="◇"
+          iconColor={theme.primary}
+          pending={`Publishing ${title()}...`}
+          complete={title()}
+          part={props.part}
+        >
+          Artifact · {title()}
         </InlineTool>
       </Match>
     </Switch>

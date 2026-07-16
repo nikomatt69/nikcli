@@ -15,6 +15,7 @@ import { Snapshot } from "@/snapshot"
 import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
+import { Artifact } from "@/artifact"
 import { proxyWorkspaceRequest } from "@/workspace/session-proxy-middleware"
 import { errors } from "../../error"
 import { Effect } from "effect"
@@ -33,6 +34,7 @@ import {
   MobileSessionSummary,
   MobileSessionDetail,
   MobileSessionCreateInput,
+  toMobileArtifact,
   MobileCommand,
   MobileSessionCommandInput,
   resolveMobilePromptDefaults,
@@ -186,10 +188,10 @@ export const SessionRoutes = () =>
             return yield* service.getAnyProject(sessionID)
           }),
         )
-        const { messages, permissions, questions, status } = await withInstanceAsync(
+        const { messages, artifacts, permissions, questions, status } = await withInstanceAsync(
           { directory: info.directory },
           async () => {
-            const [messages, permissions, questionItems] = await Promise.all([
+            const [messages, artifacts, permissions, questionItems] = await Promise.all([
               runSessionForSession(
                 info,
                 Effect.gen(function* () {
@@ -197,6 +199,7 @@ export const SessionRoutes = () =>
                   return yield* service.messages({ sessionID })
                 }),
               ),
+              Artifact.list(sessionID).then((items) => items.map(toMobileArtifact)),
               runPermission(
                 Effect.gen(function* () {
                   const permission = yield* PermissionNext.Service
@@ -218,13 +221,14 @@ export const SessionRoutes = () =>
                 return yield* sessionStatus.get(sessionID)
               }),
             )
-            return { messages, permissions, questions: questionItems, status }
+            return { messages, artifacts, permissions, questions: questionItems, status }
           },
         )
         return c.json({
           info,
           status,
           messages,
+          artifacts,
           permissions,
           questions,
         })

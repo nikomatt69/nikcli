@@ -109,8 +109,8 @@ export function AppInterface(props: { defaultUrl?: string; children?: JSX.Elemen
   return (
     <ServerProvider defaultUrl={defaultServerUrl()}>
       <ServerKey>
-        <GlobalSDKProvider>
-          <AccountProvider>
+        <AccountProvider>
+          <GlobalSDKProvider>
             <GlobalSyncProvider>
               <Router
                 root={(routerProps) => (
@@ -165,8 +165,8 @@ export function AppInterface(props: { defaultUrl?: string; children?: JSX.Elemen
                 </Route>
               </Router>
             </GlobalSyncProvider>
-          </AccountProvider>
-        </GlobalSDKProvider>
+          </GlobalSDKProvider>
+        </AccountProvider>
       </ServerKey>
     </ServerProvider>
   )

@@ -30,6 +30,7 @@ import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { PromptStashStore } from "@/prompt/stash-store"
+import { Artifact } from "@/artifact"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstance, withInstanceAsync } from "@/effect"
@@ -244,11 +245,48 @@ export const MobileSessionSummary = z
   })
   .meta({ ref: "MobileSessionSummary" })
 
+export const MobileArtifact = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
+    filename: z.string(),
+    contentType: z.string(),
+    kind: z.enum(["html", "markdown", "image", "video", "text"]),
+    url: z.string(),
+    viewerUrl: z.string(),
+    previewUrl: z.string(),
+    version: z.number(),
+    sessionID: z.string(),
+    size: z.number(),
+    time: z.object({ created: z.number(), updated: z.number() }),
+  })
+  .meta({ ref: "MobileArtifact" })
+
+export function toMobileArtifact(info: Artifact.Info): z.infer<typeof MobileArtifact> {
+  return {
+    id: info.id,
+    title: info.title,
+    description: info.description,
+    filename: info.filename,
+    contentType: info.contentType,
+    kind: info.kind,
+    url: info.url,
+    viewerUrl: Artifact.viewerUrl(info),
+    previewUrl: Artifact.previewUrl(info),
+    version: info.version,
+    sessionID: info.sessionID,
+    size: info.size,
+    time: info.time,
+  }
+}
+
 export const MobileSessionDetail = z
   .object({
     info: Session.Info,
     status: SessionStatus.Info.optional(),
     messages: MessageV2.WithParts.array(),
+    artifacts: MobileArtifact.array(),
     permissions: PermissionNext.Request.array(),
     questions: Question.Request.array(),
   })

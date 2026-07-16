@@ -71,6 +71,16 @@ export type AppServerConfig = {
   executionTarget?: MobileExecutionTarget
 }
 
+export type AppAccountUser = {
+  id: string
+  username: string
+  email: string
+  display_name: string | null
+  role: "admin" | "user"
+  created_at: number
+  updated_at: number
+}
+
 export type ProviderCatalog = ProviderListResponse
 
 export const SERVER_CONFIG_STORAGE_KEY = "nikcli_server_config"
@@ -79,6 +89,25 @@ export const SERVER_TOKEN_STORAGE_KEY = "nikcli_server_token"
 export function normalizeServerUrl(input: string) {
   const url = new URL(input.trim())
   return url.toString().replace(/\/$/, "")
+}
+
+/** Sign in with the same UserDB account used by the CLI, Studio, and mobile. */
+export async function loginServerAccount(serverUrl: string, email: string, password: string) {
+  const baseUrl = normalizeServerUrl(serverUrl)
+  const response = await fetch(`${baseUrl}/user/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ email, password }),
+  })
+  const body = (await response.json().catch(() => ({}))) as {
+    token?: string
+    user?: AppAccountUser
+    error?: string
+  }
+  if (!response.ok || !body.token || !body.user) {
+    throw new Error(body.error || `Sign in failed (${response.status})`)
+  }
+  return { token: body.token, user: body.user }
 }
 
 export function parsePairingLink(input: string): Partial<AppServerConfig> | null {
