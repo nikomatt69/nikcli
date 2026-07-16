@@ -15,13 +15,25 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const abort = new AbortController()
     const baseFetch = platform.fetch ?? globalThis.fetch
     const authenticatedFetch = Object.assign(
-      (input: RequestInfo | URL, init?: RequestInit) => {
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const retryInput = input instanceof Request ? input.clone() : input
         const headers = new Headers(input instanceof Request ? input.headers : undefined)
         new Headers(init?.headers).forEach((value, key) => headers.set(key, value))
-        if (account.token && !headers.has("Authorization")) {
-          headers.set("Authorization", `Bearer ${account.token}`)
+        const ownsAuthorization = !headers.has("Authorization")
+        let attachedAccess: string | undefined
+        if (ownsAuthorization) {
+          const access = await account.getValidAccessToken().catch(() => account.token)
+          if (access) {
+            attachedAccess = access
+            headers.set("Authorization", `Bearer ${access}`)
+          }
         }
-        return baseFetch(input, { ...init, headers })
+        const response = await baseFetch(input, { ...init, headers })
+        if (response.status !== 401 || !ownsAuthorization || !account.hasRefreshToken) return response
+        const access = await account.refreshAccessToken(attachedAccess)
+        const retryHeaders = new Headers(headers)
+        retryHeaders.set("Authorization", `Bearer ${access}`)
+        return baseFetch(retryInput, { ...init, headers: retryHeaders })
       },
       {
         preconnect: (...args: Parameters<typeof globalThis.fetch.preconnect>) => globalThis.fetch.preconnect?.(...args),
@@ -119,6 +131,11 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       throwOnError: true,
     })
 
-    return { url: server.url, client: sdk, event: emitter, fetch: authenticatedFetch }
+    return {
+      url: server.url,
+      client: sdk,
+      event: emitter,
+      fetch: authenticatedFetch,
+    }
   },
 })

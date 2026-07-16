@@ -11,6 +11,7 @@
     "db:migrate:local": "wrangler d1 migrations apply nikcli-cloud --local"
   },
   "dependencies": {
+    "@nikcli-ai/auth": "workspace:*",
     "hono": "catalog:",
     "jose": "5.9.6",
     "zod": "catalog:"

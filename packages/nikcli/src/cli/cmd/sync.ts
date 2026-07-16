@@ -12,7 +12,7 @@ const log = Log.create({ service: "cli.sync" })
 export type SyncRemoteConfig = {
   url: string
   token: string
-  source?: "env" | "config"
+  source?: "env" | "config" | "account"
 }
 
 async function readRemote(): Promise<SyncRemoteConfig | undefined> {

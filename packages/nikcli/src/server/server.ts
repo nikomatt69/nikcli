@@ -61,6 +61,7 @@ import { ServerBackend } from "./backend"
 import { AnalyticsRoutes } from "./routes/analytics"
 import { BrainRoutes } from "./routes/brain"
 import { DoctorRoutes } from "./routes/doctor"
+import { externalSessionForToken } from "./identity-auth"
 
 function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
   return runPromiseWithLayer(Skill.defaultLayer, withCurrentInstance(effect))
@@ -290,7 +291,11 @@ export namespace Server {
         .use(async (c, next) => {
           // Public user endpoints — bypass server-level auth
           const path = c.req.path
-          if (path === "/user/login" || path === "/user/register" || path === "/user/status") {
+          if (
+            path === "/user/status" ||
+            ((path === "/user/login" || path === "/user/register") &&
+              (!Flag.NIKCLI_REQUIRE_OAUTH || Flag.NIKCLI_LEGACY_LOGIN))
+          ) {
             return next()
           }
 
@@ -308,7 +313,16 @@ export namespace Server {
           const bearer = MobileAuth.bearer(c.req.raw) || c.req.query("token")
           if (bearer) {
             const userSession = (c as any).get?.("userSession")
-            if (userSession) {
+            if (
+              userSession &&
+              (!Flag.NIKCLI_REQUIRE_OAUTH || Flag.NIKCLI_LEGACY_LOGIN || !userSession.token?.startsWith("nku_"))
+            ) {
+              return next()
+            }
+
+            const externalSession = await externalSessionForToken(bearer).catch(() => undefined)
+            if (externalSession) {
+              ;(c as any).set("userSession", externalSession)
               return next()
             }
 
@@ -318,7 +332,9 @@ export namespace Server {
             return next()
           }
 
-          if (_mobileAuthRequired) return c.text("Unauthorized", 401)
+          if (_mobileAuthRequired || (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN)) {
+            return c.text("Unauthorized", 401)
+          }
 
           const tailscaleAuthEnabled = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && isLoopbackHostname(_listenHostname)
           if (tailscaleAuthEnabled) {

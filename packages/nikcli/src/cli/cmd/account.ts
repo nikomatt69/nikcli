@@ -5,6 +5,7 @@ import { UI } from "../ui"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 import { Log } from "@/util/log"
+import open from "open"
 
 const log = Log.create({ service: "account-command" })
 
@@ -38,78 +39,85 @@ export const AccountLoginCommand = cmd({
       description: "Auth server URL",
     }),
   async handler(args) {
-    UI.empty()
-    prompts.intro("Account login")
-
-    const spinner = prompts.spinner()
-
-    try {
-      log.debug("Starting device code login flow", { serverUrl: args.server })
-
-      const loginResult = await runAccount(
-        Effect.gen(function* () {
-          const account = yield* Account.Service
-          return yield* account.login({ serverUrl: args.server })
-        }),
-      )
-
-      prompts.log.info(`Visit: ${loginResult.verificationUrl}`)
-      prompts.log.info(`Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
-
-      spinner.start("Waiting for authorization...")
-
-      const result = await runAccount(
-        Effect.gen(function* () {
-          const account = yield* Account.Service
-          return yield* account.poll(loginResult.deviceCode, {
-            serverUrl: args.server,
-            onPending() {
-              spinner.message("Waiting for authorization... (press Ctrl+C to cancel)")
-            },
-          })
-        }),
-      )
-
-      spinner.stop("Login successful")
-      log.info("Login successful", { accountID: result.accountID })
-
-      prompts.log.success(`Account ID: ${result.accountID}`)
-
-      const accountInfo = await runAccount(
-        Effect.gen(function* () {
-          const account = yield* Account.Service
-          return yield* account.get(result.accountID)
-        }),
-      ).catch((error) => {
-        log.debug("Failed to fetch account info", { error })
-        return null
-      })
-
-      if (accountInfo?.email) {
-        prompts.log.info(`Email: ${accountInfo.email}`)
-      }
-
-      prompts.outro("Done")
-    } catch (error) {
-      spinner.stop("Login failed", 1)
-
-      if (error instanceof UI.CancelledError) {
-        prompts.outro("Done")
-        return
-      }
-
-      if (error instanceof Error) {
-        log.error("Login failed", { error: error.message })
-        prompts.log.error(error.message)
-      } else {
-        log.error("Login failed with unknown error", { error })
-        prompts.log.error("Unknown error")
-      }
-
-      prompts.outro("Done")
-    }
+    await loginAccount(args.server)
   },
 })
+
+export async function loginAccount(serverUrl?: string) {
+  UI.empty()
+  prompts.intro("Account login")
+
+  const spinner = prompts.spinner()
+
+  try {
+    log.debug("Starting device code login flow", { serverUrl })
+
+    const loginResult = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return yield* account.login({ serverUrl })
+      }),
+    )
+
+    prompts.log.info(`Visit: ${loginResult.verificationUrl}`)
+    prompts.log.info(`Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
+    await open(loginResult.verificationUrl).catch((error) => {
+      log.debug("Failed to open verification URL", { error })
+    })
+
+    spinner.start("Waiting for authorization...")
+
+    const result = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return yield* account.poll(loginResult.deviceCode, {
+          serverUrl,
+          onPending() {
+            spinner.message("Waiting for authorization... (press Ctrl+C to cancel)")
+          },
+        })
+      }),
+    )
+
+    spinner.stop("Login successful")
+    log.info("Login successful", { accountID: result.accountID })
+
+    prompts.log.success(`Account ID: ${result.accountID}`)
+
+    const accountInfo = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return yield* account.get(result.accountID)
+      }),
+    ).catch((error) => {
+      log.debug("Failed to fetch account info", { error })
+      return null
+    })
+
+    if (accountInfo?.email) {
+      prompts.log.info(`Email: ${accountInfo.email}`)
+    }
+
+    prompts.outro("Done")
+  } catch (error) {
+    spinner.stop("Login failed", 1)
+
+    if (error instanceof UI.CancelledError) {
+      prompts.outro("Done")
+      return
+    }
+
+    if (error instanceof Error) {
+      log.error("Login failed", { error: error.message })
+      prompts.log.error(error.message)
+    } else {
+      log.error("Login failed with unknown error", { error })
+      prompts.log.error("Unknown error")
+    }
+
+    prompts.outro("Done")
+  }
+}
 
 export const AccountLogoutCommand = cmd({
   command: "logout",

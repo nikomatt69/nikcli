@@ -44,7 +44,11 @@ function UiI18nBridge(props: ParentProps) {
 
 declare global {
   interface Window {
-    __NIKCLI__?: { updaterEnabled?: boolean; serverPassword?: string; deepLinks?: string[] }
+    __NIKCLI__?: {
+      updaterEnabled?: boolean
+      serverPassword?: string
+      deepLinks?: string[]
+    }
   }
 }
 

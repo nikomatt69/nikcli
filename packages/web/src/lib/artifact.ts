@@ -1,4 +1,5 @@
 import type { R2Bucket } from "@cloudflare/workers-types"
+import { verifyAccessToken } from "@nikcli-ai/auth"
 
 /** Public artifact metadata, returned once a viewer is authorized. */
 export type ArtifactMeta = {
@@ -178,7 +179,7 @@ function callerAuthServer(request: Request): string | null {
  * the verifying server's host.
  */
 export async function resolveViewerUserId(
-  env: Pick<CloudflareEnv, "NIKCLI_AUTH_SERVER">,
+  env: Pick<CloudflareEnv, "NIKCLI_AUTH_SERVER" | "AUTH_ISSUER" | "AUTH_AUDIENCE" | "AUTH_JWKS_URL">,
   request: Request,
   fetcher: typeof fetch = fetch,
 ): Promise<string | null> {
@@ -186,7 +187,21 @@ export async function resolveViewerUserId(
   const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null
   const cookie = parseCookies(request.headers.get("Cookie"))[ARTIFACT_TOKEN_COOKIE] ?? null
   const token = bearer ?? cookie
-  if (!token?.startsWith("nku_")) return null
+  if (!token) return null
+
+  if (!token.startsWith("nku_")) {
+    const issuer = env.AUTH_ISSUER ?? "https://auth.nikcli.store"
+    try {
+      const auth = await verifyAccessToken(token, {
+        issuer,
+        audience: env.AUTH_AUDIENCE ?? "nikcli-api",
+        jwksUrl: env.AUTH_JWKS_URL ?? new URL("/.well-known/jwks.json", issuer).toString(),
+      })
+      return auth.accountID
+    } catch {
+      return null
+    }
+  }
 
   const authServer =
     callerAuthServer(request) ?? (env.NIKCLI_AUTH_SERVER || DEFAULT_NIKCLI_AUTH_SERVER).replace(/\/$/, "")

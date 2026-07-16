@@ -13,6 +13,7 @@ import type { Hooks } from "@nikcli-ai/plugin"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Log } from "@/util/log"
+import { loginAccount } from "./account"
 
 const log = Log.create({ service: "auth-command" })
 
@@ -95,7 +96,10 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
   }
 
   if (!plugin.auth.methods[index]) {
-    log.error("Invalid auth method index", { index, methodsCount: plugin.auth.methods.length })
+    log.error("Invalid auth method index", {
+      index,
+      methodsCount: plugin.auth.methods.length,
+    })
     return false
   }
 
@@ -307,13 +311,28 @@ export const AuthLoginCommand = cmd({
   command: "login [url]",
   describe: "log in to a provider",
   builder: (yargs) =>
-    yargs.positional("url", {
-      describe: "nikcli auth provider",
-      type: "string",
-    }),
+    yargs
+      .positional("url", {
+        describe: "nikcli auth provider",
+        type: "string",
+      })
+      .option("provider", {
+        type: "boolean",
+        default: false,
+        description: "Log in to an LLM provider instead of your nikcli account",
+      })
+      .option("server", {
+        alias: "s",
+        type: "string",
+        description: "Identity issuer URL",
+      }),
   async handler(args) {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
       {
+        if (!args.url && !args.provider) {
+          await loginAccount(args.server)
+          return
+        }
         UI.empty()
         prompts.intro("Add credential")
 

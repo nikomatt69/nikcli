@@ -17,3 +17,5 @@ migrations_dir = "./d1-migrations"
 [vars]
 INFERENCE_API_BASE = "https://inference.nikcli.store"
 SITE_URL = "https://nikcli.store"
+AUTH_ISSUER = "https://auth.nikcli.store"
+AUTH_AUDIENCE = "nikcli-api"

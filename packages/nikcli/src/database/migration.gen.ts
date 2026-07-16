@@ -8,6 +8,7 @@ import importSyncJson from "./migration/20260611040000_import_sync_json"
 import sessionV2Event from "./migration/20260612000000_session_v2_event"
 import syncUnify from "./migration/20260630000000_sync_unify"
 import workspaceDropEvents from "./migration/20260630000100_workspace_drop_events"
+import userExternalSubject from "./migration/20260716000000_user_external_subject"
 
 export const migrations = [
   initial,
@@ -19,4 +20,5 @@ export const migrations = [
   sessionV2Event,
   syncUnify,
   workspaceDropEvents,
+  userExternalSubject,
 ] satisfies DatabaseMigration.Migration[]

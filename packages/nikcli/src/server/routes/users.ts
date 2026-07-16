@@ -2,6 +2,8 @@ import { Hono } from "hono"
 import { validator } from "hono-openapi"
 import z from "zod"
 import { UserDB } from "@/user/users"
+import { Flag } from "@/flag/flag"
+import { externalSessionForToken } from "@/server/identity-auth"
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -15,18 +17,19 @@ function bearerToken(req: Request): string | undefined {
   const [scheme, value] = header.split(/\s+/, 2)
   if (!scheme || !value) return
   if (scheme.toLowerCase() !== "bearer") return
-  const v = value.trim()
-  if (!v.startsWith("nku_")) return
-  return v
+  return value.trim() || undefined
 }
 
 export function userAuthMiddleware() {
   return async (c: any, next: () => Promise<void>) => {
     const token = bearerToken(c.req.raw)
     if (token) {
-      const user = UserDB.verifySession(token)
-      if (user) {
-        c.set("userSession", { user, token })
+      const external = await externalSessionForToken(token).catch(() => undefined)
+      if (external) {
+        c.set("userSession", external)
+      } else if (token.startsWith("nku_")) {
+        const user = UserDB.verifySession(token)
+        if (user) c.set("userSession", { user, token })
       }
     }
     await next()
@@ -63,6 +66,9 @@ export function UserRoutes() {
       }),
     ),
     async (c) => {
+      if (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN) {
+        return c.json({ error: "Password registration is disabled" }, 403)
+      }
       const body = c.req.valid("json")
 
       // Only allow registration if: no users exist OR caller is admin
@@ -110,6 +116,9 @@ export function UserRoutes() {
       }),
     ),
     async (c) => {
+      if (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN) {
+        return c.json({ error: "Password login is disabled" }, 403)
+      }
       const { email, password } = c.req.valid("json")
       const user = UserDB.findByEmail(email)
       if (!user) return c.json({ error: "Invalid credentials" }, 401)
@@ -180,7 +189,12 @@ export function UserRoutes() {
         const targetUser = UserDB.findById(id)
         if (!targetUser) return c.json({ error: "User not found" }, 404)
         if (!UserDB.isAdminEmail(targetUser.email)) {
-          return c.json({ error: "This email address is not authorized to hold the admin role" }, 403)
+          return c.json(
+            {
+              error: "This email address is not authorized to hold the admin role",
+            },
+            403,
+          )
         }
       }
 

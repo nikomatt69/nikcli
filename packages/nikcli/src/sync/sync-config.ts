@@ -13,6 +13,7 @@ import { Effect } from "effect"
 import { Config } from "@/config/config"
 import { Flag } from "@/flag/flag"
 import { runPromiseWithLayer } from "@/effect"
+import { Account } from "@/account"
 
 export namespace SyncConfig {
   export type Resolved = {
@@ -21,7 +22,7 @@ export namespace SyncConfig {
     /** true when both url and token are present */
     configured: boolean
     /** where the effective url + token came from */
-    source?: "env" | "config"
+    source?: "env" | "config" | "account"
     /** bootstrap may auto-connect (NIKCLI_REMOTE_AUTOSTART and config `sync.autostart`) */
     autostart: boolean
   }
@@ -45,13 +46,14 @@ export namespace SyncConfig {
     const envToken = Flag.NIKCLI_REMOTE_TOKEN
     const saved = envUrl && envToken ? undefined : await readGlobal()
     const url = envUrl ?? saved?.url?.replace(/\/$/, "")
-    const token = envToken ?? saved?.token
+    const accountToken = !envToken && !saved?.token && url ? await readAccountToken() : undefined
+    const token = envToken ?? saved?.token ?? accountToken
     const configured = Boolean(url && token)
     return {
       url,
       token,
       configured,
-      source: configured ? (envUrl && envToken ? "env" : "config") : undefined,
+      source: configured ? (envUrl && envToken ? "env" : saved?.token ? "config" : "account") : undefined,
       autostart: configured && Flag.NIKCLI_REMOTE_AUTOSTART && (saved?.autostart ?? true),
     }
   }
@@ -62,6 +64,18 @@ export namespace SyncConfig {
       Effect.gen(function* () {
         const config = yield* Config.Service
         return (yield* config.getGlobal()).sync
+      }),
+    ).catch(() => undefined)
+  }
+
+  async function readAccountToken() {
+    return runPromiseWithLayer(
+      Account.defaultLayer,
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        const active = yield* account.active()
+        if (!active) return undefined
+        return yield* account.token(active.id)
       }),
     ).catch(() => undefined)
   }

@@ -6,6 +6,9 @@ export interface RuntimeEnv {
   INFERENCE_API_BASE?: string
   SITE_URL?: string
   SESSION_SECRET?: string
+  AUTH_ISSUER?: string
+  AUTH_AUDIENCE?: string
+  AUTH_JWKS_URL?: string
 }
 
 export function getEnv(ctx: APIContext | { locals: App.Locals }): RuntimeEnv {

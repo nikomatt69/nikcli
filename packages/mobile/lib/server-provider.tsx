@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type PropsWithChildren } from "react"
+import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react"
+import { AppState } from "react-native"
 import {
   clearServerConfig,
   getServerConfig,
@@ -8,6 +9,8 @@ import {
   clearUserToken,
 } from "@/lib/storage"
 import { MobileClient } from "@/lib/client"
+import { getValidOAuthTokens, revokeOAuthSession } from "@/lib/oauth"
+import type { OAuthTokenTriple } from "@/lib/oauth-core"
 import type { MobileBootstrap, ServerConfig } from "@/lib/types"
 import { ServerContext, type ServerContextValue, userLogoutApi, userMe, type UserProfile } from "@/lib/server-context"
 
@@ -20,22 +23,40 @@ export function ServerProvider(props: PropsWithChildren) {
   const [userToken, setUserTokenState] = useState<string | null>(null)
   const [userLoading, setUserLoading] = useState(true)
 
-  // The canonical CLI user session authenticates every app API. A legacy
-  // pairing token remains a fallback only until the user signs in.
+  const refreshOAuth = useCallback(async (force: boolean): Promise<string | null> => {
+    try {
+      const tokens = await getValidOAuthTokens(force)
+      if (!tokens) return null
+      setUserTokenState(tokens.access)
+      return tokens.access
+    } catch {
+      setUserTokenState(null)
+      setCurrentUser(null)
+      return null
+    }
+  }, [])
+
   const client = useMemo(
-    () => (config ? new MobileClient({ ...config, token: userToken ?? config.token }) : null),
-    [config, userToken],
+    () =>
+      config
+        ? new MobileClient(
+            { ...config, token: userToken ?? config.token },
+            { onUnauthorized: () => refreshOAuth(true) },
+          )
+        : null,
+    [config, refreshOAuth, userToken],
   )
 
   useEffect(() => {
     let mounted = true
-    Promise.all([getServerConfig(), getUserToken()])
-      .then(([cfg, token]) => {
+    Promise.all([getServerConfig(), getValidOAuthTokens().catch(() => null), getUserToken()])
+      .then(([cfg, oauth, legacyToken]) => {
         if (!mounted) return
         setConfig(cfg)
+        const token = oauth?.access ?? legacyToken
         if (token && cfg) {
           setUserTokenState(token)
-          userMe(cfg.url, token)
+          userMe(cfg.url, token, () => refreshOAuth(true))
             .then((user) => {
               if (mounted) setCurrentUser(user)
             })
@@ -59,7 +80,20 @@ export function ServerProvider(props: PropsWithChildren) {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [refreshOAuth])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return
+      void refreshOAuth(false).then((token) => {
+        if (!token || !config) return
+        void userMe(config.url, token)
+          .then(setCurrentUser)
+          .catch(() => undefined)
+      })
+    })
+    return () => subscription.remove()
+  }, [config, refreshOAuth])
 
   useEffect(() => {
     if (!config || !client) {
@@ -126,10 +160,13 @@ export function ServerProvider(props: PropsWithChildren) {
         setUserTokenState(token)
         setCurrentUser(user)
       },
+      async setOAuthSession(tokens: OAuthTokenTriple, user: UserProfile) {
+        setUserTokenState(tokens.access)
+        setCurrentUser(user)
+      },
       async signOut() {
-        if (userToken && config) {
-          await userLogoutApi(config.url, userToken).catch(() => undefined)
-        }
+        await revokeOAuthSession().catch(() => undefined)
+        if (userToken && config) await userLogoutApi(config.url, userToken).catch(() => undefined)
         await clearUserToken()
         setUserTokenState(null)
         setCurrentUser(null)

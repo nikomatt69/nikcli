@@ -10,6 +10,9 @@ interface CloudflareEnv {
   ARTIFACTS: R2Bucket
   /** Nikcli server that owns the canonical UserDB accounts. */
   NIKCLI_AUTH_SERVER?: string
+  AUTH_ISSUER?: string
+  AUTH_AUDIENCE?: string
+  AUTH_JWKS_URL?: string
   ASSETS: { fetch(req: Request): Promise<Response> }
 }
 

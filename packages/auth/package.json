@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/auth",
+  "version": "1.169.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./claims": "./src/claims.ts",
+    "./client": "./src/client.ts",
+    "./hono": "./src/hono.ts",
+    "./verify": "./src/verify.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "5.9.6",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "catalog:",
+    "hono": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "hono": ">=4.0.0"
+  }
+}

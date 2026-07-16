@@ -1,4 +1,4 @@
-import * as bcrypt from "bcryptjs"
+import { verifyAccessToken } from "@nikcli-ai/auth"
 import type { APIContext, AstroCookies } from "astro"
 import { getEnv, type RuntimeEnv } from "./env"
 
@@ -10,133 +10,72 @@ export interface AuthUser {
   createdAt: number
 }
 
-const SESSION_COOKIE = "nik_session"
-const SESSION_TTL_SEC = 60 * 60 * 24 * 30 // 30 days
+export const SESSION_COOKIE = "nik_identity"
+export const REFRESH_COOKIE = "nik_identity_refresh"
 
-function randomId(byteLen = 24): string {
-  const buf = new Uint8Array(byteLen)
-  crypto.getRandomValues(buf)
-  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("")
+function verifier(env: RuntimeEnv) {
+  const issuer = env.AUTH_ISSUER || "https://auth.nikcli.store"
+  return {
+    issuer,
+    audience: env.AUTH_AUDIENCE || "nikcli-api",
+    jwksUrl: env.AUTH_JWKS_URL || `${issuer.replace(/\/$/, "")}/.well-known/jwks.json`,
+  }
 }
 
-function nowSec(): number {
-  return Math.floor(Date.now() / 1000)
-}
-
-export async function createUser(
-  env: RuntimeEnv,
-  input: { email: string; password: string; name?: string },
-): Promise<AuthUser> {
-  const email = input.email.toLowerCase().trim()
-  if (!email.includes("@")) throw new AuthError("Invalid email", 400)
-  if (input.password.length < 8) throw new AuthError("Password must be at least 8 characters", 400)
-
-  const existing = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()
-  if (existing) throw new AuthError("Email already registered", 409)
-
-  const id = randomId(16)
-  const hash = await bcrypt.hash(input.password, 10)
-  const ts = nowSec()
-  await env.DB.prepare(
-    "INSERT INTO users (id, email, name, password_hash, plan, created_at, updated_at) VALUES (?, ?, ?, ?, 'free', ?, ?)",
-  )
-    .bind(id, email, input.name?.trim() ?? null, hash, ts, ts)
-    .run()
-
-  return { id, email, name: input.name?.trim() ?? null, plan: "free", createdAt: ts }
-}
-
-export async function verifyCredentials(
-  env: RuntimeEnv,
-  input: { email: string; password: string },
-): Promise<AuthUser> {
-  const email = input.email.toLowerCase().trim()
-  const row = await env.DB.prepare("SELECT id, email, name, plan, password_hash, created_at FROM users WHERE email = ?")
-    .bind(email)
+async function ensureUser(env: RuntimeEnv, accountID: string, email?: string): Promise<AuthUser> {
+  const existing = await env.DB.prepare("SELECT id, email, name, plan, created_at FROM users WHERE id = ?")
+    .bind(accountID)
     .first<{
       id: string
       email: string
       name: string | null
       plan: string
-      password_hash: string
       created_at: number
     }>()
-  if (!row) throw new AuthError("Invalid email or password", 401)
-  const ok = await bcrypt.compare(input.password, row.password_hash)
-  if (!ok) throw new AuthError("Invalid email or password", 401)
-  return { id: row.id, email: row.email, name: row.name, plan: row.plan, createdAt: row.created_at }
-}
-
-export async function updateUserPassword(
-  env: RuntimeEnv,
-  input: { userId: string; currentPassword: string; nextPassword: string },
-): Promise<void> {
-  if (input.nextPassword.length < 8) throw new AuthError("Password must be at least 8 characters", 400)
-  if (input.currentPassword === input.nextPassword) throw new AuthError("New password must be different", 400)
-
-  const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?")
-    .bind(input.userId)
-    .first<{ password_hash: string }>()
-  if (!row) throw new AuthError("User not found", 404)
-
-  const ok = await bcrypt.compare(input.currentPassword, row.password_hash)
-  if (!ok) throw new AuthError("Current password is incorrect", 401)
-
-  const hash = await bcrypt.hash(input.nextPassword, 10)
-  await env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
-    .bind(hash, nowSec(), input.userId)
-    .run()
-}
-
-export async function createSession(
-  env: RuntimeEnv,
-  userId: string,
-  meta: { userAgent?: string | null; ip?: string | null } = {},
-): Promise<string> {
-  const sessionId = randomId(32)
-  const expiresAt = nowSec() + SESSION_TTL_SEC
+  if (existing)
+    return {
+      id: existing.id,
+      email: existing.email,
+      name: existing.name,
+      plan: existing.plan,
+      createdAt: existing.created_at,
+    }
+  if (!email) throw new AuthError("Identity token is missing an email claim", 401)
+  const byEmail = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first<{ id: string }>()
+  if (byEmail) throw new AuthError("This email is linked to a legacy account and requires migration", 409)
+  const now = Math.floor(Date.now() / 1000)
   await env.DB.prepare(
-    "INSERT INTO sessions (id, user_id, expires_at, user_agent, ip, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO users (id, email, name, plan, created_at, updated_at) VALUES (?, ?, NULL, 'free', ?, ?)",
   )
-    .bind(sessionId, userId, expiresAt, meta.userAgent ?? null, meta.ip ?? null, nowSec())
+    .bind(accountID, email, now, now)
     .run()
-  return sessionId
+  return { id: accountID, email, name: null, plan: "free", createdAt: now }
 }
 
-export async function destroySession(env: RuntimeEnv, sessionId: string): Promise<void> {
-  await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run()
-}
-
-export async function getSessionUser(env: RuntimeEnv, sessionId: string | undefined): Promise<AuthUser | null> {
-  if (!sessionId) return null
-  const row = await env.DB.prepare(
-    `SELECT u.id, u.email, u.name, u.plan, u.created_at, s.expires_at
-     FROM sessions s
-     JOIN users u ON u.id = s.user_id
-     WHERE s.id = ? LIMIT 1`,
-  )
-    .bind(sessionId)
-    .first<{ id: string; email: string; name: string | null; plan: string; created_at: number; expires_at: number }>()
-  if (!row) return null
-  if (row.expires_at < nowSec()) {
-    await destroySession(env, sessionId)
+export async function getSessionUser(env: RuntimeEnv, token: string | undefined): Promise<AuthUser | null> {
+  if (!token) return null
+  try {
+    const auth = await verifyAccessToken(token, verifier(env))
+    return await ensureUser(env, auth.accountID, auth.email)
+  } catch (error) {
+    if (error instanceof AuthError) throw error
     return null
   }
-  return { id: row.id, email: row.email, name: row.name, plan: row.plan, createdAt: row.created_at }
 }
 
-export function setSessionCookie(cookies: AstroCookies, sessionId: string) {
-  cookies.set(SESSION_COOKIE, sessionId, {
+export function setSessionCookie(cookies: AstroCookies, accessToken: string, maxAge = 15 * 60, secure = true) {
+  cookies.set(SESSION_COOKIE, accessToken, {
     httpOnly: true,
-    secure: true,
+    secure,
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_TTL_SEC,
+    maxAge,
   })
 }
 
 export function clearSessionCookie(cookies: AstroCookies) {
   cookies.delete(SESSION_COOKIE, { path: "/" })
+  cookies.delete(REFRESH_COOKIE, { path: "/" })
 }
 
 export function readSessionCookie(cookies: AstroCookies): string | undefined {
@@ -145,14 +84,63 @@ export function readSessionCookie(cookies: AstroCookies): string | undefined {
 
 export async function getCurrentUser(ctx: APIContext): Promise<AuthUser | null> {
   const env = getEnv(ctx)
-  const sessionId = readSessionCookie(ctx.cookies)
-  return getSessionUser(env, sessionId)
+  const current = await getSessionUser(env, readSessionCookie(ctx.cookies))
+  if (current) return current
+  const refresh = ctx.cookies.get(REFRESH_COOKIE)?.value
+  if (!refresh) return null
+  const issuer = (env.AUTH_ISSUER || "https://auth.nikcli.store").replace(/\/$/, "")
+  const response = await fetch(`${issuer}/oauth/token`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refresh,
+      client_id: "nikcli-inference-dashboard",
+    }),
+  })
+  if (!response.ok) {
+    clearSessionCookie(ctx.cookies)
+    return null
+  }
+  const tokens = (await response.json()) as {
+    access_token?: string
+    refresh_token?: string
+    expires_in?: number
+  }
+  if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_in) return null
+  setSessionCookie(ctx.cookies, tokens.access_token, tokens.expires_in, ctx.url.protocol === "https:")
+  ctx.cookies.set(REFRESH_COOKIE, tokens.refresh_token, {
+    httpOnly: true,
+    secure: ctx.url.protocol === "https:",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 90 * 24 * 60 * 60,
+  })
+  return getSessionUser(env, tokens.access_token)
+}
+
+export async function createUser(): Promise<never> {
+  throw new AuthError("Password registration has been retired; use issuer sign-in", 410)
+}
+
+export async function verifyCredentials(): Promise<never> {
+  throw new AuthError("Password sign-in has been retired; use issuer sign-in", 410)
+}
+
+export async function createSession(): Promise<never> {
+  throw new AuthError("Legacy sessions have been retired", 410)
+}
+
+export async function destroySession(): Promise<void> {}
+
+export async function updateUserPassword(): Promise<never> {
+  throw new AuthError("Password management has moved to the identity issuer", 410)
 }
 
 export class AuthError extends Error {
   constructor(
     message: string,
-    public readonly status: number = 400,
+    public readonly status = 400,
   ) {
     super(message)
     this.name = "AuthError"

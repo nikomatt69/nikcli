@@ -242,7 +242,68 @@ export namespace UserDB {
     return row ? rowToUser(row) : null
   }
 
+  export function ensureExternalUser(input: { sub: string; email: string }): PublicUser {
+    const subject = input.sub.trim()
+    const email = input.email.trim().toLowerCase()
+    if (!subject) throw new Error("External subject is required")
+    if (!email) throw new Error("External email is required")
+
+    const bySubject = db().select().from(users).where(eq(users.externalSubject, subject)).get()
+    if (bySubject) {
+      if (bySubject.email !== email) {
+        db().update(users).set({ email, updatedAt: Date.now() }).where(eq(users.id, bySubject.id)).run()
+        const updated = db().select().from(users).where(eq(users.id, bySubject.id)).get()
+        return rowToPublic(updated ?? bySubject)
+      }
+      return rowToPublic(bySubject)
+    }
+
+    const byEmail = db().select().from(users).where(eq(users.email, email)).get()
+    if (byEmail) {
+      if (byEmail.externalSubject && byEmail.externalSubject !== subject) {
+        throw new Error("Email is already linked to another external identity")
+      }
+      db().update(users).set({ externalSubject: subject, updatedAt: Date.now() }).where(eq(users.id, byEmail.id)).run()
+      const updated = db().select().from(users).where(eq(users.id, byEmail.id)).get()
+      return rowToPublic(updated ?? byEmail)
+    }
+
+    const base =
+      email
+        .split("@", 1)[0]
+        ?.replace(/[^a-z0-9_-]/gi, "-")
+        .replace(/^-+|-+$/g, "") || "member"
+    let username = base
+    for (
+      let suffix = 1;
+      db().select({ id: users.id }).from(users).where(eq(users.username, username)).get();
+      suffix++
+    ) {
+      username = `${base}-${suffix}`
+    }
+    const now = Date.now()
+    const id = generateId("usr")
+    db()
+      .insert(users)
+      .values({
+        id,
+        username,
+        email,
+        externalSubject: subject,
+        passwordHash: `!oauth:${randomBytes(32).toString("base64url")}`,
+        displayName: null,
+        role: "user",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run()
+    const created = db().select().from(users).where(eq(users.id, id)).get()
+    if (!created) throw new Error("Failed to provision external user")
+    return rowToPublic(created)
+  }
+
   export async function verifyPassword(user: User, password: string): Promise<boolean> {
+    if (user.password_hash.startsWith("!oauth:")) return false
     return Bun.password.verify(password, user.password_hash)
   }
 

@@ -15,6 +15,7 @@ import { open as shellOpen } from "@tauri-apps/plugin-shell"
 import { type as ostype } from "@tauri-apps/plugin-os"
 import { check, Update } from "@tauri-apps/plugin-updater"
 import { getCurrentWindow } from "@tauri-apps/api/window"
+import { listen } from "@tauri-apps/api/event"
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { AsyncStorage } from "@solid-primitives/storage"
@@ -136,7 +137,12 @@ const emitDeepLinks = (urls: string[]) => {
 const listenForDeepLinks = async () => {
   const startUrls = await getCurrent().catch(() => null)
   if (startUrls?.length) emitDeepLinks(startUrls)
-  await onOpenUrl((urls) => emitDeepLinks(urls)).catch(() => undefined)
+  await Promise.all([
+    onOpenUrl((urls) => emitDeepLinks(urls.filter((url) => !url.startsWith("nikcli://auth/callback")))).catch(
+      () => undefined,
+    ),
+    listen<string>("nikcli:auth-callback", (event) => emitDeepLinks([event.payload])).catch(() => undefined),
+  ])
 }
 
 const createPlatform = (password: Accessor<string | null>): Platform => ({
@@ -460,6 +466,14 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
 
     const request = { ...(init as RequestInit), headers }
     return TAURI_AVAILABLE ? tauriFetch(input, request) : globalThis.fetch(input, request)
+  }) as typeof fetch,
+
+  externalFetch: (async (input, init) => {
+    if (input instanceof Request) {
+      const request = new Request(input, init)
+      return TAURI_AVAILABLE ? tauriFetch(request) : globalThis.fetch(request)
+    }
+    return TAURI_AVAILABLE ? tauriFetch(input, init as RequestInit | undefined) : globalThis.fetch(input, init)
   }) as typeof fetch,
 
   getDefaultServerUrl: async () => {

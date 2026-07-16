@@ -9,6 +9,7 @@ import {
   saveServerConfig,
   saveSharedToken,
 } from "../lib/studio-api"
+import { beginOAuth, createStudioTokenClient, tokenStore } from "./oauth"
 
 export interface User {
   id: string
@@ -32,6 +33,7 @@ interface AuthContextValue {
   error: string | null
   /** Connect with the shared nikcli pairing token (Authorization: Bearer nkm_…). */
   connect(token: string): Promise<void>
+  loginWithOAuth(): Promise<void>
   /** Legacy email/password sign-in (kept for back-compat; the server still supports it). */
   login(email: string, password: string): Promise<void>
   logout(): Promise<void>
@@ -56,7 +58,13 @@ function connectionIdentity(serverUrl: string | null): User {
       label = serverUrl
     }
   }
-  return { id: "self", username: "nikcli", email: label, displayName: undefined, role: "user" }
+  return {
+    id: "self",
+    username: "nikcli",
+    email: label,
+    displayName: undefined,
+    role: "user",
+  }
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -98,7 +106,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null)
       try {
         // /config requires auth — a 200 proves the token is accepted by the server.
-        await requestJson<unknown>("/config", { token: value, serverUrl: baseUrl })
+        await requestJson<unknown>("/config", {
+          token: value,
+          serverUrl: baseUrl,
+        })
         saveSharedToken(value)
         setToken(value)
         setUser(connectionIdentity(baseUrl))
@@ -113,6 +124,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     },
     [serverUrl],
   )
+
+  const loginWithOAuth = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const redirectUri = new URL("/dashboard/callback", window.location.origin).toString()
+      window.location.assign(await beginOAuth(redirectUri))
+    } catch (err) {
+      setError(getErrorMessage(err))
+      setLoading(false)
+      throw err
+    }
+  }, [])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -164,6 +188,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.posthog?.capture("user_signed_out")
       window.posthog?.reset()
       clearDashboardSession()
+      await tokenStore.clear?.()
       setUser(null)
       setToken(null)
       setLoading(false)
@@ -172,16 +197,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     // Read from storage only on the client (after mount)
+    const oauthClient = createStudioTokenClient()
+    const oauthTokens = tokenStore.get()
     const storedToken = getSharedToken()
     const storedUrl = getStoredServerUrl()
     setServerUrlState(storedUrl)
 
-    if (!storedToken || !storedUrl) {
+    if (!storedUrl) {
       // Not connected — DashboardShell will show setup / connect
       return
     }
 
+    if (oauthTokens) {
+      const refreshIdentity = () =>
+        oauthClient
+          .getValidAccessToken()
+          .then((access) => {
+            saveSharedToken(access)
+            setToken(access)
+            return requestJson<User>("/user/me", {
+              token: access,
+              serverUrl: storedUrl,
+            })
+          })
+          .then(setUser)
+          .catch(() => {})
+      void refreshIdentity()
+      const timer = window.setInterval(refreshIdentity, 60_000)
+      return () => window.clearInterval(timer)
+    }
+
     // Restore immediately so the UI doesn't flash "not connected"
+    if (!storedToken) {
+      oauthClient
+        .getValidAccessToken()
+        .then((access) => {
+          saveSharedToken(access)
+          setToken(access)
+          return requestJson<User>("/user/me", {
+            token: access,
+            serverUrl: storedUrl,
+          })
+        })
+        .then(setUser)
+        .catch(() => {})
+      return
+    }
     setToken(storedToken)
     setUser(connectionIdentity(storedUrl))
 
@@ -195,7 +256,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       .then((u) => setUser(u))
       .catch((err) => {
         if (statusOf(err) !== 401 && statusOf(err) !== 403) return // network error — keep session
-        requestJson<unknown>("/config", { token: storedToken, serverUrl: storedUrl })
+        requestJson<unknown>("/config", {
+          token: storedToken,
+          serverUrl: storedUrl,
+        })
           .then(() => setUser(connectionIdentity(storedUrl)))
           .catch((err2) => {
             if (statusOf(err2) === 401 || statusOf(err2) === 403) {
@@ -208,8 +272,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, serverUrl, connected: !!token, loading, error, connect, login, logout, setServerUrl }),
-    [user, token, serverUrl, loading, error, connect, login, logout, setServerUrl],
+    () => ({
+      user,
+      token,
+      serverUrl,
+      connected: !!token,
+      loading,
+      error,
+      connect,
+      loginWithOAuth,
+      login,
+      logout,
+      setServerUrl,
+    }),
+    [user, token, serverUrl, loading, error, connect, loginWithOAuth, login, logout, setServerUrl],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

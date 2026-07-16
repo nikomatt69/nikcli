@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react"
-import { buildMobileUrl, type MobileClient, parseMobileResponse } from "@/lib/client"
+import { buildMobileUrl, MobileResponseError, type MobileClient, parseMobileResponse } from "@/lib/client"
 import type { MobileBootstrap, ServerConfig } from "@/lib/types"
+import type { OAuthTokenTriple } from "@/lib/oauth-core"
 
 export type UserProfile = {
   id: string
@@ -13,9 +14,14 @@ export type UserProfile = {
 }
 
 async function userFetch<T>(serverUrl: string, path: string, options?: RequestInit & { token?: string }): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
   if (options?.token) headers["Authorization"] = `Bearer ${options.token}`
-  const res = await fetch(buildMobileUrl({ url: serverUrl }, path), { ...options, headers })
+  const res = await fetch(buildMobileUrl({ url: serverUrl }, path), {
+    ...options,
+    headers,
+  })
   return parseMobileResponse<T>(res, path)
 }
 
@@ -24,19 +30,42 @@ export function userLogin(
   email: string,
   password: string,
 ): Promise<{ token: string; user: UserProfile }> {
-  return userFetch(serverUrl, "/user/login", { method: "POST", body: JSON.stringify({ email, password }) })
+  return userFetch(serverUrl, "/user/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  })
 }
 
 export function userRegister(
   serverUrl: string,
-  data: { username: string; email: string; password: string; displayName?: string },
+  data: {
+    username: string
+    email: string
+    password: string
+    displayName?: string
+  },
   adminToken?: string,
 ): Promise<{ token: string; user: UserProfile }> {
-  return userFetch(serverUrl, "/user/register", { method: "POST", body: JSON.stringify(data), token: adminToken })
+  return userFetch(serverUrl, "/user/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+    token: adminToken,
+  })
 }
 
-export function userMe(serverUrl: string, token: string): Promise<UserProfile> {
-  return userFetch(serverUrl, "/user/me", { token })
+export async function userMe(
+  serverUrl: string,
+  token: string,
+  refresh?: () => Promise<string | null>,
+): Promise<UserProfile> {
+  try {
+    return await userFetch(serverUrl, "/user/me", { token })
+  } catch (error) {
+    if (!(error instanceof MobileResponseError) || error.status !== 401 || !refresh) throw error
+    const nextToken = await refresh()
+    if (!nextToken) throw error
+    return userFetch(serverUrl, "/user/me", { token: nextToken })
+  }
 }
 
 export function userLogoutApi(serverUrl: string, token: string): Promise<{ ok: boolean }> {
@@ -57,7 +86,11 @@ export function userUpdate(
   id: string,
   data: { displayName?: string; password?: string; role?: "admin" | "user" },
 ): Promise<UserProfile> {
-  return userFetch(serverUrl, `/user/${id}`, { method: "PATCH", body: JSON.stringify(data), token })
+  return userFetch(serverUrl, `/user/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+    token,
+  })
 }
 
 export function userDelete(serverUrl: string, token: string, id: string): Promise<{ ok: boolean }> {
@@ -78,6 +111,7 @@ export type ServerContextValue = {
   save(config: ServerConfig): Promise<void>
   clear(): Promise<void>
   setUserSession(token: string, user: UserProfile): Promise<void>
+  setOAuthSession(tokens: OAuthTokenTriple, user: UserProfile): Promise<void>
   signOut(): Promise<void>
 }
 

@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store"
+import { parseStoredTokenTriple, type OAuthTokenTriple } from "./oauth-core"
 import type {
   AppPreferences,
   ComposerPreferences,
@@ -13,6 +14,8 @@ import type {
 const SERVER_CONFIG_KEY = "nikcli_server_config"
 const APP_PREFERENCES_KEY = "nikcli_app_preferences"
 const USER_TOKEN_KEY = "nikcli_user_token"
+const OAUTH_TOKENS_KEY = "nikcli_oauth_tokens"
+const OAUTH_ISSUER_KEY = "nikcli_oauth_issuer"
 const REMEMBERED_USER_KEY = "nikcli_remembered_user"
 const LIVE_ACTIVITY_REGISTRY_KEY = "nikcli_live_activity_registry"
 const THEME_ID_KEY = "nikcli_theme_id"
@@ -78,6 +81,25 @@ export async function setUserToken(token: string): Promise<void> {
 
 export async function clearUserToken(): Promise<void> {
   await SecureStore.deleteItemAsync(USER_TOKEN_KEY)
+}
+
+export async function getOAuthTokens(): Promise<OAuthTokenTriple | null> {
+  return parseStoredTokenTriple(await SecureStore.getItemAsync(OAUTH_TOKENS_KEY))
+}
+
+export async function getOAuthIssuer(): Promise<string | null> {
+  return SecureStore.getItemAsync(OAUTH_ISSUER_KEY)
+}
+
+export async function setOAuthSession(tokens: OAuthTokenTriple, issuer: string): Promise<void> {
+  await Promise.all([
+    SecureStore.setItemAsync(OAUTH_TOKENS_KEY, JSON.stringify(tokens)),
+    SecureStore.setItemAsync(OAUTH_ISSUER_KEY, issuer),
+  ])
+}
+
+export async function clearOAuthSession(): Promise<void> {
+  await Promise.all([SecureStore.deleteItemAsync(OAUTH_TOKENS_KEY), SecureStore.deleteItemAsync(OAUTH_ISSUER_KEY)])
 }
 
 const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {

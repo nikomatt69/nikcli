@@ -4,11 +4,11 @@ import { getErrorMessage } from "../lib/studio-api"
 
 const DEFAULT_SERVER_URL = "https://s.nikcli.store"
 
-type Mode = "account" | "token"
+type Mode = "oauth" | "account" | "token"
 
 function LoginFormInner() {
-  const { login, connect, loading, error, serverUrl, setServerUrl } = useAuth()
-  const [mode, setMode] = useState<Mode>("account")
+  const { login, loginWithOAuth, connect, loading, error, serverUrl, setServerUrl } = useAuth()
+  const [mode, setMode] = useState<Mode>("oauth")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [token, setToken] = useState("")
@@ -30,7 +30,8 @@ function LoginFormInner() {
       return
     }
     try {
-      if (mode === "account") await login(email, password)
+      if (mode === "oauth") await loginWithOAuth()
+      else if (mode === "account") await login(email, password)
       else await connect(token)
       window.location.href = "/dashboard"
     } catch {
@@ -89,6 +90,9 @@ function LoginFormInner() {
           </div>
 
           <div className="flex gap-1 rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel p-1">
+            <button type="button" onClick={() => setMode("oauth")} className={tabClass(mode === "oauth")}>
+              Nikcli account
+            </button>
             <button type="button" onClick={() => setMode("account")} className={tabClass(mode === "account")}>
               Account
             </button>
@@ -97,7 +101,11 @@ function LoginFormInner() {
             </button>
           </div>
 
-          {mode === "account" ? (
+          {mode === "oauth" ? (
+            <p className="text-[13px] leading-6 text-terminal-muted">
+              Continue securely with GitHub or an email code through the configured Nikcli identity issuer.
+            </p>
+          ) : mode === "account" ? (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="block text-[13px] font-medium text-terminal-text">
@@ -163,7 +171,13 @@ function LoginFormInner() {
             disabled={loading}
             className="w-full rounded-[var(--radius-md)] bg-terminal-accent px-4 py-3 text-[13px] font-semibold text-terminal-bg transition-all duration-150 hover:opacity-90 disabled:opacity-50 active:scale-[0.97]"
           >
-            {loading ? "Connecting…" : mode === "account" ? "Sign in" : "Connect"}
+            {loading
+              ? "Connecting…"
+              : mode === "oauth"
+                ? "Continue with Nikcli"
+                : mode === "account"
+                  ? "Legacy sign in"
+                  : "Connect"}
           </button>
         </>
       )}

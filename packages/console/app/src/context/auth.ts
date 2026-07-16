@@ -4,13 +4,6 @@ import { UserTable } from "@nikcli-ai/console-core/schema/user.sql.js"
 import { redirect } from "@solidjs/router"
 import { Actor } from "@nikcli-ai/console-core/actor.js"
 
-import { createClient } from "@openauthjs/openauth/client"
-
-export const AuthClient = createClient({
-  clientID: "app",
-  issuer: import.meta.env.VITE_AUTH_URL,
-})
-
 import { useSession } from "@solidjs/start/http"
 import { Resource } from "@nikcli-ai/console-resource"
 
@@ -23,6 +16,12 @@ export interface AuthSession {
     }
   >
   current?: string
+  oauth?: {
+    state: string
+    verifier: string
+    callback: string
+    continueTo: string
+  }
 }
 
 export function useAuthSession() {

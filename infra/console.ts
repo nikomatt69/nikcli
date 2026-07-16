@@ -31,19 +31,7 @@ new sst.x.DevCommand("Studio", {
   },
 })
 
-////////////////
-// AUTH
-////////////////
-
-const GITHUB_CLIENT_ID_CONSOLE = new sst.Secret("GITHUB_CLIENT_ID_CONSOLE")
-const GITHUB_CLIENT_SECRET_CONSOLE = new sst.Secret("GITHUB_CLIENT_SECRET_CONSOLE")
-const authStorage = new sst.cloudflare.Kv("AuthStorage")
-export const auth = new sst.cloudflare.Worker("AuthApi", {
-  domain: `auth.${domain}`,
-  handler: "packages/console/function/src/auth.ts",
-  url: true,
-  link: [database, authStorage, GITHUB_CLIENT_ID_CONSOLE, GITHUB_CLIENT_SECRET_CONSOLE],
-})
+const authIssuer = process.env.NIKCLI_AUTH_ISSUER || "https://auth.nikcli.store"
 
 ////////////////
 // GATEWAY
@@ -105,9 +93,6 @@ const ZEN_MODELS = [
 const ZEN_BLACK = new sst.Secret("ZEN_BLACK")
 const STRIPE_SECRET_KEY = new sst.Secret("STRIPE_SECRET_KEY")
 const STRIPE_PUBLISHABLE_KEY = new sst.Secret("STRIPE_PUBLISHABLE_KEY")
-const AUTH_API_URL = new sst.Linkable("AUTH_API_URL", {
-  properties: { value: auth.url.apply((url) => url!) },
-})
 const STRIPE_WEBHOOK_SECRET = new sst.Linkable("STRIPE_WEBHOOK_SECRET", {
   properties: { value: stripeWebhook.secret },
 })
@@ -132,7 +117,6 @@ new sst.cloudflare.x.SolidStart("Console", {
   path: "packages/console/app",
   link: [
     database,
-    AUTH_API_URL,
     STRIPE_WEBHOOK_SECRET,
     STRIPE_SECRET_KEY,
     EMAILOCTOPUS_API_KEY,
@@ -152,7 +136,7 @@ new sst.cloudflare.x.SolidStart("Console", {
   environment: {
     //VITE_DOCS_URL: web.url.apply((url) => url!),
     //VITE_API_URL: gateway.url.apply((url) => url!),
-    VITE_AUTH_URL: auth.url.apply((url) => url!),
+    VITE_AUTH_URL: authIssuer,
     VITE_STRIPE_PUBLISHABLE_KEY: STRIPE_PUBLISHABLE_KEY.value,
   },
   transform: {

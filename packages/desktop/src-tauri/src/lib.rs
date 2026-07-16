@@ -23,8 +23,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tauri::{AppHandle, Manager, RunEvent, State, ipc::Channel};
-#[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, ipc::Channel};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_shell::process::CommandChild;
 use tokio::{
@@ -573,6 +572,24 @@ async fn initialize(app: AppHandle) {
 fn setup_app(app: &tauri::AppHandle, init_rx: watch::Receiver<InitStep>) {
     #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
     app.deep_link().register_all().ok();
+
+    let handle = app.clone();
+    app.deep_link().on_open_url(move |event| {
+        for url in event.urls() {
+            if url.scheme() != "nikcli"
+                || url.host_str() != Some("auth")
+                || url.path() != "/callback"
+            {
+                continue;
+            }
+            let _ = handle.emit("nikcli:auth-callback", url.to_string());
+            if let Some(window) = handle.get_webview_window(MainWindow::LABEL) {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }
+    });
 
     // Initialize log state
     app.manage(LogState(Arc::new(Mutex::new(VecDeque::new()))));

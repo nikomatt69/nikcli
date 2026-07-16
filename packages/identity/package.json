@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/identity",
+  "version": "1.169.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "test": "bun test",
+    "types": "wrangler types",
+    "typecheck": "wrangler types --check && tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "4.10.7",
+    "jose": "5.9.6"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.7",
+    "@types/node": "catalog:",
+    "typescript": "5.8.2",
+    "wrangler": "4.103.0"
+  }
+}

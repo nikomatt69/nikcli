@@ -51,6 +51,9 @@ export type Platform = {
   /** Fetch override */
   fetch?: typeof fetch
 
+  /** Fetch override for external services that must not receive server credentials */
+  externalFetch?: typeof fetch
+
   /** Get the configured default server URL (platform-specific) */
   getDefaultServerUrl?(): Promise<string | null> | string | null
 

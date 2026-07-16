@@ -173,7 +173,12 @@ export type FilePart = {
 }
 
 export type ToolState =
-  | { status: "pending"; input: Record<string, unknown>; raw: string; metadata?: Record<string, unknown> }
+  | {
+      status: "pending"
+      input: Record<string, unknown>
+      raw: string
+      metadata?: Record<string, unknown>
+    }
   | {
       status: "running"
       input: Record<string, unknown>
@@ -230,7 +235,12 @@ export type StepFinishPart = {
   type: "step-finish"
   reason: string
   cost: number
-  tokens: { input: number; output: number; reasoning: number; cache: { read: number; write: number } }
+  tokens: {
+    input: number
+    output: number
+    reasoning: number
+    cache: { read: number; write: number }
+  }
 }
 
 export type Part =
@@ -241,7 +251,13 @@ export type Part =
   | PatchPart
   | StepStartPart
   | StepFinishPart
-  | { id: string; sessionID: string; messageID: string; type: string; [key: string]: unknown }
+  | {
+      id: string
+      sessionID: string
+      messageID: string
+      type: string
+      [key: string]: unknown
+    }
 
 export type MessageWithParts = {
   info: Message
@@ -251,7 +267,10 @@ export type MessageWithParts = {
 export type SSEEvent =
   | { type: "message.part.updated"; properties: { part: Part; delta?: string } }
   | { type: "session.idle"; properties: { sessionID: string } }
-  | { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
+  | {
+      type: "session.status"
+      properties: { sessionID: string; status: SessionStatus }
+    }
   | { type: "session.created"; properties: { info: Session } }
   | { type: "session.updated"; properties: { info: Session } }
   | { type: "session.deleted"; properties: { info: Session } }
@@ -311,6 +330,8 @@ export type ModelRef = {
 
 export type ServerConfig = {
   url: string
+  /** OAuth issuer override for self-hosted deployments. */
+  authIssuer?: string
   /** Bearer token — takes precedence over username/password */
   token?: string
   /** Basic auth username */
@@ -711,7 +732,12 @@ export type GitState = {
   untracked: string[]
   commitsAhead: number
   commitsBehind: number
-  lastCommit?: { sha: string; message: string; author: string; timestamp: number }
+  lastCommit?: {
+    sha: string
+    message: string
+    author: string
+    timestamp: number
+  }
 }
 
 export type GitBranchInfo = {
@@ -741,27 +767,46 @@ export type SessionStreamEvent =
   | { type: "server.connected"; properties: { sessionID: string } }
   | { type: "server.heartbeat"; properties: { sessionID: string } }
   | { type: "message.updated"; properties: { info: Message } }
-  | { type: "message.removed"; properties: { sessionID: string; messageID: string } }
+  | {
+      type: "message.removed"
+      properties: { sessionID: string; messageID: string }
+    }
   | { type: "message.part.updated"; properties: { part: Part; delta?: string } }
-  | { type: "message.part.removed"; properties: { sessionID: string; messageID: string; partID: string } }
+  | {
+      type: "message.part.removed"
+      properties: { sessionID: string; messageID: string; partID: string }
+    }
   | { type: "session.updated"; properties: { info: Session } }
-  | { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
+  | {
+      type: "session.status"
+      properties: { sessionID: string; status: SessionStatus }
+    }
   | { type: "session.idle"; properties: { sessionID: string } }
   | {
       type: "session.error"
-      properties: { sessionID?: string; error?: { message?: string; data?: { message?: string } } }
+      properties: {
+        sessionID?: string
+        error?: { message?: string; data?: { message?: string } }
+      }
     }
   | { type: "permission.asked"; properties: PermissionRequest }
   | {
       type: "permission.replied"
-      properties: { sessionID: string; requestID: string; reply: "once" | "always" | "reject" }
+      properties: {
+        sessionID: string
+        requestID: string
+        reply: "once" | "always" | "reject"
+      }
     }
   | { type: "question.asked"; properties: QuestionRequest }
   | {
       type: "question.replied"
       properties: { sessionID: string; requestID: string; answers: string[][] }
     }
-  | { type: "question.rejected"; properties: { sessionID: string; requestID: string } }
+  | {
+      type: "question.rejected"
+      properties: { sessionID: string; requestID: string }
+    }
   | { type: string; properties: any }
 
 export type MobileAuthToken = {
@@ -843,7 +888,9 @@ export type RoutineCreateInput = {
   }
 }
 
-export type RoutineUpdateInput = Partial<RoutineCreateInput> & { paused?: boolean }
+export type RoutineUpdateInput = Partial<RoutineCreateInput> & {
+  paused?: boolean
+}
 
 // ── Loops ─────────────────────────────────────────────────────────────────────
 

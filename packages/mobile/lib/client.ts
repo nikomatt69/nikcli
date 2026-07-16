@@ -55,6 +55,16 @@ import type {
 
 type JsonObject = Record<string, unknown>
 
+export class MobileResponseError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = "MobileResponseError"
+  }
+}
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/$/, "")
 }
@@ -95,13 +105,17 @@ export async function parseMobileResponse<T>(response: Response, pathname: strin
 
   if (!response.ok) {
     const parsedMessage = parseErrorPayload(parsed)
-    if (parsedMessage) throw new Error(parsedMessage)
+    if (parsedMessage) throw new MobileResponseError(parsedMessage, response.status)
     if (isLikelyHtml(text)) {
-      throw new Error(
+      throw new MobileResponseError(
         `Request to ${pathname} returned HTML (${response.status}). Check the server URL, auth, and endpoint prefix.`,
+        response.status,
       )
     }
-    throw new Error(text.trim() || `Request to ${pathname} failed with ${response.status}`)
+    throw new MobileResponseError(
+      text.trim() || `Request to ${pathname} failed with ${response.status}`,
+      response.status,
+    )
   }
 
   if (parsed !== undefined) return parsed as T
@@ -183,10 +197,13 @@ export function normalizeTeleportBaseUrl(raw: string): string | null {
 }
 
 export class MobileClient {
-  constructor(private readonly config: ServerConfig) {}
+  constructor(
+    private readonly config: ServerConfig,
+    private readonly auth?: { onUnauthorized(): Promise<string | null> },
+  ) {}
 
   withDirectory(directory: string) {
-    return new MobileClient({ ...this.config, directory })
+    return new MobileClient({ ...this.config, directory }, this.auth)
   }
 
   headers(extra?: Record<string, string>) {
@@ -198,10 +215,22 @@ export class MobileClient {
   }
 
   async request<T>(pathname: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(this.url(pathname), {
+    let response = await fetch(this.url(pathname), {
       ...init,
       headers: this.headers(init?.headers as Record<string, string> | undefined),
     })
+    if (response.status === 401 && this.auth) {
+      const token = await this.auth.onUnauthorized()
+      if (token) {
+        response = await fetch(this.url(pathname), {
+          ...init,
+          headers: buildMobileHeaders(
+            { ...this.config, token, username: undefined, password: undefined },
+            init?.headers as Record<string, string> | undefined,
+          ),
+        })
+      }
+    }
     return parseMobileResponse<T>(response, pathname)
   }
 
@@ -900,7 +929,7 @@ export class MobileClient {
   }
 
   withToken(token: string): MobileClient {
-    return new MobileClient({ ...this.config, token })
+    return new MobileClient({ ...this.config, token }, this.auth)
   }
 
   get serverUrl(): string {

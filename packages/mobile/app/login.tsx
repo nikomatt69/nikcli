@@ -13,7 +13,8 @@ import {
   View,
 } from "react-native"
 import { Image } from "expo-image"
-import { useServer, userLogin, userRegister, userStatus } from "@/lib/server-context"
+import { useServer, userLogin, userMe, userRegister, userStatus } from "@/lib/server-context"
+import { loginWithOAuth } from "@/lib/oauth"
 import { router } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Mail } from "lucide-react-native"
@@ -80,13 +81,32 @@ function SuccessCheckmark({ visible }: { visible: boolean }) {
 
     if (visible) {
       Animated.parallel([
-        Animated.spring(scale, { toValue: 1, damping: 12, stiffness: 200, mass: 0.8, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(scale, {
+          toValue: 1,
+          damping: 12,
+          stiffness: 200,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
       ]).start()
     } else {
       Animated.parallel([
-        Animated.spring(scale, { toValue: 0, damping: 15, stiffness: 300, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+        Animated.spring(scale, {
+          toValue: 0,
+          damping: 15,
+          stiffness: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
       ]).start()
     }
   }, [visible, scale, opacity, prefersReducedMotion])
@@ -126,7 +146,7 @@ export default function LoginScreen() {
   const { palette, isDark } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
   const { top, bottom } = useSafeAreaInsets()
-  const { config, setUserSession } = useServer()
+  const { config, setOAuthSession, setUserSession } = useServer()
 
   const [tab, setTab] = useState<"login" | "register">("login")
   const [hasUsers, setHasUsers] = useState<boolean | null>(null)
@@ -140,6 +160,7 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState("")
 
   const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -171,7 +192,13 @@ export default function LoginScreen() {
 
       Animated.stagger(80, [
         Animated.parallel([
-          Animated.spring(logoScale, { toValue: 1, damping: 18, stiffness: 200, mass: 0.8, useNativeDriver: true }),
+          Animated.spring(logoScale, {
+            toValue: 1,
+            damping: 18,
+            stiffness: 200,
+            mass: 0.8,
+            useNativeDriver: true,
+          }),
           Animated.timing(logoOpacity, {
             toValue: 1,
             duration: 400,
@@ -223,12 +250,36 @@ export default function LoginScreen() {
       }
 
       Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 4, duration: 60, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+        Animated.timing(shakeAnim, {
+          toValue: 10,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shakeAnim, {
+          toValue: -10,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shakeAnim, {
+          toValue: 8,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shakeAnim, {
+          toValue: -8,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shakeAnim, {
+          toValue: 4,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shakeAnim, {
+          toValue: 0,
+          duration: 60,
+          useNativeDriver: true,
+        }),
       ]).start()
     }
   }, [error, prefersReducedMotion, shakeAnim])
@@ -268,6 +319,25 @@ export default function LoginScreen() {
     }
   }
 
+  async function handleOAuthLogin() {
+    if (!config) return
+    setError(null)
+    setOauthLoading(true)
+    try {
+      const tokens = await loginWithOAuth(config.authIssuer)
+      const user = await userMe(config.url, tokens.access)
+      setSuccess(true)
+      void triggerHaptic("success")
+      await setOAuthSession(tokens, user)
+      router.replace("/sessions")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "OAuth sign in failed")
+      void triggerHaptic("error")
+    } finally {
+      setOauthLoading(false)
+    }
+  }
+
   function handleRememberMeChange(value: boolean) {
     setRememberMe(value)
     void triggerHaptic("selection")
@@ -279,7 +349,14 @@ export default function LoginScreen() {
 
   if (checkingStatus) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: palette.background }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: palette.background,
+        }}
+      >
         <View style={{ alignItems: "center", gap: 16 }}>
           <View
             style={{
@@ -292,7 +369,15 @@ export default function LoginScreen() {
               opacity: 0.9,
             }}
           >
-            <Text style={{ color: isDark ? "#0a0a0a" : "#fff", fontWeight: "800", fontSize: 24 }}>N</Text>
+            <Text
+              style={{
+                color: isDark ? "#0a0a0a" : "#fff",
+                fontWeight: "800",
+                fontSize: 24,
+              }}
+            >
+              N
+            </Text>
           </View>
           <ActivityIndicator color={palette.accent} size="small" />
         </View>
@@ -328,7 +413,16 @@ export default function LoginScreen() {
           <View style={{ alignItems: "center", marginBottom: 32 }}>
             <AnimatedLogo scale={logoScale} opacity={logoOpacity} />
             <Animated.View style={{ opacity: logoOpacity }}>
-              <Text style={{ color: palette.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.5 }}>nikcli</Text>
+              <Text
+                style={{
+                  color: palette.ink,
+                  fontSize: 26,
+                  fontWeight: "700",
+                  letterSpacing: -0.5,
+                }}
+              >
+                nikcli
+              </Text>
             </Animated.View>
             <Animated.View style={{ opacity: logoOpacity, marginTop: 4 }}>
               <Text style={{ color: palette.muted, fontSize: 14 }}>
@@ -338,6 +432,50 @@ export default function LoginScreen() {
           </View>
 
           <AnimatedFormCard translateY={formTranslateY} opacity={formOpacity}>
+            <SurfaceCard className="p-5">
+              <View style={{ gap: 12 }}>
+                <Text
+                  style={{
+                    color: palette.ink,
+                    fontSize: 16,
+                    fontWeight: "700",
+                  }}
+                >
+                  Sign in with your Nikcli account
+                </Text>
+                <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 18 }}>
+                  Continue securely in your browser with GitHub or an email code.
+                </Text>
+                <ActionButton
+                  label={oauthLoading ? "" : "Continue with Nikcli"}
+                  loading={oauthLoading}
+                  onPress={handleOAuthLogin}
+                  disabled={oauthLoading || loading || !config}
+                />
+              </View>
+            </SurfaceCard>
+
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                marginVertical: 20,
+              }}
+            >
+              <View style={{ height: 1, flex: 1, backgroundColor: palette.border }} />
+              <Text
+                style={{
+                  color: palette.muted,
+                  fontSize: 11,
+                  fontWeight: "600",
+                }}
+              >
+                LEGACY PASSWORD ACCESS
+              </Text>
+              <View style={{ height: 1, flex: 1, backgroundColor: palette.border }} />
+            </View>
+
             {hasUsers !== false && (
               <View
                 style={{
@@ -419,10 +557,24 @@ export default function LoginScreen() {
                       <Mail size={18} color="#fff" strokeWidth={2} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "600",
+                          color: palette.ink,
+                        }}
+                      >
                         {rememberedUser.email}
                       </Text>
-                      <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>Tap to sign in</Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          color: palette.muted,
+                          marginTop: 2,
+                        }}
+                      >
+                        Tap to sign in
+                      </Text>
                     </View>
                     <View
                       style={{
@@ -432,7 +584,15 @@ export default function LoginScreen() {
                         backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
                       }}
                     >
-                      <Text style={{ fontSize: 10, fontWeight: "600", color: palette.muted }}>SAVED</Text>
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: "600",
+                          color: palette.muted,
+                        }}
+                      >
+                        SAVED
+                      </Text>
                     </View>
                   </Pressable>
                 )}
@@ -467,8 +627,22 @@ export default function LoginScreen() {
                   }}
                 >
                   <View>
-                    <Text style={{ fontSize: 14, fontWeight: "500", color: palette.ink }}>Remember me</Text>
-                    <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: palette.ink,
+                      }}
+                    >
+                      Remember me
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: palette.muted,
+                        marginTop: 2,
+                      }}
+                    >
                       Save email for faster sign in
                     </Text>
                   </View>

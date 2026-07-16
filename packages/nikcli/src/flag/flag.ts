@@ -53,6 +53,12 @@ export namespace Flag {
     : undefined
   export const NIKCLI_SERVER_TAILSCALE_AUTH = truthy("NIKCLI_SERVER_TAILSCALE_AUTH")
   export const NIKCLI_SERVER_TAILSCALE_USERS = process.env["NIKCLI_SERVER_TAILSCALE_USERS"]
+  export const NIKCLI_AUTH_ISSUER = process.env["NIKCLI_AUTH_ISSUER"]
+  export const NIKCLI_AUTH_JWKS_URL = process.env["NIKCLI_AUTH_JWKS_URL"]
+  export const NIKCLI_AUTH_AUDIENCE = process.env["NIKCLI_AUTH_AUDIENCE"] ?? "nikcli-api"
+  export const NIKCLI_AUTH_JWT_SECRET = process.env["NIKCLI_AUTH_JWT_SECRET"]
+  export const NIKCLI_REQUIRE_OAUTH = truthy("NIKCLI_REQUIRE_OAUTH")
+  export const NIKCLI_LEGACY_LOGIN = truthy("NIKCLI_LEGACY_LOGIN")
 
   // OpenTelemetry (OTLP) — standard env vars. Setting an endpoint enables export.
   export const OTEL_EXPORTER_OTLP_ENDPOINT = process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]

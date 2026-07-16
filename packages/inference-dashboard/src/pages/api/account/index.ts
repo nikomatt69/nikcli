@@ -1,9 +1,13 @@
 import type { APIRoute } from "astro"
 import { z } from "zod"
-import { AuthError, getSessionUser, readSessionCookie, updateUserPassword } from "../../../lib/auth"
+import { clearSessionCookie, getSessionUser, readSessionCookie } from "../../../lib/auth"
+import { getEnv } from "../../../lib/env"
 
 function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } })
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  })
 }
 
 const updateBody = z.object({
@@ -13,11 +17,8 @@ const updateBody = z.object({
 })
 
 async function getUser(ctx: any) {
-  const env = (ctx.locals as any).runtime?.env
-  const DB = env?.DB as D1Database | undefined
-  if (!DB) return null
   const sessionId = readSessionCookie(ctx.cookies)
-  return getSessionUser({ DB }, sessionId)
+  return getSessionUser(getEnv(ctx), sessionId)
 }
 
 export const PATCH: APIRoute = async (ctx) => {
@@ -43,22 +44,7 @@ export const PATCH: APIRoute = async (ctx) => {
   }
 
   if (parsed.currentPassword !== undefined || parsed.nextPassword !== undefined) {
-    if (!parsed.currentPassword || !parsed.nextPassword) {
-      return json({ error: "Current password and new password are required" }, 400)
-    }
-    try {
-      await updateUserPassword(
-        { DB },
-        {
-          userId: user.id,
-          currentPassword: parsed.currentPassword,
-          nextPassword: parsed.nextPassword,
-        },
-      )
-    } catch (e) {
-      if (e instanceof AuthError) return json({ error: e.message }, e.status)
-      throw e
-    }
+    return json({ error: "Password management has moved to the identity issuer" }, 410)
   }
 
   return json({ ok: true })
@@ -72,13 +58,11 @@ export const DELETE: APIRoute = async (ctx) => {
   const DB = env?.DB as D1Database
   if (!DB) return json({ error: "database_unavailable" }, 500)
 
-  // Delete cascade manually to avoid FK issues
   await DB.prepare("DELETE FROM usage_events WHERE user_id = ?").bind(user.id).run()
   await DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(user.id).run()
-  await DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run()
   await DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id).run()
 
-  ctx.cookies.delete("nik_session", { path: "/" })
+  clearSessionCookie(ctx.cookies)
 
   return json({ ok: true })
 }

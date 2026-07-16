@@ -1,5 +1,7 @@
 import z from "zod"
 import { UserDB } from "@/user/users"
+import { Flag } from "@/flag/flag"
+import { externalSessionForToken } from "@/server/identity-auth"
 
 /**
  * Instance-less `/user/*` handlers for the Effect backend.
@@ -57,13 +59,15 @@ export namespace UsersHttp {
     if (!scheme || !value) return
     if (scheme.toLowerCase() !== "bearer") return
     const v = value.trim()
-    if (!v.startsWith("nku_")) return
     return v
   }
 
-  function sessionFor(request: Request): { user: UserDB.PublicUser; token: string } | null {
+  async function sessionFor(request: Request): Promise<{ user: UserDB.PublicUser; token: string } | null> {
     const token = bearerToken(request)
     if (!token) return null
+    const external = await externalSessionForToken(token).catch(() => undefined)
+    if (external) return external
+    if (!token.startsWith("nku_")) return null
     const user = UserDB.verifySession(token)
     if (!user) return null
     return { user, token }
@@ -78,15 +82,23 @@ export namespace UsersHttp {
   }
 
   async function register(request: Request): Promise<Response> {
+    if (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN) {
+      return json({ error: "Password registration is disabled" }, 403)
+    }
     const parsed = RegisterInput.safeParse(await readJson(request))
     if (!parsed.success) {
-      return json({ error: parsed.error.issues[0]?.message ?? "Invalid registration payload" }, 400)
+      return json(
+        {
+          error: parsed.error.issues[0]?.message ?? "Invalid registration payload",
+        },
+        400,
+      )
     }
     const body = parsed.data
 
     // Only allow registration if: no users exist OR caller is admin.
     if (UserDB.hasUsers()) {
-      const session = sessionFor(request)
+      const session = await sessionFor(request)
       if (!session || session.user.role !== "admin") {
         return json({ error: "Only admins can create new users" }, 403)
       }
@@ -112,6 +124,9 @@ export namespace UsersHttp {
   }
 
   async function login(request: Request): Promise<Response> {
+    if (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN) {
+      return json({ error: "Password login is disabled" }, 403)
+    }
     const parsed = LoginInput.safeParse(await readJson(request))
     if (!parsed.success) {
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid login payload" }, 400)
@@ -124,15 +139,15 @@ export namespace UsersHttp {
     return json({ token, user: UserDB.toPublic(user) })
   }
 
-  function logout(request: Request): Response {
-    const session = sessionFor(request)
+  async function logout(request: Request): Promise<Response> {
+    const session = await sessionFor(request)
     if (!session) return json({ error: "Unauthorized" }, 401)
-    UserDB.revokeSession(session.token)
+    if (session.token.startsWith("nku_")) UserDB.revokeSession(session.token)
     return json({ ok: true })
   }
 
-  function me(request: Request): Response {
-    const session = sessionFor(request)
+  async function me(request: Request): Promise<Response> {
+    const session = await sessionFor(request)
     if (!session) return json({ error: "Unauthorized" }, 401)
     return json(session.user)
   }
@@ -141,15 +156,15 @@ export namespace UsersHttp {
     return json({ hasUsers: UserDB.hasUsers() })
   }
 
-  function list(request: Request): Response {
-    const session = sessionFor(request)
+  async function list(request: Request): Promise<Response> {
+    const session = await sessionFor(request)
     if (!session) return json({ error: "Unauthorized" }, 401)
     if (session.user.role !== "admin") return json({ error: "Forbidden" }, 403)
     return json(UserDB.listUsers())
   }
 
   async function update(request: Request, id: string): Promise<Response> {
-    const session = sessionFor(request)
+    const session = await sessionFor(request)
     if (!session) return json({ error: "Unauthorized" }, 401)
 
     const isSelf = session.user.id === id
@@ -167,7 +182,12 @@ export namespace UsersHttp {
       const targetUser = UserDB.findById(id)
       if (!targetUser) return json({ error: "User not found" }, 404)
       if (!UserDB.isAdminEmail(targetUser.email)) {
-        return json({ error: "This email address is not authorized to hold the admin role" }, 403)
+        return json(
+          {
+            error: "This email address is not authorized to hold the admin role",
+          },
+          403,
+        )
       }
     }
 
@@ -182,8 +202,8 @@ export namespace UsersHttp {
     }
   }
 
-  function remove(request: Request, id: string): Response {
-    const session = sessionFor(request)
+  async function remove(request: Request, id: string): Promise<Response> {
+    const session = await sessionFor(request)
     if (!session) return json({ error: "Unauthorized" }, 401)
     if (session.user.role !== "admin") return json({ error: "Forbidden" }, 403)
     if (id === session.user.id) return json({ error: "Cannot delete yourself" }, 400)

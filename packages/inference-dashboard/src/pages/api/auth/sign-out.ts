@@ -1,13 +1,20 @@
 import type { APIRoute } from "astro"
-import { clearSessionCookie, destroySession, readSessionCookie } from "../../../lib/auth"
+import { clearSessionCookie, REFRESH_COOKIE } from "../../../lib/auth"
+import { getEnv } from "../../../lib/env"
 
 export const POST: APIRoute = async (ctx) => {
-  const sessionId = readSessionCookie(ctx.cookies)
-  if (sessionId) {
-    const env = (ctx.locals as any).runtime?.env
-    const DB = env?.DB as D1Database | undefined
-    if (DB) await destroySession({ DB }, sessionId)
+  const refresh = ctx.cookies.get(REFRESH_COOKIE)?.value
+  if (refresh) {
+    const env = getEnv(ctx)
+    const issuer = (env.AUTH_ISSUER || "https://auth.nikcli.store").replace(/\/$/, "")
+    await fetch(`${issuer}/revoke`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refresh }),
+    }).catch(() => undefined)
   }
   clearSessionCookie(ctx.cookies)
-  return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } })
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: { "Content-Type": "application/json" },
+  })
 }

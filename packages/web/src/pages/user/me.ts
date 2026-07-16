@@ -11,7 +11,10 @@ export const GET: APIRoute = async (context) => {
   const authServer = (env?.NIKCLI_AUTH_SERVER || DEFAULT_NIKCLI_AUTH_SERVER).replace(/\/$/, "")
   const authorization = context.request.headers.get("Authorization")
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : cookieToken(context.request)
-  if (!token?.startsWith("nku_")) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })
+  if (!token)
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    })
 
   try {
     const upstream = await fetch(`${authServer}/user/me`, {
@@ -19,7 +22,9 @@ export const GET: APIRoute = async (context) => {
     })
     return new Response(upstream.body, {
       status: upstream.status,
-      headers: { "Content-Type": upstream.headers.get("Content-Type") || "application/json" },
+      headers: {
+        "Content-Type": upstream.headers.get("Content-Type") || "application/json",
+      },
     })
   } catch {
     return new Response(JSON.stringify({ error: "Account server unavailable" }), {
