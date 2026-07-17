@@ -35,8 +35,8 @@ type AttachmentItemDef = {
 const ATTACHMENT_ITEMS: AttachmentItemDef[] = [
   {
     id: "photo-library",
-    title: "Photo Library",
-    description: "JPG, PNG, HEIC, GIF from your photos",
+    title: "Photos & Videos",
+    description: "JPG, PNG, HEIC, GIF and videos from your library",
     icon: Image,
   },
   {
@@ -108,16 +108,19 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
 
   const handlePhotoLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ["images", "videos"],
       base64: true,
       quality: 0.85,
     })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
-    if (!asset.base64) return
-    const mime = asset.mimeType ?? "image/jpeg"
-    const filename = asset.fileName ?? `image_${Date.now()}.jpg`
-    handleFileSelected(mime, filename, asset.base64, asset.uri)
+    const isVideo = asset.type === "video"
+    // `base64` is only populated for images; videos are read from disk.
+    const base64 = asset.base64 ?? (await new File(asset.uri).base64())
+    if (!base64) return
+    const mime = asset.mimeType ?? (isVideo ? "video/mp4" : "image/jpeg")
+    const filename = asset.fileName ?? (isVideo ? `video_${Date.now()}.mp4` : `image_${Date.now()}.jpg`)
+    handleFileSelected(mime, filename, base64, asset.uri)
   }
 
   const handleCamera = async () => {

@@ -8,22 +8,19 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from "react-native"
 import { Image } from "expo-image"
-import { useServer, userLogin, userMe, userRegister, userStatus } from "@/lib/server-context"
+import { useServer, userMe, userStatus } from "@/lib/server-context"
 import { loginWithOAuth } from "@/lib/oauth"
 import { router } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Mail } from "lucide-react-native"
+import { KeyRound } from "lucide-react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
-import { TextField } from "@/components/ui/TextField"
 import { useAppTheme } from "@/lib/theme"
-import { getRememberedUser, setRememberedUser, clearRememberedUser, type RememberedUser } from "@/lib/storage"
 import { triggerHaptic } from "@/lib/haptics"
 import { usePrefersReducedMotion } from "@/lib/animation"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -146,20 +143,11 @@ export default function LoginScreen() {
   const { palette, isDark } = useAppTheme()
   const prefersReducedMotion = usePrefersReducedMotion()
   const { top, bottom } = useSafeAreaInsets()
-  const { config, setOAuthSession, setUserSession } = useServer()
+  const { config, setOAuthSession } = useServer()
 
-  const [tab, setTab] = useState<"login" | "register">("login")
-  const [hasUsers, setHasUsers] = useState<boolean | null>(null)
+  const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [checkingStatus, setCheckingStatus] = useState(true)
-  const [rememberedUser, setRememberedUserState] = useState<RememberedUser | null>(null)
-  const [rememberMe, setRememberMe] = useState(true)
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [username, setUsername] = useState("")
-  const [displayName, setDisplayName] = useState("")
-
-  const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -226,20 +214,12 @@ export default function LoginScreen() {
     if (!config) return
     setCheckingStatus(true)
     userStatus(config.url)
-      .then(({ hasUsers: hu }) => {
-        setHasUsers(hu)
-        setTab(hu ? "login" : "register")
+      .then(({ hasUsers }) => {
+        // A server without registered users starts on sign up.
+        setMode(hasUsers ? "signin" : "signup")
       })
-      .catch(() => setHasUsers(true))
+      .catch(() => setMode("signin"))
       .finally(() => setCheckingStatus(false))
-
-    void (async () => {
-      const user = await getRememberedUser()
-      if (user) {
-        setRememberedUserState(user)
-        setEmail(user.email)
-      }
-    })()
   }, [config])
 
   useEffect(() => {
@@ -284,42 +264,7 @@ export default function LoginScreen() {
     }
   }, [error, prefersReducedMotion, shakeAnim])
 
-  async function handleSubmit() {
-    if (!config) return
-    setError(null)
-    setLoading(true)
-    try {
-      let result: { token: string; user: any }
-      if (tab === "login") {
-        result = await userLogin(config.url, email.trim(), password)
-      } else {
-        result = await userRegister(config.url, {
-          username: username.trim(),
-          email: email.trim(),
-          password,
-          displayName: displayName.trim() || undefined,
-        })
-      }
-
-      if (rememberMe && email.trim()) {
-        await setRememberedUser(email.trim())
-      } else {
-        await clearRememberedUser()
-      }
-
-      setSuccess(true)
-      void triggerHaptic("success")
-      await setUserSession(result.token, result.user)
-      router.replace("/sessions")
-    } catch (err: any) {
-      setError(err.message || "Something went wrong")
-      void triggerHaptic("error")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleOAuthLogin() {
+  async function handleOAuth() {
     if (!config) return
     setError(null)
     setOauthLoading(true)
@@ -331,20 +276,17 @@ export default function LoginScreen() {
       await setOAuthSession(tokens, user)
       router.replace("/sessions")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "OAuth sign in failed")
+      setError(err instanceof Error ? err.message : mode === "signup" ? "Sign up failed" : "Sign in failed")
       void triggerHaptic("error")
     } finally {
       setOauthLoading(false)
     }
   }
 
-  function handleRememberMeChange(value: boolean) {
-    setRememberMe(value)
+  function toggleMode() {
+    setMode((current) => (current === "signin" ? "signup" : "signin"))
+    setError(null)
     void triggerHaptic("selection")
-    if (!value) {
-      void clearRememberedUser()
-      setRememberedUserState(null)
-    }
   }
 
   if (checkingStatus) {
@@ -385,7 +327,7 @@ export default function LoginScreen() {
     )
   }
 
-  const isLogin = tab === "login"
+  const isSignup = mode === "signup"
 
   return (
     <KeyboardAvoidingView
@@ -426,7 +368,7 @@ export default function LoginScreen() {
             </Animated.View>
             <Animated.View style={{ opacity: logoOpacity, marginTop: 4 }}>
               <Text style={{ color: palette.muted, fontSize: 14 }}>
-                {hasUsers === false ? "Create your account to get started" : "Sign in to your account"}
+                {isSignup ? "Create your account to get started" : "Sign in to your account"}
               </Text>
             </Animated.View>
           </View>
@@ -441,231 +383,83 @@ export default function LoginScreen() {
                     fontWeight: "700",
                   }}
                 >
-                  Sign in with your Nikcli account
+                  {isSignup ? "Sign up with Nikcli" : "Sign in with Nikcli"}
                 </Text>
                 <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 18 }}>
-                  Continue securely in your browser with GitHub or an email code.
+                  {isSignup
+                    ? "Create your Nikcli account securely in your browser with GitHub or an email code."
+                    : "Continue securely in your browser with GitHub or an email code."}
                 </Text>
-                <ActionButton
-                  label={oauthLoading ? "" : "Continue with Nikcli"}
-                  loading={oauthLoading}
-                  onPress={handleOAuthLogin}
-                  disabled={oauthLoading || loading || !config}
-                />
-              </View>
-            </SurfaceCard>
-
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                marginVertical: 20,
-              }}
-            >
-              <View style={{ height: 1, flex: 1, backgroundColor: palette.border }} />
-              <Text
-                style={{
-                  color: palette.muted,
-                  fontSize: 11,
-                  fontWeight: "600",
-                }}
-              >
-                LEGACY PASSWORD ACCESS
-              </Text>
-              <View style={{ height: 1, flex: 1, backgroundColor: palette.border }} />
-            </View>
-
-            {hasUsers !== false && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-                  borderRadius: 14,
-                  padding: 4,
-                  marginBottom: 20,
-                }}
-              >
-                {(["login", "register"] as const).map((t) => (
-                  <View key={t} style={{ flex: 1 }}>
-                    <ActionButton
-                      label={t === "login" ? "Sign in" : "Create account"}
-                      variant={tab === t ? "secondary" : "ghost"}
-                      onPress={() => {
-                        setTab(t)
-                        void triggerHaptic("selection")
-                      }}
-                      style={{ minHeight: 40, borderRadius: 10 }}
-                    />
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <SurfaceCard className="p-5">
-              <View style={{ gap: 16 }}>
-                {!isLogin && (
-                  <>
-                    <TextField
-                      label="Username"
-                      value={username}
-                      onChangeText={setUsername}
-                      placeholder="yourname"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      returnKeyType="next"
-                    />
-                    <TextField
-                      label="Display name (optional)"
-                      value={displayName}
-                      onChangeText={setDisplayName}
-                      placeholder="Your Name"
-                      returnKeyType="next"
-                    />
-                  </>
-                )}
-
-                {isLogin && rememberedUser && (
-                  <Pressable
-                    onPress={() => {
-                      setEmail(rememberedUser.email)
-                      void triggerHaptic("selection")
-                    }}
-                    style={({ pressed }) => ({
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: 14,
-                      borderRadius: 14,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                      borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)",
-                      opacity: pressed ? 0.7 : 1,
-                      transform: [{ scale: pressed ? 0.98 : 1 }],
-                    })}
-                  >
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: palette.accent,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Mail size={18} color="#fff" strokeWidth={2} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: "600",
-                          color: palette.ink,
-                        }}
-                      >
-                        {rememberedUser.email}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          color: palette.muted,
-                          marginTop: 2,
-                        }}
-                      >
-                        Tap to sign in
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        borderRadius: 8,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 10,
-                          fontWeight: "600",
-                          color: palette.muted,
-                        }}
-                      >
-                        SAVED
-                      </Text>
-                    </View>
-                  </Pressable>
-                )}
-
-                <TextField
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-
-                <TextField
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder={isLogin ? "" : "At least 8 characters"}
-                  secureTextEntry
-                  returnKeyType="done"
-                  onSubmitEditing={handleSubmit}
-                />
-
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingVertical: 4,
-                  }}
-                >
-                  <View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "500",
-                        color: palette.ink,
-                      }}
-                    >
-                      Remember me
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        color: palette.muted,
-                        marginTop: 2,
-                      }}
-                    >
-                      Save email for faster sign in
-                    </Text>
-                  </View>
-                  <Switch
-                    value={rememberMe}
-                    onValueChange={handleRememberMeChange}
-                    trackColor={{ false: palette.border, true: palette.accent }}
-                    thumbColor="#fff"
-                  />
-                </View>
 
                 <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
                   {error ? <ErrorBanner message={error} /> : null}
                 </Animated.View>
 
                 <ActionButton
-                  label={loading ? "" : isLogin ? "Sign in" : "Create account"}
-                  loading={loading}
-                  onPress={handleSubmit}
-                  disabled={loading || !email || !password || (!isLogin && !username)}
-                  style={{ marginTop: 4 }}
+                  label={oauthLoading ? "" : isSignup ? "Sign up with Nikcli" : "Sign in with Nikcli"}
+                  loading={oauthLoading}
+                  onPress={handleOAuth}
+                  disabled={oauthLoading || !config}
                 />
+
+                <Pressable
+                  onPress={toggleMode}
+                  accessibilityRole="button"
+                  accessibilityLabel={isSignup ? "Switch to sign in" : "Switch to sign up"}
+                  hitSlop={8}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, alignSelf: "center", paddingVertical: 4 })}
+                >
+                  <Text style={{ color: palette.muted, fontSize: 12 }}>
+                    {isSignup ? (
+                      <>
+                        Already have an account?{" "}
+                        <Text style={{ color: palette.accentLight, fontWeight: "600" }}>Sign in</Text>
+                      </>
+                    ) : (
+                      <>
+                        New to nikcli?{" "}
+                        <Text style={{ color: palette.accentLight, fontWeight: "600" }}>Sign up</Text>
+                      </>
+                    )}
+                  </Text>
+                </Pressable>
               </View>
+            </SurfaceCard>
+
+            <SurfaceCard className="mt-4 p-5" tone="panel">
+              <Pressable
+                onPress={() => {
+                  void triggerHaptic("selection")
+                  router.replace("/connect")
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Connect with a host mobile token"
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <KeyRound size={18} color={palette.accentLight} strokeWidth={2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>Use a host mobile token</Text>
+                  <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>
+                    Pair with your host using an nkm_ token instead of an account
+                  </Text>
+                </View>
+              </Pressable>
             </SurfaceCard>
           </AnimatedFormCard>
 

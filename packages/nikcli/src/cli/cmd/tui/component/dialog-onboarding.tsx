@@ -1,56 +1,71 @@
-import { TextAttributes, type TextareaRenderable } from "@opentui/core"
-import { batch, createMemo, createSignal, For, onMount, Show, Switch, Match } from "solid-js"
-import { createStore } from "solid-js/store"
-import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { useTheme } from "@tui/context/theme"
-import { useDialog, type DialogContext } from "@tui/ui/dialog"
-import { DialogProvider as DialogProviderList } from "@tui/component/dialog-provider"
-import { Spinner } from "@tui/component/spinner"
-import { UserDB } from "@/user/users"
-import { Global } from "@/global"
-import { useSync } from "@tui/context/sync"
-import { useSDK } from "@tui/context/sdk"
-import { useToast } from "@tui/ui/toast"
-import { entries, sortBy } from "remeda"
-import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@/tool/speak/elevenlabs"
-import { OPENROUTER_VOICES_LIST, openRouterProvider } from "@/tool/speak/openrouter"
-import { ttsRegistry, type TTSVoice } from "@/tool/speak/provider"
-import { DialogPrompt } from "@tui/ui/dialog-prompt"
-import path from "path"
-import fs from "fs/promises"
+import { TextAttributes, type TextareaRenderable } from "@opentui/core";
+import {
+  batch,
+  createMemo,
+  createSignal,
+  For,
+  onMount,
+  Show,
+  Switch,
+  Match,
+} from "solid-js";
+import { createStore } from "solid-js/store";
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid";
+import { useTheme } from "@tui/context/theme";
+import { useDialog, type DialogContext } from "@tui/ui/dialog";
+import { DialogProvider as DialogProviderList } from "@tui/component/dialog-provider";
+import { DialogAccountLogin } from "@tui/component/dialog-account-login";
+import { Spinner } from "@tui/component/spinner";
+import { Global } from "@/global";
+import { useSync } from "@tui/context/sync";
+import { useSDK } from "@tui/context/sdk";
+import { useToast } from "@tui/ui/toast";
+import { entries, sortBy } from "remeda";
+import {
+  ELEVENLABS_VOICES_LIST,
+  elevenLabsProvider,
+} from "@/tool/speak/elevenlabs";
+import {
+  OPENROUTER_VOICES_LIST,
+  openRouterProvider,
+} from "@/tool/speak/openrouter";
+import { ttsRegistry, type TTSVoice } from "@/tool/speak/provider";
+import { DialogPrompt } from "@tui/ui/dialog-prompt";
+import path from "path";
+import fs from "fs/promises";
 
 // Register TTS providers in the registry so we can enumerate them in the
 // onboarding wizard. The dedicated speak dialog does the same on import, but
 // the wizard must work even if DialogSpeakModel has not been mounted yet.
-ttsRegistry.register(elevenLabsProvider)
-ttsRegistry.register(openRouterProvider)
+ttsRegistry.register(elevenLabsProvider);
+ttsRegistry.register(openRouterProvider);
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
+  if (error instanceof Error) return error.message;
   if (
     typeof error === "object" &&
     error !== null &&
     "message" in error &&
     typeof (error as { message?: unknown }).message === "string"
   ) {
-    return (error as { message: string }).message
+    return (error as { message: string }).message;
   }
-  return String(error)
+  return String(error);
 }
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
 function SectionLabel(props: { title: string }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <text fg={theme.accent} attributes={TextAttributes.BOLD}>
       {props.title}
     </text>
-  )
+  );
 }
 
 function BulletRow(props: { text: string }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box flexDirection="row" gap={1}>
       <text flexShrink={0} fg={theme.success}>
@@ -60,11 +75,16 @@ function BulletRow(props: { text: string }) {
         {props.text}
       </text>
     </box>
-  )
+  );
 }
 
-function TwoColRow(props: { width: number; label: string; desc: string; labelFg?: string }) {
-  const { theme } = useTheme()
+function TwoColRow(props: {
+  width: number;
+  label: string;
+  desc: string;
+  labelFg?: string;
+}) {
+  const { theme } = useTheme();
   return (
     <box flexDirection="row">
       <box width={props.width} flexShrink={0}>
@@ -74,7 +94,7 @@ function TwoColRow(props: { width: number; label: string; desc: string; labelFg?
         {props.desc}
       </text>
     </box>
-  )
+  );
 }
 
 // ─── Step breadcrumb ──────────────────────────────────────────────────────────
@@ -90,7 +110,7 @@ const STEP_NAMES = [
   "Browser",
   "Remote",
   "Test",
-]
+];
 
 // Step indices — keep in sync with STEP_NAMES above
 const STEP = {
@@ -104,12 +124,12 @@ const STEP = {
   BROWSER: 7,
   REMOTE: 8,
   TEST: 9,
-} as const
+} as const;
 
-type FeatureKey = "image" | "tts" | "browser" | "remote"
+type FeatureKey = "image" | "tts" | "browser" | "remote";
 
 function WizardBreadcrumb(props: { current: number; total: number }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box flexDirection="row" flexWrap="wrap">
       <For each={STEP_NAMES}>
@@ -117,7 +137,9 @@ function WizardBreadcrumb(props: { current: number; total: number }) {
           <Show when={i() < props.total}>
             <text
               fg={i() === props.current ? theme.primary : theme.borderSubtle}
-              attributes={i() === props.current ? TextAttributes.BOLD : undefined}
+              attributes={
+                i() === props.current ? TextAttributes.BOLD : undefined
+              }
             >
               {i() > 0 ? "  ·  " : ""}
               {i() + 1}. {name}
@@ -126,7 +148,7 @@ function WizardBreadcrumb(props: { current: number; total: number }) {
         )}
       </For>
     </box>
-  )
+  );
 }
 
 // ─── Step 1: Welcome ──────────────────────────────────────────────────────────
@@ -139,7 +161,7 @@ const CAPABILITIES = [
   "Work in parallel sessions across multiple workspaces",
   "Run proactive background agents via Brain sessions",
   "Extend capabilities via MCP server integrations",
-]
+];
 
 const CONCEPTS = [
   {
@@ -166,15 +188,16 @@ const CONCEPTS = [
     label: "Commands",
     desc: "Ctrl+P or / in the prompt — access every feature, setting and navigation action.",
   },
-]
+];
 
 function WelcomeContent() {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        A terminal-native AI coding assistant. Chat with AI models, run autonomous agents and automate development tasks
-        — all without leaving your terminal.
+        A terminal-native AI coding assistant. Chat with AI models, run
+        autonomous agents and automate development tasks — all without leaving
+        your terminal.
       </text>
       <box gap={1}>
         <SectionLabel title="What you can do" />
@@ -185,185 +208,44 @@ function WelcomeContent() {
       <box gap={1}>
         <SectionLabel title="Core concepts" />
         <box gap={1}>
-          <For each={CONCEPTS}>{(c) => <TwoColRow width={12} label={c.label} desc={c.desc} />}</For>
+          <For each={CONCEPTS}>
+            {(c) => <TwoColRow width={12} label={c.label} desc={c.desc} />}
+          </For>
         </box>
       </box>
     </box>
-  )
-}
-
-// ─── Step 2: Account creation ─────────────────────────────────────────────────
-
-const ACCOUNT_FIELDS = [
-  {
-    key: "username" as const,
-    title: "Choose a username",
-    placeholder: "At least 2 characters",
-  },
-  {
-    key: "email" as const,
-    title: "Your email address",
-    placeholder: "your@email.com",
-  },
-  {
-    key: "password" as const,
-    title: "Create a password",
-    placeholder: "At least 8 characters",
-  },
-]
-
-function AccountFieldInput(props: { placeholder: string; onSubmit: (val: string) => void }) {
-  const { theme } = useTheme()
-  let textarea!: TextareaRenderable
-
-  onMount(() => {
-    setTimeout(() => {
-      if (!textarea.isDestroyed) textarea.focus()
-    }, 1)
-  })
-
-  return (
-    <textarea
-      height={3}
-      keyBindings={[{ name: "return", action: "submit" }]}
-      onSubmit={() => props.onSubmit(textarea.plainText)}
-      ref={(r: TextareaRenderable) => {
-        textarea = r
-      }}
-      placeholder={props.placeholder}
-      textColor={theme.text}
-      focusedTextColor={theme.text}
-      cursorColor={theme.primary}
-    />
-  )
-}
-
-function AccountContent(props: {
-  onComplete: () => void
-  setError: (msg: string | null) => void
-  error: string | null
-  busy: boolean
-  setBusy: (v: boolean) => void
-}) {
-  const { theme } = useTheme()
-  const [fieldIdx, setFieldIdx] = createSignal(0)
-  const [values, setValues] = createStore({
-    username: "",
-    email: "",
-    password: "",
-  })
-  const fieldDef = createMemo(() => ACCOUNT_FIELDS[fieldIdx()]!)
-
-  const handleSubmit = async (raw: string) => {
-    const val = raw.trim()
-    props.setError(null)
-
-    if (fieldDef().key === "username" && val.length < 2) {
-      props.setError("Username must be at least 2 characters")
-      return
-    }
-    if (fieldDef().key === "email" && !val.includes("@")) {
-      props.setError("Please enter a valid email address")
-      return
-    }
-    if (fieldDef().key === "password" && val.length < 8) {
-      props.setError("Password must be at least 8 characters")
-      return
-    }
-
-    setValues(fieldDef().key, raw)
-
-    if (fieldIdx() < ACCOUNT_FIELDS.length - 1) {
-      setFieldIdx((i) => i + 1)
-      return
-    }
-
-    props.setBusy(true)
-    try {
-      const user = await UserDB.create({
-        username: values.username.trim(),
-        email: values.email.trim().toLowerCase(),
-        password: values.password,
-      })
-      const token = UserDB.createSession(user.id, 30)
-      await UserDB.saveActiveSession(token)
-      props.onComplete()
-    } catch (err: unknown) {
-      props.setError(err instanceof Error ? err.message : "Account creation failed")
-    } finally {
-      props.setBusy(false)
-    }
-  }
-
-  return (
-    <box gap={1}>
-      <box flexDirection="row" gap={2}>
-        <text fg={theme.textMuted}>
-          Field <span style={{ fg: theme.primary }}>{fieldIdx() + 1}</span>
-          {" of "}
-          <span style={{ fg: theme.primary }}>{ACCOUNT_FIELDS.length}</span>
-        </text>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          {fieldDef().title}
-        </text>
-      </box>
-
-      <Show when={props.error}>
-        <text fg={theme.error}>{props.error}</text>
-      </Show>
-
-      <Show
-        when={!props.busy}
-        fallback={
-          <box height={3} flexDirection="row" alignItems="center" gap={1}>
-            <Spinner>Creating your account…</Spinner>
-          </box>
-        }
-      >
-        <Switch>
-          <Match when={fieldIdx() === 0}>
-            <AccountFieldInput placeholder={ACCOUNT_FIELDS[0]!.placeholder} onSubmit={handleSubmit} />
-          </Match>
-          <Match when={fieldIdx() === 1}>
-            <AccountFieldInput placeholder={ACCOUNT_FIELDS[1]!.placeholder} onSubmit={handleSubmit} />
-          </Match>
-          <Match when={fieldIdx() === 2}>
-            <AccountFieldInput placeholder={ACCOUNT_FIELDS[2]!.placeholder} onSubmit={handleSubmit} />
-          </Match>
-        </Switch>
-      </Show>
-
-      <Show when={!props.busy}>
-        <text fg={theme.textMuted}>
-          enter <span style={{ fg: theme.textMuted }}>submit</span>
-        </text>
-      </Show>
-    </box>
-  )
+  );
 }
 
 // ─── Step 3: Filesystem Footprint ─────────────────────────────────────────────
 
 function shortenPath(absPath: string): string {
-  const home = Global.Path.home
-  if (absPath.startsWith(home)) return "~" + absPath.slice(home.length)
-  return absPath
+  const home = Global.Path.home;
+  if (absPath.startsWith(home)) return "~" + absPath.slice(home.length);
+  return absPath;
 }
 
 function FsRow(props: {
-  indent: number
-  path: string
-  desc: string
-  icon?: string
-  iconFg?: string
-  sensitive?: boolean
-  ephemeral?: boolean
+  indent: number;
+  path: string;
+  desc: string;
+  icon?: string;
+  iconFg?: string;
+  sensitive?: boolean;
+  ephemeral?: boolean;
 }) {
-  const { theme } = useTheme()
-  const icon = props.icon ?? (props.sensitive ? "●" : props.ephemeral ? "◦" : "·")
-  const iconFg = props.iconFg ?? (props.sensitive ? theme.warning : props.ephemeral ? theme.textMuted : theme.textMuted)
-  const pathFg = theme.text
-  const indent = "  ".repeat(props.indent)
+  const { theme } = useTheme();
+  const icon =
+    props.icon ?? (props.sensitive ? "●" : props.ephemeral ? "◦" : "·");
+  const iconFg =
+    props.iconFg ??
+    (props.sensitive
+      ? theme.warning
+      : props.ephemeral
+        ? theme.textMuted
+        : theme.textMuted);
+  const pathFg = theme.text;
+  const indent = "  ".repeat(props.indent);
   return (
     <box flexDirection="row">
       <text flexShrink={0} fg={theme.borderSubtle}>
@@ -380,11 +262,11 @@ function FsRow(props: {
         {props.desc}
       </text>
     </box>
-  )
+  );
 }
 
 function FsSectionHeader(props: { title: string; subtitle: string }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={0}>
       <text fg={theme.accent} attributes={TextAttributes.BOLD}>
@@ -392,30 +274,41 @@ function FsSectionHeader(props: { title: string; subtitle: string }) {
       </text>
       <text fg={theme.textMuted}>{props.subtitle}</text>
     </box>
-  )
+  );
 }
 
-const dataRoot = shortenPath(Global.Path.data)
-const configRoot = shortenPath(Global.Path.config)
-const cacheRoot = shortenPath(Global.Path.cache)
-const stateRoot = shortenPath(Global.Path.state)
+const dataRoot = shortenPath(Global.Path.data);
+const configRoot = shortenPath(Global.Path.config);
+const cacheRoot = shortenPath(Global.Path.cache);
+const stateRoot = shortenPath(Global.Path.state);
 
 function FilesystemContent() {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Nikcli stores all data under standard XDG directories. Nothing hidden outside these locations. All data stays on
-        your machine — no telemetry.
+        Nikcli stores all data under standard XDG directories. Nothing hidden
+        outside these locations. All data stays on your machine — no telemetry.
       </text>
 
       {/* ── Data ─────────────────────────────────────────────────── */}
       <box gap={1}>
-        <FsSectionHeader title="Application Data" subtitle="Persistent data: sessions, auth, databases" />
+        <FsSectionHeader
+          title="Application Data"
+          subtitle="Persistent data: sessions, auth, databases"
+        />
         <FsRow indent={0} path={`${dataRoot}/`} desc="Data root directory" />
-        <FsRow indent={1} path="bin/" desc="Binary installation (curl method)" />
+        <FsRow
+          indent={1}
+          path="bin/"
+          desc="Binary installation (curl method)"
+        />
         <FsRow indent={1} path="log/" desc="Application log files" />
-        <FsRow indent={1} path="storage/" desc="Sessions, messages, and content" />
+        <FsRow
+          indent={1}
+          path="storage/"
+          desc="Sessions, messages, and content"
+        />
         <FsRow indent={2} path="session/" desc="Session metadata per project" />
         <FsRow indent={2} path="message/" desc="Message history" />
         <FsRow indent={2} path="part/" desc="Tool outputs and responses" />
@@ -423,27 +316,79 @@ function FilesystemContent() {
         <FsRow indent={1} path="snapshot/" desc="Project snapshots" />
         <FsRow indent={1} path="worktree/" desc="Worktree data" />
         <FsRow indent={1} path="sync/" desc="Synchronization data" />
-        <FsRow indent={1} path="auth.json" desc="API keys and credentials" sensitive />
-        <FsRow indent={1} path="accounts.db" desc="User account database" sensitive />
-        <FsRow indent={1} path="workspaces.db" desc="Workspace database" sensitive />
-        <FsRow indent={1} path="connectors-auth.json" desc="Connector auth tokens" sensitive />
+        <FsRow
+          indent={1}
+          path="auth.json"
+          desc="API keys and credentials"
+          sensitive
+        />
+        <FsRow
+          indent={1}
+          path="accounts.db"
+          desc="User account database"
+          sensitive
+        />
+        <FsRow
+          indent={1}
+          path="workspaces.db"
+          desc="Workspace database"
+          sensitive
+        />
+        <FsRow
+          indent={1}
+          path="connectors-auth.json"
+          desc="Connector auth tokens"
+          sensitive
+        />
       </box>
 
       {/* ── Config ───────────────────────────────────────────────── */}
       <box gap={1}>
-        <FsSectionHeader title="Configuration" subtitle="Settings files — persisted across updates" />
-        <FsRow indent={0} path={`${configRoot}/`} desc="Config root directory" />
-        <FsRow indent={1} path="nikcli.json" desc="Global config: provider, model, agent defaults" />
-        <FsRow indent={1} path="tui.json" desc="TUI config: theme, keybinds, plugins" />
-        <FsRow indent={1} path="AGENTS.md" desc="Global AI system instructions" />
+        <FsSectionHeader
+          title="Configuration"
+          subtitle="Settings files — persisted across updates"
+        />
+        <FsRow
+          indent={0}
+          path={`${configRoot}/`}
+          desc="Config root directory"
+        />
+        <FsRow
+          indent={1}
+          path="nikcli.json"
+          desc="Global config: provider, model, agent defaults"
+        />
+        <FsRow
+          indent={1}
+          path="tui.json"
+          desc="TUI config: theme, keybinds, plugins"
+        />
+        <FsRow
+          indent={1}
+          path="AGENTS.md"
+          desc="Global AI system instructions"
+        />
         <FsRow indent={1} path="skills/" desc="Installed agent skills" />
       </box>
 
       {/* ── Cache & State ────────────────────────────────────────── */}
       <box gap={1}>
-        <FsSectionHeader title="Cache & Runtime State" subtitle="Temporary data — safe to delete anytime" />
-        <FsRow indent={0} path={`${cacheRoot}/`} desc="Cache — cleared on version upgrades" ephemeral />
-        <FsRow indent={0} path={`${stateRoot}/`} desc="Runtime state directory" ephemeral />
+        <FsSectionHeader
+          title="Cache & Runtime State"
+          subtitle="Temporary data — safe to delete anytime"
+        />
+        <FsRow
+          indent={0}
+          path={`${cacheRoot}/`}
+          desc="Cache — cleared on version upgrades"
+          ephemeral
+        />
+        <FsRow
+          indent={0}
+          path={`${stateRoot}/`}
+          desc="Runtime state directory"
+          ephemeral
+        />
         <FsRow indent={1} path="locks/" desc="Concurrency locks" />
         <FsRow indent={1} path="prompt-history.jsonl" desc="Prompt history" />
       </box>
@@ -460,7 +405,11 @@ function FilesystemContent() {
         <FsRow indent={1} path="plugins/" desc="Local plugins (.ts, .js)" />
         <FsRow indent={1} path="package.json" desc="Plugin dependencies" />
         <FsRow indent={1} path=".gitignore" desc="Version control exclusions" />
-        <FsRow indent={0} path="nikcli.json" desc="Per-project settings override" />
+        <FsRow
+          indent={0}
+          path="nikcli.json"
+          desc="Per-project settings override"
+        />
       </box>
 
       {/* ── Legend ───────────────────────────────────────────────── */}
@@ -468,13 +417,15 @@ function FilesystemContent() {
         <text fg={theme.textMuted} wrapMode="word">
           <span style={{ fg: theme.warning }}>● sensitive</span>
           {"  "}
-          <span style={{ fg: theme.textMuted }}>◦ ephemeral (safe to delete)</span>
+          <span style={{ fg: theme.textMuted }}>
+            ◦ ephemeral (safe to delete)
+          </span>
           {"  "}
           <span style={{ fg: theme.textMuted }}>· normal</span>
         </text>
       </box>
     </box>
-  )
+  );
 }
 
 // ─── Step 4: Connect provider ─────────────────────────────────────────────────
@@ -510,15 +461,16 @@ const PROVIDERS_INFO = [
     name: "Ollama",
     desc: "Run open-source models locally — no API key needed",
   },
-]
+];
 
 function ProviderContent() {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Connect at least one AI provider to start chatting. You can connect multiple providers and switch models at any
-        time via Ctrl+P → "Switch model".
+        Connect at least one AI provider to start chatting. You can connect
+        multiple providers and switch models at any time via Ctrl+P → "Switch
+        model".
       </text>
       <box gap={1}>
         <SectionLabel title="Available providers" />
@@ -526,7 +478,10 @@ function ProviderContent() {
           <For each={PROVIDERS_INFO}>
             {(p) => (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={p.recommended ? theme.success : theme.borderSubtle}>
+                <text
+                  flexShrink={0}
+                  fg={p.recommended ? theme.success : theme.borderSubtle}
+                >
                   {p.recommended ? "★" : "·"}
                 </text>
                 <box width={16} flexShrink={0}>
@@ -549,20 +504,21 @@ function ProviderContent() {
         After setup, add more providers anytime via Ctrl+P → "Connect provider".
       </text>
     </box>
-  )
+  );
 }
 
 function TestContent() {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Quick sanity check: we verify a provider is connected and ready to accept a request. This catches a mis-typed
-        API key or expired token before you send your first real prompt.
+        Quick sanity check: we verify a provider is connected and ready to
+        accept a request. This catches a mis-typed API key or expired token
+        before you send your first real prompt.
       </text>
       <TestResult />
     </box>
-  )
+  );
 }
 
 /**
@@ -571,20 +527,33 @@ function TestContent() {
  * `sync.data.provider` so the user sees the status update in real time.
  */
 function TestResult() {
-  const sync = useSync()
-  const connected = createMemo(() => sync.data.provider_next.connected)
-  const hasModel = createMemo(() => sync.data.provider.some((p) => Object.keys(p.models ?? {}).length > 0))
-  const aiOk = createMemo(() => connected().length > 0 && hasModel())
+  const sync = useSync();
+  const connected = createMemo(() => sync.data.provider_next.connected);
+  const hasModel = createMemo(() =>
+    sync.data.provider.some((p) => Object.keys(p.models ?? {}).length > 0),
+  );
+  const aiOk = createMemo(() => connected().length > 0 && hasModel());
   const imageConfigured = createMemo(
-    () => !!(sync.data.config as { image?: { provider?: string; model?: string } } | undefined)?.image?.provider,
-  )
+    () =>
+      !!(
+        sync.data.config as
+          | { image?: { provider?: string; model?: string } }
+          | undefined
+      )?.image?.provider,
+  );
   const speakConfigured = createMemo(
-    () => !!(sync.data.config as { speak?: { provider?: string } } | undefined)?.speak?.provider,
-  )
+    () =>
+      !!(sync.data.config as { speak?: { provider?: string } } | undefined)
+        ?.speak?.provider,
+  );
   const remoteConfigured = createMemo(
-    () => (sync.data.config as { remote?: { provider?: string } } | undefined)?.remote?.provider !== undefined,
-  )
-  const browserConfigured = createMemo(() => connected().includes("browser-use"))
+    () =>
+      (sync.data.config as { remote?: { provider?: string } } | undefined)
+        ?.remote?.provider !== undefined,
+  );
+  const browserConfigured = createMemo(() =>
+    connected().includes("browser-use"),
+  );
   return (
     <box gap={1}>
       <SectionLabel title="Status" />
@@ -600,13 +569,13 @@ function TestResult() {
           imageConfigured()
             ? (
                 sync.data.config as {
-                  image?: { provider?: string; model?: string }
+                  image?: { provider?: string; model?: string };
                 }
               ).image?.provider +
               " · " +
               (
                 sync.data.config as {
-                  image?: { provider?: string; model?: string }
+                  image?: { provider?: string; model?: string };
                 }
               ).image?.model
             : "skipped"
@@ -619,7 +588,7 @@ function TestResult() {
           speakConfigured()
             ? ((
                 sync.data.config as {
-                  speak?: { provider?: string; model?: string }
+                  speak?: { provider?: string; model?: string };
                 }
               )?.speak?.provider ?? "configured")
             : "skipped"
@@ -635,31 +604,39 @@ function TestResult() {
         label="Remote server"
         detail={
           remoteConfigured()
-            ? ((sync.data.config as { remote?: { provider?: string } }).remote?.provider ?? "configured")
+            ? ((sync.data.config as { remote?: { provider?: string } }).remote
+                ?.provider ?? "configured")
             : "skipped"
         }
       />
     </box>
-  )
+  );
 }
 
 function StatusRow(props: { ok: boolean; label: string; detail: string }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box flexDirection="row" gap={1}>
       <text flexShrink={0} fg={props.ok ? theme.success : theme.borderSubtle}>
         {props.ok ? "●" : "○"}
       </text>
       <box width={20} flexShrink={0}>
-        <text fg={props.ok ? theme.text : theme.textMuted} attributes={props.ok ? TextAttributes.BOLD : undefined}>
+        <text
+          fg={props.ok ? theme.text : theme.textMuted}
+          attributes={props.ok ? TextAttributes.BOLD : undefined}
+        >
           {props.label}
         </text>
       </box>
-      <text fg={props.ok ? theme.text : theme.textMuted} flexShrink={1} wrapMode="word">
+      <text
+        fg={props.ok ? theme.text : theme.textMuted}
+        flexShrink={1}
+        wrapMode="word"
+      >
         {props.detail}
       </text>
     </box>
-  )
+  );
 }
 
 // ─── Step 5: Optional extras (feature flags) ──────────────────────────────────
@@ -685,37 +662,46 @@ const EXTRAS: Array<{ key: FeatureKey; label: string; desc: string }> = [
     label: "Remote server (tunnel)",
     desc: "Expose this TUI to a phone or another machine via QR code + tunnel.",
   },
-]
+];
 
 function ExtrasContent(props: {
-  enabled: Record<FeatureKey, boolean>
-  cursor: number
-  setCursor: (n: number) => void
-  toggle: (k: FeatureKey) => void
+  enabled: Record<FeatureKey, boolean>;
+  cursor: number;
+  setCursor: (n: number) => void;
+  toggle: (k: FeatureKey) => void;
 }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Toggle the optional capabilities you want to preconfigure now. You can always wire them up later via
+        Toggle the optional capabilities you want to preconfigure now. You can
+        always wire them up later via
         <span style={{ fg: theme.accent }}> Ctrl+P → Commands </span>
-        or the matching slash command. Use <span style={{ fg: theme.primary }}>↑/↓</span> to move,
+        or the matching slash command. Use{" "}
+        <span style={{ fg: theme.primary }}>↑/↓</span> to move,
         <span style={{ fg: theme.primary }}> space/enter </span>
-        to toggle, then <span style={{ fg: theme.primary }}>enter on Continue</span>.
+        to toggle, then{" "}
+        <span style={{ fg: theme.primary }}>enter on Continue</span>.
       </text>
       <box gap={1}>
         <SectionLabel title="Feature flags" />
         <box gap={0}>
           <For each={EXTRAS}>
             {(item, i) => {
-              const isCursor = () => props.cursor === i()
-              const isOn = () => props.enabled[item.key]
+              const isCursor = () => props.cursor === i();
+              const isOn = () => props.enabled[item.key];
               return (
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                  <text
+                    flexShrink={0}
+                    fg={isCursor() ? theme.primary : theme.borderSubtle}
+                  >
                     {isCursor() ? "›" : " "}
                   </text>
-                  <text flexShrink={0} fg={isOn() ? theme.success : theme.textMuted}>
+                  <text
+                    flexShrink={0}
+                    fg={isOn() ? theme.success : theme.textMuted}
+                  >
                     {isOn() ? "[x]" : "[ ]"}
                   </text>
                   <box width={22} flexShrink={0}>
@@ -730,87 +716,102 @@ function ExtrasContent(props: {
                     {item.desc}
                   </text>
                 </box>
-              )
+              );
             }}
           </For>
         </box>
       </box>
       <box flexDirection="row" gap={1}>
-        <text flexShrink={0} fg={props.cursor === EXTRAS.length ? theme.primary : theme.borderSubtle}>
+        <text
+          flexShrink={0}
+          fg={
+            props.cursor === EXTRAS.length ? theme.primary : theme.borderSubtle
+          }
+        >
           {props.cursor === EXTRAS.length ? "›" : " "}
         </text>
         <text
           fg={props.cursor === EXTRAS.length ? theme.primary : theme.text}
-          attributes={props.cursor === EXTRAS.length ? TextAttributes.BOLD : undefined}
+          attributes={
+            props.cursor === EXTRAS.length ? TextAttributes.BOLD : undefined
+          }
         >
           Continue →
         </text>
       </box>
     </box>
-  )
+  );
 }
 
 // ─── Step 6: Image model ──────────────────────────────────────────────────────
 
 function isImageModelID(modelID: string, info: unknown): boolean {
-  const cap = (info as { capabilities?: { output?: { image?: boolean } } } | undefined)?.capabilities?.output?.image
-  if (cap === true) return true
-  const id = modelID.toLowerCase()
-  if (id.includes("dall-e")) return true
-  if (id.includes("gpt-image")) return true
-  if (id.includes("-image") || id.includes("image-")) return true
-  return false
+  const cap = (
+    info as { capabilities?: { output?: { image?: boolean } } } | undefined
+  )?.capabilities?.output?.image;
+  if (cap === true) return true;
+  const id = modelID.toLowerCase();
+  if (id.includes("dall-e")) return true;
+  if (id.includes("gpt-image")) return true;
+  if (id.includes("-image") || id.includes("image-")) return true;
+  return false;
 }
 
 function ImageContent(props: {
-  cursor: number
-  setCursor: (n: number) => void
-  onPick: (providerID: string, modelID: string) => void
-  onSkip: () => void
+  cursor: number;
+  setCursor: (n: number) => void;
+  onPick: (providerID: string, modelID: string) => void;
+  onSkip: () => void;
 }) {
-  const { theme } = useTheme()
-  const sync = useSync()
-  const connectedIds = createMemo(() => new Set(sync.data.provider_next.connected ?? []))
+  const { theme } = useTheme();
+  const sync = useSync();
+  const connectedIds = createMemo(
+    () => new Set(sync.data.provider_next.connected ?? []),
+  );
 
   // Build option list: one entry per image-capable model on a connected provider,
   // plus a "Skip" entry at the end.
   const options = createMemo(() => {
     const items: Array<{
-      providerID: string
-      modelID: string
-      title: string
-      provider: string
-    }> = []
+      providerID: string;
+      modelID: string;
+      title: string;
+      provider: string;
+    }> = [];
     for (const provider of sync.data.provider_next.all as any[]) {
-      if (!connectedIds().has(provider.id)) continue
+      if (!connectedIds().has(provider.id)) continue;
       for (const [modelID, info] of entries(provider.models ?? {})) {
-        if ((info as { status?: string }).status === "deprecated") continue
-        if (!isImageModelID(modelID, info)) continue
+        if ((info as { status?: string }).status === "deprecated") continue;
+        if (!isImageModelID(modelID, info)) continue;
         items.push({
           providerID: provider.id,
           modelID,
           title: (info as { name?: string }).name ?? modelID,
           provider: provider.name,
-        })
+        });
       }
     }
-    return sortBy(items, (x) => x.title.toLowerCase())
-  })
+    return sortBy(items, (x) => x.title.toLowerCase());
+  });
 
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Pick the image model Nikcli should use by default for image generation. Skip to configure later via
+        Pick the image model Nikcli should use by default for image generation.
+        Skip to configure later via
         <span style={{ fg: theme.accent }}> Ctrl+P → Image Models</span>.
       </text>
       <SectionLabel title={`Available image models (${options().length})`} />
       <box gap={0}>
         <For each={options()}>
           {(item, i) => {
-            const isCursor = () => props.cursor === i()
+            const isCursor = () => props.cursor === i();
             return (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                <text
+                  flexShrink={0}
+                  fg={isCursor() ? theme.primary : theme.borderSubtle}
+                >
                   {isCursor() ? "›" : " "}
                 </text>
                 <box width={28} flexShrink={0}>
@@ -825,38 +826,50 @@ function ImageContent(props: {
                   {item.provider}
                 </text>
               </box>
-            )
+            );
           }}
         </For>
         <Show when={options().length === 0}>
           <text fg={theme.textMuted}>
-            No image-capable models found among your connected providers. Connect OpenAI, Google or xAI first.
+            No image-capable models found among your connected providers.
+            Connect OpenAI, Google or xAI first.
           </text>
         </Show>
       </box>
       {/* Skip row */}
       <box flexDirection="row" gap={1}>
-        <text flexShrink={0} fg={props.cursor === options().length ? theme.primary : theme.borderSubtle}>
+        <text
+          flexShrink={0}
+          fg={
+            props.cursor === options().length
+              ? theme.primary
+              : theme.borderSubtle
+          }
+        >
           {props.cursor === options().length ? "›" : " "}
         </text>
         <text
-          fg={props.cursor === options().length ? theme.primary : theme.textMuted}
-          attributes={props.cursor === options().length ? TextAttributes.BOLD : undefined}
+          fg={
+            props.cursor === options().length ? theme.primary : theme.textMuted
+          }
+          attributes={
+            props.cursor === options().length ? TextAttributes.BOLD : undefined
+          }
         >
           Skip — configure later
         </text>
       </box>
     </box>
-  )
+  );
 }
 
 // ─── Step 7: TTS voice ────────────────────────────────────────────────────────
 
 const TTS_PROVIDERS: Array<{
-  id: string
-  name: string
-  desc: string
-  voices: () => TTSVoice[] | Promise<TTSVoice[]>
+  id: string;
+  name: string;
+  desc: string;
+  voices: () => TTSVoice[] | Promise<TTSVoice[]>;
 }> = [
   {
     id: "elevenlabs",
@@ -870,16 +883,16 @@ const TTS_PROVIDERS: Array<{
     desc: "Reuses an existing OpenRouter API key — pay-per-character audio models.",
     voices: () => OPENROUTER_VOICES_LIST,
   },
-]
+];
 
 function TTSContent(props: {
-  cursor: number
-  setCursor: (n: number) => void
-  onPick: (providerID: string, voiceId: string, voiceName: string) => void
-  onSkip: () => void
-  status: string | null
+  cursor: number;
+  setCursor: (n: number) => void;
+  onPick: (providerID: string, voiceId: string, voiceName: string) => void;
+  onSkip: () => void;
+  status: string | null;
 }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   // Two-stage selector flattened into one cursor space: provider 0..N-1,
   // then voices of the highlighted provider, then "skip".
   // For simplicity, we render all provider rows + their voices inline.
@@ -888,23 +901,25 @@ function TTSContent(props: {
       | { kind: "provider"; provider: (typeof TTS_PROVIDERS)[number] }
       | { kind: "voice"; providerId: string; voice: TTSVoice }
       | { kind: "skip" }
-    > = []
+    > = [];
     for (const provider of TTS_PROVIDERS) {
-      out.push({ kind: "provider", provider })
-      const voices = provider.voices()
+      out.push({ kind: "provider", provider });
+      const voices = provider.voices();
       if (Array.isArray(voices)) {
-        for (const v of voices) out.push({ kind: "voice", providerId: provider.id, voice: v })
+        for (const v of voices)
+          out.push({ kind: "voice", providerId: provider.id, voice: v });
       }
     }
-    out.push({ kind: "skip" })
-    return out
-  })
+    out.push({ kind: "skip" });
+    return out;
+  });
 
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Choose a Text-to-Speech provider and voice. ElevenLabs needs its own key (you can paste it after selection);
-        OpenRouter reuses the key you already entered for the AI provider.
+        Choose a Text-to-Speech provider and voice. ElevenLabs needs its own key
+        (you can paste it after selection); OpenRouter reuses the key you
+        already entered for the AI provider.
       </text>
       <Show when={props.status}>
         <text fg={theme.success}>{props.status}</text>
@@ -913,11 +928,14 @@ function TTSContent(props: {
       <box gap={0}>
         <For each={rows()}>
           {(row, i) => {
-            const isCursor = () => props.cursor === i()
+            const isCursor = () => props.cursor === i();
             if (row.kind === "provider") {
               return (
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                  <text
+                    flexShrink={0}
+                    fg={isCursor() ? theme.primary : theme.borderSubtle}
+                  >
                     {isCursor() ? "›" : " "}
                   </text>
                   <text
@@ -931,12 +949,15 @@ function TTSContent(props: {
                     — {row.provider.desc}
                   </text>
                 </box>
-              )
+              );
             }
             if (row.kind === "voice") {
               return (
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                  <text
+                    flexShrink={0}
+                    fg={isCursor() ? theme.primary : theme.borderSubtle}
+                  >
                     {isCursor() ? "›" : " "}
                   </text>
                   <text flexShrink={0}>{"  "}</text>
@@ -952,11 +973,14 @@ function TTSContent(props: {
                     {row.voice.id}
                   </text>
                 </box>
-              )
+              );
             }
             return (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                <text
+                  flexShrink={0}
+                  fg={isCursor() ? theme.primary : theme.borderSubtle}
+                >
                   {isCursor() ? "›" : " "}
                 </text>
                 <text
@@ -966,37 +990,41 @@ function TTSContent(props: {
                   Skip — configure later
                 </text>
               </box>
-            )
+            );
           }}
         </For>
       </box>
     </box>
-  )
+  );
 }
 
 // ─── Step 8: Browser Use API key ──────────────────────────────────────────────
 
 function BrowserContent(props: {
-  value: string
-  setValue: (v: string) => void
-  onSave: (key: string) => Promise<void>
-  onSkip: () => void
-  busy: boolean
-  error: string | null
+  value: string;
+  setValue: (v: string) => void;
+  onSave: (key: string) => Promise<void>;
+  onSkip: () => void;
+  busy: boolean;
+  error: string | null;
 }) {
-  const { theme } = useTheme()
-  let textarea!: TextareaRenderable
+  const { theme } = useTheme();
+  let textarea!: TextareaRenderable;
   onMount(() => {
     setTimeout(() => {
-      if (!textarea.isDestroyed) textarea.focus()
-    }, 1)
-  })
+      if (!textarea.isDestroyed) textarea.focus();
+    }, 1);
+  });
   return (
     <box gap={1}>
       <text fg={theme.textMuted} wrapMode="word">
         Paste your Browser Use Cloud project key. Get one at
-        <span style={{ fg: theme.primary }}> https://cloud.browser-use.com </span>
-        (it starts with <span style={{ fg: theme.accent }}>bu_</span>). The key is stored in Nikcli's local auth vault.
+        <span style={{ fg: theme.primary }}>
+          {" "}
+          https://cloud.browser-use.com{" "}
+        </span>
+        (it starts with <span style={{ fg: theme.accent }}>bu_</span>). The key
+        is stored in Nikcli's local auth vault.
       </text>
       <Show when={props.error}>
         <text fg={theme.error}>{props.error}</text>
@@ -1013,11 +1041,11 @@ function BrowserContent(props: {
           height={3}
           keyBindings={[{ name: "return", action: "submit" }]}
           onSubmit={() => {
-            const v = (textarea.plainText ?? "").trim()
-            if (v) props.onSave(v)
+            const v = (textarea.plainText ?? "").trim();
+            if (v) props.onSave(v);
           }}
           ref={(r: TextareaRenderable) => {
-            textarea = r
+            textarea = r;
           }}
           placeholder="bu_xxxxxxxxxxxxxxxx"
           textColor={theme.text}
@@ -1030,7 +1058,7 @@ function BrowserContent(props: {
         <span style={{ fg: theme.primary }}>esc</span> skip
       </text>
     </box>
-  )
+  );
 }
 
 // ─── Step 9: Remote server (tunnel) ───────────────────────────────────────────
@@ -1057,29 +1085,33 @@ const REMOTE_PROVIDERS = [
     desc: "Remotosh tunnel (requires remotosh CLI)",
   },
   { id: "none", name: "Local only", desc: "No tunnel — use local network IP" },
-] as const
+] as const;
 
 function RemoteContent(props: {
-  cursor: number
-  setCursor: (n: number) => void
-  onPick: (providerID: string) => void
-  onSkip: () => void
+  cursor: number;
+  setCursor: (n: number) => void;
+  onPick: (providerID: string) => void;
+  onSkip: () => void;
 }) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
   return (
     <box gap={2}>
       <text fg={theme.textMuted} wrapMode="word">
-        Pick the default tunnel provider used when you start a Remote Session. You can change it any time via
+        Pick the default tunnel provider used when you start a Remote Session.
+        You can change it any time via
         <span style={{ fg: theme.accent }}> Ctrl+P → Remote Access</span>.
       </text>
       <SectionLabel title="Tunnel providers" />
       <box gap={0}>
         <For each={REMOTE_PROVIDERS}>
           {(p, i) => {
-            const isCursor = () => props.cursor === i()
+            const isCursor = () => props.cursor === i();
             return (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={isCursor() ? theme.primary : theme.borderSubtle}>
+                <text
+                  flexShrink={0}
+                  fg={isCursor() ? theme.primary : theme.borderSubtle}
+                >
                   {isCursor() ? "›" : " "}
                 </text>
                 <box width={16} flexShrink={0}>
@@ -1094,28 +1126,43 @@ function RemoteContent(props: {
                   {p.desc}
                 </text>
               </box>
-            )
+            );
           }}
         </For>
         <box flexDirection="row" gap={1}>
-          <text flexShrink={0} fg={props.cursor === REMOTE_PROVIDERS.length ? theme.primary : theme.borderSubtle}>
+          <text
+            flexShrink={0}
+            fg={
+              props.cursor === REMOTE_PROVIDERS.length
+                ? theme.primary
+                : theme.borderSubtle
+            }
+          >
             {props.cursor === REMOTE_PROVIDERS.length ? "›" : " "}
           </text>
           <text
-            fg={props.cursor === REMOTE_PROVIDERS.length ? theme.primary : theme.textMuted}
-            attributes={props.cursor === REMOTE_PROVIDERS.length ? TextAttributes.BOLD : undefined}
+            fg={
+              props.cursor === REMOTE_PROVIDERS.length
+                ? theme.primary
+                : theme.textMuted
+            }
+            attributes={
+              props.cursor === REMOTE_PROVIDERS.length
+                ? TextAttributes.BOLD
+                : undefined
+            }
           >
             Skip — configure later
           </text>
         </box>
       </box>
     </box>
-  )
+  );
 }
 
 const STEP_TITLES = [
   "Welcome to Nikcli",
-  "Create your account",
+  "Sign in or create your account",
   "Filesystem Footprint",
   "Connect a provider",
   "Optional extras",
@@ -1124,13 +1171,13 @@ const STEP_TITLES = [
   "Browser Use",
   "Remote server",
   "Test your setup",
-]
+];
 
 // Continue hint for the static (no-list) steps. List-driven steps set their
 // own footer hint inline.
 const STEP_CONTINUE_LABELS = [
-  "create account",
-  "", // account step handles its own footer
+  "sign in on the web",
+  "", // account step handles its own status
   "view filesystem",
   "choose provider",
   "configure extras",
@@ -1139,21 +1186,20 @@ const STEP_CONTINUE_LABELS = [
   "save Browser Use key",
   "pick a tunnel provider",
   "finish",
-]
+];
 
 function OnboardingWizard(props: { onComplete: () => void }) {
-  const { theme } = useTheme()
-  const dialog = useDialog()
-  const dimensions = useTerminalDimensions()
-  const contentMaxHeight = createMemo(() => Math.max(8, dimensions().height - 12))
-  const sdk = useSDK()
-  const sync = useSync()
-  const toast = useToast()
+  const { theme } = useTheme();
+  const dialog = useDialog();
+  const dimensions = useTerminalDimensions();
+  const contentMaxHeight = createMemo(() =>
+    Math.max(8, dimensions().height - 12),
+  );
+  const sdk = useSDK();
+  const sync = useSync();
+  const toast = useToast();
 
-  const [step, setStep] = createSignal<number>(STEP.WELCOME)
-  const [error, setError] = createSignal<string | null>(null)
-  const [busy, setBusy] = createSignal(false)
-
+  const [step, setStep] = createSignal<number>(STEP.WELCOME);
   // Feature flags selected in step EXTRAS — drives which optional config
   // steps get visited.
   const [extras, setExtras] = createStore<Record<FeatureKey, boolean>>({
@@ -1161,118 +1207,128 @@ function OnboardingWizard(props: { onComplete: () => void }) {
     tts: false,
     browser: false,
     remote: false,
-  })
+  });
 
   // Cursor for list-driven steps (extras, image, tts, remote)
-  const [extrasCursor, setExtrasCursor] = createSignal(0)
-  const [imageCursor, setImageCursor] = createSignal(0)
-  const [ttsCursor, setTtsCursor] = createSignal(0)
-  const [remoteCursor, setRemoteCursor] = createSignal(0)
+  const [extrasCursor, setExtrasCursor] = createSignal(0);
+  const [imageCursor, setImageCursor] = createSignal(0);
+  const [ttsCursor, setTtsCursor] = createSignal(0);
+  const [remoteCursor, setRemoteCursor] = createSignal(0);
 
   // Browser step state
-  const [browserBusy, setBrowserBusy] = createSignal(false)
-  const [browserError, setBrowserError] = createSignal<string | null>(null)
-  const [ttsStatus, setTtsStatus] = createSignal<string | null>(null)
+  const [browserBusy, setBrowserBusy] = createSignal(false);
+  const [browserError, setBrowserError] = createSignal<string | null>(null);
+  const [ttsStatus, setTtsStatus] = createSignal<string | null>(null);
 
   // Number of steps we will actually visit, given the enabled extras.
   // Used for the breadcrumb and footer "step X/Y" counter.
   const visibleSteps = createMemo(() => {
-    const out: number[] = [STEP.WELCOME, STEP.ACCOUNT, STEP.FILESYSTEM, STEP.AI_PROVIDER, STEP.EXTRAS]
-    if (extras.image) out.push(STEP.IMAGE)
-    if (extras.tts) out.push(STEP.TTS)
-    if (extras.browser) out.push(STEP.BROWSER)
-    if (extras.remote) out.push(STEP.REMOTE)
-    out.push(STEP.TEST)
-    return out
-  })
+    const out: number[] = [
+      STEP.WELCOME,
+      STEP.ACCOUNT,
+      STEP.FILESYSTEM,
+      STEP.AI_PROVIDER,
+      STEP.EXTRAS,
+    ];
+    if (extras.image) out.push(STEP.IMAGE);
+    if (extras.tts) out.push(STEP.TTS);
+    if (extras.browser) out.push(STEP.BROWSER);
+    if (extras.remote) out.push(STEP.REMOTE);
+    out.push(STEP.TEST);
+    return out;
+  });
 
-  const totalSteps = createMemo(() => visibleSteps().length)
+  const totalSteps = createMemo(() => visibleSteps().length);
   const displayIndex = createMemo(() => {
-    const idx = visibleSteps().indexOf(step())
-    return idx === -1 ? 1 : idx + 1
-  })
+    const idx = visibleSteps().indexOf(step());
+    return idx === -1 ? 1 : idx + 1;
+  });
 
   // Advance to the next visible step (skipping disabled optional steps).
   const advance = () => {
     setStep((s) => {
-      let next = s + 1
+      let next = s + 1;
       while (next < STEP.TEST) {
         if (next === STEP.IMAGE && !extras.image) {
-          next++
-          continue
+          next++;
+          continue;
         }
         if (next === STEP.TTS && !extras.tts) {
-          next++
-          continue
+          next++;
+          continue;
         }
         if (next === STEP.BROWSER && !extras.browser) {
-          next++
-          continue
+          next++;
+          continue;
         }
         if (next === STEP.REMOTE && !extras.remote) {
-          next++
-          continue
+          next++;
+          continue;
         }
-        break
+        break;
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
-  onMount(() => dialog.setSize("large"))
+  onMount(() => dialog.setSize("large"));
 
   // ─── Step persistence side-effects ────────────────────────────────────────
 
   const persistImage = async (providerID: string, modelID: string) => {
     const result = await sdk.client.config.update({
       config: { image: { provider: providerID, model: modelID } } as any,
-    })
+    });
     if ((result as { error?: unknown }).error) {
-      const msg = errorMessage((result as { error?: unknown }).error)
+      const msg = errorMessage((result as { error?: unknown }).error);
       toast.show({
         variant: "error",
         message: `Failed to save image model: ${msg}`,
-      })
-      return false
+      });
+      return false;
     }
-    sync.set("config", (result as { data?: any }).data)
+    sync.set("config", (result as { data?: any }).data);
     toast.show({
       variant: "success",
       message: `Image model set to ${providerID}/${modelID}`,
-    })
-    return true
-  }
+    });
+    return true;
+  };
 
-  const persistSpeak = async (providerID: string, voiceId: string, voiceName: string) => {
+  const persistSpeak = async (
+    providerID: string,
+    voiceId: string,
+    voiceName: string,
+  ) => {
     const result = await sdk.client.config.update({
       config: { speak: { provider: providerID, model: voiceId } } as any,
-    })
+    });
     if ((result as { error?: unknown }).error) {
-      const msg = errorMessage((result as { error?: unknown }).error)
+      const msg = errorMessage((result as { error?: unknown }).error);
       toast.show({
         variant: "error",
         message: `Failed to save TTS voice: ${msg}`,
-      })
-      return false
+      });
+      return false;
     }
-    sync.set("config", (result as { data?: any }).data)
-    setTtsStatus(`TTS set to ${providerID} · ${voiceName}`)
+    sync.set("config", (result as { data?: any }).data);
+    setTtsStatus(`TTS set to ${providerID} · ${voiceName}`);
     toast.show({
       variant: "success",
       message: `TTS voice set to ${voiceName}`,
-    })
-    return true
-  }
+    });
+    return true;
+  };
 
   // Persist the ElevenLabs API key by writing it to the same secrets file
   // the speak provider reads on disk. No-op for non-elevenlabs providers.
   const persistElevenLabsKey = async (key: string) => {
-    const dir = path.join(Global.Path.config, "secrets")
-    await fs.mkdir(dir, { recursive: true })
+    const dir = path.join(Global.Path.config, "secrets");
+    await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, "elevenlabs-key"), key.trim() + "\n", {
       mode: 0o600,
-    })
-  }
+    });
+  };
 
   const persistBrowserKey = async (key: string) => {
     const result = await sdk.client.auth
@@ -1280,200 +1336,215 @@ function OnboardingWizard(props: { onComplete: () => void }) {
         providerID: "browser-use",
         auth: { type: "api", key: key.trim() },
       })
-      .catch((err: unknown) => ({ error: err }))
+      .catch((err: unknown) => ({ error: err }));
     if ("error" in result && result.error) {
-      const msg = errorMessage((result as { error?: unknown }).error)
+      const msg = errorMessage((result as { error?: unknown }).error);
       toast.show({
         variant: "error",
         message: `Failed to save Browser Use key: ${msg}`,
-      })
-      return false
+      });
+      return false;
     }
-    toast.show({ variant: "success", message: "Browser Use key saved" })
-    return true
-  }
+    toast.show({ variant: "success", message: "Browser Use key saved" });
+    return true;
+  };
 
   const persistRemote = async (providerID: string) => {
     const result = await sdk.client.config.update({
       config: {
         remote: { provider: providerID, enableTunnel: providerID !== "none" },
       } as any,
-    })
+    });
     if ((result as { error?: unknown }).error) {
-      const msg = errorMessage((result as { error?: unknown }).error)
+      const msg = errorMessage((result as { error?: unknown }).error);
       toast.show({
         variant: "error",
         message: `Failed to save remote config: ${msg}`,
-      })
-      return false
+      });
+      return false;
     }
-    sync.set("config", (result as { data?: any }).data)
+    sync.set("config", (result as { data?: any }).data);
     toast.show({
       variant: "success",
       message: `Remote tunnel set to ${providerID}`,
-    })
-    return true
-  }
+    });
+    return true;
+  };
 
   // ─── List options used by keyboard nav (must be declared before useKeyboard) ──
 
   const imageOptions = createMemo(() => {
     const items: Array<{
-      providerID: string
-      modelID: string
-      title: string
-      provider: string
-    }> = []
+      providerID: string;
+      modelID: string;
+      title: string;
+      provider: string;
+    }> = [];
     for (const provider of sync.data.provider_next.all as any[]) {
-      if (!(sync.data.provider_next.connected ?? []).includes(provider.id)) continue
+      if (!(sync.data.provider_next.connected ?? []).includes(provider.id))
+        continue;
       for (const [modelID, info] of entries(provider.models ?? {})) {
-        if ((info as { status?: string }).status === "deprecated") continue
-        if (!isImageModelID(modelID, info)) continue
+        if ((info as { status?: string }).status === "deprecated") continue;
+        if (!isImageModelID(modelID, info)) continue;
         items.push({
           providerID: provider.id,
           modelID,
           title: (info as { name?: string }).name ?? modelID,
           provider: provider.name,
-        })
+        });
       }
     }
-    return sortBy(items, (x) => x.title.toLowerCase())
-  })
+    return sortBy(items, (x) => x.title.toLowerCase());
+  });
 
   const ttsRows = createMemo(() => {
     const out: Array<
       | { kind: "provider"; provider: (typeof TTS_PROVIDERS)[number] }
       | { kind: "voice"; providerId: string; voice: TTSVoice }
       | { kind: "skip" }
-    > = []
+    > = [];
     for (const provider of TTS_PROVIDERS) {
-      out.push({ kind: "provider", provider })
-      const voices = provider.voices()
+      out.push({ kind: "provider", provider });
+      const voices = provider.voices();
       if (Array.isArray(voices)) {
-        for (const v of voices) out.push({ kind: "voice", providerId: provider.id, voice: v })
+        for (const v of voices)
+          out.push({ kind: "voice", providerId: provider.id, voice: v });
       }
     }
-    out.push({ kind: "skip" })
-    return out
-  })
+    out.push({ kind: "skip" });
+    return out;
+  });
 
   // ─── Keyboard navigation ───────────────────────────────────────────────────
 
   useKeyboard((evt) => {
-    if (step() === STEP.ACCOUNT) return // textarea captures Enter
+    if (step() === STEP.ACCOUNT) return; // textarea captures Enter
     if (step() === STEP.BROWSER) {
       // Browser step: its own textarea captures Enter; escape skips.
       if (evt.name === "escape") {
-        evt.preventDefault()
-        setBrowserError(null)
-        advance()
+        evt.preventDefault();
+        setBrowserError(null);
+        advance();
       }
-      return
+      return;
     }
 
     // Back navigation
     if ((evt.name === "escape" || evt.name === "backspace") && step() > 0) {
-      evt.preventDefault()
-      setStep((s) => Math.max(0, s - 1))
-      return
+      evt.preventDefault();
+      setStep((s) => Math.max(0, s - 1));
+      return;
     }
 
     // List navigation for extras + image + tts + remote steps
-    const current = step()
-    if (current === STEP.EXTRAS || current === STEP.IMAGE || current === STEP.TTS || current === STEP.REMOTE) {
+    const current = step();
+    if (
+      current === STEP.EXTRAS ||
+      current === STEP.IMAGE ||
+      current === STEP.TTS ||
+      current === STEP.REMOTE
+    ) {
       if (evt.name === "up" || evt.name === "k") {
-        evt.preventDefault()
-        if (current === STEP.EXTRAS) setExtrasCursor((c) => Math.max(0, c - 1))
-        else if (current === STEP.IMAGE) setImageCursor((c) => Math.max(0, c - 1))
-        else if (current === STEP.TTS) setTtsCursor((c) => Math.max(0, c - 1))
-        else if (current === STEP.REMOTE) setRemoteCursor((c) => Math.max(0, c - 1))
-        return
+        evt.preventDefault();
+        if (current === STEP.EXTRAS) setExtrasCursor((c) => Math.max(0, c - 1));
+        else if (current === STEP.IMAGE)
+          setImageCursor((c) => Math.max(0, c - 1));
+        else if (current === STEP.TTS) setTtsCursor((c) => Math.max(0, c - 1));
+        else if (current === STEP.REMOTE)
+          setRemoteCursor((c) => Math.max(0, c - 1));
+        return;
       }
       if (evt.name === "down" || evt.name === "j") {
-        evt.preventDefault()
-        if (current === STEP.EXTRAS) setExtrasCursor((c) => Math.min(EXTRAS.length, c + 1))
-        else if (current === STEP.IMAGE) setImageCursor((c) => Math.min(imageOptions().length, c + 1))
-        else if (current === STEP.TTS) setTtsCursor((c) => Math.min(ttsRows().length - 1, c + 1))
-        else if (current === STEP.REMOTE) setRemoteCursor((c) => Math.min(REMOTE_PROVIDERS.length, c + 1))
-        return
+        evt.preventDefault();
+        if (current === STEP.EXTRAS)
+          setExtrasCursor((c) => Math.min(EXTRAS.length, c + 1));
+        else if (current === STEP.IMAGE)
+          setImageCursor((c) => Math.min(imageOptions().length, c + 1));
+        else if (current === STEP.TTS)
+          setTtsCursor((c) => Math.min(ttsRows().length - 1, c + 1));
+        else if (current === STEP.REMOTE)
+          setRemoteCursor((c) => Math.min(REMOTE_PROVIDERS.length, c + 1));
+        return;
       }
       if (evt.name === "space") {
         if (current === STEP.EXTRAS) {
-          evt.preventDefault()
-          const idx = extrasCursor()
+          evt.preventDefault();
+          const idx = extrasCursor();
           if (idx >= 0 && idx < EXTRAS.length) {
-            const key = EXTRAS[idx]!.key
+            const key = EXTRAS[idx]!.key;
             batch(() => {
-              setExtras(key, (v) => !v)
+              setExtras(key, (v) => !v);
               // Keep cursor in range; if we just toggled the last flag, keep cursor
               // on it so the user can press space again to disable, then ↓.
-            })
+            });
           }
         }
-        return
+        return;
       }
     }
 
-    if (evt.name !== "return") return
-    evt.preventDefault()
-    evt.stopPropagation()
-    handleContinue()
-  })
+    if (evt.name !== "return") return;
+    evt.preventDefault();
+    evt.stopPropagation();
+    handleContinue();
+  });
 
   const handleContinue = () => {
-    const current = step()
+    const current = step();
     if (current === STEP.WELCOME) {
-      return setStep(STEP.ACCOUNT)
+      return setStep(STEP.ACCOUNT);
     }
     if (current === STEP.FILESYSTEM) {
-      return setStep(STEP.AI_PROVIDER)
+      return setStep(STEP.AI_PROVIDER);
     }
     if (current === STEP.AI_PROVIDER) {
-      return setStep(STEP.EXTRAS)
+      return setStep(STEP.EXTRAS);
     }
     if (current === STEP.EXTRAS) {
-      const c = extrasCursor()
+      const c = extrasCursor();
       if (c < EXTRAS.length) {
         // Toggling the highlighted feature, then staying on the step.
-        const key = EXTRAS[c]!.key
-        setExtras(key, (v) => !v)
-        return
+        const key = EXTRAS[c]!.key;
+        setExtras(key, (v) => !v);
+        return;
       }
       // c === EXTRAS.length  →  Continue row
-      return advance()
+      return advance();
     }
     if (current === STEP.IMAGE) {
-      const opts = imageOptions()
-      const c = imageCursor()
+      const opts = imageOptions();
+      const c = imageCursor();
       if (c < opts.length) {
-        const picked = opts[c]!
+        const picked = opts[c]!;
         void persistImage(picked.providerID, picked.modelID).then((ok) => {
-          if (ok) advance()
-        })
-        return
+          if (ok) advance();
+        });
+        return;
       }
       // Skip
-      return advance()
+      return advance();
     }
     if (current === STEP.TTS) {
-      const rows = ttsRows()
-      const c = ttsCursor()
-      const row = rows[c]
-      if (!row) return
-      if (row.kind === "skip") return advance()
+      const rows = ttsRows();
+      const c = ttsCursor();
+      const row = rows[c];
+      if (!row) return;
+      if (row.kind === "skip") return advance();
       if (row.kind === "provider") {
         // Selecting a provider row advances the cursor to the first voice of
         // that provider so the next Enter picks one. If user wants to skip
         // they can ↓ all the way to the "skip" row.
-        const firstVoiceIdx = rows.findIndex((r) => r.kind === "voice" && r.providerId === row.provider.id)
-        if (firstVoiceIdx >= 0) setTtsCursor(firstVoiceIdx)
-        return
+        const firstVoiceIdx = rows.findIndex(
+          (r) => r.kind === "voice" && r.providerId === row.provider.id,
+        );
+        if (firstVoiceIdx >= 0) setTtsCursor(firstVoiceIdx);
+        return;
       }
       // Voice row
-      const voice = row.voice
+      const voice = row.voice;
       void (async () => {
-        const ok = await persistSpeak(row.providerId, voice.id, voice.name)
-        if (!ok) return
+        const ok = await persistSpeak(row.providerId, voice.id, voice.name);
+        if (!ok) return;
         if (row.providerId === "elevenlabs") {
           // After picking an ElevenLabs voice, prompt for the key in a nested
           // dialog. The key is optional (env or file may already provide one).
@@ -1485,89 +1556,91 @@ function OnboardingWizard(props: { onComplete: () => void }) {
                 description={() => (
                   <text>
                     ElevenLabs voices need an API key. If you already set{" "}
-                    <span style={{ fg: "primary" }}>ELEVENLABS_API_KEY</span> or wrote one to the secrets file, just
-                    press <span style={{ fg: "primary" }}>Esc</span>.
+                    <span style={{ fg: "primary" }}>ELEVENLABS_API_KEY</span> or
+                    wrote one to the secrets file, just press{" "}
+                    <span style={{ fg: "primary" }}>Esc</span>.
                   </text>
                 )}
                 onConfirm={async (value) => {
-                  const key = value.trim()
+                  const key = value.trim();
                   if (key) {
                     try {
-                      await persistElevenLabsKey(key)
+                      await persistElevenLabsKey(key);
                       toast.show({
                         variant: "success",
                         message: "ElevenLabs key saved",
-                      })
+                      });
                     } catch (err) {
                       toast.show({
                         variant: "error",
                         message: `Failed to save key: ${err}`,
-                      })
+                      });
                     }
                   }
-                  advance()
+                  advance();
                 }}
                 onCancel={() => advance()}
               />
             ),
             () => advance(),
-          )
-          return
+          );
+          return;
         }
-        advance()
-      })()
-      return
+        advance();
+      })();
+      return;
     }
     if (current === STEP.REMOTE) {
-      const c = remoteCursor()
+      const c = remoteCursor();
       if (c < REMOTE_PROVIDERS.length) {
-        const picked = REMOTE_PROVIDERS[c]!
+        const picked = REMOTE_PROVIDERS[c]!;
         void persistRemote(picked.id).then((ok) => {
-          if (ok) advance()
-        })
-        return
+          if (ok) advance();
+        });
+        return;
       }
-      return advance()
+      return advance();
     }
     if (current === STEP.TEST) {
-      dialog.replace(() => <DialogProviderList />)
-      props.onComplete()
-      return
+      dialog.replace(() => <DialogProviderList />);
+      props.onComplete();
+      return;
     }
-  }
+  };
 
   const handleAccountComplete = () => {
-    setError(null)
-    setStep(STEP.FILESYSTEM)
-  }
+    setStep(STEP.FILESYSTEM);
+  };
 
   const handleBrowserSave = async (key: string) => {
-    setBrowserError(null)
-    setBrowserBusy(true)
+    setBrowserError(null);
+    setBrowserBusy(true);
     try {
-      const ok = await persistBrowserKey(key)
-      if (ok) advance()
+      const ok = await persistBrowserKey(key);
+      if (ok) advance();
     } catch (err) {
-      setBrowserError(err instanceof Error ? err.message : String(err))
+      setBrowserError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBrowserBusy(false)
+      setBrowserBusy(false);
     }
-  }
+  };
 
   // Continue hint shown in the footer for static steps. List/text steps
   // override this with a more specific hint.
   const continueHint = createMemo(() => {
-    const s = step()
+    const s = step();
     if (s === STEP.EXTRAS) {
-      return extrasCursor() < EXTRAS.length ? "space/↵ toggle · ↵ on Continue" : "↵ continue"
+      return extrasCursor() < EXTRAS.length
+        ? "space/↵ toggle · ↵ on Continue"
+        : "↵ continue";
     }
-    if (s === STEP.IMAGE) return "↑/↓ move · ↵ select"
-    if (s === STEP.TTS) return "↑/↓ move · ↵ pick voice"
-    if (s === STEP.REMOTE) return "↑/↓ move · ↵ select"
-    if (s === STEP.BROWSER) return "↵ save · esc skip"
-    if (s === STEP.AI_PROVIDER) return "open provider picker (next step)"
-    return STEP_CONTINUE_LABELS[s] ?? ""
-  })
+    if (s === STEP.IMAGE) return "↑/↓ move · ↵ select";
+    if (s === STEP.TTS) return "↑/↓ move · ↵ pick voice";
+    if (s === STEP.REMOTE) return "↑/↓ move · ↵ select";
+    if (s === STEP.BROWSER) return "↵ save · esc skip";
+    if (s === STEP.AI_PROVIDER) return "open provider picker (next step)";
+    return STEP_CONTINUE_LABELS[s] ?? "";
+  });
 
   return (
     <box paddingBottom={1}>
@@ -1593,7 +1666,9 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Top separator */}
       <box paddingLeft={2} paddingRight={2}>
-        <text fg={theme.borderSubtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
+        <text fg={theme.borderSubtle}>
+          {"─".repeat(Math.min(72, dimensions().width - 4))}
+        </text>
       </box>
 
       {/* Content */}
@@ -1630,7 +1705,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
                   cursor={imageCursor()}
                   setCursor={setImageCursor}
                   onPick={(p, m) => {
-                    void persistImage(p, m).then((ok) => ok && advance())
+                    void persistImage(p, m).then((ok) => ok && advance());
                   }}
                   onSkip={() => advance()}
                 />
@@ -1641,8 +1716,8 @@ function OnboardingWizard(props: { onComplete: () => void }) {
                   setCursor={setTtsCursor}
                   onPick={(p, v, name) => {
                     void persistSpeak(p, v, name).then((ok) => {
-                      if (ok) advance()
-                    })
+                      if (ok) advance();
+                    });
                   }}
                   onSkip={() => advance()}
                   status={ttsStatus()}
@@ -1653,7 +1728,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
                   cursor={remoteCursor()}
                   setCursor={setRemoteCursor}
                   onPick={(id) => {
-                    void persistRemote(id).then((ok) => ok && advance())
+                    void persistRemote(id).then((ok) => ok && advance());
                   }}
                   onSkip={() => advance()}
                 />
@@ -1665,18 +1740,20 @@ function OnboardingWizard(props: { onComplete: () => void }) {
           </scrollbox>
         </Match>
         <Match when={step() === STEP.ACCOUNT}>
-          <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
-            <AccountContent
-              onComplete={handleAccountComplete}
-              error={error()}
-              setError={setError}
-              busy={busy()}
-              setBusy={setBusy}
-            />
-          </box>
+          <DialogAccountLogin
+            clearOnComplete={false}
+            onComplete={(user) => {
+              if (user) handleAccountComplete();
+            }}
+          />
         </Match>
         <Match when={step() === STEP.BROWSER}>
-          <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+          <box
+            paddingLeft={2}
+            paddingRight={2}
+            paddingTop={1}
+            paddingBottom={1}
+          >
             <BrowserContent
               value=""
               setValue={() => {}}
@@ -1691,11 +1768,19 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Bottom separator */}
       <box paddingLeft={2} paddingRight={2}>
-        <text fg={theme.borderSubtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
+        <text fg={theme.borderSubtle}>
+          {"─".repeat(Math.min(72, dimensions().width - 4))}
+        </text>
       </box>
 
       {/* Footer */}
-      <box paddingLeft={2} paddingRight={2} paddingTop={1} flexDirection="row" justifyContent="space-between">
+      <box
+        paddingLeft={2}
+        paddingRight={2}
+        paddingTop={1}
+        flexDirection="row"
+        justifyContent="space-between"
+      >
         <Show when={step() !== STEP.ACCOUNT && step() !== STEP.BROWSER}>
           <text fg={theme.textMuted}>
             {"↵ "}
@@ -1703,7 +1788,9 @@ function OnboardingWizard(props: { onComplete: () => void }) {
           </text>
         </Show>
         <Show when={step() === STEP.ACCOUNT}>
-          <text fg={theme.textMuted}>enter submit · esc cancel</text>
+          <text fg={theme.textMuted}>
+            Complete sign-in or registration in your browser · esc cancel
+          </text>
         </Show>
         <Show when={step() === STEP.BROWSER}>
           <text fg={theme.textMuted}>
@@ -1712,28 +1799,20 @@ function OnboardingWizard(props: { onComplete: () => void }) {
           </text>
         </Show>
         <box flexDirection="row" gap={2} alignItems="center">
-          <Show when={step() === STEP.WELCOME}>
+          <Show
+            when={
+              step() !== STEP.WELCOME &&
+              step() !== STEP.ACCOUNT &&
+              step() !== STEP.AI_PROVIDER
+            }
+          >
             <box
               paddingLeft={2}
               paddingRight={2}
               borderColor={theme.borderSubtle}
               onMouseUp={() => {
-                // Jump to provider picker without configuring extras.
-                dialog.replace(() => <DialogProviderList />)
-                props.onComplete()
-              }}
-            >
-              <text fg={theme.textMuted}>Skip — I have an account</text>
-            </box>
-          </Show>
-          <Show when={step() !== STEP.WELCOME && step() !== STEP.AI_PROVIDER}>
-            <box
-              paddingLeft={2}
-              paddingRight={2}
-              borderColor={theme.borderSubtle}
-              onMouseUp={() => {
-                dialog.replace(() => <DialogProviderList />)
-                props.onComplete()
+                dialog.replace(() => <DialogProviderList />);
+                props.onComplete();
               }}
             >
               <text fg={theme.textMuted}>Skip — finish onboarding</text>
@@ -1746,7 +1825,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
         </box>
       </box>
     </box>
-  )
+  );
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -1757,7 +1836,7 @@ export const DialogOnboarding = {
       dialog.replace(
         () => <OnboardingWizard onComplete={resolve} />,
         () => resolve(),
-      )
-    })
+      );
+    });
   },
-}
+};

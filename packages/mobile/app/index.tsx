@@ -13,8 +13,10 @@ import { useServer, userStatus } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { ServerConfig } from "@/lib/types"
 
-function nextRouteAfterConnect(userToken: string | null) {
-  return userToken ? "/sessions" : "/login"
+function nextRouteAfterConnect(userToken: string | null, mobileToken?: string) {
+  // A host mobile token (nkm_) is a full auth path on its own; only fall back
+  // to the account login when neither credential is present.
+  return userToken || mobileToken ? "/sessions" : "/login"
 }
 
 function fromLink(url: string): ServerConfig | null {
@@ -64,7 +66,7 @@ export default function ConnectScreen() {
       void check.then((ok) => {
         if (!cancelled && ok) {
           setConnected(true)
-          router.replace(nextRouteAfterConnect(userToken))
+          router.replace(nextRouteAfterConnect(userToken, config.token))
         }
       })
     }
@@ -120,7 +122,7 @@ export default function ConnectScreen() {
         ...form,
       })
       setConnected(true)
-      if (rootNavigationState?.key) router.replace(nextRouteAfterConnect(userToken))
+      if (rootNavigationState?.key) router.replace(nextRouteAfterConnect(userToken, form.token))
     } catch (nextError) {
       setConnected(false)
       setError(nextError instanceof Error ? nextError.message : String(nextError))
