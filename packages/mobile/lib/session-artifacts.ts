@@ -287,10 +287,7 @@ function publishedKind(value: unknown): PublishedArtifactKind | null {
   return null
 }
 
-function extractPublishedArtifact(
-  part: MessageWithParts["parts"][number],
-  messageId: string,
-): SessionPreview | null {
+function extractPublishedArtifact(part: MessageWithParts["parts"][number], messageId: string): SessionPreview | null {
   if (part.type !== "tool" || part.tool !== "artifact") return null
   const state = asToolState(part.state)
   if (state?.status !== "completed") return null
@@ -305,7 +302,7 @@ function extractPublishedArtifact(
 
   const rawUrl = stringValue(metadata.previewUrl)
   const viewerUrl = stringValue(metadata.viewerUrl)
-  const previewUrl = kind === "markdown" || kind === "text" ? viewerUrl ?? rawUrl : rawUrl ?? viewerUrl
+  const previewUrl = kind === "markdown" || kind === "text" ? (viewerUrl ?? rawUrl) : (rawUrl ?? viewerUrl)
 
   return {
     id: `artifact:${artifactId}`,
@@ -329,8 +326,7 @@ function extractPublishedArtifact(
 }
 
 function previewFromSessionArtifact(artifact: SessionArtifact): SessionPreview {
-  const previewUrl =
-    artifact.kind === "markdown" || artifact.kind === "text" ? artifact.viewerUrl : artifact.previewUrl
+  const previewUrl = artifact.kind === "markdown" || artifact.kind === "text" ? artifact.viewerUrl : artifact.previewUrl
   return {
     id: `artifact:${artifact.id}`,
     kind: artifact.kind,

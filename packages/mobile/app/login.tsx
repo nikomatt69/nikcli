@@ -417,8 +417,7 @@ export default function LoginScreen() {
                       </>
                     ) : (
                       <>
-                        New to nikcli?{" "}
-                        <Text style={{ color: palette.accentLight, fontWeight: "600" }}>Sign up</Text>
+                        New to nikcli? <Text style={{ color: palette.accentLight, fontWeight: "600" }}>Sign up</Text>
                       </>
                     )}
                   </Text>

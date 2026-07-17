@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.174.0 (July 2026)
+
+## Core
+
+- Standardize import statements and improve code consistency (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(identity, nikcli): standardize import statements and improve code consistency
+
 ## v1.169.0 (July 2026)
 
 ## Core

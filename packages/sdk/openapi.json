@@ -28511,6 +28511,74 @@
           }
         }
       },
+      "MobileArtifact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["html", "markdown", "image", "video", "text"]
+          },
+          "url": {
+            "type": "string"
+          },
+          "viewerUrl": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "number"
+              },
+              "updated": {
+                "type": "number"
+              }
+            },
+            "required": ["created", "updated"]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "filename",
+          "contentType",
+          "kind",
+          "url",
+          "viewerUrl",
+          "previewUrl",
+          "version",
+          "sessionID",
+          "size",
+          "time"
+        ]
+      },
       "MobileSessionDetail": {
         "type": "object",
         "properties": {
@@ -28538,6 +28606,12 @@
               "required": ["info", "parts"]
             }
           },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MobileArtifact"
+            }
+          },
           "permissions": {
             "type": "array",
             "items": {
@@ -28551,7 +28625,7 @@
             }
           }
         },
-        "required": ["info", "messages", "permissions", "questions"]
+        "required": ["info", "messages", "artifacts", "permissions", "questions"]
       },
       "MobileSessionCommandInput": {
         "type": "object",

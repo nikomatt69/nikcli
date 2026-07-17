@@ -360,7 +360,19 @@ function ConnectScreen(props: { navigate(path: string, options?: { replace?: boo
     } finally {
       setBusy(false)
     }
-  }, [authMode, config?.executionTarget, config?.modelID, config?.modelProviderID, directory, email, endpoint, password, props, save, token])
+  }, [
+    authMode,
+    config?.executionTarget,
+    config?.modelID,
+    config?.modelProviderID,
+    directory,
+    email,
+    endpoint,
+    password,
+    props,
+    save,
+    token,
+  ])
 
   return (
     <div className="space-y-6">

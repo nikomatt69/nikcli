@@ -19,9 +19,7 @@ export const ArtifactTool = Tool.define("artifact", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
-    const filepath = path.isAbsolute(params.filePath)
-      ? params.filePath
-      : path.join(Instance.directory, params.filePath)
+    const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
 
     const contentType = Artifact.contentTypeFor(filepath)
     if (!contentType) {
