@@ -33,8 +33,17 @@ export namespace SyncCliInit {
     const projectID = Instance.project.id
     // Lazy import keeps the remote client out of the local-only path.
     const { RemoteSync } = await import("./remote-sync")
-    const handle = await RemoteSync.start({ url: resolved.url, token: resolved.token, projectID })
-    log.info("remote sync started from bootstrap", { url: resolved.url, projectID, source: resolved.source })
+    const handle = await RemoteSync.start({
+      url: resolved.url,
+      token: resolved.token,
+      resolveToken: SyncConfig.refreshToken,
+      projectID,
+    })
+    log.info("remote sync started from bootstrap", {
+      url: resolved.url,
+      projectID,
+      source: resolved.source,
+    })
     return () => handle.stop()
   }
 
@@ -60,8 +69,16 @@ export namespace SyncCliInit {
     const { RemoteSync } = await import("./remote-sync")
     const handles = await Promise.all(
       projects.map((project) =>
-        RemoteSync.start({ url: opts.url, token: opts.token, projectID: project.id }).catch((error) => {
-          log.warn("remote sync start failed", { projectID: project.id, error })
+        RemoteSync.start({
+          url: opts.url,
+          token: opts.token,
+          resolveToken: SyncConfig.refreshToken,
+          projectID: project.id,
+        }).catch((error) => {
+          log.warn("remote sync start failed", {
+            projectID: project.id,
+            error,
+          })
           return undefined
         }),
       ),

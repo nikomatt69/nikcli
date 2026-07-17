@@ -98,7 +98,11 @@ export const SyncCommand = cmd({
             readRemote,
             withInstance: withInstanceAsync,
             getProjectId: () => Instance.project.id,
-            remoteStart: RemoteSync.start,
+            remoteStart: (opts) =>
+              RemoteSync.start({
+                ...opts,
+                resolveToken: SyncConfig.refreshToken,
+              }),
             onSignal: (signal, handler) => process.once(signal, handler),
             offSignal: (signal, handler) => process.off(signal, handler),
           })

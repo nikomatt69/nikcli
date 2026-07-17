@@ -26,13 +26,20 @@ import { eq } from "drizzle-orm"
 import { syncEvent } from "./sync.sql"
 import { Outbox } from "./outbox"
 import { Sync, type SyncEventRecord } from "./index"
-import { createHttpRemoteTransport, realScheduler, type RemoteTransport, type Scheduler } from "./transport"
+import {
+  createHttpRemoteTransport,
+  realScheduler,
+  type RemoteTokenResolver,
+  type RemoteTransport,
+  type Scheduler,
+} from "./transport"
 
 const log = Log.create({ service: "sync.remote" })
 
 export type RemoteSyncOptions = {
   url: string
   token: string
+  resolveToken?: RemoteTokenResolver
   projectID: string
   drainIntervalMs?: number
   clientId?: string
@@ -166,6 +173,7 @@ export namespace RemoteSync {
       createHttpRemoteTransport({
         url: opts.url,
         token: opts.token,
+        resolveToken: opts.resolveToken,
         projectID: opts.projectID,
         onError: (error) => {
           connected = false

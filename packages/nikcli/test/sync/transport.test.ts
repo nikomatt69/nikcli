@@ -186,6 +186,38 @@ describe("HttpRemoteTransport", () => {
     expect(calls.some((c) => c.url.endsWith("/sync/event"))).toBe(true)
     transport.close()
   })
+
+  it("re-resolves the token and retries once after HTTP 401", async () => {
+    const authorizations: string[] = []
+    let requests = 0
+    let resolutions = 0
+    const fakeFetch = Object.assign(
+      async (_input: unknown, init?: RequestInit) => {
+        requests++
+        authorizations.push(new Headers(init?.headers).get("authorization") ?? "")
+        return new Response("{}", { status: requests === 1 ? 401 : 200 })
+      },
+      { preconnect: () => undefined },
+    ) as unknown as typeof fetch
+
+    const transport = createHttpRemoteTransport({
+      url: "http://hub.example",
+      token: "expired",
+      resolveToken: async () => {
+        resolutions++
+        return "fresh"
+      },
+      projectID: "proj_refresh",
+      fetchImpl: fakeFetch,
+    })
+
+    const outcome = await transport.push(sampleEvent(8))
+    expect(outcome.ok).toBe(true)
+    expect(requests).toBe(2)
+    expect(resolutions).toBe(1)
+    expect(authorizations).toEqual(["Bearer expired", "Bearer fresh"])
+    transport.close()
+  })
 })
 
 describe("realScheduler", () => {

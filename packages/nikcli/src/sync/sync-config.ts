@@ -34,6 +34,11 @@ export namespace SyncConfig {
     cached = undefined
   }
 
+  export async function refreshToken(): Promise<string | undefined> {
+    invalidate()
+    return (await resolve()).token
+  }
+
   export async function resolve(): Promise<Resolved> {
     if (cached && Date.now() - cached.at < TTL_MS) return cached.value
     const value = await resolveUncached()

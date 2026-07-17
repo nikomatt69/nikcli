@@ -32,6 +32,8 @@ export type BacklogResponse = {
 
 export type PushOutcome = { ok: true } | { ok: false; permanent?: boolean; error?: string }
 
+export type RemoteTokenResolver = () => Promise<string | undefined>
+
 export interface RemoteTransport {
   /** Fetch missed events with seq > `since`. May be called multiple
    *  times until `hasMore` is false. */
@@ -70,6 +72,7 @@ function resolveEventSource(eventSourceImpl?: typeof EventSource): typeof EventS
 export type HttpRemoteTransportOptions = {
   url: string
   token: string
+  resolveToken?: RemoteTokenResolver
   projectID: string
   onError?: (error: unknown) => void
   fetchImpl?: typeof fetch
@@ -81,8 +84,47 @@ export function createHttpRemoteTransport(opts: HttpRemoteTransportOptions): Rem
   const EventSourceImpl = resolveEventSource(opts.eventSourceImpl)
 
   const base = opts.url.replace(/\/$/, "")
+  let token = opts.token
+  let refreshingToken: Promise<boolean> | undefined
   let source: EventSource | undefined
   const subscribers = new Set<(event: SyncEventRecord) => void | Promise<void>>()
+
+  async function refreshToken(failedToken: string): Promise<boolean> {
+    if (token !== failedToken) return true
+    if (!opts.resolveToken) return false
+    if (!refreshingToken) {
+      refreshingToken = opts
+        .resolveToken()
+        .then((next) => {
+          if (!next || next === failedToken) return false
+          token = next
+          return true
+        })
+        .finally(() => {
+          refreshingToken = undefined
+        })
+    }
+    return refreshingToken
+  }
+
+  function withToken(headers: HeadersInit | undefined, value: string): Headers {
+    const next = new Headers(headers)
+    next.set("authorization", `Bearer ${value}`)
+    return next
+  }
+
+  async function fetchWithToken(input: string, init: RequestInit = {}): Promise<Response> {
+    const failedToken = token
+    const first = await fetchImpl(input, {
+      ...init,
+      headers: withToken(init.headers, failedToken),
+    })
+    if (first.status !== 401 || !(await refreshToken(failedToken))) return first
+    return fetchImpl(input, {
+      ...init,
+      headers: withToken(init.headers, token),
+    })
+  }
 
   function fanout(event: SyncEventRecord) {
     for (const sub of subscribers) {
@@ -94,35 +136,47 @@ export function createHttpRemoteTransport(opts: HttpRemoteTransportOptions): Rem
     const url = new URL(`${base}/sync/outbox`)
     url.searchParams.set("projectID", opts.projectID)
     url.searchParams.set("since", String(since))
-    const res = await fetchImpl(url.toString(), {
-      headers: { authorization: `Bearer ${opts.token}` },
+    const res = await fetchWithToken(url.toString(), {
       signal: AbortSignal.timeout(30_000),
     })
     if (!res.ok) throw new Error(`backlog HTTP ${res.status}`)
     return (await res.json()) as BacklogResponse
   }
 
+  function openSource(): void {
+    const streamUrl = new URL(`${base}/sync/stream`)
+    streamUrl.searchParams.set("projectID", opts.projectID)
+    streamUrl.searchParams.set("token", token)
+    const sourceToken = token
+    const nextSource = new EventSourceImpl!(streamUrl.toString())
+    source = nextSource
+    // The server emits `event: sync` on the stream
+    // (server/routes/sync.ts), so listen for that event name.
+    nextSource.addEventListener("sync", (e: MessageEvent) => {
+      try {
+        const event = JSON.parse(e.data) as SyncEventRecord
+        fanout(event)
+      } catch (error) {
+        opts.onError?.(error)
+      }
+    })
+    nextSource.addEventListener("error", (event: Event) => {
+      opts.onError?.(event)
+      const code = (event as Event & { code?: unknown }).code
+      if (code !== 401 || source !== nextSource) return
+      nextSource.close()
+      source = undefined
+      void refreshToken(sourceToken)
+        .then((changed) => {
+          if (changed && subscribers.size > 0 && !source) openSource()
+        })
+        .catch((error) => opts.onError?.(error))
+    })
+  }
+
   function subscribe(onEvent: (event: SyncEventRecord) => void | Promise<void>): () => void {
     subscribers.add(onEvent)
-    if (!source) {
-      const streamUrl = new URL(`${base}/sync/stream`)
-      streamUrl.searchParams.set("projectID", opts.projectID)
-      streamUrl.searchParams.set("token", opts.token)
-      source = new EventSourceImpl!(streamUrl.toString())
-      // The server emits `event: sync` on the stream
-      // (server/routes/sync.ts), so listen for that event name.
-      source.addEventListener("sync", (e: MessageEvent) => {
-        try {
-          const event = JSON.parse(e.data) as SyncEventRecord
-          fanout(event)
-        } catch (error) {
-          opts.onError?.(error)
-        }
-      })
-      source.addEventListener("error", (e: Event) => {
-        opts.onError?.(e)
-      })
-    }
+    if (!source) openSource()
     return () => {
       subscribers.delete(onEvent)
       if (subscribers.size === 0 && source) {
@@ -134,11 +188,10 @@ export function createHttpRemoteTransport(opts: HttpRemoteTransportOptions): Rem
 
   async function push(event: SyncEventRecord): Promise<PushOutcome> {
     try {
-      const res = await fetchImpl(`${base}/sync/event`, {
+      const res = await fetchWithToken(`${base}/sync/event`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${opts.token}`,
         },
         body: JSON.stringify({ event, projectID: opts.projectID }),
         signal: AbortSignal.timeout(15_000),
