@@ -1,5 +1,15 @@
 import { forwardRef, useEffect, useMemo, useState, type ReactNode } from "react"
-import { ActivityIndicator, Animated, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native"
+import {
+  ActivityIndicator,
+  Animated,
+  Linking,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
 import {
   Code2,
   ExternalLink,
@@ -345,55 +355,58 @@ export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): 
         accessibilityLabel={`Open ${kindLabel(props.preview.kind)} artifact`}
         style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}
       >
-        <View className="overflow-hidden rounded-[8px] border border-border/80 bg-background/55" style={{ marginTop: 8 }}>
         <View
-          style={{
-            height: 168,
-            overflow: "hidden",
-            backgroundColor: isDark ? "#101010" : "#f8fafc",
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
-          }}
+          className="overflow-hidden rounded-[8px] border border-border/80 bg-background/55"
+          style={{ marginTop: 8 }}
         >
-          <PreviewViewport
-            preview={props.preview}
-            reloadKey={0}
-            isDark={isDark}
-            onLoadStart={() => setStatus("loading")}
-            onLoad={() => setStatus("ready")}
-            onError={() => setStatus("failed")}
-          />
-          {status !== "ready" ? (
-            <View
-              pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  backgroundColor: isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
-                },
-              ]}
-            >
-              {status === "loading" ? <ActivityIndicator color={palette.accentLight} /> : null}
-              <Text style={{ color: palette.ink, fontSize: 11, fontWeight: "700" }}>
-                {status === "failed" ? "Preview unavailable" : "Loading preview…"}
+          <View
+            style={{
+              height: 168,
+              overflow: "hidden",
+              backgroundColor: isDark ? "#101010" : "#f8fafc",
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+            }}
+          >
+            <PreviewViewport
+              preview={props.preview}
+              reloadKey={0}
+              isDark={isDark}
+              onLoadStart={() => setStatus("loading")}
+              onLoad={() => setStatus("ready")}
+              onError={() => setStatus("failed")}
+            />
+            {status !== "ready" ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    backgroundColor: isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
+                  },
+                ]}
+              >
+                {status === "loading" ? <ActivityIndicator color={palette.accentLight} /> : null}
+                <Text style={{ color: palette.ink, fontSize: 11, fontWeight: "700" }}>
+                  {status === "failed" ? "Preview unavailable" : "Loading preview…"}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <View className="flex-row items-center justify-between gap-3 px-3 py-2.5">
+            <View className="min-w-0 flex-1 flex-row items-center gap-2">
+              {kindIcon(props.preview.kind, palette.accentLight)}
+              <Text numberOfLines={1} className="flex-1 text-[12px] font-semibold text-ink">
+                {props.preview.title}
               </Text>
             </View>
-          ) : null}
-        </View>
-        <View className="flex-row items-center justify-between gap-3 px-3 py-2.5">
-          <View className="min-w-0 flex-1 flex-row items-center gap-2">
-            {kindIcon(props.preview.kind, palette.accentLight)}
-            <Text numberOfLines={1} className="flex-1 text-[12px] font-semibold text-ink">
-              {props.preview.title}
+            <Text className="text-[11px] font-semibold text-muted">
+              {props.preview.artifact ? `v${props.preview.artifact.version}` : "Expand"}
             </Text>
           </View>
-          <Text className="text-[11px] font-semibold text-muted">
-            {props.preview.artifact ? `v${props.preview.artifact.version}` : "Expand"}
-          </Text>
-        </View>
         </View>
       </Pressable>
     </Animated.View>
@@ -816,47 +829,47 @@ function PreviewCard(props: {
           accessibilityLabel={`Open ${kindLabel(props.preview.kind)} preview`}
           style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
         >
-        <View
-          style={{
-            height: 168,
-            overflow: "hidden",
-            backgroundColor: props.isDark ? "#101010" : "#f8fafc",
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
-          }}
-        >
-          <PreviewViewport
-            preview={props.preview}
-            reloadKey={props.reloadKey}
-            isDark={props.isDark}
-            onLoadStart={props.onLoadStart}
-            onLoad={props.onLoad}
-            onError={props.onError}
-          />
-          {props.status !== "ready" ? (
-            <View
-              pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  paddingHorizontal: 18,
-                  backgroundColor: props.isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
-                },
-              ]}
-            >
-              {props.status === "loading" ? <ActivityIndicator color={props.palette.accentLight} /> : null}
-              <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "800", textAlign: "center" }}>
-                {props.status === "failed" ? "Can't load preview" : "Loading…"}
-              </Text>
-              <Text numberOfLines={1} style={{ color: props.palette.muted, fontSize: 10, textAlign: "center" }}>
-                {subtitle}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+          <View
+            style={{
+              height: 168,
+              overflow: "hidden",
+              backgroundColor: props.isDark ? "#101010" : "#f8fafc",
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+            }}
+          >
+            <PreviewViewport
+              preview={props.preview}
+              reloadKey={props.reloadKey}
+              isDark={props.isDark}
+              onLoadStart={props.onLoadStart}
+              onLoad={props.onLoad}
+              onError={props.onError}
+            />
+            {props.status !== "ready" ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingHorizontal: 18,
+                    backgroundColor: props.isDark ? "rgba(8,8,8,0.76)" : "rgba(248,250,252,0.84)",
+                  },
+                ]}
+              >
+                {props.status === "loading" ? <ActivityIndicator color={props.palette.accentLight} /> : null}
+                <Text style={{ color: props.palette.ink, fontSize: 12, fontWeight: "800", textAlign: "center" }}>
+                  {props.status === "failed" ? "Can't load preview" : "Loading…"}
+                </Text>
+                <Text numberOfLines={1} style={{ color: props.palette.muted, fontSize: 10, textAlign: "center" }}>
+                  {subtitle}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
       </Animated.View>
 
@@ -885,7 +898,10 @@ function PreviewCard(props: {
             {subtitle}
           </Text>
           {detail ? (
-            <Text numberOfLines={1} style={{ marginTop: 3, color: props.palette.muted, fontSize: 10, fontWeight: "600" }}>
+            <Text
+              numberOfLines={1}
+              style={{ marginTop: 3, color: props.palette.muted, fontSize: 10, fontWeight: "600" }}
+            >
               {detail}
             </Text>
           ) : null}

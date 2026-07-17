@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.172.0 (July 2026)
+
+## Core
+
+- Implement OAuth login flow and enhance user experience (@nikomatt69)
+- Integrate @nikcli-ai/auth package and enhance authentication flow (@nikomatt69)
+- Password-free CLI publishing via capability links (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(artifact): password-free CLI publishing via capability links
+  - feat(auth): integrate @nikcli-ai/auth package and enhance authentication flow
+  - feat(auth): implement OAuth login flow and enhance user experience
+  - fix(identity): update generated runtime types with correct date
+
 ## v1.169.0 (July 2026)
 
 ## Core

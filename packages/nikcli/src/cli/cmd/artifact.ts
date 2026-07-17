@@ -12,11 +12,7 @@ export const ArtifactCommand = cmd({
   command: "artifact",
   describe: "manage published artifacts (nikcli.store/artifact)",
   builder: (yargs: Argv) =>
-    yargs
-      .command(ArtifactLoginCommand)
-      .command(ArtifactLogoutCommand)
-      .command(ArtifactListCommand)
-      .demandCommand(),
+    yargs.command(ArtifactLoginCommand).command(ArtifactLogoutCommand).command(ArtifactListCommand).demandCommand(),
   async handler() {},
 })
 
@@ -40,7 +36,9 @@ export const ArtifactLoginCommand = cmd({
       spinner.stop("No active CLI user", 1)
       log.error("artifact login failed", { error })
       prompts.log.warn(error instanceof Error ? error.message : "Unknown error")
-      prompts.log.info("Publishing still works without a login — artifacts are then reachable only via their ?key= capability link.")
+      prompts.log.info(
+        "Publishing still works without a login — artifacts are then reachable only via their ?key= capability link.",
+      )
       prompts.outro("Done")
     }
   },
@@ -53,7 +51,9 @@ export const ArtifactLogoutCommand = cmd({
     UI.empty()
     prompts.intro("nikcli.store account")
     await Artifact.logout()
-    prompts.log.info("Artifacts have no separate login. Sign out from the CLI/TUI account screen to end the shared session.")
+    prompts.log.info(
+      "Artifacts have no separate login. Sign out from the CLI/TUI account screen to end the shared session.",
+    )
     prompts.outro("Done")
   },
 })

@@ -128,7 +128,9 @@ export namespace Auth {
    * `?token=`), in acceptance order. Returns undefined when no bearer is
    * present or nothing matches — enforcement is `authenticate`'s job.
    */
-  export async function resolveBearer(request: Request): Promise<Extract<Principal, { type: "user" | "mobile" }> | undefined> {
+  export async function resolveBearer(
+    request: Request,
+  ): Promise<Extract<Principal, { type: "user" | "mobile" }> | undefined> {
     const bearer = MobileAuth.bearer(request) ?? extractQueryToken(new URL(request.url))
     if (!bearer) return undefined
     const external = await externalSessionForToken(bearer).catch(() => undefined)

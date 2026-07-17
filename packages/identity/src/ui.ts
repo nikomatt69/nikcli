@@ -79,6 +79,9 @@ export function devicePage(c: Context, userCode = "", message?: string): Respons
 
 export function resultPage(c: Context, title: string, message: string, status: ContentfulStatusCode = 200): Response {
   const tone: PageTone = status >= 400 ? "error" : "success"
-  const icon = tone === "success" ? checkIcon : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5m0 3.5v.01M12 3l9 17H3L12 3Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  const icon =
+    tone === "success"
+      ? checkIcon
+      : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5m0 3.5v.01M12 3l9 17H3L12 3Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`
   return page(c, title, `<div class="result ${tone}">${icon}</div><p>${escape(message)}</p>`, status, tone)
 }

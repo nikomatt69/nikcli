@@ -3845,6 +3845,25 @@ export type MobileSessionCreateInput = {
   executionTarget?: MobileExecutionTarget
 }
 
+export type MobileArtifact = {
+  id: string
+  title: string
+  description?: string
+  filename: string
+  contentType: string
+  kind: "html" | "markdown" | "image" | "video" | "text"
+  url: string
+  viewerUrl: string
+  previewUrl: string
+  version: number
+  sessionID: string
+  size: number
+  time: {
+    created: number
+    updated: number
+  }
+}
+
 export type MobileSessionDetail = {
   info: Session
   status?: SessionStatus
@@ -3852,6 +3871,7 @@ export type MobileSessionDetail = {
     info: Message
     parts: Array<Part>
   }>
+  artifacts: Array<MobileArtifact>
   permissions: Array<PermissionRequest>
   questions: Array<QuestionRequest>
 }

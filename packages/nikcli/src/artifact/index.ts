@@ -94,10 +94,11 @@ export namespace Artifact {
 
   /** The nikcli server whose UserDB is authoritative for artifact ownership. */
   export function authServerUrl(): string {
-    return (process.env["NIKCLI_ARTIFACT_AUTH_SERVER"] ?? process.env["NIKCLI_REMOTE_URL"] ?? "https://s.nikcli.store").replace(
-      /\/$/,
-      "",
-    )
+    return (
+      process.env["NIKCLI_ARTIFACT_AUTH_SERVER"] ??
+      process.env["NIKCLI_REMOTE_URL"] ??
+      "https://s.nikcli.store"
+    ).replace(/\/$/, "")
   }
 
   /**
