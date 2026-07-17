@@ -1,6 +1,16 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react"
-import { Animated, LayoutAnimation, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
-import { Box, ChevronRight, Copy, GitBranch, Link2, Paperclip, X, type LucideIcon } from "lucide-react-native"
+import {
+  Animated,
+  InteractionManager,
+  LayoutAnimation,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
+import { Box, ChevronRight, Copy, GitBranch, Link2, Paperclip, Play, X, type LucideIcon } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import { Image } from "expo-image"
 import { File, Paths } from "expo-file-system"
@@ -21,7 +31,7 @@ import { relativeTime } from "@/lib/types"
 import { highlightCode } from "@/lib/syntax"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"
-import { ArtifactMicroThumb } from "@/components/session/SessionPreviewStrip"
+import { ArtifactMicroThumb, InlineArtifactCard } from "@/components/session/SessionPreviewStrip"
 import { triggerHaptic } from "@/lib/haptics"
 import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/session-artifacts"
 import { useUIStore } from "@/lib/store"
@@ -64,31 +74,22 @@ function videoExtension(mime: string) {
 }
 
 /** AVPlayer/ExoPlayer cannot play data: URIs, so inline videos are materialized into the cache first. */
-function useLocalMediaUri(part: FilePart): string | null {
-  const isDataUri = part.url.startsWith("data:")
-  const [uri, setUri] = useState<string | null>(isDataUri ? null : part.url)
-
-  useEffect(() => {
-    if (!part.url.startsWith("data:")) {
-      setUri(part.url)
-      return
-    }
-    try {
-      const base64 = part.url.slice(part.url.indexOf(",") + 1)
-      const file = new File(Paths.cache, `msg-media-${part.id}.${videoExtension(part.mime)}`)
-      if (!file.exists) file.write(base64ToBytes(base64))
-      setUri(file.uri)
-    } catch {
-      setUri(null)
-    }
-  }, [part.id, part.mime, part.url])
-
-  return uri
+function materializeDataUri(part: FilePart): string | null {
+  try {
+    const base64 = part.url.slice(part.url.indexOf(",") + 1)
+    const file = new File(Paths.cache, `msg-media-${part.id}.${videoExtension(part.mime)}`)
+    if (!file.exists) file.write(base64ToBytes(base64))
+    return file.uri
+  } catch {
+    return null
+  }
 }
 
 function MessageVideoPlayer({ uri }: { uri: string }) {
+  // Mounted only after an explicit tap, so starting playback right away is expected.
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = false
+    instance.play()
   })
   return (
     <VideoView
@@ -101,18 +102,91 @@ function MessageVideoPlayer({ uri }: { uri: string }) {
 }
 
 function MessageVideo({ part }: { part: FilePart }) {
-  const { palette } = useAppTheme()
-  const uri = useLocalMediaUri(part)
-  if (!uri) {
+  const { palette, isDark } = useAppTheme()
+  const [uri, setUri] = useState<string | null>(null)
+  const [preparing, setPreparing] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  function activate() {
+    if (uri || preparing || failed) return
+    void triggerHaptic("selection")
+    if (!part.url.startsWith("data:")) {
+      setUri(part.url)
+      return
+    }
+    setPreparing(true)
+    // base64 → bytes is CPU-heavy for videos; keep it off the tap/scroll interaction path.
+    void InteractionManager.runAfterInteractions(() => {
+      const local = materializeDataUri(part)
+      if (local) setUri(local)
+      else setFailed(true)
+      setPreparing(false)
+    })
+  }
+
+  if (uri) {
     return (
-      <View className="items-center justify-center rounded-[12px] border border-border/70 bg-surface px-3 py-6">
-        <Text className="text-[12px] text-muted">Preparing video…</Text>
+      <View className="overflow-hidden rounded-[12px] border border-border/70" style={{ backgroundColor: "#000" }}>
+        <MessageVideoPlayer uri={uri} />
+        {part.filename ? (
+          <Text numberOfLines={1} className="px-2.5 py-1.5 text-[11px]" style={{ color: palette.muted }}>
+            {part.filename}
+          </Text>
+        ) : null}
       </View>
     )
   }
+
   return (
-    <View className="overflow-hidden rounded-[12px] border border-border/70" style={{ backgroundColor: "#000" }}>
-      <MessageVideoPlayer uri={uri} />
+    <Pressable
+      onPress={activate}
+      disabled={preparing || failed}
+      accessibilityRole="button"
+      accessibilityLabel={part.filename ? `Play video ${part.filename}` : "Play video"}
+      style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1 })}
+    >
+      <View className="flex-row items-center gap-3 rounded-[12px] border border-border/70 bg-surface px-3 py-3">
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+          }}
+        >
+          <Play size={16} color={palette.accentLight} strokeWidth={2.2} />
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="text-[13px] font-semibold text-ink">
+            {part.filename ?? "Video"}
+          </Text>
+          <Text className="mt-0.5 text-[11px] text-muted">
+            {failed ? "Video unavailable" : preparing ? "Preparing…" : "Tap to play"}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  )
+}
+
+function MessageImage({ part }: { part: FilePart }) {
+  const { palette } = useAppTheme()
+  const [aspectRatio, setAspectRatio] = useState(4 / 3)
+  return (
+    <View className="overflow-hidden rounded-[12px] border border-border/70 bg-surface">
+      <Image
+        source={{ uri: part.url }}
+        contentFit="contain"
+        transition={120}
+        onLoad={(event) => {
+          const { width, height } = event.source
+          if (width > 0 && height > 0) setAspectRatio(width / height)
+        }}
+        style={{ width: "100%", aspectRatio, maxHeight: 320 }}
+        accessibilityLabel={part.filename ?? "Attached image"}
+      />
       {part.filename ? (
         <Text numberOfLines={1} className="px-2.5 py-1.5 text-[11px]" style={{ color: palette.muted }}>
           {part.filename}
@@ -127,22 +201,7 @@ function MessageFileView({ part }: { part: FilePart }) {
   const mime = part.mime.toLowerCase()
 
   if (mime.startsWith("image/")) {
-    return (
-      <View className="overflow-hidden rounded-[12px] border border-border/70 bg-surface">
-        <Image
-          source={{ uri: part.url }}
-          contentFit="cover"
-          transition={120}
-          style={{ width: "100%", height: 200 }}
-          accessibilityLabel={part.filename ?? "Attached image"}
-        />
-        {part.filename ? (
-          <Text numberOfLines={1} className="px-2.5 py-1.5 text-[11px]" style={{ color: palette.muted }}>
-            {part.filename}
-          </Text>
-        ) : null}
-      </View>
-    )
+    return <MessageImage part={part} />
   }
 
   if (mime.startsWith("video/")) {
@@ -155,7 +214,7 @@ function MessageFileView({ part }: { part: FilePart }) {
       disabled={!canOpen}
       onPress={() => {
         void triggerHaptic("selection")
-        void Linking.openURL(part.url)
+        void Linking.openURL(part.url).catch(() => undefined)
       }}
       accessibilityRole={canOpen ? "link" : "text"}
       accessibilityLabel={part.filename ?? "Attached file"}
@@ -236,6 +295,7 @@ function ArtifactFencePlaceholder(props: { language: string }) {
 
 function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(preview: SessionPreview): void }) {
   const { palette, isDark } = useAppTheme()
+  const [primary, ...rest] = props.artifacts
 
   return (
     <View className="border-t border-border/80 px-3.5 py-3">
@@ -246,8 +306,9 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
             {props.artifacts.length === 1 ? "Generated artifact" : `${props.artifacts.length} artifacts`}
           </Text>
         </View>
-        <View className="mt-3 gap-2">
-          {props.artifacts.map((artifact) => (
+        {primary ? <InlineArtifactCard preview={primary} onPress={() => props.onOpen(primary)} /> : null}
+        <View className={rest.length || props.artifacts.some((artifact) => artifact.url) ? "mt-3 gap-2" : undefined}>
+          {rest.map((artifact) => (
             <Pressable
               key={artifact.id}
               onPress={() => {
@@ -294,7 +355,7 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
                 key={`${artifact.id}:link`}
                 onPress={() => {
                   void triggerHaptic("selection")
-                  void Linking.openURL(artifact.url!)
+                  void Linking.openURL(artifact.url!).catch(() => undefined)
                 }}
                 onLongPress={() => {
                   void Clipboard.setStringAsync(artifact.url!)
@@ -787,10 +848,13 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             </View>
           ) : null}
 
-          {messageArtifacts.length > 0 && props.onOpenArtifact ? (
+          {messageArtifacts.length > 0 ? (
             <MessageArtifactSection
               artifacts={messageArtifacts}
-              onOpen={(preview) => props.onOpenArtifact?.(preview)}
+              onOpen={(preview) => {
+                if (props.onOpenArtifact) props.onOpenArtifact(preview)
+                else if (preview.url) void Linking.openURL(preview.url).catch(() => undefined)
+              }}
             />
           ) : null}
 

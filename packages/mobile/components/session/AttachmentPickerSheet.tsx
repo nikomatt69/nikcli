@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
+  Alert,
   Animated,
   Modal,
   Platform,
@@ -31,6 +32,11 @@ type AttachmentItemDef = {
   description: string
   icon: typeof FileText
 }
+
+// Attachments travel as base64 data URIs inside the prompt payload, so large
+// videos would balloon memory and get rejected by the server anyway.
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+const MAX_VIDEO_DURATION_S = 60
 
 const ATTACHMENT_ITEMS: AttachmentItemDef[] = [
   {
@@ -99,6 +105,15 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
 
   const handleFileSelected = useCallback(
     (mime: string, filename: string, base64: string, previewUri?: string) => {
+      const bytes = Math.floor((base64.length * 3) / 4)
+      if (bytes > MAX_ATTACHMENT_BYTES) {
+        void triggerHaptic("error")
+        Alert.alert(
+          "Attachment too large",
+          `${filename} is ${(bytes / (1024 * 1024)).toFixed(1)} MB. Attachments are limited to ${MAX_ATTACHMENT_BYTES / (1024 * 1024)} MB.`,
+        )
+        return
+      }
       void triggerHaptic("selection")
       onFile(mime, filename, base64, previewUri)
       onClose()
@@ -111,6 +126,7 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
       mediaTypes: ["images", "videos"],
       base64: true,
       quality: 0.85,
+      videoMaxDuration: MAX_VIDEO_DURATION_S,
     })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]

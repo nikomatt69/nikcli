@@ -4,6 +4,7 @@ import {
   Animated,
   Easing,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
@@ -284,6 +285,7 @@ export default function LoginScreen() {
   }
 
   function toggleMode() {
+    if (!prefersReducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
     setMode((current) => (current === "signin" ? "signup" : "signin"))
     setError(null)
     void triggerHaptic("selection")
@@ -429,7 +431,9 @@ export default function LoginScreen() {
               <Pressable
                 onPress={() => {
                   void triggerHaptic("selection")
-                  router.replace("/connect")
+                  // Login is reached from connect: go back along the same path when we can.
+                  if (router.canGoBack()) router.back()
+                  else router.replace("/connect")
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Connect with a host mobile token"
