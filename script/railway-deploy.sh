@@ -32,6 +32,8 @@ mkdir -p \
   "$CTX/packages/plugin" \
   "$CTX/packages/companion" \
   "$CTX/packages/slack" \
+  "$CTX/packages/identity" \
+  "$CTX/packages/auth" \
   "$CTX/packages/llm" \
   "$CTX/packages/http-recorder" \
   "$CTX/packages/httpapi-codegen" \
@@ -58,6 +60,8 @@ cp "$ROOT/packages/remote/package.json" "$CTX/packages/remote/package.json"
 cp "$ROOT/packages/plugin/package.json" "$CTX/packages/plugin/package.json"
 cp "$ROOT/packages/companion/package.json" "$CTX/packages/companion/package.json"
 cp "$ROOT/packages/slack/package.json" "$CTX/packages/slack/package.json"
+cp "$ROOT/packages/identity/package.json" "$CTX/packages/identity/package.json"
+cp "$ROOT/packages/auth/package.json" "$CTX/packages/auth/package.json"
 cp "$ROOT/packages/llm/package.json" "$CTX/packages/llm/package.json"
 cp "$ROOT/packages/http-recorder/package.json" "$CTX/packages/http-recorder/package.json"
 cp "$ROOT/packages/httpapi-codegen/package.json" "$CTX/packages/httpapi-codegen/package.json"
@@ -99,6 +103,8 @@ rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/remote/"        "$CTX/packages/remote/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/plugin/"        "$CTX/packages/plugin/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/companion/"     "$CTX/packages/companion/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/slack/"         "$CTX/packages/slack/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/identity/"      "$CTX/packages/identity/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/auth/"          "$CTX/packages/auth/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/llm/"           "$CTX/packages/llm/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/http-recorder/" "$CTX/packages/http-recorder/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/httpapi-codegen/" "$CTX/packages/httpapi-codegen/"
@@ -130,6 +136,10 @@ rm -rf \
   "$CTX/packages/companion/.turbo" \
   "$CTX/packages/slack/.cache" \
   "$CTX/packages/slack/.turbo" \
+  "$CTX/packages/identity/.cache" \
+  "$CTX/packages/identity/.turbo" \
+  "$CTX/packages/auth/.cache" \
+  "$CTX/packages/auth/.turbo" \
   "$CTX/packages/llm/.cache" \
   "$CTX/packages/llm/.turbo" \
   "$CTX/packages/http-recorder/.cache" \
