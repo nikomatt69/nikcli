@@ -2242,7 +2242,12 @@ function ArtifactView(props: ToolProps<typeof ArtifactTool>) {
   return (
     <Switch>
       <Match when={props.output !== undefined}>
-        <BlockTool title={`# Published · ${title()}`} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
+        <BlockTool
+          title={`# Published · ${title()}`}
+          titleColor={theme.primary}
+          accentColor={theme.primary}
+          part={props.part}
+        >
           <box gap={1}>
             <text fg={theme.textMuted}>{detail()}</text>
             <Show when={url()}>{(value) => <Link href={value()} fg={theme.primary} />}</Show>

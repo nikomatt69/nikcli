@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.173.0 (July 2026)
+
+## Core
+
+- Enhance remote synchronization with token resolution (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(sync): enhance remote synchronization with token resolution
+  - feat(docker): add identity and auth packages to Dockerfiles and deployment script
+
 ## v1.169.0 (July 2026)
 
 ## Core

@@ -49,8 +49,9 @@ describe("artifact payloads", () => {
     ).toEqual({ error: "Unsupported contentType: application/zip" })
 
     const oversized = "A".repeat(Math.ceil((ARTIFACT_MAX_BYTES + 1) / 3) * 4)
-    expect(parseArtifactPayload({ title: "Large", filename: "large.txt", contentType: "text/plain", content: oversized }))
-      .toEqual({ error: `Artifact exceeds ${ARTIFACT_MAX_BYTES} bytes` })
+    expect(
+      parseArtifactPayload({ title: "Large", filename: "large.txt", contentType: "text/plain", content: oversized }),
+    ).toEqual({ error: `Artifact exceeds ${ARTIFACT_MAX_BYTES} bytes` })
   })
 
   test("never exposes write or read capabilities in public metadata", () => {

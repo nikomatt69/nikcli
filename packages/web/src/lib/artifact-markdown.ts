@@ -6,11 +6,7 @@
  */
 
 function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
 
 function renderInline(text: string): string {
@@ -18,7 +14,10 @@ function renderInline(text: string): string {
   out = out.replace(/`([^`]+)`/g, "<code>$1</code>")
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
   out = out.replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
-  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" rel="noopener noreferrer" target="_blank">$1</a>')
+  out = out.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" rel="noopener noreferrer" target="_blank">$1</a>',
+  )
   return out
 }
 

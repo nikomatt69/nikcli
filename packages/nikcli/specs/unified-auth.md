@@ -9,15 +9,15 @@ surface into either an OAuth client or a JWT resource server.
 
 Four independent auth systems exist today:
 
-| Surface | Mechanism | Key files |
-|---|---|---|
+| Surface                                | Mechanism                                                                                                                                                            | Key files                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | nikcli server (local + s.nikcli.store) | email/password → opaque `nku_` session tokens (SHA-256-hashed, SQLite/Drizzle); `nkm_` scoped pairing tokens (`mobile\|cli-sync\|studio`); Basic/Tailscale fallbacks | `src/user/users.ts`, `src/mobile/auth.ts`, `src/server/server.ts:289-344` |
-| Studio (dashboard in `packages/web`) | pastes an `nkm_` pairing token, or legacy email/password → `nku_`; no identity of its own | `packages/web/src/dashboard/auth/AuthContext.tsx`, `lib/studio-api.ts` |
-| Mobile | `/user/login` email/password → `nku_` bearer in expo-secure-store; pairing token fallback | `packages/mobile/app/login.tsx`, `lib/client.ts`, `lib/storage.ts` |
-| Desktop/app | same `nku_` per-server tokens via account context | `packages/app/src/context/account.tsx`, `context/global-sdk.tsx` |
-| inference-dashboard | its own bcrypt + `nik_session` cookie on D1 | `packages/inference-dashboard/src/lib/auth.ts` |
-| packages/cloud | **JWT resource server** — `jose` + JWKS (`AUTH_JWKS_URL`, issuer/audience), lazy `ensureUser` provisioning into D1 | `packages/cloud/src/auth.ts` |
-| packages/console | **OpenAuth issuer** — GitHub provider, KV storage, account/user/workspace/billing Drizzle models | `packages/console/function/src/auth.ts`, `core/src/schema/*` |
+| Studio (dashboard in `packages/web`)   | pastes an `nkm_` pairing token, or legacy email/password → `nku_`; no identity of its own                                                                            | `packages/web/src/dashboard/auth/AuthContext.tsx`, `lib/studio-api.ts`    |
+| Mobile                                 | `/user/login` email/password → `nku_` bearer in expo-secure-store; pairing token fallback                                                                            | `packages/mobile/app/login.tsx`, `lib/client.ts`, `lib/storage.ts`        |
+| Desktop/app                            | same `nku_` per-server tokens via account context                                                                                                                    | `packages/app/src/context/account.tsx`, `context/global-sdk.tsx`          |
+| inference-dashboard                    | its own bcrypt + `nik_session` cookie on D1                                                                                                                          | `packages/inference-dashboard/src/lib/auth.ts`                            |
+| packages/cloud                         | **JWT resource server** — `jose` + JWKS (`AUTH_JWKS_URL`, issuer/audience), lazy `ensureUser` provisioning into D1                                                   | `packages/cloud/src/auth.ts`                                              |
+| packages/console                       | **OpenAuth issuer** — GitHub provider, KV storage, account/user/workspace/billing Drizzle models                                                                     | `packages/console/function/src/auth.ts`, `core/src/schema/*`              |
 
 Pieces of the target design that already exist:
 
@@ -78,12 +78,12 @@ One central identity provider, everything else standardized on two roles:
 
 ### Per-client login flows
 
-| Client | Flow | Notes |
-|---|---|---|
-| CLI (`nikcli auth login` / account) | Device flow (già implementato client-side); PKCE+localhost loopback come fallback | token → `Global.Path.data` come oggi |
-| Mobile | `expo-auth-session` (già installato) authorization-code + PKCE, redirect `nikcli://auth/callback` | sostituisce la login screen email/password; token in expo-secure-store |
-| Desktop | apre il browser di sistema, callback via Tauri deep-link `nikcli://auth/callback` | `account.tsx` conserva la stessa forma `{token, user}` |
-| Studio / web | authorization-code + PKCE da SPA (o cookie di sessione impostato dai proxy `packages/web/src/pages/user/*`) | rimuove il paste del token `nkm_` come flusso primario |
+| Client                              | Flow                                                                                                        | Notes                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| CLI (`nikcli auth login` / account) | Device flow (già implementato client-side); PKCE+localhost loopback come fallback                           | token → `Global.Path.data` come oggi                                   |
+| Mobile                              | `expo-auth-session` (già installato) authorization-code + PKCE, redirect `nikcli://auth/callback`           | sostituisce la login screen email/password; token in expo-secure-store |
+| Desktop                             | apre il browser di sistema, callback via Tauri deep-link `nikcli://auth/callback`                           | `account.tsx` conserva la stessa forma `{token, user}`                 |
+| Studio / web                        | authorization-code + PKCE da SPA (o cookie di sessione impostato dai proxy `packages/web/src/pages/user/*`) | rimuove il paste del token `nkm_` come flusso primario                 |
 
 ### What stays
 
