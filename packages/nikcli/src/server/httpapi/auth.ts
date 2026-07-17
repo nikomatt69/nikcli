@@ -1,36 +1,63 @@
 import { Option } from "effect"
 import { Flag } from "@/flag/flag"
+import { MobileAuth } from "@/mobile/auth"
+import { UserDB } from "@/user/users"
+import { externalSessionForToken } from "@/server/identity-auth"
+import { Log } from "@/util/log"
 
 /**
- * Centralized Effect-side auth resolution for the HttpApi bridge.
+ * Canonical auth resolution for the nikcli server.
  *
- * `NIKCLI_SERVER_PASSWORD` / `NIKCLI_SERVER_USERNAME` are the legacy
- * basic-auth credentials used by Hono's middleware in `server.ts`. The
- * Effect backend resolves the same flags through a shared `currentCredentials`
- * helper so the two backends stay in lockstep — Hono's middleware is the
- * source of truth, and the bridge calls the same logic before delegating to
- * the Effect router.
+ * `Auth.authenticate` is the single implementation of the resource-server
+ * acceptance order (specs/unified-auth-plan.md §3.5):
+ *
+ *   1. identity-plane JWT from the issuer (`identity-auth.ts`, JWKS verify);
+ *   2. capability tokens (`nkm_` — `MobileAuth.verify`);
+ *   3. legacy credentials (`nku_` session, Basic, Tailscale), gated by
+ *      `NIKCLI_REQUIRE_OAUTH` / `NIKCLI_LEGACY_LOGIN`.
+ *
+ * Hono's middleware in `server.ts` is a thin adapter: it calls
+ * `authenticate` and copies the resolved principal into Hono context. The
+ * HttpApi bridge calls the same function for direct consumers (tests,
+ * embedded sdk-next, the future pure-Effect backend), so both backends
+ * accept exactly the same credentials.
  *
  * `auth_token` (legacy `?token=` query parameter used by mobile and websocket
- * clients — see `MobileAuth.bearer`) is enforced as a security scheme on the
- * `/sync/*` and `/chatbot/*` webhook receivers, which read it via
- * `Auth.extractQueryToken`. They verify scope via `c.get("mobileAuth")`; the
- * bridge does not centralize that check because webhook payloads need the raw
- * request for signature verification.
+ * clients — see `MobileAuth.bearer`) is accepted as a bearer everywhere; the
+ * `/sync/*` and `/chatbot/*` webhook receivers additionally verify scope via
+ * `c.get("mobileAuth")` because webhook payloads need the raw request for
+ * signature verification.
  */
 export namespace Auth {
+  const log = Log.create({ service: "httpapi.auth" })
+
   /** Basic-auth credentials. `username` defaults to `nikcli`. */
   export interface Credentials {
     readonly username: string
     readonly password: Option.Option<string>
   }
 
+  /** The identity resolved for a request. `open` = allowed without an identified user (basic/tailscale/no-password dev mode). */
+  export type Principal =
+    | { readonly type: "user"; readonly session: { user: UserDB.PublicUser; token: string } }
+    | { readonly type: "mobile"; readonly token: MobileAuth.PublicToken }
+    | { readonly type: "open" }
+
+  export type AuthenticateResult =
+    | { readonly ok: true; readonly principal: Principal }
+    | { readonly ok: false; readonly response: Response }
+
+  export interface AuthenticateOptions {
+    /** Listen-state Hono passes in; direct bridge consumers omit both. */
+    readonly mobileAuthRequired?: boolean
+    readonly listenHostname?: string
+    /** Test seam replacing the Flag-derived basic-auth credentials. */
+    readonly credentials?: Credentials
+  }
+
   /**
-   * Synchronous helper used by the Hono/Effect bridge at request time. Mirrors
-   * the Hono middleware in `server.ts` so basic auth requests land on either
-   * backend with the same result. Reads `Flag.NIKCLI_SERVER_*` every call so
-   * runtime changes (e.g. tests that toggle the flag) take effect without a
-   * restart.
+   * Reads `Flag.NIKCLI_SERVER_*` every call so runtime changes (e.g. tests
+   * that toggle the flag) take effect without a restart.
    */
   export function currentCredentials(): Credentials {
     const username = Flag.NIKCLI_SERVER_USERNAME?.trim() || "nikcli"
@@ -55,20 +82,130 @@ export namespace Auth {
     return user === credentials.username && Option.getOrUndefined(credentials.password) === pass
   }
 
-  /**
-   * Basic-auth challenge header emitted by the bridge when credentials are
-   * required but missing/invalid. Mirrors the Hono middleware's response.
-   */
+  /** Basic-auth challenge header emitted when credentials are required but missing/invalid. */
   export const challenge = `Basic realm="nikcli", charset="UTF-8"`
 
   /**
-   * Parses `?token=…` from a URL. The `auth_token` security scheme for the
-   * Effect backend: mobile and websocket clients pass the bearer token via
-   * query parameter because the transport cannot send custom headers.
+   * Parses `?token=…` from a URL. The `auth_token` security scheme: mobile and
+   * websocket clients pass the bearer token via query parameter because the
+   * transport cannot send custom headers.
    */
   export function extractQueryToken(url: URL): string | undefined {
     const value = url.searchParams.get("token")
     return value && value.length > 0 ? value : undefined
+  }
+
+  export function isLoopbackHostname(hostname: string | undefined) {
+    if (!hostname) return false
+    return hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost"
+  }
+
+  /**
+   * Routes reachable without credentials. Flag-dependent: closing legacy
+   * login (`NIKCLI_REQUIRE_OAUTH` without `NIKCLI_LEGACY_LOGIN`) also closes
+   * password login/registration.
+   */
+  export function isPublicPath(method: string, pathname: string): boolean {
+    const normalizedMethod = method.toUpperCase()
+    if (normalizedMethod === "OPTIONS") return true
+    if (pathname === "/user/status") return true
+    if (
+      (pathname === "/user/login" || pathname === "/user/register") &&
+      (!Flag.NIKCLI_REQUIRE_OAUTH || Flag.NIKCLI_LEGACY_LOGIN)
+    ) {
+      return true
+    }
+    if (normalizedMethod === "GET" && pathname === "/global/health") return true
+    return false
+  }
+
+  function legacyUserTokenAllowed() {
+    return !Flag.NIKCLI_REQUIRE_OAUTH || Flag.NIKCLI_LEGACY_LOGIN
+  }
+
+  /**
+   * Best-effort principal resolution from a bearer token (header or
+   * `?token=`), in acceptance order. Returns undefined when no bearer is
+   * present or nothing matches — enforcement is `authenticate`'s job.
+   */
+  export async function resolveBearer(request: Request): Promise<Extract<Principal, { type: "user" | "mobile" }> | undefined> {
+    const bearer = MobileAuth.bearer(request) ?? extractQueryToken(new URL(request.url))
+    if (!bearer) return undefined
+    const external = await externalSessionForToken(bearer).catch(() => undefined)
+    if (external) return { type: "user", session: external }
+    const mobile = await MobileAuth.verify(bearer)
+    if (mobile) return { type: "mobile", token: mobile }
+    if (bearer.startsWith("nku_") && legacyUserTokenAllowed()) {
+      const user = UserDB.verifySession(bearer)
+      if (user) return { type: "user", session: { user, token: bearer } }
+    }
+    return undefined
+  }
+
+  /**
+   * Full auth decision for a request. Both backends call this — Hono's
+   * middleware for every route, the bridge for direct consumers — so the
+   * acceptance order has exactly one implementation.
+   */
+  export async function authenticate(request: Request, options?: AuthenticateOptions): Promise<AuthenticateResult> {
+    const bearer = MobileAuth.bearer(request) ?? extractQueryToken(new URL(request.url))
+    if (bearer) {
+      const principal = await resolveBearer(request)
+      if (principal) return { ok: true, principal }
+      return unauthorized()
+    }
+
+    if (options?.mobileAuthRequired || (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN)) {
+      return unauthorized()
+    }
+
+    const credentials = options?.credentials ?? currentCredentials()
+
+    const tailscaleAuthEnabled = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && isLoopbackHostname(options?.listenHostname)
+    if (tailscaleAuthEnabled) {
+      const login = request.headers.get("Tailscale-User-Login")?.trim()
+      if (login) {
+        if (!isTailscaleLoginAllowed(login)) {
+          log.warn("tailscale user not allowed", { login })
+          return { ok: false, response: new Response("Forbidden", { status: 403 }) }
+        }
+        return { ok: true, principal: { type: "open" } }
+      }
+      // Tailscale auth requires identity headers; optionally fall back to Basic.
+      if (Option.isNone(credentials.password)) return unauthorized()
+    }
+
+    if (Option.isNone(credentials.password)) return { ok: true, principal: { type: "open" } }
+    if (matchesBasicAuth(credentials, request.headers.get("authorization"))) {
+      return { ok: true, principal: { type: "open" } }
+    }
+    return {
+      ok: false,
+      response: new Response("Unauthorized", {
+        status: 401,
+        headers: { "www-authenticate": challenge },
+      }),
+    }
+  }
+
+  function unauthorized(): AuthenticateResult {
+    return { ok: false, response: new Response("Unauthorized", { status: 401 }) }
+  }
+
+  function isTailscaleLoginAllowed(login: string) {
+    const configured = Flag.NIKCLI_SERVER_TAILSCALE_USERS?.trim()
+    if (!configured) return true
+
+    const items = configured
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean)
+
+    if (items.length === 0) return true
+    if (items.some((x) => x === "*" || x.toLowerCase() === "any")) return true
+
+    const normalized = login.toLowerCase()
+    return items.some((x) => x.toLowerCase() === normalized)
   }
 }
 

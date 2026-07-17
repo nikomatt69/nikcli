@@ -198,6 +198,10 @@ nikcli server specifics: identity linking needs `users.external_subject TEXT UNI
 flag `NIKCLI_REQUIRE_OAUTH=1` on hosted hubs disables plane 3 and closes password
 registration. Local default (no flag): nothing changes (N1).
 
+In the nikcli server this order lives in **one** implementation: the Effect-side `Auth`
+namespace in `src/server/httpapi/auth.ts` (see W2). The Hono middleware delegates to it;
+it is not a second copy.
+
 ### 3.6 Client flows
 
 **CLI — device flow** (client already shipped: `src/account/index.ts:228-330`)
@@ -241,6 +245,47 @@ for self-hosted servers without an issuer.
 
 ## 4. Implementation plan (workstreams → repo)
 
+> **Status 2026-07-17** — W0 done (`packages/auth`, consumed by cloud). W1 done and
+> **deployed**: `nikcli-identity` live on auth.nikcli.store (D1 migrated, KV bound,
+> JWKS populated, custom domain taken over from the old console issuer). Verified live:
+> `/health`, `/.well-known/{nikcli,oauth-authorization-server,jwks.json}`, device
+> code+poll (`pending` contract shape). Verified end-to-end on a local `wrangler dev`
+> issuer: device flow → email-code approval → `PollSuccess` tokens; PKCE `/authorize`
+> flow (nikcli-studio client) → code → token exchange; refresh rotation + family
+> reuse-detection (reused refresh revokes the whole family); ES256 JWT claims
+> (`iss`/`sub acc_`/`aud nikcli-api`/`email`/`client_id`); nikcli server with
+> `NIKCLI_AUTH_ISSUER` set accepts the JWT on `/user/me` (external user provisioned)
+> and instance routes. W2 done including the httpapi inversion below. W3 done on all
+> surfaces: CLI `nikcli account login` + TUI `/signin` dialog (device flow), desktop
+> shell OAuth-primary popover, mobile login OAuth-primary, Studio LoginForm (default
+> `oauth`) + `/dashboard/callback`, site `/user/authorize|callback` (password login
+> already retired with 410). **Blocked on operator actions**: (1) Email Sending not
+> enabled for nikcli.store (`wrangler email sending enable nikcli.store`) — email-code
+> login 500s in production; (2) GitHub OAuth app secrets not set
+> (`wrangler secret put GITHUB_CLIENT_ID|GITHUB_CLIENT_SECRET`, callback
+> `https://auth.nikcli.store/callback/github`) — GitHub login unavailable. W4 remains
+> (inference-dashboard port, console retirement).
+>
+> **Update (same day, "everything uses OAuth" audit)**: Email Sending enabled by the
+> operator — production email-code login verified working. Issuer verification is now
+> **default-on** in every nikcli server (`identity-auth.ts` defaults to
+> auth.nikcli.store; opt out with `NIKCLI_AUTH_ISSUER=off`; JWKS fetched lazily so
+> offline stays account-free). TUI startup login (`dialog-login.tsx`) is OAuth-first
+> (device flow via `DialogAccountLogin`, which now also links the local user via
+> `ensureExternalUser` + local session; password flow demoted to offline fallback);
+> `dialog-auth-manage` delegates to the same flow (its duplicated password
+> `loginOrRegister` deleted). `ensureExternalUser` grants `admin` to the first user on
+> an empty database (parity with password registration). Studio's password
+> `register.astro` + `RegisterForm.tsx` deleted (site + issuer own signup; docs
+> updated). Audited coherent with no changes needed: `src/account` (form-encoded
+> refresh w/ rotation persistence, locked single-flight), mobile
+> (`login/oauth/oauth-core/client` + 401→refresh hook, profile pages), web
+> `pages/user/*` (PKCE authorize/callback, login+register 410, logout revokes refresh,
+> me proxies JWT), Studio (shared `@nikcli-ai/auth/client` auto-refresh), CLI sync
+> (account-token fallback in `sync-config.ts`, source "account"). Known follow-up: the
+> sync transport holds a static token for its lifetime — a long-lived sync process
+> should re-resolve through `account.token()` on 401.
+
 ### W0 — `packages/auth` (verifier + client helper) — _prerequisite, zero behavior change_
 
 Create the package per §3.4; migrate `packages/cloud/src/auth.ts` to consume it (first
@@ -256,14 +301,39 @@ guard. Deploy `dev.auth.nikcli.store` (staging) → `auth.nikcli.store`.
 
 ### W2 — nikcli server (local + `s.nikcli.store` hub)
 
+**Direction (2026-07-17): the Effect HttpApi layer is the canonical auth surface, not
+Hono.** Today `src/server/httpapi/auth.ts` documents the inverse ("Hono's middleware is
+the source of truth, the bridge mirrors it") and the bridge shim only understands Basic
+auth — a direct bridge consumer with a valid issuer JWT gets 401. W2 inverts that:
+
 - Migration: `users.external_subject` (`src/user/users.sql.ts` + `src/database/migration/`).
 - `UserDB.ensureExternalUser({ sub, email })` in `src/user/users.ts`.
-- Global middleware `src/server/server.ts:289-344`: insert plane-1 JWT check (env
-  `NIKCLI_AUTH_ISSUER`/`NIKCLI_AUTH_JWKS_URL`/`NIKCLI_AUTH_AUDIENCE`); mirror in the
-  Effect bridge (`src/server/httpapi/users.ts`). Set the same `userSession` context shape.
+- Issuer-JWT verification helper: `src/server/identity-auth.ts`
+  (`identityVerifierOptions()` from `NIKCLI_AUTH_ISSUER`/`NIKCLI_AUTH_JWKS_URL`/
+  `NIKCLI_AUTH_AUDIENCE`, `externalSessionForToken()` → `ensureExternalUser`).
+- **Canonical resolver**: extend the Effect-side `Auth` namespace
+  (`src/server/httpapi/auth.ts`) with `Auth.authenticate(request)` implementing the full
+  acceptance order — (1) issuer JWT via `identity-auth.ts` → (2) `nkm_` capability
+  tokens (`MobileAuth.verify`) → (3) legacy `nku_` session / Basic / Tailscale, gated by
+  `NIKCLI_REQUIRE_OAUTH`/`NIKCLI_LEGACY_LOGIN`. It returns the resolved principal
+  (`userSession` | `mobileAuth` shape) so both backends set identical context.
+- Bridge `handle()`/`handleGlobal()` call `Auth.authenticate` directly, replacing the
+  Basic-only shim; `upstreamAuthVerified` survives only as a skip-duplicate-work hint.
+  The bridge (and the future pure-Effect backend / sdk-next direct consumers) is then
+  fully self-sufficient for auth.
+- Hono global middleware (`src/server/server.ts:289-344`) becomes a thin adapter that
+  delegates to `Auth.authenticate` and copies the principal into Hono context — no
+  auth logic of its own left to drift.
+- New identity-related server endpoints are defined as HttpApi contract routes
+  (`src/server/httpapi/users.ts` + contract), never as new Hono routes.
 - `NIKCLI_REQUIRE_OAUTH` in `src/flag/flag.ts` per §3.5.
 - Curl-verify `/user/me` + one `/mobile/*` route with a real staging JWT against a live
   server before merge (bridge runtime-validation rule).
+
+Status note: the migration, `ensureExternalUser`, `identity-auth.ts`, both flags, and
+the Hono-side JWT check already landed (`feat(auth): integrate @nikcli-ai/auth package`);
+the remaining W2 work is the inversion — `Auth.authenticate` in the httpapi layer and
+the two call sites delegating to it.
 
 ### W3 — clients (order: CLI → desktop/app → mobile → Studio)
 

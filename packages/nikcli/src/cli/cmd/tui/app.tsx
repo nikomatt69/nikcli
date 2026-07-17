@@ -969,6 +969,20 @@ function App() {
       category: "Provider",
     },
     {
+      title: "Sign in to nikcli",
+      value: "account.login",
+      category: "Account",
+      slash: {
+        name: "signin",
+        aliases: ["account-login"],
+      },
+      onSelect: () => {
+        void import("@tui/component/dialog-account-login").then(({ DialogAccountLogin }) =>
+          dialog.replace(() => <DialogAccountLogin />),
+        )
+      },
+    },
+    {
       title: "Manage Account",
       value: "auth.manage",
       category: "Account",

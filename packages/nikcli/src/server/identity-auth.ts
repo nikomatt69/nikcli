@@ -2,9 +2,16 @@ import { verifyAccessToken, type VerifyAccessTokenOptions } from "@nikcli-ai/aut
 import { Flag } from "@/flag/flag"
 import { UserDB } from "@/user/users"
 
+const DEFAULT_ISSUER = "https://auth.nikcli.store"
+
 export function identityVerifierOptions(): VerifyAccessTokenOptions | undefined {
-  const issuer = Flag.NIKCLI_AUTH_ISSUER
-  if (!issuer) return
+  // Default-on: every nikcli server accepts issuer JWTs. Verification is
+  // lazy — the JWKS is only fetched when a JWT-shaped bearer arrives, so
+  // offline/local servers with no OAuth clients never touch the network.
+  // Set NIKCLI_AUTH_ISSUER=off (or 0/false) to disable entirely.
+  const raw = Flag.NIKCLI_AUTH_ISSUER?.trim()
+  if (raw && ["off", "0", "false", "none"].includes(raw.toLowerCase())) return
+  const issuer = raw || DEFAULT_ISSUER
   const jwksUrl = Flag.NIKCLI_AUTH_JWKS_URL ?? new URL("/.well-known/jwks.json", issuer).toString()
   return {
     issuer,

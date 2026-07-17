@@ -3,36 +3,12 @@ import { validator } from "hono-openapi"
 import z from "zod"
 import { UserDB } from "@/user/users"
 import { Flag } from "@/flag/flag"
-import { externalSessionForToken } from "@/server/identity-auth"
 
+// `userSession` is populated by the server-level middleware in `server.ts`,
+// which delegates to the canonical `Auth.authenticate` (httpapi/auth.ts).
 declare module "hono" {
   interface ContextVariableMap {
     userSession: { user: UserDB.PublicUser; token: string } | undefined
-  }
-}
-
-function bearerToken(req: Request): string | undefined {
-  const header = req.headers.get("authorization") || req.headers.get("Authorization")
-  if (!header) return
-  const [scheme, value] = header.split(/\s+/, 2)
-  if (!scheme || !value) return
-  if (scheme.toLowerCase() !== "bearer") return
-  return value.trim() || undefined
-}
-
-export function userAuthMiddleware() {
-  return async (c: any, next: () => Promise<void>) => {
-    const token = bearerToken(c.req.raw)
-    if (token) {
-      const external = await externalSessionForToken(token).catch(() => undefined)
-      if (external) {
-        c.set("userSession", external)
-      } else if (token.startsWith("nku_")) {
-        const user = UserDB.verifySession(token)
-        if (user) c.set("userSession", { user, token })
-      }
-    }
-    await next()
   }
 }
 

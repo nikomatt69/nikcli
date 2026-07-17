@@ -12,7 +12,7 @@ import { Auth } from "./auth"
 
 export namespace HttpApiBridge {
   /**
-   * Test-only seam for the basic-auth shim in `handle()`. The production
+   * Test-only seam for the auth check in `handle()`. The production
    * credentials are computed each request via `Auth.currentCredentials()`,
    * which reads `Flag.NIKCLI_SERVER_PASSWORD` — but `Flag` is captured at
    * module-load time, so the test runner cannot flip the env var to
@@ -253,8 +253,12 @@ export namespace HttpApiBridge {
   }
 
   /** Serve an instance-less `/global/*` or `/user/*` request. Reads no Instance ALS. */
-  export async function handleGlobal(request: Request) {
+  export async function handleGlobal(request: Request, options?: { upstreamAuthVerified?: boolean }) {
     const pathname = new URL(request.url).pathname
+    if (!options?.upstreamAuthVerified && !Auth.isPublicPath(request.method, pathname)) {
+      const result = await Auth.authenticate(request, { credentials: testAuthOverride ?? undefined })
+      if (!result.ok) return result.response
+    }
     if (request.method === "GET" && pathname === "/global/event") {
       return HttpApiEvent.handle()
     }
@@ -268,7 +272,7 @@ export namespace HttpApiBridge {
     return webHandler(request, Context.empty() as Context.Context<any>)
   }
 
-  export function handle(request: Request, options?: { upstreamAuthVerified?: boolean }) {
+  export async function handle(request: Request, options?: { upstreamAuthVerified?: boolean }) {
     // Raw streaming responses (SSE, chunked prompt bodies) are served ahead
     // of the router — they are not schema-encoded HttpApi bodies.
     const pathname = new URL(request.url).pathname
@@ -290,22 +294,11 @@ export namespace HttpApiBridge {
       }
     }
     // Requests normally arrive through Server.App(), whose Hono middleware
-    // has already accepted mobile/user Bearer tokens or legacy Basic auth.
-    // Keep this shim for direct bridge consumers and request-level tests, but
-    // do not reject an authentication method that upstream already verified.
-    const credentials = testAuthOverride ?? Auth.currentCredentials()
-    if (!options?.upstreamAuthVerified && credentials.password._tag === "Some") {
-      const header = request.headers.get("authorization")
-      if (header && Auth.matchesBasicAuth(credentials, header)) {
-        // ok
-      } else {
-        return Promise.resolve(
-          new Response("Unauthorized", {
-            status: 401,
-            headers: { "www-authenticate": Auth.challenge },
-          }),
-        )
-      }
+    // already ran `Auth.authenticate`; direct bridge consumers and
+    // request-level tests get the same canonical check here.
+    if (!options?.upstreamAuthVerified) {
+      const result = await Auth.authenticate(request, { credentials: testAuthOverride ?? undefined })
+      if (!result.ok) return result.response
     }
     return webHandler(
       request,

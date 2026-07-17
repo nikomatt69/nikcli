@@ -1,48 +1,83 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "nikcli-identity",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-07-16",
-  "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
-  "routes": [{ "pattern": "auth.nikcli.store", "custom_domain": true }],
-  "vars": {
-    "ISSUER": "https://auth.nikcli.store",
-    "AUDIENCE": "nikcli-api",
-    "EMAIL_SENDER": "auth@nikcli.store",
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "nikcli-identity",
-      "migrations_dir": "migrations",
-    },
-  ],
-  "kv_namespaces": [{ "binding": "STATE" }],
-  "send_email": [{ "name": "EMAIL" }],
-  "observability": {
-    "enabled": true,
-    "logs": { "head_sampling_rate": 1 },
-    "traces": { "enabled": true, "head_sampling_rate": 0.05 },
-  },
-  "env": {
-    "staging": {
-      "name": "nikcli-identity-staging",
-      "routes": [{ "pattern": "dev.auth.nikcli.store", "custom_domain": true }],
-      "vars": {
-        "ISSUER": "https://dev.auth.nikcli.store",
-        "AUDIENCE": "nikcli-api",
-        "EMAIL_SENDER": "auth@nikcli.store",
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "nikcli-identity-staging",
-          "migrations_dir": "migrations",
-        },
-      ],
-      "kv_namespaces": [{ "binding": "STATE" }],
-      "send_email": [{ "name": "EMAIL" }],
-    },
-  },
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "nikcli-identity",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-06-24",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"workers_dev": false,
+	"routes": [
+		{
+			"pattern": "auth.nikcli.store",
+			"custom_domain": true
+		}
+	],
+	"vars": {
+		"ISSUER": "https://auth.nikcli.store",
+		"AUDIENCE": "nikcli-api",
+		"EMAIL_SENDER": "auth@nikcli.store",
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "nikcli-identity",
+			"migrations_dir": "migrations",
+			"database_id": "843749a1-d0da-4b7d-bb90-c3ab1036a554",
+		},
+	],
+	"kv_namespaces": [
+		{
+			"binding": "STATE",
+			"id": "683569840fa64e8eb91c99e757bdb832"
+		}
+	],
+	"send_email": [
+		{
+			"name": "EMAIL"
+		}
+	],
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"head_sampling_rate": 1
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 0.05
+		},
+	},
+	"env": {
+		"staging": {
+			"name": "nikcli-identity-staging",
+			"routes": [
+				{
+					"pattern": "dev.auth.nikcli.store",
+					"custom_domain": true
+				}
+			],
+			"vars": {
+				"ISSUER": "https://dev.auth.nikcli.store",
+				"AUDIENCE": "nikcli-api",
+				"EMAIL_SENDER": "auth@nikcli.store",
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "nikcli-identity-staging",
+					"migrations_dir": "migrations",
+				},
+			],
+			"kv_namespaces": [
+				{
+					"binding": "STATE"
+				}
+			],
+			"send_email": [
+				{
+					"name": "EMAIL"
+				}
+			],
+		},
+	},
 }

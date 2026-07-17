@@ -37,6 +37,10 @@ export const dict = {
 
   "desktop.account.signIn": "Sign in",
   "desktop.account.signInTitle": "Sign in to nikcli",
+  "desktop.account.oauth": "Continue with nikcli",
+  "desktop.account.oauthWaiting": "Waiting for the browser…",
+  "desktop.account.oauthHint": "Opens your browser — sign in with GitHub or an email code.",
+  "desktop.account.legacyDivider": "or use a password",
   "desktop.account.signUpTitle": "Create your account",
   "desktop.account.email": "Email",
   "desktop.account.password": "Password",

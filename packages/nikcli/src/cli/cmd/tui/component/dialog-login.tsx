@@ -1,13 +1,70 @@
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import type { DialogContext } from "@tui/ui/dialog"
+import { DialogSelect } from "@tui/ui/dialog-select"
 import { UserDB } from "@/user/users"
+import { DialogAccountLogin } from "@tui/component/dialog-account-login"
+
+type LoginChoice = "oauth" | "local"
+
+function choose(dialog: DialogContext, hasUsers: boolean): Promise<LoginChoice | null> {
+  return new Promise((resolve) => {
+    dialog.replace(
+      () => (
+        <DialogSelect
+          title="Sign in to nikcli"
+          options={[
+            {
+              title: "Continue with nikcli",
+              value: "oauth" as LoginChoice,
+              description: "Sign in through your browser with GitHub or an email code.",
+            },
+            {
+              title: hasUsers ? "Use a local password" : "Create a local account",
+              value: "local" as LoginChoice,
+              description: hasUsers
+                ? "Legacy sign-in against this machine's local account."
+                : "Offline fallback — a password-based account stored on this machine.",
+            },
+          ]}
+          onSelect={(option) => resolve(option.value)}
+        />
+      ),
+      () => resolve(null),
+    )
+  })
+}
+
+function oauthLogin(dialog: DialogContext): Promise<UserDB.PublicUser | null> {
+  return new Promise((resolve) => {
+    dialog.replace(
+      () => <DialogAccountLogin onComplete={resolve} />,
+      () => resolve(null),
+    )
+  })
+}
 
 /**
- * Sequential login/register flow via TUI dialog prompts.
+ * Startup sign-in flow. OAuth (device code against auth.nikcli.store) is the
+ * primary path — it links the identity to the local user database so the TUI
+ * session works exactly as before. The password flow remains as the offline
+ * fallback for self-hosted machines.
  * Returns the authenticated PublicUser or null if the user cancels.
  */
 export const DialogLogin = {
   async run(dialog: DialogContext): Promise<UserDB.PublicUser | null> {
+    const hasUsers = UserDB.hasUsers()
+    const choice = await choose(dialog, hasUsers)
+    if (choice === null) return null
+    if (choice === "oauth") {
+      const user = await oauthLogin(dialog)
+      if (user) return user
+      // Cancelled or failed — back to the chooser rather than dead-ending.
+      return DialogLogin.run(dialog)
+    }
+    return DialogLogin.runLocal(dialog)
+  },
+
+  async runLocal(dialog: DialogContext): Promise<UserDB.PublicUser | null> {
     const hasUsers = UserDB.hasUsers()
 
     if (!hasUsers) {
@@ -45,7 +102,7 @@ export const DialogLogin = {
             placeholder: "Press Enter",
           },
         )
-        return DialogLogin.run(dialog)
+        return DialogLogin.runLocal(dialog)
       }
     } else {
       // Login flow
@@ -64,7 +121,7 @@ export const DialogLogin = {
         await DialogPrompt.show(dialog, "No account found with that email. Press Enter to retry.", {
           placeholder: "Press Enter",
         })
-        return DialogLogin.run(dialog)
+        return DialogLogin.runLocal(dialog)
       }
 
       const valid = await UserDB.verifyPassword(userRecord, password)
@@ -72,7 +129,7 @@ export const DialogLogin = {
         await DialogPrompt.show(dialog, "Incorrect password. Press Enter to retry.", {
           placeholder: "Press Enter",
         })
-        return DialogLogin.run(dialog)
+        return DialogLogin.runLocal(dialog)
       }
 
       const token = UserDB.createSession(userRecord.id, 30)

@@ -7,6 +7,7 @@ import {
   resolveViewerUserId,
 } from "../../../lib/artifact"
 import { renderMarkdown } from "../../../lib/artifact-markdown"
+import "../../../styles/global.css"
 
 export const prerender = false
 
@@ -54,11 +55,19 @@ const pageTitle = meta
     <meta name="robots" content="noindex" />
     <title>{pageTitle}</title>
     {meta?.description ? <meta name="description" content={meta.description} /> : null}
+    <script is:inline>
+      const storedTheme = localStorage.getItem("theme")
+      const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      document.documentElement.setAttribute("data-theme", storedTheme || (prefersDark ? "dark" : "light"))
+    </script>
   </head>
   <body>
     <header class="bar">
       <div class="bar-left">
-        <a class="brand" href="/" aria-label="nikcli home">nikcli<span class="brand-dot">.store</span></a>
+        <a class="brand" href="/" aria-label="nikcli home">
+          <img class="brand-light" src="/brand/wordmark-light.png" alt="nikcli" width="95" height="31" />
+          <img class="brand-dark" src="/brand/wordmark-dark.png" alt="nikcli" width="95" height="31" />
+        </a>
         {meta ? <span class="kind">{meta.kind}</span> : null}
         {meta ? <span class="title" title={meta.filename}>{meta.title}</span> : null}
       </div>
@@ -118,25 +127,6 @@ const pageTitle = meta
     </script>
 
     <style is:global>
-      :root {
-        color-scheme: light dark;
-        --bg: #f8f7f4;
-        --surface: #ffffff;
-        --ink: #141413;
-        --muted: #6b6a66;
-        --border: rgba(20, 20, 19, 0.12);
-        --accent: #0d7d61;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #0a0a0a;
-          --surface: #131312;
-          --ink: #f5f5f4;
-          --muted: #a3a29d;
-          --border: rgba(255, 255, 255, 0.12);
-          --accent: #34d399;
-        }
-      }
       * {
         box-sizing: border-box;
       }
@@ -148,23 +138,25 @@ const pageTitle = meta
       body {
         display: flex;
         flex-direction: column;
-        background: var(--bg);
-        color: var(--ink);
-        font-family:
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          "Segoe UI",
-          sans-serif;
+        min-width: 320px;
+        background-color: rgb(var(--terminal-bg));
+        background-image:
+          linear-gradient(rgb(var(--terminal-border) / 0.2) 1px, transparent 1px),
+          linear-gradient(90deg, rgb(var(--terminal-border) / 0.2) 1px, transparent 1px);
+        background-size: 48px 48px;
+        color: rgb(var(--terminal-text));
+        font-family: "Figtree", system-ui, sans-serif;
       }
       .bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 10px 16px;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface);
+        min-height: var(--topbar-height);
+        padding: 10px var(--page-gutter);
+        border-bottom: 1px solid rgb(var(--terminal-border) / 0.6);
+        background: rgb(var(--terminal-bg) / 0.86);
+        backdrop-filter: blur(18px);
       }
       .bar-left,
       .bar-right {
@@ -174,24 +166,38 @@ const pageTitle = meta
         min-width: 0;
       }
       .brand {
-        font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
-        font-weight: 700;
-        font-size: 14px;
-        color: var(--ink);
+        display: flex;
+        align-items: center;
+        color: rgb(var(--terminal-text));
         text-decoration: none;
         white-space: nowrap;
+        transition: opacity 150ms ease;
       }
-      .brand-dot {
-        color: var(--accent);
+      .brand:hover {
+        opacity: 0.82;
+      }
+      .brand img {
+        width: auto;
+        height: 25px;
+      }
+      .brand-dark {
+        display: none;
+      }
+      [data-theme="dark"] .brand-light {
+        display: none;
+      }
+      [data-theme="dark"] .brand-dark {
+        display: block;
       }
       .kind {
         font-size: 10px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: var(--accent);
-        border: 1px solid var(--border);
+        color: rgb(var(--terminal-accent));
+        border: 1px solid rgb(var(--terminal-accent) / 0.22);
         border-radius: 999px;
+        background: rgb(var(--terminal-accent) / 0.08);
         padding: 2px 8px;
         white-space: nowrap;
       }
@@ -204,23 +210,25 @@ const pageTitle = meta
       }
       .meta-line {
         font-size: 11px;
-        color: var(--muted);
+        color: rgb(var(--terminal-muted));
         white-space: nowrap;
       }
       .copy {
         font: inherit;
         font-size: 12px;
         font-weight: 600;
-        color: var(--ink);
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 5px 10px;
+        color: rgb(var(--terminal-text));
+        background: rgb(var(--terminal-panel));
+        border: 1px solid rgb(var(--terminal-border));
+        border-radius: var(--radius-md);
+        padding: 7px 12px;
         cursor: pointer;
+        box-shadow: var(--shadow-soft);
+        transition: border-color 150ms ease, color 150ms ease, transform 150ms ease;
       }
       .copy:hover {
-        border-color: var(--accent);
-        color: var(--accent);
+        border-color: rgb(var(--terminal-accent) / 0.5);
+        color: rgb(var(--terminal-accent));
       }
       .frame {
         flex: 1;
@@ -240,8 +248,8 @@ const pageTitle = meta
       .media video {
         max-width: 100%;
         max-height: calc(100vh - 110px);
-        border-radius: 8px;
-        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        border: 1px solid rgb(var(--terminal-border));
         background: #000;
       }
       .media img {
@@ -263,29 +271,29 @@ const pageTitle = meta
         line-height: 1.25;
       }
       .doc pre {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        background: rgb(var(--terminal-code));
+        border: 1px solid rgb(var(--terminal-border));
+        border-radius: var(--radius-md);
         padding: 14px;
         overflow-x: auto;
       }
       .doc code {
-        font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
         font-size: 0.9em;
       }
       .doc a {
-        color: var(--accent);
+        color: rgb(var(--terminal-accent));
       }
       .doc blockquote {
-        border-left: 3px solid var(--accent);
+        border-left: 3px solid rgb(var(--terminal-accent));
         margin: 12px auto;
         padding: 2px 14px;
-        color: var(--muted);
+        color: rgb(var(--terminal-muted));
       }
       .plain {
         white-space: pre-wrap;
         word-break: break-word;
-        font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
         font-size: 13px;
       }
       .empty {
@@ -295,23 +303,26 @@ const pageTitle = meta
         align-items: center;
         justify-content: center;
         gap: 8px;
-        color: var(--muted);
+        color: rgb(var(--terminal-muted));
         padding: 24px;
       }
       .empty h1 {
-        color: var(--ink);
-        font-size: 20px;
+        color: rgb(var(--terminal-text));
+        font-family: "Syne", system-ui, sans-serif;
+        font-size: clamp(24px, 6vw, 30px);
+        letter-spacing: -0.03em;
         margin: 0;
       }
       .gate {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        width: min(340px, 100%);
-        padding: 24px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--surface);
+        width: min(420px, 100%);
+        padding: clamp(24px, 6vw, 32px);
+        border: 1px solid rgb(var(--terminal-border));
+        border-radius: var(--radius-card);
+        background: rgb(var(--terminal-panel) / 0.96);
+        box-shadow: var(--shadow-strong);
         text-align: center;
       }
       .gate p {
@@ -321,9 +332,9 @@ const pageTitle = meta
       .login-link {
         display: block;
         padding: 10px 12px;
-        border-radius: 8px;
-        background: var(--accent);
-        color: var(--bg);
+        border-radius: var(--radius-md);
+        background: rgb(var(--terminal-accent));
+        color: rgb(var(--terminal-bg));
         font-size: 14px;
         font-weight: 700;
         text-decoration: none;
@@ -331,24 +342,25 @@ const pageTitle = meta
       .gate input {
         font: inherit;
         font-size: 14px;
-        color: var(--ink);
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        color: rgb(var(--terminal-text));
+        background: rgb(var(--terminal-bg));
+        border: 1px solid rgb(var(--terminal-border));
+        border-radius: var(--radius-md);
         padding: 10px 12px;
       }
       .gate input:focus {
         outline: none;
-        border-color: var(--accent);
+        border-color: rgb(var(--terminal-accent));
+        box-shadow: 0 0 0 3px rgb(var(--terminal-accent) / 0.18);
       }
       .gate button {
         font: inherit;
         font-size: 14px;
         font-weight: 700;
-        color: var(--bg);
-        background: var(--accent);
+        color: rgb(var(--terminal-bg));
+        background: rgb(var(--terminal-accent));
         border: 0;
-        border-radius: 8px;
+        border-radius: var(--radius-md);
         padding: 10px 12px;
         cursor: pointer;
       }
@@ -356,8 +368,26 @@ const pageTitle = meta
         opacity: 0.6;
       }
       .gate-error {
-        color: #dc2626;
+        color: rgb(var(--terminal-error));
         font-size: 12px;
+      }
+      @media (max-width: 640px) {
+        .bar {
+          align-items: flex-start;
+          padding: 11px 14px;
+        }
+        .bar-left {
+          flex-wrap: wrap;
+        }
+        .meta-line {
+          display: none;
+        }
+        .title {
+          max-width: min(50vw, 220px);
+        }
+        .doc {
+          padding: 24px 16px 48px;
+        }
       }
     </style>
   </body>

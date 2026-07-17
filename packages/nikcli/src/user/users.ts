@@ -283,6 +283,9 @@ export namespace UserDB {
     }
     const now = Date.now()
     const id = generateId("usr")
+    // First identity on this database owns it — same rule as password
+    // registration, where the first local user becomes admin.
+    const role = hasUsers() ? "user" : "admin"
     db()
       .insert(users)
       .values({
@@ -292,7 +295,7 @@ export namespace UserDB {
         externalSubject: subject,
         passwordHash: `!oauth:${randomBytes(32).toString("base64url")}`,
         displayName: null,
-        role: "user",
+        role,
         createdAt: now,
         updatedAt: now,
       })

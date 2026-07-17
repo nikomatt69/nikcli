@@ -1,7 +1,7 @@
 import z from "zod"
 import { UserDB } from "@/user/users"
 import { Flag } from "@/flag/flag"
-import { externalSessionForToken } from "@/server/identity-auth"
+import { Auth } from "./auth"
 
 /**
  * Instance-less `/user/*` handlers for the Effect backend.
@@ -16,10 +16,10 @@ import { externalSessionForToken } from "@/server/identity-auth"
  *   value, so five identical schemas with different `httpApiStatus` cannot
  *   round-trip correctly.
  *
- * Auth is the `nku_` bearer token, resolved per-request (the Hono
- * `userAuthMiddleware` equivalent). Served through the bridge's
- * instance-less branch — the instance middleware skips `/user/` paths, so no
- * instance context exists here.
+ * The session is resolved per-request via the canonical `Auth.resolveBearer`
+ * (issuer JWT → `nku_` legacy). Served through the bridge's instance-less
+ * branch — the instance middleware skips `/user/` paths, so no instance
+ * context exists here.
  */
 export namespace UsersHttp {
   const RegisterInput = z.object({
@@ -52,25 +52,9 @@ export namespace UsersHttp {
     })
   }
 
-  function bearerToken(request: Request): string | undefined {
-    const header = request.headers.get("authorization")
-    if (!header) return
-    const [scheme, value] = header.split(/\s+/, 2)
-    if (!scheme || !value) return
-    if (scheme.toLowerCase() !== "bearer") return
-    const v = value.trim()
-    return v
-  }
-
   async function sessionFor(request: Request): Promise<{ user: UserDB.PublicUser; token: string } | null> {
-    const token = bearerToken(request)
-    if (!token) return null
-    const external = await externalSessionForToken(token).catch(() => undefined)
-    if (external) return external
-    if (!token.startsWith("nku_")) return null
-    const user = UserDB.verifySession(token)
-    if (!user) return null
-    return { user, token }
+    const principal = await Auth.resolveBearer(request).catch(() => undefined)
+    return principal?.type === "user" ? principal.session : null
   }
 
   async function readJson(request: Request): Promise<unknown> {

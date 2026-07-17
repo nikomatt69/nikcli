@@ -6,7 +6,6 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { streamSSE } from "hono/streaming"
 import { proxy } from "hono/proxy"
-import { basicAuth } from "hono/basic-auth"
 import z from "zod"
 import { Provider } from "../provider/provider"
 import { LSP } from "../lsp"
@@ -48,20 +47,19 @@ import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { CompanionRoutes } from "./routes/companion"
 import { MobileRoutes } from "./routes/mobile"
-import { UserRoutes, userAuthMiddleware } from "./routes/users"
+import { UserRoutes } from "./routes/users"
 import { WorkspaceContext } from "../workspace/workspace-context"
 import { ShareNext } from "@/share/share-next"
-import { MobileAuth } from "@/mobile/auth"
 import { Installation } from "@/installation"
 import { Project } from "@/project/project"
 import { Workspace } from "@/workspace"
 import { ServerProxy } from "./proxy"
 import { HttpApiBridge } from "./httpapi/bridge"
+import { Auth as ServerAuth } from "./httpapi/auth"
 import { ServerBackend } from "./backend"
 import { AnalyticsRoutes } from "./routes/analytics"
 import { BrainRoutes } from "./routes/brain"
 import { DoctorRoutes } from "./routes/doctor"
-import { externalSessionForToken } from "./identity-auth"
 
 function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
   return runPromiseWithLayer(Skill.defaultLayer, withCurrentInstance(effect))
@@ -128,28 +126,6 @@ export namespace Server {
   function isLoopbackHostname(hostname: string | undefined) {
     if (!hostname) return false
     return hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost"
-  }
-
-  function tailscaleUserLogin(c: { req: { header(name: string): string | undefined } }): string | undefined {
-    const value = c.req.header("Tailscale-User-Login")
-    const login = value?.trim()
-    return login ? login : undefined
-  }
-
-  function isTailscaleLoginAllowed(login: string) {
-    const configured = Flag.NIKCLI_SERVER_TAILSCALE_USERS?.trim()
-    if (!configured) return true
-
-    const items = configured
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean)
-
-    if (items.length === 0) return true
-    if (items.some((x) => x === "*" || x.toLowerCase() === "any")) return true
-
-    const normalized = login.toLowerCase()
-    return items.some((x) => x.toLowerCase() === normalized)
   }
 
   function sessionIDFromPath(pathname: string) {
@@ -287,76 +263,29 @@ export namespace Server {
           if (!data) return c.text("Share not found", 404)
           return c.json(data)
         })
-        .use(userAuthMiddleware())
         .use(async (c, next) => {
-          // Public user endpoints — bypass server-level auth
-          const path = c.req.path
-          if (
-            path === "/user/status" ||
-            ((path === "/user/login" || path === "/user/register") &&
-              (!Flag.NIKCLI_REQUIRE_OAUTH || Flag.NIKCLI_LEGACY_LOGIN))
-          ) {
-            return next()
-          }
-
-          if (c.req.method === "GET" && c.req.path === "/global/health") {
-            return next()
-          }
-
-          // Always allow CORS preflight to reach the CORS middleware.
+          // Canonical auth lives in the Effect layer (httpapi/auth.ts, §3.5
+          // acceptance order: issuer JWT → nkm_ → legacy); this middleware
+          // only adapts the decision into Hono context. Public paths still
+          // resolve a principal when one is presented (e.g. an admin bearer
+          // on /user/register) but never reject.
           if (c.req.method === "OPTIONS") return next()
 
-          const password = Flag.NIKCLI_SERVER_PASSWORD
-          const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
-
-          // Check bearer token in Authorization header OR query parameter (for WebSocket connections)
-          const bearer = MobileAuth.bearer(c.req.raw) || c.req.query("token")
-          if (bearer) {
-            const userSession = (c as any).get?.("userSession")
-            if (
-              userSession &&
-              (!Flag.NIKCLI_REQUIRE_OAUTH || Flag.NIKCLI_LEGACY_LOGIN || !userSession.token?.startsWith("nku_"))
-            ) {
-              return next()
+          const publicPath = ServerAuth.isPublicPath(c.req.method, c.req.path)
+          const result = await ServerAuth.authenticate(c.req.raw, {
+            mobileAuthRequired: _mobileAuthRequired,
+            listenHostname: _listenHostname,
+          })
+          if (result.ok) {
+            if (result.principal.type === "user") {
+              ;(c as any).set("userSession", result.principal.session)
+            } else if (result.principal.type === "mobile") {
+              ;(c as any).set("mobileAuth", result.principal.token)
             }
-
-            const externalSession = await externalSessionForToken(bearer).catch(() => undefined)
-            if (externalSession) {
-              ;(c as any).set("userSession", externalSession)
-              return next()
-            }
-
-            const token = await MobileAuth.verify(bearer)
-            if (!token) return c.text("Unauthorized", 401)
-            ;(c as any).set("mobileAuth", token)
-            return next()
+          } else if (!publicPath) {
+            return result.response
           }
-
-          if (_mobileAuthRequired || (Flag.NIKCLI_REQUIRE_OAUTH && !Flag.NIKCLI_LEGACY_LOGIN)) {
-            return c.text("Unauthorized", 401)
-          }
-
-          const tailscaleAuthEnabled = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && isLoopbackHostname(_listenHostname)
-          if (tailscaleAuthEnabled) {
-            const login = tailscaleUserLogin(c)
-            if (login) {
-              if (!isTailscaleLoginAllowed(login)) {
-                log.warn("tailscale user not allowed", {
-                  login,
-                })
-                return c.text("Forbidden", 403)
-              }
-              return next()
-            }
-
-            // If Tailscale auth is enabled, require identity headers. Optionally allow falling back to Basic Auth.
-            if (!password) {
-              return c.text("Unauthorized", 401)
-            }
-          }
-
-          if (!password) return next()
-          return basicAuth({ username, password })(c, next)
+          return next()
         })
         .use(async (c, next) => {
           const skipLogging = c.req.path === "/log"
@@ -429,7 +358,7 @@ export namespace Server {
           if (!ServerBackend.shouldUseGlobalHttpApiBridge(c.req.path, c.req.method)) {
             return next()
           }
-          return HttpApiBridge.handleGlobal(c.req.raw)
+          return HttpApiBridge.handleGlobal(c.req.raw, { upstreamAuthVerified: true })
         })
         .route("/global", GlobalRoutes())
         .use(async (c, next) => {

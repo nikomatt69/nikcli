@@ -714,6 +714,29 @@ button.desktop-sidebar__list-item:hover {
   color: var(--text-strong);
 }
 
+.desktop-account__hint {
+  color: var(--text-weak);
+  font-size: 12px;
+}
+
+.desktop-account__divider {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text-weak);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.desktop-account__divider::before,
+.desktop-account__divider::after {
+  flex: 1;
+  height: 1px;
+  background: var(--border-weak, rgb(255 255 255 / 10%));
+  content: "";
+}
+
 .desktop-account__menu-header {
   display: flex;
   flex-direction: column;
