@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.178.0 (July 2026)
+
+## Mobile
+
+- Add input handling and focus/blur events (@nikomatt69)
+- Standardize semicolon usage in content modules and assets (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix: standardize semicolon usage in content modules and assets
+  - feat(terminal): add input handling and focus/blur events
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
