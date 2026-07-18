@@ -3,6 +3,10 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.176.0 (July 2026)
+
+- No notable changes
+
 ## v1.175.0 (July 2026)
 
 ## Mobile
