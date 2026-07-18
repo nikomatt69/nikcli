@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.175.0 (July 2026)
+
+## Mobile
+
+- Notify RN when the terminal WASM engine fails to load (@nikomatt69)
+- Enhance user interaction and animations (@nikomatt69)
+- Enhance user experience and media handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(login, message-bubble, attachment-picker): enhance user experience and media handling
+  - feat(bottom-sheet, error-banner, toast-host): enhance user interaction and animations
+  - fix(mobile): notify RN when the terminal WASM engine fails to load
+
 ## v1.174.0 (July 2026)
 
 ## Core
