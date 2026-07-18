@@ -3,6 +3,10 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.177.0 (July 2026)
+
+- No notable changes
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
