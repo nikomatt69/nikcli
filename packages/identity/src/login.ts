@@ -22,6 +22,20 @@ function emailKey(state: string): string {
   return `email:${state}`
 }
 
+/**
+ * Short-lived pointer to the redirect a completed login already issued.
+ * The hosted login pages are pure HTML with no script-src in their CSP
+ * (by design), so a mistimed OTP autofill plus a manual tap on "Verify and
+ * continue" can fire several near-simultaneous submits of the same form.
+ * Only the first submit finds the login intent; without this cache the
+ * rest would race it to "Session expired" instead of just replaying the
+ * same redirect the first submit already produced.
+ */
+function completedKey(state: string): string {
+  return `completed:${state}`
+}
+const COMPLETED_REPLAY_TTL_SECONDS = 60
+
 export async function createLoginState(env: Env, intent: LoginIntent): Promise<string> {
   const state = randomToken(32)
   await env.STATE.put(loginKey(state), JSON.stringify(intent), {
@@ -36,7 +50,11 @@ async function loadIntent(env: Env, state: string): Promise<LoginIntent | null> 
 
 async function completeLogin(c: AppContext, loginState: string, accountID: string): Promise<Response> {
   const intent = await loadIntent(c.env, loginState)
-  if (!intent) return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
+  if (!intent) {
+    const replay = await c.env.STATE.get(completedKey(loginState))
+    if (replay) return c.redirect(replay, 302)
+    return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
+  }
   await c.env.STATE.delete(loginKey(loginState))
   await c.env.STATE.delete(emailKey(loginState))
 
@@ -60,6 +78,9 @@ async function completeLogin(c: AppContext, loginState: string, accountID: strin
   const redirect = new URL(intent.redirectURI)
   redirect.searchParams.set("code", code)
   redirect.searchParams.set("state", intent.state)
+  await c.env.STATE.put(completedKey(loginState), redirect.toString(), {
+    expirationTtl: COMPLETED_REPLAY_TTL_SECONDS,
+  })
   return c.redirect(redirect.toString(), 302)
 }
 
