@@ -250,6 +250,7 @@
         if (!WTerm) {
           document.getElementById("error-overlay").classList.add("visible")
           document.getElementById("error-message").textContent = "Terminal runtime failed to load"
+          postRN({ type: "status", status: "error" })
           return
         }
 
