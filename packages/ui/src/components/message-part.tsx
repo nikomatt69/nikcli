@@ -42,6 +42,7 @@ import { Checkbox } from "./checkbox"
 import { DiffChanges } from "./diff-changes"
 import { Markdown } from "./markdown"
 import { ImagePreview } from "./image-preview"
+import { ArtifactPreview } from "./artifact-preview"
 import { findLast } from "@nikcli-ai/util/array"
 import { getDirectory as _getDirectory, getFilename } from "@nikcli-ai/util/path"
 import { checksum } from "@nikcli-ai/util/encode"
@@ -771,6 +772,74 @@ ToolRegistry.register({
           )}
         </For>
       </>
+    )
+  },
+})
+
+ToolRegistry.register({
+  name: "artifact",
+  render(props) {
+    const i18n = useI18n()
+    const dialog = useDialog()
+
+    const meta = createMemo(() => {
+      const value = props.metadata as Partial<{
+        id: string
+        title: string
+        description: string
+        kind: "html" | "markdown" | "image" | "video" | "text"
+        version: number
+        url: string
+        viewerUrl: string
+        previewUrl: string
+      }>
+      return value
+    })
+
+    const ready = createMemo(
+      () => props.status === "completed" && !!meta().url && !!meta().viewerUrl && !!meta().previewUrl && !!meta().kind,
+    )
+
+    const title = () => meta().title || props.input.title || i18n.t("ui.tool.artifact")
+
+    const open = () => {
+      const m = meta()
+      if (!m.url || !m.viewerUrl || !m.previewUrl || !m.kind) return
+      dialog.show(() => (
+        <ArtifactPreview
+          title={title()}
+          description={m.description}
+          kind={m.kind!}
+          version={m.version ?? 1}
+          viewerUrl={m.viewerUrl!}
+          previewUrl={m.previewUrl!}
+          url={m.url!}
+        />
+      ))
+    }
+
+    return (
+      <BasicTool
+        {...props}
+        icon="window-cursor"
+        trigger={{
+          title: title(),
+          subtitle: ready() ? `${meta().kind} · v${meta().version ?? 1}` : undefined,
+        }}
+      >
+        <Show when={ready()}>
+          <div data-component="artifact-card" onClick={open} role="button" tabindex="0">
+            <Icon name="window-cursor" size="small" />
+            <div data-slot="artifact-card-info">
+              <span data-slot="artifact-card-title">{title()}</span>
+              <Show when={meta().description}>
+                <span data-slot="artifact-card-description">{meta().description}</span>
+              </Show>
+            </div>
+            <Icon name="square-arrow-top-right" size="small" />
+          </div>
+        </Show>
+      </BasicTool>
     )
   },
 })

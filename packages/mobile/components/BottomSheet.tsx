@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
-import { Animated, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { Animated, Modal, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
 import {
   AlertTriangle,
@@ -48,6 +48,16 @@ function iconForName(name: ActionSheetIconName): LucideIcon {
   if (value.includes("ellipsis") || value.includes("more")) return Ellipsis
   if (value.includes("chevron")) return ChevronRight
   return Wrench
+}
+
+/** Progressive resistance past the top edge — real things slow before they stop. */
+function rubberband(overshoot: number, dimension: number, constant = 0.55) {
+  return (overshoot * dimension * constant) / (dimension + constant * overshoot)
+}
+
+/** Projects where a flick would coast to (UIScrollView-style exponential decay). */
+function projectMomentum(velocityPxPerSecond: number, decelerationRate = 0.998) {
+  return ((velocityPxPerSecond / 1000) * decelerationRate) / (1 - decelerationRate)
 }
 
 function snapPointHeight(value: string | number | undefined, windowHeight: number): number {
@@ -116,6 +126,61 @@ export const ActionSheet = React.forwardRef<
       dismiss,
     }),
     [dismiss, onVisibilityChange],
+  )
+
+  const dismissWithVelocity = useCallback(
+    (velocityPxPerSecond: number) => {
+      onVisibilityChange?.(false)
+      const animation = Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 180,
+          easing: Ease.accelerate,
+          useNativeDriver: true,
+        }),
+        // Carry the finger's release velocity into the exit so there is no seam
+        // between dragging and animating.
+        Animated.spring(translateY, {
+          toValue: contentHeight,
+          velocity: velocityPxPerSecond,
+          ...SPRING_SETTLE,
+        }),
+      ])
+      animation.start(({ finished }) => {
+        if (!finished) return
+        setVisible(false)
+      })
+    },
+    [contentHeight, onVisibilityChange, opacity, translateY],
+  )
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gesture) =>
+          Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_event, gesture) => {
+          // 1:1 with the finger downward; rubber-band upward past the rest point.
+          translateY.setValue(gesture.dy >= 0 ? gesture.dy : -rubberband(-gesture.dy, contentHeight))
+        },
+        onPanResponderRelease: (_event, gesture) => {
+          const releaseVelocity = gesture.vy * 1000
+          const projected = gesture.dy + projectMomentum(releaseVelocity)
+          if (projected > contentHeight * 0.4 || releaseVelocity > 900) {
+            dismissWithVelocity(Math.max(releaseVelocity, 0))
+            return
+          }
+          Animated.spring(translateY, {
+            toValue: 0,
+            velocity: releaseVelocity,
+            ...SPRING_SETTLE,
+          }).start()
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateY, { toValue: 0, ...SPRING_SETTLE }).start()
+        },
+      }),
+    [contentHeight, dismissWithVelocity, translateY],
   )
 
   useEffect(() => {
@@ -198,7 +263,23 @@ export const ActionSheet = React.forwardRef<
             />
           </View>
 
-          <View style={{ height: 12 }} />
+          {/* Grabber doubles as the drag-to-dismiss handle; content below keeps its own scrolling. */}
+          <View
+            {...panResponder.panHandlers}
+            accessibilityRole="adjustable"
+            accessibilityLabel="Sheet handle"
+            accessibilityHint="Drag down to dismiss"
+            style={{ paddingTop: 9, paddingBottom: 8, alignItems: "center" }}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 5,
+                borderRadius: 999,
+                backgroundColor: isDark ? "rgba(255,255,255,0.22)" : "rgba(20,20,19,0.18)",
+              }}
+            />
+          </View>
           <View style={{ flex: 1, width: "100%", paddingBottom: 8 }}>{children}</View>
         </Animated.View>
       </View>

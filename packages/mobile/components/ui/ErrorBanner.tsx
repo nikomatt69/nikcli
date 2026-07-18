@@ -1,12 +1,29 @@
+import { useEffect, useRef } from "react"
 import { AlertTriangle } from "lucide-react-native"
-import { Pressable, Text, View } from "react-native"
+import { Animated, Pressable, Text, View } from "react-native"
+import { DURATION_MS, Ease, usePrefersReducedMotion } from "@/lib/animation"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export function ErrorBanner(props: { message: string; actionLabel?: string; onAction?(): void }) {
   const { palette } = useAppTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const animRef = useRef<Animated.Value | null>(null)
+  if (animRef.current === null) animRef.current = new Animated.Value(0)
+  const anim = animRef.current
+
+  useEffect(() => {
+    const animation = Animated.timing(anim, {
+      toValue: 1,
+      duration: DURATION_MS.snappy,
+      easing: Ease.decelerate,
+      useNativeDriver: true,
+    })
+    animation.start()
+    return () => animation.stop()
+  }, [anim])
 
   return (
-    <View
+    <Animated.View
       className="overflow-hidden p-4"
       style={{
         borderRadius: 16,
@@ -14,6 +31,10 @@ export function ErrorBanner(props: { message: string; actionLabel?: string; onAc
         borderWidth: 1,
         borderColor: hexToRgba(palette.danger, 0.2),
         backgroundColor: hexToRgba(palette.danger, 0.08),
+        opacity: anim,
+        transform: prefersReducedMotion
+          ? undefined
+          : [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-4, 0] }) }],
       }}
     >
       <View className="flex-row items-start gap-3">
@@ -35,6 +56,6 @@ export function ErrorBanner(props: { message: string; actionLabel?: string; onAc
           ) : null}
         </View>
       </View>
-    </View>
+    </Animated.View>
   )
 }

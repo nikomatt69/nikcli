@@ -55,7 +55,11 @@ export const dict = {
 
   "ui.imagePreview.alt": "Предпросмотр изображения",
 
+  "ui.artifactPreview.copyLink": "Скопировать ссылку",
+  "ui.artifactPreview.openInBrowser": "Открыть в браузере",
+
   "ui.tool.read": "Чтение",
+  "ui.tool.artifact": "Артефакт",
   "ui.tool.loaded": "Загружено",
   "ui.tool.list": "Список",
   "ui.tool.glob": "Glob",

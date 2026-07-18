@@ -47,7 +47,7 @@ export function SurfaceCard({
       {title ? (
         <Text
           selectable
-          className={`mt-1.5 font-semibold text-ink ${compact ? "text-[18px] leading-[23px]" : "text-[19px] leading-[24px]"}`}
+          className={`mt-1.5 font-semibold tracking-[-0.3px] text-ink ${compact ? "text-[18px] leading-[23px]" : "text-[19px] leading-[24px]"}`}
         >
           {title}
         </Text>

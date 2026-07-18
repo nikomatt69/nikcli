@@ -59,7 +59,11 @@ export const dict = {
 
   "ui.imagePreview.alt": "圖片預覽",
 
+  "ui.artifactPreview.copyLink": "複製連結",
+  "ui.artifactPreview.openInBrowser": "在瀏覽器中開啟",
+
   "ui.tool.read": "讀取",
+  "ui.tool.artifact": "工件",
   "ui.tool.loaded": "已載入",
   "ui.tool.list": "清單",
   "ui.tool.glob": "Glob",

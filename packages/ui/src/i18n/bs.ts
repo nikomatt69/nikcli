@@ -60,7 +60,11 @@ export const dict = {
 
   "ui.imagePreview.alt": "Pregled slike",
 
+  "ui.artifactPreview.copyLink": "Kopiraj vezu",
+  "ui.artifactPreview.openInBrowser": "Otvori u pregledniku",
+
   "ui.tool.read": "Čitanje",
+  "ui.tool.artifact": "Artefakt",
   "ui.tool.loaded": "Učitano",
   "ui.tool.list": "Listanje",
   "ui.tool.glob": "Glob",

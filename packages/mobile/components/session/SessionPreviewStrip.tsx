@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useState, type ReactNode } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   ActivityIndicator,
   Animated,
@@ -20,6 +20,7 @@ import {
   MonitorPlay,
   RefreshCw,
   Share2,
+  X,
 } from "lucide-react-native"
 import { Image } from "expo-image"
 import { useVideoPlayer, VideoView } from "expo-video"
@@ -548,13 +549,23 @@ export type ArtifactViewerSheetProps = {
 
 export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerSheetProps>(function ArtifactViewerSheet(
   { preview },
-  ref,
+  forwardedRef,
 ) {
   const { palette, isDark } = useAppTheme()
   const [tab, setTab] = useState<"preview" | "source">("preview")
   const [reloadKey, setReloadKey] = useState(0)
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading")
   const [visible, setVisible] = useState(false)
+  const sheetRef = useRef<ActionSheetRef>(null)
+
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      present: () => sheetRef.current?.present(),
+      dismiss: (onDismissed?: () => void) => sheetRef.current?.dismiss(onDismissed),
+    }),
+    [],
+  )
 
   const sourceText = preview ? previewSourceText(preview) : ""
   const statusMeta = statusTone(status, palette)
@@ -582,7 +593,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
   }
 
   return (
-    <ActionSheet ref={ref} snapPoints={["94%"]} onVisibilityChange={setVisible}>
+    <ActionSheet ref={sheetRef} snapPoints={["94%"]} onVisibilityChange={setVisible}>
       {preview ? (
         <>
           <View className="border-b border-border px-5 pb-4">
@@ -605,9 +616,31 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                   </>
                 ) : null}
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingTop: 4 }}>
-                <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: statusMeta.color }} />
-                <Text style={{ color: statusMeta.color, fontSize: 10, fontWeight: "800" }}>{statusMeta.label}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 2 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: statusMeta.color }} />
+                  <Text style={{ color: statusMeta.color, fontSize: 10, fontWeight: "800" }}>{statusMeta.label}</Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    sheetRef.current?.dismiss()
+                  }}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close artifact"
+                  style={({ pressed }) => ({
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.08)",
+                    opacity: pressed ? 0.65 : 1,
+                  })}
+                >
+                  <X size={15} color={palette.soft} strokeWidth={2.4} />
+                </Pressable>
               </View>
             </View>
 
@@ -691,11 +724,10 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
             style={{
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
-              paddingHorizontal: 16,
-              paddingTop: 12,
+              paddingHorizontal: 12,
+              paddingTop: 10,
               paddingBottom: 20,
               flexDirection: "row",
-              flexWrap: "wrap",
               gap: 8,
             }}
           >
@@ -746,35 +778,38 @@ function ActionChip(props: {
   const Icon = props.icon
   const press = usePressAnimation()
   return (
-    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
+    <Animated.View style={{ flex: 1, transform: [{ scale: press.scale }] }}>
       <Pressable
         onPress={props.onPress}
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
+        hitSlop={4}
         accessibilityRole="button"
         accessibilityLabel={props.label}
         style={({ pressed }) => ({
           flexDirection: "row",
           alignItems: "center",
+          justifyContent: "center",
           gap: 6,
-          borderRadius: 8,
-          borderWidth: props.accent ? 0 : 1,
-          borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+          minHeight: 46,
+          borderRadius: 12,
+          borderCurve: "continuous",
+          borderWidth: props.accent ? 0 : StyleSheet.hairlineWidth,
+          borderColor: props.isDark ? "rgba(255,255,255,0.12)" : "rgba(218,216,209,0.85)",
           backgroundColor: props.accent
-            ? props.isDark
-              ? "rgba(255,255,255,0.10)"
-              : "rgba(20,20,19,0.10)"
-            : "transparent",
-          paddingHorizontal: 12,
-          paddingVertical: 9,
-          opacity: pressed ? 0.7 : 1,
+            ? props.palette.ink
+            : props.isDark
+              ? "rgba(255,255,255,0.06)"
+              : "rgba(20,20,19,0.05)",
+          opacity: pressed ? 0.75 : 1,
         })}
       >
-        <Icon size={13} color={props.accent ? props.palette.accentLight : props.palette.ink} strokeWidth={2.2} />
+        <Icon size={14} color={props.accent ? props.palette.background : props.palette.ink} strokeWidth={2.2} />
         <Text
+          numberOfLines={1}
           style={{
-            color: props.accent ? props.palette.accentLight : props.palette.ink,
-            fontSize: 12,
+            color: props.accent ? props.palette.background : props.palette.ink,
+            fontSize: 12.5,
             fontWeight: props.accent ? "800" : "700",
           }}
         >

@@ -1,6 +1,7 @@
-import { useEffect } from "react"
-import { Pressable, Text, View } from "react-native"
+import { useCallback, useEffect, useRef } from "react"
+import { Animated, Pressable, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { DURATION_MS, Ease, SPRING_CONFIG, usePrefersReducedMotion } from "@/lib/animation"
 import { useUIStore, type ToastKind } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 
@@ -59,29 +60,66 @@ function ToastItem(props: {
   colors: { backgroundColor: string; borderColor: string; textColor: string }
   onDismiss(): void
 }) {
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const animRef = useRef<Animated.Value | null>(null)
+  if (animRef.current === null) animRef.current = new Animated.Value(0)
+  const anim = animRef.current
+  const dismissedRef = useRef(false)
+  const { onDismiss } = props
+
+  // Fade out first so removal never pops; guard against timer + tap racing.
+  const dismiss = useCallback(() => {
+    if (dismissedRef.current) return
+    dismissedRef.current = true
+    Animated.timing(anim, {
+      toValue: 0,
+      duration: 150,
+      easing: Ease.accelerate,
+      useNativeDriver: true,
+    }).start(() => onDismiss())
+  }, [anim, onDismiss])
+
   useEffect(() => {
-    const timer = setTimeout(props.onDismiss, 2200)
+    if (prefersReducedMotion) {
+      Animated.timing(anim, { toValue: 1, duration: DURATION_MS.hint, useNativeDriver: true }).start()
+    } else {
+      Animated.spring(anim, { toValue: 1, ...SPRING_CONFIG }).start()
+    }
+    const timer = setTimeout(dismiss, 2200)
     return () => clearTimeout(timer)
-  }, [props.onDismiss])
+  }, [anim, dismiss, prefersReducedMotion])
 
   return (
-    <Pressable
-      onPress={props.onDismiss}
-      accessibilityRole="button"
-      accessibilityLabel={props.message}
-      style={({ pressed }) => ({
-        borderRadius: 12,
-        borderWidth: 1,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        backgroundColor: props.colors.backgroundColor,
-        borderColor: props.colors.borderColor,
-        opacity: pressed ? 0.92 : 1,
-      })}
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: prefersReducedMotion
+          ? undefined
+          : [
+              // Toasts live at the top edge, so they arrive from it and leave toward it.
+              { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) },
+              { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+            ],
+      }}
     >
-      <Text style={{ color: props.colors.textColor, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
-        {props.message}
-      </Text>
-    </Pressable>
+      <Pressable
+        onPress={dismiss}
+        accessibilityRole="button"
+        accessibilityLabel={props.message}
+        style={({ pressed }) => ({
+          borderRadius: 12,
+          borderWidth: 1,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          backgroundColor: props.colors.backgroundColor,
+          borderColor: props.colors.borderColor,
+          opacity: pressed ? 0.92 : 1,
+        })}
+      >
+        <Text style={{ color: props.colors.textColor, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+          {props.message}
+        </Text>
+      </Pressable>
+    </Animated.View>
   )
 }

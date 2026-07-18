@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react"
 import {
   Animated,
   InteractionManager,
+  Keyboard,
   LayoutAnimation,
   Linking,
   Pressable,
@@ -664,6 +665,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       accessibilityRole="button"
       accessibilityLabel={`${isUser ? "User" : "Nikcli"} message`}
       accessibilityHint="Long press to show message actions"
+      // Standard chat behavior: tapping the transcript puts the keyboard away.
+      onPress={() => Keyboard.dismiss()}
       onLongPress={() => {
         if (!gestures.bubbleLongPressActions) return
         props.onActivate?.(props.message.info.id)

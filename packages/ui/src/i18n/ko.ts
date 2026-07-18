@@ -55,7 +55,11 @@ export const dict = {
 
   "ui.imagePreview.alt": "이미지 미리보기",
 
+  "ui.artifactPreview.copyLink": "링크 복사",
+  "ui.artifactPreview.openInBrowser": "브라우저에서 열기",
+
   "ui.tool.read": "읽기",
+  "ui.tool.artifact": "아티팩트",
   "ui.tool.loaded": "로드됨",
   "ui.tool.list": "목록",
   "ui.tool.glob": "Glob",

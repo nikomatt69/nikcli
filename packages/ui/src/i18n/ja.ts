@@ -55,7 +55,11 @@ export const dict = {
 
   "ui.imagePreview.alt": "画像プレビュー",
 
+  "ui.artifactPreview.copyLink": "リンクをコピー",
+  "ui.artifactPreview.openInBrowser": "ブラウザで開く",
+
   "ui.tool.read": "読み込み",
+  "ui.tool.artifact": "アーティファクト",
   "ui.tool.loaded": "読み込み済み",
   "ui.tool.list": "リスト",
   "ui.tool.glob": "Glob",

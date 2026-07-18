@@ -9,6 +9,7 @@ import { Asset } from "expo-asset"
 import { File } from "expo-file-system"
 import * as Clipboard from "expo-clipboard"
 import { useServer } from "@/lib/server-context"
+import { getValidOAuthTokens } from "@/lib/oauth"
 import { useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -457,10 +458,21 @@ export default function TerminalScreen() {
   const [keyboardVisible, setKeyboardVisible] = useState(false)
   const [keyboardInset, setKeyboardInset] = useState(0)
   const [fontSize, setFontSize] = useState(13)
+  const [connectToken, setConnectToken] = useState<string | null>(null)
   const commandIdRef = useRef(0)
   const creatingRef = useRef(false)
   const activeTabRef = useRef<PtyTab | null>(null)
   const resizeTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  const refreshConnectToken = useCallback(async (force = false) => {
+    try {
+      const tokens = await getValidOAuthTokens(force)
+      if (tokens) setConnectToken(tokens.access)
+      return tokens?.access ?? null
+    } catch {
+      return null
+    }
+  }, [])
 
   const syncRunningPty = useCallback(async () => {
     if (!client) return
@@ -532,6 +544,7 @@ export default function TerminalScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void refreshConnectToken()
       void syncRunningPty()
       const intent = consumeTerminalLaunchIntent()
       if (!intent || !client) return
@@ -542,7 +555,7 @@ export default function TerminalScreen() {
         command: intent.command,
         args: intent.args,
       })
-    }, [client, createTerminal, syncRunningPty]),
+    }, [client, createTerminal, refreshConnectToken, syncRunningPty]),
   )
 
   useEffect(() => {
@@ -693,10 +706,13 @@ export default function TerminalScreen() {
   const reconnectTerminal = useCallback(() => {
     if (!activeTab || !client) return
     void triggerHaptic("selection")
-    const scoped = activeTab.directory ? client.withDirectory(activeTab.directory) : client
-    const wsUrl = scoped.ptyConnectUrl(activeTab.pty.id)
-    sendTerminalCommand(activeTab.pty.id, { type: "reconnect", wsUrl })
-  }, [activeTab, client, sendTerminalCommand])
+    void refreshConnectToken(true).then((token) => {
+      const base = activeTab.directory ? client.withDirectory(activeTab.directory) : client
+      const scoped = token ? base.withToken(token) : base
+      const wsUrl = scoped.ptyConnectUrl(activeTab.pty.id)
+      sendTerminalCommand(activeTab.pty.id, { type: "reconnect", wsUrl })
+    })
+  }, [activeTab, client, refreshConnectToken, sendTerminalCommand])
 
   const restartExitedTab = useCallback(async () => {
     if (!activeTab) return
@@ -904,7 +920,8 @@ export default function TerminalScreen() {
         <View style={styles.terminalViewport} collapsable={false}>
           {client
             ? tabs.map((tab, index) => {
-                const scoped = tab.directory ? client.withDirectory(tab.directory) : client
+                const base = tab.directory ? client.withDirectory(tab.directory) : client
+                const scoped = connectToken ? base.withToken(connectToken) : base
                 return (
                   <TerminalWebView
                     key={tab.pty.id}

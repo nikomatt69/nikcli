@@ -58,7 +58,11 @@ export const dict: Record<Keys, string> = {
 
   "ui.imagePreview.alt": "Bildeforhåndsvisning",
 
+  "ui.artifactPreview.copyLink": "Kopier lenke",
+  "ui.artifactPreview.openInBrowser": "Åpne i nettleser",
+
   "ui.tool.read": "Les",
+  "ui.tool.artifact": "Artefakt",
   "ui.tool.loaded": "Lastet",
   "ui.tool.list": "Liste",
   "ui.tool.glob": "Glob",

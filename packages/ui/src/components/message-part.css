@@ -826,3 +826,56 @@
     color: var(--icon-weak-base);
   }
 }
+
+[data-component="artifact-card"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-weaker-base);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset-base);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: var(--surface-raised-base-hover);
+    border-color: var(--border-weak-base);
+  }
+
+  &:active {
+    background: var(--surface-raised-base-active);
+  }
+
+  [data-component="icon"] {
+    flex-shrink: 0;
+    color: var(--icon-weak-base);
+  }
+
+  [data-slot="artifact-card-info"] {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  [data-slot="artifact-card-title"] {
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-strong-base);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  [data-slot="artifact-card-description"] {
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-small);
+    color: var(--text-weak-base);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

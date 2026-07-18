@@ -56,7 +56,11 @@ export const dict = {
 
   "ui.imagePreview.alt": "ตัวอย่างรูปภาพ",
 
+  "ui.artifactPreview.copyLink": "คัดลอกลิงก์",
+  "ui.artifactPreview.openInBrowser": "เปิดในเบราว์เซอร์",
+
   "ui.tool.read": "อ่าน",
+  "ui.tool.artifact": "อาร์ติแฟกต์",
   "ui.tool.list": "รายการ",
   "ui.tool.glob": "Glob",
   "ui.tool.grep": "Grep",
