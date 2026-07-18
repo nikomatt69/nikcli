@@ -185,8 +185,14 @@ export async function verifyEmailCode(c: AppContext): Promise<Response> {
   const loginState = form.get("login_state") ?? ""
   const code = (form.get("code") ?? "").trim()
   const challenge = await c.env.STATE.get<EmailChallenge>(emailKey(loginState), "json")
-  if (!challenge || !(await loadIntent(c.env, loginState)))
+  if (!challenge || !(await loadIntent(c.env, loginState))) {
+    // A prior submit for this same login_state may have already verified the
+    // code and consumed both KV entries — replay its redirect instead of
+    // telling a merely-late duplicate request its code is expired.
+    const replay = await c.env.STATE.get(completedKey(loginState))
+    if (replay) return c.redirect(replay, 302)
     return resultPage(c, "Code expired", "Request a new sign-in code.", 400)
+  }
 
   challenge.attempts += 1
   if (challenge.attempts > 5) {
