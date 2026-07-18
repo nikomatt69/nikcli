@@ -351,6 +351,13 @@
           } else if (msg.type === "paste") {
             if (typeof msg.data !== "string") return
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
+          } else if (msg.type === "input") {
+            if (typeof msg.data !== "string") return
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg.data)
+          } else if (msg.type === "focus") {
+            wt?.focus()
+          } else if (msg.type === "blur") {
+            wt?.blur?.()
           } else if (msg.type === "copy") {
             postRN({ type: "copy", text: collectTerminalText() })
           } else if (msg.type === "reconnect" && msg.wsUrl) {
