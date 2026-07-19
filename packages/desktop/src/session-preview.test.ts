@@ -1,7 +1,7 @@
 /// <reference types="@types/bun" />
 
 import { describe, expect, test } from "bun:test"
-import { collectSessionPreviews } from "./session-preview"
+import { collectSessionPreviews, sessionPreviewFrameUrl } from "./session-preview"
 
 describe("desktop session previews", () => {
   test("uses capability URLs for image and video artifacts", () => {
@@ -70,5 +70,30 @@ describe("desktop session previews", () => {
     expect(previews).toHaveLength(1)
     expect(previews[0]?.version).toBe(2)
     expect(previews[0]?.previewUrl).toContain("version=2")
+  })
+
+  test("reloads the embedded viewer when an artifact version changes", () => {
+    const [preview] = collectSessionPreviews([
+      {
+        type: "tool",
+        tool: "artifact",
+        state: {
+          status: "completed",
+          metadata: {
+            id: "same",
+            title: "Dashboard",
+            kind: "html",
+            version: 2,
+            url: "https://nikcli.store/artifact/same",
+            viewerUrl: "https://nikcli.store/artifact/same?key=view-key",
+          },
+        },
+      },
+    ])
+
+    expect(preview).toBeDefined()
+    expect(sessionPreviewFrameUrl(preview!)).toBe(
+      "https://nikcli.store/artifact/same?key=view-key&_nikcli_preview=2",
+    )
   })
 })

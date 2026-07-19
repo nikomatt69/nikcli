@@ -1,3 +1,5 @@
+/// <reference types="@types/bun" />
+
 import { describe, expect, test } from "bun:test"
 import {
   ARTIFACT_MAX_BYTES,

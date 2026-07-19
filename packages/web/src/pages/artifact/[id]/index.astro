@@ -7,9 +7,13 @@ import {
   resolveViewerUserId,
 } from "../../../lib/artifact"
 import { renderMarkdown } from "../../../lib/artifact-markdown"
-import "../../../styles/global.css"
 
 export const prerender = false
+
+// Viewer URLs can carry a read capability. Never cache their HTML shell: aside
+// from protecting the key, this prevents stale pages from referencing assets
+// from a previous deployment.
+Astro.response.headers.set("Cache-Control", "private, no-store")
 
 const env = (Astro.locals as App.Locals).runtime?.env
 const id = Astro.params.id ?? ""
@@ -65,8 +69,9 @@ const pageTitle = meta
     <header class="bar">
       <div class="bar-left">
         <a class="brand" href="/" aria-label="nikcli home">
-          <img class="brand-light" src="/brand/wordmark-light.png" alt="nikcli" width="95" height="31" />
-          <img class="brand-dark" src="/brand/wordmark-dark.png" alt="nikcli" width="95" height="31" />
+          <span class="brand-fallback" aria-hidden="true">nikcli</span>
+          <img class="brand-light" src="/brand/wordmark-light.png" alt="" width="95" height="31" />
+          <img class="brand-dark" src="/brand/wordmark-dark.png" alt="" width="95" height="31" />
         </a>
         {meta ? <span class="kind">{meta.kind}</span> : null}
         {meta ? <span class="title" title={meta.filename}>{meta.title}</span> : null}
@@ -124,9 +129,53 @@ const pageTitle = meta
         })
       })
 
+      const brand = document.querySelector(".brand")
+      const brandImages = document.querySelectorAll<HTMLImageElement>(".brand img")
+      const showImageBrand = () => {
+        if ([...brandImages].some((image) => image.complete && image.naturalWidth > 0)) {
+          brand?.classList.add("has-image")
+        }
+      }
+      brandImages.forEach((image) => image.addEventListener("load", showImageBrand, { once: true }))
+      showImageBrand()
+
     </script>
 
-    <style is:global>
+    <!-- Keep the viewer shell self-contained. Artifact links must remain usable
+         while hashed site assets are rolling out or stale in an embedded webview. -->
+    <style is:inline>
+      :root {
+        color-scheme: light;
+        --terminal-bg: 250 249 246;
+        --terminal-panel: 255 255 255;
+        --terminal-border: 220 214 200;
+        --terminal-text: 12 11 10;
+        --terminal-muted: 110 104 94;
+        --terminal-accent: 37 99 235;
+        --terminal-error: 220 38 38;
+        --terminal-code: 244 242 238;
+        --terminal-shadow: 10 8 4;
+        --topbar-height: 4rem;
+        --page-gutter: clamp(1rem, 2vw + 0.5rem, 1.5rem);
+        --radius-md: 10px;
+        --radius-card: 16px;
+        --shadow-soft: 0 2px 16px -2px rgb(var(--terminal-shadow) / 0.08), 0 1px 3px rgb(var(--terminal-shadow) / 0.04);
+        --shadow-strong: 0 12px 40px -6px rgb(var(--terminal-shadow) / 0.14), 0 4px 12px -2px rgb(var(--terminal-shadow) / 0.06);
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --terminal-bg: 8 8 9;
+        --terminal-panel: 13 13 15;
+        --terminal-border: 32 30 27;
+        --terminal-text: 242 240 236;
+        --terminal-muted: 148 144 136;
+        --terminal-accent: 96 165 250;
+        --terminal-error: 248 113 113;
+        --terminal-code: 18 17 16;
+        --terminal-shadow: 0 0 0;
+        --shadow-soft: 0 2px 16px -2px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.2);
+        --shadow-strong: 0 12px 40px -6px rgb(0 0 0 / 0.6), 0 4px 12px -2px rgb(0 0 0 / 0.3);
+      }
       * {
         box-sizing: border-box;
       }
@@ -166,8 +215,11 @@ const pageTitle = meta
         min-width: 0;
       }
       .brand {
+        position: relative;
         display: flex;
         align-items: center;
+        min-width: 75px;
+        height: 25px;
         color: rgb(var(--terminal-text));
         text-decoration: none;
         white-space: nowrap;
@@ -177,8 +229,20 @@ const pageTitle = meta
         opacity: 0.82;
       }
       .brand img {
+        position: absolute;
+        inset: 0 auto auto 0;
         width: auto;
         height: 25px;
+      }
+      .brand-fallback {
+        font-family: "Syne", system-ui, sans-serif;
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: -0.08em;
+        line-height: 1;
+      }
+      .brand.has-image .brand-fallback {
+        visibility: hidden;
       }
       .brand-dark {
         display: none;

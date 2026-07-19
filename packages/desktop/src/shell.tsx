@@ -37,7 +37,7 @@ import {
 import { Portal } from "solid-js/web"
 import { createStore } from "solid-js/store"
 import { t } from "./i18n"
-import { collectSessionPreviews, type SessionPreviewItem } from "./session-preview"
+import { collectSessionPreviews, sessionPreviewFrameUrl, type SessionPreviewItem } from "./session-preview"
 
 const SIDEBAR_MIN = 260
 const SIDEBAR_MAX = 460
@@ -1199,7 +1199,7 @@ function PreviewPanel(props: { items: SessionPreviewItem[] }) {
                 </Match>
                 <Match when={item().kind === "html" || item().kind === "markdown" || item().kind === "text"}>
                   <iframe
-                    src={item().viewerUrl ?? item().previewUrl}
+                    src={sessionPreviewFrameUrl(item())}
                     title={item().title}
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                   />

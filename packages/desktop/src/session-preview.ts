@@ -11,6 +11,20 @@ export type SessionPreviewItem = {
   previewUrl: string
 }
 
+/** Reload the embedded viewer when an artifact is updated in place. */
+export function sessionPreviewFrameUrl(item: SessionPreviewItem): string {
+  const value = item.viewerUrl ?? item.previewUrl
+  if (!item.version) return value
+
+  try {
+    const url = new URL(value)
+    url.searchParams.set("_nikcli_preview", String(item.version))
+    return url.toString()
+  } catch {
+    return value
+  }
+}
+
 function record(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return
   return value as Record<string, unknown>
