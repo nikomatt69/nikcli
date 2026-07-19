@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.180.0 (July 2026)
+
+## Desktop
+
+- Add session preview frame URL functionality and test cases (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(preview): add session preview frame URL functionality and test cases
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
