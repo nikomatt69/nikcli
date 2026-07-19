@@ -128,7 +128,7 @@ function createGlobalSync() {
     if (cached) return cached
     const sdk = createNikcliClient({
       baseUrl: globalSDK.url,
-      fetch: globalSDK.fetch,
+      fetch: platform.fetch,
       directory,
       throwOnError: true,
     })

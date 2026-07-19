@@ -21,7 +21,9 @@ import {
 } from "@nikcli-ai/app"
 import {
   For,
+  Match,
   Show,
+  Switch,
   batch,
   createEffect,
   createMemo,
@@ -35,6 +37,7 @@ import {
 import { Portal } from "solid-js/web"
 import { createStore } from "solid-js/store"
 import { t } from "./i18n"
+import { collectSessionPreviews, type SessionPreviewItem } from "./session-preview"
 
 const SIDEBAR_MIN = 260
 const SIDEBAR_MAX = 460
@@ -932,10 +935,14 @@ type AutomationPart = {
 }
 
 type AutomationSurface = "browser" | "computer"
-type WorkbenchSurface = "review" | "terminal" | AutomationSurface | "files"
+type SessionPanelSurface = "review" | "terminal" | "files"
+type WorkbenchSurface = SessionPanelSurface | AutomationSurface | "preview"
 
 const isAutomationSurface = (surface: WorkbenchSurface): surface is AutomationSurface =>
   surface === "browser" || surface === "computer"
+
+const isSessionPanelSurface = (surface: WorkbenchSurface): surface is SessionPanelSurface =>
+  surface === "review" || surface === "terminal" || surface === "files"
 
 function automationMetadata(part: AutomationPart | undefined) {
   if (!part) return {}
@@ -1133,6 +1140,112 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
   )
 }
 
+function PreviewPanel(props: { items: SessionPreviewItem[] }) {
+  const platform = usePlatform()
+  const [selectedID, setSelectedID] = createSignal<string>()
+  const selected = createMemo(() => {
+    const items = props.items
+    return items.find((item) => item.id === selectedID()) ?? items.at(-1)
+  })
+
+  createEffect(() => {
+    const item = selected()
+    if (item && item.id !== selectedID()) setSelectedID(item.id)
+  })
+
+  const canOpenExternally = createMemo(() => /^https?:\/\//.test(selected()?.url ?? ""))
+
+  return (
+    <section id="desktop-workbench-panel-preview" class="desktop-preview">
+      <Show
+        when={selected()}
+        fallback={
+          <div class="desktop-preview__empty">
+            <Icon name="eye" size="large" />
+            <strong>{t("desktop.workbench.previewEmptyTitle")}</strong>
+            <span>{t("desktop.workbench.previewEmptyDescription")}</span>
+          </div>
+        }
+      >
+        {(item) => (
+          <>
+            <header class="desktop-preview__header">
+              <div>
+                <strong>{item().title}</strong>
+                <span>
+                  {item().kind}
+                  <Show when={item().version}> · v{item().version}</Show>
+                </span>
+              </div>
+              <Show when={canOpenExternally()}>
+                <button
+                  type="button"
+                  title={t("desktop.workbench.previewOpen")}
+                  aria-label={t("desktop.workbench.previewOpen")}
+                  onClick={() => platform.openLink(item().url)}
+                >
+                  <Icon name="square-arrow-top-right" size="small" />
+                </button>
+              </Show>
+            </header>
+
+            <div class="desktop-preview__stage">
+              <Switch>
+                <Match when={item().kind === "image"}>
+                  <img src={item().previewUrl} alt={item().title} />
+                </Match>
+                <Match when={item().kind === "video"}>
+                  <video src={item().previewUrl} title={item().title} controls playsinline preload="metadata" />
+                </Match>
+                <Match when={item().kind === "html" || item().kind === "markdown" || item().kind === "text"}>
+                  <iframe
+                    src={item().viewerUrl ?? item().previewUrl}
+                    title={item().title}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  />
+                </Match>
+              </Switch>
+            </div>
+
+            <Show when={item().description}>
+              {(description) => <p class="desktop-preview__description">{description()}</p>}
+            </Show>
+
+            <Show when={props.items.length > 1}>
+              <div class="desktop-preview__strip" aria-label={t("desktop.workbench.previewItems")}>
+                <For each={[...props.items].reverse()}>
+                  {(preview) => (
+                    <button
+                      type="button"
+                      classList={{
+                        "desktop-preview__item": true,
+                        "desktop-preview__item--active": preview.id === item().id,
+                      }}
+                      aria-label={preview.title}
+                      aria-pressed={preview.id === item().id}
+                      onClick={() => setSelectedID(preview.id)}
+                    >
+                      <span class="desktop-preview__item-icon">
+                        <Show when={preview.kind === "image"} fallback={<Icon name="eye" size="small" />}>
+                          <img src={preview.previewUrl} alt="" />
+                        </Show>
+                      </span>
+                      <span>
+                        <strong>{preview.title}</strong>
+                        <small>{preview.kind}</small>
+                      </span>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </>
+        )}
+      </Show>
+    </section>
+  )
+}
+
 function DesktopTools() {
   const sync = useGlobalSync()
   const layout = useLayout()
@@ -1176,6 +1289,13 @@ function DesktopTools() {
         .map((part) => part as unknown as AutomationPart),
     )
   })
+  const previewItems = createMemo(() => {
+    const data = activeData()
+    const sessionID = params.id
+    if (!data || !sessionID) return []
+    const parts = (data.message[sessionID] ?? []).flatMap((message) => data.part[message.id] ?? [])
+    return collectSessionPreviews(parts)
+  })
   const latestPart = createMemo(() => {
     const parts = automationParts()
     return [...parts].reverse().find((part) => part.tool === activeAutomation())
@@ -1184,20 +1304,21 @@ function DesktopTools() {
   const hasRunningAutomation = (surface: AutomationSurface) =>
     automationParts().some((part) => part.tool === surface && part.state.status === "running")
 
-  const closeSessionPanels = (except?: "review" | "terminal" | "files") => {
+  const closeSessionPanels = (except?: SessionPanelSurface) => {
     if (except !== "review" && except !== "files") view.reviewPanel.close()
     if (except !== "terminal") view.terminal.close()
     if (except !== "files") layout.fileTree.close()
   }
 
   const openSurface = (surface: WorkbenchSurface) => {
-    if ((surface === "review" || surface === "terminal" || surface === "files") && !available()) return
+    if ((isSessionPanelSurface(surface) || surface === "preview") && !available()) return
 
     batch(() => {
       setWorkbench("collapsed", false)
-      if (isAutomationSurface(surface)) {
+      if (isAutomationSurface(surface) || surface === "preview") {
         closeSessionPanels()
-        setWorkbench({ active: surface, automation: surface })
+        setWorkbench("active", surface)
+        if (isAutomationSurface(surface)) setWorkbench("automation", surface)
         return
       }
 
@@ -1251,6 +1372,13 @@ function DesktopTools() {
       title: t("desktop.workbench.computer"),
       category: t("desktop.workbench.title"),
       onSelect: () => openSurface("computer"),
+    },
+    {
+      id: "desktop.workbench.preview",
+      title: t("desktop.workbench.preview"),
+      category: t("desktop.workbench.title"),
+      disabled: !available(),
+      onSelect: () => openSurface("preview"),
     },
   ])
 
@@ -1328,12 +1456,12 @@ function DesktopTools() {
     const opened = (Object.keys(next) as Array<keyof typeof next>).filter((key) => next[key])
 
     if (opened.length === 0) {
-      if (!isAutomationSurface(workbench.active)) setWorkbench("active", workbench.automation)
+      if (isSessionPanelSurface(workbench.active)) setWorkbench("active", workbench.automation)
       previousPanels = next
       return
     }
 
-    const active = !isAutomationSurface(workbench.active) && next[workbench.active] ? workbench.active : undefined
+    const active = isSessionPanelSurface(workbench.active) && next[workbench.active] ? workbench.active : undefined
     const newlyOpened = opened.find((key) => !previousPanels[key])
     const selected = active ?? newlyOpened ?? opened[opened.length - 1]
 
@@ -1382,6 +1510,12 @@ function DesktopTools() {
       running: hasRunningAutomation("computer"),
     },
     {
+      surface: "preview",
+      label: t("desktop.workbench.preview"),
+      icon: "eye",
+      disabled: !available(),
+    },
+    {
       surface: "files",
       label: t("desktop.workbench.files"),
       icon: "folder",
@@ -1394,6 +1528,7 @@ function DesktopTools() {
       class="desktop-tools"
       classList={{
         "desktop-tools--automation": isAutomationSurface(workbench.active),
+        "desktop-tools--preview": workbench.active === "preview",
         "desktop-tools--review": reviewTabOpen(),
         "desktop-tools--terminal": terminalTabOpen(),
         "desktop-tools--files": fileTabOpen(),
@@ -1467,6 +1602,9 @@ function DesktopTools() {
         </div>
         <Show when={isAutomationSurface(workbench.active)}>
           <AutomationPanel surface={activeAutomation()} part={latestPart()} />
+        </Show>
+        <Show when={workbench.active === "preview"}>
+          <PreviewPanel items={previewItems()} />
         </Show>
       </Show>
     </aside>

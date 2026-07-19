@@ -352,7 +352,7 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
   const attachments = createMemo(() =>
     files()?.filter((f) => {
       const mime = f.mime
-      return mime.startsWith("image/") || mime === "application/pdf"
+      return mime.startsWith("image/") || mime.startsWith("video/") || mime === "application/pdf"
     }),
   )
 
@@ -390,27 +390,38 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
             {(file) => (
               <div
                 data-slot="user-message-attachment"
-                data-type={file.mime.startsWith("image/") ? "image" : "file"}
+                data-type={file.mime.startsWith("image/") ? "image" : file.mime.startsWith("video/") ? "video" : "file"}
                 onClick={() => {
                   if (file.mime.startsWith("image/") && file.url) {
                     openImagePreview(file.url, file.filename)
                   }
                 }}
               >
-                <Show
-                  when={file.mime.startsWith("image/") && file.url}
+                <Switch
                   fallback={
                     <div data-slot="user-message-attachment-icon">
                       <Icon name="folder" />
                     </div>
                   }
                 >
-                  <img
-                    data-slot="user-message-attachment-image"
-                    src={file.url}
-                    alt={file.filename ?? i18n.t("ui.message.attachment.alt")}
-                  />
-                </Show>
+                  <Match when={file.mime.startsWith("image/") && file.url}>
+                    <img
+                      data-slot="user-message-attachment-image"
+                      src={file.url}
+                      alt={file.filename ?? i18n.t("ui.message.attachment.alt")}
+                    />
+                  </Match>
+                  <Match when={file.mime.startsWith("video/") && file.url}>
+                    <video
+                      data-slot="user-message-attachment-video"
+                      src={file.url}
+                      title={file.filename}
+                      controls
+                      playsinline
+                      preload="metadata"
+                    />
+                  </Match>
+                </Switch>
               </div>
             )}
           </For>
@@ -828,15 +839,54 @@ ToolRegistry.register({
         }}
       >
         <Show when={ready()}>
-          <div data-component="artifact-card" onClick={open} role="button" tabindex="0">
-            <Icon name="window-cursor" size="small" />
-            <div data-slot="artifact-card-info">
-              <span data-slot="artifact-card-title">{title()}</span>
-              <Show when={meta().description}>
-                <span data-slot="artifact-card-description">{meta().description}</span>
-              </Show>
+          <div
+            data-component="artifact-card"
+            onClick={open}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return
+              event.preventDefault()
+              open()
+            }}
+            role="button"
+            tabindex="0"
+          >
+            <div data-slot="artifact-card-preview">
+              <Switch>
+                <Match when={meta().kind === "image"}>
+                  <img src={meta().previewUrl} alt={title()} loading="lazy" />
+                </Match>
+                <Match when={meta().kind === "video"}>
+                  <video
+                    src={meta().previewUrl}
+                    title={title()}
+                    controls
+                    playsinline
+                    preload="metadata"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
+                </Match>
+                <Match when={meta().kind === "html" || meta().kind === "markdown" || meta().kind === "text"}>
+                  <iframe
+                    src={meta().viewerUrl}
+                    title={title()}
+                    loading="lazy"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    tabindex="-1"
+                  />
+                </Match>
+              </Switch>
             </div>
-            <Icon name="square-arrow-top-right" size="small" />
+            <div data-slot="artifact-card-summary">
+              <Icon name="window-cursor" size="small" />
+              <div data-slot="artifact-card-info">
+                <span data-slot="artifact-card-title">{title()}</span>
+                <Show when={meta().description}>
+                  <span data-slot="artifact-card-description">{meta().description}</span>
+                </Show>
+              </div>
+              <Icon name="square-arrow-top-right" size="small" />
+            </div>
           </div>
         </Show>
       </BasicTool>

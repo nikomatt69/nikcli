@@ -52,6 +52,7 @@ export type Endpoint = {
   readonly query: Schema.Top | undefined
   readonly headers: Schema.Top | undefined
   readonly payloads: ReadonlyArray<Schema.Top>
+  readonly optionalPayload: boolean
   readonly operation: Operation
   readonly clientPath: readonly [string, ...Array<string>]
   readonly input: ReadonlyArray<InputField & { readonly optional: boolean; readonly whole: boolean }>
@@ -118,7 +119,9 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
       const params = normalizeTransport(endpoint.params, "params", endpoint, name)
       const query = normalizeTransport(endpoint.query, "query", endpoint, name)
       const headers = normalizeTransport(endpoint.headers, "headers", endpoint, name)
-      const sourcePayloads = Array.from(endpoint.payload.values()).flatMap(({ schemas }) => schemas)
+      const payloadSchemas = Array.from(endpoint.payload.values()).flatMap(({ schemas }) => schemas)
+      const optionalPayload = payloadSchemas.some((schema) => HttpApiSchema.isNoContent(schema.ast))
+      const sourcePayloads = payloadSchemas.filter((schema) => !HttpApiSchema.isNoContent(schema.ast))
       if (sourcePayloads.length > 1) {
         throw new GenerationError({ reason: `Multiple payload schemas: ${name}` })
       }
@@ -174,6 +177,7 @@ export function compile<Id extends string, Groups extends HttpApiGroup.Any>(
         query: query?.schema,
         headers: headers?.schema,
         payloads: payloads.map((item) => item.schema),
+        optionalPayload,
         input: inputs,
         clientPath,
         unwrapData: isDataEnvelope(success.schema),
@@ -349,7 +353,7 @@ function renderEffectShape(groups: ReadonlyArray<Group>, options: { readonly mod
       const input = endpoint.input
         .map(
           (field) =>
-            `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${prefix}Request[${JSON.stringify(field.source)}]${field.whole ? "" : `[${JSON.stringify(field.name)}]`}`,
+            `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${effectInputSource(prefix, field, endpoint.optionalPayload)}${field.whole ? "" : `[${JSON.stringify(field.name)}]`}`,
         )
         .join("; ")
       const inputType = endpoint.operation.inputMode === "none" ? "" : `export type ${prefix}Input = { ${input} }`
@@ -409,6 +413,11 @@ function groupShapeName(group: Group) {
 
 function groupShapeTypeName(group: Group, endpoint: Endpoint) {
   return `${identifierPart(group.identifier)}${endpoint.clientPath.map(identifierPart).join("")}Operation`
+}
+
+function effectInputSource(prefix: string, field: InputField, optionalPayload: boolean) {
+  const source = `${prefix}Request[${JSON.stringify(field.source)}]`
+  return optionalPayload && field.source === "payload" ? `Extract<${source}, object>` : source
 }
 
 function assertPromiseEndpoint(endpoint: Endpoint) {
@@ -501,7 +510,7 @@ function renderImportedEffectFiles(
       const input = item.input
         .map(
           (field) =>
-            `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${prefix}Request[${JSON.stringify(field.source)}]${field.whole ? "" : `[${JSON.stringify(field.name)}]`}`,
+            `readonly ${JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${effectInputSource(prefix, field, item.optionalPayload)}${field.whole ? "" : `[${JSON.stringify(field.name)}]`}`,
         )
         .join("; ")
       const argument =

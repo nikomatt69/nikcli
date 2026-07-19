@@ -65,7 +65,14 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
                 <img data-slot="artifact-preview-image" src={props.previewUrl} alt={props.title} />
               </Match>
               <Match when={props.kind === "video"}>
-                <video data-slot="artifact-preview-video" src={props.previewUrl} controls autoplay />
+                <video
+                  data-slot="artifact-preview-video"
+                  src={props.previewUrl}
+                  title={props.title}
+                  controls
+                  playsinline
+                  preload="metadata"
+                />
               </Match>
               <Match when={props.kind === "html" || props.kind === "markdown" || props.kind === "text"}>
                 <iframe

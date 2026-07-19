@@ -780,12 +780,12 @@ const Endpoint18_0 = (raw: RawClient["session"]) => (input?: Endpoint18_0Input) 
 
 type Endpoint18_1Request = Parameters<RawClient["session"]["create"]>[0]
 type Endpoint18_1Input = {
-  readonly parentID?: Endpoint18_1Request["payload"]["parentID"]
-  readonly title?: Endpoint18_1Request["payload"]["title"]
-  readonly permission?: Endpoint18_1Request["payload"]["permission"]
-  readonly skills?: Endpoint18_1Request["payload"]["skills"]
-  readonly github?: Endpoint18_1Request["payload"]["github"]
-  readonly workspaceID?: Endpoint18_1Request["payload"]["workspaceID"]
+  readonly parentID?: Extract<Endpoint18_1Request["payload"], object>["parentID"]
+  readonly title?: Extract<Endpoint18_1Request["payload"], object>["title"]
+  readonly permission?: Extract<Endpoint18_1Request["payload"], object>["permission"]
+  readonly skills?: Extract<Endpoint18_1Request["payload"], object>["skills"]
+  readonly github?: Extract<Endpoint18_1Request["payload"], object>["github"]
+  readonly workspaceID?: Extract<Endpoint18_1Request["payload"], object>["workspaceID"]
 }
 const Endpoint18_1 = (raw: RawClient["session"]) => (input?: Endpoint18_1Input) =>
   raw["create"]({

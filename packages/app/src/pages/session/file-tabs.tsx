@@ -51,6 +51,10 @@ export function FileTabContent(props: {
     const c = state()?.content
     return c?.mimeType === "image/svg+xml"
   })
+  const isVideo = createMemo(() => {
+    const c = state()?.content
+    return c?.encoding === "base64" && c?.mimeType?.startsWith("video/")
+  })
   const isBinary = createMemo(() => state()?.content?.mimeType?.startsWith("application/") || false)
   const svgContent = createMemo(() => {
     if (!isSvg()) return
@@ -88,6 +92,11 @@ export function FileTabContent(props: {
   })
   const imageDataUrl = createMemo(() => {
     if (!isImage()) return
+    const c = state()?.content
+    return `data:${c?.mimeType};base64,${c?.content}`
+  })
+  const videoDataUrl = createMemo(() => {
+    if (!isVideo()) return
     const c = state()?.content
     return `data:${c?.mimeType};base64,${c?.content}`
   })
@@ -494,6 +503,18 @@ export function FileTabContent(props: {
                 <img src={svgPreviewUrl()} alt={path()} class="max-w-full max-h-96" />
               </div>
             </Show>
+          </div>
+        </Match>
+        <Match when={state()?.loaded && isVideo()}>
+          <div class="flex h-full items-center justify-center px-6 py-4 pb-40">
+            <video
+              src={videoDataUrl()}
+              title={path()}
+              controls
+              playsinline
+              preload="metadata"
+              class="max-w-full max-h-full"
+            />
           </div>
         </Match>
         <Match when={state()?.loaded && isBinary()}>

@@ -137,7 +137,9 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     const projectDirectory = sdk.directory
     const isNewSession = !params.id
-    const worktreeSelection = input.newSessionWorktree ?? "main"
+    // During directory bootstrap older child stores exposed an empty path. Treat
+    // an empty selection as the main worktree instead of creating child("").
+    const worktreeSelection = input.newSessionWorktree?.trim() || "main"
 
     let sessionDirectory = projectDirectory
     let client = sdk.client

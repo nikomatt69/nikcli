@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Cause, Effect, Layer, Schema, SchemaGetter } from "effect"
 import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
@@ -233,7 +233,7 @@ export namespace SessionHttpApi {
     )
     .add(
       HttpApiEndpoint.post("create", "/", {
-        payload: CreatePayload,
+        payload: [HttpApiSchema.NoContent, CreatePayload],
         success: SessionInfo,
       }),
     )
@@ -521,10 +521,10 @@ export namespace SessionHttpApi {
         const status = yield* SessionStatus.Service
         return yield* status.list()
       }).pipe(Effect.orDie),
-    create: ({ payload }: { payload: typeof CreatePayload.Type }) =>
+    create: ({ payload }: { payload: typeof CreatePayload.Type | void }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        const created = yield* session.create(payload as Session.CreateInput)
+        const created = yield* session.create((payload ?? {}) as Session.CreateInput)
         return jsonSafe(created)
       }).pipe(Effect.orDie),
     remove: ({ params }: { params: typeof SessionIDPath.Type }) =>

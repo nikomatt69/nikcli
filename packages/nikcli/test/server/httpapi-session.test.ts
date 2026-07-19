@@ -72,6 +72,17 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
 }
 
 describe("Session HttpApi bridge", () => {
+  it("creates a session without a request body for legacy SDK compatibility", async () => {
+    const directory = await makeProjectDir()
+    const created = (await jsonRequest("POST", "/session", directory)) as {
+      id: string
+      directory: string
+    }
+
+    expect(created.id).toStartWith("ses_")
+    expect(created.directory).toBe(directory)
+  })
+
   it("serves session list and status routes", async () => {
     const directory = await makeProjectDir()
     const created = (await post("/session", directory, {

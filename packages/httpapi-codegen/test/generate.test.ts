@@ -436,6 +436,25 @@ describe("HttpApiCodegen.generate", () => {
     expect(effectClient).toContain('payload: input["payload"]')
   })
 
+  test("supports an optional request body in Effect clients", () => {
+    const contract = compileContract(
+      api(
+        HttpApiEndpoint.post("create", "/session", {
+          payload: [HttpApiSchema.NoContent, Schema.Struct({ title: Schema.optional(Schema.String) })],
+          success: Schema.String,
+        }),
+      ),
+    )
+    const shape = emitEffectShape(contract, { module: "@example/api", api: "Api" }).files[0]?.content
+    const client = emitEffectImported(contract, { module: "@example/api", api: "Api" }).files.find(
+      (file) => file.path === "client.ts",
+    )?.content
+
+    expect(shape).toContain('readonly "title"?: Extract<Endpoint0_0Request["payload"], object>["title"]')
+    expect(client).toContain('readonly "title"?: Extract<Endpoint0_0Request["payload"], object>["title"]')
+    expect(client).toContain('raw["create"]({ payload: { "title": input?.["title"] } })')
+  })
+
   test("uses bracket access for input field names", () => {
     const source = api(
       HttpApiEndpoint.post("token", "/token", {
