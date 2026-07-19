@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.179.0 (July 2026)
+
+## Core
+
+- Implement video preview functionality and enhance artifact display (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(preview): implement video preview functionality and enhance artifact display
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
