@@ -1,12 +1,15 @@
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { batch, createEffect, createMemo, For, Show } from "solid-js"
+import { useDialog } from "@tui/ui/dialog"
 import { useKV } from "@tui/context/kv"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
 import { Logo } from "@tui/component/logo"
 import { SplitBorder } from "@tui/component/border"
+import { DialogSessionLink } from "@tui/component/dialog-session-link"
+import { sessionLinkOf } from "@tui/util/session-link"
 
 const MAX_OPEN_TABS = 12
 const TAB_MIN_WIDTH = 12
@@ -73,9 +76,14 @@ export function SessionTabs() {
   const route = useRoute()
   const sync = useSync()
   const kv = useKV()
+  const dialog = useDialog()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
   const [openTabs, setOpenTabs] = kv.signal<OpenSessionTab[]>("session_tabs_v2", [])
+
+  function openLinkDialog(id: string) {
+    dialog.replace(() => <DialogSessionLink sessionID={id} />)
+  }
 
   const activeID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
   const openIDs = createMemo(() => openTabs().map((tab: OpenSessionTab) => tab.id))
@@ -184,8 +192,12 @@ export function SessionTabs() {
             const status = createMemo(() => sync.data.session_status[id]?.type ?? "idle")
             const statusColor = () =>
               status() === "busy" ? theme.info : status() === "retry" ? theme.warning : theme.textMuted
+            const linkedID = createMemo(() => sessionLinkOf(kv, id))
             const title = () =>
-              truncateTabTitle(session()?.title ?? tab()?.title ?? `Session ${id.slice(-5)}`, layout().width - 8)
+              truncateTabTitle(
+                session()?.title ?? tab()?.title ?? `Session ${id.slice(-5)}`,
+                layout().width - 8 - (linkedID() ? 3 : 0),
+              )
             return (
               <box
                 width={layout().width}
@@ -205,6 +217,18 @@ export function SessionTabs() {
                 <text fg={statusColor()} wrapMode="none">
                   {` ${status() === "idle" ? "·" : "●"} `}
                 </text>
+                <Show when={linkedID()}>
+                  <text
+                    fg={theme.info}
+                    onMouseDown={(event) => {
+                      event.stopPropagation()
+                      openLinkDialog(id)
+                    }}
+                    wrapMode="none"
+                  >
+                    {"⇄ "}
+                  </text>
+                </Show>
                 <text
                   fg={selected() ? theme.text : theme.textMuted}
                   attributes={selected() ? TextAttributes.BOLD : TextAttributes.DIM}
@@ -214,6 +238,18 @@ export function SessionTabs() {
                   {title()}
                 </text>
                 <Show when={selected()}>
+                  <Show when={!linkedID()}>
+                    <text
+                      fg={theme.textMuted}
+                      onMouseDown={(event) => {
+                        event.stopPropagation()
+                        openLinkDialog(id)
+                      }}
+                      wrapMode="none"
+                    >
+                      {" ⇄ "}
+                    </text>
+                  </Show>
                   <text
                     fg={theme.textMuted}
                     onMouseDown={(event) => {
