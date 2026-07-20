@@ -40,6 +40,7 @@ mkdir -p \
   "$CTX/packages/simulation" \
   "$CTX/packages/tui-image" \
   "$CTX/packages/terminal-control" \
+  "$CTX/packages/browser-control" \
   "$CTX/github"
 
 # Root workspace files
@@ -68,6 +69,7 @@ cp "$ROOT/packages/httpapi-codegen/package.json" "$CTX/packages/httpapi-codegen/
 cp "$ROOT/packages/simulation/package.json" "$CTX/packages/simulation/package.json"
 cp "$ROOT/packages/tui-image/package.json" "$CTX/packages/tui-image/package.json"
 cp "$ROOT/packages/terminal-control/package.json" "$CTX/packages/terminal-control/package.json"
+cp "$ROOT/packages/browser-control/package.json" "$CTX/packages/browser-control/package.json"
 cp "$ROOT/github/package.json" "$CTX/github/package.json"
 
 # Full source (excluding node_modules, dist, build artifacts, and dev-only dirs)
@@ -111,6 +113,7 @@ rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/httpapi-codegen/" "$CTX/packages/httpap
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/simulation/"     "$CTX/packages/simulation/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui-image/"     "$CTX/packages/tui-image/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/terminal-control/" "$CTX/packages/terminal-control/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/browser-control/" "$CTX/packages/browser-control/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/github/"                 "$CTX/github/"
 
 rm -rf \
@@ -152,6 +155,8 @@ rm -rf \
   "$CTX/packages/tui-image/.turbo" \
   "$CTX/packages/terminal-control/.cache" \
   "$CTX/packages/terminal-control/.turbo" \
+  "$CTX/packages/browser-control/.cache" \
+  "$CTX/packages/browser-control/.turbo" \
   "$CTX/github/.cache" \
   "$CTX/github/.turbo"
 

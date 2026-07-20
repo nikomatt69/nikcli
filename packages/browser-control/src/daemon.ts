@@ -112,6 +112,13 @@ const handlers: Record<string, RpcHandler> = {
 }
 
 export async function startDaemon(socketPath: string): Promise<void> {
+  // A daemon that died without running its shutdown handler (crash, kill -9,
+  // machine restart) leaves its socket file behind; Bun.serve can't bind over
+  // an existing path, which would otherwise wedge every future ensureDaemon
+  // call for this workspace. Standard Unix-domain-socket-server hygiene: the
+  // last writer to bind always unlinks first.
+  await unlink(socketPath).catch(() => {})
+
   const manager = new SessionManager()
   let lastActivity = Date.now()
   let shuttingDown = false
