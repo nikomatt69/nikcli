@@ -37,6 +37,12 @@ RUN mkdir -p packages/webrenderer && \
 # Install dependencies (resolves workspace:*)
 RUN bun install
 
+# Headless Chromium for @nikcli-ai/browser-control (the `browser` tool). Pinned
+# to the exact playwright version browser-control depends on so the browser
+# revision matches what gets bundled into the compiled nikcli binary.
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN bunx --bun playwright@1.61.0 install --with-deps chromium
+
 # Copy package sources required to build the nikcli binary
 COPY packages/nikcli packages/nikcli
 COPY packages/script packages/script

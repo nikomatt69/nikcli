@@ -27,12 +27,15 @@ type Segment = {
   bold: boolean
 }
 
-export function Logo(props: { idle?: boolean }) {
+export function Logo(props: { idle?: boolean; compact?: boolean }) {
   const { theme } = useTheme()
   const kv = useKV()
   const animationsEnabled = props.idle !== false && kv.get("animations_enabled", true)
   const [progress, setProgress] = createSignal(animationsEnabled ? 0 : 1)
-  const timeline = useTimeline({ duration: REVEAL_DURATION, autoplay: animationsEnabled })
+  const timeline = useTimeline({
+    duration: REVEAL_DURATION,
+    autoplay: animationsEnabled,
+  })
 
   onMount(() => {
     if (!animationsEnabled) return
@@ -89,41 +92,61 @@ export function Logo(props: { idle?: boolean }) {
   }
 
   return (
-    <box width={LOGO_WIDTH}>
-      <For each={LOGO_LINES}>
-        {(line, index) => (
-          <box flexDirection="row" height={1}>
-            <For each={renderLine(line, index())}>
-              {(segment) => (
-                <text fg={segment.color} attributes={segment.bold ? TextAttributes.BOLD : undefined} selectable={false}>
-                  {segment.text}
-                </text>
-              )}
-            </For>
-          </box>
-        )}
-      </For>
-      <box width={LOGO_WIDTH} height={1} flexDirection="row" justifyContent="center" gap={1}>
-        <text
-          fg={tint(theme.background, theme.text, diamondStrength())}
-          attributes={TextAttributes.BOLD}
-          selectable={false}
-        >
-          {progress() >= 0.86 ? "◇" : " "}
-        </text>
-        <Show
-          when={progress() >= 0.86}
-          fallback={
-            <text fg={theme.background} selectable={false}>
-              {" ".repeat(CREDIT.length)}
+    <Show
+      when={props.compact}
+      fallback={
+        <box width={LOGO_WIDTH}>
+          <For each={LOGO_LINES}>
+            {(line, index) => (
+              <box flexDirection="row" height={1}>
+                <For each={renderLine(line, index())}>
+                  {(segment) => (
+                    <text
+                      fg={segment.color}
+                      attributes={segment.bold ? TextAttributes.BOLD : undefined}
+                      selectable={false}
+                    >
+                      {segment.text}
+                    </text>
+                  )}
+                </For>
+              </box>
+            )}
+          </For>
+          <box width={LOGO_WIDTH} height={1} flexDirection="row" justifyContent="center" gap={1}>
+            <text
+              fg={tint(theme.background, theme.text, diamondStrength())}
+              attributes={TextAttributes.BOLD}
+              selectable={false}
+            >
+              {progress() >= 0.86 ? "◇" : " "}
             </text>
-          }
-        >
-          <Link href={GITHUB_PROFILE_URL} fg={theme.info} underline={false}>
-            {CREDIT}
-          </Link>
-        </Show>
+            <Show
+              when={progress() >= 0.86}
+              fallback={
+                <text fg={theme.background} selectable={false}>
+                  {" ".repeat(CREDIT.length)}
+                </text>
+              }
+            >
+              <Link href={GITHUB_PROFILE_URL} fg={theme.info} underline={false}>
+                {CREDIT}
+              </Link>
+            </Show>
+          </box>
+        </box>
+      }
+    >
+      <box height={1} flexDirection="column">
+        <text selectable={false} wrapMode="none">
+          <span style={{ fg: theme.textMuted }}>
+            <b>NIK</b>
+          </span>
+          <span style={{ fg: theme.text }}>
+            <b>CLI</b>
+          </span>
+        </text>
       </box>
-    </box>
+    </Show>
   )
 }

@@ -10,6 +10,7 @@ import {
   untrack,
   ErrorBoundary,
   createSignal,
+  Show,
   onMount,
   onCleanup,
   batch,
@@ -78,6 +79,7 @@ import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
+import { SessionTabs } from "./component/session-tabs"
 import { BRAIN_SESSION_TITLE } from "@/brain/constants"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogMobileConnect } from "@tui/component/dialog-mobile-connect"
@@ -1404,6 +1406,7 @@ function App() {
     <box
       width={dimensions().width}
       height={dimensions().height}
+      flexDirection="column"
       backgroundColor={theme.background}
       onMouseUp={async () => {
         if (Flag.NIKCLI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) {
@@ -1419,41 +1422,46 @@ function App() {
         }
       }}
     >
-      <Switch>
-        <Match when={route.data.type === "home"}>
-          <Home />
-        </Match>
-        <Match when={route.data.type === "session"}>
-          <Session />
-        </Match>
-        <Match when={route.data.type === "changes" && route.data}>
-          {(data) => <LegacyRedirect tab="changes" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
-        </Match>
-        <Match when={route.data.type === "tree" && route.data}>
-          {(data) => <LegacyRedirect tab="tree" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
-        </Match>
-        <Match when={route.data.type === "git-graph" && route.data}>
-          {(data) => <LegacyRedirect tab="graph" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
-        </Match>
-        <Match when={route.data.type === "github" && route.data}>
-          {(data) => <LegacyRedirect tab="github" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
-        </Match>
-        <Match when={route.data.type === "workspace"}>
-          <Workspace />
-        </Match>
-        <Match when={route.data.type === "plugin" && route.data}>
-          {(data) => {
-            pluginRouteKey()
-            const entries = routes.get(data().id)
-            const last = entries?.at(-1)
-            return last ? (
-              last.render({ params: data().data })
-            ) : (
-              <PluginRouteMissing id={data().id} onHome={() => route.navigate({ type: "home" })} />
-            )
-          }}
-        </Match>
-      </Switch>
+      <Show when={route.data.type === "home" || route.data.type === "session"}>
+        <SessionTabs />
+      </Show>
+      <box flexGrow={1} minHeight={0} width="100%">
+        <Switch>
+          <Match when={route.data.type === "home"}>
+            <Home />
+          </Match>
+          <Match when={route.data.type === "session"}>
+            <Session />
+          </Match>
+          <Match when={route.data.type === "changes" && route.data}>
+            {(data) => <LegacyRedirect tab="changes" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
+          </Match>
+          <Match when={route.data.type === "tree" && route.data}>
+            {(data) => <LegacyRedirect tab="tree" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
+          </Match>
+          <Match when={route.data.type === "git-graph" && route.data}>
+            {(data) => <LegacyRedirect tab="graph" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
+          </Match>
+          <Match when={route.data.type === "github" && route.data}>
+            {(data) => <LegacyRedirect tab="github" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
+          </Match>
+          <Match when={route.data.type === "workspace"}>
+            <Workspace />
+          </Match>
+          <Match when={route.data.type === "plugin" && route.data}>
+            {(data) => {
+              pluginRouteKey()
+              const entries = routes.get(data().id)
+              const last = entries?.at(-1)
+              return last ? (
+                last.render({ params: data().data })
+              ) : (
+                <PluginRouteMissing id={data().id} onHome={() => route.navigate({ type: "home" })} />
+              )
+            }}
+          </Match>
+        </Switch>
+      </box>
       <box flexShrink={0}>
         <TuiPluginRuntime.Slot name="app.bottom" />
       </box>

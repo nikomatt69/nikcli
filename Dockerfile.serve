@@ -120,6 +120,14 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 # "exec: nikcli: not found" at container startup.
 RUN nikcli --version
 
+# Headless Chromium for @nikcli-ai/browser-control (the `browser` tool). Only
+# the compiled binary is copied into this stage, not node_modules, so the
+# browser and its apt-level dependencies must be installed here directly —
+# pinned to the exact playwright version browser-control depends on so the
+# revision matches what got bundled into the compiled binary in the build stage.
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN bunx --bun playwright@1.61.0 install --with-deps chromium
+
 COPY packages/nikcli/scripts/railway-entrypoint.sh /usr/local/bin/nikcli-railway-entrypoint
 RUN chmod +x /usr/local/bin/nikcli-railway-entrypoint && \
     mkdir -p /data/nikcli /data/cache /data/config /data/state

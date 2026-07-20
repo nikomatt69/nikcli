@@ -36,7 +36,9 @@ async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 20_00
     }
     await Bun.sleep(50)
   }
-  throw new Error("Simulation condition did not become true", { cause: lastError })
+  throw new Error("Simulation condition did not become true", {
+    cause: lastError,
+  })
 }
 
 test("drives the real nikcli TUI through a deterministic OpenAI exchange and captures PNG", async () => {
@@ -90,10 +92,12 @@ test("drives the real nikcli TUI through a deterministic OpenAI exchange and cap
       connect(manifest.endpoints.backend, { timeoutMs: 30_000 }),
     ])
     await backend.call("llm.attach")
-    await eventually(async () => {
+    const home = await eventually(async () => {
       const state = await ui!.call<SimulationProtocol.Frontend.State>("ui.state")
       return state.screen.includes("Ask anything") ? state : undefined
     })
+    expect(home.screen).toContain("nikcli")
+    expect(home.screen).toContain("+ new")
 
     await ui.call("ui.type", { text: "Reply with the deterministic fixture" })
     await ui.call("ui.enter")
@@ -117,19 +121,37 @@ test("drives the real nikcli TUI through a deterministic OpenAI exchange and cap
     })()
 
     await eventually(async () =>
-      (await ui!.call<boolean>("ui.matches", { text: "deterministic fixture reply" })) ? true : undefined,
+      (await ui!.call<boolean>("ui.matches", {
+        text: "deterministic fixture reply",
+      }))
+        ? true
+        : undefined,
     )
     await responder
+    const sessionScreen = await ui.call<SimulationProtocol.Frontend.State>("ui.state")
+    expect(sessionScreen.screen).toContain("nikcli")
+    expect(sessionScreen.screen).toContain("×")
+    expect(sessionScreen.screen).toContain("+ new")
     expect(
       answered.some((exchange) => {
-        const body = exchange.body as { model?: unknown; stream?: unknown } | null
+        const body = exchange.body as {
+          model?: unknown
+          stream?: unknown
+        } | null
         return body?.model === "deterministic" && body?.stream === true
       }),
     ).toBeTrue()
-    const screenshot = await ui.call<string>("ui.screenshot", { name: "real-tui" })
+    const screenshot = await ui.call<string>("ui.screenshot", {
+      name: "real-tui",
+    })
+    if (process.env.NIKCLI_E2E_SCREENSHOT_OUT) {
+      await Bun.write(process.env.NIKCLI_E2E_SCREENSHOT_OUT, Bun.file(screenshot))
+    }
     expect(screenshot).toBe(join(media, "real-tui.png"))
     expect([...(await readFile(screenshot)).subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
-    const log = await backend.call<{ entries: SimulationProtocol.Backend.NetworkLogEntry[] }>("network.log")
+    const log = await backend.call<{
+      entries: SimulationProtocol.Backend.NetworkLogEntry[]
+    }>("network.log")
     expect(log.entries.some((entry) => entry.matched && entry.mode === "driver")).toBeTrue()
   } catch (error) {
     child.kill(9)
