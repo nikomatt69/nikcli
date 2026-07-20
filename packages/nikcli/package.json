@@ -99,6 +99,7 @@
     "@hono/zod-validator": "catalog:",
     "@modelcontextprotocol/sdk": "1.25.2",
     "@nikcli-ai/auth": "workspace:*",
+    "@nikcli-ai/browser-control": "workspace:*",
     "@nikcli-ai/companion": "workspace:*",
     "@nikcli-ai/httpapi-codegen": "workspace:*",
     "@nikcli-ai/llm": "workspace:*",

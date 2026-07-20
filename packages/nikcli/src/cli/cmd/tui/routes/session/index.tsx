@@ -2157,36 +2157,21 @@ type ToolProps<T extends Tool.Info> = {
 
 function BrowserUse(props: ToolProps<typeof BrowserTool>) {
   const { theme } = useTheme()
-  const title = createMemo(() => {
-    const status = props.metadata.status ? ` · ${props.metadata.status}` : ""
-    return `# Browser Use${status}`
-  })
-  const summary = createMemo(() => props.metadata.summary ?? props.input.task)
+  const action = createMemo(() => props.metadata.action ?? props.input.action ?? "browser")
+  const label = createMemo(() => (props.metadata.name ? `${action()} · ${props.metadata.name}` : action()))
 
   return (
     <Switch>
       <Match when={props.output !== undefined}>
-        <BlockTool title={title()} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
+        <BlockTool title={`# Browser · ${label()}`} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
           <box gap={1}>
-            <Show when={summary()}>{(value) => <text fg={theme.text}>{value()}</text>}</Show>
-            <Show when={props.metadata.liveUrl}>
-              {(url) => <text fg={theme.textMuted}>Live preview: {url()}</text>}
-            </Show>
-            <Show when={props.metadata.stepCount !== undefined}>
-              <text fg={theme.textMuted}>Steps: {String(props.metadata.stepCount)}</text>
-            </Show>
+            <text fg={theme.textMuted}>{props.output}</text>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool
-          icon="◎"
-          iconColor={theme.primary}
-          pending="Running browser task..."
-          complete={summary()}
-          part={props.part}
-        >
-          Browser Use · {summary() ?? props.input.action ?? "run"}
+        <InlineTool icon="◎" iconColor={theme.primary} pending="Running browser action..." complete={label()} part={props.part}>
+          Browser · {label()}
         </InlineTool>
       </Match>
     </Switch>

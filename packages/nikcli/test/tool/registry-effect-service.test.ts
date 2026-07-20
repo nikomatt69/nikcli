@@ -15,7 +15,6 @@ process.env.XDG_STATE_HOME = path.join(testHome, "state")
 const { InstanceScope } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 const { ToolRegistry } = await import("@/tool/registry")
-const { Browser } = await import("@/browser/browser")
 
 const projectDirs: string[] = []
 
@@ -27,19 +26,6 @@ async function makeProjectDir() {
 }
 
 describe("ToolRegistry.Service", () => {
-  it("detects Browser Use configuration from its project key", async () => {
-    const previous = process.env.BROWSER_USE_API_KEY
-    delete process.env.BROWSER_USE_API_KEY
-    try {
-      expect(await Browser.configured()).toBe(false)
-      process.env.BROWSER_USE_API_KEY = "bu_test_project_key"
-      expect(await Browser.configured()).toBe(true)
-    } finally {
-      if (previous === undefined) delete process.env.BROWSER_USE_API_KEY
-      else process.env.BROWSER_USE_API_KEY = previous
-    }
-  })
-
   it("lists built-in tool ids through InstanceState context", async () => {
     const directory = await makeProjectDir()
     const ids = await Effect.runPromise(

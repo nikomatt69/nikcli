@@ -1,11 +1,11 @@
 /**
- * Browser Use — internal TUI plugin.
+ * Browser — internal TUI plugin.
  *
- * Mirrors `feature-plugins/loops`: wires the Browser Use Cloud integration
- * (see `src/browser/`) into the TUI as a self-contained plugin instead of a
- * hard-coded command in `app.tsx`. Registers the `/browser` slash command
- * (aliases: `/browser-use`, `/bu`) that opens the Browser Use setup dialog
- * where the API key, default model, and proxy options are managed.
+ * Mirrors `feature-plugins/loops`: wires the local browser-control integration
+ * (see `src/browser/`, backed by `@nikcli-ai/browser-control`) into the TUI as
+ * a self-contained plugin instead of a hard-coded command in `app.tsx`.
+ * Registers the `/browser` slash command that opens a dialog listing active
+ * background browser sessions.
  */
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import { DialogBrowserUse } from "@tui/component/dialog-browser-use"
@@ -16,12 +16,11 @@ const tui: TuiPlugin = async (api) => {
   api.keymap.registerLayer({
     commands: [
       {
-        name: "browser.setup",
-        title: "Browser Use",
-        namespace: "Provider",
-        description: "Configure the Browser Use cloud browser agent",
+        name: "browser.sessions",
+        title: "Browser",
+        namespace: "Tool",
+        description: "Inspect and manage active background browser sessions",
         slashName: "browser",
-        slashAliases: ["browser-use", "bu"],
         run() {
           api.ui.dialog.replace(() => <DialogBrowserUse />)
         },

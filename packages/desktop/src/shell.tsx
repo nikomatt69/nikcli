@@ -55,45 +55,6 @@ const FILES_DEFAULT = 760
 const FILES_STORAGE_KEY = "files-width"
 const WORKBENCH_COLLAPSED_STORAGE_KEY = "workbench-collapsed"
 
-// Mirror of Browser.MODELS / Browser.NATIVE_MODELS (packages/nikcli). Only the
-// native models are billed by Browser Use with just a project key; the rest
-// need a bring-your-own provider key on the BU project or their runs fail.
-const BU_MODELS = [
-  "bu-mini",
-  "bu-max",
-  "bu-ultra",
-  "gemini-3-flash",
-  "claude-sonnet-4.6",
-  "claude-opus-4.6",
-  "claude-opus-4.7",
-  "gpt-5.4-mini",
-] as const
-const BU_NATIVE_MODELS = ["claude-sonnet-4.6", "claude-opus-4.6", "gpt-5.4-mini"] as const
-const buRequiresOwnKey = (model: string) =>
-  !!model && !BU_NATIVE_MODELS.includes(model as (typeof BU_NATIVE_MODELS)[number])
-
-/** Map a nikcli model id to the closest Browser Use model, if any. */
-function buFromModelID(modelID: string | undefined): string | undefined {
-  if (!modelID) return undefined
-  const id = modelID.toLowerCase()
-  const exact = BU_MODELS.find((m) => m === id)
-  if (exact) return exact
-  if (id.includes("opus") && (id.includes("4.7") || id.includes("4-7"))) return "claude-opus-4.7"
-  if (id.includes("opus") && (id.includes("4.6") || id.includes("4-6"))) return "claude-opus-4.6"
-  if (id.includes("sonnet") && (id.includes("4.6") || id.includes("4-6"))) return "claude-sonnet-4.6"
-  if (id.includes("gemini")) return "gemini-3-flash"
-  if (id.includes("gpt-5")) return "gpt-5.4-mini"
-  return undefined
-}
-
-/** What the active session provider/model resolves to for Browser Use. */
-function buSessionLabel(configModel: string | undefined): string {
-  const modelID = configModel?.includes("/") ? configModel.split("/").slice(1).join("/") : configModel
-  const mapped = buFromModelID(modelID)
-  if (mapped) return `${modelID} → ${mapped}`
-  return modelID ? `${modelID} → claude-sonnet-4.6 fallback` : "claude-sonnet-4.6 (default)"
-}
-
 type SidebarView = "projects" | "automations" | "integrations" | "operations"
 
 type SidebarCommand = {
@@ -955,32 +916,20 @@ function automationScreenshot(part: AutomationPart | undefined) {
 }
 
 function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationPart }) {
-  const globalSDK = useGlobalSDK()
-  const sync = useGlobalSync()
-  const [setup, setSetup] = createStore({ open: false, saving: false, saved: false, error: "" })
-  const browserModel = createMemo(() => sync.data.config.browser?.model || "")
-  const sessionLabel = createMemo(() => buSessionLabel(sync.data.config.model))
-  const effectiveModelLabel = createMemo(() => (browserModel() ? `${browserModel()} (browser config)` : sessionLabel()))
-
-  // Empty value clears the override so the browser tool follows the session model.
-  const saveBrowserModel = async (model: string) => {
-    try {
-      await globalSDK.client.config.update({ config: { browser: { model } } as any })
-    } catch (error) {
-      setSetup("error", error instanceof Error ? error.message : String(error))
-    }
-  }
   const metadata = createMemo(() => automationMetadata(props.part))
   const screenshot = createMemo(() => automationScreenshot(props.part))
   const liveUrl = createMemo(() => {
+    // Only "computer" (sandbox mode) has a cloud live-preview iframe; the
+    // local `browser` tool has no such thing — its state is a screenshot.
+    if (props.surface !== "computer") return undefined
     const value = metadata().liveUrl
     return typeof value === "string" ? value : undefined
   })
   const summary = createMemo(() => {
     const value = metadata().summary
     if (typeof value === "string" && value.trim()) return value
-    const task = props.part?.state.input.task
-    if (typeof task === "string" && task.trim()) return task
+    const action = metadata().action
+    if (typeof action === "string" && action.trim()) return action
     return undefined
   })
   const output = createMemo(() => {
@@ -988,29 +937,6 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
     if (props.part?.state.status !== "completed") return undefined
     return props.part.state.output?.trim()
   })
-  const configured = createMemo(() => {
-    const value = metadata().configured
-    return typeof value === "boolean" ? value || setup.saved : undefined
-  })
-
-  const saveBrowserUseKey: JSX.EventHandlerUnion<HTMLFormElement, SubmitEvent> = async (event) => {
-    event.preventDefault()
-    const form = event.currentTarget
-    const data = new FormData(form)
-    const key = String(data.get("apiKey") ?? "").trim()
-    if (!/^bu_[A-Za-z0-9_-]+$/.test(key)) {
-      setSetup("error", "Enter a valid Browser Use key starting with bu_.")
-      return
-    }
-    setSetup({ saving: true, error: "" })
-    try {
-      await globalSDK.client.auth.set({ providerID: "browser-use", auth: { type: "api", key } })
-      form.reset()
-      setSetup({ saving: false, saved: true, open: false, error: "" })
-    } catch (error) {
-      setSetup({ saving: false, error: error instanceof Error ? error.message : String(error) })
-    }
-  }
 
   return (
     <section id={`desktop-workbench-panel-${props.surface}`} class="desktop-automation" data-surface={props.surface}>
@@ -1019,9 +945,9 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
           <Icon name={props.surface === "browser" ? "window-cursor" : "console"} size="normal" />
         </span>
         <div>
-          <strong>{props.surface === "browser" ? "Browser Use" : "Computer Use"}</strong>
+          <strong>{props.surface === "browser" ? "Browser" : "Computer Use"}</strong>
           <span>
-            {summary() ?? (props.surface === "browser" ? "Cloud browser workbench" : "Background desktop (sandbox)")}
+            {summary() ?? (props.surface === "browser" ? "Local headless browser" : "Background desktop (sandbox)")}
           </span>
         </div>
         <span class="desktop-automation__badge" data-status={props.part?.state.status ?? "idle"}>
@@ -1029,23 +955,12 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
         </span>
       </div>
 
-      <Show when={props.surface === "browser" && configured() === false}>
-        <div class="desktop-automation__empty">
-          <Icon name="window-cursor" size="large" />
-          <strong>Browser Use needs an API key</strong>
-          <span>Add a Browser Use project key to nikcli, then start a browser task.</span>
-          <button type="button" onClick={() => setSetup("open", true)}>
-            Configure Browser Use
-          </button>
-        </div>
-      </Show>
-
-      <Show when={(props.surface === "computer" || configured() !== false) && liveUrl()}>
+      <Show when={liveUrl()}>
         {(url) => (
           <iframe
             class="desktop-automation__live"
             src={url()}
-            title={props.surface === "browser" ? "Browser Use live preview" : "Computer Use live preview"}
+            title="Computer Use live preview"
             allow="clipboard-read; clipboard-write"
           />
         )}
@@ -1055,77 +970,16 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
         {(url) => <img class="desktop-automation__image" src={url()} alt={`${props.surface} screenshot`} />}
       </Show>
 
-      <Show when={!props.part && (props.surface === "computer" || configured() !== false)}>
+      <Show when={!props.part && !liveUrl() && !screenshot()}>
         <div class="desktop-automation__empty">
           <Icon name={props.surface === "browser" ? "window-cursor" : "console"} size="large" />
           <strong>{props.surface === "browser" ? "No browser session yet" : "No computer activity yet"}</strong>
           <span>
             {props.surface === "browser"
-              ? "Ask Nikcli to use the browser. The live session will appear here."
+              ? "Ask Nikcli to use the browser. It runs headlessly in the background — a snapshot will appear here."
               : "Ask Nikcli to control a computer. It runs on a background desktop — the live preview will appear here."}
           </span>
-          <Show when={props.surface === "browser"}>
-            <button type="button" onClick={() => setSetup("open", true)}>
-              Configure Browser Use
-            </button>
-          </Show>
         </div>
-      </Show>
-
-      <Show when={props.surface === "browser" && setup.open}>
-        <form class="desktop-automation__setup" onSubmit={saveBrowserUseKey}>
-          <div>
-            <strong>Browser Use API key</strong>
-            <span>Stored in nikcli's existing local auth vault.</span>
-          </div>
-          <input
-            name="apiKey"
-            type="password"
-            placeholder="bu_..."
-            autocomplete="off"
-            spellcheck={false}
-            disabled={setup.saving}
-            autofocus
-          />
-          <div class="desktop-automation__setup-field">
-            <strong>Model</strong>
-            <span>Effective: {effectiveModelLabel()}</span>
-            <select
-              value={browserModel()}
-              disabled={setup.saving}
-              onChange={(event) => void saveBrowserModel(event.currentTarget.value)}
-            >
-              <option value="">Use session model ({sessionLabel()})</option>
-              <optgroup label="Native models (no setup)">
-                <For each={BU_MODELS.filter((m) => !buRequiresOwnKey(m))}>
-                  {(model) => <option value={model}>{model}</option>}
-                </For>
-              </optgroup>
-              <optgroup label="Bring-your-own-key models">
-                <For each={BU_MODELS.filter((m) => buRequiresOwnKey(m))}>
-                  {(model) => <option value={model}>{model} ⚠ BYO key</option>}
-                </For>
-              </optgroup>
-            </select>
-            <Show when={buRequiresOwnKey(browserModel())}>
-              <span class="desktop-automation__setup-warning">
-                ⚠ This model needs a provider key on your Browser Use project (cloud.browser-use.com), or runs will
-                fail. Pick a native model to avoid setup.
-              </span>
-            </Show>
-          </div>
-          <Show when={setup.error}>
-            <span class="desktop-automation__setup-error">{setup.error}</span>
-          </Show>
-          <div class="desktop-automation__setup-actions">
-            <button type="button" disabled={setup.saving} onClick={() => setSetup("open", false)}>
-              Cancel
-            </button>
-            <button type="submit" disabled={setup.saving}>
-              {setup.saving ? "Saving…" : "Save key"}
-            </button>
-          </div>
-        </form>
       </Show>
 
       <Show when={props.part && !liveUrl() && !screenshot()}>

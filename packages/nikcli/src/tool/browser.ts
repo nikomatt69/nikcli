@@ -1,265 +1,299 @@
-import { Browser } from "@/browser/browser"
-import { Identifier } from "@/id/id"
-import { MessageV2 } from "@/session/message-v2"
+import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./browser.txt"
-import z from "zod"
-import type { BuModel, ProxyCountryCode } from "browser-use-sdk/v3"
-import { Config } from "@/config/config"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
+import { Identifier } from "../id/id"
+import type { MessageV2 } from "../session/message-v2"
+import { Browser } from "../browser/browser"
+import { rpc } from "@nikcli-ai/browser-control"
+import type { JSONFrame, SessionInfo } from "@nikcli-ai/browser-control"
 
-const models = Browser.MODELS
-
-function loadConfig() {
-  return runPromiseWithLayer(
-    Config.defaultLayer,
-    withCurrentInstance(
-      Effect.gen(function* () {
-        const config = yield* Config.Service
-        const value = yield* config.get()
-        return { browser: value.browser, model: value.model }
-      }),
-    ),
-  )
-}
-
-/** Map a nikcli model ID to the closest Browser Use model, if any. */
-function toBuModel(modelID: string | undefined): BuModel | undefined {
-  if (!modelID) return undefined
-  const id = modelID.toLowerCase()
-  const exact = models.find((m) => m === id)
-  if (exact) return exact
-  if (id.includes("opus") && (id.includes("4.7") || id.includes("4-7"))) return "claude-opus-4.7"
-  if (id.includes("opus") && (id.includes("4.6") || id.includes("4-6"))) return "claude-opus-4.6"
-  if (id.includes("sonnet") && (id.includes("4.6") || id.includes("4-6"))) return "claude-sonnet-4.6"
-  if (id.includes("gemini")) return "gemini-3-flash"
-  if (id.includes("gpt-5")) return "gpt-5.4-mini"
-  return undefined
-}
-
-function configuredBuModel(modelID: string | undefined): BuModel | undefined {
-  if (!modelID) return undefined
-  const model = models.find((candidate) => candidate === modelID)
-  if (model) return model
-  throw new Error(`Unsupported Browser Use model in config: ${modelID}`)
-}
-
-/** The raw model id driving the current turn, if there is a turn context. */
-async function turnModelID(ctx: Tool.Context): Promise<string | undefined> {
-  try {
-    const msg = await MessageV2.get({
-      sessionID: ctx.sessionID,
-      messageID: ctx.messageID,
-    })
-    if (msg.info.role === "assistant") return msg.info.modelID
-  } catch {
-    // No assistant message context (e.g. background run).
-  }
-  return undefined
-}
-
-/**
- * The Browser Use model that the session's active model maps to. Prefers the
- * model driving the current turn, then the configured session default
- * (`config.model`), so the browser tool tracks the session's provider/model.
- */
-async function sessionAiModel(ctx: Tool.Context, configModel: string | undefined): Promise<BuModel | undefined> {
-  const turn = await turnModelID(ctx)
-  const sessionModel = turn ?? configModel
-  if (!sessionModel) return undefined
-  // Config model ids are usually "provider/model" — strip the provider prefix.
-  const modelID = sessionModel.includes("/") ? sessionModel.split("/").slice(1).join("/") : sessionModel
-  return toBuModel(modelID)
-}
+const ACTIONS = [
+  "start",
+  "goto",
+  "click",
+  "fill",
+  "hover",
+  "scroll",
+  "send",
+  "wait",
+  "snapshot",
+  "resize",
+  "list",
+  "info",
+  "stop",
+  "remove",
+  "restart",
+  "start_recording",
+  "marker",
+  "stop_recording",
+  "recording_data",
+  "video_path",
+  "close_all",
+] as const
 
 const parameters = z
   .object({
-    action: z.enum(["run", "status", "messages", "stop"]).describe("Browser Use operation"),
-    task: z.string().min(1).optional().describe("Natural-language browser task for action=run"),
-    model: z.enum(models).optional().describe("Browser Use model override"),
-    maxCostUsd: z.number().positive().max(100).optional().describe("Hard cost cap for this task"),
-    profileId: z.string().uuid().optional().describe("Browser Use profile id for persisted authentication"),
-    proxyCountryCode: z.string().length(2).toLowerCase().optional().describe("Two-letter proxy country code"),
-    enableRecording: z.boolean().optional().default(false),
+    action: z.enum(ACTIONS).describe("The browser operation to perform"),
+    name: z.string().optional().describe("Session name; defaults to one session per conversation"),
+    url: z.string().optional().describe("For start/goto"),
+    viewport: z
+      .string()
+      .regex(/^\d+x\d+$/)
+      .optional()
+      .describe("WIDTHxHEIGHT, e.g. 1280x800 (for start/resize)"),
+    record: z.boolean().optional().describe("For start: capture a full-session webm video"),
+    selector: z.string().optional().describe("For click/fill/hover/wait(selector)"),
+    value: z.string().optional().describe("For fill"),
+    dx: z.number().optional().describe("For scroll"),
+    dy: z.number().optional().describe("For scroll"),
+    mode: z.enum(["text", "keys"]).optional().describe("For send"),
+    input: z.string().optional().describe("For send: text to type, or space-separated key tokens"),
+    wait_for: z.enum(["text", "selector", "idle", "stable", "timeout"]).optional().describe("For wait"),
+    text: z.string().optional().describe("For wait(text)"),
+    state: z.enum(["attached", "detached", "visible", "hidden"]).optional().describe("For wait(selector)"),
+    stable_ms: z.number().optional().describe("For wait(stable): quiet period required, default 500ms"),
+    timeout_ms: z.number().optional().describe("For wait"),
+    width: z.number().optional().describe("For resize (alternative to viewport)"),
+    height: z.number().optional().describe("For resize (alternative to viewport)"),
+    format: z.enum(["png", "text", "json"]).optional().default("png").describe("For snapshot"),
+    marker_name: z.string().optional().describe("For marker"),
+    sample_fps: z
+      .number()
+      .optional()
+      .describe("For start_recording: periodic real-screenshot rate, usable for video/frame lookup while the session is still running"),
   })
   .superRefine((input, ctx) => {
-    if (input.action === "run" && !input.task) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["task"],
-        message: "task is required for action=run",
-      })
+    if (input.action === "goto" && !input.url) {
+      ctx.addIssue({ code: "custom", path: ["url"], message: "url is required for action=goto" })
+    }
+    if ((input.action === "click" || input.action === "hover") && !input.selector) {
+      ctx.addIssue({ code: "custom", path: ["selector"], message: `selector is required for action=${input.action}` })
+    }
+    if (input.action === "fill" && (!input.selector || input.value === undefined)) {
+      ctx.addIssue({ code: "custom", path: ["selector"], message: "selector and value are required for action=fill" })
+    }
+    if (input.action === "send" && (!input.mode || input.input === undefined)) {
+      ctx.addIssue({ code: "custom", path: ["mode"], message: "mode and input are required for action=send" })
+    }
+    if (input.action === "wait" && !input.wait_for) {
+      ctx.addIssue({ code: "custom", path: ["wait_for"], message: "wait_for is required for action=wait" })
+    }
+    if (input.action === "marker" && !input.marker_name) {
+      ctx.addIssue({ code: "custom", path: ["marker_name"], message: "marker_name is required for action=marker" })
+    }
+    if (
+      (input.action === "list" || input.action === "close_all") &&
+      input.name !== undefined &&
+      input.name.length === 0
+    ) {
+      ctx.addIssue({ code: "custom", path: ["name"], message: "name must not be empty" })
     }
   })
 
+type Params = z.infer<typeof parameters>
+
 type Metadata = {
   surface: "browser"
-  provider: "browser-use"
   action: string
-  configured: boolean
-  sessionID?: string
-  liveUrl?: string
-  screenshotUrl?: string
-  status?: string
-  summary?: string
-  stepCount?: number
-  successful?: boolean
+  name?: string
 }
 
-function imageAttachment(ctx: Tool.Context, url: string): MessageV2.FilePart {
+function parseViewport(value: string): { width: number; height: number } {
+  const [w, h] = value.split("x")
+  return { width: Number(w), height: Number(h) }
+}
+
+function waitCondition(params: Params): Record<string, unknown> {
+  switch (params.wait_for) {
+    case "text":
+      return { type: "text", value: params.text, ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}) }
+    case "selector":
+      return {
+        type: "selector",
+        value: params.selector,
+        ...(params.state ? { state: params.state } : {}),
+        ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}),
+      }
+    case "idle":
+      return { type: "idle", ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}) }
+    case "stable":
+      return {
+        type: "stable",
+        ...(params.stable_ms ? { ms: params.stable_ms } : {}),
+        ...(params.timeout_ms ? { timeout: params.timeout_ms } : {}),
+      }
+    default:
+      return { type: "timeout", ms: params.timeout_ms ?? 1000 }
+  }
+}
+
+function imageAttachment(ctx: Tool.Context, base64: string): MessageV2.FilePart {
   return {
     id: Identifier.ascending("part"),
     sessionID: ctx.sessionID,
     messageID: ctx.messageID,
     type: "file",
     mime: "image/png",
-    url,
-    filename: "browser-use.png",
+    url: `data:image/png;base64,${base64}`,
+    filename: "browser.png",
   }
 }
 
-function baseMetadata(action: string, configured: boolean): Metadata {
-  return {
-    surface: "browser",
-    provider: "browser-use",
-    action,
-    configured,
-  }
+function baseMetadata(action: string, name?: string): Metadata {
+  return { surface: "browser", action, name }
+}
+
+/** Auto-start a blank session under `name` if one isn't already running, so most actions work without an explicit `start` first. */
+async function ensureSession(socket: string, name: string): Promise<void> {
+  const existing = await Browser.find(name)
+  if (existing?.status === "running") return
+  await rpc(socket, "start", { name })
 }
 
 export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
   description: DESCRIPTION,
   parameters,
-  async execute(input, ctx) {
-    const configured = await Browser.configured()
-    const cfg = await loadConfig()
-    // An explicit tool arg wins, then the configured browser default, then the
-    // session's active provider/model. Sonnet is the SDK-recommended fallback
-    // when the session model has no Browser Use equivalent.
-    const model: BuModel =
-      input.model ??
-      configuredBuModel(cfg.browser?.model) ??
-      (await sessionAiModel(ctx, cfg.model)) ??
-      "claude-sonnet-4.6"
-    const maxCostUsd = input.maxCostUsd ?? cfg.browser?.max_cost_usd ?? 1
+  async execute(params, ctx): Promise<Tool.Result<Metadata>> {
     await ctx.ask({
       permission: "browser",
-      patterns: [input.action, input.task ?? "*"],
+      patterns: [params.action, params.name ?? "*"],
       always: ["*"],
-      metadata: { action: input.action, task: input.task },
+      metadata: { action: params.action, name: params.name },
     })
     ctx.metadata({
-      title: input.action === "run" ? "Browser Use" : `Browser Use · ${input.action}`,
-      metadata: baseMetadata(input.action, configured),
+      title: params.name ? `Browser · ${params.action} · ${params.name}` : `Browser · ${params.action}`,
+      metadata: baseMetadata(params.action, params.name),
     })
 
-    if (input.action === "stop") {
-      const stopped = await Browser.close(ctx.sessionID)
-      return {
-        title: "Browser Use · stop",
-        output: stopped ? "Browser Use session stopped." : "No active Browser Use session.",
-        metadata: {
-          ...baseMetadata(input.action, configured),
-          status: stopped ? "stopped" : "not_started",
-        },
-      }
+    if (params.action === "close_all") {
+      await Browser.closeAll()
+      return { title: "Browser · close_all", output: "Closed all sessions and stopped the daemon.", metadata: baseMetadata(params.action) }
+    }
+    if (params.action === "list") {
+      const list = await Browser.call<SessionInfo[]>("list")
+      return { title: "Browser · list", output: JSON.stringify(list, null, 2), metadata: baseMetadata(params.action) }
     }
 
-    if (input.action === "status") {
-      const local = Browser.local(ctx.sessionID)
-      const status = await Browser.status(ctx.sessionID)
-      return {
-        title: "Browser Use · status",
-        output: status
-          ? `Status: ${status.status}\nSession: ${status.id}\nLive preview: ${status.liveUrl ?? "unavailable"}\nLast step: ${status.lastStepSummary ?? "none"}`
-          : configured
-            ? "No Browser Use session has been started for this conversation."
-            : "Browser Use is not configured. Set BROWSER_USE_API_KEY.",
-        metadata: {
-          ...baseMetadata(input.action, configured),
-          sessionID: status?.id,
-          liveUrl: status?.liveUrl ?? local?.liveUrl,
-          screenshotUrl: local?.lastScreenshotUrl,
-          status: status?.status ?? "not_started",
-          summary: status?.lastStepSummary ?? local?.lastSummary,
-          stepCount: status?.stepCount,
-          successful: status?.isTaskSuccessful ?? undefined,
-        },
-      }
+    const name = Browser.sessionName(ctx.sessionID, params.name)
+    const socket = await Browser.daemon()
+
+    if (params.action === "start") {
+      const info = await rpc<SessionInfo>(socket, "start", {
+        name,
+        url: params.url,
+        viewport: params.viewport ? parseViewport(params.viewport) : undefined,
+        record: params.record,
+      })
+      return { title: `Browser · start · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
     }
 
-    if (input.action === "messages") {
-      const session = Browser.local(ctx.sessionID)
-      const messages = await Browser.messages(ctx.sessionID)
-      return {
-        title: "Browser Use · messages",
-        output:
-          messages.length === 0
-            ? "No Browser Use activity for this conversation."
-            : messages.map((message) => `[${message.type}] ${message.summary}`).join("\n"),
-        metadata: {
-          ...baseMetadata(input.action, configured),
-          sessionID: session?.id,
-          liveUrl: session?.liveUrl,
-          screenshotUrl: session?.lastScreenshotUrl,
-          status: session?.running ? "running" : "idle",
-          summary: session?.lastSummary,
-        },
-      }
+    // Every other action operates on an existing session; conveniently
+    // auto-start one so the agent doesn't have to call `start` first.
+    const skipsAutoStart: ReadonlySet<Params["action"]> = new Set(["info", "stop", "remove", "video_path", "recording_data"])
+    if (!skipsAutoStart.has(params.action)) {
+      await ensureSession(socket, name)
     }
 
-    const result = await Browser.run(
-      ctx.sessionID,
-      {
-        task: input.task!,
-        model,
-        maxCostUsd,
-        profileId: input.profileId,
-        proxyCountryCode: input.proxyCountryCode as ProxyCountryCode | undefined,
-        enableRecording: input.enableRecording,
-      },
-      {
-        abort: ctx.abort,
-        onMessage(message, session) {
-          ctx.metadata({
-            title: message.summary || "Browser Use",
-            metadata: {
-              ...baseMetadata("run", configured),
-              sessionID: session.id,
-              liveUrl: session.liveUrl,
-              screenshotUrl: message.screenshotUrl ?? session.lastScreenshotUrl,
-              status: "running",
-              summary: message.summary,
-            },
-          })
-        },
-      },
-    )
-
-    const activity = result.messages
-      .filter((message) => !message.hidden && !!message.summary)
-      .slice(-12)
-      .map((message) => `- ${message.summary}`)
-      .join("\n")
-    const output =
-      typeof result.result.output === "string" ? result.result.output : JSON.stringify(result.result.output)
-    const screenshotUrl = result.session.lastScreenshotUrl
-
-    return {
-      title: result.result.title || "Browser Use",
-      output: [output || "Browser task completed.", activity ? `\nRecent activity:\n${activity}` : ""].join("\n"),
-      metadata: {
-        ...baseMetadata("run", configured),
-        sessionID: result.session.id,
-        liveUrl: result.session.liveUrl,
-        screenshotUrl,
-        status: result.result.status,
-        summary: result.result.lastStepSummary ?? result.session.lastSummary,
-        stepCount: result.result.stepCount,
-        successful: result.result.isTaskSuccessful ?? undefined,
-      },
-      attachments: screenshotUrl ? [imageAttachment(ctx, screenshotUrl)] : undefined,
+    switch (params.action) {
+      case "info": {
+        const info = await rpc<SessionInfo>(socket, "info", { name })
+        return { title: `Browser · info · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "goto": {
+        await rpc(socket, "goto", { name, url: params.url })
+        const info = await rpc<SessionInfo>(socket, "info", { name })
+        return { title: `Browser · goto · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "click": {
+        await rpc(socket, "click", { name, selector: params.selector })
+        return { title: `Browser · click · ${name}`, output: `Clicked ${params.selector}`, metadata: baseMetadata(params.action, name) }
+      }
+      case "fill": {
+        await rpc(socket, "fill", { name, selector: params.selector, value: params.value })
+        return { title: `Browser · fill · ${name}`, output: `Filled ${params.selector}`, metadata: baseMetadata(params.action, name) }
+      }
+      case "hover": {
+        await rpc(socket, "hover", { name, selector: params.selector })
+        return { title: `Browser · hover · ${name}`, output: `Hovered ${params.selector}`, metadata: baseMetadata(params.action, name) }
+      }
+      case "scroll": {
+        await rpc(socket, "scroll", { name, dx: params.dx ?? 0, dy: params.dy ?? 0 })
+        return { title: `Browser · scroll · ${name}`, output: "Scrolled.", metadata: baseMetadata(params.action, name) }
+      }
+      case "send": {
+        await rpc(socket, "send", { name, mode: params.mode, input: params.input })
+        return { title: `Browser · send · ${name}`, output: "Input sent.", metadata: baseMetadata(params.action, name) }
+      }
+      case "wait": {
+        const result = await rpc(socket, "wait", { name, condition: waitCondition(params) })
+        return { title: `Browser · wait · ${name}`, output: JSON.stringify(result, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "snapshot": {
+        const frame = await rpc<JSONFrame>(socket, "snapshot", { name })
+        if (params.format === "text") {
+          return { title: `Browser · snapshot · ${name}`, output: frame.text, metadata: baseMetadata(params.action, name) }
+        }
+        if (params.format === "json") {
+          return { title: `Browser · snapshot · ${name}`, output: JSON.stringify(frame, null, 2), metadata: baseMetadata(params.action, name) }
+        }
+        return {
+          title: `Browser · snapshot · ${name}`,
+          output: `Screenshot of ${frame.url} (${frame.viewport.width}x${frame.viewport.height}).`,
+          metadata: baseMetadata(params.action, name),
+          attachments: [imageAttachment(ctx, frame.screenshotBase64)],
+        }
+      }
+      case "resize": {
+        const size = params.viewport
+          ? parseViewport(params.viewport)
+          : { width: params.width ?? 1280, height: params.height ?? 800 }
+        const info = await rpc<SessionInfo>(socket, "resize", { name, ...size })
+        return { title: `Browser · resize · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "stop": {
+        await rpc(socket, "stop", { name })
+        return { title: `Browser · stop · ${name}`, output: `Stopped ${name}.`, metadata: baseMetadata(params.action, name) }
+      }
+      case "remove": {
+        await rpc(socket, "remove", { name })
+        return { title: `Browser · remove · ${name}`, output: `Removed ${name}.`, metadata: baseMetadata(params.action, name) }
+      }
+      case "restart": {
+        const info = await rpc<SessionInfo>(socket, "restart", { name })
+        return { title: `Browser · restart · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "start_recording": {
+        await rpc(socket, "startRecording", { name, sampleFps: params.sample_fps })
+        return {
+          title: `Browser · start_recording · ${name}`,
+          output: `Recording started${params.sample_fps ? ` @ ${params.sample_fps}fps` : ""}.`,
+          metadata: baseMetadata(params.action, name),
+        }
+      }
+      case "marker": {
+        const marker = await rpc(socket, "marker", { name, markerName: params.marker_name })
+        return { title: `Browser · marker · ${name}`, output: JSON.stringify(marker, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "stop_recording": {
+        const data = await rpc(socket, "stopRecording", { name })
+        return { title: `Browser · stop_recording · ${name}`, output: JSON.stringify(data, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "recording_data": {
+        const data = await rpc(socket, "recordingData", { name })
+        return { title: `Browser · recording_data · ${name}`, output: JSON.stringify(data, null, 2), metadata: baseMetadata(params.action, name) }
+      }
+      case "video_path": {
+        const result = await rpc<{ path?: string }>(socket, "videoPath", { name })
+        return {
+          title: `Browser · video_path · ${name}`,
+          output: result.path ?? "No video (session not started with record:true, or not yet stopped).",
+          metadata: baseMetadata(params.action, name),
+        }
+      }
+      default: {
+        const never: never = params.action
+        throw new Error(`Unhandled browser action: ${never}`)
+      }
     }
   },
 })

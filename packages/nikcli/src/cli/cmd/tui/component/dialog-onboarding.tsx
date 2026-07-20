@@ -79,18 +79,7 @@ function TwoColRow(props: { width: number; label: string; desc: string; labelFg?
 
 // ─── Step breadcrumb ──────────────────────────────────────────────────────────
 
-const STEP_NAMES = [
-  "Welcome",
-  "Account",
-  "Filesystem",
-  "AI provider",
-  "Extras",
-  "Image",
-  "TTS",
-  "Browser",
-  "Remote",
-  "Test",
-]
+const STEP_NAMES = ["Welcome", "Account", "Filesystem", "AI provider", "Extras", "Image", "TTS", "Remote", "Test"]
 
 // Step indices — keep in sync with STEP_NAMES above
 const STEP = {
@@ -101,12 +90,11 @@ const STEP = {
   EXTRAS: 4,
   IMAGE: 5,
   TTS: 6,
-  BROWSER: 7,
-  REMOTE: 8,
-  TEST: 9,
+  REMOTE: 7,
+  TEST: 8,
 } as const
 
-type FeatureKey = "image" | "tts" | "browser" | "remote"
+type FeatureKey = "image" | "tts" | "remote"
 
 function WizardBreadcrumb(props: { current: number; total: number }) {
   const { theme } = useTheme()
@@ -434,7 +422,6 @@ function TestResult() {
   const remoteConfigured = createMemo(
     () => (sync.data.config as { remote?: { provider?: string } } | undefined)?.remote?.provider !== undefined,
   )
-  const browserConfigured = createMemo(() => connected().includes("browser-use"))
   return (
     <box gap={1}>
       <SectionLabel title="Status" />
@@ -474,11 +461,6 @@ function TestResult() {
               )?.speak?.provider ?? "configured")
             : "skipped"
         }
-      />
-      <StatusRow
-        ok={browserConfigured()}
-        label="Browser Use"
-        detail={browserConfigured() ? "API key stored" : "skipped"}
       />
       <StatusRow
         ok={remoteConfigured()}
@@ -524,11 +506,6 @@ const EXTRAS: Array<{ key: FeatureKey; label: string; desc: string }> = [
     key: "tts",
     label: "Text-to-Speech (TTS)",
     desc: "Read assistant replies aloud. ElevenLabs (premium voices) or OpenRouter audio models.",
-  },
-  {
-    key: "browser",
-    label: "Browser Use",
-    desc: "Drive a real cloud browser to automate web tasks. Needs a Browser Use Cloud key (bu_…).",
   },
   {
     key: "remote",
@@ -824,66 +801,7 @@ function TTSContent(props: {
   )
 }
 
-// ─── Step 8: Browser Use API key ──────────────────────────────────────────────
-
-function BrowserContent(props: {
-  value: string
-  setValue: (v: string) => void
-  onSave: (key: string) => Promise<void>
-  onSkip: () => void
-  busy: boolean
-  error: string | null
-}) {
-  const { theme } = useTheme()
-  let textarea!: TextareaRenderable
-  onMount(() => {
-    setTimeout(() => {
-      if (!textarea.isDestroyed) textarea.focus()
-    }, 1)
-  })
-  return (
-    <box gap={1}>
-      <text fg={theme.textMuted} wrapMode="word">
-        Paste your Browser Use Cloud project key. Get one at
-        <span style={{ fg: theme.primary }}> https://cloud.browser-use.com </span>
-        (it starts with <span style={{ fg: theme.accent }}>bu_</span>). The key is stored in Nikcli's local auth vault.
-      </text>
-      <Show when={props.error}>
-        <text fg={theme.error}>{props.error}</text>
-      </Show>
-      <Show
-        when={!props.busy}
-        fallback={
-          <box height={3} flexDirection="row" alignItems="center" gap={1}>
-            <Spinner>Saving Browser Use key…</Spinner>
-          </box>
-        }
-      >
-        <textarea
-          height={3}
-          keyBindings={[{ name: "return", action: "submit" }]}
-          onSubmit={() => {
-            const v = (textarea.plainText ?? "").trim()
-            if (v) props.onSave(v)
-          }}
-          ref={(r: TextareaRenderable) => {
-            textarea = r
-          }}
-          placeholder="bu_xxxxxxxxxxxxxxxx"
-          textColor={theme.text}
-          focusedTextColor={theme.text}
-          cursorColor={theme.primary}
-        />
-      </Show>
-      <text fg={theme.textMuted} wrapMode="word">
-        <span style={{ fg: theme.primary }}>enter</span> save & continue ·{" "}
-        <span style={{ fg: theme.primary }}>esc</span> skip
-      </text>
-    </box>
-  )
-}
-
-// ─── Step 9: Remote server (tunnel) ───────────────────────────────────────────
+// ─── Step 8: Remote server (tunnel) ───────────────────────────────────────────
 
 const REMOTE_PROVIDERS = [
   {
@@ -971,7 +889,6 @@ const STEP_TITLES = [
   "Optional extras",
   "Image generation",
   "Text-to-Speech (TTS)",
-  "Browser Use",
   "Remote server",
   "Test your setup",
 ]
@@ -986,7 +903,6 @@ const STEP_CONTINUE_LABELS = [
   "configure extras",
   "pick an image model",
   "pick a TTS voice",
-  "save Browser Use key",
   "pick a tunnel provider",
   "finish",
 ]
@@ -1006,7 +922,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
   const [extras, setExtras] = createStore<Record<FeatureKey, boolean>>({
     image: false,
     tts: false,
-    browser: false,
     remote: false,
   })
 
@@ -1016,9 +931,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
   const [ttsCursor, setTtsCursor] = createSignal(0)
   const [remoteCursor, setRemoteCursor] = createSignal(0)
 
-  // Browser step state
-  const [browserBusy, setBrowserBusy] = createSignal(false)
-  const [browserError, setBrowserError] = createSignal<string | null>(null)
   const [ttsStatus, setTtsStatus] = createSignal<string | null>(null)
 
   // Number of steps we will actually visit, given the enabled extras.
@@ -1027,7 +939,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
     const out: number[] = [STEP.WELCOME, STEP.ACCOUNT, STEP.FILESYSTEM, STEP.AI_PROVIDER, STEP.EXTRAS]
     if (extras.image) out.push(STEP.IMAGE)
     if (extras.tts) out.push(STEP.TTS)
-    if (extras.browser) out.push(STEP.BROWSER)
     if (extras.remote) out.push(STEP.REMOTE)
     out.push(STEP.TEST)
     return out
@@ -1049,10 +960,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
           continue
         }
         if (next === STEP.TTS && !extras.tts) {
-          next++
-          continue
-        }
-        if (next === STEP.BROWSER && !extras.browser) {
           next++
           continue
         }
@@ -1119,25 +1026,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
     await fs.writeFile(path.join(dir, "elevenlabs-key"), key.trim() + "\n", {
       mode: 0o600,
     })
-  }
-
-  const persistBrowserKey = async (key: string) => {
-    const result = await sdk.client.auth
-      .set({
-        providerID: "browser-use",
-        auth: { type: "api", key: key.trim() },
-      })
-      .catch((err: unknown) => ({ error: err }))
-    if ("error" in result && result.error) {
-      const msg = errorMessage((result as { error?: unknown }).error)
-      toast.show({
-        variant: "error",
-        message: `Failed to save Browser Use key: ${msg}`,
-      })
-      return false
-    }
-    toast.show({ variant: "success", message: "Browser Use key saved" })
-    return true
   }
 
   const persistRemote = async (providerID: string) => {
@@ -1208,15 +1096,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
   useKeyboard((evt) => {
     if (step() === STEP.ACCOUNT) return // textarea captures Enter
-    if (step() === STEP.BROWSER) {
-      // Browser step: its own textarea captures Enter; escape skips.
-      if (evt.name === "escape") {
-        evt.preventDefault()
-        setBrowserError(null)
-        advance()
-      }
-      return
-    }
 
     // Back navigation
     if ((evt.name === "escape" || evt.name === "backspace") && step() > 0) {
@@ -1387,19 +1266,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
     setStep(STEP.FILESYSTEM)
   }
 
-  const handleBrowserSave = async (key: string) => {
-    setBrowserError(null)
-    setBrowserBusy(true)
-    try {
-      const ok = await persistBrowserKey(key)
-      if (ok) advance()
-    } catch (err) {
-      setBrowserError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBrowserBusy(false)
-    }
-  }
-
   // Continue hint shown in the footer for static steps. List/text steps
   // override this with a more specific hint.
   const continueHint = createMemo(() => {
@@ -1410,7 +1276,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
     if (s === STEP.IMAGE) return "↑/↓ move · ↵ select"
     if (s === STEP.TTS) return "↑/↓ move · ↵ pick voice"
     if (s === STEP.REMOTE) return "↑/↓ move · ↵ select"
-    if (s === STEP.BROWSER) return "↵ save · esc skip"
     if (s === STEP.AI_PROVIDER) return "open provider picker (next step)"
     return STEP_CONTINUE_LABELS[s] ?? ""
   })
@@ -1444,7 +1309,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Content */}
       <Switch>
-        <Match when={step() !== STEP.ACCOUNT && step() !== STEP.BROWSER}>
+        <Match when={step() !== STEP.ACCOUNT}>
           <scrollbox
             paddingLeft={2}
             paddingRight={2}
@@ -1518,18 +1383,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
             }}
           />
         </Match>
-        <Match when={step() === STEP.BROWSER}>
-          <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
-            <BrowserContent
-              value=""
-              setValue={() => {}}
-              onSave={handleBrowserSave}
-              onSkip={() => advance()}
-              busy={browserBusy()}
-              error={browserError()}
-            />
-          </box>
-        </Match>
       </Switch>
 
       {/* Bottom separator */}
@@ -1539,7 +1392,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Footer */}
       <box paddingLeft={2} paddingRight={2} paddingTop={1} flexDirection="row" justifyContent="space-between">
-        <Show when={step() !== STEP.ACCOUNT && step() !== STEP.BROWSER}>
+        <Show when={step() !== STEP.ACCOUNT}>
           <text fg={theme.textMuted}>
             {"↵ "}
             <span style={{ fg: theme.text }}>{continueHint()}</span>
@@ -1547,12 +1400,6 @@ function OnboardingWizard(props: { onComplete: () => void }) {
         </Show>
         <Show when={step() === STEP.ACCOUNT}>
           <text fg={theme.textMuted}>Complete sign-in or registration in your browser · esc cancel</text>
-        </Show>
-        <Show when={step() === STEP.BROWSER}>
-          <text fg={theme.textMuted}>
-            <span style={{ fg: theme.primary }}>↵</span> save & continue ·{" "}
-            <span style={{ fg: theme.primary }}>esc</span> skip
-          </text>
         </Show>
         <box flexDirection="row" gap={2} alignItems="center">
           <Show when={step() !== STEP.WELCOME && step() !== STEP.ACCOUNT && step() !== STEP.AI_PROVIDER}>

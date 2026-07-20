@@ -135,6 +135,21 @@
         "bun": ">=1.0.0",
       },
     },
+    "packages/browser-control": {
+      "name": "@nikcli-ai/browser-control",
+      "version": "1.176.0",
+      "bin": {
+        "browser-control": "./src/cli.ts",
+      },
+      "dependencies": {
+        "@ffmpeg-installer/ffmpeg": "1.1.0",
+        "playwright": "1.61.0",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/cloud": {
       "name": "@nikcli-ai/cloud",
       "version": "1.176.0",
@@ -580,6 +595,7 @@
         "@hono/zod-validator": "catalog:",
         "@modelcontextprotocol/sdk": "1.25.2",
         "@nikcli-ai/auth": "workspace:*",
+        "@nikcli-ai/browser-control": "workspace:*",
         "@nikcli-ai/companion": "workspace:*",
         "@nikcli-ai/httpapi-codegen": "workspace:*",
         "@nikcli-ai/llm": "workspace:*",
@@ -1935,6 +1951,8 @@
     "@nikcli-ai/auth": ["@nikcli-ai/auth@workspace:packages/auth"],
 
     "@nikcli-ai/bench-tui": ["@nikcli-ai/bench-tui@workspace:packages/bench-tui"],
+
+    "@nikcli-ai/browser-control": ["@nikcli-ai/browser-control@workspace:packages/browser-control"],
 
     "@nikcli-ai/cloud": ["@nikcli-ai/cloud@workspace:packages/cloud"],
 
@@ -5987,6 +6005,8 @@
     "@nikcli-ai/auth/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/bench-tui/@typescript/native-preview": ["@typescript/native-preview@7.0.0-dev.20251207.1", "", { "optionalDependencies": { "@typescript/native-preview-darwin-arm64": "7.0.0-dev.20251207.1", "@typescript/native-preview-darwin-x64": "7.0.0-dev.20251207.1", "@typescript/native-preview-linux-arm": "7.0.0-dev.20251207.1", "@typescript/native-preview-linux-arm64": "7.0.0-dev.20251207.1", "@typescript/native-preview-linux-x64": "7.0.0-dev.20251207.1", "@typescript/native-preview-win32-arm64": "7.0.0-dev.20251207.1", "@typescript/native-preview-win32-x64": "7.0.0-dev.20251207.1" }, "bin": { "tsgo": "bin/tsgo.js" } }, "sha512-4QcRnzB0pi9rS0AOvg8kWbmuwHv5X7B2EXHbgcms9+56hsZ8SZrZjNgBJb2rUIodJ4kU5mrkj/xlTTT4r9VcpQ=="],
+
+    "@nikcli-ai/browser-control/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/cloud/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
