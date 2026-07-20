@@ -4,14 +4,13 @@ import { useRoute } from "@tui/context/route"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
 import { useSync } from "@tui/context/sync"
-import { useDialog } from "@tui/ui/dialog"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { createMemo, createResource, createSignal, onMount, For, Show } from "solid-js"
+import { createMemo, createResource, createSignal, onCleanup, onMount, For, Show } from "solid-js"
 import { Usage } from "../util/usage"
 import { useEditorContext } from "../context/editor"
 import { useKV } from "../context/kv"
 import { Token } from "@/util/token"
-import type { SessionContextResponse, AssistantMessage } from "@nikcli-ai/sdk/v2"
+import type { SessionContextResponse, AssistantMessage, Session } from "@nikcli-ai/sdk/v2"
 import {
   BrailleSparkline,
   StackedBarChartV2,
@@ -32,10 +31,18 @@ import {
   turnTotalFromMessage,
   type HealthStatus,
 } from "../util/context-usage"
+import { useDialog } from "@tui/ui/dialog"
 
 const EDITOR_SOURCE_ID = "system:editor"
 const EDITOR_TOGGLE_KEY = "editor_context_visibility"
 const EDITOR_TOGGLE_KIND = "editor"
+
+// "current" is the route-bound session; any other value is a child / subagent
+// session ID picked from the segmented control. The panel re-fetches the
+// breakdown whenever this changes.
+type SessionTarget = string
+
+export function DialogUsage() {
 
 type Breakdown = SessionContextResponse
 type ServerSource = Breakdown["sources"][number]
@@ -56,7 +63,6 @@ function buildEditorNote(selection: NonNullable<ReturnType<ReturnType<typeof use
   return `Note: The user selected lines ${start.line} to ${end.line} from "${selection.filePath}": ${selection.text}`
 }
 
-export function DialogUsage() {
   const { theme } = useTheme()
   const route = useRoute()
   const sdk = useSDK()
@@ -140,13 +146,44 @@ export function DialogUsage() {
   })
 
   const contextLimit = createMemo(() => data()?.model?.contextLimit ?? 0)
-  const reportedTotal = createMemo(() => data()?.reported.total ?? 0)
+
+  // Per-turn token history — derive a sparkline series from the live sync
+  // store so the trend reflects what's already happened in this session.
+  // We use `total` when present and the input+output+cache+reasoning sum
+  // otherwise, mirroring the aggregator in `app.tsx`.
+  const assistantMessages = createMemo<AssistantMessage[]>(() => {
+    const sid = sessionID()
+    if (!sid) return []
+    const list = sync.data.message[sid] ?? []
+    return list.filter((m): m is AssistantMessage => m.role === "assistant")
+  })
+
+  // The server "reported" breakdown is a one-shot context fetch, not a live
+  // subscription — left alone it freezes at whatever it was when the dialog
+  // opened, so cache/usage figures stop tracking new turns (unlike
+  // /analytics, which reads straight from the live message store). Prefer
+  // the latest assistant message's real usage instead, falling back to the
+  // one-shot fetch only before any assistant message exists.
+  const reportedLive = createMemo(() => {
+    const last = assistantMessages().at(-1)
+    if (!last) return data()?.reported
+    return {
+      total: turnTotalFromMessage(last),
+      input: last.tokens.input,
+      output: last.tokens.output,
+      cacheRead: last.tokens.cache.read,
+      cacheWrite: last.tokens.cache.write,
+      reasoning: last.tokens.reasoning,
+    }
+  })
+
+  const reportedTotal = createMemo(() => reportedLive()?.total ?? 0)
   // Cache hit rate = share of the input-side prompt served from cache this turn.
   // cacheRead are hits (~0.1x cost); cacheWrite are fresh writes (~1.25x/2x); input
   // is the uncached remainder (full price). 0% read across turns with a stable
   // prefix means a silent invalidator (model/tool switch, volatile system prompt).
   const cacheHitRate = createMemo(() => {
-    const r = data()?.reported
+    const r = reportedLive()
     if (!r) return undefined
     const inputSide = r.cacheRead + r.cacheWrite + r.input
     if (inputSide <= 0) return undefined
@@ -188,16 +225,6 @@ export function DialogUsage() {
     }))
   })
 
-  // Per-turn token history — derive a sparkline series from the live sync
-  // store so the trend reflects what's already happened in this session.
-  // We use `total` when present and the input+output+cache+reasoning sum
-  // otherwise, mirroring the aggregator in `app.tsx`.
-  const assistantMessages = createMemo<AssistantMessage[]>(() => {
-    const sid = sessionID()
-    if (!sid) return []
-    const list = sync.data.message[sid] ?? []
-    return list.filter((m): m is AssistantMessage => m.role === "assistant")
-  })
   const turnTokens = createMemo(() => {
     const series = assistantMessages().map((m) => turnTotalFromMessage(m))
     return series.length > 0 ? series : [reportedTotal() > 0 ? reportedTotal() : estimatedTotal()]

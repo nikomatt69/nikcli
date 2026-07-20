@@ -51,7 +51,7 @@ export function Dialog(
 
   const width = () => {
     const dims = dimensions()
-    if (props.size === "xlarge") return Math.min(116, Math.max(1, dims.width - 8))
+    if (props.size === "xlarge") return Math.min(120, Math.max(1, dims.width - 8))
     if (props.size === "large") return Math.min(88, Math.max(1, dims.width - 6))
     return Math.min(60, Math.max(1, dims.width - 4))
   }

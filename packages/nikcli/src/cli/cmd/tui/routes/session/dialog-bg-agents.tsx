@@ -102,6 +102,7 @@ export function DialogBgAgents(props: {
 
   // Force sync when dialog opens to ensure we have all message parts (including monitors)
   onMount(() => {
+    dialog.setSize("xlarge")
     void sync.session.sync(props.sessionID, { full: true })
   })
 

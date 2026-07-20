@@ -3151,6 +3151,12 @@ async function cancelMonitorRequest(sdk: ReturnType<typeof useSDK>, sessionID: s
   return result.data
 }
 
+function formatMonitorBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
+
 function DialogMonitorLog(props: {
   sessionID: string
   monitorID: string
@@ -3162,15 +3168,20 @@ function DialogMonitorLog(props: {
   const sdk = useSDK()
   const toast = useToast()
   const { theme } = useTheme()
+  const dialog = useDialog()
   const dimensions = useTerminalDimensions()
   const [content, setContent] = createSignal("")
   const [status, setStatus] = createSignal(props.status)
   const [logPath, setLogPath] = createSignal(props.logPath ?? "")
+  const [cwd, setCwd] = createSignal("")
+  const [createdAt, setCreatedAt] = createSignal<number>()
+  const [completedAt, setCompletedAt] = createSignal<number>()
   const [exitCode, setExitCode] = createSignal<number | undefined>()
   const [loading, setLoading] = createSignal(true)
   const [truncated, setTruncated] = createSignal(false)
   const [follow, setFollow] = createSignal(true)
   const [error, setError] = createSignal<string>()
+  const [now, setNow] = createSignal(Date.now())
   let scrollbox: ScrollBoxRenderable | undefined
 
   const refresh = async () => {
@@ -3180,6 +3191,9 @@ function DialogMonitorLog(props: {
       setContent(trimMonitorBuffer(snapshot.output))
       setStatus(snapshot.record.status)
       setLogPath(snapshot.record.logPath)
+      setCwd(snapshot.record.cwd)
+      setCreatedAt(snapshot.record.time.created)
+      setCompletedAt(snapshot.record.time.completed)
       setExitCode(snapshot.record.exitCode)
       setTruncated(snapshot.truncated)
       setError(undefined)
@@ -3189,6 +3203,28 @@ function DialogMonitorLog(props: {
       setLoading(false)
     }
   }
+
+  // Elapsed/duration ticker. Only runs while the command is still active so a
+  // finished monitor doesn't keep the dialog re-rendering every second.
+  createEffect(() => {
+    if (status() !== "running") return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    onCleanup(() => clearInterval(timer))
+  })
+
+  const durationMs = createMemo(() => {
+    const start = createdAt()
+    if (!start) return undefined
+    return Math.max(0, (completedAt() ?? now()) - start)
+  })
+
+  const statusLine = createMemo(() => {
+    const parts = [monitorStatusLabel(status(), exitCode())]
+    const duration = durationMs()
+    if (duration !== undefined) parts.push(`${status() === "running" ? "elapsed" : "duration"} ${Locale.duration(duration)}`)
+    if (content().length > 0) parts.push(`${formatMonitorBytes(content().length)} output`)
+    return parts.join(" · ")
+  })
 
   const stopMonitor = async () => {
     if (status() !== "running") return
@@ -3217,6 +3253,9 @@ function DialogMonitorLog(props: {
   )
 
   onMount(() => {
+    // Self-contained like DialogUsage/DialogAnalytics — don't depend on the
+    // caller remembering to size the dialog before opening us.
+    dialog.setSize("xlarge")
     void refresh()
     const unsubs = [
       sdk.event.on("monitor.output", (evt) => {
@@ -3282,16 +3321,19 @@ function DialogMonitorLog(props: {
       <text fg={theme.text}>Monitor {props.title}</text>
       <text fg={theme.textMuted}>{props.command}</text>
       <text fg={status() === "complete" ? theme.success : status() === "running" ? theme.text : theme.error}>
-        {monitorStatusLabel(status(), exitCode())}
+        {statusLine()}
       </text>
+      <Show when={cwd()}>
+        <text fg={theme.textMuted}>dir {normalizePath(cwd())}</text>
+      </Show>
       <Show when={logPath()}>
-        <text fg={theme.textMuted}>{normalizePath(logPath())}</text>
+        <text fg={theme.textMuted}>log {normalizePath(logPath())}</text>
       </Show>
       <scrollbox
         ref={(value: ScrollBoxRenderable) => {
           scrollbox = value
         }}
-        height={Math.max(10, dimensions().height - 16)}
+        height={Math.max(10, dimensions().height - 18)}
         focused={true}
         border={["top", "bottom", "left", "right"]}
         borderColor={theme.borderSubtle}
