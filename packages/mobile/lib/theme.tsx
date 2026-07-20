@@ -4,7 +4,60 @@ import { useColorScheme, vars } from "nativewind"
 import { getThemePreferences, setStoredColorScheme, setStoredTheme } from "./storage"
 
 import abyss from "./themes/abyss.json"
+import alpine from "./themes/alpine.json"
+import amethyst from "./themes/amethyst.json"
+import apple from "./themes/apple.json"
 import arctic from "./themes/arctic.json"
+import aurorasky from "./themes/aurorasky.json"
+import iosBlue from "./themes/ios-blue.json"
+import iosIndigo from "./themes/ios-indigo.json"
+import iosPurple from "./themes/ios-purple.json"
+import iosPink from "./themes/ios-pink.json"
+import iosRed from "./themes/ios-red.json"
+import iosOrange from "./themes/ios-orange.json"
+import iosYellow from "./themes/ios-yellow.json"
+import iosGreen from "./themes/ios-green.json"
+import iosMint from "./themes/ios-mint.json"
+import iosTeal from "./themes/ios-teal.json"
+import iosCyan from "./themes/ios-cyan.json"
+import iosBrown from "./themes/ios-brown.json"
+import ocean from "./themes/ocean.json"
+import lagoon from "./themes/lagoon.json"
+import coralreef from "./themes/coralreef.json"
+import sahara from "./themes/sahara.json"
+import rainforest from "./themes/rainforest.json"
+import redwood from "./themes/redwood.json"
+import glacierblue from "./themes/glacierblue.json"
+import volcano from "./themes/volcano.json"
+import lava from "./themes/lava.json"
+import sunsetcoast from "./themes/sunsetcoast.json"
+import cherryblossom from "./themes/cherryblossom.json"
+import wisteria from "./themes/wisteria.json"
+import rosewood from "./themes/rosewood.json"
+import terracotta from "./themes/terracotta.json"
+import saffron from "./themes/saffron.json"
+import honeycomb from "./themes/honeycomb.json"
+import emeraldcity from "./themes/emeraldcity.json"
+import jade from "./themes/jade.json"
+import sapphire from "./themes/sapphire.json"
+import ruby from "./themes/ruby.json"
+import topaz from "./themes/topaz.json"
+import pearl from "./themes/pearl.json"
+import denim from "./themes/denim.json"
+import mocha from "./themes/mocha.json"
+import cinnamon from "./themes/cinnamon.json"
+import mintjulep from "./themes/mintjulep.json"
+import citrus from "./themes/citrus.json"
+import tropical from "./themes/tropical.json"
+import monsoon from "./themes/monsoon.json"
+import blizzard from "./themes/blizzard.json"
+import ember from "./themes/ember.json"
+import moss from "./themes/moss.json"
+import sequoia from "./themes/sequoia.json"
+import harbor from "./themes/harbor.json"
+import savanna from "./themes/savanna.json"
+import canyon from "./themes/canyon.json"
+import nebula from "./themes/nebula.json"
 import aura from "./themes/aura.json"
 import ayu from "./themes/ayu.json"
 import ayuai from "./themes/ayuai.json"
@@ -307,6 +360,59 @@ export const THEMES: ThemeRegistry = {
   vscode,
   zenburn,
   zinc,
+  apple,
+  "ios-blue": iosBlue,
+  "ios-indigo": iosIndigo,
+  "ios-purple": iosPurple,
+  "ios-pink": iosPink,
+  "ios-red": iosRed,
+  "ios-orange": iosOrange,
+  "ios-yellow": iosYellow,
+  "ios-green": iosGreen,
+  "ios-mint": iosMint,
+  "ios-teal": iosTeal,
+  "ios-cyan": iosCyan,
+  "ios-brown": iosBrown,
+  ocean,
+  lagoon,
+  coralreef,
+  sahara,
+  rainforest,
+  redwood,
+  alpine,
+  glacierblue,
+  volcano,
+  lava,
+  aurorasky,
+  sunsetcoast,
+  cherryblossom,
+  wisteria,
+  rosewood,
+  terracotta,
+  saffron,
+  honeycomb,
+  emeraldcity,
+  jade,
+  sapphire,
+  ruby,
+  amethyst,
+  topaz,
+  pearl,
+  denim,
+  mocha,
+  cinnamon,
+  mintjulep,
+  citrus,
+  tropical,
+  monsoon,
+  blizzard,
+  ember,
+  moss,
+  sequoia,
+  harbor,
+  savanna,
+  canyon,
+  nebula,
 }
 
 // Theme info for UI display
@@ -407,6 +513,59 @@ export const THEME_LIST: ThemeInfo[] = [
   { id: "vscode", name: "VS Code" },
   { id: "zenburn", name: "Zenburn" },
   { id: "zinc", name: "Zinc" },
+  { id: "apple", name: "Apple" },
+  { id: "ios-blue", name: "iOS Blue" },
+  { id: "ios-indigo", name: "iOS Indigo" },
+  { id: "ios-purple", name: "iOS Purple" },
+  { id: "ios-pink", name: "iOS Pink" },
+  { id: "ios-red", name: "iOS Red" },
+  { id: "ios-orange", name: "iOS Orange" },
+  { id: "ios-yellow", name: "iOS Yellow" },
+  { id: "ios-green", name: "iOS Green" },
+  { id: "ios-mint", name: "iOS Mint" },
+  { id: "ios-teal", name: "iOS Teal" },
+  { id: "ios-cyan", name: "iOS Cyan" },
+  { id: "ios-brown", name: "iOS Brown" },
+  { id: "ocean", name: "Ocean" },
+  { id: "lagoon", name: "Lagoon" },
+  { id: "coralreef", name: "Coral Reef" },
+  { id: "sahara", name: "Sahara" },
+  { id: "rainforest", name: "Rainforest" },
+  { id: "redwood", name: "Redwood" },
+  { id: "alpine", name: "Alpine" },
+  { id: "glacierblue", name: "Glacier Blue" },
+  { id: "volcano", name: "Volcano" },
+  { id: "lava", name: "Lava" },
+  { id: "aurorasky", name: "Aurora Sky" },
+  { id: "sunsetcoast", name: "Sunset Coast" },
+  { id: "cherryblossom", name: "Cherry Blossom" },
+  { id: "wisteria", name: "Wisteria" },
+  { id: "rosewood", name: "Rosewood" },
+  { id: "terracotta", name: "Terracotta" },
+  { id: "saffron", name: "Saffron" },
+  { id: "honeycomb", name: "Honeycomb" },
+  { id: "emeraldcity", name: "Emerald City" },
+  { id: "jade", name: "Jade" },
+  { id: "sapphire", name: "Sapphire" },
+  { id: "ruby", name: "Ruby" },
+  { id: "amethyst", name: "Amethyst" },
+  { id: "topaz", name: "Topaz" },
+  { id: "pearl", name: "Pearl" },
+  { id: "denim", name: "Denim" },
+  { id: "mocha", name: "Mocha" },
+  { id: "cinnamon", name: "Cinnamon" },
+  { id: "mintjulep", name: "Mint Julep" },
+  { id: "citrus", name: "Citrus" },
+  { id: "tropical", name: "Tropical" },
+  { id: "monsoon", name: "Monsoon" },
+  { id: "blizzard", name: "Blizzard" },
+  { id: "ember", name: "Ember" },
+  { id: "moss", name: "Moss" },
+  { id: "sequoia", name: "Sequoia" },
+  { id: "harbor", name: "Harbor" },
+  { id: "savanna", name: "Savanna" },
+  { id: "canyon", name: "Canyon" },
+  { id: "nebula", name: "Nebula" },
 ]
 
 // Hex to RGBA helper

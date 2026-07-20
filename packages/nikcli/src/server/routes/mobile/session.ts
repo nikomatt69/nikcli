@@ -13,6 +13,7 @@ import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
 import { Snapshot } from "@/snapshot"
 import { Command } from "@/command"
+import { Worktree } from "@/worktree"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { Artifact } from "@/artifact"
@@ -40,6 +41,8 @@ import {
   resolveMobilePromptDefaults,
   toHeadersObject,
   createExecutionWorkspace,
+  createSessionWorktreeContext,
+  runWorktreeForDirectory,
   statusForSession,
 } from "./helpers"
 
@@ -131,33 +134,49 @@ export const SessionRoutes = () =>
             }
           : undefined
 
+        const hostDirectory = Instance.directory
+        // Sessions that already carry explicit `github` info (e.g. the
+        // /github/session import flow) manage their own worktree; only
+        // isolate plain sessions here.
+        const worktreeContext = sessionInput?.github ? undefined : await createSessionWorktreeContext(hostDirectory)
+        const sessionDirectory = worktreeContext?.directory ?? hostDirectory
+
         try {
           workspace = await createExecutionWorkspace({
-            directory: Instance.directory,
+            directory: sessionDirectory,
             target: executionTarget,
           })
-          const session = await WorkspaceContext.provide({
-            workspaceID: workspace?.id,
-            async fn() {
-              return runSession(
-                Effect.gen(function* () {
-                  const service = yield* Session.Service
-                  return yield* service.create(
-                    workspace?.id
-                      ? {
-                          ...sessionInput,
-                          workspaceID: workspace.id,
-                        }
-                      : sessionInput,
-                  )
-                }),
-              )
-            },
+          const session = await withInstanceAsync({ directory: sessionDirectory }, async () => {
+            return WorkspaceContext.provide({
+              workspaceID: workspace?.id,
+              async fn() {
+                return runSession(
+                  Effect.gen(function* () {
+                    const service = yield* Session.Service
+                    return yield* service.create({
+                      ...sessionInput,
+                      github: sessionInput?.github ?? worktreeContext?.github,
+                      worktree: worktreeContext?.worktree,
+                      workspaceID: workspace?.id,
+                    })
+                  }),
+                )
+              },
+            })
           })
           return c.json(session)
         } catch (error) {
           if (workspace) {
             await Workspace.remove(workspace.id).catch(() => undefined)
+          }
+          if (worktreeContext) {
+            await runWorktreeForDirectory(
+              hostDirectory,
+              Effect.gen(function* () {
+                const service = yield* Worktree.Service
+                yield* service.remove({ directory: worktreeContext.directory })
+              }),
+            ).catch(() => undefined)
           }
           throw error
         }

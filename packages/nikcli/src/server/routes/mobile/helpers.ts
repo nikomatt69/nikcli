@@ -218,6 +218,7 @@ export const MobileBootstrap = z
     github: z.object({
       connected: z.boolean(),
       tokenAvailable: z.boolean().optional(),
+      reconnectRequired: z.boolean().optional(),
       oauthDeviceEnabled: z.boolean(),
       oauthDeviceConfigured: z.boolean().optional(),
       oauthClientSource: z.enum(["flag", "config", "env"]).optional(),
@@ -777,13 +778,28 @@ export async function ensureGlobalGithubConnector(input?: Partial<Config.Connect
   return { key, connector: connectors[key] as Config.ConnectorGithub }
 }
 
-export async function storeGithubToken(token: string) {
+export type GithubTokenGrant = {
+  accessToken: string
+  refreshToken?: string
+  expiresAt?: number
+  refreshTokenExpiresAt?: number
+}
+
+export async function storeGithubToken(tokenOrGrant: string | GithubTokenGrant) {
+  const grant: GithubTokenGrant =
+    typeof tokenOrGrant === "string" ? { accessToken: tokenOrGrant } : tokenOrGrant
   const { key } = await ensureGlobalGithubConnector({ enabled: true })
+  const entryUpdate = {
+    token: grant.accessToken,
+    expiresAt: grant.expiresAt,
+    refreshToken: grant.refreshToken,
+    refreshTokenExpiresAt: grant.refreshTokenExpiresAt,
+  }
   await runConnectorAuth(
     Effect.gen(function* () {
       const auth = yield* ConnectorAuth.Service
       const existing = yield* auth.get(key)
-      yield* auth.set(key, { ...existing, token })
+      yield* auth.set(key, { ...existing, ...entryUpdate })
     }),
   )
 
@@ -792,7 +808,7 @@ export async function storeGithubToken(token: string) {
       Effect.gen(function* () {
         const auth = yield* ConnectorAuth.Service
         const canonical = yield* auth.get("github")
-        yield* auth.set("github", { ...canonical, token })
+        yield* auth.set("github", { ...canonical, ...entryUpdate })
       }),
     )
   }
@@ -801,9 +817,70 @@ export async function storeGithubToken(token: string) {
   Connectors.invalidateConnector("github")
 }
 
+const GITHUB_TOKEN_REFRESH_MARGIN_MS = 5 * 60_000
+
+async function refreshGithubToken(key: string): Promise<string | null> {
+  const entry = await runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      return yield* auth.get(key)
+    }),
+  ).catch(() => undefined)
+  if (!entry?.refreshToken) return null
+  if (entry.refreshTokenExpiresAt && entry.refreshTokenExpiresAt < Date.now()) return null
+
+  const { clientID } = await githubOAuthClientID()
+  if (!clientID) return null
+
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "nikcli-mobile",
+    },
+    body: JSON.stringify({
+      client_id: clientID,
+      refresh_token: entry.refreshToken,
+      grant_type: "refresh_token",
+    }),
+  })
+  if (!response.ok) return null
+  const payload = (await response.json()) as {
+    access_token?: string
+    refresh_token?: string
+    expires_in?: number
+    refresh_token_expires_in?: number
+    error?: string
+  }
+  if (!payload.access_token) return null
+
+  await storeGithubToken({
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token ?? entry.refreshToken,
+    expiresAt: payload.expires_in ? Date.now() + payload.expires_in * 1000 : undefined,
+    refreshTokenExpiresAt: payload.refresh_token_expires_in
+      ? Date.now() + payload.refresh_token_expires_in * 1000
+      : entry.refreshTokenExpiresAt,
+  })
+  return payload.access_token
+}
+
 export async function githubToken() {
   const config = await configGet().catch(() => undefined)
   const { key, connector } = githubConnectorEntry(config)
+
+  const expired = await runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      return yield* auth.isTokenExpired(key)
+    }),
+  ).catch(() => null)
+  if (expired) {
+    const refreshed = await refreshGithubToken(key)
+    if (refreshed) return refreshed
+  }
+
   const credential = await resolveCredential(key, connector)
   if (credential) return credential
 
@@ -910,12 +987,22 @@ export async function pollGithubDeviceAuth(deviceCode: string) {
   }
   const payload = (await response.json()) as {
     access_token?: string
+    refresh_token?: string
+    expires_in?: number
+    refresh_token_expires_in?: number
     error?: string
     interval?: number
   }
   if (payload.access_token) {
     const user = await GithubApi.getUser(payload.access_token)
-    await storeGithubToken(payload.access_token)
+    await storeGithubToken({
+      accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
+      expiresAt: payload.expires_in ? Date.now() + payload.expires_in * 1000 : undefined,
+      refreshTokenExpiresAt: payload.refresh_token_expires_in
+        ? Date.now() + payload.refresh_token_expires_in * 1000
+        : undefined,
+    })
 
     return {
       status: "approved" as const,
@@ -969,6 +1056,110 @@ export function slug(input: string) {
 
 export function sessionSeed() {
   return Math.random().toString(36).slice(2, 8)
+}
+
+/**
+ * Parse a git remote URL (HTTPS or SSH form) into a GitHub owner/repo pair.
+ * Returns undefined for non-GitHub remotes or unparsable URLs.
+ */
+export function parseGithubRemoteUrl(remoteUrl: string): { owner: string; repo: string } | undefined {
+  const value = remoteUrl.trim()
+  if (!value) return undefined
+
+  const ssh = value.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/i)
+  if (ssh) return { owner: ssh[1], repo: ssh[2] }
+
+  try {
+    const url = new URL(value.replace(/^git\+/, ""))
+    if (url.hostname.toLowerCase() !== "github.com") return undefined
+    const parts = url.pathname.split("/").filter(Boolean)
+    if (parts.length < 2) return undefined
+    const [owner, rawRepo] = parts
+    const repo = rawRepo.endsWith(".git") ? rawRepo.slice(0, -4) : rawRepo
+    if (!owner || !repo) return undefined
+    return { owner, repo }
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Create an isolated git worktree for a plain (non-import) mobile session so
+ * every session gets its own branch instead of sharing the host's checked-out
+ * directory. Mirrors the isolation the /github/session import flow already
+ * gets, but derived from whatever the host directory already has checked out
+ * (no clone step). Falls back to `undefined` (caller keeps using the host
+ * directory directly) whenever the directory isn't a git project or the
+ * worktree can't be created for any reason -- session creation must never be
+ * blocked by this.
+ *
+ * When the host directory's `origin` remote points at github.com, this also
+ * returns ready-to-store `Session.Info["github"]` metadata so the existing
+ * publish/PR flow (built for imported repos) works the same way here, without
+ * requiring the user to go through the explicit "import repo" flow first.
+ */
+export async function createSessionWorktreeContext(hostDirectory: string): Promise<
+  | {
+      directory: string
+      /** Set for every isolated session; mirrors `github.worktree` when github is set. */
+      worktree: Session.Info["worktree"]
+      github?: Session.Info["github"]
+    }
+  | undefined
+> {
+  let worktree: Worktree.Info
+  try {
+    worktree = await runWorktreeForDirectory(
+      hostDirectory,
+      Effect.gen(function* () {
+        const service = yield* Worktree.Service
+        return yield* service.create({ branchPrefix: "nikcli/session" })
+      }),
+    )
+  } catch (error) {
+    if (!(error instanceof Worktree.NotGitError)) {
+      log.warn("failed to create session worktree, falling back to host directory", {
+        directory: hostDirectory,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+    return undefined
+  }
+
+  if (!worktree.branch) return { directory: worktree.directory, worktree: undefined }
+
+  const worktreeMeta = {
+    name: worktree.name,
+    branch: worktree.branch,
+    directory: worktree.directory,
+    repositoryDirectory: hostDirectory,
+  }
+
+  const remoteUrl = await MobileGithubRepo.runGit(["remote", "get-url", "origin"], { cwd: hostDirectory }).catch(
+    () => "",
+  )
+  const parsed = parseGithubRemoteUrl(remoteUrl)
+  if (!parsed) return { directory: worktree.directory, worktree: worktreeMeta }
+
+  const baseBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], { cwd: hostDirectory }).catch(
+    () => "",
+  )
+
+  return {
+    directory: worktree.directory,
+    // Nested under `github` (which doubles as PR/publish metadata) instead
+    // of duplicated at the top level too.
+    worktree: undefined,
+    github: {
+      owner: parsed.owner,
+      repo: parsed.repo,
+      fullName: `${parsed.owner}/${parsed.repo}`,
+      baseBranch: baseBranch.trim() || "main",
+      headBranch: worktree.branch,
+      repositoryDirectory: hostDirectory,
+      worktree: worktreeMeta,
+    },
+  }
 }
 
 export function defaultPullRequestBody(session: Session.Info) {

@@ -91,6 +91,7 @@ export function SessionSummaryCard({
   const { palette } = useAppTheme()
   const title = detail?.info.title || "Session"
   const github = detail?.info.github
+  const worktree = detail?.info.worktree
   const location = github?.fullName || detail?.info.directory || "Unknown workspace"
   const status = detail?.status?.type ?? "idle"
   const messageCount = detail?.messages.length ?? 0
@@ -126,7 +127,7 @@ export function SessionSummaryCard({
           <InfoChip label={`${fileCount} files`} />
           <InfoChip label={`+${additions} / -${deletions}`} tone={additions || deletions ? "accent" : "neutral"} />
           <InfoChip label={executionLabel} tone={detail?.info.workspaceID ? "accent" : "neutral"} />
-          {github?.headBranch ? <InfoChip label={github.headBranch} /> : null}
+          {github?.headBranch || worktree?.branch ? <InfoChip label={github?.headBranch ?? worktree!.branch} /> : null}
           {updatedAt ? <InfoChip label={`Updated ${relativeTime(updatedAt)}`} /> : null}
           {totalTokens > 0 ? <InfoChip label={`${totalTokens.toLocaleString()} ctx`} tone="neutral" /> : null}
           {totalCost > 0 ? <InfoChip label={`$${totalCost.toFixed(4)}`} tone="neutral" /> : null}
@@ -224,7 +225,7 @@ export function SessionSummaryCard({
             <View className="flex-1">
               <ActionButton label="Abort session" variant="danger" onPress={onAbort} />
             </View>
-            {github ? (
+            {github || worktree ? (
               <View className="flex-1">
                 <ActionButton
                   label={cleaning ? "Cleaning..." : cleaned ? "Cleaned" : "Cleanup"}

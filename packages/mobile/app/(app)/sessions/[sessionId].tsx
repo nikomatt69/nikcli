@@ -610,7 +610,8 @@ export default function SessionScreen() {
     [config?.url, detail?.artifacts, messages],
   )
   const sessionBlocked = sessionIsProcessing(detail?.status)
-  const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
+  const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt ?? detail?.info.worktree?.cleanedAt)
+  const hasCleanableWorktree = Boolean(detail?.info.github?.worktree ?? detail?.info.worktree)
   const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
 
   const openSessionExplorer = useCallback(() => {
@@ -1217,16 +1218,17 @@ export default function SessionScreen() {
   }
 
   async function cleanup() {
-    if (!client || !sessionId || !detail?.info.github || sessionBlocked || cleaned) return
+    if (!client || !sessionId || !hasCleanableWorktree || sessionBlocked || cleaned) return
     try {
       setCleaning(true)
       setError(null)
       await client.cleanupGithubSession(sessionId)
       void triggerHaptic("success")
-      if (config && detail.info.github.repositoryDirectory) {
+      const repositoryDirectory = detail?.info.github?.repositoryDirectory || detail?.info.worktree?.repositoryDirectory
+      if (config && repositoryDirectory) {
         await save({
           ...config,
-          directory: detail.info.github.repositoryDirectory,
+          directory: repositoryDirectory,
         })
       }
       await load()

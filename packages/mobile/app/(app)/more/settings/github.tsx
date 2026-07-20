@@ -47,6 +47,7 @@ export default function GithubSettingsScreen() {
   const githubConnected = Boolean(bootstrap?.github?.connected)
   const oauthConfigured = Boolean(bootstrap?.github?.oauthDeviceConfigured)
   const githubTokenAvailable = Boolean(bootstrap?.github?.tokenAvailable)
+  const reconnectRequired = Boolean(bootstrap?.github?.reconnectRequired)
 
   const load = useCallback(async () => {
     if (!client) return
@@ -77,9 +78,9 @@ export default function GithubSettingsScreen() {
       oauthConfigured ? "OAuth ready" : "OAuth needs client ID",
       bootstrap?.github?.oauthClientSource ? `Source ${bootstrap.github.oauthClientSource}` : "Source host setup",
       githubTokenAvailable ? "GH token stored" : "GH token missing",
-      githubConnected ? "GitHub linked" : "GitHub offline",
+      githubConnected ? "GitHub linked" : reconnectRequired ? "Reconnect needed" : "GitHub offline",
     ],
-    [bootstrap?.github?.oauthClientSource, githubConnected, githubTokenAvailable, oauthConfigured],
+    [bootstrap?.github?.oauthClientSource, githubConnected, githubTokenAvailable, oauthConfigured, reconnectRequired],
   )
 
   async function syncBootstrap(messageText?: string) {
@@ -256,6 +257,17 @@ export default function GithubSettingsScreen() {
       </SurfaceCard>
 
       {message ? <ErrorBanner message={message} /> : null}
+
+      {reconnectRequired ? (
+        <View className="rounded-[8px] border border-danger/30 bg-danger/10 p-4 gap-3">
+          <Text className="text-sm font-medium text-ink">GitHub session expired</Text>
+          <Text className="text-sm leading-6 text-soft">
+            Your stored GitHub access expired and couldn't refresh automatically. Reconnect to keep repo import,
+            branches, and pull requests working.
+          </Text>
+          <ActionButton label="Reconnect GitHub" loading={oauthBusy} onPress={() => void startGithubOAuth()} />
+        </View>
+      ) : null}
 
       <SurfaceCard
         eyebrow="OAuth device sign-in"

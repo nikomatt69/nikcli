@@ -34,6 +34,7 @@ export type Session = {
       name: string
       branch: string
       directory: string
+      repositoryDirectory?: string
       cleanedAt?: number
     }
     pullRequest?: {
@@ -44,6 +45,14 @@ export type Session = {
     lastCommitSha?: string
     publishedAt?: number
     publishError?: string
+  }
+  /** Isolated worktree for plain (non-GitHub) sessions; GitHub sessions keep theirs under `github.worktree`. */
+  worktree?: {
+    name: string
+    branch: string
+    directory: string
+    repositoryDirectory?: string
+    cleanedAt?: number
   }
 }
 
@@ -455,6 +464,7 @@ export type MobileBootstrap = {
   github: {
     connected: boolean
     tokenAvailable?: boolean
+    reconnectRequired?: boolean
     oauthDeviceEnabled: boolean
     oauthDeviceConfigured?: boolean
     oauthClientSource?: "flag" | "config" | "env"

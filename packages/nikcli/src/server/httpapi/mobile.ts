@@ -70,6 +70,7 @@ export namespace MobileHttpApi {
     github: Schema.Struct({
       connected: Schema.Boolean,
       tokenAvailable: Schema.optional(Schema.Boolean),
+      reconnectRequired: Schema.optional(Schema.Boolean),
       oauthDeviceEnabled: Schema.Boolean,
       oauthDeviceConfigured: Schema.optional(Schema.Boolean),
       oauthClientSource: Schema.optional(Schema.Literals(["flag", "config", "env"])),

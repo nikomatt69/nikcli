@@ -184,8 +184,8 @@ export const SessionLifecycleRoutes = () =>
     .post(
       "/session/:sessionID/cleanup",
       describeRoute({
-        summary: "Cleanup GitHub session worktree",
-        description: "Remove the isolated worktree created for a GitHub-backed mobile session.",
+        summary: "Cleanup session worktree",
+        description: "Remove the isolated worktree created for a mobile session (GitHub-linked or plain).",
         operationId: "mobile.github.session.cleanup",
         responses: {
           200: {
@@ -205,10 +205,12 @@ export const SessionLifecycleRoutes = () =>
             return yield* service.getAnyProject(c.req.valid("param").sessionID)
           }),
         )
-        if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
-        if (sessionInfo.github.worktree.cleanedAt) return c.json({ success: true as const })
+        const worktreeInfo = sessionInfo.github?.worktree ?? sessionInfo.worktree
+        if (!worktreeInfo) return c.json({ error: "Session has no isolated worktree to clean up" }, 400)
+        if (worktreeInfo.cleanedAt) return c.json({ success: true as const })
 
-        const repositoryDirectory = sessionInfo.github.repositoryDirectory || sessionInfo.github.worktree.directory
+        const repositoryDirectory =
+          sessionInfo.github?.repositoryDirectory || worktreeInfo.repositoryDirectory || worktreeInfo.directory
         const idle = await withInstanceAsync({ directory: sessionInfo.directory }, async () => {
           const status = await runStatus(
             Effect.gen(function* () {
@@ -229,7 +231,7 @@ export const SessionLifecycleRoutes = () =>
           await runWorktree(
             Effect.gen(function* () {
               const service = yield* Worktree.Service
-              yield* service.remove({ directory: sessionInfo.github!.worktree.directory })
+              yield* service.remove({ directory: worktreeInfo.directory })
             }),
           )
         })
@@ -240,8 +242,11 @@ export const SessionLifecycleRoutes = () =>
             Effect.gen(function* () {
               const service = yield* Session.Service
               yield* service.update(sessionInfo.id, (draft) => {
-                if (!draft.github) return
-                draft.github.worktree.cleanedAt = Date.now()
+                if (draft.github) {
+                  draft.github.worktree.cleanedAt = Date.now()
+                  return
+                }
+                if (draft.worktree) draft.worktree.cleanedAt = Date.now()
               })
             }),
           )

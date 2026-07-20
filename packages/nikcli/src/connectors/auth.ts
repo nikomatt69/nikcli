@@ -11,6 +11,8 @@ export namespace ConnectorAuth {
     apiKey: Schema.optional(Schema.String),
     teamId: Schema.optional(Schema.String),
     expiresAt: Schema.optional(Schema.Number),
+    refreshToken: Schema.optional(Schema.String),
+    refreshTokenExpiresAt: Schema.optional(Schema.Number),
   })
   export const Entry = zodObject(EntrySchema)
   export type Entry = DeepMutable<Schema.Schema.Type<typeof EntrySchema>>

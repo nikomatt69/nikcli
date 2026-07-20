@@ -66,6 +66,12 @@ export const MiscRoutes = () =>
           github: {
             connected: Boolean(user),
             tokenAvailable: Boolean(storedGithubToken),
+            // A token is stored but the live GitHub call still failed (expired
+            // access token and the refresh attempt inside githubToken() also
+            // failed, e.g. because the refresh token itself is dead/revoked).
+            // Lets the mobile UI show a clear "reconnect" prompt instead of a
+            // generic offline chip.
+            reconnectRequired: Boolean(storedGithubToken) && !user,
             oauthDeviceEnabled: true,
             oauthDeviceConfigured: Boolean(oauth.clientID),
             oauthClientSource: oauth.source,

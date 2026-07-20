@@ -1,0 +1,233 @@
+{
+  "$schema": "https://nikcli.store/theme.json",
+  "defs": {
+    "bgDark": "#0d0d12",
+    "bgDarkAlt": "#0e0507",
+    "bgDarkElement": "#1b1015",
+    "fgDark": "#e2e2ea",
+    "fgDarkAlt": "#7c7c8a",
+    "borderDark": "#281b22",
+    "bgLight": "#f5f5f7",
+    "bgLightAlt": "#ffffff",
+    "bgLightElement": "#e4e4e8",
+    "fgLight": "#1c1c1e",
+    "fgLightAlt": "#6e6e78",
+    "borderLight": "#d0d0d8",
+    "primaryDark": "#ff4500",
+    "primaryLight": "#d64500",
+    "secondaryDark": "#8a0000",
+    "secondaryLight": "#660000",
+    "red": "#e63946",
+    "redDark": "#ff5a5f",
+    "orange": "#f4a261",
+    "orangeDark": "#ff9f43",
+    "yellow": "#e9c46a",
+    "yellowDark": "#ffd166",
+    "green": "#2a9d8f",
+    "greenDark": "#06d6a0",
+    "teal": "#2a9d8f",
+    "tealDark": "#4ecdc4"
+  },
+  "theme": {
+    "primary": {
+      "dark": "primaryDark",
+      "light": "primaryLight"
+    },
+    "secondary": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "accent": {
+      "dark": "primaryDark",
+      "light": "primaryLight"
+    },
+    "error": {
+      "dark": "redDark",
+      "light": "red"
+    },
+    "warning": {
+      "dark": "orangeDark",
+      "light": "orange"
+    },
+    "success": {
+      "dark": "greenDark",
+      "light": "green"
+    },
+    "info": {
+      "dark": "tealDark",
+      "light": "teal"
+    },
+    "text": {
+      "dark": "fgDark",
+      "light": "fgLight"
+    },
+    "textMuted": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "background": {
+      "dark": "bgDark",
+      "light": "bgLight"
+    },
+    "backgroundPanel": {
+      "dark": "bgDarkAlt",
+      "light": "bgLightAlt"
+    },
+    "backgroundElement": {
+      "dark": "bgDarkElement",
+      "light": "bgLightElement"
+    },
+    "border": {
+      "dark": "borderDark",
+      "light": "borderLight"
+    },
+    "borderActive": {
+      "dark": "primaryDark",
+      "light": "primaryLight"
+    },
+    "borderSubtle": {
+      "dark": "bgDarkAlt",
+      "light": "bgLightElement"
+    },
+    "diffAdded": {
+      "dark": "greenDark",
+      "light": "green"
+    },
+    "diffRemoved": {
+      "dark": "redDark",
+      "light": "red"
+    },
+    "diffContext": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "diffHunkHeader": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "diffHighlightAdded": {
+      "dark": "#1a3325",
+      "light": "#e6f7e6"
+    },
+    "diffHighlightRemoved": {
+      "dark": "#331a1a",
+      "light": "#f7e6e6"
+    },
+    "diffAddedBg": {
+      "dark": "#0f2a1a",
+      "light": "#e6f5e6"
+    },
+    "diffRemovedBg": {
+      "dark": "#2a0f0f",
+      "light": "#f5e6e6"
+    },
+    "diffContextBg": {
+      "dark": "bgDarkAlt",
+      "light": "bgLight"
+    },
+    "diffLineNumber": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "diffAddedLineNumberBg": {
+      "dark": "#0a2514",
+      "light": "#d4f0d4"
+    },
+    "diffRemovedLineNumberBg": {
+      "dark": "#25140a",
+      "light": "#f0d4d4"
+    },
+    "markdownText": {
+      "dark": "fgDark",
+      "light": "fgLight"
+    },
+    "markdownHeading": {
+      "dark": "primaryDark",
+      "light": "primaryLight"
+    },
+    "markdownLink": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "markdownLinkText": {
+      "dark": "greenDark",
+      "light": "green"
+    },
+    "markdownCode": {
+      "dark": "yellowDark",
+      "light": "yellow"
+    },
+    "markdownBlockQuote": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "markdownEmph": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "markdownStrong": {
+      "dark": "orangeDark",
+      "light": "orange"
+    },
+    "markdownHorizontalRule": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "markdownListItem": {
+      "dark": "primaryDark",
+      "light": "primaryLight"
+    },
+    "markdownListEnumeration": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "markdownImage": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "markdownImageText": {
+      "dark": "greenDark",
+      "light": "green"
+    },
+    "markdownCodeBlock": {
+      "dark": "fgDark",
+      "light": "fgLight"
+    },
+    "syntaxComment": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "syntaxKeyword": {
+      "dark": "secondaryDark",
+      "light": "secondaryLight"
+    },
+    "syntaxFunction": {
+      "dark": "primaryDark",
+      "light": "primaryLight"
+    },
+    "syntaxVariable": {
+      "dark": "fgDark",
+      "light": "fgLight"
+    },
+    "syntaxString": {
+      "dark": "greenDark",
+      "light": "green"
+    },
+    "syntaxNumber": {
+      "dark": "orangeDark",
+      "light": "orange"
+    },
+    "syntaxType": {
+      "dark": "tealDark",
+      "light": "teal"
+    },
+    "syntaxOperator": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    },
+    "syntaxPunctuation": {
+      "dark": "fgDarkAlt",
+      "light": "fgLightAlt"
+    }
+  }
+}

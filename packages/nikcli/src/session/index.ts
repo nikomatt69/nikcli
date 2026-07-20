@@ -65,6 +65,21 @@ export namespace Session {
 
   const strip = zodObjectMode("strip")
 
+  export const WorktreeInfoSchema = Schema.Struct({
+    name: Schema.String,
+    branch: Schema.String,
+    directory: Schema.String,
+    /**
+     * The original (non-worktree) repo directory this worktree was branched
+     * from. Only set on the top-level `Session.Info.worktree` -- GitHub
+     * sessions already carry the equivalent `github.repositoryDirectory`
+     * as a sibling field.
+     */
+    repositoryDirectory: Schema.optional(Schema.String),
+    cleanedAt: Schema.optional(Schema.Number),
+  }).annotate({ ...strip, identifier: "SessionWorktree" })
+  const WorktreeInfo = zodObject(WorktreeInfoSchema)
+
   export const GithubInfoSchema = Schema.Struct({
     owner: Schema.String,
     repo: Schema.String,
@@ -75,12 +90,7 @@ export namespace Session {
     cloneUrl: Schema.optional(Schema.String),
     htmlUrl: Schema.optional(Schema.String),
     private: Schema.optional(Schema.Boolean),
-    worktree: Schema.Struct({
-      name: Schema.String,
-      branch: Schema.String,
-      directory: Schema.String,
-      cleanedAt: Schema.optional(Schema.Number),
-    }).annotate(strip),
+    worktree: WorktreeInfoSchema,
     pullRequest: Schema.optional(
       Schema.Struct({
         number: Schema.Number,
@@ -140,6 +150,13 @@ export namespace Session {
       }).annotate(strip),
     ),
     github: Schema.optional(GithubInfoSchema),
+    /**
+     * Isolated worktree for plain (non-GitHub) sessions -- see
+     * createSessionWorktreeContext in server/routes/mobile/helpers.ts.
+     * GitHub-linked sessions keep their worktree nested under `github`
+     * instead, since it doubles as PR/publish metadata there.
+     */
+    worktree: Schema.optional(WorktreeInfoSchema),
     mobile: Schema.optional(MobileInfoSchema),
     title: Schema.String,
     activeCommand: Schema.optional(Schema.String),
@@ -199,6 +216,7 @@ export namespace Session {
       disabledInstructions: z.array(z.string()).optional(),
       disabledTools: z.record(z.string(), z.boolean()).optional(),
       github: GithubInfo.optional(),
+      worktree: WorktreeInfo.optional(),
       workspaceID: Info.shape.workspaceID,
     })
     .optional()
@@ -294,6 +312,7 @@ export namespace Session {
     disabledInstructions?: string[]
     disabledTools?: Record<string, boolean>
     github?: z.infer<typeof GithubInfo>
+    worktree?: z.infer<typeof WorktreeInfo>
     mobile?: MobileInfo
   }
 
@@ -426,6 +445,7 @@ export namespace Session {
       disabledInstructions: input.disabledInstructions,
       disabledTools: input.disabledTools,
       github: input.github,
+      worktree: input.worktree,
       mobile: input.mobile,
       time: {
         created: Date.now(),
@@ -875,6 +895,7 @@ export namespace Session {
                   disabledInstructions: input?.disabledInstructions,
                   disabledTools: input?.disabledTools,
                   github: input?.github,
+                  worktree: input?.worktree,
                   workspaceID: input?.workspaceID,
                 }),
               catch: asSessionError,
