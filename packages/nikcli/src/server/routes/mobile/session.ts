@@ -42,6 +42,7 @@ import {
   toHeadersObject,
   createExecutionWorkspace,
   createSessionWorktreeContext,
+  runWorktree,
   runWorktreeForDirectory,
   statusForSession,
 } from "./helpers"
@@ -622,6 +623,33 @@ export const SessionRoutes = () =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
+
+        // Best-effort: remove the session's isolated worktree (GitHub-linked
+        // or plain) before deleting the record, so deleting a session never
+        // leaks a worktree/branch on disk. Never blocks the delete itself.
+        const sessionInfo = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        ).catch(() => undefined)
+        const worktreeInfo = sessionInfo?.github?.worktree ?? sessionInfo?.worktree
+        if (sessionInfo && worktreeInfo && !worktreeInfo.cleanedAt) {
+          const repositoryDirectory =
+            sessionInfo.github?.repositoryDirectory || worktreeInfo.repositoryDirectory || worktreeInfo.directory
+          await withInstanceAsync({ directory: repositoryDirectory }, async () => {
+            if (sessionInfo.workspaceID) {
+              await Workspace.remove(sessionInfo.workspaceID).catch(() => undefined)
+            }
+            await runWorktree(
+              Effect.gen(function* () {
+                const service = yield* Worktree.Service
+                yield* service.remove({ directory: worktreeInfo.directory })
+              }),
+            )
+          }).catch(() => undefined)
+        }
+
         await runSession(
           Effect.gen(function* () {
             const service = yield* Session.Service
