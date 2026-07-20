@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.181.0 (July 2026)
+
+## Core
+
+- Improve session deletion process by ensuring isolated worktrees are cleaned up (@nikomatt69)
+- Enhance GitHub session management and UI notifications (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(github): enhance GitHub session management and UI notifications
+  - feat(session): improve session deletion process by ensuring isolated worktrees are cleaned up
+
 ## v1.176.0 (July 2026)
 
 - No notable changes

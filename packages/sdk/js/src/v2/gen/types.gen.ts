@@ -590,6 +590,14 @@ export type EventPermissionReplied = {
   }
 }
 
+export type SessionWorktree = {
+  name: string
+  branch: string
+  directory: string
+  repositoryDirectory?: string
+  cleanedAt?: number
+}
+
 export type SessionGithub = {
   owner: string
   repo: string
@@ -600,12 +608,7 @@ export type SessionGithub = {
   cloneUrl?: string
   htmlUrl?: string
   private?: boolean
-  worktree: {
-    name: string
-    branch: string
-    directory: string
-    cleanedAt?: number
-  }
+  worktree: SessionWorktree
   pullRequest?: {
     number: number
     url: string
@@ -658,6 +661,7 @@ export type Session = {
     url: string
   }
   github?: SessionGithub
+  worktree?: SessionWorktree
   mobile?: SessionMobile
   title: string
   activeCommand?: string
@@ -3703,6 +3707,7 @@ export type MobileBootstrap = {
   github: {
     connected: boolean
     tokenAvailable?: boolean
+    reconnectRequired?: boolean
     oauthDeviceEnabled: boolean
     oauthDeviceConfigured?: boolean
     oauthClientSource?: "flag" | "config" | "env"
@@ -6484,6 +6489,7 @@ export type SessionCreateData = {
       [key: string]: boolean
     }
     github?: SessionGithub
+    worktree?: SessionWorktree
     workspaceID?: string
   }
   path?: never
@@ -11483,6 +11489,8 @@ export type ConnectorsAuthSetData = {
     apiKey?: string
     teamId?: string
     expiresAt?: number
+    refreshToken?: string
+    refreshTokenExpiresAt?: number
   }
   path: {
     name: string
