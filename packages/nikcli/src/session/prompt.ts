@@ -1282,7 +1282,10 @@ export namespace SessionPrompt {
   }
 
   async function createUserMessage(input: PromptInput) {
-    const agent = await agentRequired(input.agent ?? (await defaultAgent()))
+    // Opencode #28816: an inline `@agent` mention lives on input.parts as an
+    // AgentPart; fall back to it when the top-level agent field is absent.
+    const inlineAgentName = input.parts.find((p): p is MessageV2.AgentPart => p.type === "agent")?.name
+    const agent = await agentRequired(input.agent ?? inlineAgentName ?? (await defaultAgent()))
 
     const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
     const full =
@@ -2311,7 +2314,21 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
           },
         ]
-      : [...templateParts, ...(input.parts ?? [])]
+      : command.skill
+        ? // Opencode #28239: skill template is hidden from chat/TUI but still
+          // delivered to the LLM. The slash command itself stays visible (not
+          // synthetic) so the user sees what they typed; the SKILL.md body is
+          // marked synthetic so UIs filter it out.
+          [
+            {
+              type: "text" as const,
+              text: `/${command.name}`,
+              synthetic: false,
+            },
+            ...templateParts.map((p) => (p.type === "text" ? { ...p, synthetic: true } : p)),
+            ...(input.parts ?? []),
+          ]
+        : [...templateParts, ...(input.parts ?? [])]
 
     await runPlugin(
       Effect.gen(function* () {

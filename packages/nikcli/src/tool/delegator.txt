@@ -1,25 +1,20 @@
-Monitor and supervise background delegation jobs.
+Monitor and supervise background delegation jobs without blocking the main agent.
 
-The delegator provides status updates, progress reports, and summaries for background subagent jobs without blocking the main agent.
+Actions:
+- `status`: get current status (running, synthesizing, complete, error, etc.) — also returns Worker Session and Delegator Session IDs for TUI navigation
+- `progress`: preview current output of a running/completed job
+- `summarize`: brief summary of latest results
+- `cancel`: stop a running job
 
-Available actions:
-- `status`: Get the current status of a delegation job (running, synthesizing, complete, error, etc.)
-- `progress`: Preview the current progress/output of a running or completed delegation
-- `summarize`: Generate a brief summary of a delegation's latest available results
-
-When to use the delegator:
-- After launching a background task with `task(background: true)`, use the delegator to check on its progress before it finishes
-- When you need a quick status update without reading the full result
+Use the delegator:
+- After launching `task(background: true)`, to check progress before it finishes
+- For a quick status update without reading the full result
 - To get a concise summary of completed background tasks
 
-Note: Background tasks automatically wake the parent session on completion with a result summary. You do not need to poll — a completion message will be injected when the task finishes. Use the delegator only when you want to check progress before the wake arrives.
+Background tasks automatically wake the parent session on completion with a result summary — you do NOT need to poll. Use the delegator only when you want progress before the wake arrives. The delegator reads structured delegation state; it does not execute the task or spawn agents.
 
-The `status` action includes Worker Session and Delegator Session IDs — useful for navigating to subagent sessions in the TUI.
-
-Example pattern:
-1. Launch a background task: `task(description="explore auth", prompt="...", subagent_type="explore", background=true)`
-2. Continue working on other tasks
-3. Check status if needed: `delegator(delegationId="purple-fish-xyz", action="status")`
-4. When the task finishes, you'll be woken automatically with the result
-
-Note: The delegator reads structured delegation state and provides structured feedback. It does not execute the task itself or spawn additional agents.
+Example:
+1. Launch: `task(description="explore auth", prompt="...", subagent_type="explore", background=true)`
+2. Continue other work
+3. Check status: `delegator(delegationId="...", action="status")`
+4. Wake arrives automatically on completion

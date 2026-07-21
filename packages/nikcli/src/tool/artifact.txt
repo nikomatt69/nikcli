@@ -1,13 +1,11 @@
 Publish a local file as a hosted artifact on nikcli.store — a live page the user can open in a browser or the nikcli mobile app.
 
-Use this when the output is better viewed as a page than as terminal text: an HTML report or dashboard, a Markdown document, an image, or a video. The file must already exist on disk — write it first (Write tool), then publish it with this tool.
+Use for outputs better viewed as a page than terminal text: HTML report/dashboard, Markdown doc, image, video. Write the file first (Write tool), then publish.
 
-Supported files: .html/.htm, .md/.markdown, .txt, images (.png, .jpg, .jpeg, .gif, .webp, .svg) and videos (.mp4, .webm, .mov, .m4v). Maximum size 25MB.
+Supported files: .html/.htm, .md/.markdown, .txt, images (.png .jpg .jpeg .gif .webp .svg), videos (.mp4 .webm .mov .m4v). Max 25MB.
 
-HTML pages must be fully self-contained: inline all CSS and JavaScript and embed images as data: URIs — the hosted page cannot load external scripts, styles, or media (strict CSP).
+HTML pages must be fully self-contained: inline all CSS/JS and embed images as data: URIs — strict CSP forbids external scripts/styles/media.
 
-Publishing returns a capability link (https://nikcli.store/artifact/{id}?key=...) that opens immediately in any browser. Include that URL in your response so the user can open it. Artifacts are private by default: without the ?key= link, only the publisher's logged-in account can view the page.
+Returns a capability link `https://nikcli.store/artifact/{id}?key=...`. Include it in your response so the user can open it. Artifacts are private by default; without the `?key=` only the publisher's logged-in account can view. No login required to publish.
 
-Publishing never requires a login or password. When the CLI has an active user session it ties the artifact to that account; otherwise the artifact is anonymous and reachable only through its capability link.
-
-To publish a new version of an existing artifact (same URL), pass its artifactID. Without artifactID a new artifact with a new URL is created.
+Pass an existing `artifactID` to publish a new version at the same URL; without it, a new artifact with a new URL is created.

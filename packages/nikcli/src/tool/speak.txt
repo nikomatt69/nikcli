@@ -1,27 +1,18 @@
-Convert text to speech and play it on the machine speakers (non-blocking).
+Convert text to speech and play it on the machine speakers (non-blocking). Supports ElevenLabs and OpenRouter.
 
-This tool supports multiple TTS providers (ElevenLabs and OpenRouter).
+ElevenLabs audio tags (inline in `text`): `[laughs] [sighs] [excited] [sad] [angry] [whispers] [shouts] [dramatically] [calmly] [British accent] [strong French accent]`.
 
-Audio tag examples (ElevenLabs):
-  [laughs] [sighs] [excited] [sad] [angry]
-  [whispers] [shouts] [dramatically] [calmly]
-  [British accent] [strong French accent]
-
-Usage:
-- text: Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc.
-- provider: TTS provider (e.g., elevenlabs, openrouter)
-- stability: Voice stability (0-1). Lower = more expressive. Default: 0.5
-- similarityBoost: Voice similarity boost (0-1). Default: 0.75
-- speed: Speech speed multiplier (0.5-2). Default: 1.0
-- volume: Playback volume (0-2). Default: 1.0
-- voiceId: TTS voice ID (provider-dependent default)
-- modelId: TTS model ID (provider-dependent default)
-- outputFormat: TTS output format (provider-dependent default)
-- timeoutMs: Request timeout in milliseconds (default: 30000)
+Parameters:
+- text: required; include audio tags as needed
+- provider: elevenlabs | openrouter
+- stability: 0–1 (default 0.5; lower = more expressive)
+- similarityBoost: 0–1 (default 0.75)
+- speed: 0.5–2 (default 1.0)
+- volume: 0–2 (default 1.0)
+- voiceId, modelId, outputFormat: provider-dependent defaults
+- timeoutMs: default 30000
 
 Usage guidance:
-- Use in short bursts to notify about important state changes
-- Good for: task completion, errors requiring attention, questions needing user input
-- Keep messages concise (1-2 sentences)
-
-Note: audio plays on the device running nikcli.
+- Short bursts for important state changes — completion, errors requiring attention, questions needing user input
+- Keep messages concise (1–2 sentences)
+- Audio plays on the device running nikcli

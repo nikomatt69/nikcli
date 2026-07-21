@@ -1,15 +1,15 @@
-Run a long-lived shell command in the background and follow it without blocking the current turn.
+Run a long-lived command in the background without blocking the current turn.
 
-Use this for typecheck, builds, test suites, dependency installs, dev servers, watchers, log tails, PR polling scripts, or any command that should keep running while the agent continues working.
+Use for: typecheck, builds, test suites, dependency installs, dev servers, watchers, log tails, PR polling, anything that should keep running while the agent works.
 
 What it does:
-- Starts the command in the background
-- Persists stdout/stderr to a log file on disk
-- Streams live status back into the session UI
-- Wakes the parent session when the command finishes by default
+- Starts the command in the background.
+- Persists stdout/stderr to a log file on disk.
+- Streams live status into the session UI.
+- Wakes the parent session when the command finishes.
 
-Prefer this over `bash` for any command that takes more than a few seconds or never exits on its own — `bash` blocks the turn and will hang on such commands.
+Prefer this over `bash` for anything that takes more than a few seconds or never exits — `bash` blocks and hangs on such commands.
 
-Only a short preview of the output is streamed into the session. To inspect the complete output (e.g. the full list of typecheck or build errors), read the job's log file (the "Log file:" path returned when the job starts) with the read tool.
+Only a short preview is streamed into the session. To inspect complete output (e.g. full typecheck errors), read the job's log file (the "Log file:" path returned when the job starts) with the Read tool.
 
-When the command is a package script or install, use the project's active package manager (shown as "Package manager" in <env>), e.g. `bun run typecheck` in a bun project — never mix package managers.
+Use the project's active package manager (e.g. `bun run typecheck` in a bun project) — never mix package managers.

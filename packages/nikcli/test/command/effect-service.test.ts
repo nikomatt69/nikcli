@@ -16,6 +16,8 @@ process.env.XDG_STATE_HOME = path.join(testHome, "state")
 const { InstanceScope } = await import("@/effect")
 const { Command } = await import("@/command")
 const { Instance } = await import("@/project/instance")
+import { z } from "zod"
+type CommandInfo = z.infer<typeof Command.Info>
 
 const projectDirs: string[] = []
 
@@ -56,8 +58,8 @@ describe("Command.Service", () => {
       aliases: ["c", "cx"],
       hints: [],
     }
-    const parsed = Command.Info.parse(sample)
-    expect((parsed as Command.Info).aliases).toEqual(["c", "cx"])
+    const parsed = Command.Info.parse(sample) as unknown as CommandInfo
+    expect(parsed.aliases).toEqual(["c", "cx"])
   })
 })
 

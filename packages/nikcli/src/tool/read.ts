@@ -10,6 +10,7 @@ import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Log } from "@/util/log"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
@@ -20,7 +21,9 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
 }
 
 const Parameters = Schema.Struct({
-  filePath: Schema.String.annotate({ description: "The absolute path to the file or directory to read" }),
+  filePath: Schema.String.annotate({
+    description: "The absolute path to the file or directory to read",
+  }),
   offset: Schema.optional(Schema.NumberFromString).annotate({
     description: "The line number to start reading from (1-indexed)",
   }),
@@ -150,7 +153,14 @@ export const ReadTool = Tool.define("read", {
         const lsp = yield* LSP.Service
         yield* lsp.touchFile(filepath, false)
       }),
-    )
+    ).catch((error) => {
+      // Opencode #27895: LSP warm-up is best-effort. A failed warm-up must
+      // not break an otherwise successful file read. Carry the InstanceRef
+      // into the fork so the Effect resolves the LSP service in the right
+      // instance scope (otherwise `withCurrentInstance` falls back to a
+      // detached scope and silently no-ops).
+      Log.Default.warn("lsp warmup failed", { filepath, error })
+    })
     await FileTime.read(ctx.sessionID, filepath)
 
     return {

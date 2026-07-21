@@ -1,26 +1,23 @@
 Generate images from a text prompt.
 
-Available preset generators (use `generator: "<name>"`):
-- gpt_image, gpt_image_mini, gpt_image_1_5, dall_e_3        — OpenAI direct (needs OPENAI_API_KEY)
-- imagen_4, imagen_4_ultra, imagen_4_fast                   — Google Imagen 4 direct (needs GOOGLE_GENERATIVE_AI_API_KEY)
-- grok_imagine, grok_imagine_pro                            — xAI direct (needs XAI_API_KEY)
-- nanobanana, nanobanana_openai                             — OpenRouter-routed (needs OPENROUTER_API_KEY)
-- flux_dev, flux_schnell, flux_pro, sdxl                    — Together AI (needs TOGETHER_API_KEY)
+Preset generators (use `generator: "<name>"`):
+- OpenAI (needs OPENAI_API_KEY): gpt_image, gpt_image_mini, gpt_image_1_5, dall_e_3
+- Google Imagen 4 (GOOGLE_GENERATIVE_AI_API_KEY): imagen_4, imagen_4_ultra, imagen_4_fast
+- xAI (XAI_API_KEY): grok_imagine, grok_imagine_pro
+- OpenRouter-routed (OPENROUTER_API_KEY): nanobanana, nanobanana_openai
+- Together AI (TOGETHER_API_KEY): flux_dev, flux_schnell, flux_pro, sdxl
 
-You can also bypass presets entirely by passing `provider` + `model`:
-  generate_image({ prompt, provider: "openai", model: "gpt-image-1" })
-  generate_image({ prompt, provider: "google", model: "imagen-4.0-generate-001" })
-  generate_image({ prompt, provider: "xai", model: "grok-imagine-image" })
+Bypass presets with `provider` + `model` (e.g. `provider: "openai", model: "gpt-image-1"`).
 
 Parameters:
-- prompt: text prompt for image generation (required)
-- generator: preset name (optional, see list above)
-- provider: provider ID override — wins over generator and config (optional)
-- model: model ID override — wins over generator and config (optional)
-- n: number of images to generate, 1–4 (default: 1)
-- size: output size as "{width}x{height}" (optional, e.g. "1024x1024")
-- aspectRatio: output aspect ratio as "{width}:{height}" (optional, e.g. "16:9")
-- seed: deterministic seed (optional)
-- providerOptions: provider-specific options, passed through to the underlying image API (optional)
+- prompt (required): text prompt
+- generator: preset name (optional)
+- provider: provider ID override (wins over generator and config)
+- model: model ID override (wins over generator and config)
+- n: 1–4 (default 1)
+- size: "WxH" (e.g. "1024x1024")
+- aspectRatio: "W:H" (e.g. "16:9")
+- seed: deterministic seed
+- providerOptions: provider-specific passthrough
 
-Resolution order: params.provider+params.model > params.generator > config.image > preset default (gpt_image).
+Resolution order: `params.provider+model` > `params.generator` > `config.image` > preset default (gpt_image).

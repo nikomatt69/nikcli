@@ -18,6 +18,7 @@ import { Question } from "@/question"
 import { DeltaCoalescer } from "./delta-coalescer"
 import { MessageRepo } from "./message-repo"
 import { Context, Effect, Layer } from "effect"
+import { stripDanglingXmlArtifacts } from "@/util/dangling-xml"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace SessionProcessor {
@@ -587,7 +588,7 @@ export namespace SessionProcessor {
 
                 case "text-delta":
                   if (currentText) {
-                    currentText.text += value.text
+                    currentText.text += stripDanglingXmlArtifacts(value.text)
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
                     if (currentText.text) await updatePartCoalesced(currentText, value.text)
                   }
@@ -718,21 +719,37 @@ export namespace SessionProcessor {
             snapshot = undefined
           }
           const p = await MessageV2.parts(input.assistantMessage.id)
+          // Opencode #27895: distinguish tool states during cleanup.
+          // - `running`: the tool may still produce a real result; let its
+          //   promise settle rather than hard-erroring it.
+          // - `pending`: the stream/runtime never finished assembling input;
+          //   mark as interrupted so the message carries MessageAbortedError
+          //   instead of waiting forever on an empty tool part.
+          let pendingInterruptCount = 0
           for (const part of p) {
-            if (part.type === "tool" && part.state.status !== "completed" && part.state.status !== "error") {
-              await updatePart({
-                ...part,
-                state: {
-                  ...part.state,
-                  status: "error",
-                  error: "Tool execution aborted",
-                  time: {
-                    start: Date.now(),
-                    end: Date.now(),
-                  },
+            if (part.type !== "tool") continue
+            if (part.state.status === "completed" || part.state.status === "error") continue
+            if (part.state.status === "running") continue // tool will resolve itself
+            // pending (or any non-terminal state) — mark interrupted
+            pendingInterruptCount++
+            await updatePart({
+              ...part,
+              state: {
+                ...part.state,
+                status: "error",
+                error: "Tool execution interrupted before completion",
+                time: {
+                  start: Date.now(),
+                  end: Date.now(),
                 },
-              })
-            }
+              },
+            })
+          }
+          if (pendingInterruptCount > 0) {
+            log.info("marked pending tools as interrupted", {
+              count: pendingInterruptCount,
+              messageID: input.assistantMessage.id,
+            })
           }
           // If the turn was interrupted but the stream ended without throwing
           // (e.g. a tool absorbed the abort and the stream finished normally),

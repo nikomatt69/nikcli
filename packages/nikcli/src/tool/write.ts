@@ -22,10 +22,15 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
 
+// Opencode #29943: filePath is declared FIRST so local models that emit fields in
+// declaration order produce filePath before content. Otherwise large writes can
+// exhaust the token budget on content and never emit filePath → schema error.
 const Parameters = Schema.Struct({
-  content: Schema.String.annotate({ description: "The content to write to the file" }),
   filePath: Schema.String.annotate({
     description: "The absolute path to the file to write (must be absolute, not relative)",
+  }),
+  content: Schema.String.annotate({
+    description: "The content to write to the file",
   }),
 })
 
