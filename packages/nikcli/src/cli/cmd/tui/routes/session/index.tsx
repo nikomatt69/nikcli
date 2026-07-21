@@ -2163,14 +2163,25 @@ function BrowserUse(props: ToolProps<typeof BrowserTool>) {
   return (
     <Switch>
       <Match when={props.output !== undefined}>
-        <BlockTool title={`# Browser · ${label()}`} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
+        <BlockTool
+          title={`# Browser · ${label()}`}
+          titleColor={theme.primary}
+          accentColor={theme.primary}
+          part={props.part}
+        >
           <box gap={1}>
             <text fg={theme.textMuted}>{props.output}</text>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="◎" iconColor={theme.primary} pending="Running browser action..." complete={label()} part={props.part}>
+        <InlineTool
+          icon="◎"
+          iconColor={theme.primary}
+          pending="Running browser action..."
+          complete={label()}
+          part={props.part}
+        >
           Browser · {label()}
         </InlineTool>
       </Match>
@@ -3221,7 +3232,8 @@ function DialogMonitorLog(props: {
   const statusLine = createMemo(() => {
     const parts = [monitorStatusLabel(status(), exitCode())]
     const duration = durationMs()
-    if (duration !== undefined) parts.push(`${status() === "running" ? "elapsed" : "duration"} ${Locale.duration(duration)}`)
+    if (duration !== undefined)
+      parts.push(`${status() === "running" ? "elapsed" : "duration"} ${Locale.duration(duration)}`)
     if (content().length > 0) parts.push(`${formatMonitorBytes(content().length)} output`)
     return parts.join(" · ")
   })

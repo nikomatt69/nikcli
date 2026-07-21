@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.182.0 (July 2026)
+
+## Core
+
+- Enhance session linking and usage dialog functionality (@nikomatt69)
+- Enhance session management with new session tabs component (@nikomatt69)
+- Integrate local headless browser control and remove Browser Use Cloud dependencies (@nikomatt69)
+
+## TUI
+
+- Introduce session linking functionality and enhance usage dialog (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(browser): integrate local headless browser control and remove Browser Use Cloud dependencies
+  - feat(browser-control): add browser-control package and update Dockerfiles
+  - feat(tui): enhance session management with new session tabs component
+  - feat(tui): introduce session linking functionality and enhance usage dialog
+  - feat(tui): enhance session linking and usage dialog functionality
+  - feat(dependencies): add chromium-bidi package to browser-control and update bun.lock
+
 ## v1.176.0 (July 2026)
 
 - No notable changes

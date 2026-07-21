@@ -63,7 +63,11 @@ export interface RpcResponse<T> {
   readonly error?: string
 }
 
-export async function rpc<T = unknown>(socketPath: string, method: string, params?: Record<string, unknown>): Promise<T> {
+export async function rpc<T = unknown>(
+  socketPath: string,
+  method: string,
+  params?: Record<string, unknown>,
+): Promise<T> {
   const res = await fetch("http://localhost/rpc", {
     method: "POST",
     unix: socketPath,

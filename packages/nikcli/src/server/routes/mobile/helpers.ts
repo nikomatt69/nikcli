@@ -786,8 +786,7 @@ export type GithubTokenGrant = {
 }
 
 export async function storeGithubToken(tokenOrGrant: string | GithubTokenGrant) {
-  const grant: GithubTokenGrant =
-    typeof tokenOrGrant === "string" ? { accessToken: tokenOrGrant } : tokenOrGrant
+  const grant: GithubTokenGrant = typeof tokenOrGrant === "string" ? { accessToken: tokenOrGrant } : tokenOrGrant
   const { key } = await ensureGlobalGithubConnector({ enabled: true })
   const entryUpdate = {
     token: grant.accessToken,
@@ -1141,9 +1140,7 @@ export async function createSessionWorktreeContext(hostDirectory: string): Promi
   const parsed = parseGithubRemoteUrl(remoteUrl)
   if (!parsed) return { directory: worktree.directory, worktree: worktreeMeta }
 
-  const baseBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], { cwd: hostDirectory }).catch(
-    () => "",
-  )
+  const baseBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], { cwd: hostDirectory }).catch(() => "")
 
   return {
     directory: worktree.directory,
