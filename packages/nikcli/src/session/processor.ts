@@ -17,6 +17,7 @@ import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
 import { DeltaCoalescer } from "./delta-coalescer"
 import { MessageRepo } from "./message-repo"
+import { ContentLoop } from "@/util/content-loop"
 import { Context, Effect, Layer } from "effect"
 import { stripDanglingXmlArtifacts } from "@/util/dangling-xml"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -246,6 +247,8 @@ export namespace SessionProcessor {
           }
           let currentText: MessageV2.TextPart | undefined
           const reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+          // Opencode #21112: reasoning-text doom loop detection state.
+          const reasoningLoop: ContentLoop.State = ContentLoop.initial()
 
           const finishOpenReasoning = async () => {
             for (const [id, part] of Object.entries(reasoningMap)) {
@@ -305,6 +308,41 @@ export namespace SessionProcessor {
                   if (value.id in reasoningMap) {
                     const part = reasoningMap[value.id]
                     part.text = part.text.trimEnd()
+
+                    // Opencode #21112: detect reasoning-text doom loops (Kimi
+                    // K2.5 / GLM-5 sometimes repeat the same reasoning verbatim).
+                    const verdict = ContentLoop.check(reasoningLoop, part.text)
+                    reasoningLoop.ring = verdict.state.ring
+                    reasoningLoop.repeatStreak = verdict.state.repeatStreak
+                    reasoningLoop.nudges = verdict.state.nudges
+                    if (verdict.action === "abort") {
+                      // Mark the abort reason so the UI surfaces it. The
+                      // stream loop checks `input.abort.aborted` and breaks.
+                      input.assistantMessage.error = {
+                        name: "MessageAbortedError",
+                        data: {
+                          message: "Reasoning entered a doom loop — aborting",
+                        },
+                      }
+                      // Throw to break out of the loop; the outer runner
+                      // observes the assistantMessage.error and surfaces it.
+                      throw new Error("Reasoning entered a doom loop — aborting")
+                    }
+                    if (verdict.action === "nudge") {
+                      // Append a system-reminder synthetic part to nudge the model.
+                      const reminder: MessageV2.TextPart = {
+                        id: Identifier.ascending("part"),
+                        messageID: part.messageID,
+                        sessionID: part.sessionID,
+                        type: "text",
+                        text:
+                          "<system-reminder>\n" +
+                          "Your previous reasoning repeated itself. Stop re-stating the same thoughts and take the next action now (call a tool or produce a final answer).\n" +
+                          "</system-reminder>",
+                        synthetic: true,
+                      }
+                      await updatePart(reminder)
+                    }
 
                     part.time = {
                       ...part.time,

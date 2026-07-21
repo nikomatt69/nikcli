@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
+import path from "node:path"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Session } from "../../session"
@@ -182,7 +183,13 @@ export const SessionRoutes = lazy(() =>
         )
         const filteredSessions: Session.Info[] = []
         for (const session of sessions) {
-          if (directory !== undefined && session.directory !== directory) continue
+          // Opencode #22835: compare directories on a normalized path so a
+          // query like `E:\Projects\foo` matches sessions stored as
+          // `E:/Projects/foo` (Windows is happy to serve either form).
+          if (directory !== undefined) {
+            const normalize = (p: string) => path.resolve(p).split(path.sep).join("/").toLowerCase()
+            if (normalize(session.directory) !== normalize(directory)) continue
+          }
           if (query.roots && session.parentID) continue
           if (query.start !== undefined && session.time.updated < query.start) continue
           if (term !== undefined && !session.title.toLowerCase().includes(term)) continue
