@@ -53,12 +53,18 @@ export function resource(runID: string): {
   serviceVersion: string
   attributes: Record<string, string>
 } {
+  // Opencode #25841: don't overwrite fundamental OTEL env vars. Service name
+  // and resource attributes set by the operator/jaeger must win over nikcli
+  // defaults. Deployment environment name falls back to the build channel
+  // only when the operator did not set it explicitly.
+  const env = process.env
+  const userResource = resourceAttributes()
   return {
-    serviceName: "nikcli",
+    serviceName: env["OTEL_SERVICE_NAME"] ?? "nikcli",
     serviceVersion: version,
     attributes: {
-      ...resourceAttributes(),
-      "deployment.environment.name": channel,
+      ...userResource,
+      "deployment.environment.name": userResource["deployment.environment.name"] ?? channel,
       "nikcli.client": Flag.NIKCLI_CLIENT,
       "nikcli.run": runID,
       "service.instance.id": runID,
@@ -206,7 +212,13 @@ function wrapTracer(base: Tracer.Tracer): Tracer.Tracer {
 // namespace, so this only carries Effect-emitted logs (Effect.log*).
 function loggers(runID: string) {
   if (!endpoint) return []
-  return [OtlpLogger.make({ url: `${endpoint}/v1/logs`, resource: resource(runID), headers })]
+  return [
+    OtlpLogger.make({
+      url: `${endpoint}/v1/logs`,
+      resource: resource(runID),
+      headers,
+    }),
+  ]
 }
 
 // The active tracer: when an OTLP endpoint is set, Effect's native OtlpTracer
@@ -218,7 +230,11 @@ function tracerLayer(runID: string): Layer.Layer<never, never, never> {
     : endpoint
       ? Layer.unwrap(
           Effect.gen(function* () {
-            const base = yield* OtlpTracer.make({ url: `${endpoint}/v1/traces`, resource: resource(runID), headers })
+            const base = yield* OtlpTracer.make({
+              url: `${endpoint}/v1/traces`,
+              resource: resource(runID),
+              headers,
+            })
             return Layer.succeed(Tracer.Tracer, live ? wrapTracer(base) : base)
           }),
         ).pipe(Layer.provide(OtlpSerialization.layerJson), Layer.provide(FetchHttpClient.layer), Layer.orDie)

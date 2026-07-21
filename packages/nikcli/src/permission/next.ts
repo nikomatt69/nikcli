@@ -9,6 +9,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 import { PermissionRepo } from "./permission-repo"
 import { PermissionRuleset } from "./ruleset"
+import { Flag } from "@/flag/flag"
 
 export namespace PermissionNext {
   const log = Log.create({ service: "permission" })
@@ -138,6 +139,15 @@ export namespace PermissionNext {
             )
           }
           if (rule.action === "ask") {
+            // Opencode #22047: --dangerously-skip-permissions auto-approves `ask` rules
+            // after the deny check. Deny rules still throw DeniedError (above).
+            if (Flag.NIKCLI_DANGEROUSLY_SKIP_PERMISSIONS) {
+              log.warn("dangerously skipping ask rule", {
+                permission: request.permission,
+                pattern,
+              })
+              continue
+            }
             const id = parsed.id ?? Identifier.ascending("permission")
             return yield* Effect.callback<void, RejectedError | CorrectedError>((resume) => {
               const info: Request = {

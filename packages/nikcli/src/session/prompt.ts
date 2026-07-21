@@ -703,7 +703,10 @@ export namespace SessionPrompt {
       if (
         lastAssistant?.finish &&
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
-        lastUser.id < lastAssistant.id
+        // Opencode #21365: prefer parentID over ID ordering. Timestamp-based
+        // IDs from independent generators (e.g. web UI client-side) can skew,
+        // causing the loop to never exit.
+        lastAssistant.parentID === lastUser.id
       ) {
         // Check if new messages arrived while we were running
         // This handles the race condition in prompt where messages can arrive

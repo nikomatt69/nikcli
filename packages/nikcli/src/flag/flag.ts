@@ -63,6 +63,7 @@ export namespace Flag {
   // OpenTelemetry (OTLP) — standard env vars. Setting an endpoint enables export.
   export const OTEL_EXPORTER_OTLP_ENDPOINT = process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]
   export const OTEL_EXPORTER_OTLP_HEADERS = process.env["OTEL_EXPORTER_OTLP_HEADERS"]
+  export const NIKCLI_DANGEROUSLY_SKIP_PERMISSIONS = truthy("NIKCLI_DANGEROUSLY_SKIP_PERMISSIONS")
   // Live telemetry capture (spans streamed to the TUI panel) is on by default;
   // set this to opt out of the in-process span capture entirely.
   export const NIKCLI_DISABLE_OTEL_LIVE = truthy("NIKCLI_DISABLE_OTEL_LIVE")
