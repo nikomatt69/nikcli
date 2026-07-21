@@ -488,6 +488,12 @@ export namespace SessionPrompt {
 
   export interface Interface {
     assertNotBusy(sessionID: string): Effect.Effect<void>
+    /**
+     * Persist the user message (and optional tool permissions) without starting
+     * the model loop. Used by `prompt_async` so clients can observe the message
+     * immediately after the 204.
+     */
+    admit(input: PromptInput): Effect.Effect<Awaited<ReturnType<typeof admit>>, unknown>
     prompt(input: PromptInput): Effect.Effect<Awaited<ReturnType<typeof prompt>>, unknown>
     resolvePromptParts(template: string): Effect.Effect<PromptInput["parts"], unknown>
     cancel(sessionID: string): Effect.Effect<void>
@@ -498,7 +504,8 @@ export namespace SessionPrompt {
 
   export class Service extends Context.Service<Service, Interface>()("SessionPrompt.Service") {}
 
-  const prompt = fn(PromptInput, async (input) => {
+  /** Persist user message + session permissions; does not start the model loop. */
+  const admit = fn(PromptInput, async (input) => {
     const session = await sessionGet(input.sessionID)
     await runRevert(
       Effect.gen(function* () {
@@ -525,13 +532,18 @@ export namespace SessionPrompt {
       })
     }
 
+    return message
+  })
+
+  const prompt = fn(PromptInput, async (input) => {
+    const message = await admit(input)
+
     if (input.noReply === true) {
       return message
     }
 
     return loop(input.sessionID)
   })
-
   async function resolvePromptPartsImpl(ctx: InstanceContext, template: string): Promise<PromptInput["parts"]> {
     const parts: PromptInput["parts"] = [
       {
@@ -1058,25 +1070,11 @@ export namespace SessionPrompt {
         )
       }
 
+      // Clone only for plugin transforms — do not mutate text for reminders.
+      // Queued-user wrapping is applied in toModelMessages so stored parts (and
+      // therefore prompt-cache prefixes) stay stable across turns.
       const sessionMessages = clone(msgs)
-
-      if (step > 1 && lastFinished) {
-        for (const msg of sessionMessages) {
-          if (msg.info.role !== "user" || msg.info.id <= lastFinished.id) continue
-          for (const part of msg.parts) {
-            if (part.type !== "text" || part.ignored || part.synthetic) continue
-            if (!part.text.trim()) continue
-            part.text = [
-              "<system-reminder>",
-              "The user sent the following message:",
-              part.text,
-              "",
-              "Please address this message and continue with your tasks.",
-              "</system-reminder>",
-            ].join("\n")
-          }
-        }
-      }
+      const remindAfter = step > 1 && lastFinished ? lastFinished.id : undefined
 
       await runPlugin(
         Effect.gen(function* () {
@@ -1107,7 +1105,7 @@ export namespace SessionPrompt {
             role: "user" as const,
             content,
           })),
-          ...MessageV2.toModelMessages(sessionMessages, model),
+          ...MessageV2.toModelMessages(sessionMessages, model, { remindAfter }),
           ...(isLastStep
             ? [
                 {
@@ -1422,6 +1420,21 @@ export namespace SessionPrompt {
                   },
                 ]
               }
+              // Non-text, non-media data: attachments cannot be ingested by the model.
+              // Degrade to a synthetic notice instead of forwarding a mime the provider rejects.
+              if (!isModelMediaMime(part.mime)) {
+                const label = part.filename ? `"${part.filename}"` : "attachment"
+                return [
+                  {
+                    id: part.id ?? Identifier.ascending("part"),
+                    messageID: info.id,
+                    sessionID: input.sessionID,
+                    type: "text",
+                    synthetic: true,
+                    text: `[Attachment omitted: ${label} (${part.mime}) is not a media type the model can ingest. Extract text with tools if needed.]`,
+                  },
+                ]
+              }
               break
             case "file:":
               log.info("file", { mime: part.mime })
@@ -1583,6 +1596,23 @@ export namespace SessionPrompt {
                 ]
               }
 
+              // Images/PDFs: forward as model media. Everything else points the
+              // agent at the on-disk path so bash/read/python can open it instead
+              // of hard-failing the whole send on an unsupported mime.
+              if (!isModelMediaMime(part.mime)) {
+                const label = part.filename ? `"${part.filename}"` : filepath
+                return [
+                  {
+                    id: part.id ?? Identifier.ascending("part"),
+                    messageID: info.id,
+                    sessionID: input.sessionID,
+                    type: "text",
+                    synthetic: true,
+                    text: `[Attachment omitted: ${label} (${part.mime}) is not a media type the model can ingest. The file is available at ${filepath} — use bash/read/python tools to inspect it.]`,
+                  },
+                ]
+              }
+
               const file = Bun.file(filepath)
               await FileTime.read(input.sessionID, filepath)
               return [
@@ -1689,8 +1719,10 @@ export namespace SessionPrompt {
           synthetic: true,
         })
       }
-      const wasPlan = input.messages.some((msg) => msg.info.role === "assistant" && msg.info.agent === "plan")
-      if (wasPlan && input.agent.name === "build") {
+      // Edge-trigger on the immediately preceding assistant turn only. Scanning
+      // full history misfires once a third primary agent sits between plan and build.
+      const lastAssistant = input.messages.findLast((msg) => msg.info.role === "assistant")
+      if (lastAssistant?.info.agent === "plan" && input.agent.name === "build") {
         userMessage.parts.push({
           id: Identifier.ascending("part"),
           messageID: userMessage.info.id,
@@ -2392,6 +2424,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       )
   }
 
+  /** Media types the model request path can ingest as file/image parts. */
+  function isModelMediaMime(mime: string): boolean {
+    return mime.startsWith("image/") || mime === "application/pdf"
+  }
+
   function decodeDataUrlTextPayload(metadata: string, payload: string) {
     if (!metadata.includes(";base64")) {
       try {
@@ -2437,6 +2474,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               message: "Session is busy",
             })
         }),
+      admit: (input) => withInstanceContext(() => admit(input)),
       prompt: (input) => withInstanceContext(() => prompt(input)),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(

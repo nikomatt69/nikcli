@@ -60,12 +60,20 @@ describe("SessionRetry", () => {
 
   describe("retryable", () => {
     it("returns undefined when API error is not retryable", () => {
-      const err = apiError({ message: "nope", isRetryable: false, statusCode: 400 })
+      const err = apiError({
+        message: "nope",
+        isRetryable: false,
+        statusCode: 400,
+      })
       expect(SessionRetry.retryable(err.toObject())).toBeUndefined()
     })
 
     it("auto-retries 5xx server errors even when not marked retryable", () => {
-      const err = apiError({ message: "server boom", isRetryable: false, statusCode: 503 })
+      const err = apiError({
+        message: "server boom",
+        isRetryable: false,
+        statusCode: 503,
+      })
       expect(SessionRetry.retryable(err.toObject())).toBe("server boom")
     })
 
@@ -79,8 +87,48 @@ describe("SessionRetry", () => {
     })
 
     it("maps unknown-shaped errors with string data.message via JSON path", () => {
-      const plain = { name: "UnknownError" as const, data: { message: '{"code":"rate_limit_exhausted"}' } }
+      const plain = {
+        name: "UnknownError" as const,
+        data: { message: '{"code":"rate_limit_exhausted"}' },
+      }
       expect(SessionRetry.retryable(plain as never)).toBe("Provider is overloaded")
+    })
+
+    it("retries NVIDIA worker local request limit plain-text errors", () => {
+      const err = apiError({
+        message: "Worker local total request limit reached (100)",
+        isRetryable: true,
+        statusCode: 429,
+      })
+      expect(SessionRetry.retryable(err.toObject())).toBe("Provider is overloaded")
+    })
+
+    it("retries ResourceExhausted plain-text saturation", () => {
+      const err = apiError({
+        message: "ResourceExhausted: too many concurrent requests",
+        isRetryable: true,
+        statusCode: 429,
+      })
+      expect(SessionRetry.retryable(err.toObject())).toBe("Provider is overloaded")
+    })
+
+    it("retries OpenAI server_is_overloaded stream errors", () => {
+      const err = apiError({
+        message: '{"type":"error","error":{"type":"server_is_overloaded","message":"The server is overloaded"}}',
+        isRetryable: true,
+        statusCode: 503,
+      })
+      expect(SessionRetry.retryable(err.toObject())).toBe("Provider is overloaded")
+    })
+
+    it("classifies overload markers in responseBody when message is generic", () => {
+      const err = apiError({
+        message: "request failed",
+        isRetryable: true,
+        statusCode: 503,
+        responseBody: "service_unavailable_error: try again later",
+      })
+      expect(SessionRetry.retryable(err.toObject())).toBe("Provider is overloaded")
     })
   })
 

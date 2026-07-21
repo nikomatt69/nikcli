@@ -164,10 +164,20 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
       }
     }
 
-    // Check permissions if needed
+    // Check permissions if needed — include move destinations so renames cannot
+    // write outside authorized paths without an explicit allow.
+    const permissionPatterns = [
+      ...new Set(
+        fileChanges.flatMap((c) => {
+          const paths = [c.filePath]
+          if (c.movePath) paths.push(c.movePath)
+          return paths.map((p) => path.relative(Instance.worktree, p))
+        }),
+      ),
+    ]
     await ctx.ask({
       permission: "edit",
-      patterns: fileChanges.map((c) => path.relative(Instance.worktree, c.filePath)),
+      patterns: permissionPatterns,
       always: ["*"],
       metadata: {
         diff: totalDiff,
@@ -217,7 +227,10 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
 
     // Publish file change events
     for (const filePath of changedFiles) {
-      await Bus.publish(FileWatcher.Event.Updated, { file: filePath, event: "change" })
+      await Bus.publish(FileWatcher.Event.Updated, {
+        file: filePath,
+        event: "change",
+      })
     }
 
     // Notify LSP of file changes and collect diagnostics

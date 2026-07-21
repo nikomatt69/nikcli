@@ -101,6 +101,62 @@ describe("MessageV2 schemas and helpers", () => {
     expect(out[0]?.role).toBe("user")
   })
 
+  it("toModelMessages wraps queued user text only when remindAfter is set (cache-stable)", () => {
+    const sessionID = Identifier.descending("session")
+    const finishedID = Identifier.ascending("message")
+    const queuedID = Identifier.ascending("message")
+    const user: MessageV2.WithParts = {
+      info: {
+        id: queuedID,
+        role: "user",
+        sessionID,
+        time: { created: 2 },
+        agent: "a",
+        model: { providerID: "minimax-coding-plan", modelID: "MiniMax-M2.7" },
+      },
+      parts: [
+        {
+          id: Identifier.ascending("part"),
+          sessionID,
+          messageID: queuedID,
+          type: "text",
+          text: "please continue",
+        },
+        {
+          id: Identifier.ascending("part"),
+          sessionID,
+          messageID: queuedID,
+          type: "text",
+          text: "synthetic note",
+          synthetic: true,
+        },
+      ],
+    }
+    const model = {
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
+      id: "MiniMax-M2.7",
+      cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
+    } as Parameters<typeof MessageV2.toModelMessages>[1]
+
+    const plain = MessageV2.toModelMessages([user], model)
+    const plainText = JSON.stringify(plain)
+    expect(plainText).toContain("please continue")
+    expect(plainText).not.toContain("<system-reminder>")
+
+    const reminded = MessageV2.toModelMessages([user], model, {
+      remindAfter: finishedID,
+    })
+    const remindedText = JSON.stringify(reminded)
+    expect(remindedText).toContain("<system-reminder>")
+    expect(remindedText).toContain("please continue")
+    // Synthetic parts must not be wrapped — appear as plain text content
+    expect(remindedText).toContain('"text":"synthetic note"')
+    expect(remindedText).not.toContain("synthetic note\\n\\nPlease address")
+
+    // Stored part text is never mutated
+    expect(user.parts[0]?.type === "text" && user.parts[0].text).toBe("please continue")
+  })
+
   it("toModelMessages forwards reasoning parts as content (opencode PR #25303)", () => {
     // Regression for cross-model reasoning forwarding: when the destination model
     // differs from the source, anthropic-shaped reasoning parts are collapsed to

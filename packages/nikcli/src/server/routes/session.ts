@@ -160,11 +160,12 @@ export const SessionRoutes = lazy(() =>
         z.object({
           directory: z.string().optional().meta({ description: "Filter sessions by project directory" }),
           roots: z.coerce.boolean().optional().meta({ description: "Only return root sessions (no parentID)" }),
-          start: z.coerce
-            .number()
-            .optional()
-            .meta({ description: "Filter sessions updated on or after this timestamp (milliseconds since epoch)" }),
-          search: z.string().optional().meta({ description: "Filter sessions by title (case-insensitive)" }),
+          start: z.coerce.number().optional().meta({
+            description: "Filter sessions updated on or after this timestamp (milliseconds since epoch)",
+          }),
+          search: z.string().optional().meta({
+            description: "Filter sessions by title (case-insensitive)",
+          }),
           limit: z.coerce.number().optional().meta({ description: "Maximum number of sessions to return" }),
         }),
       ),
@@ -394,7 +395,12 @@ export const SessionRoutes = lazy(() =>
               if (enabled) yield* mcp.connect(key)
               else yield* mcp.disconnect(key)
             }),
-          ).catch((e) => log.warn("mcp toggle connect/disconnect failed", { key, error: String(e) }))
+          ).catch((e) =>
+            log.warn("mcp toggle connect/disconnect failed", {
+              key,
+              error: String(e),
+            }),
+          )
         } else if (kind === "skill") {
           await runSession(
             Effect.gen(function* () {
@@ -573,7 +579,9 @@ export const SessionRoutes = lazy(() =>
           )
           return c.json(session)
         } catch (err) {
-          log.error("session creation failed", { error: err instanceof Error ? err.message : String(err) })
+          log.error("session creation failed", {
+            error: err instanceof Error ? err.message : String(err),
+          })
           return c.json({ error: err instanceof Error ? err.message : String(err) }, 400)
         }
       },
@@ -1379,7 +1387,10 @@ export const SessionRoutes = lazy(() =>
             `Part mismatch: body.id='${body.id}' vs partID='${params.partID}', body.messageID='${body.messageID}' vs messageID='${params.messageID}', body.sessionID='${body.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
-        await MessageV2.get({ sessionID: params.sessionID, messageID: params.messageID })
+        await MessageV2.get({
+          sessionID: params.sessionID,
+          messageID: params.messageID,
+        })
         const part = await runSession(
           Effect.gen(function* () {
             const service = yield* Session.Service
@@ -1442,11 +1453,11 @@ export const SessionRoutes = lazy(() =>
       describeRoute({
         summary: "Send async message",
         description:
-          "Create and send a new message to a session asynchronously, starting the session if needed and returning immediately.",
+          "Create and send a new message to a session asynchronously. Persists the user message before returning 204, then runs the model loop in the background.",
         operationId: "session.prompt_async",
         responses: {
           204: {
-            description: "Prompt accepted",
+            description: "Prompt accepted; user message is already persisted",
           },
           ...errors(400, 404),
         },
@@ -1459,20 +1470,28 @@ export const SessionRoutes = lazy(() =>
       ),
       validator("json", SessionPrompt.PromptInput.omit({ sessionID: true })),
       async (c) => {
-        c.status(204)
-        c.header("Content-Type", "application/json")
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
         const ctx = captureInstanceContext()
-        return stream(c, async () => {
+        // Await admission so the user message is durable before the 204.
+        // Only the model loop runs in the background.
+        await runSessionPromptWithContext(
+          ctx,
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.admit({ ...body, sessionID })
+          }),
+        )
+        if (body.noReply !== true) {
           void runSessionPromptWithContext(
             ctx,
             Effect.gen(function* () {
               const sessionPrompt = yield* SessionPrompt.Service
-              return yield* sessionPrompt.prompt({ ...body, sessionID })
+              return yield* sessionPrompt.loop(sessionID)
             }),
           ).catch(() => undefined)
-        })
+        }
+        return c.body(null, 204)
       },
     )
     .post(

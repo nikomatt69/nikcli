@@ -331,9 +331,18 @@ function normalizeMessages(
         // Filter out reasoning parts from content
         const filteredContent = msg.content.filter((part: any) => part.type !== "reasoning")
 
-        // Include reasoning_content | reasoning_details directly on the message for all assistant messages.
-        // Always set the field even when empty — some providers (e.g. DeepSeek) may return empty
-        // reasoning_content which still needs to be sent back in subsequent requests.
+        // Only set reasoning_content | reasoning_details when this turn actually produced
+        // reasoning parts. Messages with no reasoning keep the field absent — an empty
+        // string on every assistant message breaks KV-cache prefix matching on long
+        // sessions. If the provider returned empty reasoning text, still forward "" so
+        // providers that require the field (e.g. DeepSeek) stay compatible.
+        if (reasoningParts.length === 0) {
+          return {
+            ...msg,
+            content: filteredContent,
+          }
+        }
+
         return {
           ...msg,
           content: filteredContent,

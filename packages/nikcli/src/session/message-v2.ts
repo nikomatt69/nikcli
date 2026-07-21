@@ -610,9 +610,34 @@ export namespace MessageV2 {
   export const WithParts = zodObject(WithPartsSchema)
   export type WithParts = DeepMutable<Schema.Schema.Type<typeof WithPartsSchema>>
 
-  export function toModelMessages(input: WithParts[], model: Provider.Model): ModelMessage[] {
+  export type ToModelMessagesOptions = {
+    /**
+     * When set, non-synthetic user text parts on messages with id > this value
+     * are wrapped in `<system-reminder>` for the model request only.
+     * Applied here (not by mutating stored parts) so prompt-cache prefixes stay stable.
+     */
+    remindAfter?: string
+  }
+
+  function wrapQueuedUserText(text: string): string {
+    return [
+      "<system-reminder>",
+      "The user sent the following message:",
+      text,
+      "",
+      "Please address this message and continue with your tasks.",
+      "</system-reminder>",
+    ].join("\n")
+  }
+
+  export function toModelMessages(
+    input: WithParts[],
+    model: Provider.Model,
+    options?: ToModelMessagesOptions,
+  ): ModelMessage[] {
     const result: UIMessage[] = []
     const toolNames = new Set<string>()
+    const remindAfter = options?.remindAfter
     // Track media from tool results that need to be injected as user messages
     // for providers that don't support media in tool results.
     //
@@ -667,12 +692,15 @@ export namespace MessageV2 {
           parts: [],
         }
         result.push(userMessage)
+        const shouldRemind = remindAfter !== undefined && msg.info.id > remindAfter
         for (const part of msg.parts) {
-          if (part.type === "text" && !part.ignored)
+          if (part.type === "text" && !part.ignored) {
+            const text = shouldRemind && !part.synthetic && part.text.trim() ? wrapQueuedUserText(part.text) : part.text
             userMessage.parts.push({
               type: "text",
-              text: part.text,
+              text,
             })
+          }
           // text/plain and directory files are converted into text parts, ignore them
           if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
             userMessage.parts.push({

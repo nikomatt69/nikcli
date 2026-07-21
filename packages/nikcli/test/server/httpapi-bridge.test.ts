@@ -153,13 +153,19 @@ describe("HttpApi bridge", () => {
     expect(failure.success).toBe(false)
     expect(failure.error).toBeDefined()
 
-    // prompt_async validates, then returns 204 before the prompt resolves
-    const accepted = await request("/session/ses_bridge_prompt/prompt_async", directory, {
+    // Admission now runs before the 204. A missing session must surface as 404
+    // (previously the handler returned 204 immediately and never hit sessionGet).
+    const missing = await request("/session/ses_bridge_prompt_missing/prompt_async", directory, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ parts: [{ type: "text", text: "hi" }] }),
+      body: JSON.stringify({
+        parts: [{ type: "text", text: "hi" }],
+        noReply: true,
+      }),
     })
-    expect(accepted.status).toBe(204)
+    expect(missing.status).toBe(404)
+    const missingBody = (await missing.json()) as { name?: string }
+    expect(missingBody.name).toBeTruthy()
   })
 
   it("serves GET /loop via HttpApi when experimental flag is on", async () => {

@@ -71,6 +71,30 @@ export namespace SessionRetry {
     return Math.min(baseDelay + jitter, RETRY_MAX_DELAY_NO_HEADERS)
   }
 
+  function mapPlainRetryMessage(message: string): string | undefined {
+    const lower = message.toLowerCase()
+    // NVIDIA NIM / worker saturation (often plain text, not JSON)
+    if (
+      message.includes("Worker local total request limit") ||
+      lower.includes("resourceexhausted") ||
+      lower.includes("resource exhausted")
+    ) {
+      return "Provider is overloaded"
+    }
+    // OpenAI-compatible stream overload events
+    if (
+      lower.includes("server_is_overloaded") ||
+      lower.includes("service_unavailable_error") ||
+      lower.includes("service unavailable")
+    ) {
+      return "Provider is overloaded"
+    }
+    if (message.includes("Overloaded") || lower.includes("overloaded")) {
+      return "Provider is overloaded"
+    }
+    return undefined
+  }
+
   function mapJsonRetryMessage(message: string): string | undefined {
     try {
       const json = JSON.parse(message)
@@ -82,6 +106,14 @@ export namespace SessionRetry {
       }
       if (json.type === "error" && json.error?.code?.includes("rate_limit")) {
         return "Rate Limited"
+      }
+      const errType = typeof json.error?.type === "string" ? json.error.type : undefined
+      if (
+        errType === "server_is_overloaded" ||
+        errType === "service_unavailable_error" ||
+        errType === "overloaded_error"
+      ) {
+        return "Provider is overloaded"
       }
       if (
         json.error?.message?.includes("no_kv_space") ||
@@ -107,12 +139,16 @@ export namespace SessionRetry {
       ) {
         return `Free usage exceeded, add credits https://nikcli.store/zen`
       }
-      if (error.data.message.includes("Overloaded")) return "Provider is overloaded"
-      return mapJsonRetryMessage(error.data.message) ?? error.data.message
+      const body = error.data.responseBody
+      if (typeof body === "string") {
+        const fromBody = mapPlainRetryMessage(body) ?? mapJsonRetryMessage(body)
+        if (fromBody) return fromBody
+      }
+      return mapPlainRetryMessage(error.data.message) ?? mapJsonRetryMessage(error.data.message) ?? error.data.message
     }
 
     if (typeof error.data?.message === "string") {
-      return mapJsonRetryMessage(error.data.message)
+      return mapPlainRetryMessage(error.data.message) ?? mapJsonRetryMessage(error.data.message)
     }
 
     return undefined

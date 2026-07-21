@@ -288,6 +288,60 @@ describe("ProviderTransform", () => {
     expect(ProviderTransform.message(msgs, model, {})).toEqual(msgs)
   })
 
+  it("omits reasoning_content when the turn never produced reasoning parts", () => {
+    // Use a non-deepseek id so the DeepSeek empty-reasoning injector does not run.
+    const model = makeModel({
+      providerID: "moonshot",
+      api: {
+        id: "kimi-k2",
+        url: "https://api.moonshot.cn",
+        npm: "@ai-sdk/openai-compatible",
+      },
+      capabilities: {
+        ...makeModel().capabilities,
+        interleaved: { field: "reasoning_content" },
+      },
+    })
+    const withReasoning: ModelMessage[] = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "step-by-step" },
+          { type: "text", text: "done" },
+        ],
+      },
+    ]
+    const withEmpty: ModelMessage[] = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "" },
+          { type: "text", text: "done" },
+        ],
+      },
+    ]
+    const withNone: ModelMessage[] = [
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "done" }],
+      },
+    ]
+
+    const nextReasoning = ProviderTransform.message(withReasoning, model, {})
+    expect((nextReasoning[0] as any).providerOptions?.openaiCompatible?.reasoning_content).toBe("step-by-step")
+    expect(
+      Array.isArray(nextReasoning[0]?.content) && nextReasoning[0].content.every((p: any) => p.type !== "reasoning"),
+    ).toBe(true)
+
+    // Empty reasoning text from the provider is still forwarded (field required by some APIs).
+    const nextEmpty = ProviderTransform.message(withEmpty, model, {})
+    expect((nextEmpty[0] as any).providerOptions?.openaiCompatible?.reasoning_content).toBe("")
+
+    // No reasoning parts at all → field absent so KV-cache prefixes stay stable.
+    const nextNone = ProviderTransform.message(withNone, model, {})
+    expect((nextNone[0] as any).providerOptions?.openaiCompatible?.reasoning_content).toBeUndefined()
+  })
+
   it("error rewrites 403 for github-copilot", () => {
     const msg = ProviderTransform.error("x-github-copilot", apiError({ message: "nope", statusCode: 403 }))
     expect(msg).toContain("reauthenticate")
