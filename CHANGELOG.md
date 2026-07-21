@@ -3,6 +3,23 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.184.0 (July 2026)
+
+## Core
+
+- Enhance text processing and tool state management (@nikomatt69)
+- Enhance command alias support in TUI prompt (@nikomatt69)
+- Add tool and task timeout configurations (@nikomatt69)
+- Refine reasoning content handling in messages (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(transform): refine reasoning content handling in messages
+  - feat(config): add tool and task timeout configurations
+  - feat(autocomplete): enhance command alias support in TUI prompt
+  - feat(session): enhance text processing and tool state management
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
