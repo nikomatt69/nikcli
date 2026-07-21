@@ -42,6 +42,11 @@ export namespace FileIgnore {
     "**/.DS_Store",
     "**/Thumbs.db",
 
+    // Secrets (opencode #20905): dotenv files must never leak into model context.
+    // Match exactly `.env` prefix; leave `.envrc`, `env.ts`, etc. alone.
+    "**/.env",
+    "**/.env.*",
+
     // Logs & temp
     "**/logs/**",
     "**/tmp/**",

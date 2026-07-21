@@ -1227,7 +1227,23 @@ export namespace Provider {
               existingModel?.capabilities.interleaved ??
               (!existingModel && apiNpm === "@ai-sdk/openai-compatible" && apiID.includes("deepseek")
                 ? { field: "reasoning_content" }
-                : false),
+                : // Opencode #24218: reasoning models implicitly use reasoning_content as the
+                  // interleaved field for openai-compatible backends that don't advertise it.
+                  apiNpm === "@ai-sdk/openai-compatible" && model.reasoning === true
+                  ? { field: "reasoning_content" }
+                  : false),
+            // Opencode #21627: openai-compatible models advertised without an image modality
+            // can still accept image inputs in practice (vLLM, LM Studio, LiteLLM). Default
+            // to true so users don't have to configure `modalities.input.image: true`.
+            ...(apiNpm === "@ai-sdk/openai-compatible" && !model.modalities?.input
+              ? {
+                  input: {
+                    ...existingModel?.capabilities.input,
+                    image: true,
+                    pdf: true,
+                  },
+                }
+              : {}),
           },
           cost: {
             input: model?.cost?.input ?? existingModel?.cost?.input ?? 0,
@@ -1398,6 +1414,8 @@ export namespace Provider {
           delete provider.models[modelID]
         if (model.status === "alpha" && !Flag.NIKCLI_ENABLE_EXPERIMENTAL_MODELS) delete provider.models[modelID]
         if (model.status === "deprecated") delete provider.models[modelID]
+        // Opencode #21038: per-model `disabled` flag in config hides models from the picker.
+        if (configProvider?.models?.[modelID]?.disabled === true) delete provider.models[modelID]
         if (
           (configProvider?.blacklist && configProvider.blacklist.includes(modelID)) ||
           (configProvider?.whitelist && !configProvider.whitelist.includes(modelID))
@@ -1952,9 +1970,14 @@ export namespace Provider {
       const getSmallModel: Interface["getSmallModel"] = Effect.fn("Provider.getSmallModel")(function* (providerID) {
         const ctx = yield* InstanceState.context
         const cfg = yield* Effect.promise(() => configGet(ctx))
-        if (cfg.small_model) {
+        // Opencode #21184: an explicit empty string explicitly disables the
+        // small-model fallback (e.g. user wants to skip Haiku entirely).
+        if (cfg.small_model && cfg.small_model !== "") {
           const parsed = parseModel(cfg.small_model)
           return yield* getModelEffect(parsed.providerID, parsed.modelID)
+        }
+        if (cfg.small_model === "") {
+          return undefined
         }
 
         const s = yield* getState()

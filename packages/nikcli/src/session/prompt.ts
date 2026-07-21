@@ -1292,6 +1292,9 @@ export namespace SessionPrompt {
       !input.variant && agent.variant
         ? await providerGetModel(model.providerID, model.modelID).catch(() => undefined)
         : undefined
+    // Opencode #25363: when switching to an agent with a configured variant, prefer the
+    // agent's variant over the session's. Without this, an agent like `plan` with
+    // variant="max-thinking" would still inherit the session's default variant.
     const variant = input.variant ?? (agent.variant && full?.variants?.[agent.variant] ? agent.variant : undefined)
 
     const info: MessageV2.Info = {

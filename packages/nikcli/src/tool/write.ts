@@ -15,6 +15,24 @@ import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
+/**
+ * Opencode #20217: preserve CRLF line endings and BOM on Windows writes.
+ * The user-supplied `content` string is checked for a BOM and the dominant line
+ * ending; both are restored after the diff/patch pipeline normalizes to LF.
+ */
+export function preserveOriginalShape(original: string, written: string): string {
+  if (!original) return written
+  const hasCRLF = original.includes("\r\n")
+  const hasLF = original.includes("\n") && !hasCRLF
+  let result = written
+  if (hasCRLF) result = result.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n")
+  else if (hasLF) result = result.replaceAll("\r\n", "\n")
+  if (original.charCodeAt(0) === 0xfeff && result.charCodeAt(0) !== 0xfeff) {
+    result = "\ufeff" + result
+  }
+  return result
+}
+
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
 
@@ -57,7 +75,7 @@ export const WriteTool = Tool.define("write", {
       },
     })
 
-    await Bun.write(filepath, params.content)
+    await Bun.write(filepath, preserveOriginalShape(contentOld, params.content))
     await Bus.publish(File.Event.Edited, {
       file: filepath,
     })

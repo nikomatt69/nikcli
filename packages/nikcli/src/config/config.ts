@@ -1291,6 +1291,12 @@ export namespace Config {
         .record(
           z.string(),
           ModelsDev.Model.partial().extend({
+            disabled: z
+              .boolean()
+              .optional()
+              .describe(
+                "Hide this model from the picker (opencode #21038). Useful when a provider exposes models you don't have access to on your subscription tier.",
+              ),
             variants: z
               .record(
                 z.string(),
@@ -1544,6 +1550,20 @@ export namespace Config {
                 disabled: z.boolean().optional(),
                 env: z.record(z.string(), z.string()).optional(),
                 initialization: z.record(z.string(), z.any()).optional(),
+                /**
+                 * Opencode #17877: minimum diagnostic severity shown to the agent.
+                 * 1=Error (default), 2=Warning, 3=Info, 4=Hint.
+                 */
+                min_severity: z
+                  .union([
+                    z
+                      .number()
+                      .int()
+                      .min(1)
+                      .max(4)
+                      .describe("Minimum diagnostic severity: 1=Error (default), 2=Warning, 3=Info, 4=Hint."),
+                  ])
+                  .optional(),
               }),
             ]),
           ),
@@ -1846,6 +1866,22 @@ export namespace Config {
     allowFileRefs = true,
   ) {
     const original = text
+    // Opencode #21197: load .env files from the config directory and merge them
+    // into the lookup chain for {env:VAR}. Process env still wins (later wins).
+    if (allowProcessEnv && allowFileRefs) {
+      const configDir = path.dirname(configFilepath)
+      for (const envFile of [".env", ".env.local"]) {
+        try {
+          const content = await Bun.file(path.join(configDir, envFile)).text()
+          for (const line of content.split(/\r?\n/)) {
+            const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/)
+            if (m && !(m[1] in env)) env[m[1]] = m[2]
+          }
+        } catch {
+          // .env files are optional
+        }
+      }
+    }
     text = text.replace(/\{env:([^}]+)\}/g, (_, varName) => {
       return env[varName] ?? (allowProcessEnv ? (process.env[varName] ?? "") : "")
     })

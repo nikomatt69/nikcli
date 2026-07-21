@@ -245,7 +245,10 @@ export const BashTool = Tool.define("bash", async () => {
         workdir: Schema.optional(Schema.String).annotate({
           description: `The working directory to run the command in. Defaults to ${Instance.directory}. Use this instead of 'cd' commands.`,
         }),
-        description: Schema.String.annotate({
+        // Opencode #26419: local OpenAI-compatible backends (llama.cpp, LM Studio,
+        // LiteLLM) sometimes omit `description`. Make it optional and synthesize a
+        // short fallback so the TUI never shows empty titles.
+        description: Schema.optional(Schema.String).annotate({
           description:
             "Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'",
         }),
@@ -261,13 +264,17 @@ export const BashTool = Tool.define("bash", async () => {
       }
       const timeout = params.timeout ?? DEFAULT_TIMEOUT
 
+      // Local openai-compatible backends often omit `description`. Synthesize
+      // a short title so the TUI never shows an empty header (opencode #26419).
+      const description = params.description?.trim() || "Shell"
+
       // Publish title + empty output immediately so the TUI shows the running
       // command (and description) before permission prompts / spawn latency.
       ctx.metadata({
-        title: params.description,
+        title: description,
         metadata: {
           output: "",
-          description: params.description,
+          description,
           command: params.command,
         },
       })
@@ -295,7 +302,7 @@ export const BashTool = Tool.define("bash", async () => {
         ctx.metadata({
           metadata: {
             output: output.length > MAX_METADATA_LENGTH ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..." : output,
-            description: params.description,
+            description,
           },
         })
       }
@@ -364,11 +371,11 @@ export const BashTool = Tool.define("bash", async () => {
       }
 
       return {
-        title: params.description,
+        title: description,
         metadata: {
           output: output.length > MAX_METADATA_LENGTH ? output.slice(0, MAX_METADATA_LENGTH) + "\n\n..." : output,
           exit: proc.exitCode,
-          description: params.description,
+          description,
         },
         output,
       }

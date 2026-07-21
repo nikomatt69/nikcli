@@ -24,8 +24,14 @@ export namespace LSP {
     Updated: BusEvent.schema("lsp.updated", Schema.Struct({})),
   }
 
-  const PositionSchema = Schema.Struct({ line: Schema.Number, character: Schema.Number })
-  export const RangeSchema = Schema.Struct({ start: PositionSchema, end: PositionSchema }).annotate({
+  const PositionSchema = Schema.Struct({
+    line: Schema.Number,
+    character: Schema.Number,
+  })
+  export const RangeSchema = Schema.Struct({
+    start: PositionSchema,
+    end: PositionSchema,
+  }).annotate({
     identifier: "Range",
   })
   export const Range = zodObject(RangeSchema)
@@ -46,7 +52,9 @@ export namespace LSP {
     range: RangeSchema,
     selectionRange: RangeSchema,
   })
-  export const DocumentSymbol = zodObject(DocumentSymbolSchema).meta({ ref: "DocumentSymbol" })
+  export const DocumentSymbol = zodObject(DocumentSymbolSchema).meta({
+    ref: "DocumentSymbol",
+  })
   export type DocumentSymbol = Schema.Schema.Type<typeof DocumentSymbolSchema>
 
   const filterExperimentalServers = (servers: Record<string, LSPServer.Info>) => {
@@ -146,6 +154,9 @@ export namespace LSP {
           id: name,
           root: existing?.root ?? (async () => ctx.directory),
           extensions: item.extensions ?? existing?.extensions ?? [],
+          // Opencode #17877: per-server `min_severity` (1=Error default, 2=Warning,
+          // 3=Info, 4=Hint). Default to 1 when unset to keep existing behavior.
+          min_severity: item.min_severity ?? existing?.min_severity ?? 1,
           spawn: async (root) => {
             return {
               process: spawn(item.command[0], item.command.slice(1), {
@@ -247,7 +258,9 @@ export namespace LSP {
       }).catch((err) => {
         s.broken.add(key)
         handle.process.kill()
-        log.error(`Failed to initialize LSP client ${server.id}`, { error: err })
+        log.error(`Failed to initialize LSP client ${server.id}`, {
+          error: err,
+        })
         return undefined
       })
 

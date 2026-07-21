@@ -55,6 +55,11 @@ export namespace LSPServer {
     extensions: string[]
     global?: boolean
     root: RootFunction
+    /**
+     * Opencode #17877: minimum diagnostic severity surfaced to the agent.
+     * 1=Error (default), 2=Warning, 3=Info, 4=Hint.
+     */
+    min_severity?: number
     spawn(root: string): Promise<Handle | undefined>
   }
 
@@ -1159,17 +1164,26 @@ export namespace LSPServer {
           "https://www.eclipse.org/downloads/download.php?file=/jdtls/snapshots/jdt-language-server-latest.tar.gz"
         const archiveName = "release.tar.gz"
 
-        log.info("Downloading JDTLS archive", { url: releaseURL, dest: distPath })
+        log.info("Downloading JDTLS archive", {
+          url: releaseURL,
+          dest: distPath,
+        })
         const curlResult = await $`curl -L -o ${archiveName} '${releaseURL}'`.cwd(distPath).quiet().nothrow()
         if (curlResult.exitCode !== 0) {
-          log.error("Failed to download JDTLS", { exitCode: curlResult.exitCode, stderr: curlResult.stderr.toString() })
+          log.error("Failed to download JDTLS", {
+            exitCode: curlResult.exitCode,
+            stderr: curlResult.stderr.toString(),
+          })
           return
         }
 
         log.info("Extracting JDTLS archive")
         const tarResult = await $`tar -xzf ${archiveName}`.cwd(distPath).quiet().nothrow()
         if (tarResult.exitCode !== 0) {
-          log.error("Failed to extract JDTLS", { exitCode: tarResult.exitCode, stderr: tarResult.stderr.toString() })
+          log.error("Failed to extract JDTLS", {
+            exitCode: tarResult.exitCode,
+            stderr: tarResult.stderr.toString(),
+          })
           return
         }
 
@@ -1462,7 +1476,9 @@ export namespace LSPServer {
           const ok = await Archive.extractZip(tempPath, installDir)
             .then(() => true)
             .catch((error) => {
-              log.error("Failed to extract lua-language-server archive", { error })
+              log.error("Failed to extract lua-language-server archive", {
+                error,
+              })
               return false
             })
           if (!ok) return
@@ -1471,7 +1487,9 @@ export namespace LSPServer {
             .quiet()
             .then(() => true)
             .catch((error) => {
-              log.error("Failed to extract lua-language-server archive", { error })
+              log.error("Failed to extract lua-language-server archive", {
+                error,
+              })
               return false
             })
           if (!ok) return
