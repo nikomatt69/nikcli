@@ -649,6 +649,7 @@
         "partial-json": "0.1.7",
         "remeda": "catalog:",
         "semver": "7.7.4",
+        "shell-quote": "^1.8.2",
         "solid-js": "catalog:",
         "strip-ansi": "7.1.2",
         "tree-sitter-bash": "0.25.0",
@@ -678,6 +679,7 @@
         "@tsconfig/bun": "catalog:",
         "@types/babel__core": "7.20.5",
         "@types/semver": "7.7.1",
+        "@types/shell-quote": "^1.7.5",
         "@types/turndown": "5.0.5",
         "@types/ws": "^8.18.1",
         "@types/yargs": "17.0.35",
@@ -3040,6 +3042,8 @@
     "@types/send": ["@types/send@1.2.1", "", { "dependencies": { "@types/node": "*" } }, "sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ=="],
 
     "@types/serve-static": ["@types/serve-static@2.2.0", "", { "dependencies": { "@types/http-errors": "*", "@types/node": "*" } }, "sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ=="],
+
+    "@types/shell-quote": ["@types/shell-quote@1.7.5", "", {}, "sha512-+UE8GAGRPbJVQDdxi16dgadcBfQ+KG2vgZhV1+3A1XmHbmwcdwhCUwIdy+d3pAGrbvgRoVSjeI9vOWyq376Yzw=="],
 
     "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
 

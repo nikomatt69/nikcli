@@ -67,7 +67,12 @@ type SessionErrorEvent = {
 
 type SessionStatusEvent = {
   sessionID: string
-  status: { type: "idle" | "busy" | "retry"; attempt?: number; message?: string; next?: number }
+  status: {
+    type: "idle" | "busy" | "retry"
+    attempt?: number
+    message?: string
+    next?: number
+  }
 }
 
 type NotifyConfig = NonNullable<NonNullable<Config.Info["notifications"]>["notify"]>
@@ -384,7 +389,10 @@ async function runQueue(data: NotifyState) {
   for await (const job of data.queue) {
     await processJob(data, job).catch((error) => {
       const text = error instanceof Error ? error.message : String(error)
-      notifyLog.error("notification processing failed", { error: text, source: job.source })
+      notifyLog.error("notification processing failed", {
+        error: text,
+        source: job.source,
+      })
     })
   }
 }
@@ -402,11 +410,17 @@ async function processJob(data: NotifyState, job: NotifyJob) {
   for (const channel of targets) {
     if (quiet(cfg, channel, now)) continue
     if (!rateAllow(data, cfg, channel, job.priority, stamp)) {
-      notifyLog.debug("notification rate limited", { channel, source: job.source })
+      notifyLog.debug("notification rate limited", {
+        channel,
+        source: job.source,
+      })
       continue
     }
     if (breakerOpen(data, channel, stamp)) {
-      notifyLog.warn("notification circuit open", { channel, source: job.source })
+      notifyLog.warn("notification circuit open", {
+        channel,
+        source: job.source,
+      })
       continue
     }
     await deliver(config, cfg, channel, job)
@@ -418,7 +432,11 @@ async function processJob(data: NotifyState, job: NotifyJob) {
       .catch((error) => {
         breakerFail(data, cfg, channel, stamp)
         const text = error instanceof Error ? error.message : String(error)
-        notifyLog.error("notification delivery failed", { channel, source: job.source, error: text })
+        notifyLog.error("notification delivery failed", {
+          channel,
+          source: job.source,
+          error: text,
+        })
         return false
       })
   }
@@ -804,7 +822,10 @@ export namespace Plugin {
     const hooks = state.hooks
     const config = await configGet()
     for (const hook of hooks) {
-      await hook.config?.(config)
+      // The internal Config.Info schema keeps `command.*.template` optional,
+      // while the plugin SDK's Config type expects a required template field.
+      // The runtime shape is valid for the SDK contract; widen with a cast.
+      await hook.config?.(config as unknown as Parameters<NonNullable<Hooks["config"]>>[0])
     }
     if (state.subscribed) return
     state.subscribed = true

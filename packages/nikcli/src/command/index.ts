@@ -41,7 +41,9 @@ export namespace Command {
       ref: "Command",
     })
 
-  export type Info = Omit<z.infer<typeof Info>, "template"> & { template: Promise<string> | string }
+  export type Info = Omit<z.infer<typeof Info>, "template"> & {
+    template: Promise<string> | string
+  }
 
   export function hints(template: string): string[] {
     const result: string[] = []
@@ -148,16 +150,40 @@ export namespace Command {
           }
 
           for (const [name, command] of Object.entries(cfg.command ?? {})) {
+            // Full override: user supplies a complete template.
+            if (command.template !== undefined) {
+              const template = command.template
+              result[name] = {
+                name,
+                agent: command.agent,
+                model: command.model,
+                description: command.description,
+                get template() {
+                  return template
+                },
+                subtask: command.subtask,
+                hints: hints(template),
+              }
+              continue
+            }
+            // Partial override (opencode #38071): user supplies one of
+            // agent/model/description/subtask without restating the
+            // template. Inherit from the built-in if present, otherwise
+            // drop the entry entirely (no orphan commands).
+            const existing = result[name]
+            if (existing === undefined || typeof (existing as { template?: unknown }).template !== "string") {
+              continue
+            }
             result[name] = {
               name,
-              agent: command.agent,
-              model: command.model,
-              description: command.description,
+              agent: command.agent ?? (existing as { agent?: string }).agent,
+              model: command.model ?? (existing as { model?: string }).model,
+              description: command.description ?? (existing as { description?: string }).description,
               get template() {
-                return command.template
+                return (existing as { template: string }).template
               },
-              subtask: command.subtask,
-              hints: hints(command.template),
+              subtask: command.subtask ?? (existing as { subtask?: boolean }).subtask,
+              hints: (existing as { hints?: unknown }).hints as never,
             }
           }
           const mcpPrompts = yield* Effect.promise(() =>

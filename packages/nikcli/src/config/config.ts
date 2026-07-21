@@ -756,7 +756,7 @@ export namespace Config {
   export type Permission = z.infer<typeof Permission>
 
   export const Command = z.object({
-    template: z.string(),
+    template: z.string().optional(),
     description: z.string().optional(),
     agent: z.string().optional(),
     model: z.string().optional(),

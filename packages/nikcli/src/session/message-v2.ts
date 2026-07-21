@@ -6,6 +6,7 @@ import { Schema } from "effect"
 import {
   APICallError,
   convertToModelMessages,
+  JSONParseError,
   LoadAPIKeyError,
   type ModelMessage,
   type ToolSet,
@@ -62,7 +63,10 @@ export namespace MessageV2 {
    */
   const AuthErrorBody = Schema.Struct({
     name: Schema.Literal("ProviderAuthError"),
-    data: Schema.Struct({ providerID: Schema.String, message: Schema.String }).annotate(strip),
+    data: Schema.Struct({
+      providerID: Schema.String,
+      message: Schema.String,
+    }).annotate(strip),
   }).annotate({ ...strip, identifier: "ProviderAuthError" })
   const UnknownErrorBody = Schema.Struct({
     name: Schema.Literal("UnknownError"),
@@ -85,7 +89,10 @@ export namespace MessageV2 {
   }).annotate({ ...strip, identifier: "MessageAbortedError" })
   const StructuredOutputErrorBody = Schema.Struct({
     name: Schema.Literal("StructuredOutputError"),
-    data: Schema.Struct({ message: Schema.String, retries: Schema.Number }).annotate(strip),
+    data: Schema.Struct({
+      message: Schema.String,
+      retries: Schema.Number,
+    }).annotate(strip),
   }).annotate({ ...strip, identifier: "StructuredOutputError" })
   const APIErrorBody = Schema.Struct({
     name: Schema.Literal("APIError"),
@@ -169,7 +176,9 @@ export namespace MessageV2 {
 
   const OutputFormatJsonSchemaSchema = Schema.Struct({
     type: Schema.Literal("json_schema"),
-    schema: Schema.Record(Schema.String, Schema.Any).annotate({ identifier: "JSONSchema" }),
+    schema: Schema.Record(Schema.String, Schema.Any).annotate({
+      identifier: "JSONSchema",
+    }),
     // zodOverride keeps the exact legacy zod chain: `.annotate({ default })` on a
     // checked number drops the check schemaIds during the walk, losing
     // `type: integer` + bounds in the emitted JSON Schema.
@@ -976,16 +985,33 @@ export namespace MessageV2 {
           name: "ProviderAuthError" as const,
           data: { providerID: ctx.providerID, message: e.message },
         }
-      case (e as SystemError)?.code === "ECONNRESET":
+      case (e as SystemError)?.code === "ECONNRESET": {
+        const sysErr = e as SystemError
+        const metadata: Record<string, string> = {
+          code: sysErr.code ?? "",
+          syscall: sysErr.syscall ?? "",
+          message: sysErr.message ?? "",
+        }
         return {
           name: "APIError" as const,
           data: {
             message: "Connection reset by server",
             isRetryable: true,
+            metadata,
+          },
+        }
+      }
+      // ai-sdk throws JSONParseError on malformed SSE chunks; classify as retryable
+      // so the existing backoff path recovers (previously fell through to UnknownError).
+      // See opencode upstream #38041.
+      case JSONParseError.isInstance(e):
+        return {
+          name: "APIError" as const,
+          data: {
+            message: `Provider returned malformed JSON stream: ${e.message.slice(0, 200)}`,
+            isRetryable: true,
             metadata: {
-              code: (e as SystemError).code ?? "",
-              syscall: (e as SystemError).syscall ?? "",
-              message: (e as SystemError).message ?? "",
+              message: e.message,
             },
           },
         }

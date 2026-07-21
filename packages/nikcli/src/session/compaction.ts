@@ -4,7 +4,6 @@ import { Session } from "."
 import { Identifier } from "../id/id"
 import { Provider } from "../provider/provider"
 import { MessageV2 } from "./message-v2"
-import z from "zod"
 import { Token } from "../util/token"
 import { Log } from "../util/log"
 import { SessionProcessor } from "./processor"
@@ -108,6 +107,53 @@ export namespace SessionCompaction {
 
   export const PRUNE_MINIMUM = 20_000
   export const PRUNE_PROTECT = 40_000
+
+  /**
+   * Cap consecutive compaction failures per session before refusing to start
+   * another compaction attempt. Prevents infinite loops when the model's
+   * context window is too small to fit the compacted summary. See opencode
+   * upstream #38102.
+   */
+  export const MAX_CONSECUTIVE_COMPACTION_FAILURES = 3
+  const compactionFailures = new Map<string, number>()
+
+  /** Increment the per-session consecutive-failure counter and return the new value. */
+  export function recordCompactionFailure(sessionID: string): number {
+    const count = (compactionFailures.get(sessionID) ?? 0) + 1
+    compactionFailures.set(sessionID, count)
+    return count
+  }
+
+  /** Reset the per-session consecutive-failure counter (called on success). */
+  export function resetCompactionFailures(sessionID: string): void {
+    compactionFailures.delete(sessionID)
+  }
+
+  /** True when the session has hit the failure cap. */
+  export function isCompactionCircuitOpen(sessionID: string): boolean {
+    return (compactionFailures.get(sessionID) ?? 0) >= MAX_CONSECUTIVE_COMPACTION_FAILURES
+  }
+
+  /** Test seam: clear all tracked failures. */
+  export function clearAllCompactionFailures(): void {
+    compactionFailures.clear()
+  }
+
+  /**
+   * Raised when a session has hit the consecutive-compaction-failure cap. The
+   * caller (typically `Session.process`) should surface this to the user as
+   * an actionable error and stop attempting compaction for this session.
+   */
+  export class CircuitOpenError extends Error {
+    readonly sessionID: string
+    readonly failures: number
+    constructor(input: { sessionID: string; failures: number; message: string }) {
+      super(input.message)
+      this.name = "SessionCompactionCircuitOpenError"
+      this.sessionID = input.sessionID
+      this.failures = input.failures
+    }
+  }
 
   const PRUNE_PROTECTED_TOOLS = ["skill"]
 
@@ -218,7 +264,13 @@ export namespace SessionCompaction {
     }
   }
 
-  async function processImpl(input: ProcessInput & { directory: string; worktree: string; ctx: InstanceContext }) {
+  async function processImpl(
+    input: ProcessInput & {
+      directory: string
+      worktree: string
+      ctx: InstanceContext
+    },
+  ) {
     const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)
     if (!userMessage) {
       log.error("parent message not found", { parentID: input.parentID })
@@ -366,7 +418,29 @@ When constructing the summary, try to stick to this template:
         input.ctx,
       )
     }
-    if (processor.message.error) return "stop"
+    if (processor.message.error) {
+      // Track consecutive failures so a session that can't be compacted
+      // (model context too small) doesn't loop forever. See opencode #38102.
+      const failures = recordCompactionFailure(input.sessionID)
+      if (failures >= MAX_CONSECUTIVE_COMPACTION_FAILURES) {
+        const err = processor.message.error
+        log.error("compaction circuit breaker open", {
+          sessionID: input.sessionID,
+          failures,
+          errorName: err.name,
+          errorMessage: (err.data as { message: string }).message,
+        })
+        throw new SessionCompaction.CircuitOpenError({
+          sessionID: input.sessionID,
+          failures,
+          message:
+            `Compaction failed ${failures} times consecutively (circuit breaker open). ` +
+            `Try /clear to start a new session, or switch to a model with a larger context window.`,
+        })
+      }
+      return "stop"
+    }
+    resetCompactionFailures(input.sessionID)
     Bus.publish(Event.Compacted, { sessionID: input.sessionID })
     return "continue"
   }
@@ -403,7 +477,11 @@ When constructing the summary, try to stick to this template:
       isOverflow: (input) =>
         Effect.gen(function* () {
           const config = yield* Effect.promise(() => configGet())
-          return overflowCheck({ cfg: config, tokens: input.tokens, model: input.model })
+          return overflowCheck({
+            cfg: config,
+            tokens: input.tokens,
+            model: input.model,
+          })
         }),
       editContext: (input) =>
         Effect.gen(function* () {
@@ -420,7 +498,14 @@ When constructing the summary, try to stick to this template:
       process: (input) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>
-            Effect.tryPromise(() => processImpl({ ...input, directory: ctx.directory, worktree: ctx.worktree, ctx })),
+            Effect.tryPromise(() =>
+              processImpl({
+                ...input,
+                directory: ctx.directory,
+                worktree: ctx.worktree,
+                ctx,
+              }),
+            ),
           ),
         ),
       create: (input) =>

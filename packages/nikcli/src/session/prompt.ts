@@ -2,6 +2,7 @@ import path from "path"
 import os from "os"
 import fs from "fs/promises"
 import z from "zod"
+import { quote } from "shell-quote"
 import { Identifier } from "../id/id"
 import { MessageV2 } from "./message-v2"
 import { Log } from "../util/log"
@@ -798,7 +799,10 @@ export namespace SessionPrompt {
             )
           }),
         ).catch((err) => {
-          log.debug("plugin trigger failed", { error: String(err), tool: "task" })
+          log.debug("plugin trigger failed", {
+            error: String(err),
+            tool: "task",
+          })
         })
         let executionError: Error | undefined
         const taskAgent = await agentRequired(task.agent)
@@ -847,7 +851,11 @@ export namespace SessionPrompt {
         }
         const result = await taskTool.executeAsync(taskArgs, taskCtx).catch((error: unknown) => {
           executionError = error instanceof Error ? error : new Error(String(error))
-          log.error("subtask execution failed", { error, agent: task.agent, description: task.description })
+          log.error("subtask execution failed", {
+            error,
+            agent: task.agent,
+            description: task.description,
+          })
           return undefined
         })
         await runPlugin(
@@ -867,7 +875,10 @@ export namespace SessionPrompt {
           }),
         ).catch((err) => {
           // Plugin errors are non-fatal, log and continue
-          log.debug("plugin trigger failed", { error: String(err), tool: "task" })
+          log.debug("plugin trigger failed", {
+            error: String(err),
+            tool: "task",
+          })
         })
         assistantMessage.finish = "tool-calls"
         assistantMessage.time.completed = Date.now()
@@ -953,7 +964,10 @@ export namespace SessionPrompt {
         (await runCompaction(
           Effect.gen(function* () {
             const compaction = yield* SessionCompaction.Service
-            return yield* compaction.isOverflow({ tokens: lastFinished.tokens, model })
+            return yield* compaction.isOverflow({
+              tokens: lastFinished.tokens,
+              model,
+            })
           }),
         ))
       ) {
@@ -1075,7 +1089,9 @@ export namespace SessionPrompt {
 
       // Build system prompt, adding structured output instructions if needed
       const system = [...systemPrompt.system]
-      const format: MessageV2.OutputFormat = lastUser.format ?? { type: "text" }
+      const format: MessageV2.OutputFormat = lastUser.format ?? {
+        type: "text",
+      }
       if (format.type === "json_schema") {
         system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
       }
@@ -1087,7 +1103,10 @@ export namespace SessionPrompt {
         sessionID,
         system,
         messages: [
-          ...systemPrompt.activeSkillMessages.map((content) => ({ role: "user" as const, content })),
+          ...systemPrompt.activeSkillMessages.map((content) => ({
+            role: "user" as const,
+            content,
+          })),
           ...MessageV2.toModelMessages(sessionMessages, model),
           ...(isLastStep
             ? [
@@ -1151,7 +1170,10 @@ export namespace SessionPrompt {
         }
         processor.message.error = {
           name: "StructuredOutputError" as const,
-          data: { message: "Model did not produce structured output", retries: structuredOutputRetries },
+          data: {
+            message: "Model did not produce structured output",
+            retries: structuredOutputRetries,
+          },
         }
         await sessionUpdateMessage(processor.message)
         break
@@ -1223,8 +1245,14 @@ export namespace SessionPrompt {
         if (!info.error) {
           await sessionUpdateMessage({
             ...info,
-            error: { name: "MessageAbortedError", data: { message: "Interrupted by user" } },
-            time: { ...info.time, completed: info.time.completed ?? Date.now() },
+            error: {
+              name: "MessageAbortedError",
+              data: { message: "Interrupted by user" },
+            },
+            time: {
+              ...info.time,
+              completed: info.time.completed ?? Date.now(),
+            },
           })
         }
         break
@@ -1343,7 +1371,11 @@ export namespace SessionPrompt {
                 sessionID: input.sessionID,
               })
             } catch (error: unknown) {
-              log.error("failed to read MCP resource", { error, clientName, uri })
+              log.error("failed to read MCP resource", {
+                error,
+                clientName,
+                uri,
+              })
               const message = error instanceof Error ? error.message : String(error)
               pieces.push({
                 id: Identifier.ascending("part"),
@@ -1793,7 +1825,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
   async function shell(input: ShellInput) {
     const controller = start(input.sessionID)
     if (!controller) {
-      throw new Session.BusyError({ sessionID: input.sessionID, message: "Session is busy" })
+      throw new Session.BusyError({
+        sessionID: input.sessionID,
+        message: "Session is busy",
+      })
     }
     const abort = controller.signal
     await using _ = defer(() => finish(input.sessionID, controller))
@@ -1896,7 +1931,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           `
             [[ -f ~/.zshenv ]] && source ~/.zshenv >/dev/null 2>&1 || true
             [[ -f "\${ZDOTDIR:-$HOME}/.zshrc" ]] && source "\${ZDOTDIR:-$HOME}/.zshrc" >/dev/null 2>&1 || true
-            eval ${JSON.stringify(input.command)}
+            eval ${quote([input.command])}
           `,
         ],
       },
@@ -1907,7 +1942,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           `
             shopt -s expand_aliases
             [[ -f ~/.bashrc ]] && source ~/.bashrc >/dev/null 2>&1 || true
-            eval ${JSON.stringify(input.command)}
+            eval ${quote([input.command])}
           `,
         ],
       },
@@ -2329,7 +2364,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           content: "Generate a title for this conversation:\n",
         },
         ...(hasOnlySubtaskParts
-          ? [{ role: "user" as const, content: subtaskParts.map((p) => p.prompt).join("\n") }]
+          ? [
+              {
+                role: "user" as const,
+                content: subtaskParts.map((p) => p.prompt).join("\n"),
+              },
+            ]
           : MessageV2.toModelMessages(contextMessages, model)),
       ],
     })
@@ -2391,7 +2431,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       assertNotBusy: (sessionID) =>
         Effect.gen(function* () {
           const match = (yield* getServiceStateEffect())[sessionID]
-          if (match) throw new Session.BusyError({ sessionID, message: "Session is busy" })
+          if (match)
+            throw new Session.BusyError({
+              sessionID,
+              message: "Session is busy",
+            })
         }),
       prompt: (input) => withInstanceContext(() => prompt(input)),
       resolvePromptParts: (template) =>

@@ -9,6 +9,7 @@ import { Plugin } from "@/plugin"
 import { ToolRegistry } from "@/tool/registry"
 import { MCP } from "@/mcp"
 import { PermissionNext } from "@/permission/next"
+import { PermissionRuleset } from "@/permission/ruleset"
 import { Truncate } from "@/tool/truncation"
 import { Tool } from "@/tool/tool"
 import { Effect } from "effect"
@@ -103,6 +104,12 @@ export async function resolveTools(input: {
   // never sees their schema and the permission rule is never registered.
   const disabledTools = input.session.disabledTools ?? {}
 
+  // Wholly-denied tools (`{ tool: { "name*": "deny" } }` with pattern "*") are
+  // hidden from the model entirely: advertising them wastes context and the
+  // model can't invoke them anyway. Resource-scoped denies (pattern != "*")
+  // are kept so the tool still appears in the model schema. See opencode #38060.
+  const permissionRuleset = PermissionNext.merge(input.agent.permission, input.session.permission ?? [])
+
   const context = (args: Record<string, unknown>, options: ToolCallOptions): Tool.Context => ({
     sessionID: input.session.id,
     abort: options.abortSignal!,
@@ -142,7 +149,10 @@ export async function resolveTools(input: {
       await askPermission({
         ...req,
         sessionID: input.session.id,
-        tool: { messageID: input.processor.message.id, callID: options.toolCallId },
+        tool: {
+          messageID: input.processor.message.id,
+          callID: options.toolCallId,
+        },
         ruleset: PermissionNext.merge(input.agent.permission, input.session.permission ?? []),
       })
     },
@@ -153,6 +163,7 @@ export async function resolveTools(input: {
     input.agent,
   )) {
     if (disabledTools[item.id] === true) continue
+    if (PermissionRuleset.disabled([item.id], permissionRuleset).has(item.id)) continue
     const schema = ProviderTransform.schema(
       input.model,
       z.toJSONSchema(item.parameters) as import("@ai-sdk/provider").JSONSchema7,
@@ -182,7 +193,10 @@ export async function resolveTools(input: {
             )
           }),
         ).catch((err) => {
-          log.debug("plugin trigger failed", { error: String(err), tool: item.id })
+          log.debug("plugin trigger failed", {
+            error: String(err),
+            tool: item.id,
+          })
         })
         const result = await item.executeAsync(args, ctx)
         // After hook - errors are non-fatal, log and continue
@@ -202,7 +216,10 @@ export async function resolveTools(input: {
             )
           }),
         ).catch((err) => {
-          log.debug("plugin trigger failed", { error: String(err), tool: item.id })
+          log.debug("plugin trigger failed", {
+            error: String(err),
+            tool: item.id,
+          })
         })
         return result
       },
@@ -223,6 +240,7 @@ export async function resolveTools(input: {
   )
   for (const [key, item] of Object.entries(mcpTools)) {
     if (disabledTools[key] === true) continue
+    if (PermissionRuleset.disabled([key], permissionRuleset).has(key)) continue
     const execute = item.execute
     if (!execute) continue
 
@@ -338,6 +356,7 @@ export async function resolveTools(input: {
 
   const { Connectors } = await import("@/connectors")
   for (const [key, item] of Object.entries(await Connectors.tools())) {
+    if (PermissionRuleset.disabled([key], permissionRuleset).has(key)) continue
     const execute = item.execute
     if (!execute) continue
 
