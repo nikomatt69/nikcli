@@ -12,12 +12,93 @@ import { PermissionNext } from "@/permission/next"
 import { PermissionRuleset } from "@/permission/ruleset"
 import { Truncate } from "@/tool/truncation"
 import { Tool } from "@/tool/tool"
+import { Config } from "@/config/config"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Session } from "."
 import z from "zod"
 
 const log = Log.create({ service: "session.tools" })
+
+/** Default outer bounds when config leaves timeouts unset. */
+const DEFAULT_TOOL_TIMEOUT_MS = 600_000
+const DEFAULT_TASK_TIMEOUT_MS = 1_800_000
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
+
+async function resolveToolTimeoutMs(toolID: string): Promise<number | undefined> {
+  const cfg = await runConfig(
+    Effect.gen(function* () {
+      const config = yield* Config.Service
+      return yield* config.get()
+    }),
+  )
+  const experimental = cfg.experimental
+  if (toolID === "task") {
+    const value = experimental?.task_timeout
+    if (value === false) return undefined
+    return value ?? DEFAULT_TASK_TIMEOUT_MS
+  }
+  const value = experimental?.tool_timeout
+  if (value === false) return undefined
+  return value ?? DEFAULT_TOOL_TIMEOUT_MS
+}
+
+/**
+ * Run a tool under an outer deadline. On timeout the linked AbortSignal fires so
+ * cooperative tools (bash, network) can stop; the promise also rejects if the
+ * tool ignores abort (hard outer bound).
+ */
+async function executeWithTimeout(
+  toolID: string,
+  run: (ctx: Tool.Context) => Promise<Tool.Result>,
+  ctx: Tool.Context,
+  timeoutMs: number | undefined,
+): Promise<Tool.Result> {
+  if (timeoutMs === undefined) return run(ctx)
+
+  const ac = new AbortController()
+  const onParentAbort = () => ac.abort()
+  if (ctx.abort.aborted) ac.abort()
+  else ctx.abort.addEventListener("abort", onParentAbort, { once: true })
+
+  let timedOut = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeoutError = () => new Error(`Tool "${toolID}" timed out after ${timeoutMs}ms`)
+
+  const linked: Tool.Context = {
+    ...ctx,
+    abort: ac.signal,
+  }
+
+  try {
+    return await new Promise<Tool.Result>((resolve, reject) => {
+      timer = setTimeout(() => {
+        timedOut = true
+        ac.abort()
+        reject(timeoutError())
+      }, timeoutMs)
+
+      void run(linked).then(
+        (result) => {
+          if (!timedOut) resolve(result)
+        },
+        (error) => {
+          if (timedOut) {
+            reject(timeoutError())
+            return
+          }
+          reject(error)
+        },
+      )
+    })
+  } finally {
+    if (timer) clearTimeout(timer)
+    ctx.abort.removeEventListener("abort", onParentAbort)
+  }
+}
 
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
 
@@ -198,7 +279,13 @@ export async function resolveTools(input: {
             tool: item.id,
           })
         })
-        const result = await item.executeAsync(args, ctx)
+        const timeoutMs = await resolveToolTimeoutMs(item.id)
+        const result = await executeWithTimeout(
+          item.id,
+          (linkedCtx) => item.executeAsync(args, linkedCtx),
+          ctx,
+          timeoutMs,
+        )
         // After hook - errors are non-fatal, log and continue
         await runPlugin(
           Effect.gen(function* () {

@@ -1644,6 +1644,18 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          tool_timeout: z
+            .union([z.number().int().positive(), z.literal(false)])
+            .optional()
+            .describe(
+              "Outer timeout in milliseconds for non-task tool executions. Default 600000 (10 minutes). Set to false to disable. Tools that manage their own timeout (bash) still honor this as a hard outer bound when set.",
+            ),
+          task_timeout: z
+            .union([z.number().int().positive(), z.literal(false)])
+            .optional()
+            .describe(
+              "Timeout in milliseconds for foreground (non-background) task tool runs. Default 1800000 (30 minutes). Set to false to disable. Background tasks are unaffected.",
+            ),
           nativeLlm: z
             .boolean()
             .optional()

@@ -22,7 +22,12 @@ export namespace Patch {
   export type Hunk =
     | { type: "add"; path: string; contents: string }
     | { type: "delete"; path: string }
-    | { type: "update"; path: string; move_path?: string; chunks: UpdateFileChunk[] }
+    | {
+        type: "update"
+        path: string
+        move_path?: string
+        chunks: UpdateFileChunk[]
+      }
 
   export interface UpdateFileChunk {
     old_lines: string[]
@@ -40,7 +45,12 @@ export namespace Patch {
   export type ApplyPatchFileChange =
     | { type: "add"; content: string }
     | { type: "delete"; content: string }
-    | { type: "update"; unified_diff: string; move_path?: string; new_content: string }
+    | {
+        type: "update"
+        unified_diff: string
+        move_path?: string
+        new_content: string
+      }
 
   export interface AffectedPaths {
     added: string[]
@@ -185,12 +195,24 @@ export namespace Patch {
     const beginMarker = "*** Begin Patch"
     const endMarker = "*** End Patch"
 
-    const beginIdx = lines.findIndex((line) => line.trim() === beginMarker)
-    const endIdx = lines.findIndex((line) => line.trim() === endMarker)
-
-    if (beginIdx === -1 || endIdx === -1 || beginIdx >= endIdx) {
+    // Envelope must own the patch: first and last non-empty lines are the markers.
+    // Content before Begin or after End is rejected (Codex-style boundary).
+    const nonEmptyIdx: number[] = []
+    for (let idx = 0; idx < lines.length; idx++) {
+      if (lines[idx].trim().length > 0) nonEmptyIdx.push(idx)
+    }
+    if (nonEmptyIdx.length < 2) {
       throw new Error("Invalid patch format: missing Begin/End markers")
     }
+    const firstNonEmpty = nonEmptyIdx[0]!
+    const lastNonEmpty = nonEmptyIdx[nonEmptyIdx.length - 1]!
+    if (lines[firstNonEmpty]!.trim() !== beginMarker || lines[lastNonEmpty]!.trim() !== endMarker) {
+      throw new Error(
+        "Invalid patch format: '*** Begin Patch' must be the first non-empty line and '*** End Patch' the last",
+      )
+    }
+    const beginIdx = firstNonEmpty
+    const endIdx = lastNonEmpty
 
     i = beginIdx + 1
 
@@ -388,12 +410,17 @@ export namespace Patch {
   }
 
   function normalizeUnicode(str: string): string {
-    return str
-      .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
-      .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
-      .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, "-")
-      .replace(/\u2026/g, "...")
-      .replace(/\u00A0/g, " ")
+    return (
+      str
+        .normalize("NFC")
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+        // Hyphens/dashes + Unicode minus (U+2212) → ASCII hyphen-minus
+        .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, "-")
+        .replace(/\u2026/g, "...")
+        .replace(/\u00A0/g, " ")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    )
   }
 
   type Comparator = (a: string, b: string) => boolean
