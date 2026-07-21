@@ -43,25 +43,26 @@ const EDITOR_TOGGLE_KIND = "editor"
 type SessionTarget = string
 
 export function DialogUsage() {
-
-type Breakdown = SessionContextResponse
-type ServerSource = Breakdown["sources"][number]
-type EditorToggleKind = "editor"
-type Source = Omit<ServerSource, "toggleKind"> & {
-  toggleKind?: ServerSource["toggleKind"] | EditorToggleKind
-}
-
-function buildEditorNote(selection: NonNullable<ReturnType<ReturnType<typeof useEditorContext>["selection"]>>): string {
-  const start = selection.selection.start
-  const end = selection.selection.end
-  if (start.line === end.line && start.character === end.character) {
-    return `Note: The user opened the file "${selection.filePath}".`
+  type Breakdown = SessionContextResponse
+  type ServerSource = Breakdown["sources"][number]
+  type EditorToggleKind = "editor"
+  type Source = Omit<ServerSource, "toggleKind"> & {
+    toggleKind?: ServerSource["toggleKind"] | EditorToggleKind
   }
-  if (start.line === end.line) {
-    return `Note: The user selected line ${start.line} from "${selection.filePath}": ${selection.text}`
+
+  function buildEditorNote(
+    selection: NonNullable<ReturnType<ReturnType<typeof useEditorContext>["selection"]>>,
+  ): string {
+    const start = selection.selection.start
+    const end = selection.selection.end
+    if (start.line === end.line && start.character === end.character) {
+      return `Note: The user opened the file "${selection.filePath}".`
+    }
+    if (start.line === end.line) {
+      return `Note: The user selected line ${start.line} from "${selection.filePath}": ${selection.text}`
+    }
+    return `Note: The user selected lines ${start.line} to ${end.line} from "${selection.filePath}": ${selection.text}`
   }
-  return `Note: The user selected lines ${start.line} to ${end.line} from "${selection.filePath}": ${selection.text}`
-}
 
   const { theme } = useTheme()
   const route = useRoute()
@@ -416,278 +417,280 @@ function buildEditorNote(selection: NonNullable<ReturnType<ReturnType<typeof use
           paddingRight={1}
           scrollbarOptions={{ visible: true }}
         >
-        {/* KPI row — 4 cards, each carries the sparkline of one metric over
+          {/* KPI row — 4 cards, each carries the sparkline of one metric over
             the conversation so the trend is visible without leaving the
             panel. Wraps to 2×2 on narrow terminals. */}
-        <box flexDirection="row" gap={1} flexWrap="wrap" flexShrink={0}>
-          <KPICard
-            label="USED"
-            value={Usage.formatTokens(usedAbs())}
-            color={viz().input}
-            subtitle={`${usagePct().toFixed(1)}% of ${Usage.formatTokens(contextLimit())}`}
-            sparkline={turnTokens()}
-            width={20}
-          />
-          <KPICard
-            label="FREE"
-            value={Usage.formatTokens(freeAbs())}
-            color={viz().cache}
-            subtitle={`${(100 - usagePct()).toFixed(1)}% headroom`}
-            sparkline={turnInput().map((v) => Math.max(0, contextLimit() - v))}
-            width={20}
-          />
-          <KPICard
-            label="RESERVED"
-            value={Usage.formatTokens(autocompactReserved())}
-            color={viz().alert}
-            subtitle="auto-compaction buffer"
-            width={20}
-          />
-          <KPICard
-            label="CACHE HIT"
-            value={cacheHitRate() === undefined ? "—" : `${(cacheHitRate()! * 100).toFixed(0)}%`}
-            color={viz().cache}
-            subtitle={
-              data()?.reported
-                ? `read ${Usage.formatTokens(data()!.reported.cacheRead)} · write ${Usage.formatTokens(
-                    data()!.reported.cacheWrite,
-                  )}`
-                : "no traffic yet"
-            }
-            sparkline={turnCacheRead()}
-            width={20}
-          />
-        </box>
-
-        {/* Pressure gauge — single line that reads as "how close am I to
-            the limit" without any extra chrome. 70% = warning, 90% = error. */}
-        <Show when={contextLimit() > 0}>
-          <box flexDirection="row" gap={2} flexWrap="wrap" flexShrink={0}>
-            <Gauge
-              label="Context window pressure"
-              value={usagePct()}
-              max={100}
-              width={Math.max(20, Math.min(48, chartW()))}
-              color={usagePct() >= 90 ? theme.error : usagePct() >= 70 ? theme.warning : theme.primary}
-              thresholds={[70, 90]}
-              format={(v) => `${v.toFixed(0)}%`}
+          <box flexDirection="row" gap={1} flexWrap="wrap" flexShrink={0}>
+            <KPICard
+              label="USED"
+              value={Usage.formatTokens(usedAbs())}
+              color={viz().input}
+              subtitle={`${usagePct().toFixed(1)}% of ${Usage.formatTokens(contextLimit())}`}
+              sparkline={turnTokens()}
+              width={20}
             />
-            <Gauge
-              label="Cache efficiency"
-              value={(cacheHitRate() ?? 0) * 100}
-              max={100}
-              width={Math.max(20, Math.min(36, chartW() - 16))}
-              color={
-                (cacheHitRate() ?? 0) >= 0.5 ? theme.success : (cacheHitRate() ?? 0) > 0 ? theme.warning : theme.error
+            <KPICard
+              label="FREE"
+              value={Usage.formatTokens(freeAbs())}
+              color={viz().cache}
+              subtitle={`${(100 - usagePct()).toFixed(1)}% headroom`}
+              sparkline={turnInput().map((v) => Math.max(0, contextLimit() - v))}
+              width={20}
+            />
+            <KPICard
+              label="RESERVED"
+              value={Usage.formatTokens(autocompactReserved())}
+              color={viz().alert}
+              subtitle="auto-compaction buffer"
+              width={20}
+            />
+            <KPICard
+              label="CACHE HIT"
+              value={cacheHitRate() === undefined ? "—" : `${(cacheHitRate()! * 100).toFixed(0)}%`}
+              color={viz().cache}
+              subtitle={
+                data()?.reported
+                  ? `read ${Usage.formatTokens(data()!.reported.cacheRead)} · write ${Usage.formatTokens(
+                      data()!.reported.cacheWrite,
+                    )}`
+                  : "no traffic yet"
               }
-              format={(v) => `${v.toFixed(0)}%`}
+              sparkline={turnCacheRead()}
+              width={20}
             />
           </box>
-        </Show>
 
-        {/* Composition chart — one segment per category, sized by enabled
+          {/* Pressure gauge — single line that reads as "how close am I to
+            the limit" without any extra chrome. 70% = warning, 90% = error. */}
+          <Show when={contextLimit() > 0}>
+            <box flexDirection="row" gap={2} flexWrap="wrap" flexShrink={0}>
+              <Gauge
+                label="Context window pressure"
+                value={usagePct()}
+                max={100}
+                width={Math.max(20, Math.min(48, chartW()))}
+                color={usagePct() >= 90 ? theme.error : usagePct() >= 70 ? theme.warning : theme.primary}
+                thresholds={[70, 90]}
+                format={(v) => `${v.toFixed(0)}%`}
+              />
+              <Gauge
+                label="Cache efficiency"
+                value={(cacheHitRate() ?? 0) * 100}
+                max={100}
+                width={Math.max(20, Math.min(36, chartW() - 16))}
+                color={
+                  (cacheHitRate() ?? 0) >= 0.5 ? theme.success : (cacheHitRate() ?? 0) > 0 ? theme.warning : theme.error
+                }
+                format={(v) => `${v.toFixed(0)}%`}
+              />
+            </box>
+          </Show>
+
+          {/* Composition chart — one segment per category, sized by enabled
             token share. Mirrors the analytics panel's `Usage composition`
             stacked bar. */}
-        <Show when={categoryBreakdown().length > 0}>
-          <box flexDirection="column" gap={0}>
-            <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
-              Prompt composition
-            </text>
-            <StackedBarChartV2 segments={categoryBreakdown()} width={chartW()} showLabels />
-          </box>
-        </Show>
+          <Show when={categoryBreakdown().length > 0}>
+            <box flexDirection="column" gap={0}>
+              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+                Prompt composition
+              </text>
+              <StackedBarChartV2 segments={categoryBreakdown()} width={chartW()} showLabels />
+            </box>
+          </Show>
 
-        {/* Top sources — ranked bars highlight the largest single
+          {/* Top sources — ranked bars highlight the largest single
             contributors so the user can decide which to disable / lazy-load. */}
-        <Show when={rankedSources().length > 0}>
-          <box flexDirection="column" gap={0}>
-            <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
-              Top sources
-            </text>
-            <RankedBarList
-              items={rankedSources()}
-              maxValue={Math.max(...rankedSources().map((s) => s.value), 1)}
-              nameWidth={20}
-              barWidth={Math.max(10, chartW() - 38)}
-              highlight={5}
-            />
-          </box>
-        </Show>
+          <Show when={rankedSources().length > 0}>
+            <box flexDirection="column" gap={0}>
+              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+                Top sources
+              </text>
+              <RankedBarList
+                items={rankedSources()}
+                maxValue={Math.max(...rankedSources().map((s) => s.value), 1)}
+                nameWidth={20}
+                barWidth={Math.max(10, chartW() - 38)}
+                highlight={5}
+              />
+            </box>
+          </Show>
 
-        {/* Per-turn trend — braille sparklines (input / cache / output)
+          {/* Per-turn trend — braille sparklines (input / cache / output)
             stacked so the conversation arc is visible at a glance. Only
             render when there's at least one assistant message. */}
-        <Show when={assistantMessages().length > 0}>
+          <Show when={assistantMessages().length > 0}>
+            <box flexDirection="column" gap={0}>
+              <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+                Tokens per turn · last {assistantMessages().length} turn
+                {assistantMessages().length === 1 ? "" : "s"}
+              </text>
+              <text fg={theme.textMuted} wrapMode="none">
+                input · cache · output
+              </text>
+              <box flexDirection="column" gap={0} paddingTop={1}>
+                <BrailleSparkline data={turnInput()} width={Math.min(chartW(), 64)} color={viz().input} />
+                <BrailleSparkline data={turnCacheRead()} width={Math.min(chartW(), 64)} color={viz().cache} />
+                <BrailleSparkline data={turnOutput()} width={Math.min(chartW(), 64)} color={viz().output} />
+              </box>
+            </box>
+          </Show>
+
+          {/* Operational health — 4-cell status grid derived from the
+            headline ratios. Mirrors analytics. */}
           <box flexDirection="column" gap={0}>
             <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
-              Tokens per turn · last {assistantMessages().length} turn
-              {assistantMessages().length === 1 ? "" : "s"}
+              Context health
             </text>
-            <text fg={theme.textMuted} wrapMode="none">
-              input · cache · output
-            </text>
-            <box flexDirection="column" gap={0} paddingTop={1}>
-              <BrailleSparkline data={turnInput()} width={Math.min(chartW(), 64)} color={viz().input} />
-              <BrailleSparkline data={turnCacheRead()} width={Math.min(chartW(), 64)} color={viz().cache} />
-              <BrailleSparkline data={turnOutput()} width={Math.min(chartW(), 64)} color={viz().output} />
+            <box flexDirection="row" gap={1} flexWrap="wrap">
+              <HealthCard
+                label="Usage"
+                detail={usagePct() > 0 ? `${usagePct().toFixed(0)}% of window used` : "No traffic yet"}
+                status={health().usage}
+              />
+              <HealthCard
+                label="Cache"
+                detail={
+                  cacheHitRate() === undefined
+                    ? "no traffic yet"
+                    : `${(cacheHitRate()! * 100).toFixed(0)}% cached input`
+                }
+                status={health().cache}
+              />
+              <HealthCard
+                label="Headroom"
+                detail={`${(100 - usagePct()).toFixed(0)}% remaining`}
+                status={health().headroom}
+              />
+              <HealthCard
+                label="Fragmentation"
+                detail={
+                  categoryBreakdown().length > 1 ? `${categoryBreakdown().length} categories active` : "Single source"
+                }
+                status={health().fragmentation}
+              />
             </box>
           </box>
-        </Show>
 
-        {/* Operational health — 4-cell status grid derived from the
-            headline ratios. Mirrors analytics. */}
-        <box flexDirection="column" gap={0}>
-          <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
-            Context health
-          </text>
-          <box flexDirection="row" gap={1} flexWrap="wrap">
-            <HealthCard
-              label="Usage"
-              detail={usagePct() > 0 ? `${usagePct().toFixed(0)}% of window used` : "No traffic yet"}
-              status={health().usage}
-            />
-            <HealthCard
-              label="Cache"
-              detail={
-                cacheHitRate() === undefined ? "no traffic yet" : `${(cacheHitRate()! * 100).toFixed(0)}% cached input`
-              }
-              status={health().cache}
-            />
-            <HealthCard
-              label="Headroom"
-              detail={`${(100 - usagePct()).toFixed(0)}% remaining`}
-              status={health().headroom}
-            />
-            <HealthCard
-              label="Fragmentation"
-              detail={
-                categoryBreakdown().length > 1 ? `${categoryBreakdown().length} categories active` : "Single source"
-              }
-              status={health().fragmentation}
-            />
-          </box>
-        </box>
-
-        {/* Source list — same toggle-by-row interaction as before, but now
+          {/* Source list — same toggle-by-row interaction as before, but now
             sits below the analytics-style summary rather than being the
             whole panel. Header line hints at the keyboard model. Scrolling
             is handled by the outer scrollbox that wraps the whole body. */}
-        <box flexDirection="column" gap={0}>
-          <For each={sources()}>
-            {(source, index) => {
-              const active = createMemo(() => index() === selected())
-              const prev = createMemo(() => sources()[index() - 1])
-              const showHeader = createMemo(() => index() === 0 || prev()?.category !== source.category)
-              const indicator = () => {
-                if (!source.togglable) return "•"
-                return source.enabled ? "[x]" : "[ ]"
-              }
-              const indicatorColor = () => {
-                if (!source.togglable) return theme.textMuted
-                return source.enabled ? theme.success : theme.textMuted
-              }
-              const labelColor = () => (source.enabled ? theme.text : theme.textMuted)
-              return (
-                <>
-                  <Show when={showHeader()}>
-                    <box paddingTop={index() > 0 ? 1 : 0}>
-                      <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
-                        {CATEGORY_LABEL[source.category]}
+          <box flexDirection="column" gap={0}>
+            <For each={sources()}>
+              {(source, index) => {
+                const active = createMemo(() => index() === selected())
+                const prev = createMemo(() => sources()[index() - 1])
+                const showHeader = createMemo(() => index() === 0 || prev()?.category !== source.category)
+                const indicator = () => {
+                  if (!source.togglable) return "•"
+                  return source.enabled ? "[x]" : "[ ]"
+                }
+                const indicatorColor = () => {
+                  if (!source.togglable) return theme.textMuted
+                  return source.enabled ? theme.success : theme.textMuted
+                }
+                const labelColor = () => (source.enabled ? theme.text : theme.textMuted)
+                return (
+                  <>
+                    <Show when={showHeader()}>
+                      <box paddingTop={index() > 0 ? 1 : 0}>
+                        <text fg={theme.accent} attributes={TextAttributes.BOLD} wrapMode="none">
+                          {CATEGORY_LABEL[source.category]}
+                        </text>
+                      </box>
+                    </Show>
+                    <box
+                      id={rowID(index())}
+                      flexDirection="row"
+                      gap={1}
+                      paddingLeft={1}
+                      paddingRight={1}
+                      backgroundColor={active() ? theme.backgroundElement : undefined}
+                      onMouseUp={() => {
+                        setSelected(index())
+                        void toggle(source)
+                      }}
+                    >
+                      <text flexShrink={0} fg={indicatorColor()} wrapMode="none">
+                        {indicator()}
                       </text>
+                      <box flexGrow={1} flexShrink={1} flexDirection="row" justifyContent="space-between" gap={2}>
+                        <text flexShrink={1} wrapMode="none" fg={labelColor()}>
+                          <Show
+                            when={source.enabled}
+                            fallback={<span style={{ fg: theme.textMuted }}>{source.label}</span>}
+                          >
+                            <b>{source.label}</b>
+                          </Show>
+                          <Show when={source.detail}>
+                            <span style={{ fg: theme.textMuted }}> — {source.detail}</span>
+                          </Show>
+                        </text>
+                        <text flexShrink={0} fg={source.enabled ? theme.text : theme.textMuted} wrapMode="none">
+                          {Usage.formatTokens(source.tokens)}
+                          <span style={{ fg: theme.textMuted }}>
+                            {" "}
+                            {source.enabled ? tokenPct(source.tokens) : "(off)"}
+                          </span>
+                        </text>
+                      </box>
                     </box>
-                  </Show>
-                  <box
-                    id={rowID(index())}
-                    flexDirection="row"
-                    gap={1}
-                    paddingLeft={1}
-                    paddingRight={1}
-                    backgroundColor={active() ? theme.backgroundElement : undefined}
-                    onMouseUp={() => {
-                      setSelected(index())
-                      void toggle(source)
-                    }}
-                  >
-                    <text flexShrink={0} fg={indicatorColor()} wrapMode="none">
-                      {indicator()}
-                    </text>
-                    <box flexGrow={1} flexShrink={1} flexDirection="row" justifyContent="space-between" gap={2}>
-                      <text flexShrink={1} wrapMode="none" fg={labelColor()}>
-                        <Show
-                          when={source.enabled}
-                          fallback={<span style={{ fg: theme.textMuted }}>{source.label}</span>}
-                        >
-                          <b>{source.label}</b>
-                        </Show>
-                        <Show when={source.detail}>
-                          <span style={{ fg: theme.textMuted }}> — {source.detail}</span>
-                        </Show>
-                      </text>
-                      <text flexShrink={0} fg={source.enabled ? theme.text : theme.textMuted} wrapMode="none">
-                        {Usage.formatTokens(source.tokens)}
-                        <span style={{ fg: theme.textMuted }}>
-                          {" "}
-                          {source.enabled ? tokenPct(source.tokens) : "(off)"}
-                        </span>
-                      </text>
-                    </box>
-                  </box>
-                </>
-              )
-            }}
-          </For>
-        </box>
-
-        {/* Footer — same keybind hint as before, plus a meta line with the
-            cache-hit colour hint so the user can correlate it with the KPI. */}
-        <Show when={data()?.reported && reportedTotal() > 0}>
-          <box flexDirection="row" flexWrap="wrap" gap={2}>
-            <text fg={theme.textMuted} wrapMode="none">
-              cache read {Usage.formatTokens(data()!.reported.cacheRead)}
-            </text>
-            <text fg={theme.textMuted} wrapMode="none">
-              cache write {Usage.formatTokens(data()!.reported.cacheWrite)}
-            </text>
-            <Show when={cacheHitRate() !== undefined}>
-              <text
-                fg={cacheHitRate()! >= 0.5 ? theme.success : cacheHitRate()! > 0 ? theme.warning : theme.error}
-                wrapMode="none"
-              >
-                cache hit{" "}
-                {Usage.formatPct(
-                  data()!.reported.cacheRead,
-                  data()!.reported.cacheRead + data()!.reported.cacheWrite + data()!.reported.input,
-                )}
-              </text>
-            </Show>
-            <text fg={theme.textMuted} wrapMode="none">
-              output {Usage.formatTokens(data()!.reported.output)}
-            </text>
-            <Show when={data()!.reported.reasoning > 0}>
-              <text fg={theme.textMuted} wrapMode="none">
-                reasoning {Usage.formatTokens(data()!.reported.reasoning)}
-              </text>
-            </Show>
+                  </>
+                )
+              }}
+            </For>
           </box>
-        </Show>
 
-        <box paddingTop={1} flexDirection="row" flexWrap="wrap" gap={1} flexShrink={0}>
-          <text fg={theme.textMuted} wrapMode="none">
-            ↑↓ navigate
-          </text>
-          <text fg={theme.borderSubtle} wrapMode="none">
-            ·
-          </text>
-          <text fg={busy() ? theme.warning : theme.textMuted} wrapMode="none">
-            {busy() ? "saving…" : "space toggle"}
-          </text>
-          <text fg={theme.borderSubtle} wrapMode="none">
-            ·
-          </text>
-          <text fg={theme.textMuted} wrapMode="none">
-            esc close
-          </text>
-        </box>
+          {/* Footer — same keybind hint as before, plus a meta line with the
+            cache-hit colour hint so the user can correlate it with the KPI. */}
+          <Show when={data()?.reported && reportedTotal() > 0}>
+            <box flexDirection="row" flexWrap="wrap" gap={2}>
+              <text fg={theme.textMuted} wrapMode="none">
+                cache read {Usage.formatTokens(data()!.reported.cacheRead)}
+              </text>
+              <text fg={theme.textMuted} wrapMode="none">
+                cache write {Usage.formatTokens(data()!.reported.cacheWrite)}
+              </text>
+              <Show when={cacheHitRate() !== undefined}>
+                <text
+                  fg={cacheHitRate()! >= 0.5 ? theme.success : cacheHitRate()! > 0 ? theme.warning : theme.error}
+                  wrapMode="none"
+                >
+                  cache hit{" "}
+                  {Usage.formatPct(
+                    data()!.reported.cacheRead,
+                    data()!.reported.cacheRead + data()!.reported.cacheWrite + data()!.reported.input,
+                  )}
+                </text>
+              </Show>
+              <text fg={theme.textMuted} wrapMode="none">
+                output {Usage.formatTokens(data()!.reported.output)}
+              </text>
+              <Show when={data()!.reported.reasoning > 0}>
+                <text fg={theme.textMuted} wrapMode="none">
+                  reasoning {Usage.formatTokens(data()!.reported.reasoning)}
+                </text>
+              </Show>
+            </box>
+          </Show>
+
+          <box paddingTop={1} flexDirection="row" flexWrap="wrap" gap={1} flexShrink={0}>
+            <text fg={theme.textMuted} wrapMode="none">
+              ↑↓ navigate
+            </text>
+            <text fg={theme.borderSubtle} wrapMode="none">
+              ·
+            </text>
+            <text fg={busy() ? theme.warning : theme.textMuted} wrapMode="none">
+              {busy() ? "saving…" : "space toggle"}
+            </text>
+            <text fg={theme.borderSubtle} wrapMode="none">
+              ·
+            </text>
+            <text fg={theme.textMuted} wrapMode="none">
+              esc close
+            </text>
+          </box>
         </scrollbox>
       </Show>
     </box>

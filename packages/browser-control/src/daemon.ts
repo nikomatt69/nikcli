@@ -157,7 +157,10 @@ export async function startDaemon(socketPath: string): Promise<void> {
         const result = await handler(manager, body.params ?? {})
         return Response.json({ ok: true, result })
       } catch (error) {
-        return Response.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 })
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : String(error) },
+          { status: 500 },
+        )
       }
     },
   })

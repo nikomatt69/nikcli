@@ -4965,6 +4965,9 @@
                   "github": {
                     "$ref": "#/components/schemas/SessionGithub"
                   },
+                  "worktree": {
+                    "$ref": "#/components/schemas/SessionWorktree"
+                  },
                   "workspaceID": {
                     "type": "string"
                   }
@@ -7616,10 +7619,10 @@
           }
         ],
         "summary": "Send async message",
-        "description": "Create and send a new message to a session asynchronously, starting the session if needed and returning immediately.",
+        "description": "Create and send a new message to a session asynchronously. Persists the user message before returning 204, then runs the model loop in the background.",
         "responses": {
           "204": {
-            "description": "Prompt accepted"
+            "description": "Prompt accepted; user message is already persisted"
           },
           "400": {
             "description": "Bad request",
@@ -12241,8 +12244,8 @@
             "required": true
           }
         ],
-        "summary": "Cleanup GitHub session worktree",
-        "description": "Remove the isolated worktree created for a GitHub-backed mobile session.",
+        "summary": "Cleanup session worktree",
+        "description": "Remove the isolated worktree created for a mobile session (GitHub-linked or plain).",
         "responses": {
           "200": {
             "description": "Worktree cleaned",
@@ -16496,6 +16499,12 @@
                     "type": "string"
                   },
                   "expiresAt": {
+                    "type": "number"
+                  },
+                  "refreshToken": {
+                    "type": "string"
+                  },
+                  "refreshTokenExpiresAt": {
                     "type": "number"
                   }
                 },
@@ -20930,6 +20939,27 @@
         },
         "required": ["type", "properties"]
       },
+      "SessionWorktree": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "repositoryDirectory": {
+            "type": "string"
+          },
+          "cleanedAt": {
+            "type": "number"
+          }
+        },
+        "required": ["name", "branch", "directory"]
+      },
       "SessionGithub": {
         "type": "object",
         "properties": {
@@ -20961,22 +20991,7 @@
             "type": "boolean"
           },
           "worktree": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "branch": {
-                "type": "string"
-              },
-              "directory": {
-                "type": "string"
-              },
-              "cleanedAt": {
-                "type": "number"
-              }
-            },
-            "required": ["name", "branch", "directory"]
+            "$ref": "#/components/schemas/SessionWorktree"
           },
           "pullRequest": {
             "type": "object",
@@ -21136,6 +21151,9 @@
           },
           "github": {
             "$ref": "#/components/schemas/SessionGithub"
+          },
+          "worktree": {
+            "$ref": "#/components/schemas/SessionWorktree"
           },
           "mobile": {
             "$ref": "#/components/schemas/SessionMobile"
@@ -24841,6 +24859,10 @@
                     },
                     "additionalProperties": {}
                   }
+                },
+                "disabled": {
+                  "description": "Hide this model from the picker (opencode #21038). Useful when a provider exposes models you don't have access to on your subscription tier.",
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -25451,9 +25473,14 @@
                 },
                 "subtask": {
                   "type": "boolean"
+                },
+                "aliases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
-              },
-              "required": ["template"]
+              }
             }
           },
           "reference": {
@@ -25793,6 +25820,16 @@
                             "type": "string"
                           },
                           "additionalProperties": {}
+                        },
+                        "min_severity": {
+                          "anyOf": [
+                            {
+                              "description": "Minimum diagnostic severity: 1=Error (default), 2=Warning, 3=Info, 4=Hint.",
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 4
+                            }
+                          ]
                         }
                       },
                       "required": ["command"]
@@ -25969,6 +26006,34 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
+              },
+              "tool_timeout": {
+                "description": "Outer timeout in milliseconds for non-task tool executions. Default 600000 (10 minutes). Set to false to disable. Tools that manage their own timeout (bash) still honor this as a hard outer bound when set.",
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "boolean",
+                    "const": false
+                  }
+                ]
+              },
+              "task_timeout": {
+                "description": "Timeout in milliseconds for foreground (non-background) task tool runs. Default 1800000 (30 minutes). Set to false to disable. Background tasks are unaffected.",
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "boolean",
+                    "const": false
+                  }
+                ]
               },
               "nativeLlm": {
                 "description": "Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.",
@@ -28082,6 +28147,9 @@
               "tokenAvailable": {
                 "type": "boolean"
               },
+              "reconnectRequired": {
+                "type": "boolean"
+              },
               "oauthDeviceEnabled": {
                 "type": "boolean"
               },
@@ -29743,6 +29811,12 @@
             "type": "boolean"
           },
           "hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aliases": {
             "type": "array",
             "items": {
               "type": "string"
