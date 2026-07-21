@@ -442,6 +442,7 @@ import type {
   SessionV2EventsResponses,
   SessionV2StateErrors,
   SessionV2StateResponses,
+  SessionWorktree,
   SubtaskPartInput,
   SyncConfigSetErrors,
   SyncConfigSetResponses,
@@ -3313,6 +3314,7 @@ export class Session2 extends HeyApiClient {
         [key: string]: boolean
       }
       github?: SessionGithub
+      worktree?: SessionWorktree
       workspaceID?: string
     },
     options?: Options<never, ThrowOnError>,
@@ -3331,6 +3333,7 @@ export class Session2 extends HeyApiClient {
             { in: "body", key: "disabledInstructions" },
             { in: "body", key: "disabledTools" },
             { in: "body", key: "github" },
+            { in: "body", key: "worktree" },
             { in: "body", key: "workspaceID" },
           ],
         },
@@ -4067,7 +4070,7 @@ export class Session2 extends HeyApiClient {
   /**
    * Send async message
    *
-   * Create and send a new message to a session asynchronously, starting the session if needed and returning immediately.
+   * Create and send a new message to a session asynchronously. Persists the user message before returning 204, then runs the model loop in the background.
    */
   public promptAsync<ThrowOnError extends boolean = false>(
     parameters: {
@@ -5930,9 +5933,9 @@ export class Session3 extends HeyApiClient {
   }
 
   /**
-   * Cleanup GitHub session worktree
+   * Cleanup session worktree
    *
-   * Remove the isolated worktree created for a GitHub-backed mobile session.
+   * Remove the isolated worktree created for a mobile session (GitHub-linked or plain).
    */
   public cleanup<ThrowOnError extends boolean = false>(
     parameters: {
@@ -8767,6 +8770,8 @@ export class Auth4 extends HeyApiClient {
       apiKey?: string
       teamId?: string
       expiresAt?: number
+      refreshToken?: string
+      refreshTokenExpiresAt?: number
     },
     options?: Options<never, ThrowOnError>,
   ): RequestResult<ConnectorsAuthSetResponses, ConnectorsAuthSetErrors, ThrowOnError> {
@@ -8783,6 +8788,8 @@ export class Auth4 extends HeyApiClient {
             { in: "body", key: "apiKey" },
             { in: "body", key: "teamId" },
             { in: "body", key: "expiresAt" },
+            { in: "body", key: "refreshToken" },
+            { in: "body", key: "refreshTokenExpiresAt" },
           ],
         },
       ],

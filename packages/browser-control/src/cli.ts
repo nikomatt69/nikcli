@@ -222,7 +222,10 @@ async function cmdSnapshot(name: string, args: string[]): Promise<void> {
   }
 }
 
-export function renderAgentBundleOutput(bundle: Awaited<ReturnType<typeof createEvidenceBundle>>, prMarkdown: string): string {
+export function renderAgentBundleOutput(
+  bundle: Awaited<ReturnType<typeof createEvidenceBundle>>,
+  prMarkdown: string,
+): string {
   const preview = bundle.preview ?? bundle.screenshot
   const previewUrl = pathToFileURL(preview).href
   const lines = [
@@ -248,7 +251,9 @@ function result(value: string): VerificationResult {
   throw new Error("--result must be passed, failed or unverified.")
 }
 
-async function parseBundleOptions(argv: readonly string[]): Promise<EvidenceBundleOptions & { readonly json: boolean }> {
+async function parseBundleOptions(
+  argv: readonly string[],
+): Promise<EvidenceBundleOptions & { readonly json: boolean }> {
   const args = [...argv]
   type MutableOptions = { -readonly [K in keyof EvidenceBundleOptions]?: EvidenceBundleOptions[K] }
   const options: MutableOptions & { json?: boolean } = {}
@@ -371,7 +376,8 @@ export async function installWorkspaceSkill(workspace?: string, global?: boolean
       realpath(source).catch(() => source),
       realpath(linkedPath).catch(() => linkedPath),
     ])
-    if (!samePath(actualSource, actualTarget)) throw new Error(`Skill target points somewhere else: ${target} -> ${linked}`)
+    if (!samePath(actualSource, actualTarget))
+      throw new Error(`Skill target points somewhere else: ${target} -> ${linked}`)
     return { source, target, installed: false }
   }
 

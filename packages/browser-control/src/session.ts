@@ -82,20 +82,15 @@ export class BrowserSession {
 
     page.on("console", (msg: ConsoleMessage) => {
       session.consoleLog.push({ time: Date.now(), type: msg.type(), text: msg.text() })
-      if (session.consoleLog.length > CONSOLE_LOG_LIMIT) session.consoleLog = session.consoleLog.slice(-CONSOLE_LOG_LIMIT)
+      if (session.consoleLog.length > CONSOLE_LOG_LIMIT)
+        session.consoleLog = session.consoleLog.slice(-CONSOLE_LOG_LIMIT)
     })
 
     if (options.url) await page.goto(options.url, { waitUntil: "domcontentloaded" })
     return session
   }
 
-  private constructor(
-    name: string,
-    context: BrowserContext,
-    page: Page,
-    viewport: Viewport,
-    videoDir: string | null,
-  ) {
+  private constructor(name: string, context: BrowserContext, page: Page, viewport: Viewport, videoDir: string | null) {
     this.name = name
     this.context = context
     this.page = page
@@ -252,20 +247,31 @@ export class BrowserSession {
    */
   private async waitStable(quietMs: number, timeoutMs: number): Promise<boolean> {
     await this.page.evaluate(() => {
-      const w = window as unknown as { __browserControlLastMutation?: number; __browserControlObserver?: MutationObserver }
+      const w = window as unknown as {
+        __browserControlLastMutation?: number
+        __browserControlObserver?: MutationObserver
+      }
       w.__browserControlLastMutation = Date.now()
       if (!w.__browserControlObserver) {
         w.__browserControlObserver = new MutationObserver(() => {
           w.__browserControlLastMutation = Date.now()
         })
-        w.__browserControlObserver.observe(document, { childList: true, subtree: true, attributes: true, characterData: true })
+        w.__browserControlObserver.observe(document, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          characterData: true,
+        })
       }
     })
 
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
       const quietFor = await this.page
-        .evaluate(() => Date.now() - (window as unknown as { __browserControlLastMutation: number }).__browserControlLastMutation)
+        .evaluate(
+          () =>
+            Date.now() - (window as unknown as { __browserControlLastMutation: number }).__browserControlLastMutation,
+        )
         .catch(() => 0)
       if (quietFor >= quietMs) return true
       await delay(Math.min(50, Math.max(10, quietMs - quietFor)))
@@ -314,7 +320,12 @@ export class BrowserSession {
    */
   async videoPath(): Promise<string | undefined> {
     if (this.status === "running") return undefined
-    return (await this.page.video()?.path().catch(() => undefined)) ?? undefined
+    return (
+      (await this.page
+        .video()
+        ?.path()
+        .catch(() => undefined)) ?? undefined
+    )
   }
 
   async stop(): Promise<void> {

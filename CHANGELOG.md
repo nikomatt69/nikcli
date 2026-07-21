@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.186.0 (July 2026)
+
+## Core
+
+- Port next batch of opencode pull requests (@nikomatt69)
+- Port next batch of high-impact opencode pull requests (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): port next batch of high-impact opencode pull requests
+  - feat(nikcli): port next batch of opencode pull requests
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
