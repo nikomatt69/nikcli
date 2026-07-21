@@ -36,6 +36,7 @@ export namespace Command {
       template: z.promise(z.string()).or(z.string()),
       subtask: z.boolean().optional(),
       hints: z.array(z.string()),
+      aliases: z.array(z.string()).optional(),
     })
     .meta({
       ref: "Command",
@@ -163,6 +164,7 @@ export namespace Command {
                 },
                 subtask: command.subtask,
                 hints: hints(template),
+                aliases: command.aliases,
               }
               continue
             }
@@ -184,6 +186,7 @@ export namespace Command {
               },
               subtask: command.subtask ?? (existing as { subtask?: boolean }).subtask,
               hints: (existing as { hints?: unknown }).hints as never,
+              aliases: command.aliases ?? (existing as { aliases?: string[] }).aliases,
             }
           }
           const mcpPrompts = yield* Effect.promise(() =>

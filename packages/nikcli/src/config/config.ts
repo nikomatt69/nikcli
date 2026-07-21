@@ -761,6 +761,12 @@ export namespace Config {
     agent: z.string().optional(),
     model: z.string().optional(),
     subtask: z.boolean().optional(),
+    /**
+     * Alternative names accepted in the prompt autocomplete (e.g. `/gh` → `/github`).
+     * Built-in commands (initialized in src/command/index.ts) may also declare
+     * aliases in their own static config.
+     */
+    aliases: z.array(z.string()).optional(),
   })
   export type Command = z.infer<typeof Command>
 

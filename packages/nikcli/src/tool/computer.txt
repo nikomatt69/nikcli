@@ -1,44 +1,13 @@
 Control a computer's screen, mouse, and keyboard ("computer use").
 
-By default this runs in the background against an isolated Linux desktop
-(a container), exactly like Codex/Operator — it operates a real desktop but
-never touches the user's own screen, and nothing happens visibly in real time.
-A live preview URL (noVNC) is returned so the user can optionally watch. The
-first action may take a while the first time while the desktop image is built.
+Default: sandbox mode — an isolated Linux desktop in a container. No real-time takeover of the user. First action may take a while while the desktop image is built.
 
-Work in a loop: take a `screenshot`, decide where to act based on what you see,
-perform one action, then take another `screenshot` to confirm the result before
-continuing. Coordinates are in screen pixels with (0,0) at the top-left.
+Loop: screenshot → decide → action → screenshot again. Coordinates are screen pixels from top-left.
 
-The `action` parameter selects what to do:
-
-- screenshot      Capture the current screen (returned as an image).
-- capabilities    Report the active mode and what's supported.
-- screen_size     Report the logical screen size (use it to scale coordinates).
-- mouse_move      Move the cursor to `x`,`y`.
-- left_click      Click at `x`,`y` (omit to click the current position).
-- right_click     Right-click at `x`,`y`.
-- middle_click    Middle-click at `x`,`y`.
-- double_click    Double-click at `x`,`y`.
-- left_click_drag Press at `x`,`y` and release at `to_x`,`to_y`.
-- type            Type `text` at the keyboard.
-- key             Press a key or chord, e.g. "Return", "Escape", "cmd+a",
-                  "ctrl+c", "ArrowDown". Requires `text`.
-- scroll          Scroll `direction` ("up"|"down"|"left"|"right") by `amount`,
-                  optionally after moving to `x`,`y`.
-- status          Report the background desktop and its live preview URL.
-- stop            Stop the background desktop and release resources.
+Actions: screenshot / capabilities / screen_size / mouse_move / left_click / right_click / middle_click / double_click / left_click_drag / type / key / scroll / status / stop.
 
 Modes (config `computer.mode`):
-- sandbox (default): isolated background desktop in a container. Needs a
-  container runtime — on macOS that is colima ("colima start"); the desktop runs
-  inside that Linux VM, never on the Mac. Use this unless told otherwise.
-- host: drives the user's real machine in real time (visible takeover). Only
-  when the user explicitly asks to operate their own screen. On macOS needs
-  Screen Recording + Accessibility permissions and optional `cliclick`; Linux
-  needs xdotool + a screenshot tool; Windows uses built-in PowerShell.
+- sandbox (default) — containerized Linux. Needs colima on macOS. Desktop runs in the VM, not on the Mac.
+- host — drives the user's real machine in real time. Only when the user asks. Needs Screen Recording + Accessibility on macOS.
 
-Run `capabilities` or `status` first if unsure whether the environment is ready.
-Only perform the specific actions the user asked for, and never destructive or
-irreversible ones (deleting data, sending messages, purchases, settings changes)
-without explicit instruction.
+Never perform destructive or irreversible actions without explicit user instruction.

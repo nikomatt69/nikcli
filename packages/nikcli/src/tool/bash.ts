@@ -260,6 +260,18 @@ export const BashTool = Tool.define("bash", async () => {
         throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
       }
       const timeout = params.timeout ?? DEFAULT_TIMEOUT
+
+      // Publish title + empty output immediately so the TUI shows the running
+      // command (and description) before permission prompts / spawn latency.
+      ctx.metadata({
+        title: params.description,
+        metadata: {
+          output: "",
+          description: params.description,
+          command: params.command,
+        },
+      })
+
       await authorizeBashCommand(params.command, cwd, ctx)
 
       const proc = spawn(params.command, {
@@ -274,14 +286,6 @@ export const BashTool = Tool.define("bash", async () => {
 
       let output = ""
       let outputTruncated = false
-
-      ctx.metadata({
-        metadata: {
-          output: "",
-          description: params.description,
-        },
-      })
-
       const append = (chunk: Buffer) => {
         if (!outputTruncated) {
           const result = appendOutput(output, chunk)

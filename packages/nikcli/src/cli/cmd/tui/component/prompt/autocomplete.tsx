@@ -7,6 +7,7 @@ import { createMemo, createResource, createEffect, onMount, onCleanup, Index, Sh
 import { createStore } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
+import type { Command } from "@nikcli-ai/sdk/v2"
 import { useTheme, selectedForeground } from "@tui/context/theme"
 import { SplitBorder } from "@tui/component/border"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -423,19 +424,30 @@ export function Autocomplete(props: {
   const commands = createMemo((): AutocompleteOption[] => {
     const results: AutocompleteOption[] = [...command.slashes()]
 
-    for (const serverCommand of sync.data.command) {
+    for (const serverCommand of sync.data.command as Array<Command & { aliases?: string[] }>) {
       const suffix = serverCommand.skill ? " (Skill)" : serverCommand.mcp ? " (MCP)" : ""
+      const insert = (targetName: string) => {
+        const newText = "/" + targetName + " "
+        const cursor = props.input().logicalCursor
+        props.input().deleteRange(0, 0, cursor.row, cursor.col)
+        props.input().insertText(newText)
+        props.input().cursorOffset = Bun.stringWidth(newText)
+      }
       results.push({
         display: "/" + serverCommand.name + suffix,
+        aliases: serverCommand.aliases?.map((a: string) => "/" + a),
         description: serverCommand.description,
-        onSelect: () => {
-          const newText = "/" + serverCommand.name + " "
-          const cursor = props.input().logicalCursor
-          props.input().deleteRange(0, 0, cursor.row, cursor.col)
-          props.input().insertText(newText)
-          props.input().cursorOffset = Bun.stringWidth(newText)
-        },
+        onSelect: () => insert(serverCommand.name),
       })
+      // Surface user-configured aliases as separate options in the prompt
+      // autocomplete (built-in slashes already do this via dialog-command).
+      for (const alias of serverCommand.aliases ?? []) {
+        results.push({
+          display: "/" + alias + " (alias)" + suffix,
+          description: `alias for /${serverCommand.name}: ${serverCommand.description ?? ""}`,
+          onSelect: () => insert(serverCommand.name),
+        })
+      }
     }
 
     results.sort((a, b) => a.display.localeCompare(b.display))

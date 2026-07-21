@@ -2163,14 +2163,25 @@ function BrowserUse(props: ToolProps<typeof BrowserTool>) {
   return (
     <Switch>
       <Match when={props.output !== undefined}>
-        <BlockTool title={`# Browser · ${label()}`} titleColor={theme.primary} accentColor={theme.primary} part={props.part}>
+        <BlockTool
+          title={`# Browser · ${label()}`}
+          titleColor={theme.primary}
+          accentColor={theme.primary}
+          part={props.part}
+        >
           <box gap={1}>
             <text fg={theme.textMuted}>{props.output}</text>
           </box>
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="◎" iconColor={theme.primary} pending="Running browser action..." complete={label()} part={props.part}>
+        <InlineTool
+          icon="◎"
+          iconColor={theme.primary}
+          pending="Running browser action..."
+          complete={label()}
+          part={props.part}
+        >
           Browser · {label()}
         </InlineTool>
       </Match>
@@ -2410,6 +2421,14 @@ function Bash(props: ToolProps<typeof BashTool>) {
     return [...lines().slice(0, 10), "…"].join("\n")
   })
 
+  // Prefer streamed input; fall back to metadata.command published at execute start
+  // so the running command is visible before the model finishes the tool-call args.
+  const command = createMemo(() => {
+    if (typeof props.input.command === "string" && props.input.command.length > 0) return props.input.command
+    const metaCmd = (props.metadata as { command?: string }).command
+    return typeof metaCmd === "string" ? metaCmd : undefined
+  })
+
   const workdirDisplay = createMemo(() => {
     const workdir = props.input.workdir
     if (!workdir || workdir === ".") return undefined
@@ -2428,24 +2447,34 @@ function Bash(props: ToolProps<typeof BashTool>) {
   })
 
   const title = createMemo(() => {
-    const desc = props.input.description ?? "Shell"
+    const metaDesc = (props.metadata as { description?: string }).description
+    const desc =
+      (typeof props.input.description === "string" && props.input.description) ||
+      (typeof metaDesc === "string" && metaDesc) ||
+      "Shell"
     const wd = workdirDisplay()
     if (!wd) return `# ${desc}`
     if (desc.includes(wd)) return `# ${desc}`
     return `# ${desc} in ${wd}`
   })
 
+  // Show the block as soon as we know the command (input or early metadata),
+  // not only after the first stdout chunk — avoids stuck "Writing command...".
+  const showRunning = createMemo(() => props.metadata.output !== undefined || Boolean(command()))
+
   return (
     <Switch>
-      <Match when={props.metadata.output !== undefined}>
+      <Match when={showRunning()}>
         <BlockTool
           title={title()}
           part={props.part}
           onClick={overflow() ? () => setExpanded((prev) => !prev) : undefined}
         >
           <box gap={1}>
-            <text fg={theme.text}>$ {props.input.command}</text>
-            <text fg={theme.text}>{limited()}</text>
+            <text fg={theme.text}>$ {command() ?? "…"}</text>
+            <Show when={output()}>
+              <text fg={theme.text}>{limited()}</text>
+            </Show>
             <Show when={overflow()}>
               <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
             </Show>
@@ -2453,14 +2482,13 @@ function Bash(props: ToolProps<typeof BashTool>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="$" pending="Writing command..." complete={props.input.command} part={props.part}>
-          {props.input.command}
+        <InlineTool icon="$" pending="Writing command..." complete={command()} part={props.part}>
+          {command()}
         </InlineTool>
       </Match>
     </Switch>
   )
 }
-
 function ExecCode(props: ToolProps<any>) {
   const { theme, syntax } = useTheme()
 
@@ -3221,7 +3249,8 @@ function DialogMonitorLog(props: {
   const statusLine = createMemo(() => {
     const parts = [monitorStatusLabel(status(), exitCode())]
     const duration = durationMs()
-    if (duration !== undefined) parts.push(`${status() === "running" ? "elapsed" : "duration"} ${Locale.duration(duration)}`)
+    if (duration !== undefined)
+      parts.push(`${status() === "running" ? "elapsed" : "duration"} ${Locale.duration(duration)}`)
     if (content().length > 0) parts.push(`${formatMonitorBytes(content().length)} output`)
     return parts.join(" · ")
   })
@@ -3436,9 +3465,19 @@ function Task(props: ToolProps<typeof TaskTool>) {
   })
   const color = createMemo(() => local.agent.color(input().subagent_type ?? "unknown"))
 
+  // Fall back to metadata.description when the model streamed a title via
+  // metadata instead of the `description` parameter (opencode #38100).
+  const taskTitle = createMemo(() => {
+    const description = input().description
+    if (typeof description === "string" && description.trim()) return description
+    const metaDesc = meta().description
+    if (typeof metaDesc === "string" && metaDesc.trim()) return metaDesc
+    return Locale.titlecase(input().subagent_type ?? "unknown")
+  })
+
   return (
     <BlockTool
-      title={"# " + Locale.titlecase(input().subagent_type ?? "unknown") + " Task"}
+      title={"# " + taskTitle()}
       titleColor={color()}
       accentColor={color()}
       onClick={

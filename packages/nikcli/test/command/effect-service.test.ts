@@ -45,6 +45,20 @@ describe("Command.Service", () => {
     expect(result.init?.description).toBe("create/update AGENTS.md")
     expect(await result.init?.template).toContain("$ARGUMENTS")
   })
+
+  it("exposes aliases on the Command.Info shape (opencode #38080)", () => {
+    // Runtime config injection is not portable across the test env, so we
+    // verify the schema directly. The full-override branch in command/index.ts
+    // copies `command.aliases` into Info.aliases; this test guards the schema.
+    const sample = {
+      name: "custom",
+      template: "echo hi",
+      aliases: ["c", "cx"],
+      hints: [],
+    }
+    const parsed = Command.Info.parse(sample)
+    expect((parsed as Command.Info).aliases).toEqual(["c", "cx"])
+  })
 })
 
 afterEach(async () => {
