@@ -157,6 +157,79 @@ describe("MessageV2 schemas and helpers", () => {
     expect(user.parts[0]?.type === "text" && user.parts[0].text).toBe("please continue")
   })
 
+  it("toModelMessages supports custom queued-message wrap template", () => {
+    const sessionID = Identifier.descending("session")
+    const finishedID = Identifier.ascending("message")
+    const queuedID = Identifier.ascending("message")
+    const user: MessageV2.WithParts = {
+      info: {
+        id: queuedID,
+        role: "user",
+        sessionID,
+        time: { created: 2 },
+        agent: "a",
+        model: { providerID: "minimax-coding-plan", modelID: "MiniMax-M2.7" },
+      },
+      parts: [
+        {
+          id: Identifier.ascending("part"),
+          sessionID,
+          messageID: queuedID,
+          type: "text",
+          text: "custom body",
+        },
+      ],
+    }
+    const model = {
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
+      id: "MiniMax-M2.7",
+      cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
+    } as Parameters<typeof MessageV2.toModelMessages>[1]
+
+    const out = MessageV2.toModelMessages([user], model, {
+      remindAfter: finishedID,
+      wrap: { header: "<custom>", footer: "</custom>" },
+    })
+    expect(JSON.stringify(out)).toContain("<custom>\\ncustom body\\n\\n</custom>")
+  })
+
+  it("toModelMessages disables queued-message wrap when wrap=false", () => {
+    const sessionID = Identifier.descending("session")
+    const finishedID = Identifier.ascending("message")
+    const queuedID = Identifier.ascending("message")
+    const user: MessageV2.WithParts = {
+      info: {
+        id: queuedID,
+        role: "user",
+        sessionID,
+        time: { created: 2 },
+        agent: "a",
+        model: { providerID: "minimax-coding-plan", modelID: "MiniMax-M2.7" },
+      },
+      parts: [
+        {
+          id: Identifier.ascending("part"),
+          sessionID,
+          messageID: queuedID,
+          type: "text",
+          text: "plain queued text",
+        },
+      ],
+    }
+    const model = {
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
+      id: "MiniMax-M2.7",
+      cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
+    } as Parameters<typeof MessageV2.toModelMessages>[1]
+
+    const out = MessageV2.toModelMessages([user], model, {
+      remindAfter: finishedID,
+      wrap: false,
+    })
+    expect(JSON.stringify(out)).toContain("plain queued text")
+    expect(JSON.stringify(out)).not.toContain("system-reminder")
+  })
+
   it("toModelMessages forwards reasoning parts as content (opencode PR #25303)", () => {
     // Regression for cross-model reasoning forwarding: when the destination model
     // differs from the source, anthropic-shaped reasoning parts are collapsed to

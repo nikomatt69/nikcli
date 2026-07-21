@@ -4,6 +4,7 @@ import os from "os"
 import path from "path"
 import { fileURLToPath } from "url"
 import { EventError } from "../session/event-error"
+import { errorMessage } from "@/util/error"
 import { retry } from "@nikcli-ai/util/retry"
 import { Bus } from "../bus"
 import { BunProc } from "../bun"
@@ -807,13 +808,25 @@ export namespace Plugin {
     Output = Parameters<Required<Hooks>[Name]>[1],
   >(state: State, name: Name, input: Input, output: Output): Promise<Output> {
     if (!name) return output
-    for (const hook of state.hooks) {
+    for (let i = 0; i < state.hooks.length; i++) {
+      const hook = state.hooks[i]!
       const fn = hook[name as keyof Hooks]
       if (!fn) continue
-      // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
-      // give up.
-      // try-counter: 2
-      await fn(input, output)
+      // Opencode #17517: per-hook try/catch so one plugin's failure does
+      // not block others, and errors are logged instead of vanishing as
+      // unhandled rejections.
+      try {
+        // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
+        // give up.
+        // try-counter: 2
+        await fn(input, output)
+      } catch (error) {
+        log.warn("plugin hook failed", {
+          hook: name,
+          pluginIndex: i,
+          error: errorMessage(error),
+        })
+      }
     }
     return output
   }
@@ -821,19 +834,33 @@ export namespace Plugin {
   async function initImpl(state: State) {
     const hooks = state.hooks
     const config = await configGet()
-    for (const hook of hooks) {
+    for (let i = 0; i < hooks.length; i++) {
+      const hook = hooks[i]!
       // The internal Config.Info schema keeps `command.*.template` optional,
       // while the plugin SDK's Config type expects a required template field.
       // The runtime shape is valid for the SDK contract; widen with a cast.
-      await hook.config?.(config as unknown as Parameters<NonNullable<Hooks["config"]>>[0])
+      try {
+        await hook.config?.(config as unknown as Parameters<NonNullable<Hooks["config"]>>[0])
+      } catch (error) {
+        log.warn("plugin config failed", {
+          pluginIndex: i,
+          error: errorMessage(error),
+        })
+      }
     }
     if (state.subscribed) return
     state.subscribed = true
     Bus.subscribeAll(async (input) => {
-      for (const hook of state.hooks) {
-        hook["event"]?.({
-          event: input,
-        })
+      for (let i = 0; i < state.hooks.length; i++) {
+        const hook = state.hooks[i]!
+        try {
+          await hook["event"]?.({ event: input })
+        } catch (error) {
+          log.warn("plugin event handler failed", {
+            pluginIndex: i,
+            error: errorMessage(error),
+          })
+        }
       }
     })
   }

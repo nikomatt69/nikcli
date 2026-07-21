@@ -1641,6 +1641,22 @@ export namespace Config {
                 .optional(),
             })
             .optional(),
+          // Opencode #21535: deterministic wrap for queued user messages. The
+          // default template matches the opencode upstream so prompt-cache
+          // prefixes stay stable across turns.
+          queued_message_wrap: z
+            .union([
+              z
+                .object({
+                  header: z.string().describe("Text before the user message."),
+                  footer: z.string().describe("Text after the user message."),
+                })
+                .describe("Custom wrap template for queued user messages. Disable by passing null."),
+              z.literal("default").describe("Use the default wrap (matches opencode upstream)."),
+              z.boolean().describe("false to disable queued-message wrapping entirely; true for the default template."),
+            ])
+            .optional()
+            .describe("Opencode #21535: queued user-message wrap template."),
           chatMaxRetries: z.number().optional().describe("Number of retries for chat completions on failure"),
           disable_paste_summary: z.boolean().optional(),
           batch_tool: z.boolean().optional().describe("Enable the batch tool"),

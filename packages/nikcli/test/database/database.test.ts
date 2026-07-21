@@ -32,11 +32,13 @@ describe("Database.Service", () => {
             []
           >("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'users', 'mobile_tokens', 'workspace', 'session_info', 'message_info', 'message_part', 'todo_info', 'permission_ruleset', 'sync_event', 'sync_sequence') ORDER BY name")
           .all()
-        return { foreignKeys, journal, tables }
+        const mmap = database.native.query<{ mmap_size: number }, []>("PRAGMA mmap_size").get()
+        return { foreignKeys, journal, tables, mmap }
       }),
     )
 
     expect(result.foreignKeys?.foreign_keys).toBe(1)
+    expect(result.mmap?.mmap_size).toBe(0)
     expect(result.journal).toEqual([
       { id: "20260610211500_initial" },
       { id: "20260611000000_session_message_todo_permission" },

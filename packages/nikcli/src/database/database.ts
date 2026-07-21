@@ -5,6 +5,7 @@ import nodePath from "path"
 import { Context, Effect, Layer } from "effect"
 import { Global } from "@/global"
 import { Log } from "@/util/log"
+import { errorMessage } from "@/util/error"
 import { DatabaseMigration } from "./migration"
 import * as schema from "./schema"
 
@@ -71,6 +72,9 @@ export namespace Database {
       _singleton?.native.close()
     } catch {}
     _singleton = open(filename)
+    // Start the periodic WAL checkpoint loop on first DB open. No-op
+    // thereafter if the same filename is reused.
+    startWalCheckpointLoop()
     return _singleton
   }
 
@@ -104,4 +108,49 @@ export namespace Database {
   }
 
   export const defaultLayer = Layer.unwrap(Effect.sync(() => layerFromPath(path())))
+
+  // ============================================================================
+  // Periodic WAL checkpoint
+  // ============================================================================
+  // PR counterpart to opencode #22428 (mmap_size=0): PRAGMA wal_checkpoint(TRUNCATE)
+  // every 5 minutes prevents the WAL file from growing unbounded. PASSIVE
+  // is used on writes (already done at open); TRUNCATE reclaims the WAL file
+  // back to size 0. Lock contention is rare because checkpoint is fast on
+  // an idle DB and only kicks in when the file >1MB anyway.
+
+  const WAL_CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000
+  let checkpointTimer: ReturnType<typeof setInterval> | undefined
+
+  /**
+   * Start a background timer that periodically runs `wal_checkpoint(TRUNCATE)`.
+   * Safe to call multiple times (no-ops after the first). Stops on SIGINT/SIGTERM
+   * and on process exit so it never holds the DB open after shutdown.
+   */
+  export function startWalCheckpointLoop(): void {
+    if (checkpointTimer) return
+    if (process.env["NIKCLI_DISABLE_WAL_CHECKPOINT"] === "1") return
+    checkpointTimer = setInterval(() => {
+      try {
+        const native = syncNative()
+        const row = native
+          .query<{ busy: number; log: number; checkpointed: number }, []>("PRAGMA wal_checkpoint(TRUNCATE)")
+          .get()
+        if (row && row.checkpointed > 0) {
+          log.debug("wal checkpoint", row)
+        }
+      } catch (error) {
+        log.warn("wal checkpoint failed", { error: errorMessage(error) })
+      }
+    }, WAL_CHECKPOINT_INTERVAL_MS)
+    checkpointTimer.unref?.()
+    const stop = () => {
+      if (checkpointTimer) {
+        clearInterval(checkpointTimer)
+        checkpointTimer = undefined
+      }
+    }
+    process.once("SIGINT", stop)
+    process.once("SIGTERM", stop)
+    process.once("beforeExit", stop)
+  }
 }

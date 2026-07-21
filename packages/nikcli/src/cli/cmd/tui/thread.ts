@@ -221,12 +221,20 @@ export const TuiThreadCommand = cmd({
       process.off("uncaughtException", error)
       process.off("unhandledRejection", error)
       process.off("SIGUSR2", reload)
-      await withTimeout(client.call("shutdown", undefined), WORKER_SHUTDOWN_TIMEOUT_MS).catch((error) => {
-        Log.Default.warn("worker shutdown failed", {
-          error: errorMessage(error),
+      // Opencode #22002: on Windows, awaiting client.shutdown detaches the
+      // console (MCP subprocess exits close it). Fire-and-forget shutdown
+      // and skip worker.terminate to keep the terminal window open.
+      if (process.platform !== "win32") {
+        await withTimeout(client.call("shutdown", undefined), WORKER_SHUTDOWN_TIMEOUT_MS).catch((error) => {
+          Log.Default.warn("worker shutdown failed", {
+            error: errorMessage(error),
+          })
         })
-      })
-      worker.terminate()
+        worker.terminate()
+      } else {
+        // Best-effort fire-and-forget; do not await.
+        void client.call("shutdown", undefined).catch(() => undefined)
+      }
       simulation?.backend.stop()
     }
 

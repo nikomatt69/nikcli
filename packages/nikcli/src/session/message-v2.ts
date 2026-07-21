@@ -610,6 +610,8 @@ export namespace MessageV2 {
   export const WithParts = zodObject(WithPartsSchema)
   export type WithParts = DeepMutable<Schema.Schema.Type<typeof WithPartsSchema>>
 
+  export type QueuedMessageWrap = { header: string; footer: string } | "default" | false
+
   export type ToModelMessagesOptions = {
     /**
      * When set, non-synthetic user text parts on messages with id > this value
@@ -617,9 +619,19 @@ export namespace MessageV2 {
      * Applied here (not by mutating stored parts) so prompt-cache prefixes stay stable.
      */
     remindAfter?: string
+    /**
+     * Opencode #21535: configurable wrap template. `false` disables wrapping
+     * entirely; `undefined` keeps the upstream default template.
+     */
+    wrap?: QueuedMessageWrap
   }
 
-  function wrapQueuedUserText(text: string): string {
+  function wrapQueuedUserText(text: string, wrap: QueuedMessageWrap | undefined): string {
+    if (wrap === false) return text
+    if (wrap && typeof wrap === "object") {
+      return `${wrap.header}\n${text}\n\n${wrap.footer}`
+    }
+    // Default template (matches opencode upstream).
     return [
       "<system-reminder>",
       "The user sent the following message:",
@@ -638,6 +650,7 @@ export namespace MessageV2 {
     const result: UIMessage[] = []
     const toolNames = new Set<string>()
     const remindAfter = options?.remindAfter
+    const wrap = options?.wrap
     // Track media from tool results that need to be injected as user messages
     // for providers that don't support media in tool results.
     //
@@ -695,7 +708,8 @@ export namespace MessageV2 {
         const shouldRemind = remindAfter !== undefined && msg.info.id > remindAfter
         for (const part of msg.parts) {
           if (part.type === "text" && !part.ignored) {
-            const text = shouldRemind && !part.synthetic && part.text.trim() ? wrapQueuedUserText(part.text) : part.text
+            const text =
+              shouldRemind && !part.synthetic && part.text.trim() ? wrapQueuedUserText(part.text, wrap) : part.text
             userMessage.parts.push({
               type: "text",
               text,

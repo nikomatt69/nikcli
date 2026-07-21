@@ -31,6 +31,7 @@ import { Command } from "../command"
 import { $, fileURLToPath } from "bun"
 import { pathToFileURL } from "url"
 import { ConfigMarkdown } from "../config/markdown"
+import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
 import { SessionGoal } from "./goal"
 import { EventError } from "./event-error"
@@ -105,6 +106,18 @@ export namespace SessionPrompt {
         Effect.gen(function* () {
           const permission = yield* PermissionNext.Service
           return yield* permission.ask(input)
+        }),
+      ),
+    )
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
         }),
       ),
     )
@@ -1078,6 +1091,13 @@ export namespace SessionPrompt {
       // therefore prompt-cache prefixes) stay stable across turns.
       const sessionMessages = clone(msgs)
       const remindAfter = step > 1 && lastFinished ? lastFinished.id : undefined
+      // Opencode #21535: respect config-defined wrap template (or opt-out).
+      const config = await configGet()
+      const wrap = (config.experimental?.queued_message_wrap ?? undefined) as
+        | { header: string; footer: string }
+        | "default"
+        | false
+        | undefined
 
       await runPlugin(
         Effect.gen(function* () {
@@ -1108,7 +1128,10 @@ export namespace SessionPrompt {
             role: "user" as const,
             content,
           })),
-          ...MessageV2.toModelMessages(sessionMessages, model, { remindAfter }),
+          ...MessageV2.toModelMessages(sessionMessages, model, {
+            remindAfter,
+            wrap,
+          }),
           ...(isLastStep
             ? [
                 {
