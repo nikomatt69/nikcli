@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "createdAt": "2026-07-21T22:02:00.830Z",
+  "result": "passed",
+  "title": "GitHub browser tool verification",
+  "summary": "nikcli used the browser tool to open the requested GitHub profile and confirmed it was visible.",
+  "capture": {
+    "final": true
+  },
+  "sourceRecordingSha256": "1df46e2452defd95cf21f05cdab8e75dc27e5dabb622b2cc9f3f82d82a5e7126",
+  "artifacts": [
+    {
+      "kind": "screen-text",
+      "path": "screen.txt",
+      "bytes": 2036,
+      "sha256": "2248b3c71efcabb72f949d8f8bda13bdafa8117125d63c7faaccab9b7723b6bf"
+    },
+    {
+      "kind": "screen-frame",
+      "path": "screen.json",
+      "bytes": 2203442,
+      "sha256": "c9431bcc041668099bf78742beb1109a3a30b4c5d6aebb8adb43115b918ecd4a"
+    },
+    {
+      "kind": "screen-svg",
+      "path": "screen.svg",
+      "bytes": 520351,
+      "sha256": "65d15e945d02fd3935c562dc5fc2a3cfb2cd96916f89c0aa8a84eeea22a7a441"
+    },
+    {
+      "kind": "screen-png",
+      "path": "screen.png",
+      "bytes": 118111,
+      "sha256": "a79bbf6dcd1ce8f112de3a47e7cae494f5cb2fff3129f1fab440cfcaaae62c3c"
+    },
+    {
+      "kind": "video",
+      "path": "demo.mp4",
+      "bytes": 608494,
+      "sha256": "bfb66a81476abfc64ecc344716d9107c6a75b6b57a091284aee81e88176135f6"
+    },
+    {
+      "kind": "preview",
+      "path": "preview.gif",
+      "bytes": 1309776,
+      "sha256": "ae89bd323779fa75ca04143a950d880808d03be8e7d5b259b39e3d9dd4b53c7f"
+    },
+    {
+      "kind": "recording",
+      "path": "recording.termctrl",
+      "bytes": 606623,
+      "sha256": "1df46e2452defd95cf21f05cdab8e75dc27e5dabb622b2cc9f3f82d82a5e7126"
+    },
+    {
+      "kind": "pr-markdown",
+      "path": "pr.md",
+      "bytes": 398,
+      "sha256": "95a0d15d055882b99e3610d2d754c8f3f4435ef5152db0bf8431173ac115db28"
+    }
+  ]
+}
