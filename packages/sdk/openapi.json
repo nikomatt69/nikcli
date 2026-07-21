@@ -25965,7 +25965,7 @@
                 "description": "Opencode #21535: queued user-message wrap template.",
                 "anyOf": [
                   {
-                    "description": "Custom wrap template for queued user messages. Disable by passing null.",
+                    "description": "Custom wrap template for queued user messages.",
                     "type": "object",
                     "properties": {
                       "header": {
@@ -25987,6 +25987,10 @@
                   {
                     "description": "false to disable queued-message wrapping entirely; true for the default template.",
                     "type": "boolean"
+                  },
+                  {
+                    "description": "Disable queued-message wrapping entirely.",
+                    "type": "null"
                   }
                 ]
               },

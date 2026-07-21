@@ -852,9 +852,7 @@ export namespace Plugin {
   export function subscribeEventHooks(input: {
     hooks: readonly Hooks[]
     isDisposed: () => boolean
-    subscribe: (
-      handler: (event: Parameters<NonNullable<Hooks["event"]>>[0]["event"]) => void,
-    ) => () => void
+    subscribe: (handler: (event: Parameters<NonNullable<Hooks["event"]>>[0]["event"]) => void) => () => void
   }): (() => void) | undefined {
     if (input.isDisposed()) return
     const handleEvent = createEventHookHandler(input.hooks, input.isDisposed)

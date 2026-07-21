@@ -2895,6 +2895,7 @@ export type Config = {
         }
       | "default"
       | boolean
+      | null
     /**
      * Number of retries for chat completions on failure
      */
