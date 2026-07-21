@@ -172,15 +172,7 @@ export function SessionTabs() {
       borderColor={theme.borderSubtle}
       overflow="hidden"
     >
-      <box
-        width={9}
-        height={3}
-        flexShrink={0}
-        paddingTop={1}
-        paddingBottom={1}
-        paddingLeft={1}
-        flexDirection="column"
-      >
+      <box width={9} height={3} flexShrink={0} paddingTop={1} paddingBottom={1} paddingLeft={1} flexDirection="column">
         <Logo compact idle={false} />
       </box>
       <box flexDirection="row" flexGrow={1} minWidth={0} height={3} gap={TAB_GAP} overflow="hidden">

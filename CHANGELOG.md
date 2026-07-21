@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.187.0 (July 2026)
+
+## Core
+
+- Implement queued message wrapping and improve shutdown handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): implement queued message wrapping and improve shutdown handling
+
 ## v1.176.0 (July 2026)
 
 - No notable changes

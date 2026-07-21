@@ -590,6 +590,14 @@ export type EventPermissionReplied = {
   }
 }
 
+export type SessionWorktree = {
+  name: string
+  branch: string
+  directory: string
+  repositoryDirectory?: string
+  cleanedAt?: number
+}
+
 export type SessionGithub = {
   owner: string
   repo: string
@@ -600,12 +608,7 @@ export type SessionGithub = {
   cloneUrl?: string
   htmlUrl?: string
   private?: boolean
-  worktree: {
-    name: string
-    branch: string
-    directory: string
-    cleanedAt?: number
-  }
+  worktree: SessionWorktree
   pullRequest?: {
     number: number
     url: string
@@ -658,6 +661,7 @@ export type Session = {
     url: string
   }
   github?: SessionGithub
+  worktree?: SessionWorktree
   mobile?: SessionMobile
   title: string
   activeCommand?: string
@@ -2184,6 +2188,10 @@ export type AgentConfig = {
    */
   steps?: number
   /**
+   * Sorting priority for agent cycling. Lower = earlier.
+   */
+  order?: number
+  /**
    * @deprecated Use 'steps' field instead.
    */
   maxSteps?: number
@@ -2265,8 +2273,16 @@ export type ProviderConfig = {
           [key: string]: unknown
         }
       }
+      /**
+       * Hide this model from the picker (opencode #21038). Useful when a provider exposes models you don't have access to on your subscription tier.
+       */
+      disabled?: boolean
     }
   }
+  /**
+   * Provider ID whose auth flow to reuse (e.g. 'github-copilot'). Credentials fall back to the source provider if none are stored under this alias.
+   */
+  auth_provider?: string
   whitelist?: Array<string>
   blacklist?: Array<string>
   options?: {
@@ -2654,11 +2670,12 @@ export type Config = {
    */
   command?: {
     [key: string]: {
-      template: string
+      template?: string
       description?: string
       agent?: string
       model?: string
       subtask?: boolean
+      aliases?: Array<string>
     }
   }
   /**
@@ -2810,6 +2827,10 @@ export type Config = {
               initialization?: {
                 [key: string]: unknown
               }
+              /**
+               * Minimum diagnostic severity: 1=Error (default), 2=Warning, 3=Info, 4=Hint.
+               */
+              min_severity?: number
             }
       }
   /**
@@ -2859,6 +2880,22 @@ export type Config = {
       }>
     }
     /**
+     * Opencode #21535: queued user-message wrap template.
+     */
+    queued_message_wrap?:
+      | {
+          /**
+           * Text before the user message.
+           */
+          header: string
+          /**
+           * Text after the user message.
+           */
+          footer: string
+        }
+      | "default"
+      | boolean
+    /**
      * Number of retries for chat completions on failure
      */
     chatMaxRetries?: number
@@ -2903,6 +2940,14 @@ export type Config = {
      * Timeout in milliseconds for model context protocol (MCP) requests
      */
     mcp_timeout?: number
+    /**
+     * Outer timeout in milliseconds for non-task tool executions. Default 600000 (10 minutes). Set to false to disable. Tools that manage their own timeout (bash) still honor this as a hard outer bound when set.
+     */
+    tool_timeout?: number | false
+    /**
+     * Timeout in milliseconds for foreground (non-background) task tool runs. Default 1800000 (30 minutes). Set to false to disable. Background tasks are unaffected.
+     */
+    task_timeout?: number | false
     /**
      * Enable native @nikcli-ai/llm route streaming (requires resolvable ModelRef; falls back to AI SDK). Default off.
      */
@@ -3703,6 +3748,7 @@ export type MobileBootstrap = {
   github: {
     connected: boolean
     tokenAvailable?: boolean
+    reconnectRequired?: boolean
     oauthDeviceEnabled: boolean
     oauthDeviceConfigured?: boolean
     oauthClientSource?: "flag" | "config" | "env"
@@ -4244,9 +4290,11 @@ export type Command = {
   template: string
   subtask?: boolean
   hints: Array<string>
+  aliases?: Array<string>
 }
 
 export type Agent = {
+  order?: number
   name: string
   description?: string
   mode: "subagent" | "primary" | "all"
@@ -6484,6 +6532,7 @@ export type SessionCreateData = {
       [key: string]: boolean
     }
     github?: SessionGithub
+    worktree?: SessionWorktree
     workspaceID?: string
   }
   path?: never
@@ -7700,7 +7749,7 @@ export type SessionPromptAsyncError = SessionPromptAsyncErrors[keyof SessionProm
 
 export type SessionPromptAsyncResponses = {
   /**
-   * Prompt accepted
+   * Prompt accepted; user message is already persisted
    */
   204: void
 }
@@ -11483,6 +11532,8 @@ export type ConnectorsAuthSetData = {
     apiKey?: string
     teamId?: string
     expiresAt?: number
+    refreshToken?: string
+    refreshTokenExpiresAt?: number
   }
   path: {
     name: string

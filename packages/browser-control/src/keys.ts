@@ -80,8 +80,5 @@ export function translateKey(token: string): string {
 
 /** Translate a whitespace-separated list of key tokens into individual Playwright key presses. */
 export function translateKeys(input: string): string[] {
-  return input
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(translateKey)
+  return input.split(/\s+/).filter(Boolean).map(translateKey)
 }
