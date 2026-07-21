@@ -1,6 +1,17 @@
 # Changelog
 
 <!-- UNRELEASED:START -->
+
+## Core
+
+- Show installed CLI update prompts reliably by waiting for the TUI event subscription
+- Keep Windows terminal windows open during shutdown
+- Isolate plugin hook failures so remaining plugins continue running
+- Checkpoint SQLite WAL files periodically to limit disk growth
+- Configure or disable queued-message wrapping
+- Discover Requesty models and policies dynamically
+- Apply tool timeouts to MCP tools
+- Compare Windows paths consistently across legacy and Effect HTTP session routes
 <!-- UNRELEASED:END -->
 
 ## v1.187.0 (July 2026)

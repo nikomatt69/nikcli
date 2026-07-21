@@ -610,7 +610,7 @@ export namespace MessageV2 {
   export const WithParts = zodObject(WithPartsSchema)
   export type WithParts = DeepMutable<Schema.Schema.Type<typeof WithPartsSchema>>
 
-  export type QueuedMessageWrap = { header: string; footer: string } | "default" | false
+  export type QueuedMessageWrap = { header: string; footer: string } | "default" | boolean | null
 
   export type ToModelMessagesOptions = {
     /**
@@ -620,14 +620,14 @@ export namespace MessageV2 {
      */
     remindAfter?: string
     /**
-     * Opencode #21535: configurable wrap template. `false` disables wrapping
-     * entirely; `undefined` keeps the upstream default template.
+     * Opencode #21535: configurable wrap template. `false` or `null` disables
+     * wrapping entirely; `undefined` keeps the upstream default template.
      */
     wrap?: QueuedMessageWrap
   }
 
   function wrapQueuedUserText(text: string, wrap: QueuedMessageWrap | undefined): string {
-    if (wrap === false) return text
+    if (wrap === false || wrap === null) return text
     if (wrap && typeof wrap === "object") {
       return `${wrap.header}\n${text}\n\n${wrap.footer}`
     }

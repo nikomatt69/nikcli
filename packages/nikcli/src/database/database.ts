@@ -116,10 +116,16 @@ export namespace Database {
   // every 5 minutes prevents the WAL file from growing unbounded. PASSIVE
   // is used on writes (already done at open); TRUNCATE reclaims the WAL file
   // back to size 0. Lock contention is rare because checkpoint is fast on
-  // an idle DB and only kicks in when the file >1MB anyway.
+  // an idle DB.
 
   const WAL_CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000
   let checkpointTimer: ReturnType<typeof setInterval> | undefined
+
+  export function checkpointWal(native: BunDatabase) {
+    return native
+      .query<{ busy: number; log: number; checkpointed: number }, []>("PRAGMA wal_checkpoint(TRUNCATE)")
+      .get()
+  }
 
   /**
    * Start a background timer that periodically runs `wal_checkpoint(TRUNCATE)`.
@@ -132,9 +138,7 @@ export namespace Database {
     checkpointTimer = setInterval(() => {
       try {
         const native = syncNative()
-        const row = native
-          .query<{ busy: number; log: number; checkpointed: number }, []>("PRAGMA wal_checkpoint(TRUNCATE)")
-          .get()
+        const row = checkpointWal(native)
         if (row && row.checkpointed > 0) {
           log.debug("wal checkpoint", row)
         }

@@ -21,6 +21,31 @@ export type EventSource = {
   subscribe: (directory: string | undefined, handler: (event: GlobalEnvelope) => void) => Promise<() => void>
 }
 
+export async function checkUpgradeWhenSubscriptionReady(
+  subscriptionReady: Promise<void>,
+  checkUpgrade: (() => Promise<void>) | undefined,
+) {
+  await subscriptionReady
+  await checkUpgrade?.()
+}
+
+export async function consumeGlobalEventStream(input: {
+  stream: AsyncIterable<GlobalEnvelope>
+  signal: AbortSignal
+  onConnected: () => void
+  onEnvelope: (envelope: GlobalEnvelope) => void
+}) {
+  for await (const envelope of input.stream) {
+    if (input.signal.aborted) break
+    try {
+      if (envelope?.payload?.type === "server.connected") input.onConnected()
+      input.onEnvelope(envelope)
+    } catch (error) {
+      console.error("[sse]", "handleEnvelope threw", error)
+    }
+  }
+}
+
 export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
   name: "SDK",
   init: (props: { url: string; directory?: string; fetch?: typeof fetch; events?: EventSource }) => {
@@ -37,6 +62,16 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     }
 
     let sdk = createSDK()
+    let resolveSubscriptionReady!: () => void
+    const subscriptionReady = new Promise<void>((resolve) => {
+      resolveSubscriptionReady = resolve
+    })
+    let subscriptionReadyResolved = false
+    const markSubscriptionReady = () => {
+      if (subscriptionReadyResolved) return
+      subscriptionReadyResolved = true
+      resolveSubscriptionReady()
+    }
 
     const emitter = createGlobalEmitter<{
       [key in Event["type"]]: Extract<Event, { type: key }>
@@ -96,18 +131,15 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
               const events = await sdk.global.event({
                 signal: ctrl.signal,
               })
-
               // successful connect → reset backoff
               backoff = 250
 
-              for await (const envelope of events.stream) {
-                if (ctrl.signal.aborted) break
-                try {
-                  handleEnvelope(envelope as GlobalEnvelope)
-                } catch (handlerError) {
-                  console.error("[sse]", "handleEnvelope threw", handlerError)
-                }
-              }
+              await consumeGlobalEventStream({
+                stream: events.stream as AsyncIterable<GlobalEnvelope>,
+                signal: ctrl.signal,
+                onConnected: markSubscriptionReady,
+                onEnvelope: handleEnvelope,
+              })
 
               if (timer) clearTimeout(timer)
               if (queue.length > 0) flush()
@@ -132,10 +164,35 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       })()
     }
 
-    onMount(async () => {
+    onMount(() => {
       if (props.events) {
-        const unsub = await props.events.subscribe(props.directory, handleEnvelope)
-        onCleanup(unsub)
+        let active = true
+        let unsubscribe: (() => void) | undefined
+        onCleanup(() => {
+          active = false
+          unsubscribe?.()
+        })
+
+        let subscription: Promise<() => void>
+        try {
+          subscription = props.events.subscribe(props.directory, handleEnvelope)
+        } catch (error) {
+          console.error("[events]", "subscribe failed", error)
+          return
+        }
+        void subscription
+          .then((unsub) => {
+            if (!active) {
+              unsub()
+              return
+            }
+            unsubscribe = unsub
+            markSubscriptionReady()
+          })
+          .catch((error) => {
+            if (!active) return
+            console.error("[events]", "subscribe failed", error)
+          })
         return
       }
 
@@ -165,6 +222,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       },
       fetch: props.fetch ?? fetch,
       url: props.url,
+      subscriptionReady,
     }
   },
 })

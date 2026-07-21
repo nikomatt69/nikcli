@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
-import path from "node:path"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Session } from "../../session"
@@ -23,6 +22,7 @@ import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
 import { SessionProxyMiddleware } from "../../workspace/session-proxy-middleware"
+import { Filesystem } from "@/util/filesystem"
 import { ShareNext } from "@/share/share-next"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
@@ -187,8 +187,7 @@ export const SessionRoutes = lazy(() =>
           // query like `E:\Projects\foo` matches sessions stored as
           // `E:/Projects/foo` (Windows is happy to serve either form).
           if (directory !== undefined) {
-            const normalize = (p: string) => path.resolve(p).split(path.sep).join("/").toLowerCase()
-            if (normalize(session.directory) !== normalize(directory)) continue
+            if (Filesystem.comparisonKey(session.directory) !== Filesystem.comparisonKey(directory)) continue
           }
           if (query.roots && session.parentID) continue
           if (query.start !== undefined && session.time.updated < query.start) continue

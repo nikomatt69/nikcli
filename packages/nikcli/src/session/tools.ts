@@ -28,7 +28,11 @@ function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
   return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
 }
 
-async function resolveToolTimeoutMs(toolID: string): Promise<number | undefined> {
+export function resolveToolTimeoutCategory(toolID: string, source: "registry" | "mcp"): "task" | "tool" {
+  return source === "registry" && toolID === "task" ? "task" : "tool"
+}
+
+async function resolveToolTimeoutMs(toolID: string, source: "registry" | "mcp"): Promise<number | undefined> {
   const cfg = await runConfig(
     Effect.gen(function* () {
       const config = yield* Config.Service
@@ -36,7 +40,7 @@ async function resolveToolTimeoutMs(toolID: string): Promise<number | undefined>
     }),
   )
   const experimental = cfg.experimental
-  if (toolID === "task") {
+  if (resolveToolTimeoutCategory(toolID, source) === "task") {
     const value = experimental?.task_timeout
     if (value === false) return undefined
     return value ?? DEFAULT_TASK_TIMEOUT_MS
@@ -51,12 +55,12 @@ async function resolveToolTimeoutMs(toolID: string): Promise<number | undefined>
  * cooperative tools (bash, network) can stop; the promise also rejects if the
  * tool ignores abort (hard outer bound).
  */
-async function executeWithTimeout(
+export async function executeWithTimeout<T>(
   toolID: string,
-  run: (ctx: Tool.Context) => Promise<Tool.Result>,
+  run: (ctx: Tool.Context) => Promise<T>,
   ctx: Tool.Context,
   timeoutMs: number | undefined,
-): Promise<Tool.Result> {
+): Promise<T> {
   if (timeoutMs === undefined) return run(ctx)
 
   const ac = new AbortController()
@@ -74,7 +78,7 @@ async function executeWithTimeout(
   }
 
   try {
-    return await new Promise<Tool.Result>((resolve, reject) => {
+    return await new Promise<T>((resolve, reject) => {
       timer = setTimeout(() => {
         timedOut = true
         ac.abort()
@@ -98,6 +102,26 @@ async function executeWithTimeout(
     if (timer) clearTimeout(timer)
     ctx.abort.removeEventListener("abort", onParentAbort)
   }
+}
+
+export function executeMcpWithTimeout<T>(input: {
+  toolID: string
+  execute: (args: unknown, options: ToolCallOptions) => Promise<T>
+  args: unknown
+  options: ToolCallOptions
+  context: Tool.Context
+  timeoutMs: number | undefined
+}) {
+  return executeWithTimeout<T>(
+    input.toolID,
+    (linkedCtx) =>
+      input.execute(input.args, {
+        ...input.options,
+        abortSignal: linkedCtx.abort,
+      }),
+    input.context,
+    input.timeoutMs,
+  )
 }
 
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
@@ -279,7 +303,7 @@ export async function resolveTools(input: {
             tool: item.id,
           })
         })
-        const timeoutMs = await resolveToolTimeoutMs(item.id)
+        const timeoutMs = await resolveToolTimeoutMs(item.id, "registry")
         const result = await executeWithTimeout(
           item.id,
           (linkedCtx) => item.executeAsync(args, linkedCtx),
@@ -362,7 +386,15 @@ export async function resolveTools(input: {
         always: ["*"],
       })
 
-      const result = await execute(args, opts)
+      const timeoutMs = await resolveToolTimeoutMs(key, "mcp")
+      const result = await executeMcpWithTimeout<Awaited<ReturnType<typeof execute>>>({
+        toolID: key,
+        execute,
+        args,
+        options: opts,
+        context: ctx,
+        timeoutMs,
+      })
 
       await runPlugin(
         Effect.gen(function* () {

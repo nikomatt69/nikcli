@@ -46,6 +46,7 @@ import {
 } from "@nikcli-ai/llm/providers"
 import { byProvider as providerProfiles } from "@nikcli-ai/llm/providers/openai-compatible-profile"
 import type { ModelRef } from "@nikcli-ai/llm"
+import z from "zod"
 
 function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service | Config.Service>) {
   return runPromiseWithLayer(Layer.merge(Auth.defaultLayer, Config.defaultLayer), effect)
@@ -109,10 +110,30 @@ export namespace Provider {
     return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL
   }
 
+  const RequestyModel = z
+    .object({
+      id: z.string().trim().min(1),
+      created: z.unknown().optional(),
+      input_price: z.unknown().optional(),
+      output_price: z.unknown().optional(),
+      cached_price: z.unknown().optional(),
+      context_window: z.unknown().optional(),
+      max_output_tokens: z.unknown().optional(),
+      supports_reasoning: z.boolean().optional(),
+      supports_vision: z.boolean().optional(),
+      supports_tool_calling: z.boolean().optional(),
+      supports_image_generation: z.boolean().optional(),
+    })
+    .refine((item) => !["__proto__", "constructor", "prototype"].includes(item.id))
+
   function normalizeOllamaV1BaseURL(baseURL: string): string {
     const url = normalizeBaseURL(baseURL)
     if (url.endsWith("/v1")) return url
     return `${url}/v1`
+  }
+
+  function requestyPrice(value: unknown): number {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value * 1_000_000 : 0
   }
 
   function isProbablyOllamaImageModel(modelID: string): boolean {
@@ -1046,6 +1067,142 @@ export namespace Provider {
     }
   }
 
+  export async function discoverRequestyModels(input: {
+    baseURL?: string
+    apiKey?: string
+    fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  }): Promise<Record<string, Model>> {
+    const baseURL = normalizeBaseURL(input.baseURL ?? "https://router.requesty.ai/v1")
+    const fetcher = input.fetch ?? globalThis.fetch
+    try {
+      const headers: Record<string, string> = {}
+      if (input.apiKey) headers.Authorization = `Bearer ${input.apiKey}`
+      const response = await fetcher(`${baseURL}/models`, {
+        headers,
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!response.ok) {
+        log.warn("requesty model discovery failed", {
+          status: response.status,
+        })
+        return {}
+      }
+
+      const payload = (await response.json()) as { data?: unknown[] }
+      if (!Array.isArray(payload.data)) return {}
+
+      const models: Record<string, Model> = Object.create(null)
+      for (const value of payload.data) {
+        const parsed = RequestyModel.safeParse(value)
+        if (!parsed.success) continue
+        const item = parsed.data
+        const created =
+          typeof item.created === "number" && Number.isFinite(item.created) ? new Date(item.created * 1000) : undefined
+        const releaseDate = created && Number.isFinite(created.getTime()) ? created.toISOString().slice(0, 10) : ""
+        const model: Model = {
+          id: item.id,
+          providerID: "requesty",
+          name: item.id,
+          family: "",
+          api: {
+            id: item.id,
+            url: baseURL,
+            npm: "@ai-sdk/openai-compatible",
+          },
+          status: "active",
+          headers: {},
+          options: {},
+          cost: {
+            input: requestyPrice(item.input_price),
+            output: requestyPrice(item.output_price),
+            cache: { read: requestyPrice(item.cached_price), write: 0 },
+          },
+          limit: {
+            context: typeof item.context_window === "number" && item.context_window > 0 ? item.context_window : 128_000,
+            output:
+              typeof item.max_output_tokens === "number" && item.max_output_tokens > 0 ? item.max_output_tokens : 4096,
+          },
+          capabilities: {
+            temperature: true,
+            reasoning: item.supports_reasoning ?? false,
+            attachment: item.supports_vision ?? false,
+            toolcall: item.supports_tool_calling ?? false,
+            input: {
+              text: true,
+              audio: false,
+              image: item.supports_vision ?? false,
+              video: false,
+              pdf: false,
+            },
+            output: {
+              text: true,
+              audio: false,
+              image: item.supports_image_generation ?? false,
+              video: false,
+              pdf: false,
+            },
+            interleaved: false,
+          },
+          release_date: releaseDate,
+          variants: {},
+        }
+        model.variants = mapValues(ProviderTransform.variants(model), (variant) => variant)
+        models[item.id] = model
+      }
+      log.info("requesty model discovery complete", {
+        count: Object.keys(models).length,
+      })
+      return models
+    } catch (error) {
+      log.warn("requesty model discovery failed", {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return {}
+    }
+  }
+
+  type RequestyDiscoveryCacheEntry =
+    | {
+        baseURL: string
+        apiKey?: string
+        expires: number
+        promise: Promise<Record<string, Model>>
+      }
+    | undefined
+
+  export function createRequestyDiscoveryCache(
+    input: {
+      discover?: typeof discoverRequestyModels
+      now?: () => number
+    } = {},
+  ) {
+    const discover = input.discover ?? discoverRequestyModels
+    const now = input.now ?? Date.now
+    let cache: RequestyDiscoveryCacheEntry
+
+    return (request: { baseURL?: string; apiKey?: string }): Promise<Record<string, Model>> => {
+      const baseURL = normalizeBaseURL(request.baseURL ?? "https://router.requesty.ai/v1")
+      if (cache && cache.baseURL === baseURL && cache.apiKey === request.apiKey && cache.expires > now()) {
+        return cache.promise
+      }
+
+      const promise = discover({ baseURL, apiKey: request.apiKey })
+      cache = {
+        baseURL,
+        apiKey: request.apiKey,
+        expires: now() + 30_000,
+        promise,
+      }
+      void promise.then((models) => {
+        if (cache?.promise !== promise) return
+        if (Object.keys(models).length > 0) cache.expires = now() + 5 * 60_000
+      })
+      return promise
+    }
+  }
+
+  const cachedRequestyModels = createRequestyDiscoveryCache()
+
   type State = {
     models: Map<string, LanguageModelV2>
     images: Map<string, ReturnType<SDK["imageModel"]>>
@@ -1104,6 +1261,21 @@ export namespace Provider {
     const sdk = new Map<number, SDK>()
 
     log.info("init")
+
+    const requesty = database["requesty"]
+    if (requesty && isProviderAllowed("requesty")) {
+      const configured = config.provider?.["requesty"]
+      const auth = await authGet("requesty")
+      const apiKey =
+        (configured?.options?.apiKey as string | undefined) ??
+        (auth?.type === "api" ? auth.key : undefined) ??
+        Env.get("REQUESTY_API_KEY")
+      const discovered = await cachedRequestyModels({
+        baseURL: configured?.options?.baseURL as string | undefined,
+        apiKey,
+      })
+      if (Object.keys(discovered).length > 0) requesty.models = discovered
+    }
 
     // Auto-detect local Ollama and expose it as a provider when available.
     const ollama = await loadOllamaProvider(config).catch((error) => {

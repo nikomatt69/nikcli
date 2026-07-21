@@ -681,12 +681,15 @@ export namespace Plugin {
     hooks: Hooks[]
     input: PluginInput
     subscribed: boolean
+    unsubscribe?: () => void
     disposed: boolean
   }
 
   async function disposeHooks(state: State) {
     if (state.disposed) return
     state.disposed = true
+    state.unsubscribe?.()
+    state.unsubscribe = undefined
 
     for (const hook of state.hooks) {
       try {
@@ -807,9 +810,17 @@ export namespace Plugin {
     Input = Parameters<Required<Hooks>[Name]>[0],
     Output = Parameters<Required<Hooks>[Name]>[1],
   >(state: State, name: Name, input: Input, output: Output): Promise<Output> {
+    return triggerHooks(state.hooks, name, input, output)
+  }
+
+  export async function triggerHooks<
+    Name extends Exclude<keyof Required<Hooks>, "auth" | "dispose" | "event" | "tool" | "provider">,
+    Input = Parameters<Required<Hooks>[Name]>[0],
+    Output = Parameters<Required<Hooks>[Name]>[1],
+  >(hooks: readonly Hooks[], name: Name, input: Input, output: Output): Promise<Output> {
     if (!name) return output
-    for (let i = 0; i < state.hooks.length; i++) {
-      const hook = state.hooks[i]!
+    for (let i = 0; i < hooks.length; i++) {
+      const hook = hooks[i]!
       const fn = hook[name as keyof Hooks]
       if (!fn) continue
       // Opencode #17517: per-hook try/catch so one plugin's failure does
@@ -831,6 +842,45 @@ export namespace Plugin {
     return output
   }
 
+  export function createEventHookHandler(hooks: readonly Hooks[], isDisposed: () => boolean) {
+    return async (input: Parameters<NonNullable<Hooks["event"]>>[0]): Promise<void> => {
+      if (isDisposed()) return
+      await runEventHooks(hooks, input, isDisposed)
+    }
+  }
+
+  export function subscribeEventHooks(input: {
+    hooks: readonly Hooks[]
+    isDisposed: () => boolean
+    subscribe: (
+      handler: (event: Parameters<NonNullable<Hooks["event"]>>[0]["event"]) => void,
+    ) => () => void
+  }): (() => void) | undefined {
+    if (input.isDisposed()) return
+    const handleEvent = createEventHookHandler(input.hooks, input.isDisposed)
+    const unsubscribe = input.subscribe((event) => void handleEvent({ event }))
+    if (!input.isDisposed()) return unsubscribe
+    unsubscribe()
+  }
+
+  export async function runEventHooks(
+    hooks: readonly Hooks[],
+    input: Parameters<NonNullable<Hooks["event"]>>[0],
+    isDisposed: () => boolean = () => false,
+  ): Promise<void> {
+    for (let i = 0; i < hooks.length; i++) {
+      if (isDisposed()) return
+      try {
+        await hooks[i]!["event"]?.(input)
+      } catch (error) {
+        log.warn("plugin event handler failed", {
+          pluginIndex: i,
+          error: errorMessage(error),
+        })
+      }
+    }
+  }
+
   async function initImpl(state: State) {
     const hooks = state.hooks
     const config = await configGet()
@@ -848,21 +898,15 @@ export namespace Plugin {
         })
       }
     }
+    if (state.disposed) return
     if (state.subscribed) return
     state.subscribed = true
-    Bus.subscribeAll(async (input) => {
-      for (let i = 0; i < state.hooks.length; i++) {
-        const hook = state.hooks[i]!
-        try {
-          await hook["event"]?.({ event: input })
-        } catch (error) {
-          log.warn("plugin event handler failed", {
-            pluginIndex: i,
-            error: errorMessage(error),
-          })
-        }
-      }
+    state.unsubscribe = subscribeEventHooks({
+      hooks: state.hooks,
+      isDisposed: () => state.disposed,
+      subscribe: Bus.subscribeAll,
     })
+    if (!state.unsubscribe) state.subscribed = false
   }
 
   const layer = Layer.effect(

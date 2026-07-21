@@ -82,6 +82,34 @@ export function createWorkerEnv(overrides: Record<string, string> = {}) {
   })
 }
 
+export function shouldTerminateWorker(platform = process.platform): boolean {
+  return platform !== "win32"
+}
+
+export function releaseWorkerWithoutTermination(worker: object): void {
+  ;(worker as { unref?: () => void }).unref?.()
+}
+
+export async function shutdownWorker(input: {
+  shutdown: () => Promise<unknown>
+  terminate: () => void
+  release: () => void
+  platform?: typeof process.platform
+  timeoutMs?: number
+}) {
+  const terminate = shouldTerminateWorker(input.platform)
+  if (!terminate) {
+    input.release()
+    void withTimeout(input.shutdown(), input.timeoutMs ?? WORKER_SHUTDOWN_TIMEOUT_MS).catch(() => undefined)
+    return
+  }
+  try {
+    await withTimeout(input.shutdown(), input.timeoutMs ?? WORKER_SHUTDOWN_TIMEOUT_MS)
+  } finally {
+    input.terminate()
+  }
+}
+
 /** Attempt chdir for TUI thread bootstrap; false when the path is invalid. */
 export function chdirToThreadDirectory(cwd: string): boolean {
   try {
@@ -221,20 +249,17 @@ export const TuiThreadCommand = cmd({
       process.off("uncaughtException", error)
       process.off("unhandledRejection", error)
       process.off("SIGUSR2", reload)
-      // Opencode #22002: on Windows, awaiting client.shutdown detaches the
-      // console (MCP subprocess exits close it). Fire-and-forget shutdown
-      // and skip worker.terminate to keep the terminal window open.
-      if (process.platform !== "win32") {
-        await withTimeout(client.call("shutdown", undefined), WORKER_SHUTDOWN_TIMEOUT_MS).catch((error) => {
-          Log.Default.warn("worker shutdown failed", {
-            error: errorMessage(error),
-          })
+      // Bound shutdown on every platform. Windows releases the worker without
+      // terminating it so MCP subprocess teardown cannot detach the console.
+      await shutdownWorker({
+        shutdown: () => client.call("shutdown", undefined),
+        terminate: () => worker.terminate(),
+        release: () => releaseWorkerWithoutTermination(worker),
+      }).catch((error) => {
+        Log.Default.warn("worker shutdown failed", {
+          error: errorMessage(error),
         })
-        worker.terminate()
-      } else {
-        // Best-effort fire-and-forget; do not await.
-        void client.call("shutdown", undefined).catch(() => undefined)
-      }
+      })
       simulation?.backend.stop()
     }
 
@@ -312,6 +337,13 @@ export const TuiThreadCommand = cmd({
         },
         onExit: stop,
         onRestart: restart,
+        checkUpgrade: async () => {
+          await client.call("checkUpgrade", { directory: cwd }).catch((error) => {
+            Log.Default.warn("upgrade check failed", {
+              error: errorMessage(error),
+            })
+          })
+        },
         upgradeNow: async (method: string, version: string) => {
           await client.call("upgradeNow", { directory: cwd, method, version })
         },
@@ -334,16 +366,6 @@ export const TuiThreadCommand = cmd({
               })
           : undefined,
       })
-
-      setTimeout(() => {
-        client.call("checkUpgrade", { directory: cwd }).catch((error) => {
-          // Surface the failure in the log so it's not silently lost — it is
-          // *expected* for offline / firewalled users but still useful info.
-          Log.Default.warn("upgrade check failed", {
-            error: errorMessage(error),
-          })
-        })
-      }, 1000)
 
       try {
         await tuiPromise

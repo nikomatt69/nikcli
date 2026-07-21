@@ -20,7 +20,7 @@ import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList, DialogProviderDisconnect } from "@tui/component/dialog-provider"
-import { SDKProvider, useSDK } from "@tui/context/sdk"
+import { checkUpgradeWhenSubscriptionReady, SDKProvider, useSDK } from "@tui/context/sdk"
 import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider } from "@tui/context/server"
 import { SyncProvider, useSync } from "@tui/context/sync"
@@ -115,6 +115,7 @@ export function tui(input: {
   events?: EventSource
   onExit?: () => Promise<void>
   onRestart?: () => Promise<void>
+  checkUpgrade?: () => Promise<void>
   upgradeNow?: (method: string, version: string) => Promise<void>
   startServer?: (options?: StartServerOptions) => Promise<string>
   createMobileToken?: (options?: CreateMobileTokenOptions) => Promise<CreatedMobileToken>
@@ -179,7 +180,7 @@ export function tui(input: {
                                                             <PromptRefProvider>
                                                               <UpgradeProvider upgradeNow={input.upgradeNow}>
                                                                 <AttentionProvider renderer={renderer}>
-                                                                  <App />
+                                                                  <App checkUpgrade={input.checkUpgrade} />
                                                                 </AttentionProvider>
                                                               </UpgradeProvider>
                                                             </PromptRefProvider>
@@ -252,7 +253,7 @@ function sessionIDFromRoute(route: ReturnType<typeof useRoute>["data"]) {
   return "sessionID" in route ? route.sessionID : undefined
 }
 
-function App() {
+function App(props: { checkUpgrade?: () => Promise<void> }) {
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
@@ -1394,6 +1395,8 @@ function App() {
         Sound.pulse(0.8)
       }),
     ]
+
+    void checkUpgradeWhenSubscriptionReady(sdk.subscriptionReady, props.checkUpgrade).catch(() => undefined)
 
     onCleanup(() => {
       renderer.off("focus", refocusPrompt)

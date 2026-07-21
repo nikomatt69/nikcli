@@ -228,6 +228,12 @@ describe("MessageV2 schemas and helpers", () => {
     })
     expect(JSON.stringify(out)).toContain("plain queued text")
     expect(JSON.stringify(out)).not.toContain("system-reminder")
+
+    const disabledWithNull = MessageV2.toModelMessages([user], model, {
+      remindAfter: finishedID,
+      wrap: null,
+    })
+    expect(JSON.stringify(disabledWithNull)).not.toContain("system-reminder")
   })
 
   it("toModelMessages forwards reasoning parts as content (opencode PR #25303)", () => {

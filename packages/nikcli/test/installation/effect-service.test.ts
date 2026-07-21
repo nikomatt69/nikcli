@@ -3,6 +3,14 @@ import { Installation } from "@/installation"
 import { shouldNotifyUpdate } from "@/cli/upgrade"
 import { runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"
+import { createComponent, createRoot } from "solid-js"
+import {
+  checkUpgradeWhenSubscriptionReady,
+  consumeGlobalEventStream,
+  SDKProvider,
+  useSDK,
+  type GlobalEnvelope,
+} from "@/cli/cmd/tui/context/sdk"
 import fs from "fs/promises"
 import path from "path"
 
@@ -129,8 +137,8 @@ describe("Update dialog wiring (cross-platform)", () => {
     const source = await readSrc("packages/nikcli/src/installation/index.ts")
     expect(source).toContain("UpdateAvailable")
     expect(source).toContain("installation.update-available")
-    expect(source).toMatch(/version:\s*z\.string\(\)/)
-    expect(source).toMatch(/current:\s*z\.string\(\)\.optional\(\)/)
+    expect(source).toMatch(/version:\s*Schema\.String/)
+    expect(source).toMatch(/current:\s*Schema\.optional\(Schema\.String\)/)
   })
 
   it("the TUI subscribes to installation.update-available and shows a confirm dialog", async () => {
@@ -145,18 +153,102 @@ describe("Update dialog wiring (cross-platform)", () => {
     expect(source).toContain("upgradeNow?.(method")
   })
 
-  it("the TUI fires the upgrade check on startup and does not silently swallow errors", async () => {
-    const source = await readSrc("packages/nikcli/src/cli/cmd/tui/thread.ts")
-    expect(source).toContain('client.call("checkUpgrade"')
-    expect(source).toContain("upgrade check failed")
-    // The upgrade-check setTimeout must NOT use `.unref()` — that would
-    // let the check die if the TUI exits before the 1-second delay
-    // elapses. Scope to the upgrade block so the legitimate
-    // `timeout.unref?.()` inside the unrelated `withTimeout` helper
-    // is not flagged.
-    const upgradeBlock = source.match(/setTimeout\(\(\) => \{[\s\S]*?client\.call\("checkUpgrade"[\s\S]*?\}, 1000\)/)
-    expect(upgradeBlock).not.toBeNull()
-    expect(upgradeBlock?.[0]).not.toMatch(/\.unref\?\.\(\)/)
+  it("establishes HTTP readiness from server.connected and continues consuming events", async () => {
+    const connected: GlobalEnvelope = {
+      payload: { type: "server.connected", properties: {} },
+    }
+    const update = {
+      payload: {
+        type: "installation.update-available",
+        properties: { version: "2.0.0" },
+      },
+    } as GlobalEnvelope
+    const sequence: string[] = []
+
+    await consumeGlobalEventStream({
+      stream: (async function* () {
+        yield connected
+        yield update
+      })(),
+      signal: new AbortController().signal,
+      onConnected: () => sequence.push("ready"),
+      onEnvelope: (envelope) => sequence.push(envelope.payload.type),
+    })
+
+    expect(sequence).toEqual(["ready", "server.connected", "installation.update-available"])
+  })
+
+  it("mounts SDK provider children without treating subscription readiness as provider readiness", () => {
+    let mounted = false
+    let dispose = () => {}
+
+    createRoot((cleanup) => {
+      dispose = cleanup
+      const provider = createComponent(SDKProvider, {
+        url: "http://nikcli.test",
+        events: { subscribe: async () => () => {} },
+        get children() {
+          useSDK()
+          mounted = true
+          return null
+        },
+      })
+      ;(provider as unknown as () => unknown)()
+    })
+
+    expect(mounted).toBe(true)
+    dispose()
+  })
+
+  it("waits for event subscription establishment before checking for upgrades", async () => {
+    let establish = () => {}
+    const established = new Promise<void>((resolve) => {
+      establish = resolve
+    })
+    let checked = false
+    let subscriptionReady: Promise<void> | undefined
+    let checkPromise: Promise<void> | undefined
+    let dispose = () => {}
+
+    createRoot((cleanup) => {
+      dispose = cleanup
+      const provider = createComponent(SDKProvider, {
+        url: "http://nikcli.test",
+        events: {
+          subscribe: async () => {
+            await established
+            return () => {}
+          },
+        },
+        get children() {
+          const sdk = useSDK()
+          subscriptionReady = sdk.subscriptionReady
+          checkPromise = checkUpgradeWhenSubscriptionReady(sdk.subscriptionReady, async () => {
+            checked = true
+          })
+          return null
+        },
+      })
+      ;(provider as unknown as () => unknown)()
+    })
+
+    await Promise.resolve()
+    expect(checked).toBe(false)
+
+    establish()
+    await subscriptionReady
+    await checkPromise
+    expect(checked).toBe(true)
+    dispose()
+
+    const [thread, app] = await Promise.all([
+      readSrc("packages/nikcli/src/cli/cmd/tui/thread.ts"),
+      readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx"),
+    ])
+    expect(thread).toContain('client.call("checkUpgrade"')
+    expect(thread).toContain("upgrade check failed")
+    expect(thread).not.toContain('setTimeout(() => {\n        client.call("checkUpgrade"')
+    expect(app).toContain("checkUpgradeWhenSubscriptionReady(sdk.subscriptionReady, props.checkUpgrade)")
   })
 
   it("upgrade() publishes the event for every supported install method", async () => {

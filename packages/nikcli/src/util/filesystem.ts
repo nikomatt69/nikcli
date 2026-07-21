@@ -1,6 +1,6 @@
 import { realpathSync, statSync } from "fs"
 import { mkdir } from "fs/promises"
-import { dirname, isAbsolute, join, parse, relative, resolve as pathResolve, sep } from "path"
+import { dirname, isAbsolute, join, parse, relative, resolve as pathResolve, sep, win32 } from "path"
 
 export namespace Filesystem {
   function isContained(parent: string, child: string) {
@@ -35,6 +35,11 @@ export namespace Filesystem {
   }
 
   export function resolve(p: string): string {
+    return pathResolve(p)
+  }
+
+  export function comparisonKey(p: string, platform = process.platform): string {
+    if (platform === "win32") return win32.resolve(p).replaceAll("\\", "/").toLowerCase()
     return pathResolve(p)
   }
 

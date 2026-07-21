@@ -36,6 +36,19 @@ describe("Filesystem", () => {
     })
   })
 
+  describe("comparisonKey", () => {
+    it("normalizes Windows separators and casing", () => {
+      expect(Filesystem.comparisonKey("E:\\Projects\\Nikcli", "win32")).toBe("e:/projects/nikcli")
+      expect(Filesystem.comparisonKey("e:/projects/nikcli", "win32")).toBe("e:/projects/nikcli")
+    })
+
+    it("preserves case on case-sensitive platforms", () => {
+      expect(Filesystem.comparisonKey("/Projects/Nikcli", "linux")).not.toBe(
+        Filesystem.comparisonKey("/projects/nikcli", "linux"),
+      )
+    })
+  })
+
   describe("findUp", () => {
     it("finds file in current directory", async () => {
       await fs.writeFile(path.join(testDir, "marker.txt"), "test")

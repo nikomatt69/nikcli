@@ -90,6 +90,25 @@ describe("Database.Service", () => {
     expect(row?.email).toBe("database@example.com")
   })
 
+  it("truncates the WAL after checkpointing", async () => {
+    const result = await runDatabase(
+      Effect.gen(function* () {
+        const database = yield* Database.Service
+        database.native.exec("CREATE TABLE IF NOT EXISTS checkpoint_test (id INTEGER PRIMARY KEY, value TEXT)")
+        database.native.exec("INSERT INTO checkpoint_test (value) VALUES ('pending')")
+        const wal = Bun.file(`${database.filename}-wal`)
+        const before = wal.size
+        const checkpoint = Database.checkpointWal(database.native)
+        const after = Bun.file(`${database.filename}-wal`).size
+        return { before, after, checkpoint }
+      }),
+    )
+
+    expect(result.before).toBeGreaterThan(0)
+    expect(result.checkpoint?.busy).toBe(0)
+    expect(result.after).toBe(0)
+  })
+
   it("imports legacy databases, JSON storage, and sync JSON on first open", async () => {
     const legacyDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-database-legacy-"))
     try {

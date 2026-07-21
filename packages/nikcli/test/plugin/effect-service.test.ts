@@ -6,6 +6,7 @@ import { Effect } from "effect"
 import { Plugin } from "@/plugin"
 import { Instance } from "@/project/instance"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import type { Hooks } from "@nikcli-ai/plugin"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-plugin-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -53,5 +54,113 @@ describe("Plugin.Service", () => {
       expect(result.hooks.length).toBeGreaterThan(0)
       expect(result.transformed.system).toEqual(["base"])
     })
+  })
+
+  it("isolates rejected transform hooks and continues with later plugins", async () => {
+    const calls: string[] = []
+    const hooks: Hooks[] = [
+      {
+        async "experimental.chat.system.transform"() {
+          calls.push("failed")
+          await Promise.resolve()
+          throw new Error("plugin failed")
+        },
+      },
+      {
+        async "experimental.chat.system.transform"(_input, output) {
+          calls.push("continued")
+          output.system.push("second plugin")
+        },
+      },
+    ]
+    const output = { system: ["base"] }
+
+    const result = await Plugin.triggerHooks(
+      hooks,
+      "experimental.chat.system.transform",
+      { sessionID: "ses_plugin_isolation" },
+      output,
+    )
+
+    expect(result).toBe(output)
+    expect(result.system).toEqual(["base", "second plugin"])
+    expect(calls).toEqual(["failed", "continued"])
+  })
+
+  it("stops queued and in-flight event dispatch once plugin disposal starts", async () => {
+    let disposed = false
+    let release = () => {}
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const calls: string[] = []
+    const handler = Plugin.createEventHookHandler(
+      [
+        {
+          async event() {
+            calls.push("started")
+            await blocked
+          },
+        },
+        {
+          async event() {
+            calls.push("continued")
+          },
+        },
+      ],
+      () => disposed,
+    )
+    const input = { event: {} } as Parameters<NonNullable<Hooks["event"]>>[0]
+
+    const inFlight = handler(input)
+    await Promise.resolve()
+    disposed = true
+    release()
+    await inFlight
+    await handler(input)
+
+    expect(calls).toEqual(["started"])
+  })
+
+  it("unsubscribes when disposal races with event subscription", () => {
+    let disposed = false
+    let unsubscribed = false
+
+    const unsubscribe = Plugin.subscribeEventHooks({
+      hooks: [],
+      isDisposed: () => disposed,
+      subscribe: () => {
+        disposed = true
+        return () => {
+          unsubscribed = true
+        }
+      },
+    })
+
+    expect(unsubscribe).toBeUndefined()
+    expect(unsubscribed).toBe(true)
+  })
+
+  it("awaits rejected event hooks and continues dispatching", async () => {
+    const calls: string[] = []
+    const hooks: Hooks[] = [
+      {
+        async event() {
+          calls.push("failed")
+          await Promise.resolve()
+          throw new Error("event failed")
+        },
+      },
+      {
+        async event() {
+          calls.push("continued")
+        },
+      },
+    ]
+    const input = { event: {} } as Parameters<NonNullable<Hooks["event"]>>[0]
+
+    await Plugin.runEventHooks(hooks, input)
+
+    expect(calls).toEqual(["failed", "continued"])
   })
 })

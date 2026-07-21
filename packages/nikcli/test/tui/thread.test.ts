@@ -4,7 +4,10 @@ import {
   chdirToThreadDirectory,
   createEventSource,
   createWorkerEnv,
+  releaseWorkerWithoutTermination,
   resolveThreadDirectory,
+  shouldTerminateWorker,
+  shutdownWorker,
   validateSession,
 } from "@/cli/cmd/tui/thread"
 import { Process } from "@/util/process"
@@ -33,6 +36,38 @@ describe("TUI thread bootstrap", () => {
       if (previousRunID === undefined) delete process.env[Process.RUN_ID_ENV]
       else process.env[Process.RUN_ID_ENV] = previousRunID
     }
+  })
+
+  it("does not terminate the worker on Windows shutdown", () => {
+    expect(shouldTerminateWorker("win32")).toBe(false)
+    expect(shouldTerminateWorker("darwin")).toBe(true)
+    expect(shouldTerminateWorker("linux")).toBe(true)
+
+    let released = false
+    releaseWorkerWithoutTermination({ unref: () => (released = true) })
+    expect(released).toBe(true)
+  })
+
+  it("does not await or terminate a hanging Windows worker", async () => {
+    let released = false
+    let terminated = false
+    const started = Date.now()
+
+    await shutdownWorker({
+      shutdown: () => new Promise(() => {}),
+      terminate: () => {
+        terminated = true
+      },
+      release: () => {
+        released = true
+      },
+      platform: "win32",
+      timeoutMs: 1_000,
+    })
+
+    expect(Date.now() - started).toBeLessThan(500)
+    expect(released).toBe(true)
+    expect(terminated).toBe(false)
   })
 
   it("rejects malformed session ids before rendering", async () => {

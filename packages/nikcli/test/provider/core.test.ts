@@ -536,6 +536,129 @@ describe("fromModelsDevProvider", () => {
   })
 })
 
+describe("Requesty model discovery", () => {
+  it("maps the dynamic catalog and authenticates when a key is available", async () => {
+    let request: Request | undefined
+    const models = await Provider.discoverRequestyModels({
+      baseURL: "https://requesty.test/v1/",
+      apiKey: "secret",
+      fetch: async (input, init) => {
+        request = new Request(input, init)
+        return Response.json({
+          data: [
+            {
+              id: "policy/opus",
+              created: 1_750_000_000,
+              input_price: 0.000003,
+              output_price: 0.000015,
+              cached_price: 7.5e-7,
+              context_window: 200_000,
+              max_output_tokens: 32_000,
+              supports_reasoning: true,
+              supports_vision: true,
+              supports_tool_calling: true,
+            },
+            {
+              id: "policy/fallbacks",
+              created: Number.MAX_VALUE,
+              context_window: 0,
+              max_output_tokens: -1,
+            },
+            { id: "", input_price: 1 },
+            { id: "__proto__", input_price: 1 },
+            { id: "policy/negative", input_price: -1 },
+            { id: "policy/infinite", output_price: Number.POSITIVE_INFINITY },
+          ],
+        })
+      },
+    })
+
+    expect(request?.url).toBe("https://requesty.test/v1/models")
+    expect(request?.headers.get("authorization")).toBe("Bearer secret")
+    expect(models["policy/opus"]).toEqual(
+      expect.objectContaining({
+        providerID: "requesty",
+        cost: { input: 3, output: 15, cache: { read: 0.75, write: 0 } },
+        limit: { context: 200_000, output: 32_000 },
+      }),
+    )
+    expect(models["policy/opus"]?.capabilities.input.image).toBe(true)
+    expect(models["policy/opus"]?.capabilities.toolcall).toBe(true)
+    expect(models["policy/fallbacks"]?.limit).toEqual({
+      context: 128_000,
+      output: 4096,
+    })
+    expect(models["policy/fallbacks"]?.release_date).toBe("")
+  })
+
+  it("discovers the public catalog when Requesty has no API key", async () => {
+    let called = false
+    const models = await Provider.discoverRequestyModels({
+      fetch: async () => {
+        called = true
+        return Response.json({ data: [{ id: "public/model" }] })
+      },
+    })
+
+    expect(models["public/model"]).toBeDefined()
+    expect(called).toBe(true)
+  })
+
+  it("falls back without failing provider initialization", async () => {
+    const models = await Provider.discoverRequestyModels({
+      apiKey: "secret",
+      fetch: async () => new Response("unavailable", { status: 503 }),
+    })
+    expect(models).toEqual({})
+  })
+
+  it("deduplicates cached discovery for the same endpoint and credential", async () => {
+    let calls = 0
+    const cache = Provider.createRequestyDiscoveryCache({
+      discover: async () => {
+        calls++
+        return { "policy/cached": {} as Provider.Model }
+      },
+      now: () => 1_000,
+    })
+    const input = {
+      baseURL: "https://requesty-cache.test/v1",
+      apiKey: "cached-key",
+    }
+
+    const [first, second] = await Promise.all([cache(input), cache(input)])
+
+    expect(calls).toBe(1)
+    expect(first["policy/cached"]).toBeDefined()
+    expect(second).toBe(first)
+  })
+
+  it("rejects malformed IDs and sanitizes invalid prices", async () => {
+    const models = await Provider.discoverRequestyModels({
+      fetch: async () =>
+        Response.json({
+          data: [
+            { id: "", input_price: 1 },
+            { id: 42, input_price: 1 },
+            {
+              id: "safe",
+              input_price: -1,
+              output_price: "bad",
+              cached_price: null,
+            },
+          ],
+        }),
+    })
+
+    expect(Object.keys(models)).toEqual(["safe"])
+    expect(models.safe?.cost).toEqual({
+      input: 0,
+      output: 0,
+      cache: { read: 0, write: 0 },
+    })
+  })
+})
+
 describe("OpenAI error schemas (copilot)", () => {
   it("openaiErrorDataSchema and compatible schema parse error payloads", () => {
     const body = { error: { message: "bad", code: "invalid" } }

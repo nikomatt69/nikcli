@@ -1651,9 +1651,10 @@ export namespace Config {
                   header: z.string().describe("Text before the user message."),
                   footer: z.string().describe("Text after the user message."),
                 })
-                .describe("Custom wrap template for queued user messages. Disable by passing null."),
+                .describe("Custom wrap template for queued user messages."),
               z.literal("default").describe("Use the default wrap (matches opencode upstream)."),
               z.boolean().describe("false to disable queued-message wrapping entirely; true for the default template."),
+              z.null().describe("Disable queued-message wrapping entirely."),
             ])
             .optional()
             .describe("Opencode #21535: queued user-message wrap template."),

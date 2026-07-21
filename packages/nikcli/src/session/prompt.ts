@@ -1093,10 +1093,11 @@ export namespace SessionPrompt {
       const remindAfter = step > 1 && lastFinished ? lastFinished.id : undefined
       // Opencode #21535: respect config-defined wrap template (or opt-out).
       const config = await configGet()
-      const wrap = (config.experimental?.queued_message_wrap ?? undefined) as
+      const wrap = config.experimental?.queued_message_wrap as
         | { header: string; footer: string }
         | "default"
-        | false
+        | boolean
+        | null
         | undefined
 
       await runPlugin(
