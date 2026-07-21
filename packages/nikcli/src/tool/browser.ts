@@ -60,7 +60,9 @@ const parameters = z
     sample_fps: z
       .number()
       .optional()
-      .describe("For start_recording: periodic real-screenshot rate, usable for video/frame lookup while the session is still running"),
+      .describe(
+        "For start_recording: periodic real-screenshot rate, usable for video/frame lookup while the session is still running",
+      ),
   })
   .superRefine((input, ctx) => {
     if (input.action === "goto" && !input.url) {
@@ -167,7 +169,11 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
 
     if (params.action === "close_all") {
       await Browser.closeAll()
-      return { title: "Browser · close_all", output: "Closed all sessions and stopped the daemon.", metadata: baseMetadata(params.action) }
+      return {
+        title: "Browser · close_all",
+        output: "Closed all sessions and stopped the daemon.",
+        metadata: baseMetadata(params.action),
+      }
     }
     if (params.action === "list") {
       const list = await Browser.call<SessionInfo[]>("list")
@@ -184,12 +190,22 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
         viewport: params.viewport ? parseViewport(params.viewport) : undefined,
         record: params.record,
       })
-      return { title: `Browser · start · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+      return {
+        title: `Browser · start · ${name}`,
+        output: JSON.stringify(info, null, 2),
+        metadata: baseMetadata(params.action, name),
+      }
     }
 
     // Every other action operates on an existing session; conveniently
     // auto-start one so the agent doesn't have to call `start` first.
-    const skipsAutoStart: ReadonlySet<Params["action"]> = new Set(["info", "stop", "remove", "video_path", "recording_data"])
+    const skipsAutoStart: ReadonlySet<Params["action"]> = new Set([
+      "info",
+      "stop",
+      "remove",
+      "video_path",
+      "recording_data",
+    ])
     if (!skipsAutoStart.has(params.action)) {
       await ensureSession(socket, name)
     }
@@ -197,24 +213,44 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
     switch (params.action) {
       case "info": {
         const info = await rpc<SessionInfo>(socket, "info", { name })
-        return { title: `Browser · info · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · info · ${name}`,
+          output: JSON.stringify(info, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "goto": {
         await rpc(socket, "goto", { name, url: params.url })
         const info = await rpc<SessionInfo>(socket, "info", { name })
-        return { title: `Browser · goto · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · goto · ${name}`,
+          output: JSON.stringify(info, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "click": {
         await rpc(socket, "click", { name, selector: params.selector })
-        return { title: `Browser · click · ${name}`, output: `Clicked ${params.selector}`, metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · click · ${name}`,
+          output: `Clicked ${params.selector}`,
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "fill": {
         await rpc(socket, "fill", { name, selector: params.selector, value: params.value })
-        return { title: `Browser · fill · ${name}`, output: `Filled ${params.selector}`, metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · fill · ${name}`,
+          output: `Filled ${params.selector}`,
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "hover": {
         await rpc(socket, "hover", { name, selector: params.selector })
-        return { title: `Browser · hover · ${name}`, output: `Hovered ${params.selector}`, metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · hover · ${name}`,
+          output: `Hovered ${params.selector}`,
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "scroll": {
         await rpc(socket, "scroll", { name, dx: params.dx ?? 0, dy: params.dy ?? 0 })
@@ -226,15 +262,27 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       }
       case "wait": {
         const result = await rpc(socket, "wait", { name, condition: waitCondition(params) })
-        return { title: `Browser · wait · ${name}`, output: JSON.stringify(result, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · wait · ${name}`,
+          output: JSON.stringify(result, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "snapshot": {
         const frame = await rpc<JSONFrame>(socket, "snapshot", { name })
         if (params.format === "text") {
-          return { title: `Browser · snapshot · ${name}`, output: frame.text, metadata: baseMetadata(params.action, name) }
+          return {
+            title: `Browser · snapshot · ${name}`,
+            output: frame.text,
+            metadata: baseMetadata(params.action, name),
+          }
         }
         if (params.format === "json") {
-          return { title: `Browser · snapshot · ${name}`, output: JSON.stringify(frame, null, 2), metadata: baseMetadata(params.action, name) }
+          return {
+            title: `Browser · snapshot · ${name}`,
+            output: JSON.stringify(frame, null, 2),
+            metadata: baseMetadata(params.action, name),
+          }
         }
         return {
           title: `Browser · snapshot · ${name}`,
@@ -248,19 +296,35 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
           ? parseViewport(params.viewport)
           : { width: params.width ?? 1280, height: params.height ?? 800 }
         const info = await rpc<SessionInfo>(socket, "resize", { name, ...size })
-        return { title: `Browser · resize · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · resize · ${name}`,
+          output: JSON.stringify(info, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "stop": {
         await rpc(socket, "stop", { name })
-        return { title: `Browser · stop · ${name}`, output: `Stopped ${name}.`, metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · stop · ${name}`,
+          output: `Stopped ${name}.`,
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "remove": {
         await rpc(socket, "remove", { name })
-        return { title: `Browser · remove · ${name}`, output: `Removed ${name}.`, metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · remove · ${name}`,
+          output: `Removed ${name}.`,
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "restart": {
         const info = await rpc<SessionInfo>(socket, "restart", { name })
-        return { title: `Browser · restart · ${name}`, output: JSON.stringify(info, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · restart · ${name}`,
+          output: JSON.stringify(info, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "start_recording": {
         await rpc(socket, "startRecording", { name, sampleFps: params.sample_fps })
@@ -272,15 +336,27 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       }
       case "marker": {
         const marker = await rpc(socket, "marker", { name, markerName: params.marker_name })
-        return { title: `Browser · marker · ${name}`, output: JSON.stringify(marker, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · marker · ${name}`,
+          output: JSON.stringify(marker, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "stop_recording": {
         const data = await rpc(socket, "stopRecording", { name })
-        return { title: `Browser · stop_recording · ${name}`, output: JSON.stringify(data, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · stop_recording · ${name}`,
+          output: JSON.stringify(data, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "recording_data": {
         const data = await rpc(socket, "recordingData", { name })
-        return { title: `Browser · recording_data · ${name}`, output: JSON.stringify(data, null, 2), metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser · recording_data · ${name}`,
+          output: JSON.stringify(data, null, 2),
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "video_path": {
         const result = await rpc<{ path?: string }>(socket, "videoPath", { name })

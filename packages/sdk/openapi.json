@@ -4965,6 +4965,9 @@
                   "github": {
                     "$ref": "#/components/schemas/SessionGithub"
                   },
+                  "worktree": {
+                    "$ref": "#/components/schemas/SessionWorktree"
+                  },
                   "workspaceID": {
                     "type": "string"
                   }
@@ -12241,8 +12244,8 @@
             "required": true
           }
         ],
-        "summary": "Cleanup GitHub session worktree",
-        "description": "Remove the isolated worktree created for a GitHub-backed mobile session.",
+        "summary": "Cleanup session worktree",
+        "description": "Remove the isolated worktree created for a mobile session (GitHub-linked or plain).",
         "responses": {
           "200": {
             "description": "Worktree cleaned",
@@ -16496,6 +16499,12 @@
                     "type": "string"
                   },
                   "expiresAt": {
+                    "type": "number"
+                  },
+                  "refreshToken": {
+                    "type": "string"
+                  },
+                  "refreshTokenExpiresAt": {
                     "type": "number"
                   }
                 },
@@ -20930,6 +20939,27 @@
         },
         "required": ["type", "properties"]
       },
+      "SessionWorktree": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "repositoryDirectory": {
+            "type": "string"
+          },
+          "cleanedAt": {
+            "type": "number"
+          }
+        },
+        "required": ["name", "branch", "directory"]
+      },
       "SessionGithub": {
         "type": "object",
         "properties": {
@@ -20961,22 +20991,7 @@
             "type": "boolean"
           },
           "worktree": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "branch": {
-                "type": "string"
-              },
-              "directory": {
-                "type": "string"
-              },
-              "cleanedAt": {
-                "type": "number"
-              }
-            },
-            "required": ["name", "branch", "directory"]
+            "$ref": "#/components/schemas/SessionWorktree"
           },
           "pullRequest": {
             "type": "object",
@@ -21136,6 +21151,9 @@
           },
           "github": {
             "$ref": "#/components/schemas/SessionGithub"
+          },
+          "worktree": {
+            "$ref": "#/components/schemas/SessionWorktree"
           },
           "mobile": {
             "$ref": "#/components/schemas/SessionMobile"
@@ -25452,8 +25470,7 @@
                 "subtask": {
                   "type": "boolean"
                 }
-              },
-              "required": ["template"]
+              }
             }
           },
           "reference": {
@@ -28080,6 +28097,9 @@
                 "type": "boolean"
               },
               "tokenAvailable": {
+                "type": "boolean"
+              },
+              "reconnectRequired": {
                 "type": "boolean"
               },
               "oauthDeviceEnabled": {

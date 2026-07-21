@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Keyboard,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native"
+import { ActivityIndicator, Alert, FlatList, Keyboard, Platform, Pressable, StyleSheet, Text, View } from "react-native"
 import { WebView, type WebViewMessageEvent } from "react-native-webview"
 import { useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -28,11 +18,7 @@ import { SettingsCircleButton } from "@/components/layout/ScreenBrandHeader"
 import { BrandMark } from "@/components/layout/BrandMark"
 import { TerminalKeyBar } from "@/components/terminal/TerminalKeyBar"
 import { consumeTerminalLaunchIntent } from "@/lib/terminal-launch"
-import {
-  ptyStatusColor,
-  ptyStatusLabel,
-  type PtyConnectionStatus,
-} from "@/lib/terminal-keys"
+import { ptyStatusColor, ptyStatusLabel, type PtyConnectionStatus } from "@/lib/terminal-keys"
 import type { PtyCreateInput, PtyInfo } from "@/lib/types"
 
 // require() returns a number (resource ID) in Metro — we load the content async
@@ -481,26 +467,29 @@ export default function TerminalScreen() {
 
   // ── Create a new PTY ──────────────────────────────────────────────────────
 
-  const createTerminal = useCallback(async (input: PtyCreateInput = {}) => {
-    if (!client || creatingRef.current) return
-    creatingRef.current = true
-    setCreating(true)
-    setError(null)
-    try {
-      const pty = await client.createPty(input)
-      const newTab: PtyTab = { pty, title: input.title?.trim() || pty.title }
-      setTabs((prev) => {
-        const next = [...prev, newTab]
-        setActiveIndex(next.length - 1)
-        return next
-      })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create terminal")
-    } finally {
-      creatingRef.current = false
-      setCreating(false)
-    }
-  }, [client])
+  const createTerminal = useCallback(
+    async (input: PtyCreateInput = {}) => {
+      if (!client || creatingRef.current) return
+      creatingRef.current = true
+      setCreating(true)
+      setError(null)
+      try {
+        const pty = await client.createPty(input)
+        const newTab: PtyTab = { pty, title: input.title?.trim() || pty.title }
+        setTabs((prev) => {
+          const next = [...prev, newTab]
+          setActiveIndex(next.length - 1)
+          return next
+        })
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to create terminal")
+      } finally {
+        creatingRef.current = false
+        setCreating(false)
+      }
+    },
+    [client],
+  )
 
   useFocusEffect(
     useCallback(() => {
@@ -818,12 +807,7 @@ export default function TerminalScreen() {
       </View>
 
       {/* Terminal dock — fills remaining space, anchored to bottom; shrinks upward when keyboard opens */}
-      <View
-        style={[
-          styles.terminalDock,
-          keyboardInset > 0 ? { paddingBottom: keyboardInset } : null,
-        ]}
-      >
+      <View style={[styles.terminalDock, keyboardInset > 0 ? { paddingBottom: keyboardInset } : null]}>
         <View style={styles.terminalViewport} collapsable={false}>
           {client
             ? tabs.map((tab, index) => (

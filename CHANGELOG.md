@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.183.0 (July 2026)
+
+## Core
+
+- Port high-impact open pull requests from opencode (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): port high-impact open pull requests from opencode
+
 ## v1.176.0 (July 2026)
 
 - No notable changes
