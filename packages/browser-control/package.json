@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "1.1.0",
-    "playwright": "1.61.0"
+    "playwright": "1.61.0",
+    "chromium-bidi": "0.4.33"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
