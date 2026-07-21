@@ -823,6 +823,9 @@ export namespace Config {
         .positive()
         .optional()
         .describe("Maximum number of agentic iterations before forcing text-only response"),
+      // Opencode #24691: sort key for agent cycling order (Tab in TUI).
+      // Lower numbers sort first; agents without `order` sort alphabetically after.
+      order: z.number().int().optional().describe("Sorting priority for agent cycling. Lower = earlier."),
       maxSteps: z.number().int().positive().optional().describe("@deprecated Use 'steps' field instead."),
       permission: Permission.optional(),
       advisor: z
@@ -1285,6 +1288,14 @@ export namespace Config {
 
   export const Provider = ModelsDev.Provider.partial()
     .extend({
+      // Opencode #28489: reuse another provider's auth flow. Useful for running
+      // multiple model configurations under the same OAuth credentials.
+      auth_provider: z
+        .string()
+        .optional()
+        .describe(
+          "Provider ID whose auth flow to reuse (e.g. 'github-copilot'). Credentials fall back to the source provider if none are stored under this alias.",
+        ),
       whitelist: z.array(z.string()).optional(),
       blacklist: z.array(z.string()).optional(),
       models: z

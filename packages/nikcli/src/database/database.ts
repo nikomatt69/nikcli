@@ -41,6 +41,10 @@ export namespace Database {
     native.exec("PRAGMA busy_timeout = 5000")
     native.exec("PRAGMA cache_size = -64000")
     native.exec("PRAGMA foreign_keys = ON")
+    // Opencode #22428: disable mmap so the process footprint doesn't grow
+    // with the DB file size. Default cache_size (~64MB) bounds the cache
+    // anyway, and the latency cost is dwarfed by LLM API round-trips.
+    native.exec("PRAGMA mmap_size = 0")
     DatabaseMigration.apply(native)
     native.exec("PRAGMA wal_checkpoint(PASSIVE)")
 

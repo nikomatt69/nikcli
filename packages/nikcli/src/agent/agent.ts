@@ -71,6 +71,9 @@ export namespace Agent {
   })
 
   const InfoSchema = Schema.Struct({
+    // Opencode #24691: optional `order` field for deterministic agent cycling.
+    // Lower numbers sort first; unset → Infinity (sort after ordered ones).
+    order: Schema.optional(Schema.Number),
     name: Schema.String,
     description: Schema.optional(Schema.String),
     mode: Schema.Literals(["subagent", "primary", "all"]),
@@ -858,6 +861,8 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
       item.hidden = value.hidden ?? item.hidden
       item.name = value.name ?? item.name
       item.steps = value.steps ?? item.steps
+      // Opencode #24691: forward the `order` field from config to agent Info.
+      if (value.order !== undefined) item.order = value.order
       item.options = mergeDeep(item.options, value.options ?? {})
       item.permission = PermissionNext.merge(item.permission, PermissionNext.fromConfig(value.permission ?? {}))
     }
@@ -916,7 +921,13 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
           return pipe(
             yield* getState(),
             values(),
-            sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"]),
+            // Opencode #24691: sort by 1) `order` ascending (Infinity for unset),
+            // 2) name alphabetical (existing fallback).
+            sortBy(
+              [(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"],
+              [(x) => x.order ?? Infinity, "asc"],
+              [(x) => x.name, "asc"],
+            ),
           )
         })
       }

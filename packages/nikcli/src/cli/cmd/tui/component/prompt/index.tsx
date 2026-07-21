@@ -1720,11 +1720,26 @@ export function Prompt(props: PromptProps) {
       typeId: promptPartTypeId,
     })
 
+    // Opencode #21633: prefer file:// over data: URLs so MCP tools that expect
+    // a path on disk can analyze the pasted image. Falls back to data: if the
+    // temp write fails (e.g. disk full, permissions).
+    let url: string = `data:${file.mime};base64,${file.content}`
+    try {
+      const os = await import("os")
+      const path = await import("path")
+      const tmp = path.join(os.tmpdir(), `nikcli-paste-${Date.now()}.${file.mime.split("/")[1] ?? "png"}`)
+      const bytes = Buffer.from(file.content, "base64")
+      await Bun.write(tmp, bytes)
+      url = `file://${tmp}`
+    } catch {
+      // keep data: fallback
+    }
+
     const part: Omit<FilePart, "id" | "messageID" | "sessionID"> = {
       type: "file" as const,
       mime: file.mime,
       filename: file.filename,
-      url: `data:${file.mime};base64,${file.content}`,
+      url,
       source: {
         type: "file",
         path: file.filename ?? "",

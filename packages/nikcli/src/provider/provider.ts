@@ -47,8 +47,8 @@ import {
 import { byProvider as providerProfiles } from "@nikcli-ai/llm/providers/openai-compatible-profile"
 import type { ModelRef } from "@nikcli-ai/llm"
 
-function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
-  return runPromiseWithLayer(Auth.defaultLayer, effect)
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service | Config.Service>) {
+  return runPromiseWithLayer(Layer.merge(Auth.defaultLayer, Config.defaultLayer), effect)
 }
 
 function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx?: InstanceContext) {
@@ -59,7 +59,17 @@ function authGet(providerID: string): Promise<Auth.Info | undefined> {
   return runAuth(
     Effect.gen(function* () {
       const auth = yield* Auth.Service
-      return yield* auth.get(providerID)
+      const direct = yield* auth.get(providerID)
+      if (direct) return direct
+      // Opencode #28489: fall back to `auth_provider` when the provider config
+      // declares one. The resolution is read-time only; no side effects.
+      const cfg = yield* Config.Service
+      const info = yield* cfg.get()
+      const alias = info.provider?.[providerID]
+      if (alias?.auth_provider && alias.auth_provider !== providerID) {
+        return yield* auth.get(alias.auth_provider)
+      }
+      return undefined
     }),
   )
 }
