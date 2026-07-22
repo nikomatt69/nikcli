@@ -26,7 +26,13 @@ export const GET: APIRoute = async (ctx) => {
       code_verifier: verifier,
     }),
   })
-  if (!response.ok) return Response.json({ error: "token_exchange_failed" }, { status: 502 })
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "")
+    return Response.json(
+      { error: "token_exchange_failed", issuer_status: response.status, issuer_error: detail.slice(0, 500) },
+      { status: 502 },
+    )
+  }
   const tokens = (await response.json()) as {
     access_token?: string
     refresh_token?: string

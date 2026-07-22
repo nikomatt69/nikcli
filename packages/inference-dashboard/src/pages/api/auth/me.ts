@@ -1,13 +1,9 @@
 import type { APIRoute } from "astro"
-import { getSessionUser, readSessionCookie } from "../../../lib/auth"
+import { getCurrentUser } from "../../../lib/auth"
 
 export const GET: APIRoute = async (ctx) => {
-  const env = (ctx.locals as any).runtime?.env
-  const DB = env?.DB as D1Database | undefined
-  if (!DB) return new Response(JSON.stringify({ user: null }), { headers: { "Content-Type": "application/json" } })
-
-  const sessionId = readSessionCookie(ctx.cookies)
-  const user = await getSessionUser({ DB }, sessionId)
-
+  // getCurrentUser reads the full runtime env (issuer config + DB) and also
+  // transparently refreshes an expired access token via the refresh cookie.
+  const user = await getCurrentUser(ctx).catch(() => null)
   return new Response(JSON.stringify({ user }), { headers: { "Content-Type": "application/json" } })
 }

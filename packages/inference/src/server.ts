@@ -1,8 +1,9 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
-import { MODELS, MODEL_ALIASES, THINKING_SUPPORT, resolveModelId, type ModelId } from "./types"
+import { MODELS, MODEL_ALIASES, THINKING_SUPPORT, isFreeModel, resolveModelId, type ModelId } from "./types"
+import { loadEnv } from "./config/env"
 import { calcCost, routedCostUsd, upstreamCostUsd } from "./middleware"
-import { getRateLimiter, validateKey, tierFor } from "./middleware/ratelimit"
+import { getRateLimiter, validateKey, recordUsage } from "./middleware/ratelimit"
 import { validateChatBody } from "./middleware/validation"
 import { getLogger, requestId } from "./middleware/logger"
 import { CachedProvider, UpstreamError, RouterError } from "./providers/cached"
@@ -59,7 +60,11 @@ app.get("/v1/providers", (c) => {
 
 app.get("/v1/models", (c) => {
   const includeRoutes = c.req.query("routes") === "1"
-  const canonical = Object.entries(MODELS).map(([id, info]) => {
+  const freeOnly = loadEnv().INFERENCE_FREE_ONLY
+  const visible = (id: string) => !freeOnly || isFreeModel(id as ModelId)
+  const canonical = Object.entries(MODELS)
+    .filter(([id]) => visible(id))
+    .map(([id, info]) => {
     const routes = getRoutesForModel(id as ModelId)
     const support = THINKING_SUPPORT[id as ModelId]
     return {
@@ -84,9 +89,11 @@ app.get("/v1/models", (c) => {
         : undefined,
     }
   })
-  const aliased = Object.entries(MODEL_ALIASES).map(([alias, target]) => {
-    const info = MODELS[target]
-    return {
+  const aliased = Object.entries(MODEL_ALIASES)
+    .filter(([, target]) => visible(target))
+    .map(([alias, target]) => {
+      const info = MODELS[target]
+      return {
       id: alias,
       object: "model",
       created: Date.now(),
@@ -102,6 +109,7 @@ app.get("/v1/models", (c) => {
   // Emit `:thinking` variants for every model+alias that supports optional reasoning.
   const variants: Array<Record<string, unknown>> = []
   for (const [id, info] of Object.entries(MODELS)) {
+    if (!visible(id)) continue
     if (THINKING_SUPPORT[id as ModelId] !== "optional") continue
     variants.push({
       id: `${id}:thinking`,
@@ -117,6 +125,7 @@ app.get("/v1/models", (c) => {
     })
   }
   for (const [alias, target] of Object.entries(MODEL_ALIASES)) {
+    if (!visible(target)) continue
     if (THINKING_SUPPORT[target] !== "optional") continue
     const info = MODELS[target]
     variants.push({
@@ -138,7 +147,7 @@ app.get("/v1/models", (c) => {
 
 app.post("/v1/chat/completions", async (c) => {
   const rid = c.get("rid" as never) as string
-  const key = validateKey(c.req.header("Authorization"))
+  const key = await validateKey(c.req.header("Authorization"))
   if (!key) return c.json({ error: { message: "Unauthorized", type: "auth_error" } }, 401)
 
   const raw = await c.req.json()
@@ -153,6 +162,12 @@ app.post("/v1/chat/completions", async (c) => {
     return c.json({ error: { message: `Model '${body.model}' not found`, type: "invalid_request_error" } }, 400)
   }
   const resolvedModel = resolved.id
+  if (loadEnv().INFERENCE_FREE_ONLY && !isFreeModel(resolvedModel)) {
+    return c.json(
+      { error: { message: `Model '${body.model}' is not available on the free gateway`, type: "invalid_request_error" } },
+      404,
+    )
+  }
   const modelInfo = MODELS[resolvedModel]
   const displayedModel = body.model // keep alias/variant in response if client used one
 
@@ -187,7 +202,7 @@ app.post("/v1/chat/completions", async (c) => {
     if ("passthrough" in result) {
       const stream = result.passthrough.body
       if (!stream) return c.json({ error: { message: "upstream returned empty stream" } }, 502)
-      log.info("inference.stream", { rid, model: body.model, provider: result.route.provider, tier: tierFor(key) })
+      log.info("inference.stream", { rid, model: body.model, provider: result.route.provider, tier: key.tier })
       return c.body(stream, {
         headers: {
           "Content-Type": "text/event-stream",
@@ -220,8 +235,26 @@ app.post("/v1/chat/completions", async (c) => {
       upstreamUsd,
       marginUsd: billedUsd - upstreamUsd,
       attempts: result.attempts.length,
-      tier: tierFor(key),
+      tier: key.tier,
     })
+
+    if (key.userId) {
+      void recordUsage({
+        keyId: key.keyId,
+        userId: key.userId,
+        model: displayedModel,
+        resolvedModel,
+        provider: result.route?.provider ?? null,
+        upstreamModel: result.route?.upstreamModel ?? null,
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        billedUsd,
+        upstreamUsd,
+        savedUsd,
+        cache: result.cache ?? null,
+        rid,
+      })
+    }
 
     return c.json({
       ...result.body,

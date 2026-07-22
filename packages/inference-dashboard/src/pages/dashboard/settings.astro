@@ -1,7 +1,6 @@
 ---
 import Dashboard from "../../layouts/Dashboard.astro"
 import { getCurrentUser } from "../../lib/auth"
-import ChangePasswordSection from "../../components/ChangePasswordSection"
 import DeleteAccountSection from "../../components/DeleteAccountSection"
 
 const user = await getCurrentUser(Astro as any).catch(() => null)
@@ -45,7 +44,15 @@ if (!user) return Astro.redirect("/sign-in")
       </dl>
     </section>
 
-    <ChangePasswordSection client:load />
+    <section class="app-panel app-panel-pad">
+      <p class="app-kicker">Security</p>
+      <h2 class="mt-2 font-display text-xl font-semibold text-terminal-text">Sign-in</h2>
+      <p class="mt-3 text-sm leading-6 text-terminal-muted">
+        This dashboard uses your NikCLI identity (GitHub or email verification code) — there is no password to manage.
+        Sign-in and session security are handled by
+        <a href="https://auth.nikcli.store" class="font-medium text-terminal-accent hover:underline">auth.nikcli.store</a>.
+      </p>
+    </section>
 
     <section class="app-panel app-panel-pad">
       <p class="app-kicker">Plan</p>

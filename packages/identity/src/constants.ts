@@ -15,7 +15,10 @@ export const CLIENTS = {
   "nikcli-mobile": ["nikcli://auth/callback"],
   "nikcli-studio": ["https://nikcli.store/dashboard/callback"],
   "nikcli-web": ["https://nikcli.store/dashboard/callback", "https://nikcli.store/user/callback"],
-  "nikcli-inference-dashboard": ["https://nikcli.store/api/auth/callback"],
+  "nikcli-inference-dashboard": [
+    "https://dashboard.nikcli.store/api/auth/callback",
+    "https://nikcli.store/api/auth/callback",
+  ],
   "nikcli-console": ["https://console.nikcli.store/auth/callback"],
 } as const
 

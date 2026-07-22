@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro"
 import { z } from "zod"
-import { getSessionUser, readSessionCookie } from "../../../lib/auth"
+import { getCurrentUser } from "../../../lib/auth"
 import { issueApiKey, listApiKeys } from "../../../lib/keys"
 
 function json(data: unknown, status = 200) {
@@ -13,11 +13,7 @@ const createBody = z.object({
 })
 
 async function getUser(ctx: any) {
-  const env = (ctx.locals as any).runtime?.env
-  const DB = env?.DB as D1Database | undefined
-  if (!DB) return null
-  const sessionId = readSessionCookie(ctx.cookies)
-  return getSessionUser({ DB }, sessionId)
+  return getCurrentUser(ctx).catch(() => null)
 }
 
 export const GET: APIRoute = async (ctx) => {

@@ -32,14 +32,8 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
     { provider: "moonshot", upstreamModel: "kimi-k2-0711-preview", input: 0.15, output: 2.5 },
     { provider: "openrouter", upstreamModel: "moonshotai/kimi-latest", input: 0.73, output: 3.49 },
   ],
-  "glm-5.1": [
-    { provider: "zhipu", upstreamModel: "glm-4.5", input: 0.6, output: 2.2, estimated: true },
-    { provider: "openrouter", upstreamModel: "z-ai/glm-5.1-20260406", input: 0, output: 0 },
-  ],
-  "glm-5": [
-    { provider: "zhipu", upstreamModel: "glm-4-plus", input: 0.5, output: 1.5 },
-    { provider: "openrouter", upstreamModel: "z-ai/glm-5.1-20260406", input: 0, output: 0 },
-  ],
+  "glm-5.1": [{ provider: "zhipu", upstreamModel: "glm-4.5", input: 0.6, output: 2.2, estimated: true }],
+  "glm-5": [{ provider: "zhipu", upstreamModel: "glm-4-plus", input: 0.5, output: 1.5 }],
   "qwen-3.5-72b": [
     { provider: "nebius", upstreamModel: "Qwen/Qwen2.5-72B-Instruct", input: 0.13, output: 0.4 },
     { provider: "deepinfra", upstreamModel: "Qwen/Qwen2.5-72B-Instruct", input: 0.4, output: 0.4 },
@@ -181,9 +175,6 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
   "deepseek-v4-flash": [
     { provider: "openrouter", upstreamModel: "deepseek/deepseek-v4-flash-20260423", input: 0.112, output: 0.224 },
   ],
-  "deepseek-v4-flash-free": [
-    { provider: "openrouter", upstreamModel: "deepseek/deepseek-v4-flash:free", input: 0, output: 0 },
-  ],
   "deepseek-v3.2": [{ provider: "openrouter", upstreamModel: "deepseek/deepseek-v3.2", input: 0.252, output: 0.378 }],
   "deepseek-r1-0528": [
     { provider: "openrouter", upstreamModel: "deepseek/deepseek-r1-0528", input: 0.5, output: 2.15 },
@@ -194,9 +185,41 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
   "qwen-3.5-flash": [
     { provider: "openrouter", upstreamModel: "qwen/qwen3.5-flash-20260224", input: 0.065, output: 0.26 },
   ],
-  "glm-5.1-free": [{ provider: "openrouter", upstreamModel: "z-ai/glm-5.1-20260406", input: 0, output: 0 }],
   "minimax-2.5": [{ provider: "openrouter", upstreamModel: "minimax/minimax-m2.5", input: 0.15, output: 1.15 }],
-  "minimax-2.5-free": [{ provider: "openrouter", upstreamModel: "minimax/minimax-m2.5:free", input: 0, output: 0 }],
+
+  // ============ FREE MODELS — OpenRouter `:free` ids, verified 2026-07-22 ============
+  "nemotron-3-nano": [
+    { provider: "openrouter", upstreamModel: "nvidia/nemotron-3-nano-30b-a3b:free", input: 0, output: 0 },
+  ],
+  "nemotron-3-nano-omni": [
+    {
+      provider: "openrouter",
+      upstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      input: 0,
+      output: 0,
+    },
+  ],
+  "nemotron-3-super": [
+    { provider: "openrouter", upstreamModel: "nvidia/nemotron-3-super-120b-a12b:free", input: 0, output: 0 },
+  ],
+  "nemotron-3-ultra": [
+    { provider: "openrouter", upstreamModel: "nvidia/nemotron-3-ultra-550b-a55b:free", input: 0, output: 0 },
+  ],
+  "nemotron-nano-9b": [
+    { provider: "openrouter", upstreamModel: "nvidia/nemotron-nano-9b-v2:free", input: 0, output: 0 },
+  ],
+  "nemotron-nano-12b-vl": [
+    { provider: "openrouter", upstreamModel: "nvidia/nemotron-nano-12b-v2-vl:free", input: 0, output: 0 },
+  ],
+  "gemma-4-31b-free": [{ provider: "openrouter", upstreamModel: "google/gemma-4-31b-it:free", input: 0, output: 0 }],
+  "gemma-4-26b-free": [
+    { provider: "openrouter", upstreamModel: "google/gemma-4-26b-a4b-it:free", input: 0, output: 0 },
+  ],
+  "gpt-oss-20b": [{ provider: "openrouter", upstreamModel: "openai/gpt-oss-20b:free", input: 0, output: 0 }],
+  "laguna-m.1": [{ provider: "openrouter", upstreamModel: "poolside/laguna-m.1:free", input: 0, output: 0 }],
+  "laguna-s-2.1": [{ provider: "openrouter", upstreamModel: "poolside/laguna-s-2.1:free", input: 0, output: 0 }],
+  "laguna-xs-2.1": [{ provider: "openrouter", upstreamModel: "poolside/laguna-xs-2.1:free", input: 0, output: 0 }],
+  "north-mini-code": [{ provider: "openrouter", upstreamModel: "cohere/north-mini-code:free", input: 0, output: 0 }],
 }
 
 /**

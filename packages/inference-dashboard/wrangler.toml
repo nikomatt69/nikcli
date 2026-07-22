@@ -3,6 +3,8 @@ main = "./dist/_worker.js/index.js"
 compatibility_date = "2025-10-01"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [{ pattern = "dashboard.nikcli.store", custom_domain = true }]
+
 [assets]
 directory = "./dist"
 
@@ -16,6 +18,6 @@ migrations_dir = "./d1-migrations"
 
 [vars]
 INFERENCE_API_BASE = "https://inference.nikcli.store"
-SITE_URL = "https://nikcli.store"
+SITE_URL = "https://dashboard.nikcli.store"
 AUTH_ISSUER = "https://auth.nikcli.store"
 AUTH_AUDIENCE = "nikcli-api"

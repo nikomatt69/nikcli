@@ -221,14 +221,6 @@ export const MODELS = {
     params: "MoE flash (V4)",
     hfId: "deepseek-ai/DeepSeek-V4-Flash",
   },
-  "deepseek-v4-flash-free": {
-    provider: "openrouter",
-    context: 1_048_576,
-    input: 0,
-    output: 0,
-    params: "MoE flash (V4) — free tier",
-    hfId: "deepseek-ai/DeepSeek-V4-Flash",
-  },
   "deepseek-v3.2": {
     provider: "openrouter",
     context: 131_072,
@@ -261,14 +253,6 @@ export const MODELS = {
     params: "Qwen 3.5 Flash (efficient)",
     hfId: "Qwen/Qwen3.5-Flash",
   },
-  "glm-5.1-free": {
-    provider: "openrouter",
-    context: 202_800,
-    input: 0,
-    output: 0,
-    params: "GLM 5.1 — free tier",
-    hfId: "zai-org/GLM-5.1",
-  },
   "minimax-2.5": {
     provider: "openrouter",
     context: 205_000,
@@ -277,25 +261,122 @@ export const MODELS = {
     params: "MoE 2.5",
     hfId: "MiniMaxAI/MiniMax-M2.5",
   },
-  "minimax-2.5-free": {
+  // ============ FREE MODELS — OpenRouter `:free`, verified 2026-07-22 ============
+  // Billed 0/0 by design: `isFreeModel` derives from pricing. Re-verify the
+  // upstream `:free` ids periodically — OpenRouter rotates them.
+  "nemotron-3-nano": {
     provider: "openrouter",
-    context: 205_000,
+    context: 256_000,
     input: 0,
     output: 0,
-    params: "MoE 2.5 — free tier",
-    hfId: "MiniMaxAI/MiniMax-M2.5",
+    params: "3B act / 30B MoE",
+    hfId: "nvidia/Nemotron-3-Nano-30B-A3B",
   },
-  "owl-alpha": {
+  "nemotron-3-nano-omni": {
+    provider: "openrouter",
+    context: 256_000,
+    input: 0,
+    output: 0,
+    params: "3B act / 30B MoE — omni (text+image+audio+video in)",
+    hfId: "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning",
+  },
+  "nemotron-3-super": {
+    provider: "openrouter",
+    context: 262_144,
+    input: 0,
+    output: 0,
+    params: "12B act / 120B MoE",
+    hfId: "nvidia/Nemotron-3-Super-120B-A12B",
+  },
+  "nemotron-3-ultra": {
+    provider: "openrouter",
+    context: 1_000_000,
+    input: 0,
+    output: 0,
+    params: "55B act / 550B MoE",
+    hfId: "nvidia/Nemotron-3-Ultra-550B-A55B",
+  },
+  "nemotron-nano-9b": {
+    provider: "openrouter",
+    context: 128_000,
+    input: 0,
+    output: 0,
+    params: "9B dense",
+    hfId: "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  },
+  "nemotron-nano-12b-vl": {
+    provider: "openrouter",
+    context: 128_000,
+    input: 0,
+    output: 0,
+    params: "12B VL (text+image+video in)",
+    hfId: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL",
+  },
+  "gemma-4-31b-free": {
+    provider: "openrouter",
+    context: 262_144,
+    input: 0,
+    output: 0,
+    params: "31B dense — free tier",
+    hfId: "google/gemma-4-31B-it",
+  },
+  "gemma-4-26b-free": {
+    provider: "openrouter",
+    context: 262_144,
+    input: 0,
+    output: 0,
+    params: "4B act / 26B MoE — free tier",
+    hfId: "google/gemma-4-26B-A4B-it",
+  },
+  "gpt-oss-20b": {
     provider: "openrouter",
     context: 131_072,
     input: 0,
     output: 0,
-    params: "OWL Alpha",
-    hfId: "openrouter/owl-alpha",
+    params: "20B MoE (open weights)",
+    hfId: "openai/gpt-oss-20b",
+  },
+  "laguna-m.1": {
+    provider: "openrouter",
+    context: 262_144,
+    input: 0,
+    output: 0,
+    params: "Poolside Laguna M.1",
+    hfId: "poolside/laguna-m.1",
+  },
+  "laguna-s-2.1": {
+    provider: "openrouter",
+    context: 262_144,
+    input: 0,
+    output: 0,
+    params: "Poolside Laguna S 2.1",
+    hfId: "poolside/laguna-s-2.1",
+  },
+  "laguna-xs-2.1": {
+    provider: "openrouter",
+    context: 262_144,
+    input: 0,
+    output: 0,
+    params: "Poolside Laguna XS 2.1",
+    hfId: "poolside/laguna-xs-2.1",
+  },
+  "north-mini-code": {
+    provider: "openrouter",
+    context: 256_000,
+    input: 0,
+    output: 0,
+    params: "Cohere North Mini Code",
+    hfId: "cohere/north-mini-code",
   },
 } as const
 
 export type ModelId = keyof typeof MODELS
+
+/** A model is free when the billed price is 0/0 — the free catalog derives from pricing, not a flag. */
+export function isFreeModel(id: ModelId): boolean {
+  const info = MODELS[id]
+  return info.input === 0 && info.output === 0
+}
 
 /**
  * Public-facing aliases. Each alias resolves to a canonical MODELS entry
@@ -310,7 +391,9 @@ export const MODEL_ALIASES: Record<string, ModelId> = {
   "nikcli-reason": "deepseek-r1-0528",
   "nikcli-coder": "devstral-2",
   "nikcli-vision": "llama-4-scout",
-  "nikcli-free": "minimax-2.5-free",
+  "nikcli-free": "nemotron-3-super",
+  "nikcli-free-mini": "nemotron-3-nano",
+  "nikcli-free-coder": "north-mini-code",
 } as const
 
 /**
@@ -328,24 +411,22 @@ export const THINKING_SUPPORT: Partial<Record<ModelId, "native" | "optional">> =
   "deepseek-r1-0528": "native",
   "deepseek-r1-distill-32b": "native",
   "qwq-32b": "native",
+  "nemotron-3-nano-omni": "native",
 
   // Optional / hybrid reasoning (toggle via :thinking)
   "deepseek-v4-pro": "optional",
   "deepseek-v4-flash": "optional",
-  "deepseek-v4-flash-free": "optional",
   "deepseek-v3.2": "optional",
   "deepseek-v3": "optional",
   "kimi-k2.6": "optional",
   "kimi-k2.5": "optional",
   "glm-5.1": "optional",
   "glm-5": "optional",
-  "glm-5.1-free": "optional",
   "qwen-3.5-72b": "optional",
   "qwen-3.5-32b": "optional",
   "qwen-3.6-max": "optional",
   "qwen-3.5-flash": "optional",
   "minimax-2.5": "optional",
-  "minimax-2.5-free": "optional",
   "minimax-m2.7": "optional",
   "minimax-m2": "optional",
 } as const

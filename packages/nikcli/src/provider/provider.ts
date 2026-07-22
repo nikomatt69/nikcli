@@ -10,6 +10,7 @@ import type { Hooks as PluginHooks } from "@nikcli-ai/plugin"
 import { ModelsDev } from "./models"
 
 import { Auth } from "../auth"
+import { Account } from "../account"
 import { Env } from "../env"
 import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
@@ -301,6 +302,19 @@ export namespace Provider {
     }
   }
 
+  /** Access token for the active nikcli account (issuer sign-in). Cached + auto-refreshed by Account. */
+  async function accountAccessToken(): Promise<string | undefined> {
+    return runPromiseWithLayer(
+      Account.defaultLayer,
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        const active = yield* account.active()
+        if (!active) return undefined
+        return yield* account.token(active.id)
+      }),
+    ).catch(() => undefined)
+  }
+
   async function loadNikcliInferenceProvider(config: Config.Info): Promise<Info | undefined> {
     const configured = config.provider?.["nikcli-inference"]
     const baseURL = normalizeBaseURL(
@@ -308,7 +322,16 @@ export namespace Provider {
         Env.get("NIKCLI_INFERENCE_URL") ??
         "https://inference.nikcli.store/v1",
     )
-    const apiKey = (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
+    // Credential precedence mirrors the other providers: explicit config, env,
+    // `nikcli auth login nikcli-inference` API key, then the account OAuth
+    // sign-in (same identity as the rest of nikcli).
+    const auth = await authGet("nikcli-inference")
+    const explicitKey =
+      (configured?.options?.apiKey as string | undefined) ??
+      Env.get("NIKCLI_INFERENCE_KEY") ??
+      (auth?.type === "api" ? auth.key : undefined)
+    const apiKey = explicitKey ?? (await accountAccessToken())
+    if (!apiKey) return undefined
 
     // Probe /v1/models — single source of truth from the gateway.
     const modelsRes = await fetch(`${baseURL}/models`, {
@@ -393,6 +416,17 @@ export namespace Provider {
       options: {
         baseURL,
         apiKey,
+        // OAuth access tokens expire (~15 min): when the credential comes from
+        // the account sign-in, re-resolve it per request. Account.token caches
+        // and refreshes transparently.
+        ...(!explicitKey && {
+          fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+            const token = (await accountAccessToken()) ?? apiKey
+            const headers = new Headers(init?.headers)
+            headers.set("Authorization", `Bearer ${token}`)
+            return globalThis.fetch(input, { ...init, headers })
+          },
+        }),
       },
       models,
     }
@@ -1289,7 +1323,8 @@ export namespace Provider {
     }
 
     // Auto-detect the nikcli inference gateway (default: https://inference.nikcli.store/v1).
-    // Set NIKCLI_INFERENCE_KEY (or config.provider.nikcli-inference.options.apiKey) to enable.
+    // Enabled by the account OAuth sign-in, NIKCLI_INFERENCE_KEY, `nikcli auth login
+    // nikcli-inference`, or config.provider.nikcli-inference.options.apiKey.
     const nikcliInference = await loadNikcliInferenceProvider(config).catch((error) => {
       log.debug("nikcli inference provider unavailable", {
         error: error instanceof Error ? error.message : String(error),

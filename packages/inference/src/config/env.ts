@@ -27,6 +27,19 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 
+  /**
+   * Dashboard control plane (dashboard.nikcli.store). When both are set,
+   * customer keys are validated against POST /api/validate and usage is
+   * recorded via POST /api/usage/ingest; the hardcoded demo keys are disabled.
+   */
+  INFERENCE_DASHBOARD_URL: z.string().url().optional(),
+  GATEWAY_SHARED_SECRET: z.string().optional(),
+
+  /** Identity issuer for OAuth bearer tokens (offline JWKS verification). */
+  AUTH_ISSUER: z.string().url().default("https://auth.nikcli.store"),
+  AUTH_AUDIENCE: z.string().default("nikcli-api"),
+  AUTH_JWKS_URL: z.string().url().optional(),
+
   INFERENCE_CACHE_MAX: z.coerce.number().int().positive().default(5_000),
   INFERENCE_CACHE_TTL: z.coerce
     .number()
@@ -35,6 +48,9 @@ const envSchema = z.object({
     .default(24 * 60 * 60),
 
   ALLOW_ESTIMATED_ROUTES: z.coerce.boolean().default(false),
+
+  /** Expose and serve only the models with a 0/0 billed price (verified `:free` upstreams). */
+  INFERENCE_FREE_ONLY: z.coerce.boolean().default(false),
 
   /** Provider name to prefer for ALL requests (overridable per-request via nikcli.preferProvider). */
   DEFAULT_PREFER_PROVIDER: z.string().optional(),

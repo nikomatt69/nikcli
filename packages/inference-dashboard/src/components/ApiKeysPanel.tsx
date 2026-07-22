@@ -20,10 +20,17 @@ interface IssuedKey {
 }
 
 async function fetchKeys(): Promise<ApiKeyRow[]> {
-  const res = await fetch("/api/keys")
-  if (!res.ok) throw new Error("Failed to load keys")
-  const data = (await res.json()) as { keys: ApiKeyRow[] }
-  return data.keys
+  // Never runs during SSR (no origin for a relative fetch on the worker) and
+  // never throws: an errored Solid resource blanks the whole island when read.
+  if (typeof window === "undefined") return []
+  try {
+    const res = await fetch("/api/keys")
+    if (!res.ok) return []
+    const data = (await res.json()) as { keys?: ApiKeyRow[] }
+    return data.keys ?? []
+  } catch {
+    return []
+  }
 }
 
 function formatDate(unixSec: number | null): string {
@@ -32,7 +39,7 @@ function formatDate(unixSec: number | null): string {
 }
 
 export default function ApiKeysPanel() {
-  const [keys, { refetch }] = createResource(fetchKeys)
+  const [keys, { refetch }] = createResource(fetchKeys, { initialValue: [] })
   const [newName, setNewName] = createSignal("")
   const [creating, setCreating] = createSignal(false)
   const [createdKey, setCreatedKey] = createSignal<IssuedKey | null>(null)

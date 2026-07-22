@@ -18,7 +18,9 @@ export type TokenClientOptions = {
   issuer: string
   clientID: string
   store: TokenStore
-  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  // Parameters<typeof fetch>[0] instead of RequestInfo: lib.dom-free consumers
+  // (bun/workers tsconfigs) don't have the RequestInfo global.
+  fetch?: (input: Parameters<typeof fetch>[0], init?: RequestInit) => Promise<Response>
   refreshThresholdMs?: number
 }
 
@@ -77,7 +79,7 @@ export function createTokenClient(options: TokenClientOptions) {
   return {
     getValidTokens,
     getValidAccessToken,
-    async authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+    async authenticatedFetch(input: Parameters<typeof fetch>[0], init: RequestInit = {}): Promise<Response> {
       const access = await getValidAccessToken()
       const headers = new Headers(init.headers)
       headers.set("authorization", `Bearer ${access}`)

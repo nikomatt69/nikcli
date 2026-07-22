@@ -1,6 +1,15 @@
 import { MODELS, MARKUP } from "../types"
 
-export { validateKey, tierFor, getRateLimiter, resetRateLimiterForTests, modelInfoFor } from "./ratelimit"
+export {
+  validateKey,
+  recordUsage,
+  getRateLimiter,
+  resetRateLimiterForTests,
+  resetAuthCacheForTests,
+  modelInfoFor,
+  type AuthenticatedKey,
+  type UsageEvent,
+} from "./ratelimit"
 export type { RateLimitResult } from "./ratelimit"
 export { validateChatBody, chatCompletionsSchema } from "./validation"
 export type { ChatCompletionsBody } from "./validation"

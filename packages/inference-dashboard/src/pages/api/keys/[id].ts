@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro"
-import { getSessionUser, readSessionCookie } from "../../../lib/auth"
+import { getCurrentUser } from "../../../lib/auth"
 import { revokeApiKey } from "../../../lib/keys"
 
 function json(data: unknown, status = 200) {
@@ -7,11 +7,7 @@ function json(data: unknown, status = 200) {
 }
 
 async function getUser(ctx: any) {
-  const env = (ctx.locals as any).runtime?.env
-  const DB = env?.DB as D1Database | undefined
-  if (!DB) return null
-  const sessionId = readSessionCookie(ctx.cookies)
-  return getSessionUser({ DB }, sessionId)
+  return getCurrentUser(ctx).catch(() => null)
 }
 
 export const DELETE: APIRoute = async (ctx) => {

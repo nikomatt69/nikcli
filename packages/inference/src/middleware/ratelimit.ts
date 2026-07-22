@@ -1,7 +1,9 @@
 import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
+import { verifyOauthToken } from "./oauth"
 import { MODELS, TIER_LIMITS } from "../types"
 import { loadEnv } from "../config/env"
+import { getLogger } from "./logger"
 
 export interface RateLimitResult {
   ok: boolean
@@ -11,41 +13,210 @@ export interface RateLimitResult {
   reason?: string
 }
 
-interface RateLimiter {
-  check(key: string, model: string, estimatedTokens: number): Promise<RateLimitResult>
+export interface AuthenticatedKey {
+  /** Rate-limit identity: the plaintext key, or `acct:<id>` for OAuth tokens. */
+  key: string
+  keyId: string | null
+  userId: string | null
+  tier: keyof typeof TIER_LIMITS
+  source: "dashboard" | "oauth" | "demo"
 }
 
-const apiKeys = new Map([
+interface RateLimiter {
+  check(key: AuthenticatedKey, model: string, estimatedTokens: number): Promise<RateLimitResult>
+}
+
+/** Demo keys — only honored when no dashboard control plane is configured. */
+const demoKeys = new Map<string, keyof typeof TIER_LIMITS>([
   ["nik-free", "free"],
   ["nik-starter", "starter"],
   ["nik-pro", "pro"],
   ["nik-biz", "business"],
 ])
 
-export function validateKey(auth: string | undefined): string | null {
-  if (!auth?.startsWith("Bearer ")) return null
-  const key = auth.slice(7)
-  return apiKeys.has(key) ? key : null
+function dashboardConfig(): { url: string; secret: string } | null {
+  const env = loadEnv()
+  if (!env.INFERENCE_DASHBOARD_URL || !env.GATEWAY_SHARED_SECRET) return null
+  return { url: env.INFERENCE_DASHBOARD_URL.replace(/\/$/, ""), secret: env.GATEWAY_SHARED_SECRET }
 }
 
-export function tierFor(key: string): keyof typeof TIER_LIMITS | null {
-  const t = apiKeys.get(key)
-  return (t as keyof typeof TIER_LIMITS | undefined) ?? null
+const VALIDATION_CACHE_TTL_MS = 60_000
+const validationCache = new Map<string, { value: AuthenticatedKey; expiresAt: number }>()
+
+function cacheGet(token: string): AuthenticatedKey | undefined {
+  const hit = validationCache.get(token)
+  if (!hit) return undefined
+  if (hit.expiresAt <= Date.now()) {
+    validationCache.delete(token)
+    return undefined
+  }
+  return hit.value
+}
+
+function cacheSet(token: string, value: AuthenticatedKey) {
+  if (validationCache.size > 5_000) validationCache.clear()
+  validationCache.set(token, { value, expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS })
+}
+
+function asTier(value: string | undefined): keyof typeof TIER_LIMITS {
+  return value && value in TIER_LIMITS ? (value as keyof typeof TIER_LIMITS) : "free"
+}
+
+async function dashboardValidate(
+  dashboard: { url: string; secret: string },
+  body: { key?: string; accountId?: string; email?: string },
+): Promise<{ valid: boolean; tier?: string; userId?: string; keyId?: string | null } | null> {
+  try {
+    const res = await fetch(`${dashboard.url}/api/validate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${dashboard.secret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) return null
+    return (await res.json()) as { valid: boolean; tier?: string; userId?: string; keyId?: string | null }
+  } catch (err) {
+    getLogger().warn("auth.dashboard_unreachable", {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
+
+async function validateOauthToken(token: string): Promise<AuthenticatedKey | null> {
+  const env = loadEnv()
+  const issuer = env.AUTH_ISSUER.replace(/\/$/, "")
+  let accountID: string
+  let email: string | undefined
+  try {
+    const auth = await verifyOauthToken(token, {
+      issuer,
+      audience: env.AUTH_AUDIENCE,
+      jwksUrl: env.AUTH_JWKS_URL ?? `${issuer}/.well-known/jwks.json`,
+    })
+    accountID = auth.accountID
+    email = auth.email
+  } catch {
+    return null
+  }
+  const dashboard = dashboardConfig()
+  if (!dashboard) {
+    return { key: `acct:${accountID}`, keyId: null, userId: accountID, tier: "free", source: "oauth" }
+  }
+  const result = await dashboardValidate(dashboard, { accountId: accountID, email })
+  if (!result?.valid) return null
+  return {
+    key: `acct:${accountID}`,
+    keyId: null,
+    userId: result.userId ?? accountID,
+    tier: asTier(result.tier),
+    source: "oauth",
+  }
+}
+
+/**
+ * Resolve an Authorization header to an authenticated identity.
+ * - OAuth bearer JWTs (issuer sign-in, same login as the rest of nikcli) are
+ *   verified offline against the issuer JWKS.
+ * - Everything else is validated against the dashboard (`nik_live_…` keys).
+ * - The static demo keys only work when no dashboard is configured (dev).
+ */
+export async function validateKey(auth: string | undefined): Promise<AuthenticatedKey | null> {
+  if (!auth?.startsWith("Bearer ")) return null
+  const token = auth.slice(7)
+  if (!token) return null
+
+  const cached = cacheGet(token)
+  if (cached) return cached
+
+  // Three dot-separated segments → treat as an issuer JWT.
+  if (token.split(".").length === 3) {
+    const result = await validateOauthToken(token)
+    if (result) cacheSet(token, result)
+    return result
+  }
+
+  const dashboard = dashboardConfig()
+  if (dashboard) {
+    const result = await dashboardValidate(dashboard, { key: token })
+    if (!result?.valid || !result.userId || !result.keyId) return null
+    const authenticated: AuthenticatedKey = {
+      key: token,
+      keyId: result.keyId,
+      userId: result.userId,
+      tier: asTier(result.tier),
+      source: "dashboard",
+    }
+    cacheSet(token, authenticated)
+    return authenticated
+  }
+
+  const demoTier = demoKeys.get(token)
+  if (!demoTier) return null
+  return { key: token, keyId: null, userId: null, tier: demoTier, source: "demo" }
+}
+
+export interface UsageEvent {
+  keyId: string | null
+  userId: string
+  model: string
+  resolvedModel: string
+  provider: string | null
+  upstreamModel: string | null
+  promptTokens: number
+  completionTokens: number
+  billedUsd: number
+  upstreamUsd: number
+  savedUsd: number
+  cache: string | null
+  rid: string | null
+}
+
+/** Best-effort usage recording to the dashboard. Returns false when skipped or failed. */
+export async function recordUsage(event: UsageEvent): Promise<boolean> {
+  const dashboard = dashboardConfig()
+  if (!dashboard) return false
+  try {
+    const res = await fetch(`${dashboard.url}/api/usage/ingest`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${dashboard.secret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(event),
+    })
+    if (!res.ok) {
+      getLogger().warn("usage.ingest_failed", { status: res.status, rid: event.rid })
+      return false
+    }
+    return true
+  } catch (err) {
+    getLogger().warn("usage.ingest_failed", {
+      error: err instanceof Error ? err.message : String(err),
+      rid: event.rid,
+    })
+    return false
+  }
+}
+
+export function resetAuthCacheForTests() {
+  validationCache.clear()
 }
 
 class MemoryLimiter implements RateLimiter {
   private readonly usage = new Map<string, { req: number; tokens: number; day: number }>()
 
-  async check(key: string, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
-    const tier = tierFor(key)
-    if (!tier) return { ok: false, limit: 0, remaining: 0, reset: 0, reason: "invalid api key" }
-    const limits = TIER_LIMITS[tier]
+  async check(key: AuthenticatedKey, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
+    const limits = TIER_LIMITS[key.tier]
+    const identity = key.key
 
     const today = Math.floor(Date.now() / 86_400_000)
-    let u = this.usage.get(key)
+    let u = this.usage.get(identity)
     if (!u || u.day !== today) {
       u = { req: 0, tokens: 0, day: today }
-      this.usage.set(key, u)
+      this.usage.set(identity, u)
     }
 
     if (u.req >= limits.reqPerDay) {
@@ -107,11 +278,10 @@ class UpstashLimiter implements RateLimiter {
     }
   }
 
-  async check(key: string, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
-    const tier = tierFor(key)
-    if (!tier) return { ok: false, limit: 0, remaining: 0, reset: 0, reason: "invalid api key" }
+  async check(key: AuthenticatedKey, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
+    const tier = key.tier
     const limiter = this.perTier[tier]
-    const result = await limiter.limit(key)
+    const result = await limiter.limit(key.key)
     if (!result.success) {
       return {
         ok: false,
@@ -123,7 +293,7 @@ class UpstashLimiter implements RateLimiter {
     }
 
     // Token quota tracked separately with INCRBY + EXPIRE.
-    const tokenKey = `nikcli:tokens:${tier}:${key}:${dayBucket()}`
+    const tokenKey = `nikcli:tokens:${tier}:${key.key}:${dayBucket()}`
     const limits = TIER_LIMITS[tier]
     const after = (await this.redis.incrby(tokenKey, estimatedTokens)) as number
     if (after === estimatedTokens) {

@@ -22,7 +22,7 @@ function verifier(env: RuntimeEnv) {
   }
 }
 
-async function ensureUser(env: RuntimeEnv, accountID: string, email?: string): Promise<AuthUser> {
+export async function ensureUser(env: RuntimeEnv, accountID: string, email?: string): Promise<AuthUser> {
   const existing = await env.DB.prepare("SELECT id, email, name, plan, created_at FROM users WHERE id = ?")
     .bind(accountID)
     .first<{
@@ -41,8 +41,22 @@ async function ensureUser(env: RuntimeEnv, accountID: string, email?: string): P
       createdAt: existing.created_at,
     }
   if (!email) throw new AuthError("Identity token is missing an email claim", 401)
-  const byEmail = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first<{ id: string }>()
-  if (byEmail) throw new AuthError("This email is linked to a legacy account and requires migration", 409)
+  const byEmail = await env.DB.prepare("SELECT id, name, plan, created_at FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ id: string; name: string | null; plan: string; created_at: number }>()
+  if (byEmail) {
+    // Legacy (pre-issuer) account: re-key it to the issuer accountID. The
+    // issuer verifies email ownership (GitHub / email code), so adopting the
+    // row by email is safe. defer_foreign_keys lets the parent id change
+    // before the children are re-pointed within the same transaction.
+    await env.DB.batch([
+      env.DB.prepare("PRAGMA defer_foreign_keys = true"),
+      env.DB.prepare("UPDATE users SET id = ?, updated_at = unixepoch() WHERE id = ?").bind(accountID, byEmail.id),
+      env.DB.prepare("UPDATE api_keys SET user_id = ? WHERE user_id = ?").bind(accountID, byEmail.id),
+      env.DB.prepare("UPDATE usage_events SET user_id = ? WHERE user_id = ?").bind(accountID, byEmail.id),
+    ])
+    return { id: accountID, email, name: byEmail.name, plan: byEmail.plan, createdAt: byEmail.created_at }
+  }
   const now = Math.floor(Date.now() / 1000)
   await env.DB.prepare(
     "INSERT INTO users (id, email, name, plan, created_at, updated_at) VALUES (?, ?, NULL, 'free', ?, ?)",

@@ -12,5 +12,8 @@ export interface RuntimeEnv {
 }
 
 export function getEnv(ctx: APIContext | { locals: App.Locals }): RuntimeEnv {
-  return ctx.locals as unknown as RuntimeEnv
+  // The Cloudflare adapter exposes bindings at locals.runtime.env; plain locals
+  // is kept as a fallback for tests that stub the env directly.
+  const locals = ctx.locals as unknown as { runtime?: { env?: RuntimeEnv } }
+  return (locals.runtime?.env ?? locals) as RuntimeEnv
 }

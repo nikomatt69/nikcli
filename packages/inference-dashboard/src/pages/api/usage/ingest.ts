@@ -6,7 +6,8 @@ import { z } from "zod"
  * One row per /v1/chat/completions call.
  */
 const body = z.object({
-  keyId: z.string(),
+  // Null for OAuth (identity-token) calls that have no API key.
+  keyId: z.string().nullable().optional(),
   userId: z.string(),
   model: z.string(),
   resolvedModel: z.string(),
@@ -64,7 +65,7 @@ export const POST: APIRoute = async (ctx) => {
   )
     .bind(
       id(),
-      parsed.keyId,
+      parsed.keyId ?? null,
       parsed.userId,
       parsed.model,
       parsed.resolvedModel,
