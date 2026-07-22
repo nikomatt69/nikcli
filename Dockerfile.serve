@@ -39,8 +39,6 @@ COPY packages/simulation/package.json /app/packages/simulation/
 COPY packages/tui-image/package.json /app/packages/tui-image/
 COPY packages/terminal-control/package.json /app/packages/terminal-control/
 COPY packages/browser-control/package.json /app/packages/browser-control/
-COPY packages/native-control/package.json /app/packages/native-control/
-COPY packages/native-ui-protocol/package.json /app/packages/native-ui-protocol/
 COPY github/package.json /app/github/
 
 # Stub package.json for workspace packages not built in this image
@@ -97,12 +95,10 @@ COPY packages/simulation /app/packages/simulation
 COPY packages/tui-image /app/packages/tui-image
 COPY packages/terminal-control /app/packages/terminal-control
 COPY packages/browser-control /app/packages/browser-control
-COPY packages/native-control /app/packages/native-control
-COPY packages/native-ui-protocol /app/packages/native-ui-protocol
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=1.5.0
+ENV NIKCLI_VERSION=1.190.0
 RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform-bun@4.0.0-beta.83
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
 
