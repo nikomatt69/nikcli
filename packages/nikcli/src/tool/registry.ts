@@ -52,7 +52,6 @@ import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 import { BrowserTool } from "./browser"
 import { ComputerTool } from "./computer"
 
-
 const _toolDir = import.meta.dir
 
 plugin({

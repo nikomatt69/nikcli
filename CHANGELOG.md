@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.193.0 (July 2026)
+
+## Core
+
+- Enhance error handling and rate limiting mechanisms (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(inference): enhance error handling and rate limiting mechanisms
+
 ## v1.188.0 (July 2026)
 
 ## Core
