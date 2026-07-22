@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.190.0 (July 2026)
+
+## Core
+
+- Enhance native UI capabilities and documentation (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(native-control): enhance native UI capabilities and documentation
+  - feat(native-control): add native-control and native-ui-protocol packages to Dockerfiles and deployment script
+
 ## v1.188.0 (July 2026)
 
 ## Core
