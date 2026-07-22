@@ -286,6 +286,9 @@ app.post("/v1/chat/completions", async (c) => {
     if (err instanceof UpstreamError) {
       const upstreamBody = await err.response.json().catch(() => ({ error: { message: "upstream error" } }))
       log.warn("inference.upstream_error", { rid, status: err.response.status, attempts: err.attempts })
+      // Pass the upstream backoff hint through so clients wait instead of hammering.
+      const retryAfter = err.response.headers.get("retry-after")
+      if (retryAfter) c.header("Retry-After", retryAfter)
       return c.json(upstreamBody as object, err.response.status as 400 | 500 | 502)
     }
     if (err instanceof RouterError) {

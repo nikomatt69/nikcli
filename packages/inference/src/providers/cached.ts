@@ -55,6 +55,12 @@ export class CachedProvider {
         preferProvider: options.preferProvider,
         allowEstimated: options.allowEstimated,
       })
+      // Without this check an upstream error body is forwarded verbatim as a
+      // 200 text/event-stream: the client sees a success carrying no valid SSE
+      // and silently renders nothing.
+      if (!routerResult.response.ok) {
+        throw new UpstreamError(routerResult.response, routerResult.attempts)
+      }
       return { passthrough: routerResult.response, route: routerResult.route }
     }
 

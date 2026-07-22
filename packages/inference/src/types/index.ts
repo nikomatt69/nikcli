@@ -473,11 +473,16 @@ export function resolveModelId(input: string): ResolvedModel | undefined {
   return { id: canonical, thinking, effort: thinking ? (effort ?? "medium") : undefined, nativeReasoning }
 }
 
+/**
+ * Daily quotas per tier. The token budget is charged as a *reservation* of
+ * `max_tokens` at request time, not actual usage, so it must stay well above
+ * real consumption — an agentic client reserves 8-16k per call.
+ */
 export const TIER_LIMITS = {
-  free: { reqPerDay: 100, tokensPerDay: 50_000 },
-  starter: { reqPerDay: 1_000, tokensPerDay: 1_000_000 },
-  pro: { reqPerDay: 10_000, tokensPerDay: 10_000_000 },
-  business: { reqPerDay: 100_000, tokensPerDay: 100_000_000 },
+  free: { reqPerDay: 100_000, tokensPerDay: 30_000_000 },
+  starter: { reqPerDay: 300_000, tokensPerDay: 100_000_000 },
+  pro: { reqPerDay: 1_000_000, tokensPerDay: 500_000_000 },
+  business: { reqPerDay: 5_000_000, tokensPerDay: 2_000_000_000 },
 } as const
 
 export const MARKUP = 0.25 // 25% margin

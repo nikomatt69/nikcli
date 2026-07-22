@@ -17,10 +17,14 @@ class ProviderRegistry {
   }
 
   private bootstrap() {
-    // Local vLLM is always registered as a fallback — its env key is optional.
+    // Local vLLM is a fallback only when an endpoint was configured explicitly:
+    // claiming it is enabled on a host with no vLLM turns every fallback into
+    // an "Unable to connect" 500.
+    const localConfigured = Boolean(process.env.VLLM_BASE_URL)
     this.map.set("local", {
       name: "local",
-      enabled: true,
+      enabled: localConfigured,
+      reason: localConfigured ? undefined : "missing env VLLM_BASE_URL",
       provider: new LocalProvider(),
     })
 

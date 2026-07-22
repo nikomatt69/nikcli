@@ -5,6 +5,7 @@ import { data } from "./models-macro" with { type: "macro" }
 import { Installation } from "../installation"
 import { Flag } from "../flag/flag"
 import { cursorModelsDevProvider } from "../plugin/cursor"
+import { NIKCLI_INFERENCE_ID, nikcliInferenceModelsDevProvider } from "./nikcli-inference"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Schema } from "effect"
 
@@ -354,6 +355,12 @@ export namespace ModelsDev {
     // Cursor is not in models.dev; inject it so /connect dialog can offer it.
     if (!database["cursor"]) {
       database["cursor"] = cursorModelsDevProvider() as Provider
+    }
+
+    // Same for the nikcli inference gateway — the live catalog is fetched by
+    // its custom loader, this seed just makes it a known provider.
+    if (!database[NIKCLI_INFERENCE_ID]) {
+      database[NIKCLI_INFERENCE_ID] = nikcliInferenceModelsDevProvider() as Provider
     }
 
     return database

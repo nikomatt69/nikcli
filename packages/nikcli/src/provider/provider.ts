@@ -32,6 +32,13 @@ import type { LanguageModelV2 } from "@openrouter/ai-sdk-provider"
 import type { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
 import { ProviderError } from "./error"
+import {
+  NIKCLI_INFERENCE_DEFAULT_URL,
+  NIKCLI_INFERENCE_ENV,
+  NIKCLI_INFERENCE_ID,
+  toModelsDevModel,
+  type GatewayModel,
+} from "./nikcli-inference"
 
 // @nikcli-ai/llm provider factories for the new route-based model ref system
 import {
@@ -315,121 +322,81 @@ export namespace Provider {
     ).catch(() => undefined)
   }
 
-  async function loadNikcliInferenceProvider(config: Config.Info): Promise<Info | undefined> {
-    const configured = config.provider?.["nikcli-inference"]
+  /**
+   * Credential precedence mirrors the other providers: explicit config, env,
+   * `nikcli auth login nikcli-inference` API key, then the account OAuth
+   * sign-in (the same identity as the rest of nikcli).
+   */
+  async function nikcliInferenceCredential(ctx: InstanceContext) {
+    const config = await configGet(ctx)
+    const configured = config.provider?.[NIKCLI_INFERENCE_ID]
     const baseURL = normalizeBaseURL(
       (configured?.options?.baseURL as string | undefined) ??
         Env.get("NIKCLI_INFERENCE_URL") ??
-        "https://inference.nikcli.store/v1",
+        NIKCLI_INFERENCE_DEFAULT_URL,
     )
-    // Credential precedence mirrors the other providers: explicit config, env,
-    // `nikcli auth login nikcli-inference` API key, then the account OAuth
-    // sign-in (same identity as the rest of nikcli).
-    const auth = await authGet("nikcli-inference")
+    const auth = await authGet(NIKCLI_INFERENCE_ID)
     const explicitKey =
       (configured?.options?.apiKey as string | undefined) ??
-      Env.get("NIKCLI_INFERENCE_KEY") ??
+      Env.get(NIKCLI_INFERENCE_ENV) ??
       (auth?.type === "api" ? auth.key : undefined)
     const apiKey = explicitKey ?? (await accountAccessToken())
-    if (!apiKey) return undefined
+    return { baseURL, apiKey, explicitKey }
+  }
 
-    // Probe /v1/models — single source of truth from the gateway.
-    const modelsRes = await fetch(`${baseURL}/models`, {
+  /**
+   * Live catalog from the gateway; undefined when it cannot be reached.
+   * Custom loaders receive the already-parsed internal `Model` shape (with
+   * `api`/`capabilities`), not the models.dev shape used to seed the database.
+   */
+  async function fetchNikcliInferenceModels(
+    baseURL: string,
+    apiKey: string,
+  ): Promise<Record<string, Model> | undefined> {
+    const res = await fetch(`${baseURL}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(4000),
     }).catch(() => undefined)
-    if (!modelsRes?.ok) return undefined
-
-    const listJson = (await modelsRes.json().catch(() => undefined)) as
-      | {
-          data?: Array<{
-            id: string
-            context_window?: number
-            params?: string
-            hf_id?: string
-            pricing?: { input?: number; output?: number }
-            thinking?: "native" | "optional" | null
-            variant_of?: string
-            alias_of?: string
-          }>
-        }
-      | undefined
-    const data = listJson?.data
-    if (!data || data.length === 0) return undefined
-
+    if (!res?.ok) return undefined
+    const json = (await res.json().catch(() => undefined)) as { data?: GatewayModel[] } | undefined
+    const data = json?.data
+    if (!data?.length) return undefined
     const models: Record<string, Model> = {}
     for (const m of data) {
       if (!m.id) continue
+      const seed = toModelsDevModel(m)
+      const context = (seed.limit as { context: number }).context
       models[m.id] = {
         id: m.id,
-        providerID: "nikcli-inference",
+        providerID: NIKCLI_INFERENCE_ID,
         name: m.id,
-        api: {
-          id: m.id,
-          url: baseURL,
-          npm: "@ai-sdk/openai-compatible",
-        },
+        family: seed.family as string,
+        api: { id: m.id, url: baseURL, npm: "@ai-sdk/openai-compatible" },
         status: "active",
         headers: {},
         options: {},
-        cost: {
-          input: m.pricing?.input ?? 0,
-          output: m.pricing?.output ?? 0,
-          cache: { read: 0, write: 0 },
-        },
-        limit: {
-          context: m.context_window ?? 128_000,
-          output: Math.min(m.context_window ?? 128_000, 8192),
-        },
+        cost: { input: m.pricing?.input ?? 0, output: m.pricing?.output ?? 0, cache: { read: 0, write: 0 } },
+        limit: { context, output: (seed.limit as { output: number }).output },
         capabilities: {
           temperature: true,
-          // Native reasoning models always reason; `:thinking` variants reason on demand.
-          reasoning: m.thinking === "native" || m.id.endsWith(":thinking"),
-          attachment: false,
+          reasoning: seed.reasoning as boolean,
+          attachment: seed.attachment as boolean,
           toolcall: true,
           input: {
             text: true,
             audio: false,
-            image: m.id.includes("scout") || m.id.includes("maverick") || m.id.includes("kimi"),
+            image: seed.attachment as boolean,
             video: false,
             pdf: false,
           },
-          output: {
-            text: true,
-            audio: false,
-            image: false,
-            video: false,
-            pdf: false,
-          },
+          output: { text: true, audio: false, image: false, video: false, pdf: false },
           interleaved: false,
         },
-        release_date: "2026-01-01",
+        release_date: seed.release_date as string,
         variants: {},
       }
     }
-
-    return {
-      id: "nikcli-inference",
-      name: configured?.name ?? "nikcli Inference Gateway",
-      source: "custom",
-      env: ["NIKCLI_INFERENCE_KEY"],
-      options: {
-        baseURL,
-        apiKey,
-        // OAuth access tokens expire (~15 min): when the credential comes from
-        // the account sign-in, re-resolve it per request. Account.token caches
-        // and refreshes transparently.
-        ...(!explicitKey && {
-          fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-            const token = (await accountAccessToken()) ?? apiKey
-            const headers = new Headers(init?.headers)
-            headers.set("Authorization", `Bearer ${token}`)
-            return globalThis.fetch(input, { ...init, headers })
-          },
-        }),
-      },
-      models,
-    }
+    return models
   }
 
   function isGpt5OrLater(modelID: string): boolean {
@@ -522,6 +489,40 @@ export namespace Provider {
       return {
         autoload: Object.keys(input.models).length > 0,
         options: hasKey ? {} : { apiKey: "public" },
+      }
+    },
+    async [NIKCLI_INFERENCE_ID](
+      input: { id: string; env: string[]; models: Record<string, Model> },
+      ctx: InstanceContext,
+    ) {
+      const { baseURL, apiKey, explicitKey } = await nikcliInferenceCredential(ctx)
+      // No credential at all: leave the seed catalog in place but stay dormant,
+      // exactly like a provider whose API key has not been set yet.
+      if (!apiKey) return { autoload: false, options: { baseURL } }
+
+      const live = await fetchNikcliInferenceModels(baseURL, apiKey).catch(() => undefined)
+      if (live) {
+        for (const key of Object.keys(input.models)) delete input.models[key]
+        Object.assign(input.models, live)
+      }
+
+      return {
+        autoload: true,
+        options: {
+          baseURL,
+          apiKey,
+          // OAuth access tokens expire (~15 min): when the credential comes from
+          // the account sign-in, re-resolve it per request. Account.token caches
+          // and refreshes transparently.
+          ...(!explicitKey && {
+            fetch: async (url: Parameters<typeof globalThis.fetch>[0], init?: RequestInit) => {
+              const token = (await accountAccessToken()) ?? apiKey
+              const headers = new Headers(init?.headers)
+              headers.set("Authorization", `Bearer ${token}`)
+              return globalThis.fetch(url, { ...init, headers })
+            },
+          }),
+        },
       }
     },
     openai: async () => {
@@ -1322,18 +1323,8 @@ export namespace Provider {
       providers[ollama.id] = ollama
     }
 
-    // Auto-detect the nikcli inference gateway (default: https://inference.nikcli.store/v1).
-    // Enabled by the account OAuth sign-in, NIKCLI_INFERENCE_KEY, `nikcli auth login
-    // nikcli-inference`, or config.provider.nikcli-inference.options.apiKey.
-    const nikcliInference = await loadNikcliInferenceProvider(config).catch((error) => {
-      log.debug("nikcli inference provider unavailable", {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      return undefined
-    })
-    if (nikcliInference && isProviderAllowed(nikcliInference.id)) {
-      providers[nikcliInference.id] = nikcliInference
-    }
+    // The nikcli inference gateway is a regular provider now: seeded into the
+    // ModelsDev database and activated by its CUSTOM_LOADER below.
 
     const configProviders = Object.entries(config.provider ?? {})
 

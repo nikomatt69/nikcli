@@ -22,6 +22,27 @@ export interface RouterOptions {
   allowEstimated?: boolean
 }
 
+/**
+ * Free model variants are throttled per-minute upstream, so an agentic burst
+ * gets 429s that clear within seconds. Absorb them here instead of failing the
+ * request: the client's own retry would arrive just as hot.
+ */
+const THROTTLE_RETRIES = 2
+const THROTTLE_BASE_DELAY_MS = 1_200
+const THROTTLE_MAX_DELAY_MS = 8_000
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Honour the upstream's own backoff hint when it sends one. */
+function throttleDelayMs(response: Response, attempt: number): number {
+  const header = response.headers.get("retry-after")
+  if (header) {
+    const seconds = Number(header)
+    if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds * 1_000, THROTTLE_MAX_DELAY_MS)
+  }
+  return Math.min(THROTTLE_BASE_DELAY_MS * 2 ** (attempt - 1), THROTTLE_MAX_DELAY_MS)
+}
+
 export class Router {
   private readonly breakers = new Map<string, CircuitBreaker>()
 
@@ -71,7 +92,7 @@ export class Router {
     if (plan.length === 0) {
       // Fall through to local provider if no managed routes match.
       const local = getRegistry().get("local")
-      if (!local) throw new RouterError("no providers available", [])
+      if (!local?.enabled) throw new RouterError("no providers available", [])
       const started = Date.now()
       const response = await local.provider.chatCompletions(model, messages, options)
       return {
@@ -83,32 +104,55 @@ export class Router {
 
     const attempts: RouterChatResult["attempts"] = []
     let lastError: Error | null = null
+    let throttled: { response: Response; route: ProviderRoute } | null = null
 
     for (const { route, provider } of plan) {
       const breaker = this.breakerFor(route.provider)
-      const started = Date.now()
-      try {
-        const response = await provider.chatCompletions(route.upstreamModel, messages, options)
-        const durationMs = Date.now() - started
-        attempts.push({ provider: route.provider, status: response.status, durationMs })
-        if (response.ok) {
-          breaker.recordSuccess()
+      let throttleAttempt = 0
+
+      while (true) {
+        const started = Date.now()
+        try {
+          const response = await provider.chatCompletions(route.upstreamModel, messages, options)
+          const durationMs = Date.now() - started
+          attempts.push({ provider: route.provider, status: response.status, durationMs })
+          if (response.ok) {
+            breaker.recordSuccess()
+            return { response, route, attempts }
+          }
+          if (response.status === 429) {
+            // Throttling means healthy-but-busy, not broken: tripping the breaker
+            // here would take every model on this provider offline. Retry the
+            // same route briefly, then keep the response so the caller surfaces
+            // a real 429 instead of a 503.
+            if (throttleAttempt < THROTTLE_RETRIES) {
+              throttleAttempt++
+              await sleep(throttleDelayMs(response, throttleAttempt))
+              continue
+            }
+            throttled ??= { response, route }
+            break
+          }
+          if (response.status >= 500) {
+            breaker.recordFailure()
+            break
+          }
+          // 4xx other than 429 — surface immediately, do not fall back
           return { response, route, attempts }
-        }
-        if (response.status >= 500 || response.status === 429) {
+        } catch (err) {
+          const durationMs = Date.now() - started
+          const message = err instanceof Error ? err.message : String(err)
+          attempts.push({ provider: route.provider, status: 0, durationMs, error: message })
           breaker.recordFailure()
-          continue
+          lastError = err instanceof Error ? err : new Error(message)
+          break
         }
-        // 4xx other than 429 — surface immediately, do not fall back
-        return { response, route, attempts }
-      } catch (err) {
-        const durationMs = Date.now() - started
-        const message = err instanceof Error ? err.message : String(err)
-        attempts.push({ provider: route.provider, status: 0, durationMs, error: message })
-        breaker.recordFailure()
-        lastError = err instanceof Error ? err : new Error(message)
       }
     }
+
+    // Every route was rate-limited: return the upstream 429 (with its
+    // Retry-After) so clients back off instead of treating it as an outage.
+    if (throttled) return { response: throttled.response, route: throttled.route, attempts }
 
     throw new RouterError(lastError?.message ?? "all providers failed", attempts)
   }

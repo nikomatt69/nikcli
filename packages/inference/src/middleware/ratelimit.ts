@@ -205,8 +205,20 @@ export function resetAuthCacheForTests() {
   validationCache.clear()
 }
 
+/**
+ * In-process daily quota tracker. Counters live only in this container, so
+ * limits are per-instance — fine for the single-container gateway, and it has
+ * no external dependency to go down.
+ */
 class MemoryLimiter implements RateLimiter {
   private readonly usage = new Map<string, { req: number; tokens: number; day: number }>()
+
+  /** Entries are only touched on use; drop yesterday's so the map can't grow forever. */
+  private prune(today: number) {
+    for (const [id, entry] of this.usage) {
+      if (entry.day !== today) this.usage.delete(id)
+    }
+  }
 
   async check(key: AuthenticatedKey, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
     const limits = TIER_LIMITS[key.tier]
@@ -215,6 +227,7 @@ class MemoryLimiter implements RateLimiter {
     const today = Math.floor(Date.now() / 86_400_000)
     let u = this.usage.get(identity)
     if (!u || u.day !== today) {
+      if (this.usage.size > 1_000) this.prune(today)
       u = { req: 0, tokens: 0, day: today }
       this.usage.set(identity, u)
     }
@@ -244,9 +257,15 @@ class MemoryLimiter implements RateLimiter {
   }
 }
 
+/** Cooldown before retrying Redis after a failure — each attempt costs a connect timeout. */
+const UPSTASH_FALLBACK_COOLDOWN_MS = 60_000
+
 class UpstashLimiter implements RateLimiter {
   private readonly redis: Redis
   private readonly perTier: Record<keyof typeof TIER_LIMITS, Ratelimit>
+  /** Degraded-mode limiter used while Redis is unreachable. */
+  private readonly fallback = new MemoryLimiter()
+  private fallbackUntil = 0
 
   constructor(url: string, token: string) {
     this.redis = new Redis({ url, token })
@@ -278,7 +297,23 @@ class UpstashLimiter implements RateLimiter {
     }
   }
 
-  async check(key: AuthenticatedKey, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
+  async check(key: AuthenticatedKey, model: string, estimatedTokens: number): Promise<RateLimitResult> {
+    // A Redis outage must never take the gateway down with it: degrade to the
+    // in-process limiter (still enforcing per-tier quotas) instead of throwing.
+    if (Date.now() < this.fallbackUntil) return this.fallback.check(key, model, estimatedTokens)
+    try {
+      return await this.checkRemote(key, estimatedTokens)
+    } catch (err) {
+      this.fallbackUntil = Date.now() + UPSTASH_FALLBACK_COOLDOWN_MS
+      getLogger().error("ratelimit.redis_unavailable", {
+        error: err instanceof Error ? err.message : String(err),
+        degradedForMs: UPSTASH_FALLBACK_COOLDOWN_MS,
+      })
+      return this.fallback.check(key, model, estimatedTokens)
+    }
+  }
+
+  private async checkRemote(key: AuthenticatedKey, estimatedTokens: number): Promise<RateLimitResult> {
     const tier = key.tier
     const limiter = this.perTier[tier]
     const result = await limiter.limit(key.key)
@@ -319,10 +354,16 @@ export function getRateLimiter(): RateLimiter {
   if (singleton) return singleton
   const env = loadEnv()
   if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-    singleton = new UpstashLimiter(env.UPSTASH_REDIS_REST_URL, env.UPSTASH_REDIS_REST_TOKEN)
-  } else {
-    singleton = new MemoryLimiter()
+    try {
+      singleton = new UpstashLimiter(env.UPSTASH_REDIS_REST_URL, env.UPSTASH_REDIS_REST_TOKEN)
+      return singleton
+    } catch (err) {
+      getLogger().error("ratelimit.redis_init_failed", {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
+  singleton = new MemoryLimiter()
   return singleton
 }
 
