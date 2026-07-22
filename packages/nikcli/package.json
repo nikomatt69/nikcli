@@ -104,6 +104,7 @@
     "@nikcli-ai/companion": "workspace:*",
     "@nikcli-ai/httpapi-codegen": "workspace:*",
     "@nikcli-ai/llm": "workspace:*",
+    "@nikcli-ai/native-ui-protocol": "workspace:*",
     "@nikcli-ai/plugin": "workspace:*",
     "@nikcli-ai/remote": "workspace:*",
     "@nikcli-ai/script": "workspace:*",

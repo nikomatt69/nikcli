@@ -51,6 +51,7 @@ import { SearchToolsTool } from "./search_tools"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 import { BrowserTool } from "./browser"
 import { ComputerTool } from "./computer"
+import { NativeUITool } from "./native_ui"
 
 const _toolDir = import.meta.dir
 
@@ -230,6 +231,7 @@ export namespace ToolRegistry {
 
         return [
           InvalidTool,
+          NativeUITool,
           ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
           BashTool,
 
