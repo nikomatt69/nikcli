@@ -28,6 +28,8 @@ COPY packages/simulation/package.json packages/simulation/
 COPY packages/tui-image/package.json packages/tui-image/
 COPY packages/terminal-control/package.json packages/terminal-control/
 COPY packages/browser-control/package.json packages/browser-control/
+COPY packages/native-control/package.json packages/native-control/
+COPY packages/native-ui-protocol/package.json packages/native-ui-protocol/
 COPY github/package.json github/
 
 # Stub webrenderer (native Rust build not required for the nikcli binary)
@@ -61,6 +63,8 @@ COPY packages/simulation packages/simulation
 COPY packages/tui-image packages/tui-image
 COPY packages/terminal-control packages/terminal-control
 COPY packages/browser-control packages/browser-control
+COPY packages/native-control packages/native-control
+COPY packages/native-ui-protocol packages/native-ui-protocol
 COPY github github
 
 # Build nikcli binary for the current platform (linux-x64)
