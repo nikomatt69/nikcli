@@ -6,6 +6,7 @@ const MAX_SURFACES = 100
 export namespace NativeUI {
   const surfaces = new Map<string, Surface>()
   const events = new EventEmitter()
+  const history: SurfaceEvent[] = []
 
   export function list(): Surface[] {
     return [...surfaces.values()]
@@ -20,6 +21,7 @@ export namespace NativeUI {
     if (!surfaces.has(surface.id) && surfaces.size >= MAX_SURFACES) {
       throw new Error(`Native UI surface limit reached (${MAX_SURFACES})`)
     }
+    forget(surface.id)
     surfaces.set(surface.id, surface)
     emit({ type: "surface-opened", surface })
     return surface
@@ -41,6 +43,7 @@ export namespace NativeUI {
 
   export function closeAll(): void {
     for (const id of surfaces.keys()) close(id, "system")
+    history.length = 0
   }
 
   export function subscribe(listener: (event: SurfaceEvent) => void): () => void {
@@ -61,7 +64,7 @@ export namespace NativeUI {
         updateControl(event.action.surfaceId, event.action.controlId, event.action.value)
       }
     }
-    events.emit("surface", event)
+    emit(event)
     return event
   }
 
@@ -70,6 +73,8 @@ export namespace NativeUI {
     options: { timeoutMs?: number; signal?: AbortSignal } = {},
   ): Promise<SurfaceEvent> {
     const timeoutMs = options.timeoutMs ?? 120_000
+    const existing = history.findLast(predicate)
+    if (existing) return Promise.resolve(existing)
     return new Promise((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | undefined
       const unsubscribe = subscribe((event) => {
@@ -98,7 +103,19 @@ export namespace NativeUI {
   }
 
   function emit(event: SurfaceEvent): void {
+    history.push(event)
+    if (history.length > 500) history.shift()
     events.emit("surface", event)
+  }
+
+  function forget(surfaceID: string): void {
+    for (let index = history.length - 1; index >= 0; index--) {
+      const event = history[index]
+      if (!event) continue
+      const id =
+        event.type === "surface-opened" || event.type === "surface-updated" ? event.surface.id : event.surfaceId
+      if (id === surfaceID) history.splice(index, 1)
+    }
   }
 
   function updateControl(surfaceID: string, controlID: string, value: unknown): void {

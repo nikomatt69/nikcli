@@ -1,10 +1,10 @@
-import { z } from "zod";
+import { z } from "zod"
 
-export const PROTOCOL_VERSION = 1 as const;
-export const ProtocolVersionSchema = z.literal(PROTOCOL_VERSION);
+export const PROTOCOL_VERSION = 1 as const
+export const ProtocolVersionSchema = z.literal(PROTOCOL_VERSION)
 
-const IdSchema = z.string().min(1).max(256);
-const NonEmptyTextSchema = z.string().min(1);
+const IdSchema = z.string().min(1).max(256)
+const NonEmptyTextSchema = z.string().min(1)
 const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
   z.union([
     z.string(),
@@ -14,16 +14,11 @@ const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
     z.array(JsonValueSchema),
     z.record(z.string(), JsonValueSchema),
   ]),
-);
+)
 
-export const SurfaceIdSchema = IdSchema;
-export const SurfaceKindSchema = z.enum([
-  "dialog",
-  "popover",
-  "notification",
-  "menu",
-]);
-export const ControlIdSchema = IdSchema;
+export const SurfaceIdSchema = IdSchema
+export const SurfaceKindSchema = z.enum(["dialog", "popover", "notification", "menu"])
+export const ControlIdSchema = IdSchema
 export const ControlTypeSchema = z.enum([
   "button",
   "link",
@@ -31,8 +26,10 @@ export const ControlTypeSchema = z.enum([
   "select",
   "checkbox",
   "progress",
+  "metric",
+  "section",
   "separator",
-]);
+])
 
 export const ControlSchema = z.discriminatedUnion("type", [
   z.object({
@@ -90,8 +87,23 @@ export const ControlSchema = z.discriminatedUnion("type", [
     detail: z.string().optional(),
     indeterminate: z.boolean().optional(),
   }),
+  z.object({
+    type: z.literal("metric"),
+    id: ControlIdSchema,
+    label: NonEmptyTextSchema,
+    value: NonEmptyTextSchema,
+    detail: z.string().optional(),
+    trend: z.string().optional(),
+    tone: z.enum(["neutral", "info", "success", "warning", "error"]).optional(),
+  }),
+  z.object({
+    type: z.literal("section"),
+    id: ControlIdSchema,
+    label: NonEmptyTextSchema,
+    detail: z.string().optional(),
+  }),
   z.object({ type: z.literal("separator"), id: ControlIdSchema.optional() }),
-]);
+])
 
 export const SurfaceBaseSchema = z.object({
   id: SurfaceIdSchema,
@@ -100,13 +112,14 @@ export const SurfaceBaseSchema = z.object({
   controls: z.array(ControlSchema).default([]),
   dismissible: z.boolean().default(true),
   metadata: z.record(z.string(), JsonValueSchema).optional(),
-});
+})
 
 export const DialogSurfaceSchema = SurfaceBaseSchema.extend({
   kind: z.literal("dialog"),
   modal: z.boolean().default(true),
   width: z.enum(["small", "medium", "large"]).default("medium"),
-});
+  layout: z.enum(["stack", "dashboard"]).optional(),
+})
 
 export const PopoverSurfaceSchema = SurfaceBaseSchema.extend({
   kind: z.literal("popover"),
@@ -117,13 +130,13 @@ export const PopoverSurfaceSchema = SurfaceBaseSchema.extend({
     height: z.number().nonnegative(),
   }),
   placement: z.enum(["top", "right", "bottom", "left"]).default("bottom"),
-});
+})
 
 export const NotificationSurfaceSchema = SurfaceBaseSchema.extend({
   kind: z.literal("notification"),
   severity: z.enum(["info", "success", "warning", "error"]).default("info"),
   durationMs: z.number().int().nonnegative().max(86_400_000).optional(),
-});
+})
 
 export const MenuSurfaceSchema = SurfaceBaseSchema.extend({
   kind: z.literal("menu"),
@@ -138,14 +151,14 @@ export const MenuSurfaceSchema = SurfaceBaseSchema.extend({
       }),
     )
     .min(1),
-});
+})
 
 export const SurfaceSchema = z.discriminatedUnion("kind", [
   DialogSurfaceSchema,
   PopoverSurfaceSchema,
   NotificationSurfaceSchema,
   MenuSurfaceSchema,
-]);
+])
 
 export const ActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("dismiss-surface"), surfaceId: SurfaceIdSchema }),
@@ -161,7 +174,7 @@ export const ActionSchema = z.discriminatedUnion("type", [
     controlId: ControlIdSchema,
     value: JsonValueSchema,
   }),
-]);
+])
 
 export const SurfaceEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("surface-opened"), surface: SurfaceSchema }),
@@ -183,17 +196,15 @@ export const SurfaceEventSchema = z.discriminatedUnion("type", [
     controlId: ControlIdSchema,
     value: JsonValueSchema,
   }),
-]);
+])
 
 export const CapabilitiesSchema = z.object({
   version: ProtocolVersionSchema,
   surfaces: z.array(SurfaceKindSchema).min(1),
   controls: z.array(ControlTypeSchema).min(1),
-  actions: z
-    .array(z.enum(["dismiss-surface", "invoke", "open-url", "update-control"]))
-    .min(1),
+  actions: z.array(z.enum(["dismiss-surface", "invoke", "open-url", "update-control"])).min(1),
   maxSurfaces: z.number().int().positive().max(10_000).default(100),
-});
+})
 
 export const TransportEnvelopeSchema = z.object({
   version: ProtocolVersionSchema,
@@ -208,15 +219,15 @@ export const TransportEnvelopeSchema = z.object({
       details: JsonValueSchema.optional(),
     })
     .optional(),
-});
+})
 
-export type Control = z.infer<typeof ControlSchema>;
-export type Surface = z.infer<typeof SurfaceSchema>;
-export type DialogSurface = z.infer<typeof DialogSurfaceSchema>;
-export type PopoverSurface = z.infer<typeof PopoverSurfaceSchema>;
-export type NotificationSurface = z.infer<typeof NotificationSurfaceSchema>;
-export type MenuSurface = z.infer<typeof MenuSurfaceSchema>;
-export type Action = z.infer<typeof ActionSchema>;
-export type SurfaceEvent = z.infer<typeof SurfaceEventSchema>;
-export type Capabilities = z.infer<typeof CapabilitiesSchema>;
-export type TransportEnvelope = z.infer<typeof TransportEnvelopeSchema>;
+export type Control = z.infer<typeof ControlSchema>
+export type Surface = z.infer<typeof SurfaceSchema>
+export type DialogSurface = z.infer<typeof DialogSurfaceSchema>
+export type PopoverSurface = z.infer<typeof PopoverSurfaceSchema>
+export type NotificationSurface = z.infer<typeof NotificationSurfaceSchema>
+export type MenuSurface = z.infer<typeof MenuSurfaceSchema>
+export type Action = z.infer<typeof ActionSchema>
+export type SurfaceEvent = z.infer<typeof SurfaceEventSchema>
+export type Capabilities = z.infer<typeof CapabilitiesSchema>
+export type TransportEnvelope = z.infer<typeof TransportEnvelopeSchema>

@@ -62,6 +62,8 @@ import type { QuestionTool } from "@/tool/question"
 import type { BrowserTool } from "@/tool/browser"
 import type { ComputerTool } from "@/tool/computer"
 import type { ArtifactTool } from "@/tool/artifact"
+import type { NativeUITool } from "@/tool/native_ui"
+import type { Surface, SurfaceEvent } from "@nikcli-ai/native-ui-protocol"
 import { normalizeVizComponents, type OpenTUIVizTool } from "@/tool/opentui"
 import type { LSP } from "@/lsp"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
@@ -113,6 +115,15 @@ import {
 } from "../../util/background"
 import { friendlyErrorMessage } from "../../util/error-message"
 import { Link } from "../../ui/link"
+import {
+  nativeUIEvent,
+  nativeUIEventLabel,
+  nativeUIPendingLabel,
+  nativeUISurface,
+  nativeUISurfaces,
+  nativeUIValue,
+} from "./native-ui-display"
+import { NativeUISurfaceContent } from "./native-ui-surface"
 
 addDefaultParsers(parsers.parsers)
 
@@ -2129,6 +2140,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           <Match when={props.part.tool === "computer"}>
             <ComputerUse {...toolprops} />
           </Match>
+          <Match when={props.part.tool === "native_ui"}>
+            <NativeUIView {...toolprops} />
+          </Match>
           <Match when={props.part.tool === "artifact"}>
             <ArtifactView {...toolprops} />
           </Match>
@@ -2222,6 +2236,86 @@ function ComputerUse(props: ToolProps<typeof ComputerTool>) {
         </InlineTool>
       </Match>
     </Switch>
+  )
+}
+
+function NativeUIView(props: ToolProps<typeof NativeUITool>) {
+  const { theme } = useTheme()
+  const operation = createMemo(() => String(props.input.operation ?? "native UI"))
+  const metadata = createMemo(() => props.metadata as Record<string, unknown>)
+  const surface = createMemo(() => nativeUISurface(metadata().surface))
+  const surfaces = createMemo(() => nativeUISurfaces(metadata().surfaces))
+  const event = createMemo(() => nativeUIEvent(metadata().event))
+  const kind = createMemo(() => surface()?.kind ?? String(props.input.kind ?? "surface"))
+  const accent = createMemo(() => {
+    const current = surface()
+    if (current?.kind !== "notification") return theme.info
+    if (current.severity === "success") return theme.success
+    if (current.severity === "warning") return theme.warning
+    if (current.severity === "error") return theme.error
+    return theme.info
+  })
+  const title = createMemo(() => {
+    if (operation() === "list") return `# Native UI · ${surfaces().length} active`
+    if (operation() === "wait" && event()) return `# Native UI · ${nativeUIEventLabel(event()!)}`
+    const verb = operation() === "open" ? "Opened" : operation() === "update" ? "Updated" : "Closed"
+    return `# Native UI · ${verb} ${kind()}`
+  })
+  const pending = createMemo(() => {
+    return nativeUIPendingLabel(operation())
+  })
+
+  return (
+    <Switch>
+      <Match when={props.output !== undefined}>
+        <BlockTool title={title()} titleColor={accent()} accentColor={accent()} part={props.part}>
+          <Show when={surface()}>{(value) => <NativeUISurfaceDetails surface={value()} />}</Show>
+          <Show when={event()}>{(value) => <NativeUIEventDetails event={value()} />}</Show>
+          <Show when={operation() === "list" && surfaces().length === 0}>
+            <text fg={theme.textMuted}>No active native surfaces</text>
+          </Show>
+          <For each={surfaces()}>{(value) => <NativeUISurfaceDetails surface={value} compact />}</For>
+          <Show when={!surface() && !event() && operation() !== "list"}>
+            <text fg={theme.textMuted}>{props.output}</text>
+          </Show>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool icon="▱" iconColor={theme.info} pending={pending()} complete={false} part={props.part}>
+          Native UI · {operation()} {kind()}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
+function NativeUISurfaceDetails(props: { surface: Surface; compact?: boolean }) {
+  const { theme } = useTheme()
+  return (
+    <NativeUISurfaceContent
+      surface={props.surface}
+      compact={props.compact}
+      textColor={theme.text}
+      mutedColor={theme.textMuted}
+      accentColor={theme.info}
+    />
+  )
+}
+
+function NativeUIEventDetails(props: { event: SurfaceEvent }) {
+  const { theme } = useTheme()
+  const detail = createMemo(() => {
+    const event = props.event
+    if (event.type === "surface-closed") return `${event.surfaceId} · ${event.reason}`
+    if (event.type === "control-changed") return `${event.controlId} · ${nativeUIValue(event.value)}`
+    if (event.type === "control-activated") return `${event.controlId} · ${event.action.type}`
+    return `${event.surface.kind} · ${event.surface.title}`
+  })
+  return (
+    <box flexDirection="column">
+      <text fg={theme.text}>{nativeUIEventLabel(props.event)}</text>
+      <text fg={theme.textMuted}>{detail()}</text>
+    </box>
   )
 }
 

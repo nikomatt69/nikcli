@@ -2,6 +2,7 @@ import { z } from "zod"
 import { NativeUI } from "../native-ui"
 import { Tool } from "./tool"
 import { ControlSchema } from "@nikcli-ai/native-ui-protocol"
+import DESCRIPTION from "./native_ui.txt"
 
 const Parameters = z.object({
   operation: z.enum(["open", "update", "wait", "close", "list"]),
@@ -12,11 +13,23 @@ const Parameters = z.object({
   controls: z.array(ControlSchema).max(20).optional(),
   dismissible: z.boolean().optional(),
   timeoutMs: z.number().int().positive().max(86_400_000).optional(),
+  durationMs: z.number().int().nonnegative().max(86_400_000).optional(),
+  severity: z.enum(["info", "success", "warning", "error"]).optional(),
+  anchor: z
+    .object({
+      x: z.number().finite(),
+      y: z.number().finite(),
+      width: z.number().nonnegative(),
+      height: z.number().nonnegative(),
+    })
+    .optional(),
+  placement: z.enum(["top", "right", "bottom", "left"]).optional(),
+  width: z.enum(["small", "medium", "large"]).optional(),
+  layout: z.enum(["stack", "dashboard"]).optional(),
 })
 
 export const NativeUITool = Tool.define("native_ui", {
-  description:
-    "Create and control real-time native OS UI for the current task. Use this for meaningful progress, review, confirmation, permission, or completion moments. Prefer one live popover for ongoing work and a native dialog only when the user must decide. The UI is bound to this session and agent; never put secrets in a notification.",
+  description: DESCRIPTION,
   parameters: Parameters,
   async execute(params, ctx) {
     if (params.operation === "list") {
@@ -60,13 +73,42 @@ export const NativeUITool = Tool.define("native_ui", {
     if (params.operation === "update") {
       const current = NativeUI.get(params.surfaceID!)
       if (!current) throw new Error(`Native UI surface not found: ${params.surfaceID}`)
-      const surface = NativeUI.update({
+      const common = {
         ...current,
         ...(params.title !== undefined ? { title: params.title } : {}),
         ...(params.body !== undefined ? { body: params.body } : {}),
         ...(params.controls !== undefined ? { controls: params.controls } : {}),
         ...(params.dismissible !== undefined ? { dismissible: params.dismissible } : {}),
-      })
+      }
+      const surface = NativeUI.update(
+        current.kind === "menu"
+          ? {
+              ...common,
+              kind: current.kind,
+              items: params.controls !== undefined ? menuItems(params.controls) : current.items,
+            }
+          : current.kind === "notification"
+            ? {
+                ...common,
+                kind: current.kind,
+                severity: params.severity ?? current.severity,
+                durationMs: params.durationMs ?? current.durationMs,
+              }
+            : current.kind === "popover"
+              ? {
+                  ...common,
+                  kind: current.kind,
+                  anchor: params.anchor ?? current.anchor,
+                  placement: params.placement ?? current.placement,
+                }
+              : {
+                  ...common,
+                  kind: current.kind,
+                  modal: current.modal,
+                  width: params.width ?? current.width,
+                  layout: params.layout ?? current.layout,
+                },
+      )
       return {
         title: "Updated native UI surface",
         output: `Updated ${surface.kind} ${surface.id}`,
@@ -92,32 +134,31 @@ export const NativeUITool = Tool.define("native_ui", {
     }
     const surface = NativeUI.open(
       kind === "dialog"
-        ? { ...common, kind, modal: true, width: "medium" }
+        ? {
+            ...common,
+            kind,
+            modal: true,
+            width: params.width ?? (params.layout === "dashboard" ? "large" : "medium"),
+            layout: params.layout ?? "stack",
+          }
         : kind === "notification"
           ? {
               ...common,
               kind,
-              severity: "info",
-              durationMs: params.timeoutMs,
+              severity: params.severity ?? "info",
+              durationMs: params.durationMs,
             }
           : kind === "menu"
             ? {
                 ...common,
                 kind,
-                items: (params.controls ?? [])
-                  .filter((control) => control.type === "button")
-                  .map((control) => ({
-                    id: control.id,
-                    label: control.label,
-                    action: control.action,
-                    disabled: control.disabled,
-                  })),
+                items: menuItems(params.controls ?? []),
               }
             : {
                 ...common,
                 kind,
-                anchor: { x: 0, y: 0, width: 0, height: 0 },
-                placement: "bottom",
+                anchor: params.anchor ?? { x: 0, y: 0, width: 0, height: 0 },
+                placement: params.placement ?? "bottom",
               },
     )
     return {
@@ -127,3 +168,14 @@ export const NativeUITool = Tool.define("native_ui", {
     }
   },
 })
+
+function menuItems(controls: z.infer<typeof ControlSchema>[]) {
+  return controls
+    .filter((control) => control.type === "button")
+    .map((control) => ({
+      id: control.id,
+      label: control.label,
+      action: control.action,
+      disabled: control.disabled,
+    }))
+}

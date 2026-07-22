@@ -1,9 +1,64 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { NativeUI } from "../../src/native-ui"
+import { NativeUITool } from "../../src/tool/native_ui"
 
 afterEach(() => NativeUI.closeAll())
 
 describe("NativeUI", () => {
+  test("uses the dedicated Liquid Glass prompt", async () => {
+    const tool = await NativeUITool.init()
+    expect(tool.description).toContain("native Liquid Glass interfaces")
+    expect(tool.description).toContain("rather than using a fixed template")
+  })
+
+  test("accepts rich presentation options", async () => {
+    const tool = await NativeUITool.init()
+    expect(
+      tool.parameters.parse({
+        operation: "open",
+        surfaceID: "complete",
+        kind: "notification",
+        title: "Complete",
+        severity: "success",
+        durationMs: 5_000,
+        anchor: { x: 100, y: 50, width: 32, height: 32 },
+        placement: "bottom",
+        width: "large",
+      }),
+    ).toMatchObject({
+      severity: "success",
+      durationMs: 5_000,
+    })
+  })
+
+  test("accepts contextual dashboard composition", async () => {
+    const tool = await NativeUITool.init()
+    expect(
+      tool.parameters.parse({
+        operation: "open",
+        kind: "dialog",
+        title: "Delivery dashboard",
+        layout: "dashboard",
+        width: "large",
+        controls: [
+          {
+            type: "metric",
+            id: "checks",
+            label: "Checks",
+            value: "17 / 17",
+            tone: "success",
+          },
+          {
+            type: "section",
+            id: "workspace",
+            label: "Workspace",
+            detail: "One file needs review",
+          },
+        ],
+      }),
+    ).toMatchObject({ layout: "dashboard", width: "large" })
+  })
+
   test("updates a contextual surface in place", () => {
     const opened = NativeUI.open({
       id: "progress",
@@ -33,6 +88,38 @@ describe("NativeUI", () => {
     })
   })
 
+  test("resolves waits when the native event arrived first", async () => {
+    NativeUI.open({
+      id: "fast-review",
+      kind: "dialog",
+      title: "Fast review",
+      controls: [
+        {
+          type: "button",
+          id: "approve",
+          label: "Approve",
+          action: "approve",
+        },
+      ],
+      dismissible: true,
+      modal: true,
+      width: "medium",
+      layout: "stack",
+    })
+    NativeUI.dispatch({
+      type: "control-activated",
+      surfaceId: "fast-review",
+      controlId: "approve",
+      action: { type: "invoke", action: "approve" },
+    })
+
+    await expect(
+      NativeUI.wait((event) => event.type === "control-activated" && event.surfaceId === "fast-review", {
+        timeoutMs: 50,
+      }),
+    ).resolves.toMatchObject({ controlId: "approve" })
+  })
+
   test("persists native control changes on the active surface", () => {
     NativeUI.open({
       id: "form",
@@ -55,6 +142,7 @@ describe("NativeUI", () => {
       dismissible: true,
       modal: true,
       width: "medium",
+      layout: "stack",
     })
 
     NativeUI.dispatch({
@@ -92,6 +180,7 @@ describe("NativeUI", () => {
       dismissible: true,
       modal: true,
       width: "medium",
+      layout: "stack",
     })
     NativeUI.dispatch({
       type: "control-activated",
