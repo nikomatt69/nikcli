@@ -23,10 +23,21 @@ export type WaitCondition = {
   readonly timeout?: number
 }
 
+interface Waiter {
+  readonly condition: WaitCondition
+  resolve(event: SurfaceEvent): void
+  abort(): void
+}
+
+const MAX_EVENTS = 500
+
 export class NativeSession {
   private readonly createdAt = Date.now()
   private readonly controller = new AbortController()
   private readonly eventLog: SurfaceEvent[] = []
+  private readonly pending: SurfaceEvent[] = []
+  private readonly openSurfaces = new Set<string>()
+  private readonly waiters = new Set<Waiter>()
   private status: SessionStatus = "running"
 
   constructor(
@@ -36,13 +47,13 @@ export class NativeSession {
     void this.consumeEvents()
   }
 
-  info(surfaceCount = 0): SessionInfo {
+  info(): SessionInfo {
     return {
       name: this.name,
       url: this.url,
       status: this.status,
       createdAt: this.createdAt,
-      surfaces: surfaceCount,
+      surfaces: this.openSurfaces.size,
       events: this.eventLog.length,
     }
   }
@@ -58,16 +69,20 @@ export class NativeSession {
 
   async open(surface: Surface): Promise<Surface> {
     this.forget(surface.id)
-    return this.request("/native-ui/surfaces", "POST", SurfaceSchema.parse(surface), SurfaceSchema)
+    const opened = await this.request("/native-ui/surfaces", "POST", SurfaceSchema.parse(surface), SurfaceSchema)
+    this.openSurfaces.add(opened.id)
+    return opened
   }
 
   async update(surface: Surface): Promise<Surface> {
-    return this.request(
+    const updated = await this.request(
       `/native-ui/surfaces/${encodeURIComponent(surface.id)}`,
       "PUT",
       SurfaceSchema.parse(surface),
       SurfaceSchema,
     )
+    this.openSurfaces.add(updated.id)
+    return updated
   }
 
   async close(surfaceID: string): Promise<void> {
@@ -77,6 +92,7 @@ export class NativeSession {
       signal: this.controller.signal,
     })
     if (!response.ok) throw new Error(`Native UI close failed: ${response.status}`)
+    this.openSurfaces.delete(surfaceID)
   }
 
   async dispatch(event: SurfaceEvent): Promise<SurfaceEvent> {
@@ -91,32 +107,40 @@ export class NativeSession {
     }
   }
 
-  async wait(condition: WaitCondition): Promise<SurfaceEvent> {
-    const existing = this.eventLog.find((event) => matches(event, condition))
-    if (existing) return existing
+  wait(condition: WaitCondition): Promise<SurfaceEvent> {
+    this.assertRunning()
+    const delivered = this.takePending(condition)
+    if (delivered) return Promise.resolve(delivered)
     const timeout = condition.timeout ?? 120_000
     return new Promise((resolve, reject) => {
-      const startedAt = this.eventLog.length
-      const timer = setInterval(() => {
-        const event = this.eventLog.slice(startedAt).find((candidate) => matches(candidate, condition))
-        if (!event) return
-        cleanup()
-        resolve(event)
-      }, 25)
+      const waiter: Waiter = {
+        condition,
+        resolve: (event) => {
+          cleanup()
+          resolve(event)
+        },
+        abort: () => {
+          cleanup()
+          reject(new Error(`Native session "${this.name}" closed while waiting for a native UI event`))
+        },
+      }
       const deadline = setTimeout(() => {
         cleanup()
         reject(new Error(`Timed out waiting for native UI event after ${timeout}ms`))
       }, timeout)
       const cleanup = () => {
-        clearInterval(timer)
         clearTimeout(deadline)
+        this.waiters.delete(waiter)
       }
+      this.waiters.add(waiter)
     })
   }
 
   stop(): void {
     if (this.status === "closed") return
     this.status = "closed"
+    for (const waiter of [...this.waiters]) waiter.abort()
+    this.openSurfaces.clear()
     this.controller.abort()
   }
 
@@ -145,10 +169,7 @@ export class NativeSession {
               .join("\n")
             if (!data) continue
             const parsed = SurfaceEventSchema.safeParse(JSON.parse(data))
-            if (parsed.success) {
-              this.eventLog.push(parsed.data)
-              if (this.eventLog.length > 500) this.eventLog.shift()
-            }
+            if (parsed.success) this.ingest(parsed.data)
           }
         }
       } catch {
@@ -156,6 +177,34 @@ export class NativeSession {
         await Bun.sleep(250)
       }
     }
+  }
+
+  private ingest(event: SurfaceEvent): void {
+    this.eventLog.push(event)
+    if (this.eventLog.length > MAX_EVENTS) this.eventLog.shift()
+    if (event.type === "surface-opened" || event.type === "surface-updated") this.openSurfaces.add(event.surface.id)
+    else if (event.type === "surface-closed") this.openSurfaces.delete(event.surfaceId)
+    let deliveredTo = 0
+    for (const waiter of [...this.waiters]) {
+      if (!matches(event, waiter.condition)) continue
+      deliveredTo++
+      waiter.resolve(event)
+    }
+    // Undelivered events stay pending so a later wait can pick them up exactly once.
+    if (deliveredTo === 0) {
+      this.pending.push(event)
+      if (this.pending.length > MAX_EVENTS) this.pending.shift()
+    }
+  }
+
+  private takePending(condition: WaitCondition): SurfaceEvent | undefined {
+    for (let index = this.pending.length - 1; index >= 0; index--) {
+      const event = this.pending[index]
+      if (!event || !matches(event, condition)) continue
+      this.pending.splice(index, 1)
+      return event
+    }
+    return undefined
   }
 
   private async request<T>(
@@ -184,12 +233,14 @@ export class NativeSession {
   }
 
   private forget(surfaceID: string): void {
-    for (let index = this.eventLog.length - 1; index >= 0; index--) {
-      const event = this.eventLog[index]
-      if (!event) continue
-      const id =
-        event.type === "surface-opened" || event.type === "surface-updated" ? event.surface.id : event.surfaceId
-      if (id === surfaceID) this.eventLog.splice(index, 1)
+    for (const log of [this.eventLog, this.pending]) {
+      for (let index = log.length - 1; index >= 0; index--) {
+        const event = log[index]
+        if (!event) continue
+        const id =
+          event.type === "surface-opened" || event.type === "surface-updated" ? event.surface.id : event.surfaceId
+        if (id === surfaceID) log.splice(index, 1)
+      }
     }
   }
 }

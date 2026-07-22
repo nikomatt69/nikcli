@@ -3,7 +3,15 @@ import { streamSSE } from "hono/streaming"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { NativeUI } from "../../native-ui"
-import { CapabilitiesSchema, SurfaceEventSchema, SurfaceSchema } from "@nikcli-ai/native-ui-protocol"
+import {
+  ActionTypeSchema,
+  CapabilitiesSchema,
+  ControlTypeSchema,
+  PROTOCOL_VERSION,
+  SurfaceEventSchema,
+  SurfaceKindSchema,
+  SurfaceSchema,
+} from "@nikcli-ai/native-ui-protocol"
 
 const SurfaceID = z.object({ id: z.string().min(1) })
 
@@ -25,21 +33,11 @@ export const NativeUIRoutes = () =>
       }),
       (c) =>
         c.json({
-          version: 1 as const,
-          surfaces: ["dialog", "popover", "notification", "menu"] as const,
-          controls: [
-            "button",
-            "link",
-            "text-input",
-            "select",
-            "checkbox",
-            "progress",
-            "metric",
-            "section",
-            "separator",
-          ] as const,
-          actions: ["dismiss-surface", "invoke", "open-url", "update-control"] as const,
-          maxSurfaces: 100,
+          version: PROTOCOL_VERSION,
+          surfaces: SurfaceKindSchema.options,
+          controls: ControlTypeSchema.options,
+          actions: ActionTypeSchema.options,
+          maxSurfaces: NativeUI.MAX_SURFACES,
         }),
     )
     .get(
@@ -58,7 +56,13 @@ export const NativeUIRoutes = () =>
       }),
       (c) => c.json(NativeUI.list()),
     )
-    .post("/surfaces", validator("json", SurfaceSchema), (c) => c.json(NativeUI.open(c.req.valid("json"))))
+    .post("/surfaces", validator("json", SurfaceSchema), (c) => {
+      try {
+        return c.json(NativeUI.open(c.req.valid("json")))
+      } catch (error) {
+        return c.json({ error: error instanceof Error ? error.message : String(error) }, 409)
+      }
+    })
     .put("/surfaces/:id", validator("param", SurfaceID), validator("json", SurfaceSchema), (c) => {
       const input = c.req.valid("json")
       if (input.id !== c.req.valid("param").id) return c.json({ error: "Surface id mismatch" }, 400)
@@ -72,7 +76,13 @@ export const NativeUIRoutes = () =>
       NativeUI.close(c.req.valid("param").id, "system")
       return c.body(null, 204)
     })
-    .post("/events", validator("json", SurfaceEventSchema), (c) => c.json(NativeUI.dispatch(c.req.valid("json"))))
+    .post("/events", validator("json", SurfaceEventSchema), (c) => {
+      try {
+        return c.json(NativeUI.dispatch(c.req.valid("json")))
+      } catch (error) {
+        return c.json({ error: error instanceof Error ? error.message : String(error) }, 400)
+      }
+    })
     .get("/events", (c) =>
       streamSSE(c, async (stream) => {
         let resolve: (() => void) | undefined

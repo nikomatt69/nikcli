@@ -1,9 +1,15 @@
 import { EventEmitter } from "events"
-import { SurfaceSchema, SurfaceEventSchema, type Surface, type SurfaceEvent } from "@nikcli-ai/native-ui-protocol"
-
-const MAX_SURFACES = 100
+import {
+  SurfaceSchema,
+  SurfaceEventSchema,
+  type Surface,
+  type SurfaceCloseReason,
+  type SurfaceEvent,
+} from "@nikcli-ai/native-ui-protocol"
 
 export namespace NativeUI {
+  export const MAX_SURFACES = 100
+
   const surfaces = new Map<string, Surface>()
   const events = new EventEmitter()
   const history: SurfaceEvent[] = []
@@ -21,6 +27,7 @@ export namespace NativeUI {
     if (!surfaces.has(surface.id) && surfaces.size >= MAX_SURFACES) {
       throw new Error(`Native UI surface limit reached (${MAX_SURFACES})`)
     }
+    close(surface.id, "replaced")
     forget(surface.id)
     surfaces.set(surface.id, surface)
     emit({ type: "surface-opened", surface })
@@ -35,7 +42,7 @@ export namespace NativeUI {
     return surface
   }
 
-  export function close(id: string, reason: "dismissed" | "action" | "replaced" | "system" = "system"): boolean {
+  export function close(id: string, reason: SurfaceCloseReason = "system"): boolean {
     if (!surfaces.delete(id)) return false
     emit({ type: "surface-closed", surfaceId: id, reason })
     return true
@@ -53,19 +60,35 @@ export namespace NativeUI {
 
   export function dispatch(input: SurfaceEvent): SurfaceEvent {
     const event = SurfaceEventSchema.parse(input)
+    if (event.type === "surface-opened") {
+      open(event.surface)
+      return event
+    }
+    if (event.type === "surface-updated") {
+      update(event.surface)
+      return event
+    }
     if (event.type === "surface-closed") {
-      surfaces.delete(event.surfaceId)
-    } else if (event.type === "control-changed") {
-      updateControl(event.surfaceId, event.controlId, event.value)
-    } else if (event.type === "control-activated") {
+      // Already-closed surfaces (e.g. a host echoing a close the server initiated)
+      // must not be re-announced to subscribers.
+      if (!surfaces.delete(event.surfaceId)) return event
+      emit(event)
+      return event
+    }
+    if (event.type === "control-changed") updateControl(event.surfaceId, event.controlId, event.value)
+    emit(event)
+    if (event.type === "control-activated") {
       if (event.action.type === "dismiss-surface") {
-        surfaces.delete(event.action.surfaceId)
+        close(event.action.surfaceId, "dismissed")
       } else if (event.action.type === "update-control") {
         updateControl(event.action.surfaceId, event.action.controlId, event.action.value)
       }
     }
-    emit(event)
     return event
+  }
+
+  export function peek(predicate: (event: SurfaceEvent) => boolean): SurfaceEvent | undefined {
+    return history.findLast(predicate)
   }
 
   export function wait(
@@ -74,11 +97,15 @@ export namespace NativeUI {
   ): Promise<SurfaceEvent> {
     const timeoutMs = options.timeoutMs ?? 120_000
     const existing = history.findLast(predicate)
-    if (existing) return Promise.resolve(existing)
+    if (existing) {
+      consume(existing)
+      return Promise.resolve(existing)
+    }
     return new Promise((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | undefined
       const unsubscribe = subscribe((event) => {
         if (!predicate(event)) return
+        consume(event)
         cleanup()
         resolve(event)
       })
@@ -106,6 +133,13 @@ export namespace NativeUI {
     history.push(event)
     if (history.length > 500) history.shift()
     events.emit("surface", event)
+  }
+
+  // Each event resolves at most one wait; without this, consecutive waits keep
+  // re-delivering the same historical interaction.
+  function consume(event: SurfaceEvent): void {
+    const index = history.lastIndexOf(event)
+    if (index >= 0) history.splice(index, 1)
   }
 
   function forget(surfaceID: string): void {

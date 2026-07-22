@@ -1,8 +1,23 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import type { SurfaceEvent } from "@nikcli-ai/native-ui-protocol"
 import { NativeUI } from "../../src/native-ui"
 import { NativeUITool } from "../../src/tool/native_ui"
+import type { Tool } from "../../src/tool/tool"
 
 afterEach(() => NativeUI.closeAll())
+
+function toolContext(): Tool.Context {
+  return {
+    sessionID: "session-test",
+    messageID: "message-test",
+    agent: "test",
+    callID: "call-test",
+    abort: new AbortController().signal,
+    metadata: () => {},
+    progress: async () => {},
+    ask: async () => {},
+  }
+}
 
 describe("NativeUI", () => {
   test("uses the dedicated Liquid Glass prompt", async () => {
@@ -169,6 +184,144 @@ describe("NativeUI", () => {
       { id: "environment", value: "prod" },
       { id: "tests", checked: true },
     ])
+  })
+
+  test("announces replacement when a surface id is reopened", () => {
+    const events: SurfaceEvent[] = []
+    NativeUI.open({
+      id: "wizard",
+      kind: "dialog",
+      title: "Step 1",
+      controls: [],
+      dismissible: true,
+      modal: true,
+      width: "medium",
+      layout: "stack",
+    })
+    const unsubscribe = NativeUI.subscribe((event) => events.push(event))
+    NativeUI.open({
+      id: "wizard",
+      kind: "dialog",
+      title: "Step 1 again",
+      controls: [],
+      dismissible: true,
+      modal: true,
+      width: "medium",
+      layout: "stack",
+    })
+    unsubscribe()
+    expect(events.map((event) => event.type)).toEqual(["surface-closed", "surface-opened"])
+    expect(events[0]).toMatchObject({ type: "surface-closed", surfaceId: "wizard", reason: "replaced" })
+    expect(NativeUI.list()).toHaveLength(1)
+  })
+
+  test("broadcasts the close caused by a dismiss-surface action", () => {
+    NativeUI.open({
+      id: "confirm",
+      kind: "dialog",
+      title: "Confirm",
+      controls: [{ type: "button", id: "cancel", label: "Cancel", action: "cancel" }],
+      dismissible: true,
+      modal: true,
+      width: "medium",
+      layout: "stack",
+    })
+    const events: SurfaceEvent[] = []
+    const unsubscribe = NativeUI.subscribe((event) => events.push(event))
+    NativeUI.dispatch({
+      type: "control-activated",
+      surfaceId: "confirm",
+      controlId: "cancel",
+      action: { type: "dismiss-surface", surfaceId: "confirm" },
+    })
+    unsubscribe()
+    expect(events.map((event) => event.type)).toEqual(["control-activated", "surface-closed"])
+    expect(events[1]).toMatchObject({ type: "surface-closed", surfaceId: "confirm", reason: "dismissed" })
+    expect(NativeUI.get("confirm")).toBeUndefined()
+  })
+
+  test("does not re-announce closes for surfaces that are already gone", () => {
+    const events: SurfaceEvent[] = []
+    const unsubscribe = NativeUI.subscribe((event) => events.push(event))
+    NativeUI.dispatch({ type: "surface-closed", surfaceId: "ghost", reason: "dismissed" })
+    unsubscribe()
+    expect(events).toHaveLength(0)
+  })
+
+  test("registers surfaces dispatched by observers", () => {
+    NativeUI.dispatch({
+      type: "surface-opened",
+      surface: {
+        id: "external",
+        kind: "notification",
+        title: "External",
+        controls: [],
+        dismissible: true,
+        severity: "info",
+      },
+    })
+    expect(NativeUI.get("external")).toMatchObject({ kind: "notification", title: "External" })
+  })
+
+  test("delivers each interaction to a single wait", async () => {
+    NativeUI.open({
+      id: "once",
+      kind: "dialog",
+      title: "Once",
+      controls: [{ type: "button", id: "ok", label: "OK", action: "ok" }],
+      dismissible: true,
+      modal: true,
+      width: "medium",
+      layout: "stack",
+    })
+    NativeUI.dispatch({
+      type: "control-activated",
+      surfaceId: "once",
+      controlId: "ok",
+      action: { type: "invoke", action: "ok" },
+    })
+    const predicate = (event: SurfaceEvent) => event.type === "control-activated" && event.surfaceId === "once"
+    await expect(NativeUI.wait(predicate, { timeoutMs: 50 })).resolves.toMatchObject({ controlId: "ok" })
+    await expect(NativeUI.wait(predicate, { timeoutMs: 50 })).rejects.toThrow("Timed out")
+  })
+
+  test("fails fast when waiting on an unknown surface", async () => {
+    const tool = await NativeUITool.init()
+    await expect(tool.executeAsync({ operation: "wait", surfaceID: "missing" }, toolContext())).rejects.toThrow(
+      "Native UI surface not found: missing",
+    )
+  })
+
+  test("rejects menus without button controls", async () => {
+    const tool = await NativeUITool.init()
+    await expect(
+      tool.executeAsync(
+        {
+          operation: "open",
+          kind: "menu",
+          title: "Recovery",
+          controls: [{ type: "checkbox", id: "keep", label: "Keep", checked: false }],
+        },
+        toolContext(),
+      ),
+    ).rejects.toThrow("at least one button")
+  })
+
+  test("closes surfaces with the programmatic reason", async () => {
+    NativeUI.open({
+      id: "done",
+      kind: "notification",
+      title: "Done",
+      controls: [],
+      dismissible: true,
+      severity: "success",
+    })
+    const events: SurfaceEvent[] = []
+    const unsubscribe = NativeUI.subscribe((event) => events.push(event))
+    const tool = await NativeUITool.init()
+    await tool.executeAsync({ operation: "close", surfaceID: "done" }, toolContext())
+    unsubscribe()
+    expect(events).toEqual([{ type: "surface-closed", surfaceId: "done", reason: "system" }])
   })
 
   test("applies dismiss and update actions", () => {

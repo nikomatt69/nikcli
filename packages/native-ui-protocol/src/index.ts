@@ -160,6 +160,8 @@ export const SurfaceSchema = z.discriminatedUnion("kind", [
   MenuSurfaceSchema,
 ])
 
+export const ActionTypeSchema = z.enum(["dismiss-surface", "invoke", "open-url", "update-control"])
+
 export const ActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("dismiss-surface"), surfaceId: SurfaceIdSchema }),
   z.object({
@@ -176,13 +178,15 @@ export const ActionSchema = z.discriminatedUnion("type", [
   }),
 ])
 
+export const SurfaceCloseReasonSchema = z.enum(["dismissed", "action", "replaced", "system"])
+
 export const SurfaceEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("surface-opened"), surface: SurfaceSchema }),
   z.object({ type: z.literal("surface-updated"), surface: SurfaceSchema }),
   z.object({
     type: z.literal("surface-closed"),
     surfaceId: SurfaceIdSchema,
-    reason: z.enum(["dismissed", "action", "replaced", "system"]),
+    reason: SurfaceCloseReasonSchema,
   }),
   z.object({
     type: z.literal("control-activated"),
@@ -202,7 +206,7 @@ export const CapabilitiesSchema = z.object({
   version: ProtocolVersionSchema,
   surfaces: z.array(SurfaceKindSchema).min(1),
   controls: z.array(ControlTypeSchema).min(1),
-  actions: z.array(z.enum(["dismiss-surface", "invoke", "open-url", "update-control"])).min(1),
+  actions: z.array(ActionTypeSchema).min(1),
   maxSurfaces: z.number().int().positive().max(10_000).default(100),
 })
 
@@ -228,6 +232,8 @@ export type PopoverSurface = z.infer<typeof PopoverSurfaceSchema>
 export type NotificationSurface = z.infer<typeof NotificationSurfaceSchema>
 export type MenuSurface = z.infer<typeof MenuSurfaceSchema>
 export type Action = z.infer<typeof ActionSchema>
+export type ActionType = z.infer<typeof ActionTypeSchema>
+export type SurfaceCloseReason = z.infer<typeof SurfaceCloseReasonSchema>
 export type SurfaceEvent = z.infer<typeof SurfaceEventSchema>
 export type Capabilities = z.infer<typeof CapabilitiesSchema>
 export type TransportEnvelope = z.infer<typeof TransportEnvelopeSchema>

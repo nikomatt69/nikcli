@@ -45,7 +45,7 @@ native-control close release-flow review
 ```
 
 - `open` validates and creates a complete surface, replacing stale event history for the same ID.
-- `wait` filters by surface and optional event type; the default timeout is 120 seconds.
+- `wait` filters by surface and optional event type; the default timeout is 120 seconds, and each event resolves one successful `wait` before being consumed.
 - `update` replaces the complete surface document and requires the same existing ID.
 - `close` removes one surface; `snapshot` returns current surfaces and captured events.
 - `list` lists control sessions; `stop`, `remove`, and `close-all` clean up session state.
@@ -196,7 +196,7 @@ Wait for the narrowest useful event: `control-changed`, `control-activated`, or 
 
 Buttons return an `invoke` action with the configured action ID and a payload containing current form values. Links return `open-url`, while `surface-closed` reports a `dismissed`, `action`, `replaced`, or `system` reason.
 
-The host emits changed form values before the activated action, then closes an acted-on dialog or menu. Treat returned events as interaction truth and command, monitor, or service results as operational truth.
+The host emits changed form values before the activated action, then closes an acted-on dialog or menu. Dismissal through a `dismiss-surface` action also broadcasts a `surface-closed` event with reason `dismissed`, and reopening an existing surface ID broadcasts reason `replaced`. Treat returned events as interaction truth and command, monitor, or service results as operational truth.
 
 ```json
 {

@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { NativeUI } from "../native-ui"
 import { Tool } from "./tool"
-import { ControlSchema } from "@nikcli-ai/native-ui-protocol"
+import { ControlSchema, type SurfaceEvent } from "@nikcli-ai/native-ui-protocol"
 import DESCRIPTION from "./native_ui.txt"
 
 const Parameters = z.object({
@@ -46,7 +46,7 @@ export const NativeUITool = Tool.define("native_ui", {
     }
 
     if (params.operation === "close") {
-      const closed = NativeUI.close(params.surfaceID!, "action")
+      const closed = NativeUI.close(params.surfaceID!, "system")
       return {
         title: closed ? "Closed native UI surface" : "Native UI surface already closed",
         output: closed ? `Closed ${params.surfaceID}` : `No active surface named ${params.surfaceID}`,
@@ -55,14 +55,17 @@ export const NativeUITool = Tool.define("native_ui", {
     }
 
     if (params.operation === "wait") {
-      const event = await NativeUI.wait(
-        (event) => {
-          if (event.type === "surface-closed") return event.surfaceId === params.surfaceID
-          if (event.type === "control-activated") return event.surfaceId === params.surfaceID
-          return event.type === "control-changed" && event.surfaceId === params.surfaceID
-        },
-        { timeoutMs: params.timeoutMs, signal: ctx.abort },
-      )
+      const predicate = (event: SurfaceEvent) => {
+        if (event.type === "surface-closed") return event.surfaceId === params.surfaceID
+        if (event.type === "control-activated") return event.surfaceId === params.surfaceID
+        return event.type === "control-changed" && event.surfaceId === params.surfaceID
+      }
+      if (!NativeUI.get(params.surfaceID!) && !NativeUI.peek(predicate)) {
+        throw new Error(
+          `Native UI surface not found: ${params.surfaceID}. Open a surface before waiting on its events.`,
+        )
+      }
+      const event = await NativeUI.wait(predicate, { timeoutMs: params.timeoutMs, signal: ctx.abort })
       return {
         title: "Native UI interaction received",
         output: JSON.stringify(event),
@@ -170,7 +173,7 @@ export const NativeUITool = Tool.define("native_ui", {
 })
 
 function menuItems(controls: z.infer<typeof ControlSchema>[]) {
-  return controls
+  const items = controls
     .filter((control) => control.type === "button")
     .map((control) => ({
       id: control.id,
@@ -178,4 +181,8 @@ function menuItems(controls: z.infer<typeof ControlSchema>[]) {
       action: control.action,
       disabled: control.disabled,
     }))
+  if (items.length === 0) {
+    throw new Error("Menu surfaces need at least one button control; each button becomes a menu item.")
+  }
+  return items
 }

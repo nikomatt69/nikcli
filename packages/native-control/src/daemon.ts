@@ -1,6 +1,7 @@
 import { unlink } from "node:fs/promises"
 import type { Surface, SurfaceEvent } from "@nikcli-ai/native-ui-protocol"
 import { SessionManager } from "./manager"
+import type { WaitCondition } from "./session"
 
 export async function startDaemon(socket: string) {
   await unlink(socket).catch(() => undefined)
@@ -18,7 +19,7 @@ export async function startDaemon(socket: string) {
     close: (p) => manager.close(p.name as string, p.surfaceID as string),
     dispatch: (p) => manager.dispatch(p.name as string, p.event as SurfaceEvent),
     snapshot: (p) => manager.snapshot(p.name as string),
-    wait: (p) => manager.wait(p.name as string, p.condition ?? {}),
+    wait: (p) => manager.wait(p.name as string, (p.condition ?? {}) as WaitCondition),
     stop: (p) => manager.stop(p.name as string),
     remove: (p) => manager.remove(p.name as string),
     closeAll: () => manager.closeAll(),

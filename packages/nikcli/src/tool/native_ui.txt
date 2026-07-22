@@ -7,8 +7,8 @@ Choose the least disruptive surface:
 - `notification` for a brief outcome already verified
 
 Follow the lifecycle:
-1. `open` one surface with a stable `surfaceID`.
-2. `wait` for `control-changed`, `control-activated`, or `surface-closed` events.
+1. `open` one surface with a stable `surfaceID`; reopening the same ID replaces the previous surface and closes it with reason `replaced`.
+2. `wait` for `control-changed`, `control-activated`, or `surface-closed` events. Each interaction resolves one wait, so call `wait` again for further interactions.
 3. Validate returned values and handle the action immediately.
 4. `update` the same surface as state changes, or `close` it when done.
 5. Use `list` to inspect active surfaces before recovering or opening another.
