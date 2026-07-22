@@ -60,7 +60,6 @@ import { ServerBackend } from "./backend"
 import { AnalyticsRoutes } from "./routes/analytics"
 import { BrainRoutes } from "./routes/brain"
 import { DoctorRoutes } from "./routes/doctor"
-import { NativeUIRoutes } from "./routes/native-ui"
 
 function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
   return runPromiseWithLayer(Skill.defaultLayer, withCurrentInstance(effect))
@@ -455,7 +454,6 @@ export namespace Server {
         .route("/analytics", AnalyticsRoutes())
         .route("/brain", BrainRoutes())
         .route("/doctor", DoctorRoutes())
-        .route("/native-ui", NativeUIRoutes())
         .post(
           "/instance/dispose",
           describeRoute({
