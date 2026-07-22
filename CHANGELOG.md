@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.189.0 (July 2026)
+
+## Core
+
+- Add pollster dependency and enhance macOS dialog implementation (@nikomatt69)
+- Add native-control package for managing native UI sessions (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(native-control): add native-control package for managing native UI sessions
+  - feat(native-control): add pollster dependency and enhance macOS dialog implementation
+
 ## v1.188.0 (July 2026)
 
 ## Core

@@ -1,40 +1,35 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test"
 import {
   ActionSchema,
   CapabilitiesSchema,
   NotificationSurfaceSchema,
   SurfaceSchema,
   TransportEnvelopeSchema,
-} from "./index";
+} from "./index"
 
 describe("native UI protocol", () => {
   test("parses every versioned surface kind", () => {
-    const base = { id: "surface-1", title: "Example", controls: [] };
-    expect(SurfaceSchema.parse({ ...base, kind: "dialog" }).kind).toBe(
-      "dialog",
-    );
+    const base = { id: "surface-1", title: "Example", controls: [] }
+    expect(SurfaceSchema.parse({ ...base, kind: "dialog" }).kind).toBe("dialog")
     expect(
       SurfaceSchema.parse({
         ...base,
         kind: "popover",
         anchor: { x: 0, y: 0, width: 10, height: 10 },
       }).kind,
-    ).toBe("popover");
-    expect(
-      NotificationSurfaceSchema.parse({ ...base, kind: "notification" })
-        .severity,
-    ).toBe("info");
+    ).toBe("popover")
+    expect(NotificationSurfaceSchema.parse({ ...base, kind: "notification" }).severity).toBe("info")
     expect(
       SurfaceSchema.parse({
         ...base,
         kind: "menu",
         items: [{ id: "item-1", label: "Open" }],
       }).kind,
-    ).toBe("menu");
-  });
+    ).toBe("menu")
+  })
 
   test("rejects malformed discriminated values", () => {
-    expect(() => ActionSchema.parse({ type: "invoke", action: "" })).toThrow();
+    expect(() => ActionSchema.parse({ type: "invoke", action: "" })).toThrow()
     expect(() =>
       SurfaceSchema.parse({
         kind: "dialog",
@@ -42,8 +37,8 @@ describe("native UI protocol", () => {
         title: "x",
         controls: [{ type: "unknown" }],
       }),
-    ).toThrow();
-  });
+    ).toThrow()
+  })
 
   test("validates capabilities and transport envelopes", () => {
     expect(
@@ -53,7 +48,7 @@ describe("native UI protocol", () => {
         controls: ["button"],
         actions: ["invoke"],
       }).maxSurfaces,
-    ).toBe(100);
+    ).toBe(100)
     expect(
       TransportEnvelopeSchema.parse({
         version: 1,
@@ -61,6 +56,6 @@ describe("native UI protocol", () => {
         kind: "event",
         payload: { ok: true },
       }).version,
-    ).toBe(1);
-  });
-});
+    ).toBe(1)
+  })
+})

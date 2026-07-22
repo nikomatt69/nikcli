@@ -12340,6 +12340,1587 @@ export type DoctorRunResponses = {
 
 export type DoctorRunResponse = DoctorRunResponses[keyof DoctorRunResponses]
 
+export type NativeUiCapabilitiesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/native-ui/capabilities"
+}
+
+export type NativeUiCapabilitiesResponses = {
+  /**
+   * Native UI capabilities
+   */
+  200: {
+    version: 1
+    surfaces: Array<"dialog" | "popover" | "notification" | "menu">
+    controls: Array<"button" | "link" | "text-input" | "select" | "checkbox" | "progress" | "separator">
+    actions: Array<"dismiss-surface" | "invoke" | "open-url" | "update-control">
+    maxSurfaces?: number
+  }
+}
+
+export type NativeUiCapabilitiesResponse = NativeUiCapabilitiesResponses[keyof NativeUiCapabilitiesResponses]
+
+export type NativeUiListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/native-ui/surfaces"
+}
+
+export type NativeUiListResponses = {
+  /**
+   * Native UI surfaces
+   */
+  200: Array<
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "dialog"
+        modal?: boolean
+        width?: "small" | "medium" | "large"
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "popover"
+        anchor: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }
+        placement?: "top" | "right" | "bottom" | "left"
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "notification"
+        severity?: "info" | "success" | "warning" | "error"
+        durationMs?: number
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "menu"
+        items: Array<{
+          id: string
+          label: string
+          action?: string
+          disabled?: boolean
+          checked?: boolean
+        }>
+      }
+  >
+}
+
+export type NativeUiListResponse = NativeUiListResponses[keyof NativeUiListResponses]
+
+export type PostNativeUiSurfacesData = {
+  body?:
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "dialog"
+        modal?: boolean
+        width?: "small" | "medium" | "large"
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "popover"
+        anchor: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }
+        placement?: "top" | "right" | "bottom" | "left"
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "notification"
+        severity?: "info" | "success" | "warning" | "error"
+        durationMs?: number
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "menu"
+        items: Array<{
+          id: string
+          label: string
+          action?: string
+          disabled?: boolean
+          checked?: boolean
+        }>
+      }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/native-ui/surfaces"
+}
+
+export type PostNativeUiSurfacesResponses = {
+  200: unknown
+}
+
+export type DeleteNativeUiSurfacesIdData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/native-ui/surfaces/{id}"
+}
+
+export type DeleteNativeUiSurfacesIdResponses = {
+  200: unknown
+}
+
+export type PutNativeUiSurfacesIdData = {
+  body?:
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "dialog"
+        modal?: boolean
+        width?: "small" | "medium" | "large"
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "popover"
+        anchor: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }
+        placement?: "top" | "right" | "bottom" | "left"
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "notification"
+        severity?: "info" | "success" | "warning" | "error"
+        durationMs?: number
+      }
+    | {
+        id: string
+        title: string
+        body?: string
+        controls?: Array<
+          | {
+              type: "button"
+              id: string
+              label: string
+              action: string
+              disabled?: boolean
+              destructive?: boolean
+            }
+          | {
+              type: "link"
+              id: string
+              label: string
+              url: string
+              disabled?: boolean
+            }
+          | {
+              type: "text-input"
+              id: string
+              label?: string
+              value?: string
+              placeholder?: string
+              secure?: boolean
+              multiline?: boolean
+              required?: boolean
+            }
+          | {
+              type: "select"
+              id: string
+              label: string
+              value?: string
+              options: Array<{
+                id: string
+                label: string
+                disabled?: boolean
+              }>
+            }
+          | {
+              type: "checkbox"
+              id: string
+              label: string
+              checked: boolean
+              disabled?: boolean
+            }
+          | {
+              type: "progress"
+              id: string
+              label?: string
+              value: number
+              detail?: string
+              indeterminate?: boolean
+            }
+          | {
+              type: "separator"
+              id?: string
+            }
+        >
+        dismissible?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        kind: "menu"
+        items: Array<{
+          id: string
+          label: string
+          action?: string
+          disabled?: boolean
+          checked?: boolean
+        }>
+      }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/native-ui/surfaces/{id}"
+}
+
+export type PutNativeUiSurfacesIdResponses = {
+  200: unknown
+}
+
+export type PostNativeUiEventsData = {
+  body?:
+    | {
+        type: "surface-opened"
+        surface:
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "dialog"
+              modal?: boolean
+              width?: "small" | "medium" | "large"
+            }
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "popover"
+              anchor: {
+                x: number
+                y: number
+                width: number
+                height: number
+              }
+              placement?: "top" | "right" | "bottom" | "left"
+            }
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "notification"
+              severity?: "info" | "success" | "warning" | "error"
+              durationMs?: number
+            }
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "menu"
+              items: Array<{
+                id: string
+                label: string
+                action?: string
+                disabled?: boolean
+                checked?: boolean
+              }>
+            }
+      }
+    | {
+        type: "surface-updated"
+        surface:
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "dialog"
+              modal?: boolean
+              width?: "small" | "medium" | "large"
+            }
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "popover"
+              anchor: {
+                x: number
+                y: number
+                width: number
+                height: number
+              }
+              placement?: "top" | "right" | "bottom" | "left"
+            }
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "notification"
+              severity?: "info" | "success" | "warning" | "error"
+              durationMs?: number
+            }
+          | {
+              id: string
+              title: string
+              body?: string
+              controls?: Array<
+                | {
+                    type: "button"
+                    id: string
+                    label: string
+                    action: string
+                    disabled?: boolean
+                    destructive?: boolean
+                  }
+                | {
+                    type: "link"
+                    id: string
+                    label: string
+                    url: string
+                    disabled?: boolean
+                  }
+                | {
+                    type: "text-input"
+                    id: string
+                    label?: string
+                    value?: string
+                    placeholder?: string
+                    secure?: boolean
+                    multiline?: boolean
+                    required?: boolean
+                  }
+                | {
+                    type: "select"
+                    id: string
+                    label: string
+                    value?: string
+                    options: Array<{
+                      id: string
+                      label: string
+                      disabled?: boolean
+                    }>
+                  }
+                | {
+                    type: "checkbox"
+                    id: string
+                    label: string
+                    checked: boolean
+                    disabled?: boolean
+                  }
+                | {
+                    type: "progress"
+                    id: string
+                    label?: string
+                    value: number
+                    detail?: string
+                    indeterminate?: boolean
+                  }
+                | {
+                    type: "separator"
+                    id?: string
+                  }
+              >
+              dismissible?: boolean
+              metadata?: {
+                [key: string]: unknown
+              }
+              kind: "menu"
+              items: Array<{
+                id: string
+                label: string
+                action?: string
+                disabled?: boolean
+                checked?: boolean
+              }>
+            }
+      }
+    | {
+        type: "surface-closed"
+        surfaceId: string
+        reason: "dismissed" | "action" | "replaced" | "system"
+      }
+    | {
+        type: "control-activated"
+        surfaceId: string
+        controlId: string
+        action:
+          | {
+              type: "dismiss-surface"
+              surfaceId: string
+            }
+          | {
+              type: "invoke"
+              action: string
+              payload?: {
+                [key: string]: unknown
+              }
+            }
+          | {
+              type: "open-url"
+              url: string
+            }
+          | {
+              type: "update-control"
+              surfaceId: string
+              controlId: string
+              value: unknown
+            }
+      }
+    | {
+        type: "control-changed"
+        surfaceId: string
+        controlId: string
+        value: unknown
+      }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/native-ui/events"
+}
+
+export type PostNativeUiEventsResponses = {
+  200: unknown
+}
+
 export type InstanceDisposeData = {
   body?: never
   path?: never
