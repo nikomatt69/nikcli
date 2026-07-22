@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.192.0 (July 2026)
+
+## Core
+
+- Integrate auth package and enhance rate limiting (@nikomatt69)
+- Remove NativeUI references and related tests (@nikomatt69)
+- Remove native-control package and related files (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(native-control): remove native-control package and related files
+  - refactor(native-ui): remove NativeUI references and related tests
+  - feat(inference): integrate auth package and enhance rate limiting
+
 ## v1.188.0 (July 2026)
 
 ## Core

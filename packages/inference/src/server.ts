@@ -65,47 +65,47 @@ app.get("/v1/models", (c) => {
   const canonical = Object.entries(MODELS)
     .filter(([id]) => visible(id))
     .map(([id, info]) => {
-    const routes = getRoutesForModel(id as ModelId)
-    const support = THINKING_SUPPORT[id as ModelId]
-    return {
-      id,
-      object: "model",
-      created: Date.now(),
-      owned_by: info.provider,
-      context_window: info.context,
-      params: info.params,
-      hf_id: info.hfId,
-      pricing: { input: info.input, output: info.output },
-      thinking: support ?? null,
-      routes: includeRoutes
-        ? routes.map((r) => ({
-            provider: r.provider,
-            upstreamModel: r.upstreamModel,
-            input: r.input,
-            output: r.output,
-            estimated: r.estimated ?? false,
-            enabled: getRegistry().isEnabled(r.provider),
-          }))
-        : undefined,
-    }
-  })
+      const routes = getRoutesForModel(id as ModelId)
+      const support = THINKING_SUPPORT[id as ModelId]
+      return {
+        id,
+        object: "model",
+        created: Date.now(),
+        owned_by: info.provider,
+        context_window: info.context,
+        params: info.params,
+        hf_id: info.hfId,
+        pricing: { input: info.input, output: info.output },
+        thinking: support ?? null,
+        routes: includeRoutes
+          ? routes.map((r) => ({
+              provider: r.provider,
+              upstreamModel: r.upstreamModel,
+              input: r.input,
+              output: r.output,
+              estimated: r.estimated ?? false,
+              enabled: getRegistry().isEnabled(r.provider),
+            }))
+          : undefined,
+      }
+    })
   const aliased = Object.entries(MODEL_ALIASES)
     .filter(([, target]) => visible(target))
     .map(([alias, target]) => {
       const info = MODELS[target]
       return {
-      id: alias,
-      object: "model",
-      created: Date.now(),
-      owned_by: info.provider,
-      context_window: info.context,
-      params: info.params,
-      hf_id: info.hfId,
-      pricing: { input: info.input, output: info.output },
-      alias_of: target,
-      thinking: THINKING_SUPPORT[target] ?? null,
-    }
-  })
+        id: alias,
+        object: "model",
+        created: Date.now(),
+        owned_by: info.provider,
+        context_window: info.context,
+        params: info.params,
+        hf_id: info.hfId,
+        pricing: { input: info.input, output: info.output },
+        alias_of: target,
+        thinking: THINKING_SUPPORT[target] ?? null,
+      }
+    })
   // Emit `:thinking` variants for every model+alias that supports optional reasoning.
   const variants: Array<Record<string, unknown>> = []
   for (const [id, info] of Object.entries(MODELS)) {
@@ -164,7 +164,9 @@ app.post("/v1/chat/completions", async (c) => {
   const resolvedModel = resolved.id
   if (loadEnv().INFERENCE_FREE_ONLY && !isFreeModel(resolvedModel)) {
     return c.json(
-      { error: { message: `Model '${body.model}' is not available on the free gateway`, type: "invalid_request_error" } },
+      {
+        error: { message: `Model '${body.model}' is not available on the free gateway`, type: "invalid_request_error" },
+      },
       404,
     )
   }
