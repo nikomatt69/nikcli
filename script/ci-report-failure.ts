@@ -85,8 +85,11 @@ async function main() {
   const autofixResult = process.env.AUTOFIX_ATTEMPTED || "skipped"
 
   if (!token) {
-    console.error("GITHUB_TOKEN is not set. Cannot post failure report.")
-    process.exit(1)
+    // Reporting is best-effort: without a token (e.g. a context where no
+    // secrets are exposed) there is nothing useful to do, and failing here
+    // would only add a second red job on top of the real validation failure.
+    console.error("GITHUB_TOKEN is not set. Skipping failure report.")
+    return
   }
 
   const [owner, repoName] = repo.split("/")

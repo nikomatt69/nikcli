@@ -156,7 +156,10 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.SST_GITHUB_TOKEN }}
+          # SST_GITHUB_TOKEN is unavailable on Dependabot-triggered runs
+          # (Dependabot uses its own secrets context), so fall back to the
+          # workflow token to keep these jobs from erroring.
+          token: ${{ secrets.SST_GITHUB_TOKEN || github.token }}
 
       - name: Setup Bun
         if: steps.skip-check.outputs.skip != 'true'
@@ -175,8 +178,8 @@ jobs:
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           NIKCLI_AUTOFIX_MODEL: ${{ vars.NIKCLI_AUTOFIX_MODEL || 'minimax-coding-plan/MiniMax-M3' }}
-          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN || github.token }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SHA: ${{ github.sha }}
@@ -223,7 +226,7 @@ jobs:
       - name: Report failure
         run: bun run script/ci-report-failure.ts
         env:
-          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN || github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
