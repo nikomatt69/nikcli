@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from "react"
-import { Animated, LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
-import * as Clipboard from "expo-clipboard"
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  LayoutAnimation,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import * as Clipboard from "expo-clipboard";
 import {
   ChevronDown,
   ChevronRight,
@@ -11,94 +18,150 @@ import {
   SquareTerminal,
   Wrench,
   type LucideIcon,
-} from "lucide-react-native"
-import type { ToolPart } from "@/lib/types"
-import { usePrefersReducedMotion } from "@/lib/animation"
-import { useAppTheme } from "@/lib/theme"
+} from "lucide-react-native";
+import type { ToolPart } from "@/lib/types";
+import { usePrefersReducedMotion } from "@/lib/animation";
+import { useAppTheme } from "@/lib/theme";
+import { useCopiedFeedback } from "@/hooks/use-copied-feedback";
 
 function toolIcon(toolName: string): LucideIcon {
-  const value = toolName.toLowerCase()
-  if (value.includes("bash") || value.includes("execute") || value.includes("shell") || value.includes("run")) {
-    return SquareTerminal
+  const value = toolName.toLowerCase();
+  if (
+    value.includes("bash") ||
+    value.includes("execute") ||
+    value.includes("shell") ||
+    value.includes("run")
+  ) {
+    return SquareTerminal;
   }
-  if (value.includes("write") || value.includes("edit") || value.includes("read")) return FileCode2
-  if (value.includes("glob") || value.includes("list")) return Folder
-  if (value.includes("grep") || value.includes("search")) return Search
-  if (value.includes("webfetch") || value.includes("websearch") || value.includes("fetch") || value.includes("http")) {
-    return Globe
+  if (
+    value.includes("write") ||
+    value.includes("edit") ||
+    value.includes("read")
+  )
+    return FileCode2;
+  if (value.includes("glob") || value.includes("list")) return Folder;
+  if (value.includes("grep") || value.includes("search")) return Search;
+  if (
+    value.includes("webfetch") ||
+    value.includes("websearch") ||
+    value.includes("fetch") ||
+    value.includes("http")
+  ) {
+    return Globe;
   }
-  return Wrench
+  return Wrench;
 }
 
 function statusDotColor(
   status: string,
   colors: { warn: string; success: string; danger: string; muted: string },
 ): string {
-  if (status === "running") return colors.warn
-  if (status === "completed") return colors.success
-  if (status === "error") return colors.danger
-  return colors.muted
+  if (status === "running") return colors.warn;
+  if (status === "completed") return colors.success;
+  if (status === "error") return colors.danger;
+  return colors.muted;
 }
 
 function stringifyValue(value: unknown): string {
-  if (typeof value === "string") return value || ""
-  if (value === undefined || value === null) return ""
+  if (typeof value === "string") return value || "";
+  if (value === undefined || value === null) return "";
 
   try {
-    return JSON.stringify(value)
+    return JSON.stringify(value);
   } catch {
-    return String(value)
+    return String(value);
   }
 }
 
 export function ToolCallView(props: { part: ToolPart }) {
-  const { palette, isDark } = useAppTheme()
-  const prefersReducedMotion = usePrefersReducedMotion()
-  const [open, setOpen] = useState(false)
-  const [showAllOutput, setShowAllOutput] = useState(false)
-  const [copiedOutput, setCopiedOutput] = useState(false)
-  const state = props.part.state
-  const status = state.status
-  const Icon = toolIcon(props.part.tool)
-  const pulseAnimRef = useRef<Animated.Value | null>(null)
-  if (pulseAnimRef.current === null) pulseAnimRef.current = new Animated.Value(1)
-  const pulseAnim = pulseAnimRef.current
+  const { palette, isDark } = useAppTheme();
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [open, setOpen] = useState(false);
+  const [showAllOutput, setShowAllOutput] = useState(false);
+  const [copiedOutput, markCopiedOutput] = useCopiedFeedback(1600);
+  const state = props.part.state;
+  const status = state.status;
+  const Icon = toolIcon(props.part.tool);
+  const pulseAnimRef = useRef<Animated.Value | null>(null);
+  if (pulseAnimRef.current === null)
+    pulseAnimRef.current = new Animated.Value(1);
+  const pulseAnim = pulseAnimRef.current;
 
   useEffect(() => {
     if (status !== "running" || prefersReducedMotion) {
-      pulseAnim.setValue(1)
-      return
+      pulseAnim.setValue(1);
+      return;
     }
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 0.25, duration: 520, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 520, useNativeDriver: true }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.25,
+          duration: 520,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 520,
+          useNativeDriver: true,
+        }),
       ]),
-    )
-    animation.start()
-    return () => animation.stop()
-  }, [prefersReducedMotion, pulseAnim, status])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [prefersReducedMotion, pulseAnim, status]);
 
   function toggle() {
     if (!prefersReducedMotion) {
       LayoutAnimation.configureNext({
         duration: 240,
-        create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
-        update: { type: LayoutAnimation.Types.spring, springDamping: 1, duration: 240 },
-        delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
-      })
+        create: {
+          type: LayoutAnimation.Types.easeOut,
+          property: LayoutAnimation.Properties.opacity,
+          duration: 200,
+        },
+        update: {
+          type: LayoutAnimation.Types.spring,
+          springDamping: 1,
+          duration: 240,
+        },
+        delete: {
+          type: LayoutAnimation.Types.easeIn,
+          property: LayoutAnimation.Properties.opacity,
+          duration: 130,
+        },
+      });
     }
-    setOpen((value) => !value)
+    setOpen((value) => !value);
   }
 
-  const title = status === "running" || status === "completed" ? state.title : undefined
+  const title =
+    status === "running" || status === "completed" ? state.title : undefined;
   const timing =
-    status === "completed" || status === "error" ? `${Math.max(0, state.time.end - state.time.start)}ms` : undefined
-  const rawOutput = status === "completed" ? state.output : status === "error" ? state.error : undefined
-  const output = typeof rawOutput === "string" ? rawOutput : rawOutput != null ? String(rawOutput) : ""
-  const inputEntries = Object.entries(state.input ?? {})
+    status === "completed" || status === "error"
+      ? `${Math.max(0, state.time.end - state.time.start)}ms`
+      : undefined;
+  const rawOutput =
+    status === "completed"
+      ? state.output
+      : status === "error"
+        ? state.error
+        : undefined;
+  const output =
+    typeof rawOutput === "string"
+      ? rawOutput
+      : rawOutput != null
+        ? String(rawOutput)
+        : "";
+  const inputEntries = Object.entries(state.input ?? {});
   const statusLabel =
-    status === "running" ? "Running" : status === "completed" ? "Completed" : status === "error" ? "Failed" : "Idle"
+    status === "running"
+      ? "Running"
+      : status === "completed"
+        ? "Completed"
+        : status === "error"
+          ? "Failed"
+          : "Idle";
   const statusBackground =
     status === "running"
       ? isDark
@@ -114,7 +177,7 @@ export function ToolCallView(props: { part: ToolPart }) {
             : "rgba(207,45,86,0.10)"
           : isDark
             ? "rgba(255,255,255,0.05)"
-            : "rgba(247,246,242,0.8)"
+            : "rgba(247,246,242,0.8)";
   const statusBorder =
     status === "running"
       ? isDark
@@ -130,21 +193,24 @@ export function ToolCallView(props: { part: ToolPart }) {
             : "rgba(207,45,86,0.22)"
           : isDark
             ? "rgba(255,255,255,0.08)"
-            : "rgba(218,216,209,0.72)"
+            : "rgba(218,216,209,0.72)";
 
   async function copyOutput() {
-    if (!output) return
-    await Clipboard.setStringAsync(output)
-    setCopiedOutput(true)
-    setTimeout(() => setCopiedOutput(false), 1600)
+    if (!output) return;
+    await Clipboard.setStringAsync(output);
+    markCopiedOutput();
   }
 
   return (
     <View
       className="min-w-0 overflow-hidden rounded-[20px] border"
       style={{
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.78)",
-        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(247,246,242,0.78)",
+        borderColor: isDark
+          ? "rgba(255,255,255,0.08)"
+          : "rgba(218,216,209,0.78)",
+        backgroundColor: isDark
+          ? "rgba(255,255,255,0.04)"
+          : "rgba(247,246,242,0.78)",
       }}
     >
       <Pressable
@@ -153,7 +219,11 @@ export function ToolCallView(props: { part: ToolPart }) {
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${props.part.tool || "Tool"} ${open ? "details expanded" : "details collapsed"}`}
-        accessibilityHint={open ? "Double tap to collapse tool details" : "Double tap to expand tool details"}
+        accessibilityHint={
+          open
+            ? "Double tap to collapse tool details"
+            : "Double tap to expand tool details"
+        }
       >
         <View className="flex-1 flex-row items-center gap-2">
           <Animated.View
@@ -177,7 +247,10 @@ export function ToolCallView(props: { part: ToolPart }) {
               {props.part.tool || "Unknown tool"}
             </Text>
             {title ? (
-              <Text className="mt-0.5 text-[11px] leading-4 text-soft" numberOfLines={2}>
+              <Text
+                className="mt-0.5 text-[11px] leading-4 text-soft"
+                numberOfLines={2}
+              >
                 {title}
               </Text>
             ) : null}
@@ -199,7 +272,10 @@ export function ToolCallView(props: { part: ToolPart }) {
           >
             <Text
               style={{
-                color: status === "error" && !isDark ? palette.danger : palette.accentLight,
+                color:
+                  status === "error" && !isDark
+                    ? palette.danger
+                    : palette.accentLight,
                 fontSize: 10,
                 fontWeight: "700",
                 letterSpacing: 0.8,
@@ -211,7 +287,10 @@ export function ToolCallView(props: { part: ToolPart }) {
           </View>
           {timing ? (
             <View className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
-              <Text className="text-[10px] text-soft" style={{ fontVariant: ["tabular-nums"] }}>
+              <Text
+                className="text-[10px] text-soft"
+                style={{ fontVariant: ["tabular-nums"] }}
+              >
                 {timing}
               </Text>
             </View>
@@ -227,10 +306,14 @@ export function ToolCallView(props: { part: ToolPart }) {
         <View className="gap-3 border-t border-border px-3 py-2.5">
           {inputEntries.length > 0 ? (
             <View className="rounded-[16px] border border-border/70 bg-surface p-3">
-              <Text className="mb-2 text-[12px] font-medium text-muted">Input</Text>
+              <Text className="mb-2 text-[12px] font-medium text-muted">
+                Input
+              </Text>
               {inputEntries.map(([key, value]) => (
                 <View key={key} className="mb-1 min-w-0 flex-row gap-2">
-                  <Text className="shrink-0 font-mono text-xs text-soft">{key}:</Text>
+                  <Text className="shrink-0 font-mono text-xs text-soft">
+                    {key}:
+                  </Text>
                   <ScrollView
                     horizontal
                     nestedScrollEnabled
@@ -239,7 +322,10 @@ export function ToolCallView(props: { part: ToolPart }) {
                     style={{ flexGrow: 0 }}
                     contentContainerStyle={{ alignSelf: "flex-start" }}
                   >
-                    <Text selectable className="font-mono text-xs leading-5 text-soft">
+                    <Text
+                      selectable
+                      className="font-mono text-xs leading-5 text-soft"
+                    >
                       {stringifyValue(value)}
                     </Text>
                   </ScrollView>
@@ -250,7 +336,9 @@ export function ToolCallView(props: { part: ToolPart }) {
           {rawOutput !== undefined ? (
             <View className="rounded-[16px] border border-border/70 bg-surface p-3">
               <View className="mb-2 flex-row items-center justify-between gap-2">
-                <Text className="text-[12px] font-medium text-muted">Output</Text>
+                <Text className="text-[12px] font-medium text-muted">
+                  Output
+                </Text>
                 {output ? (
                   <Pressable
                     onPress={copyOutput}
@@ -258,7 +346,9 @@ export function ToolCallView(props: { part: ToolPart }) {
                     accessibilityLabel="Copy tool output"
                     className="rounded-full border border-border/70 px-2.5 py-1"
                   >
-                    <Text className="text-[10px] font-semibold text-soft">{copiedOutput ? "Copied" : "Copy"}</Text>
+                    <Text className="text-[10px] font-semibold text-soft">
+                      {copiedOutput ? "Copied" : "Copy"}
+                    </Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -270,15 +360,23 @@ export function ToolCallView(props: { part: ToolPart }) {
                   style={{ flexGrow: 0 }}
                   contentContainerStyle={{ alignSelf: "flex-start" }}
                 >
-                  <Text selectable className="font-mono text-xs leading-5 text-soft">
+                  <Text
+                    selectable
+                    className="font-mono text-xs leading-5 text-soft"
+                  >
                     {showAllOutput ? output : output.slice(0, 400)}
                   </Text>
                 </ScrollView>
               </View>
               {output.length > 400 ? (
-                <Pressable onPress={() => setShowAllOutput((value) => !value)} className="mt-2">
+                <Pressable
+                  onPress={() => setShowAllOutput((value) => !value)}
+                  className="mt-2"
+                >
                   <Text className="text-[11px] font-semibold text-accent-light">
-                    {showAllOutput ? "Show less" : `Show all (${output.length} chars)`}
+                    {showAllOutput
+                      ? "Show less"
+                      : `Show all (${output.length} chars)`}
                   </Text>
                 </Pressable>
               ) : null}
@@ -287,5 +385,5 @@ export function ToolCallView(props: { part: ToolPart }) {
         </View>
       ) : null}
     </View>
-  )
+  );
 }

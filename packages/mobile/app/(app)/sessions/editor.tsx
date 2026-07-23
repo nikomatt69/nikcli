@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -10,12 +10,12 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native"
-import { router, useLocalSearchParams } from "expo-router"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { CaseSensitive } from "lucide-react-native"
-import * as Clipboard from "expo-clipboard"
-import * as SecureStore from "expo-secure-store"
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CaseSensitive } from "lucide-react-native";
+import * as Clipboard from "expo-clipboard";
+import * as SecureStore from "expo-secure-store";
 import {
   ArrowLeft,
   Check,
@@ -28,29 +28,44 @@ import {
   Save,
   Search,
   X,
-} from "lucide-react-native"
-import { AdaptiveBlur } from "@/components/GlassView"
-import { ActionSheet, ActionSheetDivider, ActionSheetItem, useActionSheetRef } from "@/components/BottomSheet"
-import { SkeletonBox } from "@/components/Skeleton"
-import { ActionButton } from "@/components/ui/ActionButton"
-import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
-import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
-import { GitFileStatusBadge } from "@/components/git/GitFileStatusBadge"
-import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
-import { triggerHaptic } from "@/lib/haptics"
-import { detectLanguage, highlightCode, DRACULA, type Segment } from "@/lib/syntax"
-import { PRESS_SPRING, useStaggeredAnimation, getAnimatedStyle } from "@/lib/animation"
-import { useEditorStore } from "@/lib/useEditorStore"
-import type { FileNode } from "@/lib/types"
+} from "lucide-react-native";
+import { AdaptiveBlur } from "@/components/GlassView";
+import {
+  ActionSheet,
+  ActionSheetDivider,
+  ActionSheetItem,
+  useActionSheetRef,
+} from "@/components/BottomSheet";
+import { SkeletonBox } from "@/components/Skeleton";
+import { ActionButton } from "@/components/ui/ActionButton";
+import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb";
+import { FileSearchSheet } from "@/components/editor/FileSearchSheet";
+import { GitFileStatusBadge } from "@/components/git/GitFileStatusBadge";
+import { useCopiedFeedback } from "@/hooks/use-copied-feedback";
+import { useServer } from "@/lib/server-context";
+import { useAppTheme } from "@/lib/theme";
+import { triggerHaptic } from "@/lib/haptics";
+import {
+  detectLanguage,
+  highlightCode,
+  DRACULA,
+  type Segment,
+} from "@/lib/syntax";
+import {
+  PRESS_SPRING,
+  useStaggeredAnimation,
+  getAnimatedStyle,
+} from "@/lib/animation";
+import { useEditorStore } from "@/lib/useEditorStore";
+import type { FileNode } from "@/lib/types";
 
-const MONO = Platform.OS === "ios" ? "Menlo" : "monospace"
-const LINE_HEIGHT = 18
-const FONT_SIZE = 12.5
-const RECENT_SEARCHES_KEY = "editor_recent_searches"
-const MAX_RECENT_SEARCHES = 5
-const LARGE_FILE_CHAR_LIMIT = 250_000
-const LARGE_FILE_LINE_LIMIT = 5_000
+const MONO = Platform.OS === "ios" ? "Menlo" : "monospace";
+const LINE_HEIGHT = 18;
+const FONT_SIZE = 12.5;
+const RECENT_SEARCHES_KEY = "editor_recent_searches";
+const MAX_RECENT_SEARCHES = 5;
+const LARGE_FILE_CHAR_LIMIT = 250_000;
+const LARGE_FILE_LINE_LIMIT = 5_000;
 
 // Light-mode syntax color overrides
 const LIGHT_SYNTAX: Record<string, string> = {
@@ -62,70 +77,78 @@ const LIGHT_SYNTAX: Record<string, string> = {
   [DRACULA.operator]: "#0284c7",
   [DRACULA.foreground]: "#1a1a1a",
   [DRACULA.muted]: "#75746e",
-}
+};
 
 export default function EditorScreen() {
-  const { palette, isDark } = useAppTheme()
-  const { top, bottom } = useSafeAreaInsets()
-  const { sessionId, filePath, absolute, directory, highlightLine } = useLocalSearchParams<{
-    sessionId: string
-    filePath: string
-    absolute: string
-    directory: string
-    highlightLine?: string
-  }>()
-  const { client } = useServer()
-  const { openFile, updateContent, markSaved, openFiles } = useEditorStore()
+  const { palette, isDark } = useAppTheme();
+  const { top, bottom } = useSafeAreaInsets();
+  const { sessionId, filePath, absolute, directory, highlightLine } =
+    useLocalSearchParams<{
+      sessionId: string;
+      filePath: string;
+      absolute: string;
+      directory: string;
+      highlightLine?: string;
+    }>();
+  const { client } = useServer();
+  const { openFile, updateContent, markSaved, openFiles } = useEditorStore();
 
-  const [mode, setMode] = useState<"view" | "edit">("view")
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [savedFeedback, setSavedFeedback] = useState(false)
-  const [gitStatus, setGitStatus] = useState<FileNode["gitStatus"]>()
-  const [findOpen, setFindOpen] = useState(false)
-  const [fileSearchOpen, setFileSearchOpen] = useState(false)
-  const [findQuery, setFindQuery] = useState("")
-  const [activeFindIndex, setActiveFindIndex] = useState(0)
-  const [caseSensitive, setCaseSensitive] = useState(false)
-  const [wordWrap, setWordWrap] = useState(false)
-  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, markCopied] = useCopiedFeedback(1500);
+  const [savedFeedback, setSavedFeedback] = useState(false);
+  const [gitStatus, setGitStatus] = useState<FileNode["gitStatus"]>();
+  const [findOpen, setFindOpen] = useState(false);
+  const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [activeFindIndex, setActiveFindIndex] = useState(0);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [wordWrap, setWordWrap] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-  const stored = absolute ? openFiles[absolute] : undefined
-  const content = stored?.content ?? ""
-  const dirty = stored?.dirty ?? false
+  const stored = absolute ? openFiles[absolute] : undefined;
+  const content = stored?.content ?? "";
+  const dirty = stored?.dirty ?? false;
 
-  const targetLine = highlightLine ? parseInt(highlightLine, 10) : undefined
-  const scrollRef = useRef<ScrollView>(null)
-  const editInputRef = useRef<TextInput>(null)
+  const targetLine = highlightLine ? parseInt(highlightLine, 10) : undefined;
+  const scrollRef = useRef<ScrollView>(null);
+  const editInputRef = useRef<TextInput>(null);
 
   // ── Animation refs ─────────────────────────────────────────────
-  const unsavedSheetRef = useActionSheetRef()
-  const toolsSheetRef = useActionSheetRef()
-  const contentAnims = useStaggeredAnimation(2, 80)
-  const findBarAnimRef = useRef<Animated.Value | null>(null)
-  if (findBarAnimRef.current === null) findBarAnimRef.current = new Animated.Value(0)
-  const findBarAnim = findBarAnimRef.current
-  const backScaleRef = useRef<Animated.Value | null>(null)
-  if (backScaleRef.current === null) backScaleRef.current = new Animated.Value(1)
-  const backScale = backScaleRef.current
-  const findScaleRef = useRef<Animated.Value | null>(null)
-  if (findScaleRef.current === null) findScaleRef.current = new Animated.Value(1)
-  const findScale = findScaleRef.current
-  const modeScaleRef = useRef<Animated.Value | null>(null)
-  if (modeScaleRef.current === null) modeScaleRef.current = new Animated.Value(1)
-  const modeScale = modeScaleRef.current
-  const moreScaleRef = useRef<Animated.Value | null>(null)
-  if (moreScaleRef.current === null) moreScaleRef.current = new Animated.Value(1)
-  const moreScale = moreScaleRef.current
-  const saveScaleRef = useRef<Animated.Value | null>(null)
-  if (saveScaleRef.current === null) saveScaleRef.current = new Animated.Value(1)
-  const saveScale = saveScaleRef.current
+  const unsavedSheetRef = useActionSheetRef();
+  const toolsSheetRef = useActionSheetRef();
+  const contentAnims = useStaggeredAnimation(2, 80);
+  const findBarAnimRef = useRef<Animated.Value | null>(null);
+  if (findBarAnimRef.current === null)
+    findBarAnimRef.current = new Animated.Value(0);
+  const findBarAnim = findBarAnimRef.current;
+  const backScaleRef = useRef<Animated.Value | null>(null);
+  if (backScaleRef.current === null)
+    backScaleRef.current = new Animated.Value(1);
+  const backScale = backScaleRef.current;
+  const findScaleRef = useRef<Animated.Value | null>(null);
+  if (findScaleRef.current === null)
+    findScaleRef.current = new Animated.Value(1);
+  const findScale = findScaleRef.current;
+  const modeScaleRef = useRef<Animated.Value | null>(null);
+  if (modeScaleRef.current === null)
+    modeScaleRef.current = new Animated.Value(1);
+  const modeScale = modeScaleRef.current;
+  const moreScaleRef = useRef<Animated.Value | null>(null);
+  if (moreScaleRef.current === null)
+    moreScaleRef.current = new Animated.Value(1);
+  const moreScale = moreScaleRef.current;
+  const saveScaleRef = useRef<Animated.Value | null>(null);
+  if (saveScaleRef.current === null)
+    saveScaleRef.current = new Animated.Value(1);
+  const saveScale = saveScaleRef.current;
   // Local toggle animation with useNativeDriver:false for color interpolation
-  const modeProgressRef = useRef<Animated.Value | null>(null)
-  if (modeProgressRef.current === null) modeProgressRef.current = new Animated.Value(mode === "edit" ? 1 : 0)
-  const modeProgress = modeProgressRef.current
+  const modeProgressRef = useRef<Animated.Value | null>(null);
+  if (modeProgressRef.current === null)
+    modeProgressRef.current = new Animated.Value(mode === "edit" ? 1 : 0);
+  const modeProgress = modeProgressRef.current;
   useEffect(() => {
     Animated.spring(modeProgress, {
       toValue: mode === "edit" ? 1 : 0,
@@ -133,40 +156,51 @@ export default function EditorScreen() {
       stiffness: 200,
       mass: 0.5,
       useNativeDriver: false,
-    }).start()
-  }, [mode, modeProgress])
+    }).start();
+  }, [mode, modeProgress]);
 
-  const filename = useMemo(() => (filePath ?? "").split("/").pop() ?? "file", [filePath])
+  const filename = useMemo(
+    () => (filePath ?? "").split("/").pop() ?? "file",
+    [filePath],
+  );
   const breadcrumbSegments = useMemo(() => {
-    if (!filePath || !directory) return []
-    const rel = filePath.replace(directory.replace(/\/$/, ""), "").replace(/^\//, "")
-    return rel.split("/").filter(Boolean)
-  }, [filePath, directory])
+    if (!filePath || !directory) return [];
+    const rel = filePath
+      .replace(directory.replace(/\/$/, ""), "")
+      .replace(/^\//, "");
+    return rel.split("/").filter(Boolean);
+  }, [filePath, directory]);
 
-  const language = useMemo(() => detectLanguage(filename), [filename])
+  const language = useMemo(() => detectLanguage(filename), [filename]);
   const findMatches = useMemo(() => {
-    const query = findQuery.trim()
-    if (!query) return []
-    const lines = content.split("\n")
-    const matches: Array<{ line: string; lineNumber: number }> = []
+    const query = findQuery.trim();
+    if (!query) return [];
+    const lines = content.split("\n");
+    const matches: Array<{ line: string; lineNumber: number }> = [];
     if (caseSensitive) {
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(query)) matches.push({ line: lines[i], lineNumber: i + 1 })
+        if (lines[i].includes(query))
+          matches.push({ line: lines[i], lineNumber: i + 1 });
       }
-      return matches
+      return matches;
     }
-    const lowerQuery = query.toLowerCase()
+    const lowerQuery = query.toLowerCase();
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].toLowerCase().includes(lowerQuery)) matches.push({ line: lines[i], lineNumber: i + 1 })
+      if (lines[i].toLowerCase().includes(lowerQuery))
+        matches.push({ line: lines[i], lineNumber: i + 1 });
     }
-    return matches
-  }, [content, findQuery, caseSensitive])
-  const activeFindLine = findMatches[activeFindIndex]?.lineNumber
+    return matches;
+  }, [content, findQuery, caseSensitive]);
+  const activeFindLine = findMatches[activeFindIndex]?.lineNumber;
 
-  const charCount = useMemo(() => content.length, [content])
-  const wordCount = useMemo(() => (content.trim() ? content.trim().split(/\s+/).length : 0), [content])
-  const lineCount = useMemo(() => content.split("\n").length, [content])
-  const isLargeFile = content.length > LARGE_FILE_CHAR_LIMIT || lineCount > LARGE_FILE_LINE_LIMIT
+  const charCount = useMemo(() => content.length, [content]);
+  const wordCount = useMemo(
+    () => (content.trim() ? content.trim().split(/\s+/).length : 0),
+    [content],
+  );
+  const lineCount = useMemo(() => content.split("\n").length, [content]);
+  const isLargeFile =
+    content.length > LARGE_FILE_CHAR_LIMIT || lineCount > LARGE_FILE_LINE_LIMIT;
 
   // Find bar toggle animation
   useEffect(() => {
@@ -176,109 +210,140 @@ export default function EditorScreen() {
       stiffness: 260,
       mass: 0.7,
       useNativeDriver: true,
-    }).start()
-  }, [findOpen, findBarAnim])
+    }).start();
+  }, [findOpen, findBarAnim]);
 
   const load = useCallback(async () => {
-    if (!client || !absolute) return
+    if (!client || !absolute) return;
     try {
-      setLoading(true)
-      setError(null)
-      const scopedClient = directory ? client.withDirectory(directory) : client
+      setLoading(true);
+      setError(null);
+      const scopedClient = directory ? client.withDirectory(directory) : client;
       const [file, gitState] = await Promise.all([
         stored ? Promise.resolve(null) : scopedClient.readFile(absolute),
         scopedClient.getGitStatus().catch(() => null),
-      ])
+      ]);
       if (file && file.type === "text") {
-        openFile({ path: filePath ?? absolute, absolute, content: file.content })
+        openFile({
+          path: filePath ?? absolute,
+          absolute,
+          content: file.content,
+        });
       }
       if (gitState) {
-        const all = [...(gitState.staged ?? []), ...(gitState.unstaged ?? [])]
-        const entry = all.find((f) => f.path === filePath || f.path === absolute)
+        const all = [...(gitState.staged ?? []), ...(gitState.unstaged ?? [])];
+        const entry = all.find(
+          (f) => f.path === filePath || f.path === absolute,
+        );
         if (entry) {
-          setGitStatus(entry.status === "added" ? "added" : entry.status === "deleted" ? "deleted" : "modified")
+          setGitStatus(
+            entry.status === "added"
+              ? "added"
+              : entry.status === "deleted"
+                ? "deleted"
+                : "modified",
+          );
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [absolute, client, directory, filePath, openFile, stored])
+  }, [absolute, client, directory, filePath, openFile, stored]);
 
   useEffect(() => {
-    void load()
+    void load();
     void (async () => {
       try {
-        const storedSearches = await SecureStore.getItemAsync(RECENT_SEARCHES_KEY)
+        const storedSearches =
+          await SecureStore.getItemAsync(RECENT_SEARCHES_KEY);
         if (storedSearches) {
-          const parsed = JSON.parse(storedSearches)
-          if (Array.isArray(parsed)) setRecentSearches(parsed)
+          const parsed = JSON.parse(storedSearches);
+          if (Array.isArray(parsed)) setRecentSearches(parsed);
         }
       } catch {
         // ignore
       }
-    })()
-  }, [load])
+    })();
+  }, [load]);
 
   // Scroll to highlighted line
   useEffect(() => {
     if (!loading && targetLine && targetLine > 1) {
-      let innerFrame = 0
+      let innerFrame = 0;
       const outerFrame = requestAnimationFrame(() => {
         innerFrame = requestAnimationFrame(() => {
-          scrollRef.current?.scrollTo({ y: (targetLine - 1) * LINE_HEIGHT, animated: true })
-        })
-      })
+          scrollRef.current?.scrollTo({
+            y: (targetLine - 1) * LINE_HEIGHT,
+            animated: true,
+          });
+        });
+      });
       return () => {
-        cancelAnimationFrame(outerFrame)
-        if (innerFrame) cancelAnimationFrame(innerFrame)
-      }
+        cancelAnimationFrame(outerFrame);
+        if (innerFrame) cancelAnimationFrame(innerFrame);
+      };
     }
-    return undefined
-  }, [loading, targetLine])
+    return undefined;
+  }, [loading, targetLine]);
 
   const handleFindQueryChange = useCallback((next: string) => {
-    setFindQuery(next)
-    setActiveFindIndex(0)
-  }, [])
+    setFindQuery(next);
+    setActiveFindIndex(0);
+  }, []);
 
   function saveRecentSearch(query: string) {
-    if (!query.trim()) return
+    if (!query.trim()) return;
     setRecentSearches((prev) => {
-      const updated = [query, ...prev.filter((s) => s !== query)].slice(0, MAX_RECENT_SEARCHES)
-      void SecureStore.setItemAsync(RECENT_SEARCHES_KEY, JSON.stringify(updated))
-      return updated
-    })
+      const updated = [query, ...prev.filter((s) => s !== query)].slice(
+        0,
+        MAX_RECENT_SEARCHES,
+      );
+      void SecureStore.setItemAsync(
+        RECENT_SEARCHES_KEY,
+        JSON.stringify(updated),
+      );
+      return updated;
+    });
   }
 
   useEffect(() => {
     if (!loading && activeFindLine) {
-      scrollRef.current?.scrollTo({ y: Math.max(0, (activeFindLine - 2) * LINE_HEIGHT), animated: true })
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, (activeFindLine - 2) * LINE_HEIGHT),
+        animated: true,
+      });
     }
-  }, [activeFindLine, loading])
+  }, [activeFindLine, loading]);
 
   function moveFind(delta: number) {
-    if (!findMatches.length) return
-    void triggerHaptic("selection")
-    setActiveFindIndex((index) => (index + delta + findMatches.length) % findMatches.length)
+    if (!findMatches.length) return;
+    void triggerHaptic("selection");
+    setActiveFindIndex(
+      (index) => (index + delta + findMatches.length) % findMatches.length,
+    );
   }
 
   function openFind() {
-    void triggerHaptic("selection")
-    setFindOpen(true)
+    void triggerHaptic("selection");
+    setFindOpen(true);
     if (findQuery.trim()) {
-      saveRecentSearch(findQuery)
+      saveRecentSearch(findQuery);
     }
   }
 
   function openWorkspaceSearch() {
-    void triggerHaptic("selection")
-    setFileSearchOpen(true)
+    void triggerHaptic("selection");
+    setFileSearchOpen(true);
   }
 
   function openSearchResult(file: string, line: number) {
-    const nextAbsolute = file.startsWith("/") ? file : directory ? `${directory.replace(/\/$/, "")}/${file}` : file
+    const nextAbsolute = file.startsWith("/")
+      ? file
+      : directory
+        ? `${directory.replace(/\/$/, "")}/${file}`
+        : file;
     router.push({
       pathname: "/sessions/editor" as never,
       params: {
@@ -288,70 +353,75 @@ export default function EditorScreen() {
         directory: directory ?? "",
         highlightLine: String(line),
       },
-    })
+    });
   }
 
   async function save(): Promise<boolean> {
-    if (!client || !absolute) return false
+    if (!client || !absolute) return false;
     try {
-      setSaving(true)
-      setSavedFeedback(false)
-      const scopedClient = directory ? client.withDirectory(directory) : client
-      await scopedClient.writeFile(absolute, content)
-      markSaved(absolute)
-      setSavedFeedback(true)
-      void triggerHaptic("success")
-      return true
+      setSaving(true);
+      setSavedFeedback(false);
+      const scopedClient = directory ? client.withDirectory(directory) : client;
+      await scopedClient.writeFile(absolute, content);
+      markSaved(absolute);
+      setSavedFeedback(true);
+      void triggerHaptic("success");
+      return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      void triggerHaptic("error")
-      return false
+      setError(e instanceof Error ? e.message : String(e));
+      void triggerHaptic("error");
+      return false;
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   function handleBack() {
     if (dirty) {
-      unsavedSheetRef.current?.present()
-      return
+      unsavedSheetRef.current?.present();
+      return;
     }
-    router.back()
+    router.back();
   }
 
   async function copyContent() {
-    await Clipboard.setStringAsync(content)
-    setCopied(true)
-    void triggerHaptic("selection")
-    setTimeout(() => setCopied(false), 1500)
+    await Clipboard.setStringAsync(content);
+    markCopied();
+    void triggerHaptic("selection");
   }
 
   // Syntax-highlighted view with light-mode color remapping, grouped by line
   const highlightedLines = useMemo(() => {
-    if (mode !== "view" || !content || isLargeFile) return null
-    const segments = highlightCode(content)
+    if (mode !== "view" || !content || isLargeFile) return null;
+    const segments = highlightCode(content);
     const mapped = isDark
       ? segments
-      : segments.map((seg) => ({ text: seg.text, color: LIGHT_SYNTAX[seg.color] ?? seg.color }))
+      : segments.map((seg) => ({
+          text: seg.text,
+          color: LIGHT_SYNTAX[seg.color] ?? seg.color,
+        }));
     // Split into lines for performant rendering (avoids thousands of nested Text children)
-    const lines: Array<Segment[]> = []
-    let current: Segment[] = []
+    const lines: Array<Segment[]> = [];
+    let current: Segment[] = [];
     for (const seg of mapped) {
-      const parts = seg.text.split("\n")
+      const parts = seg.text.split("\n");
       for (let i = 0; i < parts.length; i++) {
         if (i > 0) {
-          lines.push(current)
-          current = []
+          lines.push(current);
+          current = [];
         }
-        if (parts[i]) current.push({ ...seg, text: parts[i] })
+        if (parts[i]) current.push({ ...seg, text: parts[i] });
       }
     }
-    if (current.length || content.endsWith("\n")) lines.push(current)
-    return lines
-  }, [mode, content, isDark, isLargeFile])
+    if (current.length || content.endsWith("\n")) lines.push(current);
+    return lines;
+  }, [mode, content, isDark, isLargeFile]);
 
   // Line numbers
-  const lineNumbers = useMemo(() => Array.from({ length: lineCount }, (_, i) => i + 1), [lineCount])
+  const lineNumbers = useMemo(
+    () => Array.from({ length: lineCount }, (_, i) => i + 1),
+    [lineCount],
+  );
 
   // ── Shared chrome button style ─────────────────────────────────
   const chromeButtonBase = {
@@ -361,17 +431,24 @@ export default function EditorScreen() {
     borderCurve: "continuous" as const,
     borderWidth: 1,
     borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
+    backgroundColor: isDark
+      ? "rgba(255,255,255,0.06)"
+      : "rgba(255,255,255,0.58)",
     overflow: "hidden" as const,
     alignItems: "center" as const,
     justifyContent: "center" as const,
-  }
+  };
 
   function renderChromeButton(
     scale: Animated.Value,
     icon: React.ReactNode,
     onPress: () => void,
-    opts?: { active?: boolean; activeBg?: string; activeBorder?: string; label?: string },
+    opts?: {
+      active?: boolean;
+      activeBg?: string;
+      activeBorder?: string;
+      label?: string;
+    },
   ) {
     return (
       <ChromeButton
@@ -379,18 +456,24 @@ export default function EditorScreen() {
         icon={icon}
         onPress={onPress}
         active={opts?.active ?? false}
-        activeBg={opts?.activeBg ?? (isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)")}
+        activeBg={
+          opts?.activeBg ??
+          (isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)")
+        }
         activeBorder={opts?.activeBorder ?? palette.accent}
         label={opts?.label}
         isDark={isDark}
         palette={palette}
         chromeButtonBase={chromeButtonBase}
       />
-    )
+    );
   }
 
   // ── Line number renderer with accent pill ──────────────────────
-  function renderLineNumbers(nums: number[], highlights: (number | undefined)[]) {
+  function renderLineNumbers(
+    nums: number[],
+    highlights: (number | undefined)[],
+  ) {
     return (
       <LineNumbers
         nums={nums}
@@ -401,7 +484,7 @@ export default function EditorScreen() {
         lineHeight={LINE_HEIGHT}
         fontFamily={MONO}
       />
-    )
+    );
   }
 
   return (
@@ -415,7 +498,9 @@ export default function EditorScreen() {
             paddingHorizontal: 14,
             overflow: "hidden",
             borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(218,216,209,0.8)",
+            borderBottomColor: isDark
+              ? "rgba(255,255,255,0.07)"
+              : "rgba(218,216,209,0.8)",
           }}
         >
           {/* Layer 1: Full-width glass background */}
@@ -423,14 +508,20 @@ export default function EditorScreen() {
             tint={isDark ? "dark" : "light"}
             intensity={isDark ? 90 : 80}
             style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(247,246,242,0.80)"}
+            fallbackColor={
+              isDark ? "rgba(17,17,17,0.85)" : "rgba(247,246,242,0.80)"
+            }
             pointerEvents="none"
           />
           {/* Layer 2: Semi-transparent overlay */}
           <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? "rgba(0,0,0,0.32)" : "rgba(247,246,242,0.22)" },
+              {
+                backgroundColor: isDark
+                  ? "rgba(0,0,0,0.32)"
+                  : "rgba(247,246,242,0.22)",
+              },
             ]}
             pointerEvents="none"
           />
@@ -441,14 +532,20 @@ export default function EditorScreen() {
               overflow: "hidden",
               borderRadius: 20,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.80)",
+              borderColor: isDark
+                ? "rgba(255,255,255,0.09)"
+                : "rgba(255,255,255,0.80)",
               padding: 12,
             }}
           >
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: isDark ? "rgba(24,24,24,0.72)" : "rgba(255,255,255,0.68)" },
+                {
+                  backgroundColor: isDark
+                    ? "rgba(24,24,24,0.72)"
+                    : "rgba(255,255,255,0.68)",
+                },
               ]}
               pointerEvents="none"
             />
@@ -461,13 +558,17 @@ export default function EditorScreen() {
                 left: 0,
                 right: 0,
                 height: 24,
-                backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(239,237,232,0.14)",
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.015)"
+                  : "rgba(239,237,232,0.14)",
               }}
               pointerEvents="none"
             />
 
             {/* ── Top row: back, breadcrumb, actions ── */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+            >
               {renderChromeButton(
                 backScale,
                 <ArrowLeft size={16} color={palette.ink} strokeWidth={2.2} />,
@@ -477,21 +578,34 @@ export default function EditorScreen() {
 
               {/* Breadcrumb with git status */}
               <View style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
                   <EditorBreadcrumb
                     rootLabel={(directory ?? "").split("/").pop() ?? "root"}
                     segments={breadcrumbSegments}
                     onSegmentPress={(index) => {
-                      if (index < breadcrumbSegments.length - 1) router.back()
+                      if (index < breadcrumbSegments.length - 1) router.back();
                     }}
                   />
-                  {gitStatus && <GitFileStatusBadge status={gitStatus} compact />}
+                  {gitStatus && (
+                    <GitFileStatusBadge status={gitStatus} compact />
+                  )}
                 </View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 3 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 3,
+                  }}
+                >
                   <View
                     style={{
                       borderRadius: 5,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(0,0,0,0.05)",
                       paddingHorizontal: 6,
                       paddingVertical: 2,
                     }}
@@ -508,7 +622,13 @@ export default function EditorScreen() {
                       {language}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 11, color: palette.muted, fontVariant: ["tabular-nums"] }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: palette.muted,
+                      fontVariant: ["tabular-nums"],
+                    }}
+                  >
                     {lineCount}L · {charCount}C
                   </Text>
                 </View>
@@ -518,7 +638,11 @@ export default function EditorScreen() {
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {renderChromeButton(
                   findScale,
-                  <Search size={16} color={findOpen ? palette.accentLight : palette.ink} strokeWidth={2} />,
+                  <Search
+                    size={16}
+                    color={findOpen ? palette.accentLight : palette.ink}
+                    strokeWidth={2}
+                  />,
                   openFind,
                   { active: findOpen, label: "Find in file" },
                 )}
@@ -533,16 +657,33 @@ export default function EditorScreen() {
                 <Animated.View style={{ transform: [{ scale: modeScale }] }}>
                   <Pressable
                     onPress={() => {
-                      void triggerHaptic("selection")
-                      if (isLargeFile && mode === "view") return
-                      const nextMode = mode === "view" ? "edit" : "view"
-                      setMode(nextMode)
-                      if (nextMode === "edit") requestAnimationFrame(() => editInputRef.current?.focus())
+                      void triggerHaptic("selection");
+                      if (isLargeFile && mode === "view") return;
+                      const nextMode = mode === "view" ? "edit" : "view";
+                      setMode(nextMode);
+                      if (nextMode === "edit")
+                        requestAnimationFrame(() =>
+                          editInputRef.current?.focus(),
+                        );
                     }}
-                    onPressIn={() => Animated.spring(modeScale, { toValue: 0.93, ...PRESS_SPRING }).start()}
-                    onPressOut={() => Animated.spring(modeScale, { toValue: 1, ...PRESS_SPRING }).start()}
+                    onPressIn={() =>
+                      Animated.spring(modeScale, {
+                        toValue: 0.93,
+                        ...PRESS_SPRING,
+                      }).start()
+                    }
+                    onPressOut={() =>
+                      Animated.spring(modeScale, {
+                        toValue: 1,
+                        ...PRESS_SPRING,
+                      }).start()
+                    }
                     accessibilityRole="button"
-                    accessibilityLabel={mode === "view" ? "Switch to edit mode" : "Switch to view mode"}
+                    accessibilityLabel={
+                      mode === "view"
+                        ? "Switch to edit mode"
+                        : "Switch to view mode"
+                    }
                   >
                     <Animated.View
                       style={{
@@ -557,23 +698,39 @@ export default function EditorScreen() {
                         borderColor: modeProgress.interpolate({
                           inputRange: [0, 1],
                           outputRange: [
-                            isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                            isDark ? "rgba(255,255,255,0.45)" : "rgba(20,20,19,0.35)",
+                            isDark
+                              ? "rgba(255,255,255,0.12)"
+                              : "rgba(255,255,255,0.82)",
+                            isDark
+                              ? "rgba(255,255,255,0.45)"
+                              : "rgba(20,20,19,0.35)",
                           ],
                         }),
                         backgroundColor: modeProgress.interpolate({
                           inputRange: [0, 1],
                           outputRange: [
-                            isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-                            isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.10)",
+                            isDark
+                              ? "rgba(255,255,255,0.06)"
+                              : "rgba(255,255,255,0.58)",
+                            isDark
+                              ? "rgba(255,255,255,0.12)"
+                              : "rgba(20,20,19,0.10)",
                           ],
                         }),
                       }}
                     >
                       {mode === "view" ? (
-                        <Pencil size={16} color={isLargeFile ? palette.muted : palette.ink} strokeWidth={2} />
+                        <Pencil
+                          size={16}
+                          color={isLargeFile ? palette.muted : palette.ink}
+                          strokeWidth={2}
+                        />
                       ) : (
-                        <Eye size={16} color={palette.accentLight} strokeWidth={2} />
+                        <Eye
+                          size={16}
+                          color={palette.accentLight}
+                          strokeWidth={2}
+                        />
                       )}
                     </Animated.View>
                   </Pressable>
@@ -586,7 +743,14 @@ export default function EditorScreen() {
               <Animated.View
                 style={{
                   opacity: findBarAnim,
-                  transform: [{ translateY: findBarAnim.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }],
+                  transform: [
+                    {
+                      translateY: findBarAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-12, 0],
+                      }),
+                    },
+                  ],
                   marginTop: 10,
                 }}
                 pointerEvents="auto"
@@ -598,7 +762,9 @@ export default function EditorScreen() {
                     gap: 8,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.65)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.10)"
+                      : "rgba(218,216,209,0.65)",
                     overflow: "hidden",
                     paddingHorizontal: 12,
                     paddingVertical: 9,
@@ -608,13 +774,19 @@ export default function EditorScreen() {
                     tint={isDark ? "dark" : "light"}
                     intensity={40}
                     style={StyleSheet.absoluteFill}
-                    fallbackColor={isDark ? "rgba(20,20,20,0.92)" : "rgba(255,255,255,0.92)"}
+                    fallbackColor={
+                      isDark ? "rgba(20,20,20,0.92)" : "rgba(255,255,255,0.92)"
+                    }
                     pointerEvents="none"
                   />
                   <View
                     style={[
                       StyleSheet.absoluteFill,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.15)" },
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.03)"
+                          : "rgba(255,255,255,0.15)",
+                      },
                     ]}
                     pointerEvents="none"
                   />
@@ -626,7 +798,11 @@ export default function EditorScreen() {
                     hitSlop={8}
                     style={{ padding: 4 }}
                   >
-                    <CaseSensitive size={14} color={caseSensitive ? palette.accent : palette.muted} strokeWidth={2.1} />
+                    <CaseSensitive
+                      size={14}
+                      color={caseSensitive ? palette.accent : palette.muted}
+                      strokeWidth={2.1}
+                    />
                   </Pressable>
                   <Search size={14} color={palette.muted} strokeWidth={2.1} />
                   <TextInput
@@ -638,12 +814,25 @@ export default function EditorScreen() {
                     autoCorrect={false}
                     keyboardAppearance={isDark ? "dark" : "light"}
                     onSubmitEditing={() => saveRecentSearch(findQuery)}
-                    style={{ flex: 1, color: palette.ink, fontSize: 13, fontFamily: MONO, paddingVertical: 0 }}
+                    style={{
+                      flex: 1,
+                      color: palette.ink,
+                      fontSize: 13,
+                      fontFamily: MONO,
+                      paddingVertical: 0,
+                    }}
                   />
                   <Text
-                    style={{ color: palette.muted, fontSize: 11, fontWeight: "700", fontVariant: ["tabular-nums"] }}
+                    style={{
+                      color: palette.muted,
+                      fontSize: 11,
+                      fontWeight: "700",
+                      fontVariant: ["tabular-nums"],
+                    }}
                   >
-                    {findMatches.length ? `${activeFindIndex + 1}/${findMatches.length}` : "0/0"}
+                    {findMatches.length
+                      ? `${activeFindIndex + 1}/${findMatches.length}`
+                      : "0/0"}
                   </Text>
                   <Pressable
                     onPress={() => moveFind(-1)}
@@ -653,7 +842,11 @@ export default function EditorScreen() {
                     accessibilityState={{ disabled: !findMatches.length }}
                     hitSlop={8}
                   >
-                    <ChevronUp size={15} color={findMatches.length ? palette.ink : palette.muted} strokeWidth={2.3} />
+                    <ChevronUp
+                      size={15}
+                      color={findMatches.length ? palette.ink : palette.muted}
+                      strokeWidth={2.3}
+                    />
                   </Pressable>
                   <Pressable
                     onPress={() => moveFind(1)}
@@ -663,12 +856,16 @@ export default function EditorScreen() {
                     accessibilityState={{ disabled: !findMatches.length }}
                     hitSlop={8}
                   >
-                    <ChevronDown size={15} color={findMatches.length ? palette.ink : palette.muted} strokeWidth={2.3} />
+                    <ChevronDown
+                      size={15}
+                      color={findMatches.length ? palette.ink : palette.muted}
+                      strokeWidth={2.3}
+                    />
                   </Pressable>
                   <Pressable
                     onPress={() => {
-                      handleFindQueryChange("")
-                      setFindOpen(false)
+                      handleFindQueryChange("");
+                      setFindOpen(false);
                     }}
                     accessibilityRole="button"
                     accessibilityLabel="Close find"
@@ -692,20 +889,34 @@ export default function EditorScreen() {
                 paddingTop: 14,
                 paddingHorizontal: 10,
                 alignItems: "flex-end",
-                backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.02)"
+                  : "rgba(0,0,0,0.02)",
                 borderRightWidth: StyleSheet.hairlineWidth,
-                borderRightColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                borderRightColor: isDark
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(0,0,0,0.06)",
                 minWidth: 42,
                 gap: 6,
               }}
             >
               {Array.from({ length: 18 }).map((_, i) => (
-                <SkeletonBox key={i} width={i < 9 ? 8 : 16} height={FONT_SIZE} borderRadius={3} />
+                <SkeletonBox
+                  key={i}
+                  width={i < 9 ? 8 : 16}
+                  height={FONT_SIZE}
+                  borderRadius={3}
+                />
               ))}
             </View>
-            <View style={{ flex: 1, paddingTop: 14, paddingHorizontal: 14, gap: 6 }}>
+            <View
+              style={{ flex: 1, paddingTop: 14, paddingHorizontal: 14, gap: 6 }}
+            >
               {Array.from({ length: 18 }).map((_, i) => {
-                const widths = [72, 85, 55, 45, 62, 90, 40, 78, 68, 50, 82, 38, 70, 58, 88, 42, 75, 60]
+                const widths = [
+                  72, 85, 55, 45, 62, 90, 40, 78, 68, 50, 82, 38, 70, 58, 88,
+                  42, 75, 60,
+                ];
                 return (
                   <SkeletonBox
                     key={i}
@@ -714,16 +925,36 @@ export default function EditorScreen() {
                     borderRadius={3}
                     style={{ marginLeft: i % 3 === 0 ? 24 : 0 }}
                   />
-                )
+                );
               })}
             </View>
           </View>
         ) : error ? (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
-            <Text selectable style={{ color: palette.danger, fontSize: 14, lineHeight: 20, textAlign: "center" }}>
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 16,
+              padding: 32,
+            }}
+          >
+            <Text
+              selectable
+              style={{
+                color: palette.danger,
+                fontSize: 14,
+                lineHeight: 20,
+                textAlign: "center",
+              }}
+            >
               {error}
             </Text>
-            <ActionButton label="Retry" variant="secondary" onPress={() => void load()} />
+            <ActionButton
+              label="Retry"
+              variant="secondary"
+              onPress={() => void load()}
+            />
           </View>
         ) : mode === "view" ? (
           <ScrollView
@@ -739,23 +970,47 @@ export default function EditorScreen() {
                   padding: 12,
                   borderRadius: 8,
                   borderWidth: 1,
-                  borderColor: isDark ? "rgba(245,158,11,0.30)" : "rgba(192,110,46,0.24)",
-                  backgroundColor: isDark ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.08)",
+                  borderColor: isDark
+                    ? "rgba(245,158,11,0.30)"
+                    : "rgba(192,110,46,0.24)",
+                  backgroundColor: isDark
+                    ? "rgba(245,158,11,0.10)"
+                    : "rgba(245,158,11,0.08)",
                 }}
               >
-                <Text style={{ color: isDark ? "#fbbf24" : "#b45309", fontSize: 12, fontWeight: "700" }}>
+                <Text
+                  style={{
+                    color: isDark ? "#fbbf24" : "#b45309",
+                    fontSize: 12,
+                    fontWeight: "700",
+                  }}
+                >
                   Large file mode
                 </Text>
-                <Text style={{ color: palette.muted, fontSize: 11, marginTop: 3 }}>
-                  Syntax highlighting and editing are disabled for files over {LARGE_FILE_LINE_LIMIT.toLocaleString()}{" "}
-                  lines or {LARGE_FILE_CHAR_LIMIT.toLocaleString()} characters.
+                <Text
+                  style={{ color: palette.muted, fontSize: 11, marginTop: 3 }}
+                >
+                  Syntax highlighting and editing are disabled for files over{" "}
+                  {LARGE_FILE_LINE_LIMIT.toLocaleString()} lines or{" "}
+                  {LARGE_FILE_CHAR_LIMIT.toLocaleString()} characters.
                 </Text>
               </View>
             ) : null}
-            <ScrollView horizontal={!wordWrap} scrollEnabled={!wordWrap} showsHorizontalScrollIndicator={!wordWrap}>
+            <ScrollView
+              horizontal={!wordWrap}
+              scrollEnabled={!wordWrap}
+              showsHorizontalScrollIndicator={!wordWrap}
+            >
               <View style={{ flexDirection: "row", minWidth: "100%" }}>
                 {renderLineNumbers(lineNumbers, [targetLine, activeFindLine])}
-                <View style={{ flex: wordWrap ? 1 : undefined, minWidth: 0, paddingTop: 14, paddingHorizontal: 14 }}>
+                <View
+                  style={{
+                    flex: wordWrap ? 1 : undefined,
+                    minWidth: 0,
+                    paddingTop: 14,
+                    paddingHorizontal: 14,
+                  }}
+                >
                   {isLargeFile ? (
                     <Text
                       selectable
@@ -781,7 +1036,10 @@ export default function EditorScreen() {
                         }}
                       >
                         {lineSegs.map((seg, i) => (
-                          <Text key={`${lineIndex}:${i}`} style={{ color: seg.color }}>
+                          <Text
+                            key={`${lineIndex}:${i}`}
+                            style={{ color: seg.color }}
+                          >
                             {seg.text}
                           </Text>
                         ))}
@@ -793,17 +1051,29 @@ export default function EditorScreen() {
             </ScrollView>
           </ScrollView>
         ) : (
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 80 }}>
-              <ScrollView horizontal={!wordWrap} scrollEnabled={!wordWrap} showsHorizontalScrollIndicator={!wordWrap}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 80 }}
+            >
+              <ScrollView
+                horizontal={!wordWrap}
+                scrollEnabled={!wordWrap}
+                showsHorizontalScrollIndicator={!wordWrap}
+              >
                 <View style={{ flexDirection: "row", minWidth: "100%" }}>
-                  <View pointerEvents="none">{renderLineNumbers(lineNumbers, [activeFindLine])}</View>
+                  <View pointerEvents="none">
+                    {renderLineNumbers(lineNumbers, [activeFindLine])}
+                  </View>
                   <TextInput
                     ref={editInputRef}
                     value={content}
                     onChangeText={(text) => {
-                      setSavedFeedback(false)
-                      updateContent(absolute, text)
+                      setSavedFeedback(false);
+                      updateContent(absolute, text);
                     }}
                     multiline
                     scrollEnabled={false}
@@ -839,18 +1109,29 @@ export default function EditorScreen() {
           paddingBottom: bottom + 10,
           overflow: "hidden",
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(218,216,209,0.8)",
+          borderTopColor: isDark
+            ? "rgba(255,255,255,0.07)"
+            : "rgba(218,216,209,0.8)",
         }}
       >
         <AdaptiveBlur
           tint={isDark ? "dark" : "light"}
           intensity={isDark ? 80 : 70}
           style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(247,246,242,0.80)"}
+          fallbackColor={
+            isDark ? "rgba(17,17,17,0.85)" : "rgba(247,246,242,0.80)"
+          }
           pointerEvents="none"
         />
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.28)" : "rgba(247,246,242,0.22)" }]}
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: isDark
+                ? "rgba(0,0,0,0.28)"
+                : "rgba(247,246,242,0.22)",
+            },
+          ]}
           pointerEvents="none"
         />
         <View
@@ -860,22 +1141,55 @@ export default function EditorScreen() {
             right: 0,
             bottom: 0,
             height: 24,
-            backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(239,237,232,0.14)",
+            backgroundColor: isDark
+              ? "rgba(255,255,255,0.015)"
+              : "rgba(239,237,232,0.14)",
           }}
           pointerEvents="none"
         />
 
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "500" }}>
+            <Text
+              style={{ fontSize: 11, color: palette.muted, fontWeight: "500" }}
+            >
               {lineCount}L · {charCount}C · {wordCount}W
             </Text>
-            <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "500" }}>{language}</Text>
-            {dirty && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#f59e0b" }} />}
+            <Text
+              style={{ fontSize: 11, color: palette.muted, fontWeight: "500" }}
+            >
+              {language}
+            </Text>
+            {dirty && (
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: "#f59e0b",
+                }}
+              />
+            )}
             {!dirty && savedFeedback ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
                 <Check size={12} color={palette.success} strokeWidth={2.2} />
-                <Text style={{ fontSize: 11, color: palette.success, fontWeight: "600" }}>Saved</Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: palette.success,
+                    fontWeight: "600",
+                  }}
+                >
+                  Saved
+                </Text>
               </View>
             ) : null}
           </View>
@@ -887,10 +1201,17 @@ export default function EditorScreen() {
                   onPress={() => void save()}
                   disabled={saving}
                   onPressIn={() => {
-                    if (!saving) Animated.spring(saveScale, { toValue: 0.95, ...PRESS_SPRING }).start()
+                    if (!saving)
+                      Animated.spring(saveScale, {
+                        toValue: 0.95,
+                        ...PRESS_SPRING,
+                      }).start();
                   }}
                   onPressOut={() => {
-                    Animated.spring(saveScale, { toValue: 1, ...PRESS_SPRING }).start()
+                    Animated.spring(saveScale, {
+                      toValue: 1,
+                      ...PRESS_SPRING,
+                    }).start();
                   }}
                   style={{
                     flexDirection: "row",
@@ -898,7 +1219,9 @@ export default function EditorScreen() {
                     gap: 6,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.35)" : "rgba(20,20,19,0.25)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.35)"
+                      : "rgba(20,20,19,0.25)",
                     overflow: "hidden",
                     paddingHorizontal: 14,
                     paddingVertical: 7,
@@ -910,22 +1233,41 @@ export default function EditorScreen() {
                     tint={isDark ? "dark" : "light"}
                     intensity={40}
                     style={StyleSheet.absoluteFill}
-                    fallbackColor={isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)"}
+                    fallbackColor={
+                      isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)"
+                    }
                     pointerEvents="none"
                   />
                   <View
                     style={[
                       StyleSheet.absoluteFill,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.04)" },
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.06)"
+                          : "rgba(20,20,19,0.04)",
+                      },
                     ]}
                     pointerEvents="none"
                   />
                   {saving ? (
-                    <ActivityIndicator size="small" color={palette.accentLight} />
+                    <ActivityIndicator
+                      size="small"
+                      color={palette.accentLight}
+                    />
                   ) : (
-                    <Save size={14} color={palette.accentLight} strokeWidth={2.2} />
+                    <Save
+                      size={14}
+                      color={palette.accentLight}
+                      strokeWidth={2.2}
+                    />
                   )}
-                  <Text style={{ color: palette.accentLight, fontSize: 12, fontWeight: "700" }}>
+                  <Text
+                    style={{
+                      color: palette.accentLight,
+                      fontSize: 12,
+                      fontWeight: "700",
+                    }}
+                  >
                     {saving ? "Saving…" : "Save"}
                   </Text>
                 </Pressable>
@@ -944,7 +1286,11 @@ export default function EditorScreen() {
             paddingBottom: 16,
           }}
         >
-          <Text style={{ color: palette.soft, fontSize: 12, fontWeight: "500" }}>Editor actions</Text>
+          <Text
+            style={{ color: palette.soft, fontSize: 12, fontWeight: "500" }}
+          >
+            Editor actions
+          </Text>
           <Text
             numberOfLines={1}
             style={{
@@ -964,13 +1310,24 @@ export default function EditorScreen() {
               alignSelf: "flex-start",
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+              borderColor: isDark
+                ? "rgba(255,255,255,0.12)"
+                : "rgba(20,20,19,0.18)",
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(20,20,19,0.09)",
               paddingHorizontal: 10,
               paddingVertical: 4,
             }}
           >
-            <Text style={{ color: palette.accentLight, fontSize: 10, fontWeight: "600", letterSpacing: 0.3 }}>
+            <Text
+              style={{
+                color: palette.accentLight,
+                fontSize: 10,
+                fontWeight: "600",
+                letterSpacing: 0.3,
+              }}
+            >
               Choose an action
             </Text>
           </View>
@@ -981,7 +1338,15 @@ export default function EditorScreen() {
           showsVerticalScrollIndicator={false}
           bounces
         >
-          <Text style={{ paddingHorizontal: 20, paddingBottom: 4, paddingTop: 14, color: palette.soft, fontSize: 12 }}>
+          <Text
+            style={{
+              paddingHorizontal: 20,
+              paddingBottom: 4,
+              paddingTop: 14,
+              color: palette.soft,
+              fontSize: 12,
+            }}
+          >
             Editor
           </Text>
           <ActionSheetItem
@@ -994,22 +1359,30 @@ export default function EditorScreen() {
             icon={wordWrap ? "check" : "wrap"}
             label={wordWrap ? "Disable word wrap" : "Enable word wrap"}
             description={
-              wordWrap ? "Allow horizontal scrolling for long lines" : "Keep long lines within the editor width"
+              wordWrap
+                ? "Allow horizontal scrolling for long lines"
+                : "Keep long lines within the editor width"
             }
             tone={wordWrap ? "success" : "accent"}
             onPress={() =>
               toolsSheetRef.current?.dismiss(() => {
-                setWordWrap((value) => !value)
-                void triggerHaptic("selection")
+                setWordWrap((value) => !value);
+                void triggerHaptic("selection");
               })
             }
           />
           <ActionSheetItem
             icon="copy"
             label={copied ? "Copied file content" : "Copy file content"}
-            description={copied ? "The file is ready on the clipboard" : "Copy the full file to the clipboard"}
+            description={
+              copied
+                ? "The file is ready on the clipboard"
+                : "Copy the full file to the clipboard"
+            }
             tone={copied ? "success" : "neutral"}
-            onPress={() => toolsSheetRef.current?.dismiss(() => void copyContent())}
+            onPress={() =>
+              toolsSheetRef.current?.dismiss(() => void copyContent())
+            }
           />
         </ScrollView>
       </ActionSheet>
@@ -1017,8 +1390,19 @@ export default function EditorScreen() {
       {/* ── Unsaved changes ActionSheet ── */}
       <ActionSheet ref={unsavedSheetRef} snapPoints={[260]}>
         <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: palette.ink, marginBottom: 4 }}>Unsaved changes</Text>
-          <Text style={{ fontSize: 12, color: palette.soft }}>You have unsaved edits. What would you like to do?</Text>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: palette.ink,
+              marginBottom: 4,
+            }}
+          >
+            Unsaved changes
+          </Text>
+          <Text style={{ fontSize: 12, color: palette.soft }}>
+            You have unsaved edits. What would you like to do?
+          </Text>
         </View>
         <ActionSheetDivider />
         <ActionSheetItem
@@ -1027,8 +1411,8 @@ export default function EditorScreen() {
           onPress={() =>
             unsavedSheetRef.current?.dismiss(() => {
               void save().then((saved) => {
-                if (saved) router.back()
-              })
+                if (saved) router.back();
+              });
             })
           }
         />
@@ -1037,34 +1421,42 @@ export default function EditorScreen() {
           label="Leave without saving"
           destructive
           onPress={() => {
-            unsavedSheetRef.current?.dismiss(() => router.back())
+            unsavedSheetRef.current?.dismiss(() => router.back());
           }}
         />
         <ActionSheetItem
           icon="x"
           label="Cancel"
           onPress={() => {
-            unsavedSheetRef.current?.dismiss()
+            unsavedSheetRef.current?.dismiss();
           }}
         />
       </ActionSheet>
 
-      <FileSearchSheet visible={fileSearchOpen} onClose={() => setFileSearchOpen(false)} onSelect={openSearchResult} />
+      <FileSearchSheet
+        visible={fileSearchOpen}
+        onClose={() => setFileSearchOpen(false)}
+        onSelect={openSearchResult}
+      />
     </View>
-  )
+  );
 }
 
 interface ChromeButtonProps {
-  scale: Animated.Value
-  icon: React.ReactNode
-  onPress: () => void
-  active: boolean
-  activeBg: string
-  activeBorder: string
-  label?: string
-  isDark: boolean
-  palette: { accent: string }
-  chromeButtonBase: { backgroundColor: string; borderColor: string; [key: string]: unknown }
+  scale: Animated.Value;
+  icon: React.ReactNode;
+  onPress: () => void;
+  active: boolean;
+  activeBg: string;
+  activeBorder: string;
+  label?: string;
+  isDark: boolean;
+  palette: { accent: string };
+  chromeButtonBase: {
+    backgroundColor: string;
+    borderColor: string;
+    [key: string]: unknown;
+  };
 }
 
 function ChromeButton({
@@ -1083,8 +1475,12 @@ function ChromeButton({
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         onPress={onPress}
-        onPressIn={() => Animated.spring(scale, { toValue: 0.93, ...PRESS_SPRING }).start()}
-        onPressOut={() => Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()}
+        onPressIn={() =>
+          Animated.spring(scale, { toValue: 0.93, ...PRESS_SPRING }).start()
+        }
+        onPressOut={() =>
+          Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()
+        }
         accessibilityRole="button"
         accessibilityLabel={label}
         style={{
@@ -1096,20 +1492,28 @@ function ChromeButton({
         {icon}
       </Pressable>
     </Animated.View>
-  )
+  );
 }
 
 interface LineNumbersProps {
-  nums: number[]
-  highlights: Array<number | undefined>
-  isDark: boolean
-  palette: { accentLight: string }
-  fontSize: number
-  lineHeight: number
-  fontFamily: string
+  nums: number[];
+  highlights: Array<number | undefined>;
+  isDark: boolean;
+  palette: { accentLight: string };
+  fontSize: number;
+  lineHeight: number;
+  fontFamily: string;
 }
 
-function LineNumbers({ nums, highlights, isDark, palette, fontSize, lineHeight, fontFamily }: LineNumbersProps) {
+function LineNumbers({
+  nums,
+  highlights,
+  isDark,
+  palette,
+  fontSize,
+  lineHeight,
+  fontFamily,
+}: LineNumbersProps) {
   return (
     <View
       style={{
@@ -1118,17 +1522,23 @@ function LineNumbers({ nums, highlights, isDark, palette, fontSize, lineHeight, 
         alignItems: "flex-end",
         backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
         borderRightWidth: StyleSheet.hairlineWidth,
-        borderRightColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+        borderRightColor: isDark
+          ? "rgba(255,255,255,0.06)"
+          : "rgba(0,0,0,0.06)",
         minWidth: 42,
       }}
     >
       {nums.map((n) => {
-        const isActive = highlights.includes(n)
+        const isActive = highlights.includes(n);
         return (
           <View
             key={n}
             style={{
-              backgroundColor: isActive ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.08)") : "transparent",
+              backgroundColor: isActive
+                ? isDark
+                  ? "rgba(255,255,255,0.12)"
+                  : "rgba(20,20,19,0.08)"
+                : "transparent",
               borderRadius: 4,
               paddingHorizontal: isActive ? 4 : 0,
               marginHorizontal: isActive ? -4 : 0,
@@ -1140,14 +1550,18 @@ function LineNumbers({ nums, highlights, isDark, palette, fontSize, lineHeight, 
                 lineHeight,
                 fontFamily,
                 fontWeight: isActive ? "600" : "400",
-                color: isActive ? palette.accentLight : isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.25)",
+                color: isActive
+                  ? palette.accentLight
+                  : isDark
+                    ? "rgba(255,255,255,0.22)"
+                    : "rgba(0,0,0,0.25)",
               }}
             >
               {n}
             </Text>
           </View>
-        )
+        );
       })}
     </View>
-  )
+  );
 }
