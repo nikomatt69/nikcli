@@ -169,7 +169,7 @@ function PermissionApprovalView(props: {
         selectable
         numberOfLines={2}
         style={{
-          fontSize: 11.5,
+          fontSize: 13,
           lineHeight: 16,
           fontWeight: "500",
           color: isDark ? "rgba(255,255,255,0.78)" : "#55534d",
@@ -203,7 +203,7 @@ function PermissionApprovalView(props: {
           accessibilityLabel={`Deny ${props.request.permission}`}
           style={({ pressed }) => ({
             flex: 1,
-            minHeight: 34,
+            minHeight: 44,
             borderRadius: 999,
             borderWidth: 1,
             borderColor: isDark ? "rgba(255,255,255,0.16)" : "#dad8d1",
@@ -219,7 +219,7 @@ function PermissionApprovalView(props: {
           <Text
             style={{
               color: isDark ? "#8f8f8b" : "#75746e",
-              fontSize: 11.5,
+              fontSize: 13,
               fontWeight: "700",
             }}
           >
@@ -232,7 +232,7 @@ function PermissionApprovalView(props: {
           accessibilityLabel={`Allow ${props.request.permission} once`}
           style={({ pressed }) => ({
             flex: 1,
-            minHeight: 34,
+            minHeight: 44,
             borderRadius: 999,
             backgroundColor: isDark ? "#ececea" : "#141413",
             alignItems: "center",
@@ -244,7 +244,7 @@ function PermissionApprovalView(props: {
           <Text
             style={{
               color: isDark ? "#141413" : "#f7f6f2",
-              fontSize: 11.5,
+              fontSize: 13,
               fontWeight: "700",
             }}
           >
