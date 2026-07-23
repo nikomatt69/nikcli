@@ -52,7 +52,6 @@ import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 import { BrowserTool } from "./browser"
 import { ComputerTool } from "./computer"
 
-
 const _toolDir = import.meta.dir
 
 plugin({
@@ -125,6 +124,31 @@ export namespace ToolRegistry {
     )
   }
 
+  function isToolPathAllowed(filePath: string, allowlist: string[]): boolean {
+    const base = path.basename(filePath)
+    const name = path.basename(filePath, path.extname(filePath))
+    return allowlist.some((entry) => entry === filePath || entry === base || entry === name)
+  }
+
+  async function sha256File(filePath: string): Promise<string> {
+    const hasher = new Bun.CryptoHasher("sha256")
+    hasher.update(await Bun.file(filePath).arrayBuffer())
+    return hasher.digest("hex")
+  }
+
+  /** Test/docs seam: whether config-dir `{tool,tools}/*` should be scanned. */
+  export function shouldScanCustomTools(input: {
+    allowAutoloadFlag: boolean
+    allowlist: readonly string[]
+  }): boolean {
+    return input.allowAutoloadFlag || input.allowlist.length > 0
+  }
+
+  /** Test/docs seam: allowlist match for a candidate tool file. */
+  export function isCustomToolAllowed(filePath: string, allowlist: readonly string[]): boolean {
+    return isToolPathAllowed(filePath, [...allowlist])
+  }
+
   function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
     return runPromiseWithLayer(
       Truncate.defaultLayer,
@@ -174,25 +198,53 @@ export namespace ToolRegistry {
           const custom = [] as Tool.Info[]
           const glob = new Bun.Glob("{tool,tools}/*.{js,ts}")
           const ctx = yield* InstanceState.context
+          const config = yield* Effect.promise(() => configGet(ctx))
+          const allowlist = config.tool?.allow ?? []
+          const pins = config.tool?.pin ?? {}
+          const autoloadEnabled = Flag.NIKCLI_ALLOW_PLUGIN_AUTOLOAD || allowlist.length > 0
 
-          for (const dir of yield* Effect.promise(() => configDirectories(ctx))) {
-            // The config dir may not exist yet; scanning a missing dir throws ENOENT.
-            if (!existsSync(dir)) continue
-            const matches = yield* Effect.promise(() =>
-              Array.fromAsync(
-                glob.scan({
-                  cwd: dir,
-                  absolute: true,
-                  followSymlinks: true,
-                  dot: true,
-                }),
-              ),
-            )
-            for (const match of matches) {
-              const namespace = path.basename(match, path.extname(match))
-              const mod = yield* Effect.promise(() => import(match))
-              for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
-                custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+          if (!autoloadEnabled) {
+            log.info("skipping config-dir tool autoload", {
+              reason: "NIKCLI_ALLOW_PLUGIN_AUTOLOAD unset and tool.allow empty",
+            })
+          } else {
+            for (const dir of yield* Effect.promise(() => configDirectories(ctx))) {
+              // The config dir may not exist yet; scanning a missing dir throws ENOENT.
+              if (!existsSync(dir)) continue
+              const matches = yield* Effect.promise(() =>
+                Array.fromAsync(
+                  glob.scan({
+                    cwd: dir,
+                    absolute: true,
+                    followSymlinks: false,
+                    dot: true,
+                  }),
+                ),
+              )
+              for (const match of matches) {
+                const base = path.basename(match)
+                const namespace = path.basename(match, path.extname(match))
+                if (allowlist.length > 0 && !isToolPathAllowed(match, allowlist)) {
+                  log.warn("skipping custom tool (not in tool.allow)", { path: match })
+                  continue
+                }
+                const expectedHash = pins[match] ?? pins[base] ?? pins[namespace]
+                if (expectedHash) {
+                  const actual = yield* Effect.promise(() => sha256File(match))
+                  if (actual !== expectedHash.toLowerCase()) {
+                    log.error("custom tool hash mismatch; refusing to load", {
+                      path: match,
+                      expected: expectedHash,
+                      actual,
+                    })
+                    continue
+                  }
+                }
+
+                const mod = yield* Effect.promise(() => import(match))
+                for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
+                  custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+                }
               }
             }
           }

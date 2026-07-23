@@ -527,6 +527,7 @@ const onMessageDelta = (state: ParserState, event: AnthropicEvent): StepResult =
       {
         type: "request-finish",
         reason: mapFinishReason(event.delta?.stop_reason),
+        ...(event.delta?.stop_reason ? { rawReason: event.delta.stop_reason } : {}),
         usage,
         ...(event.delta?.stop_sequence
           ? { providerMetadata: anthropicMetadata({ stopSequence: event.delta.stop_sequence }) }

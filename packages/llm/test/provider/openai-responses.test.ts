@@ -292,7 +292,7 @@ describe("OpenAI Responses route", () => {
       expect(prepared.body.include).toEqual(["reasoning.encrypted_content"])
       expect(prepared.body.reasoning).toEqual({ effort: "high", summary: "auto" })
       expect(prepared.body.text).toEqual({ verbosity: "low" })
-    }),
+    }).pipe(configEnv({ OPENAI_API_KEY: "test-key" })),
   )
 
   it.effect("request OpenAI provider options override model defaults", () =>
@@ -309,7 +309,7 @@ describe("OpenAI Responses route", () => {
       )
 
       expect(prepared.body.prompt_cache_key).toBe("request_cache")
-    }),
+    }).pipe(configEnv({ OPENAI_API_KEY: "test-key" })),
   )
 
   it.effect("parses text and usage stream fixtures", () =>
@@ -416,6 +416,28 @@ describe("OpenAI Responses route", () => {
           usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6, native: { input_tokens: 5, output_tokens: 1 } },
         },
       ])
+    }),
+  )
+
+  it.effect("surfaces incomplete_details.reason as rawReason on request-finish", () =>
+    Effect.gen(function* () {
+      const body = sseEvents(
+        { type: "response.output_text.delta", item_id: "msg_1", delta: "partial" },
+        {
+          type: "response.incomplete",
+          response: {
+            id: "resp_incomplete",
+            incomplete_details: { reason: "max_output_tokens" },
+            usage: { input_tokens: 3, output_tokens: 9, total_tokens: 12 },
+          },
+        },
+      )
+      const response = yield* LLMClient.generate(request).pipe(Effect.provide(fixedResponse(body)))
+      expect(response.events.at(-1)).toMatchObject({
+        type: "request-finish",
+        reason: "length",
+        rawReason: "max_output_tokens",
+      })
     }),
   )
 

@@ -59,6 +59,17 @@ export const MonitorTool = Tool.define<typeof parameters, MonitorMetadata>("moni
       throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be greater than 0.`)
     }
 
+    // Invariant: monitor runs a shell command asynchronously, but the
+    // permission check is delegated to `bash` (see
+    // `PermissionRuleset.TOOL_PERMISSION` in `src/permission/ruleset.ts`).
+    // This means:
+    //   - A rule on `permission: "bash"` covers `monitor` too.
+    //   - A rule on `permission: "monitor"` alone is **not** checked
+    //     here — only `bash` rules are. If you want finer control over
+    //     monitor, also add a `bash` rule (or update `TOOL_PERMISSION`).
+    // The ask event below publishes the *monitor* id so the user can
+    // see which tool triggered the request, but the underlying
+    // evaluation is on `bash`.
     await authorizeBashCommand(params.command, cwd, ctx)
 
     const title = params.title?.trim() || params.command.trim().slice(0, 80)

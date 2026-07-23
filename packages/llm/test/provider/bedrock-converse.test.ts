@@ -170,7 +170,7 @@ describe("Bedrock Converse route", () => {
       // `metadata` (carries usage). We consolidate them into a single
       // terminal `request-finish` event with both.
       expect(finishes).toHaveLength(1)
-      expect(finishes[0]).toMatchObject({ type: "request-finish", reason: "stop" })
+      expect(finishes[0]).toMatchObject({ type: "request-finish", reason: "stop", rawReason: "end_turn" })
       expect(response.usage).toMatchObject({
         inputTokens: 5,
         outputTokens: 2,
@@ -209,7 +209,11 @@ describe("Bedrock Converse route", () => {
         { type: "tool-input-delta", id: "tool_1", name: "lookup", text: '{"query"' },
         { type: "tool-input-delta", id: "tool_1", name: "lookup", text: ':"weather"}' },
       ])
-      expect(response.events.at(-1)).toMatchObject({ type: "request-finish", reason: "tool-calls" })
+      expect(response.events.at(-1)).toMatchObject({
+        type: "request-finish",
+        reason: "tool-calls",
+        rawReason: "tool_use",
+      })
     }),
   )
 

@@ -321,14 +321,13 @@ export namespace File {
     }),
   )
 
-  function containsPath(ctx: InstanceContext, filepath: string) {
+  async function containsPath(ctx: InstanceContext, filepath: string): Promise<boolean> {
     try {
-      const canonicalInstance = fs.realpathSync(ctx.directory)
-      const canonicalWorktree = ctx.worktree === "/" ? "/" : fs.realpathSync(ctx.worktree)
-      const canonicalPath = Filesystem.canonicalizePath(filepath)
-      if (Filesystem.contains(canonicalInstance, canonicalPath)) return true
-      if (canonicalWorktree === "/") return false
-      return Filesystem.contains(canonicalWorktree, canonicalPath)
+      const instance = await Filesystem.realpathInside(ctx.directory, filepath)
+      if (instance.ok) return true
+      if (ctx.worktree === "/") return false
+      const worktree = await Filesystem.realpathInside(ctx.worktree, filepath)
+      return worktree.ok
     } catch {
       return false
     }
@@ -357,7 +356,7 @@ export namespace File {
             lines = target.length === 0 ? 0 : target.split(/\r\n|\r|\n/).length
           } else {
             if (!stat.isFile()) continue
-            if (!containsPath(ctx, fullPath)) continue
+            if (!(await containsPath(ctx, fullPath))) continue
             lines = await countLines(fullPath)
           }
 
@@ -393,9 +392,10 @@ export namespace File {
     const project = ctx.project
     const full = path.isAbsolute(file) ? path.normalize(file) : path.join(ctx.directory, file)
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
-    if (!containsPath(ctx, full)) {
+    // Containment is now enforced by `Filesystem.realpathInside`, which
+    // resolves symlinks, walks ancestors for non-existent write targets,
+    // and rejects cross-drive paths on Windows. See util/filesystem.ts.
+    if (!(await containsPath(ctx, full))) {
       throw new AccessDeniedError({
         path: full,
         message: "Access denied: path escapes project directory",
@@ -467,9 +467,10 @@ export namespace File {
     }
     const resolved = dir ? (path.isAbsolute(dir) ? path.normalize(dir) : path.join(ctx.directory, dir)) : ctx.directory
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
-    if (!containsPath(ctx, resolved)) {
+    // Containment is now enforced by `Filesystem.realpathInside`, which
+    // resolves symlinks, walks ancestors for non-existent write targets,
+    // and rejects cross-drive paths on Windows. See util/filesystem.ts.
+    if (!(await containsPath(ctx, resolved))) {
       throw new AccessDeniedError({
         path: resolved,
         message: "Access denied: path escapes project directory",

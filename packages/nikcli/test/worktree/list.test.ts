@@ -63,46 +63,54 @@ afterAll(async () => {
 
 describe("Worktree.list", () => {
   it("returns empty array for non-git project", async () => {
-    await withProject(async () => {
-      const result = await runWorktree(
-        Effect.gen(function* () {
-          const worktree = yield* Worktree.Service
-          return yield* worktree.list()
-        }),
-      )
-      expect(result).toEqual([])
+    // Per-case isolation: even though the file sets NIKCLI_TEST_HOME once,
+    // wrap SQLite-touching worktree ops so concurrent suites cannot share rows.
+    const { withIsolatedDatabase } = await import("../helpers/sqlite")
+    await withIsolatedDatabase(async () => {
+      await withProject(async () => {
+        const result = await runWorktree(
+          Effect.gen(function* () {
+            const worktree = yield* Worktree.Service
+            return yield* worktree.list()
+          }),
+        )
+        expect(result).toEqual([])
+      })
     })
   })
 
   it("creates a detached worktree from precomputed info and omits the primary worktree", async () => {
-    await withGitProject(async (projectDir) => {
-      const info = await runWorktree(
-        Effect.gen(function* () {
-          const worktree = yield* Worktree.Service
-          const next = yield* worktree.makeWorktreeInfo({ name: "Detached Feature", detached: true })
-          yield* worktree.createFromInfo(next)
-          return next
-        }),
-      )
+    const { withIsolatedDatabase } = await import("../helpers/sqlite")
+    await withIsolatedDatabase(async () => {
+      await withGitProject(async (projectDir) => {
+        const info = await runWorktree(
+          Effect.gen(function* () {
+            const worktree = yield* Worktree.Service
+            const next = yield* worktree.makeWorktreeInfo({ name: "Detached Feature", detached: true })
+            yield* worktree.createFromInfo(next)
+            return next
+          }),
+        )
 
-      expect(info.name).toBe("detached-feature")
-      expect(info.branch).toBeUndefined()
+        expect(info.name).toBe("detached-feature")
+        expect(info.branch).toBeUndefined()
 
-      const result = await runWorktree(
-        Effect.gen(function* () {
-          const worktree = yield* Worktree.Service
-          return yield* worktree.list()
-        }),
-      )
-      expect(result).toContainEqual({ ...info, directory: await fs.realpath(info.directory) })
-      expect(result.some((item) => path.resolve(item.directory) === path.resolve(projectDir))).toBe(false)
+        const result = await runWorktree(
+          Effect.gen(function* () {
+            const worktree = yield* Worktree.Service
+            return yield* worktree.list()
+          }),
+        )
+        expect(result).toContainEqual({ ...info, directory: await fs.realpath(info.directory) })
+        expect(result.some((item) => path.resolve(item.directory) === path.resolve(projectDir))).toBe(false)
 
-      await runWorktree(
-        Effect.gen(function* () {
-          const worktree = yield* Worktree.Service
-          yield* worktree.remove({ directory: info.directory })
-        }),
-      )
+        await runWorktree(
+          Effect.gen(function* () {
+            const worktree = yield* Worktree.Service
+            yield* worktree.remove({ directory: info.directory })
+          }),
+        )
+      })
     })
   })
 })

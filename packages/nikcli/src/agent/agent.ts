@@ -492,8 +492,11 @@ Review changes and report issues with file paths and fixes.`,
             glob: "allow",
             list: "allow",
             bash: "allow",
+            // Only the truncation directory and glob are allowed; the
+            // previous `*: allow` wildcard over-permitted writes to
+            // any host path matching the external_directory permission.
+            // Keep the explicit allow-list so the policy is auditable.
             external_directory: {
-              "*": "allow",
               [Truncate.DIR]: "allow",
               [Truncate.GLOB]: "allow",
             },

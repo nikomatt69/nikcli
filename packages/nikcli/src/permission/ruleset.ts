@@ -78,10 +78,37 @@ export namespace PermissionRuleset {
 
   const EDIT_TOOLS = ["edit", "write", "patch", "multiedit"]
 
+  /**
+   * Explicit tool→permission mapping. Each entry maps a tool id to the
+   * permission string the ruleset is evaluated against. Tools not listed
+   * here are evaluated against their own id (`tool === permission`),
+   * which is the historical default and remains correct for most tools.
+   *
+   * Add new entries here when a tool delegates to a different permission
+   * than its own id. Keeping the table explicit avoids the implicit
+   * "monitor asks for bash" or "apply_patch asks for patch" coupling
+   * that bit callers in the past — the comment next to each entry
+   * documents the delegation so the seam is discoverable.
+   */
+  export const TOOL_PERMISSION: Record<string, string> = {
+    // monitor runs a shell command asynchronously; it shares the
+    // `bash` permission with the synchronous `bash` tool so a user who
+    // denies `bash` for an agent also denies `monitor`.
+    monitor: "bash",
+    // The edit-tool family collapses to a single `edit` permission so
+    // a "deny edit" rule covers all four shapes (string-replace edit,
+    // full write, multi-edit, GPT-style apply_patch).
+    edit: "edit",
+    write: "edit",
+    patch: "edit",
+    multiedit: "edit",
+    apply_patch: "edit",
+  }
+
   export function disabled(tools: string[], ruleset: Ruleset): Set<string> {
     const result = new Set<string>()
     for (const tool of tools) {
-      const permission = EDIT_TOOLS.includes(tool) ? "edit" : tool
+      const permission = TOOL_PERMISSION[tool] ?? tool
 
       const rule = ruleset.findLast((r: Rule) => Wildcard.match(permission, r.permission))
       if (!rule) continue

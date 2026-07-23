@@ -47,3 +47,51 @@ describe("PermissionRuleset.disabled (opencode #38060)", () => {
     expect(disabled.has("bash")).toBe(true)
   })
 })
+
+describe("PermissionRuleset.TOOL_PERMISSION (explicit coupling table)", () => {
+  it("maps monitor to the bash permission", () => {
+    expect(PermissionRuleset.TOOL_PERMISSION.monitor).toBe("bash")
+  })
+
+  it("collapses the edit family to the edit permission", () => {
+    expect(PermissionRuleset.TOOL_PERMISSION.edit).toBe("edit")
+    expect(PermissionRuleset.TOOL_PERMISSION.write).toBe("edit")
+    expect(PermissionRuleset.TOOL_PERMISSION.patch).toBe("edit")
+    expect(PermissionRuleset.TOOL_PERMISSION.multiedit).toBe("edit")
+    expect(PermissionRuleset.TOOL_PERMISSION.apply_patch).toBe("edit")
+  })
+
+  it("disables monitor when bash is denied", () => {
+    const ruleset: PermissionRuleset.Ruleset = [{ permission: "bash", pattern: "*", action: "deny" }]
+    const disabled = PermissionRuleset.disabled(["monitor"], ruleset)
+    expect(disabled.has("monitor")).toBe(true)
+  })
+
+  it("does not disable monitor via a monitor-only deny rule (the coupling is one-way)", () => {
+    // A rule keyed on `permission: "monitor"` does not match because
+    // disabled() looks up via TOOL_PERMISSION which maps monitor -> bash.
+    // To deny monitor, deny bash. This is the documented invariant in
+    // src/tool/monitor.ts.
+    const ruleset: PermissionRuleset.Ruleset = [{ permission: "monitor", pattern: "*", action: "deny" }]
+    const disabled = PermissionRuleset.disabled(["monitor"], ruleset)
+    expect(disabled.has("monitor")).toBe(false)
+  })
+
+  it("disables all edit-family tools when edit is denied", () => {
+    const ruleset: PermissionRuleset.Ruleset = [{ permission: "edit", pattern: "*", action: "deny" }]
+    const disabled = PermissionRuleset.disabled(["edit", "write", "patch", "multiedit", "apply_patch"], ruleset)
+    expect(disabled.has("edit")).toBe(true)
+    expect(disabled.has("write")).toBe(true)
+    expect(disabled.has("patch")).toBe(true)
+    expect(disabled.has("multiedit")).toBe(true)
+    expect(disabled.has("apply_patch")).toBe(true)
+  })
+
+  it("preserves tools that are not in the explicit table", () => {
+    // `read` is not in TOOL_PERMISSION; lookup uses tool id directly.
+    const ruleset: PermissionRuleset.Ruleset = [{ permission: "read", pattern: "*", action: "deny" }]
+    const disabled = PermissionRuleset.disabled(["read", "glob"], ruleset)
+    expect(disabled.has("read")).toBe(true)
+    expect(disabled.has("glob")).toBe(false)
+  })
+})

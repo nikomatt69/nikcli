@@ -2,6 +2,7 @@ import path from "path"
 import fs from "fs/promises"
 import { Global } from "../global"
 import { zod } from "@/util/effect-zod"
+import { safeStringify } from "./redact"
 import { Schema } from "effect"
 
 export namespace Log {
@@ -100,7 +101,10 @@ export namespace Log {
   }
 
   function formatError(error: Error, depth = 0): string {
-    const result = error.message
+    // Run the message through `redactString` so URLs and token-shaped
+    // substrings in error chains (e.g. OAuth callbacks) are masked
+    // before they hit the log buffer.
+    const result = safeStringify(error.message)
     return error.cause instanceof Error && depth < 10
       ? result + " Caused by: " + formatError(error.cause, depth + 1)
       : result
@@ -119,6 +123,14 @@ export namespace Log {
     }
 
     function build(message: any, extra?: Record<string, any>) {
+      // Redaction policy: keys named in `REDACT_KEYS` get replaced with
+      // "[REDACTED]"; URLs get their query credentials stripped; token/
+      // key/JWT-shaped substrings are masked. `safeStringify` also
+      // breaks cycles and caps depth/leaf so a single log line stays
+      // bounded. The flag is consulted per-write so flipping it in
+      // production does not require a restart.
+      const redact = process.env.NIKCLI_LOG_REDACT !== "0"
+      const stringify = (value: unknown) => (redact ? safeStringify(value) : JSON.stringify(value))
       const prefix = Object.entries({
         ...tags,
         ...extra,
@@ -127,7 +139,7 @@ export namespace Log {
         .map(([key, value]) => {
           const prefix = `${key}=`
           if (value instanceof Error) return prefix + formatError(value)
-          if (typeof value === "object") return prefix + JSON.stringify(value)
+          if (typeof value === "object") return prefix + stringify(value)
           return prefix + value
         })
         .join(" ")

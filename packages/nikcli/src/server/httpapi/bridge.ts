@@ -26,6 +26,19 @@ export namespace HttpApiBridge {
     testAuthOverride = creds
   }
 
+  /**
+   * Machine-readable route table for coverage checks.
+   * `pattern` is the RegExp source (no flags). Prefer updating this list
+   * whenever a new HttpApi surface lands; `script/check-route-coverage.ts`
+   * and `test/server/routes-coverage.test.ts` assert every entry still
+   * matches via `supports` / `supportsGlobal`.
+   */
+  export type RoutePattern = {
+    readonly method: string
+    readonly pattern: string
+    readonly scope: "main" | "global"
+  }
+
   const implementedRoutes = [
     ["DELETE", /^\/provider\/[^/]+\/auth$/],
     ["DELETE", /^\/config\/mcp\/[^/]+$/],
@@ -150,6 +163,8 @@ export namespace HttpApiBridge {
     ["POST", /^\/experimental\/workspace\/[^/]+\/restore$/],
     ["POST", /^\/experimental\/workspace\/[^/]+\/session\/[^/]+\/restore$/],
     ["POST", /^\/experimental\/workspace\/warp$/],
+    ["POST", /^\/experimental\/workspace\/session\/[^/]+\/warp$/],
+    ["POST", /^\/config\/reload$/],
     ["POST", /^\/permission\/[^/]+\/reply$/],
     ["POST", /^\/provider\/[^/]+\/api$/],
     ["POST", /^\/provider\/[^/]+\/oauth\/authorize$/],
@@ -221,6 +236,46 @@ export namespace HttpApiBridge {
     ["PATCH", /^\/user\/[^/]+$/],
     ["DELETE", /^\/user\/[^/]+$/],
   ] as const
+
+  /** Snapshot of bridge route patterns for coverage scripts/tests. */
+  export function listImplemented(): RoutePattern[] {
+    return [
+      ...implementedRoutes.map(([method, pattern]) => ({
+        method,
+        pattern: pattern.source,
+        scope: "main" as const,
+      })),
+      ...globalRoutes.map(([method, pattern]) => ({
+        method,
+        pattern: pattern.source,
+        scope: "global" as const,
+      })),
+    ]
+  }
+
+  /**
+   * Build a concrete sample path that matches `pattern` so `supports`
+   * can be exercised without hand-writing fixtures for every route.
+   * Replaces `[^/]+` / `.+` style segments with `x`, and `(a|b)` with `a`.
+   */
+  export function samplePathFor(patternSource: string): string {
+    const filled = patternSource
+      .replace(/^\^/, "")
+      .replace(/\$$/, "")
+      .replace(/\\\//g, "/")
+      .replace(/\(\?:/g, "(")
+      .replace(/\([^)]+\)/g, (group) => {
+        const inner = group.slice(1, -1)
+        const alt = inner.split("|")[0] ?? "x"
+        return alt.replace(/[^a-zA-Z0-9_-]/g, "") || "x"
+      })
+      .replace(/\[\^\/\]\+/g, "x")
+      .replace(/\.\+/g, "x")
+      .replace(/\?/g, "")
+      .replace(/\^/g, "")
+      .replace(/\$/g, "")
+    return filled.startsWith("/") ? filled : `/${filled}`
+  }
 
   /**
    * Shared Effect HttpApi layer used by the in-Hono bridge today and by the

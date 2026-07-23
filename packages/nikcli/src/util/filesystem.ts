@@ -1,12 +1,27 @@
-import { realpathSync, statSync } from "fs"
+import { realpathSync, lstatSync, statSync } from "fs"
 import { mkdir } from "fs/promises"
 import { dirname, isAbsolute, join, parse, relative, resolve as pathResolve, sep, win32 } from "path"
+import { Schema } from "effect"
 
 export namespace Filesystem {
   function isContained(parent: string, child: string) {
     const rel = relative(parent, child)
     return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))
   }
+
+  export type ContainmentReason = "symlink" | "cross-drive" | "escape"
+
+  /**
+   * Tagged error thrown when a path containment check fails. Carries the
+   * candidate path, the root it was checked against, and the structured
+   * reason so callers can discriminate via `Effect.catchTag`.
+   */
+  export class ContainmentError extends Schema.TaggedErrorClass<ContainmentError>()("FilesystemContainment", {
+    candidate: Schema.String,
+    root: Schema.String,
+    reason: Schema.Literals(["symlink", "cross-drive", "escape"]),
+    message: Schema.String,
+  }) {}
 
   export function stat(p: string): import("fs").Stats | undefined {
     try {
@@ -143,8 +158,8 @@ export namespace Filesystem {
   }
 
   export async function globUp(pattern: string, start: string, stop?: string) {
-    let current = start
     const result = []
+    let current = start
     while (true) {
       try {
         const glob = new Bun.Glob(pattern)
@@ -166,5 +181,119 @@ export namespace Filesystem {
       current = parent
     }
     return result
+  }
+
+  /**
+   * Confirm that `candidate` resolves to a real path under `root`. Uses
+   * realpath to defeat symlink-within-project escapes, walks ancestors for
+   * non-existent write targets, and rejects cross-drive paths on Windows.
+   *
+   * Returns `{ ok: true, real }` on success; `{ ok: false, reason }` on
+   * rejection. The caller decides whether to surface `ContainmentError` or
+   * an alternative. This is the source of truth for filesystem containment
+   * checks; all higher-level wrappers should delegate here.
+   *
+   * The check is per-segment: at every step a symlink that resolves outside
+   * the root is rejected with `reason: "symlink"`, while a `..` walk that
+   * escapes the root is rejected with `reason: "escape"`. A path that does
+   * not yet exist (e.g. a write target whose parent does exist) is allowed
+   * as long as the lexical path is still inside the root, because there is
+   * no symlink to follow.
+   *
+   * The candidate is rewritten so that any lexical prefix matching `root`
+   * is replaced with the canonical realpath of `root`. This handles the
+   * macOS case where `/var` is a symlink to `/private/var` and the root
+   * lives under a temp dir that alias-resolves to `/private/var/folders/...`.
+   */
+  export async function realpathInside(
+    root: string,
+    candidate: string,
+  ): Promise<{ ok: true; real: string } | { ok: false; reason: ContainmentReason }> {
+    let canonicalRoot: string
+    try {
+      canonicalRoot = realpathSync(root)
+    } catch {
+      return { ok: false, reason: "escape" }
+    }
+
+    // Resolve candidate to absolute. If relative, join with the lexical
+    // root so the caller's intent is preserved (not process.cwd()).
+    const absolute = isAbsolute(candidate) ? candidate : join(root, candidate)
+
+    // Cross-drive detection (Windows): reject `C:\\foo` vs `D:\\bar`.
+    if (process.platform === "win32") {
+      const rootDrive = parse(canonicalRoot).root
+      const candDrive = parse(absolute).root
+      if (rootDrive !== candDrive) return { ok: false, reason: "cross-drive" }
+    }
+
+    // If the candidate is lexically outside the root, it is an escape
+    // attempt — we don't need to walk the path to know. This sidesteps
+    // platform quirks (e.g. /var -> /private/var on macOS) where a
+    // system symlink would otherwise be mis-reported as the cause.
+    const isLexicallyInside = absolute === root || absolute.startsWith(root + sep)
+    if (!isLexicallyInside) {
+      return { ok: false, reason: "escape" }
+    }
+
+    // Walk the relative part starting from canonicalRoot. The walk
+    // terminates at the first non-existent segment (write target) or
+    // after all segments. Each segment is checked individually: a
+    // user-supplied symlink that resolves outside the root is rejected
+    // with reason "symlink", a `..` walk that escapes the root is
+    // rejected with reason "escape".
+    const relPart = absolute === root ? "" : absolute.slice(root.length + sep.length)
+    const parts = relPart.split(/[\\/]+/).filter(Boolean)
+    let currentReal: string = canonicalRoot
+    let rejectedReason: ContainmentReason | undefined
+
+    for (const part of parts) {
+      if (part === ".") continue
+      if (part === "..") {
+        const parent: string = dirname(currentReal)
+        if (!isContained(canonicalRoot, parent)) {
+          rejectedReason = "escape"
+          break
+        }
+        currentReal = parent
+        continue
+      }
+      const next: string = join(currentReal, part)
+      const lstat = lstatSync(next, { throwIfNoEntry: false })
+      if (!lstat) {
+        // Path doesn't exist (write target); keep lexically and stop.
+        currentReal = next
+        break
+      }
+      if (lstat.isSymbolicLink()) {
+        try {
+          const realTarget: string = realpathSync(next)
+          if (!isContained(canonicalRoot, realTarget)) {
+            rejectedReason = "symlink"
+            break
+          }
+          currentReal = realTarget
+        } catch {
+          // Broken symlink — hostile, reject.
+          rejectedReason = "symlink"
+          break
+        }
+        continue
+      }
+      // Regular directory or file: probe realpath for canonicalization.
+      if (lstat.isDirectory()) {
+        try {
+          currentReal = realpathSync(next)
+        } catch {
+          currentReal = next
+        }
+      } else {
+        currentReal = next
+      }
+    }
+
+    if (rejectedReason) return { ok: false, reason: rejectedReason }
+
+    return { ok: true, real: currentReal }
   }
 }

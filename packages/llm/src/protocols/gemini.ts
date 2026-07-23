@@ -311,7 +311,14 @@ const mapFinishReason = (finishReason: string | undefined, hasToolCalls: boolean
 
 const finish = (state: ParserState): ReadonlyArray<LLMEvent> =>
   state.finishReason || state.usage
-    ? [{ type: "request-finish", reason: mapFinishReason(state.finishReason, state.hasToolCalls), usage: state.usage }]
+    ? [
+        {
+          type: "request-finish",
+          reason: mapFinishReason(state.finishReason, state.hasToolCalls),
+          ...(state.finishReason ? { rawReason: state.finishReason } : {}),
+          usage: state.usage,
+        },
+      ]
     : []
 
 const step = (state: ParserState, event: GeminiEvent) => {

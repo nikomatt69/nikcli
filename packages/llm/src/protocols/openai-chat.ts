@@ -147,6 +147,7 @@ interface ParserState {
   readonly toolCallEvents: ReadonlyArray<LLMEvent>
   readonly usage?: Usage
   readonly finishReason?: FinishReason
+  readonly rawFinishReason?: string
 }
 
 const invalid = ProviderShared.invalidRequest
@@ -308,6 +309,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
     const usage = mapUsage(event.usage) ?? state.usage
     const choice = event.choices[0]
     const finishReason = choice?.finish_reason ? mapFinishReason(choice.finish_reason) : state.finishReason
+    const rawFinishReason = choice?.finish_reason ?? state.rawFinishReason
     const delta = choice?.delta
     const toolDeltas = delta?.tool_calls ?? []
     let tools = state.tools
@@ -340,6 +342,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
         toolCallEvents: finished?.events ?? state.toolCallEvents,
         usage,
         finishReason,
+        rawFinishReason,
       },
       events,
     ] as const
@@ -350,7 +353,16 @@ const finishEvents = (state: ParserState): ReadonlyArray<LLMEvent> => {
   const reason = state.finishReason === "stop" && hasToolCalls ? "tool-calls" : state.finishReason
   return [
     ...state.toolCallEvents,
-    ...(reason ? ([{ type: "request-finish", reason, usage: state.usage }] satisfies ReadonlyArray<LLMEvent>) : []),
+    ...(reason
+      ? ([
+          {
+            type: "request-finish",
+            reason,
+            ...(state.rawFinishReason ? { rawReason: state.rawFinishReason } : {}),
+            usage: state.usage,
+          },
+        ] satisfies ReadonlyArray<LLMEvent>)
+      : []),
   ]
 }
 

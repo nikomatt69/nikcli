@@ -23,13 +23,42 @@ This file contains guidelines for AI agents operating in the nikcli repository.
 
 ### Testing
 
-- **Run all tests**: `bun test`
-- **Run single test**: `bun test test/tool/tool.test.ts`
-- **Run tests matching pattern**: `bun test --match "pattern"`
+- **Unit (PR-blocker)**: `bun run test` — ignores `*benchmark*` and `*integration*` suites
+- **Integration**: `bun run test:integration`
+- **Benchmarks**: `bun run test:bench` (or set `NIKCLI_TEST_BENCH=1` to enable preload bookkeeping)
+- **E2E / TUI**: `bun run test:e2e`
+- **Single file**: `bun test test/tool/tool.test.ts`
+- **Pattern**: `bun test --match "pattern"`
+- Prefer `withIsolatedDatabase` (`test/helpers/sqlite.ts`) for SQLite-touching suites and `makeToolContext` + `withProjectDirectory` (`test/helpers/tool-context.ts`) for tool behavioural tests
 
 ### SDK Generation
 
 - **Regenerate JavaScript SDK**: `./packages/sdk/js/script/build.ts`
+- **HttpApi route coverage**: `bun run check:routes` (advisory; pass `--strict` to fail on uncovered Hono routes)
+
+## Security & quality gates
+
+### Logging redaction
+
+- All `Log` serialisation goes through `safeStringify` / `redactUrl` (`src/util/redact.ts`).
+- Default on; set `NIKCLI_LOG_REDACT=0` to disable for local debugging.
+- Do not bypass `safeStringify` in logging paths.
+
+### Plugin / custom-tool autoload
+
+- Config-dir `{tool,tools}/*.{js,ts}` is **not** imported by default.
+- Opt in with `NIKCLI_ALLOW_PLUGIN_AUTOLOAD=1`, or pin via nikcli.json:
+  `{ "tool": { "allow": ["my-tool.ts"], "pin": { "my-tool.ts": "<sha256>" } } }`.
+- `Plugin.Service` hook tools still load as before.
+
+### Permission coupling
+
+- Explicit map: `PermissionRuleset.TOOL_PERMISSION` (e.g. `monitor` → `bash`, edit-family → `edit`).
+- A deny on `bash` covers `monitor`; a deny on `monitor` alone does **not**.
+
+### Stack traces
+
+- User-facing formatters suppress stacks unless `NIKCLI_DEBUG=1` (`formatStack` in `src/cli/error.ts`).
 
 ## Code Style Guidelines
 

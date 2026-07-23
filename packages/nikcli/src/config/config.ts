@@ -1600,6 +1600,28 @@ export namespace Config {
       layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
       permission: Permission.optional(),
       tools: z.record(z.string(), z.boolean()).optional(),
+      /**
+       * Custom tool-file load policy for `{tool,tools}/*.{js,ts}` under
+       * config directories. Distinct from deprecated `tools` (enable/disable
+       * registered tool ids). See `ToolRegistry` + `NIKCLI_ALLOW_PLUGIN_AUTOLOAD`.
+       */
+      tool: z
+        .object({
+          allow: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "Allowlist of custom tool file basenames or absolute paths. When set, only these files are imported (even without NIKCLI_ALLOW_PLUGIN_AUTOLOAD).",
+            ),
+          pin: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe(
+              "Map of basename/absolute path → sha256 hex. When set, mismatch rejects the file and skips registration.",
+            ),
+        })
+        .optional()
+        .describe("Filesystem tool autoload allowlist and integrity pins"),
       enterprise: z
         .object({
           url: z.string().optional().describe("Enterprise URL"),

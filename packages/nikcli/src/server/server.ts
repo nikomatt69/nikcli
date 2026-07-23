@@ -218,9 +218,21 @@ export namespace Server {
           if (err instanceof Error && err.name.startsWith("Worktree"))
             return c.json({ name: err.name, data: { message: err.message } }, { status: 400 })
           if (err instanceof HTTPException) return err.getResponse()
-          const message = err instanceof Error && err.stack ? err.stack : err.toString()
+          // Do NOT leak the stack to clients. The stack is already
+          // logged via the `log.error("failed", { error: err })` call
+          // above. The client only needs a redacted message; the full
+          // stack is reserved for `NIKCLI_DEBUG=1` consumers.
+          const debug = process.env.NIKCLI_DEBUG === "1"
+          const isError = err instanceof Error
+          const message = isError ? err.message : String(err)
           return c.json(
-            { name: "Unknown" as const, data: { message } },
+            {
+              name: "Unknown" as const,
+              data: {
+                message,
+                ...(debug && isError ? { stack: err.stack } : {}),
+              },
+            },
             {
               status: 500,
             },
@@ -358,7 +370,9 @@ export namespace Server {
           if (!ServerBackend.shouldUseGlobalHttpApiBridge(c.req.path, c.req.method)) {
             return next()
           }
-          return HttpApiBridge.handleGlobal(c.req.raw, { upstreamAuthVerified: true })
+          return HttpApiBridge.handleGlobal(c.req.raw, {
+            upstreamAuthVerified: true,
+          })
         })
         .route("/global", GlobalRoutes())
         .use(async (c, next) => {

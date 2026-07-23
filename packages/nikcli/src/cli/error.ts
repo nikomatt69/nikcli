@@ -1,7 +1,17 @@
 import { Log } from "@/util/log"
 import { UserFacingError } from "@/util/user-error"
+import { safeStringify } from "@/util/redact"
 
 const log = Log.create({ service: "error-formatter" })
+
+/**
+ * Stack traces are suppressed by default so they never leak into user-facing
+ * CLI / TUI output. Enable with `NIKCLI_DEBUG=1` for local diagnosis.
+ */
+export function formatStack(error: Error): string | null {
+  if (process.env.NIKCLI_DEBUG === "1") return error.stack ?? null
+  return null
+}
 
 /**
  * Dispatch table keyed by the error's `_tag` discriminator.
@@ -132,16 +142,26 @@ export function FormatError(input: unknown): string | undefined {
 
 export function FormatUnknownError(input: unknown): string {
   if (input instanceof Error) {
+    // Use a redacting serializer so URLs and token-shaped substrings
+    // inside the error message are masked before they reach the user.
+    // Return the message (or `name: message`) rather than the stack by
+    // default. Set NIKCLI_DEBUG=1 to include the stack for diagnosis.
+    const redact = process.env.NIKCLI_LOG_REDACT !== "0"
+    const safeMessage = redact ? safeStringify(input.message) : input.message
     log.debug("Formatting unknown error", {
       name: input.name,
       message: input.message,
+      stack: input.stack,
     })
-    return input.stack ?? `${input.name}: ${input.message}`
+    const stack = formatStack(input)
+    if (stack) return stack
+    return `${input.name}: ${safeMessage}`
   }
 
   if (typeof input === "object" && input !== null) {
     try {
-      const serialized = JSON.stringify(input, null, 2)
+      const redact = process.env.NIKCLI_LOG_REDACT !== "0"
+      const serialized = redact ? safeStringify(input) : JSON.stringify(input, null, 2)
       log.debug("Serialized object error", { keys: Object.keys(input) })
       return serialized
     } catch {

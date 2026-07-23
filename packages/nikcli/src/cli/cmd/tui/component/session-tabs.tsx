@@ -65,9 +65,13 @@ export function layoutSessionTabs(
   const hidden = ids.length - visible.length
   const overflowWidth = hidden > 0 ? OVERFLOW_WIDTH : 0
   const gapsWidth = Math.max(0, visible.length - 1) * TAB_GAP
+  // Subtract 1 to leave a one-cell margin between tabs and the chrome
+  // edge. The previous formula returned off-by-one values that
+  // overflowed the terminal in practice; the -1 keeps the rendered
+  // tabs within bounds while respecting TAB_MIN_WIDTH as a floor.
   const width = Math.max(
     TAB_MIN_WIDTH,
-    Math.min(TAB_MAX_WIDTH, Math.floor((available - overflowWidth - gapsWidth) / Math.max(1, visible.length))),
+    Math.min(TAB_MAX_WIDTH, Math.floor((available - overflowWidth - gapsWidth) / Math.max(1, visible.length)) - 1),
   )
   return { ids: visible, hidden, width }
 }

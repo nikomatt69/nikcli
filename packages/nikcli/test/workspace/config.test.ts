@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { withIsolatedDatabase } from "../helpers/sqlite"
 
 describe("Workspace", () => {
   describe("event limit configuration", () => {
@@ -37,17 +38,18 @@ describe("Workspace", () => {
  */
 describe("SyncStorage (workspace event log)", () => {
   it("enforces the max events per aggregate during compaction", async () => {
-    const { Sync } = await import("../../src/sync")
-    const { Identifier } = await import("../../src/id/id")
-    const projectID = `test_proj_phase0_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const aggregate = Identifier.ascending("workspace")
+    await withIsolatedDatabase(async () => {
+      const { Sync } = await import("../../src/sync")
+      const { Identifier } = await import("../../src/id/id")
+      const projectID = `test_proj_phase0_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const aggregate = Identifier.ascending("workspace")
 
-    // Emit a small number of events, verify they all land
-    for (let i = 0; i < 5; i++) {
-      await Sync.emitRaw(projectID, aggregate, { type: "workspace.test", i })
-    }
-    const events = await Sync.readAggregate(aggregate)
-    expect(events).toHaveLength(5)
-    expect(events.at(-1)).toEqual({ type: "workspace.test", i: 4 })
+      for (let i = 0; i < 5; i++) {
+        await Sync.emitRaw(projectID, aggregate, { type: "workspace.test", i })
+      }
+      const events = await Sync.readAggregate(aggregate)
+      expect(events).toHaveLength(5)
+      expect(events.at(-1)).toEqual({ type: "workspace.test", i: 4 })
+    })
   })
 })

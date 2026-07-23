@@ -98,6 +98,11 @@ export const StepFinish = Schema.Struct({
   type: Schema.Literal("step-finish"),
   index: Schema.Number,
   reason: FinishReason,
+  // Raw, provider-specific finish reason string (e.g. Anthropic "end_turn",
+  // OpenAI "function_call", Gemini "MAX_TOKENS") preserved alongside the
+  // normalized `reason` for observability/debugging. Optional: not every
+  // provider surfaces a distinct wire value.
+  rawReason: Schema.optional(Schema.String),
   usage: Schema.optional(Usage),
   providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.StepFinish" })
@@ -106,6 +111,9 @@ export type StepFinish = Schema.Schema.Type<typeof StepFinish>
 export const RequestFinish = Schema.Struct({
   type: Schema.Literal("request-finish"),
   reason: FinishReason,
+  // Raw, provider-specific finish reason string preserved alongside the
+  // normalized `reason`. See `StepFinish.rawReason`.
+  rawReason: Schema.optional(Schema.String),
   usage: Schema.optional(Usage),
   providerMetadata: Schema.optional(ProviderMetadata),
 }).annotate({ identifier: "LLM.Event.RequestFinish" })

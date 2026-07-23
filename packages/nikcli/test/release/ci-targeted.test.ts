@@ -85,7 +85,9 @@ describe("ci-validate.ts step order", () => {
     expect(stepNames).toEqual([
       "Install dependencies",
       "Typecheck",
-      "Run tests",
+      "Lint (oxlint)",
+      "Format check (prettier)",
+      "Run unit tests",
       "Run release automation tests",
       "Shell syntax check (install script)",
     ])

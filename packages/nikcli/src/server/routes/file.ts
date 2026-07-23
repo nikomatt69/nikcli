@@ -2,11 +2,13 @@ import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import path from "path"
+import fs from "fs/promises"
 import { File } from "../../file"
 import { SearchBackend } from "../../file/searchBackend"
 import { LSP } from "../../lsp"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
+import { Filesystem } from "../../util/filesystem"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
@@ -259,7 +261,29 @@ export const FileRoutes = lazy(() =>
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
-        await Bun.write(normalizedPath, content)
+
+        // Containment: the path must resolve under Instance.directory.
+        // realpathInside defeats symlink-within-project escapes, walks
+        // ancestors for non-existent write targets, and rejects
+        // cross-drive paths on Windows. A symlink whose target is
+        // outside the project is also caught here.
+        const containment = await Filesystem.realpathInside(Instance.directory, normalizedPath)
+        if (!containment.ok) {
+          return c.json(
+            {
+              success: false,
+              error: "Path escapes project directory",
+              reason: containment.reason,
+            },
+            400,
+          )
+        }
+
+        // Atomic write: write to a sibling .tmp file then rename into
+        // place. Concurrent readers can no longer observe a torn file.
+        const tmpPath = `${normalizedPath}.tmp.${Date.now()}.${process.pid}`
+        await Bun.write(tmpPath, content)
+        await fs.rename(tmpPath, normalizedPath)
         return c.json({ success: true })
       },
     ),

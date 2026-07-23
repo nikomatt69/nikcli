@@ -152,6 +152,7 @@ describe("Anthropic Messages route", () => {
         {
           type: "request-finish",
           reason: "tool-calls",
+          rawReason: "tool_use",
           usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6, native: { input_tokens: 5, output_tokens: 1 } },
         },
       ])

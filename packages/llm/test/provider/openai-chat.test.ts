@@ -1,5 +1,5 @@
 import { describe, expect } from "bun:test"
-import { Effect, Schema, Stream } from "effect"
+import { ConfigProvider, Effect, Schema, Stream } from "effect"
 import { HttpClientRequest } from "effect/unstable/http"
 import { LLM, LLMError } from "../../src"
 import * as Azure from "../../src/providers/azure"
@@ -28,6 +28,8 @@ const request = LLM.request({
   prompt: "Say hello.",
   generation: { maxTokens: 20, temperature: 0 },
 })
+
+const configEnv = (env: Record<string, string>) => Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env })))
 
 describe("OpenAI Chat route", () => {
   it.effect("prepares OpenAI Chat payload", () =>
@@ -64,7 +66,7 @@ describe("OpenAI Chat route", () => {
 
       expect(prepared.body.store).toBe(false)
       expect(prepared.body.reasoning_effort).toBe("low")
-    }),
+    }).pipe(configEnv({ OPENAI_API_KEY: "test-key" })),
   )
 
   it.effect("adds native query params to the Chat Completions URL", () =>
@@ -230,6 +232,7 @@ describe("OpenAI Chat route", () => {
         {
           type: "request-finish",
           reason: "stop",
+          rawReason: "stop",
           usage: {
             inputTokens: 5,
             outputTokens: 2,
@@ -269,7 +272,7 @@ describe("OpenAI Chat route", () => {
         { type: "tool-input-delta", id: "call_1", name: "lookup", text: '{"query"' },
         { type: "tool-input-delta", id: "call_1", name: "lookup", text: ':"weather"}' },
         { type: "tool-call", id: "call_1", name: "lookup", input: { query: "weather" } },
-        { type: "request-finish", reason: "tool-calls", usage: undefined },
+        { type: "request-finish", reason: "tool-calls", rawReason: "tool_calls", usage: undefined },
       ])
     }),
   )

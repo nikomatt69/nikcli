@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { ConfigMarkdown } from "@/config/markdown"
 import { Config } from "@/config/config"
-import { FormatError, FormatUnknownError } from "@/cli/error"
+import { FormatError, FormatUnknownError, formatStack } from "@/cli/error"
 import { Agent } from "@/agent/agent"
 import { MCP } from "@/mcp"
 import { Provider } from "@/provider/provider"
@@ -155,11 +155,72 @@ describe("FormatUnknownError", () => {
   it("handles unserializable object", () => {
     const o: Record<string, unknown> = {}
     o.self = o
-    expect(FormatUnknownError(o)).toContain("unserializable")
+    // The redacting serializer detects cycles and emits a marker
+    // instead of throwing. The previous "unserializable" path is
+    // preserved for genuinely non-serializable values (e.g. functions).
+    const out = FormatUnknownError(o)
+    expect(out).toMatch(/(unserializable|circular)/)
   })
 
   it("stringifies primitives", () => {
     expect(FormatUnknownError(42)).toBe("42")
     expect(FormatUnknownError(true)).toBe("true")
+  })
+
+  it("suppresses the stack by default", () => {
+    const err = new Error("with-stack")
+    err.stack = "Error: with-stack\n  at file:1:1"
+    const out = FormatUnknownError(err)
+    expect(out).not.toContain("at file")
+    expect(out).not.toContain("\n  at")
+  })
+
+  it("includes the stack when NIKCLI_DEBUG=1 is set", () => {
+    const previous = process.env.NIKCLI_DEBUG
+    try {
+      process.env.NIKCLI_DEBUG = "1"
+      const err = new Error("with-stack")
+      err.stack = "Error: with-stack\n  at file:1:1"
+      const out = FormatUnknownError(err)
+      expect(out).toContain("at file")
+    } finally {
+      if (previous === undefined) delete process.env.NIKCLI_DEBUG
+      else process.env.NIKCLI_DEBUG = previous
+    }
+  })
+
+  it("redacts secrets inside the error message", () => {
+    const err = new Error("OAuth callback failed: https://x?code=secret123")
+    const out = FormatUnknownError(err)
+    expect(out).not.toContain("secret123")
+    expect(out).toContain("code=[REDACTED]")
+  })
+})
+
+describe("formatStack", () => {
+  it("returns null by default", () => {
+    const previous = process.env.NIKCLI_DEBUG
+    delete process.env.NIKCLI_DEBUG
+    try {
+      const err = new Error("x")
+      err.stack = "Error: x\n  at file:1:1"
+      expect(formatStack(err)).toBeNull()
+    } finally {
+      if (previous === undefined) delete process.env.NIKCLI_DEBUG
+      else process.env.NIKCLI_DEBUG = previous
+    }
+  })
+
+  it("returns the stack when NIKCLI_DEBUG=1", () => {
+    const previous = process.env.NIKCLI_DEBUG
+    try {
+      process.env.NIKCLI_DEBUG = "1"
+      const err = new Error("x")
+      err.stack = "Error: x\n  at file:1:1"
+      expect(formatStack(err)).toContain("at file")
+    } finally {
+      if (previous === undefined) delete process.env.NIKCLI_DEBUG
+      else process.env.NIKCLI_DEBUG = previous
+    }
   })
 })

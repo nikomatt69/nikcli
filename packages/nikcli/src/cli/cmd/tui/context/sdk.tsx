@@ -2,6 +2,7 @@ import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, onCleanup, onMount } from "solid-js"
+import { createWakeDedup, type WakeDedup } from "../util/wake-dedup"
 
 /**
  * GlobalBus envelope as forwarded by `/global/event` (HTTP mode) and the
@@ -83,15 +84,59 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     let timer: Timer | undefined
     let last = 0
 
+    // Consumer-side dedup for wake-shaped envelopes. The "parent ↔
+    // child wake ordering race" can cause the same event to be
+    // delivered twice through the bus; without this filter every
+    // handler below would re-run on the duplicate (e.g. two
+    // refreshBackgroundJobs, two "Woke parent session" log lines).
+    // The LRU is bounded to 256 entries × 60s TTL (~8 KB) so it cannot
+    // grow unbounded even under sustained bursts. See
+    // `util/wake-dedup.ts` for the policy and Level-2 follow-ups.
+    const wakeDedup: WakeDedup = createWakeDedup(
+      (envelope) => {
+        const payload = (envelope as { payload?: { type?: string; properties?: unknown } }).payload
+        const type = payload?.type
+        const props = (payload?.properties ?? {}) as Record<string, unknown>
+        switch (type) {
+          case "delegation.completed":
+            return `delegation:${props?.delegationID}:${props?.status}`
+          case "loop.run.finished":
+            return `loop:${props?.runID}:${props?.status}`
+          case "loop.runtime.changed":
+            return `loop-runtime:${props?.loopID}`
+          case "mission.finished":
+            return `mission:${props?.missionID}`
+          case "mission.exec.finished":
+            return `mission-exec:${props?.execID}:${props?.status}`
+          case "session.goal":
+            return `goal:${props?.sessionID}:${(props?.goal as { status?: string } | null)?.status ?? "null"}`
+          default:
+            return undefined
+        }
+      },
+      { maxEntries: 256, ttlMs: 60_000 },
+    )
+
     const flush = () => {
       if (queue.length === 0) return
       const envelopes = queue
       queue = []
       timer = undefined
       last = Date.now()
+      // Filter wake-shaped envelopes that have already been seen in
+      // the dedup window. The filter is O(n) over the queue and runs
+      // before the batch, so the rest of the pipeline (handlers,
+      // emitter) sees only fresh envelopes.
+      const fresh: GlobalEnvelope[] = []
+      for (const envelope of envelopes) {
+        if (wakeDedup.shouldProcess(envelope as { type?: string; properties?: unknown })) {
+          fresh.push(envelope)
+        }
+      }
+      if (fresh.length === 0) return
       // Batch all event emissions so all store updates result in a single render
       batch(() => {
-        for (const envelope of envelopes) {
+        for (const envelope of fresh) {
           for (const handler of envelopeHandlers) handler(envelope)
           emitter.emit(envelope.payload.type, envelope.payload)
         }

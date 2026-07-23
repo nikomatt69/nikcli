@@ -210,6 +210,7 @@ describe("Gemini route", () => {
         {
           type: "request-finish",
           reason: "stop",
+          rawReason: "STOP",
           usage: {
             inputTokens: 5,
             outputTokens: 2,
@@ -257,6 +258,7 @@ describe("Gemini route", () => {
         {
           type: "request-finish",
           reason: "tool-calls",
+          rawReason: "STOP",
           usage: {
             inputTokens: 5,
             outputTokens: 1,
@@ -313,8 +315,8 @@ describe("Gemini route", () => {
         ),
       )
 
-      expect(length.events).toEqual([{ type: "request-finish", reason: "length" }])
-      expect(filtered.events).toEqual([{ type: "request-finish", reason: "content-filter" }])
+      expect(length.events).toEqual([{ type: "request-finish", reason: "length", rawReason: "MAX_TOKENS" }])
+      expect(filtered.events).toEqual([{ type: "request-finish", reason: "content-filter", rawReason: "SAFETY" }])
     }),
   )
 

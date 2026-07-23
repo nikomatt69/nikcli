@@ -392,7 +392,9 @@ interface ParserState {
   // Bedrock splits the finish into `messageStop` (carries `stopReason`) and
   // `metadata` (carries usage). Hold the terminal event in state so `onHalt`
   // can emit exactly one finish after both chunks have had a chance to arrive.
-  readonly pendingFinish: { readonly reason: FinishReason; readonly usage?: Usage } | undefined
+  readonly pendingFinish:
+    | { readonly reason: FinishReason; readonly rawReason?: string; readonly usage?: Usage }
+    | undefined
 }
 
 const step = (state: ParserState, event: BedrockEvent) =>
@@ -444,7 +446,11 @@ const step = (state: ParserState, event: BedrockEvent) =>
       return [
         {
           ...state,
-          pendingFinish: { reason: mapFinishReason(event.messageStop.stopReason), usage: state.pendingFinish?.usage },
+          pendingFinish: {
+            reason: mapFinishReason(event.messageStop.stopReason),
+            rawReason: event.messageStop.stopReason,
+            usage: state.pendingFinish?.usage,
+          },
         },
         [],
       ] as const
@@ -452,7 +458,17 @@ const step = (state: ParserState, event: BedrockEvent) =>
 
     if (event.metadata) {
       const usage = mapUsage(event.metadata.usage)
-      return [{ ...state, pendingFinish: { reason: state.pendingFinish?.reason ?? "stop", usage } }, []] as const
+      return [
+        {
+          ...state,
+          pendingFinish: {
+            reason: state.pendingFinish?.reason ?? "stop",
+            rawReason: state.pendingFinish?.rawReason,
+            usage,
+          },
+        },
+        [],
+      ] as const
     }
 
     if (event.internalServerException || event.modelStreamErrorException || event.serviceUnavailableException) {
@@ -480,7 +496,14 @@ const framing = BedrockEventStream.framing(ADAPTER)
 
 const onHalt = (state: ParserState): ReadonlyArray<LLMEvent> =>
   state.pendingFinish
-    ? [{ type: "request-finish", reason: state.pendingFinish.reason, usage: state.pendingFinish.usage }]
+    ? [
+        {
+          type: "request-finish",
+          reason: state.pendingFinish.reason,
+          ...(state.pendingFinish.rawReason ? { rawReason: state.pendingFinish.rawReason } : {}),
+          usage: state.pendingFinish.usage,
+        },
+      ]
     : []
 
 // =============================================================================

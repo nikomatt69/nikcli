@@ -1,4 +1,5 @@
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
+import type { LLMEvent } from "@nikcli-ai/llm"
 import os from "os"
 import path from "path"
 import fs from "fs/promises"
@@ -155,32 +156,74 @@ function cliConfigToOAuth(config: CliConfig): ImportedTokens {
   return { access, refresh, expires }
 }
 
-function hasCursorAuthInfo(config: CliConfig) {
-  return Boolean(config.authInfo?.authId || config.authInfo?.email || config.authInfo?.userId)
-}
-
 function stripAnsi(value: string) {
   return value.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
 }
 
-async function pollForAuthFile(timeoutMs = AUTH_POLL_TIMEOUT_MS, intervalMs = 500): Promise<boolean> {
-  const startTime = Date.now()
+const CURSOR_AUTH_HINT =
+  "Cursor CLI is not authenticated. Run `cursor-agent login` in a terminal (or set CURSOR_API_KEY), then reconnect."
+
+// cursor-agent emits an auth error when the CLI has no valid session. Recent
+// versions store the real token in the OS keychain — not in cli-config.json —
+// so the only reliable auth signal is the CLI itself, not a config file.
+function isCursorAuthError(text: string | undefined): boolean {
+  if (!text) return false
+  return /authentication required|run '?agent login'?|CURSOR_API_KEY/i.test(stripAnsi(text))
+}
+
+async function runCursorAgent(
+  args: string[],
+  timeoutMs = 15_000,
+): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  const runner = resolveCursorAgentRunner()
   return new Promise((resolve) => {
-    const check = () => {
-      for (const authPath of CLI_CONFIG_PATHS) {
-        if (existsSync(authPath)) {
-          resolve(true)
-          return
-        }
-      }
-      if (Date.now() - startTime >= timeoutMs) {
-        resolve(false)
-        return
-      }
-      setTimeout(check, intervalMs)
+    let stdout = ""
+    let stderr = ""
+    let settled = false
+    const finish = (status: number | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ status, stdout, stderr })
     }
-    check()
+    const proc = spawn(runner.command, [...runner.args, ...args], { env: runner.env })
+    const timer = setTimeout(() => {
+      try {
+        proc.kill()
+      } catch {}
+      finish(null)
+    }, timeoutMs)
+    proc.stdout.on("data", (d) => (stdout += d.toString()))
+    proc.stderr.on("data", (d) => (stderr += d.toString()))
+    proc.on("close", (code) => finish(code))
+    proc.on("error", () => finish(null))
   })
+}
+
+// `cursor-agent about` prints a "User Email" row: an address when logged in,
+// literally "Not logged in" otherwise. This is the source of truth for auth.
+function parseLoggedInFromAbout(aboutOutput: string): boolean {
+  const match = stripAnsi(aboutOutput).match(/User Email\s+(.+)/i)
+  if (!match) return false
+  const value = match[1].trim()
+  return value.length > 0 && !/not logged in/i.test(value)
+}
+
+async function isCursorAgentLoggedIn(): Promise<boolean> {
+  const { stdout } = await runCursorAgent(["about"])
+  return parseLoggedInFromAbout(stdout)
+}
+
+// Poll until the cursor-agent CLI reports an authenticated session (login done
+// in the browser). Replaces the old file-existence check, which false-positived
+// on a stale cli-config.json that lingers even when logged out.
+async function pollForCursorLogin(timeoutMs = AUTH_POLL_TIMEOUT_MS, intervalMs = 1_000): Promise<boolean> {
+  const startTime = Date.now()
+  while (Date.now() - startTime < timeoutMs) {
+    if (await isCursorAgentLoggedIn()) return true
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  return false
 }
 
 async function importStoredCursorSession(input: PluginInput, getAuth: () => Promise<any>) {
@@ -225,15 +268,17 @@ async function refreshFromCliConfig(input: PluginInput): Promise<ImportedTokens 
 }
 
 async function waitForCursorAuthStatus(): Promise<{ kind: "token"; tokens: ImportedTokens } | { kind: "session" }> {
-  const found = await pollForAuthFile()
-  if (!found) {
-    throw new Error("Timed out waiting for Cursor authentication status")
+  const loggedIn = await pollForCursorLogin()
+  if (!loggedIn) {
+    throw new Error("Timed out waiting for Cursor login. Complete the browser sign-in and try again.")
   }
+  // Older cursor-agent versions still persist a token in cli-config.json; use it
+  // when present. Newer versions keep it in the OS keychain, so we fall back to a
+  // session marker and let the CLI use its own stored credentials per request.
   const current = await readCliConfig()
   if (current) {
     const tokens = cliConfigToOAuth(current.config)
     if (tokens.access) return { kind: "token", tokens }
-    if (hasCursorAuthInfo(current.config)) return { kind: "session" }
   }
   return { kind: "session" }
 }
@@ -375,18 +420,87 @@ async function startCursorOAuth(): Promise<{
   })
 }
 
-type StreamJsonEvent = {
+export type StreamJsonEvent = {
   type: string
   subtype?: string
   session_id?: string
   timestamp?: number
   timestamp_ms?: number
+  // Buffered flush of a prior partial — same text already streamed via
+  // timestamp_ms deltas. Must be skipped to avoid duplicating assistant text
+  // (cursor stream-json: events with both timestamp_ms and model_call_id).
+  model_call_id?: string
   message?: { role: string; content: Array<{ type: string; text?: string; thinking?: string }> }
   text?: string
   tool_call?: Record<string, { args?: Record<string, unknown> }>
   call_id?: string
   is_error?: boolean
+  // Terminal `result` events put the final assistant text (or error prose) here.
+  result?: unknown
+  errors?: unknown[]
   error?: { message?: string }
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    cacheReadTokens?: number
+    input_tokens?: number
+    output_tokens?: number
+    cache_read_tokens?: number
+  }
+}
+
+/** True for the buffered duplicate flush that re-emits already-streamed partials. */
+function isBufferedFlush(event: StreamJsonEvent): boolean {
+  return typeof event.timestamp_ms === "number" && typeof event.model_call_id === "string"
+}
+
+// cursor-agent tool keys -> nikcli-style labels, so its native tool activity
+// reads like the other providers' tool cards in the TUI.
+const CURSOR_TOOL_LABELS: Record<string, string> = {
+  readToolCall: "read",
+  writeToolCall: "write",
+  editToolCall: "edit",
+  shellToolCall: "bash",
+  bashToolCall: "bash",
+  lsToolCall: "ls",
+  listToolCall: "ls",
+  globToolCall: "glob",
+  grepToolCall: "grep",
+  searchToolCall: "search",
+  deleteToolCall: "delete",
+  fetchToolCall: "webfetch",
+  updateTodosToolCall: "todos",
+  taskToolCall: "task",
+}
+
+function cursorToolLabel(key: string): string {
+  if (CURSOR_TOOL_LABELS[key]) return CURSOR_TOOL_LABELS[key]
+  return key.endsWith("ToolCall") ? key.slice(0, -"ToolCall".length) : key
+}
+
+function cursorToolSummary(args: Record<string, unknown> | undefined): string {
+  if (!args) return ""
+  const first = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = args[k]
+      if (typeof v === "string" && v.trim()) return v.trim()
+    }
+    return ""
+  }
+  return first("command", "path", "pattern", "query", "file_path", "url", "content")
+}
+
+// The tool_call payload nests the tool object next to bookkeeping keys
+// (toolCallId, hookAdditionalContexts, ...); pick the one ending in "ToolCall".
+function formatCursorToolActivity(event: StreamJsonEvent): string {
+  const entry = event.tool_call
+  if (!entry) return ""
+  const key = Object.keys(entry).find((k) => k.endsWith("ToolCall") && k !== "toolCallId")
+  if (!key) return ""
+  const label = cursorToolLabel(key)
+  const summary = cursorToolSummary(entry[key]?.args)
+  const detail = summary ? ` \`${summary.length > 120 ? summary.slice(0, 117) + "…" : summary}\`` : ""
+  return `\n\n\`⏺ ${label}\`${detail}\n\n`
 }
 
 function parseStreamJsonLine(line: string): StreamJsonEvent | null {
@@ -415,16 +529,6 @@ function extractThinkingFromAssistant(event: StreamJsonEvent): string {
     .filter((c) => c.type === "thinking" && typeof c.thinking === "string")
     .map((c) => c.thinking as string)
     .join("")
-}
-
-function inferToolName(event: StreamJsonEvent): string {
-  const key = Object.keys(event.tool_call ?? {})[0]
-  if (!key) return "tool"
-  if (key.endsWith("ToolCall")) {
-    const base = key.slice(0, -"ToolCall".length)
-    return base.charAt(0).toLowerCase() + base.slice(1)
-  }
-  return key
 }
 
 class LineBuffer {
@@ -497,6 +601,7 @@ class StreamToSseConverter {
 
   handleEvent(event: StreamJsonEvent): string[] {
     if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
+      if (isBufferedFlush(event)) return []
       const isPartial = typeof event.timestamp_ms === "number"
       if (isPartial) {
         const text = extractText(event)
@@ -512,6 +617,7 @@ class StreamToSseConverter {
     }
 
     if (event.type === "thinking") {
+      if (isBufferedFlush(event)) return []
       const text = event.text ?? ""
       if (typeof event.timestamp_ms === "number") {
         if (text) {
@@ -526,6 +632,7 @@ class StreamToSseConverter {
     }
 
     if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
+      if (isBufferedFlush(event)) return []
       const isPartial = typeof event.timestamp_ms === "number"
       const text = extractThinkingFromAssistant(event)
       if (isPartial) {
@@ -540,17 +647,16 @@ class StreamToSseConverter {
       return delta ? [this.chunkWith({ reasoning_content: delta })] : []
     }
 
+    // Passthrough mode: cursor-agent executes its OWN tools (edit/bash/etc.) via
+    // `--force`. We do NOT re-emit them as OpenAI tool_calls — that made nikcli
+    // try to run cursor's tools (updateTodos/Task/...) and reject them as
+    // "unavailable". Instead we surface each call as a compact markdown line so
+    // the TUI shows the concrete action (path/command) like a native tool card.
+    // Only on "started" to avoid duplicating on the paired "completed" event.
     if (event.type === "tool_call") {
-      const id = event.call_id ?? "unknown"
-      const toolName = inferToolName(event)
-      const toolKey = Object.keys(event.tool_call ?? {})[0]
-      const args = toolKey ? event.tool_call?.[toolKey]?.args : undefined
-      const argumentsText = args ? JSON.stringify(args) : ""
-      return [
-        this.chunkWith({
-          tool_calls: [{ index: 0, id, type: "function", function: { name: toolName, arguments: argumentsText } }],
-        }),
-      ]
+      if (event.subtype && event.subtype !== "started") return []
+      const line = formatCursorToolActivity(event)
+      return line ? [this.chunkWith({ content: line })] : []
     }
 
     return []
@@ -581,66 +687,62 @@ function formatSseStart(model: string, options?: { id?: string; created?: number
   })}\n\n`
 }
 
-function buildPromptFromMessages(messages: Array<any>, tools: Array<any>): string {
-  const lines: string[] = []
-
-  if (Array.isArray(tools) && tools.length > 0) {
-    const toolDescs = tools
-      .map((t: any) => {
-        const fn = t.function || t
-        const name = fn.name || "unknown"
-        const desc = fn.description || ""
-        const params = fn.parameters
-        const paramStr = params ? JSON.stringify(params) : "{}"
-        return `- ${name}: ${desc}\n  Parameters: ${paramStr}`
-      })
+function messageText(message: any): string {
+  const content = message?.content
+  if (typeof content === "string") return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part: any) =>
+        part && typeof part === "object" && part.type === "text" && typeof part.text === "string" ? part.text : "",
+      )
+      .filter(Boolean)
       .join("\n")
-    lines.push(
-      `SYSTEM: You have access to the following tools. When you need to use one, respond with a tool_call in the standard OpenAI format.\nTool guidance: prefer write/edit for file changes; use bash mainly to run commands/tests.\n\nAvailable tools:\n${toolDescs}`,
-    )
   }
+  return ""
+}
 
+// Passthrough mode: cursor-agent IS the agent and runs its own tools, so we send
+// plain conversational history — no tool advertising, no OpenAI tool_call markup
+// (which cursor-agent doesn't understand and which fought its native tool loop).
+function buildPromptFromMessages(messages: Array<any>): string {
+  const lines: string[] = []
   for (const message of messages) {
-    const role = typeof message.role === "string" ? message.role : "user"
-
-    if (role === "tool") {
-      const callId = message.tool_call_id || "unknown"
-      const body = typeof message.content === "string" ? message.content : JSON.stringify(message.content ?? "")
-      lines.push(`TOOL_RESULT (call_id: ${callId}): ${body}`)
-      continue
-    }
-
-    if (role === "assistant" && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
-      const tcTexts = message.tool_calls.map((tc: any) => {
-        const fn = tc.function || {}
-        return `tool_call(id: ${tc.id || "?"}, name: ${fn.name || "?"}, args: ${fn.arguments || "{}"})`
-      })
-      const text = typeof message.content === "string" ? message.content : ""
-      lines.push(`ASSISTANT: ${text ? text + "\n" : ""}${tcTexts.join("\n")}`)
-      continue
-    }
-
-    const content = message.content
-    if (typeof content === "string") {
-      lines.push(`${role.toUpperCase()}: ${content}`)
-    } else if (Array.isArray(content)) {
-      const textParts = content
-        .map((part: any) => {
-          if (part && typeof part === "object" && part.type === "text" && typeof part.text === "string") {
-            return part.text
-          }
-          return ""
-        })
-        .filter(Boolean)
-      if (textParts.length) lines.push(`${role.toUpperCase()}: ${textParts.join("\n")}`)
-    }
+    const role = typeof message?.role === "string" ? message.role : "user"
+    if (role === "tool") continue // tool results belong to nikcli's loop, not cursor's
+    const text = messageText(message)
+    if (text) lines.push(`${role.toUpperCase()}: ${text}`)
   }
-
-  if (messages.some((m: any) => m?.role === "tool")) {
-    lines.push("The above tool calls have been executed. Continue your response based on these results.")
-  }
-
   return lines.join("\n\n")
+}
+
+function lastUserPrompt(messages: Array<any>): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === "user") {
+      const text = messageText(messages[i])
+      if (text) return text
+    }
+  }
+  return ""
+}
+
+// A conversation is a continuation once a prior assistant turn with content
+// exists — then we hand cursor-agent only the new user message and resume its
+// own session (native context) instead of replaying a flattened history.
+function isContinuation(messages: Array<any>): boolean {
+  return messages.some((m: any) => m?.role === "assistant" && messageText(m).trim().length > 0)
+}
+
+// Maps a nikcli conversation (workspace + first user message) to the cursor-agent
+// session id captured from its stream, so follow-up turns `--resume` the SAME
+// session rather than starting fresh or continuing an unrelated one.
+const cursorSessions = new Map<string, string>()
+
+function conversationKey(workspaceDirectory: string, messages: Array<any>): string {
+  const firstUser = messages.find((m: any) => m?.role === "user")
+  const seed = `${workspaceDirectory}::${firstUser ? messageText(firstUser) : ""}`
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) hash = (Math.imul(31, hash) + seed.charCodeAt(i)) | 0
+  return `k${hash >>> 0}`
 }
 
 function normalizeCursorModel(model: string | undefined): string {
@@ -673,20 +775,24 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
         stderr: "pipe",
         env: runner.env,
       })
-      const output = await new Response(proc.stdout).text()
+      const [output, errOutput] = await Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+      ])
       await proc.exited
-      const models: Array<{ id: string; object: string; created: number; owned_by: string }> = []
-      for (const line of stripAnsi(output).split("\n")) {
-        const match = line.match(/^([a-z0-9.-]+)\s+-\s+(.+?)(?:\s+\((current|default)\))*\s*$/i)
-        if (match) {
-          models.push({
-            id: match[1],
-            object: "model",
-            created: Math.floor(Date.now() / 1000),
-            owned_by: "cursor",
-          })
-        }
+      if (isCursorAuthError(output) || isCursorAuthError(errOutput)) {
+        return new Response(JSON.stringify({ error: { message: CURSOR_AUTH_HINT, type: "authentication_error" } }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
       }
+      const created = Math.floor(Date.now() / 1000)
+      const models = parseCursorModelsOutput(output).map(({ id }) => ({
+        id,
+        object: "model",
+        created,
+        owned_by: "cursor",
+      }))
       return new Response(JSON.stringify({ object: "list", data: models }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -703,9 +809,19 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
     const body: any = await req.json().catch(() => ({}))
     const messages: Array<any> = Array.isArray(body?.messages) ? body.messages : []
     const stream = body?.stream === true
-    const tools = Array.isArray(body?.tools) ? body.tools : []
-    const prompt = buildPromptFromMessages(messages, tools)
     const model = normalizeCursorModel(body?.model)
+
+    // Session continuity: on a follow-up turn, resume cursor-agent's own session
+    // and send only the new user message so it keeps native context; on the first
+    // turn, send the full history and capture the session id from the stream.
+    const convKey = conversationKey(workspaceDirectory, messages)
+    const priorSession = cursorSessions.get(convKey)
+    const resuming = priorSession !== undefined && isContinuation(messages)
+    const prompt =
+      (resuming ? lastUserPrompt(messages) : buildPromptFromMessages(messages)) || buildPromptFromMessages(messages)
+    const captureSession = (event: StreamJsonEvent) => {
+      if (event.session_id) cursorSessions.set(convKey, event.session_id)
+    }
 
     const runner = resolveCursorAgentRunner()
     const cmd = [
@@ -717,9 +833,9 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
       "--stream-partial-output",
       "--workspace",
       workspaceDirectory,
-      "--model",
-      model,
     ]
+    if (resuming) cmd.push("--resume", priorSession!)
+    cmd.push("--model", model)
     if (FORCE_TOOL_MODE) cmd.push("--force")
 
     const child = bunAny.Bun.spawn({
@@ -751,6 +867,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
       for (const line of stdout.split("\n")) {
         const event = parseStreamJsonLine(line)
         if (!event) continue
+        captureSession(event)
         if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
           const text = extractText(event)
           if (!text) continue
@@ -769,6 +886,12 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
       }
 
       if (exitCode !== 0 && !assistantText) {
+        if (isCursorAuthError(stderr) || isCursorAuthError(stdout)) {
+          return new Response(JSON.stringify({ error: { message: CURSOR_AUTH_HINT, type: "authentication_error" } }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
         const errSource = stderr || stdout || `cursor-agent exited with code ${exitCode}`
         return new Response(JSON.stringify({ error: stripAnsi(errSource) }), {
           status: 500,
@@ -844,6 +967,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
               for (const line of lineBuffer.push(value)) {
                 const event = parseStreamJsonLine(line)
                 if (!event) continue
+                captureSession(event)
                 for (const out of converter.handleEvent(event)) {
                   safeEnqueue(encoder.encode(out))
                 }
@@ -852,6 +976,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
             for (const line of lineBuffer.flush()) {
               const event = parseStreamJsonLine(line)
               if (!event) continue
+              captureSession(event)
               for (const out of converter.handleEvent(event)) {
                 safeEnqueue(encoder.encode(out))
               }
@@ -864,10 +989,12 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
                 return
               }
               const rawStderr = stderrBuffer.trim()
-              const msg = stripAnsi(
-                rawStderr ||
-                  `cursor-agent exited with code ${exitCode} (signal=${exitCode === 137 ? "SIGKILL" : "unknown"})`,
-              )
+              const msg = isCursorAuthError(rawStderr)
+                ? CURSOR_AUTH_HINT
+                : stripAnsi(
+                    rawStderr ||
+                      `cursor-agent exited with code ${exitCode} (signal=${exitCode === 137 ? "SIGKILL" : "unknown"})`,
+                  )
               log.warn("cursor-agent streaming exited with error", {
                 exitCode,
                 stderr: msg.slice(0, 500),
@@ -941,6 +1068,280 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
       status: 500,
       headers: { "Content-Type": "application/json" },
     })
+  }
+}
+
+function extractCursorToolResult(toolObj: any): { type: "text" | "json" | "error"; value: unknown } {
+  const result = toolObj?.result
+  if (!result) return { type: "text", value: "" }
+  if (result.error) {
+    return { type: "error", value: typeof result.error === "string" ? result.error : JSON.stringify(result.error) }
+  }
+  const success = result.success ?? result
+  if (typeof success?.content === "string") return { type: "text", value: success.content }
+  if (typeof success === "string") return { type: "text", value: success }
+  return { type: "json", value: success }
+}
+
+// Converts cursor-agent stream-json events into nikcli LLMEvents. Unlike the SSE
+// path (which goes through streamText and would EXECUTE tool calls), these events
+// are fed straight to the processor via toProcessorStream, so cursor's own tool
+// activity renders as native nikcli tool cards WITHOUT nikcli re-executing them.
+export class CursorEventToLLM {
+  private tracker = new DeltaTracker()
+  private sawAssistantPartials = false
+  private sawThinkingPartials = false
+  private startedTools = new Set<string>()
+
+  handle(event: StreamJsonEvent): LLMEvent[] {
+    if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
+      if (isBufferedFlush(event)) return []
+      const isPartial = typeof event.timestamp_ms === "number"
+      if (isPartial) {
+        const text = extractText(event)
+        if (!text) return []
+        this.sawAssistantPartials = true
+        return [{ type: "text-delta", text } as LLMEvent]
+      }
+      if (this.sawAssistantPartials) return []
+      const delta = this.tracker.nextText(extractText(event))
+      return delta ? [{ type: "text-delta", text: delta } as LLMEvent] : []
+    }
+
+    if (event.type === "thinking") {
+      if (isBufferedFlush(event)) return []
+      const text = event.text ?? ""
+      if (typeof event.timestamp_ms === "number") {
+        if (!text) return []
+        this.sawThinkingPartials = true
+        return [{ type: "reasoning-delta", text } as LLMEvent]
+      }
+      if (this.sawThinkingPartials) return []
+      const delta = this.tracker.nextThinking(text)
+      return delta ? [{ type: "reasoning-delta", text: delta } as LLMEvent] : []
+    }
+
+    if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
+      if (isBufferedFlush(event)) return []
+      const isPartial = typeof event.timestamp_ms === "number"
+      const text = extractThinkingFromAssistant(event)
+      if (isPartial) {
+        if (!text) return []
+        this.sawThinkingPartials = true
+        return [{ type: "reasoning-delta", text } as LLMEvent]
+      }
+      if (this.sawThinkingPartials) return []
+      const delta = this.tracker.nextThinking(text)
+      return delta ? [{ type: "reasoning-delta", text: delta } as LLMEvent] : []
+    }
+
+    if (event.type === "tool_call") {
+      const entry = event.tool_call as Record<string, any> | undefined
+      if (!entry) return []
+      const key = Object.keys(entry).find((k) => k.endsWith("ToolCall") && k !== "toolCallId")
+      if (!key) return []
+      const id = (event.call_id ?? crypto.randomUUID()).replace(/\s+/g, "")
+      const label = cursorToolLabel(key)
+      if (event.subtype === "started") {
+        if (this.startedTools.has(id)) return []
+        this.startedTools.add(id)
+        return [
+          { type: "tool-call", id, name: label, input: entry[key]?.args ?? {}, providerExecuted: true } as LLMEvent,
+        ]
+      }
+      if (event.subtype === "completed") {
+        // Ensure a matching tool-call was emitted (defensive against a lone completed).
+        const events: LLMEvent[] = []
+        if (!this.startedTools.has(id)) {
+          this.startedTools.add(id)
+          events.push({
+            type: "tool-call",
+            id,
+            name: label,
+            input: entry[key]?.args ?? {},
+            providerExecuted: true,
+          } as LLMEvent)
+        }
+        const result = extractCursorToolResult(entry[key])
+        if (result.type === "error" || event.is_error) {
+          events.push({
+            type: "tool-error",
+            id,
+            name: label,
+            message: String(result.value ?? event.error?.message ?? "Tool failed"),
+            providerExecuted: true,
+          } as LLMEvent)
+        } else {
+          events.push({
+            type: "tool-result",
+            id,
+            name: label,
+            result,
+            providerExecuted: true,
+          } as LLMEvent)
+        }
+        return events
+      }
+      return []
+    }
+
+    return []
+  }
+}
+
+export type CursorStreamInput = {
+  messages: Array<any>
+  system?: string[]
+  model: string | undefined
+  workspaceDirectory: string
+  abort: AbortSignal
+}
+
+// Drive cursor-agent and surface it as a native LLMEvent stream (text, reasoning,
+// tool cards, usage). Wired in session/llm.ts for provider "cursor" so the whole
+// nikcli rendering/persistence pipeline applies, minus tool execution.
+export async function* streamCursorLLMEvents(input: CursorStreamInput): AsyncIterable<LLMEvent> {
+  const model = normalizeCursorModel(input.model)
+  const convKey = conversationKey(input.workspaceDirectory, input.messages)
+  const priorSession = cursorSessions.get(convKey)
+  const resuming = priorSession !== undefined && isContinuation(input.messages)
+
+  let prompt = resuming ? lastUserPrompt(input.messages) : buildPromptFromMessages(input.messages)
+  if (!prompt) prompt = buildPromptFromMessages(input.messages)
+  if (!resuming && input.system?.length) {
+    prompt = `SYSTEM: ${input.system.join("\n\n")}\n\n${prompt}`
+  }
+
+  const runner = resolveCursorAgentRunner()
+  const cmd = [
+    runner.command,
+    ...runner.args,
+    "--print",
+    "--output-format",
+    "stream-json",
+    "--stream-partial-output",
+    "--workspace",
+    input.workspaceDirectory,
+  ]
+  if (resuming) cmd.push("--resume", priorSession!)
+  cmd.push("--model", model)
+  if (FORCE_TOOL_MODE) cmd.push("--force")
+
+  const bunAny = globalThis as any
+  const child = bunAny.Bun.spawn({
+    cmd,
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...bunAny.Bun.env, ...runner.env },
+  })
+  child.stdin.write(prompt)
+  child.stdin.end()
+
+  const onAbort = () => {
+    try {
+      child.kill()
+    } catch {}
+  }
+  input.abort.addEventListener("abort", onAbort, { once: true })
+
+  const converter = new CursorEventToLLM()
+  const lineBuffer = new LineBuffer()
+  let usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number } | undefined
+  let sawAuthError = false
+  let resultError: string | undefined
+
+  yield { type: "request-start", id: `cursor-${Date.now()}` } as LLMEvent
+
+  const mapEvent = (event: StreamJsonEvent): LLMEvent[] => {
+    if (event.session_id) cursorSessions.set(convKey, event.session_id)
+    if (event.type === "result") {
+      if (event.is_error) {
+        // Prefer the human-readable `result` string over subtype ("success" can
+        // still appear with is_error=true when the protocol session closed cleanly).
+        const fromResult = typeof event.result === "string" ? event.result.trim() : ""
+        const fromErrors = Array.isArray(event.errors)
+          ? event.errors.filter((e): e is string => typeof e === "string").join("; ")
+          : ""
+        resultError = fromResult || fromErrors || event.error?.message || "cursor-agent reported an error"
+      }
+      const u = event.usage
+      if (u) {
+        usage = {
+          inputTokens: u.inputTokens ?? u.input_tokens,
+          outputTokens: u.outputTokens ?? u.output_tokens,
+          cacheReadTokens: u.cacheReadTokens ?? u.cache_read_tokens,
+        }
+      }
+    }
+    return converter.handle(event)
+  }
+
+  try {
+    if (input.abort.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
+
+    const reader = child.stdout.getReader()
+    while (true) {
+      if (input.abort.aborted) {
+        throw new DOMException("Aborted", "AbortError")
+      }
+      const { value, done } = await reader.read()
+      if (done) break
+      if (!value) continue
+      for (const line of lineBuffer.push(value)) {
+        if (isCursorAuthError(line)) sawAuthError = true
+        const event = parseStreamJsonLine(line)
+        if (!event) continue
+        for (const out of mapEvent(event)) yield out
+      }
+    }
+    for (const line of lineBuffer.flush()) {
+      if (isCursorAuthError(line)) sawAuthError = true
+      const event = parseStreamJsonLine(line)
+      if (!event) continue
+      for (const out of mapEvent(event)) yield out
+    }
+
+    const exitCode = await child.exited
+    if (input.abort.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
+
+    if (sawAuthError || resultError || exitCode !== 0) {
+      const stderrText = await new Response(child.stderr).text().catch(() => "")
+      if (sawAuthError || isCursorAuthError(stderrText)) {
+        yield { type: "provider-error", message: CURSOR_AUTH_HINT, retryable: false } as LLMEvent
+        return
+      }
+      if (resultError) {
+        yield { type: "provider-error", message: resultError, retryable: false } as LLMEvent
+        return
+      }
+      const msg = stripAnsi(stderrText).trim() || `cursor-agent exited with code ${exitCode}`
+      yield { type: "provider-error", message: msg, retryable: false } as LLMEvent
+      return
+    }
+
+    yield {
+      type: "request-finish",
+      reason: "stop",
+      ...(usage
+        ? {
+            usage: {
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              cacheReadInputTokens: usage.cacheReadTokens,
+            },
+          }
+        : {}),
+    } as LLMEvent
+  } finally {
+    input.abort.removeEventListener("abort", onAbort)
+    try {
+      child.kill()
+    } catch {}
   }
 }
 
@@ -1060,6 +1461,48 @@ function getContextWindow(id: string): { context: number; output: number } {
   return { context: 200_000, output: 16_000 }
 }
 
+// Model ids are lowercase, dot/dash/underscore only (e.g. "claude-sonnet-4-5",
+// "gpt-5.2", "composer-2.5", "auto"). Keeping this strict (no `i` flag) stops
+// prose/header lines from being mistaken for models.
+const MODEL_ID_RE = /^[a-z0-9][a-z0-9._-]*$/
+const MODEL_HEADER_WORDS = new Set(["model", "models", "id", "name", "available", "no"])
+
+// Parse `cursor-agent models` output tolerantly. Handles the "id - name" form,
+// whitespace/tab columns, and bare-id lists, stripping "(current)"/"(default)"
+// markers and bullets. Unknown future formats degrade gracefully to id-only.
+function parseCursorModelsOutput(output: string): Array<{ id: string; name: string }> {
+  const models: Array<{ id: string; name: string }> = []
+  const seen = new Set<string>()
+  for (const rawLine of stripAnsi(output).split("\n")) {
+    let line = rawLine.trim()
+    if (!line) continue
+    line = line.replace(/^[-*•>\s]+/, "").trim()
+    if (!line || /^no models/i.test(line)) continue
+    line = line.replace(/\s*\((?:current|default|recommended|selected)\)\s*$/i, "").trim()
+
+    let id: string
+    let name: string
+    const dash = line.match(/^([a-z0-9][a-z0-9._-]*)\s+-\s+(.+)$/)
+    if (dash) {
+      id = dash[1]
+      name = dash[2].trim()
+    } else {
+      const columns = line
+        .split(/\s{2,}|\t+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+      id = (columns[0] ?? line).split(/\s+/)[0]
+      name = columns.length > 1 ? columns.slice(1).join(" ") : id
+    }
+
+    if (!id || !MODEL_ID_RE.test(id) || MODEL_HEADER_WORDS.has(id.toLowerCase())) continue
+    if (seen.has(id)) continue
+    seen.add(id)
+    models.push({ id, name: name || id })
+  }
+  return models
+}
+
 function discoverCursorModelsSync(): Record<
   string,
   { name: string; family: string; context: number; output: number; reasoning: boolean; image: boolean }
@@ -1076,13 +1519,10 @@ function discoverCursorModelsSync(): Record<
       env: runner.env,
     })
     if (out.status !== 0 || !out.stdout) return result
-    const clean = stripAnsi(out.stdout)
-    for (const line of clean.split("\n")) {
-      const m = line.match(/^\s*([a-z0-9][a-z0-9._-]*)\s+-\s+(.+?)(?:\s+\((current|default)\))*\s*$/i)
-      if (!m) continue
-      const id = m[1].trim()
-      const name = m[2].trim()
-      if (!id || id === "Model" || id === "ID") continue
+    // Not logged in → CLI returns an auth error / "no models"; keep the static
+    // fallback rather than polluting the list with parsed noise.
+    if (isCursorAuthError(out.stdout) || isCursorAuthError(out.stderr)) return result
+    for (const { id, name } of parseCursorModelsOutput(out.stdout)) {
       const ctx = getContextWindow(id)
       result[id] = {
         name,

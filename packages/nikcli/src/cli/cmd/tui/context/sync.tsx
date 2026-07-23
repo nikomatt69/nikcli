@@ -179,8 +179,25 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       setStore("background_job", sessionID, reconcile(result.data))
     }
 
-    function scheduleBackgroundRefresh(sessionID?: string) {
+    // Last delegationID we scheduled a refresh for, keyed by session.
+    // This trims the "delegation.completed + 12 message.part.updated"
+    // flood that follows a child completion: the first event schedules
+    // the refresh; subsequent events for the same delegationID find
+    // the existing timer and just extend the debounce window, so the
+    // request fires once per delegation (per session) instead of once
+    // per event. Entries are evicted on `session.deleted` below.
+    const lastDelegationBySession = new Map<string, string>()
+
+    function scheduleBackgroundRefresh(sessionID?: string, delegationID?: string) {
       if (!sessionID) return
+      // If the caller passes the same delegationID we already scheduled
+      // for, treat the call as a debounce extension rather than a new
+      // refresh. The first event for a new delegationID still records
+      // the lookup so subsequent retries for the same one are merged.
+      if (delegationID) {
+        const previous = lastDelegationBySession.get(sessionID)
+        if (previous !== delegationID) lastDelegationBySession.set(sessionID, delegationID)
+      }
       const existing = backgroundRefreshTimers.get(sessionID)
       if (existing) clearTimeout(existing)
       const timer = setTimeout(() => {
@@ -343,6 +360,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         case "session.deleted": {
           syncedSessions.delete(event.properties.info.id)
           sessionLru.forget(event.properties.info.id)
+          lastDelegationBySession.delete(event.properties.info.id)
           const messageIDs = (store.message[event.properties.info.id] ?? []).map((message) => message.id)
           const result = Binary.search(store.session, event.properties.info.id, (s) => s.id)
           if (result.found) {
@@ -493,7 +511,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "delegation.completed": {
-          scheduleBackgroundRefresh(event.properties.parentSessionID)
+          // Pass the delegationID so the lastDelegationBySession
+          // dedup can coalesce the burst of part.updated events that
+          // typically follow a single completion.
+          scheduleBackgroundRefresh(event.properties.parentSessionID, event.properties.delegationID)
           break
         }
 

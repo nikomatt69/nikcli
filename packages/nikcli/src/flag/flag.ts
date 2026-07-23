@@ -134,6 +134,13 @@ export namespace Flag {
   export const NIKCLI_EXPERIMENTAL_BROWSER_TOOL = !truthy("NIKCLI_DISABLE_BROWSER_TOOL")
   export const NIKCLI_EXPERIMENTAL_COMPUTER_TOOL = !truthy("NIKCLI_DISABLE_COMPUTER_TOOL")
 
+  // Opt-in filesystem scan of `{tool,tools}/*.{js,ts}` under config dirs.
+  // Default off — arbitrary code import from config directories is a security
+  // boundary. Set NIKCLI_ALLOW_PLUGIN_AUTOLOAD=1 to restore the historical
+  // glob+import behaviour, or pin specific files via `tool.allow` / `tool.pin`
+  // in nikcli.json (allowlist loads without the flag).
+  export declare const NIKCLI_ALLOW_PLUGIN_AUTOLOAD: boolean
+
   function number(key: string) {
     const value = process.env[key]
     if (!value) return undefined
@@ -182,6 +189,14 @@ Object.defineProperty(Flag, "NIKCLI_EXPERIMENTAL_HTTPAPI", {
     // to opt out and fall back to pure Hono.
     if (process.env["NIKCLI_EXPERIMENTAL_HTTPAPI"] === undefined) return true
     return truthy("NIKCLI_EXPERIMENTAL_HTTPAPI")
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+Object.defineProperty(Flag, "NIKCLI_ALLOW_PLUGIN_AUTOLOAD", {
+  get() {
+    return truthy("NIKCLI_ALLOW_PLUGIN_AUTOLOAD")
   },
   enumerable: true,
   configurable: false,

@@ -32,6 +32,90 @@ describe("llm-event-adapter", () => {
     expect(events.some((e) => e.type === "text-delta" && (e as any).text === "hi")).toBe(true)
   })
 
+  it("surfaces request-finish as a finish-step carrying the raw finish reason", () => {
+    const events = mapLLMEvent(adapterState(), {
+      type: "request-finish",
+      reason: "tool-calls",
+      rawReason: "tool_use",
+      usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6 },
+    } as LLMEvent)
+
+    const finishStep = events.find((e) => e.type === "finish-step") as any
+    expect(finishStep).toBeTruthy()
+    expect(finishStep.finishReason).toBe("tool-calls")
+    expect(finishStep.rawReason).toBe("tool_use")
+    expect(finishStep.usage?.inputTokens).toBe(5)
+    // The terminal `finish` still closes the stream.
+    expect(events.some((e) => e.type === "finish")).toBe(true)
+  })
+
+  it("synthesizes start-step from request-start", () => {
+    const events = mapLLMEvent(adapterState(), { type: "request-start", id: "r1" } as LLMEvent)
+    expect(events.map((e) => e.type)).toEqual(["start", "start-step"])
+  })
+
+  it("closes open text/reasoning before request-finish", () => {
+    const s = adapterState()
+    mapLLMEvent(s, { type: "text-delta", text: "hi" } as LLMEvent)
+    mapLLMEvent(s, { type: "reasoning-delta", text: "think" } as LLMEvent)
+    const events = mapLLMEvent(s, { type: "request-finish", reason: "stop" } as LLMEvent)
+    expect(events.map((e) => e.type)).toEqual(["reasoning-end", "text-end", "finish-step", "finish"])
+  })
+
+  it("omits rawReason when the native event has none", () => {
+    const events = mapLLMEvent(adapterState(), {
+      type: "request-finish",
+      reason: "stop",
+    } as LLMEvent)
+    const finishStep = events.find((e) => e.type === "finish-step") as any
+    expect(finishStep).toBeTruthy()
+    expect(finishStep.rawReason).toBeUndefined()
+  })
+
+  it("coerces provider-executed tool output to the persisted completed shape", () => {
+    const s = adapterState()
+    // A json result (like Cursor's shell/bash tool) must become a string output
+    // with title/metadata present, or persistence rejects the completed part.
+    const events = mapLLMEvent(s, {
+      type: "tool-result",
+      id: "call_1",
+      name: "bash",
+      result: { type: "json", value: { exitCode: 0, stdout: "ok" } },
+      providerExecuted: true,
+    } as LLMEvent)
+    const result = events.find((e) => e.type === "tool-result") as any
+    expect(result).toBeTruthy()
+    expect(typeof result.output.output).toBe("string")
+    expect(result.output.output).toContain("exitCode")
+    expect(typeof result.output.title).toBe("string")
+    expect(result.output.metadata).toEqual({})
+    expect(result.providerExecuted).toBe(true)
+  })
+
+  it("forwards providerExecuted on tool-call", () => {
+    const events = mapLLMEvent(adapterState(), {
+      type: "tool-call",
+      id: "c1",
+      name: "bash",
+      input: { command: "ls" },
+      providerExecuted: true,
+    } as LLMEvent)
+    const call = events.find((e) => e.type === "tool-call") as any
+    expect(call?.providerExecuted).toBe(true)
+  })
+
+  it("maps provider-executed error results to tool-error", () => {
+    const events = mapLLMEvent(adapterState(), {
+      type: "tool-result",
+      id: "c1",
+      name: "bash",
+      result: { type: "error", value: "permission denied" },
+      providerExecuted: true,
+    } as LLMEvent)
+    expect(events.map((e) => e.type)).toEqual(["tool-error"])
+    expect(String((events[0] as any).error)).toContain("permission denied")
+  })
+
   it("starts a text part when a native provider sends a bare delta", () => {
     const events = mapLLMEvent(adapterState(), {
       type: "text-delta",
