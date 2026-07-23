@@ -461,9 +461,7 @@ const onResponseFinish = (state: ParserState, event: OpenAIResponsesEvent): Step
     {
       type: "request-finish",
       reason: mapFinishReason(event, state.hasFunctionCall),
-      ...(event.response?.incomplete_details?.reason
-        ? { rawReason: event.response.incomplete_details.reason }
-        : {}),
+      ...(event.response?.incomplete_details?.reason ? { rawReason: event.response.incomplete_details.reason } : {}),
       usage: mapUsage(event.response?.usage),
       ...(event.response?.id || event.response?.service_tier
         ? {

@@ -80,8 +80,7 @@ for (const route of (app as { routes: Array<{ method: string; path: string }> })
   seen.add(key)
 
   const sample = concreteFromHono(route.path)
-  const supported =
-    HttpApiBridge.supports(sample, route.method) || HttpApiBridge.supportsGlobal(sample, route.method)
+  const supported = HttpApiBridge.supports(sample, route.method) || HttpApiBridge.supportsGlobal(sample, route.method)
   if (!supported) uncovered.push(key)
 }
 

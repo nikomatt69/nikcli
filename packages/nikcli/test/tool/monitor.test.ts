@@ -44,10 +44,7 @@ describe("MonitorTool", () => {
   it("starts a background command and asks bash permission", async () => {
     const { ctx, asked } = makeToolContext()
     const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync(
-        { command: "echo monitor-ok", title: "echo monitor", wake: false },
-        ctx,
-      ),
+      def.executeAsync({ command: "echo monitor-ok", title: "echo monitor", wake: false }, ctx),
     )
 
     expect(result.output).toContain('Started monitor "echo monitor"')

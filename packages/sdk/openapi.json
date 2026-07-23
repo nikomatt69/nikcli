@@ -25871,6 +25871,29 @@
               "type": "boolean"
             }
           },
+          "tool": {
+            "description": "Filesystem tool autoload allowlist and integrity pins",
+            "type": "object",
+            "properties": {
+              "allow": {
+                "description": "Allowlist of custom tool file basenames or absolute paths. When set, only these files are imported (even without NIKCLI_ALLOW_PLUGIN_AUTOLOAD).",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pin": {
+                "description": "Map of basename/absolute path → sha256 hex. When set, mismatch rejects the file and skips registration.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "enterprise": {
             "type": "object",
             "properties": {

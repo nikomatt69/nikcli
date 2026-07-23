@@ -17,10 +17,7 @@ describe("permission coupling", () => {
   })
 
   it("disabled([monitor], monitor deny) does NOT include monitor", () => {
-    const disabled = PermissionRuleset.disabled(
-      ["monitor"],
-      [{ permission: "monitor", pattern: "*", action: "deny" }],
-    )
+    const disabled = PermissionRuleset.disabled(["monitor"], [{ permission: "monitor", pattern: "*", action: "deny" }])
     expect(disabled.has("monitor")).toBe(false)
   })
 

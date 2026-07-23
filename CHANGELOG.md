@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.194.0 (July 2026)
+
+## Core
+
+- Enhance agent guidelines and add new scripts (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): enhance agent guidelines and add new scripts
+
 ## v1.188.0 (July 2026)
 
 ## Core

@@ -46,9 +46,7 @@ describe("GlobTool", () => {
 
   it("defaults the search directory to Instance.directory", async () => {
     const { ctx } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ pattern: "*.md" }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ pattern: "*.md" }, ctx))
     expect(result.output).toContain("c.md")
   })
 })

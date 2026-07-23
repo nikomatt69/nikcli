@@ -2842,6 +2842,21 @@ export type Config = {
   tools?: {
     [key: string]: boolean
   }
+  /**
+   * Filesystem tool autoload allowlist and integrity pins
+   */
+  tool?: {
+    /**
+     * Allowlist of custom tool file basenames or absolute paths. When set, only these files are imported (even without NIKCLI_ALLOW_PLUGIN_AUTOLOAD).
+     */
+    allow?: Array<string>
+    /**
+     * Map of basename/absolute path → sha256 hex. When set, mismatch rejects the file and skips registration.
+     */
+    pin?: {
+      [key: string]: string
+    }
+  }
   enterprise?: {
     /**
      * Enterprise URL

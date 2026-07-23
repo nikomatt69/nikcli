@@ -24,9 +24,7 @@ describe("ReadTool", () => {
     const filePath = path.join(projectDir, "hello.txt")
     await fs.writeFile(filePath, "line1\nline2\n")
     const { ctx, asked } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ filePath }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx))
     expect(result.output).toContain("line1")
     expect(result.output).toContain("line2")
     expect(asked.some((a) => a.permission === "read")).toBe(true)
@@ -59,8 +57,8 @@ describe("ReadTool", () => {
   it("throws File not found for missing paths", async () => {
     const filePath = path.join(projectDir, "missing-unique-xyz.txt")
     const { ctx } = makeToolContext()
-    await expect(
-      withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx)),
-    ).rejects.toThrow(/File not found/)
+    await expect(withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx))).rejects.toThrow(
+      /File not found/,
+    )
   })
 })

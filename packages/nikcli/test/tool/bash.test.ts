@@ -37,9 +37,7 @@ describe("BashTool", () => {
 
   it("synthesizes a title when description is omitted", async () => {
     const { ctx } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ command: "echo no-desc" }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ command: "echo no-desc" }, ctx))
     expect(result.title).toBe("Shell")
     expect(result.output).toContain("no-desc")
   })

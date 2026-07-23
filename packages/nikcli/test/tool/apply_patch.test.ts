@@ -51,9 +51,7 @@ describe("ApplyPatchTool", () => {
   it("rejects an empty patch envelope", async () => {
     const { ctx } = makeToolContext()
     await expect(
-      withProjectDirectory(projectDir, () =>
-        def.executeAsync({ patchText: "*** Begin Patch\n*** End Patch" }, ctx),
-      ),
+      withProjectDirectory(projectDir, () => def.executeAsync({ patchText: "*** Begin Patch\n*** End Patch" }, ctx)),
     ).rejects.toThrow(/empty patch|no hunks/)
   })
 
@@ -66,8 +64,8 @@ describe("ApplyPatchTool", () => {
 
   it("rejects missing patchText", async () => {
     const { ctx } = makeToolContext()
-    await expect(
-      withProjectDirectory(projectDir, () => def.executeAsync({ patchText: "" }, ctx)),
-    ).rejects.toThrow(/patchText is required/)
+    await expect(withProjectDirectory(projectDir, () => def.executeAsync({ patchText: "" }, ctx))).rejects.toThrow(
+      /patchText is required/,
+    )
   })
 })

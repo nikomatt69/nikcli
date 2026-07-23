@@ -137,10 +137,7 @@ export namespace ToolRegistry {
   }
 
   /** Test/docs seam: whether config-dir `{tool,tools}/*` should be scanned. */
-  export function shouldScanCustomTools(input: {
-    allowAutoloadFlag: boolean
-    allowlist: readonly string[]
-  }): boolean {
+  export function shouldScanCustomTools(input: { allowAutoloadFlag: boolean; allowlist: readonly string[] }): boolean {
     return input.allowAutoloadFlag || input.allowlist.length > 0
   }
 

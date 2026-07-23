@@ -25,9 +25,7 @@ describe("ListTool", () => {
 
   it("lists directory entries and asks list permission", async () => {
     const { ctx, asked } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ path: projectDir }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ path: projectDir }, ctx))
     expect(result.output).toContain("one.txt")
     expect(asked.some((a) => a.permission === "list")).toBe(true)
   })
@@ -40,9 +38,7 @@ describe("ListTool", () => {
 
   it("includes nested files under subdirectories", async () => {
     const { ctx } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ path: projectDir }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ path: projectDir }, ctx))
     expect(result.output).toMatch(/two\.txt|subdir/)
   })
 })

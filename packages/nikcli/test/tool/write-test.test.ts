@@ -24,9 +24,7 @@ describe("WriteTool", () => {
   it("writes a new file with the given content", async () => {
     const filePath = path.join(projectDir, "new.txt")
     const { ctx, asked } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ filePath, content: "hello\n" }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath, content: "hello\n" }, ctx))
     expect(result.output).toContain("Wrote file successfully")
     expect(await fs.readFile(filePath, "utf-8")).toBe("hello\n")
     expect(asked.some((a) => a.permission === "edit")).toBe(true)
@@ -66,9 +64,7 @@ describe("WriteTool", () => {
   it("includes the title in the result and metadata", async () => {
     const filePath = path.join(projectDir, "meta.txt")
     const { ctx } = makeToolContext()
-    const result = await withProjectDirectory(projectDir, () =>
-      def.executeAsync({ filePath, content: "meta\n" }, ctx),
-    )
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath, content: "meta\n" }, ctx))
     expect(result.title).toBeTruthy()
     expect(result.metadata).toHaveProperty("filepath")
     expect(result.metadata).toHaveProperty("exists")
