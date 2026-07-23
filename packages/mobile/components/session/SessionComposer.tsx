@@ -1146,7 +1146,10 @@ export function SessionComposer({
                       style={[
                         styles.segmentPill,
                         {
-                          left: segmentPillLeft,
+                          // Native driver only supports transform/opacity; use
+                          // translateX instead of `left` so the pill can slide
+                          // on the UI thread.
+                          transform: [{ translateX: segmentPillLeft }],
                           backgroundColor: isDark
                             ? "rgba(255,255,255,0.13)"
                             : "rgba(255,255,255,0.95)",
