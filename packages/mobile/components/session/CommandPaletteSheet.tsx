@@ -10,47 +10,44 @@ import {
   TextInput,
   View,
   useWindowDimensions,
-} from "react-native";
-import { useEffect, useMemo, useRef } from "react";
-import { AdaptiveBlur } from "@/components/GlassView";
-import { Search, Slash, Sparkles } from "lucide-react-native";
-import { useAppTheme } from "@/lib/theme";
+} from "react-native"
+import { useEffect, useMemo, useRef } from "react"
+import { AdaptiveBlur } from "@/components/GlassView"
+import { Search, Slash, Sparkles } from "lucide-react-native"
+import { useAppTheme } from "@/lib/theme"
 
 export type CommandPaletteItem = {
-  id: string;
-  title: string;
-  description?: string;
-  section: string;
-  badge?: string;
-  keywords?: string[];
-  disabled?: boolean;
-  onPress(): void;
-};
+  id: string
+  title: string
+  description?: string
+  section: string
+  badge?: string
+  keywords?: string[]
+  disabled?: boolean
+  onPress(): void
+}
 
 type CommandPaletteSheetProps = {
-  visible: boolean;
-  loading?: boolean;
-  query: string;
-  onQueryChange(value: string): void;
-  onClose(): void;
-  items: CommandPaletteItem[];
-};
+  visible: boolean
+  loading?: boolean
+  query: string
+  onQueryChange(value: string): void
+  onClose(): void
+  items: CommandPaletteItem[]
+}
 
 export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
-  const { colorScheme, palette, isDark } = useAppTheme();
-  const { height } = useWindowDimensions();
-  const scaleAnimRef = useRef<Animated.Value | null>(null);
-  if (scaleAnimRef.current === null)
-    scaleAnimRef.current = new Animated.Value(0);
-  const scaleAnim = scaleAnimRef.current;
-  const opacityAnimRef = useRef<Animated.Value | null>(null);
-  if (opacityAnimRef.current === null)
-    opacityAnimRef.current = new Animated.Value(0);
-  const opacityAnim = opacityAnimRef.current;
-  const itemScalesRef = useRef<Map<string, Animated.Value> | null>(null);
-  if (itemScalesRef.current === null)
-    itemScalesRef.current = new Map<string, Animated.Value>();
-  const itemScales = itemScalesRef.current;
+  const { colorScheme, palette, isDark } = useAppTheme()
+  const { height } = useWindowDimensions()
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(0)
+  const scaleAnim = scaleAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const itemScalesRef = useRef<Map<string, Animated.Value> | null>(null)
+  if (itemScalesRef.current === null) itemScalesRef.current = new Map<string, Animated.Value>()
+  const itemScales = itemScalesRef.current
 
   useEffect(() => {
     if (props.visible) {
@@ -69,52 +66,47 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
           mass: 0.85,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start()
     } else {
-      scaleAnim.setValue(0);
-      opacityAnim.setValue(0);
+      scaleAnim.setValue(0)
+      opacityAnim.setValue(0)
     }
-  }, [props.visible]);
+  }, [props.visible])
 
   const getItemScale = (id: string) => {
     if (!itemScales.has(id)) {
-      itemScales.set(id, new Animated.Value(1));
+      itemScales.set(id, new Animated.Value(1))
     }
-    return itemScales.get(id)!;
-  };
+    return itemScales.get(id)!
+  }
 
   const sections = useMemo(() => {
-    const grouped = new Map<string, CommandPaletteItem[]>();
+    const grouped = new Map<string, CommandPaletteItem[]>()
     for (const item of props.items) {
-      const current = grouped.get(item.section) ?? [];
-      current.push(item);
-      grouped.set(item.section, current);
+      const current = grouped.get(item.section) ?? []
+      current.push(item)
+      grouped.set(item.section, current)
     }
-    return [...grouped.entries()];
-  }, [props.items]);
+    return [...grouped.entries()]
+  }, [props.items])
 
   // Garbage-collect stale Animated.Value per-item: the getItemScale map
   // grows monotonically otherwise, since each new id is added on first use
   // and never evicted. After the items list changes we diff and drop keys
   // that no longer appear.
-  const itemIdsSignature = props.items.map((it) => it.id).join("|");
+  const itemIdsSignature = props.items.map((it) => it.id).join("|")
   useEffect(() => {
-    const seen = new Set(props.items.map((it) => it.id));
+    const seen = new Set(props.items.map((it) => it.id))
     for (const key of [...itemScales.keys()]) {
-      if (!seen.has(key)) itemScales.delete(key);
+      if (!seen.has(key)) itemScales.delete(key)
     }
     // itemIdsSignature changes whenever the set of items changes; the
     // eslint disable covers the intentional read of props.items inside the
     // callback for diffing.
-  }, [itemIdsSignature]);
+  }, [itemIdsSignature])
 
   return (
-    <Modal
-      transparent
-      visible={props.visible}
-      animationType="fade"
-      onRequestClose={props.onClose}
-    >
+    <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
       <View style={{ flex: 1 }}>
         {/* Full-screen blur backdrop */}
         <AdaptiveBlur
@@ -127,17 +119,12 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
           style={[
             StyleSheet.absoluteFill,
             {
-              backgroundColor: isDark
-                ? "rgba(0,0,0,0.65)"
-                : "rgba(20,20,19,0.16)",
+              backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)",
             },
           ]}
         />
 
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <Pressable style={{ flex: 1 }} onPress={props.onClose} />
 
           <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
@@ -146,9 +133,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                 overflow: "hidden",
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.10)"
-                  : "rgba(255,255,255,0.82)",
+                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
                 shadowColor: "#000",
                 shadowOpacity: isDark ? 0.45 : 0.14,
                 shadowRadius: 28,
@@ -162,17 +147,13 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                 tint={isDark ? "dark" : "light"}
                 intensity={isDark ? 92 : 80}
                 style={StyleSheet.absoluteFill}
-                fallbackColor={
-                  isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"
-                }
+                fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
               />
               <View
                 style={[
                   StyleSheet.absoluteFill,
                   {
-                    backgroundColor: isDark
-                      ? "rgba(17,17,17,0.68)"
-                      : "rgba(255,255,255,0.62)",
+                    backgroundColor: isDark ? "rgba(17,17,17,0.68)" : "rgba(255,255,255,0.62)",
                   },
                 ]}
                 pointerEvents="none"
@@ -196,11 +177,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         gap: 8,
                       }}
                     >
-                      <Sparkles
-                        size={15}
-                        color={palette.accentLight}
-                        strokeWidth={2.1}
-                      />
+                      <Sparkles size={15} color={palette.accentLight} strokeWidth={2.1} />
                       <Text
                         style={{
                           fontSize: 11,
@@ -229,8 +206,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         color: palette.soft,
                       }}
                     >
-                      Search host commands and mobile quick actions, then
-                      prefill or trigger them from one place.
+                      Search host commands and mobile quick actions, then prefill or trigger them from one place.
                     </Text>
                   </View>
 
@@ -255,12 +231,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                     style={({ pressed }) => ({
                       borderRadius: 16,
                       borderWidth: 1,
-                      borderColor: isDark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(255,255,255,0.80)",
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(255,255,255,0.55)",
+                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
+                      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
                       paddingHorizontal: 12,
                       paddingVertical: 8,
                       transform: [{ scale: pressed ? 0.94 : 1 }],
@@ -290,12 +262,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                     gap: 12,
                     borderRadius: 20,
                     borderWidth: 1,
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.10)"
-                      : "rgba(255,255,255,0.80)",
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(255,255,255,0.55)",
+                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.80)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)",
                     paddingHorizontal: 12,
                     paddingVertical: 10,
                   }}
@@ -307,9 +275,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                     placeholder="Search commands, actions, slash names"
                     placeholderTextColor={palette.muted}
                     selectionColor={palette.accent}
-                    keyboardAppearance={
-                      colorScheme === "light" ? "light" : "dark"
-                    }
+                    keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
                     autoCapitalize="none"
                     autoFocus
                     style={{ flex: 1, fontSize: 15, color: palette.ink }}
@@ -330,19 +296,13 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         alignItems: "center",
                         borderRadius: 22,
                         borderWidth: 1,
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(255,255,255,0.72)",
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(255,255,255,0.45)",
+                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
+                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
                         paddingHorizontal: 16,
                         paddingVertical: 20,
                       }}
                     >
-                      <Text style={{ fontSize: 14, color: palette.soft }}>
-                        Loading host commands…
-                      </Text>
+                      <Text style={{ fontSize: 14, color: palette.soft }}>Loading host commands…</Text>
                     </View>
                   ) : sections.length ? (
                     <View style={{ gap: 16 }}>
@@ -360,7 +320,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                             {section}
                           </Text>
                           {items.map((item) => {
-                            const itemScale = getItemScale(item.id);
+                            const itemScale = getItemScale(item.id)
                             return (
                               <Pressable
                                 key={item.id}
@@ -374,7 +334,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                       stiffness: 280,
                                       mass: 0.85,
                                       useNativeDriver: true,
-                                    }).start();
+                                    }).start()
                                   }
                                 }}
                                 onPressOut={() => {
@@ -384,7 +344,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                     stiffness: 300,
                                     mass: 0.8,
                                     useNativeDriver: true,
-                                  }).start();
+                                  }).start()
                                 }}
                                 style={({ pressed }) => ({
                                   borderRadius: 20,
@@ -404,14 +364,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                       ? "rgba(255,255,255,0.04)"
                                       : "rgba(255,255,255,0.52)",
                                   padding: 12,
-                                  opacity: item.disabled
-                                    ? 0.6
-                                    : pressed
-                                      ? 0.7
-                                      : 1,
-                                  transform: [
-                                    { scale: pressed ? 0.97 : itemScale },
-                                  ],
+                                  opacity: item.disabled ? 0.6 : pressed ? 0.7 : 1,
+                                  transform: [{ scale: pressed ? 0.97 : itemScale }],
                                 })}
                               >
                                 <View
@@ -422,9 +376,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                     gap: 12,
                                   }}
                                 >
-                                  <View
-                                    style={{ flex: 1, minWidth: 0, gap: 4 }}
-                                  >
+                                  <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                                     <Text
                                       style={{
                                         fontSize: 14,
@@ -452,12 +404,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                       style={{
                                         borderRadius: 999,
                                         borderWidth: 1,
-                                        borderColor: isDark
-                                          ? "rgba(255,255,255,0.12)"
-                                          : "rgba(20,20,19,0.18)",
-                                        backgroundColor: isDark
-                                          ? "rgba(255,255,255,0.06)"
-                                          : "rgba(20,20,19,0.08)",
+                                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
+                                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
                                         paddingHorizontal: 10,
                                         paddingVertical: 4,
                                       }}
@@ -477,7 +425,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                   ) : null}
                                 </View>
                               </Pressable>
-                            );
+                            )
                           })}
                         </View>
                       ))}
@@ -488,21 +436,13 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                         alignItems: "center",
                         borderRadius: 22,
                         borderWidth: 1,
-                        borderColor: isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "rgba(255,255,255,0.72)",
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(255,255,255,0.45)",
+                        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
+                        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
                         paddingHorizontal: 16,
                         paddingVertical: 20,
                       }}
                     >
-                      <Slash
-                        size={16}
-                        color={palette.muted}
-                        strokeWidth={2.1}
-                      />
+                      <Slash size={16} color={palette.muted} strokeWidth={2.1} />
                       <Text
                         style={{
                           marginTop: 8,
@@ -522,8 +462,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                           color: palette.soft,
                         }}
                       >
-                        Try another keyword or start a slash command directly in
-                        the composer.
+                        Try another keyword or start a slash command directly in the composer.
                       </Text>
                     </View>
                   )}
@@ -534,5 +473,5 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
         </KeyboardAvoidingView>
       </View>
     </Modal>
-  );
+  )
 }

@@ -1,4 +1,4 @@
-import type { HostConfigSnapshot } from "./types";
+import type { HostConfigSnapshot } from "./types"
 
 /**
  * Minimal type for the host client operations we need. Defined here as a
@@ -6,8 +6,8 @@ import type { HostConfigSnapshot } from "./types";
  * elsewhere; the runtime client always satisfies it.
  */
 export interface ConfigWriterClient {
-  getConfig(): Promise<HostConfigSnapshot>;
-  updateConfig(next: HostConfigSnapshot): Promise<HostConfigSnapshot>;
+  getConfig(): Promise<HostConfigSnapshot>
+  updateConfig(next: HostConfigSnapshot): Promise<HostConfigSnapshot>
 }
 
 /**
@@ -24,15 +24,15 @@ export interface ConfigWriterClient {
  * Held in an object so the chain pointer can advance across calls; a bare
  * \`const Promise\` cannot be reassigned.
  */
-const queue: { chain: Promise<unknown> } = { chain: Promise.resolve() };
+const queue: { chain: Promise<unknown> } = { chain: Promise.resolve() }
 
-export type ConfigMerger<
-  T extends Partial<HostConfigSnapshot> = Partial<HostConfigSnapshot>,
-> = (current: HostConfigSnapshot) => T | Promise<T>;
+export type ConfigMerger<T extends Partial<HostConfigSnapshot> = Partial<HostConfigSnapshot>> = (
+  current: HostConfigSnapshot,
+) => T | Promise<T>
 
 export interface WriteOptions {
   /** Optional tag used in error messages and for debugging. */
-  label?: string;
+  label?: string
 }
 
 /**
@@ -48,24 +48,22 @@ export async function writeConfig<T extends Partial<HostConfigSnapshot>>(
   options: WriteOptions = {},
 ): Promise<HostConfigSnapshot> {
   const next = queue.chain.then(async () => {
-    const current = await client.getConfig();
-    const patch = await merger(current);
-    const merged: HostConfigSnapshot = { ...current, ...patch };
-    return client.updateConfig(merged);
-  });
+    const current = await client.getConfig()
+    const patch = await merger(current)
+    const merged: HostConfigSnapshot = { ...current, ...patch }
+    return client.updateConfig(merged)
+  })
   // Keep the chain moving even if a write fails, so a single bad write does
   // not freeze every subsequent config update. Surface the original error
   // from this call.
-  queue.chain = next.catch(() => undefined);
+  queue.chain = next.catch(() => undefined)
   try {
-    return await next;
+    return await next
   } catch (cause) {
     if (options.label) {
-      throw new Error(
-        `${options.label}: ${cause instanceof Error ? cause.message : String(cause)}`,
-      );
+      throw new Error(`${options.label}: ${cause instanceof Error ? cause.message : String(cause)}`)
     }
-    throw cause;
+    throw cause
   }
 }
 

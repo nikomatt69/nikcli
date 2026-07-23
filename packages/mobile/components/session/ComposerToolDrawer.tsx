@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Animated,
   Dimensions,
@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
   useWindowDimensions,
-} from "react-native";
+} from "react-native"
 import {
   Brain,
   BookMarked,
@@ -37,14 +37,11 @@ import {
   Terminal,
   Wifi,
   X,
-} from "lucide-react-native";
-import { AdaptiveBlur } from "@/components/GlassView";
-import { triggerHaptic } from "@/lib/haptics";
-import { useAppTheme } from "@/lib/theme";
-import {
-  formatVariantLabel,
-  type MobileModelOption,
-} from "@/lib/model-catalog";
+} from "lucide-react-native"
+import { AdaptiveBlur } from "@/components/GlassView"
+import { triggerHaptic } from "@/lib/haptics"
+import { useAppTheme } from "@/lib/theme"
+import { formatVariantLabel, type MobileModelOption } from "@/lib/model-catalog"
 
 const styles = StyleSheet.create({
   gitBranchChip: {
@@ -56,88 +53,85 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-});
+})
 
 // Animation constants
-const SPRING_CONFIG = { damping: 20, stiffness: 260, mass: 0.8 };
-const SPRING_CONFIG_FAST = { damping: 22, stiffness: 300, mass: 0.7 };
+const SPRING_CONFIG = { damping: 20, stiffness: 260, mass: 0.8 }
+const SPRING_CONFIG_FAST = { damping: 22, stiffness: 300, mass: 0.7 }
 
-export type ComposerTab = "tools" | "skills" | "mcp" | "model";
+export type ComposerTab = "tools" | "skills" | "mcp" | "model"
 
 // Stable empty defaults so memo() on child components sees the same
 // reference across renders and doesn't redraw.
-const EMPTY_AVAILABLE_MODELS: NonNullable<
-  ComposerToolDrawerProps["availableModels"]
-> = [];
-const EMPTY_MCP_SERVERS: NonNullable<ComposerToolDrawerProps["mcpServers"]> =
-  [];
-const EMPTY_SKILLS: NonNullable<ComposerToolDrawerProps["skills"]> = [];
-const EMPTY_TOOLS: NonNullable<ComposerToolDrawerProps["tools"]> = [];
+const EMPTY_AVAILABLE_MODELS: NonNullable<ComposerToolDrawerProps["availableModels"]> = []
+const EMPTY_MCP_SERVERS: NonNullable<ComposerToolDrawerProps["mcpServers"]> = []
+const EMPTY_SKILLS: NonNullable<ComposerToolDrawerProps["skills"]> = []
+const EMPTY_TOOLS: NonNullable<ComposerToolDrawerProps["tools"]> = []
 
 export type ComposerToolDrawerProps = {
-  visible: boolean;
-  onClose(): void;
-  activeTab: ComposerTab;
-  onTabChange(tab: ComposerTab): void;
-  modelLabel?: string;
-  activeModelKey?: string;
-  activeVariant?: string;
-  availableModels?: MobileModelOption[];
-  onModelSelect?(id: string, variant?: string): void;
-  onOpenModelPicker?(): void;
-  mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>;
-  onMcpToggle?(name: string, enabled: boolean): void;
-  onMcpManage?(): void;
-  skills?: Array<{ name: string; description?: string; category?: string }>;
-  onSkillSelect?(name: string): void;
-  onSkillsManage?(): void;
-  onAttachFile?(): void;
-  onAttachImage?(): void;
-  onAttachCamera?(): void;
-  tools?: Array<{ name: string; description?: string; enabled: boolean }>;
-  onToolToggle?(name: string, enabled: boolean): void;
-  onToolsManage?(): void;
+  visible: boolean
+  onClose(): void
+  activeTab: ComposerTab
+  onTabChange(tab: ComposerTab): void
+  modelLabel?: string
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
+  onModelSelect?(id: string, variant?: string): void
+  onOpenModelPicker?(): void
+  mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>
+  onMcpToggle?(name: string, enabled: boolean): void
+  onMcpManage?(): void
+  skills?: Array<{ name: string; description?: string; category?: string }>
+  onSkillSelect?(name: string): void
+  onSkillsManage?(): void
+  onAttachFile?(): void
+  onAttachImage?(): void
+  onAttachCamera?(): void
+  tools?: Array<{ name: string; description?: string; enabled: boolean }>
+  onToolToggle?(name: string, enabled: boolean): void
+  onToolsManage?(): void
   gitState?: {
-    branch?: string;
-    staged?: number;
-    modified?: number;
-    untracked?: number;
-    commitsAhead?: number;
-    commitsBehind?: number;
-    hasPullRequest?: boolean;
-    pullRequestUrl?: string;
-  };
-  onGitCommit?(): void;
-  onGitPush?(): void;
-  onGitPull?(): void;
-  onGitPR?(): void;
-  onGitRefresh?(): void;
-};
+    branch?: string
+    staged?: number
+    modified?: number
+    untracked?: number
+    commitsAhead?: number
+    commitsBehind?: number
+    hasPullRequest?: boolean
+    pullRequestUrl?: string
+  }
+  onGitCommit?(): void
+  onGitPush?(): void
+  onGitPull?(): void
+  onGitPR?(): void
+  onGitRefresh?(): void
+}
 
 const TAB_ICONS: Record<ComposerTab, React.ElementType> = {
   tools: Terminal,
   skills: Sparkles,
   mcp: Puzzle,
   model: Code2,
-};
+}
 
 const TAB_LABELS: Record<ComposerTab, string> = {
   tools: "Tools",
   skills: "Skills",
   mcp: "MCP",
   model: "Model",
-};
+}
 
 function getIconComponent(tab: ComposerTab) {
   switch (tab) {
     case "tools":
-      return Terminal;
+      return Terminal
     case "skills":
-      return Sparkles;
+      return Sparkles
     case "mcp":
-      return Puzzle;
+      return Puzzle
     case "model":
-      return Code2;
+      return Code2
   }
 }
 
@@ -171,20 +165,17 @@ export function ComposerToolDrawer({
   onGitPR,
   onGitRefresh,
 }: ComposerToolDrawerProps) {
-  const { colorScheme, palette, isDark } = useAppTheme();
-  const { height: SCREEN_HEIGHT, height } = useWindowDimensions();
-  const slideAnimRef = useRef<Animated.Value | null>(null);
-  if (slideAnimRef.current === null)
-    slideAnimRef.current = new Animated.Value(0);
-  const slideAnim = slideAnimRef.current;
-  const opacityAnimRef = useRef<Animated.Value | null>(null);
-  if (opacityAnimRef.current === null)
-    opacityAnimRef.current = new Animated.Value(0);
-  const opacityAnim = opacityAnimRef.current;
-  const contentScaleAnimRef = useRef<Animated.Value | null>(null);
-  if (contentScaleAnimRef.current === null)
-    contentScaleAnimRef.current = new Animated.Value(0.94);
-  const contentScaleAnim = contentScaleAnimRef.current;
+  const { colorScheme, palette, isDark } = useAppTheme()
+  const { height: SCREEN_HEIGHT, height } = useWindowDimensions()
+  const slideAnimRef = useRef<Animated.Value | null>(null)
+  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
+  const slideAnim = slideAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const contentScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (contentScaleAnimRef.current === null) contentScaleAnimRef.current = new Animated.Value(0.94)
+  const contentScaleAnim = contentScaleAnimRef.current
 
   useEffect(() => {
     const animation = visible
@@ -221,48 +212,37 @@ export function ComposerToolDrawer({
             duration: 160,
             useNativeDriver: true,
           }),
-        ]);
-    animation.start();
-    return () => animation.stop();
-  }, [visible, opacityAnim, slideAnim, contentScaleAnim, onClose]);
+        ])
+    animation.start()
+    return () => animation.stop()
+  }, [visible, opacityAnim, slideAnim, contentScaleAnim, onClose])
 
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [400, 0],
-  });
-  const tabs = Object.keys(TAB_ICONS) as ComposerTab[];
+  })
+  const tabs = Object.keys(TAB_ICONS) as ComposerTab[]
 
-  const connectedMcp = mcpServers.filter((s) => s.connected).length;
-  const enabledSkills = skills.length;
+  const connectedMcp = mcpServers.filter((s) => s.connected).length
+  const enabledSkills = skills.length
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="none"
-      onRequestClose={onClose}
-    >
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
-        <Animated.View
-          style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}
-        >
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
             <View style={{ flex: 1 }}>
               <AdaptiveBlur
                 tint={isDark ? "dark" : "light"}
                 intensity={isDark ? 20 : 14}
                 style={StyleSheet.absoluteFill}
-                fallbackColor={
-                  isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"
-                }
+                fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
               />
               <View
                 style={[
                   StyleSheet.absoluteFill,
                   {
-                    backgroundColor: isDark
-                      ? "rgba(0,0,0,0.65)"
-                      : "rgba(20,20,19,0.16)",
+                    backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)",
                   },
                 ]}
               />
@@ -277,9 +257,7 @@ export function ComposerToolDrawer({
               overflow: "hidden",
               borderRadius: 30,
               borderWidth: 1,
-              borderColor: isDark
-                ? "rgba(255,255,255,0.10)"
-                : "rgba(255,255,255,0.82)",
+              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
               shadowColor: "#000",
               shadowOpacity: isDark ? 0.45 : 0.14,
               shadowRadius: 28,
@@ -292,17 +270,13 @@ export function ComposerToolDrawer({
               tint={isDark ? "dark" : "light"}
               intensity={isDark ? 92 : 80}
               style={StyleSheet.absoluteFill}
-              fallbackColor={
-                isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"
-              }
+              fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
             />
             <View
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: isDark
-                    ? "rgba(17,17,17,0.68)"
-                    : "rgba(255,255,255,0.62)",
+                  backgroundColor: isDark ? "rgba(17,17,17,0.68)" : "rgba(255,255,255,0.62)",
                 },
               ]}
               pointerEvents="none"
@@ -323,27 +297,17 @@ export function ComposerToolDrawer({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 8,
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(20,20,19,0.08)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
                     paddingHorizontal: 10,
                     paddingVertical: 8,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(20,20,19,0.15)",
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.15)",
                   }}
                 >
                   {(() => {
-                    const HeaderIcon = getIconComponent(activeTab);
-                    return (
-                      <HeaderIcon
-                        size={14}
-                        color={palette.accentLight}
-                        strokeWidth={2.2}
-                      />
-                    );
+                    const HeaderIcon = getIconComponent(activeTab)
+                    return <HeaderIcon size={14} color={palette.accentLight} strokeWidth={2.2} />
                   })()}
                   <Text
                     style={{
@@ -364,9 +328,7 @@ export function ComposerToolDrawer({
                     height: 32,
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: isDark
-                      ? "rgba(255,255,255,0.12)"
-                      : "rgba(255,255,255,0.80)",
+                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
                     backgroundColor: pressed
                       ? isDark
                         ? "rgba(255,255,255,0.12)"
@@ -393,25 +355,21 @@ export function ComposerToolDrawer({
                 }}
               >
                 {tabs.map((tab) => {
-                  const Icon = getIconComponent(tab);
-                  const isActive = activeTab === tab;
+                  const Icon = getIconComponent(tab)
+                  const isActive = activeTab === tab
 
                   return (
                     <AnimatedTabButton
                       key={tab}
                       isActive={isActive}
                       onPress={() => {
-                        void triggerHaptic("selection");
-                        onTabChange(tab);
+                        void triggerHaptic("selection")
+                        onTabChange(tab)
                       }}
                       palette={palette}
                       isDark={isDark}
                     >
-                      <Icon
-                        size={13}
-                        color={isActive ? "#fff" : palette.muted}
-                        strokeWidth={2.2}
-                      />
+                      <Icon size={13} color={isActive ? "#fff" : palette.muted} strokeWidth={2.2} />
                       <Text
                         style={{
                           fontSize: 11.5,
@@ -422,7 +380,7 @@ export function ComposerToolDrawer({
                         {TAB_LABELS[tab]}
                       </Text>
                     </AnimatedTabButton>
-                  );
+                  )
                 })}
               </View>
 
@@ -432,9 +390,7 @@ export function ComposerToolDrawer({
                   flex: 1,
                   overflow: "hidden",
                   borderTopWidth: 1,
-                  borderTopColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(20,20,19,0.10)",
+                  borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.10)",
                 }}
               >
                 {activeTab === "model" && (
@@ -448,25 +404,13 @@ export function ComposerToolDrawer({
                   />
                 )}
                 {activeTab === "mcp" && (
-                  <McpContent
-                    servers={mcpServers}
-                    onMcpToggle={onMcpToggle}
-                    onMcpManage={onMcpManage}
-                  />
+                  <McpContent servers={mcpServers} onMcpToggle={onMcpToggle} onMcpManage={onMcpManage} />
                 )}
                 {activeTab === "skills" && (
-                  <SkillsContent
-                    skills={skills}
-                    onSkillSelect={onSkillSelect}
-                    onSkillsManage={onSkillsManage}
-                  />
+                  <SkillsContent skills={skills} onSkillSelect={onSkillSelect} onSkillsManage={onSkillsManage} />
                 )}
                 {activeTab === "tools" && (
-                  <ToolsContent
-                    tools={tools}
-                    onToolToggle={onToolToggle}
-                    onToolsManage={onToolsManage}
-                  />
+                  <ToolsContent tools={tools} onToolToggle={onToolToggle} onToolsManage={onToolsManage} />
                 )}
               </View>
             </View>
@@ -474,7 +418,7 @@ export function ComposerToolDrawer({
         </View>
       </View>
     </Modal>
-  );
+  )
 }
 
 function AttachContent({
@@ -482,11 +426,11 @@ function AttachContent({
   onAttachImage,
   onAttachCamera,
 }: {
-  onAttachFile?(): void;
-  onAttachImage?(): void;
-  onAttachCamera?(): void;
+  onAttachFile?(): void
+  onAttachImage?(): void
+  onAttachCamera?(): void
 }) {
-  const { palette, isDark } = useAppTheme();
+  const { palette, isDark } = useAppTheme()
 
   const rows = [
     {
@@ -507,19 +451,16 @@ function AttachContent({
       desc: "Take a photo",
       action: onAttachCamera,
     },
-  ];
+  ]
 
   return (
-    <ScrollView
-      style={{ paddingVertical: 12 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
       {rows.map((row, i) => (
         <Pressable
           key={row.label}
           onPress={() => {
-            void triggerHaptic("selection");
-            row.action?.();
+            void triggerHaptic("selection")
+            row.action?.()
           }}
           style={({ pressed }) => ({
             flexDirection: "row",
@@ -528,11 +469,8 @@ function AttachContent({
             paddingHorizontal: 20,
             paddingVertical: 14,
             opacity: pressed ? 0.6 : 1,
-            borderBottomWidth:
-              i < rows.length - 1 ? StyleSheet.hairlineWidth : 0,
-            borderBottomColor: isDark
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(20,20,19,0.08)",
+            borderBottomWidth: i < rows.length - 1 ? StyleSheet.hairlineWidth : 0,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
           })}
         >
           <View
@@ -542,28 +480,20 @@ function AttachContent({
               borderRadius: 14,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(20,20,19,0.09)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
             }}
           >
             <row.Icon size={20} color={palette.accentLight} strokeWidth={2} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text
-              style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}
-            >
-              {row.label}
-            </Text>
-            <Text style={{ fontSize: 12, color: palette.muted, marginTop: 2 }}>
-              {row.desc}
-            </Text>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}>{row.label}</Text>
+            <Text style={{ fontSize: 12, color: palette.muted, marginTop: 2 }}>{row.desc}</Text>
           </View>
           <ChevronRight size={16} color={palette.muted} strokeWidth={2} />
         </Pressable>
       ))}
     </ScrollView>
-  );
+  )
 }
 
 function AnimatedTabButton({
@@ -573,20 +503,18 @@ function AnimatedTabButton({
   palette,
   isDark,
 }: {
-  children: React.ReactNode;
-  isActive: boolean;
-  onPress: () => void;
-  palette: { accent: string; muted: string; accentLight: string };
-  isDark: boolean;
+  children: React.ReactNode
+  isActive: boolean
+  onPress: () => void
+  palette: { accent: string; muted: string; accentLight: string }
+  isDark: boolean
 }) {
-  const scaleAnimRef = useRef<Animated.Value | null>(null);
-  if (scaleAnimRef.current === null)
-    scaleAnimRef.current = new Animated.Value(1);
-  const scaleAnim = scaleAnimRef.current;
-  const glowAnimRef = useRef<Animated.Value | null>(null);
-  if (glowAnimRef.current === null)
-    glowAnimRef.current = new Animated.Value(isActive ? 1 : 0);
-  const glowAnim = glowAnimRef.current;
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
+  const glowAnimRef = useRef<Animated.Value | null>(null)
+  if (glowAnimRef.current === null) glowAnimRef.current = new Animated.Value(isActive ? 1 : 0)
+  const glowAnim = glowAnimRef.current
 
   useEffect(() => {
     Animated.spring(glowAnim, {
@@ -595,8 +523,8 @@ function AnimatedTabButton({
       stiffness: 260,
       mass: 0.7,
       useNativeDriver: false,
-    }).start();
-  }, [isActive, glowAnim]);
+    }).start()
+  }, [isActive, glowAnim])
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -605,8 +533,8 @@ function AnimatedTabButton({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
@@ -615,20 +543,16 @@ function AnimatedTabButton({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   const borderColor = glowAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ["transparent", palette.accent],
-  });
+  })
 
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       {/*
         Split the press scale (native driver) from the border glow (JS
         driver) into two Animated.Views. Mixing native and JS animated
@@ -657,18 +581,14 @@ function AnimatedTabButton({
               inputRange: [0, 1],
               outputRange: [0, 1.5],
             }),
-            backgroundColor: isActive
-              ? palette.accent
-              : isDark
-                ? "rgba(255,255,255,0.08)"
-                : "rgba(20,20,19,0.08)",
+            backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
           }}
         >
           {children}
         </Animated.View>
       </Animated.View>
     </Pressable>
-  );
+  )
 }
 
 function AnimatedItemCard({
@@ -677,16 +597,15 @@ function AnimatedItemCard({
   isDark,
   borderBottom,
 }: {
-  children: React.ReactNode;
-  onPress?: () => void;
-  isDark: boolean;
-  index?: number;
-  borderBottom: boolean;
+  children: React.ReactNode
+  onPress?: () => void
+  isDark: boolean
+  index?: number
+  borderBottom: boolean
 }) {
-  const scaleAnimRef = useRef<Animated.Value | null>(null);
-  if (scaleAnimRef.current === null)
-    scaleAnimRef.current = new Animated.Value(1);
-  const scaleAnim = scaleAnimRef.current;
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -695,8 +614,8 @@ function AnimatedItemCard({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
@@ -705,8 +624,8 @@ function AnimatedItemCard({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   return (
     <Pressable
@@ -724,15 +643,13 @@ function AnimatedItemCard({
           paddingHorizontal: 16,
           paddingVertical: 11,
           borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
-          borderBottomColor: isDark
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(20,20,19,0.08)",
+          borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
         }}
       >
         {children}
       </Animated.View>
     </Pressable>
-  );
+  )
 }
 
 function EmptyState({
@@ -742,11 +659,11 @@ function EmptyState({
   palette,
   isDark,
 }: {
-  icon: React.ElementType;
-  title: string;
-  subtitle: string;
-  palette: { muted: string; ink: string; accentLight: string };
-  isDark: boolean;
+  icon: React.ElementType
+  title: string
+  subtitle: string
+  palette: { muted: string; ink: string; accentLight: string }
+  isDark: boolean
 }) {
   return (
     <View
@@ -761,9 +678,7 @@ function EmptyState({
           width: 52,
           height: 52,
           borderRadius: 26,
-          backgroundColor: isDark
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(20,20,19,0.08)",
+          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
           alignItems: "center",
           justifyContent: "center",
           marginBottom: 12,
@@ -781,11 +696,9 @@ function EmptyState({
       >
         {title}
       </Text>
-      <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>
-        {subtitle}
-      </Text>
+      <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>{subtitle}</Text>
     </View>
-  );
+  )
 }
 
 function AnimatedToggleSwitch({
@@ -793,18 +706,16 @@ function AnimatedToggleSwitch({
   onValueChange,
   palette,
 }: {
-  value: boolean;
-  onValueChange: (val: boolean) => void;
-  palette: { accent: string; border: string };
+  value: boolean
+  onValueChange: (val: boolean) => void
+  palette: { accent: string; border: string }
 }) {
-  const toggleAnimRef = useRef<Animated.Value | null>(null);
-  if (toggleAnimRef.current === null)
-    toggleAnimRef.current = new Animated.Value(value ? 1 : 0);
-  const toggleAnim = toggleAnimRef.current;
-  const scaleAnimRef = useRef<Animated.Value | null>(null);
-  if (scaleAnimRef.current === null)
-    scaleAnimRef.current = new Animated.Value(1);
-  const scaleAnim = scaleAnimRef.current;
+  const toggleAnimRef = useRef<Animated.Value | null>(null)
+  if (toggleAnimRef.current === null) toggleAnimRef.current = new Animated.Value(value ? 1 : 0)
+  const toggleAnim = toggleAnimRef.current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   useEffect(() => {
     Animated.spring(toggleAnim, {
@@ -813,8 +724,8 @@ function AnimatedToggleSwitch({
       stiffness: 300,
       mass: 0.7,
       useNativeDriver: false,
-    }).start();
-  }, [value, toggleAnim]);
+    }).start()
+  }, [value, toggleAnim])
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -823,8 +734,8 @@ function AnimatedToggleSwitch({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
@@ -833,27 +744,23 @@ function AnimatedToggleSwitch({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   const thumbTranslateX = toggleAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [2, 18],
-  });
+  })
 
   const trackScaleX = toggleAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 1.08],
-  });
+  })
 
-  const trackTransform = [{ scaleX: trackScaleX }, { scale: scaleAnim }];
+  const trackTransform = [{ scaleX: trackScaleX }, { scale: scaleAnim }]
 
   return (
-    <Pressable
-      onPress={() => onValueChange(!value)}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
+    <Pressable onPress={() => onValueChange(!value)} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       <Animated.View
         style={{
           transform: trackTransform,
@@ -882,7 +789,7 @@ function AnimatedToggleSwitch({
         />
       </Animated.View>
     </Pressable>
-  );
+  )
 }
 
 function ModelContent({
@@ -893,38 +800,31 @@ function ModelContent({
   onModelSelect,
   onOpenModelPicker,
 }: {
-  modelLabel?: string;
-  activeModelKey?: string;
-  activeVariant?: string;
-  availableModels?: MobileModelOption[];
-  onModelSelect?(id: string, variant?: string): void;
-  onOpenModelPicker?(): void;
+  modelLabel?: string
+  activeModelKey?: string
+  activeVariant?: string
+  availableModels?: MobileModelOption[]
+  onModelSelect?(id: string, variant?: string): void
+  onOpenModelPicker?(): void
 }) {
-  const { palette, isDark } = useAppTheme();
-  const selected = availableModels.find((model) => model.id === activeModelKey);
+  const { palette, isDark } = useAppTheme()
+  const selected = availableModels.find((model) => model.id === activeModelKey)
 
   return (
-    <ScrollView
-      style={{ flex: 1, paddingVertical: 12 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={{ flex: 1, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
       {onOpenModelPicker ? (
         <Pressable
           onPress={() => {
-            void triggerHaptic("selection");
-            onOpenModelPicker();
+            void triggerHaptic("selection")
+            onOpenModelPicker()
           }}
           style={({ pressed }) => ({
             marginHorizontal: 16,
             marginBottom: 12,
             borderRadius: 16,
             borderWidth: 1,
-            borderColor: isDark
-              ? "rgba(255,255,255,0.12)"
-              : "rgba(20,20,19,0.16)",
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.05)"
-              : "rgba(20,20,19,0.05)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.16)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.05)",
             paddingHorizontal: 14,
             paddingVertical: 12,
             opacity: pressed ? 0.72 : 1,
@@ -957,11 +857,7 @@ function ModelContent({
           >
             Thinking effort
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8 }}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             <Pressable
               onPress={() => onModelSelect?.(selected.id, undefined)}
               style={{
@@ -970,9 +866,7 @@ function ModelContent({
                 paddingVertical: 7,
                 borderWidth: 1,
                 borderColor: !activeVariant ? palette.accent : palette.border,
-                backgroundColor: !activeVariant
-                  ? "rgba(52,199,89,0.12)"
-                  : "transparent",
+                backgroundColor: !activeVariant ? "rgba(52,199,89,0.12)" : "transparent",
               }}
             >
               <Text
@@ -986,7 +880,7 @@ function ModelContent({
               </Text>
             </Pressable>
             {selected.variants.map((variant) => {
-              const active = activeVariant === variant;
+              const active = activeVariant === variant
               return (
                 <Pressable
                   key={variant}
@@ -997,9 +891,7 @@ function ModelContent({
                     paddingVertical: 7,
                     borderWidth: 1,
                     borderColor: active ? palette.accent : palette.border,
-                    backgroundColor: active
-                      ? "rgba(52,199,89,0.12)"
-                      : "transparent",
+                    backgroundColor: active ? "rgba(52,199,89,0.12)" : "transparent",
                   }}
                 >
                   <Text
@@ -1012,22 +904,21 @@ function ModelContent({
                     {formatVariantLabel(variant)}
                   </Text>
                 </Pressable>
-              );
+              )
             })}
           </ScrollView>
         </View>
       ) : null}
 
       {availableModels.map((model, i) => {
-        const isActive = model.id === activeModelKey;
+        const isActive = model.id === activeModelKey
         return (
           <AnimatedItemCard
             key={model.id}
             onPress={() => {
-              void triggerHaptic("selection");
-              if (model.variants.length === 0)
-                onModelSelect?.(model.id, undefined);
-              else onModelSelect?.(model.id, model.variants[0]);
+              void triggerHaptic("selection")
+              if (model.variants.length === 0) onModelSelect?.(model.id, undefined)
+              else onModelSelect?.(model.id, model.variants[0])
             }}
             isDark={isDark}
             borderBottom={i < availableModels.length - 1}
@@ -1046,11 +937,7 @@ function ModelContent({
                     : "rgba(20,20,19,0.08)",
               }}
             >
-              <Brain
-                size={15}
-                color={isActive ? palette.accentLight : palette.muted}
-                strokeWidth={2.2}
-              />
+              <Brain size={15} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2.2} />
             </View>
             <View style={{ flex: 1 }}>
               <Text
@@ -1097,9 +984,7 @@ function ModelContent({
                       borderRadius: 6,
                       paddingHorizontal: 7,
                       paddingVertical: 2.5,
-                      backgroundColor: isDark
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(20,20,19,0.08)",
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                       alignSelf: "flex-start",
                     }}
                   >
@@ -1129,7 +1014,7 @@ function ModelContent({
             </View>
             <ChevronRight size={14} color={palette.muted} strokeWidth={2} />
           </AnimatedItemCard>
-        );
+        )
       })}
       {availableModels.length === 0 && (
         <EmptyState
@@ -1141,7 +1026,7 @@ function ModelContent({
         />
       )}
     </ScrollView>
-  );
+  )
 }
 
 function McpContent({
@@ -1149,18 +1034,15 @@ function McpContent({
   onMcpToggle,
   onMcpManage,
 }: {
-  servers?: Array<{ name: string; connected: boolean; enabled: boolean }>;
-  onMcpToggle?(name: string, enabled: boolean): void;
-  onMcpManage?(): void;
+  servers?: Array<{ name: string; connected: boolean; enabled: boolean }>
+  onMcpToggle?(name: string, enabled: boolean): void
+  onMcpManage?(): void
 }) {
-  const { palette, isDark } = useAppTheme();
+  const { palette, isDark } = useAppTheme()
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView
-        style={{ flex: 1, paddingVertical: 12 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={{ flex: 1, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
         {servers.length > 0 ? (
           servers.map((server, i) => {
             const statusIcon = server.connected ? (
@@ -1169,18 +1051,14 @@ function McpContent({
               <Lock size={15} color={palette.muted} strokeWidth={2.2} />
             ) : (
               <Server size={15} color={palette.muted} strokeWidth={2.2} />
-            );
-            const statusText = server.connected
-              ? "Connected"
-              : !server.enabled
-                ? "Disabled"
-                : "Disconnected";
-            const statusColor = server.connected ? "#34C759" : palette.muted;
+            )
+            const statusText = server.connected ? "Connected" : !server.enabled ? "Disabled" : "Disconnected"
+            const statusColor = server.connected ? "#34C759" : palette.muted
             const iconBg = server.connected
               ? "rgba(52,199,89,0.12)"
               : isDark
                 ? "rgba(255,255,255,0.06)"
-                : "rgba(0,0,0,0.05)";
+                : "rgba(0,0,0,0.05)"
 
             return (
               <AnimatedItemCard
@@ -1211,20 +1089,18 @@ function McpContent({
                   >
                     {server.name}
                   </Text>
-                  <Text style={{ fontSize: 11, color: statusColor }}>
-                    {statusText}
-                  </Text>
+                  <Text style={{ fontSize: 11, color: statusColor }}>{statusText}</Text>
                 </View>
                 <AnimatedToggleSwitch
                   value={server.enabled}
                   onValueChange={(val: boolean) => {
-                    void triggerHaptic("selection");
-                    onMcpToggle?.(server.name, val);
+                    void triggerHaptic("selection")
+                    onMcpToggle?.(server.name, val)
                   }}
                   palette={palette}
                 />
               </AnimatedItemCard>
-            );
+            )
           })
         ) : (
           <EmptyState
@@ -1240,8 +1116,8 @@ function McpContent({
       {onMcpManage && (
         <AnimatedPressableText
           onPress={() => {
-            void triggerHaptic("selection");
-            onMcpManage();
+            void triggerHaptic("selection")
+            onMcpManage()
           }}
           palette={palette}
         >
@@ -1258,7 +1134,7 @@ function McpContent({
         </AnimatedPressableText>
       )}
     </View>
-  );
+  )
 }
 
 function SkillsContent({
@@ -1266,22 +1142,18 @@ function SkillsContent({
   onSkillSelect,
   onSkillsManage,
 }: {
-  skills?: Array<{ name: string; description?: string; category?: string }>;
-  onSkillSelect?(name: string): void;
-  onSkillsManage?(): void;
+  skills?: Array<{ name: string; description?: string; category?: string }>
+  onSkillSelect?(name: string): void
+  onSkillsManage?(): void
 }) {
-  const { palette, isDark } = useAppTheme();
-  const [search, setSearch] = useState("");
+  const { palette, isDark } = useAppTheme()
+  const [search, setSearch] = useState("")
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return skills;
-    const term = search.toLowerCase();
-    return skills.filter(
-      (s) =>
-        s.name.toLowerCase().includes(term) ||
-        s.description?.toLowerCase().includes(term),
-    );
-  }, [search, skills]);
+    if (!search.trim()) return skills
+    const term = search.toLowerCase()
+    return skills.filter((s) => s.name.toLowerCase().includes(term) || s.description?.toLowerCase().includes(term))
+  }, [search, skills])
 
   return (
     <View style={{ flex: 1 }}>
@@ -1295,9 +1167,7 @@ function SkillsContent({
             paddingVertical: 10,
             borderRadius: 14,
             borderWidth: 1,
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(0,0,0,0.04)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
             borderColor: palette.border,
           }}
         >
@@ -1320,8 +1190,8 @@ function SkillsContent({
             <AnimatedItemCard
               key={skill.name}
               onPress={() => {
-                void triggerHaptic("selection");
-                onSkillSelect?.(skill.name);
+                void triggerHaptic("selection")
+                onSkillSelect?.(skill.name)
               }}
               isDark={isDark}
               borderBottom={i < filtered.length - 1}
@@ -1333,16 +1203,10 @@ function SkillsContent({
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(20,20,19,0.08)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                 }}
               >
-                <Sparkles
-                  size={15}
-                  color={palette.accentLight}
-                  strokeWidth={2.2}
-                />
+                <Sparkles size={15} color={palette.accentLight} strokeWidth={2.2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
@@ -1355,10 +1219,7 @@ function SkillsContent({
                   {skill.name}
                 </Text>
                 {skill.description && (
-                  <Text
-                    style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}
-                    numberOfLines={1}
-                  >
+                  <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }} numberOfLines={1}>
                     {skill.description}
                   </Text>
                 )}
@@ -1370,11 +1231,7 @@ function SkillsContent({
           <EmptyState
             icon={Sparkles}
             title={search ? "No matching skills" : "No skills available"}
-            subtitle={
-              search
-                ? "Try a different search term"
-                : "Skills will appear here when installed"
-            }
+            subtitle={search ? "Try a different search term" : "Skills will appear here when installed"}
             palette={palette}
             isDark={isDark}
           />
@@ -1384,8 +1241,8 @@ function SkillsContent({
       {onSkillsManage && (
         <AnimatedPressableText
           onPress={() => {
-            void triggerHaptic("selection");
-            onSkillsManage();
+            void triggerHaptic("selection")
+            onSkillsManage()
           }}
           palette={palette}
         >
@@ -1402,7 +1259,7 @@ function SkillsContent({
         </AnimatedPressableText>
       )}
     </View>
-  );
+  )
 }
 
 function GitContent({
@@ -1414,20 +1271,20 @@ function GitContent({
   onGitRefresh,
 }: {
   gitState?: {
-    branch?: string;
-    staged?: number;
-    modified?: number;
-    untracked?: number;
-    commitsAhead?: number;
-    hasPullRequest?: boolean;
-  };
-  onGitCommit?(): void;
-  onGitPush?(): void;
-  onGitPull?(): void;
-  onGitPR?(): void;
-  onGitRefresh?(): void;
+    branch?: string
+    staged?: number
+    modified?: number
+    untracked?: number
+    commitsAhead?: number
+    hasPullRequest?: boolean
+  }
+  onGitCommit?(): void
+  onGitPush?(): void
+  onGitPull?(): void
+  onGitPR?(): void
+  onGitRefresh?(): void
 }) {
-  const { palette, isDark } = useAppTheme();
+  const { palette, isDark } = useAppTheme()
 
   const actions = [
     {
@@ -1449,34 +1306,23 @@ function GitContent({
       desc: gitState?.hasPullRequest ? "Open PR" : "Create PR",
       action: onGitPR,
     },
-  ];
+  ]
 
   return (
-    <ScrollView
-      style={{ paddingVertical: 12 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
       {gitState?.branch && (
         <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
           <View
             style={[
               styles.gitBranchChip,
               {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(20,20,19,0.08)",
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.10)"
-                  : "rgba(20,20,19,0.20)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.20)",
               },
             ]}
           >
             <GitBranch size={12} color={palette.accentLight} strokeWidth={2} />
-            <Text
-              style={{ fontSize: 12, fontWeight: "600", color: palette.ink }}
-            >
-              {gitState.branch}
-            </Text>
+            <Text style={{ fontSize: 12, fontWeight: "600", color: palette.ink }}>{gitState.branch}</Text>
             <Pressable onPress={onGitRefresh} hitSlop={8}>
               <RefreshCw size={12} color={palette.muted} strokeWidth={2} />
             </Pressable>
@@ -1495,9 +1341,7 @@ function GitContent({
               gap: 14,
               padding: 14,
               borderRadius: 16,
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.04)"
-                : "rgba(20,20,19,0.04)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(20,20,19,0.04)",
               transform: [{ scale: pressed ? 0.97 : 1 }],
               opacity: pressed ? 0.7 : 1,
             })}
@@ -1507,9 +1351,7 @@ function GitContent({
                 width: 42,
                 height: 42,
                 borderRadius: 12,
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(20,20,19,0.08)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -1517,22 +1359,14 @@ function GitContent({
               <Icon size={18} color={palette.accentLight} strokeWidth={2} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text
-                style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}
-              >
-                {label}
-              </Text>
-              <Text
-                style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}
-              >
-                {desc}
-              </Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{label}</Text>
+              <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}>{desc}</Text>
             </View>
           </Pressable>
         ))}
       </View>
     </ScrollView>
-  );
+  )
 }
 
 function ToolsContent({
@@ -1540,22 +1374,18 @@ function ToolsContent({
   onToolToggle,
   onToolsManage,
 }: {
-  tools?: Array<{ name: string; description?: string; enabled: boolean }>;
-  onToolToggle?(name: string, enabled: boolean): void;
-  onToolsManage?(): void;
+  tools?: Array<{ name: string; description?: string; enabled: boolean }>
+  onToolToggle?(name: string, enabled: boolean): void
+  onToolsManage?(): void
 }) {
-  const { palette, isDark } = useAppTheme();
-  const [search, setSearch] = useState("");
+  const { palette, isDark } = useAppTheme()
+  const [search, setSearch] = useState("")
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return tools;
-    const term = search.toLowerCase();
-    return tools.filter(
-      (t) =>
-        t.name.toLowerCase().includes(term) ||
-        t.description?.toLowerCase().includes(term),
-    );
-  }, [search, tools]);
+    if (!search.trim()) return tools
+    const term = search.toLowerCase()
+    return tools.filter((t) => t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term))
+  }, [search, tools])
 
   return (
     <View style={{ flex: 1 }}>
@@ -1569,9 +1399,7 @@ function ToolsContent({
             paddingVertical: 10,
             borderRadius: 14,
             borderWidth: 1,
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(0,0,0,0.04)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
             borderColor: palette.border,
           }}
         >
@@ -1596,11 +1424,7 @@ function ToolsContent({
           filtered.map((tool, i) => (
             <AnimatedItemCard
               key={tool.name}
-              onPress={
-                onToolToggle
-                  ? () => onToolToggle(tool.name, !tool.enabled)
-                  : undefined
-              }
+              onPress={onToolToggle ? () => onToolToggle(tool.name, !tool.enabled) : undefined}
               isDark={isDark}
               borderBottom={i < filtered.length - 1}
             >
@@ -1611,16 +1435,10 @@ function ToolsContent({
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(20,20,19,0.08)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
                 }}
               >
-                <Terminal
-                  size={15}
-                  color={palette.accentLight}
-                  strokeWidth={2.2}
-                />
+                <Terminal size={15} color={palette.accentLight} strokeWidth={2.2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
@@ -1633,10 +1451,7 @@ function ToolsContent({
                   {tool.name}
                 </Text>
                 {tool.description && (
-                  <Text
-                    style={{ fontSize: 11, color: palette.muted, marginTop: 2 }}
-                    numberOfLines={1}
-                  >
+                  <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }} numberOfLines={1}>
                     {tool.description}
                   </Text>
                 )}
@@ -1645,8 +1460,8 @@ function ToolsContent({
                 <AnimatedToggleSwitch
                   value={tool.enabled}
                   onValueChange={(val: boolean) => {
-                    void triggerHaptic("selection");
-                    onToolToggle(tool.name, val);
+                    void triggerHaptic("selection")
+                    onToolToggle(tool.name, val)
                   }}
                   palette={palette}
                 />
@@ -1667,11 +1482,7 @@ function ToolsContent({
           <EmptyState
             icon={Terminal}
             title={search ? "No matching tools" : "No tools available"}
-            subtitle={
-              search
-                ? "Try a different search term"
-                : "Tools will appear here when available"
-            }
+            subtitle={search ? "Try a different search term" : "Tools will appear here when available"}
             palette={palette}
             isDark={isDark}
           />
@@ -1681,8 +1492,8 @@ function ToolsContent({
       {onToolsManage && (
         <AnimatedPressableText
           onPress={() => {
-            void triggerHaptic("selection");
-            onToolsManage();
+            void triggerHaptic("selection")
+            onToolsManage()
           }}
           palette={palette}
         >
@@ -1699,7 +1510,7 @@ function ToolsContent({
         </AnimatedPressableText>
       )}
     </View>
-  );
+  )
 }
 
 function AnimatedPressableText({
@@ -1707,14 +1518,13 @@ function AnimatedPressableText({
   onPress,
   palette,
 }: {
-  children: React.ReactNode;
-  onPress: () => void;
-  palette: { accentLight: string };
+  children: React.ReactNode
+  onPress: () => void
+  palette: { accentLight: string }
 }) {
-  const scaleAnimRef = useRef<Animated.Value | null>(null);
-  if (scaleAnimRef.current === null)
-    scaleAnimRef.current = new Animated.Value(1);
-  const scaleAnim = scaleAnimRef.current;
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -1723,8 +1533,8 @@ function AnimatedPressableText({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
@@ -1733,8 +1543,8 @@ function AnimatedPressableText({
       stiffness: 280,
       mass: 0.8,
       useNativeDriver: true,
-    }).start();
-  };
+    }).start()
+  }
 
   return (
     <Pressable
@@ -1750,9 +1560,7 @@ function AnimatedPressableText({
         marginHorizontal: 20,
       }}
     >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        {children}
-      </Animated.View>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>{children}</Animated.View>
     </Pressable>
-  );
+  )
 }

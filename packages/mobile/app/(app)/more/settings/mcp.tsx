@@ -1,131 +1,108 @@
-import { useCallback, useMemo, useState } from "react";
-import { ScrollView, Pressable, Text, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import { Stack, useFocusEffect } from "expo-router";
-import { ActionButton } from "@/components/ui/ActionButton";
-import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { InfoChip } from "@/components/ui/InfoChip";
-import { SurfaceCard } from "@/components/ui/SurfaceCard";
-import { TextField } from "@/components/ui/TextField";
-import { useServer } from "@/lib/server-context";
-import { writeConfig } from "@/lib/config-writer";
-import {
-  type HostConfigSnapshot,
-  type HostMcpConfig,
-  type HostMcpStatus,
-} from "@/lib/types";
+import { useCallback, useMemo, useState } from "react"
+import { ScrollView, Pressable, Text, View } from "react-native"
+import * as WebBrowser from "expo-web-browser"
+import { Stack, useFocusEffect } from "expo-router"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
+import { InfoChip } from "@/components/ui/InfoChip"
+import { SurfaceCard } from "@/components/ui/SurfaceCard"
+import { TextField } from "@/components/ui/TextField"
+import { useServer } from "@/lib/server-context"
+import { writeConfig } from "@/lib/config-writer"
+import { type HostConfigSnapshot, type HostMcpConfig, type HostMcpStatus } from "@/lib/types"
 
 function optionChipClass(active: boolean) {
-  return active
-    ? "border-accent/30 bg-accent/12"
-    : "border-border bg-background/70";
+  return active ? "border-accent/30 bg-accent/12" : "border-border bg-background/70"
 }
 
 function optionChipTextClass(active: boolean) {
-  return active ? "text-accent-light" : "text-ink";
+  return active ? "text-accent-light" : "text-ink"
 }
 
-function mcpTone(
-  status?: HostMcpStatus,
-): "accent" | "good" | "warn" | "neutral" {
-  if (!status) return "neutral";
-  if (status.status === "connected") return "good";
-  if (
-    status.status === "needs_auth" ||
-    status.status === "failed" ||
-    status.status === "needs_client_registration"
-  )
-    return "warn";
-  return "neutral";
+function mcpTone(status?: HostMcpStatus): "accent" | "good" | "warn" | "neutral" {
+  if (!status) return "neutral"
+  if (status.status === "connected") return "good"
+  if (status.status === "needs_auth" || status.status === "failed" || status.status === "needs_client_registration")
+    return "warn"
+  return "neutral"
 }
 
 function mcpLabel(status?: HostMcpStatus) {
-  if (!status) return "Unknown";
+  if (!status) return "Unknown"
   switch (status.status) {
     case "connected":
-      return "Connected";
+      return "Connected"
     case "disabled":
-      return "Disabled";
+      return "Disabled"
     case "needs_auth":
-      return "Needs auth";
+      return "Needs auth"
     case "needs_client_registration":
-      return "Needs registration";
+      return "Needs registration"
     case "failed":
-      return "Failed";
+      return "Failed"
   }
 }
 
 export default function McpSettingsScreen() {
-  const { client } = useServer();
-  const [hostConfig, setHostConfig] = useState<HostConfigSnapshot | null>(null);
-  const [mcpStatus, setMcpStatus] = useState<Record<string, HostMcpStatus>>({});
-  const [mcpName, setMcpName] = useState("");
-  const [mcpType, setMcpType] = useState<HostMcpConfig["type"]>("remote");
-  const [mcpUrl, setMcpUrl] = useState("");
-  const [mcpCommand, setMcpCommand] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { client } = useServer()
+  const [hostConfig, setHostConfig] = useState<HostConfigSnapshot | null>(null)
+  const [mcpStatus, setMcpStatus] = useState<Record<string, HostMcpStatus>>({})
+  const [mcpName, setMcpName] = useState("")
+  const [mcpType, setMcpType] = useState<HostMcpConfig["type"]>("remote")
+  const [mcpUrl, setMcpUrl] = useState("")
+  const [mcpCommand, setMcpCommand] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!client) return;
+    if (!client) return
     try {
-      setLoading(true);
-      const [config, status] = await Promise.all([
-        client.getConfig(),
-        client.listMcpStatus(),
-      ]);
-      setHostConfig(config);
-      setMcpStatus(status);
+      setLoading(true)
+      const [config, status] = await Promise.all([client.getConfig(), client.listMcpStatus()])
+      setHostConfig(config)
+      setMcpStatus(status)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(error instanceof Error ? error.message : String(error))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [client]);
+  }, [client])
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load()
     }, [load]),
-  );
+  )
 
-  const entries = useMemo(
-    () => Object.entries(hostConfig?.mcp ?? {}),
-    [hostConfig?.mcp],
-  );
+  const entries = useMemo(() => Object.entries(hostConfig?.mcp ?? {}), [hostConfig?.mcp])
 
-  async function saveConfig(
-    nextMcp: NonNullable<HostConfigSnapshot["mcp"]>,
-    successMessage: string,
-  ) {
-    if (!client) return;
+  async function saveConfig(nextMcp: NonNullable<HostConfigSnapshot["mcp"]>, successMessage: string) {
+    if (!client) return
     try {
-      setSaving(true);
-      setMessage(null);
+      setSaving(true)
+      setMessage(null)
       const next = await writeConfig(client, () => ({ mcp: nextMcp }), {
         label: "Save MCP configuration",
-      });
-      setHostConfig(next);
-      await load();
-      setMessage(successMessage);
+      })
+      setHostConfig(next)
+      await load()
+      setMessage(successMessage)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(error instanceof Error ? error.message : String(error))
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
   async function addMcpServer() {
-    if (!client) return;
-    const name = mcpName.trim();
-    if (!name) return setMessage("MCP server name is required");
-    if (mcpType === "remote" && !mcpUrl.trim())
-      return setMessage("Remote MCP URL is required");
-    if (mcpType === "local" && !mcpCommand.trim())
-      return setMessage("Local MCP command is required");
+    if (!client) return
+    const name = mcpName.trim()
+    if (!name) return setMessage("MCP server name is required")
+    if (mcpType === "remote" && !mcpUrl.trim()) return setMessage("Remote MCP URL is required")
+    if (mcpType === "local" && !mcpCommand.trim()) return setMessage("Local MCP command is required")
 
-    const nextMcp = { ...(hostConfig?.mcp ?? {}) };
+    const nextMcp = { ...(hostConfig?.mcp ?? {}) }
     nextMcp[name] =
       mcpType === "remote"
         ? { type: "remote", url: mcpUrl.trim(), enabled: true }
@@ -133,76 +110,76 @@ export default function McpSettingsScreen() {
             type: "local",
             command: mcpCommand.trim().split(/\s+/),
             enabled: true,
-          };
+          }
 
-    await saveConfig(nextMcp, `Saved MCP server ${name}`);
-    setMcpName("");
-    setMcpUrl("");
-    setMcpCommand("");
+    await saveConfig(nextMcp, `Saved MCP server ${name}`)
+    setMcpName("")
+    setMcpUrl("")
+    setMcpCommand("")
   }
 
   async function toggleMcpEnabled(name: string, enabled: boolean) {
-    if (!hostConfig?.mcp?.[name]) return;
+    if (!hostConfig?.mcp?.[name]) return
     await saveConfig(
       {
         ...(hostConfig.mcp ?? {}),
         [name]: { ...hostConfig.mcp[name], enabled },
       },
       `${enabled ? "Enabled" : "Disabled"} ${name}`,
-    );
+    )
   }
 
   async function connectMcp(name: string) {
-    if (!client) return;
+    if (!client) return
     try {
-      setSaving(true);
-      await client.connectMcp(name);
-      await load();
+      setSaving(true)
+      await client.connectMcp(name)
+      await load()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(error instanceof Error ? error.message : String(error))
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
   async function disconnectMcp(name: string) {
-    if (!client) return;
+    if (!client) return
     try {
-      setSaving(true);
-      await client.disconnectMcp(name);
-      await load();
+      setSaving(true)
+      await client.disconnectMcp(name)
+      await load()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(error instanceof Error ? error.message : String(error))
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
   async function authenticateMcp(name: string) {
-    if (!client) return;
+    if (!client) return
     try {
-      setSaving(true);
-      const result = await client.startMcpAuth(name);
-      await WebBrowser.openBrowserAsync(result.authorizationUrl);
-      setMessage(`MCP auth opened for ${name}`);
+      setSaving(true)
+      const result = await client.startMcpAuth(name)
+      await WebBrowser.openBrowserAsync(result.authorizationUrl)
+      setMessage(`MCP auth opened for ${name}`)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(error instanceof Error ? error.message : String(error))
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
   async function clearMcpAuth(name: string) {
-    if (!client) return;
+    if (!client) return
     try {
-      setSaving(true);
-      await client.removeMcpAuth(name);
-      await load();
-      setMessage(`Removed MCP auth for ${name}`);
+      setSaving(true)
+      await client.removeMcpAuth(name)
+      await load()
+      setMessage(`Removed MCP auth for ${name}`)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(error instanceof Error ? error.message : String(error))
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
@@ -220,10 +197,7 @@ export default function McpSettingsScreen() {
         description="Register remote or local MCP servers, monitor connection state, and recover auth flows without leaving mobile."
       >
         <View className="flex-row flex-wrap gap-2">
-          <InfoChip
-            label={`${entries.length} configured`}
-            tone={entries.length ? "accent" : "neutral"}
-          />
+          <InfoChip label={`${entries.length} configured`} tone={entries.length ? "accent" : "neutral"} />
           <InfoChip label={`${Object.keys(mcpStatus).length} live statuses`} />
         </View>
       </SurfaceCard>
@@ -248,27 +222,15 @@ export default function McpSettingsScreen() {
               onPress={() => setMcpType("remote")}
               className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "remote")}`}
             >
-              <Text
-                className={`text-sm font-semibold ${optionChipTextClass(mcpType === "remote")}`}
-              >
-                Remote
-              </Text>
-              <Text className="mt-1 text-xs leading-5 text-soft">
-                URL-based MCP endpoint
-              </Text>
+              <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "remote")}`}>Remote</Text>
+              <Text className="mt-1 text-xs leading-5 text-soft">URL-based MCP endpoint</Text>
             </Pressable>
             <Pressable
               onPress={() => setMcpType("local")}
               className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "local")}`}
             >
-              <Text
-                className={`text-sm font-semibold ${optionChipTextClass(mcpType === "local")}`}
-              >
-                Local
-              </Text>
-              <Text className="mt-1 text-xs leading-5 text-soft">
-                Host command launched by Nikcli
-              </Text>
+              <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "local")}`}>Local</Text>
+              <Text className="mt-1 text-xs leading-5 text-soft">Host command launched by Nikcli</Text>
             </Pressable>
           </View>
           {mcpType === "remote" ? (
@@ -288,11 +250,7 @@ export default function McpSettingsScreen() {
               placeholder="bunx @modelcontextprotocol/server-github"
             />
           )}
-          <ActionButton
-            label="Save MCP server"
-            loading={saving}
-            onPress={() => void addMcpServer()}
-          />
+          <ActionButton label="Save MCP server" loading={saving} onPress={() => void addMcpServer()} />
         </View>
       </SurfaceCard>
 
@@ -303,44 +261,27 @@ export default function McpSettingsScreen() {
       >
         {loading ? (
           <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
-            <Text className="text-sm text-soft">
-              Loading MCP control plane…
-            </Text>
+            <Text className="text-sm text-soft">Loading MCP control plane…</Text>
           </View>
         ) : (
           <View className="gap-3">
             {entries.length ? (
               entries.map(([name, entry]) => {
-                const status = mcpStatus[name];
-                const enabled = entry.enabled !== false;
+                const status = mcpStatus[name]
+                const enabled = entry.enabled !== false
                 return (
-                  <View
-                    key={name}
-                    className="rounded-[8px] border border-border bg-background/60 p-4"
-                  >
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 p-4">
                     <View className="flex-row flex-wrap items-center gap-2">
-                      <Text className="text-base font-semibold text-ink">
-                        {name}
-                      </Text>
+                      <Text className="text-base font-semibold text-ink">{name}</Text>
                       <InfoChip label={entry.type} tone="accent" />
-                      <InfoChip
-                        label={mcpLabel(status)}
-                        tone={mcpTone(status)}
-                      />
+                      <InfoChip label={mcpLabel(status)} tone={mcpTone(status)} />
                       <InfoChip label={enabled ? "Enabled" : "Disabled"} />
                     </View>
-                    <Text
-                      selectable
-                      className="mt-2 text-sm leading-5 text-soft"
-                    >
-                      {entry.type === "remote"
-                        ? entry.url
-                        : entry.command.join(" ")}
+                    <Text selectable className="mt-2 text-sm leading-5 text-soft">
+                      {entry.type === "remote" ? entry.url : entry.command.join(" ")}
                     </Text>
                     {status && "error" in status ? (
-                      <Text className="mt-2 text-xs leading-5 text-soft">
-                        {status.error}
-                      </Text>
+                      <Text className="mt-2 text-xs leading-5 text-soft">{status.error}</Text>
                     ) : null}
                     <View className="mt-3 flex-row flex-wrap gap-2">
                       <ActionButton
@@ -369,8 +310,7 @@ export default function McpSettingsScreen() {
                           onPress={() => void authenticateMcp(name)}
                         />
                       ) : null}
-                      {status?.status === "connected" ||
-                      status?.status === "needs_auth" ? (
+                      {status?.status === "connected" || status?.status === "needs_auth" ? (
                         <ActionButton
                           label="Clear auth"
                           variant="secondary"
@@ -380,18 +320,16 @@ export default function McpSettingsScreen() {
                       ) : null}
                     </View>
                   </View>
-                );
+                )
               })
             ) : (
               <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-sm leading-6 text-soft">
-                  No MCP servers configured on this host yet.
-                </Text>
+                <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
               </View>
             )}
           </View>
         )}
       </SurfaceCard>
     </ScrollView>
-  );
+  )
 }

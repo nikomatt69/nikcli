@@ -3,6 +3,32 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.196.0 (July 2026)
+
+## Mobile
+
+- Split AnimatedTabButton into native + JS layers (@nikomatt69)
+- Use translateX instead of left on SessionComposer mode pill (@nikomatt69)
+- Give repeated option/question/pattern lists unique keys
+- Make Deny/Allow buttons in approval bar a11y-compliant
+- Evict stale entries from CommandPaletteSheet itemScales
+- Enable native driver on transform-only animations in ComposerToolDrawer
+- Run SessionComposer mode pill transform on UI thread
+- Serialize persisted preference writes to prevent races
+- Clear stale selectedAnswers on question request swap
+- Serialize host config writes to prevent RMW races
+- Handle network failures in GitHub device-flow poll
+- Stop loop form data-loss from 5s polling
+- Add useHostResource hook and pilot in agents.tsx
+- Extract useCopiedFeedback hook and migrate 4 sites
+- Remove dead code and unused dependencies
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(mobile): use translateX instead of left on SessionComposer mode pill
+  - fix(mobile): split AnimatedTabButton into native + JS layers
+
 ## v1.194.0 (July 2026)
 
 ## Core

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react"
 
 /**
  * Loads a single resource from a fetcher callback and tracks loading / error
@@ -30,32 +30,32 @@ export function useHostResource<T>(
   fetcher: () => Promise<T> | undefined,
   deps: ReadonlyArray<unknown>,
 ): {
-  data: T | undefined;
-  loading: boolean;
-  error: string | null;
-  reload: () => Promise<void>;
+  data: T | undefined
+  loading: boolean
+  error: string | null
+  reload: () => Promise<void>
 } {
-  const [data, setData] = useState<T | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<T | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     try {
-      setError(null);
-      const next = await fetcher();
-      if (next !== undefined) setData(next);
+      setError(null)
+      const next = await fetcher()
+      if (next !== undefined) setData(next)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [fetcher]);
+  }, [fetcher])
 
   useEffect(() => {
-    setLoading(true);
-    void reload();
+    setLoading(true)
+    void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, deps)
 
-  return { data, loading, error, reload };
+  return { data, loading, error, reload }
 }

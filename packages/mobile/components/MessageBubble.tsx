@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import {
   Animated,
   InteractionManager,
@@ -10,27 +10,14 @@ import {
   StyleSheet,
   Text,
   View,
-} from "react-native";
-import {
-  Box,
-  ChevronRight,
-  Copy,
-  GitBranch,
-  Link2,
-  Paperclip,
-  Play,
-  X,
-  type LucideIcon,
-} from "lucide-react-native";
-import * as Clipboard from "expo-clipboard";
-import { Image } from "expo-image";
-import { File, Paths } from "expo-file-system";
-import { useVideoPlayer, VideoView } from "expo-video";
-import Markdown, {
-  type ASTNode,
-  type RenderRules,
-} from "react-native-markdown-display";
-import { Swipeable } from "react-native-gesture-handler";
+} from "react-native"
+import { Box, ChevronRight, Copy, GitBranch, Link2, Paperclip, Play, X, type LucideIcon } from "lucide-react-native"
+import * as Clipboard from "expo-clipboard"
+import { Image } from "expo-image"
+import { File, Paths } from "expo-file-system"
+import { useVideoPlayer, VideoView } from "expo-video"
+import Markdown, { type ASTNode, type RenderRules } from "react-native-markdown-display"
+import { Swipeable } from "react-native-gesture-handler"
 import type {
   AssistantMessage,
   FileDiff,
@@ -40,84 +27,72 @@ import type {
   ReasoningPart,
   TextPart,
   ToolPart,
-} from "@/lib/types";
-import { relativeTime } from "@/lib/types";
-import { highlightCode } from "@/lib/syntax";
-import { ToolCallView } from "@/components/ToolCallView";
-import { DiffViewer } from "@/components/DiffViewer";
-import {
-  ArtifactMicroThumb,
-  InlineArtifactCard,
-} from "@/components/session/SessionPreviewStrip";
-import { useCopiedFeedback } from "@/hooks/use-copied-feedback";
-import { triggerHaptic } from "@/lib/haptics";
-import {
-  extractMessageArtifacts,
-  kindLabel,
-  type SessionPreview,
-} from "@/lib/session-artifacts";
-import { useUIStore } from "@/lib/store";
-import { useAppTheme } from "@/lib/theme";
+} from "@/lib/types"
+import { relativeTime } from "@/lib/types"
+import { highlightCode } from "@/lib/syntax"
+import { ToolCallView } from "@/components/ToolCallView"
+import { DiffViewer } from "@/components/DiffViewer"
+import { ArtifactMicroThumb, InlineArtifactCard } from "@/components/session/SessionPreviewStrip"
+import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
+import { triggerHaptic } from "@/lib/haptics"
+import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/session-artifacts"
+import { useUIStore } from "@/lib/store"
+import { useAppTheme } from "@/lib/theme"
 
 function latestText(parts: MessageWithParts["parts"]) {
   return parts
     .filter((part): part is TextPart => part.type === "text")
     .map((part) => part.text)
-    .join("\n\n");
+    .join("\n\n")
 }
 
 function reasoningParts(parts: MessageWithParts["parts"]) {
-  return parts.filter(
-    (part): part is ReasoningPart => part.type === "reasoning",
-  );
+  return parts.filter((part): part is ReasoningPart => part.type === "reasoning")
 }
 
 function patchPart(parts: MessageWithParts["parts"]) {
-  return parts.find((part): part is PatchPart => part.type === "patch");
+  return parts.find((part): part is PatchPart => part.type === "patch")
 }
 
 function toolParts(parts: MessageWithParts["parts"]) {
-  return parts.filter((part): part is ToolPart => part.type === "tool");
+  return parts.filter((part): part is ToolPart => part.type === "tool")
 }
 
 function fileParts(parts: MessageWithParts["parts"]) {
-  return parts.filter((part): part is FilePart => part.type === "file");
+  return parts.filter((part): part is FilePart => part.type === "file")
 }
 
 function base64ToBytes(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64.replace(/\s/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  const binary = globalThis.atob(base64.replace(/\s/g, ""))
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
 }
 
 function videoExtension(mime: string) {
-  const sub = mime.split("/")[1]?.split(";")[0]?.toLowerCase();
-  if (sub === "quicktime") return "mov";
-  return sub || "mp4";
+  const sub = mime.split("/")[1]?.split(";")[0]?.toLowerCase()
+  if (sub === "quicktime") return "mov"
+  return sub || "mp4"
 }
 
 /** AVPlayer/ExoPlayer cannot play data: URIs, so inline videos are materialized into the cache first. */
 function materializeDataUri(part: FilePart): string | null {
   try {
-    const base64 = part.url.slice(part.url.indexOf(",") + 1);
-    const file = new File(
-      Paths.cache,
-      `msg-media-${part.id}.${videoExtension(part.mime)}`,
-    );
-    if (!file.exists) file.write(base64ToBytes(base64));
-    return file.uri;
+    const base64 = part.url.slice(part.url.indexOf(",") + 1)
+    const file = new File(Paths.cache, `msg-media-${part.id}.${videoExtension(part.mime)}`)
+    if (!file.exists) file.write(base64ToBytes(base64))
+    return file.uri
   } catch {
-    return null;
+    return null
   }
 }
 
 function MessageVideoPlayer({ uri }: { uri: string }) {
   // Mounted only after an explicit tap, so starting playback right away is expected.
   const player = useVideoPlayer(uri, (instance) => {
-    instance.loop = false;
-    instance.play();
-  });
+    instance.loop = false
+    instance.play()
+  })
   return (
     <VideoView
       player={player}
@@ -130,50 +105,43 @@ function MessageVideoPlayer({ uri }: { uri: string }) {
         overflow: "hidden",
       }}
     />
-  );
+  )
 }
 
 function MessageVideo({ part }: { part: FilePart }) {
-  const { palette, isDark } = useAppTheme();
-  const [uri, setUri] = useState<string | null>(null);
-  const [preparing, setPreparing] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const { palette, isDark } = useAppTheme()
+  const [uri, setUri] = useState<string | null>(null)
+  const [preparing, setPreparing] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   function activate() {
-    if (uri || preparing || failed) return;
-    void triggerHaptic("selection");
+    if (uri || preparing || failed) return
+    void triggerHaptic("selection")
     if (!part.url.startsWith("data:")) {
-      setUri(part.url);
-      return;
+      setUri(part.url)
+      return
     }
-    setPreparing(true);
+    setPreparing(true)
     // base64 → bytes is CPU-heavy for videos; keep it off the tap/scroll interaction path.
     void InteractionManager.runAfterInteractions(() => {
-      const local = materializeDataUri(part);
-      if (local) setUri(local);
-      else setFailed(true);
-      setPreparing(false);
-    });
+      const local = materializeDataUri(part)
+      if (local) setUri(local)
+      else setFailed(true)
+      setPreparing(false)
+    })
   }
 
   if (uri) {
     return (
-      <View
-        className="overflow-hidden rounded-[12px] border border-border/70"
-        style={{ backgroundColor: "#000" }}
-      >
+      <View className="overflow-hidden rounded-[12px] border border-border/70" style={{ backgroundColor: "#000" }}>
         <MessageVideoPlayer uri={uri} />
         {part.filename ? (
-          <Text
-            numberOfLines={1}
-            className="px-2.5 py-1.5 text-[11px]"
-            style={{ color: palette.muted }}
-          >
+          <Text numberOfLines={1} className="px-2.5 py-1.5 text-[11px]" style={{ color: palette.muted }}>
             {part.filename}
           </Text>
         ) : null}
       </View>
-    );
+    )
   }
 
   return (
@@ -181,9 +149,7 @@ function MessageVideo({ part }: { part: FilePart }) {
       onPress={activate}
       disabled={preparing || failed}
       accessibilityRole="button"
-      accessibilityLabel={
-        part.filename ? `Play video ${part.filename}` : "Play video"
-      }
+      accessibilityLabel={part.filename ? `Play video ${part.filename}` : "Play video"}
       style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1 })}
     >
       <View className="flex-row items-center gap-3 rounded-[12px] border border-border/70 bg-surface px-3 py-3">
@@ -194,36 +160,27 @@ function MessageVideo({ part }: { part: FilePart }) {
             borderRadius: 20,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(20,20,19,0.08)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
           }}
         >
           <Play size={16} color={palette.accentLight} strokeWidth={2.2} />
         </View>
         <View className="min-w-0 flex-1">
-          <Text
-            numberOfLines={1}
-            className="text-[13px] font-semibold text-ink"
-          >
+          <Text numberOfLines={1} className="text-[13px] font-semibold text-ink">
             {part.filename ?? "Video"}
           </Text>
           <Text className="mt-0.5 text-[11px] text-muted">
-            {failed
-              ? "Video unavailable"
-              : preparing
-                ? "Preparing…"
-                : "Tap to play"}
+            {failed ? "Video unavailable" : preparing ? "Preparing…" : "Tap to play"}
           </Text>
         </View>
       </View>
     </Pressable>
-  );
+  )
 }
 
 function MessageImage({ part }: { part: FilePart }) {
-  const { palette } = useAppTheme();
-  const [aspectRatio, setAspectRatio] = useState(4 / 3);
+  const { palette } = useAppTheme()
+  const [aspectRatio, setAspectRatio] = useState(4 / 3)
   return (
     <View className="overflow-hidden rounded-[12px] border border-border/70 bg-surface">
       <Image
@@ -231,44 +188,40 @@ function MessageImage({ part }: { part: FilePart }) {
         contentFit="contain"
         transition={120}
         onLoad={(event) => {
-          const { width, height } = event.source;
-          if (width > 0 && height > 0) setAspectRatio(width / height);
+          const { width, height } = event.source
+          if (width > 0 && height > 0) setAspectRatio(width / height)
         }}
         style={{ width: "100%", aspectRatio, maxHeight: 320 }}
         accessibilityLabel={part.filename ?? "Attached image"}
       />
       {part.filename ? (
-        <Text
-          numberOfLines={1}
-          className="px-2.5 py-1.5 text-[11px]"
-          style={{ color: palette.muted }}
-        >
+        <Text numberOfLines={1} className="px-2.5 py-1.5 text-[11px]" style={{ color: palette.muted }}>
           {part.filename}
         </Text>
       ) : null}
     </View>
-  );
+  )
 }
 
 function MessageFileView({ part }: { part: FilePart }) {
-  const { palette } = useAppTheme();
-  const mime = part.mime.toLowerCase();
+  const { palette } = useAppTheme()
+  const mime = part.mime.toLowerCase()
 
   if (mime.startsWith("image/")) {
-    return <MessageImage part={part} />;
+    return <MessageImage part={part} />
   }
 
   if (mime.startsWith("video/")) {
-    return <MessageVideo part={part} />;
+    return <MessageVideo part={part} />
   }
 
-  const canOpen = /^https?:/i.test(part.url);
+  const canOpen = /^https?:/i.test(part.url)
   return (
     <Pressable
       disabled={!canOpen}
       onPress={() => {
-        void triggerHaptic("selection");
-        void Linking.openURL(part.url).catch(() => undefined);
+        void triggerHaptic("selection")
+        void Linking.openURL(part.url).catch(() => undefined)
       }}
       accessibilityRole={canOpen ? "link" : "text"}
       accessibilityLabel={part.filename ?? "Attached file"}
@@ -276,25 +229,19 @@ function MessageFileView({ part }: { part: FilePart }) {
     >
       <View className="flex-row items-center gap-2 rounded-[12px] border border-border/70 bg-surface px-3 py-2.5">
         <Paperclip size={14} color={palette.accentLight} strokeWidth={2.1} />
-        <Text
-          numberOfLines={1}
-          className="flex-1 text-[12px] font-medium text-ink"
-        >
+        <Text numberOfLines={1} className="flex-1 text-[12px] font-medium text-ink">
           {part.filename ?? part.mime}
         </Text>
       </View>
     </Pressable>
-  );
+  )
 }
 
 function PathPreview({ files }: { files: string[] }) {
   return (
     <View className="min-w-0 gap-1">
       {files.map((file) => (
-        <View
-          key={file}
-          className="overflow-hidden rounded-[12px] border border-border/70 bg-surface px-2.5 py-2"
-        >
+        <View key={file} className="overflow-hidden rounded-[12px] border border-border/70 bg-surface px-2.5 py-2">
           <ScrollView
             horizontal
             nestedScrollEnabled
@@ -309,63 +256,53 @@ function PathPreview({ files }: { files: string[] }) {
         </View>
       ))}
     </View>
-  );
+  )
 }
 
 function words(text: string) {
-  return text.trim().split(/\s+/).filter(Boolean).length;
+  return text.trim().split(/\s+/).filter(Boolean).length
 }
 
 function trimmedCodeContent(node: ASTNode) {
-  if (typeof node.content !== "string") return "";
-  return node.content.endsWith("\n") ? node.content.slice(0, -1) : node.content;
+  if (typeof node.content !== "string") return ""
+  return node.content.endsWith("\n") ? node.content.slice(0, -1) : node.content
 }
 
 function getLanguage(node: ASTNode): string {
-  const info = (node.sourceType as string | undefined)?.trim();
-  return info?.split(/\s+/)[0]?.toLowerCase() || "code";
+  const info = (node.sourceType as string | undefined)?.trim()
+  return info?.split(/\s+/)[0]?.toLowerCase() || "code"
 }
 
 function stableMarkdownCodeKey(node: ASTNode, messageId: string): string {
-  if (node.key != null && String(node.key).length > 0)
-    return `${messageId}:${node.key}`;
-  const code = trimmedCodeContent(node);
-  const lang = getLanguage(node);
-  let h = 0;
-  for (let i = 0; i < Math.min(code.length, 240); i++)
-    h = (h * 31 + code.charCodeAt(i)) | 0;
-  return `${messageId}:cb:${lang}:${code.length}:${h}`;
+  if (node.key != null && String(node.key).length > 0) return `${messageId}:${node.key}`
+  const code = trimmedCodeContent(node)
+  const lang = getLanguage(node)
+  let h = 0
+  for (let i = 0; i < Math.min(code.length, 240); i++) h = (h * 31 + code.charCodeAt(i)) | 0
+  return `${messageId}:cb:${lang}:${code.length}:${h}`
 }
 
 function isArtifactFenceLanguage(language: string) {
-  const lang = language.toLowerCase();
-  if (lang === "html" || lang === "htm" || lang === "svg" || lang === "mermaid")
-    return true;
+  const lang = language.toLowerCase()
+  if (lang === "html" || lang === "htm" || lang === "svg" || lang === "mermaid") return true
   if (lang.startsWith("artifact:")) {
-    const sub = lang.slice("artifact:".length);
-    return (
-      sub === "html" || sub === "htm" || sub === "svg" || sub === "mermaid"
-    );
+    const sub = lang.slice("artifact:".length)
+    return sub === "html" || sub === "htm" || sub === "svg" || sub === "mermaid"
   }
-  return false;
+  return false
 }
 
 function ArtifactFencePlaceholder(props: { language: string }) {
   return (
     <View className="my-2 rounded-[8px] border border-border/70 bg-surface px-3 py-2">
-      <Text className="text-[11px] font-semibold text-muted">
-        {props.language.toUpperCase()} artifact — open below
-      </Text>
+      <Text className="text-[11px] font-semibold text-muted">{props.language.toUpperCase()} artifact — open below</Text>
     </View>
-  );
+  )
 }
 
-function MessageArtifactSection(props: {
-  artifacts: SessionPreview[];
-  onOpen(preview: SessionPreview): void;
-}) {
-  const { palette, isDark } = useAppTheme();
-  const [primary, ...rest] = props.artifacts;
+function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(preview: SessionPreview): void }) {
+  const { palette, isDark } = useAppTheme()
+  const [primary, ...rest] = props.artifacts
 
   return (
     <View className="border-t border-border/80 px-3.5 py-3">
@@ -373,30 +310,17 @@ function MessageArtifactSection(props: {
         <View className="flex-row items-center gap-2">
           <Box size={15} color={palette.accentLight} strokeWidth={2.2} />
           <Text className="flex-1 text-sm font-semibold text-ink">
-            {props.artifacts.length === 1
-              ? "Generated artifact"
-              : `${props.artifacts.length} artifacts`}
+            {props.artifacts.length === 1 ? "Generated artifact" : `${props.artifacts.length} artifacts`}
           </Text>
         </View>
-        {primary ? (
-          <InlineArtifactCard
-            preview={primary}
-            onPress={() => props.onOpen(primary)}
-          />
-        ) : null}
-        <View
-          className={
-            rest.length || props.artifacts.some((artifact) => artifact.url)
-              ? "mt-3 gap-2"
-              : undefined
-          }
-        >
+        {primary ? <InlineArtifactCard preview={primary} onPress={() => props.onOpen(primary)} /> : null}
+        <View className={rest.length || props.artifacts.some((artifact) => artifact.url) ? "mt-3 gap-2" : undefined}>
           {rest.map((artifact) => (
             <Pressable
               key={artifact.id}
               onPress={() => {
-                void triggerHaptic("selection");
-                props.onOpen(artifact);
+                void triggerHaptic("selection")
+                props.onOpen(artifact)
               }}
               accessibilityRole="button"
               accessibilityLabel={`Open ${kindLabel(artifact.kind)} artifact`}
@@ -407,12 +331,8 @@ function MessageArtifactSection(props: {
                 gap: 12,
                 borderRadius: 8,
                 borderWidth: 1,
-                borderColor: isDark
-                  ? "rgba(255,255,255,0.10)"
-                  : "rgba(218,216,209,0.72)",
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.045)"
-                  : "rgba(255,255,255,0.72)",
+                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
                 paddingHorizontal: 12,
                 paddingVertical: 11,
                 opacity: pressed ? 0.82 : 1,
@@ -423,25 +343,15 @@ function MessageArtifactSection(props: {
                 <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">
                   {kindLabel(artifact.kind)}
                 </Text>
-                <Text
-                  numberOfLines={1}
-                  className="mt-0.5 text-[13px] font-semibold text-ink"
-                >
+                <Text numberOfLines={1} className="mt-0.5 text-[13px] font-semibold text-ink">
                   {artifact.title}
                 </Text>
               </View>
               <View className="flex-row items-center gap-1">
-                <Text
-                  className="text-[12px] font-semibold"
-                  style={{ color: palette.accentLight }}
-                >
+                <Text className="text-[12px] font-semibold" style={{ color: palette.accentLight }}>
                   Open
                 </Text>
-                <ChevronRight
-                  size={14}
-                  color={palette.accentLight}
-                  strokeWidth={2.2}
-                />
+                <ChevronRight size={14} color={palette.accentLight} strokeWidth={2.2} />
               </View>
             </Pressable>
           ))}
@@ -451,12 +361,12 @@ function MessageArtifactSection(props: {
               <Pressable
                 key={`${artifact.id}:link`}
                 onPress={() => {
-                  void triggerHaptic("selection");
-                  void Linking.openURL(artifact.url!).catch(() => undefined);
+                  void triggerHaptic("selection")
+                  void Linking.openURL(artifact.url!).catch(() => undefined)
                 }}
                 onLongPress={() => {
-                  void Clipboard.setStringAsync(artifact.url!);
-                  void triggerHaptic("success");
+                  void Clipboard.setStringAsync(artifact.url!)
+                  void triggerHaptic("success")
                 }}
                 accessibilityRole="link"
                 accessibilityLabel={`Open artifact link ${artifact.url}`}
@@ -468,21 +378,13 @@ function MessageArtifactSection(props: {
                   borderRadius: 8,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.045)"
-                    : "rgba(255,255,255,0.72)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
                   borderWidth: 1,
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.10)"
-                    : "rgba(218,216,209,0.72)",
+                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
                   opacity: pressed ? 0.82 : 1,
                 })}
               >
-                <Link2
-                  size={13}
-                  color={palette.accentLight}
-                  strokeWidth={2.2}
-                />
+                <Link2 size={13} color={palette.accentLight} strokeWidth={2.2} />
                 <Text
                   numberOfLines={1}
                   className="flex-1 text-[12px] font-medium underline"
@@ -495,38 +397,27 @@ function MessageArtifactSection(props: {
         </View>
       </View>
     </View>
-  );
+  )
 }
 
-function ScrollableCodeBlock(props: {
-  node: ASTNode;
-  textStyle: any;
-  backgroundColor: string;
-  borderColor: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [copied, markCopied] = useCopiedFeedback(2000);
-  const { palette } = useAppTheme();
-  const language = getLanguage(props.node);
-  const code = trimmedCodeContent(props.node);
-  const lineCount = code.split("\n").length;
-  const isLong = lineCount > 10;
-  const lineHighlights = useMemo(
-    () => code.split("\n").map((line) => highlightCode(line)),
-    [code],
-  );
-  const lineHeightPx = 18;
-  const bodyPadV = 24;
-  const viewportCap = expanded ? 800 : 400;
-  const intrinsicBodyH = lineCount * lineHeightPx + bodyPadV;
-  const codeBodyHeight = Math.min(
-    Math.max(intrinsicBodyH, lineHeightPx + bodyPadV),
-    viewportCap,
-  );
+function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [copied, markCopied] = useCopiedFeedback(2000)
+  const { palette } = useAppTheme()
+  const language = getLanguage(props.node)
+  const code = trimmedCodeContent(props.node)
+  const lineCount = code.split("\n").length
+  const isLong = lineCount > 10
+  const lineHighlights = useMemo(() => code.split("\n").map((line) => highlightCode(line)), [code])
+  const lineHeightPx = 18
+  const bodyPadV = 24
+  const viewportCap = expanded ? 800 : 400
+  const intrinsicBodyH = lineCount * lineHeightPx + bodyPadV
+  const codeBodyHeight = Math.min(Math.max(intrinsicBodyH, lineHeightPx + bodyPadV), viewportCap)
 
   async function handleCopy() {
-    await Clipboard.setStringAsync(code);
-    markCopied();
+    await Clipboard.setStringAsync(code)
+    markCopied()
   }
 
   return (
@@ -545,23 +436,11 @@ function ScrollableCodeBlock(props: {
         }}
       >
         <View className="flex-row items-center gap-2">
-          <View
-            className="size-2.5 rounded-full"
-            style={{ backgroundColor: "#ff5f57" }}
-          />
-          <View
-            className="size-2.5 rounded-full"
-            style={{ backgroundColor: "#ffbd2e" }}
-          />
-          <View
-            className="size-2.5 rounded-full"
-            style={{ backgroundColor: "#28c840" }}
-          />
+          <View className="size-2.5 rounded-full" style={{ backgroundColor: "#ff5f57" }} />
+          <View className="size-2.5 rounded-full" style={{ backgroundColor: "#ffbd2e" }} />
+          <View className="size-2.5 rounded-full" style={{ backgroundColor: "#28c840" }} />
         </View>
-        <Text
-          className="text-[10px] font-bold uppercase tracking-wider"
-          style={{ color: palette.accentLight }}
-        >
+        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: palette.accentLight }}>
           {language}
         </Text>
         <View className="flex-row items-center gap-2">
@@ -573,20 +452,11 @@ function ScrollableCodeBlock(props: {
             hitSlop={8}
             className="flex-row items-center gap-1.5 rounded-full px-2.5 py-1"
             style={{
-              backgroundColor: copied
-                ? `${palette.success}30`
-                : `${palette.border}40`,
+              backgroundColor: copied ? `${palette.success}30` : `${palette.border}40`,
             }}
           >
-            <Copy
-              size={10}
-              color={copied ? palette.success : palette.muted}
-              strokeWidth={2}
-            />
-            <Text
-              className="text-[10px] font-semibold"
-              style={{ color: copied ? palette.success : palette.muted }}
-            >
+            <Copy size={10} color={copied ? palette.success : palette.muted} strokeWidth={2} />
+            <Text className="text-[10px] font-semibold" style={{ color: copied ? palette.success : palette.muted }}>
               {copied ? "Copied" : "Copy"}
             </Text>
           </Pressable>
@@ -636,26 +506,18 @@ function ScrollableCodeBlock(props: {
             borderTopColor: palette.border,
           }}
         >
-          <Text
-            className="text-center text-[11px] font-semibold"
-            style={{ color: palette.accentLight }}
-          >
+          <Text className="text-center text-[11px] font-semibold" style={{ color: palette.accentLight }}>
             {expanded ? "Show less" : "Show more"}
           </Text>
         </Pressable>
       )}
     </View>
-  );
+  )
 }
 
-function ActionChip(props: {
-  label: string;
-  onPress(): void;
-  icon: LucideIcon;
-  muted?: boolean;
-}) {
-  const Icon = props.icon;
-  const { palette, isDark } = useAppTheme();
+function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; muted?: boolean }) {
+  const Icon = props.icon
+  const { palette, isDark } = useAppTheme()
 
   return (
     <Pressable
@@ -676,13 +538,7 @@ function ActionChip(props: {
       <Icon
         size={14}
         color={
-          props.muted
-            ? isDark
-              ? "rgba(255,255,255,0.4)"
-              : "rgba(0,0,0,0.4)"
-            : isDark
-              ? "#FFFFFF"
-              : palette.accent
+          props.muted ? (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)") : isDark ? "#FFFFFF" : palette.accent
         }
         strokeWidth={2}
       />
@@ -701,91 +557,62 @@ function ActionChip(props: {
         {props.label}
       </Text>
     </Pressable>
-  );
+  )
 }
 
 type MessageBubbleProps = {
-  message: MessageWithParts;
-  diffs?: FileDiff[];
-  diffLoaded?: boolean;
-  diffLoading?: boolean;
-  onLoadDiff?(messageID: string): void;
-  onCopy?: (message: MessageWithParts) => void;
-  onFork?: (message: MessageWithParts) => void;
-  onDismiss?: () => void;
-  onActivate?(messageID: string): void;
-  onOpenArtifact?(preview: SessionPreview): void;
-  queued?: boolean;
-  isActive?: boolean;
-};
+  message: MessageWithParts
+  diffs?: FileDiff[]
+  diffLoaded?: boolean
+  diffLoading?: boolean
+  onLoadDiff?(messageID: string): void
+  onCopy?: (message: MessageWithParts) => void
+  onFork?: (message: MessageWithParts) => void
+  onDismiss?: () => void
+  onActivate?(messageID: string): void
+  onOpenArtifact?(preview: SessionPreview): void
+  queued?: boolean
+  isActive?: boolean
+}
 
 function MessageBubbleImpl(props: MessageBubbleProps) {
-  const { palette, isDark } = useAppTheme();
-  const gestures = useUIStore((state) => state.gestures);
-  const [showReasoning, setShowReasoning] = useState(false);
-  const reasoningRotationRef = useRef<Animated.Value | null>(null);
-  if (reasoningRotationRef.current === null)
-    reasoningRotationRef.current = new Animated.Value(0);
-  const reasoningRotation = reasoningRotationRef.current;
-  const text = useMemo(
-    () => latestText(props.message.parts),
-    [props.message.parts],
-  );
-  const reasoning = useMemo(
-    () => reasoningParts(props.message.parts),
-    [props.message.parts],
-  );
-  const patch = useMemo(
-    () => patchPart(props.message.parts),
-    [props.message.parts],
-  );
-  const tools = useMemo(
-    () => toolParts(props.message.parts),
-    [props.message.parts],
-  );
-  const files = useMemo(
-    () => fileParts(props.message.parts),
-    [props.message.parts],
-  );
-  const messageArtifacts = useMemo(
-    () => extractMessageArtifacts(props.message),
-    [props.message],
-  );
-  const hasArtifactFences = messageArtifacts.length > 0;
-  const isUser = props.message.info.role === "user";
-  const hasReusableText = Boolean(text.trim());
-  const canCopy = hasReusableText && props.onCopy;
-  const canFork = hasReusableText && props.onFork;
+  const { palette, isDark } = useAppTheme()
+  const gestures = useUIStore((state) => state.gestures)
+  const [showReasoning, setShowReasoning] = useState(false)
+  const reasoningRotationRef = useRef<Animated.Value | null>(null)
+  if (reasoningRotationRef.current === null) reasoningRotationRef.current = new Animated.Value(0)
+  const reasoningRotation = reasoningRotationRef.current
+  const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
+  const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
+  const patch = useMemo(() => patchPart(props.message.parts), [props.message.parts])
+  const tools = useMemo(() => toolParts(props.message.parts), [props.message.parts])
+  const files = useMemo(() => fileParts(props.message.parts), [props.message.parts])
+  const messageArtifacts = useMemo(() => extractMessageArtifacts(props.message), [props.message])
+  const hasArtifactFences = messageArtifacts.length > 0
+  const isUser = props.message.info.role === "user"
+  const hasReusableText = Boolean(text.trim())
+  const canCopy = hasReusableText && props.onCopy
+  const canFork = hasReusableText && props.onFork
 
-  const assistantInfo = !isUser
-    ? (props.message.info as AssistantMessage)
-    : null;
-  const assistantError = assistantInfo?.error?.data?.message;
-  const cost = assistantInfo?.cost ?? 0;
-  const tokens = assistantInfo
-    ? assistantInfo.tokens.input + assistantInfo.tokens.output
-    : 0;
+  const assistantInfo = !isUser ? (props.message.info as AssistantMessage) : null
+  const assistantError = assistantInfo?.error?.data?.message
+  const cost = assistantInfo?.cost ?? 0
+  const tokens = assistantInfo ? assistantInfo.tokens.input + assistantInfo.tokens.output : 0
   const reasoningText = useMemo(
-    () =>
-      reasoning
-        .flatMap((part) => (part.text.trim() ? [part.text.trim()] : []))
-        .join("\n\n"),
+    () => reasoning.flatMap((part) => (part.text.trim() ? [part.text.trim()] : [])).join("\n\n"),
     [reasoning],
-  );
-  const wordCount = reasoningText ? words(reasoningText) : 0;
-  const reasoningVisible = reasoning.length > 0;
-  const reasoningExpanded = showReasoning || wordCount === 0;
+  )
+  const wordCount = reasoningText ? words(reasoningText) : 0
+  const reasoningVisible = reasoning.length > 0
+  const reasoningExpanded = showReasoning || wordCount === 0
   const markdownRules = useMemo<RenderRules>(
     () => ({
       code_block: (node, _children, _parent, styles, inheritedStyles = {}) => {
-        const language = getLanguage(node);
+        const language = getLanguage(node)
         if (hasArtifactFences && isArtifactFenceLanguage(language)) {
           return (
-            <ArtifactFencePlaceholder
-              key={stableMarkdownCodeKey(node, props.message.info.id)}
-              language={language}
-            />
-          );
+            <ArtifactFencePlaceholder key={stableMarkdownCodeKey(node, props.message.info.id)} language={language} />
+          )
         }
         return (
           <ScrollableCodeBlock
@@ -795,17 +622,14 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             backgroundColor={palette.codeBackground}
             borderColor={palette.border}
           />
-        );
+        )
       },
       fence: (node, _children, _parent, styles, inheritedStyles = {}) => {
-        const language = getLanguage(node);
+        const language = getLanguage(node)
         if (hasArtifactFences && isArtifactFenceLanguage(language)) {
           return (
-            <ArtifactFencePlaceholder
-              key={stableMarkdownCodeKey(node, props.message.info.id)}
-              language={language}
-            />
-          );
+            <ArtifactFencePlaceholder key={stableMarkdownCodeKey(node, props.message.info.id)} language={language} />
+          )
         }
         return (
           <ScrollableCodeBlock
@@ -815,48 +639,30 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             backgroundColor={palette.codeBackground}
             borderColor={palette.border}
           />
-        );
+        )
       },
     }),
-    [
-      hasArtifactFences,
-      palette.border,
-      palette.codeBackground,
-      props.message.info.id,
-    ],
-  );
+    [hasArtifactFences, palette.border, palette.codeBackground, props.message.info.id],
+  )
   const summaryLine = useMemo(() => {
-    const items = [] as string[];
-    if (tools.length)
-      items.push(`${tools.length} tool${tools.length === 1 ? "" : "s"}`);
-    if (patch?.files.length)
-      items.push(
-        `${patch.files.length} file${patch.files.length === 1 ? "" : "s"}`,
-      );
-    if (files.length)
-      items.push(`${files.length} attachment${files.length === 1 ? "" : "s"}`);
+    const items = [] as string[]
+    if (tools.length) items.push(`${tools.length} tool${tools.length === 1 ? "" : "s"}`)
+    if (patch?.files.length) items.push(`${patch.files.length} file${patch.files.length === 1 ? "" : "s"}`)
+    if (files.length) items.push(`${files.length} attachment${files.length === 1 ? "" : "s"}`)
     if (messageArtifacts.length)
-      items.push(
-        `${messageArtifacts.length} artifact${messageArtifacts.length === 1 ? "" : "s"}`,
-      );
-    if (reasoning.length) items.push(`reasoning`);
-    return items.join(" · ");
-  }, [
-    files.length,
-    messageArtifacts.length,
-    patch?.files.length,
-    reasoning.length,
-    tools.length,
-  ]);
-  const timeLabel = relativeTime(props.message.info.time.created);
+      items.push(`${messageArtifacts.length} artifact${messageArtifacts.length === 1 ? "" : "s"}`)
+    if (reasoning.length) items.push(`reasoning`)
+    return items.join(" · ")
+  }, [files.length, messageArtifacts.length, patch?.files.length, reasoning.length, tools.length])
+  const timeLabel = relativeTime(props.message.info.time.created)
 
   function toggleReasoning() {
-    const next = !showReasoning;
+    const next = !showReasoning
     Animated.timing(reasoningRotation, {
       toValue: next ? 1 : 0,
       duration: 200,
       useNativeDriver: true,
-    }).start();
+    }).start()
     LayoutAnimation.configureNext({
       duration: 240,
       create: {
@@ -874,8 +680,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
         property: LayoutAnimation.Properties.opacity,
         duration: 130,
       },
-    });
-    setShowReasoning(next);
+    })
+    setShowReasoning(next)
   }
 
   const bubble = (
@@ -886,9 +692,9 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       // Standard chat behavior: tapping the transcript puts the keyboard away.
       onPress={() => Keyboard.dismiss()}
       onLongPress={() => {
-        if (!gestures.bubbleLongPressActions) return;
-        props.onActivate?.(props.message.info.id);
-        void triggerHaptic("selection");
+        if (!gestures.bubbleLongPressActions) return
+        props.onActivate?.(props.message.info.id)
+        void triggerHaptic("selection")
       }}
       delayLongPress={180}
     >
@@ -927,42 +733,27 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                     paddingVertical: 5,
                   }}
                 >
-                  <Text className="text-[12px] font-medium text-muted">
-                    {isUser ? "You" : "Nikcli"}
-                  </Text>
+                  <Text className="text-[12px] font-medium text-muted">{isUser ? "You" : "Nikcli"}</Text>
                   {props.queued ? (
                     <View
                       style={{
                         borderRadius: 999,
                         paddingHorizontal: 7,
                         paddingVertical: 2,
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.10)"
-                          : "rgba(20,20,19,0.10)",
+                        backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
                       }}
                     >
-                      <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">
-                        Queued
-                      </Text>
+                      <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">Queued</Text>
                     </View>
                   ) : null}
                 </View>
-                {summaryLine ? (
-                  <Text className="text-[11px] leading-4 text-soft">
-                    {summaryLine}
-                  </Text>
-                ) : null}
+                {summaryLine ? <Text className="text-[11px] leading-4 text-soft">{summaryLine}</Text> : null}
               </View>
             </View>
             <View className="items-end gap-1">
               {assistantInfo && (cost > 0 || tokens > 0) ? (
-                <Text
-                  className="text-[10px] text-muted"
-                  style={{ fontVariant: ["tabular-nums"] }}
-                >
-                  {cost > 0
-                    ? `$${cost < 0.001 ? cost.toFixed(5) : cost.toFixed(4)}`
-                    : null}
+                <Text className="text-[10px] text-muted" style={{ fontVariant: ["tabular-nums"] }}>
+                  {cost > 0 ? `$${cost < 0.001 ? cost.toFixed(5) : cost.toFixed(4)}` : null}
                   {cost > 0 && tokens > 0 ? " · " : null}
                   {tokens > 0 ? `${tokens.toLocaleString()} tok` : null}
                 </Text>
@@ -1133,11 +924,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 
               {assistantError ? (
                 <View className="rounded-[8px] border border-danger/25 bg-danger/10 px-3 py-2.5">
-                  <Text
-                    selectable
-                    className="text-sm leading-5"
-                    style={{ color: palette.danger }}
-                  >
+                  <Text selectable className="text-sm leading-5" style={{ color: palette.danger }}>
                     {assistantError}
                   </Text>
                 </View>
@@ -1157,9 +944,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             <MessageArtifactSection
               artifacts={messageArtifacts}
               onOpen={(preview) => {
-                if (props.onOpenArtifact) props.onOpenArtifact(preview);
-                else if (preview.url)
-                  void Linking.openURL(preview.url).catch(() => undefined);
+                if (props.onOpenArtifact) props.onOpenArtifact(preview)
+                else if (preview.url) void Linking.openURL(preview.url).catch(() => undefined)
               }}
             />
           ) : null}
@@ -1171,11 +957,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   onPress={toggleReasoning}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: reasoningExpanded }}
-                  accessibilityLabel={
-                    reasoningExpanded
-                      ? "Collapse reasoning"
-                      : "Expand reasoning"
-                  }
+                  accessibilityLabel={reasoningExpanded ? "Collapse reasoning" : "Expand reasoning"}
                   className="flex-row items-center gap-2"
                 >
                   <Animated.View
@@ -1190,16 +972,10 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                       ],
                     }}
                   >
-                    <ChevronRight
-                      size={13}
-                      color={palette.accentLight}
-                      strokeWidth={2.1}
-                    />
+                    <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
                   </Animated.View>
                   <Text className="flex-1 text-[12px] font-medium text-muted">
-                    {wordCount > 0
-                      ? `Reasoning · ${wordCount.toLocaleString()} words`
-                      : "Reasoning"}
+                    {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
                   </Text>
                 </Pressable>
                 {reasoningExpanded ? (
@@ -1208,10 +984,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                       "Reasoning metadata was returned, but no visible reasoning text was captured for this step."}
                   </Text>
                 ) : (
-                  <Text
-                    className="mt-2 text-sm leading-5 text-soft"
-                    numberOfLines={2}
-                  >
+                  <Text className="mt-2 text-sm leading-5 text-soft" numberOfLines={2}>
                     {reasoningText}
                   </Text>
                 )}
@@ -1233,9 +1006,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
             <View className="border-t border-border/80 px-3.5 py-3">
               <View className="rounded-[8px] border border-border bg-background/55 p-3">
                 <View className="flex-row items-center justify-between gap-3">
-                  <Text className="flex-1 text-sm font-semibold text-ink">
-                    Patch preview
-                  </Text>
+                  <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
                   {!props.diffLoaded ? (
                     <Pressable
                       onPress={() => props.onLoadDiff?.(props.message.info.id)}
@@ -1248,11 +1019,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                     </Pressable>
                   ) : null}
                 </View>
-                <ScrollView
-                  className="mt-2 max-h-28"
-                  nestedScrollEnabled
-                  style={{ flexGrow: 0 }}
-                >
+                <ScrollView className="mt-2 max-h-28" nestedScrollEnabled style={{ flexGrow: 0 }}>
                   <PathPreview files={patch.files} />
                 </ScrollView>
                 {props.diffLoaded ? (
@@ -1272,40 +1039,20 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 
           {props.isActive && (canCopy || canFork || props.onDismiss) ? (
             <View className="flex-row flex-wrap gap-2 border-t border-border/80 px-3.5 py-3">
-              {canCopy ? (
-                <ActionChip
-                  label="Copy"
-                  onPress={() => props.onCopy?.(props.message)}
-                  icon={Copy}
-                />
-              ) : null}
+              {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
               {canFork ? (
-                <ActionChip
-                  label="Reuse"
-                  onPress={() => props.onFork?.(props.message)}
-                  icon={GitBranch}
-                />
+                <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} />
               ) : null}
-              {props.onDismiss ? (
-                <ActionChip
-                  label="Dismiss"
-                  onPress={props.onDismiss}
-                  icon={X}
-                  muted
-                />
-              ) : null}
+              {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
             </View>
           ) : null}
         </View>
       </View>
     </Pressable>
-  );
+  )
 
-  if (
-    !gestures.bubbleSwipeActions ||
-    (!canCopy && !canFork && !props.onDismiss)
-  ) {
-    return bubble;
+  if (!gestures.bubbleSwipeActions || (!canCopy && !canFork && !props.onDismiss)) {
+    return bubble
   }
 
   return (
@@ -1313,39 +1060,22 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       overshootRight={false}
       renderRightActions={() => (
         <View className="mb-3 ml-2 flex-row items-center gap-2 self-stretch">
-          {canCopy ? (
-            <ActionChip
-              label="Copy"
-              onPress={() => props.onCopy?.(props.message)}
-              icon={Copy}
-            />
-          ) : null}
-          {canFork ? (
-            <ActionChip
-              label="Reuse"
-              onPress={() => props.onFork?.(props.message)}
-              icon={GitBranch}
-            />
-          ) : null}
-          {props.onDismiss ? (
-            <ActionChip label="Hide" onPress={props.onDismiss} icon={X} muted />
-          ) : null}
+          {canCopy ? <ActionChip label="Copy" onPress={() => props.onCopy?.(props.message)} icon={Copy} /> : null}
+          {canFork ? <ActionChip label="Reuse" onPress={() => props.onFork?.(props.message)} icon={GitBranch} /> : null}
+          {props.onDismiss ? <ActionChip label="Hide" onPress={props.onDismiss} icon={X} muted /> : null}
         </View>
       )}
       onSwipeableWillOpen={() => {
-        props.onActivate?.(props.message.info.id);
-        void triggerHaptic("selection");
+        props.onActivate?.(props.message.info.id)
+        void triggerHaptic("selection")
       }}
     >
       {bubble}
     </Swipeable>
-  );
+  )
 }
 
-function messageBubblePropsEqual(
-  prev: MessageBubbleProps,
-  next: MessageBubbleProps,
-): boolean {
+function messageBubblePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): boolean {
   // `upsertMessage`/`upsertPart` preserve the object reference of untouched
   // messages, so a reference check on `message` is enough to skip re-renders of
   // bubbles that did not change during streaming.
@@ -1362,7 +1092,7 @@ function messageBubblePropsEqual(
     prev.onActivate === next.onActivate &&
     prev.onOpenArtifact === next.onOpenArtifact &&
     prev.queued === next.queued
-  );
+  )
 }
 
-export const MessageBubble = memo(MessageBubbleImpl, messageBubblePropsEqual);
+export const MessageBubble = memo(MessageBubbleImpl, messageBubblePropsEqual)
