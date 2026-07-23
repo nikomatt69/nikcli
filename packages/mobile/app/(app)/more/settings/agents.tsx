@@ -1,54 +1,68 @@
-import { useCallback, useMemo, useState } from "react"
-import { ScrollView, Text, View } from "react-native"
-import { Stack, useFocusEffect } from "expo-router"
-import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { InfoChip } from "@/components/ui/InfoChip"
-import { SurfaceCard } from "@/components/ui/SurfaceCard"
-import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-context"
-import { type AgentInfo } from "@/lib/types"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ScrollView, Text, View } from "react-native";
+import { Stack, useFocusEffect } from "expo-router";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { InfoChip } from "@/components/ui/InfoChip";
+import { SurfaceCard } from "@/components/ui/SurfaceCard";
+import { TextField } from "@/components/ui/TextField";
+import { useServer } from "@/lib/server-context";
+import { useHostResource } from "@/hooks/use-host-resource";
+import { type AgentInfo } from "@/lib/types";
+
+const EMPTY_AGENTS: AgentInfo[] = [];
 
 export default function AgentsSettingsScreen() {
-  const { client } = useServer()
-  const [agents, setAgents] = useState<AgentInfo[]>([])
-  const [search, setSearch] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-  const [notAvailable, setNotAvailable] = useState(false)
+  const { client } = useServer();
+  const [search, setSearch] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [notAvailable, setNotAvailable] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!client) return
-    try {
-      setLoading(true)
-      setNotAvailable(false)
-      setAgents(await client.listAgents())
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
-      if (/Request failed with 404/.test(msg) || msg.toLowerCase().includes("not found")) {
-        setNotAvailable(true)
-      } else {
-        setMessage(msg)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [client])
+  const fetcher = useCallback((): Promise<AgentInfo[]> | undefined => {
+    if (!client) return undefined;
+    return client.listAgents();
+  }, [client]);
+
+  const {
+    data: agents = EMPTY_AGENTS,
+    loading,
+    error,
+    reload,
+  } = useHostResource<AgentInfo[]>(fetcher, [client]);
 
   useFocusEffect(
     useCallback(() => {
-      void load()
-    }, [load]),
-  )
+      void reload();
+    }, [reload]),
+  );
 
   const visibleAgents = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return agents
+    const term = search.trim().toLowerCase();
+    if (!term) return agents;
     return agents.filter((agent) =>
-      [agent.name, agent.id, agent.description ?? "", ...(agent.tools ?? [])].some((value) =>
-        value.toLowerCase().includes(term),
-      ),
-    )
-  }, [search, agents])
+      [
+        agent.name,
+        agent.id,
+        agent.description ?? "",
+        ...(agent.tools ?? []),
+      ].some((value) => value.toLowerCase().includes(term)),
+    );
+  }, [search, agents]);
+
+  useEffect(() => {
+    if (!error) {
+      if (notAvailable) setNotAvailable(false);
+      return;
+    }
+    const isMissing =
+      /Request failed with 404/.test(error) ||
+      error.toLowerCase().includes("not found");
+    if (isMissing) {
+      if (!notAvailable) setNotAvailable(true);
+      if (message) setMessage(null);
+    } else if (message !== error) {
+      setMessage(error);
+    }
+  }, [error, notAvailable, message]);
 
   return (
     <ScrollView
@@ -64,8 +78,13 @@ export default function AgentsSettingsScreen() {
         description="Browse agents registered on this host, inspect their tool selections, and understand what automation profiles are available."
       >
         <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={`${agents.length} agents`} tone={agents.length ? "accent" : "neutral"} />
-          <InfoChip label={`${agents.filter((a) => a.isDefault).length} default`} />
+          <InfoChip
+            label={`${agents.length} agents`}
+            tone={agents.length ? "accent" : "neutral"}
+          />
+          <InfoChip
+            label={`${agents.filter((a) => a.isDefault).length} default`}
+          />
         </View>
       </SurfaceCard>
 
@@ -95,7 +114,9 @@ export default function AgentsSettingsScreen() {
             />
             {loading ? (
               <View className="rounded-[8px] border border-border bg-background/60 p-4">
-                <Text className="text-sm leading-6 text-soft">Loading agents…</Text>
+                <Text className="text-sm leading-6 text-soft">
+                  Loading agents…
+                </Text>
               </View>
             ) : (
               <View className="gap-3">
@@ -106,20 +127,33 @@ export default function AgentsSettingsScreen() {
                       className="rounded-[8px] border border-border bg-background/60 p-4"
                     >
                       <View className="flex-row flex-wrap items-center gap-2">
-                        <Text className="text-base font-semibold text-ink">{agent.name}</Text>
-                        {agent.isDefault ? <InfoChip label="Default" tone="accent" /> : null}
+                        <Text className="text-base font-semibold text-ink">
+                          {agent.name}
+                        </Text>
+                        {agent.isDefault ? (
+                          <InfoChip label="Default" tone="accent" />
+                        ) : null}
                       </View>
                       {agent.description ? (
-                        <Text className="mt-2 text-sm leading-6 text-soft">{agent.description}</Text>
+                        <Text className="mt-2 text-sm leading-6 text-soft">
+                          {agent.description}
+                        </Text>
                       ) : null}
                       {agent.tools?.length ? (
                         <View className="mt-2 flex-row flex-wrap gap-1.5">
                           {agent.tools.map((tool, toolIndex) => (
-                            <InfoChip key={`${tool}:${toolIndex}`} label={tool} tone="neutral" />
+                            <InfoChip
+                              key={`${tool}:${toolIndex}`}
+                              label={tool}
+                              tone="neutral"
+                            />
                           ))}
                         </View>
                       ) : null}
-                      <Text selectable className="mt-2 text-xs text-soft font-mono">
+                      <Text
+                        selectable
+                        className="mt-2 text-xs text-soft font-mono"
+                      >
                         {agent.id}
                       </Text>
                     </View>
@@ -127,7 +161,8 @@ export default function AgentsSettingsScreen() {
                 ) : (
                   <View className="rounded-[8px] border border-border bg-background/60 p-4">
                     <Text className="text-sm leading-6 text-soft">
-                      No agents matched this search or the host has not registered any agents yet.
+                      No agents matched this search or the host has not
+                      registered any agents yet.
                     </Text>
                   </View>
                 )}
@@ -137,5 +172,5 @@ export default function AgentsSettingsScreen() {
         </SurfaceCard>
       )}
     </ScrollView>
-  )
+  );
 }
