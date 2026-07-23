@@ -464,7 +464,9 @@ export function message(msgs: ModelMessage[], model: Provider.Model, options: Re
       model.id.includes("anthropic") ||
       model.id.includes("claude") ||
       model.api.npm === "@ai-sdk/anthropic" ||
-      model.api.npm === "@ai-sdk/alibaba") &&
+      model.api.npm === "@ai-sdk/alibaba" ||
+      model.api.npm === "@openrouter/ai-sdk-provider" ||
+      model.providerID === "openrouter") &&
     model.api.npm !== "@ai-sdk/gateway"
   ) {
     msgs = applyCaching(msgs, model)

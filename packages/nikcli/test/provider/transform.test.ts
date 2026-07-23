@@ -2,10 +2,10 @@ import { describe, expect, it } from "bun:test"
 import * as ProviderTransform from "@/provider/transform"
 import type { Provider } from "@/provider/provider"
 
-// `variants()` only reads model.id, model.api.{npm,id} and capabilities.reasoning,
-// so a minimal cast-based mock is sufficient for these cases.
+// These transforms only read providerID, model.id, model.api.{npm,id}, and capabilities.reasoning.
 function mockModel(input: { id: string; npm: string; apiId: string; reasoning: boolean }): Provider.Model {
   return {
+    providerID: "openrouter",
     id: input.id,
     api: {
       id: input.apiId,
@@ -15,6 +15,22 @@ function mockModel(input: { id: string; npm: string; apiId: string; reasoning: b
     capabilities: { reasoning: input.reasoning },
   } as unknown as Provider.Model
 }
+
+describe("ProviderTransform.message — cache breakpoints", () => {
+  it("adds OpenRouter cache breakpoints", () => {
+    const model = mockModel({
+      id: "openrouter/fusion",
+      apiId: "openrouter/fusion",
+      npm: "@openrouter/ai-sdk-provider",
+      reasoning: false,
+    })
+    const messages = ProviderTransform.message([{ role: "system", content: "stable instructions" }], model, {})
+
+    expect(messages[0]?.providerOptions?.openrouter).toEqual({
+      cacheControl: { type: "ephemeral" },
+    })
+  })
+})
 
 describe("ProviderTransform.variants — openrouter fusion", () => {
   it("returns quality and budget presets even without reasoning capabilities", () => {
