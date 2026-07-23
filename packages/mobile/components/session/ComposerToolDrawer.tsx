@@ -629,28 +629,43 @@ function AnimatedTabButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >
+      {/*
+        Split the press scale (native driver) from the border glow (JS
+        driver) into two Animated.Views. Mixing native and JS animated
+        styles on a single Animated.View triggered
+          Style property 'borderWidth' is not supported by native animated module
+          Attempting to run JS driven animation on animated node that has been moved to "native" earlier
+        on every render. The outer view runs scaleAnim on the UI thread,
+        the inner view runs glowAnim's color/width interpolation on the
+        JS thread.
+      */}
       <Animated.View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          borderRadius: 16,
           transform: [{ scale: scaleAnim }],
-          borderColor,
-          borderWidth: glowAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, 1.5],
-          }),
-          backgroundColor: isActive
-            ? palette.accent
-            : isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(20,20,19,0.08)",
         }}
       >
-        {children}
+        <Animated.View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 16,
+            borderColor,
+            borderWidth: glowAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1.5],
+            }),
+            backgroundColor: isActive
+              ? palette.accent
+              : isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(20,20,19,0.08)",
+          }}
+        >
+          {children}
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
