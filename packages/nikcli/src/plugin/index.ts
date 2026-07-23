@@ -21,7 +21,7 @@ import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
 import { XAIAuthPlugin } from "./xai"
 import { CursorAuthPlugin } from "./cursor"
-import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
+import { readV1Plugin, readPluginId, resolvePluginId, pluginSource, isDeprecatedPlugin } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
 import { Context, Effect, Layer } from "effect"
@@ -749,7 +749,7 @@ export namespace Plugin {
 
     for (let plugin of plugins) {
       // ignore old codex plugin since it is supported first party now
-      if (plugin.includes("nikcli-openai-codex-auth") || plugin.includes("nikcli-copilot-auth")) continue
+      if (isDeprecatedPlugin(plugin)) continue
       const spec = plugin
       log.info("loading plugin", { path: plugin })
       if (!plugin.startsWith("file://")) {

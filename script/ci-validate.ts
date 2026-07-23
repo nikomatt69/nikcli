@@ -53,6 +53,12 @@ const steps: ValidationStep[] = [
     timeout: 180_000,
   },
   {
+    name: "Route coverage gate",
+    command: ["bun", "run", "script/check-route-coverage.ts", "--strict"],
+    cwd: "packages/nikcli",
+    timeout: 30_000,
+  },
+  {
     name: "Run tests",
     command: ["bun", "test"],
     timeout: 300_000,

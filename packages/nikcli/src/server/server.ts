@@ -6,6 +6,7 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { streamSSE } from "hono/streaming"
 import { proxy } from "hono/proxy"
+import { bodyLimitMiddleware } from "./middleware/body-limit"
 import z from "zod"
 import { Provider } from "../provider/provider"
 import { LSP } from "../lsp"
@@ -275,6 +276,10 @@ export namespace Server {
           if (!data) return c.text("Share not found", 404)
           return c.json(data)
         })
+        // Reject oversized Content-Length before auth so probes do not pay
+        // JWT/credential work. Chunked bodies without CL still hit Bun's
+        // maxRequestBodySize ceiling.
+        .use(bodyLimitMiddleware)
         .use(async (c, next) => {
           // Canonical auth lives in the Effect layer (httpapi/auth.ts, §3.5
           // acceptance order: issuer JWT → nkm_ → legacy); this middleware
