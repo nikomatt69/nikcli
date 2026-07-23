@@ -331,7 +331,7 @@ function QuestionApprovalView(props: {
 
           return (
             <Pressable
-              key={option.label}
+              key={option.label ?? `option-${optIdx}`}
               onPress={() =>
                 onSelectAnswer(currentQuestion, optIdx, isMultiple)
               }
@@ -410,7 +410,7 @@ function QuestionApprovalView(props: {
         <View style={{ flexDirection: "row", gap: 16, marginTop: 8 }}>
           {questions.map((q, idx) => (
             <Pressable
-              key={q.question}
+              key={q.question ?? `q-${idx}`}
               onPress={() => setCurrentQuestion(idx)}
               style={{
                 width: 8,

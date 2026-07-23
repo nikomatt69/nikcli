@@ -1,26 +1,54 @@
-import { ScrollView, Text, View, useWindowDimensions } from "react-native"
-import { FileCode2, Folder, Globe, Search, Shield, SquareTerminal, type LucideIcon } from "lucide-react-native"
-import { ActionButton } from "@/components/ui/ActionButton"
-import { InfoChip } from "@/components/ui/InfoChip"
-import type { PermissionRequest } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { ScrollView, Text, View, useWindowDimensions } from "react-native";
+import {
+  FileCode2,
+  Folder,
+  Globe,
+  Search,
+  Shield,
+  SquareTerminal,
+  type LucideIcon,
+} from "lucide-react-native";
+import { ActionButton } from "@/components/ui/ActionButton";
+import { InfoChip } from "@/components/ui/InfoChip";
+import type { PermissionRequest } from "@/lib/types";
+import { useAppTheme } from "@/lib/theme";
 
 function permissionIcon(permission: string): LucideIcon {
-  const value = permission.toLowerCase()
-  if (value.includes("bash") || value.includes("execute") || value.includes("shell")) return SquareTerminal
-  if (value.includes("read") || value.includes("edit") || value.includes("write")) return FileCode2
-  if (value.includes("glob") || value.includes("list") || value.includes("directory")) return Folder
-  if (value.includes("grep") || value.includes("search")) return Search
-  if (value.includes("web") || value.includes("fetch") || value.includes("http")) return Globe
-  return Shield
+  const value = permission.toLowerCase();
+  if (
+    value.includes("bash") ||
+    value.includes("execute") ||
+    value.includes("shell")
+  )
+    return SquareTerminal;
+  if (
+    value.includes("read") ||
+    value.includes("edit") ||
+    value.includes("write")
+  )
+    return FileCode2;
+  if (
+    value.includes("glob") ||
+    value.includes("list") ||
+    value.includes("directory")
+  )
+    return Folder;
+  if (value.includes("grep") || value.includes("search")) return Search;
+  if (
+    value.includes("web") ||
+    value.includes("fetch") ||
+    value.includes("http")
+  )
+    return Globe;
+  return Shield;
 }
 
 function asText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback
+  return typeof value === "string" ? value : fallback;
 }
 
 function DataBlock(props: { label: string; value: string }) {
-  if (!props.value) return null
+  if (!props.value) return null;
 
   return (
     <View className="gap-1.5 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2.5">
@@ -39,22 +67,22 @@ function DataBlock(props: { label: string; value: string }) {
         </Text>
       </ScrollView>
     </View>
-  )
+  );
 }
 
 export function PermissionCard(props: {
-  item: PermissionRequest
-  onRespond(response: "once" | "always" | "reject"): void
+  item: PermissionRequest;
+  onRespond(response: "once" | "always" | "reject"): void;
 }) {
-  const { width } = useWindowDimensions()
-  const { palette, isDark } = useAppTheme()
-  const Icon = permissionIcon(props.item.permission)
-  const meta = props.item.metadata
-  const description = asText(meta.description)
-  const command = asText(meta.command)
-  const path = asText(meta.path ?? meta.file)
-  const compactActions = width < 410
-  const alwaysCount = props.item.always.length
+  const { width } = useWindowDimensions();
+  const { palette, isDark } = useAppTheme();
+  const Icon = permissionIcon(props.item.permission);
+  const meta = props.item.metadata;
+  const description = asText(meta.description);
+  const command = asText(meta.command);
+  const path = asText(meta.path ?? meta.file);
+  const compactActions = width < 410;
+  const alwaysCount = props.item.always.length;
 
   return (
     <View
@@ -88,7 +116,9 @@ export function PermissionCard(props: {
           label={`${props.item.patterns.length} pattern${props.item.patterns.length === 1 ? "" : "s"}`}
           tone="neutral"
         />
-        {alwaysCount ? <InfoChip label={`${alwaysCount} remembered`} tone="accent" /> : null}
+        {alwaysCount ? (
+          <InfoChip label={`${alwaysCount} remembered`} tone="accent" />
+        ) : null}
         {command ? <InfoChip label="Command scope" tone="accent" /> : null}
         {path ? <InfoChip label="Path scoped" tone="neutral" /> : null}
       </View>
@@ -105,14 +135,17 @@ export function PermissionCard(props: {
           </Text>
           {props.item.patterns.map((pattern, index) => (
             <ScrollView
-              key={pattern || "*"}
+              key={`pattern-${index}-${pattern}`}
               horizontal
               nestedScrollEnabled
               showsHorizontalScrollIndicator
               style={{ flexGrow: 0 }}
               contentContainerStyle={{ alignSelf: "flex-start" }}
             >
-              <Text selectable className="font-mono text-xs leading-5 text-soft">
+              <Text
+                selectable
+                className="font-mono text-xs leading-5 text-soft"
+              >
                 {pattern || "*"}
               </Text>
             </ScrollView>
@@ -147,8 +180,9 @@ export function PermissionCard(props: {
         </View>
       </View>
       <Text selectable className="mt-2 text-[10px] leading-4 text-soft">
-        Always remembers this permission scope until Nikcli restarts. Use it only when the command and path look safe.
+        Always remembers this permission scope until Nikcli restarts. Use it
+        only when the command and path look safe.
       </Text>
     </View>
-  )
+  );
 }
