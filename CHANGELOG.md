@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.197.0 (July 2026)
+
+## Core
+
+- Harden server body limits, container runtime, and CI gates (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(nikcli): harden server body limits, container runtime, and CI gates
+
 ## v1.196.0 (July 2026)
 
 ## Mobile
