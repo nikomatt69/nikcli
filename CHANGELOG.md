@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.200.0 (July 2026)
+
+## Core
+
+- Auto prompt-cache placement and OpenAI cache-write accounting (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(llm): auto prompt-cache placement and OpenAI cache-write accounting
+  - Merge pull request #162 from nikomatt69/worktree-cache-improvements
+
 ## v1.199.0 (July 2026)
 
 - No notable changes

@@ -20,7 +20,9 @@ const systemParts = (texts: ReadonlyArray<string>) => texts.map((text) => LLM.sy
 
 const hinted = (request: ReturnType<typeof LLM.request>) => ({
   system: request.system.map((part) => part.cache !== undefined),
-  messages: request.messages.map((message) => message.content.map((part) => "cache" in part && part.cache !== undefined)),
+  messages: request.messages.map((message) =>
+    message.content.map((part) => "cache" in part && part.cache !== undefined),
+  ),
 })
 
 describe("applyCachePolicy", () => {
@@ -66,8 +68,7 @@ describe("applyCachePolicy", () => {
     )
 
     const marks = hinted(result)
-    const total =
-      marks.system.filter(Boolean).length + marks.messages.flat().filter(Boolean).length
+    const total = marks.system.filter(Boolean).length + marks.messages.flat().filter(Boolean).length
     expect(total).toBe(4)
   })
 
