@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.203.0 (July 2026)
+
+## Core
+
+- Remove trailing whitespace in InfoSchema definition (@nikomatt69)
+- Enable OpenRouter cache breakpoints (#159) (@SandroHub013)
+
+**Thank you to 2 community contributors:**
+
+- @SandroHub013:
+  - feat(nikcli): enable OpenRouter cache breakpoints (#159)
+- @nikomatt69:
+  - fix(worktree): remove trailing whitespace in InfoSchema definition
+
 ## v1.201.0 (July 2026)
 
 ## Core
