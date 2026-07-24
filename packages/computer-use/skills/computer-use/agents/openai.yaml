@@ -1,0 +1,4 @@
+interface:
+  display_name: "Computer Use"
+  short_description: "Operate and verify real desktop sessions with background-daemon evidence"
+  default_prompt: "Use $computer-use to drive a real desktop, capture screenshots, retain a sample-based recording, show a local preview, and prepare safe PR evidence."

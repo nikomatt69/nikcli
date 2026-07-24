@@ -39,6 +39,7 @@ COPY packages/simulation/package.json /app/packages/simulation/
 COPY packages/tui-image/package.json /app/packages/tui-image/
 COPY packages/terminal-control/package.json /app/packages/terminal-control/
 COPY packages/browser-control/package.json /app/packages/browser-control/
+COPY packages/computer-use/package.json /app/packages/computer-use/
 COPY github/package.json /app/github/
 
 # Stub package.json for workspace packages not built in this image
@@ -95,6 +96,7 @@ COPY packages/simulation /app/packages/simulation
 COPY packages/tui-image /app/packages/tui-image
 COPY packages/terminal-control /app/packages/terminal-control
 COPY packages/browser-control /app/packages/browser-control
+COPY packages/computer-use /app/packages/computer-use
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest

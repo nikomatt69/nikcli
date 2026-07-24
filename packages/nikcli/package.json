@@ -108,6 +108,7 @@
     "@nikcli-ai/auth": "workspace:*",
     "@nikcli-ai/browser-control": "workspace:*",
     "@nikcli-ai/companion": "workspace:*",
+    "@nikcli-ai/computer-use": "workspace:*",
     "@nikcli-ai/httpapi-codegen": "workspace:*",
     "@nikcli-ai/llm": "workspace:*",
     "@nikcli-ai/plugin": "workspace:*",
