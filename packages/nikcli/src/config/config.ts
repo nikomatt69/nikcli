@@ -1752,6 +1752,12 @@ export namespace Config {
                 .describe(
                   "Window the session message list via message-window visibleRange instead of rendering all messages. Default off.",
                 ),
+              explorationGrouping: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Collapse consecutive read-only tool calls (read/grep/glob/list/codesearch/webfetch) into a single summary row once the run finishes. Default off.",
+                ),
             })
             .optional(),
           requests: z
@@ -1760,6 +1766,16 @@ export namespace Config {
                 .boolean()
                 .optional()
                 .describe("Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off."),
+            })
+            .optional(),
+          events: z
+            .object({
+              schemaEncoding: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Encode SSE event payloads through their registered schema before serializing. Drops keys the schema does not declare, so the wire shape follows the contract rather than the publisher. Default off.",
+                ),
             })
             .optional(),
         })

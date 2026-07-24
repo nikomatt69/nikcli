@@ -1,39 +1,70 @@
-import { createSignal, onCleanup, Show } from "solid-js"
-import { useTheme } from "../context/theme"
-import { Spinner } from "./spinner"
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
+import { useTheme } from "../context/theme";
+import { Spinner } from "./spinner";
+
+/** How long the stream must stay down before the overlay appears. The SSE
+ *  retry loop in `context/sdk.tsx` starts backing off at 250ms, so a blip that
+ *  self-heals on the first retry must not flash a full-screen takeover. */
+const GRACE_MS = 600;
 
 /**
- * Non-blocking banner shown when the server event stream drops and the SDK
- * is retrying (see `sdk.connection` in context/sdk). Rendered in the same
- * bottom-overlay idiom as StartupLoading so the user keeps full context of
- * the current screen while the connection is down.
+ * Full-screen takeover shown while the event stream is down.
+ *
+ * Without it a dead server is indistinguishable from a hung TUI: the retry loop
+ * reconnects silently and the only trace is a `console.warn` the user never
+ * sees. Rendered above every route and dialog, since nothing on screen can be
+ * trusted to be current while the stream is gone.
  */
 export function Reconnecting(props: { attempt: number; error?: string }) {
-  const theme = useTheme().theme
-  // The SSE retry floor is 250ms; hold the banner back briefly so a quick
-  // server bounce doesn't flash it.
-  const [show, setShow] = createSignal(false)
-  const timer = setTimeout(() => setShow(true), 500)
-  timer.unref?.()
-  onCleanup(() => clearTimeout(timer))
+  const theme = useTheme().theme;
+  const [show, setShow] = createSignal(false);
+  let wait: NodeJS.Timeout | undefined;
+
+  createEffect(() => {
+    // Touch `attempt` so a re-render on a later retry cannot restart the timer:
+    // the grace period is measured from the first failure, not the latest one.
+    void props.attempt;
+    if (show() || wait) return;
+    wait = setTimeout(() => {
+      wait = undefined;
+      setShow(true);
+    }, GRACE_MS).unref();
+  });
+
+  onCleanup(() => {
+    if (wait) clearTimeout(wait);
+  });
 
   return (
     <Show when={show()}>
-      <box position="absolute" zIndex={6000} left={0} right={0} bottom={1} justifyContent="center" alignItems="center">
+      <box
+        position="absolute"
+        zIndex={10_000}
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        backgroundColor={theme.background}
+        alignItems="center"
+        justifyContent="center"
+      >
         <box
-          backgroundColor={theme.backgroundPanel}
-          paddingLeft={1}
-          paddingRight={1}
+          width={54}
+          maxWidth="90%"
           flexDirection="column"
           alignItems="center"
-          maxWidth="90%"
+          gap={1}
         >
-          <Spinner color={theme.textMuted}>{`Connection lost — reconnecting (attempt ${props.attempt})`}</Spinner>
+          <text fg={theme.text}>Connection lost</text>
+          <Spinner color={theme.textMuted}>Reconnecting to server...</Spinner>
+          <text fg={theme.textMuted}>Attempt {props.attempt}</text>
           <Show when={props.error}>
-            <text fg={theme.error}>{props.error}</text>
+            <text fg={theme.error} wrapMode="word">
+              {props.error}
+            </text>
           </Show>
         </box>
       </box>
     </Show>
-  )
+  );
 }
