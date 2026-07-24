@@ -67,9 +67,10 @@ const baseRequest = LLM.request({
 })
 
 describe("Bedrock Converse route", () => {
+  // Asserts target shape; auto cache placement is covered separately below.
   it.effect("prepares Converse target with system, inference config, and messages", () =>
     Effect.gen(function* () {
-      const prepared = yield* LLMClient.prepare(baseRequest)
+      const prepared = yield* LLMClient.prepare(LLM.updateRequest(baseRequest, { cache: "none" }))
 
       expect(prepared.body).toEqual({
         modelId: "anthropic.claude-3-5-sonnet-20240620-v1:0",
@@ -318,12 +319,24 @@ describe("Bedrock Converse route", () => {
     }),
   )
 
+  // Asserts the lowering contract, not the placement policy: with auto placement
+  // disabled, an absent hint must not produce a cachePoint.
   it.effect("does not emit cachePoint when no cache hint is set", () =>
     Effect.gen(function* () {
-      const prepared = yield* LLMClient.prepare(baseRequest)
+      const prepared = yield* LLMClient.prepare(LLM.updateRequest(baseRequest, { cache: "none" }))
       expect(prepared.body).toMatchObject({
         system: [{ text: "You are concise." }],
         messages: [{ role: "user", content: [{ text: "Say hello." }] }],
+      })
+    }),
+  )
+
+  it.effect("places auto cache breakpoints on system and the message tail", () =>
+    Effect.gen(function* () {
+      const prepared = yield* LLMClient.prepare(baseRequest)
+      expect(prepared.body).toMatchObject({
+        system: [{ text: "You are concise." }, { cachePoint: { type: "default" } }],
+        messages: [{ role: "user", content: [{ text: "Say hello." }, { cachePoint: { type: "default" } }] }],
       })
     }),
   )
@@ -334,6 +347,9 @@ describe("Bedrock Converse route", () => {
         LLM.request({
           id: "req_image",
           model,
+          // Media lowering is unrelated to caching; opt out so the content array
+          // is not tailed by an auto cachePoint.
+          cache: "none",
           messages: [
             LLM.user([
               { type: "text", text: "What is in this image?" },
@@ -489,6 +505,10 @@ describe("Bedrock Converse recorded", () => {
           system: "Reply with the single word 'Hello'.",
           prompt: "Say hello.",
           generation: { maxTokens: 16, temperature: 0 },
+          // Cassettes were recorded before auto cache placement existed; these
+          // scenarios cover streaming, not caching. Placement has dedicated
+          // coverage in the route suite above.
+          cache: "none",
         }),
       )
 
@@ -511,6 +531,7 @@ describe("Bedrock Converse recorded", () => {
           tools: [weatherTool],
           toolChoice: LLM.toolChoice(weatherTool),
           generation: { maxTokens: 80, temperature: 0 },
+          cache: "none",
         }),
       )
 
@@ -526,10 +547,15 @@ describe("Bedrock Converse recorded", () => {
       const llm = yield* LLMClient.Service
       expectWeatherToolLoop(
         yield* runWeatherToolLoop(
-          weatherToolLoopRequest({
-            id: "recorded_bedrock_tool_loop",
-            model: recordedModel(),
-          }),
+          // Opted out at the call site so the shared scenario keeps default
+          // placement for the other providers that replay it.
+          LLM.updateRequest(
+            weatherToolLoopRequest({
+              id: "recorded_bedrock_tool_loop",
+              model: recordedModel(),
+            }),
+            { cache: "none" },
+          ),
         ),
       )
     }),

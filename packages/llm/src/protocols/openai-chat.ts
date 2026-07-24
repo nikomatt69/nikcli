@@ -104,6 +104,9 @@ const OpenAIChatUsage = Schema.Struct({
   prompt_tokens_details: optionalNull(
     Schema.Struct({
       cached_tokens: Schema.optional(Schema.Number),
+      // GPT-5.6 and later bill cache writes at 1.25x uncached input. Dropping
+      // this field makes every write look free and overstates fresh input.
+      cache_write_tokens: Schema.optional(Schema.Number),
     }),
   ),
   completion_tokens_details: optionalNull(
@@ -298,6 +301,7 @@ const mapUsage = (usage: OpenAIChatEvent["usage"]): Usage | undefined => {
     outputTokens: usage.completion_tokens,
     reasoningTokens: usage.completion_tokens_details?.reasoning_tokens,
     cacheReadInputTokens: usage.prompt_tokens_details?.cached_tokens,
+    cacheWriteInputTokens: usage.prompt_tokens_details?.cache_write_tokens,
     totalTokens: ProviderShared.totalTokens(usage.prompt_tokens, usage.completion_tokens, usage.total_tokens),
     native: usage,
   })

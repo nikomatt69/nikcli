@@ -88,6 +88,16 @@ function usageToAISDK(usage: LLMEvent & { type: "step-finish" }) {
   }
 }
 
+// `LanguageModelV2Usage` has no cache-write field, so Session.getUsage recovers
+// it from provider metadata. The native protocols decode cache writes uniformly
+// into `Usage.cacheWriteInputTokens`, so republish that under one provider-
+// neutral key instead of forcing getUsage to learn every native shape.
+function metadataWithCacheWrite(event: LLMEvent & { type: "step-finish" }) {
+  const write = event.usage?.cacheWriteInputTokens
+  if (write === undefined) return event.providerMetadata
+  return { ...(event.providerMetadata ?? {}), nikcli: { cacheWriteInputTokens: write } }
+}
+
 function normalizeToolOutput(result: unknown): {
   output: unknown
   title?: string
@@ -133,7 +143,7 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
           type: "finish-step",
           finishReason: finishReason(event.reason),
           usage: usageToAISDK(event),
-          providerMetadata: event.providerMetadata,
+          providerMetadata: metadataWithCacheWrite(event),
         } as ProcessorStreamEvent,
       ]
 

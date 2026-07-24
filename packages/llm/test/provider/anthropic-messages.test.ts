@@ -26,10 +26,14 @@ describe("Anthropic Messages route", () => {
     Effect.gen(function* () {
       const prepared = yield* LLMClient.prepare(request)
 
+      // The manual system hint is preserved as-is; auto placement only fills the
+      // remaining budget, here the rolling message tail.
       expect(prepared.body).toEqual({
         model: "claude-sonnet-4-5",
         system: [{ type: "text", text: "You are concise.", cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: [{ type: "text", text: "Say hello." }] }],
+        messages: [
+          { role: "user", content: [{ type: "text", text: "Say hello.", cache_control: { type: "ephemeral" } }] },
+        ],
         stream: true,
         max_tokens: 20,
         temperature: 0,
