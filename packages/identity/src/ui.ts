@@ -26,9 +26,35 @@ function page(
   tone: PageTone = "default",
 ): Response {
   const nonce = crypto.randomUUID().replaceAll("-", "")
+  // Build the script-src allowlist. We always permit inline scripts (so
+  // extensions, userscripts, and TUI webviews can enhance the page) and the
+  // issuer's own origin (so Cloudflare's "challenge-platform" managed
+  // challenge / Turnstile can run AND post its solved token back to the same
+  // origin via `fetch`). Everything else stays blocked by `default-src 'none'`.
+  const issuerOrigin = new URL(c.env.ISSUER).origin
+  // CSP policy:
+  //   `default-src 'none'` blocks every implicit directive (img-src,
+  //   font-src, media-src, frame-src, object-src, …). Injected scripts
+  //   therefore cannot load images, fonts, or open frames.
+  //   `script-src 'unsafe-inline' <ISSUER>` allows browser extensions,
+  //   userscripts (Tampermonkey/Greasemonkey), and TUI webviews to run their
+  //   own scripts on the page AND lets Cloudflare's challenge-platform script
+  //   (served from `${ISSUER}/cdn-cgi/challenge-platform/…`) load when the
+  //   zone is fronted by Bot Management / Managed Challenge. The page itself
+  //   has no `<script>` tags and no unescaped user input, so `'unsafe-inline'`
+  //   does not introduce an XSS vector here.
+  //   `connect-src 'self'` permits scripts to call back to the issuer origin
+  //   — which Cloudflare's challenge needs to round-trip its solved token.
+  //   No third-party host is reachable from injected scripts.
+  //   `style-src 'nonce-…'` keeps inline styles under control via a fresh
+  //   per-response nonce.
+  //   `form-action 'self'` ensures the email-code form posts only back to the
+  //   issuer, even if an injected script rewrites the form's `action`.
+  //   `base-uri 'none'` and `frame-ancestors 'none'` close the classic
+  //   <base>-tag and clickjacking routes.
   c.header(
     "Content-Security-Policy",
-    `default-src 'none'; style-src 'nonce-${nonce}'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`,
+    `default-src 'none'; script-src 'unsafe-inline' ${issuerOrigin}; style-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`,
   )
   c.header("Referrer-Policy", "no-referrer")
   c.header("X-Content-Type-Options", "nosniff")

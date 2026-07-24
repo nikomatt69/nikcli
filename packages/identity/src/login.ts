@@ -30,6 +30,27 @@ export function githubRedirectURI(env: { ISSUER: string; GITHUB_REDIRECT_URI?: s
   return env.GITHUB_REDIRECT_URI?.trim() || new URL("/callback/github", env.ISSUER).toString()
 }
 
+/**
+ * Short-circuit `/login/github` and `/callback/github` with a 503 page when the
+ * GitHub OAuth app credentials are not configured. Without this guard, sending
+ * a user to GitHub with an empty `client_id` lets the round-trip complete and
+ * then fails inside the token exchange with a generic 500 — far worse than
+ * telling the operator (or a visiting user) that the issuer is misconfigured.
+ */
+function requireGitHubCredentials(c: AppContext): Response | null {
+  const id = c.env.GITHUB_CLIENT_ID
+  const secret = c.env.GITHUB_CLIENT_SECRET
+  if (!id || !secret) {
+    return resultPage(
+      c,
+      "Sign-in unavailable",
+      "GitHub sign-in is not configured on this issuer. Contact the operator.",
+      503,
+    )
+  }
+  return null
+}
+
 function loginKey(state: string): string {
   return `login:${state}`
 }
@@ -101,6 +122,8 @@ async function completeLogin(c: AppContext, loginState: string, accountID: strin
 }
 
 export async function startGitHub(c: AppContext): Promise<Response> {
+  const unavailable = requireGitHubCredentials(c)
+  if (unavailable) return unavailable
   const loginState = c.req.query("login_state") ?? ""
   if (!(await loadIntent(c.env, loginState)))
     return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
@@ -114,6 +137,9 @@ export async function startGitHub(c: AppContext): Promise<Response> {
 }
 
 export async function finishGitHub(c: AppContext): Promise<Response> {
+  const unavailable = requireGitHubCredentials(c)
+  if (unavailable) return unavailable
+
   const loginState = c.req.query("state") ?? ""
   const code = c.req.query("code") ?? ""
   if (!code || !(await loadIntent(c.env, loginState)))
@@ -133,10 +159,31 @@ export async function finishGitHub(c: AppContext): Promise<Response> {
       redirect_uri: callback,
     }),
   })
-  if (!exchange.ok) throw new Error(`GitHub token exchange failed with ${exchange.status}`)
-  const tokenBody = (await exchange.json()) as { access_token?: unknown }
-  if (typeof tokenBody.access_token !== "string")
-    return resultPage(c, "Sign-in failed", "GitHub did not issue an access token.", 400)
+  if (!exchange.ok) {
+    return resultPage(
+      c,
+      "Sign-in failed",
+      `GitHub rejected the authorization code (${exchange.status}). Start the sign-in flow again.`,
+      502,
+    )
+  }
+  const tokenBody = (await exchange.json()) as {
+    access_token?: unknown
+    error?: unknown
+    error_description?: unknown
+  }
+  if (typeof tokenBody.access_token !== "string") {
+    const detail =
+      typeof tokenBody.error_description === "string" && tokenBody.error_description.length > 0
+        ? ` GitHub says: ${tokenBody.error_description}.`
+        : ""
+    return resultPage(
+      c,
+      "Sign-in failed",
+      `GitHub did not issue an access token.${detail} Start the sign-in flow again.`,
+      502,
+    )
+  }
 
   const headers = {
     Authorization: `Bearer ${tokenBody.access_token}`,
@@ -148,15 +195,47 @@ export async function finishGitHub(c: AppContext): Promise<Response> {
     fetch("https://api.github.com/user", { headers }),
     fetch("https://api.github.com/user/emails", { headers }),
   ])
-  if (!userResponse.ok || !emailResponse.ok) throw new Error("GitHub profile request failed")
+  if (!userResponse.ok || !emailResponse.ok) {
+    // Surface the actual upstream status + WWW-Authenticate hint so the
+    // operator can distinguish "GitHub denied the token" (401 / 403),
+    // "GitHub rate-limited us" (403 with rate-limit headers), or "GitHub
+    // API outage" (5xx). Without this, every call looked identical to the
+    // user (and to wrangler tail) as a generic "GitHub profile request
+    // failed" 502.
+    const userHint = userResponse.ok ? null : userResponse.headers.get("x-oauth-scopes")
+    const userReset = userResponse.ok ? null : userResponse.headers.get("x-ratelimit-reset")
+    const emailHint = emailResponse.ok ? null : emailResponse.headers.get("x-oauth-scopes")
+    console.error(
+      JSON.stringify({
+        message: "github profile request failed",
+        path: c.req.path,
+        user: {
+          status: userResponse.status,
+          scopes: userHint,
+          reset: userReset,
+        },
+        emails: { status: emailResponse.status, scopes: emailHint },
+      }),
+    )
+    const detail =
+      `GitHub did not return the profile (user=${userResponse.status}, emails=${emailResponse.status}). ` +
+      (userResponse.status === 401 || userResponse.status === 403
+        ? "The OAuth token was rejected — check the GitHub OAuth app's scopes and that the secret matches the deployed one. "
+        : userResponse.status === 429 || (userReset !== null && Number(userReset) * 1000 > Date.now() + 60_000)
+          ? "GitHub rate-limited the request — try again in a minute. "
+          : "") +
+      "Try again in a moment."
+    return resultPage(c, "Sign-in failed", detail, 502)
+  }
   const user = (await userResponse.json()) as GitHubUser
   const emails = (await emailResponse.json()) as GitHubEmail[]
   const primary = emails.find((item) => item.primary === true)
   if (!primary || primary.verified !== true || typeof primary.email !== "string") {
     return resultPage(c, "Verified email required", "Verify your primary email on GitHub, then try again.", 400)
   }
-  if ((typeof user.id !== "number" && typeof user.id !== "string") || !String(user.id))
-    throw new Error("GitHub user id missing")
+  if ((typeof user.id !== "number" && typeof user.id !== "string") || !String(user.id)) {
+    return resultPage(c, "Sign-in failed", "GitHub returned a profile without an id. Try again in a moment.", 502)
+  }
   const account = await linkAccount(c.env.DB, "github", String(user.id), primary.email)
   return completeLogin(c, loginState, account.id)
 }

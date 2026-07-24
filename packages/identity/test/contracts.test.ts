@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import app from "../src/index"
 import { isAllowedRedirect } from "../src/constants"
 import { randomDigits, secureEqual, sha256 } from "../src/crypto"
@@ -135,7 +135,78 @@ describe("identity security helpers", () => {
     expect(randomDigits(64)).toMatch(/^\d{64}$/)
     const hash = await sha256("value")
     expect(await secureEqual(hash, hash)).toBe(true)
-    expect(await secureEqual(hash, await sha256("other"))).toBe(false)
+    expect(await secureEqual(await sha256("other"), hash)).toBe(false)
+  })
+})
+
+describe("Content Security Policy", () => {
+  // The login / email / device / result pages must lock down anything that can
+  // exfiltrate data (img-src, font-src, frame-src, …) while still letting
+  // browser extensions and userscripts run their own scripts on the page.
+  // Without `script-src 'unsafe-inline'`, password managers and the nikcli TUI
+  // webview hit "Refused to execute a script" console errors. The issuer
+  // origin is also permitted in `script-src` so Cloudflare's
+  // "challenge-platform" managed challenge / Turnstile can load. The matching
+  // `connect-src 'self'` lets the challenge round-trip its solved token back
+  // to the issuer origin via `fetch` — without it, Cloudflare's challenge
+  // POSTs hit "Refused to connect".
+  test("HTML pages carry a strict CSP that allows inline scripts, the issuer origin, and self-fetch", async () => {
+    const authUrl =
+      "https://auth.nikcli.store/authorize?response_type=code" +
+      "&client_id=nikcli-studio" +
+      "&redirect_uri=https%3A%2F%2Fnikcli.store%2Fdashboard%2Fcallback" +
+      "&state=opaque&code_challenge=" +
+      "a".repeat(43) +
+      "&code_challenge_method=S256"
+    const response = await app.fetch(new Request(authUrl), env())
+    expect(response.status).toBe(200)
+    const csp = response.headers.get("Content-Security-Policy") ?? ""
+    expect(csp).toMatch(/default-src 'none'/)
+    expect(csp).toMatch(/script-src 'unsafe-inline' https:\/\/auth\.nikcli\.store/)
+    expect(csp).toMatch(/style-src 'nonce-/)
+    expect(csp).toMatch(/connect-src 'self'/)
+    expect(csp).toMatch(/form-action 'self'/)
+    expect(csp).toMatch(/base-uri 'none'/)
+    expect(csp).toMatch(/frame-ancestors 'none'/)
+    // No directive should grant a *third-party* network endpoint for fetch.
+    expect(csp).not.toMatch(/connect-src[^;]*https?:\/\//)
+  })
+
+  test("502 'Sign-in failed' pages carry the same CSP as the login page", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch(() => new Response("boom", { status: 503 }))
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(502)
+      const csp = response.headers.get("Content-Security-Policy") ?? ""
+      expect(csp).toMatch(/script-src 'unsafe-inline' https:\/\/auth\.nikcli\.store/)
+      expect(csp).toMatch(/connect-src 'self'/)
+      expect(csp).toMatch(/default-src 'none'/)
+    } finally {
+      stub.restore()
+    }
+  })
+
+  test("Staging uses its own origin in the CSP allowlist", async () => {
+    const response = await app.fetch(
+      new Request(
+        "https://dev.auth.nikcli.store/authorize?response_type=code" +
+          "&client_id=nikcli-studio" +
+          "&redirect_uri=https%3A%2F%2Fnikcli.store%2Fdashboard%2Fcallback" +
+          "&state=opaque&code_challenge=" +
+          "a".repeat(43) +
+          "&code_challenge_method=S256",
+      ),
+      env({ ISSUER: "https://dev.auth.nikcli.store" }),
+    )
+    expect(response.status).toBe(200)
+    const csp = response.headers.get("Content-Security-Policy") ?? ""
+    expect(csp).toMatch(/script-src 'unsafe-inline' https:\/\/dev\.auth\.nikcli\.store/)
+    expect(csp).toMatch(/connect-src 'self'/)
   })
 })
 
@@ -222,5 +293,446 @@ describe("GitHub OAuth redirect_uri", () => {
     expect(start.status).toBe(302)
     const location = start.headers.get("location") ?? ""
     expect(new URL(location).searchParams.get("redirect_uri")).toBe("https://nikcli.store/api/auth/callback/github")
+  })
+})
+
+/**
+ * A small in-memory D1 stand-in that supports the handful of statements
+ * `linkAccount` issues. It mirrors the production schema column-for-column so
+ * the upserts in `linkAccount` behave like they do on Cloudflare. The store
+ * persists across `bind()`/`.first()`/`.all()`/`.run()` calls inside a single
+ * `linkAccount` invocation so PK collisions and the "find existing" branch
+ * are exercised.
+ */
+function permissiveDb(): D1Database {
+  type AccountRow = {
+    id: string
+    email: string
+    created_at: number
+    updated_at: number
+    disabled_at: number | null
+  }
+  type AuthMethodRow = {
+    id: string
+    account_id: string
+    provider: string
+    subject: string
+  }
+  type PendingBind = {
+    sql: string
+    params: unknown[]
+  }
+
+  const accounts = new Map<string, AccountRow>()
+  const accountsByEmail = new Map<string, AccountRow>()
+  const methodsByKey = new Map<string, AuthMethodRow>()
+  // `db.batch([...statements])` is an array of `D1PreparedStatement` whose
+  // bound values are not exposed on the type. We capture them inside `prepare`
+  // so `batch` can replay each statement end-to-end.
+  const pendingBatch: PendingBind[] = []
+
+  function lookupAccountLink(provider: string, subject: string): AccountRow | null {
+    const method = methodsByKey.get(`${provider}:${subject}`)
+    if (!method) return null
+    return accounts.get(method.account_id) ?? null
+  }
+
+  function buildStatement(sql: string) {
+    return {
+      bind(...values: unknown[]) {
+        const params = values
+        const handle = {
+          _sql: sql,
+          _params: params,
+          async first<T>(): Promise<T | null> {
+            const s = sql.trim()
+            if (
+              s.startsWith(
+                "SELECT a.id, a.email, a.created_at, a.updated_at, a.disabled_at FROM accounts a JOIN auth_methods",
+              )
+            ) {
+              const found = lookupAccountLink(String(params[0]), String(params[1]))
+              return (found as T | null) ?? null
+            }
+            if (s.startsWith("SELECT id, email, created_at, updated_at, disabled_at FROM accounts WHERE email =")) {
+              const found = accountsByEmail.get(String(params[0]).toLowerCase()) ?? null
+              return (found as T | null) ?? null
+            }
+            return null
+          },
+          async all<T>(): Promise<{ results: T[] }> {
+            return { results: [] }
+          },
+          async run(): Promise<{
+            success: boolean
+            meta: { changes: number }
+          }> {
+            const s = sql.trim()
+            if (s.startsWith("INSERT OR IGNORE INTO accounts")) {
+              const id = String(params[0])
+              const email = String(params[1]).toLowerCase()
+              const createdAt = Number(params[2])
+              const updatedAt = Number(params[3])
+              if (!accounts.has(id)) {
+                const row: AccountRow = {
+                  id,
+                  email,
+                  created_at: createdAt,
+                  updated_at: updatedAt,
+                  disabled_at: null,
+                }
+                accounts.set(id, row)
+                accountsByEmail.set(email, row)
+                return { success: true, meta: { changes: 1 } }
+              }
+              return { success: true, meta: { changes: 0 } }
+            }
+            if (s.startsWith("INSERT OR IGNORE INTO auth_methods")) {
+              const id = String(params[0])
+              const accountId = String(params[1])
+              const provider = String(params[2])
+              const subject = String(params[3])
+              const key = `${provider}:${subject}`
+              if (!methodsByKey.has(key)) {
+                methodsByKey.set(key, {
+                  id,
+                  account_id: accountId,
+                  provider,
+                  subject,
+                })
+                return { success: true, meta: { changes: 1 } }
+              }
+              return { success: true, meta: { changes: 0 } }
+            }
+            if (s.startsWith("UPDATE accounts SET updated_at =")) {
+              const updatedAt = Number(params[0])
+              const id = String(params[1])
+              const row = accounts.get(id)
+              if (row) row.updated_at = updatedAt
+              return { success: true, meta: { changes: row ? 1 : 0 } }
+            }
+            throw new Error(`Unexpected SQL in permissiveDb: ${s}`)
+          },
+        }
+        // Snapshot for the eventual `batch()` call. The production code calls
+        // `db.batch([stmt1, stmt2, stmt3])` where each `stmt` is the result of
+        // `bind(...)`. We don't get the bound values back from the typed
+        // D1PreparedStatement, so we pull them straight off the helper we
+        // built and replay them through `buildStatement` below.
+        pendingBatch.push({ sql, params })
+        return handle as unknown as D1PreparedStatement
+      },
+    }
+  }
+
+  return {
+    prepare(sql: string) {
+      return buildStatement(sql)
+    },
+    async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
+      // `db.batch([stmt1, stmt2, stmt3])` is called with statements that have
+      // already had `bind()` invoked. We can't read the bound values back off
+      // the typed `D1PreparedStatement`, so `bind()` snapshots them onto
+      // `pendingBatch` whenever it's called. Since `linkAccount` always binds
+      // its batch arguments immediately before calling `db.batch`, the most
+      // recent `statements.length` entries of `pendingBatch` correspond to
+      // those arguments — we drain exactly that many and replay them.
+      const take = statements.length
+      const drained = pendingBatch.splice(pendingBatch.length - take, take)
+      const results: D1Result<T>[] = []
+      for (const record of drained) {
+        const built = buildStatement(record.sql).bind(...record.params) as unknown as {
+          run(): Promise<D1Result<T>>
+        }
+        results.push(await built.run())
+      }
+      return results
+    },
+  } as unknown as D1Database
+}
+
+async function bootstrapLoginState(target: Env): Promise<string> {
+  const init = await app.fetch(
+    new Request(
+      "https://auth.nikcli.store/authorize?response_type=code&client_id=nikcli-studio" +
+        "&redirect_uri=https%3A%2F%2Fnikcli.store%2Fdashboard%2Fcallback" +
+        "&state=opaque&code_challenge=" +
+        "a".repeat(43) +
+        "&code_challenge_method=S256",
+    ),
+    target,
+  )
+  expect(init.status).toBe(200)
+  const loginState = (await init.text()).match(/login_state=([^"]+)"/)?.[1] ?? ""
+  expect(loginState).not.toBe("")
+  return loginState
+}
+
+interface FetchCall {
+  url: string
+  init?: RequestInit
+}
+
+interface FetchStub {
+  calls: FetchCall[]
+  restore(): void
+}
+
+function stubFetch(handler: (call: FetchCall) => Response | Promise<Response>): FetchStub {
+  const calls: FetchCall[] = []
+  const original = globalThis.fetch
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+    calls.push({ url, init })
+    return handler({ url, init })
+  }) as typeof fetch
+  return {
+    calls,
+    restore() {
+      globalThis.fetch = original
+    },
+  }
+}
+
+describe("GitHub OAuth callback (/callback/github)", () => {
+  let originalFetch: typeof fetch
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+  })
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  test("returns 503 with a friendly page when the worker is missing GITHUB_CLIENT_ID", async () => {
+    const target = env({
+      GITHUB_CLIENT_ID: "",
+      GITHUB_CLIENT_SECRET: "test-secret",
+      DB: permissiveDb(),
+    })
+    const response = await app.fetch(
+      new Request("https://auth.nikcli.store/callback/github?code=abc&state=anything"),
+      target,
+    )
+    expect(response.status).toBe(503)
+    const body = await response.text()
+    expect(body).toContain("Sign-in unavailable")
+    expect(body).toContain("GitHub sign-in is not configured")
+  })
+
+  test("returns 503 with the same page when the worker is missing GITHUB_CLIENT_SECRET", async () => {
+    const target = env({
+      GITHUB_CLIENT_ID: "test-client",
+      GITHUB_CLIENT_SECRET: "",
+      DB: permissiveDb(),
+    })
+    const response = await app.fetch(
+      new Request("https://auth.nikcli.store/callback/github?code=abc&state=anything"),
+      target,
+    )
+    expect(response.status).toBe(503)
+    const body = await response.text()
+    expect(body).toContain("Sign-in unavailable")
+  })
+
+  test("returns 400 'Sign-in failed' when the callback state has no matching login intent", async () => {
+    const target = env({ DB: permissiveDb() })
+    const response = await app.fetch(
+      new Request("https://auth.nikcli.store/callback/github?code=abc&state=never-issued"),
+      target,
+    )
+    expect(response.status).toBe(400)
+    const body = await response.text()
+    expect(body).toContain("Sign-in failed")
+    expect(body).toContain("invalid or expired")
+  })
+
+  test("returns 502 'GitHub rejected the authorization code' when the token exchange HTTP status is not 2xx", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch(() => new Response("boom", { status: 503 }))
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(502)
+      const body = await response.text()
+      expect(body).toContain("GitHub rejected the authorization code (503)")
+      expect(stub.calls).toHaveLength(1)
+      expect(stub.calls[0].url).toBe("https://github.com/login/oauth/access_token")
+    } finally {
+      stub.restore()
+    }
+  })
+
+  test("returns 502 with GitHub's error_description when the token exchange yields no access_token", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch(
+      () =>
+        new Response(
+          JSON.stringify({
+            error: "bad_verification_code",
+            error_description: "code expired",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    )
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(502)
+      const body = await response.text()
+      expect(body).toContain("GitHub did not issue an access token")
+      expect(body).toContain("code expired")
+    } finally {
+      stub.restore()
+    }
+  })
+
+  test("returns 502 with the actual upstream status when the /user API fails", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch((call) => {
+      if (call.url === "https://github.com/login/oauth/access_token") {
+        return new Response(JSON.stringify({ access_token: "gho_test" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return new Response("forbidden", { status: 403 })
+    })
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(502)
+      const body = await response.text()
+      // The message now includes the actual upstream status for both /user
+      // and /user/emails, plus a hint about whether the token was rejected.
+      expect(body).toContain("user=403")
+      expect(body).toContain("emails=403")
+      expect(body).toMatch(/try again in a moment/i)
+      expect(body).toMatch(/oauth token was rejected|rate-limited|outage/i)
+      expect(stub.calls.map((c) => c.url)).toEqual([
+        "https://github.com/login/oauth/access_token",
+        "https://api.github.com/user",
+        "https://api.github.com/user/emails",
+      ])
+    } finally {
+      stub.restore()
+    }
+  })
+
+  test("returns 400 'Verified email required' when the GitHub user has no verified primary email", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch((call) => {
+      if (call.url === "https://github.com/login/oauth/access_token") {
+        return new Response(JSON.stringify({ access_token: "gho_test" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      if (call.url === "https://api.github.com/user") {
+        return new Response(JSON.stringify({ id: 12345 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return new Response(JSON.stringify([{ email: "noreply@github.com", primary: false, verified: true }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    })
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(400)
+      const body = await response.text()
+      expect(body).toContain("Verified email required")
+    } finally {
+      stub.restore()
+    }
+  })
+
+  test("returns 502 'GitHub returned a profile without an id' when the user payload omits id", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch((call) => {
+      if (call.url === "https://github.com/login/oauth/access_token") {
+        return new Response(JSON.stringify({ access_token: "gho_test" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      if (call.url === "https://api.github.com/user") {
+        return new Response(JSON.stringify({ login: "no-id" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return new Response(JSON.stringify([{ email: "user@example.com", primary: true, verified: true }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    })
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(502)
+      const body = await response.text()
+      expect(body).toContain("GitHub returned a profile without an id")
+    } finally {
+      stub.restore()
+    }
+  })
+
+  test("completes the happy path: 302 redirect to the client callback with a fresh auth code", async () => {
+    const target = env({ DB: permissiveDb() })
+    const loginState = await bootstrapLoginState(target)
+    const stub = stubFetch((call) => {
+      if (call.url === "https://github.com/login/oauth/access_token") {
+        return new Response(JSON.stringify({ access_token: "gho_test" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      if (call.url === "https://api.github.com/user") {
+        return new Response(JSON.stringify({ id: 4242, login: "octocat" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      }
+      return new Response(JSON.stringify([{ email: "octo@example.com", primary: true, verified: true }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    })
+    try {
+      const response = await app.fetch(
+        new Request(`https://auth.nikcli.store/callback/github?code=abc&state=${encodeURIComponent(loginState)}`),
+        target,
+      )
+      expect(response.status).toBe(302)
+      const location = response.headers.get("location") ?? ""
+      const redirected = new URL(location)
+      expect(redirected.origin + redirected.pathname).toBe("https://nikcli.store/dashboard/callback")
+      expect(redirected.searchParams.get("state")).toBe("opaque")
+      const code = redirected.searchParams.get("code") ?? ""
+      expect(code).toMatch(/^[A-Za-z0-9_-]{20,}$/)
+    } finally {
+      stub.restore()
+    }
   })
 })
