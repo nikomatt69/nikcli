@@ -1,3 +1,5 @@
+import os from "os"
+import path from "path"
 import { JsonStore } from "./persist"
 
 // Per-channel tool policy. An admin decides which nikcli tools the bot may use
@@ -12,7 +14,7 @@ export namespace ChannelTools {
     updatedAt: number
   }
 
-  const FILE = process.env.CHANNEL_TOOLS_FILE ?? "/tmp/slack-channel-tools.json"
+  const FILE = process.env.CHANNEL_TOOLS_FILE ?? path.join(os.tmpdir(), "slack-channel-tools.json")
   const store = new JsonStore<Policy>(FILE)
 
   // Workspace-wide default, e.g. SLACK_DEFAULT_TOOLS="bash=false,write=false,edit=false"

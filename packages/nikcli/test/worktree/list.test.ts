@@ -83,6 +83,10 @@ describe("Worktree.list", () => {
     const { withIsolatedDatabase } = await import("../helpers/sqlite")
     await withIsolatedDatabase(async () => {
       await withGitProject(async (projectDir) => {
+        const modules = path.join(projectDir, "node_modules")
+        await fs.mkdir(modules)
+        await fs.writeFile(path.join(modules, "package.json"), "{}")
+
         const info = await runWorktree(
           Effect.gen(function* () {
             const worktree = yield* Worktree.Service
@@ -94,6 +98,9 @@ describe("Worktree.list", () => {
 
         expect(info.name).toBe("detached-feature")
         expect(info.branch).toBeUndefined()
+        const linked = path.join(info.directory, "node_modules")
+        expect((await fs.lstat(linked)).isSymbolicLink()).toBe(true)
+        expect(await fs.realpath(linked)).toBe(await fs.realpath(modules))
 
         const result = await runWorktree(
           Effect.gen(function* () {

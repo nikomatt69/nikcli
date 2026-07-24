@@ -1028,8 +1028,8 @@ export namespace LSPServer {
         await $`chmod +x ${bin}`.quiet().nothrow()
       }
 
-      await fs.unlink(path.join(Global.Path.bin, "clangd")).catch(() => {})
-      await fs.symlink(bin, path.join(Global.Path.bin, "clangd")).catch(() => {})
+      await fs.unlink(direct).catch(() => {})
+      await (platform === "win32" ? fs.link(bin, direct) : fs.symlink(bin, direct, "file")).catch(() => {})
 
       log.info(`installed clangd`, { bin })
 

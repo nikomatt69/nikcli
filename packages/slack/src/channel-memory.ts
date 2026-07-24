@@ -1,3 +1,5 @@
+import os from "os"
+import path from "path"
 import { JsonStore } from "./persist"
 
 // Per-channel memory: the bot remembers salient requests made in each channel
@@ -16,7 +18,7 @@ export namespace ChannelMemory {
   const enabled = process.env.SLACK_CHANNEL_MEMORY !== "false" && process.env.NIKCLI_SLACK_CHANNEL_MEMORY !== "false"
   const MAX_MESSAGES = Math.max(1, Number(process.env.SLACK_CHANNEL_MEMORY_SIZE ?? "12"))
   const MAX_LEN = 280
-  const FILE = process.env.CHANNEL_MEMORY_FILE ?? "/tmp/slack-channel-memory.json"
+  const FILE = process.env.CHANNEL_MEMORY_FILE ?? path.join(os.tmpdir(), "slack-channel-memory.json")
 
   const store = new JsonStore<Entry>(FILE)
 

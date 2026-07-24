@@ -174,8 +174,9 @@ Reinstall the app.
 | `SLACK_FOLLOWUP_DONE_MS`    | No       | Only ping on completion if job ran ≥ this many ms (`20000`)   |
 | `SLACK_DEFAULT_TOOLS`       | No       | Workspace tool defaults, e.g. `bash=false,write=false`        |
 | `SLACK_ADMIN_USERS`         | No       | Comma-separated Slack user IDs allowed to run `/nikcli-tools` |
-| `CHANNEL_MEMORY_FILE`       | No       | Path for channel memory store (default `/tmp/...`)            |
-| `CHANNEL_TOOLS_FILE`        | No       | Path for channel tool policy store (default `/tmp/...`)       |
+| `CHANNEL_MEMORY_FILE`       | No       | Channel memory store path (default: OS temp directory)        |
+| `CHANNEL_TOOLS_FILE`        | No       | Channel tool policy path (default: OS temp directory)         |
+| `SESSIONS_FILE`             | No       | Sessions store path (default: OS temp directory)              |
 
 ## Commands
 

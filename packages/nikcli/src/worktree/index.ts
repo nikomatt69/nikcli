@@ -561,14 +561,17 @@ export namespace Worktree {
     const mainNodeModules = path.join(ctx.worktree, "node_modules")
     const worktreeNodeModules = path.join(info.directory, "node_modules")
     if ((await exists(mainNodeModules)) && !(await exists(worktreeNodeModules))) {
-      const symlinkResult = await fs.symlink(mainNodeModules, worktreeNodeModules).catch((err) => {
-        log.warn("symlink node_modules failed", {
-          directory: info.directory,
-          error: err?.message,
+      const linked = await fs
+        .symlink(mainNodeModules, worktreeNodeModules, process.platform === "win32" ? "junction" : "dir")
+        .then(() => true)
+        .catch((err) => {
+          log.warn("symlink node_modules failed", {
+            directory: info.directory,
+            error: err?.message,
+          })
+          return false
         })
-        return undefined
-      })
-      if (symlinkResult === undefined) {
+      if (!linked) {
         log.warn("node_modules symlink skipped, worktree may need manual setup", { directory: info.directory })
       }
     }

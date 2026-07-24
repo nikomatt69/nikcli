@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "fs"
+import os from "os"
 import path from "path"
 
 export type Primitive = string | number | boolean | null
@@ -369,12 +370,7 @@ export interface SuiteGroupState {
 export type SuiteSortMode = "name" | "status" | "duration" | "lastRun" | "group"
 
 const TARGET_HISTORY_KEY = TARGET_PACKAGE_ROOT.replace(/[^a-zA-Z0-9._-]+/g, "_")
-export const SUITE_HISTORY_DIR = path.join(
-  process.env.HOME ?? "/tmp",
-  ".bench-tui",
-  TARGET_HISTORY_KEY,
-  "suite-history",
-)
+export const SUITE_HISTORY_DIR = path.join(os.homedir(), ".bench-tui", TARGET_HISTORY_KEY, "suite-history")
 export const SUITE_HISTORY_MAX_PER_FILE = 25
 
 export function groupForRelative(rel: string): string {
