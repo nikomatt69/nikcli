@@ -114,7 +114,14 @@ const encodeWebSocketMessage = Schema.encodeSync(Schema.fromJsonString(OpenAIRes
 
 const OpenAIResponsesUsage = Schema.Struct({
   input_tokens: Schema.optional(Schema.Number),
-  input_tokens_details: optionalNull(Schema.Struct({ cached_tokens: Schema.optional(Schema.Number) })),
+  input_tokens_details: optionalNull(
+    Schema.Struct({
+      cached_tokens: Schema.optional(Schema.Number),
+      // GPT-5.6 and later bill cache writes at 1.25x uncached input. Dropping
+      // this field makes every write look free and overstates fresh input.
+      cache_write_tokens: Schema.optional(Schema.Number),
+    }),
+  ),
   output_tokens: Schema.optional(Schema.Number),
   output_tokens_details: optionalNull(Schema.Struct({ reasoning_tokens: Schema.optional(Schema.Number) })),
   total_tokens: Schema.optional(Schema.Number),
@@ -283,6 +290,7 @@ const mapUsage = (usage: OpenAIResponsesUsage | null | undefined) => {
     outputTokens: usage.output_tokens,
     reasoningTokens: usage.output_tokens_details?.reasoning_tokens,
     cacheReadInputTokens: usage.input_tokens_details?.cached_tokens,
+    cacheWriteInputTokens: usage.input_tokens_details?.cache_write_tokens,
     totalTokens: ProviderShared.totalTokens(usage.input_tokens, usage.output_tokens, usage.total_tokens),
     native: usage,
   })

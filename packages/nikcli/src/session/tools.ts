@@ -550,7 +550,14 @@ export async function resolveTools(input: {
     tools[key] = item
   }
 
-  return tools
+  // Emit tools in canonical name order so semantically equivalent sets produce
+  // byte-identical tool arrays regardless of registration order. Registry, MCP
+  // and connector tools are collected by insertion order above, and MCP servers
+  // connect in a nondeterministic order — without this sort the provider tool
+  // array shifts between runs. Tool definitions sit ahead of system and message
+  // blocks in the provider cache prefix, so any reordering invalidates every
+  // downstream prompt-cache breakpoint. See opencode #38590.
+  return Object.fromEntries(Object.entries(tools).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)))
 }
 
 export function createStructuredOutputTool(input: {

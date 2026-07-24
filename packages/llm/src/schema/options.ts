@@ -200,3 +200,27 @@ export class CacheHint extends Schema.Class<CacheHint>("LLM.CacheHint")({
   type: Schema.Literals(["ephemeral", "persistent"]),
   ttlSeconds: Schema.optional(Schema.Number),
 }) {}
+
+/**
+ * Auto-placement policy for prompt caching. `applyCachePolicy` reads this and
+ * injects `CacheHint`s at the configured boundaries; the per-protocol body
+ * builders then translate those hints into wire markers as usual.
+ *
+ * `"auto"` is the default for agent loops: it marks the first system part, the
+ * last system part when distinct, and the trailing `messages.tail` messages.
+ * Tool definitions precede system blocks in the provider cache prefix, so the
+ * first-system boundary already covers them. The rolling message tail advances
+ * every request, which keeps the previous cache entry inside Anthropic's
+ * 20-block lookback as tool results accumulate.
+ */
+export const CachePolicyObject = Schema.Struct({
+  system: Schema.optional(Schema.Boolean),
+  messages: Schema.optional(Schema.Struct({ tail: Schema.Number })),
+  ttlSeconds: Schema.optional(Schema.Number),
+}).annotate({ identifier: "LLM.CachePolicyObject" })
+export type CachePolicyObject = Schema.Schema.Type<typeof CachePolicyObject>
+
+export const CachePolicy = Schema.Union([Schema.Literals(["auto", "none"]), CachePolicyObject]).annotate({
+  identifier: "LLM.CachePolicy",
+})
+export type CachePolicy = Schema.Schema.Type<typeof CachePolicy>

@@ -739,7 +739,11 @@ export namespace Session {
 
     const cacheReadInputTokens = safe(input.usage.cachedInputTokens ?? 0)
     const cacheWriteInputTokens = safe(
-      (input.metadata?.["anthropic"]?.["cacheCreationInputTokens"] ??
+      // `nikcli` is published by the native @nikcli-ai/llm adapter, which decodes
+      // cache writes uniformly across protocols (including OpenAI, whose writes
+      // @ai-sdk/openai drops entirely). It wins because it is already normalized.
+      (input.metadata?.["nikcli"]?.["cacheWriteInputTokens"] ??
+        input.metadata?.["anthropic"]?.["cacheCreationInputTokens"] ??
         // @ts-expect-error
         input.metadata?.["bedrock"]?.["usage"]?.["cacheWriteInputTokens"] ??
         // @ts-expect-error

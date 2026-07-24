@@ -10,6 +10,7 @@ import type { Service as WebSocketExecutorService } from "./transport/websocket"
 import type { Protocol } from "./protocol"
 import * as ProviderShared from "../protocols/shared"
 import * as ToolRuntime from "../tool-runtime"
+import { applyCachePolicy } from "../cache-policy"
 import type { Tools } from "../tool"
 import type { LLMError, LLMEvent, PreparedRequestOf, ProtocolID } from "../schema"
 import {
@@ -400,7 +401,9 @@ export function make<Body, Prepared, Frame, Event, State>(
 // validated provider body plus transport-private prepared data, but does not
 // execute transport.
 const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest) {
-  const resolved = resolveRequestOptions(request)
+  // Placed before body lowering so protocols keep seeing plain inline hints and
+  // stay unaware of the policy.
+  const resolved = applyCachePolicy(resolveRequestOptions(request))
   const route = registeredRoute(resolved.model.route)
   if (!route) return yield* noRoute(resolved.model)
 
