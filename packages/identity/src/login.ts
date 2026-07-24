@@ -14,6 +14,22 @@ type GitHubUser = { id?: unknown }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/**
+ * The absolute `redirect_uri` we send to GitHub. GitHub's OAuth app
+ * ("Authorization callback URL") performs an exact string match against this
+ * value, so the configured callback MUST be registered there verbatim —
+ * mismatches surface as GitHub's "The redirect_uri is not associated with
+ * this application" error and break sign-in completely.
+ *
+ * The default is `${ISSUER}/callback/github`, which matches the route
+ * registered below in `index.ts`. Operators can override with the
+ * `GITHUB_REDIRECT_URI` env var when the registered URL differs (for
+ * example, a tenant-scoped subdomain or a path-prefixed deployment).
+ */
+export function githubRedirectURI(env: { ISSUER: string; GITHUB_REDIRECT_URI?: string }): string {
+  return env.GITHUB_REDIRECT_URI?.trim() || new URL("/callback/github", env.ISSUER).toString()
+}
+
 function loginKey(state: string): string {
   return `login:${state}`
 }
@@ -88,7 +104,7 @@ export async function startGitHub(c: AppContext): Promise<Response> {
   const loginState = c.req.query("login_state") ?? ""
   if (!(await loadIntent(c.env, loginState)))
     return resultPage(c, "Session expired", "Start the sign-in flow again.", 400)
-  const callback = new URL("/callback/github", c.env.ISSUER).toString()
+  const callback = githubRedirectURI(c.env)
   const url = new URL("https://github.com/login/oauth/authorize")
   url.searchParams.set("client_id", c.env.GITHUB_CLIENT_ID)
   url.searchParams.set("redirect_uri", callback)
@@ -103,7 +119,7 @@ export async function finishGitHub(c: AppContext): Promise<Response> {
   if (!code || !(await loadIntent(c.env, loginState)))
     return resultPage(c, "Sign-in failed", "The GitHub sign-in session is invalid or expired.", 400)
 
-  const callback = new URL("/callback/github", c.env.ISSUER).toString()
+  const callback = githubRedirectURI(c.env)
   const exchange = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import app from "../src/index"
 import { isAllowedRedirect } from "../src/constants"
 import { randomDigits, secureEqual, sha256 } from "../src/crypto"
+import { githubRedirectURI } from "../src/login"
 
 function fakeState() {
   const values = new Map<string, string>()
@@ -38,7 +39,7 @@ function fakeDb() {
   } as D1Database
 }
 
-function env(): Env {
+function env(overrides: Partial<Env> = {}): Env {
   const send = async (_message: EmailMessage | Parameters<SendEmail["send"]>[0]) => ({ messageId: "test-message" })
   return {
     ISSUER: "https://auth.nikcli.store",
@@ -49,7 +50,8 @@ function env(): Env {
     STATE: fakeState(),
     DB: fakeDb(),
     EMAIL: { send },
-  }
+    ...overrides,
+  } as Env
 }
 
 describe("identity contracts", () => {
@@ -134,5 +136,91 @@ describe("identity security helpers", () => {
     const hash = await sha256("value")
     expect(await secureEqual(hash, hash)).toBe(true)
     expect(await secureEqual(hash, await sha256("other"))).toBe(false)
+  })
+})
+
+describe("GitHub OAuth redirect_uri", () => {
+  test("defaults to ${ISSUER}/callback/github for every environment", () => {
+    expect(githubRedirectURI({ ISSUER: "https://auth.nikcli.store" })).toBe("https://auth.nikcli.store/callback/github")
+    expect(githubRedirectURI({ ISSUER: "https://dev.auth.nikcli.store" })).toBe(
+      "https://dev.auth.nikcli.store/callback/github",
+    )
+  })
+
+  test("honors GITHUB_REDIRECT_URI when an operator pins a different registered callback", () => {
+    expect(
+      githubRedirectURI({
+        ISSUER: "https://auth.nikcli.store",
+        GITHUB_REDIRECT_URI: "https://nikcli.store/api/auth/callback/github",
+      }),
+    ).toBe("https://nikcli.store/api/auth/callback/github")
+  })
+
+  test("falls back to the computed default when GITHUB_REDIRECT_URI is blank", () => {
+    expect(
+      githubRedirectURI({
+        ISSUER: "https://auth.nikcli.store",
+        GITHUB_REDIRECT_URI: "   ",
+      }),
+    ).toBe("https://auth.nikcli.store/callback/github")
+  })
+
+  test("/login/github redirects to GitHub with the exact same redirect_uri it will send back", async () => {
+    // Bootstrap a valid login_state so startGitHub doesn't 400.
+    const shared = env()
+    const init = await app.fetch(
+      new Request(
+        "https://auth.nikcli.store/authorize?response_type=code&client_id=nikcli-studio" +
+          "&redirect_uri=https%3A%2F%2Fnikcli.store%2Fdashboard%2Fcallback" +
+          "&state=opaque&code_challenge=" +
+          "a".repeat(43) +
+          "&code_challenge_method=S256",
+      ),
+      shared,
+    )
+    expect(init.status).toBe(200)
+    const loginState = (await init.text()).match(/login_state=([^"]+)"/)?.[1] ?? ""
+    expect(loginState).not.toBe("")
+
+    const start = await app.fetch(
+      new Request(`https://auth.nikcli.store/login/github?login_state=${encodeURIComponent(loginState)}`),
+      shared,
+    )
+    expect(start.status).toBe(302)
+    const location = start.headers.get("location") ?? ""
+    const redirected = new URL(location)
+    expect(redirected.origin).toBe("https://github.com")
+    expect(redirected.pathname).toBe("/login/oauth/authorize")
+    expect(redirected.searchParams.get("client_id")).toBe("test-client")
+    expect(redirected.searchParams.get("redirect_uri")).toBe("https://auth.nikcli.store/callback/github")
+    expect(redirected.searchParams.get("scope")).toBe("read:user user:email")
+    expect(redirected.searchParams.get("state")).toBe(loginState)
+  })
+
+  test("/login/github uses GITHUB_REDIRECT_URI when the operator pins the GitHub OAuth app's callback", async () => {
+    const shared = env({
+      GITHUB_REDIRECT_URI: "https://nikcli.store/api/auth/callback/github",
+    })
+    const init = await app.fetch(
+      new Request(
+        "https://auth.nikcli.store/authorize?response_type=code&client_id=nikcli-studio" +
+          "&redirect_uri=https%3A%2F%2Fnikcli.store%2Fdashboard%2Fcallback" +
+          "&state=opaque&code_challenge=" +
+          "a".repeat(43) +
+          "&code_challenge_method=S256",
+      ),
+      shared,
+    )
+    expect(init.status).toBe(200)
+    const loginState = (await init.text()).match(/login_state=([^"]+)"/)?.[1] ?? ""
+    expect(loginState).not.toBe("")
+
+    const start = await app.fetch(
+      new Request(`https://auth.nikcli.store/login/github?login_state=${encodeURIComponent(loginState)}`),
+      shared,
+    )
+    expect(start.status).toBe(302)
+    const location = start.headers.get("location") ?? ""
+    expect(new URL(location).searchParams.get("redirect_uri")).toBe("https://nikcli.store/api/auth/callback/github")
   })
 })
