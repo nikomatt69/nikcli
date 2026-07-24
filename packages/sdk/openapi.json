@@ -26115,6 +26115,10 @@
                   "messageVirtualization": {
                     "description": "Window the session message list via message-window visibleRange instead of rendering all messages. Default off.",
                     "type": "boolean"
+                  },
+                  "explorationGrouping": {
+                    "description": "Collapse consecutive read-only tool calls (read/grep/glob/list/codesearch/webfetch) into a single summary row once the run finishes. Default off.",
+                    "type": "boolean"
                   }
                 }
               },
@@ -26123,6 +26127,15 @@
                 "properties": {
                   "latestOnlyLspRefresh": {
                     "description": "Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.",
+                    "type": "boolean"
+                  }
+                }
+              },
+              "events": {
+                "type": "object",
+                "properties": {
+                  "schemaEncoding": {
+                    "description": "Encode SSE event payloads through their registered schema before serializing. Drops keys the schema does not declare, so the wire shape follows the contract rather than the publisher. Default off.",
                     "type": "boolean"
                   }
                 }

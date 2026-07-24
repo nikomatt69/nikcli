@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.201.0 (July 2026)
+
+## Core
+
+- Selective port from opencode TUI v2 (reconnect, row grouping, serve, SSE) (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): selective port from opencode TUI v2 (reconnect, row grouping, serve, SSE)
+  - Merge pull request #164 from nikomatt69/feat/tui-v2-selective-port
+
 ## v1.200.0 (July 2026)
 
 ## Core

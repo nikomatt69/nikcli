@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/ui",
-  "version": "1.200.0",
+  "version": "1.201.0",
   "type": "module",
   "license": "MIT",
   "exports": {

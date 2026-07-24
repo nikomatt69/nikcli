@@ -2977,12 +2977,22 @@ export type Config = {
        * Window the session message list via message-window visibleRange instead of rendering all messages. Default off.
        */
       messageVirtualization?: boolean
+      /**
+       * Collapse consecutive read-only tool calls (read/grep/glob/list/codesearch/webfetch) into a single summary row once the run finishes. Default off.
+       */
+      explorationGrouping?: boolean
     }
     requests?: {
       /**
        * Coalesce rapid lsp.updated events into a single in-flight lsp.status refresh. Default off.
        */
       latestOnlyLspRefresh?: boolean
+    }
+    events?: {
+      /**
+       * Encode SSE event payloads through their registered schema before serializing. Drops keys the schema does not declare, so the wire shape follows the contract rather than the publisher. Default off.
+       */
+      schemaEncoding?: boolean
     }
   }
   rag?: RagConfig
