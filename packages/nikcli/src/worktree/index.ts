@@ -21,7 +21,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 export namespace Worktree {
   const InfoSchema = Schema.Struct({
     name: Schema.String,
-    branch: Schema.optional(Schema.String),
+    branch: Schema.optional(Schema.String), 
     directory: Schema.String,
   }).annotate({ identifier: "Worktree" })
   export const Info = zodObject(InfoSchema)
