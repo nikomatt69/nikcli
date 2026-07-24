@@ -20,18 +20,34 @@ export function NetworkBanner() {
   useEffect(() => {
     if (!config) return
 
-    void checkReachability()
+    const startPolling = () => {
+      if (intervalRef.current) return
+      intervalRef.current = setInterval(() => {
+        void checkReachability()
+      }, 30_000)
+    }
 
-    intervalRef.current = setInterval(() => {
-      void checkReachability()
-    }, 30_000)
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    void checkReachability()
+    startPolling()
 
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void checkReachability()
+      if (state === "active") {
+        void checkReachability()
+        startPolling()
+      } else {
+        stopPolling()
+      }
     })
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      stopPolling()
       subscription.remove()
     }
   }, [checkReachability, config])

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { AppState } from "react-native"
 import EventSource from "react-native-sse"
 import { buildMobileHeaders, buildMobileUrl } from "@/lib/client"
 import type { ServerConfig, SessionStreamEvent } from "@/lib/types"
@@ -31,6 +32,7 @@ export function useSessionStream(input: {
 }) {
   const onEventRef = useRef(input.onEvent)
   const onErrorRef = useRef(input.onError)
+  const [isForeground, setIsForeground] = useState(AppState.currentState === "active")
 
   useEffect(() => {
     onEventRef.current = input.onEvent
@@ -40,13 +42,25 @@ export function useSessionStream(input: {
     onErrorRef.current = input.onError
   }, [input.onError])
 
+  // react-native-sse auto-reconnects on error/close by default, so leaving
+  // the EventSource open while the app is backgrounded keeps the radio and
+  // CPU awake indefinitely. Track foreground state and gate the connection
+  // on it below so the stream tears down on background and reopens on
+  // return to foreground.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      setIsForeground(state === "active")
+    })
+    return () => subscription.remove()
+  }, [])
+
   // react-native-sse's EventSource does not expose a per-listener
   // removeEventListener; removeAllEventListeners() drops every
   // subscription registered below, and es.close() shuts the stream
   // down. The linter doesn't recognise this two-step teardown.
   // oxlint-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
-    if (!input.enabled || !input.config || !input.sessionID) return
+    if (!input.enabled || !isForeground || !input.config || !input.sessionID) return
 
     let active = true
     const url = buildMobileUrl(input.config, `/mobile/session/${encodeURIComponent(input.sessionID)}/stream`)
@@ -87,6 +101,7 @@ export function useSessionStream(input: {
     }
   }, [
     input.enabled,
+    isForeground,
     input.config?.directory,
     input.config?.password,
     input.config?.token,

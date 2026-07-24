@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { FlatList, RefreshControl, View } from "react-native"
+import { AppState, FlatList, RefreshControl, View } from "react-native"
 import { router, useFocusEffect, type Href } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -113,7 +113,9 @@ export default function LoopsScreen() {
   useFocusEffect(
     useCallback(() => {
       void load()
-      const interval = setInterval(() => void load(true), 5_000)
+      const interval = setInterval(() => {
+        if (AppState.currentState === "active") void load(true)
+      }, 5_000)
       return () => clearInterval(interval)
     }, [load]),
   )

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react"
-import { Alert, Pressable, ScrollView, Text, View } from "react-native"
+import { Alert, AppState, Pressable, ScrollView, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
@@ -193,7 +193,9 @@ export default function LoopDetailScreen() {
     useCallback(() => {
       void load()
       if (isNew) return
-      const interval = setInterval(() => void pollRuntime(), 5_000)
+      const interval = setInterval(() => {
+        if (AppState.currentState === "active") void pollRuntime()
+      }, 5_000)
       return () => clearInterval(interval)
     }, [isNew, load, pollRuntime]),
   )
