@@ -1,7 +1,7 @@
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
-import { batch, onCleanup, onMount } from "solid-js"
+import { batch, createSignal, onCleanup, onMount } from "solid-js"
 import { createWakeDedup, type WakeDedup } from "../util/wake-dedup"
 
 /**
@@ -21,6 +21,16 @@ export type GlobalEnvelope = {
 export type EventSource = {
   subscribe: (directory: string | undefined, handler: (event: GlobalEnvelope) => void) => Promise<() => void>
 }
+
+/**
+ * Liveness of the event stream backing the TUI.
+ *
+ * `connecting` is the pre-first-connect state the startup screen already covers,
+ * so only `reconnecting` is worth interrupting the user for — see
+ * `component/reconnecting.tsx`. Embedded (worker) mode has no reconnect loop:
+ * it reports `connected` once the RPC subscription is live and never leaves it.
+ */
+export type ConnectionStatus = "connecting" | "connected" | "reconnecting"
 
 export async function checkUpgradeWhenSubscriptionReady(
   subscriptionReady: Promise<void>,
@@ -79,6 +89,29 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     }>()
 
     const envelopeHandlers = new Set<(envelope: GlobalEnvelope) => void>()
+
+    // Liveness of the event stream, surfaced so the app can tell the user the
+    // TUI is waiting on the server rather than hung. `attempt` counts
+    // consecutive failed reconnects and resets on every successful connect.
+    const [connectionStatus, setConnectionStatus] = createSignal<ConnectionStatus>("connecting")
+    const [connectionAttempt, setConnectionAttempt] = createSignal(0)
+    const [connectionError, setConnectionError] = createSignal<string | undefined>(undefined)
+
+    const markConnected = () => {
+      batch(() => {
+        setConnectionStatus("connected")
+        setConnectionAttempt(0)
+        setConnectionError(undefined)
+      })
+    }
+
+    const markReconnecting = (error: unknown) => {
+      batch(() => {
+        setConnectionStatus("reconnecting")
+        setConnectionAttempt((value) => value + 1)
+        setConnectionError(error === undefined ? undefined : error instanceof Error ? error.message : String(error))
+      })
+    }
 
     let queue: GlobalEnvelope[] = []
     let timer: Timer | undefined
@@ -178,6 +211,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
               })
               // successful connect → reset backoff
               backoff = 250
+              markConnected()
 
               await consumeGlobalEventStream({
                 stream: events.stream as AsyncIterable<GlobalEnvelope>,
@@ -188,8 +222,15 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
 
               if (timer) clearTimeout(timer)
               if (queue.length > 0) flush()
+
+              // The stream ended without throwing (server closed it cleanly).
+              // The loop reconnects immediately, but the UI should already say
+              // so — otherwise a dead server looks like a frozen TUI.
+              if (ctrl.signal.aborted || abort.signal.aborted) break
+              markReconnecting(undefined)
             } catch (loopError) {
               if (ctrl.signal.aborted || abort.signal.aborted) break
+              markReconnecting(loopError)
               console.warn(
                 "[sse]",
                 "subscribe failed, retrying in",
@@ -232,6 +273,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
               return
             }
             unsubscribe = unsub
+            markConnected()
             markSubscriptionReady()
           })
           .catch((error) => {
@@ -268,6 +310,11 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       fetch: props.fetch ?? fetch,
       url: props.url,
       subscriptionReady,
+      connection: {
+        status: connectionStatus,
+        attempt: connectionAttempt,
+        error: connectionError,
+      },
     }
   },
 })

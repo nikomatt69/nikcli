@@ -105,6 +105,7 @@ import { DialogBgAgents } from "./dialog-bg-agents"
 import { features } from "@/config/features"
 import { useLanguage } from "@tui/context/language"
 import { spacerHeights, visibleRange } from "./message-window"
+import { groupLabel, groupParts, type ExplorationGroup } from "./rows"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
 import {
@@ -1645,7 +1646,32 @@ function UserMessage(props: {
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
   const ctx = use()
   const local = useLocal()
+  const sync = useSync()
   const { theme } = useTheme()
+
+  /**
+   * Parts, with finished runs of read-only tool calls folded into one row.
+   *
+   * A live run stays fully expanded on purpose: collapsing it would hide work in
+   * progress, and rebuilding the group row on every streamed delta would remount
+   * its children. Only a run that is over — something followed it, or the message
+   * finished — becomes a summary. With the flag off this is `props.parts`
+   * unchanged, so the default render path keeps its stable part identities.
+   */
+  const rows = createMemo<(Part | ExplorationGroup<Part>)[]>(() => {
+    if (!features(sync.data.config).tui.explorationGrouping) return props.parts
+    const blocked = new Set(
+      (sync.data.permission[props.message.sessionID] ?? []).flatMap((request) =>
+        request.tool?.callID ? [request.tool.callID] : [],
+      ),
+    )
+    return groupParts(props.parts, {
+      closed: Boolean(props.message.time.completed),
+      isPending: (part) => "callID" in part && typeof part.callID === "string" && blocked.has(part.callID),
+    }).flatMap<Part | ExplorationGroup<Part>>((row) =>
+      row.type === "part" ? [row.part] : row.completed ? [row] : row.parts,
+    )
+  })
 
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
@@ -1689,15 +1715,16 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
   return (
     <>
-      <For each={props.parts}>
-        {(part, index) => {
-          const component = createMemo(() => PART_MAPPING[part.type as keyof typeof PART_MAPPING])
+      <For each={rows()}>
+        {(row) => {
+          if (row.type === "group") return <ExplorationSummary group={row} message={props.message} />
+          const component = PART_MAPPING[row.type as keyof typeof PART_MAPPING]
           return (
-            <Show when={component()}>
+            <Show when={component}>
               <Dynamic
-                last={index() === props.parts.length - 1}
-                component={component()}
-                part={part as any}
+                last={row === props.parts[props.parts.length - 1]}
+                component={component}
+                part={row as any}
                 message={props.message}
               />
             </Show>
@@ -1758,6 +1785,28 @@ const PART_MAPPING = {
   text: TextPart,
   tool: ToolPart,
   reasoning: ReasoningPart,
+}
+
+/**
+ * One line standing in for a finished run of read-only tool calls.
+ *
+ * Anything the user still has to answer is rendered in full underneath: a
+ * permission prompt must never be what got collapsed away.
+ */
+function ExplorationSummary(props: { group: ExplorationGroup<Part>; message: AssistantMessage }) {
+  const { theme } = useTheme()
+  return (
+    <>
+      <box paddingLeft={3}>
+        <text paddingLeft={3} fg={theme.textMuted}>
+          ⋮ {groupLabel(props.group)}
+        </text>
+      </box>
+      <For each={props.group.pending}>
+        {(part) => <ToolPart last={false} part={part as ToolPart} message={props.message} />}
+      </For>
+    </>
+  )
 }
 
 // Box-drawing / arrow chars that signal an ASCII diagram. When the assistant
