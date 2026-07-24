@@ -5,8 +5,11 @@ import { Flag } from "../../flag/flag"
 import { Workspace } from "../../workspace"
 import { Project } from "../../project/project"
 import { Installation } from "../../installation"
+import { Log } from "@/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+
+const log = Log.create({ service: "serve" })
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
   return runPromiseWithLayer(Project.defaultLayer, effect)
@@ -21,28 +24,82 @@ async function maybeStartRemoteSync(): Promise<{ stop(): Promise<void> } | undef
   return SyncCliInit.startForAllProjects({ url: resolved.url, token: resolved.token })
 }
 
+/**
+ * Probe the public health endpoint until the full route stack (middleware
+ * chain included) answers, so `serve` only reports readiness once the server
+ * actually responds — not merely once the socket is bound. `/global/health`
+ * is a public path (httpapi/auth.ts), so the probe works regardless of
+ * NIKCLI_SERVER_PASSWORD.
+ */
+async function waitForHealthy(url: URL, timeoutMs = 10_000): Promise<void> {
+  const health = new URL("/global/health", url)
+  const deadline = Date.now() + timeoutMs
+  let lastError: unknown
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(health, { signal: AbortSignal.timeout(2_000) })
+      if (response.ok) return
+      lastError = new Error(`health check returned HTTP ${response.status}`)
+    } catch (error) {
+      lastError = error
+    }
+    await Bun.sleep(50)
+  }
+  throw new Error(`server did not become healthy within ${timeoutMs}ms: ${lastError}`)
+}
+
+/**
+ * Resolves on the first SIGINT/SIGTERM so graceful cleanup runs. A second
+ * signal force-exits immediately in case cleanup wedges.
+ */
+function waitForShutdownSignal(): Promise<void> {
+  return new Promise((resolve) => {
+    let intercepted = false
+    const handler = () => {
+      if (intercepted) process.exit(1)
+      intercepted = true
+      resolve()
+    }
+    process.on("SIGINT", handler)
+    process.on("SIGTERM", handler)
+  })
+}
+
 export const ServeCommand = cmd({
   command: "serve",
-  builder: (yargs) => withNetworkOptions(yargs),
+  builder: (yargs) =>
+    withNetworkOptions(yargs).option("stdio", {
+      type: "boolean",
+      describe: "print the readiness handshake as a single JSON line on stdout (for parent processes)",
+      default: false,
+    }),
   describe: "starts a headless nikcli server",
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
+    // In --stdio mode stdout carries only the machine-readable handshake;
+    // all diagnostics go to stderr.
+    const warn = args.stdio ? console.error : console.log
 
     const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"
     const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback
 
     if (Flag.NIKCLI_SERVER_TAILSCALE_AUTH && !loopback) {
-      console.log(
+      warn(
         "Warning: NIKCLI_SERVER_TAILSCALE_AUTH is set but hostname is not loopback; Tailscale identity headers will not be trusted.",
       )
     }
 
     if (!Flag.NIKCLI_SERVER_PASSWORD && !tailscaleAuthActive) {
-      console.log("Warning: NIKCLI_SERVER_PASSWORD is not set; server is unsecured.")
+      warn("Warning: NIKCLI_SERVER_PASSWORD is not set; server is unsecured.")
     }
 
     const server = Server.listen(opts)
-    console.log(`nikcli server listening on http://${server.hostname}:${server.port}`)
+    await waitForHealthy(server.url)
+    if (args.stdio) {
+      console.log(JSON.stringify({ url: server.url.origin }))
+    } else {
+      console.log(`nikcli server listening on http://${server.hostname}:${server.port}`)
+    }
 
     let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = []
     if (Installation.isLocal()) {
@@ -61,10 +118,24 @@ export const ServeCommand = cmd({
     // when neither is set.
     const remoteSync = await maybeStartRemoteSync()
 
-    await new Promise(() => {})
+    await waitForShutdownSignal()
 
-    await server.stop()
-    if (remoteSync) await remoteSync.stop()
-    await Promise.all(workspaceSync.map((item) => item.stop()))
+    // Graceful shutdown: close keep-alive connections (SSE streams hold
+    // sockets open and would otherwise hang the exit), then stop sync
+    // services. Force-exit if any of this hangs for more than 5s.
+    log.info("shutting down")
+    warn("shutting down...")
+    const force = setTimeout(() => {
+      console.error("graceful shutdown timed out, forcing exit")
+      process.exit(1)
+    }, 5_000)
+    try {
+      await server.stop(true)
+      if (remoteSync) await remoteSync.stop()
+      await Promise.all(workspaceSync.map((item) => item.stop()))
+    } finally {
+      clearTimeout(force)
+    }
+    process.exit(0)
   },
 })

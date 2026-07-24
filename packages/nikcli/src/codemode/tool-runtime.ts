@@ -280,6 +280,13 @@ export const copyOut = (value: unknown, undefinedAsNull = false): unknown => {
   return value
 }
 
+/**
+ * Locale-independent text comparison. `localeCompare` orders differently depending on
+ * the host locale, so the same tool set would render different catalog bytes on
+ * different machines — exactly the instability the sort exists to remove.
+ */
+const comparePaths = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
+
 const definitions = <R>(
   tools: HostTools<R>,
   path: ReadonlyArray<string> = [],
@@ -297,11 +304,17 @@ const describeDefinition = <R>(path: string, definition: Definition<R>): ToolDes
 })
 
 const visibleDefinitions = <R>(tools: HostTools<R>) =>
-  definitions(tools).map(({ path, definition }) => ({
-    path,
-    definition,
-    description: describeDefinition(path, definition),
-  }))
+  definitions(tools)
+    // `Object.entries` flattening preserves insertion order, so `{ ns: { zeta, alpha } }`
+    // and `{ ns: { alpha, zeta } }` render different catalog bytes for the same tools.
+    // Sorting by canonical dotted path makes an equivalent reload a no-op instead of a
+    // fresh instruction hash and an avoidable prompt-cache miss.
+    .sort((left, right) => comparePaths(left.path, right.path))
+    .map(({ path, definition }) => ({
+      path,
+      definition,
+      description: describeDefinition(path, definition),
+    }))
 
 export type DiscoveryPlan = {
   readonly catalog: ReadonlyArray<ToolDescription>
@@ -373,7 +386,7 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
               .filter(({ score }) => terms.length === 0 || score > 0)
               .sort(
                 (left, right) =>
-                  right.score - left.score || left.entry.description.path.localeCompare(right.entry.description.path),
+                  right.score - left.score || comparePaths(left.entry.description.path, right.entry.description.path),
               )
               .map(({ entry }) => entry)
       const items = ranked.slice(offset, offset + (request.limit ?? defaultSearchLimit)).map(({ description }) => ({
@@ -432,14 +445,14 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
     group.push(tool)
     namespaces.set(namespace, group)
   }
-  const ordered = [...namespaces].sort(([left], [right]) => left.localeCompare(right))
+  const ordered = [...namespaces].sort(([left], [right]) => comparePaths(left, right))
 
   const selections = ordered.map(([namespace, group]) => ({
     namespace,
     picked: new Set<ToolDescription>(),
     queue: [...group].sort(
       (left, right) =>
-        estimateTokens(catalogLine(left)) - estimateTokens(catalogLine(right)) || left.path.localeCompare(right.path),
+        estimateTokens(catalogLine(left)) - estimateTokens(catalogLine(right)) || comparePaths(left.path, right.path),
     ),
   }))
   let used = 0

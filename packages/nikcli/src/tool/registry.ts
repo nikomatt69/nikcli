@@ -70,6 +70,15 @@ plugin({
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
 
+  /**
+   * Locale-independent id comparison. `localeCompare` orders differently depending on
+   * the host locale, which would make the same tool set serialize to different bytes
+   * on different machines and defeat the point of sorting at all.
+   */
+  export function compareIds(left: string, right: string): number {
+    return left < right ? -1 : left > right ? 1 : 0
+  }
+
   type State = {
     custom: Tool.Info[]
   }
@@ -364,6 +373,11 @@ export namespace ToolRegistry {
 
                 return true
               })
+              // Canonical order by id. The tool array is the first and largest
+              // component of the provider prompt-cache prefix, so an equivalent set of
+              // tools must serialize to identical bytes regardless of the order
+              // plugins registered them or `register()` appended them.
+              .sort((left, right) => compareIds(left.id, right.id))
               .map(async (t) => {
                 using _ = log.time(t.id)
                 const def = await t.init({ agent })

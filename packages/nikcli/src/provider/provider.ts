@@ -31,6 +31,7 @@ import type { AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
 import type { LanguageModelV2 } from "@openrouter/ai-sdk-provider"
 import type { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
+import * as CachePolicy from "./cache-policy"
 import { ProviderError } from "./error"
 import {
   NIKCLI_INFERENCE_DEFAULT_URL,
@@ -1841,9 +1842,19 @@ export namespace Provider {
             const body = JSON.parse(opts.body as string)
             if (Array.isArray(body.tools) && body.tools.length > 0) {
               const last = body.tools[body.tools.length - 1]
-              if (!last.cache_control) {
+              // Anthropic rejects a request carrying more than four breakpoints, so
+              // count what message-level placement already spent rather than assuming
+              // this marker is free. `transform.applyCaching` reserves a slot for it,
+              // but plugins and provider-specific paths can add their own.
+              const spent = CachePolicy.countWireBreakpoints(body)
+              if (!last.cache_control && spent < CachePolicy.BREAKPOINT_CAP) {
                 last.cache_control = { type: "ephemeral" }
                 opts.body = JSON.stringify(body)
+              } else if (spent >= CachePolicy.BREAKPOINT_CAP) {
+                log.warn("skipping tool cache breakpoint", {
+                  reason: "request already at the provider breakpoint cap",
+                  spent,
+                })
               }
             }
           } catch {

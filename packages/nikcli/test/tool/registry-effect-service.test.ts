@@ -64,6 +64,33 @@ describe("ToolRegistry.Service", () => {
       expect(tool.description.length).toBeGreaterThan(0)
     }
   })
+
+  // The tool array is the first and largest component of the provider prompt-cache
+  // prefix. Registration order varies with plugin load order and `register()` calls,
+  // so an equivalent tool set has to serialize to identical bytes regardless.
+  it("returns tools in canonical id order", async () => {
+    const directory = await makeProjectDir()
+    const tools = await Effect.runPromise(
+      InstanceScope.with(
+        { directory },
+        Effect.gen(function* () {
+          const registry = yield* ToolRegistry.Service
+          return yield* registry.tools({ providerID: "", modelID: "" })
+        }).pipe(Effect.provide(ToolRegistry.defaultLayer)),
+      ),
+    )
+
+    const ids = tools.map((tool) => tool.id)
+    expect(ids).toEqual([...ids].sort(ToolRegistry.compareIds))
+    expect(ids.length).toBeGreaterThan(1)
+  })
+
+  it("orders ids by code unit rather than host locale", () => {
+    // `localeCompare` would sort "Zebra" after "apple" under most locales, making the
+    // same tool set serialize differently on different machines.
+    expect(["apple", "Zebra"].sort(ToolRegistry.compareIds)).toEqual(["Zebra", "apple"])
+    expect(ToolRegistry.compareIds("bash", "bash")).toBe(0)
+  })
 })
 
 afterEach(async () => {

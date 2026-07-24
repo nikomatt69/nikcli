@@ -1,7 +1,8 @@
 import type { ModelMessage, ToolResultPart } from "ai"
-import { mergeDeep, unique } from "remeda"
+import { mergeDeep } from "remeda"
 import type { JSONSchema7 } from "@ai-sdk/provider"
 import { Provider } from "./provider"
+import * as CachePolicy from "./cache-policy"
 import type { ModelsDev } from "./models"
 import { iife } from "@/util/iife"
 
@@ -364,8 +365,10 @@ function normalizeMessages(
 }
 
 function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
-  const system = msgs.filter((msg) => msg.role === "system").slice(0, 2)
-  const final = msgs.filter((msg) => msg.role !== "system").slice(-2)
+  // Placement is budgeted (see cache-policy.ts): message-level markers leave a slot
+  // for the wire-level tool-definition breakpoint, so a request never exceeds the
+  // four Anthropic/Bedrock accept.
+  const targets = CachePolicy.plan(msgs)
 
   const providerOptions = {
     anthropic: {
@@ -388,7 +391,7 @@ function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage
     },
   }
 
-  for (const msg of unique([...system, ...final])) {
+  for (const msg of targets) {
     const useMessageLevelOptions =
       model.providerID === "anthropic" ||
       model.providerID.includes("bedrock") ||

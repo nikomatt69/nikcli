@@ -78,6 +78,7 @@ import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
+import { Reconnecting } from "./component/reconnecting"
 import { StartupLoading } from "./component/startup-loading"
 import { SessionTabs } from "./component/session-tabs"
 import { BRAIN_SESSION_TITLE } from "@/brain/constants"
@@ -1470,6 +1471,9 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       </box>
       <TuiPluginRuntime.Slot name="app" />
       <StartupLoading ready={pluginsReady} />
+      <Show when={sdk.connection.status() === "reconnecting"}>
+        <Reconnecting attempt={sdk.connection.attempt()} error={sdk.connection.error()} />
+      </Show>
     </box>
   )
 }

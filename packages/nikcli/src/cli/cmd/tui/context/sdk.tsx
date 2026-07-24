@@ -1,7 +1,7 @@
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
-import { batch, onCleanup, onMount } from "solid-js"
+import { batch, createSignal, onCleanup, onMount } from "solid-js"
 import { createWakeDedup, type WakeDedup } from "../util/wake-dedup"
 
 /**
@@ -72,6 +72,30 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       if (subscriptionReadyResolved) return
       subscriptionReadyResolved = true
       resolveSubscriptionReady()
+    }
+
+    // Server-connection state surfaced to the UI (reconnecting banner).
+    // Driven by the SSE retry loop below, or by the embedded-events path.
+    const [connected, setConnected] = createSignal(false)
+    const [attempt, setAttempt] = createSignal(0)
+    const [error, setError] = createSignal<string | undefined>()
+    const status = (): "connecting" | "connected" | "reconnecting" =>
+      connected() ? "connected" : attempt() > 0 ? "reconnecting" : "connecting"
+
+    const markConnected = () => {
+      batch(() => {
+        setConnected(true)
+        setAttempt(0)
+        setError(undefined)
+      })
+      markSubscriptionReady()
+    }
+
+    const markDisconnected = (cause?: unknown) => {
+      setConnected(false)
+      if (cause === undefined) return
+      setAttempt((n) => n + 1)
+      setError(cause instanceof Error ? cause.message : String(cause))
     }
 
     const emitter = createGlobalEmitter<{
@@ -182,12 +206,15 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
               await consumeGlobalEventStream({
                 stream: events.stream as AsyncIterable<GlobalEnvelope>,
                 signal: ctrl.signal,
-                onConnected: markSubscriptionReady,
+                onConnected: markConnected,
                 onEnvelope: handleEnvelope,
               })
 
               if (timer) clearTimeout(timer)
               if (queue.length > 0) flush()
+              // The stream ended without an error (server closed it) and the
+              // loop is about to reconnect — just note the drop.
+              if (!ctrl.signal.aborted && !abort.signal.aborted) setConnected(false)
             } catch (loopError) {
               if (ctrl.signal.aborted || abort.signal.aborted) break
               console.warn(
@@ -197,6 +224,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
                 "ms",
                 loopError instanceof Error ? loopError.message : loopError,
               )
+              markDisconnected(loopError)
               await Bun.sleep(backoff)
               backoff = Math.min(backoff * 2, maxBackoff)
             }
@@ -223,6 +251,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
           subscription = props.events.subscribe(props.directory, handleEnvelope)
         } catch (error) {
           console.error("[events]", "subscribe failed", error)
+          markDisconnected(error)
           return
         }
         void subscription
@@ -232,11 +261,12 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
               return
             }
             unsubscribe = unsub
-            markSubscriptionReady()
+            markConnected()
           })
           .catch((error) => {
             if (!active) return
             console.error("[events]", "subscribe failed", error)
+            markDisconnected(error)
           })
         return
       }
@@ -268,6 +298,13 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       fetch: props.fetch ?? fetch,
       url: props.url,
       subscriptionReady,
+      /** Live server-connection state, for surfacing reconnect UI. */
+      connection: {
+        connected,
+        attempt,
+        error,
+        status,
+      },
     }
   },
 })
