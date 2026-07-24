@@ -65,6 +65,7 @@ export const GlobalRoutes = lazy(() =>
       }),
       async (c) => {
         log.info("global event connected")
+        const encodePayloads = await BusEvent.encodingEnabled()
         return streamSSE(c, async (stream) => {
           stream.writeSSE({
             data: JSON.stringify({
@@ -84,8 +85,9 @@ export const GlobalRoutes = lazy(() =>
             resolvePromise?.()
             log.info("global event disconnected")
           }
-          async function handler(event: any) {
-            await stream.writeSSE({ data: JSON.stringify(event) }).catch((error) => {
+          async function handler(event: { directory?: string; payload: { type: string; properties: unknown } }) {
+            const envelope = encodePayloads ? { ...event, payload: BusEvent.encode(event.payload) } : event
+            await stream.writeSSE({ data: JSON.stringify(envelope) }).catch((error) => {
               log.debug("global sse write failed", { error })
               cleanup()
             })

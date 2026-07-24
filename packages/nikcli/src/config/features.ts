@@ -14,9 +14,13 @@ export type Features = {
   readonly tui: {
     readonly cacheEviction: boolean
     readonly messageVirtualization: boolean
+    readonly explorationGrouping: boolean
   }
   readonly requests: {
     readonly latestOnlyLspRefresh: boolean
+  }
+  readonly events: {
+    readonly schemaEncoding: boolean
   }
 }
 
@@ -24,9 +28,13 @@ type Experimental = NonNullable<Config.Info["experimental"]> & {
   tui?: {
     cacheEviction?: boolean
     messageVirtualization?: boolean
+    explorationGrouping?: boolean
   }
   requests?: {
     latestOnlyLspRefresh?: boolean
+  }
+  events?: {
+    schemaEncoding?: boolean
   }
 }
 
@@ -38,9 +46,13 @@ export function features(cfg: { experimental?: Config.Info["experimental"] } | u
     tui: {
       cacheEviction: e?.tui?.cacheEviction === true,
       messageVirtualization: e?.tui?.messageVirtualization === true,
+      explorationGrouping: e?.tui?.explorationGrouping === true,
     },
     requests: {
       latestOnlyLspRefresh: e?.requests?.latestOnlyLspRefresh === true,
+    },
+    events: {
+      schemaEncoding: e?.events?.schemaEncoding === true,
     },
   }
 }

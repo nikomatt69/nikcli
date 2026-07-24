@@ -1029,6 +1029,7 @@ export namespace Server {
           }),
           async (c) => {
             log.info("event connected")
+            const encodePayloads = await BusEvent.encodingEnabled()
             return streamSSE(c, async (stream) => {
               let resolvePromise: (() => void) | undefined
               let cleaned = false
@@ -1049,7 +1050,8 @@ export namespace Server {
                 }),
               })
               unsub = Bus.subscribeAll(async (event) => {
-                await stream.writeSSE({ data: JSON.stringify(event) }).catch((error) => {
+                const payload = encodePayloads ? BusEvent.encode(event) : event
+                await stream.writeSSE({ data: JSON.stringify(payload) }).catch((error) => {
                   log.debug("event sse write failed", { error })
                   cleanup()
                 })
@@ -1115,6 +1117,9 @@ export namespace Server {
     })
     return result
   }
+
+  /** How long `stop()` lets open connections drain before force-closing them. */
+  const STOP_DRAIN_MS = 3000
 
   export function listen(opts: {
     port: number
@@ -1205,9 +1210,63 @@ export namespace Server {
     server.stop = async (closeActiveConnections?: boolean) => {
       if (shouldPublishMDNS) MDNS.unpublish()
       Workspace.stopAllSyncing()
-      return originalStop(closeActiveConnections)
+      if (closeActiveConnections) return originalStop(true)
+
+      // Bun's graceful stop waits for every open connection to close, and this
+      // server runs with `idleTimeout: 0` — so a single parked keep-alive client
+      // (an SSE reader, a mobile app in the background) is enough to hang
+      // shutdown forever. Bound the drain, then force whatever is left.
+      let drained = false
+      const drain = Promise.resolve(originalStop())
+        .then(() => {
+          drained = true
+        })
+        .catch(() => {
+          drained = true
+        })
+      await Promise.race([drain, Bun.sleep(STOP_DRAIN_MS)])
+      if (drained) return
+      log.warn("graceful shutdown timed out; closing active connections", { ms: STOP_DRAIN_MS })
+      await originalStop(true).catch(() => undefined)
     }
 
     return server
+  }
+
+  /**
+   * Resolves once the server answers its own health route.
+   *
+   * `Bun.serve` returning only means the socket is bound — the route table and
+   * middleware stack are still unproven. Probing before a caller announces the
+   * address turns "printed a URL that fails every request" into a startup error.
+   */
+  export async function ready(server: ReturnType<typeof listen>, timeoutMs = 5000) {
+    const bound = server.hostname ?? "127.0.0.1"
+    // A wildcard bind is not necessarily connectable by that name, and a bare
+    // IPv6 literal needs brackets before it can go into a URL.
+    const host = bound === "0.0.0.0" || bound === "::" ? "127.0.0.1" : bound
+    const authority = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host
+    const target = `http://${authority}:${server.port}/global/health`
+
+    const password = Flag.NIKCLI_SERVER_PASSWORD?.trim()
+    const username = Flag.NIKCLI_SERVER_USERNAME?.trim() || "nikcli"
+    const headers = password
+      ? { authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}` }
+      : undefined
+
+    const deadline = Date.now() + timeoutMs
+    let last: unknown
+    for (;;) {
+      try {
+        const response = await fetch(target, { headers, signal: AbortSignal.timeout(1000) })
+        if (response.ok) return
+        last = new Error(`health check returned ${response.status}`)
+      } catch (error) {
+        last = error
+      }
+      if (Date.now() >= deadline) break
+      await Bun.sleep(50)
+    }
+    throw new Error(`server did not become ready within ${timeoutMs}ms`, { cause: last })
   }
 }

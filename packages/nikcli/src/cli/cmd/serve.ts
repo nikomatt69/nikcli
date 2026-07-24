@@ -42,6 +42,14 @@ export const ServeCommand = cmd({
     }
 
     const server = Server.listen(opts)
+    // Announce the address only once the server has answered a real request, so
+    // a broken route table surfaces here instead of on the client's first call.
+    try {
+      await Server.ready(server)
+    } catch (error) {
+      await server.stop(true).catch(() => undefined)
+      throw error
+    }
     console.log(`nikcli server listening on http://${server.hostname}:${server.port}`)
 
     let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = []
