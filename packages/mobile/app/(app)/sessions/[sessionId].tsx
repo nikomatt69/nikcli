@@ -187,6 +187,8 @@ export default function SessionScreen() {
   const statusRef = useRef<SessionDetail["status"]>(undefined)
   const permissionIDsRef = useRef<Set<string>>(new Set())
   const questionIDsRef = useRef<Set<string>>(new Set())
+  const pendingPartsRef = useRef<Map<string, MessageWithParts["parts"][number]>>(new Map())
+  const flushPartsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const consumedLiveActionRef = useRef<string | null>(null)
   const followTranscriptRef = useRef(true)
   const prevMessageCountRef = useRef(0)
@@ -438,6 +440,33 @@ export default function SessionScreen() {
     void getModelVariant(providerID, modelID).then(setActiveVariant)
   }, [config, detail?.messages, loading, sessionId, config?.modelID, config?.modelProviderID])
 
+  // Streamed responses emit a message.part.updated event per token; applying
+  // each one immediately forces a full transcript re-render (and, with it, a
+  // redraw of every glass/blur surface layered over the list) many times a
+  // second. Coalescing bursts into one state update every 80ms keeps the same
+  // final text with no visible difference, at a fraction of the render cost.
+  const flushPendingParts = useCallback(() => {
+    if (flushPartsTimerRef.current) {
+      clearTimeout(flushPartsTimerRef.current)
+      flushPartsTimerRef.current = null
+    }
+    if (pendingPartsRef.current.size === 0) return
+    const parts = Array.from(pendingPartsRef.current.values())
+    pendingPartsRef.current.clear()
+    setDetail((current) => {
+      if (!current) return current
+      let messages = current.messages
+      for (const part of parts) messages = upsertPart(messages, part)
+      return { ...current, messages }
+    })
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (flushPartsTimerRef.current) clearTimeout(flushPartsTimerRef.current)
+    }
+  }, [])
+
   useSessionStream({
     config,
     sessionID: sessionId,
@@ -524,17 +553,24 @@ export default function SessionScreen() {
         statusRef.current = { type: "idle" }
       }
 
+      if (event.type === "message.part.updated") {
+        pendingPartsRef.current.set(event.properties.part.id, event.properties.part)
+        if (!flushPartsTimerRef.current) {
+          flushPartsTimerRef.current = setTimeout(flushPendingParts, 80)
+        }
+        return
+      }
+
+      // Any other event must observe parts queued by the coalescing above in
+      // the order they arrived, so flush before applying it.
+      flushPendingParts()
+
       setDetail((current) => {
         if (!current) return current
         if (event.type === "message.updated")
           return {
             ...current,
             messages: upsertMessage(current.messages, event.properties.info),
-          }
-        if (event.type === "message.part.updated")
-          return {
-            ...current,
-            messages: upsertPart(current.messages, event.properties.part),
           }
         if (event.type === "message.removed")
           return {
