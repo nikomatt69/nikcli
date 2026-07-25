@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash } from "node:crypto"
 
 /**
  * Self-contained Linux desktop image for the background "computer use" sandbox.
@@ -10,13 +10,13 @@ import { createHash } from "node:crypto";
  * preview over HTTP — never touching the host screen.
  */
 export namespace SandboxImage {
-  export const NAME = "nikcli-computer-sandbox";
+  export const NAME = "nikcli-computer-sandbox"
 
-  export const DEFAULT_WIDTH = 1280;
-  export const DEFAULT_HEIGHT = 800;
+  export const DEFAULT_WIDTH = 1280
+  export const DEFAULT_HEIGHT = 800
 
   /** noVNC web port inside the container. */
-  export const VNC_PORT = 6080;
+  export const VNC_PORT = 6080
 
   export const DOCKERFILE = `FROM debian:bookworm-slim
 
@@ -47,7 +47,7 @@ ENV DISPLAY=:99 SCREEN_W=${DEFAULT_WIDTH} SCREEN_H=${DEFAULT_HEIGHT} SCREEN_D=24
 EXPOSE ${VNC_PORT}
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-`;
+`
 
   export const ENTRYPOINT = `#!/usr/bin/env bash
 set -euo pipefail
@@ -73,7 +73,7 @@ websockify --web=/usr/share/novnc ${VNC_PORT} localhost:5900 >/dev/null 2>&1 &
 # Stay up as long as the virtual display is alive; if it dies, exit so the
 # session manager can recreate the container.
 wait -n
-`;
+`
 
   /**
    * Content-addressed image tag. Any change to the Dockerfile or entrypoint
@@ -85,5 +85,5 @@ wait -n
     .update("")
     .update(ENTRYPOINT)
     .digest("hex")
-    .slice(0, 12)}`;
+    .slice(0, 12)}`
 }

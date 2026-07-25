@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.204.0 (July 2026)
+
+## Core
+
+- Add new package and integrate into workspace (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(computer-use): add new package and integrate into workspace
+
 ## v1.201.0 (July 2026)
 
 ## Core

@@ -10,8 +10,8 @@
  * `host` mode. Drive them with mouse / keyboard actions, capture
  * screenshots, record markers, and produce a PR-ready evidence bundle.
  */
-export * from "./frame";
-export * from "./backends";
+export * from "./frame"
+export * from "./backends"
 export {
   ComputerSession,
   type SessionInfo,
@@ -20,9 +20,9 @@ export {
   type SendMode,
   type WaitCondition,
   type WaitResult,
-} from "./session";
-export { SessionManager } from "./manager";
-export { translateKey, translateKeys } from "./keys";
+} from "./session"
+export { SessionManager } from "./manager"
+export { translateKey, translateKeys } from "./keys"
 
 export {
   Recorder,
@@ -36,7 +36,7 @@ export {
   type RecordingMarker,
   type SampledFrame,
   type StartRecordingOptions,
-} from "./recording";
+} from "./recording"
 
 export {
   renderText,
@@ -57,7 +57,7 @@ export {
   type ExportVideoResult,
   type ExportFramesOptions,
   type ExportFramesResult,
-} from "./render";
+} from "./render"
 
 export {
   createEvidenceBundle,
@@ -67,17 +67,12 @@ export {
   type EvidenceBundleOptions,
   type EvidenceManifest,
   type VerificationResult,
-} from "./evidence";
+} from "./evidence"
 
 // Background daemon — persists sessions across separate process invocations.
-export {
-  ensureDaemon,
-  rpc,
-  shutdownDaemon,
-  socketPathFor,
-} from "./daemon-client";
-export { startDaemon } from "./daemon";
+export { ensureDaemon, rpc, shutdownDaemon, socketPathFor } from "./daemon-client"
+export { startDaemon } from "./daemon"
 
 // Container registry (used by the sandbox backend; exposed for advanced use).
-export { Sandbox } from "./sandbox";
-export { SandboxImage } from "./sandbox-image";
+export { Sandbox } from "./sandbox"
+export { SandboxImage } from "./sandbox-image"

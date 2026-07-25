@@ -11,7 +11,7 @@
  * directly, the way the modern `Browser` namespace does for
  * `@nikcli-ai/browser-control`.
  */
-import * as ComputerUse from "@nikcli-ai/computer-use";
+import * as ComputerUse from "@nikcli-ai/computer-use"
 
 export {
   // Frame
@@ -56,7 +56,7 @@ export {
   rpc,
   shutdownDaemon,
   socketPathFor,
-} from "@nikcli-ai/computer-use";
+} from "@nikcli-ai/computer-use"
 
 // Legacy `Computer` namespace — preserves the original surface so the
 // historical `ComputerTool` (and any third-party imports) keep working
@@ -66,10 +66,10 @@ export const Computer = {
   ...ComputerUse,
   Sandbox: ComputerUse.Sandbox,
   SandboxImage: ComputerUse.SandboxImage,
-} as const;
+} as const
 
 // Also export `Sandbox` and `SandboxImage` as named exports so the legacy
 // `import { Sandbox } from "@/computer/computer"` import path keeps working
 // alongside the dedicated `@/computer/sandbox` re-export shim.
-export const Sandbox = ComputerUse.Sandbox;
-export const SandboxImage = ComputerUse.SandboxImage;
+export const Sandbox = ComputerUse.Sandbox
+export const SandboxImage = ComputerUse.SandboxImage

@@ -5,4 +5,4 @@
  * `packages/computer-use`, mirroring how `@nikcli-ai/browser-control` is
  * consumed via `@/browser/browser`.
  */
-export { Sandbox } from "@nikcli-ai/computer-use";
+export { Sandbox } from "@nikcli-ai/computer-use"

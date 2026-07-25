@@ -46,7 +46,7 @@ const NAMED: Record<string, string> = {
   f10: "f10",
   f11: "f11",
   f12: "f12",
-};
+}
 
 const MODIFIERS: Record<string, string> = {
   ctrl: "ctrl",
@@ -59,11 +59,11 @@ const MODIFIERS: Record<string, string> = {
   command: "cmd",
   meta: "cmd",
   win: "cmd",
-};
+}
 
 function canonicalBase(token: string): string {
-  const lower = token.trim().toLowerCase();
-  return NAMED[lower] ?? token;
+  const lower = token.trim().toLowerCase()
+  return NAMED[lower] ?? token
 }
 
 /**
@@ -72,28 +72,26 @@ function canonicalBase(token: string): string {
  * (ctrl, alt, shift, cmd) so equivalent chords compare equal.
  */
 export function translateKey(token: string): string {
-  const raw = token.trim();
-  if (raw.length === 0) return raw;
+  const raw = token.trim()
+  if (raw.length === 0) return raw
 
   if (raw.includes("+")) {
-    const parts = raw.split("+").filter(Boolean);
-    const base = parts[parts.length - 1]!;
-    const mods: string[] = [];
+    const parts = raw.split("+").filter(Boolean)
+    const base = parts[parts.length - 1]!
+    const mods: string[] = []
     for (const part of parts.slice(0, -1)) {
-      const lower = part.toLowerCase();
-      const canonical = MODIFIERS[lower];
-      if (canonical && !mods.includes(canonical)) mods.push(canonical);
+      const lower = part.toLowerCase()
+      const canonical = MODIFIERS[lower]
+      if (canonical && !mods.includes(canonical)) mods.push(canonical)
     }
-    const ordered = ["ctrl", "alt", "shift", "cmd"].filter((m) =>
-      mods.includes(m),
-    );
-    return [...ordered, canonicalBase(base)].join("+");
+    const ordered = ["ctrl", "alt", "shift", "cmd"].filter((m) => mods.includes(m))
+    return [...ordered, canonicalBase(base)].join("+")
   }
 
-  return canonicalBase(raw);
+  return canonicalBase(raw)
 }
 
 /** Translate a whitespace-separated list of key tokens. */
 export function translateKeys(input: string): string[] {
-  return input.split(/\s+/).filter(Boolean).map(translateKey);
+  return input.split(/\s+/).filter(Boolean).map(translateKey)
 }

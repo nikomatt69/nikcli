@@ -10,22 +10,22 @@
  * contract of {@link BrowserFrame} in `@nikcli-ai/browser-control`.
  */
 
-export type Mode = "sandbox" | "host";
+export type Mode = "sandbox" | "host"
 
 export interface ScreenSize {
-  readonly width: number;
-  readonly height: number;
+  readonly width: number
+  readonly height: number
 }
 
 export interface ComputerFrame {
   /** Which backend produced this frame — useful for downstream rendering. */
-  readonly mode: Mode;
+  readonly mode: Mode
   /** Logical screen size in pixels. */
-  readonly screen: ScreenSize;
+  readonly screen: ScreenSize
   /** PNG-encoded screenshot bytes. */
-  readonly screenshot: Uint8Array;
+  readonly screenshot: Uint8Array
   /** Wall-clock timestamp of capture (ms since epoch). */
-  readonly capturedAt: number;
+  readonly capturedAt: number
 }
 
 export function emptyFrame(mode: Mode, screen: ScreenSize): ComputerFrame {
@@ -34,5 +34,5 @@ export function emptyFrame(mode: Mode, screen: ScreenSize): ComputerFrame {
     screen,
     screenshot: new Uint8Array(0),
     capturedAt: Date.now(),
-  };
+  }
 }
