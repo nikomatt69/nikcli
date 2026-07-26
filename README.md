@@ -60,15 +60,26 @@ Everything is orchestrated by an internal **event bus**, a **SQLite/Drizzle pers
 
 The install script downloads release binaries from `nikcli.store` with GitHub releases as fallback (`packages/web/install`).
 
+macOS / Linux:
+
 ```bash
 curl -fsSL https://nikcli.store/install | bash
 nikcli
 ```
 
+Windows (PowerShell, `packages/web/install.ps1`):
+
+```powershell
+irm https://nikcli.store/install.ps1 | iex
+nikcli
+```
+
+Both installers put the binary in `~/.nikcli/bin` and add it to `PATH`.
+
 Alternative install methods handled by `nikcli upgrade`:
 
 ```bash
-nikcli upgrade --method curl    # bash script
+nikcli upgrade --method curl    # bash script (install.ps1 on Windows)
 nikcli upgrade --method npm     # npm package
 nikcli upgrade --method pnpm
 nikcli upgrade --method bun

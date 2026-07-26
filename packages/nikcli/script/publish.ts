@@ -73,14 +73,12 @@ for (const [name] of Object.entries(binaries)) {
   }
   await $`bun pm pack`.cwd(`./dist/${name}`)
 
-  // Only publish if the package is scoped or explicitly allowed
-  // Skip platform-specific binary packages that aren't meant for npm
-  const isPublishable = !name.includes("linux-") && !name.includes("windows-") && !name.includes("darwin-")
-
-  if (isPublishable) {
-    for (const tag of tags) {
-      await npmPublish(`./dist/${name}`, tag)
-    }
+  // Every platform package must reach npm: they are the optionalDependencies of
+  // nikcli-ai, and bin/nikcli resolves the binary out of them. Skipping any of
+  // them ships a main package whose optional deps do not exist, so npm silently
+  // installs nothing and the CLI dies with "failed to install the right version".
+  for (const tag of tags) {
+    await npmPublish(`./dist/${name}`, tag)
   }
 
   await Bun.sleep(15000)

@@ -141,6 +141,10 @@ export namespace Installation {
     stderr: Schema.String,
   }) {}
 
+  function powershellBinary() {
+    return Bun.which("pwsh") ?? "powershell"
+  }
+
   async function getBrewFormula() {
     const tapFormula = await $`brew list --formula nikomatt69/tap/nikcli`.throws(false).quiet().text()
     if (tapFormula.includes("nikcli")) return "nikomatt69/tap/nikcli"
@@ -153,10 +157,20 @@ export namespace Installation {
     let cmd
     switch (method) {
       case "curl":
-        cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
-          ...process.env,
-          VERSION: target,
-        })
+        // Windows has no bash to pipe into, so the script installers are not
+        // interchangeable: install.ps1 is the Windows half of install.
+        cmd =
+          process.platform === "win32"
+            ? $`${powershellBinary()} -NoProfile -ExecutionPolicy Bypass -Command ${"irm https://nikcli.store/install.ps1 | iex"}`.env(
+                {
+                  ...process.env,
+                  NIKCLI_VERSION: target,
+                },
+              )
+            : $`curl -fsSL https://nikcli.store/install | bash`.env({
+                ...process.env,
+                VERSION: target,
+              })
         break
       case "npm":
         cmd = $`npm install -g nikcli-ai@${target}`
@@ -255,17 +269,9 @@ export namespace Installation {
         .then((data: any) => data.d.results[0].Version)
     }
 
-    if (detectedMethod === "scoop") {
-      return fetch("https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/nikcli.json", {
-        headers: { Accept: "application/json" },
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then((data: any) => data.version)
-    }
-
+    // scoop deliberately falls through to the GitHub release below: nikcli has
+    // no manifest in ScoopInstaller/Main, so that bucket URL only ever 404s and
+    // leaves the user without a version to compare against.
     return fetch("https://api.github.com/repos/nikomatt69/nikcli/releases/latest")
       .then((res) => {
         if (!res.ok) throw new Error(res.statusText)

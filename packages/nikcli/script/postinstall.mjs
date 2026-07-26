@@ -129,8 +129,12 @@ function symlinkBinary(sourcePath, binaryName) {
 }
 
 async function main() {
+  // Windows has no symlink to create — bin/nikcli resolves the platform package
+  // at runtime — but the binary still has to be there, so fail here instead of
+  // at the user's first `nikcli` invocation.
   if (os.platform() === "win32") {
-    console.log("nikcli: Windows detected, skipping postinstall symlink")
+    const { binaryPath } = findBinary()
+    console.log(`nikcli: using ${binaryPath}`)
     return
   }
 
