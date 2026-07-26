@@ -199,8 +199,11 @@ describe("Filesystem", () => {
     })
 
     it("handles absolute paths", () => {
+      // On Windows "/absolute/path" is rooted but driveless, so resolve()
+      // legitimately answers "C:\absolute\path". Compare against the platform
+      // resolver rather than a POSIX literal.
       const resolved = Filesystem.resolve("/absolute/path")
-      expect(resolved).toBe("/absolute/path")
+      expect(resolved).toBe(path.resolve("/absolute/path"))
     })
   })
 

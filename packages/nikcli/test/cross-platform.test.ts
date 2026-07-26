@@ -18,14 +18,19 @@ import { recordBenchmark } from "./benchmarks/runner"
 const SRC = path.join(import.meta.dir, "..", "src")
 const readSrc = (rel: string) => fs.readFileSync(path.join(SRC, rel), "utf8")
 
+// fileURLToPath only accepts paths its own platform considers absolute, so the
+// fixtures have to be native: a POSIX literal makes these fail on Windows.
+const WINDOWS = process.platform === "win32"
+const PLAIN = WINDOWS ? "C:\\Users\\user\\foo.txt" : "/home/user/foo.txt"
+const TRICKY = WINDOWS ? "C:\\tmp\\has space\\é\\файл.txt" : "/tmp/has space/é/файл.txt"
+
 describe("cross-platform file:// URL handling", () => {
-  it("pathToFileURL roundtrips POSIX paths on POSIX (sanity)", () => {
-    const posix = "/home/user/foo.txt"
-    expect(fileURLToPath(pathToFileURL(posix).href)).toBe(posix)
+  it("pathToFileURL roundtrips native absolute paths (sanity)", () => {
+    expect(fileURLToPath(pathToFileURL(PLAIN).href)).toBe(PLAIN)
   })
 
   it("pathToFileURL handles spaces and unicode (naive interpolation would break these)", () => {
-    const tricky = "/tmp/has space/é/файл.txt"
+    const tricky = TRICKY
     const url = pathToFileURL(tricky).href
 
     const iterations = 10000

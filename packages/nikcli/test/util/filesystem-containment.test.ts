@@ -4,6 +4,17 @@ import os from "os"
 import path from "path"
 import { Filesystem } from "@/util/filesystem"
 
+// Windows only allows symlink creation under Developer Mode or an elevated
+// shell, so the cases that build one are skipped rather than failing the whole
+// suite for contributors who have neither. CI keeps running them.
+const probe = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-symlink-probe-"))
+const symlinkable = await fs
+  .symlink(probe, path.join(probe, "link"))
+  .then(() => true)
+  .catch(() => false)
+await fs.rm(probe, { recursive: true, force: true })
+const symlinkTest = test.skipIf(!symlinkable)
+
 describe("Filesystem.realpathInside", () => {
   let root: string
   let outside: string
@@ -51,7 +62,7 @@ describe("Filesystem.realpathInside", () => {
     }
   })
 
-  test("rejects a symlink that points outside the root", async () => {
+  symlinkTest("rejects a symlink that points outside the root", async () => {
     await fs.writeFile(path.join(outside, "secret.txt"), "x")
     await fs.symlink(outside, path.join(root, "escape"))
     const result = await Filesystem.realpathInside(root, path.join(root, "escape", "secret.txt"))
@@ -61,7 +72,7 @@ describe("Filesystem.realpathInside", () => {
     }
   })
 
-  test("rejects a symlink whose leaf points outside the root", async () => {
+  symlinkTest("rejects a symlink whose leaf points outside the root", async () => {
     await fs.writeFile(path.join(outside, "secret.txt"), "x")
     const nested = path.join(root, "a", "b")
     await fs.mkdir(nested, { recursive: true })
@@ -88,7 +99,7 @@ describe("Filesystem.realpathInside", () => {
     }
   })
 
-  test("allows a symlink that points inside the root", async () => {
+  symlinkTest("allows a symlink that points inside the root", async () => {
     const inner = path.join(root, "real")
     await fs.mkdir(inner, { recursive: true })
     await fs.writeFile(path.join(inner, "ok.txt"), "x")
@@ -117,7 +128,7 @@ describe("Filesystem.realpathInside", () => {
     expect(result.ok).toBe(true)
   })
 
-  test("rejects a broken symlink that points outside the root", async () => {
+  symlinkTest("rejects a broken symlink that points outside the root", async () => {
     const ghost = path.join(os.tmpdir(), "nikcli-realpath-ghost-target-" + Date.now())
     await fs.symlink(ghost, path.join(root, "broken"))
     const result = await Filesystem.realpathInside(root, path.join(root, "broken"))
