@@ -10,7 +10,10 @@ export namespace WindowsPath {
   }
 
   export function windowsPath(p: string): string {
-    if (isWindows()) return p
+    // Only Windows sees git-bash / cygwin / WSL spellings of a drive path. On
+    // Linux and macOS `/mnt/c/...` and `/c/...` are ordinary directories, so
+    // rewriting them there turns a valid path into a broken one.
+    if (!isWindows()) return p
 
     return p
       .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
@@ -38,8 +41,7 @@ export namespace WindowsPath {
   }
 
   export function normalize(p: string): string {
-    const resolved = resolve(p)
-    return normalize(resolved)
+    return normalizePath(resolve(p))
   }
 
   export function toPosix(p: string): string {
