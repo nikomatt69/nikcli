@@ -137,15 +137,17 @@ const toc = [
   <section id="lifecycle" class="doc-section">
     <h2>Lifecycle</h2>
     <p>
-      A mission moves through these states as the orchestrator walks it:
+      A mission moves through these states as the orchestrator walks it. The full
+      <code>MissionStatus</code> schema in <code>packages/nikcli/src/mission/schema.ts</code> also
+      carries <code>planning</code> and <code>ready</code> for the brief-to-milestones phase; the
+      states below are the ones you see in the TUI and in bus events.
     </p>
     <ol>
-      <li><strong>pending</strong> — created but not yet started.</li>
       <li><strong>running</strong> — the orchestrator is actively driving features and validation.</li>
       <li><strong>paused</strong> — held by user request. No new features start; in-flight work is not aborted.</li>
+      <li><strong>frozen</strong> — held automatically when a feature or validation worker has been aborted by a timeout or external error. Use <code>mission resume</code> to continue.</li>
       <li><strong>complete</strong> — every milestone reached <code>done</code> and the final validation (if any) passed.</li>
       <li><strong>error</strong> — a feature or the validation worker surfaced an unrecoverable error.</li>
-      <li><strong>cancelled</strong> — the user requested cancellation; in-flight workers are aborted via <code>prompt.cancel</code>.</li>
     </ol>
     <h3>Per-feature timeouts</h3>
     <p>
@@ -248,7 +250,7 @@ nikcli mission cancel mss_abc123
         <tr><td><code>mission.upserted</code></td><td><code>&#123; missionID &#125;</code></td><td>Definition created or replaced.</td></tr>
         <tr><td><code>mission.removed</code></td><td><code>&#123; missionID &#125;</code></td><td>Definition deleted.</td></tr>
         <tr><td><code>mission.started</code></td><td><code>&#123; missionID &#125;</code></td><td>Orchestration started.</td></tr>
-        <tr><td><code>mission.finished</code></td><td><code>&#123; missionID, status, error? &#125;</code></td><td>Orchestration ended (<code>complete | error | paused | frozen</code>).</td></tr>
+        <tr><td><code>mission.finished</code></td><td><code>&#123; missionID, status, error? &#125;</code></td><td>Orchestration ended (<code>complete | error | paused | frozen</code>; the <code>pending</code> state never fires this event).</td></tr>
         <tr><td><code>mission.exec.started</code></td><td><code>&#123; missionID, execID, kind, targetID, targetName, sessionID &#125;</code></td><td>A feature or validation worker started. <code>kind</code> is <code>feature</code> or <code>validation</code>.</td></tr>
         <tr><td><code>mission.exec.finished</code></td><td><code>&#123; missionID, execID, kind, status, sessionID?, error? &#125;</code></td><td>Worker ended.</td></tr>
         <tr><td><code>mission.feature.updated</code></td><td><code>&#123; missionID, milestoneID, featureID, status, error? &#125;</code></td><td>Single feature state changed.</td></tr>

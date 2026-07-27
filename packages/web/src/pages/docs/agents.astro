@@ -78,7 +78,12 @@ const related = [
   </section>
 
   <section id="modes-permissions" class="doc-section">
-    <h2>Modes & Permissions</h2>
+    <h2>Agent modes &amp; permission overlays</h2>
+    <p>
+      The <code>mode</code> field on an agent controls <em>where</em> it can be invoked — it is
+      not the same as the <em>permission mode</em> shown in the TUI command palette. See
+      <a href="/docs/permissions#modes">Permissions → Permission modes</a> for the latter.
+    </p>
     <table class="doc-table">
       <thead>
         <tr>
@@ -97,7 +102,10 @@ const related = [
     <DocCallout type="info" title="Permission merging">
       <p>
         Each agent starts from default permissions, applies its built-in overrides, and then merges
-        any user config overrides on top.
+        any user config overrides on top. The TUI <strong>Permission modes</strong> dialog
+        (<code>require_approval</code> / <code>approve_for_me</code> / <code>full_access</code> /
+        <code>custom</code>) writes this same <code>config.agent.&lt;name&gt;.permission</code> map,
+        so the override is visible in the agent config dump.
       </p>
     </DocCallout>
   </section>

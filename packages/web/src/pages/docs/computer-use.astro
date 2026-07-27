@@ -1,0 +1,364 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Why a separate package", href: "#why", depth: 2 },
+  { title: "Install & skill", href: "#install", depth: 2 },
+  { title: "Session lifecycle", href: "#sessions", depth: 2 },
+  { title: "Backends", href: "#backends", depth: 2 },
+  { title: "Recording & evidence", href: "#recording", depth: 2 },
+  { title: "TUI integration", href: "#tui", depth: 2 },
+  { title: "Source anchors", href: "#source", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Computer-use"
+  subtitle="A first-class engine for driving real desktop sessions, packaged as a sibling of @nikcli-ai/browser-control and @nikcli-ai/terminal-control."
+  toc={toc}
+  description="How @nikcli-ai/computer-use powers the computer tool and the computer TUI plugin: daemon, sandbox/host backends, recording, and PR-ready evidence bundles."
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      <code>@nikcli-ai/computer-use</code> is the dedicated engine that drives real desktop
+      sessions. It sits next to <code>@nikcli-ai/browser-control</code> (which drives
+      Chromium pages) and <code>@nikcli-ai/terminal-control</code> (which drives PTY-backed
+      TUI sessions) — three sibling engines that share the same CLI shape, the same
+      per-workspace background daemon, and the same evidence-bundle output.
+    </p>
+    <p>
+      The package was extracted from <code>packages/nikcli/src/computer/</code> in commit
+      <code>9b378dac</code>: the in-tree <code>computer.ts</code> shrinks from a 669-line
+      monolith to ~54 lines of glue, while the package gains its own CLI, daemon, host and
+      sandbox backends, recording pipeline, and <code>bun test</code> suite.
+    </p>
+    <DocCallout type="info" title="Relationship to the computer tool">
+      The <a href="/docs/tools">computer tool</a> exposed to agents, the
+      <a href="/docs/tui">computer TUI plugin</a>, and the <code>computer-use</code> CLI all
+      converge on the same package. Use whichever surface fits the workflow; underneath they
+      share one daemon and one registry.
+    </DocCallout>
+  </section>
+
+  <section id="why" class="doc-section">
+    <h2>Why a separate package</h2>
+    <p>
+      Pulling <code>computer-use</code> out of <code>packages/nikcli</code> accomplishes three
+      things at once:
+    </p>
+    <ul>
+      <li>
+        <strong>Sibling composition.</strong> Browser, terminal, and computer automation now
+        share a single CLI grammar (<code>start / info / click / type / screenshot /
+        recording / bundle</code>) and a single per-workspace daemon lifecycle. New agents
+        only need to learn one shape.
+      </li>
+      <li>
+        <strong>Independent release.</strong> The package bumps its own semver on the same
+        cadence as nikcli but ships with its own <code>bun test</code> suite and its own
+        <code>package.json</code> dependency surface
+        (<code>@ffmpeg-installer/ffmpeg</code> 1.1.0 for MP4 export, <code>playwright</code>
+        1.61.0 and <code>chromium-bidi</code> 0.4.33 for the headless recording layer).
+      </li>
+      <li>
+        <strong>First-class Docker image.</strong> The root <code>Dockerfile</code>,
+        <code>Dockerfile.serve</code>, and <code>packages/slack/Dockerfile</code> now copy the
+        package into the build, and <code>script/railway-deploy.sh</code> ships it as part
+        of the minimal upload context.
+      </li>
+    </ul>
+  </section>
+
+  <section id="install" class="doc-section">
+    <h2>Install & skill</h2>
+    <p>
+      The package is published as <code>@nikcli-ai/computer-use</code> and exposes the
+      <code>computer-use</code> binary. Inside the nikcli monorepo it is a workspace package
+      consumed by <code>packages/nikcli/src/tool/computer.ts</code>.
+    </p>
+    <DocCode language="bash" title="Terminal">
+      # Inside the nikcli monorepo
+      bun run --cwd packages/computer-use control
+      # Or, after a workspace install, as the binary:
+      computer-use --help
+    </DocCode>
+    <p>
+      The package ships a skill that nikcli discovers automatically when installed. Register
+      it once per workspace, or globally for every nikcli session on the machine:
+    </p>
+    <DocCode language="bash" title="Terminal">
+      # Per-workspace (default)
+      computer-use install-skill
+
+      # Global — installs into ~/.agents/skills so nikcli discovers it everywhere
+      computer-use install-skill --global
+    </DocCode>
+    <DocCallout type="note" title="Daemon lifecycle">
+      Every command except <code>bundle</code> and <code>install-skill</code> is a thin RPC
+      call against the per-workspace background daemon. The daemon auto-spawns on first use
+      and self-terminates after 10 idle minutes, which is what makes
+      <code>computer-use start</code>, then a later <code>computer-use wait</code>, then a
+      later <code>computer-use stop</code> work as three separate process invocations from
+      shell scripts or CI steps.
+    </DocCallout>
+  </section>
+
+  <section id="sessions" class="doc-section">
+    <h2>Session lifecycle</h2>
+    <p>
+      A <em>computer-use session</em> is a named, persistent desktop handle. Sessions are
+      held by the per-workspace daemon so they survive across separate CLI invocations;
+      the daemon registers them in <code>SessionManager</code>
+      (<code>packages/computer-use/src/manager.ts</code>) and exposes them through the
+      <code>ComputerSession</code> class (<code>src/session.ts</code>).
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="start" eyebrow="src/session.ts">
+        <p>
+          Create a named session. <code>computer-use start [NAME] [--mode sandbox|host]
+          [--width N] [--height N]</code>. The default <code>sandbox</code> mode provisions a
+          Docker-managed Linux desktop served over noVNC; <code>host</code> opt-in uses the
+          user's real desktop in real time.
+        </p>
+      </DocCard>
+      <DocCard title="info / capabilities" eyebrow="src/session.ts">
+        <p>
+          <code>computer-use info NAME</code> reports live dimensions, backend, and status.
+          <code>computer-use capabilities NAME</code> returns the typed action set supported
+          by the backend (the in-tree computer tool uses this to gate actions).
+        </p>
+      </DocCard>
+      <DocCard title="screenshot / screen-size" eyebrow="src/render">
+        <p>
+          Capture a single PNG to <code>--out FILE</code> or stream it on stdout; query the
+          live screen size to drive coordinate-aware actions.
+        </p>
+      </DocCard>
+      <DocCard title="stop / remove / restart / close-all" eyebrow="src/manager.ts">
+        <p>
+          <code>stop</code> ends the session but keeps the entry queryable so any recorded
+          live URL keeps working until <code>remove</code>. <code>close-all</code> tears the
+          whole workspace down.
+        </p>
+      </DocCard>
+    </div>
+    <h3>Action grammar</h3>
+    <p>
+      Every action is invoked the same way: target the session by <code>NAME</code>, then a
+      verb. Coordinates are screen pixels unless the backend reports otherwise. Keys use
+      the <code>translateKey</code> / <code>translateKeys</code> helpers in
+      <code>src/keys.ts</code> so chord names match the rest of nikcli.
+    </p>
+    <DocCode language="bash" title="Terminal">
+      computer-use click NAME X Y [--button left|right|middle] [--double]
+      computer-use drag  NAME FROM_X FROM_Y TO_X TO_Y
+      computer-use type  NAME TEXT
+      computer-use key   NAME COMBO      # e.g. "ctrl+shift+p"
+      computer-use scroll NAME X Y (up|down|left|right) [--amount N]
+      computer-use wait  NAME (--text VALUE | --stable [--ms N] | --timeout MS)
+    </DocCode>
+  </section>
+
+  <section id="backends" class="doc-section">
+    <h2>Backends</h2>
+    <p>
+      Backends implement the same <code>SessionBackend</code> contract from
+      <code>src/backends/index.ts</code>. Two are shipped in-tree; new backends (for example
+      a Windows-native or a remote-VNC one) only need to implement the contract.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Backend</th>
+          <th>Mode</th>
+          <th>Source</th>
+          <th>When to use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>sandbox</code></td>
+          <td>Default</td>
+          <td><code>src/backends/sandbox.ts</code></td>
+          <td>
+            Isolated, repeatable runs in CI. Provisions a Docker-managed Linux desktop served
+            over noVNC; the daemon teardown cleans up the container.
+          </td>
+        </tr>
+        <tr>
+          <td><code>host</code></td>
+          <td>Opt-in (<code>--mode host</code>)</td>
+          <td><code>src/backends/host.ts</code></td>
+          <td>
+            Drives the user's real desktop in real time. Use only on machines you control —
+            permissions are yours, not the orchestrator's.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="host mode is privileged">
+      The <code>host</code> backend inherits whatever your shell session can do. Always gate
+      it behind an explicit user approval and prefer the <code>sandbox</code> backend for any
+      shared or CI-run workload.
+    </DocCallout>
+  </section>
+
+  <section id="recording" class="doc-section">
+    <h2>Recording & evidence</h2>
+    <p>
+      The recording pipeline captures real screenshots at a chosen frame rate and emits a
+      versioned JSON file (<code>RECORDING_VERSION</code>) that the renderer can convert into
+      MP4, GIF preview, single-frame PNG, and PR-ready Markdown — all from the same bundle
+      command.
+    </p>
+    <DocCode language="bash" title="Terminal">
+      # Periodic frame sampling at 1 fps
+      computer-use start-recording NAME --fps 1
+
+      computer-use marker       NAME LABEL
+      computer-use stop-recording NAME
+      computer-use recording-data NAME   # current state, without stopping
+
+      # PR-ready bundle (screenshot, video, GIF, manifest, pr.md)
+      computer-use bundle \
+        --recording ./recording.json \
+        --out ./artifacts/computer-use \
+        --link-base artifacts/computer-use \
+        --result passed \
+        --title "Computer-use verification" \
+        --summary "The desktop session completed successfully."
+    </DocCode>
+    <p>
+      The <code>bundle</code> command accepts <code>--screenshot</code> for a one-shot image,
+      or <code>--recording</code> for a recorded run. With <code>--recording</code> the
+      bundle derives the screenshot, the video, and the GIF from the sampled frames; use
+      <code>--at-marker NAME</code> or <code>--at-ms MS</code> to pick a specific frame.
+      Use <code>--no-preview</code> to skip the GIF and <code>--json</code> to print the
+      bundle manifest instead of writing it.
+    </p>
+    <DocCallout type="success" title="Evidence manifest">
+      Every <code>bundle</code> writes a <code>manifest.json</code> plus a
+      <code>pr.md</code> ready to be appended to a pull request description. The format is
+      the same as <code>@nikcli-ai/browser-control bundle</code> and
+      <code>@nikcli-ai/terminal-control bundle</code>, so PR bots can treat all three the
+      same way.
+    </DocCallout>
+  </section>
+
+  <section id="tui" class="doc-section">
+    <h2>TUI integration</h2>
+    <p>
+      The TUI ships a <code>computer</code> feature plugin that renders the same sessions,
+      screenshots, and action log inside the terminal. It is a thin client over the
+      package — it talks to the daemon over RPC and surfaces a live preview alongside the
+      transcript.
+    </p>
+    <ul>
+      <li>
+        <strong>Sidebar entry.</strong> The <code>computer</code> feature plugin is registered
+        in <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/computer/index.tsx</code>;
+        the TUI plugin runtime owns its route registration.
+      </li>
+      <li>
+        <strong>Agent-side.</strong> The <code>computer</code> tool in
+        <code>packages/nikcli/src/tool/computer.ts</code> wraps the package's
+        <code>ComputerSession</code> and forwards every permission-aware action through the
+        existing <a href="/docs/permissions">permission</a> pipeline.
+      </li>
+      <li>
+        <strong>Skill bridge.</strong> The bundled skill
+        (<code>packages/computer-use/skills/computer-use/SKILL.md</code>) is registered
+        automatically when the package is loaded.
+      </li>
+    </ul>
+  </section>
+
+  <section id="source" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>File</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Public exports</td>
+          <td><code>packages/computer-use/src/index.ts</code></td>
+        </tr>
+        <tr>
+          <td>CLI binary</td>
+          <td><code>packages/computer-use/src/cli.ts</code></td>
+        </tr>
+        <tr>
+          <td>Background daemon</td>
+          <td><code>packages/computer-use/src/daemon.ts</code> + <code>daemon-client.ts</code></td>
+        </tr>
+        <tr>
+          <td>Session class</td>
+          <td><code>packages/computer-use/src/session.ts</code></td>
+        </tr>
+        <tr>
+          <td>Session registry</td>
+          <td><code>packages/computer-use/src/manager.ts</code></td>
+        </tr>
+        <tr>
+          <td>Backends</td>
+          <td>
+            <code>packages/computer-use/src/backends/host.ts</code> +
+            <code>sandbox.ts</code> + <code>index.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Recording</td>
+          <td><code>packages/computer-use/src/recording.ts</code></td>
+        </tr>
+        <tr>
+          <td>Evidence bundle</td>
+          <td><code>packages/computer-use/src/evidence.ts</code></td>
+        </tr>
+        <tr>
+          <td>Renderers</td>
+          <td>
+            <code>packages/computer-use/src/render/json.ts</code>,
+            <code>png.ts</code>, <code>text.ts</code>, <code>video.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Key chord helpers</td>
+          <td><code>packages/computer-use/src/keys.ts</code></td>
+        </tr>
+        <tr>
+          <td>Container sandbox</td>
+          <td><code>packages/computer-use/src/sandbox.ts</code> + <code>sandbox-image.ts</code></td>
+        </tr>
+        <tr>
+          <td>Tests</td>
+          <td>
+            <code>packages/computer-use/test/evidence.test.ts</code>,
+            <code>keys.test.ts</code>, <code>recording.test.ts</code>,
+            <code>session.test.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Skill</td>
+          <td><code>packages/computer-use/skills/computer-use/SKILL.md</code></td>
+        </tr>
+        <tr>
+          <td>Agent tool wrapper</td>
+          <td><code>packages/nikcli/src/tool/computer.ts</code></td>
+        </tr>
+        <tr>
+          <td>TUI plugin</td>
+          <td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/computer/index.tsx</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

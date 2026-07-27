@@ -4,8 +4,62 @@ import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
 import DocCard from "../../components/docs/DocCard.astro";
 
+const coreShellShots = [
+  {
+    src: "/docs/tui/home.png",
+    alt: "nikcli TUI home screen with empty prompt and placeholder text",
+    label: "Home",
+    caption: "Empty home with localized placeholder and selected agent.",
+  },
+  {
+    src: "/docs/tui/slash-menu.png",
+    alt: "Slash command autocomplete popover after typing /",
+    label: "Slash autocomplete",
+    caption:
+      "Typing ‘/’ opens the slash-command autocomplete popover over the prompt.",
+  },
+  {
+    src: "/docs/tui/command-palette.png",
+    alt: "Command palette dialog with suggested and system commands",
+    label: "Command palette",
+    caption:
+      "Ctrl+P opens the full command palette with Suggested and System categories.",
+  },
+];
+
+const inAppDialogShots = [
+  {
+    src: "/docs/tui/context-usage.png",
+    alt:
+      "Context usage dialog with prompt composition, top sources, tokens-per-turn sparkline and context health",
+    label: "Context usage",
+    caption:
+      "Live context window pressure, cache efficiency, prompt composition, top sources and context health with fragmentation flag.",
+  },
+  {
+    src: "/docs/tui/analytics-overview.png",
+    alt:
+      "Analytics overview dialog with session, message, cost and token KPIs, last-30-days charts and operational health",
+    label: "Analytics — Overview",
+    caption:
+      "Tabbed analytics dashboard: sessions, messages, cost, tokens KPIs; tokens/day histogram, cost sparkline, usage composition donut, efficiency gauges, operational health.",
+  },
+];
+
+const workspaceShots = [
+  {
+    src: "/docs/tui/workspace-sessions.png",
+    alt:
+      "Workspace view with Sessions tab active, focus on a session tree showing 1 root and 674 sessions, with a branch expanded into two delegated tasks",
+    label: "Workspace — Sessions",
+    caption:
+      "Four-tab workspace view: Sessions (session tree with focus and timeline), Changes (git diff and stage/unstage), Graph (commit graph), GitHub (PR / branch / workflow). Cycle with tab or slash commands /tree, /changes, /graph, /github.",
+  },
+];
+
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Visual tour", href: "#visual-tour", depth: 2 },
   { title: "Default command", href: "#default-command", depth: 2 },
   { title: "Worker model", href: "#worker-model", depth: 2 },
   { title: "Transport modes", href: "#transport-modes", depth: 2 },
@@ -54,6 +108,142 @@ const toc = [
         <p>The UI talks to the same Hono app as external clients, either through in-process fetch or through an HTTP server when network access is enabled.</p>
       </DocCard>
     </div>
+  </section>
+
+  <section id="visual-tour" class="doc-section">
+    <h2>Visual tour</h2>
+    <p>
+      The captures on this page come from two sources: a recorded
+      <code>bun run --cwd packages/nikcli dev</code> session run through a terminal-control
+      PTY at 112×34 with the OpenTUI host profile, and live in-session dialogs opened
+      during real workflows. Bundles, raw <code>.termctrl</code> recordings, accessibility
+      trees, SVGs, PNGs and manifests live under <code>artifacts/tui/tui-check/</code>; the
+      same skill powers the <a href="/docs/terminal-control">terminal-control</a> docs.
+    </p>
+
+    <h3 id="core-shell">Core shell</h3>
+    <p>
+      Empty home, slash-command autocomplete, and command palette — the surfaces reached
+      before submitting a prompt.
+    </p>
+    <div class="tui-gallery not-prose" data-count={coreShellShots.length}>
+      {
+        coreShellShots.map((shot) => (
+          <figure class="tui-gallery__shot">
+            <a
+              class="tui-gallery__link"
+              href={shot.src}
+              target="_blank"
+              rel="noopener"
+              aria-label={`Open ${shot.label} screenshot in a new tab`}
+            >
+              <img
+                src={shot.src}
+                alt={shot.alt}
+                loading="lazy"
+                decoding="async"
+                width="2088"
+                height="1296"
+              />
+            </a>
+            <figcaption class="tui-gallery__caption">
+              <span class="tui-gallery__label">{shot.label}</span>
+              <span class="tui-gallery__hint">{shot.caption}</span>
+            </figcaption>
+          </figure>
+        ))
+      }
+    </div>
+
+    <h3 id="in-app-surfaces">In-app surfaces</h3>
+    <p>
+      Full-screen dialogs that the TUI renders on top of the shell: context-usage telemetry
+      and analytics with KPIs, charts, gauges, and operational health badges.
+    </p>
+    <div class="tui-gallery tui-gallery--two not-prose" data-count={inAppDialogShots.length}>
+      {
+        inAppDialogShots.map((shot) => (
+          <figure class="tui-gallery__shot">
+            <a
+              class="tui-gallery__link"
+              href={shot.src}
+              target="_blank"
+              rel="noopener"
+              aria-label={`Open ${shot.label} screenshot in a new tab`}
+            >
+              <img
+                src={shot.src}
+                alt={shot.alt}
+                loading="lazy"
+                decoding="async"
+                width="2088"
+                height="1296"
+              />
+            </a>
+            <figcaption class="tui-gallery__caption">
+              <span class="tui-gallery__label">{shot.label}</span>
+              <span class="tui-gallery__hint">{shot.caption}</span>
+            </figcaption>
+          </figure>
+        ))
+      }
+    </div>
+
+    <h3 id="workspace-view">Workspace view</h3>
+    <p>
+      The workspace route (<code>type: "workspace"</code>, defined in
+      <code>context/route.tsx</code>) is a four-tab panel that overlays any session. Each tab is
+      registered as a hidden command in <code>app.tsx</code> (lines 714–787) and reachable from the
+      command palette or as a slash command.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Tab</th><th>Slash</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Sessions</strong></td><td><code>/tree</code></td><td>Session tree with focus and timeline: shows every session for the active workspace, marks the focused session, and supports the delegated-task hierarchy (root, subagents, plan/decision points).</td></tr>
+        <tr><td><strong>Changes</strong></td><td><code>/changes</code></td><td>Git diff with stage/unstage, file and hunk navigation, commit, push, and PR publish.</td></tr>
+        <tr><td><strong>Graph</strong></td><td><code>/graph</code> · <code>/gitgraph</code> · <code>/commits</code></td><td>Commit graph with log search, branch/lane navigation, and one-key checkout or reset.</td></tr>
+        <tr><td><strong>GitHub</strong></td><td><code>/github</code> · <code>/gh</code></td><td>GitHub integration: PR list, create/merge PR, run workflow, branch protection status.</td></tr>
+      </tbody>
+    </table>
+    <div class="tui-gallery tui-gallery--two not-prose" data-count={workspaceShots.length}>
+      {
+        workspaceShots.map((shot) => (
+          <figure class="tui-gallery__shot">
+            <a
+              class="tui-gallery__link"
+              href={shot.src}
+              target="_blank"
+              rel="noopener"
+              aria-label={`Open ${shot.label} screenshot in a new tab`}
+            >
+              <img
+                src={shot.src}
+                alt={shot.alt}
+                loading="lazy"
+                decoding="async"
+                width="2088"
+                height="1296"
+              />
+            </a>
+            <figcaption class="tui-gallery__caption">
+              <span class="tui-gallery__label">{shot.label}</span>
+              <span class="tui-gallery__hint">{shot.caption}</span>
+            </figcaption>
+          </figure>
+        ))
+      }
+    </div>
+
+    <DocCallout type="info" title="Reproducible captures">
+      <p>
+        Re-run the recorded shell capture with
+        <code>bun run --cwd packages/terminal-control control -- start tui-check
+        --host opentui --cols 112 --rows 34 --record /tmp/tui-check.termctrl
+        -- env NIKCLI_TERMINAL=1 bun run --cwd /Volumes/.../packages/nikcli dev</code>,
+        then re-bundle per marker:
+        <code>--at-marker home|slash-menu|palette --result passed ...</code>.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="default-command" class="doc-section">
@@ -267,8 +457,50 @@ const toc = [
         <tr><td>Slash commands</td><td>Visible command options with <code>slash</code> metadata become prompt slash entries with aliases.</td></tr>
         <tr><td>Programmatic trigger</td><td><code>command.trigger(name)</code> runs the matching command; TUI HTTP events use this path.</td></tr>
         <tr><td>Suspension</td><td><code>keybinds(false)</code> increments a suspend counter so dialogs or text inputs can temporarily suppress command shortcuts.</td></tr>
+        <tr><td>Permission mode keybind</td><td>The <code>permission_mode</code> command opens <code>DialogPermissionMode</code> — see <a href="/docs/permissions#modes">Permission modes</a>. It applies the selected preset (<code>require_approval</code> / <code>approve_for_me</code> / <code>full_access</code>) to the current primary agent.</td></tr>
+        <tr><td>Session dialogs</td><td><code>Context usage</code> (<code>/usage</code> or <code>/context</code>) opens <code>DialogUsage</code>; <code>Analytics</code> (<code>/analytics</code> or <code>/stats</code>) opens <code>DialogAnalytics</code>. See <a href="#dialogs">Dialogs</a> for screenshots.</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="dialogs" class="doc-section">
+    <h2>Dialogs</h2>
+    <p>
+      The TUI ships a few session-scoped dialogs that are useful to keep open while running long
+      work. They are reachable from the command palette and as slash commands.
+    </p>
+
+    <h3>Context usage</h3>
+    <p>
+      <code>DialogUsage</code> (<code>app.tsx</code> line 1074) shows how the active session is
+      spending its 1.0&nbsp;M-token context window. The dialog breaks the window into used / free /
+      reserved slices, plots a tokens-per-turn sparkline over the last 77 turns, surfaces the top
+      token sources (system prompt, tools, skills, conversation, plus per-tool contributions from
+      <code>opentui</code>, <code>terminal-control</code>, <code>generate_image</code>,
+      <code>browser</code>, etc.), and ends with a four-card <em>Context health</em> strip
+      (Usage, Cache, Headroom, Fragmentation).
+    </p>
+    <div class="terminal-frame not-prose">
+      <a href="/docs/tui/context-usage.png"><img src="/docs/tui/context-usage.png"
+      alt="Context usage dialog" loading="lazy" decoding="async" /></a>
+    </div>
+
+    <h3>Analytics</h3>
+    <p>
+      <code>DialogAnalytics</code> (<code>app.tsx</code> line 1086) is a 6-tab dashboard loaded
+      through <code>AnalyticsProvider</code> against the host's <code>/analytics/*</code> HTTP
+      endpoints. The Overview tab shows sessions, messages, cost, tokens with deltas vs. the prior
+      window, the last-30-day token and cost histograms, the usage-composition stack
+      (input / output / cache / reasoning), and the four-card Operational health strip
+      (Activity, Tools, Background, Workspaces). Tabs <code>2&nbsp;Tokens</code>,
+      <code>3&nbsp;Models</code>, <code>4&nbsp;Tools</code>, <code>5&nbsp;Projects</code>,
+      <code>6&nbsp;Sessions</code> drill into each slice; cycle with <code>tab</code> or
+      <code>1</code>&ndash;<code>6</code>.
+    </p>
+    <div class="terminal-frame not-prose">
+      <a href="/docs/tui/analytics-overview.png"><img src="/docs/tui/analytics-overview.png"
+      alt="Analytics overview tab" loading="lazy" decoding="async" /></a>
+    </div>
   </section>
 
   <section id="event-flow" class="doc-section">

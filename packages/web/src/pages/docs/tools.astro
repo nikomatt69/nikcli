@@ -86,6 +86,15 @@ const toolIndex = [
         <code>question</code> is available on app, CLI, and desktop clients.
       </p>
     </DocCallout>
+    <DocCallout type="info" title="Permission modes override this surface">
+      <p>
+        The active <a href="/docs/permissions#modes">permission mode</a>
+        (<code>require_approval</code> / <code>approve_for_me</code> / <code>full_access</code> /
+        <code>custom</code>) is layered on top of the registry: even when a tool is registered
+        here, the mode decides whether it runs without prompting, prompts the user, or is denied.
+        The TUI command palette exposes a <code>Permissions</code> dialog to switch modes.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="files-search" class="doc-section">

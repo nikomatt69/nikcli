@@ -1,0 +1,221 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "CLI surface", href: "#cli", depth: 2 },
+  { title: "Recording & evidence", href: "#recording", depth: 2 },
+  { title: "Agent integration", href: "#agent", depth: 2 },
+  { title: "Source anchors", href: "#source", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Browser-control"
+  subtitle="@nikcli-ai/browser-control drives headless Chromium sessions, the way computer-use drives desktops and terminal-control drives PTYs."
+  toc={toc}
+  description="The @nikcli-ai/browser-control package: CLI, daemon, recording, evidence bundles, and the agent-side browser tool wrapper."
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      <code>@nikcli-ai/browser-control</code> is the headless browser engine that powers
+      nikcli's <a href="/docs/tools">browser tool</a> and the TUI
+      <a href="/docs/tui">browser feature plugin</a>. It exposes a <code>browser-control</code>
+      CLI binary and ships a per-workspace background daemon that keeps one shared Chromium
+      process alive across separate CLI invocations. The daemon auto-spawns on first use
+      and self-terminates after 10 idle minutes.
+    </p>
+    <p>
+      The package is one of three sibling engines — alongside
+      <a href="/docs/computer-use">@nikcli-ai/computer-use</a> and
+      <a href="/docs/terminal-control">@nikcli-ai/terminal-control</a> — that share the same
+      CLI grammar, the same per-workspace daemon pattern, and the same evidence-bundle
+      output.
+    </p>
+    <DocCallout type="info" title="What it is not">
+      <code>@nikcli-ai/browser-control</code> is <em>not</em> the Playwright or
+      <code>chromium-bidi</code> bindings themselves — both are dependencies. The package is
+      the daemon, the session manager, the recording pipeline, and the
+      PR-ready evidence-bundle format that wraps them.
+    </DocCallout>
+  </section>
+
+  <section id="cli" class="doc-section">
+    <h2>CLI surface</h2>
+    <p>
+      Every command except <code>bundle</code> and <code>install-skill</code> is a thin RPC
+      call against the background daemon. The session lifecycle is:
+      <code>start</code> → <code>goto</code> / <code>click</code> / <code>fill</code> / … →
+      <code>snapshot</code> / <code>recording</code> → <code>stop</code> → <code>remove</code>.
+    </p>
+    <DocCode language="bash" title="Terminal">
+      browser-control start NAME --url URL [--viewport 1280x800] [--record]
+      browser-control list
+      browser-control goto       NAME URL
+      browser-control send       NAME (text|keys) VALUE
+      browser-control click      NAME SELECTOR
+      browser-control fill       NAME SELECTOR VALUE
+      browser-control hover      NAME SELECTOR
+      browser-control scroll     NAME DX DY
+      browser-control wait       NAME (--text VALUE | --selector SEL
+                                       [--state visible|attached|hidden|detached]
+                                       | --idle | --stable [--ms N]
+                                       | --timeout MS [--timeout MS])
+      browser-control resize     NAME WIDTHxHEIGHT
+      browser-control snapshot   NAME [--out FILE] [--format png|text|json]
+      browser-control stop       NAME   # keeps entry queryable for --record video
+      browser-control remove     NAME
+      browser-control restart    NAME
+      browser-control close-all
+    </DocCode>
+    <p>
+      <code>--record</code> starts a webm capture that finalises only on
+      <code>stop</code>; <code>videoPath NAME</code> reads it back afterwards. The webm is
+      only readable after the session stops — the same model as the
+      <a href="/docs/computer-use">computer-use</a> webm pipeline.
+    </p>
+    <DocCallout type="note" title="Auto-start daemon">
+      The first CLI call in a workspace spawns the daemon if it isn't already running; the
+      daemon exits on its own after 10 idle minutes. There is no separate
+      <code>start</code> command for the daemon itself.
+    </DocCallout>
+  </section>
+
+  <section id="recording" class="doc-section">
+    <h2>Recording & evidence</h2>
+    <p>
+      The recording pipeline captures real screenshots at a chosen frame rate and emits a
+      versioned JSON file (<code>RECORDING_VERSION</code>). The renderer converts that
+      JSON into MP4, GIF preview, single-frame PNG, and PR-ready Markdown — all from the
+      same <code>bundle</code> command.
+    </p>
+    <DocCode language="bash" title="Terminal">
+      browser-control start-recording NAME --fps 1
+      browser-control marker          NAME LABEL
+      browser-control stop-recording  NAME
+      browser-control recording-data  NAME   # current state, without stopping
+      browser-control videoPath       NAME   # path to the --record webm; only after stop
+
+      browser-control bundle \
+        --screenshot ./snap.png \
+        --out ./artifacts/browser \
+        --link-base artifacts/browser \
+        --result passed \
+        --title "Browser verification" \
+        --summary "The browser action completed successfully."
+    </DocCode>
+    <p>
+      Pass <code>--recording ./recording.json</code> instead of <code>--screenshot</code>
+      when you want the bundle derived from a recorded run. The bundle accepts
+      <code>--at-marker NAME</code>, <code>--at-ms MS</code>, <code>--video FILE</code>
+      (webm from a <code>--record</code> session — takes priority over frames),
+      <code>--trace FILE</code>, <code>--include-trace</code>, <code>--no-preview</code>,
+      and <code>--json</code>.
+    </p>
+    <DocCallout type="success" title="Evidence manifest">
+      Every <code>bundle</code> writes a <code>manifest.json</code> plus a
+      <code>pr.md</code> ready to be appended to a pull request description. Use
+      <code>--json</code> to print the bundle manifest without writing any files — useful
+      when a test harness wants to consume the output programmatically.
+    </DocCallout>
+  </section>
+
+  <section id="agent" class="doc-section">
+    <h2>Agent integration</h2>
+    <p>
+      The <a href="/docs/tools">browser tool</a> (<code>packages/nikcli/src/tool/browser.ts</code>)
+      and the <code>browser</code> TUI feature plugin
+      (<code>packages/nikcli/src/cli/cmd/tui/feature-plugins/browser/</code>) both delegate to
+      the package — agents only need the tool name; humans only need the CLI. Permission
+      gating for browser actions goes through the existing
+      <a href="/docs/permissions">permission</a> pipeline.
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="Skill auto-registration" eyebrow="install-skill">
+        <p>
+          <code>browser-control install-skill [--workspace DIR | --global]</code> registers
+          the bundled skill in <code>.agents/skills</code>. With <code>--global</code> the
+          skill is installed into <code>~/.agents/skills</code> so nikcli discovers it on
+          every workspace on the machine.
+        </p>
+      </DocCard>
+      <DocCard title="Bundle as PR evidence" eyebrow="pr.md">
+        <p>
+          The <code>pr.md</code> file embedded inside the bundle embeds an inline GIF
+          preview and links the full MP4 — drop it straight into a pull request
+          description. The local <code>file://</code> preview line should never be pasted
+          into the PR.
+        </p>
+      </DocCard>
+      <DocCard title="Shared daemon" eyebrow="src/daemon.ts">
+        <p>
+          One Chromium process per workspace serves every active browser session; tearing
+          the daemon down with <code>close-all</code> stops every session at once.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="source" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>File</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CLI binary</td>
+          <td><code>packages/browser-control/src/cli.ts</code></td>
+        </tr>
+        <tr>
+          <td>Background daemon</td>
+          <td><code>packages/browser-control/src/daemon.ts</code> + <code>daemon-client.ts</code></td>
+        </tr>
+        <tr>
+          <td>Session registry</td>
+          <td><code>packages/browser-control/src/session.ts</code> + <code>manager.ts</code></td>
+        </tr>
+        <tr>
+          <td>Recording</td>
+          <td><code>packages/browser-control/src/recording.ts</code></td>
+        </tr>
+        <tr>
+          <td>Evidence bundle</td>
+          <td><code>packages/browser-control/src/evidence.ts</code></td>
+        </tr>
+        <tr>
+          <td>Renderers</td>
+          <td>
+            <code>packages/browser-control/src/render/json.ts</code>,
+            <code>png.ts</code>, <code>text.ts</code>, <code>video.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Tests</td>
+          <td>
+            <code>packages/browser-control/test/evidence.test.ts</code>,
+            <code>keys.test.ts</code>, <code>recording.test.ts</code>,
+            <code>session.test.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Agent tool wrapper</td>
+          <td><code>packages/nikcli/src/tool/browser.ts</code></td>
+        </tr>
+        <tr>
+          <td>TUI plugin</td>
+          <td>
+            <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/browser/</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

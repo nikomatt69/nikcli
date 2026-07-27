@@ -11,10 +11,11 @@ import {
   type ClassifiedAsset,
   type OS,
 } from "../lib/releases"
+import { brandAssets } from "../data/brandAssets"
 
 import type { DownloadCategory } from "../lib/releases"
 
-let releases: ReleaseInfo[] = []
+let releases: ReleaseInfo[] = []                      
 let loadError = false
 try {
   releases = await fetchReleases(30)
@@ -378,6 +379,123 @@ const seoDescription =
               </div>
             </div>
           )}
+        </section>
+
+        <!-- Brand assets -->
+        <section id="brand-kit" aria-label="Brand kit" class="border-t border-terminal-border/50 pt-10">
+          <div class="mb-6">
+            <h2 class="font-display text-[1.5rem] font-bold tracking-tight text-terminal-text">Brand kit</h2>
+            <p class="text-[14px] text-terminal-muted mt-1">
+              Wordmarks, app icons, favicons, splash screens — every PNG the docs and apps ship, packaged as one zip plus a per-file grid.
+            </p>
+          </div>
+
+          <div class="brand-kit">
+            <a class="brand-kit__btn" href="/brand/brandkit.zip" download>
+              <span class="brand-kit__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                     stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+                  <path d="M12 4v12" />
+                  <path d="m7 11 5 5 5-5" />
+                  <path d="M5 20h14" />
+                </svg>
+              </span>
+              <span class="brand-kit__copy">
+                <span class="brand-kit__title">nikcli-brandkit.zip</span>
+                <span class="brand-kit__meta">~986 KB · 17 files · 15 PNGs + README + MANIFEST</span>
+              </span>
+              <span class="brand-kit__action">Download</span>
+            </a>
+            <a class="brand-kit__btn brand-kit__btn--ghost" href="/brand/wordmark-dark.png" download>
+              <span class="brand-kit__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                     stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+                  <path d="M6 7h12" />
+                  <path d="M6 12h12" />
+                  <path d="M6 17h8" />
+                </svg>
+              </span>
+              <span class="brand-kit__copy">
+                <span class="brand-kit__title">wordmark-dark.png</span>
+                <span class="brand-kit__meta">632 × 206 · transparent · just the wordmark</span>
+              </span>
+              <span class="brand-kit__action">Download</span>
+            </a>
+          </div>
+
+          <details class="brand-kit-contents">
+            <summary>
+              What&rsquo;s inside the zip
+              <span class="brand-kit-contents__count">{brandAssets.length} groups · 15 files</span>
+            </summary>
+            <div class="brand-kit-contents__body">
+              {brandAssets.map((group) => (
+                <div class="brand-kit-contents__group">
+                  <h4>{group.title}</h4>
+                  <ul>
+                    {group.items.map((item) => (
+                      <li>
+                        <code>{item.name}</code>
+                        <span class="brand-kit-contents__dims">{item.dims}</span>
+                        <span class="brand-kit-contents__desc">{item.desc}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </details>
+
+          <section class="brand-files">
+            <div class="brand-files__heading">
+              <h3>Or download individual files</h3>
+              <p>Same rasterizations, one PNG at a time. Useful when you only need the wordmark, the favicon, or a specific dark / light pairing.</p>
+            </div>
+            <div class="brand-files-grid">
+              {brandAssets.flatMap((group) =>
+                group.items.map((item) => (
+                  <article class="brand-file" aria-label={item.name}>
+                    <a
+                      class="brand-file__thumb"
+                      href={item.src}
+                      download
+                      aria-label={`Download ${item.name}`}
+                    >
+                      <img
+                        src={item.src}
+                        alt={`${item.name} preview`}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </a>
+                    <div class="brand-file__body">
+                      <div class="brand-file__name">{item.name}</div>
+                      <div class="brand-file__meta">{item.dims} · {item.variant}</div>
+                    </div>
+                    <a
+                      class="brand-file__btn"
+                      href={item.src}
+                      download
+                      aria-label={`Download ${item.name}`}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 4v12" />
+                        <path d="m7 11 5 5 5-5" />
+                        <path d="M5 20h14" />
+                      </svg>
+                      <span class="brand-file__btn-label">Download {item.name}</span>
+                    </a>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+
+          <p class="mt-8 text-[12.5px] text-terminal-muted/80">
+            Source files live in <a href="/docs/brand" class="font-semibold text-terminal-text underline underline-offset-4 decoration-terminal-border/60 hover:text-terminal-accent hover:decoration-terminal-accent transition-colors">/docs/brand</a>.
+            Rebuild the zip after a source asset changes with <code class="font-mono text-[12px]">bun run --cwd packages/web build:brandkit</code>.
+          </p>
         </section>
 
         <!-- footer links -->

@@ -142,21 +142,52 @@ const toc = [
     <h2>What's new</h2>
     <p>
       Recent releases added the <a href="/docs/sync">sync subsystem</a> (event journal, projections,
-      idempotent outbox, remote hub), the macOS Island plugin (notch UI), new TUI feature
-      plugins (Brain, Browser, ChatBot, Computer, DeepSec, Observability), and several mobile
-      sheets (teleport, session artifacts, workspace switcher). The brand wordmarks are now
-      shared between web and mobile — see the <a href="/docs/brand">brand assets</a> reference.
+      idempotent outbox, remote hub), the macOS <a href="/docs/island">Island plugin</a>
+      (notch UI), new TUI feature plugins (<a href="/docs/brain">Brain</a>, Browser, ChatBot,
+      <a href="/docs/computer-use">Computer</a>, DeepSec, Observability), and several mobile
+      sheets (teleport, session artifacts, workspace switcher). The most recent release also
+      extracted three sibling automation engines — <a href="/docs/computer-use">computer-use</a>,
+      <a href="/docs/browser-control">browser-control</a>, and
+      <a href="/docs/terminal-control">terminal-control</a> — out of <code>packages/nikcli</code>
+      into first-class workspace packages. The brand wordmarks are now shared between web and
+      mobile — see the <a href="/docs/brand">brand assets</a> reference.
     </p>
     <div class="doc-grid not-prose my-2">
+      <DocCard title="Computer-use engine" eyebrow="New package" href="/docs/computer-use">
+        <p>
+          <code>@nikcli-ai/computer-use</code>: headless desktop-automation daemon, sandbox/host
+          backends, recording pipeline, PR-ready evidence bundles. Sibling of browser-control
+          and terminal-control.
+        </p>
+      </DocCard>
+      <DocCard title="Browser-control engine" eyebrow="New package" href="/docs/browser-control">
+        <p>
+          <code>@nikcli-ai/browser-control</code>: per-workspace Chromium daemon with the same
+          CLI grammar and bundle format as computer-use and terminal-control.
+        </p>
+      </DocCard>
+      <DocCard title="Terminal-control engine" eyebrow="New package" href="/docs/terminal-control">
+        <p>
+          <code>@nikcli-ai/terminal-control</code>: native termctrl driver, <code>.termctrl</code>
+          recordings, ANSI/JSON/PNG/SVG/video renderers, evidence bundles.
+        </p>
+      </DocCard>
+      <DocCard title="Brain subsystem" eyebrow="Long-term memory" href="/docs/brain">
+        <p>
+          Hourly scheduler, model picker, configurable consolidation session, and the
+          <code>memory.instruction.md</code> file under
+          <code>.github/instructions/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Island plugin" eyebrow="macOS notch" href="/docs/island">
+        <p>
+          <code>NikcliIsland.app</code> and the bridge that mirrors session state into the file
+          contract it reads. Bidirectional: the notch can answer permission requests via
+          <code>POST /permission/:requestID/reply</code>.
+        </p>
+      </DocCard>
       <DocCard title="Sync subsystem" eyebrow="Opt-in hub" href="/docs/sync">
         <p>Local event log, typed projections, cold-start snapshots, idempotent outbox, remote hub transport.</p>
-      </DocCard>
-      <DocCard title="Island plugin" eyebrow="macOS notch">
-        <p>
-          Mirrors live session state into the file contract that <code>NikcliIsland.app</code>
-          reads, with one snapshot per session under
-          <code>~/Library/Application Support/NikcliIsland/state.d/</code>.
-        </p>
       </DocCard>
       <DocCard title="New TUI feature plugins" eyebrow="TUI surface" href="/docs/tui">
         <p>
@@ -183,6 +214,14 @@ const toc = [
           Three PNG variants are now used consistently across the docs navbar, footer, dashboard
           connect screen, and mobile app via a single source of truth in
           <code>packages/mobile/assets/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Permission modes" eyebrow="TUI surface" href="/docs/permissions#modes">
+        <p>
+          The TUI command palette now exposes a <strong>Permissions</strong> dialog with three presets —
+          <code>require_approval</code>, <code>approve_for_me</code> (default), and <code>full_access</code> —
+          that write the per-agent <code>permission</code> map. A <code>custom</code> state surfaces
+          when an individual tool is changed by hand.
         </p>
       </DocCard>
     </div>

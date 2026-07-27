@@ -1,0 +1,261 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "How it works", href: "#how", depth: 2 },
+  { title: "Install", href: "#install", depth: 2 },
+  { title: "State file contract", href: "#contract", depth: 2 },
+  { title: "Permission reply from the notch", href: "#permissions", depth: 2 },
+  { title: "Disable & rollback", href: "#disable", depth: 2 },
+  { title: "Source anchors", href: "#source", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Island"
+  subtitle="@nikcli-ai/island — NikcliIsland.app, the macOS Dynamic-Island-style notch HUD for live nikcli sessions."
+  toc={toc}
+  description="The @nikcli-ai/island Swift package and the bridge that mirrors nikcli session state into the file contract the notch app reads."
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      <code>@nikcli-ai/island</code> (the Swift package under
+      <code>packages/nikcli-island/</code>) ships <code>NikcliIsland.app</code> — a
+      Dynamic-Island-style status HUD that draws over the macOS notch and shows the live
+      state of every <code>nikcli</code> session running on the machine. It is modeled on
+      <a href="https://github.com/eyadhammouda/pookify" target="_blank" rel="noopener">Pookify</a>
+      (the equivalent for Claude Code), rebuilt around nikcli's own event bus instead of a
+      one-way hook file.
+    </p>
+    <p>
+      Unlike every other package on the docs site, <code>@nikcli-ai/island</code> is a
+      Swift package — it does not participate in the JS build graph. Its only dependency
+      on nikcli itself is the file contract documented below.
+    </p>
+    <DocCallout type="info" title="macOS only">
+      Island is a no-op on Windows and Linux. The native app is a macOS-only notch UI. The
+      <code>NIKCLI_ISLAND_TEST_FORCE_DARWIN=1</code> flag exists only for the bridge's own
+      test suite and must never be set in production.
+    </DocCallout>
+  </section>
+
+  <section id="how" class="doc-section">
+    <h2>How it works</h2>
+    <p>
+      Three moving parts. The data flows from nikcli's process to the notch UI through a
+      small JSON file contract that the Swift app polls.
+    </p>
+    <ol>
+      <li>
+        <strong>The bridge.</strong>
+        <code>packages/nikcli/src/plugin/island/bridge.ts</code> is started unconditionally
+        from <code>src/index.ts</code>'s top-level middleware. It listens on
+        <code>GlobalBus</code> (<code>src/bus/global.ts</code>), which every
+        <code>Bus.publish(...)</code> call already forwards to regardless of mode — so the
+        island reflects any nikcli process running on the machine, not just the TUI.
+      </li>
+      <li>
+        <strong>The snapshot file.</strong> One JSON file per session under
+        <code>~/Library/Application Support/NikcliIsland/state.d/</code>, written
+        atomically (temp file + rename). Each snapshot carries the session id, agent
+        title, project, cwd, the writing process's pid, the local server port (when one
+        is running), and a server URL.
+      </li>
+      <li>
+        <strong>The Swift app.</strong> <code>NikcliIsland.app</code> reads the snapshot
+        directory (port of Pookify's <code>SessionAggregator.swift</code>) and draws the
+        notch (<code>IslandView.swift</code>, <code>NotchWindow.swift</code>,
+        <code>IslandShape.swift</code>, <code>NSScreen+Notch.swift</code>).
+      </li>
+    </ol>
+    <DocCallout type="success" title="Bidirectional — not just display">
+      Because the snapshot also carries the writer's local server port and URL, the
+      island can call back into <code>POST /permission/:requestID/reply</code> to approve
+      or deny a permission request from the notch itself. Pookify can only display
+      permission state; the nikcli island can actually answer it.
+    </DocCallout>
+  </section>
+
+  <section id="install" class="doc-section">
+    <h2>Install</h2>
+    <p>
+      Build the Swift package and drop the app into <code>/Applications</code>:
+    </p>
+    <DocCode language="bash" title="Terminal">
+      # Inside the nikcli monorepo
+      ./packages/nikcli-island/scripts/install.sh
+    </DocCode>
+    <p>
+      The <code>install.sh</code> script runs <code>swift build -c release</code>, assembles
+      <code>NikcliIsland.app</code>, and installs it to <code>/Applications</code>. An
+      <code>uninstall.sh</code> script is shipped alongside it.
+    </p>
+    <p>To enable the bridge, start any nikcli command with the <code>--island</code> flag:</p>
+    <DocCode language="bash" title="Terminal">
+      nikcli --island
+      nikcli tui --island
+      nikcli serve --island
+    </DocCode>
+    <p>
+      The first session activity wakes the app via
+      <code>open -g -b com.nikcli.island</code>; subsequent publishes are no-ops.
+    </p>
+  </section>
+
+  <section id="contract" class="doc-section">
+    <h2>State file contract</h2>
+    <p>
+      Each <code>*.json</code> file under <code>~/Library/Application Support/NikcliIsland/state.d/</code>
+      is one session's snapshot. The Swift app polls the directory and renders the union.
+      The schema is owned by <code>packages/nikcli-island/Sources/IslandCore/</code> on the
+      read side and mirrored in <code>src/plugin/island/bridge.ts</code> on the write side.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Source</th>
+          <th>Display</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>idle</code></td>
+          <td><code>session.status</code> → <code>idle</code></td>
+          <td>Empty pill on the notch.</td>
+        </tr>
+        <tr>
+          <td><code>thinking</code></td>
+          <td><code>session.status</code> → <code>busy</code> / <code>retry</code></td>
+          <td>"Thinking…" or "Retrying (N)…".</td>
+        </tr>
+        <tr>
+          <td><code>tool</code></td>
+          <td><code>message.part.updated</code> tool status</td>
+          <td>
+            Friendly label plus file basename. Lingers for ~1.9s after completion so the
+            last action stays visible.
+          </td>
+        </tr>
+        <tr>
+          <td><code>permission</code></td>
+          <td><code>permission.asked</code></td>
+          <td>"Awaiting permission" plus the request id for one-tap approval from the notch.</td>
+        </tr>
+        <tr>
+          <td><code>error</code></td>
+          <td><code>session.error</code></td>
+          <td>"Error" pill.</td>
+        </tr>
+        <tr>
+          <td><code>done</code></td>
+          <td>(reserved)</td>
+          <td>Used by the native app to mark a completed row before archival.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Beyond the state, each snapshot also carries the parent session id, agent title,
+      project, cwd, the writing process pid, the local server port (when one is running),
+      and a server URL — enough for the native app to invoke
+      <code>POST /permission/:requestID/reply</code> directly when you approve a pending
+      request from the notch.
+    </p>
+    <DocCallout type="note" title="Atomic writes">
+      The bridge writes snapshots with the standard temp-file-then-rename idiom so a half-
+      written file is never observable by the polling app. See
+      <code>IslandBridge.write</code> in <code>src/plugin/island/bridge.ts</code>.
+    </DocCallout>
+  </section>
+
+  <section id="permissions" class="doc-section">
+    <h2>Permission reply from the notch</h2>
+    <p>
+      The whole reason nikcli's island is more useful than Pookify's is the
+      bidirectional channel. Pookify's hook is one-way: it can render
+      <code>permission.asked</code>, but it has no way to answer it. nikcli's island can,
+      because the writing process is a live nikcli with a real HTTP API and a known
+      server URL.
+    </p>
+    <DocCode language="bash" title="Terminal">{`# What the island POSTs when you tap "Allow" on the notch
+curl -X POST http://127.0.0.1:4096/permission/per_example/reply \\
+  -H "Content-Type: application/json" \\
+  -d '{"reply":"once"}'`}</DocCode>
+    <p>
+      The reply handler is the same one the TUI and mobile composer use; see
+      <a href="/docs/permissions">Permissions</a> for the full request / reply lifecycle.
+    </p>
+  </section>
+
+  <section id="disable" class="doc-section">
+    <h2>Disable & rollback</h2>
+    <p>
+      The bridge is opt-in per invocation. To disable the bridge without uninstalling the
+      native app, set the environment variable:
+    </p>
+    <DocCode language="bash" title="Terminal">
+      NIKCLI_ISLAND_DISABLE=1 nikcli
+    </DocCode>
+    <p>
+      Toggling from inside the TUI uses the <code>island</code> feature plugin, which
+      calls <code>IslandBridge.setEnabled()</code>. Turning it off clears the current
+      snapshots and stops writing; turning it back on resumes through the already-
+      registered listener without any race window.
+    </p>
+    <p>To uninstall the native app entirely:</p>
+    <DocCode language="bash" title="Terminal">
+      ./packages/nikcli-island/scripts/uninstall.sh
+    </DocCode>
+    <DocCallout type="warn" title="Don't set NIKCLI_ISLAND_TEST_FORCE_DARWIN">
+      The <code>NIKCLI_ISLAND_TEST_FORCE_DARWIN=1</code> flag exists only for the bridge's
+      own test suite. Never set it in production: the feature is Windows/Linux no-op by
+      design and forcing it on a non-macOS host would silently write macOS-only paths.
+    </DocCallout>
+  </section>
+
+  <section id="source" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>File</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Swift package</td>
+          <td><code>packages/nikcli-island/</code></td>
+        </tr>
+        <tr>
+          <td>Install / uninstall scripts</td>
+          <td><code>packages/nikcli-island/scripts/install.sh</code>, <code>uninstall.sh</code></td>
+        </tr>
+        <tr>
+          <td>Snapshot schema (read side)</td>
+          <td><code>packages/nikcli-island/Sources/IslandCore/</code></td>
+        </tr>
+        <tr>
+          <td>Notch rendering</td>
+          <td><code>packages/nikcli-island/Sources/NikcliIsland/</code></td>
+        </tr>
+        <tr>
+          <td>Bridge (write side)</td>
+          <td><code>packages/nikcli/src/plugin/island/bridge.ts</code></td>
+        </tr>
+        <tr>
+          <td>TUI plugin (toggle)</td>
+          <td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/island/index.tsx</code></td>
+        </tr>
+        <tr>
+          <td>Worker shutdown hook</td>
+          <td><code>packages/nikcli/src/cli/cmd/tui/worker.ts</code> → <code>shutdown</code> RPC</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

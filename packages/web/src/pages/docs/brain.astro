@@ -1,0 +1,300 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "What Brain does", href: "#what", depth: 2 },
+  { title: "Trigger conditions", href: "#trigger", depth: 2 },
+  { title: "Configuration", href: "#config", depth: 2 },
+  { title: "Memory file", href: "#memory", depth: 2 },
+  { title: "TUI & API surface", href: "#surface", depth: 2 },
+  { title: "Source anchors", href: "#source", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Brain"
+  subtitle="The Brain subsystem periodically consolidates session memory and re-evaluates long-running context — TUI plugin, server route, and headless scheduler."
+  toc={toc}
+  description="How nikcli's Brain subsystem schedules, triggers, and runs memory consolidation sessions, with its config keys, thresholds, and TUI surface."
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      Brain is nikcli's "long-term memory" subsystem. While a session is running, every
+      tool call, message, and decision lives in the session's JSON store; Brain's job is
+      to periodically consolidate that signal into a single, well-organised
+      <code>memory.instruction.md</code> file that future coding sessions can read at
+      startup to orient quickly.
+    </p>
+    <p>
+      Brain is implemented in <code>packages/nikcli/src/brain/</code> and surfaces in three
+      places: a headless scheduler that ticks every hour, a TUI feature plugin for the
+      <code>brain</code> model picker, and a server route (<code>/brain</code>) plus a
+      typed <code>httpapi/brain.ts</code> group for the Studio dashboard and external
+      clients.
+    </p>
+    <DocCallout type="info" title="Experimental feature flag">
+      Brain is enabled by default but is part of the <code>experimental</code> config
+      group. Disable it globally with <code>experimental.brain = false</code>, or turn off
+      just the memory write with <code>experimental.memory = false</code>.
+    </DocCallout>
+  </section>
+
+  <section id="what" class="doc-section">
+    <h2>What Brain does</h2>
+    <p>
+      When triggered, Brain runs a real nikcli session under the hood — but a session with
+      a very narrow scope. It:
+    </p>
+    <ol>
+      <li>Reads the existing memory file (if any) under
+        <code>.github/instructions/memory.instruction.md</code>.</li>
+      <li>Pulls the most recent N sessions (default 10) and formats their message parts
+        into a compact review.</li>
+      <li>Sends the prompt
+        (<code>Brain.buildBrainPrompt(memoryPath, reviews, currentMemory)</code>) to a
+        dedicated session titled <code>BRAIN_SESSION_TITLE</code>, with permissions
+        restricted to read/edit-only — no <code>task</code>, no <code>todo</code>, no
+        <code>bash</code>.</li>
+      <li>Cancels the session via <code>prompt.cancel</code> after
+        <code>BRAIN_SESSION_TIMEOUT_MS = 5 minutes</code>.</li>
+      <li>Diff-checks the memory file before/after. If it changed, marks the run as a
+        success and writes the brain lock file (<code>Global.Path.state/.brain-lock</code>)
+        so the next <code>shouldTrigger</code> check has a fresh anchor.</li>
+    </ol>
+    <p>
+      The consolidating model is configurable through <code>experimental.brainModel</code>
+      (<code>"provider/model"</code>). When the configured model is unknown or unreachable,
+      Brain silently falls back to the user's default model so the pass still runs.
+    </p>
+  </section>
+
+  <section id="trigger" class="doc-section">
+    <h2>Trigger conditions</h2>
+    <p>
+      <code>Brain.shouldTrigger()</code> decides whether the scheduler should fire. It
+      refuses to run when Brain or memory is disabled, when the cooldown has not elapsed,
+      when a scan has happened in the last <code>SCAN_THROTTLE_MS = 10 minutes</code>, or
+      when there aren't enough sessions since the last successful Brain pass.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Constant</th>
+          <th>Default</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>DEFAULTS.minHours</code></td>
+          <td><code>24</code></td>
+          <td>Minimum hours between successful Brain passes (configurable via <code>experimental.brainMinHours</code>).</td>
+        </tr>
+        <tr>
+          <td><code>DEFAULTS.minSessions</code></td>
+          <td><code>5</code></td>
+          <td>Minimum new sessions since the last pass before Brain fires (configurable via <code>experimental.brainMinSessions</code>).</td>
+        </tr>
+        <tr>
+          <td><code>SCAN_THROTTLE_MS</code></td>
+          <td><code>10 * 60 * 1000</code></td>
+          <td>How often <code>shouldTrigger()</code> is allowed to scan session history.</td>
+        </tr>
+        <tr>
+          <td><code>LOCK_DURATION_MS</code></td>
+          <td><code>1 hour</code></td>
+          <td>Stale-lease duration for the <code>brain</code> flock lock.</td>
+        </tr>
+        <tr>
+          <td><code>BRAIN_SESSION_TIMEOUT_MS</code></td>
+          <td><code>5 minutes</code></td>
+          <td>Hard ceiling on a single Brain session; cancelled via <code>prompt.cancel</code> on expiry.</td>
+        </tr>
+        <tr>
+          <td><code>SESSION_REVIEW_LIMIT</code></td>
+          <td><code>10</code></td>
+          <td>How many recent sessions are included in the prompt.</td>
+        </tr>
+        <tr>
+          <td><code>SESSION_REVIEW_MAX_CHARS</code></td>
+          <td><code>12_000</code></td>
+          <td>Per-session review truncation length.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      The scheduler registers itself with
+      <code>Scheduler.register(&#123; id: "brain", interval: 60 * 60 * 1000, scope: "instance" &#125;)</code>
+      — one tick per hour, scoped to the project instance.
+    </p>
+    <DocCallout type="warn" title="Force runs bypass the throttle">
+      <code>Brain.trigger(&#123; force: true &#125;)</code> skips the
+      <code>shouldTrigger</code> gate (except for the <code>enabled</code> and
+      <code>memoryEnabled</code> checks) and reviews the most recent sessions even when
+      no time has elapsed. The TUI dialog and the <code>/brain/trigger</code> route expose
+      this path.
+    </DocCallout>
+  </section>
+
+  <section id="config" class="doc-section">
+    <h2>Configuration</h2>
+    <p>
+      All Brain knobs live under <code>experimental</code> in
+      <code>nikcli.json</code>:
+    </p>
+    <DocCode language="json" title="nikcli.json">{`{
+  "experimental": {
+    "brain": true,
+    "memory": true,
+    "brainMinHours": 24,
+    "brainMinSessions": 5,
+    "brainModel": "anthropic/claude-sonnet-4.5"
+  }
+}`}</DocCode>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Default</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>experimental.brain</code></td>
+          <td><code>true</code></td>
+          <td>Master switch for the Brain subsystem. When <code>false</code>, neither the scheduler nor a manual trigger will fire.</td>
+        </tr>
+        <tr>
+          <td><code>experimental.memory</code></td>
+          <td><code>true</code></td>
+          <td>Whether Brain is allowed to write the memory file. Turning this off keeps Brain's read path active but disables consolidation.</td>
+        </tr>
+        <tr>
+          <td><code>experimental.brainMinHours</code></td>
+          <td><code>24</code></td>
+          <td>Override <code>DEFAULTS.minHours</code>.</td>
+        </tr>
+        <tr>
+          <td><code>experimental.brainMinSessions</code></td>
+          <td><code>5</code></td>
+          <td>Override <code>DEFAULTS.minSessions</code>.</td>
+        </tr>
+        <tr>
+          <td><code>experimental.brainModel</code></td>
+          <td>(default provider/model)</td>
+          <td>"provider/model" string the consolidation session runs on. Falls back silently to the user's default model when unavailable.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="memory" class="doc-section">
+    <h2>Memory file</h2>
+    <p>
+      Brain writes to <code>.github/instructions/memory.instruction.md</code> inside the
+      project directory (created on demand). The path is the same convention used by
+      GitHub Copilot for project-level instructions, so the file is shared automatically
+      with anything in the repo that reads <code>.github/instructions/*.md</code>.
+    </p>
+    <p>
+      The consolidating prompt focuses on four phases — orient, gather, consolidate,
+      prune — and explicitly forbids creating a new memory file or asking the user
+      questions. The full prompt template is in <code>Brain.buildBrainPrompt()</code>; the
+      resulting memory file is meant to be concise, dated, and indexed for fast lookup.
+    </p>
+    <DocCallout type="success" title="Brain is also a long-term signal for other agents">
+      Because the file lives under <code>.github/instructions/</code>, every future
+      nikcli session in the same project picks it up automatically — it becomes part of
+      the system prompt context for the next agent run.
+    </DocCallout>
+  </section>
+
+  <section id="surface" class="doc-section">
+    <h2>TUI & API surface</h2>
+    <p>
+      Brain is reachable from three places: the scheduler (passive), the TUI dialog
+      (<code>dialog-brain.tsx</code> — pick the model and force a run), and the server
+      routes.
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="TUI dialog" eyebrow="dialog-brain.tsx">
+        <p>
+          Bound to the <code>brain</code> feature plugin and surfaced from the command
+          palette. Lets you pick the consolidation model and trigger a forced run.
+        </p>
+      </DocCard>
+      <DocCard title="Server routes" eyebrow="server/routes/brain.ts">
+        <p>
+          <code>GET /brain</code> returns the full status payload (enabled, memory enabled,
+          min hours, min sessions, last brain at, hours since, sessions since, should
+          trigger, configured model). <code>POST /brain/trigger</code> accepts
+          <code>&#123;force: boolean&#125;</code> and runs <code>Brain.trigger</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Typed HttpApi" eyebrow="server/httpapi/brain.ts">
+        <p>
+          Same surface under the typed HttpApi group
+          (<code>operationId: brain.status</code>, <code>brain.trigger</code>) — mounted
+          through <code>HttpApiBridge</code> when <code>NIKCLI_EXPERIMENTAL_HTTPAPI</code> is
+          set. Used by the Studio dashboard and SDK clients.
+        </p>
+      </DocCard>
+    </div>
+    <DocCallout type="note" title="Headless scheduler">
+      The scheduler registers itself from <code>initBrainScheduler()</code> with
+      <code>scope: "instance"</code>. The scheduler definition is in
+      <code>packages/nikcli/src/scheduler/</code>; one tick per hour, per project
+      instance.
+    </DocCallout>
+  </section>
+
+  <section id="source" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>File</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Core service + consolidation prompt</td>
+          <td><code>packages/nikcli/src/brain/index.ts</code></td>
+        </tr>
+        <tr>
+          <td>Hourly scheduler</td>
+          <td><code>packages/nikcli/src/brain/scheduler.ts</code></td>
+        </tr>
+        <tr>
+          <td>Constants</td>
+          <td><code>packages/nikcli/src/brain/constants.ts</code></td>
+        </tr>
+        <tr>
+          <td>Classic routes</td>
+          <td><code>packages/nikcli/src/server/routes/brain.ts</code></td>
+        </tr>
+        <tr>
+          <td>Typed HttpApi</td>
+          <td><code>packages/nikcli/src/server/httpapi/brain.ts</code></td>
+        </tr>
+        <tr>
+          <td>TUI plugin</td>
+          <td>
+            <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/brain/index.tsx</code>
+          </td>
+        </tr>
+        <tr>
+          <td>TUI dialog</td>
+          <td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-brain.tsx</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

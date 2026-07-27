@@ -1,7 +1,7 @@
 export type DocsNavGroup = {
-  title: string
-  items: Array<{ title: string; href: string }>
-}
+  title: string;
+  items: Array<{ title: string; href: string }>;
+};
 
 export const docsSidebar: DocsNavGroup[] = [
   {
@@ -40,7 +40,17 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "LSP", href: "/docs/lsp" },
       { title: "Storage", href: "/docs/storage" },
       { title: "TUI", href: "/docs/tui" },
+      { title: "Brain", href: "/docs/brain" },
+      { title: "Island", href: "/docs/island" },
       { title: "Observability", href: "/docs/observability" },
+    ],
+  },
+  {
+    title: "Engines",
+    items: [
+      { title: "Computer-use", href: "/docs/computer-use" },
+      { title: "Browser-control", href: "/docs/browser-control" },
+      { title: "Terminal-control", href: "/docs/terminal-control" },
     ],
   },
   {
@@ -52,4 +62,4 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "CLI Debug", href: "/docs/cli-debug" },
     ],
   },
-]
+];

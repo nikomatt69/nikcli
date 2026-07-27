@@ -63,8 +63,8 @@ const toc = [
           <td>Run a one-shot prompt without entering the TUI.</td>
         </tr>
         <tr>
-          <td><code>nikcli attach &lt;url&gt;</code></td>
-          <td>Attach a local TUI to a shared remote session URL.</td>
+          <td><code>nikcli run --attach &lt;url&gt;</code></td>
+          <td>Connect a one-shot run to a running nikcli server. <code>--attach</code> is a flag on <code>run</code>, not a separate command.</td>
         </tr>
         <tr>
           <td><code>nikcli session list</code></td>
@@ -82,7 +82,7 @@ const toc = [
     </table>
     <DocCode language="bash">
       nikcli run "audit this repo and summarize risks"
-      nikcli attach https://example.nikcli.store/share/abcd
+      nikcli run --attach http://127.0.0.1:4096 "summarize the open work"
       nikcli quickstart --skip-checks
       nikcli pr 42
     </DocCode>

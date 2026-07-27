@@ -3,9 +3,18 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
 import DocCard from "../../components/docs/DocCard.astro";
+import DocRelated from "../../components/docs/DocRelated.astro";
+
+const related = [
+  { title: "Tools", href: "/docs/tools", description: "The tool surface that permission rules gate." },
+  { title: "Agents", href: "/docs/agents", description: "Per-agent permission overlays and the TUI presets that write them." },
+  { title: "Configuration", href: "/docs/configuration", description: "Config form, env flags, and the legacy tools → permission migration." },
+  { title: "TUI", href: "/docs/tui", description: "The permission_mode keybind and the dialog that applies a preset." },
+];
 
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Permission modes", href: "#modes", depth: 2 },
   { title: "Actions and rules", href: "#actions-rules", depth: 2 },
   { title: "Config forms", href: "#config-forms", depth: 2 },
   { title: "Evaluation order", href: "#evaluation", depth: 2 },
@@ -21,8 +30,8 @@ const toc = [
 
 <DocsLayout
   title="Permissions"
-  subtitle="How nikcli evaluates allow, deny, and ask rules for tools, stores always approvals, and exposes pending requests to TUI and mobile."
-  description="Reference for nikcli permission rules, approval persistence, tool gating, and pending request flows."
+  subtitle="Choose a permission mode, or customize allow, ask, and deny rules for every tool."
+  description="Reference for nikcli permission modes, rules, approval persistence, tool gating, and pending request flows."
   toc={toc}
 >
   <section id="overview" class="doc-section">
@@ -46,6 +55,76 @@ const toc = [
         <p>TUI, mobile, and API clients list and reply to pending permission requests.</p>
       </DocCard>
     </div>
+  </section>
+
+  <section id="modes" class="doc-section">
+    <h2>Permission modes</h2>
+    <p>
+      The TUI and mobile app surface three named presets plus a derived <strong>Custom</strong> label.
+      Open the TUI command palette and choose <strong>Permissions</strong>, or use the
+      <code>permission_mode</code> keybind, to switch modes. A preset writes the current primary
+      agent's <code>permission</code> map; agent-level settings take precedence over the global
+      <code>config.permission</code> value. The same preset definitions are shared by mobile and web
+      through <code>permission-presets.ts</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Mode</th><th>Short label</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Require approval</strong> (<code>require_approval</code>)</td>
+          <td><code>Ask</code></td>
+          <td>Ask before every tool action.</td>
+        </tr>
+        <tr>
+          <td><strong>Approve for me</strong> (<code>approve_for_me</code>)</td>
+          <td><code>Approve</code></td>
+          <td>Automatically allows trusted local work, but asks for shell commands, internet access, external files, sensitive reads, and other high-impact capabilities.</td>
+        </tr>
+        <tr>
+          <td><strong>Full access</strong> (<code>full_access</code>)</td>
+          <td><code>Full</code></td>
+          <td>Allow tool actions without approval prompts.</td>
+        </tr>
+        <tr>
+          <td><strong>Custom</strong> (<code>custom</code>)</td>
+          <td><code>Custom</code></td>
+          <td>Shown when individual tool rules no longer match a built-in preset.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCallout type="note" title="Default mode">
+      <p>
+        An empty permission map is detected as <strong>Approve for me</strong>. This balances
+        uninterrupted local editing and code navigation with explicit approval for riskier actions.
+      </p>
+    </DocCallout>
+    <h3>Approve for me defaults</h3>
+    <table class="doc-table">
+      <thead><tr><th>Action</th><th>Tools and capabilities</th></tr></thead>
+      <tbody>
+        <tr><td><code>allow</code></td><td>Local editing and navigation, tasks and skills, LSP, todos, repository overview, context queries, RAG search/status, and speech.</td></tr>
+        <tr><td><code>ask</code></td><td><code>bash</code>, web fetch/search/code search, external directories, browser and computer control, repository cloning, image generation, memory search, RAG indexing/reset, doom-loop approval, and reads of <code>*.env</code> or <code>*.env.*</code>. <code>*.env.example</code> remains allowed.</td></tr>
+        <tr><td><code>deny</code></td><td>Internal <code>question</code>, <code>plan_enter</code>, and <code>plan_exit</code> permission keys.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Selecting an individual tool cycles its action through <code>allow</code>, <code>ask</code>, and
+      <code>deny</code>. The mode then appears as <strong>Custom</strong> unless the resulting map still
+      matches one of the presets. A preset is just a starting map; once it lands in
+      <code>config.permission</code> (or in an agent-level override), the ruleset evaluator treats it
+      the same as a hand-written <code>permission</code> object.
+    </p>
+    <DocCallout type="info" title="How a preset becomes rules">
+      <p>
+        Each preset is converted to the same <code>permission</code> map shape described in
+        <a href="#config-forms">Config forms</a>. <code>require_approval</code> writes
+        <code>&#123;"*": "ask"&#125;</code> for every known tool; <code>full_access</code> writes
+        <code>&#123;"*": "allow"&#125;</code>; <code>approve_for_me</code> writes the explicit allow,
+        ask, and deny map shown above. Internal keys (<code>question</code>, <code>plan_enter</code>,
+        <code>plan_exit</code>) are always <code>deny</code> so the agent cannot bypass the
+        permission pipeline through them.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="actions-rules" class="doc-section">
@@ -179,7 +258,7 @@ const toc = [
         <tr><td><code>external_directory</code></td><td>Path outside project</td><td>Guards reads/writes outside the current worktree.</td></tr>
         <tr><td><code>webfetch</code>, <code>websearch</code></td><td>URL or wildcard</td><td>Network-related tools can be forced to ask.</td></tr>
         <tr><td><code>lsp</code></td><td><code>*</code></td><td>The LSP tool asks before running language-server operations.</td></tr>
-        <tr><td><code>task</code>, <code>subagents</code></td><td>Task or wildcard</td><td>Controls delegated/background work.</td></tr>
+        <tr><td><code>task</code></td><td>Task or wildcard</td><td>Controls delegated work launched by the <code>task</code> tool (subagents inherit the parent session's permission map).</td></tr>
         <tr><td><code>generate_image</code>, <code>speak</code></td><td>Provider/model or wildcard</td><td>Media generation tools can be separately controlled.</td></tr>
       </tbody>
     </table>
@@ -214,12 +293,15 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
     <table class="doc-table">
       <thead><tr><th>Goal</th><th>Policy</th></tr></thead>
       <tbody>
+        <tr><td>Strict by default</td><td>Apply the <strong>Require approval</strong> preset (<code>require_approval</code>).</td></tr>
+        <tr><td>Balanced local work</td><td>Apply the <strong>Approve for me</strong> preset (<code>approve_for_me</code>) — the empty-map default.</td></tr>
+        <tr><td>Run unattended in a sandbox</td><td>Apply the <strong>Full access</strong> preset (<code>full_access</code>); internal keys stay <code>deny</code>.</td></tr>
         <tr><td>Ask before all shell and edits</td><td><code>bash: ask</code>, <code>edit: ask</code>.</td></tr>
         <tr><td>Allow harmless git reads</td><td>Allow <code>git status*</code>, <code>git diff*</code>, <code>git log*</code>; ask for all other bash.</td></tr>
         <tr><td>Protect secrets</td><td>Deny edit/read patterns such as <code>.env*</code> where appropriate.</td></tr>
         <tr><td>Disable browsing</td><td>Set <code>webfetch</code> and <code>websearch</code> to <code>deny</code>.</td></tr>
         <tr><td>Allow language queries</td><td>Set <code>lsp</code> to <code>allow</code> for trusted projects.</td></tr>
-        <tr><td>Keep delegated work explicit</td><td>Set <code>task</code> and <code>subagents</code> to <code>ask</code>.</td></tr>
+        <tr><td>Keep delegated work explicit</td><td>Set <code>task</code> to <code>ask</code> so the <code>task</code> tool prompts before launching a subagent.</td></tr>
       </tbody>
     </table>
   </section>
@@ -248,9 +330,14 @@ curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
         <tr><td>Permission schema</td><td><code>packages/nikcli/src/permission/schema.ts</code></td></tr>
         <tr><td>Config permission schema and legacy tools migration</td><td><code>packages/nikcli/src/config/config.ts</code></td></tr>
         <tr><td>API routes</td><td><code>packages/nikcli/src/server/routes/permission.ts</code>, <code>packages/nikcli/src/server/httpapi/permission.ts</code></td></tr>
+        <tr><td>TUI permission mode dialog</td><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-permission-mode.tsx</code></td></tr>
+        <tr><td>TUI preset definitions and mode detection</td><td><code>packages/nikcli/src/cli/cmd/tui/util/permission-presets.ts</code></td></tr>
+        <tr><td>Mobile preset definitions and mode detection</td><td><code>packages/mobile/lib/permission-presets.ts</code></td></tr>
         <tr><td>TUI permission prompt</td><td><code>packages/nikcli/src/cli/cmd/tui/routes/session/permission.tsx</code></td></tr>
         <tr><td>LSP tool permission example</td><td><code>packages/nikcli/src/tool/lsp.ts</code></td></tr>
       </tbody>
     </table>
   </section>
+
+  <DocRelated links={related} />
 </DocsLayout>

@@ -298,6 +298,16 @@ NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
       a tool-to-pattern map. Actions are <code>ask</code>, <code>allow</code>, and <code>deny</code>.
       The legacy top-level <code>tools</code> boolean map is converted into permission actions.
     </p>
+    <DocCallout type="info" title="Permission modes">
+      <p>
+        TUI and mobile expose three named presets that map to the same <code>permission</code> map
+        shape shown below: <code>require_approval</code> (every tool asks), <code>approve_for_me</code>
+        (the empty-map default — trusted local work is allowed, shell/network/external/sensitive
+        actions ask), and <code>full_access</code> (every tool is allowed). Editing individual tools
+        after a preset switches the value to <code>custom</code>. See
+        <a href="/docs/permissions">Permissions</a> for the full preset map and behavior table.
+      </p>
+    </DocCallout>
     <DocCode language="json" title="permission config">
 &#123;
   "permission": &#123;

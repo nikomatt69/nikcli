@@ -106,6 +106,106 @@ const packages = [
     path: "packages/mobile",
     role: "React Native / Expo companion app for iOS and Android that streams sessions over SSE and handles mobile-specific permissions.",
   },
+  {
+    name: "@nikcli-ai/web",
+    path: "packages/web",
+    role: "Astro site that powers nikcli.store, the docs site, and the Studio dashboard.",
+  },
+  {
+    name: "@nikcli-ai/computer-use",
+    path: "packages/computer-use",
+    role: "Headless desktop-automation engine: daemon, sandbox/host backends, recording pipeline, PR-ready evidence bundles. Sibling of browser-control and terminal-control.",
+  },
+  {
+    name: "@nikcli-ai/browser-control",
+    path: "packages/browser-control",
+    role: "Headless browser-automation engine for Chromium pages: per-workspace daemon, recording pipeline, evidence bundles. Powers the browser tool.",
+  },
+  {
+    name: "@nikcli-ai/terminal-control",
+    path: "packages/terminal-control",
+    role: "Terminal-recording engine with native termctrl driver: .termctrl recordings, JSON/ANSI/PNG/SVG/video renderers, evidence bundles.",
+  },
+  {
+    name: "@nikcli-ai/tui-image",
+    path: "packages/tui-image",
+    role: "Image rendering primitives for TUI / OpenTUI terminals with Kitty, Sixel, iTerm2 and Unicode fallbacks.",
+  },
+  {
+    name: "@nikcli-ai/sdk-next",
+    path: "packages/sdk-next",
+    role: "Next-generation JavaScript SDK prototype. Lives next to @nikcli-ai/sdk; see that package for the stable surface.",
+  },
+  {
+    name: "@nikcli-ai/auth",
+    path: "packages/auth",
+    role: "Provider and external auth storage used outside connector-specific auth (distinct from per-connector and account-level auth).",
+  },
+  {
+    name: "@nikcli-ai/identity",
+    path: "packages/identity",
+    role: "Identity layer shared across the cloud surface, accounts, and mobile pairing.",
+  },
+  {
+    name: "@nikcli-ai/httpapi-codegen",
+    path: "packages/httpapi-codegen",
+    role: "Code generator for the typed HttpApi route groups consumed by the SDK.",
+  },
+  {
+    name: "@nikcli-ai/bench-tui",
+    path: "packages/bench-tui",
+    role: "Standalone test interface and benchmark dashboard for Bun packages — SolidJS over OpenTUI.",
+  },
+  {
+    name: "@nikcli-ai/simulation",
+    path: "packages/simulation",
+    role: "Driver + recording + protocol layer for the simulation harness used by browser, terminal and computer engines.",
+  },
+  {
+    name: "@nikcli-ai/script",
+    path: "packages/script",
+    role: "Cross-package CLI scripts and ops tooling — includes the Railway deploy script referenced from the mobile doc.",
+  },
+  {
+    name: "@nikcli-ai/nikcli-island",
+    path: "packages/nikcli-island",
+    role: "Swift package that ships NikcliIsland.app, the macOS notch HUD for live sessions. Outside the JS build graph.",
+  },
+  {
+    name: "@nikcli-ai/containers",
+    path: "packages/containers",
+    role: "Prebuilt GitHub Actions container images: base, bun-node, rust, tauri-linux, publish.",
+  },
+  {
+    name: "@nikcli-ai/extensions/zed",
+    path: "packages/extensions/zed",
+    role: "Zed editor extension that wires nikcli as an agent server.",
+  },
+  {
+    name: "@nikcli-ai/console-app",
+    path: "packages/console/app",
+    role: "Console-suite Vite app shell for the hosted admin surface.",
+  },
+  {
+    name: "@nikcli-ai/console-core",
+    path: "packages/console/core",
+    role: "Console-suite shared core: AWS SDK helpers, SST infra glue, and JSX-email rendering.",
+  },
+  {
+    name: "@nikcli-ai/console-function",
+    path: "packages/console/function",
+    role: "Console-suite Cloudflare Worker functions exposed under the console surface.",
+  },
+  {
+    name: "@nikcli-ai/console-mail",
+    path: "packages/console/mail",
+    role: "Console-suite transactional-email worker built on @jsx-email.",
+  },
+  {
+    name: "@nikcli-ai/console-resource",
+    path: "packages/console/resource",
+    role: "Console-suite Cloudflare resource bindings (KV, R2, Durable Objects, etc.).",
+  },
 ];
 ---
 
@@ -357,9 +457,22 @@ export const defaultLayer = Layer.suspend(() =>
     <h2>Full Package Table</h2>
     <p>
       Packages without a <code>package.json</code> at their root (e.g.
-      <code>packages/sdk</code> which nests <code>packages/sdk/js</code>) are listed by their
-      published package name. Empty scaffold directories without runtime content are omitted.
+      <code>packages/sdk</code> which nests <code>packages/sdk/js</code>, or
+      <code>packages/extensions/zed</code> which is a Zed extension manifest) are listed by
+      their published package name. The <code>packages/console/</code> tree publishes five
+      sibling packages under the <code>@nikcli-ai/console-*</code> scope; the
+      <code>packages/containers/</code> tree ships prebuilt Docker images rather than a
+      single npm package.
     </p>
+    <DocCallout type="info" title="The three automation engines">
+      <code>@nikcli-ai/computer-use</code>, <code>@nikcli-ai/browser-control</code>, and
+      <code>@nikcli-ai/terminal-control</code> are sibling engines that share the same CLI
+      grammar (<code>start / info / recording / bundle</code>) and the same per-workspace
+      background daemon pattern. Their <code>bundle</code> commands all produce the same
+      artifact set (<code>screenshot.png</code>, <code>demo.mp4</code>,
+      <code>preview.gif</code>, <code>manifest.json</code>, <code>pr.md</code>) so PR
+      pipelines can treat them uniformly.
+    </DocCallout>
     <table class="doc-table">
       <thead>
         <tr>

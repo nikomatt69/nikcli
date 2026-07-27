@@ -110,7 +110,7 @@ bun run --cwd packages/nikcli dev
     <ol>
       <li><strong>Global initialization</strong> creates data, config, cache, state, log, bin, and repo paths.</li>
       <li><strong>Logging setup</strong> respects <code>--print-logs</code>, <code>--log-level</code>, and local development defaults.</li>
-      <li><strong>Command registration</strong> wires ACP, MCP, ads, TUI, attach, run, goal, generate, debug, auth, account, agent, upgrade, quickstart, doctor, serve, workspace, web, heap, models, locale, stats, export/import, GitHub, PR, session, image, speech, remote, companion, mobile, routine, usage, and plugin commands.</li>
+      <li><strong>Command registration</strong> wires ACP, MCP, ads, TUI, run, goal, generate, debug, auth, account, agent, upgrade, quickstart, doctor, serve, workspace, web, heap, models, locale, stats, export/import, GitHub, PR, session, image, speech, remote, companion, mobile, routine, usage, mission, loop, and plugin commands. <code>--attach</code> is a flag on <code>run</code>, not a separate command.</li>
       <li><strong>Failure formatting</strong> uses <code>FormatError</code> for known errors and points unknown errors at the log file.</li>
       <li><strong>Process exit</strong> runs in <code>finally</code> to avoid hanging child processes, especially external MCP servers.</li>
     </ol>
@@ -214,7 +214,10 @@ bun run --cwd packages/nikcli dev
       Tools are available to agents through the tool registry and are guarded by the permission
       system where needed. Permissions are evaluated from rules, path patterns, and action defaults,
       with pending prompts published as bus events and persisted always-approvals stored under the
-      project storage namespace.
+      project storage namespace. See
+      <a href="/docs/permissions#modes">Permission modes</a> for the TUI presets
+      (<code>require_approval</code> / <code>approve_for_me</code> / <code>full_access</code> /
+      <code>custom</code>) that write the per-agent permission map.
     </p>
     <table class="doc-table">
       <thead><tr><th>Area</th><th>Behavior</th></tr></thead>
@@ -222,8 +225,9 @@ bun run --cwd packages/nikcli dev
         <tr><td>Tool registry</td><td>Registers filesystem, shell, edit, search, web, MCP, LSP, and domain-specific tools according to config and feature flags.</td></tr>
         <tr><td>Permission evaluation</td><td>Finds the last matching allow, deny, or ask rule, expands home paths, and resolves action-specific policy.</td></tr>
         <tr><td>Interactive asks</td><td>Publishes pending permission requests and waits for a one-time, always, or reject reply.</td></tr>
-        <tr><td>Persistence</td><td>Always approvals are stored as project-scoped records in the JSON storage layer.</td></tr>
+        <tr><td>Persistence</td><td>Always approvals are stored as project-scoped records in the JSON storage layer under <code>permission/:projectID</code>.</td></tr>
         <tr><td>LSP tool gate</td><td>The agent-facing <code>lsp</code> tool is available only when the experimental LSP tool flag is enabled.</td></tr>
+        <tr><td>Mode presets</td><td>The TUI exposes three presets that write the agent's <code>config.agent.&lt;name&gt;.permission</code> map. The default is <code>approve_for_me</code> (allow trusted local work, ask for shell/web/external/sensitive reads).</td></tr>
       </tbody>
     </table>
   </section>
@@ -295,7 +299,7 @@ bun run --cwd packages/nikcli dev
       <thead><tr><th>Surface</th><th>Entry</th><th>Architecture note</th></tr></thead>
       <tbody>
         <tr><td>TUI remote control</td><td><code>remote</code> command and TUI slash commands</td><td>Controls a running terminal session through server/TUI events and shared URLs.</td></tr>
-        <tr><td>Attach</td><td><code>nikcli attach &lt;url&gt;</code></td><td>Runs the terminal renderer against an existing server URL.</td></tr>
+        <tr><td>Run against a server</td><td><code>nikcli run --attach &lt;url&gt;</code></td><td>One-shot agent execution attached to an existing nikcli server (no separate <code>attach</code> command).</td></tr>
         <tr><td>Mobile host</td><td><code>mobile</code> command and <code>server/routes/mobile.ts</code></td><td>Hosts mobile app APIs, auth tokens, sessions, routines, GitHub-backed repos, notifications, and Live Activity flows.</td></tr>
         <tr><td>Companion</td><td><code>companion</code> command</td><td>Desktop browser companion surface using the server and SDK event model.</td></tr>
         <tr><td>Workspace server</td><td><code>workspace-serve</code> and workspace routes</td><td>Hosts workspace contexts, status, events, and session proxying.</td></tr>
@@ -339,7 +343,7 @@ bun run --cwd packages/nikcli dev
         <tr><td>Why is config different in a worktree?</td><td><code>config/config.ts</code></td><td><code>config/paths.ts</code> and environment flags</td></tr>
         <tr><td>Why did a provider/model disappear?</td><td><code>provider/provider.ts</code></td><td>Saved auth, config provider entries, enabled/disabled filters, plugin auth/model hooks</td></tr>
         <tr><td>Where is session content stored?</td><td><code>storage/storage.ts</code></td><td><code>session/index.ts</code>, <code>session/message-v2.ts</code></td></tr>
-        <tr><td>Why is a tool blocked?</td><td><code>permission/next.ts</code></td><td><code>permission/schema.ts</code>, <code>permission/evaluate.ts</code>, config rules</td></tr>
+        <tr><td>Why is a tool blocked?</td><td><code>permission/next.ts</code></td><td><code>permission/schema.ts</code>, <code>permission/evaluate.ts</code>, the active permission mode (see <a href="/docs/permissions#modes">Permission modes</a>)</td></tr>
         <tr><td>Why does mobile auth fail?</td><td><code>server/routes/mobile.ts</code></td><td><code>mobile/auth.ts</code> and <code>mobile_auth.db</code></td></tr>
         <tr><td>Why does the TUI not receive updates?</td><td><code>cli/cmd/tui/context/sdk.tsx</code></td><td><code>cli/cmd/tui/worker.ts</code>, event route, server auth</td></tr>
       </tbody>

@@ -871,8 +871,14 @@ nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
       <strong>Reject</strong>, <strong>Allow once</strong>, <strong>Always allow</strong>. A compact
       approval bar above the composer mirrors these actions and lets you page through queued requests.
     </p>
-    <DocCallout type="warn" title="Always allow is temporary">
-      <p>"Always allow" is scoped on the host and persists only until nikcli restarts — it is not a permanent on-disk policy.</p>
+    <DocCallout type="info" title="Always allow is persistent">
+      <p>
+        "Always allow" is scoped to the current project on the host and is written to
+        <code>permission/:projectID</code> in the JSON storage layer (see
+        <a href="/docs/permissions#always">Permissions → Always approvals</a>). Rules
+        survive host restarts, but are not shared across different project directories
+        on the same host.
+      </p>
     </DocCallout>
     <h3>Questions</h3>
     <p>

@@ -415,6 +415,84 @@ html {
   border-radius: 27px;
 }
 
+/* Terminal frame — dark bezel, soft shadow, rounded corners, macOS-style window
+   dots. Use for TUI screenshots so they sit next to phone frames on the docs
+   page. Aspect ratio is set per modifier. */
+.terminal-frame {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 1.5rem auto;
+  aspect-ratio: 16 / 10;
+  border-radius: 14px;
+  padding: 34px 8px 8px;
+  background: linear-gradient(
+    160deg,
+    rgb(var(--terminal-text) / 0.94) 0%,
+    rgb(var(--terminal-text) / 0.82) 50%,
+    rgb(var(--terminal-text) / 0.68) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-text) / 0.08),
+    0 30px 60px -22px rgb(var(--terminal-text) / 0.45),
+    0 14px 28px -12px rgb(var(--terminal-text) / 0.22);
+  transition:
+    transform 280ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 280ms cubic-bezier(0.23, 1, 0.32, 1);
+  isolation: isolate;
+}
+.terminal-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  background: rgb(var(--terminal-bg));
+}
+.terminal-frame:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-accent) / 0.25),
+    0 38px 76px -24px rgb(var(--terminal-text) / 0.55),
+    0 18px 36px -12px rgb(var(--terminal-accent) / 0.22);
+}
+.terminal-frame::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  height: 12px;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle 6px at 6px 6px, rgb(255 95 86) 99%, transparent 100%),
+    radial-gradient(circle 6px at 28px 6px, rgb(255 189 46) 99%, transparent 100%),
+    radial-gradient(circle 6px at 50px 6px, rgb(39 201 63) 99%, transparent 100%);
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  background-position:
+    0 0,
+    22px 0,
+    44px 0;
+  z-index: 2;
+}
+.terminal-frame--sm {
+  max-width: 520px;
+  aspect-ratio: 5 / 3;
+  padding: 30px 6px 6px;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-text) / 0.08),
+    0 18px 36px -14px rgb(var(--terminal-text) / 0.32),
+    0 8px 16px -8px rgb(var(--terminal-text) / 0.18);
+}
+.terminal-frame--sm::before {
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  height: 10px;
+}
+
 /* ─── Hero block ─────────────────────────────────────────────────────── */
 .appstore-hero {
   display: grid;
@@ -764,4 +842,145 @@ html {
   .appstore-carousel-btn {
     transition: none !important;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TUI visual tour gallery (used in /docs/tui)
+   ───────────────────────────────────────────────────────────── */
+
+.tui-gallery {
+  --tui-gallery-gap: 1.25rem;
+  --tui-gallery-radius: 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--tui-gallery-gap);
+  margin-block: 1.5rem 1.75rem;
+}
+
+.tui-gallery[data-count="3"] {
+  grid-template-columns: 1fr;
+}
+
+.tui-gallery--two[data-count="2"] {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .tui-gallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    --tui-gallery-gap: 1.5rem;
+  }
+  .tui-gallery--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.tui-gallery__shot {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tui-gallery__link {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--tui-gallery-radius);
+  background: rgb(var(--terminal-text));
+  padding: 8px;
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-text) / 0.08),
+    0 18px 36px -16px rgb(var(--terminal-text) / 0.45),
+    0 8px 16px -10px rgb(var(--terminal-text) / 0.25);
+  transition:
+    transform 260ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 260ms cubic-bezier(0.23, 1, 0.32, 1);
+  isolation: isolate;
+}
+
+.tui-gallery__link::after {
+  content: "Open full size ↗";
+  position: absolute;
+  inset: auto 0 0 auto;
+  margin: 10px;
+  padding: 0.25rem 0.55rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 999px;
+  background: rgb(var(--terminal-text) / 0.85);
+  color: rgb(var(--terminal-bg));
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 160ms ease,
+    transform 200ms ease;
+  pointer-events: none;
+}
+
+.tui-gallery__link:hover,
+.tui-gallery__link:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgb(var(--terminal-accent) / 0.35),
+    0 26px 50px -18px rgb(var(--terminal-accent) / 0.45),
+    0 10px 22px -10px rgb(var(--terminal-accent) / 0.3);
+  outline: none;
+}
+
+.tui-gallery__link:hover::after,
+.tui-gallery__link:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tui-gallery__link img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--tui-gallery-radius) - 4px);
+}
+
+.tui-gallery__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 0.15rem;
+}
+
+.tui-gallery__label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(var(--terminal-accent));
+}
+
+.tui-gallery__hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgb(var(--terminal-muted));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tui-gallery__link,
+  .tui-gallery__link::after {
+    transition: none !important;
+  }
+}
+
+#visual-tour h3 {
+  font-family: "Syne", system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  margin: 2.5rem 0 0.5rem;
+  color: rgb(var(--terminal-text));
+}
+
+#visual-tour h3 + p {
+  margin: 0 0 0.5rem;
 }

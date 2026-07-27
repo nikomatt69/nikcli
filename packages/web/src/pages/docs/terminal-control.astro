@@ -1,0 +1,274 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "How it differs from browser-control", href: "#vs-browser", depth: 2 },
+  { title: "CLI surface", href: "#cli", depth: 2 },
+  { title: "Bundle command", href: "#bundle", depth: 2 },
+  { title: "Agent integration", href: "#agent", depth: 2 },
+  { title: "Source anchors", href: "#source", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Terminal-control"
+  subtitle="@nikcli-ai/terminal-control records, replays and bundles PTY-driven TUI sessions."
+  toc={toc}
+  description="The @nikcli-ai/terminal-control package: native termctrl driver, .termctrl recordings, and PR-ready evidence bundles."
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      <code>@nikcli-ai/terminal-control</code> is the recording-and-evidence engine for
+      PTY-driven TUI sessions. It wraps a native <code>termctrl</code> driver that captures
+      every frame of a terminal session into a <code>.termctrl</code> recording and lets
+      you render that recording as MP4, GIF preview, single-frame PNG, SVG, ANSI-coloured
+      text, JSON, or PR-ready Markdown.
+    </p>
+    <p>
+      It is the third sibling engine — alongside
+      <a href="/docs/browser-control">@nikcli-ai/browser-control</a> (headless Chromium) and
+      <a href="/docs/computer-use">@nikcli-ai/computer-use</a> (real desktops) — that shares
+      the same evidence-bundle output format. New agents only learn one bundle shape, and
+      PR bots can treat all three sibling engines the same way.
+    </p>
+    <DocCallout type="info" title="Native binary">
+      Unlike the other two siblings, terminal-control ships a native <code>termctrl</code>
+      driver in <code>target/</code>. The <code>--binary FILE</code> flag lets you point the
+      CLI at a custom build; the default is the one bundled in the package.
+    </DocCallout>
+  </section>
+
+  <section id="vs-browser" class="doc-section">
+    <h2>How it differs from browser-control</h2>
+    <p>
+      Browser-control and computer-use ship their own daemon that holds sessions alive
+      across CLI invocations. Terminal-control is different: every command except
+      <code>bundle</code> and <code>install-skill</code> is forwarded to the native
+      <code>termctrl</code> driver. Run <code>terminal-control COMMAND --help</code> for
+      the native command surface.
+    </p>
+    <p>
+      What the JS package owns is the recording format (<code>.termctrl</code>), the
+      renderer set (<code>json</code>, <code>text</code>, <code>ansi</code>,
+      <code>png</code>, <code>svg</code>, <code>video</code>), and the
+      <a href="#bundle"><code>bundle</code></a> command that turns a recording into a
+      PR-ready artifact set.
+    </p>
+  </section>
+
+  <section id="cli" class="doc-section">
+    <h2>CLI surface</h2>
+    <DocCode language="bash" title="Terminal">
+      # Register the bundled skill in WORKSPACE/.agents/skills so nikcli discovers it.
+      # WORKSPACE defaults to the nearest Git worktree. Idempotent relative symlink.
+      terminal-control install-skill [--workspace DIR] [--json]
+
+      # Per-command help is forwarded to the native termctrl driver:
+      terminal-control COMMAND --help
+    </DocCode>
+    <p>
+      The <code>--json</code> flag on <code>install-skill</code> returns a typed payload
+      describing the install (source, target, installed boolean) — useful for test harnesses
+      and for the <code>nikcli</code> install pipeline.
+    </p>
+  </section>
+
+  <section id="bundle" class="doc-section">
+    <h2>Bundle command</h2>
+    <p>
+      The <code>bundle</code> command is the package's headline feature: it takes a
+      <code>.termctrl</code> recording and produces a directory containing a screenshot, a
+      video, an inline GIF preview, a <code>manifest.json</code>, and a
+      <code>pr.md</code> ready to be appended to a pull request description.
+    </p>
+    <DocCode language="bash" title="Terminal">
+      terminal-control bundle \
+        --recording ./session.termctrl \
+        --out ./artifacts/terminal \
+        --link-base artifacts/terminal \
+        --result passed \
+        --title "TUI verification" \
+        --summary "The terminal session completed successfully." \
+        --at-marker before-quit \
+        --fps 20
+    </DocCode>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Flag</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>--recording FILE</code></td>
+          <td>Required input — a <code>.termctrl</code> recording produced by the native driver.</td>
+        </tr>
+        <tr>
+          <td><code>--out DIR</code></td>
+          <td>Output directory for <code>screenshot.png</code>, <code>demo.mp4</code>, <code>preview.gif</code>, <code>manifest.json</code>, and <code>pr.md</code>.</td>
+        </tr>
+        <tr>
+          <td><code>--result passed|failed|unverified</code></td>
+          <td>Verification status baked into the manifest and the PR section.</td>
+        </tr>
+        <tr>
+          <td><code>--title TEXT</code> / <code>--summary TEXT</code></td>
+          <td>Customise the PR section header and summary.</td>
+        </tr>
+        <tr>
+          <td><code>--link-base PATH</code></td>
+          <td>Repository-relative artifact path used by <code>pr.md</code> when published.</td>
+        </tr>
+        <tr>
+          <td><code>--at-marker NAME</code></td>
+          <td>Capture the screenshot at a recording marker.</td>
+        </tr>
+        <tr>
+          <td><code>--at-ms MS</code></td>
+          <td>Capture the screenshot nearest this timestamp.</td>
+        </tr>
+        <tr>
+          <td><code>--edit FILE</code></td>
+          <td>Marker-based termctrl video edit plan.</td>
+        </tr>
+        <tr>
+          <td><code>--binary FILE</code></td>
+          <td>Explicit <code>termctrl</code> binary (default: bundled in <code>target/</code>).</td>
+        </tr>
+        <tr>
+          <td><code>--fps NUMBER</code></td>
+          <td>Video frames per second (default: <code>20</code>).</td>
+        </tr>
+        <tr>
+          <td><code>--tail-ms MS</code></td>
+          <td>Final-frame hold (default: <code>1000</code>).</td>
+        </tr>
+        <tr>
+          <td><code>--include-recording</code></td>
+          <td>Copy the sensitive raw recording into the bundle.</td>
+        </tr>
+        <tr>
+          <td><code>--no-video</code></td>
+          <td>Produce only screen evidence (skip the MP4).</td>
+        </tr>
+        <tr>
+          <td><code>--no-preview</code></td>
+          <td>Skip the inline GIF preview.</td>
+        </tr>
+        <tr>
+          <td><code>--no-footer</code></td>
+          <td>Omit the video footer overlay.</td>
+        </tr>
+        <tr>
+          <td><code>--show-cursor</code></td>
+          <td>Keep the terminal cursor visible in the video.</td>
+        </tr>
+        <tr>
+          <td><code>--json</code></td>
+          <td>Print the resulting bundle as JSON instead of writing files.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCallout type="success" title="Identical bundle shape">
+      The bundle format matches <a href="/docs/browser-control">browser-control</a> and
+      <a href="/docs/computer-use">computer-use</a>: <code>screenshot.png</code>,
+      <code>demo.mp4</code>, <code>preview.gif</code>, <code>manifest.json</code>,
+      <code>pr.md</code>. PR pipelines and <code>nikcli</code>'s own bundle command treat
+      all three siblings uniformly.
+    </DocCallout>
+  </section>
+
+  <section id="agent" class="doc-section">
+    <h2>Agent integration</h2>
+    <p>
+      Terminal recordings are usually produced by test harnesses and CI workflows rather
+      than by agents at runtime, but the package is the canonical way to render any
+      recorded TUI session for PR evidence or a docs site. The <code>--json</code> flag
+      is the integration point for test harnesses that want to inspect the bundle
+      programmatically.
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="Renderers" eyebrow="src/render/">
+        <p>
+          <code>json.ts</code>, <code>text.ts</code>, <code>ansi.ts</code>,
+          <code>png.ts</code>, <code>svg.ts</code>, <code>video.ts</code>. The renderer
+          set handles both colour and monochrome terminals, with optional cursor
+          visibility and a configurable final-frame hold.
+        </p>
+      </DocCard>
+      <DocCard title="Recording format" eyebrow="src/recording.ts">
+        <p>
+          <code>RECORDING_VERSION</code> tracks the versioned <code>.termctrl</code>
+          container. <code>duration</code>, <code>frameAt</code>, <code>finalFrame</code>,
+          and <code>frameAtMarker</code> read it back.
+        </p>
+      </DocCard>
+      <DocCard title="Evidence bundle" eyebrow="src/evidence.ts">
+        <p>
+          Same shape as the sibling engines: <code>createEvidenceBundle</code> writes
+          <code>screenshot.png</code>, <code>demo.mp4</code>, <code>preview.gif</code>,
+          <code>manifest.json</code>, and <code>pr.md</code> into <code>--out DIR</code>.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="source" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>File</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CLI</td>
+          <td><code>packages/terminal-control/src/cli.ts</code></td>
+        </tr>
+        <tr>
+          <td>Daemon / session</td>
+          <td>
+            <code>packages/terminal-control/src/daemon.ts</code> +
+            <code>daemon-client.ts</code>, <code>session.ts</code>, <code>manager.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Recording format</td>
+          <td><code>packages/terminal-control/src/recording.ts</code></td>
+        </tr>
+        <tr>
+          <td>Evidence bundle</td>
+          <td><code>packages/terminal-control/src/evidence.ts</code></td>
+        </tr>
+        <tr>
+          <td>Renderers</td>
+          <td>
+            <code>packages/terminal-control/src/render/ansi.ts</code>,
+            <code>json.ts</code>, <code>png.ts</code>, <code>svg.ts</code>,
+            <code>text.ts</code>, <code>video.ts</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Key chord helpers</td>
+          <td><code>packages/terminal-control/src/keys.ts</code></td>
+        </tr>
+        <tr>
+          <td>Native driver source</td>
+          <td><code>packages/terminal-control/target/</code></td>
+        </tr>
+        <tr>
+          <td>Tests</td>
+          <td><code>packages/terminal-control/test/</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>
