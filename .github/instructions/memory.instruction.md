@@ -9,7 +9,7 @@
 ### Core
 
 - **Bun** 1.3.14 — runtime, package manager
-- **TypeScript** 5.8/5.9 — primary language (also `tsgo` for typecheck)
+- **TypeScript** 7.0 native (`tsc` via `@typescript/native`) for typecheck; JS-based TypeScript 5.8/5.9 stays for the programmatic API (codemode transpile, Astro tooling)
 - **Turborepo** — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)
 - **Effect** 4.0.0-beta.65 — typed runtime/dependency injection (migration in progress, 9-epoch plan)
@@ -543,7 +543,7 @@ External TUI plugin package using OpenTUI SolidJS components:
 - `./packages/sdk/js/script/build.ts` — regenerate JavaScript SDK from OpenAPI (always run after editing server endpoints in `src/server/server.ts`)
 - `bun test` — per-package tests (root explicitly exits with error; use `bun turbo test` or package-level)
 - Turborepo tasks: `typecheck`, `build`, `test`
-- `tsgo --noEmit` — typecheck for nikcli core (fast TS compiler)
+- `tsc --noEmit` — typecheck for nikcli core (native TypeScript 7 compiler)
 - Husky pre-push hook configured
 - CI deploy: `bun sst deploy --stage=<branch>` on `dev` and `production`
 - CI tests: `bun turbo typecheck`, `bun turbo test`, plus Playwright/e2e app flow

@@ -6,7 +6,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -14,7 +14,7 @@
     "@types/node": "catalog:",
     "openai": "5.23.2",
     "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
+    "@typescript/native": "catalog:"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.0",

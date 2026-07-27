@@ -36,7 +36,7 @@
     "update-black": "script/update-black.ts",
     "promote-black-to-dev": "script/promote-black.ts dev",
     "promote-black-to-prod": "script/promote-black.ts production",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -46,6 +46,6 @@
     "drizzle-kit": "0.31.10",
     "mysql2": "3.22.5",
     "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
+    "@typescript/native": "catalog:"
   }
 }

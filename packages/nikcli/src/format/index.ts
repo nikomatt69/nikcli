@@ -134,6 +134,10 @@ export namespace Format {
 
           return s
         }),
+        // Deliberately not `reloadable`: this state owns the live subscription
+        // that runs formatters on file edits. Invalidation would unsubscribe and
+        // only resubscribe on the next access, which may never come, so
+        // auto-format would stop silently. Formatter config needs a restart.
       )
 
       const init = Effect.fn("Format.init")(function* () {

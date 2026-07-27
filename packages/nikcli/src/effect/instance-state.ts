@@ -20,6 +20,12 @@ export const project = Effect.map(context, (ctx) => ctx.project)
 // directory forces the next access to rebuild state from disk (fresh config,
 // agents, commands, ...) without restarting the process or tearing down
 // runtime state (bus subscriptions, loop engines, live sessions).
+//
+// Only opt in state that is a *pure derivation* of config and files on disk.
+// Invalidation runs the entry's finalizers and rebuilds lazily, so a cache that
+// owns a live resource or accumulates runtime-only data loses it. See the
+// counter-examples in `format/index.ts` (owns the auto-format subscription) and
+// `tool/registry.ts` (holds runtime-registered tools).
 const reloadable = new Set<ScopedCache.ScopedCache<string, any>>()
 
 export function make<S>(

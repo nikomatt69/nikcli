@@ -61,7 +61,15 @@ export const ReadTool = Tool.define("read", {
       const dir = path.dirname(filepath)
       const base = path.basename(filepath)
 
-      const dirEntries = fs.readdirSync(dir)
+      // The parent may not exist either. Reading it unguarded surfaced a raw
+      // ENOENT for the *directory*, which reads as an unrelated failure; fall
+      // back to the plain not-found message for the path the model asked for.
+      let dirEntries: string[] = []
+      try {
+        dirEntries = fs.readdirSync(dir)
+      } catch {
+        throw new Error(`File not found: ${filepath}`)
+      }
       const suggestions = dirEntries
         .filter(
           (entry) =>

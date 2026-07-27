@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "lint": "bunx oxlint",
     "lint:fix": "bunx oxlint --fix",
     "format": "bunx prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -61,7 +61,7 @@
     "@types/turndown": "5.0.5",
     "@types/ws": "^8.18.1",
     "@types/yargs": "17.0.35",
-    "@typescript/native-preview": "catalog:",
+    "@typescript/native": "catalog:",
     "drizzle-kit": "0.31.10",
     "typescript": "catalog:",
     "vscode-languageserver-types": "3.18.0",

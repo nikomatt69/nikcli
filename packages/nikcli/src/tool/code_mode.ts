@@ -46,7 +46,7 @@ const EXCLUDED = new Set([
 
 type CallEntry = {
   tool: string
-  status: "running" | "completed" | "error"
+  status: "running" | "completed" | "error" | "interrupted"
   input?: Record<string, unknown>
 }
 
@@ -134,10 +134,13 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
         onToolCallEnd: ({ index, outcome }) =>
           Effect.sync(() => {
             const current = calls[index]
+            // An aborted run is not a tool failure — reporting it as one blames the
+            // tool for the user's cancellation. Before interruption was observable
+            // these calls simply stayed "running" forever.
             if (current)
               calls[index] = {
                 ...current,
-                status: outcome === "success" ? "completed" : "error",
+                status: outcome === "success" ? "completed" : outcome === "interrupted" ? "interrupted" : "error",
               }
             publish()
           }),

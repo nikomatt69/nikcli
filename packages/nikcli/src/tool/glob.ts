@@ -1,4 +1,5 @@
 import path from "path"
+import fs from "fs/promises"
 import { Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
@@ -108,9 +109,19 @@ export const GlobTool = Tool.define("glob", {
       },
     })
 
-    let dir = params.path ?? Instance.directory
+    // Models serialize an absent path as the literal string sometimes; treat it
+    // as "not provided" rather than as a directory named "undefined".
+    const requested = params.path === "undefined" || params.path === "null" ? undefined : params.path
+    let dir = requested ?? Instance.directory
     dir = path.isAbsolute(dir) ? dir : path.resolve(Instance.directory, dir)
     await assertExternalDirectory(ctx, dir, { kind: "directory" })
+
+    // The search root has to be a directory. A missing or file path used to fall
+    // through to the file search and come back empty, which reads as "no matches"
+    // rather than "you pointed me at the wrong thing".
+    const rootStat = await fs.stat(dir).catch(() => undefined)
+    if (!rootStat) throw new Error(`Search path does not exist: ${requested ?? "."}`)
+    if (!rootStat.isDirectory()) throw new Error(`Search path is not a directory: ${requested ?? "."}`)
 
     const limit = 100
     const isWide = broad(params.pattern)

@@ -2544,7 +2544,7 @@ function ExecCode(props: ToolProps<any>) {
 
   type CodeModeCall = {
     tool: string
-    status: "running" | "completed" | "error"
+    status: "running" | "completed" | "error" | "interrupted"
     input?: Record<string, unknown>
   }
 
@@ -2657,7 +2657,10 @@ function ExecCode(props: ToolProps<any>) {
     const call = value as Partial<CodeModeCall>
     return (
       typeof call.tool === "string" &&
-      (call.status === "running" || call.status === "completed" || call.status === "error")
+      (call.status === "running" ||
+        call.status === "completed" ||
+        call.status === "error" ||
+        call.status === "interrupted")
     )
   }
 
@@ -2668,9 +2671,24 @@ function ExecCode(props: ToolProps<any>) {
           <text fg={theme.textMuted}>── nested tools ──</text>
           <For each={callProps.calls}>
             {(call) => {
-              const marker = call.status === "running" ? "◌" : call.status === "completed" ? "✓" : "✗"
+              // An interrupted call was cancelled, not failed — a red ✗ next to it
+              // reads as the tool having broken.
+              const marker =
+                call.status === "running"
+                  ? "◌"
+                  : call.status === "completed"
+                    ? "✓"
+                    : call.status === "interrupted"
+                      ? "⊘"
+                      : "✗"
               const color =
-                call.status === "running" ? theme.warning : call.status === "completed" ? theme.success : theme.error
+                call.status === "running"
+                  ? theme.warning
+                  : call.status === "completed"
+                    ? theme.success
+                    : call.status === "interrupted"
+                      ? theme.textMuted
+                      : theme.error
               const details = summarizeCodeModeInput(call.input)
               return (
                 <text fg={color}>

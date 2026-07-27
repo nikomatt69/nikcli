@@ -18,7 +18,7 @@ This file contains guidelines for AI agents operating in the nikcli repository.
 
 ### Type Checking & Linting
 
-- **Typecheck**: `bun run typecheck` (uses tsgo)
+- **Typecheck**: `bun run typecheck` (uses the native TypeScript 7 compiler, `tsc` from `@typescript/native`)
 - **Lint**: `bun run lint` (runs tests with coverage)
 
 ### Testing

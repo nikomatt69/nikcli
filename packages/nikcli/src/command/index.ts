@@ -276,6 +276,10 @@ export namespace Command {
 
           return result
         }).pipe(Effect.orDie),
+        // Pure derivation of config, the command files on disk and the skill
+        // set, so it joins instance hot reload instead of pinning the command
+        // list read at first access.
+        { reloadable: true },
       )
 
       const get: Interface["get"] = Effect.fn("Command.get")(function* (name: string) {

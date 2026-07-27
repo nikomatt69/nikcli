@@ -264,6 +264,9 @@ export namespace Skill {
 
           return skills
         }),
+        // Pure derivation of the skill files on disk, so it joins instance hot
+        // reload instead of pinning the set read at first access.
+        { reloadable: true },
       )
 
       const get: Interface["get"] = Effect.fn("Skill.get")(function* (name: string) {

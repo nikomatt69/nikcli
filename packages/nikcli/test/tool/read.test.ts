@@ -61,4 +61,14 @@ describe("ReadTool", () => {
       /File not found/,
     )
   })
+
+  it("reports the requested path when its parent directory is missing too", async () => {
+    const filePath = path.join(projectDir, "no-such-dir", "nested", "file.txt")
+    const { ctx } = makeToolContext()
+    // Listing the parent for "did you mean" suggestions must not surface its own
+    // ENOENT — the model asked about the file, not the directory.
+    await expect(withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx))).rejects.toThrow(
+      `File not found: ${filePath}`,
+    )
+  })
 })

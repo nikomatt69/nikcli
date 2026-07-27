@@ -28,6 +28,7 @@ import {
 } from "@nikcli-ai/llm"
 import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
+import { CacheDiagnostics } from "@/provider/cache-diagnostics"
 import { Config } from "@/config/config"
 import { features } from "@/config/features"
 import { Instance } from "@/project/instance"
@@ -45,6 +46,9 @@ import { suppressEmptyTextResult, toProcessorStream } from "./llm/llm-event-adap
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
+
+  // Only allocated when the flag is on, so the default path keeps no snapshots.
+  const cacheDiagnostics = Flag.NIKCLI_PROMPT_CACHE_DIAGNOSTICS ? new CacheDiagnostics.Tracker() : undefined
   export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
   function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
@@ -562,6 +566,32 @@ export namespace LLM {
                   input.model,
                   options,
                 ) as unknown as typeof args.params.prompt
+              }
+              // Snapshot after the transform: this is the wire-level request,
+              // cache markers included, so the diff reflects what the provider
+              // actually matches against.
+              if (cacheDiagnostics) {
+                const { comparison, snapshot } = cacheDiagnostics.record(input.sessionID, {
+                  prompt: args.params.prompt as unknown as CacheDiagnostics.RequestLike["prompt"],
+                  tools: args.params.tools as unknown as CacheDiagnostics.RequestLike["tools"],
+                  settings: {
+                    model: input.model.id,
+                    providerID: input.model.providerID,
+                    temperature: args.params.temperature,
+                    topP: args.params.topP,
+                    topK: args.params.topK,
+                    maxOutputTokens: args.params.maxOutputTokens,
+                    toolChoice: args.params.toolChoice,
+                    providerOptions: args.params.providerOptions,
+                  },
+                })
+                log.info("prompt cache prefix", {
+                  sessionID: input.sessionID,
+                  toolCount: snapshot.tools.length,
+                  systemParts: snapshot.system.length,
+                  messageCount: snapshot.messages.length,
+                  ...comparison,
+                })
               }
               return args.params
             },

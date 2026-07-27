@@ -2,17 +2,10 @@ import { Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./websearch.txt"
-import { callTool } from "./mcp-exa"
-
-const DEFAULT_NUM_RESULTS = 8
-
-interface SearchInput extends Record<string, unknown> {
-  query: string
-  numResults?: number
-  livecrawl?: "fallback" | "preferred"
-  type?: "auto" | "fast" | "deep"
-  contextMaxCharacters?: number
-}
+import { Config } from "@/config/config"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+import { DEFAULT_NUM_RESULTS, ProviderConfigError, format, resolve } from "./websearch/provider"
 
 const Parameters = Schema.Struct({
   query: Schema.String.annotate({ description: "Websearch query" }),
@@ -21,15 +14,29 @@ const Parameters = Schema.Struct({
   }),
   livecrawl: Schema.optional(Schema.Literals(["fallback", "preferred"])).annotate({
     description:
-      "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
+      "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback'). Exa only.",
   }),
   type: Schema.optional(Schema.Literals(["auto", "fast", "deep"])).annotate({
-    description: "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
+    description:
+      "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search. Exa only.",
   }),
   contextMaxCharacters: Schema.optional(Schema.Number).annotate({
-    description: "Maximum characters for context string optimized for LLMs (default: 10000)",
+    description: "Maximum characters for context string optimized for LLMs (default: 10000). Exa only.",
   }),
 })
+
+function websearchConfig() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        const cfg = yield* config.get()
+        return cfg.websearch ?? {}
+      }),
+    ),
+  )
+}
 
 export const WebSearchTool = Tool.define("websearch", async () => {
   return {
@@ -51,25 +58,32 @@ export const WebSearchTool = Tool.define("websearch", async () => {
         },
       })
 
-      const searchInput: SearchInput = {
-        query: params.query,
-        type: params.type || "auto",
-        numResults: params.numResults || DEFAULT_NUM_RESULTS,
-        livecrawl: params.livecrawl || "fallback",
-        contextMaxCharacters: params.contextMaxCharacters,
+      const provider = resolve(await websearchConfig())
+
+      let results
+      try {
+        results = await provider.search({
+          query: params.query,
+          numResults: params.numResults ?? DEFAULT_NUM_RESULTS,
+          livecrawl: params.livecrawl,
+          type: params.type,
+          contextMaxCharacters: params.contextMaxCharacters,
+          signal: ctx.abort,
+        })
+      } catch (error) {
+        // A misconfigured provider is the user's to fix, not something the model
+        // should retry or work around, so say which provider and what is missing.
+        if (error instanceof ProviderConfigError) throw error
+        throw new Error(`${provider.name} web search failed: ${error instanceof Error ? error.message : error}`)
       }
 
-      const output = await callTool({
-        tool: "web_search_exa",
-        args: searchInput,
-        timeoutMs: 25000,
-        signal: ctx.abort,
-      })
-
       return {
-        output: output || "No search results found. Please try a different query.",
+        output:
+          results.length > 0
+            ? format(results)
+            : "No search results found. Please try a different query.",
         title: `Web search: ${params.query}`,
-        metadata: {},
+        metadata: { provider: provider.id, results: results.length },
       }
     },
   }

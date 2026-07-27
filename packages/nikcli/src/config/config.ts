@@ -15,6 +15,7 @@ import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
 import { ConfigMarkdown } from "./markdown"
+import { WebSearchConfigSchema } from "@/tool/websearch/config"
 import { existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
@@ -1549,6 +1550,7 @@ export namespace Config {
           ),
         ])
         .optional(),
+      websearch: WebSearchConfigSchema.optional(),
       lsp: z
         .union([
           z.literal(false),

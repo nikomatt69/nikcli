@@ -21,6 +21,8 @@ export namespace Flag {
   // Opt out of the in-process config hot reload (instance reload on config
   // file changes). Reload can still be triggered explicitly via the API.
   export const NIKCLI_DISABLE_HOT_RELOAD = truthy("NIKCLI_DISABLE_HOT_RELOAD")
+  /** Log which part of the request prefix changed between calls. See `provider/cache-diagnostics.ts`. */
+  export const NIKCLI_PROMPT_CACHE_DIAGNOSTICS = truthy("NIKCLI_PROMPT_CACHE_DIAGNOSTICS")
   // Opt out of journaling local (non-workspace) session restore events into
   // the unified sync_event log.
   export const NIKCLI_DISABLE_SESSION_JOURNAL = truthy("NIKCLI_DISABLE_SESSION_JOURNAL")

@@ -701,7 +701,10 @@ describe("CodeMode public contract", () => {
   test("zero tools keep minimal sections and the no-tools notice", () => {
     const runtime = CodeMode.make({})
     const instructions = runtime.instructions()
-    expect(instructions).toContain("No tools are currently available.")
+    expect(instructions).toContain("No Code Mode tools are currently available.")
+    // The notice has to steer, not just inform: an empty catalog otherwise still
+    // invites a wasted `execute` call.
+    expect(instructions).toContain("Do not call `execute`")
     expect(instructions).toContain("## Language")
     expect(instructions).toContain("## Available tools")
     expect(instructions).not.toContain("## Workflow")

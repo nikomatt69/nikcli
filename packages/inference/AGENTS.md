@@ -8,7 +8,7 @@ OpenAI-compatible inference gateway that fronts **14 upstream providers** (Toget
 - **HTTP:** Hono 4 + `hono/cors`
 - **Validation:** Zod (request body + env)
 - **Rate limit / cache:** `@upstash/ratelimit` + `@upstash/redis` (REST) with in-memory fallback
-- **Lang:** TypeScript strict, ESM (`@tsconfig/bun`), typecheck via `tsgo --noEmit`
+- **Lang:** TypeScript strict, ESM (`@tsconfig/bun`), typecheck via `tsc --noEmit` (native TypeScript 7)
 
 ## Request Flow
 
@@ -152,7 +152,7 @@ See `.env.example` for the full template.
 bun run dev         # bun run --hot src/main.ts
 bun run build       # bun build → dist/ (minified)
 bun run start       # bun run dist/main.js
-bun run typecheck   # tsgo --noEmit
+bun run typecheck   # tsc --noEmit (native TypeScript 7)
 bun test
 ```
 

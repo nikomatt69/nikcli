@@ -56,7 +56,7 @@
       "marked-shiki": "1.2.1",
       "@playwright/test": "1.51.0",
       "typescript": "5.8.2",
-      "@typescript/native-preview": "7.0.0-dev.20260707.2",
+      "@typescript/native": "npm:typescript@7.0.2",
       "zod": "4.1.8",
       "remeda": "2.26.0",
       "shiki": "3.20.0",

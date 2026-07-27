@@ -132,12 +132,15 @@ export namespace MCP {
   }
 
   async function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, timeout?: number): Promise<Tool> {
-    const inputSchema = mcpTool.inputSchema
+    // `inputSchema` is required by the MCP spec but servers do omit it for
+    // no-argument tools. Reading `.properties` off undefined used to throw here
+    // and take down the whole server's tool list, so treat it as "no arguments".
+    const inputSchema = mcpTool.inputSchema as JSONSchema7 | undefined
 
     const schema: JSONSchema7 = {
-      ...(inputSchema as JSONSchema7),
+      ...inputSchema,
       type: "object",
-      properties: (inputSchema.properties ?? {}) as JSONSchema7["properties"],
+      properties: (inputSchema?.properties ?? {}) as JSONSchema7["properties"],
       additionalProperties: false,
     }
 

@@ -7,7 +7,7 @@
   "homepage": "https://nikcli.ai",
   "author": "Nikcli",
   "scripts": {
-    "typecheck": "tsgo -b",
+    "typecheck": "tsc -b",
     "prepare:sidecar": "bun ./scripts/predev.ts",
     "dev": "vite",
     "build": "bun run typecheck && vite build",
@@ -43,7 +43,7 @@
     "@actions/artifact": "4.0.0",
     "@tauri-apps/cli": "^2",
     "@types/bun": "catalog:",
-    "@typescript/native-preview": "catalog:",
+    "@typescript/native": "catalog:",
     "typescript": "~5.6.2",
     "vite": "catalog:"
   }

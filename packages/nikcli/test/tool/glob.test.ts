@@ -49,4 +49,31 @@ describe("GlobTool", () => {
     const result = await withProjectDirectory(projectDir, () => def.executeAsync({ pattern: "*.md" }, ctx))
     expect(result.output).toContain("c.md")
   })
+
+  it("rejects a search path that is a file", async () => {
+    const { ctx } = makeToolContext()
+    const filePath = path.join(projectDir, "c.md")
+    // Searching "inside" a file previously fell through and returned no matches,
+    // which the model reads as an answer rather than as a mistake.
+    await expect(
+      withProjectDirectory(projectDir, () => def.executeAsync({ pattern: "*", path: filePath }, ctx)),
+    ).rejects.toThrow(/is not a directory/)
+  })
+
+  it("rejects a search path that does not exist", async () => {
+    const { ctx } = makeToolContext()
+    await expect(
+      withProjectDirectory(projectDir, () =>
+        def.executeAsync({ pattern: "*", path: path.join(projectDir, "no-such-dir") }, ctx),
+      ),
+    ).rejects.toThrow(/does not exist/)
+  })
+
+  it('treats the literal string "undefined" as an omitted path', async () => {
+    const { ctx } = makeToolContext()
+    const result = await withProjectDirectory(projectDir, () =>
+      def.executeAsync({ pattern: "*.md", path: "undefined" }, ctx),
+    )
+    expect(result.output).toContain("c.md")
+  })
 })

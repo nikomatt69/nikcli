@@ -909,11 +909,16 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
         )
       }
 
-      const state = yield* InstanceState.make<Record<string, Info>>((ctx) =>
-        Effect.gen(function* () {
-          const cfg = yield* Effect.promise(() => configGet(ctx))
-          return yield* Effect.tryPromise(() => buildState(ctx.worktree, cfg)).pipe(Effect.orDie)
-        }),
+      const state = yield* InstanceState.make<Record<string, Info>>(
+        (ctx) =>
+          Effect.gen(function* () {
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            return yield* Effect.tryPromise(() => buildState(ctx.worktree, cfg)).pipe(Effect.orDie)
+          }),
+        // Pure derivation of config plus the agent files on disk, so it joins
+        // instance hot reload: an edited agent has to be visible on the next
+        // access instead of after a restart.
+        { reloadable: true },
       )
       const getState = () => InstanceState.get(state)
 

@@ -1,16 +1,18 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { afterAll, describe, expect, it } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-reload-home-"))
 process.env.NIKCLI_TEST_HOME ??= testHome
 
-const { InstanceState, locallyInstance } = await import("@/effect")
+const { InstanceScope, InstanceState, locallyInstance } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 const { InstanceReload } = await import("@/project/reload")
 const { Bus } = await import("@/bus")
+const { Agent } = await import("@/agent/agent")
+const { Command } = await import("@/command")
 
 afterAll(async () => {
   await fs.rm(testHome, { recursive: true, force: true })
@@ -59,6 +61,99 @@ describe("InstanceState hot reload", () => {
       expect(result.rebuilt).toBe(2)
       expect(result.stable).toBe(1)
     } finally {
+      await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+})
+
+// The mechanism test above proves `invalidateReloadable` rebuilds an opted-in
+// cache. These prove the services users actually edit are opted in: without the
+// flag both reads below return the pre-reload config, so a hot reload announces
+// itself on the bus while the command/agent registry stays stale until restart.
+describe("config-derived services join hot reload", () => {
+  // These read a project-level nikcli.json, and `bun test` shares one process
+  // across files — several of which disable project config at import time. The
+  // flag is a live getter, so set it for the duration of each test and put it
+  // back so the leak does not travel in the other direction either.
+  let previousProjectConfig: string | undefined
+  beforeEach(() => {
+    previousProjectConfig = process.env["NIKCLI_DISABLE_PROJECT_CONFIG"]
+    delete process.env["NIKCLI_DISABLE_PROJECT_CONFIG"]
+  })
+  afterEach(() => {
+    if (previousProjectConfig === undefined) delete process.env["NIKCLI_DISABLE_PROJECT_CONFIG"]
+    else process.env["NIKCLI_DISABLE_PROJECT_CONFIG"] = previousProjectConfig
+  })
+
+  it("rebuilds the command registry after a config change", async () => {
+    const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-reload-command-")))
+    const configPath = path.join(directory, "nikcli.json")
+    const writeCommand = (name: string) =>
+      fs.writeFile(configPath, JSON.stringify({ command: { [name]: { template: "do $ARGUMENTS" } } }))
+
+    try {
+      await writeCommand("alpha")
+
+      const result = await Effect.runPromise(
+        InstanceScope.with(
+          { directory },
+          Effect.gen(function* () {
+            const command = yield* Command.Service
+            const before = (yield* command.list()).map((entry) => entry.name)
+
+            yield* Effect.promise(() => writeCommand("beta"))
+            yield* InstanceState.invalidateReloadable(directory)
+
+            const after = (yield* command.list()).map((entry) => entry.name)
+            return { before, after }
+          }).pipe(Effect.provide(Command.defaultLayer)),
+        ),
+      )
+
+      expect(result.before).toContain("alpha")
+      expect(result.before).not.toContain("beta")
+      expect(result.after).toContain("beta")
+      expect(result.after).not.toContain("alpha")
+    } finally {
+      await Instance.provide({ directory, fn: () => Instance.dispose() })
+      await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("rebuilds the agent registry after a config change", async () => {
+    const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-reload-agent-")))
+    const configPath = path.join(directory, "nikcli.json")
+    const writeAgent = (name: string) =>
+      fs.writeFile(
+        configPath,
+        JSON.stringify({ agent: { [name]: { description: `${name} agent`, prompt: "be useful" } } }),
+      )
+
+    try {
+      await writeAgent("alpha")
+
+      const result = await Effect.runPromise(
+        InstanceScope.with(
+          { directory },
+          Effect.gen(function* () {
+            const agent = yield* Agent.Service
+            const before = (yield* agent.list()).map((entry) => entry.name)
+
+            yield* Effect.promise(() => writeAgent("beta"))
+            yield* InstanceState.invalidateReloadable(directory)
+
+            const after = (yield* agent.list()).map((entry) => entry.name)
+            return { before, after }
+          }).pipe(Effect.provide(Agent.defaultLayer)),
+        ),
+      )
+
+      expect(result.before).toContain("alpha")
+      expect(result.before).not.toContain("beta")
+      expect(result.after).toContain("beta")
+      expect(result.after).not.toContain("alpha")
+    } finally {
+      await Instance.provide({ directory, fn: () => Instance.dispose() })
       await fs.rm(directory, { recursive: true, force: true })
     }
   })

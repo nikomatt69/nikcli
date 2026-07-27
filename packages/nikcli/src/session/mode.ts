@@ -80,6 +80,12 @@ export namespace Mode {
 
   // Modes are derived from per-instance config, so the memo must be keyed by
   // directory — a single process can host multiple instances.
+  //
+  // NOTE: this map, not the `facade` above, is the real memo — `load` builds and
+  // disposes a fresh scoped cache per miss. That also means modes sit outside
+  // instance hot reload: marking `facade` reloadable would register a new cache
+  // per call and still never invalidate this map. Reloading modes on config
+  // change needs this map cleared from an `instance.reloaded` subscription.
   const cache = new Map<string, Record<string, Info>>()
 
   async function load() {

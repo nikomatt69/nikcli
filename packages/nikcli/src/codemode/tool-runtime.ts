@@ -1,4 +1,4 @@
-import { Cause, Effect, Schema } from "effect"
+import { Cause, Effect, Exit, Schema } from "effect"
 import { ToolError, toolError } from "./tool-error"
 import {
   decodeInput as decodeToolInput,
@@ -59,7 +59,7 @@ export type ToolCallEnded = {
   readonly name: string
   readonly input: unknown
   readonly durationMs: number
-  readonly outcome: "success" | "failure"
+  readonly outcome: "success" | "failure" | "interrupted"
   readonly message?: string
 }
 
@@ -324,7 +324,6 @@ export type DiscoveryPlan = {
 
 export type SearchEntry = {
   readonly description: ToolDescription
-  readonly namespace: string
   readonly searchText: string
 }
 
@@ -352,10 +351,17 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
       const request = input as typeof SearchInput.Type
       const query = request.query ?? ""
       const offset = request.offset ?? 0
+      // Match the namespace and everything nested under it. Comparing against
+      // only the first path segment made `search({ namespace: "a" })` miss every
+      // tool under `a.b.*`, which is exactly where deep catalogs put them.
       const scoped =
         request.namespace === undefined
           ? searchIndex
-          : searchIndex.filter((entry) => entry.namespace === request.namespace)
+          : searchIndex.filter(
+              (entry) =>
+                entry.description.path === request.namespace ||
+                entry.description.path.startsWith(`${request.namespace}.`),
+            )
       const trimmed = query.trim()
       const pathQuery = trimmed.startsWith("tools.") ? trimmed.slice("tools.".length) : trimmed
       const exact =
@@ -415,7 +421,6 @@ const catalogLine = (tool: ToolDescription) => {
 
 const toSearchEntry = <R>(path: string, definition: Definition<R>, description: ToolDescription): SearchEntry => ({
   description,
-  namespace: path.split(".", 1)[0]!,
   searchText: [
     path,
     definition.description,
@@ -541,7 +546,14 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
 
   const toolSection: Array<string> = [""]
   if (empty) {
-    toolSection.push("## Available tools", "", "No tools are currently available.")
+    // Say what to do, not just what is missing: told only that the list is
+    // empty, a model still calls `execute` and burns a turn on a program that
+    // has nothing to call.
+    toolSection.push(
+      "## Available tools",
+      "",
+      "No Code Mode tools are currently available. Do not call `execute` until a later system update announces available tools.",
+    )
   } else {
     toolSection.push(
       complete
@@ -634,22 +646,22 @@ export const make = <R>(
   const calls: Array<ToolCall> = []
   const searchTool = makeSearchTool(searchIndex)
 
-  // End hooks observe settled success or failure; interruption emits neither outcome.
+  // Observe every way a call can settle. `tap`/`tapError` between them miss
+  // interruption, so an aborted run left its in-flight calls with a start event
+  // and no end event — indistinguishable from one still running.
   const observeEnd = <A, E>(effect: Effect.Effect<A, E, R>, call: ToolCallStarted): Effect.Effect<A, E, R> => {
     const onEnd = hooks?.onToolCallEnd
     if (onEnd === undefined) return effect
     const startedAt = Date.now()
     return effect.pipe(
-      Effect.tap(() => onEnd({ ...call, durationMs: Date.now() - startedAt, outcome: "success" })),
-      Effect.tapError((error) => {
+      Effect.onExit((exit) => {
+        const durationMs = Date.now() - startedAt
+        if (Exit.isSuccess(exit)) return onEnd({ ...call, durationMs, outcome: "success" })
+        if (Cause.hasInterruptsOnly(exit.cause)) return onEnd({ ...call, durationMs, outcome: "interrupted" })
+        const error = Cause.squash(exit.cause)
         const message =
           error instanceof ToolError || error instanceof ToolRuntimeError ? error.message : "Tool execution failed"
-        return onEnd({
-          ...call,
-          durationMs: Date.now() - startedAt,
-          outcome: "failure",
-          message,
-        })
+        return onEnd({ ...call, durationMs, outcome: "failure", message })
       }),
     )
   }

@@ -270,6 +270,10 @@ export namespace ToolRegistry {
 
           return { custom }
         }),
+        // Deliberately not `reloadable`: `register` below appends runtime-registered
+        // tools (sdk-next `tools.register`, plugins) into this same `custom` array
+        // and they exist nowhere else, so invalidating on a config change would
+        // drop them silently. `all()` re-reads the config-derived parts per call.
       )
 
       const register: Interface["register"] = Effect.fn("ToolRegistry.register")(function* (tool: Tool.Info) {

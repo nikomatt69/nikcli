@@ -131,7 +131,7 @@ jobs:
           export NIKCLI_VERSION="$RELEASE_VERSION"
           export VITE_NIKCLI_DESKTOP_VERSION="$RELEASE_VERSION"
           bun ./scripts/predev.ts
-          bun x tsgo -b
+          bun x tsc -b
           bun x vite build
 
       # `bun run tauri build` runs the desktop "tauri" script. Its beforeBuildCommand

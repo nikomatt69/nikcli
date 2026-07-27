@@ -9,7 +9,7 @@
     "start:ngrok": "./start.sh ngrok",
     "dev:worker": "wrangler dev src/worker.ts",
     "deploy": "wrangler deploy src/worker.ts",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
@@ -19,7 +19,7 @@
     "@cloudflare/workers-types": "^4.20260621.1",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:",
+    "@typescript/native": "catalog:",
     "wrangler": "^4.103.0"
   },
   "peerDependencies": {
