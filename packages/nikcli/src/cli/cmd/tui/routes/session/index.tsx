@@ -96,6 +96,7 @@ import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
+import { TurnUsage } from "../../util/turn-usage"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogOpenTUIViz, Renderer as VizRenderer } from "@tui/component/dialog-opentui-viz"
 import { compilePartialSpec } from "@tui/util/spec-stream"
@@ -186,6 +187,15 @@ export function Session() {
     return sync.data.session.filter((x) => workerIDs.has(x.id)).toSorted((a, b) => a.time.created - b.time.created)
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  /**
+   * Per-turn token rows, keyed by the assistant message that ends the turn.
+   * Computed once here rather than per row: each turn needs the steps before it,
+   * so deriving it inside the message component would be quadratic over a long
+   * session. Empty (and free) unless the `turn_tokens` TUI option is on.
+   */
+  const turnUsage = createMemo(() =>
+    sync.data.config.tui?.turn_tokens === true ? TurnUsage.byMessage(messages()) : undefined,
+  )
   // The virtualizer uses estimated heights. While the assistant is streaming,
   // the active row grows on every text delta, so those estimates no longer
   // describe the scroll position and can window the live response out.
@@ -1451,6 +1461,7 @@ export function Session() {
                         last={lastAssistant()?.id === message.id}
                         message={message as AssistantMessage}
                         parts={sync.data.part[message.id] ?? []}
+                        turn={turnUsage()?.get(message.id)}
                       />
                     </Match>
                   </Switch>
@@ -1643,7 +1654,12 @@ function UserMessage(props: {
   )
 }
 
-function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
+function AssistantMessage(props: {
+  message: AssistantMessage
+  parts: Part[]
+  last: boolean
+  turn?: TurnUsage.Turn
+}) {
   const ctx = use()
   const local = useLocal()
   const sync = useSync()
@@ -1777,7 +1793,49 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
           </box>
         </Match>
       </Switch>
+      <Show when={props.turn}>{(turn) => <TurnTokens turn={turn()} />}</Show>
     </>
+  )
+}
+
+/**
+ * Per-turn token table. Off by default (`tui.turn_tokens`); the parent only
+ * builds the data when it is on, so this renders nothing on the default path.
+ */
+function TurnTokens(props: { turn: TurnUsage.Turn }) {
+  const { theme } = useTheme()
+  const num = (value: number) => value.toLocaleString()
+  const widths = createMemo(() => {
+    const steps = props.turn.steps
+    return {
+      step: Math.max("Step".length, ...steps.map((s) => s.finish.length)),
+      newTokens: Math.max("New".length, ...steps.map((s) => num(s.newTokens).length), num(props.turn.newTokens).length),
+      cached: Math.max("Cached".length, ...steps.map((s) => num(s.cached).length), num(props.turn.cached).length),
+      total: Math.max("Total".length, ...steps.map((s) => num(s.total).length), num(props.turn.total).length),
+    }
+  })
+  const row = (step: string, a: string, b: string, c: string) =>
+    `${step.padEnd(widths().step + 2)}${a.padStart(widths().newTokens)}  ${b.padStart(widths().cached)}  ${c.padStart(widths().total)}`
+
+  return (
+    <box paddingLeft={3} flexDirection="column">
+      <text fg={theme.textMuted}>{row("Step", "New", "Cached", "Total")}</text>
+      <For each={props.turn.steps}>
+        {(step) => (
+          <text fg={theme.textMuted}>
+            {row(step.finish, num(step.newTokens), num(step.cached), num(step.total))}
+            <Show when={step.cacheBust !== undefined}>
+              <span style={{ fg: theme.warning }}> ⚠ cache bust −{num(step.cacheBust!)}</span>
+            </Show>
+          </text>
+        )}
+      </For>
+      <Show when={props.turn.steps.length > 1}>
+        <text fg={theme.textMuted}>
+          {row("turn", num(props.turn.newTokens), num(props.turn.cached), num(props.turn.total))}
+        </text>
+      </Show>
+    </box>
   )
 }
 

@@ -2660,6 +2660,10 @@ export type Config = {
      * Enable animated background pulse behind the home logo (default: false)
      */
     bg_pulse?: boolean
+    /**
+     * Show a per-turn token breakdown after each answer, with a warning when the prompt cache is invalidated (default: false)
+     */
+    turn_tokens?: boolean
   }
   ads?: AdsConfig
   server?: ServerConfig
@@ -2810,6 +2814,27 @@ export type Config = {
           extensions?: Array<string>
         }
       }
+  /**
+   * Web search provider configuration for the websearch tool
+   */
+  websearch?: {
+    /**
+     * Web search backend. Defaults to "exa" (hosted endpoint, no key required).
+     */
+    provider?: "exa" | "parallel" | "mcp"
+    /**
+     * API key for the selected provider. Falls back to EXA_API_KEY or PARALLEL_API_KEY. Optional for exa, required for parallel.
+     */
+    apiKey?: string
+    /**
+     * MCP endpoint to query. Required for the "mcp" provider; overrides the default endpoint otherwise.
+     */
+    url?: string
+    /**
+     * MCP tool name to call. Defaults to the provider's own search tool.
+     */
+    tool?: string
+  }
   lsp?:
     | false
     | {

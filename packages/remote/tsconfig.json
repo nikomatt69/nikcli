@@ -3,6 +3,8 @@
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
+    // Required since TypeScript 7: rootDir is no longer inferred when emitting (TS5011).
+    "rootDir": "src",
     "module": "preserve",
     "declaration": true,
     "moduleResolution": "bundler",

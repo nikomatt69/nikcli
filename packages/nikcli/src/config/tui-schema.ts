@@ -25,6 +25,12 @@ export const TuiOptions = z.object({
   mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
   sound: z.boolean().optional().describe("Enable or disable ambient sound feedback (default: true)"),
   bg_pulse: z.boolean().optional().describe("Enable animated background pulse behind the home logo (default: false)"),
+  turn_tokens: z
+    .boolean()
+    .optional()
+    .describe(
+      "Show a per-turn token breakdown after each answer, with a warning when the prompt cache is invalidated (default: false)",
+    ),
 })
 
 export const TuiInfo = z

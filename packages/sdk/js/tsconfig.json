@@ -3,6 +3,10 @@
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
+    // TypeScript 7 no longer infers rootDir from the common source directory
+    // (TS5011). `include` is "src" but `exclude` drops "src/gen", so the inferred
+    // root would shift with the file set; pin it so `dist` layout stays stable.
+    "rootDir": "src",
     "module": "nodenext",
     "declaration": true,
     "moduleResolution": "nodenext",
