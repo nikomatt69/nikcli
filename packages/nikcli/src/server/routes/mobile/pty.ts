@@ -182,7 +182,9 @@ export const PtyRoutes = () =>
       }),
       validator("param", z.object({ ptyID: z.string() })),
       upgradeWebSocket((c) => {
-        const id = c.req.param("ptyID")
+        // Guaranteed by the param validator above; hono does not thread the
+        // route generic through upgradeWebSocket, so the type widens.
+        const id = c.req.param("ptyID")!
         let handler: Pty.Connection | undefined
         return {
           async onOpen(_event, ws) {

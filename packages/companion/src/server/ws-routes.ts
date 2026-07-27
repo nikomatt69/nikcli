@@ -10,7 +10,10 @@ const browserSockets = new Map<string, any[]>()
 CompanionWsRoutes.get(
   "/ws/:sessionId",
   upgradeWebSocket((c) => {
-    const sessionId = c.req.param("sessionId")
+    // hono does not thread the route generic through upgradeWebSocket, so the
+    // param widens to string | undefined even though the route only matches
+    // with :sessionId present.
+    const sessionId = c.req.param("sessionId")!
 
     return {
       onOpen(_event, ws) {
@@ -76,7 +79,10 @@ CompanionWsRoutes.get(
 CompanionWsRoutes.get(
   "/cli/:sessionId",
   upgradeWebSocket((c) => {
-    const sessionId = c.req.param("sessionId")
+    // hono does not thread the route generic through upgradeWebSocket, so the
+    // param widens to string | undefined even though the route only matches
+    // with :sessionId present.
+    const sessionId = c.req.param("sessionId")!
 
     return {
       onOpen(_event, ws) {

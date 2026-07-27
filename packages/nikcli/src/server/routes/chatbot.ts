@@ -4,7 +4,9 @@ import { lazy } from "../../util/lazy"
 
 function createWebhookHandler(platform: ChatbotWebhook.Platform) {
   return async (c: Context) => {
-    const name = c.req.param("name")
+    // Every registration below binds :name, but the handler takes a bare
+    // Context so hono types the param as optional.
+    const name = c.req.param("name")!
     const result = await ChatbotWebhook.handle(platform, name, c.req.raw)
     return c.text(result.body, result.status as 200)
   }

@@ -191,7 +191,9 @@ export const PtyRoutes = lazy(() =>
       }),
       validator("param", z.object({ ptyID: z.string() })),
       upgradeWebSocket((c) => {
-        const id = c.req.param("ptyID")
+        // Guaranteed by the param validator above; hono does not thread the
+        // route generic through upgradeWebSocket, so the type widens.
+        const id = c.req.param("ptyID")!
         // Log connection attempt for debugging
         console.log(`[PTY] WebSocket connection attempt for session: ${id}`)
         let handler: Pty.Connection | undefined
