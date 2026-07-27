@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.206.0 (July 2026)
+
+## Core
+
+- Add per-turn token breakdown feature (@nikomatt69)
+- Replace @typescript/native-preview with @typescript/native (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor: replace @typescript/native-preview with @typescript/native
+  - feat(tui): add per-turn token breakdown feature
+
 ## v1.204.0 (July 2026)
 
 ## Core

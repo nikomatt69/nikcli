@@ -89,19 +89,22 @@ function stageAssets(pngs: string[]): void {
 }
 
 function writeStagingManifest(pngs: string[]): void {
-  const lines = ["name,size_bytes", ...pngs.map((name) => {
-    const size = statSync(path.join(STAGING_DIR, name)).size
-    return `${name},${size}`
-  }), `README.md,${statSync(path.join(STAGING_DIR, "README.md")).size}`]
+  const lines = [
+    "name,size_bytes",
+    ...pngs.map((name) => {
+      const size = statSync(path.join(STAGING_DIR, name)).size
+      return `${name},${size}`
+    }),
+    `README.md,${statSync(path.join(STAGING_DIR, "README.md")).size}`,
+  ]
   writeFileSync(path.join(STAGING_DIR, "MANIFEST.csv"), lines.join("\n") + "\n")
 }
 
 function runZip(): void {
-  const result = spawnSync(
-    "zip",
-    ["-r", "-X", "-q", "-9", path.relative(STAGING_DIR, OUTPUT_FILE), "."],
-    { cwd: STAGING_DIR, stdio: "inherit" },
-  )
+  const result = spawnSync("zip", ["-r", "-X", "-q", "-9", path.relative(STAGING_DIR, OUTPUT_FILE), "."], {
+    cwd: STAGING_DIR,
+    stdio: "inherit",
+  })
   if (result.status !== 0) {
     throw new Error(`zip exited with code ${result.status}`)
   }
