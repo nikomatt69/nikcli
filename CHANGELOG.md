@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.207.0 (July 2026)
+
+## Core
+
+- Remove unused benchmark file __bench.ts (@nikomatt69)
+- Remove trailing whitespace in import statement (@nikomatt69)
+- Implement work suggestions feature in new session view (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(session): implement work suggestions feature in new session view
+  - fix(index): remove trailing whitespace in import statement
+  - chore(nikcli): remove unused benchmark file __bench.ts
+
 ## v1.204.0 (July 2026)
 
 ## Core
