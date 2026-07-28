@@ -1,10 +1,13 @@
-import { Show, createMemo } from "solid-js"
+import { For, Show, createMemo } from "solid-js"
 import { DateTime } from "luxon"
 import { useSync } from "@/context/sync"
 import { useLanguage } from "@/context/language"
 import { Icon } from "@nikcli-ai/ui/icon"
+import { Mark } from "@nikcli-ai/ui/logo"
 import { getDirectory, getFilename } from "@nikcli-ai/util/path"
 import { usePlatform } from "@/context/platform"
+import { useLocal } from "@/context/local"
+import { WORK_SUGGESTIONS } from "./session-new-view-data"
 
 const MAIN_WORKTREE = "main"
 const CREATE_WORKTREE = "create"
@@ -12,12 +15,14 @@ const CREATE_WORKTREE = "create"
 interface NewSessionViewProps {
   worktree: string
   onWorktreeChange: (value: string) => void
+  onSuggestionSelect?: (prompt: string) => void
 }
 
 export function NewSessionView(props: NewSessionViewProps) {
   const sync = useSync()
   const language = useLanguage()
   const platform = usePlatform()
+  const local = useLocal()
 
   const sandboxes = createMemo(() => sync.project?.sandboxes ?? [])
   const options = createMemo(() => [MAIN_WORKTREE, ...sandboxes(), CREATE_WORKTREE])
@@ -34,6 +39,22 @@ export function NewSessionView(props: NewSessionViewProps) {
   })
   const desktop = createMemo(() => platform.platform === "desktop")
   const projectName = createMemo(() => getFilename(projectRoot()) || "Nikcli")
+  const mode = createMemo(() => {
+    const name = local.agent.current()?.name
+    return name === "build" || name === "plan" || name === "ralph" ? "work" : "chat"
+  })
+
+  const setMode = (next: "chat" | "work") => {
+    const available = local.agent.list()
+    const names = next === "work" ? ["build", "ralph", "plan"] : ["general"]
+    const agent = names.find((name) => available.some((item) => item.name === name))
+    if (agent) local.agent.set(agent)
+  }
+
+  const selectSuggestion = (value: (typeof WORK_SUGGESTIONS)[number]) => {
+    setMode("work")
+    props.onSuggestionSelect?.(value.prompt)
+  }
 
   const label = (value: string) => {
     if (value === MAIN_WORKTREE) {
@@ -91,8 +112,59 @@ export function NewSessionView(props: NewSessionViewProps) {
           </>
         }
       >
-        <div class="text-[28px] leading-tight font-medium tracking-[-0.02em] text-text-strong">
-          What should we build in {projectName()}?
+        <div class="desktop-work-start">
+          <div
+            class="desktop-work-start__mode"
+            role="group"
+            aria-label={language.t("session.new.mode.label")}
+            data-active={mode()}
+          >
+            <button
+              type="button"
+              aria-pressed={mode() === "chat"}
+              classList={{
+                "desktop-work-start__mode-active": mode() === "chat",
+              }}
+              onClick={() => setMode("chat")}
+            >
+              {language.t("session.new.mode.chat")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode() === "work"}
+              classList={{
+                "desktop-work-start__mode-active": mode() === "work",
+              }}
+              onClick={() => setMode("work")}
+            >
+              {language.t("session.new.mode.work")}
+            </button>
+          </div>
+          <div class="desktop-work-start__heading">
+            <span class="desktop-work-start__mark">
+              <Mark class="desktop-work-start__logo" />
+            </span>
+            <h1>{mode() === "work" ? language.t("session.new.title.work") : language.t("session.new.title.chat")}</h1>
+            <p>
+              <Icon name="folder" size="small" />
+              {language.t("session.new.workingIn", { project: projectName() })}
+            </p>
+          </div>
+          <Show when={mode() === "work"}>
+            <div class="desktop-work-start__suggestions" aria-label={language.t("session.new.suggestions.label")}>
+              <For each={WORK_SUGGESTIONS}>
+                {(suggestion) => (
+                  <button type="button" onClick={() => selectSuggestion(suggestion)}>
+                    <span>
+                      <Icon name={suggestion.icon} size="normal" />
+                    </span>
+                    <strong>{suggestion.title}</strong>
+                    <small>{suggestion.description}</small>
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
         </div>
       </Show>
     </div>

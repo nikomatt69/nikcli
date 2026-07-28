@@ -16,7 +16,10 @@ import Computer from "../feature-plugins/computer"
 import Connectors from "../feature-plugins/connectors"
 import Observability from "../feature-plugins/observability"
 import Island from "../feature-plugins/island"
+import Background from "../feature-plugins/background"
 import { Flag } from "@/flag/flag"
+import { dbg } from "../feature-plugins/background/__debug"
+dbg("internal.ts imported")
 
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import type { Definition } from "@nikcli-ai/plugin/v2/tui/plugin"
@@ -46,5 +49,6 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Computer,
   Connectors,
   Observability,
+  Background,
   ...(Flag.NIKCLI_ISLAND ? [Island] : []),
 ]

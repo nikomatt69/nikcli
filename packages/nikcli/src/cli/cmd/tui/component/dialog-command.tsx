@@ -1,5 +1,5 @@
 import { useDialog } from "@tui/ui/dialog"
-import { DialogSelect, type DialogSelectOption, type DialogSelectRef } from "@tui/ui/dialog-select"
+import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import {
   createContext,
   createMemo,
@@ -15,6 +15,7 @@ import {
 import { useKeyboard } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
 import { useRoute } from "@tui/context/route"
+import { settingsCommandOptions } from "./dialog-settings"
 
 const globalCommands: Accessor<CommandOption[]>[] = []
 
@@ -183,9 +184,11 @@ export function CommandProvider(props: ParentProps) {
 }
 
 function DialogCommand(props: { options: CommandOption[]; suggestedOptions: CommandOption[] }) {
-  let ref: DialogSelectRef<string>
+  const [filter, setFilter] = createSignal("")
   const list = createMemo(() => {
-    const all = [...props.suggestedOptions, ...props.options]
+    const all = filter()
+      ? [...props.options, ...settingsCommandOptions()]
+      : [...props.suggestedOptions, ...props.options]
     const seen = new Map<string, number>()
     const unique: typeof all = []
     for (const item of all) {
@@ -196,5 +199,5 @@ function DialogCommand(props: { options: CommandOption[]; suggestedOptions: Comm
     }
     return unique
   })
-  return <DialogSelect ref={(r) => (ref = r)} title="Commands" options={list()} />
+  return <DialogSelect title="Commands" options={list()} onFilter={setFilter} />
 }

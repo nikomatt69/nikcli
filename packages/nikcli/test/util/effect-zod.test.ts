@@ -233,6 +233,46 @@ describe("effect-zod walker", () => {
     expect(() => z.toJSONSchema(s)).not.toThrow()
   })
 
+  it("emits provider-friendly optional refinements without redundant allOf", () => {
+    const output = z.toJSONSchema(
+      zod(
+        Schema.Struct({
+          offset: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
+        }),
+      ),
+    )
+
+    expect(output.properties?.offset).toMatchObject({
+      type: "integer",
+      minimum: 0,
+    })
+    expect(output.properties?.offset).not.toHaveProperty("allOf")
+    expect(output.required).toBeUndefined()
+  })
+
+  it("inlines named child schemas without local JSON Schema references", () => {
+    const Child = Schema.Struct({ value: Schema.String }).annotate({
+      identifier: "Child",
+    })
+    const output = z.toJSONSchema(
+      zod(
+        Schema.Struct({
+          child: Child.annotate({ description: "Child value" }),
+        }),
+      ),
+    )
+    const serialized = JSON.stringify(output)
+
+    expect(serialized).not.toContain('"$ref"')
+    expect(serialized).not.toContain('"$defs"')
+    expect(output.properties?.child).toMatchObject({
+      type: "object",
+      description: "Child value",
+      properties: { value: { type: "string" } },
+      required: ["value"],
+    })
+  })
+
   it("Schema.NumberFromString emits z.coerce.number()", () => {
     const s = zod(Schema.NumberFromString)
     expect(s.safeParse("42").success).toBe(true)

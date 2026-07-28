@@ -76,6 +76,8 @@ import { EditorContextProvider } from "./context/editor"
 import { TuiConfig } from "@/config/tui"
 import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
+import { dbg as dbgApp } from "./feature-plugins/background/__debug"
+import { BackgroundImage as BackgroundImageDebug } from "./feature-plugins/background/view"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { Reconnecting } from "./component/reconnecting"
@@ -402,7 +404,9 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         renderer: renderer as any,
       })
+      dbgApp("before init")
       await TuiPluginRuntime.init(api)
+      dbgApp("after init")
       // Register the global sync dialog keybind (default: <leader>y).
       // Uses the same command-dialog plumbing as the slash command
       // /sync so a single source of truth drives both entry points.
@@ -421,6 +425,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       })
       setPluginsReady(true)
     })().catch((error) => {
+      dbgApp("init chain error", String(error))
       setOnboardingActive(false)
       setPluginsReady(true)
       toast.error(error)
@@ -1470,6 +1475,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         <TuiPluginRuntime.Slot name="app.bottom" />
       </box>
       <TuiPluginRuntime.Slot name="app" />
+      <BackgroundImageDebug />
       <StartupLoading ready={pluginsReady} />
       <Show when={sdk.connection.status() === "reconnecting"}>
         <Reconnecting attempt={sdk.connection.attempt()} error={sdk.connection.error()} />

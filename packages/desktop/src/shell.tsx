@@ -7,7 +7,7 @@ import { Button } from "@nikcli-ai/ui/button"
 import { DropdownMenu } from "@nikcli-ai/ui/dropdown-menu"
 import { Popover } from "@nikcli-ai/ui/popover"
 import { TextField } from "@nikcli-ai/ui/text-field"
-import { Splash } from "@nikcli-ai/ui/logo"
+import { Mark, Splash } from "@nikcli-ai/ui/logo"
 import {
   useAccount,
   useCommand,
@@ -43,7 +43,7 @@ const SIDEBAR_MIN = 260
 const SIDEBAR_MAX = 460
 const SIDEBAR_DEFAULT = 326
 const SIDEBAR_STORAGE_KEY = "sidebar-width"
-const SHELL_LAYOUT_STORAGE_KEY = "layout-v4-initialized"
+const SHELL_LAYOUT_STORAGE_KEY = "layout-v5-initialized"
 
 const REVIEW_MIN = 320
 const REVIEW_MAX = 1200
@@ -316,6 +316,7 @@ function NavButton(props: {
   icon: Parameters<typeof Icon>[0]["name"]
   label: string
   active?: boolean
+  primary?: boolean
   badge?: string
   onClick: () => void
 }) {
@@ -323,7 +324,10 @@ function NavButton(props: {
     <button
       type="button"
       class="desktop-nav-button"
-      classList={{ "desktop-nav-button--active": props.active }}
+      classList={{
+        "desktop-nav-button--active": props.active,
+        "desktop-nav-button--primary": props.primary,
+      }}
       aria-pressed={props.active}
       onClick={props.onClick}
     >
@@ -445,7 +449,12 @@ function DesktopAccount() {
   const platform = usePlatform()
   const [open, setOpen] = createSignal(false)
   const [mode, setMode] = createSignal<"login" | "register">("login")
-  const [form, setForm] = createStore({ email: "", password: "", username: "", displayName: "" })
+  const [form, setForm] = createStore({
+    email: "",
+    password: "",
+    username: "",
+    displayName: "",
+  })
   const [busy, setBusy] = createSignal(false)
   const [oauthBusy, setOauthBusy] = createSignal(false)
 
@@ -514,7 +523,10 @@ function DesktopAccount() {
           placement="top-start"
           gutter={8}
           triggerAs="button"
-          triggerProps={{ type: "button", class: "desktop-account desktop-account--signed-out" }}
+          triggerProps={{
+            type: "button",
+            class: "desktop-account desktop-account--signed-out",
+          }}
           class="desktop-account__popover"
           trigger={
             <>
@@ -663,7 +675,11 @@ function DesktopSidebar() {
           .filter((option) => !option.id.startsWith("suggested.") && !option.disabled && !!option.onSelect)
           .map((option) => [
             option.id,
-            { id: option.id, title: option.title, keybind: command.keybind(option.id) || undefined },
+            {
+              id: option.id,
+              title: option.title,
+              keybind: command.keybind(option.id) || undefined,
+            },
           ]),
       ),
   )
@@ -720,8 +736,20 @@ function DesktopSidebar() {
       </div>
 
       <div class="desktop-sidebar__primary">
-        <NavButton icon="edit-small-2" label={t("desktop.sidebar.newChat")} onClick={newSession} />
+        <div class="desktop-sidebar__brand">
+          <span>
+            <Mark class="desktop-sidebar__brand-mark" />
+          </span>
+          <strong>Nikcli</strong>
+          <small>Desktop</small>
+        </div>
+        <NavButton icon="edit-small-2" label={t("desktop.sidebar.newChat")} primary onClick={newSession} />
         <NavButton icon="magnifying-glass" label={t("desktop.sidebar.search")} onClick={command.show} />
+        <NavButton
+          icon="eye"
+          label={t("desktop.sidebar.sites")}
+          onClick={() => command.trigger("desktop.workbench.preview")}
+        />
         <NavButton
           icon="task"
           label={t("desktop.sidebar.automations")}
@@ -1114,7 +1142,12 @@ function DesktopTools() {
     automation: AutomationSurface
     collapsed: boolean
     fullscreen: boolean
-  }>({ active: "browser", automation: "browser", collapsed: false, fullscreen: false })
+  }>({
+    active: "browser",
+    automation: "browser",
+    collapsed: true,
+    fullscreen: false,
+  })
   const available = createMemo(() => !!params.dir)
   const activeAutomation = createMemo<AutomationSurface>(() =>
     isAutomationSurface(workbench.active) ? workbench.active : workbench.automation,
@@ -1268,21 +1301,25 @@ function DesktopTools() {
   }
 
   onMount(() => {
-    void Promise.resolve(storage?.getItem(WORKBENCH_COLLAPSED_STORAGE_KEY))
-      .then((collapsed) => {
-        if (collapsed === "true") setWorkbench("collapsed", true)
-      })
-      .catch(() => undefined)
+    void (async () => {
+      const initialized = await Promise.resolve(storage?.getItem(SHELL_LAYOUT_STORAGE_KEY)).catch(() => undefined)
+      if (initialized === "true") {
+        const collapsed = await Promise.resolve(storage?.getItem(WORKBENCH_COLLAPSED_STORAGE_KEY)).catch(
+          () => undefined,
+        )
+        if (collapsed === "true" || collapsed === "false") setWorkbench("collapsed", collapsed === "true")
+        return
+      }
 
-    void Promise.resolve(storage?.getItem(SHELL_LAYOUT_STORAGE_KEY))
-      .then((initialized) => {
-        if (initialized === "true") return
-        layout.fileTree.close()
-        view.reviewPanel.close()
-        view.terminal.open()
-        return Promise.resolve(storage?.setItem(SHELL_LAYOUT_STORAGE_KEY, "true"))
-      })
-      .catch(() => undefined)
+      layout.fileTree.close()
+      view.reviewPanel.close()
+      view.terminal.close()
+      setWorkbench("collapsed", true)
+      await Promise.all([
+        Promise.resolve(storage?.setItem(SHELL_LAYOUT_STORAGE_KEY, "true")),
+        Promise.resolve(storage?.setItem(WORKBENCH_COLLAPSED_STORAGE_KEY, "true")),
+      ]).catch(() => undefined)
+    })()
   })
 
   createEffect(
@@ -1293,7 +1330,11 @@ function DesktopTools() {
         if (!latest) return
         batch(() => {
           closeSessionPanels()
-          setWorkbench({ active: latest.tool, automation: latest.tool, collapsed: false })
+          setWorkbench({
+            active: latest.tool,
+            automation: latest.tool,
+            collapsed: false,
+          })
         })
         persistCollapsed(false)
       },
@@ -1418,7 +1459,9 @@ function DesktopTools() {
                 type="button"
                 role="tab"
                 class="desktop-workbench__tab"
-                classList={{ "desktop-workbench__tab--active": workbench.active === tab.surface }}
+                classList={{
+                  "desktop-workbench__tab--active": workbench.active === tab.surface,
+                }}
                 aria-label={tab.label}
                 aria-selected={workbench.active === tab.surface}
                 aria-controls={workbench.active === tab.surface ? panelControl(tab.surface) : undefined}

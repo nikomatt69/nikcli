@@ -33,13 +33,18 @@ function normalizeLineEndings(text: string): string {
 }
 
 const Parameters = Schema.Struct({
-  filePath: Schema.String.annotate({ description: "The absolute path to the file to modify" }),
-  oldString: Schema.String.annotate({ description: "The text to replace" }),
+  filePath: Schema.String.annotate({
+    description: "The absolute path to the file to modify",
+  }),
+  oldString: Schema.String.annotate({
+    description: "Exact text to find and replace",
+  }),
   newString: Schema.String.annotate({
-    description: "The text to replace it with (must be different from oldString)",
+    description: "Text to replace oldString with (must differ from oldString)",
   }),
   replaceAll: Schema.optional(Schema.Boolean).annotate({
-    description: "Replace all occurrences of oldString (default false)",
+    description:
+      "Whether to replace every occurrence of oldString. When false, oldString must match exactly once. Defaults to false.",
   }),
 })
 

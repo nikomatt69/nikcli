@@ -34,6 +34,7 @@ export interface DialogSelectOption<T = unknown> {
   title: string
   value: T
   description?: string
+  searchText?: string
   footer?: JSX.Element | string
   category?: string
   disabled?: boolean
@@ -84,10 +85,16 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         ...opt,
         _normalizedTitle: opt.title.toLowerCase(),
         _normalizedCategory: (opt.category ?? "").toLowerCase(),
+        _normalizedSearchText: (opt.searchText ?? "").toLowerCase(),
       }))
     const result = !needle
       ? normalizedOptions
-      : fuzzysort.go(needle, normalizedOptions, { keys: ["_normalizedTitle", "_normalizedCategory"] }).map((x) => x.obj)
+      : fuzzysort
+          .go(needle, normalizedOptions, {
+            keys: ["_normalizedTitle", "_normalizedCategory", "_normalizedSearchText"],
+            scoreFn: (result) => result[0].score * 2 + result[1].score + result[2].score,
+          })
+          .map((x) => x.obj)
     return result
   })
 

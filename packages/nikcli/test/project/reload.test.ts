@@ -126,7 +126,11 @@ describe("config-derived services join hot reload", () => {
     const writeAgent = (name: string) =>
       fs.writeFile(
         configPath,
-        JSON.stringify({ agent: { [name]: { description: `${name} agent`, prompt: "be useful" } } }),
+        JSON.stringify({
+          agent: {
+            [name]: { description: `${name} agent`, prompt: "be useful" },
+          },
+        }),
       )
 
     try {
@@ -182,6 +186,49 @@ describe("InstanceReload", () => {
 
       expect(seen).toContain(InstanceReload.Event.Started.type)
       expect(seen).toContain(InstanceReload.Event.Completed.type)
+    } finally {
+      await Instance.provide({ directory, fn: () => Instance.dispose() })
+      await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("publishes completion after command state can rebuild", async () => {
+    const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-reload-barrier-")))
+    const configPath = path.join(directory, "nikcli.json")
+    const writeCommand = (name: string) =>
+      fs.writeFile(configPath, JSON.stringify({ command: { [name]: { template: "do $ARGUMENTS" } } }))
+
+    try {
+      await writeCommand("alpha")
+      const result = await Instance.provide({
+        directory,
+        fn: () =>
+          Effect.runPromise(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const command = yield* Command.Service
+                const before = (yield* command.list()).map((entry) => entry.name)
+                let after: string[] = []
+                let unsubscribe = () => {}
+
+                yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribe()))
+
+                unsubscribe = Bus.subscribe(InstanceReload.Event.Completed, async () => {
+                  after = (await Effect.runPromise(command.list())).map((entry) => entry.name)
+                })
+
+                yield* Effect.promise(() => writeCommand("beta-command"))
+                yield* Effect.promise(() => InstanceReload.reload([configPath]))
+                return { before, after }
+              }).pipe(Effect.provide(Command.defaultLayer)),
+            ),
+          ),
+      })
+
+      expect(result.before).toContain("alpha")
+      expect(result.before).not.toContain("beta-command")
+      expect(result.after).toContain("beta-command")
+      expect(result.after).not.toContain("alpha")
     } finally {
       await Instance.provide({ directory, fn: () => Instance.dispose() })
       await fs.rm(directory, { recursive: true, force: true })

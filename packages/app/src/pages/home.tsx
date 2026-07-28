@@ -4,6 +4,7 @@ import { Logo } from "@nikcli-ai/ui/logo"
 import { useLayout } from "@/context/layout"
 import { useNavigate } from "@solidjs/router"
 import { base64Encode } from "@nikcli-ai/util/encode"
+import { getDirectory, getFilename } from "@nikcli-ai/util/path"
 import { Icon } from "@nikcli-ai/ui/icon"
 import { usePlatform } from "@/context/platform"
 import { DateTime } from "luxon"
@@ -81,27 +82,35 @@ export default function Home() {
       </Button>
       <Switch>
         <Match when={sync.data.project.length > 0}>
-          <div class="mt-20 w-full flex flex-col gap-4">
-            <div class="flex gap-2 items-center justify-between pl-3">
+          <div class="mt-20 w-full flex flex-col gap-3">
+            <div class="flex gap-2 items-center justify-between pl-3 pr-1">
               <div class="text-14-medium text-text-strong">{language.t("home.recentProjects")}</div>
               <Button icon="folder-add-left" size="normal" class="pl-2 pr-3" onClick={chooseProject}>
                 {language.t("command.project.open")}
               </Button>
             </div>
-            <ul class="flex flex-col gap-2">
+            <ul class="home-recent">
               <For each={recent()}>
                 {(project) => (
-                  <Button
-                    size="large"
-                    variant="ghost"
-                    class="text-14-mono text-left justify-between px-3"
-                    onClick={() => openProject(project.worktree)}
-                  >
-                    {project.worktree.replace(homedir(), "~")}
-                    <div class="text-14-regular text-text-weak">
-                      {DateTime.fromMillis(project.time.updated ?? project.time.created).toRelative()}
-                    </div>
-                  </Button>
+                  <li>
+                    <button type="button" class="home-recent__row" onClick={() => openProject(project.worktree)}>
+                      <span class="home-recent__icon">
+                        <Icon name="folder" size="normal" />
+                      </span>
+                      <span class="home-recent__copy">
+                        <strong>{getFilename(project.worktree) || project.worktree}</strong>
+                        <small>
+                          {getDirectory(project.worktree).replace(homedir(), "~") ||
+                            project.worktree.replace(homedir(), "~")}
+                        </small>
+                      </span>
+                      <span class="home-recent__time">
+                        {DateTime.fromMillis(project.time.updated ?? project.time.created)
+                          .setLocale(language.locale())
+                          .toRelative()}
+                      </span>
+                    </button>
+                  </li>
                 )}
               </For>
             </ul>

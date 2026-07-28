@@ -44,6 +44,7 @@ import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"
 import { setupSlots, Slot as View } from "./slots"
 import type { HostPluginApi, HostSlots } from "./slots"
 import { adaptV2TuiPlugin, readV2TuiPlugin } from "./v2"
+import { dbg } from "../feature-plugins/background/__debug"
 
 type PluginLoad = {
   item?: Config.PluginSpec
@@ -1001,6 +1002,7 @@ export namespace TuiPluginRuntime {
   }
 
   async function load(api: Api) {
+    dbg("load() start")
     const cwd = process.cwd()
     const slots = setupSlots(api)
     const next: RuntimeState = {
@@ -1022,6 +1024,7 @@ export namespace TuiPluginRuntime {
           log.info("skipping external tui plugins in pure mode", { count: config.plugin.length })
         }
 
+        dbg("runtime: internal plugins", INTERNAL_TUI_PLUGINS.map((x) => x.id).join(","))
         for (const item of INTERNAL_TUI_PLUGINS) {
           log.info("loading internal tui plugin", { id: item.id })
           const entry = loadInternalPlugin(item)
@@ -1066,6 +1069,7 @@ export namespace TuiPluginRuntime {
         }
       }
     }).catch((error) => {
+      dbg("load() failed", String(error))
       fail("failed to load tui plugins", { directory: cwd, error })
     })
   }

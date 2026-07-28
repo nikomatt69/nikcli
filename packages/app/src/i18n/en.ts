@@ -270,6 +270,14 @@ export const dict = {
   "prompt.example.24": "Create a CLI command for...",
   "prompt.example.25": "How do environment variables work here?",
 
+  "session.new.mode.label": "Nikcli mode",
+  "session.new.mode.chat": "Chat",
+  "session.new.mode.work": "Work",
+  "session.new.title.work": "What should we build?",
+  "session.new.title.chat": "How can I help?",
+  "session.new.workingIn": "Working in {{project}}",
+  "session.new.suggestions.label": "Suggested tasks",
+
   "prompt.popover.emptyResults": "No matching results",
   "prompt.popover.emptyCommands": "No matching commands",
   "prompt.dropzone.label": "Drop images or PDFs here",

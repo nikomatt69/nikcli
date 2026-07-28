@@ -32,7 +32,7 @@ import { useLanguage } from "@/context/language"
 import { useNavigate, useParams } from "@solidjs/router"
 import { UserMessage } from "@nikcli-ai/sdk/v2"
 import { useSDK } from "@/context/sdk"
-import { usePrompt } from "@/context/prompt"
+import { usePrompt, type ContentPart } from "@/context/prompt"
 import { useComments } from "@/context/comments"
 import { ConstrainDragYAxis, getDraggableId } from "@/utils/solid-dnd"
 import { usePermission } from "@/context/permission"
@@ -1670,6 +1670,26 @@ export default function Page() {
               <Match when={true}>
                 <NewSessionView
                   worktree={newSessionWorktree()}
+                  onSuggestionSelect={(content) => {
+                    const current = prompt.current()
+                    const parts = current
+                      .map((part) => {
+                        if (part.type === "text" && !part.content.trim()) return undefined
+                        return part
+                      })
+                      .filter((part): part is ContentPart => !!part)
+                    const next = [...parts, { type: "text" as const, content, start: 0, end: 0 }]
+                    let offset = 0
+                    for (const part of next) {
+                      if (part.type === "image") continue
+                      const length = part.type === "text" ? part.content.length : part.end - part.start
+                      part.start = offset
+                      part.end = offset + length
+                      offset = part.end
+                    }
+                    prompt.set(next, offset)
+                    requestAnimationFrame(() => inputRef?.focus())
+                  }}
                   onWorktreeChange={(value) => {
                     if (value === "create") {
                       setStore("newSessionWorktree", value)

@@ -45,6 +45,65 @@ describe("ReadTool", () => {
     expect(result.output).toContain("3: c")
   })
 
+  it("lists directories with stable paging", async () => {
+    const directory = path.join(projectDir, "listing")
+    await fs.mkdir(path.join(directory, "nested"), { recursive: true })
+    await fs.writeFile(path.join(directory, "alpha.txt"), "alpha")
+    await fs.writeFile(path.join(directory, "beta.txt"), "beta")
+    const { ctx } = makeToolContext()
+
+    const first = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath: directory, limit: 2 }, ctx))
+    expect(first.output).toContain("entries 1-2")
+    expect(first.output).toContain(`nested${path.sep}`)
+    expect(first.output).toContain("alpha.txt")
+    expect(first.output).toContain("Continue reading with offset: 3")
+    expect(first.metadata.truncated).toBe(true)
+
+    const second = await withProjectDirectory(projectDir, () =>
+      def.executeAsync({ filePath: directory, offset: 3, limit: 2 }, ctx),
+    )
+    expect(second.output).toContain("beta.txt")
+    expect(second.metadata.truncated).toBe(false)
+  })
+
+  it("bounds directory output by bytes", async () => {
+    const directory = path.join(projectDir, "large-listing")
+    await fs.mkdir(directory)
+    await Promise.all(
+      Array.from({ length: 300 }, (_, index) =>
+        fs.writeFile(path.join(directory, `${String(index).padStart(3, "0")}-${"x".repeat(180)}.txt`), ""),
+      ),
+    )
+    const { ctx } = makeToolContext()
+
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath: directory }, ctx))
+    expect(Buffer.byteLength(result.output, "utf-8")).toBeLessThanOrEqual(50 * 1024)
+    expect(result.output).toContain("Continue reading with offset:")
+    expect(result.metadata.truncated).toBe(true)
+  })
+
+  it("rejects oversized media before ingestion", async () => {
+    const filePath = path.join(projectDir, "oversized.png")
+    await fs.writeFile(filePath, "")
+    await fs.truncate(filePath, 20 * 1024 * 1024 + 1)
+    const { ctx } = makeToolContext()
+
+    await expect(withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx))).rejects.toThrow(
+      /Media exceeds 20971520 byte ingestion limit/,
+    )
+  })
+
+  it("bounds long lines while continuing to later lines", async () => {
+    const filePath = path.join(projectDir, "long-line.txt")
+    await fs.writeFile(filePath, `${"x".repeat(10_000)}\nsecond\n`)
+    const { ctx } = makeToolContext()
+
+    const result = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx))
+    expect(result.output).toContain(`1: ${"x".repeat(2_000)}...`)
+    expect(result.output).toContain("2: second")
+    expect(result.output).not.toContain("x".repeat(2_001))
+  })
+
   it("rejects offset less than 1", async () => {
     const filePath = path.join(projectDir, "x.txt")
     await fs.writeFile(filePath, "x\n")
@@ -52,6 +111,19 @@ describe("ReadTool", () => {
     await expect(
       withProjectDirectory(projectDir, () => def.executeAsync({ filePath, offset: 0 }, ctx)),
     ).rejects.toThrow(/offset must be/)
+  })
+
+  it("rejects fractional pagination values", async () => {
+    const filePath = path.join(projectDir, "fractional.txt")
+    await fs.writeFile(filePath, "one\ntwo\n")
+    const { ctx } = makeToolContext()
+
+    await expect(
+      withProjectDirectory(projectDir, () => def.executeAsync({ filePath, offset: 1.5 }, ctx)),
+    ).rejects.toThrow(/offset must be a positive integer/)
+    await expect(
+      withProjectDirectory(projectDir, () => def.executeAsync({ filePath, limit: 0.5 }, ctx)),
+    ).rejects.toThrow(/limit must be a positive integer/)
   })
 
   it("throws File not found for missing paths", async () => {
