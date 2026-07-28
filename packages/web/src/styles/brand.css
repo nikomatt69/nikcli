@@ -32,8 +32,7 @@
   text-decoration: none;
   color: rgb(var(--terminal-text));
   background:
-    radial-gradient(circle at 0% 0%, rgb(var(--terminal-accent) / 0.18), transparent 60%),
-    var(--terminal-window-bg);
+    radial-gradient(circle at 0% 0%, rgb(var(--terminal-accent) / 0.18), transparent 60%), var(--terminal-window-bg);
   border: 1px solid rgb(var(--terminal-accent) / 0.45);
   box-shadow:
     0 0 0 1px rgb(var(--terminal-accent) / 0.18),
@@ -53,8 +52,7 @@
   transform: translateY(-2px);
   border-color: rgb(var(--terminal-accent));
   background:
-    radial-gradient(circle at 0% 0%, rgb(var(--terminal-accent) / 0.28), transparent 60%),
-    var(--terminal-window-bg);
+    radial-gradient(circle at 0% 0%, rgb(var(--terminal-accent) / 0.28), transparent 60%), var(--terminal-window-bg);
   box-shadow:
     0 0 0 1px rgb(var(--terminal-accent) / 0.4),
     0 26px 50px -18px rgb(var(--terminal-accent) / 0.45);
@@ -360,12 +358,7 @@
   height: 64px;
   padding: 6px;
   border-radius: 8px;
-  background:
-    linear-gradient(
-      135deg,
-      rgb(var(--terminal-text) / 0.04),
-      rgb(var(--terminal-text) / 0.1)
-    );
+  background: linear-gradient(135deg, rgb(var(--terminal-text) / 0.04), rgb(var(--terminal-text) / 0.1));
   border: 1px solid rgb(var(--terminal-border) / 0.7);
   overflow: hidden;
   isolation: isolate;
@@ -382,7 +375,11 @@
     linear-gradient(45deg, transparent 75%, rgb(var(--terminal-border) / 0.35) 75%),
     linear-gradient(-45deg, transparent 75%, rgb(var(--terminal-border) / 0.35) 75%);
   background-size: 10px 10px;
-  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  background-position:
+    0 0,
+    0 5px,
+    5px -5px,
+    -5px 0;
   z-index: -1;
 }
 

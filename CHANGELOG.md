@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.208.0 (July 2026)
+
+## Core
+
+- Refactor background image handling in app component (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): refactor background image handling in app component
+
 ## v1.204.0 (July 2026)
 
 ## Core
