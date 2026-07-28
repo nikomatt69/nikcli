@@ -32,7 +32,10 @@ export const DEFAULT_SETTINGS: BackgroundSettings = {
   enabled: true,
   opacity: 0.3,
   fit: "cover",
-  scope: "home",
+  // Behind every route, sessions included — a wallpaper that vanishes the
+  // moment you open a session reads as a bug. `/background` can still scope it
+  // back to the home splash.
+  scope: "all",
   grayscale: false,
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { testRender } from "@opentui/solid"
+import { createSignal, Show } from "solid-js"
 import { createPixelImage } from "@nikcli-ai/tui-image"
 import { bufferSize, compose } from "../../src/cli/cmd/tui/feature-plugins/background/pixels"
 import "../../src/cli/cmd/tui/feature-plugins/background/renderable"
@@ -69,6 +70,52 @@ describe("background renderable", () => {
     expect(ints(bottom.bg)).toEqual([0, 0, 255])
 
     // Text keeps its glyph and color on top of the image.
+    const text = cells[0]!.find((cell) => cell.char === "h")
+    expect(text).toBeDefined()
+    expect(ints(text!.fg)).toEqual([255, 255, 255])
+    expect(ints(text!.bg)).toEqual([255, 0, 0])
+  })
+
+  test("stays behind the UI even when it mounts after it", async () => {
+    const pixels = banner()
+    const [mounted, setMounted] = createSignal(false)
+
+    const { captureSpans, renderOnce } = await testRender(
+      () => (
+        <box width={COLUMNS} height={ROWS} backgroundColor={BLACK}>
+          <text fg={RGBA.fromInts(255, 255, 255, 255)}>hi</text>
+          {/*
+            The app mounts the image as a direct child of its root box, which
+            is what makes `zIndex: -1` bite: nested one level deeper (under a
+            plugin `SlotRenderable`, say) it would only sort against that
+            node's own children and keep the order it was mounted in — on top
+            of the tabs and the prompt.
+          */}
+          <Show when={mounted()}>
+            <nikcli_background
+              position="absolute"
+              left={0}
+              top={0}
+              zIndex={-1}
+              width={COLUMNS}
+              height={ROWS}
+              pixels={pixels}
+              base={BLACK}
+            />
+          </Show>
+        </box>
+      ),
+      { width: COLUMNS, height: ROWS },
+    )
+    await renderOnce()
+    // The image decodes asynchronously, so it is added to the root after the
+    // UI has already rendered — the way it happens at runtime.
+    setMounted(true)
+    await renderOnce()
+
+    const cells = captureSpans().lines.map((line) =>
+      line.spans.flatMap((span) => [...span.text].map((char) => ({ char, fg: span.fg, bg: span.bg }))),
+    )
     const text = cells[0]!.find((cell) => cell.char === "h")
     expect(text).toBeDefined()
     expect(ints(text!.fg)).toEqual([255, 255, 255])

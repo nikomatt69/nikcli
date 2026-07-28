@@ -77,7 +77,7 @@ import { TuiConfig } from "@/config/tui"
 import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { dbg as dbgApp } from "./feature-plugins/background/__debug"
-import { BackgroundImage as BackgroundImageDebug } from "./feature-plugins/background/view"
+import { BackgroundImage } from "./feature-plugins/background/view"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { Reconnecting } from "./component/reconnecting"
@@ -1475,7 +1475,14 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         <TuiPluginRuntime.Slot name="app.bottom" />
       </box>
       <TuiPluginRuntime.Slot name="app" />
-      <BackgroundImageDebug />
+      {/*
+        Wallpaper. Mounted by the app rather than by its plugin, and it has to
+        stay a direct child of this box: `zIndex: -1` sorts it below every
+        sibling here, but one level deeper (inside a plugin `SlotRenderable`)
+        it would only sort against that node's own children and would paint in
+        mount order — over the tabs and the prompt.
+      */}
+      <BackgroundImage />
       <StartupLoading ready={pluginsReady} />
       <Show when={sdk.connection.status() === "reconnecting"}>
         <Reconnecting attempt={sdk.connection.attempt()} error={sdk.connection.error()} />
