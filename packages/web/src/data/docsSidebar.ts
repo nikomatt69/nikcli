@@ -40,6 +40,7 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "LSP", href: "/docs/lsp" },
       { title: "Storage", href: "/docs/storage" },
       { title: "TUI", href: "/docs/tui" },
+      { title: "TUI Feature Plugins", href: "/docs/tui-plugins" },
       { title: "Brain", href: "/docs/brain" },
       { title: "Island", href: "/docs/island" },
       { title: "Observability", href: "/docs/observability" },
@@ -48,16 +49,16 @@ export const docsSidebar: DocsNavGroup[] = [
   {
     title: "Engines",
     items: [
-      { title: "Computer-use", href: "/docs/computer-use" },
-      { title: "Browser-control", href: "/docs/browser-control" },
-      { title: "Terminal-control", href: "/docs/terminal-control" },
+      { title: "Computer Use", href: "/docs/computer-use" },
+      { title: "Browser Control", href: "/docs/browser-control" },
+      { title: "Terminal Control", href: "/docs/terminal-control" },
     ],
   },
   {
     title: "Reference",
     items: [
       { title: "Packages & Suite", href: "/docs/packages" },
-      { title: "Brand assets", href: "/docs/brand" },
+      { title: "Brand Assets", href: "/docs/brand" },
       { title: "Source Map", href: "/docs/source-map" },
       { title: "CLI Debug", href: "/docs/cli-debug" },
     ],

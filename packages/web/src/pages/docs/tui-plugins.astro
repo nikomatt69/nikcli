@@ -1,0 +1,649 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocRelated from "../../components/docs/DocRelated.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Anatomy of a plugin", href: "#anatomy", depth: 2 },
+  { title: "The registry", href: "#registry", depth: 2 },
+  { title: "Shell — home & sidebar", href: "#shell", depth: 2 },
+  { title: "home", href: "#home", depth: 3 },
+  { title: "sidebar", href: "#sidebar", depth: 3 },
+  { title: "System", href: "#system", depth: 2 },
+  { title: "system/plugins", href: "#system-plugins", depth: 3 },
+  { title: "system/fusion", href: "#system-fusion", depth: 3 },
+  { title: "Appearance", href: "#appearance", depth: 2 },
+  { title: "background", href: "#background", depth: 3 },
+  { title: "Orchestration", href: "#orchestration", depth: 2 },
+  { title: "loops", href: "#loops", depth: 3 },
+  { title: "mission", href: "#mission", depth: 3 },
+  { title: "brain", href: "#brain", depth: 3 },
+  { title: "Engines & integrations", href: "#engines", depth: 2 },
+  { title: "browser", href: "#browser", depth: 3 },
+  { title: "computer", href: "#computer", depth: 3 },
+  { title: "connectors", href: "#connectors", depth: 3 },
+  { title: "chatbot", href: "#chatbot", depth: 3 },
+  { title: "observability", href: "#observability", depth: 3 },
+  { title: "island", href: "#island", depth: 3 },
+  { title: "Command index", href: "#command-index", depth: 2 },
+  { title: "Writing your own", href: "#writing", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="TUI feature plugins"
+  subtitle="Every built-in plugin under cli/cmd/tui/feature-plugins — what it registers, which commands it owns, where its state lives."
+  description="Reference for nikcli's internal TUI feature plugins: home, sidebar, system, background, loops, mission, brain, browser, computer, connectors, chatbot, observability and island."
+  toc={toc}
+>
+  <section id="overview" class="doc-section">
+    <h2>Overview</h2>
+    <p>
+      Almost nothing the nikcli TUI shows is hard-coded in <code>app.tsx</code>. The
+      home tips, the sidebar panels, the plugin manager, the wallpaper, the loop and
+      mission managers, the connector and chat-bot dashboards — each one is a
+      self-contained <strong>feature plugin</strong> under
+      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code>, loaded through the
+      exact same runtime that loads third-party plugins from npm.
+    </p>
+    <p>
+      That is the point: the internal plugins are the reference implementations of the
+      public plugin API. If you want to know how to register a command, own a dialog,
+      paint into a sidebar slot, or persist per-machine state, one of the directories on
+      this page already does it.
+    </p>
+    <div class="doc-grid not-prose">
+      <DocCard title="14 built-in plugins" eyebrow="feature-plugins/">
+        <p>Registered in <code>plugin/internal.ts</code> and listed by the plugin manager alongside anything installed from npm.</p>
+      </DocCard>
+      <DocCard title="Two API generations" eyebrow="v1 + v2">
+        <p>Slot-only plugins use <code>Plugin.define</code> (v2). Command-owning plugins export a <code>TuiPluginModule</code> with a <code>tui(api)</code> setup function (v1).</p>
+      </DocCard>
+      <DocCard title="Toggleable at runtime" eyebrow="Ctrl+P → Plugins">
+        <p>Every internal plugin except the manager itself can be deactivated live; the enabled flag persists in the TUI key-value store.</p>
+      </DocCard>
+      <DocCard title="Same runtime as external" eyebrow="TuiPluginRuntime">
+        <p>Internal plugins get no privileges an npm plugin lacks — they are simply pre-registered.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="anatomy" class="doc-section">
+    <h2>Anatomy of a plugin</h2>
+    <p>
+      A command-owning plugin is a module with an <code>id</code> and an async
+      <code>tui(api)</code> setup function. Everything it registers is scoped to the
+      plugin's lifetime — the runtime unregisters on deactivate and on TUI shutdown.
+    </p>
+    <DocCode language="tsx" title="feature-plugins/browser/index.tsx">{`import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
+import { DialogBrowserUse } from "@tui/component/dialog-browser-use"
+
+const id = "internal:browser"
+
+const tui: TuiPlugin = async (api) => {
+  api.keymap.registerLayer({
+    commands: [
+      {
+        name: "browser.sessions",
+        title: "Browser",
+        namespace: "Tool",
+        description: "Inspect and manage active background browser sessions",
+        slashName: "browser",
+        run() {
+          api.ui.dialog.replace(() => <DialogBrowserUse />)
+        },
+      },
+    ],
+  })
+}
+
+const plugin: TuiPluginModule & { id: string } = { id, tui }
+export default plugin`}</DocCode>
+    <p>
+      A pure-UI plugin has no commands at all — it only fills a slot, and uses the
+      terser v2 <code>Plugin.define</code> form:
+    </p>
+    <DocCode language="tsx" title="feature-plugins/sidebar/lsp.tsx">{`import { Plugin } from "@nikcli-ai/plugin/v2/tui"
+
+export default Plugin.define({
+  id: "internal:sidebar-lsp",
+  setup(ctx) {
+    ctx.ui.slot("sidebar.content", () => <View />)
+  },
+})`}</DocCode>
+    <table class="doc-table">
+      <thead><tr><th>API surface</th><th>Used for</th><th>Example plugin</th></tr></thead>
+      <tbody>
+        <tr><td><code>api.keymap.registerLayer()</code></td><td>Commands, slash names/aliases, keybindings. Pass a function instead of an array to make the layer reactive.</td><td><code>background</code> (its command titles change with settings)</td></tr>
+        <tr><td><code>api.slots.register()</code> / <code>ctx.ui.slot()</code></td><td>Render into <code>app</code>, <code>home.bottom</code>, <code>home.footer</code>, <code>sidebar.content</code>, <code>sidebar.footer</code>.</td><td><code>loops</code>, every <code>sidebar/*</code></td></tr>
+        <tr><td><code>api.ui.dialog.replace()</code></td><td>Own the dialog stack: <code>DialogSelect</code>, <code>DialogPrompt</code>, <code>DialogAlert</code>, <code>DialogConfirm</code>.</td><td><code>connectors</code>, <code>chatbot</code></td></tr>
+        <tr><td><code>api.kv.get()</code> / <code>set()</code></td><td>Per-machine state in <code>&lt;state&gt;/kv.json</code> — never in <code>nikcli.json</code>.</td><td><code>background</code>, <code>loops</code>, <code>fusion</code></td></tr>
+        <tr><td><code>api.client</code></td><td>The typed SDK against the same server every other client talks to.</td><td><code>mission</code>, <code>loops</code>, <code>fusion</code></td></tr>
+        <tr><td><code>api.state</code></td><td>Read-only synced snapshot: config, providers, sessions, todos, diffs, MCP, LSP.</td><td>all <code>sidebar/*</code></td></tr>
+        <tr><td><code>api.lifecycle.onDispose()</code></td><td>Teardown on deactivate <em>and</em> on shutdown. Do not rely on process exit.</td><td><code>island</code>, <code>fusion</code>, <code>loops</code></td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="note" title="onDispose fires on both paths">
+      <p>
+        <code>onDispose</code> runs when the user deactivates the plugin <em>and</em> when
+        the TUI quits. If a teardown should only happen on a real deactivation, check the
+        persisted flag — <code>system/fusion</code> reads <code>kv["plugin_enabled"][id] === false</code>
+        so quitting the app does not disable every fusion preset.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="registry" class="doc-section">
+    <h2>The registry</h2>
+    <p>
+      <code>plugin/internal.ts</code> is the whole registry. Order matters only for slot
+      ordering ties; the plugin manager sorts its own list.
+    </p>
+    <DocCode language="ts" title="cli/cmd/tui/plugin/internal.ts">{`export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
+  HomeTips,
+  SidebarContext, SidebarMcp, SidebarLsp, SidebarTodo, SidebarFiles, SidebarFooter,
+  PluginManager, Fusion,
+  Missions, Loops, Brain, Browser, Chatbot, Computer, Connectors, Observability,
+  Background,
+  ...(Flag.NIKCLI_ISLAND ? [Island] : []),
+]`}</DocCode>
+    <p>
+      Only <code>island</code> is conditional: it is registered exclusively when the CLI
+      was started with <code>--island</code>, so the macOS notch bridge never loads on a
+      run that did not ask for it.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Directory</th><th>Plugin id</th><th>What it owns</th></tr></thead>
+      <tbody>
+        <tr><td><code>home/</code></td><td><code>internal:home-tips</code></td><td>Rotating tip line under the home splash.</td></tr>
+        <tr><td><code>sidebar/</code></td><td><code>internal:sidebar-*</code> (6)</td><td>Context, MCP, LSP, Todo, Modified Files, footer.</td></tr>
+        <tr><td><code>system/</code></td><td><code>internal:plugin-manager</code>, <code>internal:fusion</code></td><td>Plugin list/install; OpenRouter Fusion presets.</td></tr>
+        <tr><td><code>background/</code></td><td><code>internal:background</code></td><td>Terminal wallpaper: renderable, pixel pipeline, picker.</td></tr>
+        <tr><td><code>loops/</code></td><td><code>internal:loops</code></td><td>Autonomous loop manager + sidebar.</td></tr>
+        <tr><td><code>mission/</code></td><td><code>internal:missions</code></td><td>Multi-milestone mission manager + sidebar.</td></tr>
+        <tr><td><code>brain/</code></td><td><code>internal:brain</code></td><td>Consolidation scheduler + on-demand run.</td></tr>
+        <tr><td><code>browser/</code></td><td><code>internal:browser</code></td><td><code>/browser</code> → browser-use control dialog.</td></tr>
+        <tr><td><code>computer/</code></td><td><code>internal:computer</code></td><td><code>/computer</code> → desktop capability probe.</td></tr>
+        <tr><td><code>connectors/</code></td><td><code>internal:connectors</code></td><td>Connector health, refresh, credential removal.</td></tr>
+        <tr><td><code>chatbot/</code></td><td><code>internal:chatbot</code></td><td>Chat-platform bots: start/stop, webhook path.</td></tr>
+        <tr><td><code>observability/</code></td><td><code>internal:observability</code></td><td>OTLP settings + live span stream.</td></tr>
+        <tr><td><code>island/</code></td><td><code>internal:island</code></td><td>macOS notch bridge toggle and status.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="deepsec is an empty directory">
+      <p>
+        <code>feature-plugins/deepsec/</code> exists but contains no files and is not in
+        the registry. There is no deep-security TUI plugin today; treat any older
+        reference to one as stale.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="shell" class="doc-section">
+    <h2>Shell — home &amp; sidebar</h2>
+    <p>
+      These plugins have no commands. They exist purely to fill slots, and they are the
+      shortest possible examples of the v2 API.
+    </p>
+
+    <h3 id="home">home</h3>
+    <p>
+      <code>home/tips.tsx</code> fills the <code>home.bottom</code> slot with one randomly
+      chosen tip from a ~100-entry list in <code>home/tips-view.tsx</code>. The tip is
+      shown only once at least one session exists, so a brand-new install is not greeted
+      with advice about features it has not reached yet.
+    </p>
+    <p>
+      It also registers a single palette command, <code>tips.toggle</code> (keybind
+      <code>tips_toggle</code>), which flips the <code>tips_hidden</code> KV flag. Tips
+      support a <code>&#123;highlight&#125;…&#123;/highlight&#125;</code> markup that renders the
+      wrapped span in the foreground color — that is how keybinds and slash commands stand
+      out inside a tip.
+    </p>
+
+    <h3 id="sidebar">sidebar</h3>
+    <p>
+      Six independent plugins, each one panel. They are separate on purpose: a user (or a
+      third-party plugin) can turn off just the MCP panel without losing the Todo panel.
+      All six read from <code>useSync()</code>, so they never issue their own fetches.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Plugin</th><th>Slot</th><th>Renders</th><th>Hidden when</th></tr></thead>
+      <tbody>
+        <tr><td><code>sidebar/context.tsx</code></td><td><code>sidebar.content</code></td><td>Token total for the last assistant message, percentage of the model's context limit, and cumulative session cost in USD.</td><td>never (shows zeros)</td></tr>
+        <tr><td><code>sidebar/mcp.tsx</code></td><td><code>sidebar.content</code></td><td>Each MCP server with a status dot — connected, failed (with error), disabled, needs auth, needs client ID.</td><td>no MCP servers configured</td></tr>
+        <tr><td><code>sidebar/lsp.tsx</code></td><td><code>sidebar.content</code></td><td>Connected language servers and their roots; explains whether LSP is disabled or simply not activated yet.</td><td>never</td></tr>
+        <tr><td><code>sidebar/todo.tsx</code></td><td><code>sidebar.content</code></td><td>The session's todo list via the shared <code>TodoItem</code> component.</td><td>list empty or fully completed</td></tr>
+        <tr><td><code>sidebar/files.tsx</code></td><td><code>sidebar.content</code></td><td>Modified files for the session with per-file <code>+additions</code> / <code>-deletions</code>.</td><td>no diff for the session</td></tr>
+        <tr><td><code>sidebar/footer.tsx</code></td><td><code>sidebar.footer</code></td><td>Working directory (with <code>~</code> collapsing) plus branch, and the NIKCLI version line. Also the dismissible “Getting started” card when no paid provider is connected.</td><td>never</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Collapsible panels">
+      <p>
+        MCP, LSP, Todo and Files collapse on click, but only when they hold more than two
+        rows — a two-line panel gains nothing from a disclosure triangle. The collapsed MCP
+        header summarizes as <code>(3 active, 1 error)</code>.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="system" class="doc-section">
+    <h2>System</h2>
+
+    <h3 id="system-plugins">system/plugins — the plugin manager</h3>
+    <p>
+      The dialog that lists every plugin, internal and external, and the only way to
+      install one from inside the TUI. Reached from the command palette
+      (<strong>Plugins</strong>) or the <code>plugin_manager</code> keybind.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Key</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code>space</code> / <code>enter</code></td><td>Activate or deactivate the highlighted plugin, live. The new state persists in <code>kv["plugin_enabled"]</code>.</td></tr>
+        <tr><td><code>shift+i</code></td><td>Install an npm package. <code>tab</code> inside the prompt switches between <strong>local</strong> and <strong>global</strong> scope.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Rows are grouped into <strong>External</strong>, <strong>Server</strong> and
+      <strong>Internal</strong>, with externals first. Server-target plugins and the manager
+      itself are disabled rows — you cannot toggle a server plugin from the TUI, and you
+      cannot switch off the thing you are switching things off with.
+    </p>
+    <p>
+      Install is two-phase: <code>plugins.install(mod)</code> writes the package, then
+      <code>plugins.add(mod)</code> loads it into the running session. A package with no TUI
+      target installs successfully and says so rather than pretending to load; a package
+      that installs but fails to load tells you to restart rather than leaving a broken row.
+    </p>
+    <p>The dialog widens with the terminal — <code>medium</code> below 96 columns, <code>large</code> at 96, <code>xlarge</code> at 128 — because the description column holds a full filesystem path for external plugins.</p>
+
+    <h3 id="system-fusion">system/fusion — OpenRouter Fusion presets</h3>
+    <p>
+      OpenRouter's Fusion presets are surfaced as model variants on
+      <code>openrouter/fusion</code>. This plugin is their manager: built-ins ship in
+      <code>provider/transform.ts</code>, customs live in global config under
+      <code>provider.openrouter.models["openrouter/fusion"].variants</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Key</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code>space</code> / <code>enter</code></td><td>Enable or disable the preset (writes <code>disabled</code> through <code>client.config.update</code>).</td></tr>
+        <tr><td><code>shift+i</code></td><td>Create a preset: name → analysis models (comma/space separated OpenRouter slugs) → primary model.</td></tr>
+        <tr><td><code>shift+d</code></td><td>Remove a custom preset. Built-ins can be disabled but never removed.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="note" title="Two KV keys carry the state config cannot">
+      <p>
+        A config merge cannot delete keys, so removed customs are remembered in
+        <code>fusion.removed</code> and filtered out on read. And because turning the
+        plugin off should hide the variants from the model picker without forgetting your
+        choices, the set of enabled presets is snapshotted into <code>fusion.snapshot</code>
+        on master-off and restored on master-on.
+      </p>
+    </DocCallout>
+    <p>
+      Writes are optimistic: the row flips immediately from an in-session override map
+      because the synced config state can lag a tick behind the update call.
+    </p>
+  </section>
+
+  <section id="appearance" class="doc-section">
+    <h2>Appearance</h2>
+
+    <h3 id="background">background — a real image behind the TUI</h3>
+    <p>
+      The largest internal plugin, and the one that most clearly shows how far a plugin can
+      go. It paints an actual decoded image behind every route using truecolor half-blocks,
+      so you get a terminal wallpaper whether or not your terminal supports one.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Slash</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>background.configure</code></td><td><code>/background</code> · <code>/bg</code> · <code>/wallpaper</code></td><td>Opens the settings dialog. Its description shows the current source, so the palette itself tells you what is set.</td></tr>
+        <tr><td><code>background.choose</code></td><td>—</td><td>Jumps straight to the filesystem picker.</td></tr>
+        <tr><td><code>background.toggle</code></td><td>—</td><td>Stop painting without forgetting the image. Disabled until a source is set.</td></tr>
+        <tr><td><code>background.shuffle</code></td><td>—</td><td>Next image, when the source is a folder. Hidden until a source is set.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The command layer is registered as a <em>function</em>, not an array, so the titles
+      re-evaluate: the toggle row reads “Hide background image” or “Show background image”
+      depending on the current setting.
+    </p>
+    <h4>Settings</h4>
+    <table class="doc-table">
+      <thead><tr><th>Setting</th><th>Values</th><th>Default</th></tr></thead>
+      <tbody>
+        <tr><td><code>source</code></td><td>Absolute path, a directory to rotate through, <code>file://</code>, <code>http(s)://</code>, or a <code>data:</code> URL.</td><td><em>empty</em></td></tr>
+        <tr><td><code>opacity</code></td><td>0.05 – 0.9, cycled in 0.05 steps (wraps at the ends).</td><td><code>0.3</code></td></tr>
+        <tr><td><code>fit</code></td><td><code>cover</code> (fill, crop) or <code>contain</code> (letterbox).</td><td><code>cover</code></td></tr>
+        <tr><td><code>scope</code></td><td><code>all</code> (every route) or <code>home</code> (splash only).</td><td><code>all</code></td></tr>
+        <tr><td><code>grayscale</code></td><td>Drop color, keep luminance.</td><td><code>false</code></td></tr>
+        <tr><td><code>enabled</code></td><td>Paint or don't, keeping the source.</td><td><code>true</code></td></tr>
+      </tbody>
+    </table>
+    <p>
+      Everything lives under the single KV key <code>background_image</code> — not in
+      <code>nikcli.json</code>, because the wallpaper is a personal, per-machine choice and
+      a config round-trip would be noise in a shared repo. A bare string is accepted and
+      normalized into the full object, and sources are cleaned of the quoting and
+      backslash-escaping a terminal adds when you drag a file onto the prompt, with
+      <code>~</code> expanded.
+    </p>
+    <h4>How it renders</h4>
+    <ol>
+      <li><strong>Resolve.</strong> <code>source.ts</code> turns the setting into one concrete location; a directory resolves to one of its images by index, which is all “shuffle” has to bump.</li>
+      <li><strong>Decode.</strong> Bytes are read (25&nbsp;MB cap for remote and local files), decoded via <code>@nikcli-ai/tui-image</code>, and cached per location so a route change or a terminal resize never re-decodes a photo.</li>
+      <li><strong>Compose.</strong> <code>pixels.ts</code> crops to the terminal aspect, resamples at 2× per axis, optionally desaturates, and blends over the theme background at the configured opacity — pure and synchronous, so it is unit-testable without a renderer.</li>
+      <li><strong>Paint.</strong> <code>&lt;nikcli_background&gt;</code> hands the RGBA buffer to OpenTUI's native Zig super-sampler, which writes <code>▀</code> cells with per-cell foreground/background in one call.</li>
+    </ol>
+    <DocCallout type="info" title="Why app.tsx mounts the view, not a slot">
+      <p>
+        The plugin owns the settings, dialogs and commands — but <code>app.tsx</code> renders
+        <code>BackgroundImage</code> directly. Through a slot the image would nest under a
+        <code>SlotRenderable</code>, where <code>zIndex: -1</code> only sorts against that
+        node's own children; against the app it would keep mount order and paint over the
+        tabs and the prompt. Being a direct child of the app root is what puts it behind.
+      </p>
+    </DocCallout>
+    <DocCallout type="note" title="Resize safety">
+      <p>
+        The native super-sampler reads a 2×2 pixel block per cell and does not bounds-check.
+        If the pixel buffer does not match the frame buffer exactly — which happens for one
+        frame after a resize — the renderable keeps the previous frame instead of drawing
+        past the end of the buffer.
+      </p>
+    </DocCallout>
+    <DocCode language="bash" title="Terminal">
+      # Trace the render path to a file while debugging
+      NIKCLI_BG_DEBUG=/tmp/bg.log nikcli
+    </DocCode>
+  </section>
+
+  <section id="orchestration" class="doc-section">
+    <h2>Orchestration</h2>
+
+    <h3 id="loops">loops</h3>
+    <p>
+      Define an objective and a trigger once; nikcli drives the Goal system toward it on a
+      schedule or on demand. See <a href="/docs/loops">Loops</a> for the engine itself — the
+      plugin is the TUI half.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Slash</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>loops.manage</code></td><td><code>/loops</code> · <code>/loop</code></td><td>Manager: every loop, its live status and success rate.</td></tr>
+        <tr><td><code>loops.new</code></td><td>—</td><td>Creation wizard — template, blank, or AI-generated.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The plugin also fills <code>sidebar_content</code> at order <strong>250</strong> with a
+      live list and a “N running” badge. Definitions and history are persisted server-side so
+      loops keep running with the TUI closed; on activation the plugin syncs the server's view
+      into a local KV cache (<code>loops</code>, <code>loops:history</code>) and subscribes to
+      the engine's bus events. The local cache is only there to keep the sidebar snappy when
+      the server is unreachable — the server stays the source of truth.
+    </p>
+
+    <h3 id="mission">mission</h3>
+    <p>
+      Same shape as <code>loops</code>, one level up: multi-milestone autonomous missions
+      with feature-level progress. See <a href="/docs/missions">Missions</a>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Slash</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>missions.manage</code></td><td><code>/mission</code> · <code>/missions</code></td><td>Manager with per-mission status and <code>done/total</code> feature counts.</td></tr>
+        <tr><td><code>missions.new</code></td><td>—</td><td>Planning wizard — template, blank, or AI-generated.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Its sidebar slot registers at order <strong>240</strong>, deliberately ahead of Loops
+      (250), so Missions wins the bottom of the sidebar. KV cache keys:
+      <code>missions</code>, <code>missions:history</code>.
+    </p>
+
+    <h3 id="brain">brain</h3>
+    <p>
+      Wires the <a href="/docs/brain">Brain</a> consolidation engine into the TUI. On
+      activation it arms the background scheduler that periodically consolidates sessions
+      into long-term memory; <code>/brain</code> (command <code>brain.run</code>) forces a
+      pass right now.
+    </p>
+    <p>
+      The run is fire-and-forget: the dialog closes, a toast says it started, and when the
+      pass finishes another toast reports how many sessions were reviewed — then the TUI
+      navigates to the resulting Brain session. Both the scheduler and the engine are
+      imported lazily, because eagerly pulling the brain/provider chain during TUI module
+      load would cost startup time on every run that never touches Brain.
+    </p>
+  </section>
+
+  <section id="engines" class="doc-section">
+    <h2>Engines &amp; integrations</h2>
+
+    <h3 id="browser">browser</h3>
+    <p>
+      <code>/browser</code> (command <code>browser.sessions</code>, namespace
+      <strong>Tool</strong>) opens the browser-use control dialog: active background browser
+      sessions, navigation and the action log for the <code>browser</code> tool. The engine
+      is documented in <a href="/docs/browser-control">Browser control</a>.
+    </p>
+
+    <h3 id="computer">computer</h3>
+    <p>
+      <code>/computer</code> · <code>/computer-use</code> (command
+      <code>computer.capabilities</code>) probes the host through
+      <code>@nikcli-ai/computer-use</code> and reports exactly what the <code>computer</code>
+      tool can do on this machine — platform, screenshot availability, input availability,
+      and a detail line naming the helpers in use (on macOS,
+      <code>screencapture + System Events + cliclick</code>) or the ones that are missing.
+      A failed probe surfaces as an error toast, not a broken dialog. See
+      <a href="/docs/computer-use">Computer use</a>.
+    </p>
+
+    <h3 id="connectors">connectors</h3>
+    <p>
+      <code>/connectors</code> · <code>/connector</code> (command
+      <code>connectors.manage</code>) lists every configured connector with a live health
+      badge, resolved by running the real health check — not by reading config.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Status</th><th>Shown as</th></tr></thead>
+      <tbody>
+        <tr><td><code>connected</code></td><td><code>● connected</code></td></tr>
+        <tr><td><code>needs_auth</code></td><td><code>○ needs auth</code></td></tr>
+        <tr><td><code>disabled</code></td><td><code>– disabled</code></td></tr>
+        <tr><td><code>failed</code></td><td><code>✗ failed: &lt;error&gt;</code></td></tr>
+      </tbody>
+    </table>
+    <p>
+      Selecting a connector offers <strong>Refresh status</strong> (invalidate the cached
+      status and re-run the check) and <strong>Remove credentials</strong> (drop the stored
+      token, then invalidate). A top-level <strong>Refresh all</strong> invalidates every
+      cached status and the tool list. With nothing configured, the dialog says so and tells
+      you to add one under <code>connectors</code> in <code>nikcli.json</code> or run
+      <code>nikcli connector add</code>. Full reference: <a href="/docs/connectors">Connectors</a>.
+    </p>
+    <DocCallout type="note" title="Lazy imports are load-bearing here">
+      <p>
+        <code>@/connectors</code> pulls the <code>ai</code> package chain. Importing it at
+        module scope would drag that chain into TUI startup, so the plugin imports it inside
+        the handlers instead. The same pattern appears in <code>brain</code> and
+        <code>chatbot</code>.
+      </p>
+    </DocCallout>
+
+    <h3 id="chatbot">chatbot</h3>
+    <p>
+      <code>/bots</code> · <code>/chatbot</code> (command <code>chatbot.manage</code>) manages
+      the Chat SDK bots — Discord, Slack, Teams, Google Chat, Linear, GitHub. The list is the
+      intersection of configured connectors whose <code>type</code> is a chat platform and the
+      set of bots currently running, marked <code>●</code> running / <code>○</code> stopped.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Action</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Start bot</strong></td><td>Creates the bot and registers the AI mention handler. If credentials are missing it says so and points at <code>nikcli bot auth</code> rather than failing silently.</td></tr>
+        <tr><td><strong>Stop bot</strong></td><td>Disconnects the bot from its platform.</td></tr>
+        <tr><td><strong>Webhook path</strong></td><td>Shows the exact path that platform must be pointed at, derived per platform and bot name.</td></tr>
+      </tbody>
+    </table>
+    <p>With nothing configured, the dialog points at <code>nikcli bot add</code>.</p>
+
+    <h3 id="observability">observability</h3>
+    <p>
+      Two commands over the OpenTelemetry pipeline. See <a href="/docs/observability">Observability</a>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Slash</th><th>Opens</th></tr></thead>
+      <tbody>
+        <tr><td><code>otel.settings</code></td><td><code>/otel</code> · <code>/telemetry</code> · <code>/opentelemetry</code></td><td>Settings panel: AI SDK telemetry on/off, resolved OTLP endpoint, export status, service resource.</td></tr>
+        <tr><td><code>otel.live</code></td><td>—</td><td>The streaming span viewer, straight from the palette.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="island">island</h3>
+    <p>
+      Loaded only when the CLI was started with <code>--island</code>. Activating it turns the
+      macOS notch bridge on for this session; deactivating it from the plugin manager clears
+      this session's snapshot and stops writing, and the toggle persists like any other
+      plugin's enabled state.
+    </p>
+    <p>
+      <code>/island</code> (command <code>island.status</code>) reports whether the bridge is
+      enabled, whether the companion app is running, and how many live sessions it is
+      tracking — or says plainly that Island is macOS-only on other platforms. Full
+      documentation: <a href="/docs/island">Island</a>.
+    </p>
+    <DocCallout type="info" title="Non-TUI entrypoints ignore this toggle">
+      <p>
+        <code>nikcli run</code> and <code>nikcli serve</code> self-activate through
+        <code>Bus.publish</code> independently, gated by <code>--island</code> and
+        <code>NIKCLI_ISLAND_DISABLE</code>. Turning the plugin off in the TUI does not stop them.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="command-index" class="doc-section">
+    <h2>Command index</h2>
+    <p>Every command the built-in plugins register, and how to reach it.</p>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Slash</th><th>Namespace</th><th>Plugin</th></tr></thead>
+      <tbody>
+        <tr><td><code>background.configure</code></td><td><code>/background</code>, <code>/bg</code>, <code>/wallpaper</code></td><td>Appearance</td><td>background</td></tr>
+        <tr><td><code>background.choose</code></td><td>—</td><td>Appearance</td><td>background</td></tr>
+        <tr><td><code>background.toggle</code></td><td>—</td><td>Appearance</td><td>background</td></tr>
+        <tr><td><code>background.shuffle</code></td><td>—</td><td>Appearance</td><td>background</td></tr>
+        <tr><td><code>brain.run</code></td><td><code>/brain</code></td><td>System</td><td>brain</td></tr>
+        <tr><td><code>browser.sessions</code></td><td><code>/browser</code></td><td>Tool</td><td>browser</td></tr>
+        <tr><td><code>chatbot.manage</code></td><td><code>/bots</code>, <code>/chatbot</code></td><td>System</td><td>chatbot</td></tr>
+        <tr><td><code>computer.capabilities</code></td><td><code>/computer</code>, <code>/computer-use</code></td><td>System</td><td>computer</td></tr>
+        <tr><td><code>connectors.manage</code></td><td><code>/connectors</code>, <code>/connector</code></td><td>System</td><td>connectors</td></tr>
+        <tr><td><code>fusion.presets</code></td><td>—</td><td>System</td><td>system/fusion</td></tr>
+        <tr><td><code>island.status</code></td><td><code>/island</code></td><td>System</td><td>island</td></tr>
+        <tr><td><code>loops.manage</code></td><td><code>/loops</code>, <code>/loop</code></td><td>Loops</td><td>loops</td></tr>
+        <tr><td><code>loops.new</code></td><td>—</td><td>Loops</td><td>loops</td></tr>
+        <tr><td><code>missions.manage</code></td><td><code>/mission</code>, <code>/missions</code></td><td>Missions</td><td>mission</td></tr>
+        <tr><td><code>missions.new</code></td><td>—</td><td>Missions</td><td>mission</td></tr>
+        <tr><td><code>otel.settings</code></td><td><code>/otel</code>, <code>/telemetry</code>, <code>/opentelemetry</code></td><td>System</td><td>observability</td></tr>
+        <tr><td><code>otel.live</code></td><td>—</td><td>System</td><td>observability</td></tr>
+        <tr><td><code>plugins.list</code></td><td>—</td><td>System</td><td>system/plugins <em>(keybind <code>plugin_manager</code>)</em></td></tr>
+        <tr><td><code>plugins.install</code></td><td>—</td><td>System</td><td>system/plugins</td></tr>
+        <tr><td><code>tips.toggle</code></td><td>—</td><td>System</td><td>home <em>(keybind <code>tips_toggle</code>)</em></td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="note" title="No slash entry means palette-only">
+      <p>
+        Commands without a <code>slashName</code> — the plugin manager, Fusion presets, the
+        loop and mission wizards, live telemetry — are reachable from the command palette
+        (<code>Ctrl+P</code>) or their keybind, never by typing a slash.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="writing" class="doc-section">
+    <h2>Writing your own</h2>
+    <p>
+      An external plugin uses the same API. Install it with <code>shift+i</code> in the plugin
+      manager, or add it to config; see <a href="/docs/plugins">Plugins &amp; Skills</a> for
+      packaging and the server-side plugin target.
+    </p>
+    <DocCode language="tsx" title="my-plugin/src/tui.tsx">{`import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
+
+const tui: TuiPlugin = async (api) => {
+  // A command with a slash alias and a reactive title.
+  api.keymap.registerLayer({
+    commands: () => [
+      {
+        name: "notes.open",
+        title: api.kv.get("notes.pinned", false) ? "Notes (pinned)" : "Notes",
+        namespace: "Tool",
+        slashName: "notes",
+        run() {
+          const Select = api.ui.DialogSelect
+          api.ui.dialog.replace(() => (
+            <Select
+              title="Notes"
+              options={[{ title: "Pin", value: "pin", onSelect: () => api.kv.set("notes.pinned", true) }]}
+            />
+          ))
+        },
+      },
+    ],
+  })
+
+  // A sidebar panel, unregistered automatically on deactivate.
+  api.slots.register({
+    order: 300,
+    slots: { sidebar_content: () => <MyPanel /> },
+  })
+
+  api.lifecycle.onDispose(() => {
+    // stop timers, close handles
+  })
+}
+
+export default { id: "my-plugin", tui } satisfies TuiPluginModule & { id: string }`}</DocCode>
+    <p>Three rules the internal plugins follow, and yours should too:</p>
+    <ul>
+      <li><strong>Import heavy chains lazily.</strong> Anything that pulls the <code>ai</code> package or a provider chain belongs inside the handler, not at module scope — it is charged to every TUI startup otherwise.</li>
+      <li><strong>Clean up in <code>onDispose</code>.</strong> Process exit is not a teardown path; the runtime disposes plugins explicitly.</li>
+      <li><strong>Put per-machine state in KV, shared state in config.</strong> Anything a teammate should not inherit from your checkout belongs in <code>api.kv</code>.</li>
+    </ul>
+  </section>
+
+  <section id="source-anchors" class="doc-section">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Concern</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Registry</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/internal.ts</code></td></tr>
+        <tr><td>Host API construction</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/api.tsx</code></td></tr>
+        <tr><td>Lifecycle / activate / deactivate</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/runtime.ts</code></td></tr>
+        <tr><td>Keymap layers &amp; bindings</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/keymap.ts</code></td></tr>
+        <tr><td>Slot registry</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/slots.tsx</code></td></tr>
+        <tr><td>Public plugin types</td><td><code>packages/plugin/src/tui.ts</code>, <code>packages/plugin/src/v2/tui/plugin.ts</code></td></tr>
+        <tr><td>All feature plugins</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code></td></tr>
+        <tr><td>Background renderable</td><td><code>feature-plugins/background/renderable.ts</code>, <code>pixels.ts</code>, <code>source.ts</code></td></tr>
+        <tr><td>Background mount point</td><td><code>packages/nikcli/src/cli/cmd/tui/app.tsx</code> → <code>&lt;BackgroundImage /&gt;</code></td></tr>
+        <tr><td>KV store</td><td><code>packages/nikcli/src/cli/cmd/tui/context/kv.tsx</code> → <code>&lt;state&gt;/kv.json</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <DocRelated
+    links={[
+      { title: "TUI", href: "/docs/tui", description: "The renderer, worker model, routes, dialogs and keybinds these plugins hook into." },
+      { title: "Plugins & Skills", href: "/docs/plugins", description: "Packaging, distribution, server-target plugins and skills." },
+      { title: "Loops", href: "/docs/loops", description: "The engine behind the loops plugin." },
+      { title: "Missions", href: "/docs/missions", description: "The engine behind the mission plugin." },
+      { title: "Connectors", href: "/docs/connectors", description: "Connector types, auth and health semantics." },
+      { title: "Island", href: "/docs/island", description: "The macOS notch companion the island plugin toggles." },
+    ]}
+  />
+</DocsLayout>

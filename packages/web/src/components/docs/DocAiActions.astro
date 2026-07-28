@@ -1,0 +1,112 @@
+---
+interface Props {
+  pathname: string;
+}
+
+const { pathname } = Astro.props;
+const endpoint = `/.llm?path=${encodeURIComponent(pathname)}`;
+---
+
+<div
+  class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+  data-doc-ai-actions
+  data-llm-exclude
+>
+  <div class="flex flex-wrap gap-2" role="group" aria-label="Copy this documentation for AI">
+    <button
+      type="button"
+      class="doc-ai-copy inline-flex min-h-10 items-center gap-2 rounded-full border border-terminal-border/70 bg-terminal-panel/80 px-3.5 py-2 text-sm font-semibold text-terminal-text shadow-sm transition-[border-color,background-color,color,transform] duration-150 hover:border-terminal-accent/40 hover:bg-terminal-accent/10 active:scale-[0.98]"
+      data-llm-format="markdown"
+      data-default-label="Copy as Markdown"
+    >
+      <svg class="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V5.75A1.75 1.75 0 0 1 9.75 4h7.5A1.75 1.75 0 0 1 19 5.75v9.5A1.75 1.75 0 0 1 17.25 17H16M6.75 8h7.5A1.75 1.75 0 0 1 16 9.75v8.5A1.75 1.75 0 0 1 14.25 20h-7.5A1.75 1.75 0 0 1 5 18.25v-8.5A1.75 1.75 0 0 1 6.75 8Z"></path>
+      </svg>
+      <span data-copy-label>Copy as Markdown</span>
+    </button>
+    <button
+      type="button"
+      class="doc-ai-copy inline-flex min-h-10 items-center gap-2 rounded-full border border-terminal-accent/30 bg-terminal-accent/10 px-3.5 py-2 text-sm font-semibold text-terminal-accent shadow-sm transition-[border-color,background-color,color,transform] duration-150 hover:border-terminal-accent/60 hover:bg-terminal-accent/15 active:scale-[0.98]"
+      data-llm-format="prompt"
+      data-default-label="Copy as Prompt"
+    >
+      <svg class="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3.75 13.9 8.1 18.25 10l-4.35 1.9L12 16.25l-1.9-4.35L5.75 10l4.35-1.9L12 3.75ZM18.25 15.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8.8-1.7Z"></path>
+      </svg>
+      <span data-copy-label>Copy as Prompt</span>
+    </button>
+  </div>
+
+  <span class="sr-only" aria-live="polite" data-copy-status></span>
+</div>
+
+<script>
+  const writeClipboard = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    if (!copied) throw new Error("Clipboard is unavailable");
+  };
+
+  const initDocAiActions = () => {
+    document.querySelectorAll<HTMLElement>("[data-doc-ai-actions]").forEach((root) => {
+      const status = root.querySelector<HTMLElement>("[data-copy-status]");
+
+      root.querySelectorAll<HTMLButtonElement>("[data-llm-format]").forEach((button) => {
+        const next = button.cloneNode(true) as HTMLButtonElement;
+        button.parentNode?.replaceChild(next, button);
+
+        next.addEventListener("click", async () => {
+          const format = next.dataset.llmFormat ?? "markdown";
+          const defaultLabel = next.dataset.defaultLabel ?? "Copy";
+          const label = next.querySelector<HTMLElement>("[data-copy-label]");
+          next.disabled = true;
+          next.setAttribute("aria-busy", "true");
+          if (label) label.textContent = "Preparing...";
+
+          try {
+            const endpoint = new URL("/.llm", window.location.origin);
+            endpoint.searchParams.set("path", window.location.pathname);
+            endpoint.searchParams.set("format", format);
+            const response = await fetch(endpoint, { headers: { Accept: "text/markdown" } });
+            if (!response.ok) throw new Error(await response.text());
+            await writeClipboard(await response.text());
+            if (label) label.textContent = "Copied!";
+            if (status) status.textContent = `${defaultLabel} copied to clipboard.`;
+            next.classList.add("border-terminal-success/50", "text-terminal-success");
+          } catch {
+            if (label) label.textContent = "Try again";
+            if (status) status.textContent = `Could not ${defaultLabel.toLowerCase()}.`;
+            next.classList.add("border-terminal-error/50", "text-terminal-error");
+          } finally {
+            next.disabled = false;
+            next.removeAttribute("aria-busy");
+            window.setTimeout(() => {
+              if (label) label.textContent = defaultLabel;
+              next.classList.remove(
+                "border-terminal-success/50",
+                "text-terminal-success",
+                "border-terminal-error/50",
+                "text-terminal-error",
+              );
+            }, 2200);
+          }
+        });
+      });
+    });
+  };
+
+  initDocAiActions();
+  document.addEventListener("astro:page-load", initDocAiActions);
+</script>

@@ -4,6 +4,30 @@ compatibility_date = "2025-01-25"
 
 [vars]
 NIKCLI_AUTH_SERVER = "https://s.nikcli.store"
+# Docs support assistant (/api/docs-assistant). Any Workers AI text-generation
+# model works. Workers AI includes 10,000 free Neurons/day, so the default is a
+# small "fast" model that keeps a grounded answer (~5k input + ~500 output
+# tokens) cheap enough for hundreds of questions per day.
+#   @cf/meta/llama-3.2-3b-instruct          — cheapest, still coherent
+#   @cf/meta/llama-3.1-8b-instruct-fast     — default: best quality/cost balance
+#   @cf/meta/llama-3.3-70b-instruct-fp8-fast — best answers, ~6x the Neurons
+DOCS_ASSISTANT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+# Questions that ask for something buildable (a cheatsheet, a UI, a diagram)
+# get a stronger model: it writes valid CSS and real interactive HTML, and is
+# still covered by the free allocation because those questions are rarer.
+DOCS_ASSISTANT_ARTIFACT_MODEL = "@cf/openai/gpt-oss-20b"
+DOCS_ASSISTANT_RATE_LIMIT = "20"
+# Artifacts published by the assistant always share under this origin.
+ARTIFACT_PUBLIC_ORIGIN = "https://nikcli.store"
+# Optional: back the docs assistant with a real nikcli session instead of a
+# one-shot Workers AI call. Set NIKCLI_DOCS_SERVER here and the token as a
+# secret (`wrangler secret put NIKCLI_DOCS_TOKEN`). Unset = free Workers AI.
+# NIKCLI_DOCS_SERVER = "https://s.nikcli.store"
+# NIKCLI_DOCS_AGENT = "docs-support"
+
+# Workers AI — powers the docs support assistant.
+[ai]
+binding = "AI"
 
 [assets]
 directory = "./dist"

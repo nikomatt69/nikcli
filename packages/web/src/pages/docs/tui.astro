@@ -353,30 +353,36 @@ const toc = [
   <section id="feature-plugins" class="doc-section">
     <h2>Feature plugins</h2>
     <p>
-      TUI surfaces for the major orchestration subsystems live as feature plugins under
-      <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code>. Each plugin follows the same
-      layout — <code>store.ts</code> for reactive state, <code>sdk.ts</code> for typed SDK
+      Almost every surface the TUI shows — home tips, sidebar panels, the plugin manager,
+      the wallpaper, the loop and mission managers — is a self-contained feature plugin
+      under <code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code>, loaded through the
+      same runtime that loads third-party plugins from npm. The larger ones follow the same
+      layout: <code>store.ts</code> for reactive state, <code>sdk.ts</code> for typed SDK
       bindings, <code>runner.ts</code> for the local control plane, and <code>dialogs.tsx</code>
       for the Solid components.
     </p>
     <table class="doc-table">
       <thead><tr><th>Plugin</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>home</code></td><td>Home-route tips and onboarding prompts. Provides <code>tips.tsx</code> and <code>tips-view.tsx</code>.</td></tr>
-        <tr><td><code>loops</code></td><td><a href="/docs/loops">Loops</a> home and detail views, draft dialog, run dialog. Mirrors the loop SDK contract.</td></tr>
-        <tr><td><code>mission</code></td><td><a href="/docs/missions">Missions</a> home and detail views, draft dialog, validation review dialog. Mirrors the mission SDK contract.</td></tr>
-        <tr><td><code>sidebar</code></td><td>Sidebar slots shared across the home, session, and workspace routes.</td></tr>
-        <tr><td><code>system</code></td><td>System chrome: status bar, attention handling, command palette entries.</td></tr>
-        <tr><td><code>brain</code></td><td>Brain model picker + scheduler (periodic re-evaluation, idle nudges). See <code>dialog-brain</code>.</td></tr>
+        <tr><td><code>home</code></td><td>Rotating tip line in the <code>home.bottom</code> slot, plus the <code>tips.toggle</code> command.</td></tr>
+        <tr><td><code>sidebar</code></td><td>Six independent slot plugins: context/cost, MCP, LSP, todo, modified files, and the footer.</td></tr>
+        <tr><td><code>system</code></td><td>The plugin manager (list, toggle, install) and the OpenRouter Fusion preset manager.</td></tr>
+        <tr><td><code>background</code></td><td>Paints a real image behind the TUI via OpenTUI's native half-block super-sampler; owns <code>/background</code>.</td></tr>
+        <tr><td><code>loops</code></td><td><a href="/docs/loops">Loops</a> manager, creation wizard and live sidebar. Mirrors the loop SDK contract.</td></tr>
+        <tr><td><code>mission</code></td><td><a href="/docs/missions">Missions</a> manager, planning wizard and live sidebar. Mirrors the mission SDK contract.</td></tr>
+        <tr><td><code>brain</code></td><td>Arms the Brain consolidation scheduler and registers <code>/brain</code> for an on-demand pass.</td></tr>
         <tr><td><code>browser</code></td><td>Browser-use control surface for the <code>browser</code> tool (page navigation, snapshots, action log).</td></tr>
-        <tr><td><code>chatbot</code></td><td>ChatBot control panel — list configured bots, restart the runtime, inspect webhook delivery state.</td></tr>
-        <tr><td><code>computer</code></td><td>Computer-use tool surface: mouse / keyboard capture, screenshots, action log.</td></tr>
-        <tr><td><code>connectors</code></td><td>First-party connector status, health, and config inside the TUI.</td></tr>
-        <tr><td><code>deepsec</code></td><td>Deep security checks (filesystem / network audit, secret scanning) when enabled.</td></tr>
-        <tr><td><code>island</code></td><td>Toggles the macOS Island notch integration for the current TUI session. See <a href="#island">Island plugin</a> below.</td></tr>
+        <tr><td><code>chatbot</code></td><td>Chat SDK bots — start/stop per platform and show the webhook path each one must be pointed at.</td></tr>
+        <tr><td><code>computer</code></td><td>Probes the host and reports what the <code>computer</code> tool can do on this machine.</td></tr>
+        <tr><td><code>connectors</code></td><td>Live connector health, cache invalidation, and stored-credential removal inside the TUI.</td></tr>
         <tr><td><code>observability</code></td><td>Live OpenTelemetry spans and OTLP endpoint dialogs (see <a href="/docs/observability">Observability</a>).</td></tr>
+        <tr><td><code>island</code></td><td>Toggles the macOS Island notch integration for the current TUI session. Registered only under <code>--island</code>. See <a href="#island">Island plugin</a> below.</td></tr>
       </tbody>
     </table>
+    <p>
+      Each plugin's commands, slash aliases, KV keys and internals are documented in
+      <a href="/docs/tui-plugins">TUI feature plugins</a>.
+    </p>
     <DocCallout type="info" title="TUI plugin runtime">
       <p>
         Plugins register commands, routes, dialogs, keybinds, and sidebar / status slots through

@@ -5,6 +5,8 @@ import "../styles/brand.css";
 import Navbar from "../components/Navbar.astro";
 import DocToc from "../components/docs/DocToc.astro";
 import DocsSidebar from "../components/docs/DocsSidebar.astro";
+import DocAiActions from "../components/docs/DocAiActions.astro";
+import DocAssistant from "../components/docs/DocAssistant.astro";
 import { ClientRouter } from 'astro:transitions';
 
 interface Props {
@@ -53,6 +55,7 @@ const ogImage = "https://nikcli.store/og.png";
     
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={`https://nikcli.store${pathname}`} />
+    <link rel="alternate" type="text/markdown" href={`/.llm?path=${encodeURIComponent(pathname)}`} title={`${title} as Markdown`} />
 
     <!-- Fonts: Syne (display) + Figtree (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -91,14 +94,15 @@ const ogImage = "https://nikcli.store/og.png";
 
       <!-- Main Content Area -->
       <main id="main-content" class="min-w-0 flex-1 py-8 pb-24 outline-none sm:py-10 lg:py-14 lg:pb-28 xl:px-10" tabindex="-1">
-        <article class="prose mx-auto max-w-[48rem] prose-pre:border prose-pre:border-terminal-window-border prose-pre:bg-terminal-window-code prose-pre:shadow-sm prose-p:leading-relaxed prose-headings:font-bold prose-headings:tracking-tight prose-a:underline-offset-4 prose-a:decoration-terminal-border prose-a:transition-colors hover:prose-a:text-terminal-accent hover:prose-a:decoration-terminal-accent">
+        <article data-llm-document class="prose mx-auto max-w-[48rem] prose-pre:border prose-pre:border-terminal-window-border prose-pre:bg-terminal-window-code prose-pre:shadow-sm prose-p:leading-relaxed prose-headings:font-bold prose-headings:tracking-tight prose-a:underline-offset-4 prose-a:decoration-terminal-border prose-a:transition-colors hover:prose-a:text-terminal-accent hover:prose-a:decoration-terminal-accent">
           <header class="not-prose mb-10 border-b border-terminal-border/60 pb-8 sm:mb-12 sm:pb-10">
-             <div class="mb-5 inline-flex items-center gap-2 rounded-md border border-terminal-accent/20 bg-terminal-accent/10 px-2.5 py-1 font-mono text-eyebrow uppercase text-terminal-accent">
+             <div data-llm-exclude class="mb-5 inline-flex items-center gap-2 rounded-md border border-terminal-accent/20 bg-terminal-accent/10 px-2.5 py-1 font-mono text-eyebrow uppercase text-terminal-accent">
                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                Documentation
              </div>
-             <h1 class="mb-5 text-page-title text-terminal-text sm:mb-6">{title}</h1>
-             {subtitle && <p class="max-w-2xl text-page-subtitle text-terminal-muted">{subtitle}</p>}
+              <h1 class="mb-5 text-page-title text-terminal-text sm:mb-6">{title}</h1>
+              {subtitle && <p class="max-w-2xl text-page-subtitle text-terminal-muted">{subtitle}</p>}
+              <DocAiActions pathname={pathname} />
           </header>
           <div class="content-body text-terminal-text font-sans relative z-10">
              <slot />
@@ -115,6 +119,8 @@ const ogImage = "https://nikcli.store/og.png";
         </div>
       )}
     </div>
+
+    <DocAssistant pathname={pathname} />
 
     <footer class="border-t border-terminal-border/50 bg-terminal-panel/50 py-8 sm:py-10 mt-auto">
       <div class="page-shell flex flex-col items-center justify-between gap-5 sm:flex-row">

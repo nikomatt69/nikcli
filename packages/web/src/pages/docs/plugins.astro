@@ -165,21 +165,26 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
     <table class="doc-table">
       <thead><tr><th>Plugin</th><th>Capability</th></tr></thead>
       <tbody>
-        <tr><td><code>home</code></td><td>Home-route tips and onboarding prompts.</td></tr>
-        <tr><td><code>sidebar</code></td><td>Sidebar slots shared across home, session, and workspace routes.</td></tr>
-        <tr><td><code>system</code></td><td>Status bar, attention handling, and command palette entries.</td></tr>
-        <tr><td><code>loops</code></td><td><a href="/docs/loops">Loops</a> home / detail / draft / run dialogs.</td></tr>
-        <tr><td><code>mission</code></td><td><a href="/docs/missions">Missions</a> home / detail / draft / validation dialogs.</td></tr>
-        <tr><td><code>brain</code></td><td>Brain model picker and scheduler (periodic re-evaluation, idle nudges).</td></tr>
+        <tr><td><code>home</code></td><td>Rotating tip line in the <code>home.bottom</code> slot.</td></tr>
+        <tr><td><code>sidebar</code></td><td>Six slot plugins: context/cost, MCP, LSP, todo, modified files, footer.</td></tr>
+        <tr><td><code>system</code></td><td>Plugin manager (list / toggle / install) and OpenRouter Fusion presets.</td></tr>
+        <tr><td><code>background</code></td><td>Paints a real image behind the TUI; owns <code>/background</code>.</td></tr>
+        <tr><td><code>loops</code></td><td><a href="/docs/loops">Loops</a> manager, creation wizard and live sidebar.</td></tr>
+        <tr><td><code>mission</code></td><td><a href="/docs/missions">Missions</a> manager, planning wizard and live sidebar.</td></tr>
+        <tr><td><code>brain</code></td><td>Arms the Brain consolidation scheduler; <code>/brain</code> runs a pass on demand.</td></tr>
         <tr><td><code>browser</code></td><td>Browser-use control surface for the <code>browser</code> tool.</td></tr>
         <tr><td><code>chatbot</code></td><td>ChatBot control panel for Discord / Slack / Teams / GChat / Linear / GitHub webhooks.</td></tr>
-        <tr><td><code>computer</code></td><td>Computer-use mouse / keyboard capture, screenshots, and action log.</td></tr>
-        <tr><td><code>connectors</code></td><td>First-party connector status, health, and config inside the TUI.</td></tr>
-        <tr><td><code>deepsec</code></td><td>Deep security checks (filesystem / network audit, secret scanning) when enabled.</td></tr>
-        <tr><td><code>island</code></td><td>Toggles the macOS Island notch integration for the current TUI session.</td></tr>
+        <tr><td><code>computer</code></td><td>Probes the host for the <code>computer</code> tool's screenshot and input capabilities.</td></tr>
+        <tr><td><code>connectors</code></td><td>First-party connector health, cache refresh, and credential removal.</td></tr>
         <tr><td><code>observability</code></td><td>Live OpenTelemetry spans and OTLP endpoint dialogs.</td></tr>
+        <tr><td><code>island</code></td><td>Toggles the macOS Island notch integration. Registered only under <code>--island</code>.</td></tr>
       </tbody>
     </table>
+    <p>
+      Each one — its commands, slash aliases, KV keys and internals — is documented in
+      <a href="/docs/tui-plugins">TUI feature plugins</a>, which doubles as the reference for
+      the plugin API since the internal plugins use exactly the API an npm plugin gets.
+    </p>
   </section>
 
   <section id="manifest" class="doc-section">
@@ -280,7 +285,8 @@ NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
         <tr><td>TUI plugin API</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/api.tsx</code></td></tr>
         <tr><td>TUI plugin runtime</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/runtime.ts</code></td></tr>
         <tr><td>System plugin manager</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/system</code></td></tr>
-        <tr><td>Loop, mission, brain, browser, chatbot, computer, deepsec, observability plugins</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code></td></tr>
+        <tr><td>Home, sidebar, background, loop, mission, brain, browser, chatbot, computer, connectors and observability plugins</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/</code></td></tr>
+        <tr><td>Internal plugin registry</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/internal.ts</code></td></tr>
         <tr><td>Island file bridge</td><td><code>packages/nikcli/src/plugin/island/bridge.ts</code></td></tr>
         <tr><td>Island TUI plugin</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/island/index.tsx</code></td></tr>
         <tr><td>Plugin contracts package</td><td><code>packages/plugin</code></td></tr>

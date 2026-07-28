@@ -1,0 +1,772 @@
+---
+import { docsIndex } from "../../data/docsIndex";
+
+interface Props {
+  pathname: string;
+}
+
+const { pathname } = Astro.props;
+const currentPage = docsIndex.find((entry) => entry.href === pathname);
+
+const suggestions = [
+  "How do I install and run nikcli?",
+  "How do I add a model provider API key?",
+  currentPage ? `Explain ${currentPage.title} in simple terms` : "What is nikcli?",
+  "Build me a shareable cheatsheet for permission modes",
+];
+---
+
+<div
+  data-doc-assistant
+  data-llm-exclude
+  data-path={pathname}
+  data-state="closed"
+  class="group/assistant print:hidden"
+>
+  <!-- Launcher (visible only when the panel is closed) -->
+  <button
+    type="button"
+    data-assistant-launcher
+    aria-expanded="false"
+    aria-controls="doc-assistant-panel"
+    class="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[60] hidden min-h-11 items-center gap-2 rounded-full border border-terminal-border/70 bg-terminal-panel/95 px-4 py-2.5 text-sm font-semibold text-terminal-text shadow-strong backdrop-blur-xl transition-[transform,border-color,background-color] duration-150 ease-out-expo hover:border-terminal-accent/50 hover:bg-terminal-accent/10 active:scale-[0.97] group-data-[state=closed]/assistant:inline-flex sm:right-5 sm:bottom-5 xl:right-6 xl:bottom-6"
+  >
+    <span class="relative flex h-2 w-2 shrink-0">
+      <span
+        data-assistant-unread
+        class="absolute hidden h-full w-full rounded-full bg-terminal-accent/60 motion-safe:animate-ping-slow"></span>
+      <span class="relative inline-flex h-2 w-2 rounded-full bg-terminal-accent"></span>
+    </span>
+    <span>Ask the docs</span>
+  </button>
+
+  <!-- Mobile scrim: only under an expanded panel, never on desktop -->
+  <div
+    data-assistant-backdrop
+    hidden
+    class="fixed inset-0 z-[65] bg-terminal-bg/70 backdrop-blur-sm sm:hidden"
+  >
+  </div>
+
+  <section
+    id="doc-assistant-panel"
+    data-assistant-panel
+    role="dialog"
+    aria-label="Nikcli documentation assistant"
+    class="fixed inset-x-0 bottom-0 z-[70] hidden flex-col overflow-hidden rounded-t-[var(--radius-card)] border border-b-0 border-terminal-border/80 bg-terminal-bg shadow-strong sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[24.5rem] sm:rounded-[var(--radius-card)] sm:border-b group-data-[state=minimized]/assistant:h-auto group-data-[state=minimized]/assistant:sm:w-[20rem] group-data-[state=open]/assistant:flex group-data-[state=minimized]/assistant:flex xl:right-6 xl:bottom-6"
+    style="max-height: min(85dvh, 34rem);"
+  >
+    <!-- Header doubles as the drag/minimize affordance -->
+    <header
+      data-assistant-header
+      class="flex shrink-0 select-none items-start justify-between gap-3 border-b border-terminal-border/60 bg-terminal-panel/60 px-4 pb-3 pt-3 group-data-[state=minimized]/assistant:border-b-0 sm:cursor-default"
+    >
+      <span
+        aria-hidden="true"
+        class="absolute inset-x-0 top-1.5 mx-auto h-1 w-10 rounded-full bg-terminal-border sm:hidden"></span>
+
+      <button
+        type="button"
+        data-assistant-title
+        aria-label="Expand the documentation assistant"
+        class="min-w-0 flex-1 text-left"
+      >
+        <span class="flex items-center gap-2">
+          <h2 class="text-sm font-bold tracking-tight text-terminal-text">Ask the docs</h2>
+          <span
+            data-assistant-badge
+            hidden
+            title="Engine answering your questions"
+            class="rounded-full border border-terminal-border/70 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-terminal-muted"></span>
+          <span
+            data-assistant-unread
+            class="hidden h-1.5 w-1.5 shrink-0 rounded-full bg-terminal-accent"
+            title="New answer"></span>
+        </span>
+        <span class="mt-0.5 block truncate text-xs text-terminal-muted">
+          {
+            currentPage
+              ? `Grounded in the docs · reading ${currentPage.title}`
+              : "Grounded in the nikcli documentation"
+          }
+        </span>
+      </button>
+
+      <div class="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          data-assistant-reset
+          title="Clear conversation"
+          aria-label="Clear conversation"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full text-terminal-muted transition-colors hover:bg-surface-hover hover:text-terminal-text group-data-[state=minimized]/assistant:hidden"
+        >
+          <svg class="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+              d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-assistant-minimize
+          title="Minimize"
+          aria-label="Minimize the documentation assistant"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full text-terminal-muted transition-colors hover:bg-surface-hover hover:text-terminal-text"
+        >
+          <svg
+            data-minimize-icon
+            class="h-4 w-4 transition-transform duration-200 group-data-[state=minimized]/assistant:rotate-180"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path>
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-assistant-close
+          title="Close"
+          aria-label="Close the documentation assistant"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full text-terminal-muted transition-colors hover:bg-surface-hover hover:text-terminal-text"
+        >
+          <svg class="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div
+      data-assistant-log
+      class="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 text-sm group-data-[state=minimized]/assistant:hidden"
+    >
+      <div data-assistant-empty class="space-y-3">
+        <p class="text-sm leading-relaxed text-terminal-muted">
+          Ask anything about nikcli. Answers are grounded in the documentation on this site and cite the
+          pages they came from — and it can publish a cheatsheet, config or checklist as a shareable
+          artifact. Free for everyone, no account needed.
+        </p>
+        <div class="flex flex-wrap gap-1.5">
+          {
+            suggestions.map((suggestion) => (
+              <button
+                type="button"
+                data-assistant-suggestion={suggestion}
+                class="min-h-9 rounded-full border border-terminal-border/70 bg-terminal-panel/60 px-3 py-1.5 text-left text-xs font-medium text-terminal-muted transition-colors hover:border-terminal-accent/40 hover:bg-terminal-accent/10 hover:text-terminal-text"
+              >
+                {suggestion}
+              </button>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+
+    <form
+      data-assistant-form
+      class="shrink-0 border-t border-terminal-border/60 bg-terminal-panel/40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 group-data-[state=minimized]/assistant:hidden"
+    >
+      <div class="flex items-end gap-2">
+        <label class="sr-only" for="doc-assistant-input">Your question</label>
+        <textarea
+          id="doc-assistant-input"
+          data-assistant-input
+          rows="1"
+          maxlength="1200"
+          placeholder="Ask about nikcli…"
+          class="max-h-32 min-h-11 flex-1 resize-none rounded-[var(--radius-md)] border border-terminal-border/70 bg-terminal-bg px-3 py-2.5 text-base text-terminal-text placeholder:text-terminal-muted/70 focus:border-terminal-accent/50 focus:outline-none focus:ring-2 focus:ring-terminal-accent/20 sm:text-sm"
+        ></textarea>
+        <button
+          type="submit"
+          data-assistant-send
+          aria-label="Send question"
+          class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-terminal-accent text-terminal-bg transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
+        >
+          <svg class="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12 14-7-5.5 7L19 19 5 12Z"></path>
+          </svg>
+        </button>
+      </div>
+      <p class="mt-2 px-0.5 text-[11px] leading-snug text-terminal-muted">
+        AI-generated from the docs — it can be wrong. Verify commands before running them.
+      </p>
+    </form>
+  </section>
+</div>
+
+<script>
+  type Role = "user" | "assistant";
+  type Source = { title: string; href: string };
+  type Artifact = { id: string; url: string; title: string; filename: string };
+  type ToolCall = { name: string; arguments: Record<string, unknown>; result: string };
+  type Message = {
+    role: Role;
+    content: string;
+    reasoning?: string;
+    tools?: ToolCall[];
+    sources?: Source[];
+    artifact?: Artifact;
+    notice?: string;
+    error?: string;
+  };
+  type PanelState = "closed" | "open" | "minimized";
+
+  const STORE_KEY = "nikcli:docs-assistant";
+  const STATE_KEY = "nikcli:docs-assistant:state";
+  const SESSION_KEY = "nikcli:docs-assistant:session";
+  const MAX_STORED = 12;
+  const MOBILE = "(max-width: 639px)";
+
+  const escapeHtml = (value: string) =>
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const renderInline = (value: string) =>
+    escapeHtml(value)
+      .replace(/`([^`]+)`/g, '<code class="rounded bg-terminal-panel px-1 py-0.5 font-mono text-[0.85em]">$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|\s)_([^_]+)_/g, "$1<em>$2</em>")
+      .replace(/\[([^\]]+)\]\((\/[^)\s]*|https?:\/\/[^)\s]+)\)/g, (_match, text: string, href: string) => {
+        const attrs = href.startsWith("http") ? ' target="_blank" rel="noreferrer"' : "";
+        return `<a href="${href}"${attrs} class="font-medium text-terminal-accent underline underline-offset-2">${text}</a>`;
+      });
+
+  /** Minimal Markdown renderer: fenced code, headings, lists, paragraphs. */
+  const renderMarkdown = (source: string) =>
+    source
+      .split(/```/)
+      .map((block, index) => {
+        if (index % 2 === 1) {
+          const body = block.replace(/^[a-zA-Z0-9+#-]*\n/, "").replace(/\n$/, "");
+          return `<pre class="custom-scrollbar my-2 overflow-x-auto rounded-[var(--radius-md)] border border-terminal-border/70 bg-terminal-window-code px-3 py-2.5 text-[0.8rem] leading-relaxed"><code>${escapeHtml(body)}</code></pre>`;
+        }
+
+        const html: string[] = [];
+        let list: { type: "ul" | "ol"; items: string[] } | null = null;
+        let table: string[][] | null = null;
+
+        const cells = (line: string) =>
+          line
+            .replace(/^\s*\|/, "")
+            .replace(/\|\s*$/, "")
+            .split("|")
+            .map((cell) => cell.trim());
+
+        const flushTable = () => {
+          if (!table) return;
+          const [head, ...rows] = table;
+          const row = (values: string[], tag: "th" | "td") =>
+            `<tr>${values
+              .map(
+                (value) =>
+                  `<${tag} class="border border-terminal-border/60 px-2 py-1 text-left align-top">${renderInline(value)}</${tag}>`,
+              )
+              .join("")}</tr>`;
+          html.push(
+            `<div class="custom-scrollbar my-2 overflow-x-auto"><table class="w-full border-collapse text-xs"><thead>${row(head, "th")}</thead><tbody>${rows
+              .map((values) => row(values, "td"))
+              .join("")}</tbody></table></div>`,
+          );
+          table = null;
+        };
+
+        const flush = () => {
+          flushTable();
+          if (!list) return;
+          const marker = list.type === "ul" ? "list-disc" : "list-decimal";
+          html.push(
+            `<${list.type} class="my-1.5 ${marker} space-y-1 pl-5">${list.items.map((item) => `<li>${item}</li>`).join("")}</${list.type}>`,
+          );
+          list = null;
+        };
+
+        for (const rawLine of block.split("\n")) {
+          const line = rawLine.trimEnd();
+          if (!line.trim()) {
+            flush();
+            continue;
+          }
+
+          if (/^\s*\|.*\|\s*$/.test(line)) {
+            const values = cells(line);
+            // The |---|---| separator only marks the header, it is not a row.
+            if (values.every((value) => /^:?-{2,}:?$/.test(value))) continue;
+            (table ??= []).push(values);
+            continue;
+          }
+          flushTable();
+
+          const heading = line.match(/^#{1,6}\s+(.*)$/);
+          if (heading) {
+            flush();
+            html.push(`<p class="mt-2.5 font-semibold text-terminal-text">${renderInline(heading[1])}</p>`);
+            continue;
+          }
+
+          const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+          if (bullet) {
+            if (list?.type !== "ul") flush();
+            list ??= { type: "ul", items: [] };
+            list.items.push(renderInline(bullet[1]));
+            continue;
+          }
+
+          const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+          if (ordered) {
+            if (list?.type !== "ol") flush();
+            list ??= { type: "ol", items: [] };
+            list.items.push(renderInline(ordered[1]));
+            continue;
+          }
+
+          flush();
+          html.push(`<p class="my-1.5 leading-relaxed">${renderInline(line)}</p>`);
+        }
+
+        flush();
+        return html.join("");
+      })
+      .join("");
+
+  const loadHistory = (): Message[] => {
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(STORE_KEY) ?? "[]");
+      return Array.isArray(parsed) ? (parsed as Message[]).slice(-MAX_STORED) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const save = (key: string, value: unknown) => {
+    try {
+      sessionStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+    } catch {
+      // Private mode / quota — persistence is best-effort.
+    }
+  };
+
+  const initDocAssistant = () => {
+    const root = document.querySelector<HTMLElement>("[data-doc-assistant]");
+    if (!root) return;
+    // The inline call and `astro:page-load` both fire on first paint; a second
+    // closure would bind duplicate handlers over stale state.
+    if (root.dataset.assistantReady === "true") return;
+    root.dataset.assistantReady = "true";
+
+    const launcher = root.querySelector<HTMLButtonElement>("[data-assistant-launcher]");
+    const panel = root.querySelector<HTMLElement>("[data-assistant-panel]");
+    const header = root.querySelector<HTMLElement>("[data-assistant-header]");
+    const log = root.querySelector<HTMLElement>("[data-assistant-log]");
+    const empty = root.querySelector<HTMLElement>("[data-assistant-empty]");
+    const backdrop = root.querySelector<HTMLElement>("[data-assistant-backdrop]");
+    const form = root.querySelector<HTMLFormElement>("[data-assistant-form]");
+    const input = root.querySelector<HTMLTextAreaElement>("[data-assistant-input]");
+    const send = root.querySelector<HTMLButtonElement>("[data-assistant-send]");
+    const title = root.querySelector<HTMLButtonElement>("[data-assistant-title]");
+    const minimize = root.querySelector<HTMLButtonElement>("[data-assistant-minimize]");
+    const close = root.querySelector<HTMLButtonElement>("[data-assistant-close]");
+    const reset = root.querySelector<HTMLButtonElement>("[data-assistant-reset]");
+    const badge = root.querySelector<HTMLElement>("[data-assistant-badge]");
+    const unread = root.querySelectorAll<HTMLElement>("[data-assistant-unread]");
+    if (!launcher || !panel || !log || !form || !input || !send) return;
+
+    const path = root.dataset.path ?? window.location.pathname;
+    const mobile = window.matchMedia(MOBILE);
+    let messages = loadHistory();
+    let state = (sessionStorage.getItem(STATE_KEY) as PanelState | null) ?? "closed";
+    let streaming = false;
+    let controller: AbortController | null = null;
+    const cleanups: Array<() => void> = [];
+
+    const bubble = (message: Message, index: number) => {
+      const wrapper = document.createElement("div");
+      wrapper.dataset.messageIndex = String(index);
+
+      if (message.role === "user") {
+        wrapper.className = "flex justify-end";
+        const body = document.createElement("div");
+        body.className = "max-w-[85%] rounded-[var(--radius-md)] bg-terminal-accent/12 px-3 py-2 text-terminal-text";
+        body.textContent = message.content;
+        wrapper.append(body);
+        return wrapper;
+      }
+
+      wrapper.className = "space-y-2";
+
+      if (message.tools?.length) {
+        const chips = document.createElement("div");
+        chips.className = "flex flex-wrap gap-1.5";
+        for (const tool of message.tools) {
+          const chip = document.createElement("span");
+          chip.className =
+            "inline-flex items-center gap-1.5 rounded-full border border-terminal-border/70 bg-terminal-panel/60 px-2 py-0.5 font-mono text-[11px] text-terminal-muted";
+          chip.textContent = `${tool.name} · ${tool.result}`;
+          chips.append(chip);
+        }
+        wrapper.append(chips);
+      }
+
+      if (message.reasoning?.trim()) {
+        const details = document.createElement("details");
+        details.className =
+          "rounded-[var(--radius-md)] border border-terminal-border/60 bg-terminal-panel/40 px-3 py-2";
+        const summary = document.createElement("summary");
+        summary.className = "cursor-pointer text-xs font-medium text-terminal-muted";
+        summary.textContent = "Thinking";
+        const content = document.createElement("p");
+        content.className =
+          "mt-2 whitespace-pre-wrap text-xs leading-relaxed text-terminal-muted";
+        content.textContent = message.reasoning.trim();
+        details.append(summary, content);
+        wrapper.append(details);
+      }
+
+      const body = document.createElement("div");
+      body.className = "text-terminal-text [&>*:first-child]:mt-0";
+      body.dataset.assistantBody = "";
+      body.innerHTML = message.content
+        ? renderMarkdown(message.content)
+        : '<span class="inline-flex items-center gap-1.5 text-terminal-muted"><span class="h-1.5 w-1.5 rounded-full bg-terminal-accent motion-safe:animate-pulse"></span>Reading the docs…</span>';
+      wrapper.append(body);
+
+      if (message.artifact) {
+        const card = document.createElement("a");
+        card.href = message.artifact.url;
+        card.target = "_blank";
+        card.rel = "noreferrer";
+        card.className =
+          "flex items-center gap-2.5 rounded-[var(--radius-md)] border border-terminal-accent/30 bg-terminal-accent/10 px-3 py-2.5 no-underline transition-colors hover:border-terminal-accent/60";
+        card.innerHTML = `
+          <svg class="h-4 w-4 shrink-0 text-terminal-accent" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14 3v4a1 1 0 0 0 1 1h4M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/></svg>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-xs font-semibold text-terminal-text"></span>
+            <span class="block truncate font-mono text-[11px] text-terminal-muted"></span>
+          </span>
+          <span class="shrink-0 text-[11px] font-medium text-terminal-accent">Open</span>`;
+        const [cardTitle, cardFile] = card.querySelectorAll("span > span");
+        cardTitle.textContent = message.artifact.title;
+        cardFile.textContent = `${message.artifact.filename} · shareable artifact`;
+        wrapper.append(card);
+      }
+
+      if (message.notice) {
+        const notice = document.createElement("p");
+        notice.className = "text-xs text-terminal-muted";
+        notice.textContent = message.notice;
+        wrapper.append(notice);
+      }
+
+      if (message.error) {
+        const error = document.createElement("p");
+        error.className =
+          "rounded-[var(--radius-md)] border border-terminal-error/40 bg-terminal-error/10 px-3 py-2 text-xs text-terminal-error";
+        error.textContent = message.error;
+        wrapper.append(error);
+      }
+
+      if (message.sources?.length) {
+        const sources = document.createElement("div");
+        sources.className = "flex flex-wrap items-center gap-1.5 pt-0.5";
+        const label = document.createElement("span");
+        label.className = "text-[11px] font-medium uppercase tracking-wide text-terminal-muted";
+        label.textContent = "Sources";
+        sources.append(label);
+        for (const source of message.sources) {
+          const link = document.createElement("a");
+          link.href = source.href;
+          link.className =
+            "rounded-full border border-terminal-border/70 px-2 py-0.5 text-[11px] font-medium text-terminal-muted no-underline transition-colors hover:border-terminal-accent/50 hover:text-terminal-accent";
+          link.textContent = source.title;
+          sources.append(link);
+        }
+        wrapper.append(sources);
+      }
+
+      return wrapper;
+    };
+
+    const render = () => {
+      log.querySelectorAll("[data-message-index]").forEach((node) => node.remove());
+      if (empty) empty.hidden = messages.length > 0;
+      messages.forEach((message, index) => log.append(bubble(message, index)));
+      log.scrollTop = log.scrollHeight;
+    };
+
+    const markUnread = (value: boolean) => {
+      unread.forEach((dot) => dot.classList.toggle("hidden", !value));
+    };
+
+    /** Keeps the panel above the on-screen keyboard on mobile. */
+    const syncViewport = () => {
+      const viewport = window.visualViewport;
+      if (!viewport || !mobile.matches || state !== "open") {
+        panel.style.transform = "";
+        return;
+      }
+      const overlap = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      panel.style.transform = overlap > 80 ? `translateY(-${overlap}px)` : "";
+    };
+
+    const setState = (next: PanelState, options: { focus?: boolean } = {}) => {
+      state = next;
+      root.dataset.state = next;
+      save(STATE_KEY, next);
+
+      launcher.setAttribute("aria-expanded", next === "closed" ? "false" : "true");
+      minimize?.setAttribute("aria-label", next === "minimized" ? "Expand the documentation assistant" : "Minimize the documentation assistant");
+      minimize?.setAttribute("title", next === "minimized" ? "Expand" : "Minimize");
+      if (title) title.hidden = false;
+
+      const scrim = next === "open" && mobile.matches;
+      if (backdrop) backdrop.hidden = !scrim;
+      document.body.style.overflow = scrim ? "hidden" : "";
+
+      if (next === "open") {
+        markUnread(false);
+        render();
+        if (options.focus !== false && !mobile.matches) window.setTimeout(() => input.focus(), 60);
+        window.dispatchEvent(
+          new CustomEvent("nikcli:mobile-overlay-open", { detail: { source: "assistant" } }),
+        );
+      }
+      syncViewport();
+    };
+
+    const setBusy = (busy: boolean) => {
+      streaming = busy;
+      send.disabled = busy;
+      input.disabled = busy;
+    };
+
+    const streamAnswer = async () => {
+      const target = messages[messages.length - 1];
+      controller = new AbortController();
+      setBusy(true);
+
+      try {
+        const response = await fetch("/api/docs-assistant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            path,
+            sessionID: sessionStorage.getItem(SESSION_KEY) || undefined,
+            messages: messages.slice(0, -1).map(({ role, content }) => ({ role, content })),
+          }),
+        });
+
+        if (!response.ok || !response.body) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          target.error = payload?.error ?? `The assistant is unavailable (HTTP ${response.status}).`;
+          render();
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let building = "";
+
+        const handleEvent = (raw: string) => {
+          const lines = raw.split("\n");
+          const name = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
+          const data = lines
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).trim())
+            .join("");
+          if (!name || !data) return;
+
+          try {
+            const payload = JSON.parse(data);
+            if (name === "sources") target.sources = payload as Source[];
+            else if (name === "tool") {
+              target.tools = [...(target.tools ?? []), payload as ToolCall];
+              render();
+            } else if (name === "reasoning") {
+              target.reasoning = (target.reasoning ?? "") + (payload as { text: string }).text;
+            }
+            // `delta` appends (Workers AI tokens), `text` replaces (nikcli
+            // message updates, and the final normalized answer).
+            else if (name === "delta") target.content += (payload as { text: string }).text;
+            else if (name === "text") target.content = (payload as { text: string }).text;
+            else if (name === "artifact") {
+              target.artifact = payload as Artifact;
+              building = "";
+            } else if (name === "status") {
+              building = (payload as { message: string }).message;
+            } else if (name === "notice") target.notice = (payload as { message: string }).message;
+            else if (name === "error") target.error = (payload as { message: string }).message;
+            else if (name === "meta") {
+              const meta = payload as { backend?: string; sessionID?: string };
+              if (meta.sessionID) save(SESSION_KEY, meta.sessionID);
+              if (badge && meta.backend) {
+                badge.textContent = meta.backend === "nikcli" ? "nikcli" : "cf ai";
+                badge.hidden = false;
+              }
+            }
+          } catch {
+            // Ignore malformed frames.
+          }
+        };
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const events = buffer.split("\n\n");
+          buffer = events.pop() ?? "";
+          for (const event of events) handleEvent(event);
+
+          const body = log.querySelector<HTMLElement>(
+            `[data-message-index="${messages.length - 1}"] [data-assistant-body]`,
+          );
+          const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+          if (body && (target.content || building)) {
+            const progress = building
+              ? `<span class="mt-2 inline-flex items-center gap-1.5 text-xs text-terminal-muted"><span class="h-1.5 w-1.5 rounded-full bg-terminal-accent motion-safe:animate-pulse"></span>${building}</span>`
+              : "";
+            body.innerHTML = renderMarkdown(target.content) + progress;
+          }
+          if (atBottom) log.scrollTop = log.scrollHeight;
+        }
+        if (buffer.trim()) handleEvent(buffer);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          target.error = "The connection to the assistant was interrupted.";
+        }
+      } finally {
+        controller = null;
+        setBusy(false);
+        if (!target.content && !target.error)
+          target.error = "No answer was returned. Try rephrasing your question.";
+        render();
+        save(STORE_KEY, messages.slice(-MAX_STORED));
+        if (state === "minimized") markUnread(true);
+        else if (!mobile.matches) input.focus();
+      }
+    };
+
+    const ask = (question: string) => {
+      const trimmed = question.trim();
+      if (!trimmed || streaming) return;
+      if (state !== "open") setState("open", { focus: false });
+      messages = [
+        ...messages.slice(-MAX_STORED + 2),
+        { role: "user", content: trimmed },
+        { role: "assistant", content: "" },
+      ];
+      input.value = "";
+      input.style.height = "";
+      render();
+      void streamAnswer();
+    };
+
+    const on = <K extends keyof HTMLElementEventMap>(
+      target: EventTarget | null | undefined,
+      type: K | string,
+      handler: EventListenerOrEventListenerObject,
+      options?: AddEventListenerOptions,
+    ) => {
+      target?.addEventListener(type, handler, options);
+      cleanups.push(() => target?.removeEventListener(type, handler, options));
+    };
+
+    on(launcher, "click", () => setState("open"));
+    on(close, "click", () => setState("closed"));
+    on(backdrop, "click", () => setState("closed"));
+    on(minimize, "click", () => setState(state === "minimized" ? "open" : "minimized"));
+    on(title, "click", () => {
+      if (state === "minimized") setState("open");
+    });
+
+    on(reset, "click", () => {
+      controller?.abort();
+      messages = [];
+      save(STORE_KEY, messages);
+      save(SESSION_KEY, "");
+      markUnread(false);
+      render();
+      if (!mobile.matches) input.focus();
+    });
+
+    root.querySelectorAll<HTMLButtonElement>("[data-assistant-suggestion]").forEach((button) => {
+      on(button, "click", () => ask(button.dataset.assistantSuggestion ?? ""));
+    });
+
+    on(form, "submit", (event) => {
+      event.preventDefault();
+      ask(input.value);
+    });
+
+    on(input, "keydown", (event) => {
+      const key = event as KeyboardEvent;
+      // Enter sends on pointer devices; on touch keyboards it inserts a newline.
+      if (key.key === "Enter" && !key.shiftKey && !mobile.matches) {
+        key.preventDefault();
+        ask(input.value);
+      }
+    });
+
+    on(input, "input", () => {
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
+    });
+
+    on(input, "focus", () => window.setTimeout(syncViewport, 250));
+    on(input, "blur", () => window.setTimeout(syncViewport, 250));
+
+    // Swipe the header down to minimize on touch devices.
+    let dragFrom: number | null = null;
+    on(header, "pointerdown", (event) => {
+      const pointer = event as PointerEvent;
+      if (pointer.pointerType !== "touch" || state !== "open") return;
+      if ((pointer.target as HTMLElement).closest("button[data-assistant-close]")) return;
+      dragFrom = pointer.clientY;
+    });
+    on(header, "pointerup", (event) => {
+      const pointer = event as PointerEvent;
+      if (dragFrom !== null && pointer.clientY - dragFrom > 48) setState("minimized");
+      dragFrom = null;
+    });
+    on(header, "pointercancel", () => {
+      dragFrom = null;
+    });
+
+    on(document, "keydown", (event) => {
+      const key = event as KeyboardEvent;
+      if (key.key !== "Escape" || state === "closed") return;
+      setState(state === "open" ? "minimized" : "closed");
+    });
+
+    on(window, "nikcli:mobile-overlay-open", (event) => {
+      if (event instanceof CustomEvent && event.detail?.source !== "assistant" && state === "open") {
+        setState("minimized");
+      }
+    });
+
+    on(window.visualViewport, "resize", syncViewport);
+    on(window.visualViewport, "scroll", syncViewport);
+
+    const onBreakpoint = () => setState(state, { focus: false });
+    mobile.addEventListener("change", onBreakpoint);
+    cleanups.push(() => mobile.removeEventListener("change", onBreakpoint));
+
+    const cleanup = () => {
+      controller?.abort();
+      document.body.style.overflow = "";
+      cleanups.forEach((dispose) => dispose());
+      document.removeEventListener("astro:before-swap", cleanup);
+    };
+    document.addEventListener("astro:before-swap", cleanup);
+
+    setState(state === "open" && messages.length === 0 ? "open" : state, { focus: false });
+    render();
+  };
+
+  initDocAssistant();
+  document.addEventListener("astro:page-load", initDocAssistant);
+</script>

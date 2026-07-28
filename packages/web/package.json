@@ -10,6 +10,7 @@
     "astro": "astro",
     "deploy": "echo '_worker.js' > dist/.assetsignore && wrangler deploy",
     "check:docs-tools": "bun run script/check-docs-tool-index.ts",
+    "check:docs-index": "bun run script/check-docs-index.ts",
     "build:brandkit": "bun run script/build-brandkit.ts"
   },
   "dependencies": {
@@ -32,13 +33,16 @@
     "react-dom": "^18.3.1",
     "react-router": "7.14.0",
     "react-router-dom": "7.14.0",
-    "tailwindcss": "^3.4.1"
+    "tailwindcss": "^3.4.1",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260621.1",
     "@types/node": "catalog:",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/turndown": "^5.0.6",
     "wrangler": "4.103.0"
   }
 }
