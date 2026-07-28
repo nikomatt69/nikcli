@@ -34,6 +34,10 @@ Want to take on an issue? Leave a comment and a maintainer may assign it to you 
   bun dev
   ```
 
+### Windows notes
+
+A standard Windows checkout (`core.symlinks=false`) works out of the box: typecheck, build, and web assets require no symlink support. The repo still tracks 4 directory symlinks for agent skills (`.agents/skills/*`, `.nikcli/skill/*`), which Git checks out as small text files on Windows — they are harmless and can be ignored. If you want them materialized as real links, enable Developer Mode and clone with `git config --global core.symlinks true`.
+
 ### Running against a different directory
 
 By default, `bun dev` runs Nikcli in the `packages/nikcli` directory. To run it against a different directory or repository:
