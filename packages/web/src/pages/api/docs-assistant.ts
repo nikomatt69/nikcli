@@ -1,17 +1,12 @@
-import type { APIRoute } from "astro";
-import { docsIndex } from "../../data/docsIndex";
-import {
-  ARTIFACT_MARKER,
-  type ArtifactRequest,
-  extractArtifact,
-  publishArtifact,
-} from "../../lib/docsArtifact";
-import { fetchDocMarkdown, normalizeDocsPath } from "../../lib/docsMarkdown";
-import { type ToolCall, planDocs } from "../../lib/docsPlanner";
-import { condenseMarkdown, selectDocs, tokenize } from "../../lib/docsRetrieval";
-import { nikcliBackendConfig, runNikcliTurn } from "../../lib/nikcliDocsSession";
+import type { APIRoute } from "astro"
+import { docsIndex } from "../../data/docsIndex"
+import { ARTIFACT_MARKER, type ArtifactRequest, extractArtifact, publishArtifact } from "../../lib/docsArtifact"
+import { fetchDocMarkdown, normalizeDocsPath } from "../../lib/docsMarkdown"
+import { type ToolCall, planDocs } from "../../lib/docsPlanner"
+import { condenseMarkdown, selectDocs, tokenize } from "../../lib/docsRetrieval"
+import { nikcliBackendConfig, runNikcliTurn } from "../../lib/nikcliDocsSession"
 
-export const prerender = false;
+export const prerender = false
 
 /**
  * Docs support assistant.
@@ -27,13 +22,13 @@ export const prerender = false;
  */
 
 /** Small + fast, and cheap against the Workers AI free allocation. */
-const DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+const DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 /**
  * Used only when the question asks for something buildable: writing a styled,
  * interactive HTML artifact needs a stronger model than a two-line answer, and
  * this one is still covered by the free Neuron allocation.
  */
-const DEFAULT_ARTIFACT_MODEL = "@cf/openai/gpt-oss-20b";
+const DEFAULT_ARTIFACT_MODEL = "@cf/openai/gpt-oss-20b"
 
 /**
  * Wants a page built, not just an answer. "How do I create a session?" is a
@@ -41,31 +36,30 @@ const DEFAULT_ARTIFACT_MODEL = "@cf/openai/gpt-oss-20b";
  * something page-shaped, or name an artifact outright.
  */
 const BUILD_VERB =
-  /\b(build|create|make|generate|design|draw|render|show me|write me|give me|crea|creami|genera|generami|costruisci|disegna|fammi|mostrami)\b/i;
+  /\b(build|create|make|generate|design|draw|render|show me|write me|give me|crea|creami|genera|generami|costruisci|disegna|fammi|mostrami)\b/i
 const BUILD_OBJECT =
-  /\b(guide|guida|walkthrough|tutorial|onboarding|cheat ?sheet|dashboard|diagram|diagramma|chart|grafico|poster|infographic|page|pagina|ui|interfaccia|overview|summary|riassunto|comparison|confronto|checklist|reference|table|tabella|template|playground|visuali\w+)\b/i;
-const EXPLICIT_ARTIFACT = /\b(artifact|artefatt\w+|cheat ?sheet|cheatsheet)\b/i;
+  /\b(guide|guida|walkthrough|tutorial|onboarding|cheat ?sheet|dashboard|diagram|diagramma|chart|grafico|poster|infographic|page|pagina|ui|interfaccia|overview|summary|riassunto|comparison|confronto|checklist|reference|table|tabella|template|playground|visuali\w+)\b/i
+const EXPLICIT_ARTIFACT = /\b(artifact|artefatt\w+|cheat ?sheet|cheatsheet)\b/i
 
 const wantsArtifact = (question: string) =>
-  EXPLICIT_ARTIFACT.test(question) ||
-  (BUILD_VERB.test(question) && BUILD_OBJECT.test(question));
+  EXPLICIT_ARTIFACT.test(question) || (BUILD_VERB.test(question) && BUILD_OBJECT.test(question))
 
-const MAX_MESSAGES = 12;
-const MAX_QUESTION_CHARS = 1200;
-const MAX_DOCS = 3;
+const MAX_MESSAGES = 12
+const MAX_QUESTION_CHARS = 1200
+const MAX_DOCS = 3
 /** Per-page grounding budget, in characters (~1.2k tokens). */
-const DOC_BUDGET = 5000;
-const MAX_OUTPUT_TOKENS = 900;
+const DOC_BUDGET = 5000
+const MAX_OUTPUT_TOKENS = 900
 /** Answer plus the outline of a guide. */
-const MAX_OUTLINE_OUTPUT_TOKENS = 1400;
+const MAX_OUTLINE_OUTPUT_TOKENS = 1400
 /** The rendered guide: layout, CSS and script for the whole page. */
-const MAX_ARTIFACT_OUTPUT_TOKENS = 4000;
-const RATE_LIMIT_PER_HOUR = 20;
+const MAX_ARTIFACT_OUTPUT_TOKENS = 4000
+const RATE_LIMIT_PER_HOUR = 20
 
-type ChatRole = "user" | "assistant";
-type ChatMessage = { role: ChatRole; content: string };
-type Source = { title: string; href: string };
-type Backend = "nikcli" | "workers-ai";
+type ChatRole = "user" | "assistant"
+type ChatMessage = { role: ChatRole; content: string }
+type Source = { title: string; href: string }
+type Backend = "nikcli" | "workers-ai"
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -74,10 +68,10 @@ const json = (body: unknown, status: number) =>
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
     },
-  });
+  })
 
 function parseMessages(input: unknown): ChatMessage[] {
-  if (!Array.isArray(input)) return [];
+  if (!Array.isArray(input)) return []
   return input
     .filter(
       (message): message is ChatMessage =>
@@ -91,30 +85,28 @@ function parseMessages(input: unknown): ChatMessage[] {
       content: message.content.slice(0, MAX_QUESTION_CHARS).trim(),
     }))
     .filter((message) => message.content.length > 0)
-    .slice(-MAX_MESSAGES);
+    .slice(-MAX_MESSAGES)
 }
 
 /** Best-effort per-IP hourly cap so the free Workers AI allocation survives. */
 async function rateLimited(env: CloudflareEnv, request: Request) {
-  const kv = env.SESSIONS;
-  if (!kv) return false;
+  const kv = env.SESSIONS
+  if (!kv) return false
 
-  const ip =
-    request.headers.get("CF-Connecting-IP") ||
-    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
-  if (!ip) return false;
+  const ip = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim()
+  if (!ip) return false
 
-  const limit = Number(env.DOCS_ASSISTANT_RATE_LIMIT) || RATE_LIMIT_PER_HOUR;
-  const bucket = Math.floor(Date.now() / 3_600_000);
-  const key = `docs-assistant:rl:${ip}:${bucket}`;
+  const limit = Number(env.DOCS_ASSISTANT_RATE_LIMIT) || RATE_LIMIT_PER_HOUR
+  const bucket = Math.floor(Date.now() / 3_600_000)
+  const key = `docs-assistant:rl:${ip}:${bucket}`
 
   try {
-    const used = Number((await kv.get(key)) ?? "0");
-    if (used >= limit) return true;
-    await kv.put(key, String(used + 1), { expirationTtl: 3600 });
-    return false;
+    const used = Number((await kv.get(key)) ?? "0")
+    if (used >= limit) return true
+    await kv.put(key, String(used + 1), { expirationTtl: 3600 })
+    return false
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -123,19 +115,17 @@ async function rateLimited(env: CloudflareEnv, request: Request) {
  * questions do not re-render and re-convert the same HTML.
  */
 async function loadDoc(href: string, origin: string) {
-  const cacheKey = new Request(
-    `${origin}/_docs-assistant-cache?path=${encodeURIComponent(href)}`,
-  );
-  const cache = (globalThis as { caches?: CacheStorage }).caches?.default;
+  const cacheKey = new Request(`${origin}/_docs-assistant-cache?path=${encodeURIComponent(href)}`)
+  const cache = (globalThis as { caches?: CacheStorage }).caches?.default
 
   try {
-    const hit = await cache?.match(cacheKey);
-    if (hit) return await hit.text();
+    const hit = await cache?.match(cacheKey)
+    if (hit) return await hit.text()
   } catch {
     // Cache unavailable (e.g. local dev) — fall through to a live render.
   }
 
-  const doc = await fetchDocMarkdown(href, origin);
+  const doc = await fetchDocMarkdown(href, origin)
   try {
     await cache?.put(
       cacheKey,
@@ -145,11 +135,11 @@ async function loadDoc(href: string, origin: string) {
           "Cache-Control": "public, max-age=1800",
         },
       }),
-    );
+    )
   } catch {
     // Caching is an optimization only.
   }
-  return doc.markdown;
+  return doc.markdown
 }
 
 const ARTIFACT_INSTRUCTIONS = [
@@ -164,7 +154,7 @@ const ARTIFACT_INSTRUCTIONS = [
   "- Cover the whole topic in that outline: every step, option and caveat you want on the page, taken from the documentation excerpts.",
   "- The block is removed from the chat and published as a shareable page on nikcli.store; introduce it in one sentence before the block and do not repeat its content outside the block.",
   "- Use it only when a standalone page is genuinely useful; a normal answer needs no artifact.",
-].join("\n");
+].join("\n")
 
 /**
  * Renders an outline into the published artifact: a designed, interactive
@@ -232,12 +222,10 @@ Requirements:
 - Every CSS and JS value must be complete and valid; never leave a number or colour channel empty.
 - Sandboxed iframe: no network requests, no external fonts, scripts, or images.
 - Responsive to 360px: wrap every <table> in <div class="scroll"> so wide content scrolls inside its own box, and keep code lines short. The page itself must never scroll sideways.
-- Readable in light and dark, and factually faithful to the documentation given. Link back to docs pages with absolute https://nikcli.store/docs/... URLs.`;
+- Readable in light and dark, and factually faithful to the documentation given. Link back to docs pages with absolute https://nikcli.store/docs/... URLs.`
 
 function systemPrompt(context: string, currentPage?: Source) {
-  const pages = docsIndex
-    .map((entry) => `- ${entry.title} — ${entry.href}`)
-    .join("\n");
+  const pages = docsIndex.map((entry) => `- ${entry.title} — ${entry.href}`).join("\n")
 
   return [
     "You are the Nikcli documentation assistant, embedded in the official docs at nikcli.store.",
@@ -254,9 +242,7 @@ function systemPrompt(context: string, currentPage?: Source) {
     "",
     ARTIFACT_INSTRUCTIONS,
     "",
-    currentPage
-      ? `The user is currently reading: ${currentPage.title} (${currentPage.href}).`
-      : "",
+    currentPage ? `The user is currently reading: ${currentPage.title} (${currentPage.href}).` : "",
     "",
     "Documentation table of contents (link to these paths only):",
     pages,
@@ -265,32 +251,28 @@ function systemPrompt(context: string, currentPage?: Source) {
     context,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join("\n")
 }
 
-const sse = (event: string, data: unknown) =>
-  `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+const sse = (event: string, data: unknown) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
 
 const slugify = (value: string) =>
   value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || "nikcli-guide";
+    .slice(0, 60) || "nikcli-guide"
 
 /** Title for a guide the user asked for but the model did not name. */
 function guideTitle(question: string) {
   const cleaned = question
     .replace(/^\s*(please\s+)?/i, "")
-    .replace(
-      /^(build|create|make|generate|design|write|give)\s+(me\s+)?(an?\s+)?(interactive\s+)?/i,
-      "",
-    )
+    .replace(/^(build|create|make|generate|design|write|give)\s+(me\s+)?(an?\s+)?(interactive\s+)?/i, "")
     .replace(/[?!.]+\s*$/, "")
-    .trim();
-  const title = cleaned.length > 3 ? cleaned : question.trim();
-  const short = title.length > 70 ? `${title.slice(0, 67).trimEnd()}…` : title;
-  return short.charAt(0).toUpperCase() + short.slice(1);
+    .trim()
+  const title = cleaned.length > 3 ? cleaned : question.trim()
+  const short = title.length > 70 ? `${title.slice(0, 67).trimEnd()}…` : title
+  return short.charAt(0).toUpperCase() + short.slice(1)
 }
 
 const isLocalOrigin = (hostname: string) =>
@@ -298,18 +280,18 @@ const isLocalOrigin = (hostname: string) =>
   hostname === "127.0.0.1" ||
   hostname === "[::1]" ||
   hostname.endsWith(".local") ||
-  hostname.endsWith(".localhost");
+  hostname.endsWith(".localhost")
 
 /**
  * The answer without its artifact block — that gets published, not chatted.
  * While the block is still streaming, everything from the fence on is hidden.
  */
 function visibleAnswer(answer: string) {
-  const marker = answer.indexOf(ARTIFACT_MARKER);
-  if (marker === -1) return answer;
+  const marker = answer.indexOf(ARTIFACT_MARKER)
+  if (marker === -1) return answer
   return answer.includes("```", marker + ARTIFACT_MARKER.length)
     ? extractArtifact(answer).text
-    : answer.slice(0, marker).trimEnd();
+    : answer.slice(0, marker).trimEnd()
 }
 
 /**
@@ -317,19 +299,17 @@ function visibleAnswer(answer: string) {
  * marker never flashes in the transcript.
  */
 function withheldTail(text: string) {
-  const fence = text.lastIndexOf("`");
-  return fence !== -1 && text.length - fence < 12 ? text.slice(0, fence) : text;
+  const fence = text.lastIndexOf("`")
+  return fence !== -1 && text.length - fence < 12 ? text.slice(0, fence) : text
 }
 
-export type AnswerChunk = { kind: "text" | "reasoning"; text: string };
+export type AnswerChunk = { kind: "text" | "reasoning"; text: string }
 
 /** Parses the Workers AI SSE frames into answer and reasoning deltas. */
-async function* workersAiDeltas(
-  upstream: ReadableStream<Uint8Array>,
-): AsyncGenerator<AnswerChunk> {
-  const reader = upstream.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+async function* workersAiDeltas(upstream: ReadableStream<Uint8Array>): AsyncGenerator<AnswerChunk> {
+  const reader = upstream.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
 
   /**
    * Workers AI models do not agree on a stream shape: Llama sends
@@ -337,63 +317,57 @@ async function* workersAiDeltas(
    * OpenAI chat chunks. Reasoning deltas are dropped — only the answer shows.
    */
   const parse = (payload: string): AnswerChunk | null => {
-    if (payload === "[DONE]") return null;
+    if (payload === "[DONE]") return null
     try {
       const data = JSON.parse(payload) as {
-        response?: unknown;
-        reasoning?: unknown;
-        type?: unknown;
-        delta?: unknown;
+        response?: unknown
+        reasoning?: unknown
+        type?: unknown
+        delta?: unknown
         choices?: Array<{
-          delta?: { content?: unknown; reasoning_content?: unknown };
-        }>;
-      };
-
-      if (typeof data.response === "string")
-        return { kind: "text", text: data.response };
-      if (typeof data.reasoning === "string")
-        return { kind: "reasoning", text: data.reasoning };
-
-      if (typeof data.delta === "string" && typeof data.type === "string") {
-        if (data.type.endsWith("output_text.delta"))
-          return { kind: "text", text: data.delta };
-        if (data.type.includes("reasoning"))
-          return { kind: "reasoning", text: data.delta };
+          delta?: { content?: unknown; reasoning_content?: unknown }
+        }>
       }
 
-      const choice = data.choices?.[0]?.delta;
-      if (typeof choice?.content === "string")
-        return { kind: "text", text: choice.content };
-      if (typeof choice?.reasoning_content === "string")
-        return { kind: "reasoning", text: choice.reasoning_content };
+      if (typeof data.response === "string") return { kind: "text", text: data.response }
+      if (typeof data.reasoning === "string") return { kind: "reasoning", text: data.reasoning }
 
-      return null;
+      if (typeof data.delta === "string" && typeof data.type === "string") {
+        if (data.type.endsWith("output_text.delta")) return { kind: "text", text: data.delta }
+        if (data.type.includes("reasoning")) return { kind: "reasoning", text: data.delta }
+      }
+
+      const choice = data.choices?.[0]?.delta
+      if (typeof choice?.content === "string") return { kind: "text", text: choice.content }
+      if (typeof choice?.reasoning_content === "string") return { kind: "reasoning", text: choice.reasoning_content }
+
+      return null
     } catch {
-      return null;
+      return null
     }
-  };
+  }
 
   try {
     for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
 
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) continue;
-        const text = parse(trimmed.slice(5).trim());
-        if (text) yield text;
+        const trimmed = line.trim()
+        if (!trimmed.startsWith("data:")) continue
+        const text = parse(trimmed.slice(5).trim())
+        if (text) yield text
       }
     }
     if (buffer.trim().startsWith("data:")) {
-      const text = parse(buffer.trim().slice(5).trim());
-      if (text) yield text;
+      const text = parse(buffer.trim().slice(5).trim())
+      if (text) yield text
     }
   } finally {
-    reader.releaseLock();
+    reader.releaseLock()
   }
 }
 
@@ -402,66 +376,65 @@ async function* workersAiDeltas(
  * `reasoning`, `delta`/`text`, `status`, `artifact`, `error`, `done`.
  */
 function eventStream(input: {
-  answer: AsyncGenerator<AnswerChunk>;
+  answer: AsyncGenerator<AnswerChunk>
   /** `append`: chunks are deltas. `replace`: each chunk is the full answer. */
-  mode: "append" | "replace";
-  sources: Source[];
-  tools?: ToolCall[];
-  backend: Backend;
-  sessionID?: string;
+  mode: "append" | "replace"
+  sources: Source[]
+  tools?: ToolCall[]
+  backend: Backend
+  sessionID?: string
   /** Publish a guide even when the model did not volunteer an artifact block. */
-  forceArtifact?: boolean;
-  titleHint: string;
-  publish: (draft: ArtifactRequest) => Promise<unknown>;
+  forceArtifact?: boolean
+  titleHint: string
+  publish: (draft: ArtifactRequest) => Promise<unknown>
 }) {
-  const encoder = new TextEncoder();
+  const encoder = new TextEncoder()
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
-      const emit = (event: string, data: unknown) =>
-        controller.enqueue(encoder.encode(sse(event, data)));
+      const emit = (event: string, data: unknown) => controller.enqueue(encoder.encode(sse(event, data)))
 
-      emit("meta", { backend: input.backend, sessionID: input.sessionID });
-      for (const tool of input.tools ?? []) emit("tool", tool);
-      emit("sources", input.sources);
+      emit("meta", { backend: input.backend, sessionID: input.sessionID })
+      for (const tool of input.tools ?? []) emit("tool", tool)
+      emit("sources", input.sources)
 
-      let answer = "";
-      let sent = 0;
-      let announced = false;
+      let answer = ""
+      let sent = 0
+      let announced = false
       try {
         for await (const chunk of input.answer) {
           if (chunk.kind === "reasoning") {
-            emit("reasoning", { text: chunk.text });
-            continue;
+            emit("reasoning", { text: chunk.text })
+            continue
           }
 
-          answer = input.mode === "replace" ? chunk.text : answer + chunk.text;
+          answer = input.mode === "replace" ? chunk.text : answer + chunk.text
 
           if (!announced && answer.includes(ARTIFACT_MARKER)) {
-            announced = true;
-            emit("status", { message: "Building a shareable artifact…" });
+            announced = true
+            emit("status", { message: "Building a shareable artifact…" })
           }
 
           // nikcli reports the whole message, so replace; Workers AI streams
           // tokens, so append. Either way an in-progress artifact fence is held
           // back until the block is complete and can be stripped.
           if (input.mode === "replace") {
-            emit("text", { text: visibleAnswer(answer) });
-            continue;
+            emit("text", { text: visibleAnswer(answer) })
+            continue
           }
 
-          const visible = withheldTail(visibleAnswer(answer));
+          const visible = withheldTail(visibleAnswer(answer))
           if (visible.length > sent) {
-            emit("delta", { text: visible.slice(sent) });
-            sent = visible.length;
+            emit("delta", { text: visible.slice(sent) })
+            sent = visible.length
           }
         }
 
         if (!answer.trim()) {
-          emit("error", { message: "The model returned an empty answer." });
+          emit("error", { message: "The model returned an empty answer." })
         } else {
-          const { text, artifact } = extractArtifact(answer);
-          emit("text", { text });
+          const { text, artifact } = extractArtifact(answer)
+          emit("text", { text })
 
           // Either the model asked for an artifact, or the question did: a
           // request to build something always ends with a published page.
@@ -473,113 +446,99 @@ function eventStream(input: {
                   filename: `${slugify(input.titleHint)}.html`,
                   content: text,
                 }
-              : null);
+              : null)
 
           if (draft) {
-            if (!announced) emit("status", { message: "Building your guide…" });
+            if (!announced) emit("status", { message: "Building your guide…" })
             try {
-              const published = await input.publish(draft);
-              if (published) emit("artifact", published);
+              const published = await input.publish(draft)
+              if (published) emit("artifact", published)
             } catch {
               emit("notice", {
                 message: "The guide for this answer could not be published.",
-              });
+              })
             }
           }
         }
       } catch (error) {
         emit("error", {
-          message:
-            error instanceof Error ? error.message : "The answer stream failed.",
-        });
+          message: error instanceof Error ? error.message : "The answer stream failed.",
+        })
       } finally {
-        emit("done", {});
-        controller.close();
+        emit("done", {})
+        controller.close()
       }
     },
-  });
+  })
 }
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
-  const env = locals.runtime?.env as CloudflareEnv | undefined;
-  const nikcli = env ? nikcliBackendConfig(env) : null;
+  const env = locals.runtime?.env as CloudflareEnv | undefined
+  const nikcli = env ? nikcliBackendConfig(env) : null
   if (!env?.AI && !nikcli) {
     return json(
       {
-        error:
-          "The docs assistant is not configured on this deployment (missing Workers AI binding).",
+        error: "The docs assistant is not configured on this deployment (missing Workers AI binding).",
       },
       503,
-    );
+    )
   }
 
-  let body: { messages?: unknown; path?: unknown; sessionID?: unknown };
+  let body: { messages?: unknown; path?: unknown; sessionID?: unknown }
   try {
-    body = (await request.json()) as typeof body;
+    body = (await request.json()) as typeof body
   } catch {
-    return json({ error: "Invalid JSON body." }, 400);
+    return json({ error: "Invalid JSON body." }, 400)
   }
 
-  const messages = parseMessages(body.messages);
-  const question = [...messages]
-    .reverse()
-    .find((message) => message.role === "user")?.content;
-  if (!question) return json({ error: "Ask a question first." }, 400);
+  const messages = parseMessages(body.messages)
+  const question = [...messages].reverse().find((message) => message.role === "user")?.content
+  if (!question) return json({ error: "Ask a question first." }, 400)
 
   if (env && (await rateLimited(env, request))) {
     return json(
       {
-        error:
-          "Too many questions from this address in the last hour. Try again later, or read the docs directly.",
+        error: "Too many questions from this address in the last hour. Try again later, or read the docs directly.",
       },
       429,
-    );
+    )
   }
 
-  const currentPath =
-    typeof body.path === "string"
-      ? normalizeDocsPath(body.path, url.origin)
-      : undefined;
+  const currentPath = typeof body.path === "string" ? normalizeDocsPath(body.path, url.origin) : undefined
 
   // Retrieval: rank pages across the conversation, weighted to the latest
   // question, then ground on the top pages plus the page being read.
   const conversation = messages
     .filter((message) => message.role === "user")
     .map((message) => message.content)
-    .join(" ");
+    .join(" ")
   let picked = selectDocs({
     query: `${question} ${question} ${conversation}`,
     currentPath,
     limit: MAX_DOCS,
-  });
-  const tokens = tokenize(question);
+  })
+  const tokens = tokenize(question)
 
   // Keywords find the obvious pages; a tool call catches the ones the user
   // described without naming ("it keeps asking me" → Permissions). The model's
   // picks lead, lexical results fill the remaining slots, and either half alone
   // is enough if the other fails.
-  const tools: ToolCall[] = [];
+  const tools: ToolCall[] = []
   if (env?.AI) {
     const planned = await planDocs({
       ai: env.AI,
       model: env.DOCS_ASSISTANT_MODEL || DEFAULT_MODEL,
       question,
       limit: MAX_DOCS,
-    });
-    if (planned.call) tools.push(planned.call);
+    })
+    if (planned.call) tools.push(planned.call)
 
     if (planned.paths.length > 0) {
-      const order = [
-        ...(currentPath ? [currentPath] : []),
-        ...planned.paths,
-        ...picked.map((entry) => entry.href),
-      ];
-      picked = [...new Set(order)]
-        .slice(0, MAX_DOCS)
-        .flatMap((path) => {
-          const entry = docsIndex.find((item) => item.href === path);
-          return entry ? [{ ...entry, score: 1 }] : [];
-        });
+      const order = [...(currentPath ? [currentPath] : []), ...planned.paths, ...picked.map((entry) => entry.href)]
+      picked = [...new Set(order)].slice(0, MAX_DOCS).flatMap((path) => {
+        const entry = docsIndex.find((item) => item.href === path)
+        return entry ? [{ ...entry, score: 1 }] : []
+      })
     }
   }
 
@@ -588,48 +547,33 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       try {
         return {
           entry,
-          markdown: condenseMarkdown(
-            await loadDoc(entry.href, url.origin),
-            tokens,
-            DOC_BUDGET,
-          ),
-        };
+          markdown: condenseMarkdown(await loadDoc(entry.href, url.origin), tokens, DOC_BUDGET),
+        }
       } catch {
-        return null;
+        return null
       }
     }),
-  );
+  )
 
-  const grounded = loaded.filter(
-    (item): item is NonNullable<typeof item> => item !== null,
-  );
+  const grounded = loaded.filter((item): item is NonNullable<typeof item> => item !== null)
   if (grounded.length === 0) {
-    return json(
-      { error: "Could not load the documentation right now. Try again." },
-      502,
-    );
+    return json({ error: "Could not load the documentation right now. Try again." }, 502)
   }
 
   const context = grounded
-    .map(
-      (item) =>
-        `<page title="${item.entry.title}" path="${item.entry.href}">\n${item.markdown}\n</page>`,
-    )
-    .join("\n\n");
+    .map((item) => `<page title="${item.entry.title}" path="${item.entry.href}">\n${item.markdown}\n</page>`)
+    .join("\n\n")
 
   const sources: Source[] = grounded.map((item) => ({
     title: item.entry.title,
     href: item.entry.href,
-  }));
-  const currentPage = currentPath
-    ? sources.find((source) => source.href === currentPath)
-    : undefined;
-  const system = systemPrompt(context, currentPage);
+  }))
+  const currentPage = currentPath ? sources.find((source) => source.href === currentPath) : undefined
+  const system = systemPrompt(context, currentPage)
 
-  const wantsGuide = wantsArtifact(question);
-  const model = env?.DOCS_ASSISTANT_MODEL || DEFAULT_MODEL;
-  const artifactModel =
-    env?.DOCS_ASSISTANT_ARTIFACT_MODEL || DEFAULT_ARTIFACT_MODEL;
+  const wantsGuide = wantsArtifact(question)
+  const model = env?.DOCS_ASSISTANT_MODEL || DEFAULT_MODEL
+  const artifactModel = env?.DOCS_ASSISTANT_ARTIFACT_MODEL || DEFAULT_ARTIFACT_MODEL
 
   /**
    * Renders the outline the chat model wrote into the published guide. The
@@ -637,7 +581,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
    * matter which model answered.
    */
   const renderArtifact = async (draft: ArtifactRequest) => {
-    if (!env?.AI) return draft;
+    if (!env?.AI) return draft
 
     const messages = [
       { role: "system", content: HTML_BUILDER_PROMPT },
@@ -645,7 +589,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         role: "user",
         content: `The user asked: ${question}\n\nBuild the interactive guide "${draft.title}" from this outline:\n\n${draft.content}\n\nSupporting documentation (use it for accuracy, do not invent anything):\n${context}`,
       },
-    ];
+    ]
 
     try {
       // Streamed, not awaited as one response: reasoning models return an
@@ -656,61 +600,58 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         max_tokens: MAX_ARTIFACT_OUTPUT_TOKENS,
         temperature: 0.4,
         messages,
-      })) as ReadableStream<Uint8Array>;
+      })) as ReadableStream<Uint8Array>
 
-      let text = "";
+      let text = ""
       for await (const chunk of workersAiDeltas(upstream)) {
-        if (chunk.kind === "text") text += chunk.text;
+        if (chunk.kind === "text") text += chunk.text
       }
 
       text = text
         .replace(/^\s*```[a-z]*\n?/i, "")
         .replace(/```\s*$/, "")
-        .trim();
+        .trim()
 
       // Anything shorter is a refusal or a stub — keep the outline instead,
       // which still publishes as a readable page.
-      return text.length > 400 ? { ...draft, content: text } : draft;
+      return text.length > 400 ? { ...draft, content: text } : draft
     } catch {
-      return draft;
+      return draft
     }
-  };
+  }
 
   const publish = async (draft: ArtifactRequest) => {
-    if (!env?.ARTIFACTS) return null;
+    if (!env?.ARTIFACTS) return null
     return publishArtifact(env.ARTIFACTS, await renderArtifact(draft), {
       origin: url.origin,
       // Local and preview runs keep their own origin: the artifact lives in
       // that deployment's bucket, so a nikcli.store link would 404.
-      publicOrigin: isLocalOrigin(url.hostname)
-        ? undefined
-        : env.ARTIFACT_PUBLIC_ORIGIN,
+      publicOrigin: isLocalOrigin(url.hostname) ? undefined : env.ARTIFACT_PUBLIC_ORIGIN,
       sessionID: typeof body.sessionID === "string" ? body.sessionID : undefined,
-    });
-  };
+    })
+  }
 
   const streamHeaders = {
     "Content-Type": "text/event-stream; charset=utf-8",
     "Cache-Control": "no-store, no-transform",
     Connection: "keep-alive",
     "X-Accel-Buffering": "no",
-  };
+  }
 
   // Preferred backend: a real nikcli session, when the deployment has one.
   if (nikcli) {
     try {
       const turn = await runNikcliTurn({
         config: nikcli,
-        sessionID:
-          typeof body.sessionID === "string" ? body.sessionID : undefined,
+        sessionID: typeof body.sessionID === "string" ? body.sessionID : undefined,
         prompt: `${system}\n\n---\n\nUser question: ${question}`,
         signal: request.signal,
-      });
+      })
 
       return new Response(
         eventStream({
           answer: (async function* () {
-            for await (const text of turn.stream) yield { kind: "text", text };
+            for await (const text of turn.stream) yield { kind: "text", text }
           })() as AsyncGenerator<AnswerChunk>,
           mode: "replace",
           sources,
@@ -722,14 +663,14 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           publish,
         }),
         { headers: streamHeaders },
-      );
+      )
     } catch {
       // nikcli server unreachable — fall through to Workers AI.
     }
   }
 
   if (!env?.AI) {
-    return json({ error: "The nikcli backend is unavailable right now." }, 502);
+    return json({ error: "The nikcli backend is unavailable right now." }, 502)
   }
 
   try {
@@ -738,7 +679,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       max_tokens: wantsGuide ? MAX_OUTLINE_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS,
       temperature: 0.2,
       messages: [{ role: "system", content: system }, ...messages],
-    })) as ReadableStream<Uint8Array>;
+    })) as ReadableStream<Uint8Array>
 
     return new Response(
       eventStream({
@@ -752,19 +693,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         publish,
       }),
       { headers: streamHeaders },
-    );
+    )
   } catch (error) {
     return json(
       {
-        error:
-          error instanceof Error
-            ? `Workers AI request failed: ${error.message}`
-            : "Workers AI request failed.",
+        error: error instanceof Error ? `Workers AI request failed: ${error.message}` : "Workers AI request failed.",
       },
       502,
-    );
+    )
   }
-};
+}
 
-export const GET: APIRoute = () =>
-  json({ error: "Use POST with { messages, path, sessionID }." }, 405);
+export const GET: APIRoute = () => json({ error: "Use POST with { messages, path, sessionID }." }, 405)

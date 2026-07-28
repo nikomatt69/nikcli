@@ -62,9 +62,7 @@ export function exa(config: WebSearchConfig): Provider {
           numResults: input.numResults ?? DEFAULT_NUM_RESULTS,
           type: input.type ?? "auto",
           livecrawl: input.livecrawl ?? "fallback",
-          ...(input.contextMaxCharacters !== undefined
-            ? { contextMaxCharacters: input.contextMaxCharacters }
-            : {}),
+          ...(input.contextMaxCharacters !== undefined ? { contextMaxCharacters: input.contextMaxCharacters } : {}),
         },
       })
       return result.text ? parseExaText(result.text) : []
@@ -186,7 +184,8 @@ export function format(results: readonly SearchResult[]): string {
   return results
     .map((result) => {
       const lines = [result.title ? `${result.title}\n${result.url}` : result.url]
-      if (result.published !== undefined) lines.push(`Published: ${new Date(result.published).toISOString().slice(0, 10)}`)
+      if (result.published !== undefined)
+        lines.push(`Published: ${new Date(result.published).toISOString().slice(0, 10)}`)
       if (result.content) lines.push("", result.content)
       return lines.join("\n")
     })

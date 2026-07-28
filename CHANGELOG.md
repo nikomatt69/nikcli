@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.209.0 (July 2026)
+
+## Core
+
+- Enhance documentation and add AI support features (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(docs): enhance documentation and add AI support features
+
 ## v1.204.0 (July 2026)
 
 ## Core
