@@ -176,94 +176,95 @@ export namespace Skill {
   export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
-      const state = yield* InstanceState.make<State>((ctx) =>
-        Effect.promise(async () => {
-          const skills: State = {}
+      const state = yield* InstanceState.make<State>(
+        (ctx) =>
+          Effect.promise(async () => {
+            const skills: State = {}
 
-          const addSkill = async (match: string) => {
-            const md = await ConfigMarkdown.parse(match).catch((err) => {
-              const message =
-                err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse skill ${match}`
-              Bus.publish(Session.Event.Error, { error: EventError.unknown(message) })
-              log.error("failed to load skill", { skill: match, err })
-              return undefined
-            })
+            const addSkill = async (match: string) => {
+              const md = await ConfigMarkdown.parse(match).catch((err) => {
+                const message =
+                  err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse skill ${match}`
+                Bus.publish(Session.Event.Error, { error: EventError.unknown(message) })
+                log.error("failed to load skill", { skill: match, err })
+                return undefined
+              })
 
-            if (!md) return
+              if (!md) return
 
-            const parsed = Metadata.safeParse(md.data)
-            if (!parsed.success) return
+              const parsed = Metadata.safeParse(md.data)
+              if (!parsed.success) return
 
-            if (skills[parsed.data.name]) {
-              log.warn("duplicate skill name", {
+              if (skills[parsed.data.name]) {
+                log.warn("duplicate skill name", {
+                  name: parsed.data.name,
+                  existing: skills[parsed.data.name].location,
+                  duplicate: match,
+                })
+              }
+
+              skills[parsed.data.name] = {
                 name: parsed.data.name,
-                existing: skills[parsed.data.name].location,
-                duplicate: match,
-              })
+                description: parsed.data.description,
+                location: match,
+                category: parsed.data.category,
+                tags: parsed.data.tags,
+                version: parsed.data.version,
+              }
             }
 
-            skills[parsed.data.name] = {
-              name: parsed.data.name,
-              description: parsed.data.description,
-              location: match,
-              category: parsed.data.category,
-              tags: parsed.data.tags,
-              version: parsed.data.version,
-            }
-          }
-
-          const scanExternal = async (root: string, scope: "global" | "project") => {
-            return Array.fromAsync(
-              EXTERNAL_SKILL_GLOB.scan({
-                cwd: root,
-                absolute: true,
-                onlyFiles: true,
-                followSymlinks: true,
-                dot: true,
-              }),
-            )
-              .then((matches) => Promise.all(matches.map(addSkill)))
-              .catch((error) => {
-                log.error(`failed to scan ${scope} skills`, { dir: root, error })
-              })
-          }
-
-          if (!Flag.NIKCLI_DISABLE_EXTERNAL_SKILLS) {
-            for (const dir of EXTERNAL_DIRS) {
-              const root = path.join(Global.Path.home, dir)
-              if (!(await Filesystem.isDir(root))) continue
-              await scanExternal(root, "global")
+            const scanExternal = async (root: string, scope: "global" | "project") => {
+              return Array.fromAsync(
+                EXTERNAL_SKILL_GLOB.scan({
+                  cwd: root,
+                  absolute: true,
+                  onlyFiles: true,
+                  followSymlinks: true,
+                  dot: true,
+                }),
+              )
+                .then((matches) => Promise.all(matches.map(addSkill)))
+                .catch((error) => {
+                  log.error(`failed to scan ${scope} skills`, { dir: root, error })
+                })
             }
 
-            for await (const root of Filesystem.up({
-              targets: EXTERNAL_DIRS,
-              start: ctx.directory,
-              stop: ctx.worktree,
-            })) {
-              await scanExternal(root, "project")
+            if (!Flag.NIKCLI_DISABLE_EXTERNAL_SKILLS) {
+              for (const dir of EXTERNAL_DIRS) {
+                const root = path.join(Global.Path.home, dir)
+                if (!(await Filesystem.isDir(root))) continue
+                await scanExternal(root, "global")
+              }
+
+              for await (const root of Filesystem.up({
+                targets: EXTERNAL_DIRS,
+                start: ctx.directory,
+                stop: ctx.worktree,
+              })) {
+                await scanExternal(root, "project")
+              }
             }
-          }
 
-          for (const dir of await configDirectories(ctx)) {
-            // The config dir may not exist yet; scanning a missing dir throws
-            // ENOENT and would crash instance creation, so skip/tolerate it.
-            if (!(await Filesystem.isDir(dir))) continue
-            await Array.fromAsync(
-              NIKCLI_SKILL_GLOB.scan({
-                cwd: dir,
-                absolute: true,
-                onlyFiles: true,
-                followSymlinks: true,
-              }),
-            )
-              .then((matches) => Promise.all(matches.map(addSkill)))
-              .catch((error) => {
-                log.error("failed to scan nikcli skills", { dir, error })
-              })
-          }
+            for (const dir of await configDirectories(ctx)) {
+              // The config dir may not exist yet; scanning a missing dir throws
+              // ENOENT and would crash instance creation, so skip/tolerate it.
+              if (!(await Filesystem.isDir(dir))) continue
+              await Array.fromAsync(
+                NIKCLI_SKILL_GLOB.scan({
+                  cwd: dir,
+                  absolute: true,
+                  onlyFiles: true,
+                  followSymlinks: true,
+                }),
+              )
+                .then((matches) => Promise.all(matches.map(addSkill)))
+                .catch((error) => {
+                  log.error("failed to scan nikcli skills", { dir, error })
+                })
+            }
 
-          return skills
-        }),
+            return skills
+          }),
         // Pure derivation of the skill files on disk, so it joins instance hot
         // reload instead of pinning the set read at first access.
         { reloadable: true },

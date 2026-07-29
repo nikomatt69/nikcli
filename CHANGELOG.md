@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.210.0 (July 2026)
+
+## Core
+
+- Implement sandboxing for loops and missions (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(docs): integrate @mixmark-io/domino for enhanced HTML parsing
+  - feat(worktree): implement sandboxing for loops and missions
+
 ## v1.204.0 (July 2026)
 
 ## Core
