@@ -167,7 +167,23 @@ function asDefinition(value: unknown): MissionDefinition | undefined {
     createdAt: asNumber(value.createdAt, Date.now()),
   }
   if (typeof value.timeoutMs === "number" && value.timeoutMs > 0) out.timeoutMs = Math.floor(value.timeoutMs)
+  // Carried through untouched: this normalizer is also what the TUI PUTs back
+  // on edit, and dropping the sandbox handle would strand the mission's
+  // worktree and branch a fresh one on the next resume.
+  if (value.sandbox === false) out.sandbox = false
+  const worktree = asWorktree(value.worktree)
+  if (worktree) out.worktree = worktree
   return out
+}
+
+/** Narrow the persisted sandbox worktree handle. */
+function asWorktree(value: unknown): MissionDefinition["worktree"] | undefined {
+  if (!isPlainObject(value)) return undefined
+  const name = asString(value.name)
+  const directory = asString(value.directory)
+  if (!name || !directory) return undefined
+  const branch = asString(value.branch)
+  return { name, directory, ...(branch ? { branch } : {}) }
 }
 
 function asExec(value: unknown): MissionExec | undefined {

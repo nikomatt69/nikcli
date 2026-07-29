@@ -10,7 +10,7 @@
 import type { NikcliClient } from "@nikcli-ai/sdk/v2"
 import type { TuiEventBus } from "@nikcli-ai/plugin/tui"
 import type { LoopDefinition, LoopTemplate, LoopRun } from "@/loop/schema"
-import { definitionFromGenerated, isValidModel, validateDefinition } from "@/loop/schema"
+import { DEFAULT_LOOP_AGENT, definitionFromGenerated, isValidModel, validateDefinition } from "@/loop/schema"
 
 export type { LoopDefinition, LoopTemplate, LoopRun } from "@/loop/schema"
 export type { LoopPullRequestRef } from "@/loop/schema"
@@ -68,7 +68,7 @@ function asDefinition(value: unknown): LoopDefinition | undefined {
     return [
       {
         name: typeof st.name === "string" ? st.name : "stage",
-        agent: typeof st.agent === "string" ? st.agent : "ralph",
+        agent: typeof st.agent === "string" ? st.agent : DEFAULT_LOOP_AGENT,
         ...(typeof st.model === "string" && isValidModel(st.model) ? { model: st.model } : {}),
         objective: st.objective,
         ...(typeof st.tokenBudget === "number" && st.tokenBudget > 0 ? { tokenBudget: st.tokenBudget } : {}),
@@ -89,8 +89,26 @@ function asDefinition(value: unknown): LoopDefinition | undefined {
     trigger: triggerNormalized,
     ...(typeof v.maxRuns === "number" && v.maxRuns > 0 ? { maxRuns: v.maxRuns } : {}),
     ...(v.createPR === true ? { createPR: true } : {}),
+    // Carried through untouched: this normalizer is also what the TUI PUTs
+    // back on edit, and dropping the sandbox handle would strand the loop's
+    // worktree and branch a fresh one on the next run.
+    ...(v.sandbox === false ? { sandbox: false } : {}),
+    ...(asWorktree(v.worktree) ? { worktree: asWorktree(v.worktree)! } : {}),
     enabled: v.enabled,
     createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
+  }
+}
+
+/** Narrow the persisted sandbox worktree handle. */
+function asWorktree(value: unknown): LoopDefinition["worktree"] | undefined {
+  if (!value || typeof value !== "object") return undefined
+  const v = value as Record<string, unknown>
+  if (typeof v.name !== "string" || typeof v.directory !== "string") return undefined
+  if (!v.name || !v.directory) return undefined
+  return {
+    name: v.name,
+    directory: v.directory,
+    ...(typeof v.branch === "string" && v.branch ? { branch: v.branch } : {}),
   }
 }
 

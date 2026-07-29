@@ -31,6 +31,7 @@ export namespace PermissionNext {
 
   export const fromConfig = PermissionRuleset.fromConfig
   export const merge = PermissionRuleset.merge
+  export const fullAccess = PermissionRuleset.fullAccess
 
   const RequestSchema = Schema.Struct({
     id: Schema.String.pipe(Schema.check(Schema.isStartsWith("per"))),

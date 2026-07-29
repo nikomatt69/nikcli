@@ -65,6 +65,29 @@ export namespace PermissionRuleset {
     return rulesets.flat()
   }
 
+  /**
+   * The "Full access" preset as a ruleset: every tool allowed without a prompt,
+   * except the three internal permissions that must stay denied so an
+   * unattended agent can never park itself waiting for a human
+   * (`question`) or flip the session into plan mode.
+   *
+   * Mirrors `permissionPresetPatch("full_access")` in the TUI
+   * (`cli/cmd/tui/util/permission-presets.ts`); `evaluate` picks the *last*
+   * matching rule, so the deny entries must stay after the `*` allow.
+   *
+   * Used by unattended runners (loops, missions) which have no user to answer
+   * an `ask` — see `worktree/sandbox.ts` for why that is only safe inside an
+   * isolated worktree.
+   */
+  export function fullAccess(): Ruleset {
+    return [
+      { permission: "*", pattern: "*", action: "allow" },
+      { permission: "question", pattern: "*", action: "deny" },
+      { permission: "plan_enter", pattern: "*", action: "deny" },
+      { permission: "plan_exit", pattern: "*", action: "deny" },
+    ]
+  }
+
   export function evaluate(permission: string, pattern: string, ...rulesets: Ruleset[]): Rule {
     const merged = merge(...rulesets)
     // debug + count only: stringifying the full ruleset on every tool call is

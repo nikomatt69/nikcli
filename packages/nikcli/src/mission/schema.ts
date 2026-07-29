@@ -21,7 +21,7 @@ import z from "zod"
 import { Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Log } from "../util/log"
-import { isValidModel } from "../loop/schema"
+import { DEFAULT_LOOP_AGENT, isValidModel } from "../loop/schema"
 
 export const HISTORY_LIMIT = 100
 
@@ -103,6 +103,14 @@ export type MissionModels = z.infer<typeof MissionModelsSchema>
 export const MissionStatusSchema = z.enum(["planning", "ready", "running", "paused", "frozen", "complete", "error"])
 export type MissionStatus = z.infer<typeof MissionStatusSchema>
 
+/** Persisted handle to the mission's isolated git worktree. See `worktree/sandbox.ts`. */
+export const MissionWorktreeSchema = z.object({
+  name: z.string().min(1),
+  branch: z.string().min(1).optional(),
+  directory: z.string().min(1),
+})
+export type MissionWorktree = z.infer<typeof MissionWorktreeSchema>
+
 export const MissionDefinitionSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -112,10 +120,24 @@ export const MissionDefinitionSchema = z.object({
   models: MissionModelsSchema.default({}),
   /** Per-feature-run wall-clock cap in ms. Undefined => DEFAULT_FEATURE_TIMEOUT_MS. */
   timeoutMs: z.number().int().positive().optional(),
+  /**
+   * Orchestrate in an isolated git worktree instead of the user's checkout,
+   * with full-access permissions (a mission runs unattended for hours; nobody
+   * is there to answer a prompt). Defaults to on — set explicitly to `false`
+   * to let the mission write to the working copy.
+   */
+  sandbox: z.boolean().optional(),
+  /** The sandbox worktree created for this mission; reused across resumes. */
+  worktree: MissionWorktreeSchema.optional(),
   status: MissionStatusSchema.default("ready"),
   createdAt: z.number().int().nonnegative(),
 })
 export type MissionDefinition = z.infer<typeof MissionDefinitionSchema>
+
+/** Sandboxing is opt-out: an unattended mission must not edit the user's checkout. */
+export function isSandboxed(def: Pick<MissionDefinition, "sandbox">): boolean {
+  return def.sandbox !== false
+}
 
 // ── Execution record (lease-bearing, for monitoring + orphan recovery) ────────
 
@@ -381,7 +403,7 @@ export function definitionFromGenerated(input: GeneratedMission): MissionDefinit
         id: `f${mi + 1}_${fi + 1}`,
         name: f.name?.trim() || deriveName(objective),
         objective,
-        agent: f.agent?.trim() || "ralph",
+        agent: f.agent?.trim() || DEFAULT_LOOP_AGENT,
         dependsOn: Array.isArray(f.dependsOn) ? f.dependsOn.filter((d) => typeof d === "string") : [],
         status: "pending",
       }

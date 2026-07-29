@@ -34,6 +34,16 @@ export namespace Worktree {
     baseBranch: Schema.optional(Schema.String),
     remote: Schema.optional(Schema.String),
     startCommand: Schema.optional(Schema.String),
+    /**
+     * Where to materialize the worktree directory. Relative paths resolve
+     * against the project worktree; the default is nikcli's global data dir.
+     * Sandboxed runners (`worktree/sandbox.ts`) pass `.nikcli/.worktrees` so
+     * the worktrees live next to the code they branch from.
+     *
+     * The registry entry is written to the global root either way, so
+     * `remove`/`reset` keep working for worktrees created here.
+     */
+    root: Schema.optional(Schema.String),
   }).annotate({ identifier: "WorktreeCreateInput" })
   export const CreateInput = zodObject(CreateInputSchema)
   export type CreateInput = Schema.Schema.Type<typeof CreateInputSchema>
@@ -334,6 +344,35 @@ export namespace Worktree {
 
   function registryFile(root: string) {
     return path.join(root, "registry.json")
+  }
+
+  /**
+   * Resolve a caller-supplied worktree root. Relative paths are anchored to the
+   * project worktree so `.nikcli/.worktrees` means "inside this repo".
+   */
+  function resolveRoot(ctx: InstanceContext, root?: string) {
+    if (!root) return rootDirectory(ctx)
+    return path.isAbsolute(root) ? root : path.resolve(ctx.worktree, root)
+  }
+
+  /**
+   * A worktree root that lives *inside* the repo would otherwise show up as
+   * untracked noise in every `git status` the user (or an agent) runs. Drop a
+   * self-ignoring `.gitignore` in it so the whole tree disappears from the
+   * parent repo without touching the user's own ignore rules.
+   */
+  async function ignoreRoot(ctx: InstanceContext, root: string) {
+    const relative = path.relative(ctx.worktree, root)
+    const inside = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
+    if (!inside) return
+    const file = path.join(root, ".gitignore")
+    if (await exists(file)) return
+    await Bun.write(file, "# Created by nikcli. Worktrees are never part of the parent repo.\n*\n").catch((error) =>
+      log.warn("failed to write worktree root .gitignore", {
+        root,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    )
   }
 
   export function isManagedDirectory(directory: string, root: string) {
@@ -643,8 +682,9 @@ export namespace Worktree {
       })
     }
 
-    const root = rootDirectory(ctx)
+    const root = resolveRoot(ctx, input?.root)
     await fs.mkdir(root, { recursive: true })
+    await ignoreRoot(ctx, root)
 
     const base = input?.name ? slug(input.name) : ""
     const explicitBranch = input?.branch ? branchName(input.branch) : ""

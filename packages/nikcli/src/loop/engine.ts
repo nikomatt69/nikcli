@@ -28,10 +28,13 @@ import { Scheduler } from "../scheduler"
 import { Instance } from "../project/instance"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
+import { PermissionNext } from "../permission/next"
+import { RunSandbox } from "../worktree/sandbox"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
 import { Effect, Schema } from "effect"
 import * as Manager from "./manager"
 import {
+  DEFAULT_LOOP_AGENT,
   DEFAULT_RUN_TIMEOUT_MS,
   LOOP_RUN_LEASE_MS,
   LoopRunStatusEffect,
@@ -39,6 +42,7 @@ import {
   MAX_CONCURRENT_RUNS,
   MAX_RUN_TIMEOUT_MS,
   MIN_RUN_TIMEOUT_MS,
+  isSandboxed,
   type LoopDefinition,
   type LoopPullRequestRef,
   type LoopRun,
@@ -124,6 +128,8 @@ type InFlightRun = {
   controller: AbortController
   runID?: string
   sessionID?: string
+  /** Sandbox worktree the run is bound to; undefined when running un-sandboxed. */
+  directory?: string
 }
 
 const createEngineState = (): EngineState => ({
@@ -186,6 +192,47 @@ function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Servic
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
 
+// ── Sandbox ──────────────────────────────────────────────────────────────────
+
+/**
+ * Rebind the current instance to the loop's sandbox worktree for the duration
+ * of `fn`. Everything that touches the workspace — session creation, the goal
+ * command, cancellation — must go through here so tools resolve paths inside
+ * the sandbox (`Instance.directory`) instead of the user's checkout.
+ *
+ * Bookkeeping (`Manager`) deliberately stays on the host instance: run history
+ * and definitions belong to the project, not to a disposable worktree.
+ */
+function inSandbox<T>(directory: string | undefined, fn: () => Promise<T>): Promise<T> {
+  if (!directory) return fn()
+  return withInstanceAsync({ directory }, fn)
+}
+
+/**
+ * Resolve (creating on first use) the isolated worktree this loop runs in, and
+ * persist the handle so later runs reuse it. Returns `undefined` when the loop
+ * opted out of sandboxing or the project cannot be sandboxed — the run then
+ * happens in the host directory, exactly as before.
+ */
+async function ensureSandbox(def: LoopDefinition): Promise<RunSandbox.Info | undefined> {
+  if (!isSandboxed(def)) return undefined
+  const sandbox = await RunSandbox.ensure({
+    hostDirectory: Instance.directory,
+    name: `loop-${def.name}`,
+    branchPrefix: "nikcli/loop",
+    ...(def.worktree ? { existing: def.worktree } : {}),
+  })
+  if (sandbox && sandbox.directory !== def.worktree?.directory) {
+    await Manager.setWorktree(def.id, sandbox).catch((error) =>
+      log.warn("failed to persist sandbox worktree", {
+        loopID: def.id,
+        error: describeError(error),
+      }),
+    )
+  }
+  return sandbox
+}
+
 // ── One iteration of a loop ──────────────────────────────────────────────────
 
 async function executeStage(
@@ -193,6 +240,7 @@ async function executeStage(
   stage: LoopDefinition["stages"][number],
   sessionID: string,
   signal: AbortSignal,
+  directory?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const args = stage.tokenBudget ? `${stage.objective} --token-budget ${stage.tokenBudget}` : stage.objective
@@ -200,14 +248,16 @@ async function executeStage(
       sessionID,
       command: "goal",
       arguments: args,
-      agent: stage.agent,
+      agent: stage.agent || DEFAULT_LOOP_AGENT,
       ...(stage.model ? { model: stage.model } : {}),
     }
-    await runSessionPrompt(
-      Effect.gen(function* () {
-        const prompt = yield* SessionPrompt.Service
-        return yield* prompt.command(input)
-      }),
+    await inSandbox(directory, () =>
+      runSessionPrompt(
+        Effect.gen(function* () {
+          const prompt = yield* SessionPrompt.Service
+          return yield* prompt.command(input)
+        }),
+      ),
     )
     if (signal.aborted) {
       return { ok: false, error: "aborted" }
@@ -218,18 +268,26 @@ async function executeStage(
   }
 }
 
-async function ensureSession(title: string): Promise<string> {
-  const created = await runSession(
-    Effect.gen(function* () {
-      const service = yield* Session.Service
-      return yield* service.create({ title })
-    }),
+async function ensureSession(title: string, sandboxed: boolean, directory?: string): Promise<string> {
+  const created = await inSandbox(directory, () =>
+    runSession(
+      Effect.gen(function* () {
+        const service = yield* Session.Service
+        return yield* service.create({
+          title,
+          // A loop has nobody to answer a permission prompt. Granting full
+          // access is only defensible because the run is confined to its own
+          // worktree; un-sandboxed loops keep the ordinary rules.
+          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : {}),
+        })
+      }),
+    ),
   )
   return created.id
 }
 
 /** Create or reuse a session for this loop's run. */
-async function ensureLoopSession(def: LoopDefinition, reuse?: string): Promise<string> {
+async function ensureLoopSession(def: LoopDefinition, sandbox?: RunSandbox.Info, reuse?: string): Promise<string> {
   if (reuse) {
     // Best-effort reuse; if the session was disposed in the meantime we create a new one.
     let existing: Session.Info | undefined
@@ -243,18 +301,24 @@ async function ensureLoopSession(def: LoopDefinition, reuse?: string): Promise<s
     } catch {
       existing = undefined
     }
-    if (existing && existing.id === reuse) return reuse
+    // Never reuse a session bound to some other directory: a host session
+    // reused for a sandboxed run would drag the work back into the user's
+    // checkout. A miss just costs one extra session.
+    const bound = !sandbox || existing?.directory === sandbox.directory
+    if (existing && existing.id === reuse && bound) return reuse
   }
-  return ensureSession(`loop: ${def.name}`)
+  return ensureSession(`loop: ${def.name}`, sandbox !== undefined, sandbox?.directory)
 }
 
 /** Cancel the SessionPrompt driving a session. Throws if the prompt layer fails. */
-async function promptCancel(sessionID: string): Promise<void> {
-  await runSessionPrompt(
-    Effect.gen(function* () {
-      const prompt = yield* SessionPrompt.Service
-      yield* prompt.cancel(sessionID)
-    }),
+async function promptCancel(sessionID: string, directory?: string): Promise<void> {
+  await inSandbox(directory, () =>
+    runSessionPrompt(
+      Effect.gen(function* () {
+        const prompt = yield* SessionPrompt.Service
+        yield* prompt.cancel(sessionID)
+      }),
+    ),
   )
 }
 
@@ -270,7 +334,7 @@ async function cancelInFlightRun(loopID: string, runID: string | undefined, sess
   slot?.controller.abort()
   if (sessionID) {
     try {
-      await promptCancel(sessionID)
+      await promptCancel(sessionID, slot?.directory)
     } catch (error) {
       log.warn("session cancel failed", {
         loopID,
@@ -288,11 +352,9 @@ export function _internalSetStageExecutor(fn?: typeof executeStage): void {
 }
 
 /** Test-only seam: lets tests stub the auto-PR hook without invoking `gh`. */
-let prHookOverride:
-  | ((input: { def: LoopDefinition; run: LoopRun }) => Promise<LoopPullRequestRef | undefined>)
-  | undefined
+let prHookOverride: ((input: PR.CreatePullRequestOptions) => Promise<LoopPullRequestRef | undefined>) | undefined
 export function _internalSetPullRequestHook(
-  fn?: (input: { def: LoopDefinition; run: LoopRun }) => Promise<LoopPullRequestRef | undefined>,
+  fn?: (input: PR.CreatePullRequestOptions) => Promise<LoopPullRequestRef | undefined>,
 ): void {
   prHookOverride = fn
 }
@@ -303,6 +365,7 @@ async function executeRun(
   run: LoopRun,
   signal: AbortSignal,
   onSessionID?: (sessionID: string) => void,
+  sandbox?: RunSandbox.Info,
 ): Promise<{
   ok: boolean
   firstError?: string
@@ -313,7 +376,7 @@ async function executeRun(
     status: "running",
     lastError: undefined,
   }))
-  const sessionID = await ensureLoopSession(def, run.sessionID)
+  const sessionID = await ensureLoopSession(def, sandbox, run.sessionID)
   onSessionID?.(sessionID)
   patch(def.id, (prev) => ({ ...prev, sessionID }))
 
@@ -333,7 +396,7 @@ async function executeRun(
     // so a cancel/timeout actually stops the in-flight stage instead of
     // waiting for it to finish on its own.
     const onAbort = () => {
-      promptCancel(sessionID).catch((error) =>
+      promptCancel(sessionID, sandbox?.directory).catch((error) =>
         log.warn("session cancel on abort failed", {
           sessionID,
           error: describeError(error),
@@ -347,7 +410,13 @@ async function executeRun(
           firstError = "aborted"
           break
         }
-        const result = await (stageExecutorOverride ?? executeStage)(def, stage, sessionID, signal)
+        const result = await (stageExecutorOverride ?? executeStage)(
+          def,
+          stage,
+          sessionID,
+          signal,
+          sandbox?.directory,
+        )
         if (!result.ok) {
           firstError = result.error ?? `Stage "${stage.name}" failed`
           break
@@ -386,7 +455,13 @@ async function executeRun(
     }
     try {
       const hook = prHookOverride ?? PR.createLoopPullRequest
-      pullRequest = await hook({ def, run: completedRun })
+      // Push from wherever the work actually happened: the sandbox worktree
+      // when there is one, the host checkout otherwise.
+      pullRequest = await hook({
+        def,
+        run: completedRun,
+        ...(sandbox ? { directory: sandbox.directory, branch: sandbox.branch } : {}),
+      })
     } catch (error) {
       log.warn("auto PR hook threw", {
         loopID: def.id,
@@ -503,6 +578,12 @@ export async function runOnce(id: string): Promise<void> {
       return
     }
 
+    // Materialize the sandbox before the run record exists: a failure here is
+    // non-fatal (RunSandbox.ensure never throws) and just means the run
+    // executes in the host directory.
+    const sandbox = await ensureSandbox(def)
+    slot.directory = sandbox?.directory
+
     const run = await Manager.startRun(id)
     slot.runID = run.id
 
@@ -521,9 +602,15 @@ export async function runOnce(id: string): Promise<void> {
     // Swap the placeholder for the real promise so subsequent calls await it.
     const real = (async () => {
       try {
-        await executeRun(def, run, ctrl.signal, (sessionID) => {
-          slot.sessionID = sessionID
-        })
+        await executeRun(
+          def,
+          run,
+          ctrl.signal,
+          (sessionID) => {
+            slot.sessionID = sessionID
+          },
+          sandbox,
+        )
       } catch (error) {
         const message = describeError(error)
         log.error("run failed", { id, error: message })

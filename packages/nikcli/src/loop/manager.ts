@@ -11,6 +11,7 @@ import { runPromiseWithLayer } from "../effect"
 import { Instance } from "../project/instance"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
+import { RunSandbox } from "../worktree/sandbox"
 import {
   HISTORY_LIMIT,
   LoopMetaSchema,
@@ -21,6 +22,7 @@ import {
   type LoopMeta,
   type LoopPullRequestRef,
   type LoopRun,
+  type LoopWorktree,
 } from "./schema"
 
 const log = Log.create({ service: "loop.manager" })
@@ -126,6 +128,15 @@ export async function get(id: string): Promise<LoopDefinition | undefined> {
 export async function upsert(def: LoopDefinition): Promise<LoopDefinition> {
   const sanitized = sanitizeDefinition(def)
   if (!sanitized) throw new Error("Invalid loop definition")
+  // `worktree` is engine-owned state, not part of the user-editable
+  // definition. Clients that round-trip a whole definition on edit (the TUI
+  // dialog, a REST PUT) omit it, and dropping it would strand the loop's
+  // sandbox and branch a fresh one on the next run — so it is sticky unless
+  // the caller explicitly supplies one.
+  if (!sanitized.worktree) {
+    const existing = await readDef(sanitized.id)
+    if (existing?.worktree) sanitized.worktree = existing.worktree
+  }
   await writeDef(sanitized)
   log.info("upsert", {
     id: sanitized.id,
@@ -139,6 +150,14 @@ export async function remove(id: string): Promise<boolean> {
   const existing = await get(id)
   if (!existing) return false
   await removeDef(id)
+  // Best-effort sandbox cleanup. `release` keeps the worktree whenever it
+  // still holds work, so deleting a loop never destroys an agent's output.
+  if (existing.worktree) {
+    await RunSandbox.release({
+      hostDirectory: Instance.directory,
+      sandbox: existing.worktree,
+    }).catch(() => false)
+  }
   // Cascade: drop every run record + the meta counter so we don't leak orphan entries.
   await runStorage(
     Effect.gen(function* () {
@@ -159,6 +178,16 @@ export async function setEnabled(id: string, enabled: boolean): Promise<LoopDefi
   if (!def) return undefined
   const next: LoopDefinition = { ...def, enabled }
   return upsert(next)
+}
+
+/**
+ * Record the sandbox worktree the engine created for this loop so later runs
+ * (and later processes) rebind to it instead of branching a fresh one.
+ */
+export async function setWorktree(id: string, worktree: LoopWorktree): Promise<LoopDefinition | undefined> {
+  const def = await get(id)
+  if (!def) return undefined
+  return upsert({ ...def, worktree })
 }
 
 export async function setPaused(id: string, paused: boolean): Promise<LoopDefinition | undefined> {

@@ -25,7 +25,10 @@ import { Log } from "../util/log"
 import { Instance } from "../project/instance"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
-import { runPromiseWithLayer, withCurrentInstance } from "../effect"
+import { PermissionNext } from "../permission/next"
+import { RunSandbox } from "../worktree/sandbox"
+import { DEFAULT_LOOP_AGENT } from "../loop/schema"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
 import * as Manager from "./manager"
 import {
   DEFAULT_FEATURE_TIMEOUT_MS,
@@ -36,6 +39,7 @@ import {
   MIN_FEATURE_TIMEOUT_MS,
   MISSION_EXEC_LEASE_MS,
   currentMilestone,
+  isSandboxed,
   milestoneFeaturesSettled,
   progressOf,
   readyFeatures,
@@ -111,6 +115,8 @@ type InFlight = {
   controller: AbortController
   execID?: string
   sessionID?: string
+  /** Sandbox worktree the mission is bound to; undefined when running un-sandboxed. */
+  directory?: string
 }
 
 type EngineState = {
@@ -167,22 +173,68 @@ function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Servic
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
 
-async function ensureSession(title: string): Promise<string> {
-  const created = await runSession(
-    Effect.gen(function* () {
-      const service = yield* Session.Service
-      return yield* service.create({ title })
-    }),
+/**
+ * Rebind the current instance to the mission's sandbox worktree for the
+ * duration of `fn`. Everything that touches the workspace — session creation,
+ * the goal command, cancellation — goes through here so tools resolve paths
+ * inside the sandbox instead of the user's checkout. Bookkeeping (`Manager`)
+ * stays on the host instance. Mirrors `inSandbox` in `src/loop/engine.ts`.
+ */
+function inSandbox<T>(directory: string | undefined, fn: () => Promise<T>): Promise<T> {
+  if (!directory) return fn()
+  return withInstanceAsync({ directory }, fn)
+}
+
+/**
+ * Resolve (creating on first use) the isolated worktree this mission runs in,
+ * and persist the handle so a resume rebinds to the same one. Returns
+ * `undefined` when the mission opted out or the project cannot be sandboxed.
+ */
+async function ensureSandbox(def: MissionDefinition): Promise<RunSandbox.Info | undefined> {
+  if (!isSandboxed(def)) return undefined
+  const sandbox = await RunSandbox.ensure({
+    hostDirectory: Instance.directory,
+    name: `mission-${def.name}`,
+    branchPrefix: "nikcli/mission",
+    ...(def.worktree ? { existing: def.worktree } : {}),
+  })
+  if (sandbox && sandbox.directory !== def.worktree?.directory) {
+    await Manager.setWorktree(def.id, sandbox).catch((error) =>
+      log.warn("failed to persist sandbox worktree", {
+        missionID: def.id,
+        error: describeError(error),
+      }),
+    )
+  }
+  return sandbox
+}
+
+async function ensureSession(title: string, sandboxed: boolean, directory?: string): Promise<string> {
+  const created = await inSandbox(directory, () =>
+    runSession(
+      Effect.gen(function* () {
+        const service = yield* Session.Service
+        return yield* service.create({
+          title,
+          // A mission runs unattended for hours; there is nobody to answer a
+          // permission prompt. Full access is only defensible because the run
+          // is confined to its own worktree.
+          ...(sandboxed ? { permission: PermissionNext.fullAccess() } : {}),
+        })
+      }),
+    ),
   )
   return created.id
 }
 
-async function promptCancel(sessionID: string): Promise<void> {
-  await runSessionPrompt(
-    Effect.gen(function* () {
-      const prompt = yield* SessionPrompt.Service
-      yield* prompt.cancel(sessionID)
-    }),
+async function promptCancel(sessionID: string, directory?: string): Promise<void> {
+  await inSandbox(directory, () =>
+    runSessionPrompt(
+      Effect.gen(function* () {
+        const prompt = yield* SessionPrompt.Service
+        yield* prompt.cancel(sessionID)
+      }),
+    ),
   )
 }
 
@@ -200,6 +252,8 @@ async function runGoal(
     model?: string
     tokenBudget?: number
     timeoutMs: number
+    /** Sandbox worktree to run in; undefined runs in the host directory. */
+    directory?: string
   },
   parentSignal: AbortSignal,
 ): Promise<{ ok: boolean; error?: string; timedOut: boolean }> {
@@ -210,7 +264,7 @@ async function runGoal(
   parentSignal.addEventListener("abort", onParentAbort, { once: true })
   const timeout = setTimeout(() => ctrl.abort("timeout"), args.timeoutMs)
   const onAbort = () => {
-    promptCancel(args.sessionID).catch((error) =>
+    promptCancel(args.sessionID, args.directory).catch((error) =>
       log.warn("prompt cancel on abort failed", {
         sessionID: args.sessionID,
         error: describeError(error),
@@ -225,14 +279,16 @@ async function runGoal(
       sessionID: args.sessionID,
       command: "goal",
       arguments: objective,
-      agent: args.agent,
+      agent: args.agent || DEFAULT_LOOP_AGENT,
       ...(args.model ? { model: args.model } : {}),
     }
-    await runSessionPrompt(
-      Effect.gen(function* () {
-        const prompt = yield* SessionPrompt.Service
-        return yield* prompt.command(input)
-      }),
+    await inSandbox(args.directory, () =>
+      runSessionPrompt(
+        Effect.gen(function* () {
+          const prompt = yield* SessionPrompt.Service
+          return yield* prompt.command(input)
+        }),
+      ),
     )
     const timedOut = ctrl.signal.aborted && ctrl.signal.reason === "timeout"
     if (ctrl.signal.aborted)
@@ -302,6 +358,7 @@ async function runOneExec(
         ...(target.model ? { model: target.model } : {}),
         ...(target.tokenBudget ? { tokenBudget: target.tokenBudget } : {}),
         timeoutMs,
+        ...(slot.directory ? { directory: slot.directory } : {}),
       },
       signal,
     )
@@ -360,7 +417,13 @@ function featureTimeoutMs(def: MissionDefinition): number {
  * features sequentially, then runs validation, then advances.
  */
 async function orchestrate(missionID: string, signal: AbortSignal, slot: InFlight): Promise<void> {
-  const sessionID = await ensureSession(`mission: ${(await Manager.get(missionID))?.name ?? missionID}`)
+  const initial = await requireDef(missionID)
+  // Materialize the sandbox first: every worker in this mission runs bound to
+  // it. `ensureSandbox` never throws — a project that cannot be sandboxed
+  // falls back to the host directory.
+  const sandbox = await ensureSandbox(initial)
+  slot.directory = sandbox?.directory
+  const sessionID = await ensureSession(`mission: ${initial.name}`, sandbox !== undefined, sandbox?.directory)
   slot.sessionID = sessionID
   patch(missionID, (prev) => ({
     ...prev,
@@ -609,7 +672,7 @@ export async function pause(missionID: string): Promise<void> {
   const slot = instanceState().inFlight.get(missionID)
   if (slot) {
     slot.controller.abort("pause")
-    if (slot.sessionID) await promptCancel(slot.sessionID).catch(() => {})
+    if (slot.sessionID) await promptCancel(slot.sessionID, slot.directory).catch(() => {})
   }
   void Bus.publish(MissionEvent.Aborted, { missionID, reason: "user-pause" })
 }
@@ -621,7 +684,7 @@ export async function cancel(missionID: string): Promise<void> {
   await Manager.setStatus(missionID, "frozen")
   if (slot) {
     slot.controller.abort("cancel")
-    if (slot.sessionID) await promptCancel(slot.sessionID).catch(() => {})
+    if (slot.sessionID) await promptCancel(slot.sessionID, slot.directory).catch(() => {})
     try {
       await slot.promise
     } catch {

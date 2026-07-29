@@ -40,10 +40,17 @@ export type CreatePullRequestOptions = {
   run: LoopRun
   /** Body text to use for the PR (auto-generated if undefined). */
   body?: string
+  /**
+   * Directory to push from. Defaults to the project worktree; sandboxed loops
+   * pass their isolated worktree, which is where the work actually landed.
+   */
+  directory?: string
+  /** Branch to push. Defaults to `loop/<id>`; sandboxed loops push their own branch. */
+  branch?: string
 }
 
 /**
- * Push the current worktree to `loop/<id>` and create (or update) a PR against
+ * Push the loop's worktree to its branch and create (or update) a PR against
  * the repo's default branch. Returns the ref on success, or `undefined` if any
  * precondition fails (non-git, no diff, missing tool, etc.) — never throws.
  */
@@ -55,8 +62,8 @@ export async function createLoopPullRequest(opts: CreatePullRequestOptions): Pro
     return undefined
   }
 
-  const cwd = Instance.worktree
-  const branch = pullRequestBranch(opts.def)
+  const cwd = opts.directory ?? Instance.worktree
+  const branch = opts.branch ?? pullRequestBranch(opts.def)
   const base = await detectDefaultBranch(cwd)
   if (!base) {
     log.warn("createPR skipped: could not determine default branch", {

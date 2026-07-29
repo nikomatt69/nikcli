@@ -12,6 +12,7 @@ import { runPromiseWithLayer } from "../effect"
 import { Instance } from "../project/instance"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
+import { RunSandbox } from "../worktree/sandbox"
 import {
   HISTORY_LIMIT,
   generateID,
@@ -23,6 +24,7 @@ import {
   type MissionDefinition,
   type MissionExec,
   type MissionStatus,
+  type MissionWorktree,
 } from "./schema"
 
 const log = Log.create({ service: "mission.manager" })
@@ -115,6 +117,14 @@ export async function get(id: string): Promise<MissionDefinition | undefined> {
 export async function upsert(def: MissionDefinition): Promise<MissionDefinition> {
   const sanitized = sanitizeDefinition(def)
   if (!sanitized) throw new Error("Invalid mission definition")
+  // `worktree` is orchestrator-owned state, not part of the user-editable
+  // definition. Clients that round-trip a whole definition on edit omit it,
+  // and dropping it would strand the mission's sandbox and branch a fresh one
+  // on the next resume — so it is sticky unless the caller supplies one.
+  if (!sanitized.worktree) {
+    const existing = await readDef(sanitized.id)
+    if (existing?.worktree) sanitized.worktree = existing.worktree
+  }
   await writeDef(sanitized)
   log.info("upsert", { id: sanitized.id, name: sanitized.name, status: sanitized.status })
   return sanitized
@@ -124,6 +134,14 @@ export async function remove(id: string): Promise<boolean> {
   const existing = await get(id)
   if (!existing) return false
   await removeDef(id)
+  // Best-effort sandbox cleanup. `release` keeps the worktree whenever it
+  // still holds work, so deleting a mission never destroys its output.
+  if (existing.worktree) {
+    await RunSandbox.release({
+      hostDirectory: Instance.directory,
+      sandbox: existing.worktree,
+    }).catch(() => false)
+  }
   // Cascade: drop every exec record so we don't leak orphan entries.
   await runStorage(
     Effect.gen(function* () {
@@ -137,6 +155,16 @@ export async function remove(id: string): Promise<boolean> {
     }),
   ).catch(() => {})
   return true
+}
+
+/**
+ * Record the sandbox worktree the orchestrator created for this mission so a
+ * resume (or a later process) rebinds to it instead of branching a fresh one.
+ */
+export async function setWorktree(id: string, worktree: MissionWorktree): Promise<MissionDefinition | undefined> {
+  const def = await get(id)
+  if (!def) return undefined
+  return upsert({ ...def, worktree })
 }
 
 export async function setStatus(id: string, status: MissionStatus): Promise<MissionDefinition | undefined> {

@@ -46,6 +46,13 @@ export type MissionModels = {
   orchestrator?: string
 }
 
+/** Mirrors `MissionWorktree` in `@/mission/schema` — the mission's sandbox. */
+export type MissionWorktree = {
+  name: string
+  branch?: string
+  directory: string
+}
+
 export type MissionDefinition = {
   id: string
   name: string
@@ -53,6 +60,10 @@ export type MissionDefinition = {
   milestones: MissionMilestone[]
   models: MissionModels
   timeoutMs?: number
+  /** `false` opts out of the isolated worktree; undefined means sandboxed. */
+  sandbox?: boolean
+  /** Sandbox worktree the orchestrator runs in; server-owned. */
+  worktree?: MissionWorktree
   status: MissionStatus
   createdAt: number
 }

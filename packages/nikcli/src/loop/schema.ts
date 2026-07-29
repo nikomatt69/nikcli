@@ -47,6 +47,21 @@ export const LoopTriggerSchema = z.discriminatedUnion("kind", [
 ])
 export type LoopTrigger = z.infer<typeof LoopTriggerSchema>
 
+/**
+ * Agent a loop stage runs as when the author did not pick one. `build` is the
+ * default full-capability coding agent (`src/agent/agent.ts`) — the right
+ * default for a sandboxed run, which is expected to actually change code.
+ */
+export const DEFAULT_LOOP_AGENT = "build"
+
+/** Persisted handle to the loop's isolated git worktree. See `worktree/sandbox.ts`. */
+export const LoopWorktreeSchema = z.object({
+  name: z.string().min(1),
+  branch: z.string().min(1).optional(),
+  directory: z.string().min(1),
+})
+export type LoopWorktree = z.infer<typeof LoopWorktreeSchema>
+
 export const LoopStageSchema = z.object({
   name: z.string().min(1),
   agent: z.string().min(1),
@@ -75,6 +90,15 @@ export const LoopDefinitionSchema = z.object({
    * logged as warnings and the run still counts as complete. Default: false.
    */
   createPR: z.boolean().optional(),
+  /**
+   * Run every iteration in an isolated git worktree instead of the user's
+   * checkout, with full-access permissions (nobody is there to answer a
+   * prompt). Defaults to on — set explicitly to `false` to let the loop write
+   * to the working copy. See `worktree/sandbox.ts`.
+   */
+  sandbox: z.boolean().optional(),
+  /** The sandbox worktree created for this loop; reused across runs. */
+  worktree: LoopWorktreeSchema.optional(),
   /** Persisted pause flag; survives process restarts (unlike runtime status). */
   paused: z.boolean().optional(),
   enabled: z.boolean(),
@@ -126,6 +150,14 @@ export type LoopMeta = z.infer<typeof LoopMetaSchema>
 /** Reserved words that collide with the `/goal` command grammar. */
 const RESERVED_OBJECTIVES = new Set(["pause", "resume", "clear", "status"])
 const TOKEN_BUDGET_FLAG = /--token-budget\b/
+
+/**
+ * Sandboxing is opt-out, not opt-in: a loop drives an agent with nobody
+ * watching, so the default has to be "don't touch the user's checkout".
+ */
+export function isSandboxed(def: Pick<LoopDefinition, "sandbox">): boolean {
+  return def.sandbox !== false
+}
 
 export function isValidModel(model: string): boolean {
   const slash = model.indexOf("/")
@@ -388,7 +420,7 @@ export function definitionFromGenerated(input: {
     if (!objective) throw new Error("Every stage needs an objective")
     const stage: LoopStage = {
       name: s.name?.trim() || deriveStageName(objective),
-      agent: s.agent?.trim() || "ralph",
+      agent: s.agent?.trim() || DEFAULT_LOOP_AGENT,
       objective,
     }
     if (s.model && isValidModel(s.model)) stage.model = s.model
