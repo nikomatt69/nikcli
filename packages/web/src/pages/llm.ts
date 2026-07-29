@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { docsSidebar } from "../data/docsSidebar";
 import {
+  docsFetcher,
   docsPaths,
   fetchDocMarkdown,
   normalizeDocsPath,
@@ -47,7 +48,7 @@ function asPrompt(input: {
 export const OPTIONS: APIRoute = ({ request }) =>
   new Response(null, { status: 204, headers: headers(request) });
 
-export const GET: APIRoute = async ({ request, url }) => {
+export const GET: APIRoute = async ({ request, locals, url }) => {
   const responseHeaders = headers(request);
   const rawPath = url.searchParams.get("path");
   if (!rawPath)
@@ -62,7 +63,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   try {
-    const doc = await fetchDocMarkdown(pathname, url.origin);
+    const doc = await fetchDocMarkdown(
+      pathname,
+      url.origin,
+      docsFetcher(locals.runtime?.env),
+    );
     const markdown = `${doc.markdown}\n\n---\n\nSource: ${doc.source}\n`;
     if (url.searchParams.get("format") !== "prompt") {
       return new Response(markdown, { headers: responseHeaders });

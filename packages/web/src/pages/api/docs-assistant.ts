@@ -6,7 +6,12 @@ import {
   extractArtifact,
   publishArtifact,
 } from "../../lib/docsArtifact";
-import { fetchDocMarkdown, normalizeDocsPath } from "../../lib/docsMarkdown";
+import {
+  type DocFetcher,
+  docsFetcher,
+  fetchDocMarkdown,
+  normalizeDocsPath,
+} from "../../lib/docsMarkdown";
 import { type ToolCall, planDocs } from "../../lib/docsPlanner";
 import { condenseMarkdown, selectDocs, tokenize } from "../../lib/docsRetrieval";
 import { nikcliBackendConfig, runNikcliTurn } from "../../lib/nikcliDocsSession";
@@ -122,11 +127,14 @@ async function rateLimited(env: CloudflareEnv, request: Request) {
  * Renders a docs page to Markdown, cached in the Workers cache so repeat
  * questions do not re-render and re-convert the same HTML.
  */
-async function loadDoc(href: string, origin: string) {
+async function loadDoc(href: string, origin: string, fetcher: DocFetcher) {
   const cacheKey = new Request(
     `${origin}/_docs-assistant-cache?path=${encodeURIComponent(href)}`,
   );
-  const cache = (globalThis as { caches?: CacheStorage }).caches?.default;
+  // `caches.default` is the Workers cache; the DOM's CacheStorage has no such
+  // property, and outside a Worker (dev, tests) there is no cache at all.
+  const cache = (globalThis.caches as unknown as { default?: Cache } | undefined)
+    ?.default;
 
   try {
     const hit = await cache?.match(cacheKey);
@@ -135,7 +143,7 @@ async function loadDoc(href: string, origin: string) {
     // Cache unavailable (e.g. local dev) — fall through to a live render.
   }
 
-  const doc = await fetchDocMarkdown(href, origin);
+  const doc = await fetchDocMarkdown(href, origin, fetcher);
   try {
     await cache?.put(
       cacheKey,
@@ -583,13 +591,14 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     }
   }
 
+  const fetcher = docsFetcher(env);
   const loaded = await Promise.all(
     picked.map(async (entry) => {
       try {
         return {
           entry,
           markdown: condenseMarkdown(
-            await loadDoc(entry.href, url.origin),
+            await loadDoc(entry.href, url.origin, fetcher),
             tokens,
             DOC_BUDGET,
           ),

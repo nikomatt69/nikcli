@@ -4,6 +4,15 @@
 type KVNamespace = import("@cloudflare/workers-types").KVNamespace;
 type R2Bucket = import("@cloudflare/workers-types").R2Bucket;
 
+/** Domino ships its types under the pre-fork `domino` module name. */
+declare module "@mixmark-io/domino" {
+  const domino: {
+    createDocument(html?: string, force?: boolean): Document;
+    createWindow(html?: string, address?: string): Window;
+  };
+  export default domino;
+}
+
 interface CloudflareEnv {
   USERS: KVNamespace;
   SESSIONS: KVNamespace;
@@ -45,7 +54,12 @@ interface CloudflareEnv {
   AUTH_ISSUER?: string;
   AUTH_AUDIENCE?: string;
   AUTH_JWKS_URL?: string;
-  ASSETS: { fetch(req: Request): Promise<Response> };
+  ASSETS: {
+    fetch(
+      input: Request | string,
+      init?: { headers?: Record<string, string> },
+    ): Promise<Response>;
+  };
 }
 
 declare namespace App {

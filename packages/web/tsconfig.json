@@ -6,6 +6,9 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["@cloudflare/workers-types"]
+    // Not loaded globally: Workers types redefine DOM names (`Element`,
+    // `CacheStorage`, …) and would shadow them in every client script. The few
+    // Workers types this site needs are imported by name in src/env.d.ts.
+    "types": []
   }
 }

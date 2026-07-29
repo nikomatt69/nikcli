@@ -25,13 +25,19 @@ ARTIFACT_PUBLIC_ORIGIN = "https://nikcli.store"
 # NIKCLI_DOCS_SERVER = "https://s.nikcli.store"
 # NIKCLI_DOCS_AGENT = "docs-support"
 
-# Workers AI — powers the docs support assistant.
+# Workers AI — powers the docs support assistant. Always runs against the real
+# Cloudflare service, including under `wrangler dev`, which has no local model.
 [ai]
 binding = "AI"
+remote = true
 
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+# Prerendered docs pages are served straight from /docs/<page>, the URL the
+# sidebar, canonical tags and og:url already use. Without this, the default
+# handling redirects every one of them to a trailing slash.
+html_handling = "drop-trailing-slash"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
