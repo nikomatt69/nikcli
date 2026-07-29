@@ -74,11 +74,11 @@ function supportsAvx2() {
     const executables = ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]
     for (let i = 0; i < executables.length; i++) {
       try {
-        const result = childProcess.spawnSync(
-          executables[i],
-          ["-NoProfile", "-NonInteractive", "-Command", command],
-          { encoding: "utf8", timeout: 3000, windowsHide: true },
-        )
+        const result = childProcess.spawnSync(executables[i], ["-NoProfile", "-NonInteractive", "-Command", command], {
+          encoding: "utf8",
+          timeout: 3000,
+          windowsHide: true,
+        })
         if (result.status !== 0) continue
         const output = (result.stdout || "").trim().toLowerCase()
         if (output === "true" || output === "1") return true

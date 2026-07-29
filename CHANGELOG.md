@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.211.0 (July 2026)
+
+## Core
+
+- Enhance Windows installation support and add PowerShell script (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(install): enhance Windows installation support and add PowerShell script
+
 ## v1.204.0 (July 2026)
 
 ## Core

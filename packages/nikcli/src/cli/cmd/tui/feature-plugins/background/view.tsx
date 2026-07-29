@@ -56,7 +56,16 @@ export function BackgroundImage() {
   })
 
   const pixels = createMemo(() => {
-    dbg("pixels memo", JSON.stringify({ visible: visible(), settings: settings(), dims: dimensions(), loading: image.loading, error: String(image.error ?? "") }))
+    dbg(
+      "pixels memo",
+      JSON.stringify({
+        visible: visible(),
+        settings: settings(),
+        dims: dimensions(),
+        loading: image.loading,
+        error: String(image.error ?? ""),
+      }),
+    )
     const source = image()
     const size = dimensions()
     if (!source || !visible() || size.width <= 0 || size.height <= 0) return undefined

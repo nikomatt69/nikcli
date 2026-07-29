@@ -561,6 +561,27 @@
                   "createPR": {
                     "type": "boolean"
                   },
+                  "sandbox": {
+                    "type": "boolean"
+                  },
+                  "worktree": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "branch": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "directory": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["name", "directory"]
+                  },
                   "paused": {
                     "type": "boolean"
                   },
@@ -924,6 +945,27 @@
                   },
                   "createPR": {
                     "type": "boolean"
+                  },
+                  "sandbox": {
+                    "type": "boolean"
+                  },
+                  "worktree": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "branch": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "directory": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["name", "directory"]
                   },
                   "paused": {
                     "type": "boolean"
@@ -1574,6 +1616,27 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "sandbox": {
+                    "type": "boolean"
+                  },
+                  "worktree": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "branch": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "directory": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["name", "directory"]
                   }
                 },
                 "required": ["name", "brief", "milestones"]
@@ -1964,6 +2027,27 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "sandbox": {
+                    "type": "boolean"
+                  },
+                  "worktree": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "branch": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "directory": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["name", "directory"]
                   },
                   "status": {
                     "default": "ready",
@@ -23318,6 +23402,27 @@
           "createPR": {
             "type": "boolean"
           },
+          "sandbox": {
+            "type": "boolean"
+          },
+          "worktree": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "directory": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["name", "directory"]
+          },
           "paused": {
             "type": "boolean"
           },
@@ -23585,6 +23690,27 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "sandbox": {
+            "type": "boolean"
+          },
+          "worktree": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "directory": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["name", "directory"]
           },
           "status": {
             "default": "ready",
@@ -25445,6 +25571,10 @@
               "bg_pulse": {
                 "description": "Enable animated background pulse behind the home logo (default: false)",
                 "type": "boolean"
+              },
+              "turn_tokens": {
+                "description": "Show a per-turn token breakdown after each answer, with a warning when the prompt cache is invalidated (default: false)",
+                "type": "boolean"
               }
             }
           },
@@ -25773,6 +25903,29 @@
                 }
               }
             ]
+          },
+          "websearch": {
+            "description": "Web search provider configuration for the websearch tool",
+            "type": "object",
+            "properties": {
+              "provider": {
+                "description": "Web search backend. Defaults to \"exa\" (hosted endpoint, no key required).",
+                "type": "string",
+                "enum": ["exa", "parallel", "mcp"]
+              },
+              "apiKey": {
+                "description": "API key for the selected provider. Falls back to EXA_API_KEY or PARALLEL_API_KEY. Optional for exa, required for parallel.",
+                "type": "string"
+              },
+              "url": {
+                "description": "MCP endpoint to query. Required for the \"mcp\" provider; overrides the default endpoint otherwise.",
+                "type": "string"
+              },
+              "tool": {
+                "description": "MCP tool name to call. Defaults to the provider's own search tool.",
+                "type": "string"
+              }
+            }
           },
           "lsp": {
             "anyOf": [
@@ -26752,6 +26905,9 @@
             "type": "string"
           },
           "startCommand": {
+            "type": "string"
+          },
+          "root": {
             "type": "string"
           }
         },
@@ -28931,6 +29087,27 @@
           "createPR": {
             "type": "boolean"
           },
+          "sandbox": {
+            "type": "boolean"
+          },
+          "worktree": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "directory": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["name", "directory"]
+          },
           "paused": {
             "type": "boolean"
           },
@@ -29194,6 +29371,27 @@
           },
           "createPR": {
             "type": "boolean"
+          },
+          "sandbox": {
+            "type": "boolean"
+          },
+          "worktree": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "type": "string",
+                "minLength": 1
+              },
+              "directory": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["name", "directory"]
           },
           "paused": {
             "type": "boolean"

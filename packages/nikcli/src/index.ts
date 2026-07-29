@@ -1,6 +1,6 @@
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
-import { RunCommand } from "./cli/cmd/run" 
+import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "./util/log"
 import { AuthCommand } from "./cli/cmd/auth"
