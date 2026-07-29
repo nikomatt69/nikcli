@@ -36,28 +36,111 @@ const archMap = {
   arm: "arm",
 }
 
-let platform = platformMap[os.platform()]
-if (!platform) {
-  platform = os.platform()
-}
-let arch = archMap[os.arch()]
-if (!arch) {
-  arch = os.arch()
-}
+const platform = platformMap[os.platform()] || os.platform()
+const arch = archMap[os.arch()] || os.arch()
 const base = "nikcli-ai-" + platform + "-" + arch
 const binary = platform === "windows" ? "nikcli.exe" : "nikcli"
+
+// Fast path: postinstall drops the native binary right next to this wrapper.
+const materialized = path.join(scriptDir, platform === "windows" ? "nikcli.exe" : "nikcli-bin")
+if (fs.existsSync(materialized)) {
+  run(materialized)
+}
+
+function supportsAvx2() {
+  if (arch !== "x64") return false
+  if (platform === "linux") {
+    try {
+      return /(^|\s)avx2(\s|$)/i.test(fs.readFileSync("/proc/cpuinfo", "utf8"))
+    } catch (e) {
+      return false
+    }
+  }
+  if (platform === "darwin") {
+    try {
+      const result = childProcess.spawnSync("sysctl", ["-n", "hw.optional.avx2_0"], {
+        encoding: "utf8",
+        timeout: 1500,
+      })
+      return result.status === 0 && (result.stdout || "").trim() === "1"
+    } catch (e) {
+      return false
+    }
+  }
+  if (platform === "windows") {
+    // PF_AVX2_INSTRUCTIONS_AVAILABLE == 40
+    const command =
+      '(Add-Type -MemberDefinition "[DllImport(""kernel32.dll"")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)'
+    const executables = ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]
+    for (let i = 0; i < executables.length; i++) {
+      try {
+        const result = childProcess.spawnSync(
+          executables[i],
+          ["-NoProfile", "-NonInteractive", "-Command", command],
+          { encoding: "utf8", timeout: 3000, windowsHide: true },
+        )
+        if (result.status !== 0) continue
+        const output = (result.stdout || "").trim().toLowerCase()
+        if (output === "true" || output === "1") return true
+        if (output === "false" || output === "0") return false
+      } catch (e) {
+        continue
+      }
+    }
+  }
+  return false
+}
+
+function isMusl() {
+  if (platform !== "linux") return false
+  try {
+    if (fs.existsSync("/etc/alpine-release")) return true
+  } catch (e) {
+    // ignore
+  }
+  try {
+    const result = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" })
+    return ((result.stdout || "") + (result.stderr || "")).toLowerCase().indexOf("musl") !== -1
+  } catch (e) {
+    return false
+  }
+}
+
+// Ordered best → worst. A prefix match is not enough: on x64 it would happily
+// pick a `-musl` or `-baseline` build depending on readdir order, and a glibc
+// binary on musl (or an AVX2 binary on a CPU without it) does not merely run
+// slower — it fails to start.
+function packageNames() {
+  const baseline = arch === "x64" && !supportsAvx2()
+  if (platform === "linux") {
+    if (isMusl()) {
+      if (arch === "x64") {
+        return baseline
+          ? [base + "-baseline-musl", base + "-musl", base + "-baseline", base]
+          : [base + "-musl", base + "-baseline-musl", base, base + "-baseline"]
+      }
+      return [base + "-musl", base]
+    }
+    if (arch === "x64") {
+      return baseline
+        ? [base + "-baseline", base, base + "-baseline-musl", base + "-musl"]
+        : [base, base + "-baseline", base + "-musl", base + "-baseline-musl"]
+    }
+    return [base, base + "-musl"]
+  }
+  if (arch === "x64") return baseline ? [base + "-baseline", base] : [base, base + "-baseline"]
+  return [base]
+}
+
+const candidates = packageNames()
 
 function findBinary(startDir) {
   let current = startDir
   for (;;) {
     const modules = path.join(current, "node_modules")
     if (fs.existsSync(modules)) {
-      const entries = fs.readdirSync(modules)
-      for (const entry of entries) {
-        if (!entry.startsWith(base)) {
-          continue
-        }
-        const candidate = path.join(modules, entry, "bin", binary)
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = path.join(modules, candidates[i], "bin", binary)
         if (fs.existsSync(candidate)) {
           return candidate
         }
@@ -71,12 +154,25 @@ function findBinary(startDir) {
   }
 }
 
-const resolved = findBinary(scriptDir)
+// Covers layouts the upward walk misses (pnpm's virtual store, yarn PnP).
+function resolveBinary() {
+  for (let i = 0; i < candidates.length; i++) {
+    try {
+      const manifest = require.resolve(candidates[i] + "/package.json")
+      const resolved = path.join(path.dirname(manifest), "bin", binary)
+      if (fs.existsSync(resolved)) return resolved
+    } catch (e) {
+      continue
+    }
+  }
+}
+
+const resolved = findBinary(scriptDir) || resolveBinary()
 if (!resolved) {
   console.error(
     'It seems that your package manager failed to install the right version of the nikcli CLI for your platform. You can try manually installing the "' +
-      base +
-      '" package',
+      candidates[0] +
+      '" package, or reinstall with the standalone installer: https://nikcli.store/install',
   )
   process.exit(1)
 }

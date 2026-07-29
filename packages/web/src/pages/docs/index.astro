@@ -31,12 +31,23 @@ const toc = [
       localizes both its interface and the model's replies. The CLI entrypoint is
       <code>packages/nikcli/src/index.ts</code>.
     </p>
-    <DocCode language="bash" title="Terminal">
+    <DocCode language="bash" title="Terminal · macOS / Linux">
       curl -fsSL https://nikcli.store/install | bash
+    </DocCode>
+    <DocCode language="powershell" title="PowerShell · Windows">
+      irm https://nikcli.store/install.ps1 | iex
     </DocCode>
     <DocCode language="bash" title="Terminal">
       nikcli
     </DocCode>
+    <DocCallout type="info" title="Install location">
+      <p>
+        Both installers drop the binary in <code>~/.nikcli/bin</code> and add it to your PATH — set
+        <code>NIKCLI_INSTALL_DIR</code> to change that. On Windows the PowerShell installer also reads
+        <code>NIKCLI_VERSION</code> to pin a version and <code>NIKCLI_NO_PATH=1</code> to leave PATH
+        untouched. Any platform can also install from npm with <code>npm i -g nikcli-ai@latest</code>.
+      </p>
+    </DocCallout>
     <DocCallout type="info" title="Runtime">
       <p>
         For local development in this repo, run <code>bun dev</code> inside

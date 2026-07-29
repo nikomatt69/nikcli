@@ -96,6 +96,49 @@ describe("release automation", () => {
     expect(installer).not.toContain("releases/download/${requested_version}/$filename")
   })
 
+  it("serves the same installer scripts the repo root holds", async () => {
+    // The web package ships its own copies (Astro imports `../../install`, and
+    // `public/` is the static fallback). They silently drifted once already —
+    // `packages/web/install` stayed on a version that predated the Windows fixes.
+    const pairs = [
+      ["install", "packages/web/install"],
+      ["install", "packages/web/public/install.sh"],
+      ["install.ps1", "packages/web/install.ps1"],
+      ["install.ps1", "packages/web/public/install.ps1"],
+    ] as const
+
+    for (const [source, copy] of pairs) {
+      expect(await readRoot(copy)).toBe(await readRoot(source))
+    }
+  })
+
+  it("resolves Windows release assets with the .exe suffix", async () => {
+    const installer = await readRoot("install")
+    const ps1 = await readRoot("install.ps1")
+
+    // Bun's --compile emits nikcli.exe on Windows targets, so an installer that
+    // looks for a bare `nikcli` inside the archive can never succeed there.
+    expect(installer).toContain('BIN_NAME="$APP.exe"')
+    expect(installer).toContain('mv "$extracted_binary" "$INSTALL_DIR/$BIN_NAME"')
+    expect(installer).toContain("windows-x64|windows-arm64")
+    expect(ps1).toContain('Filter "$App.exe"')
+
+    // AVX2 must be probed on Windows too: the non-baseline build crashes with an
+    // illegal instruction on CPUs without it.
+    expect(installer).toContain("IsProcessorFeaturePresent(40)")
+    expect(ps1).toContain("IsProcessorFeaturePresent(40)")
+  })
+
+  it("publishes the per-platform binary packages the npm wrapper depends on", async () => {
+    const publishScript = await readRoot("packages/nikcli/script/publish.ts")
+
+    // These are the wrapper's optionalDependencies. Skipping them publishes a
+    // wrapper pointing at versions that do not exist on npm, which is what broke
+    // `npm i -g nikcli-ai` on every platform between 1.15.0 and 1.210.0.
+    expect(publishScript).not.toContain("isPublishable")
+    expect(publishScript).toContain("optionalDependencies: binaries")
+  })
+
   it("does not bypass release safety checks or expose token output", async () => {
     const workflow = await readRoot(".github/workflows/publish.yml")
     const publishStart = await readRoot("script/publish-start.ts")

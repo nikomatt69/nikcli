@@ -153,6 +153,15 @@ export namespace Installation {
     let cmd
     switch (method) {
       case "curl":
+        if (process.platform === "win32") {
+          // `curl | bash` has no bash to pipe into here — the standalone install
+          // on Windows comes from install.ps1, which reads NIKCLI_VERSION.
+          cmd = $`powershell -NoProfile -NonInteractive -Command "irm https://nikcli.store/install.ps1 | iex"`.env({
+            ...process.env,
+            NIKCLI_VERSION: target,
+          })
+          break
+        }
         cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
           ...process.env,
           VERSION: target,

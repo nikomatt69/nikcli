@@ -77,6 +77,21 @@ const steps: ValidationStep[] = [
     critical: true,
     timeout: 10_000,
   },
+  {
+    // GitHub's ubuntu runners ship pwsh; local machines may not, and a missing
+    // shell must not turn into a red pipeline.
+    name: "PowerShell syntax check (install.ps1)",
+    command: [
+      "bash",
+      "-c",
+      'command -v pwsh >/dev/null 2>&1 || { echo "pwsh not available — skipped"; exit 0; }; ' +
+        'pwsh -NoProfile -NonInteractive -Command \'$e = $null; ' +
+        "[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./install.ps1), [ref]$null, [ref]$e) | Out-Null; " +
+        "if ($e) { $e | Out-String | Write-Error; exit 1 }; Write-Output \"install.ps1 parses clean\"'",
+    ],
+    critical: true,
+    timeout: 30_000,
+  },
 ]
 
 interface StepResult {

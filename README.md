@@ -60,21 +60,38 @@ Everything is orchestrated by an internal **event bus**, a **SQLite/Drizzle pers
 
 The install script downloads release binaries from `nikcli.store` with GitHub releases as fallback (`packages/web/install`).
 
+**macOS / Linux**
+
 ```bash
 curl -fsSL https://nikcli.store/install | bash
 nikcli
 ```
 
+**Windows** (PowerShell 5.1+ or pwsh 7+ — `curl | bash` needs a bash to pipe into, so use this instead):
+
+```powershell
+irm https://nikcli.store/install.ps1 | iex
+nikcli
+```
+
+**Any platform** (npm, pnpm, yarn or bun):
+
+```bash
+npm i -g nikcli-ai@latest
+```
+
+The install location can be overridden with `NIKCLI_INSTALL_DIR` (or `XDG_BIN_DIR`); it defaults to
+`~/.nikcli/bin` on every platform. The PowerShell installer also reads `NIKCLI_VERSION` to pin a version
+and `NIKCLI_NO_PATH=1` to leave the user PATH alone.
+
 Alternative install methods handled by `nikcli upgrade`:
 
 ```bash
-nikcli upgrade --method curl    # bash script
+nikcli upgrade --method curl    # standalone installer (install.ps1 on Windows)
 nikcli upgrade --method npm     # npm package
 nikcli upgrade --method pnpm
 nikcli upgrade --method bun
 nikcli upgrade --method brew    # macOS / Linux
-nikcli upgrade --method choco   # Windows
-nikcli upgrade --method scoop
 ```
 
 > Requirements: Node.js or Bun runtime, Git for most VCS flows, `gh` CLI for `nikcli pr` and some GitHub integrations.

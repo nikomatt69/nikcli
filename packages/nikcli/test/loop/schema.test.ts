@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test"
 import {
+  DEFAULT_LOOP_AGENT,
   LOOP_TEMPLATES,
   MAX_INTERVAL_MS,
   MIN_INTERVAL_MS,
   definitionFromGenerated,
+  isSandboxed,
   definitionFromGeneratedText,
   formatDuration,
   isValidModel,
@@ -178,6 +180,14 @@ describe("loop/schema · sanitizeRun", () => {
   })
 })
 
+describe("loop/schema · isSandboxed", () => {
+  it("sandboxes by default and only opts out on an explicit false", () => {
+    expect(isSandboxed({ sandbox: undefined })).toBe(true)
+    expect(isSandboxed({ sandbox: true })).toBe(true)
+    expect(isSandboxed({ sandbox: false })).toBe(false)
+  })
+})
+
 describe("loop/schema · definitionFromGenerated", () => {
   it("normalizes a model-authored draft into a full definition", () => {
     const def = definitionFromGenerated({
@@ -187,7 +197,9 @@ describe("loop/schema · definitionFromGenerated", () => {
     })
     expect(def.stages).toHaveLength(2)
     expect(def.stages[0].name).toBe("do the thing")
-    expect(def.stages[0].agent).toBe("ralph")
+    // No agent in the draft => the sandboxed default coding agent.
+    expect(def.stages[0].agent).toBe(DEFAULT_LOOP_AGENT)
+    expect(def.stages[1].agent).toBe("ralph")
     expect(def.stages[0].objective).toBe("do the thing")
     expect(def.stages[1].name).toBe("fix")
     expect(def.trigger).toEqual({ kind: "interval", everyMs: 60_000 })

@@ -14,12 +14,16 @@ on:
       - "packages/nikcli/**"
       - "packages/sdk/js/**"
       - "packages/util/**"
+      - "install"
+      - "install.ps1"
       - ".github/workflows/windows-compat.yml"
   pull_request:
     paths:
       - "packages/nikcli/**"
       - "packages/sdk/js/**"
       - "packages/util/**"
+      - "install"
+      - "install.ps1"
       - ".github/workflows/windows-compat.yml"
   schedule:
     - cron: "0 4 * * 1" # Monday 04:00 UTC
@@ -160,6 +164,68 @@ jobs:
           $out = & $bin --version 2>&1
           if ($LASTEXITCODE -ne 0) { throw "--version exited $LASTEXITCODE`n$out" }
           Write-Host "version: $out"
+
+      # --- installers: the npm wrapper and the PowerShell installer ---
+
+      - name: npm path — postinstall + wrapper resolve nikcli.exe
+        shell: pwsh
+        run: |
+          # Rebuild the published layout around the binary we just compiled:
+          # wrapper package + one per-platform optional dependency.
+          $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "x64" }
+          $built = ".\dist\nikcli-ai-windows-$arch\bin\nikcli.exe"
+          if (-not (Test-Path $built)) { throw "missing binary: $built" }
+
+          $pkg = Join-Path $env:RUNNER_TEMP "npm-layout"
+          Remove-Item $pkg -Recurse -Force -ErrorAction SilentlyContinue
+          $dep = Join-Path $pkg "node_modules\nikcli-ai-windows-$arch\bin"
+          New-Item -ItemType Directory -Force -Path (Join-Path $pkg "bin"), $dep | Out-Null
+          Copy-Item $built (Join-Path $dep "nikcli.exe")
+          Copy-Item ".\bin\nikcli" (Join-Path $pkg "bin\nikcli")
+          Copy-Item ".\script\postinstall.mjs" (Join-Path $pkg "postinstall.mjs")
+          @{
+            name = "nikcli-ai"; version = "0.0.0"
+            bin = @{ nikcli = "./bin/nikcli" }
+            optionalDependencies = @{ "nikcli-ai-windows-$arch" = "0.0.0" }
+          } | ConvertTo-Json | Set-Content (Join-Path $pkg "package.json") -Encoding UTF8
+
+          node (Join-Path $pkg "postinstall.mjs")
+          if (-not (Test-Path (Join-Path $pkg "bin\nikcli.exe"))) { throw "postinstall did not materialize bin\nikcli.exe" }
+
+          $out = & node (Join-Path $pkg "bin\nikcli") --version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "wrapper failed after postinstall: $out" }
+          Write-Host "wrapper (materialized): $out"
+
+          # Same wrapper with postinstall skipped (pnpm / --ignore-scripts): it has
+          # to fall back to resolving the optional dependency at runtime.
+          Remove-Item (Join-Path $pkg "bin\nikcli.exe") -Force
+          $out = & node (Join-Path $pkg "bin\nikcli") --version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "wrapper failed without postinstall: $out" }
+          Write-Host "wrapper (runtime resolve): $out"
+
+      - name: install.ps1 — parses, runs through iex, installs a working nikcli.exe
+        # One leg is enough: this downloads a release archive.
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path .\install.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { throw "install.ps1 parse errors:`n$($errors | Out-String)" }
+          Write-Host "install.ps1 parses clean"
+
+          $dir = Join-Path $env:RUNNER_TEMP "nikcli-ps1-install"
+          Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+          $env:NIKCLI_INSTALL_DIR = $dir
+          $env:NIKCLI_NO_PATH = "1"
+          # `irm ... | iex` is how users actually run it, so exercise that shape.
+          Get-Content .\install.ps1 -Raw | Invoke-Expression
+          $exe = Join-Path $dir "nikcli.exe"
+          if (-not (Test-Path $exe)) { throw "install.ps1 did not produce $exe" }
+          $out = & $exe --version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "installed nikcli.exe --version exited $LASTEXITCODE`n$out" }
+          Write-Host "install.ps1 installed nikcli $out"
 
       # --- cmd.exe leg: same binary, classic shell, no PowerShell ---
 

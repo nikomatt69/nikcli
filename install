@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
-# Cache-bust: 2026-05-19T00-00-00Z
+# Cache-bust: 2026-07-29T00-00-00Z
 set -euo pipefail
 APP=nikcli
 ASSET_PREFIX=nikcli-ai
+
+# Bun's --compile appends .exe on Windows targets, so both the file inside the
+# release archive and the installed command need the extension under Git Bash /
+# MSYS / Cygwin. Computed here so the --binary path gets it too.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) BIN_NAME="$APP.exe" ;;
+    *) BIN_NAME="$APP" ;;
+esac
 
 # ────────────────────────────────────────────────────────────────────────────
 # Styling (opencode-style clack rails)
@@ -193,7 +201,7 @@ done
 logo
 intro "Install"
 
-INSTALL_DIR=$HOME/.nikcli/bin
+INSTALL_DIR=${NIKCLI_INSTALL_DIR:-${XDG_BIN_DIR:-$HOME/.nikcli/bin}}
 mkdir -p "$INSTALL_DIR"
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -234,7 +242,7 @@ else
 
     combo="$os-$arch"
     case "$combo" in
-      linux-x64|linux-arm64|darwin-x64|darwin-arm64|windows-x64)
+      linux-x64|linux-arm64|darwin-x64|darwin-arm64|windows-x64|windows-arm64)
         ;;
       *)
         fail "Unsupported OS/Arch: $os/$arch"
@@ -270,6 +278,22 @@ else
       if [ "$os" = "darwin" ]; then
         avx2=$(sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0)
         if [ "$avx2" != "1" ]; then
+          needs_baseline=true
+        fi
+      fi
+      if [ "$os" = "windows" ]; then
+        # No /proc/cpuinfo under MSYS/Git Bash — ask the kernel through PowerShell.
+        # PF_AVX2_INSTRUCTIONS_AVAILABLE == 40. Anything other than a clear "true"
+        # falls back to the baseline build, which runs everywhere.
+        ps='(Add-Type -MemberDefinition "[DllImport(""kernel32.dll"")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)'
+        avx2_out=""
+        if command -v powershell.exe >/dev/null 2>&1; then
+          avx2_out=$(powershell.exe -NoProfile -NonInteractive -Command "$ps" 2>/dev/null || true)
+        elif command -v pwsh >/dev/null 2>&1; then
+          avx2_out=$(pwsh -NoProfile -NonInteractive -Command "$ps" 2>/dev/null || true)
+        fi
+        avx2_out=$(echo "$avx2_out" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+        if [ "$avx2_out" != "true" ] && [ "$avx2_out" != "1" ]; then
           needs_baseline=true
         fi
       fi
@@ -394,28 +418,37 @@ download_and_install() {
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
 
-    local extracted_binary="$tmp_dir/bin/$APP"
-    if [ ! -f "$extracted_binary" ]; then
-        extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$APP"
-    fi
-    if [ ! -f "$extracted_binary" ]; then
+    # Layouts seen across releases: <triplet>/bin/<binary> (current), bin/<binary>,
+    # and the flat archive root. Windows archives carry the .exe suffix.
+    local extracted_binary=""
+    local candidate
+    for candidate in \
+        "$tmp_dir/$ASSET_PREFIX-$target/bin/$BIN_NAME" \
+        "$tmp_dir/bin/$BIN_NAME" \
+        "$tmp_dir/$BIN_NAME"; do
+        if [ -f "$candidate" ]; then
+            extracted_binary="$candidate"
+            break
+        fi
+    done
+    if [ -z "$extracted_binary" ]; then
         spinner_stop err "Binary not found in archive at expected path"
         rm -rf "$tmp_dir"
         outro "Aborted"
         exit 1
     fi
 
-    mv "$extracted_binary" "$INSTALL_DIR/$APP"
-    chmod 755 "${INSTALL_DIR}/$APP"
+    mv "$extracted_binary" "$INSTALL_DIR/$BIN_NAME"
+    chmod 755 "${INSTALL_DIR}/$BIN_NAME"
     rm -rf "$tmp_dir"
-    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${APP}${NC}"
+    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${BIN_NAME}${NC}"
 }
 
 install_from_binary() {
     spinner_start "Installing from local binary"
-    cp "$binary_path" "${INSTALL_DIR}/nikcli"
-    chmod 755 "${INSTALL_DIR}/nikcli"
-    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${APP}${NC}"
+    cp "$binary_path" "${INSTALL_DIR}/$BIN_NAME"
+    chmod 755 "${INSTALL_DIR}/$BIN_NAME"
+    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${BIN_NAME}${NC}"
 }
 
 if [ -n "$binary_path" ]; then
@@ -491,6 +524,46 @@ if [[ "$no_modify_path" != "true" ]]; then
         esac
     else
         step "${BOLD}${INSTALL_DIR}${NC} already on \$PATH"
+    fi
+fi
+
+# Under Git Bash the shell rc above only fixes $PATH for Git Bash itself — cmd.exe
+# and PowerShell read the Windows user PATH, so register it there too. Editing the
+# User scope only (never the machine one) keeps this safe without elevation.
+if [ "$BIN_NAME" != "$APP" ] && [[ "$no_modify_path" != "true" ]]; then
+    win_dir=""
+    if command -v cygpath >/dev/null 2>&1; then
+        win_dir=$(cygpath -w "$INSTALL_DIR" 2>/dev/null || true)
+    fi
+    if [ -n "$win_dir" ]; then
+        # The directory travels through the environment, not the command line, so
+        # spaces and quotes in the path cannot break the PowerShell parse.
+        win_ps=$(printf '%s' '$dir = $env:NIKCLI_WIN_INSTALL_DIR
+$current = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($null -eq $current) { $current = "" }
+$parts = $current -split ";" | Where-Object { $_ -ne "" }
+if ($parts -notcontains $dir) {
+  [Environment]::SetEnvironmentVariable("Path", (($parts + $dir) -join ";"), "User")
+  Write-Output "added"
+} else {
+  Write-Output "present"
+}')
+        win_shell=""
+        if command -v powershell.exe >/dev/null 2>&1; then
+            win_shell=powershell.exe
+        elif command -v pwsh >/dev/null 2>&1; then
+            win_shell=pwsh
+        fi
+        if [ -n "$win_shell" ]; then
+            win_out=$(NIKCLI_WIN_INSTALL_DIR="$win_dir" "$win_shell" -NoProfile -NonInteractive -Command "$win_ps" 2>/dev/null | tr -d '\r' || true)
+            case "$win_out" in
+                *added*) step "Added ${BOLD}${win_dir}${NC} to the Windows user PATH ${DIM}(restart your terminal)${NC}" ;;
+                *present*) step "${BOLD}${win_dir}${NC} already on the Windows PATH" ;;
+                *) warn "Add ${win_dir} to your Windows PATH manually" ;;
+            esac
+        else
+            warn "Add ${win_dir} to your Windows PATH manually"
+        fi
     fi
 fi
 

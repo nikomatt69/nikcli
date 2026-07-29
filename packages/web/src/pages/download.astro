@@ -94,6 +94,7 @@ const osIcon = (icon: string): string => {
 }
 
 const curlCmd = "curl -fsSL https://nikcli.store/install | bash"
+const psCmd = "irm https://nikcli.store/install.ps1 | iex"
 const seoDescription =
   "Download nikcli — desktop apps for macOS, Windows, and Linux, standalone CLI binaries, and mobile builds for every released version."
 ---
@@ -277,6 +278,19 @@ const seoDescription =
             <div class="bg-terminal-window-code px-5 py-4 font-mono text-[13.5px]">
               <span class="text-terminal-accent font-bold select-none">$ </span>
               <span class="text-terminal-window-text">{curlCmd}</span>
+            </div>
+          </div>
+
+          <div class="mb-6 overflow-hidden rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-window-bg shadow-soft">
+            <div class="flex items-center justify-between border-b border-terminal-window-border/60 px-4 py-2.5">
+              <span class="font-mono text-[11px] font-medium text-terminal-window-muted">PowerShell · Windows</span>
+              <button id="copy-ps" type="button" class="flex items-center gap-1.5 rounded-md border border-terminal-border/50 bg-surface-active/60 px-2.5 py-1 font-mono text-[11px] font-medium text-terminal-muted transition-transform duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent active:scale-[0.97]">
+                <span id="copy-ps-label">Copy</span>
+              </button>
+            </div>
+            <div class="bg-terminal-window-code px-5 py-4 font-mono text-[13.5px]">
+              <span class="text-terminal-accent font-bold select-none">&gt; </span>
+              <span class="text-terminal-window-text">{psCmd}</span>
             </div>
           </div>
 
@@ -523,16 +537,22 @@ const seoDescription =
       sel.addEventListener("change", onChange)
     }
 
-    // copy curl command
-    const copyBtn = document.getElementById("copy-curl")
-    const copyLbl = document.getElementById("copy-curl-label")
-    copyBtn?.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText("curl -fsSL https://nikcli.store/install | bash")
-        if (copyLbl) copyLbl.textContent = "Copied!"
-        setTimeout(() => { if (copyLbl) copyLbl.textContent = "Copy" }, 2000)
-      } catch {}
-    })
+    // copy install commands
+    const copyCommands: Array<[string, string, string]> = [
+      ["copy-curl", "copy-curl-label", "curl -fsSL https://nikcli.store/install | bash"],
+      ["copy-ps", "copy-ps-label", "irm https://nikcli.store/install.ps1 | iex"],
+    ]
+    for (const [btnId, lblId, command] of copyCommands) {
+      const copyBtn = document.getElementById(btnId)
+      const copyLbl = document.getElementById(lblId)
+      copyBtn?.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(command)
+          if (copyLbl) copyLbl.textContent = "Copied!"
+          setTimeout(() => { if (copyLbl) copyLbl.textContent = "Copy" }, 2000)
+        } catch {}
+      })
+    }
 
     // detect OS and highlight matching cards
     const ua = navigator.userAgent.toLowerCase()

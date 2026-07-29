@@ -1,144 +1,216 @@
 #!/usr/bin/env node
 
+// Materializes the correct per-platform nikcli binary next to the `bin/nikcli`
+// wrapper so the wrapper can exec it directly.
+//
+// This is best-effort by design: the wrapper resolves the binary at runtime too,
+// so a failure here (pnpm without postinstall, --ignore-scripts, yarn PnP, npm's
+// optionalDependencies bug) must never fail the install. We exit 0 and let the
+// wrapper try again later.
+
 import fs from "fs"
-import path from "path"
 import os from "os"
-import { execSync } from "child_process"
-import { fileURLToPath } from "url"
+import path from "path"
+import childProcess from "child_process"
 import { createRequire } from "module"
+import { fileURLToPath } from "url"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 
-function detectPlatformAndArch() {
-  let platform
-  switch (os.platform()) {
-    case "darwin":
-      platform = "darwin"
-      break
-    case "linux":
-      platform = "linux"
-      break
-    case "win32":
-      platform = "windows"
-      break
-    default:
-      platform = os.platform()
-      break
-  }
+// Published layout puts this file at the package root; in the repo it lives in
+// `script/`. Resolve the package root from whichever one actually has a manifest.
+const packageRoot = fs.existsSync(path.join(__dirname, "package.json")) ? __dirname : path.join(__dirname, "..")
+const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"))
 
-  let arch
-  switch (os.arch()) {
-    case "x64":
-      arch = "x64"
-      break
-    case "arm64":
-      arch = "arm64"
-      break
-    default:
-      arch = os.arch()
-      break
-  }
+const platformMap = { darwin: "darwin", linux: "linux", win32: "windows" }
+const archMap = { x64: "x64", arm64: "arm64", arm: "arm" }
 
-  return { platform, arch }
-}
+const platform = platformMap[os.platform()] ?? os.platform()
+const arch = archMap[os.arch()] ?? os.arch()
+const base = `nikcli-ai-${platform}-${arch}`
+// Bun's `--compile` appends `.exe` on Windows targets, so that is the name inside
+// the per-platform package on Windows and the bare name everywhere else.
+const sourceBinary = platform === "windows" ? "nikcli.exe" : "nikcli"
+// Never overwrite `bin/nikcli` — that file IS the wrapper this package declares
+// in its `bin` field. We drop the native binary beside it instead.
+const targetBinary = path.join(packageRoot, "bin", platform === "windows" ? "nikcli.exe" : "nikcli-bin")
 
-function detectMusl() {
-  if (os.platform() !== "linux") return false
-  try {
-    const ldd = execSync("ldd --version 2>&1", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] })
-    if (ldd.toLowerCase().includes("musl")) return true
-  } catch {}
-  return fs.existsSync("/etc/alpine-release")
-}
+function supportsAvx2() {
+  if (arch !== "x64") return false
 
-function detectBaseline() {
-  if (os.platform() === "linux") {
+  if (platform === "linux") {
     try {
-      const cpuinfo = fs.readFileSync("/proc/cpuinfo", "utf8")
-      return !cpuinfo.includes("avx2")
-    } catch {}
-    return false
+      return /(^|\s)avx2(\s|$)/i.test(fs.readFileSync("/proc/cpuinfo", "utf8"))
+    } catch {
+      return false
+    }
   }
-  if (os.platform() === "darwin") {
+
+  if (platform === "darwin") {
     try {
-      const avx2 = execSync("sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0", { encoding: "utf8" }).trim()
-      return avx2 !== "1"
-    } catch {}
+      const result = childProcess.spawnSync("sysctl", ["-n", "hw.optional.avx2_0"], {
+        encoding: "utf8",
+        timeout: 1500,
+      })
+      if (result.status !== 0) return false
+      return (result.stdout || "").trim() === "1"
+    } catch {
+      return false
+    }
   }
+
+  if (platform === "windows") {
+    // PF_AVX2_INSTRUCTIONS_AVAILABLE == 40
+    const command =
+      '(Add-Type -MemberDefinition "[DllImport(""kernel32.dll"")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)'
+
+    for (const executable of ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]) {
+      try {
+        const result = childProcess.spawnSync(executable, ["-NoProfile", "-NonInteractive", "-Command", command], {
+          encoding: "utf8",
+          timeout: 3000,
+          windowsHide: true,
+        })
+        if (result.status !== 0) continue
+        const output = (result.stdout || "").trim().toLowerCase()
+        if (output === "true" || output === "1") return true
+        if (output === "false" || output === "0") return false
+      } catch {
+        continue
+      }
+    }
+  }
+
   return false
 }
 
-function tryResolvePackage(packageName, binaryName) {
+function isMusl() {
+  if (platform !== "linux") return false
+
   try {
-    const packageJsonPath = require.resolve(`${packageName}/package.json`)
-    const packageDir = path.dirname(packageJsonPath)
-    const binaryPath = path.join(packageDir, "bin", binaryName)
-    if (!fs.existsSync(binaryPath)) return null
-    return binaryPath
+    if (fs.existsSync("/etc/alpine-release")) return true
   } catch {
-    return null
+    // Ignore filesystem probes blocked by the host.
+  }
+
+  try {
+    const result = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" })
+    return `${result.stdout || ""}${result.stderr || ""}`.toLowerCase().includes("musl")
+  } catch {
+    return false
   }
 }
 
-function findBinary() {
-  const { platform, arch } = detectPlatformAndArch()
-  const binaryName = platform === "windows" ? "nikcli.exe" : "nikcli"
-  const isMusl = platform === "linux" ? detectMusl() : false
-  const isBaseline = arch === "x64" ? detectBaseline() : false
+// Ordered best → worst. A baseline binary runs on an AVX2 machine (just slower),
+// so it stays in the list as a fallback; the reverse is a SIGILL crash, which is
+// why the baseline probe must be right on every platform.
+function packageNames() {
+  const baseline = arch === "x64" && !supportsAvx2()
 
-  // Try in order: most specific → least specific
-  const candidates = []
+  if (platform === "linux") {
+    if (isMusl()) {
+      if (arch === "x64")
+        return baseline
+          ? [`${base}-baseline-musl`, `${base}-musl`, `${base}-baseline`, base]
+          : [`${base}-musl`, `${base}-baseline-musl`, base, `${base}-baseline`]
+      return [`${base}-musl`, base]
+    }
 
-  if (isBaseline && isMusl) candidates.push(`nikcli-ai-${platform}-${arch}-baseline-musl`)
-  if (isBaseline && !isMusl) candidates.push(`nikcli-ai-${platform}-${arch}-baseline`)
-  if (!isBaseline && isMusl) candidates.push(`nikcli-ai-${platform}-${arch}-musl`)
-  candidates.push(`nikcli-ai-${platform}-${arch}`)
-  // Final fallbacks (skip musl/baseline restriction)
-  if (isMusl) candidates.push(`nikcli-ai-${platform}-${arch}`)
-  if (isBaseline) candidates.push(`nikcli-ai-${platform}-${arch}`)
+    if (arch === "x64")
+      return baseline
+        ? [`${base}-baseline`, base, `${base}-baseline-musl`, `${base}-musl`]
+        : [base, `${base}-baseline`, `${base}-musl`, `${base}-baseline-musl`]
+    return [base, `${base}-musl`]
+  }
 
-  for (const name of candidates) {
-    const found = tryResolvePackage(name, binaryName)
-    if (found) {
-      console.log(`nikcli: resolved binary from ${name}`)
-      return { binaryPath: found, binaryName }
+  if (arch === "x64") return baseline ? [`${base}-baseline`, base] : [base, `${base}-baseline`]
+  return [base]
+}
+
+function resolveBinary(name) {
+  const packageJsonPath = require.resolve(`${name}/package.json`)
+  const binaryPath = path.join(path.dirname(packageJsonPath), "bin", sourceBinary)
+  if (!fs.existsSync(binaryPath)) throw new Error(`Binary not found at ${binaryPath}`)
+  return binaryPath
+}
+
+function copyBinary(source, target) {
+  if (!fs.existsSync(source)) throw new Error(`Binary not found at ${source}`)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  if (fs.existsSync(target)) fs.unlinkSync(target)
+  try {
+    // Hardlink when we can: no second copy of a ~100MB binary on disk.
+    fs.linkSync(source, target)
+  } catch {
+    fs.copyFileSync(source, target)
+  }
+  fs.chmodSync(target, 0o755)
+}
+
+// npm has a long-standing bug where optionalDependencies are skipped when a
+// lockfile was produced on another platform. Fetching the one package we need
+// into a temp prefix recovers from it without touching the user's tree.
+function installPackage(name) {
+  const version = packageJson.optionalDependencies?.[name]
+  if (!version) return false
+
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "nikcli-install-"))
+  try {
+    const result = childProcess.spawnSync(
+      "npm",
+      ["install", "--ignore-scripts", "--no-save", "--loglevel=error", "--prefix", temp, `${name}@${version}`],
+      // npm is npm.cmd on Windows, so it needs a shell to be spawnable.
+      // Output stays quiet: we print our own diagnostic if every candidate fails.
+      { stdio: "ignore", windowsHide: true, shell: process.platform === "win32" },
+    )
+    if (result.status !== 0) return false
+    copyBinary(path.join(temp, "node_modules", name, "bin", sourceBinary), targetBinary)
+    return true
+  } catch {
+    return false
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true })
+  }
+}
+
+function verifyBinary() {
+  const result = childProcess.spawnSync(targetBinary, ["--version"], {
+    encoding: "utf8",
+    stdio: "ignore",
+    windowsHide: true,
+    timeout: 30000,
+  })
+  return result.status === 0
+}
+
+function main() {
+  const names = packageNames()
+  for (const name of names) {
+    try {
+      copyBinary(resolveBinary(name), targetBinary)
+      if (verifyBinary()) {
+        console.log(`nikcli: using ${name}`)
+        return
+      }
+    } catch {
+      if (installPackage(name) && verifyBinary()) {
+        console.log(`nikcli: using ${name} (fetched separately)`)
+        return
+      }
     }
   }
 
   throw new Error(
-    `Could not find nikcli binary for ${platform}-${arch}${isMusl ? " (musl)" : ""}${isBaseline ? " (baseline)" : ""}.\n` +
-      `Tried: ${candidates.join(", ")}\n` +
-      `Install manually: https://nikcli.store/install`,
+    `could not resolve a native binary for ${platform}-${arch}. Tried: ${names.join(", ")}.\n` +
+      `The 'nikcli' command will try again at runtime. To fix it now, install one of those packages manually,\n` +
+      `or use the standalone installer: https://nikcli.store/install`,
   )
 }
 
-function prepareBinDirectory(binaryName) {
-  const binDir = path.join(__dirname, "..", "bin")
-  const targetPath = path.join(binDir, binaryName)
-  if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true })
-  if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath)
-  return { binDir, targetPath }
+try {
+  main()
+} catch (error) {
+  // Non-fatal on purpose: the wrapper resolves the binary at runtime as well.
+  console.warn(`nikcli postinstall: ${error.message}`)
 }
-
-function symlinkBinary(sourcePath, binaryName) {
-  const { targetPath } = prepareBinDirectory(binaryName)
-  fs.symlinkSync(sourcePath, targetPath)
-  if (!fs.existsSync(targetPath)) throw new Error(`Failed to symlink binary to ${targetPath}`)
-  console.log(`nikcli: ${targetPath} -> ${sourcePath}`)
-}
-
-async function main() {
-  if (os.platform() === "win32") {
-    console.log("nikcli: Windows detected, skipping postinstall symlink")
-    return
-  }
-
-  const { binaryPath, binaryName } = findBinary()
-  symlinkBinary(binaryPath, binaryName)
-}
-
-main().catch((error) => {
-  console.error("nikcli postinstall failed:", error.message)
-  process.exit(1)
-})

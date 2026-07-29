@@ -96,6 +96,42 @@ describe("loop/manager", () => {
     expect(next?.enabled).toBe(false)
   })
 
+  it("setWorktree records the sandbox handle", async () => {
+    const def = makeDef()
+    await withInstance(() => Manager.upsert(def))
+    const next = await withInstance(() =>
+      Manager.setWorktree(def.id, {
+        name: "worktree-loop-test",
+        branch: "nikcli/loop/worktree-loop-test",
+        directory: "/tmp/project/.nikcli/.worktrees/worktree-loop-test",
+      }),
+    )
+    expect(next?.worktree?.directory).toBe("/tmp/project/.nikcli/.worktrees/worktree-loop-test")
+  })
+
+  it("keeps the sandbox handle when a client round-trips a definition without it", async () => {
+    const def = makeDef({ name: "editable" })
+    await withInstance(() => Manager.upsert(def))
+    await withInstance(() =>
+      Manager.setWorktree(def.id, {
+        name: "worktree-loop-editable",
+        directory: "/tmp/project/.nikcli/.worktrees/worktree-loop-editable",
+      }),
+    )
+    // What the TUI edit dialog / a REST PUT sends: the whole definition,
+    // minus the server-owned fields it never knew about.
+    const edited = await withInstance(() => Manager.upsert({ ...def, name: "renamed" }))
+    expect(edited.name).toBe("renamed")
+    expect(edited.worktree?.directory).toBe("/tmp/project/.nikcli/.worktrees/worktree-loop-editable")
+  })
+
+  it("defaults to sandboxed and honours an explicit opt-out", async () => {
+    const on = await withInstance(() => Manager.upsert(makeDef()))
+    expect(on.sandbox).toBeUndefined()
+    const off = await withInstance(() => Manager.upsert(makeDef({ sandbox: false })))
+    expect(off.sandbox).toBe(false)
+  })
+
   it("setEnabled returns undefined for unknown loops", async () => {
     const result = await withInstance(() => Manager.setEnabled("nope", true))
     expect(result).toBeUndefined()
