@@ -89,11 +89,20 @@ import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogMobileConnect } from "@tui/component/dialog-mobile-connect"
 import { SupportSessionProvider } from "@tui/context/support-session"
 import type { CreateMobileTokenOptions, CreatedMobileToken, StartServerOptions } from "@tui/context/server"
-import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
+import {
+  shouldUseRendererThread,
+  win32DisableProcessedInput,
+  win32InstallCtrlCGuard,
+  win32FlushInputBuffer,
+} from "./win32"
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
   return {
     targetFps: 45,
+    // OpenTUI's native output thread can lose its Windows console pipe when a
+    // full-screen image makes frames large. Use the synchronous writer there;
+    // Linux already makes the same choice inside OpenTUI.
+    useThread: shouldUseRendererThread(),
     gatherStats: false,
     exitOnCtrlC: false,
     useKittyKeyboard: {},

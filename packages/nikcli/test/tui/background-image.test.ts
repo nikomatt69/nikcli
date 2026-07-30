@@ -30,6 +30,7 @@ import {
   shortenPath,
 } from "../../src/cli/cmd/tui/feature-plugins/background/source"
 import { readSettings, writeSettings } from "../../src/cli/cmd/tui/feature-plugins/background/store"
+import { shouldUseRendererThread } from "../../src/cli/cmd/tui/win32"
 
 function solid(width: number, height: number, rgba: [number, number, number, number]): PixelImage {
   return createPixelImage(width, height, rgba)
@@ -41,6 +42,12 @@ function pixel(data: Uint8Array, width: number, x: number, y: number) {
 }
 
 describe("background settings", () => {
+  test("uses synchronous terminal output on Windows", () => {
+    expect(shouldUseRendererThread("win32")).toBe(false)
+    expect(shouldUseRendererThread("darwin")).toBe(true)
+    expect(shouldUseRendererThread("linux")).toBe(true)
+  })
+
   test("normalizes a bare string into a source", () => {
     expect(normalize("/tmp/a.png")).toEqual({ ...DEFAULT_SETTINGS, source: "/tmp/a.png" })
   })

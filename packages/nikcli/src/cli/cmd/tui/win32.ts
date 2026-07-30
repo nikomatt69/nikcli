@@ -13,6 +13,10 @@ const kernel = () =>
 
 let k32: ReturnType<typeof kernel> | undefined
 
+export function shouldUseRendererThread(platform: NodeJS.Platform = process.platform) {
+  return platform !== "win32"
+}
+
 function load() {
   if (process.platform !== "win32") return false
   try {
