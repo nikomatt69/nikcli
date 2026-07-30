@@ -10,6 +10,8 @@ const SHORTCUTS: Array<{ key: string; description: string }> = [
   { key: "app_support", description: "Open the support assistant" },
   { key: "session_list", description: "List all sessions" },
   { key: "session_new", description: "Create a new session" },
+  { key: "session_tab_back", description: "Go back through session tab history" },
+  { key: "session_tab_forward", description: "Go forward through session tab history" },
   { key: "theme_list", description: "Switch theme" },
   { key: "status_view", description: "View status & usage" },
   {

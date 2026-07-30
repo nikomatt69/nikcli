@@ -7,6 +7,7 @@ import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useSessionTabs, type SessionTabState } from "@tui/context/session-tabs"
 import { useTheme } from "@tui/context/theme"
+import { useKeybind } from "@tui/context/keybind"
 import { Logo } from "@tui/component/logo"
 import { SplitBorder } from "@tui/component/border"
 import { DialogSessionLink } from "@tui/component/dialog-session-link"
@@ -78,6 +79,7 @@ export function SessionTabs() {
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
   const tabs = useSessionTabs()
+  const keybind = useKeybind()
 
   function openLinkDialog(id: string) {
     dialog.replace(() => <DialogSessionLink sessionID={id} />)
@@ -88,24 +90,23 @@ export function SessionTabs() {
   const layout = createMemo(() => layoutSessionTabs(tabs.ids(), activeID(), dimensions().width))
 
   useKeyboard((event) => {
-    if (!event.ctrl) return
-    if (event.name === "tab") {
+    if (event.ctrl && event.name === "tab") {
       event.preventDefault()
       tabs.cycle(event.shift ? -1 : 1)
       return
     }
-    // Ctrl-O steps back through focused tabs, browser style.
-    //
-    // Forward has no key binding on purpose. Ctrl-I — the obvious pair, and what editors use — is
-    // encoded by terminals as ASCII TAB, so it arrives indistinguishable from the Ctrl+Tab handled
-    // above and would silently cycle instead of stepping forward. Ctrl+Shift+O was tried and could
-    // not be shown to reach this handler, and no other binding in this TUI relies on shift with a
-    // letter. Rather than ship a key that quietly does nothing, forward stays available through
-    // `tabs.forward()` (plugins reach it via `ui.tabs`) until it can be wired to a leader chord
-    // through the keybind config, the way `session_new` is.
-    if (event.name === "o") {
+    // Routed through the keybind config rather than matched by hand, so both directions are
+    // rebindable and show up in the help dialog. Forward defaults to a leader chord because the
+    // editor-conventional Ctrl-I is encoded by terminals as ASCII TAB — it would arrive
+    // indistinguishable from the Ctrl+Tab above and silently cycle instead of stepping forward.
+    if (keybind.match("session_tab_back", event)) {
       event.preventDefault()
       tabs.back()
+      return
+    }
+    if (keybind.match("session_tab_forward", event)) {
+      event.preventDefault()
+      tabs.forward()
     }
   })
 

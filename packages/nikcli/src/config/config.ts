@@ -922,6 +922,12 @@ export namespace Config {
       session_rename: z.string().optional().default("ctrl+r").describe("Rename session"),
       session_delete: z.string().optional().default("ctrl+d").describe("Delete session"),
       session_pin_toggle: z.string().optional().default("<leader>p").describe("Toggle session pin"),
+      session_tab_back: z.string().optional().default("ctrl+o").describe("Go back through session tab history"),
+      session_tab_forward: z
+        .string()
+        .optional()
+        .default("<leader>o")
+        .describe("Go forward through session tab history"),
       session_quick_switch_1: z.string().optional().default("<leader>1").describe("Quick switch to session slot 1"),
       session_quick_switch_2: z.string().optional().default("<leader>2").describe("Quick switch to session slot 2"),
       session_quick_switch_3: z.string().optional().default("<leader>3").describe("Quick switch to session slot 3"),
