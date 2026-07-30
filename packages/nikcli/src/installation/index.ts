@@ -1,7 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import path from "path"
 import { $ } from "bun"
-import z from "zod"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
 import { Flag } from "../flag/flag"
@@ -141,6 +140,22 @@ export namespace Installation {
     stderr: Schema.String,
   }) {}
 
+  export const WINDOWS_UPGRADE_SCRIPT = "irm https://nikcli.store/install.ps1 | iex"
+
+  export type UpgradeStrategy =
+    | { type: "windows-installer"; script: typeof WINDOWS_UPGRADE_SCRIPT }
+    | { type: "package-manager"; method: Method }
+
+  export function resolveUpgradeStrategy(
+    method: Method,
+    platform: NodeJS.Platform = process.platform,
+  ): UpgradeStrategy {
+    if (platform === "win32") {
+      return { type: "windows-installer", script: WINDOWS_UPGRADE_SCRIPT }
+    }
+    return { type: "package-manager", method }
+  }
+
   async function getBrewFormula() {
     const tapFormula = await $`brew list --formula nikomatt69/tap/nikcli`.throws(false).quiet().text()
     if (tapFormula.includes("nikcli")) return "nikomatt69/tap/nikcli"
@@ -151,51 +166,52 @@ export namespace Installation {
 
   async function upgradeImpl(method: Method, target: string) {
     let cmd
-    switch (method) {
-      case "curl":
-        if (process.platform === "win32") {
-          // `curl | bash` has no bash to pipe into here — the standalone install
-          // on Windows comes from install.ps1, which reads NIKCLI_VERSION.
-          cmd = $`powershell -NoProfile -NonInteractive -Command "irm https://nikcli.store/install.ps1 | iex"`.env({
+    const strategy = resolveUpgradeStrategy(method)
+    if (strategy.type === "windows-installer") {
+      cmd = $`powershell -NoProfile -NonInteractive -Command ${strategy.script}`.env({
+        ...process.env,
+        NIKCLI_VERSION: target,
+      })
+    } else
+      switch (strategy.method) {
+        case "curl":
+          cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
             ...process.env,
-            NIKCLI_VERSION: target,
+            VERSION: target,
+          })
+          break
+        case "npm":
+          cmd = $`npm install -g nikcli-ai@${target}`
+          break
+        case "pnpm":
+          cmd = $`pnpm install -g nikcli-ai@${target}`
+          break
+        case "bun":
+          cmd = $`bun install -g nikcli-ai@${target}`
+          break
+        case "brew": {
+          const formula = await getBrewFormula()
+          cmd = $`brew upgrade ${formula}`.env({
+            HOMEBREW_NO_AUTO_UPDATE: "1",
+            ...process.env,
           })
           break
         }
-        cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
-          ...process.env,
-          VERSION: target,
-        })
-        break
-      case "npm":
-        cmd = $`npm install -g nikcli-ai@${target}`
-        break
-      case "pnpm":
-        cmd = $`pnpm install -g nikcli-ai@${target}`
-        break
-      case "bun":
-        cmd = $`bun install -g nikcli-ai@${target}`
-        break
-      case "brew": {
-        const formula = await getBrewFormula()
-        cmd = $`brew upgrade ${formula}`.env({
-          HOMEBREW_NO_AUTO_UPDATE: "1",
-          ...process.env,
-        })
-        break
+        case "choco":
+          cmd = $`echo Y | choco upgrade nikcli --version=${target}`
+          break
+        case "scoop":
+          cmd = $`scoop install nikcli@${target}`
+          break
+        default:
+          throw new Error(`Unknown method: ${method}`)
       }
-      case "choco":
-        cmd = $`echo Y | choco upgrade nikcli --version=${target}`
-        break
-      case "scoop":
-        cmd = $`scoop install nikcli@${target}`
-        break
-      default:
-        throw new Error(`Unknown method: ${method}`)
-    }
     const result = await cmd.quiet().throws(false)
     if (result.exitCode !== 0) {
-      const stderr = method === "choco" ? "not running from an elevated command shell" : result.stderr.toString("utf8")
+      const stderr =
+        strategy.type === "package-manager" && strategy.method === "choco"
+          ? "not running from an elevated command shell"
+          : result.stderr.toString("utf8")
       throw new UpgradeFailedError({
         stderr: stderr,
       })

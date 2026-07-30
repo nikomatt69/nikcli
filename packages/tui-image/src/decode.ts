@@ -110,24 +110,79 @@ export const resvgDecoder: Decoder = async (bytes) => {
   }
 }
 
+export type ImageFormat = "png" | "jpeg" | "gif" | "bmp" | "tiff" | "webp" | "svg"
+
+/** Formats {@link jimpDecoder} can actually read. Notably **not** WebP. */
+export const JIMP_FORMATS: ReadonlySet<ImageFormat> = new Set<ImageFormat>(["png", "jpeg", "gif", "bmp", "tiff"])
+
+function ascii(bytes: Uint8Array, offset: number, text: string) {
+  for (let index = 0; index < text.length; index++) {
+    if (bytes[offset + index] !== text.charCodeAt(index)) return false
+  }
+  return true
+}
+
+/**
+ * Sniff the container from the leading bytes. File extensions lie (and a
+ * `.png` handed to us over HTTP is routinely a WebP), so decoder selection
+ * goes by magic number.
+ */
+export function detectFormat(bytes: Uint8Array): ImageFormat | undefined {
+  if (bytes.length >= 12) {
+    if (bytes[0] === 0x89 && ascii(bytes, 1, "PNG")) return "png"
+    if (bytes[0] === 0xff && bytes[1] === 0xd8) return "jpeg"
+    if (ascii(bytes, 0, "GIF8")) return "gif"
+    if (ascii(bytes, 0, "BM")) return "bmp"
+    if (bytes[0] === 0x49 && bytes[1] === 0x49 && bytes[2] === 0x2a) return "tiff"
+    if (bytes[0] === 0x4d && bytes[1] === 0x4d && bytes[3] === 0x2a) return "tiff"
+    if (ascii(bytes, 0, "RIFF") && ascii(bytes, 8, "WEBP")) return "webp"
+  }
+  // SVG is text, and may lead with a BOM, whitespace, an XML prolog or a comment.
+  const head = new TextDecoder("utf-8").decode(bytes.subarray(0, 512)).replace(/^﻿/, "").trimStart()
+  if (head.startsWith("<?xml") || head.startsWith("<svg") || head.startsWith("<!--")) return "svg"
+  return undefined
+}
+
 export interface PickOptions {
   /** When `true`, prefer the WASM-backed photon decoder if available. */
   readonly preferWasm?: boolean
 }
 
+function reason(error: unknown): string {
+  if (error instanceof DecodeError && error.cause) return reason(error.cause)
+  return error instanceof Error ? error.message : String(error)
+}
+
+function candidates(format: ImageFormat | undefined, preferWasm: boolean) {
+  const jimp = { name: "jimp", decoder: jimpDecoder }
+  const photon = { name: "photon", decoder: photonDecoder }
+  if (format === "svg") return [{ name: "resvg", decoder: resvgDecoder }, photon]
+  // Jimp has no WebP support at all, so anything it cannot read has to reach
+  // for the WASM decoder first — otherwise a file the picker happily offered
+  // fails with a bare "jimp failed to decode image".
+  if (preferWasm || (format !== undefined && !JIMP_FORMATS.has(format))) return [photon, jimp]
+  return [jimp, photon]
+}
+
 /**
- * Choose the best decoder available in the current environment. The WASM
- * decoders (photon, resvg) are tried first when `preferWasm` is set; otherwise
- * the pure-JS Jimp decoder is used as the default.
+ * Choose the best decoder available in the current environment: a decoder that
+ * sniffs the bytes, calls whichever backend can handle that container, and
+ * falls back to the other one. When every backend refuses, the error names the
+ * format and quotes each backend's own complaint — "jimp failed to decode
+ * image" on its own says nothing about why.
  */
 export async function pickDecoder(options: PickOptions = {}): Promise<Decoder> {
-  if (options.preferWasm) {
-    try {
-      await import("@silvia-odwyer/photon-node")
-      return photonDecoder
-    } catch {
-      // optional dep not installed; fall through
+  const preferWasm = options.preferWasm === true
+  return async (bytes) => {
+    const format = detectFormat(bytes)
+    const failures: string[] = []
+    for (const candidate of candidates(format, preferWasm)) {
+      try {
+        return await candidate.decoder(bytes)
+      } catch (error) {
+        failures.push(`${candidate.name}: ${reason(error)}`)
+      }
     }
+    throw new DecodeError(`cannot decode ${format ?? "unrecognized"} image (${failures.join("; ")})`)
   }
-  return jimpDecoder
 }

@@ -1,6 +1,8 @@
 import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js"
 import { RGBA } from "@opentui/core"
+import { pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { useTheme } from "@tui/context/theme"
+import { preparePhoton } from "@/image/photon"
 
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
 const MAX_PREVIEW_COLUMNS = 60
@@ -271,17 +273,20 @@ async function loadImagePreview(url: string, maxColumns: number, signal: AbortSi
   const bytes = await readImageBytes(url, signal)
   if (signal.aborted) throw new Error("aborted")
 
-  const { Jimp, ResizeStrategy } = await import("jimp")
-  const image = await Jimp.read(Buffer.from(bytes))
-  const sourceWidth = image.bitmap.width
-  const sourceHeight = image.bitmap.height
+  // Via `pickDecoder` rather than Jimp directly: this Braille path is the
+  // fallback for terminals without a graphics protocol — most of Windows —
+  // and Jimp cannot read the WebP files `IMAGE_EXTENSIONS` accepts.
+  preparePhoton()
+  const decode = await pickDecoder()
+  const image = await decode(bytes)
+  const sourceWidth = image.width
+  const sourceHeight = image.height
   if (!sourceWidth || !sourceHeight) throw new Error("image has no pixels")
 
   const { columns, pixelWidth, pixelHeight } = fitPreviewSize(sourceWidth, sourceHeight, maxColumns)
 
-  image.resize({ w: pixelWidth, h: pixelHeight, mode: ResizeStrategy.BICUBIC })
-
-  const data = new Uint8Array(image.bitmap.data)
+  const scaled = resize(image, pixelWidth, pixelHeight)
+  const data = new Uint8Array(scaled.data.buffer, scaled.data.byteOffset, scaled.data.byteLength)
   const rows: ImagePreviewCell[][] = []
   for (let y = 0; y < pixelHeight; y += BRAILLE_DOT_HEIGHT) {
     const row: ImagePreviewCell[] = []

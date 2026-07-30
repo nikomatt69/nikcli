@@ -45,6 +45,24 @@ describe("Installation.Service", () => {
       upgrade: "function",
     })
   })
+
+  it("always uses the PowerShell installer when upgrading on Windows", () => {
+    const methods: Installation.Method[] = ["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]
+
+    for (const method of methods) {
+      expect(Installation.resolveUpgradeStrategy(method, "win32")).toEqual({
+        type: "windows-installer",
+        script: "irm https://nikcli.store/install.ps1 | iex",
+      })
+    }
+  })
+
+  it("keeps the detected package manager strategy on non-Windows platforms", () => {
+    expect(Installation.resolveUpgradeStrategy("npm", "darwin")).toEqual({
+      type: "package-manager",
+      method: "npm",
+    })
+  })
 })
 
 describe("Homebrew installation support", () => {

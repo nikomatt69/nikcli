@@ -1,8 +1,6 @@
-import path from "node:path"
-import { fileURLToPath } from "node:url"
 import { Context, Effect, Layer, Schema } from "effect"
-import photonWasm from "@silvia-odwyer/photon-node/photon_rs_bg.wasm" with { type: "file" }
 import { Config } from "@/config/config"
+import { preparePhoton } from "@/image/photon"
 import type { MessageV2 } from "@/session/message-v2"
 import { Log } from "@/util/log"
 
@@ -63,11 +61,7 @@ export namespace Image {
     Effect.gen(function* () {
       const config = yield* Config.Service
       const loadPhoton = yield* Effect.cached(
-        Effect.sync(() => {
-          // Patched photon-node reads this during module init so Bun compiled binaries use the embedded wasm path.
-          ;(globalThis as typeof globalThis & { __NIKCLI_PHOTON_WASM_PATH?: string }).__NIKCLI_PHOTON_WASM_PATH =
-            path.isAbsolute(photonWasm) ? photonWasm : fileURLToPath(new URL(photonWasm, import.meta.url))
-        }).pipe(
+        Effect.sync(preparePhoton).pipe(
           Effect.andThen(() => Effect.tryPromise(() => import("@silvia-odwyer/photon-node"))),
           Effect.tapError((error) => Effect.sync(() => log.warn("failed to load photon", { error }))),
           Effect.mapError(() => new ResizerUnavailableError()),
