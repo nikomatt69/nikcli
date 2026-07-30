@@ -16,6 +16,7 @@ export namespace BunProc {
       ...options,
     })
     const result = Bun.spawn([which(), ...cmd], {
+      windowsHide: true,
       ...options,
       stdout: "pipe",
       stderr: "pipe",

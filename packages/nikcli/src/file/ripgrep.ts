@@ -83,6 +83,7 @@ export namespace Ripgrep {
     follow?: boolean
     maxDepth?: number
     limit?: number
+    signal?: AbortSignal
   }
 
   export async function files(input: FilesInput): Promise<string[] | undefined> {
@@ -101,7 +102,14 @@ export namespace Ripgrep {
     }
     args.push(".")
 
-    const proc = Bun.spawn(args, { cwd: input.cwd, env: env(), stdout: "pipe", stderr: "ignore" })
+    const proc = Bun.spawn(args, {
+      windowsHide: true,
+      cwd: input.cwd,
+      env: env(),
+      stdout: "pipe",
+      stderr: "ignore",
+      signal: input.signal,
+    })
     const out: string[] = []
     const reader = proc.stdout.getReader()
     const decoder = new TextDecoder()
@@ -144,6 +152,7 @@ export namespace Ripgrep {
     before?: number
     after?: number
     hidden?: boolean
+    signal?: AbortSignal
   }
 
   export async function search(input: SearchInput): Promise<Match["data"][] | undefined> {
@@ -163,7 +172,14 @@ export namespace Ripgrep {
     if (input.after) args.push(`--after-context=${input.after}`)
     args.push("--", input.pattern)
 
-    const proc = Bun.spawn(args, { cwd: input.cwd, env: env(), stdout: "pipe", stderr: "pipe" })
+    const proc = Bun.spawn(args, {
+      windowsHide: true,
+      cwd: input.cwd,
+      env: env(),
+      stdout: "pipe",
+      stderr: "pipe",
+      signal: input.signal,
+    })
     const matches: Match["data"][] = []
     const reader = proc.stdout.getReader()
     const decoder = new TextDecoder()

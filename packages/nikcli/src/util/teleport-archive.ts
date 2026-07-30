@@ -270,7 +270,7 @@ async function gitTopLevel(dir: string): Promise<string | null> {
 }
 
 async function runCapture(cmd: string[], cwd: string): Promise<Uint8Array> {
-  const proc = Bun.spawn(cmd, { cwd, stdout: "pipe", stderr: "pipe" })
+  const proc = Bun.spawn(cmd, { windowsHide: true, cwd, stdout: "pipe", stderr: "pipe" })
   const bytes = new Uint8Array(await new Response(proc.stdout).arrayBuffer())
   const code = await proc.exited
   if (code !== 0) throw new Error(`${cmd[0]} exited with code ${code}`)
@@ -282,7 +282,7 @@ async function runCaptureText(cmd: string[], cwd: string): Promise<string> {
 }
 
 async function runOk(cmd: string[], cwd: string): Promise<void> {
-  const proc = Bun.spawn(cmd, { cwd, stdout: "ignore", stderr: "pipe" })
+  const proc = Bun.spawn(cmd, { windowsHide: true, cwd, stdout: "ignore", stderr: "pipe" })
   const code = await proc.exited
   if (code !== 0) {
     const err = await new Response(proc.stderr).text().catch(() => "")

@@ -8,6 +8,7 @@ import { SearchBackend } from "../file/searchBackend"
 import type { GrepMode, GrepMatch as FFFGrepMatch } from "#fff"
 import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
+import { withSearchDeadline } from "./search-deadline"
 
 const MAX_LINE = 180
 const MAX_MATCH = 100
@@ -116,6 +117,7 @@ async function exactPhase(input: {
   before: number
   after: number
   limit: number
+  signal?: AbortSignal
 }): Promise<Phase1Result> {
   const include = expandInclude(input.include)
   const first = await SearchBackend.search({
@@ -125,6 +127,7 @@ async function exactPhase(input: {
     limit: input.limit,
     before: input.before,
     after: input.after,
+    signal: input.signal,
   })
   if (first.matches.length > 0 || !include) {
     return { hits: first.matches.map(toHit), backend: first.backend }
@@ -136,9 +139,22 @@ async function exactPhase(input: {
     limit: input.limit,
     before: input.before,
     after: input.after,
+    signal: input.signal,
   })
   return { hits: retry.matches.map(toHit), backend: retry.backend }
 }
+
+/** Either a set of scored hits, or the file-path suggestion that Phase 4 short-circuits with. */
+type GrepOutcome =
+  | { kind: "path-suggestion"; relativePath: string }
+  | {
+      kind: "hits"
+      phase: string
+      note: string
+      warn?: string
+      hits: Hit[]
+      backend: SearchBackend.Backend
+    }
 
 const Parameters = Schema.Struct({
   pattern: Schema.String.annotate({ description: "The regex pattern to search for in file contents" }),
@@ -173,80 +189,92 @@ export const GrepTool = Tool.define("grep", {
     dir = path.isAbsolute(dir) ? dir : path.resolve(Instance.directory, dir)
     await assertExternalDirectory(ctx, dir, { kind: "directory" })
 
-    // Phase 1: Exact match via SearchBackend (FFF → rg → Bun)
-    const exact = await exactPhase({
-      cwd: dir,
-      pattern: params.pattern,
-      include: params.include,
-      before: 0,
-      after: 4,
-      limit: 10,
-    })
+    const outcome = await withSearchDeadline(async (signal): Promise<GrepOutcome> => {
+      // Phase 1: Exact match via SearchBackend (FFF → rg → Bun)
+      const exact = await exactPhase({
+        cwd: dir,
+        pattern: params.pattern,
+        include: params.include,
+        before: 0,
+        after: 4,
+        limit: 10,
+        signal,
+      })
 
-    let phase = "exact"
-    let note = ""
-    let warn = exact.regexFallbackError
-    let hits = exact.hits
-    let backend: SearchBackend.Backend = exact.backend
+      let phase = "exact"
+      let note = ""
+      let warn = exact.regexFallbackError
+      let hits = exact.hits
+      let backend: SearchBackend.Backend = exact.backend
 
-    // Phase 2: Broaden query if no results
-    if (!hits.length) {
-      const words = params.pattern.trim().split(/\s+/).filter(Boolean)
-      if (words.length >= 2 && !isConstraint(words[0])) {
-        const next = words.slice(1).join(" ")
-        const step = await exactPhase({
-          cwd: dir,
-          pattern: next,
-          include: params.include,
-          before: 0,
-          after: 4,
-          limit: 10,
-        })
-        warn = warn ?? step.regexFallbackError
-        if (step.hits.length > 0 && step.hits.length <= 10) {
-          phase = "broad"
-          note = `0 exact matches. Broadened query \`${next}\`:`
-          hits = step.hits
-          backend = step.backend
+      // Phase 2: Broaden query if no results
+      if (!hits.length) {
+        const words = params.pattern.trim().split(/\s+/).filter(Boolean)
+        if (words.length >= 2 && !isConstraint(words[0])) {
+          const next = words.slice(1).join(" ")
+          const step = await exactPhase({
+            cwd: dir,
+            pattern: next,
+            include: params.include,
+            before: 0,
+            after: 4,
+            limit: 10,
+            signal,
+          })
+          warn = warn ?? step.regexFallbackError
+          if (step.hits.length > 0 && step.hits.length <= 10) {
+            phase = "broad"
+            note = `0 exact matches. Broadened query \`${next}\`:`
+            hits = step.hits
+            backend = step.backend
+          }
         }
+      }
+
+      // Phase 3: Fuzzy fallback (FFF-only — gracefully skip if unavailable)
+      if (!hits.length) {
+        const fuzzy = clean(params.pattern)
+        if (fuzzy && (await FFF.available())) {
+          const include = expandInclude(params.include)
+          const query = include ? `${include[0]} ${fuzzy}` : fuzzy
+          const result = await FFF.grep(query, {
+            mode: "fuzzy" satisfies GrepMode,
+            maxMatchesPerFile: 3,
+            beforeContext: 0,
+            afterContext: 2,
+          })
+          if (result?.items.length) {
+            phase = "fuzzy"
+            note = `0 exact matches. ${result.items.length} approximate:`
+            hits = result.items.map(fffToHit)
+            backend = "fff"
+          }
+        }
+      }
+
+      // Phase 4: File path suggestion if pattern looks like a path (FFF-only)
+      if (!hits.length && params.pattern.includes("/") && (await FFF.available())) {
+        const fffResult = await FFF.filesRich(params.pattern, { pageSize: 1 })
+        const row = fffResult?.items[0]
+        const score = fffResult?.scores[0]
+        if (row && score && score.baseScore > params.pattern.length * 10) {
+          return { kind: "path-suggestion", relativePath: row.relativePath }
+        }
+      }
+
+      return { kind: "hits", phase, note, warn, hits, backend }
+    }, { abort: ctx.abort })
+
+    if (outcome.kind === "path-suggestion") {
+      const meta: Record<string, unknown> = { matches: 0, truncated: false }
+      return {
+        title: params.pattern,
+        metadata: meta,
+        output: `0 content matches. But there is a relevant file path:\n${outcome.relativePath}`,
       }
     }
 
-    // Phase 3: Fuzzy fallback (FFF-only — gracefully skip if unavailable)
-    if (!hits.length) {
-      const fuzzy = clean(params.pattern)
-      if (fuzzy && (await FFF.available())) {
-        const include = expandInclude(params.include)
-        const query = include ? `${include[0]} ${fuzzy}` : fuzzy
-        const result = await FFF.grep(query, {
-          mode: "fuzzy" satisfies GrepMode,
-          maxMatchesPerFile: 3,
-          beforeContext: 0,
-          afterContext: 2,
-        })
-        if (result?.items.length) {
-          phase = "fuzzy"
-          note = `0 exact matches. ${result.items.length} approximate:`
-          hits = result.items.map(fffToHit)
-          backend = "fff"
-        }
-      }
-    }
-
-    // Phase 4: File path suggestion if pattern looks like a path (FFF-only)
-    if (!hits.length && params.pattern.includes("/") && (await FFF.available())) {
-      const fffResult = await FFF.filesRich(params.pattern, { pageSize: 1 })
-      const row = fffResult?.items[0]
-      const score = fffResult?.scores[0]
-      if (row && score && score.baseScore > params.pattern.length * 10) {
-        const meta: Record<string, unknown> = { matches: 0, truncated: false }
-        return {
-          title: params.pattern,
-          metadata: meta,
-          output: `0 content matches. But there is a relevant file path:\n${row.relativePath}`,
-        }
-      }
-    }
+    const { phase, note, warn, hits, backend } = outcome
 
     // No results at all
     if (!hits.length) {

@@ -255,6 +255,36 @@ describe("RequestExecutor", () => {
     }),
   )
 
+  it.effect("marks transient client status responses retryable", () =>
+    Effect.gen(function* () {
+      const failWith = (status: number) =>
+        Effect.gen(function* () {
+          const executor = yield* RequestExecutor.Service
+          const error = yield* executor.execute(request).pipe(Effect.flip)
+
+          expectLLMError(error)
+          expect(error.reason).toMatchObject({ _tag: "ProviderInternal", status })
+          expect(error.retryable).toBe(true)
+        }).pipe(
+          Effect.provide(
+            responsesLayer(
+              Array.from(
+                { length: 3 },
+                () =>
+                  new Response("retry", {
+                    status,
+                    headers: { "retry-after-ms": "0" },
+                  }),
+              ),
+            ),
+          ),
+        )
+
+      yield* failWith(408)
+      yield* failWith(409)
+    }),
+  )
+
   it.effect("does not retry non-retryable status responses and truncates large bodies", () =>
     Effect.gen(function* () {
       const executor = yield* RequestExecutor.Service

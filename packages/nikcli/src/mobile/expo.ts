@@ -24,6 +24,7 @@ export namespace Expo {
 
   async function exec(args: string[], opts?: { cwd?: string; timeout?: number }): Promise<string> {
     const proc = Bun.spawn(["npx", ...args], {
+      windowsHide: true,
       stdout: "pipe",
       stderr: "pipe",
       cwd: opts?.cwd,
@@ -65,6 +66,7 @@ export namespace Expo {
     if (opts.port) args.push("--port", String(opts.port))
 
     const proc = Bun.spawn(["npx", ...args], {
+      windowsHide: true,
       stdout: "pipe",
       stderr: "pipe",
       cwd: opts.cwd,
@@ -140,6 +142,7 @@ export namespace Expo {
   export async function listProfiles(opts?: { cwd?: string }): Promise<string[]> {
     try {
       const proc = Bun.spawn(["npx", "eas", "build:list", "--json", "--limit", "0"], {
+        windowsHide: true,
         stdout: "pipe",
         stderr: "pipe",
         cwd: opts?.cwd,
@@ -172,7 +175,7 @@ export namespace Expo {
     let nodeVersion = ""
 
     try {
-      const nodeProc = Bun.spawn(["node", "--version"], { stdout: "pipe", stderr: "pipe" })
+      const nodeProc = Bun.spawn(["node", "--version"], { windowsHide: true, stdout: "pipe", stderr: "pipe" })
       const [nodeCode, nodeOut] = await Promise.all([nodeProc.exited, new Response(nodeProc.stdout).text()])
       if (nodeCode === 0) {
         nodeVersion = nodeOut.trim()
@@ -192,6 +195,7 @@ export namespace Expo {
 
     try {
       const proc = Bun.spawn(["npx", "eas", "--version"], {
+        windowsHide: true,
         stdout: "pipe",
         stderr: "pipe",
         cwd: opts?.cwd,

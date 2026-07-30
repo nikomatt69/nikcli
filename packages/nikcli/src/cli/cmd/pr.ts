@@ -68,6 +68,7 @@ export const PrCommand = cmd({
                 UI.println(`Importing session...`)
 
                 const importProc = Bun.spawn({
+                  windowsHide: true,
                   cmd: [process.execPath, ...process.argv.slice(1, 2), "import", sessionUrl],
                   stdout: "pipe",
                   stderr: "pipe",
@@ -94,6 +95,7 @@ export const PrCommand = cmd({
         UI.println()
 
         const nikcliProcess = Bun.spawn({
+          windowsHide: true,
           cmd: [process.execPath, ...process.argv.slice(1, 2), ...(sessionId ? ["-s", sessionId] : [])],
           stdin: "inherit",
           stdout: "inherit",

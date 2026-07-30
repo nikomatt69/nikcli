@@ -86,7 +86,7 @@ export namespace Clipboard {
     if (os === "linux") {
       if (process.env["WAYLAND_DISPLAY"] && Bun.which("wl-copy")) {
         return async (text: string) => {
-          const proc = Bun.spawn(["wl-copy"], { stdin: "pipe", stdout: "ignore", stderr: "ignore" })
+          const proc = Bun.spawn(["wl-copy"], { windowsHide: true, stdin: "pipe", stdout: "ignore", stderr: "ignore" })
           proc.stdin.write(text)
           proc.stdin.end()
           await proc.exited.catch(() => {})
@@ -95,6 +95,7 @@ export namespace Clipboard {
       if (Bun.which("xclip")) {
         return async (text: string) => {
           const proc = Bun.spawn(["xclip", "-selection", "clipboard"], {
+            windowsHide: true,
             stdin: "pipe",
             stdout: "ignore",
             stderr: "ignore",
@@ -107,6 +108,7 @@ export namespace Clipboard {
       if (Bun.which("xsel")) {
         return async (text: string) => {
           const proc = Bun.spawn(["xsel", "--clipboard", "--input"], {
+            windowsHide: true,
             stdin: "pipe",
             stdout: "ignore",
             stderr: "ignore",
@@ -130,6 +132,7 @@ export namespace Clipboard {
             "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; Set-Clipboard -Value ([Console]::In.ReadToEnd())",
           ],
           {
+            windowsHide: true,
             stdin: "pipe",
             stdout: "ignore",
             stderr: "ignore",

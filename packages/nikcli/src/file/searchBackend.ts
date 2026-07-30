@@ -41,6 +41,7 @@ export namespace SearchBackend {
     maxDepth?: number
     limit?: number
     prefer?: Backend
+    signal?: AbortSignal
   }
 
   export type SearchInput = {
@@ -53,6 +54,7 @@ export namespace SearchBackend {
     before?: number
     after?: number
     prefer?: Backend
+    signal?: AbortSignal
   }
 
   export type FileListResult = {
@@ -141,6 +143,7 @@ export namespace SearchBackend {
       follow: input.follow,
       maxDepth: input.maxDepth,
       limit: input.limit,
+      signal: input.signal,
     }).catch((error) => {
       log.warn("ripgrep files failed", { error })
       return undefined
@@ -176,6 +179,7 @@ export namespace SearchBackend {
       onlyFiles: true,
       dot: input.hidden !== false,
     })) {
+      if (input.signal?.aborted) break
       const relative = FilePathFilters.normalizeRelative(entry)
       if (FilePathFilters.isGitInternal(relative)) continue
       if (input.hidden === false && FilePathFilters.hidden(relative)) continue
@@ -227,6 +231,7 @@ export namespace SearchBackend {
       before: input.before,
       after: input.after,
       hidden: input.hidden,
+      signal: input.signal,
     }).catch((error) => {
       log.warn("ripgrep search failed", { error })
       return undefined
@@ -285,9 +290,11 @@ export namespace SearchBackend {
       glob: input.glob,
       hidden: true,
       follow: input.follow,
+      signal: input.signal,
     })
     const matches: Match[] = []
     for (const file of listed.files) {
+      if (input.signal?.aborted) break
       const full = path.join(input.cwd, file)
       const text = await Bun.file(full)
         .text()

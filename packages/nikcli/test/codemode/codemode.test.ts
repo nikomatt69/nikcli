@@ -443,6 +443,7 @@ describe("CodeMode schema flexibility", () => {
         path: "adapter.call",
         description: "Call an adapter-described tool",
         signature: "tools.adapter.call(input: {\n  id: string,\n  count?: number,\n}): Promise<unknown>",
+        pinned: false,
       },
     ])
 
@@ -476,6 +477,7 @@ describe("CodeMode schema flexibility", () => {
         path: "users.lookup",
         description: "Look up a user",
         signature: "tools.users.lookup(input: {\n  login: string,\n}): Promise<{\n  login: string,\n  id: number,\n}>",
+        pinned: false,
       },
     ])
 
@@ -549,6 +551,7 @@ describe("CodeMode public contract", () => {
         path: "orders.lookup",
         description: "Look up an order by ID",
         signature: "tools.orders.lookup(input: {\n  id: string,\n}): Promise<{\n  id: string,\n  status: string,\n}>",
+        pinned: false,
       },
     ])
     expect(runtime.instructions()).toContain("Available tools (COMPLETE list")
@@ -593,6 +596,7 @@ describe("CodeMode public contract", () => {
         path: "context7.resolve-library-id",
         description: "Resolve a library ID",
         signature: 'tools.context7["resolve-library-id"](input: {\n  libraryName: string,\n}): Promise<string>',
+        pinned: false,
       },
     ])
     expect(runtime.instructions()).toContain(
@@ -1052,6 +1056,51 @@ describe("CodeMode public contract", () => {
     expect(instructions).toContain("- beta (1 tool)")
     expect(instructions).toContain("  - tools.beta.cheap(input: {\n  q: string,\n}): Promise<string> // Cheap")
     expect(instructions).toContain("Search returns complete callable signatures:\n- search(input: {")
+  })
+
+  test("keeps pinned tools in the catalog when the budget is exhausted", () => {
+    const simple = (description: string, pinned = false) =>
+      Tool.make({
+        description,
+        input: Schema.Struct({ q: Schema.String }),
+        output: Schema.String,
+        pinned,
+        run: () => Effect.succeed("ok"),
+      })
+    const runtime = CodeMode.make({
+      tools: {
+        alpha: { critical: simple("Critical", true), optional: simple("Optional") },
+        beta: { optional: simple("Optional") },
+      },
+      // Zero budget: without pinning nothing at all would be inlined.
+      discovery: { catalogBudget: 0 },
+    })
+
+    const instructions = runtime.instructions()
+    expect(instructions).toContain("tools.alpha.critical(")
+    expect(instructions).not.toContain("tools.alpha.optional(")
+    expect(instructions).not.toContain("tools.beta.optional(")
+    expect(runtime.catalog().find((tool) => tool.path === "alpha.critical")?.pinned).toBe(true)
+  })
+
+  test("charges the pinned cost first and spends what remains on unpinned tools", () => {
+    const simple = (description: string, pinned = false) =>
+      Tool.make({
+        description,
+        input: Schema.Struct({ q: Schema.String }),
+        output: Schema.String,
+        pinned,
+        run: () => Effect.succeed("ok"),
+      })
+    // One pinned line (~17 tokens) is charged up front, leaving room for exactly one more.
+    const runtime = CodeMode.make({
+      tools: { alpha: { pinnedTool: simple("Cheap", true) }, beta: { one: simple("Cheap"), two: simple("Cheap") } },
+      discovery: { catalogBudget: 40 },
+    })
+
+    const instructions = runtime.instructions()
+    expect(instructions).toContain("tools.alpha.pinnedTool(")
+    expect(instructions).toContain("- beta (2 tools, 1 shown)")
   })
 
   test("charges inline JSDoc against the catalog token budget", () => {

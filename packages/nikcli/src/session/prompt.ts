@@ -2029,6 +2029,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const args = matchingInvocation?.args
 
     const proc = spawn(shell, args, {
+      windowsHide: true,
       cwd: ctx.directory,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],

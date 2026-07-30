@@ -221,6 +221,26 @@ export interface Hooks {
    * PTY will spawn in.
    */
   "shell.env"?: (input: { cwd: string }, output: { env: Record<string, string> }) => Promise<void>
+  /**
+   * Modify a shell invocation before it is created.
+   *
+   * Runs before the permission check, and the permission check is performed against the *final*
+   * values written here — so a hook that rewrites the command cannot smuggle past an approval
+   * granted for the original one.
+   *
+   * `output.shell` is the shell binary to run the command with; leaving it `undefined` keeps
+   * nikcli's own shell selection. `output.env` is merged over the inherited process environment.
+   */
+  "shell.create.before"?: (
+    input: { sessionID: string; command: string },
+    output: {
+      command: string
+      cwd: string
+      timeout: number
+      shell?: string
+      env: Record<string, string>
+    },
+  ) => Promise<void>
   "command.execute.before"?: (
     input: { command: string; sessionID: string; arguments: string },
     output: { parts: Part[] },

@@ -105,6 +105,27 @@ export namespace FileWatcher {
           }
 
           const subs: ParcelWatcher.AsyncSubscription[] = []
+          // Registered *before* anything is acquired. A native subscribe can stay pending for up to
+          // SUBSCRIBE_TIMEOUT_MS, and the scope can close in that window (or between the two
+          // subscriptions below) — registering the finalizer afterwards would leave whatever was
+          // already acquired running past the instance it belongs to.
+          let closed = false
+          yield* Effect.addFinalizer(() =>
+            Effect.promise(async () => {
+              closed = true
+              await Promise.all(subs.splice(0).map((sub) => sub.unsubscribe().catch(() => undefined)))
+            }),
+          )
+          const track = (sub: ParcelWatcher.AsyncSubscription | undefined) => {
+            if (!sub) return
+            // Resolved after teardown: nothing will ever unsubscribe it but us.
+            if (closed) {
+              void sub.unsubscribe().catch(() => undefined)
+              return
+            }
+            subs.push(sub)
+          }
+
           const cfgIgnores = cfg.watcher?.ignore ?? []
 
           if (Flag.NIKCLI_EXPERIMENTAL_FILEWATCHER) {
@@ -119,7 +140,7 @@ export namespace FileWatcher {
                 return undefined
               }),
             )
-            if (sub) subs.push(sub)
+            track(sub)
           }
 
           const vcsDir = yield* Effect.promise(() => Git.gitDir(ctx.worktree).catch(() => undefined))
@@ -137,10 +158,8 @@ export namespace FileWatcher {
                 return undefined
               }),
             )
-            if (sub) subs.push(sub)
+            track(sub)
           }
-
-          yield* Effect.addFinalizer(() => Effect.promise(() => Promise.all(subs.map((sub) => sub.unsubscribe()))))
 
           return { subs }
         }),

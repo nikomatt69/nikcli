@@ -15,6 +15,8 @@ import {
   type ContentPart,
   ToolCallPart,
   ToolResultPart,
+  type ModelRef,
+  type ProviderOptionsOf,
 } from "./schema"
 import { make as makeTool, type ToolSchema } from "./tool"
 
@@ -28,17 +30,23 @@ export type ToolChoiceMode = ToolChoice.Mode
 export type ToolResultInput = Parameters<typeof ToolResultPart.make>[0]
 
 /** Input accepted by `LLM.request`, normalized into the canonical `LLMRequest` class. */
-export type RequestInput = Omit<
+export type RequestInput<M extends ModelRef = ModelRef> = Omit<
   ConstructorParameters<typeof LLMRequest>[0],
-  "system" | "messages" | "tools" | "toolChoice" | "generation" | "http" | "providerOptions"
+  "model" | "system" | "messages" | "tools" | "toolChoice" | "generation" | "http" | "providerOptions"
 > & {
+  readonly model: M
   readonly system?: string | SystemPart | ReadonlyArray<SystemPart>
   readonly prompt?: string | ContentPart | ReadonlyArray<ContentPart>
   readonly messages?: ReadonlyArray<Message | MessageInput>
   readonly tools?: ReadonlyArray<ToolDefinition.Input>
   readonly toolChoice?: ToolChoiceInput
   readonly generation?: GenerationOptions.Input
-  readonly providerOptions?: ConstructorParameters<typeof LLMRequest>[0]["providerOptions"]
+  /**
+   * Checked against the options the selected model declares. Models built by provider helpers
+   * carry their own option shape; anything else falls back to the open `ProviderOptions` record,
+   * so this never blocks passing a knob nikcli does not know about.
+   */
+  readonly providerOptions?: ProviderOptionsOf<M>
   readonly http?: HttpOptions.Input
 }
 
@@ -80,7 +88,7 @@ export const requestInput = (input: LLMRequest): RequestInput => ({
   ...LLMRequest.input(input),
 })
 
-export const request = (input: RequestInput) => {
+export const request = <M extends ModelRef>(input: RequestInput<M>) => {
   const {
     system: requestSystem,
     prompt,

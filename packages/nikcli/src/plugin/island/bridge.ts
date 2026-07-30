@@ -163,6 +163,7 @@ export namespace IslandBridge {
       // which is more reliable when this call is one process removed from a real
       // interactive shell (e.g. from inside a Bun Worker thread).
       Bun.spawn(["osascript", "-e", `tell application id "com.nikcli.island" to launch`], {
+        windowsHide: true,
         stdout: "ignore",
         stderr: "ignore",
       })

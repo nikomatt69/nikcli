@@ -268,6 +268,7 @@ export const TuiThreadCommand = cmd({
       process.exitCode = 0
       // Re-exec the current process with the same arguments
       Bun.spawn([process.execPath, ...process.argv.slice(1)], {
+        windowsHide: true,
         stdio: ["inherit", "inherit", "inherit"],
         env: process.env,
         detached: true,

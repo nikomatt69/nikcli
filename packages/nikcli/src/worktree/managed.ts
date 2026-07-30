@@ -97,6 +97,7 @@ export namespace ManagedWorktree {
   async function runCopyCommand(command: string, args: string[]) {
     try {
       const proc = Bun.spawn([command, ...args], {
+        windowsHide: true,
         stdout: "ignore",
         stderr: "pipe",
       })

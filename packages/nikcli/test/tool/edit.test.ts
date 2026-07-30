@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { EditTool } from "@/tool/edit"
+import { EditTool, replace } from "@/tool/edit"
 import { FileTime } from "@/file/time"
 import { Instance } from "@/project/instance"
 import { makeToolContext, withProjectDirectory } from "../helpers/tool-context"
@@ -96,5 +96,51 @@ describe("EditTool", () => {
       await def.executeAsync({ filePath: relative, oldString: "before", newString: "after" }, ctx)
     })
     expect(await fs.readFile(absolute, "utf-8")).toBe("after\n")
+  })
+})
+
+describe("UnicodeNormalizedReplacer", () => {
+  const CURLY_SINGLE = "‘hello’"
+  const CURLY_DOUBLE = "“hello”"
+  const EM_DASH = "a—b"
+  const NBSP = "a b"
+
+  it("matches ASCII quotes against curly quotes in the source", () => {
+    expect(replace(`const value = ${CURLY_SINGLE}\n`, "const value = 'hello'", "const value = 'bye'")).toBe(
+      "const value = 'bye'\n",
+    )
+    expect(replace(`const value = ${CURLY_DOUBLE}\n`, 'const value = "hello"', 'const value = "bye"')).toBe(
+      'const value = "bye"\n',
+    )
+  })
+
+  it("matches curly quotes against ASCII quotes in the source", () => {
+    expect(replace("const value = 'hello'\n", `const value = ${CURLY_SINGLE}`, "const value = 'bye'")).toBe(
+      "const value = 'bye'\n",
+    )
+  })
+
+  it("matches dashes and non-breaking spaces", () => {
+    expect(replace(`x = ${EM_DASH}\n`, "x = a-b", "x = c")).toBe("x = c\n")
+    expect(replace(`x = ${NBSP}\n`, "x = a b", "x = c")).toBe("x = c\n")
+  })
+
+  it("prefers an exact match over a normalized one", () => {
+    const content = `first ${CURLY_SINGLE}\nsecond 'hello'\n`
+    expect(replace(content, "second 'hello'", "second 'bye'")).toBe(`first ${CURLY_SINGLE}\nsecond 'bye'\n`)
+  })
+
+  it("rejects ambiguous normalized matches", () => {
+    const content = `a ${CURLY_SINGLE}\nb ${CURLY_SINGLE}\n`
+    expect(() => replace(content, "'hello'", "'bye'")).toThrow(/multiple matches/i)
+  })
+
+  it("replaces every normalized occurrence with replaceAll", () => {
+    const content = `a ${CURLY_SINGLE}\nb ${CURLY_SINGLE}\n`
+    expect(replace(content, "'hello'", "'bye'", true)).toBe("a 'bye'\nb 'bye'\n")
+  })
+
+  it("leaves unrelated content untouched when nothing matches", () => {
+    expect(() => replace("nothing here\n", "'missing'", "'x'")).toThrow(/Could not find/i)
   })
 })

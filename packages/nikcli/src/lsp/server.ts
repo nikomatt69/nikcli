@@ -85,6 +85,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(deno, ["lsp"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -103,6 +104,7 @@ export namespace LSPServer {
       log.info("typescript server", { tsserver })
       if (!tsserver) return
       const proc = spawn(BunProc.which(), ["x", "typescript-language-server", "--stdio"], {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -139,6 +141,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "@vue/language-server"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -154,6 +157,7 @@ export namespace LSPServer {
       }
       args.push("--stdio")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -214,6 +218,7 @@ export namespace LSPServer {
       }
 
       const proc = spawn(BunProc.which(), [serverPath, "--stdio"], {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -268,12 +273,13 @@ export namespace LSPServer {
       }
 
       if (lintBin) {
-        const proc = Bun.spawn([lintBin, "--help"], { stdout: "pipe" })
+        const proc = Bun.spawn([lintBin, "--help"], { windowsHide: true, stdout: "pipe" })
         await proc.exited
         const help = await readableStreamToText(proc.stdout)
         if (help.includes("--lsp")) {
           return {
             process: spawn(lintBin, ["--lsp"], {
+              windowsHide: true,
               cwd: root,
             }),
           }
@@ -288,6 +294,7 @@ export namespace LSPServer {
       if (serverBin) {
         return {
           process: spawn(serverBin, [], {
+            windowsHide: true,
             cwd: root,
           }),
         }
@@ -347,6 +354,7 @@ export namespace LSPServer {
       }
 
       const proc = spawn(bin, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -378,6 +386,7 @@ export namespace LSPServer {
 
         log.info("installing gopls")
         const proc = Bun.spawn({
+          windowsHide: true,
           cmd: ["go", "install", "golang.org/x/tools/gopls@latest"],
           env: { ...process.env, GOBIN: Global.Path.bin },
           stdout: "pipe",
@@ -396,6 +405,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(bin!, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -420,6 +430,7 @@ export namespace LSPServer {
         if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
         log.info("installing rubocop")
         const proc = Bun.spawn({
+          windowsHide: true,
           cmd: ["gem", "install", "rubocop", "--bindir", Global.Path.bin],
           stdout: "pipe",
           stderr: "pipe",
@@ -437,6 +448,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(bin!, ["--lsp"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -497,6 +509,7 @@ export namespace LSPServer {
       }
 
       const proc = spawn(binary, ["server"], {
+        windowsHide: true,
         cwd: root,
       })
 
@@ -519,6 +532,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "pyright"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -548,6 +562,7 @@ export namespace LSPServer {
       }
 
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -617,6 +632,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(binary, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -729,6 +745,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -752,6 +769,7 @@ export namespace LSPServer {
         if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
         log.info("installing csharp-ls via dotnet tool")
         const proc = Bun.spawn({
+          windowsHide: true,
           cmd: ["dotnet", "tool", "install", "csharp-ls", "--tool-path", Global.Path.bin],
           stdout: "pipe",
           stderr: "pipe",
@@ -769,6 +787,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -792,6 +811,7 @@ export namespace LSPServer {
         if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
         log.info("installing fsautocomplete via dotnet tool")
         const proc = Bun.spawn({
+          windowsHide: true,
           cmd: ["dotnet", "tool", "install", "fsautocomplete", "--tool-path", Global.Path.bin],
           stdout: "pipe",
           stderr: "pipe",
@@ -809,6 +829,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -826,6 +847,7 @@ export namespace LSPServer {
       if (sourcekit) {
         return {
           process: spawn(sourcekit, {
+            windowsHide: true,
             cwd: root,
           }),
         }
@@ -843,6 +865,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -889,6 +912,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -905,6 +929,7 @@ export namespace LSPServer {
       if (fromPath) {
         return {
           process: spawn(fromPath, args, {
+            windowsHide: true,
             cwd: root,
           }),
         }
@@ -915,6 +940,7 @@ export namespace LSPServer {
       if (await Bun.file(direct).exists()) {
         return {
           process: spawn(direct, args, {
+            windowsHide: true,
             cwd: root,
           }),
         }
@@ -928,6 +954,7 @@ export namespace LSPServer {
         if (await Bun.file(candidate).exists()) {
           return {
             process: spawn(candidate, args, {
+              windowsHide: true,
               cwd: root,
             }),
           }
@@ -1035,6 +1062,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, args, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1053,6 +1081,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "svelte-language-server"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -1068,6 +1097,7 @@ export namespace LSPServer {
       }
       args.push("--stdio")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -1100,6 +1130,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "@astrojs/language-server"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -1115,6 +1146,7 @@ export namespace LSPServer {
       }
       args.push("--stdio")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -1235,6 +1267,7 @@ export namespace LSPServer {
             "--add-opens java.base/java.lang=ALL-UNNAMED",
           ],
           {
+            windowsHide: true,
             cwd: root,
           },
         ),
@@ -1327,6 +1360,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(launcherScript, ["--stdio"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1354,6 +1388,7 @@ export namespace LSPServer {
         if (!exists) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "yaml-language-server"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -1369,6 +1404,7 @@ export namespace LSPServer {
       }
       args.push("--stdio")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -1519,6 +1555,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1537,6 +1574,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "intelephense"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -1552,6 +1590,7 @@ export namespace LSPServer {
       }
       args.push("--stdio")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -1581,6 +1620,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(prisma, ["language-server"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1599,6 +1639,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(dart, ["language-server", "--lsp"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1617,6 +1658,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1634,6 +1676,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "bash-language-server"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -1649,6 +1692,7 @@ export namespace LSPServer {
       }
       args.push("start")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -1739,6 +1783,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, ["serve"], {
+          windowsHide: true,
           cwd: root,
         }),
         initialization: {
@@ -1835,6 +1880,7 @@ export namespace LSPServer {
 
       return {
         process: spawn(bin, {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1853,6 +1899,7 @@ export namespace LSPServer {
         if (!(await Bun.file(js).exists())) {
           if (Flag.NIKCLI_DISABLE_LSP_DOWNLOAD) return
           await Bun.spawn([BunProc.which(), "install", "dockerfile-language-server-nodejs"], {
+            windowsHide: true,
             cwd: Global.Path.bin,
             env: {
               ...process.env,
@@ -1868,6 +1915,7 @@ export namespace LSPServer {
       }
       args.push("--stdio")
       const proc = spawn(binary, args, {
+        windowsHide: true,
         cwd: root,
         env: {
           ...process.env,
@@ -1892,6 +1940,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(gleam, ["lsp"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1913,6 +1962,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(bin, ["listen"], {
+          windowsHide: true,
           cwd: root,
         }),
       }
@@ -1941,6 +1991,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(nixd, [], {
+          windowsHide: true,
           cwd: root,
           env: {
             ...process.env,
@@ -2039,7 +2090,7 @@ export namespace LSPServer {
       }
 
       return {
-        process: spawn(bin, { cwd: root }),
+        process: spawn(bin, { windowsHide: true, cwd: root }),
       }
     },
   }
@@ -2056,6 +2107,7 @@ export namespace LSPServer {
       }
       return {
         process: spawn(bin, ["--lsp"], {
+          windowsHide: true,
           cwd: root,
         }),
       }

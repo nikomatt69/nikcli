@@ -146,6 +146,7 @@ export namespace MobileGithubRepo {
       (entry): entry is [string, string] => typeof entry[1] === "string",
     )
     const proc = Bun.spawn(["git", ...GIT_IDENTITY_ARGS, ...args], {
+      windowsHide: true,
       cwd: options.cwd,
       env: Object.fromEntries(entries),
       stdout: "pipe",

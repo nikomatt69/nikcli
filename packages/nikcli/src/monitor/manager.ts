@@ -546,6 +546,7 @@ export namespace Monitor {
     // monitored command is a JS runner (`node`/`npm`/`npx`) and Bun is present.
     const command = Runtime.preferBun(input.command)
     const proc = spawn(command, {
+      windowsHide: true,
       shell: Shell.acceptable(),
       cwd: input.cwd,
       env: {

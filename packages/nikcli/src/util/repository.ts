@@ -142,6 +142,7 @@ export async function runGit(
   if (options.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError")
 
   const proc = Bun.spawn(["git", ...args], {
+    windowsHide: true,
     cwd: options.cwd,
     stdout: "pipe",
     stderr: "pipe",

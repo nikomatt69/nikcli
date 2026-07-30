@@ -186,7 +186,7 @@ async function runCursorAgent(
       clearTimeout(timer)
       resolve({ status, stdout, stderr })
     }
-    const proc = spawn(runner.command, [...runner.args, ...args], { env: runner.env })
+    const proc = spawn(runner.command, [...runner.args, ...args], { windowsHide: true, env: runner.env })
     const timer = setTimeout(() => {
       try {
         proc.kill()
@@ -297,6 +297,7 @@ async function startCursorOAuth(): Promise<{
 
     const runner = resolveCursorAgentRunner()
     const proc = spawn(runner.command, [...runner.args, "login"], {
+      windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
       env: runner.env,
     })
@@ -770,6 +771,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
     if (url.pathname === "/v1/models" || url.pathname === "/models") {
       const runner = resolveCursorAgentRunner()
       const proc = bunAny.Bun.spawn({
+        windowsHide: true,
         cmd: [runner.command, ...runner.args, "models"],
         stdout: "pipe",
         stderr: "pipe",
@@ -839,6 +841,7 @@ async function handleCursorProxyRequest(req: Request, workspaceDirectory: string
     if (FORCE_TOOL_MODE) cmd.push("--force")
 
     const child = bunAny.Bun.spawn({
+      windowsHide: true,
       cmd,
       stdin: "pipe",
       stdout: "pipe",
@@ -1229,6 +1232,7 @@ export async function* streamCursorLLMEvents(input: CursorStreamInput): AsyncIte
 
   const bunAny = globalThis as any
   const child = bunAny.Bun.spawn({
+    windowsHide: true,
     cmd,
     stdin: "pipe",
     stdout: "pipe",

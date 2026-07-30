@@ -17,6 +17,7 @@ export namespace Editor {
     opts.renderer.currentRenderBuffer.clear()
     const parts = editor.split(" ")
     const proc = Bun.spawn({
+      windowsHide: true,
       cmd: [...parts, filepath],
       stdin: "inherit",
       stdout: "inherit",

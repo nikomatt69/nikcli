@@ -117,6 +117,38 @@ export type TuiDialogProps = {
   children?: JSX.Element
 }
 
+/** One open session tab, as reported to plugins. */
+export type TuiTab = {
+  sessionID: string
+  title: string
+  /** The tab currently shown. */
+  active: boolean
+  /** A turn is running in this tab. */
+  busy: boolean
+  /** Blocked on the user: a permission request or a question is waiting. */
+  attention: boolean
+  /** Finished work this tab has not been looked at since. */
+  unread: boolean
+}
+
+/**
+ * Observe and control the session tab strip.
+ *
+ * Tabs are otherwise internal to the TUI: a plugin could render into slots and navigate routes but
+ * had no way to know which sessions are open, which one is focused, or to open and close them.
+ */
+export type TuiTabsApi = {
+  /** Whether the tab strip is available in this TUI. */
+  enabled: () => boolean
+  list: () => ReadonlyArray<TuiTab>
+  /** Open a tab for any session, or focus it when already open. */
+  open: (sessionID: string) => void
+  /** Focus an already-open tab. Returns false when that session has no tab. */
+  focus: (sessionID: string) => boolean
+  /** Close a tab. Returns false when that session has no tab. */
+  close: (sessionID: string) => boolean
+}
+
 export type TuiDialogStack = {
   replace: (render: () => JSX.Element, onClose?: () => void) => void
   clear: () => void
@@ -436,6 +468,7 @@ export type TuiPluginApi = {
     DialogSelect: <Value = unknown>(props: TuiDialogSelectProps<Value>) => JSX.Element
     toast: (input: TuiToast) => void
     dialog: TuiDialogStack
+    tabs: TuiTabsApi
   }
   keybind: {
     match: (key: string, evt: ParsedKey) => boolean

@@ -35,6 +35,12 @@ export type Definition<R = never> = {
   readonly description: string
   readonly input: SchemaType
   readonly output: SchemaType | undefined
+  /**
+   * Keeps this tool's signature in the agent-facing catalog even when the catalog budget is
+   * exhausted. Use it for tools an agent must not have to discover through `search` — its cost is
+   * charged first, and whatever budget remains is spread across the unpinned tools as usual.
+   */
+  readonly pinned: boolean
   readonly run: (input: unknown) => Effect.Effect<unknown, unknown, R>
 }
 
@@ -47,6 +53,8 @@ export type Options<I extends SchemaType, O extends SchemaType | undefined, R = 
   readonly description: string
   readonly input: I
   readonly output?: O
+  /** See {@link Definition.pinned}. Defaults to `false`. */
+  readonly pinned?: boolean
   readonly run: (input: InputType<I>) => Effect.Effect<ResultType<O>, unknown, R>
 }
 
@@ -67,5 +75,6 @@ export const make = <I extends SchemaType, const O extends SchemaType | undefine
   description: options.description,
   input: options.input,
   output: options.output,
+  pinned: options.pinned ?? false,
   run: (input) => options.run(input as InputType<I>),
 })

@@ -91,7 +91,7 @@ function normalizeBaseUrl(raw: string): string | null {
 
 async function extractArchive(archivePath: string, destination: string): Promise<void> {
   await mkdir(destination, { recursive: true })
-  const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", destination], { stdout: "ignore", stderr: "pipe" })
+  const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", destination], { windowsHide: true, stdout: "ignore", stderr: "pipe" })
   const code = await proc.exited
   if (code !== 0) {
     const err = await new Response(proc.stderr).text().catch(() => "")
@@ -101,6 +101,7 @@ async function extractArchive(archivePath: string, destination: string): Promise
 
 async function git(args: string[], cwd: string): Promise<boolean> {
   const proc = Bun.spawn(["git", ...args], {
+    windowsHide: true,
     cwd,
     stdout: "ignore",
     stderr: "ignore",

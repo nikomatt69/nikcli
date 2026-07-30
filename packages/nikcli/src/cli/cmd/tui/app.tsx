@@ -60,6 +60,7 @@ import { DialogAlert } from "./ui/dialog-alert"
 import { DialogConfirm } from "./ui/dialog-confirm"
 import { UpgradeProvider, useUpgrade } from "./context/upgrade"
 import { AttentionProvider, useAttention } from "./context/attention"
+import { SessionTabsProvider, useSessionTabs } from "./context/session-tabs"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
@@ -183,7 +184,9 @@ export function tui(input: {
                                                             <PromptRefProvider>
                                                               <UpgradeProvider upgradeNow={input.upgradeNow}>
                                                                 <AttentionProvider renderer={renderer}>
-                                                                  <App checkUpgrade={input.checkUpgrade} />
+                                                                  <SessionTabsProvider>
+                                                                    <App checkUpgrade={input.checkUpgrade} />
+                                                                  </SessionTabsProvider>
                                                                 </AttentionProvider>
                                                               </UpgradeProvider>
                                                             </PromptRefProvider>
@@ -271,6 +274,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
   const upgradeCtx = useUpgrade()
   const { theme, mode, setMode } = themeCtx
   const sync = useSync()
+  const tabs = useSessionTabs()
   const { exit, setSummary } = useExit()
   const promptRef = usePromptRef()
   const attention = useAttention()
@@ -401,6 +405,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         sync,
         theme: themeCtx,
         toast,
+        tabs,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         renderer: renderer as any,
       })

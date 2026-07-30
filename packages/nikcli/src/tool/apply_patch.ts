@@ -8,7 +8,7 @@ import { Instance } from "../project/instance"
 import { Patch } from "../patch"
 import { createTwoFilesPatch, diffLines } from "diff"
 import { assertExternalDirectory } from "./external-directory"
-import { trimDiff } from "./edit"
+import { buildFileDiff, readAfterMutation, trimDiff } from "./file-diff"
 import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
 import DESCRIPTION from "./apply_patch.txt"
@@ -181,6 +181,15 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
       always: ["*"],
       metadata: {
         diff: totalDiff,
+        // One structured preview per hunk, so a multi-file patch is reviewable file by file.
+        files: fileChanges.map((change) =>
+          buildFileDiff({
+            file: change.movePath ?? change.filePath,
+            before: change.oldContent,
+            after: change.newContent,
+            patch: change.diff,
+          }),
+        ),
       },
     })
 
@@ -222,8 +231,23 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
         await Bus.publish(File.Event.Edited, {
           file: edited,
         })
+        // Formatters subscribe to the event above and `Bus.publish` awaits them, so the file on
+        // disk can already differ from the content this hunk produced. Re-read it and restate the
+        // hunk's diff from the formatted result, otherwise the model's next edit against the text
+        // we reported here will fail to match the file.
+        const formatted = await readAfterMutation(edited, change.newContent)
+        if (formatted !== change.newContent) {
+          change.newContent = formatted
+          const restated = buildFileDiff({ file: edited, before: change.oldContent, after: formatted })
+          change.diff = restated.patch
+          change.additions = restated.additions
+          change.deletions = restated.deletions
+        }
       }
     }
+
+    // `totalDiff` was assembled from the pre-format hunks; restate it from the final contents.
+    totalDiff = fileChanges.map((change) => change.diff).join("\n") + (fileChanges.length > 0 ? "\n" : "")
 
     // Publish file change events
     for (const filePath of changedFiles) {

@@ -231,6 +231,7 @@ function playAudioNonBlocking(player: AudioPlayer, filePath: string, volume: num
   }
 
   const child = spawn(player.command, player.args({ filePath, volume }), {
+    windowsHide: true,
     detached: process.platform !== "win32",
     stdio: "ignore",
   })

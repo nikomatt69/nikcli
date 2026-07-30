@@ -72,6 +72,8 @@ export type ToolDescription = {
   readonly path: string
   readonly description: string
   readonly signature: string
+  /** See `Definition.pinned`: pinned signatures survive an exhausted catalog budget. */
+  readonly pinned: boolean
 }
 
 export type SafeObject = Record<string, unknown>
@@ -301,6 +303,7 @@ const describeDefinition = <R>(path: string, definition: Definition<R>): ToolDes
   path,
   description: definition.description,
   signature: `${toolExpression(path)}(input: ${inputTypeScript(definition, true)}): Promise<${outputTypeScript(definition, true)}>`,
+  pinned: definition.pinned === true,
 })
 
 const visibleDefinitions = <R>(tools: HostTools<R>) =>
@@ -346,6 +349,8 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
   description: "Search available Code Mode tools",
   input: SearchInput,
   output: SearchOutput,
+  // `search` is rendered from its own signature, never through the budgeted catalog.
+  pinned: false,
   run: (input) =>
     Effect.sync(() => {
       const request = input as typeof SearchInput.Type
@@ -395,9 +400,12 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
                   right.score - left.score || comparePaths(left.entry.description.path, right.entry.description.path),
               )
               .map(({ entry }) => entry)
+      // Built field by field: `SearchItem` is the model-facing contract, and internal bookkeeping
+      // such as `pinned` must not leak into it.
       const items = ranked.slice(offset, offset + (request.limit ?? defaultSearchLimit)).map(({ description }) => ({
-        ...description,
         path: toolExpression(description.path),
+        description: description.description,
+        signature: description.signature,
       }))
       const remaining = Math.max(0, ranked.length - offset - items.length)
       return {
@@ -454,13 +462,18 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
 
   const selections = ordered.map(([namespace, group]) => ({
     namespace,
-    picked: new Set<ToolDescription>(),
-    queue: [...group].sort(
-      (left, right) =>
-        estimateTokens(catalogLine(left)) - estimateTokens(catalogLine(right)) || comparePaths(left.path, right.path),
-    ),
+    // Pinned tools are admitted up front, so the round-robin below never has to choose between
+    // them and budget fairness — it only ever distributes what is left.
+    picked: new Set<ToolDescription>(group.filter((tool) => tool.pinned)),
+    queue: [...group]
+      .filter((tool) => !tool.pinned)
+      .sort(
+        (left, right) =>
+          estimateTokens(catalogLine(left)) - estimateTokens(catalogLine(right)) || comparePaths(left.path, right.path),
+      ),
   }))
-  let used = 0
+  // Charge the pinned cost first; the remaining budget is what the unpinned tools compete for.
+  let used = described.reduce((total, tool) => total + (tool.pinned ? estimateTokens(catalogLine(tool)) : 0), 0)
   let active = selections.filter((selection) => selection.queue.length > 0)
   while (active.length > 0) {
     const stillActive: typeof active = []

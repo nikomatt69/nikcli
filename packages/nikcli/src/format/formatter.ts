@@ -212,6 +212,7 @@ export const rlang: Info = {
 
     try {
       const proc = Bun.spawn(["air", "--help"], {
+        windowsHide: true,
         stdout: "pipe",
         stderr: "pipe",
       })
@@ -235,7 +236,7 @@ export const uvformat: Info = {
   async enabled(context) {
     if (await ruff.enabled(context)) return false
     if (Bun.which("uv") !== null) {
-      const proc = Bun.spawn(["uv", "format", "--help"], { stderr: "pipe", stdout: "pipe" })
+      const proc = Bun.spawn(["uv", "format", "--help"], { windowsHide: true, stderr: "pipe", stdout: "pipe" })
       const code = await proc.exited
       return code === 0
     }

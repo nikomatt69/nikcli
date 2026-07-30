@@ -163,6 +163,7 @@ async function runProcess(
   const resolved = binary === "git" ? (Bun.which("git") ?? "git") : Bun.which(binary)
   if (!resolved) throw new Error(`${binary} not found`)
   const proc = Bun.spawn([resolved, ...args], {
+    windowsHide: true,
     cwd: directory,
     stdout: "pipe",
     stderr: "pipe",

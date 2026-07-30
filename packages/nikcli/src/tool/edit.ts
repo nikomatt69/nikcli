@@ -3,14 +3,14 @@ import { zod } from "@/util/effect-zod"
 import * as path from "path"
 import { Tool } from "./tool"
 import { LSP } from "../lsp"
-import { createTwoFilesPatch, diffLines } from "diff"
+import { createTwoFilesPatch } from "diff"
 import DESCRIPTION from "./edit.txt"
 import { File } from "../file"
 import { Bus } from "../bus"
 import { FileTime } from "../file/time"
 import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
-import { Snapshot } from "@/snapshot"
+import { buildFileDiff, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@/util/log"
@@ -21,6 +21,12 @@ const WHITESPACE_SPLIT_REGEX = /\s+/
 const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g
 const LEADING_WHITESPACE_REGEX = /^(\s*)/
 const UNESCAPE_STRING_REGEX = /\\(n|t|r|'|"|`|\\|\n|\$)/g
+// Each of these maps one character to exactly one character, so normalizing preserves offsets
+// into the original content and a match found in normalized text can be sliced out of the source.
+const UNICODE_SINGLE_QUOTE_REGEX = /[\u2018\u2019\u201A\u201B]/g
+const UNICODE_DOUBLE_QUOTE_REGEX = /[\u201C\u201D\u201E\u201F]/g
+const UNICODE_DASH_REGEX = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g
+const UNICODE_SPACE_REGEX = /[\u00A0\u2002-\u200A\u202F\u205F\u3000]/g
 
 function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
@@ -66,6 +72,7 @@ export const EditTool = Tool.define("edit", {
     let diff = ""
     let contentOld = ""
     let contentNew = ""
+    let replacements = 0
     await FileTime.withLock(filePath, async () => {
       if (params.oldString === "") {
         contentNew = params.newString
@@ -77,6 +84,9 @@ export const EditTool = Tool.define("edit", {
           metadata: {
             filepath: filePath,
             diff,
+            // Structured preview so the approval UI can render the change instead of a raw patch
+            // string, and so the user approves what they can actually see.
+            files: [buildFileDiff({ file: filePath, before: contentOld, after: contentNew, patch: diff })],
           },
         })
         await Bun.write(filePath, params.newString)
@@ -89,11 +99,13 @@ export const EditTool = Tool.define("edit", {
 
       const file = Bun.file(filePath)
       const stats = await file.stat().catch(() => {})
-      if (!stats) throw new Error(`File ${filePath} not found`)
+      if (!stats) throw new Error(`File not found: ${filePath}`)
       if (stats.isDirectory()) throw new Error(`Path is a directory, not a file: ${filePath}`)
       await FileTime.assert(ctx.sessionID, filePath)
       contentOld = await file.text()
-      contentNew = replace(contentOld, params.oldString, params.newString, params.replaceAll)
+      const applied = replaceWithCount(contentOld, params.oldString, params.newString, params.replaceAll, filePath)
+      contentNew = applied.content
+      replacements = applied.replacements
 
       diff = trimDiff(
         createTwoFilesPatch(filePath, filePath, normalizeLineEndings(contentOld), normalizeLineEndings(contentNew)),
@@ -105,6 +117,7 @@ export const EditTool = Tool.define("edit", {
         metadata: {
           filepath: filePath,
           diff,
+          files: [buildFileDiff({ file: filePath, before: contentOld, after: contentNew, patch: diff })],
         },
       })
 
@@ -119,19 +132,9 @@ export const EditTool = Tool.define("edit", {
       await FileTime.read(ctx.sessionID, filePath)
     })
 
-    const filediff: Snapshot.FileDiff = {
-      file: filePath,
-      patch: diff,
-      before: contentOld,
-      after: contentNew,
-      additions: 0,
-      deletions: 0,
-      status: contentOld === "" && contentNew !== "" ? "added" : "modified",
-    }
-    for (const change of diffLines(contentOld, contentNew)) {
-      if (change.added) filediff.additions += change.count || 0
-      if (change.removed) filediff.deletions += change.count || 0
-    }
+    // `contentNew` was re-read after the edit was published, so it already reflects any formatter
+    // that ran as a subscriber; the diff below therefore describes the file as it now exists.
+    const filediff = buildFileDiff({ file: filePath, before: contentOld, after: contentNew, patch: diff })
 
     ctx.metadata({
       metadata: {
@@ -141,7 +144,12 @@ export const EditTool = Tool.define("edit", {
       },
     })
 
-    let output = "Edit applied successfully."
+    // State the blast radius: the model cannot tell a targeted fix from an accidental sweep
+    // without it, and `replaceAll` edits are exactly where that goes wrong.
+    let output =
+      replacements === 0
+        ? "Created file."
+        : `Replaced ${replacements} ${replacements === 1 ? "occurrence" : "occurrences"} in ${path.relative(Instance.worktree, filePath)}.`
     const diagnostics = await runLSP(
       Effect.gen(function* () {
         const lsp = yield* LSP.Service
@@ -175,6 +183,9 @@ export const EditTool = Tool.define("edit", {
   },
 })
 
+// Re-exported so existing importers of `trimDiff` from this module keep working.
+export { trimDiff }
+
 export type Replacer = (content: string, find: string) => Generator<string, void, unknown>
 
 const SINGLE_CANDIDATE_SIMILARITY_THRESHOLD = 0.0
@@ -199,6 +210,34 @@ function levenshtein(a: string, b: string): number {
 
 export const SimpleReplacer: Replacer = function* (_content, find) {
   yield find
+}
+
+export function normalizeUnicode(text: string): string {
+  return text
+    .replace(UNICODE_SINGLE_QUOTE_REGEX, "'")
+    .replace(UNICODE_DOUBLE_QUOTE_REGEX, '"')
+    .replace(UNICODE_DASH_REGEX, "-")
+    .replace(UNICODE_SPACE_REGEX, " ")
+}
+
+/**
+ * Matches text that differs from the file only by typographic Unicode variants — models routinely
+ * echo curly quotes, en/em dashes, or non-breaking spaces where the source has ASCII, and vice
+ * versa. Normalization is character-for-character, so offsets found in the normalized content index
+ * the original content directly and the yielded search string is the untouched source substring.
+ */
+export const UnicodeNormalizedReplacer: Replacer = function* (content, find) {
+  if (find === "") return
+  const normalizedFind = normalizeUnicode(find)
+  const normalizedContent = normalizeUnicode(content)
+  // Nothing was normalizable on either side, so SimpleReplacer already covered this case.
+  if (normalizedFind === find && normalizedContent === content) return
+
+  let offset = 0
+  while ((offset = normalizedContent.indexOf(normalizedFind, offset)) !== -1) {
+    yield content.slice(offset, offset + normalizedFind.length)
+    offset += normalizedFind.length
+  }
 }
 
 export const LineTrimmedReplacer: Replacer = function* (content, find) {
@@ -569,51 +608,48 @@ export const ContextAwareReplacer: Replacer = function* (content, find) {
   }
 }
 
-export function trimDiff(diff: string): string {
-  const lines = diff.split("\n")
-  const contentLines = lines.filter(
-    (line) =>
-      (line.startsWith("+") || line.startsWith("-") || line.startsWith(" ")) &&
-      !line.startsWith("---") &&
-      !line.startsWith("+++"),
-  )
-
-  if (contentLines.length === 0) return diff
-
-  let min = Infinity
-  for (const line of contentLines) {
-    const content = line.slice(1)
-    if (content.trim().length > 0) {
-      const match = content.match(LEADING_WHITESPACE_REGEX)
-      if (match) min = Math.min(min, match[1].length)
-    }
+function countOccurrences(content: string, search: string): number {
+  if (search === "") return 0
+  let count = 0
+  let offset = 0
+  while ((offset = content.indexOf(search, offset)) !== -1) {
+    count++
+    offset += search.length
   }
-  if (min === Infinity || min === 0) return diff
-  const trimmedLines = lines.map((line) => {
-    if (
-      (line.startsWith("+") || line.startsWith("-") || line.startsWith(" ")) &&
-      !line.startsWith("---") &&
-      !line.startsWith("+++")
-    ) {
-      const prefix = line[0]
-      const content = line.slice(1)
-      return prefix + content.slice(min)
-    }
-    return line
-  })
-
-  return trimmedLines.join("\n")
+  return count
 }
 
-export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
+export type ReplaceResult = {
+  readonly content: string
+  /** How many occurrences were actually replaced. */
+  readonly replacements: number
+}
+
+/**
+ * Applies an edit and reports how much it changed.
+ *
+ * The count matters to the model: "replaced 1 occurrence" versus "replaced 14" is the difference
+ * between a targeted fix and an accidental sweep, and it cannot tell them apart from a success
+ * message alone. Failures carry the same principle — an ambiguous match reports *how many* places
+ * matched, so the model knows how much more context to add rather than guessing.
+ */
+export function replaceWithCount(
+  content: string,
+  oldString: string,
+  newString: string,
+  replaceAll = false,
+  filePath?: string,
+): ReplaceResult {
   if (oldString === newString) {
     throw new Error("No changes to apply: oldString and newString are identical.")
   }
 
-  let notFound = true
+  const target = filePath ? ` in ${filePath}` : ""
+  let ambiguousMatches = 0
 
   for (const replacer of [
     SimpleReplacer,
+    UnicodeNormalizedReplacer,
     LineTrimmedReplacer,
     BlockAnchorReplacer,
     WhitespaceNormalizedReplacer,
@@ -626,20 +662,33 @@ export function replace(content: string, oldString: string, newString: string, r
     for (const search of replacer(content, oldString)) {
       const index = content.indexOf(search)
       if (index === -1) continue
-      notFound = false
       if (replaceAll) {
-        return content.replaceAll(search, newString)
+        return { content: content.replaceAll(search, newString), replacements: countOccurrences(content, search) }
       }
       const lastIndex = content.lastIndexOf(search)
-      if (index !== lastIndex) continue
-      return content.substring(0, index) + newString + content.substring(index + search.length)
+      if (index !== lastIndex) {
+        // Remember the widest ambiguity seen so the error can quantify it.
+        ambiguousMatches = Math.max(ambiguousMatches, countOccurrences(content, search))
+        continue
+      }
+      return {
+        content: content.substring(0, index) + newString + content.substring(index + search.length),
+        replacements: 1,
+      }
     }
   }
 
-  if (notFound) {
+  if (ambiguousMatches === 0) {
     throw new Error(
-      "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.",
+      `Could not find oldString${target}. It must match exactly, including whitespace, indentation, and line endings.`,
     )
   }
-  throw new Error("Found multiple matches for oldString. Provide more surrounding context to make the match unique.")
+  throw new Error(
+    `Found ${ambiguousMatches} matches for oldString${target}. Provide more surrounding context to make the match unique, or pass replaceAll: true to replace all ${ambiguousMatches}.`,
+  )
+}
+
+/** Back-compatible wrapper for callers that only need the resulting content. */
+export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
+  return replaceWithCount(content, oldString, newString, replaceAll).content
 }

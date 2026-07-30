@@ -107,6 +107,7 @@ export namespace Format {
               log.info("running", { command: item.command })
               try {
                 const proc = Bun.spawn({
+                  windowsHide: true,
                   cmd: item.command.map((x) => x.replace("$FILE", file)),
                   cwd: ctx.directory,
                   env: { ...process.env, ...item.environment },

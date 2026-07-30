@@ -1,17 +1,17 @@
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { batch, createEffect, createMemo, For, Show } from "solid-js"
+import { createMemo, For, Show } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
 import { useKV } from "@tui/context/kv"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
+import { useSessionTabs, type SessionTabState } from "@tui/context/session-tabs"
 import { useTheme } from "@tui/context/theme"
 import { Logo } from "@tui/component/logo"
 import { SplitBorder } from "@tui/component/border"
 import { DialogSessionLink } from "@tui/component/dialog-session-link"
 import { sessionLinkOf } from "@tui/util/session-link"
 
-const MAX_OPEN_TABS = 12
 const TAB_MIN_WIDTH = 12
 const TAB_MAX_WIDTH = 28
 const FIXED_CHROME_WIDTH = 17
@@ -22,12 +22,6 @@ export type SessionTabLayout = {
   ids: string[]
   hidden: number
   width: number
-}
-
-type OpenSessionTab = {
-  id: string
-  title: string
-  workspaceID?: string
 }
 
 export function truncateTabTitle(title: string, width: number) {
@@ -83,85 +77,33 @@ export function SessionTabs() {
   const dialog = useDialog()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
-  const [openTabs, setOpenTabs] = kv.signal<OpenSessionTab[]>("session_tabs_v2", [])
+  const tabs = useSessionTabs()
 
   function openLinkDialog(id: string) {
     dialog.replace(() => <DialogSessionLink sessionID={id} />)
   }
 
-  const activeID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
-  const openIDs = createMemo(() => openTabs().map((tab: OpenSessionTab) => tab.id))
-  const layout = createMemo(() => layoutSessionTabs(openIDs(), activeID(), dimensions().width))
-  const persistOpenTabs = (tabs: OpenSessionTab[]) => {
-    // KV's public setter accepts values at runtime but currently exposes a nested Setter type.
-    const persist = setOpenTabs as unknown as (value: OpenSessionTab[]) => void
-    persist(tabs)
-  }
-
-  createEffect(() => {
-    const id = activeID()
-    if (!id) return
-    const session = sync.session.get(id)
-    const next: OpenSessionTab = {
-      id,
-      title: session?.title ?? `Session ${id.slice(-5)}`,
-      workspaceID: route.data.workspaceID ?? session?.workspaceID,
-    }
-    const current = openTabs()
-    const index = current.findIndex((tab: OpenSessionTab) => tab.id === id)
-    if (index < 0) {
-      persistOpenTabs([...current, next].slice(-MAX_OPEN_TABS))
-      return
-    }
-    const previous = current[index]!
-    if (previous.title === next.title && previous.workspaceID === next.workspaceID) return
-    persistOpenTabs(current.map((tab: OpenSessionTab) => (tab.id === id ? next : tab)))
-  })
-
-  function open(id: string) {
-    const tab = openTabs().find((candidate: OpenSessionTab) => candidate.id === id)
-    const session = sync.session.get(id)
-    route.navigate({
-      type: "session",
-      sessionID: id,
-      workspaceID: tab?.workspaceID ?? session?.workspaceID,
-    })
-  }
-
-  function createSession() {
-    route.navigate({
-      type: "home",
-      workspaceID: route.data.workspaceID,
-    })
-  }
-
-  function close(id: string) {
-    const current = openTabs()
-    const index = current.findIndex((tab: OpenSessionTab) => tab.id === id)
-    const next = current.filter((tab: OpenSessionTab) => tab.id !== id)
-    if (activeID() !== id) {
-      persistOpenTabs(next)
-      return
-    }
-    const fallback = next[Math.min(index, next.length - 1)]?.id
-    batch(() => {
-      persistOpenTabs(next)
-      if (fallback) open(fallback)
-      else createSession()
-    })
-  }
-
-  function cycle(direction: 1 | -1) {
-    const ids = openIDs()
-    if (ids.length === 0) return
-    const index = Math.max(0, ids.indexOf(activeID() ?? ""))
-    open(ids[(index + direction + ids.length) % ids.length]!)
-  }
+  const activeID = tabs.active
+  const byID = createMemo(() => new Map(tabs.list().map((tab) => [tab.id, tab])))
+  const layout = createMemo(() => layoutSessionTabs(tabs.ids(), activeID(), dimensions().width))
 
   useKeyboard((event) => {
-    if (!event.ctrl || event.name !== "tab") return
-    event.preventDefault()
-    cycle(event.shift ? -1 : 1)
+    if (!event.ctrl) return
+    if (event.name === "tab") {
+      event.preventDefault()
+      tabs.cycle(event.shift ? -1 : 1)
+      return
+    }
+    // Browser-style history over focused tabs, matching the editor convention.
+    if (event.name === "o") {
+      event.preventDefault()
+      tabs.back()
+      return
+    }
+    if (event.name === "i") {
+      event.preventDefault()
+      tabs.forward()
+    }
   })
 
   return (
@@ -182,16 +124,23 @@ export function SessionTabs() {
       <box flexDirection="row" flexGrow={1} minWidth={0} height={3} gap={TAB_GAP} overflow="hidden">
         <For each={layout().ids}>
           {(id) => {
-            const selected = () => activeID() === id
-            const tab = createMemo(() => openTabs().find((candidate: OpenSessionTab) => candidate.id === id))
+            const state = createMemo<SessionTabState | undefined>(() => byID().get(id))
+            const selected = () => state()?.active === true
             const session = createMemo(() => sync.session.get(id))
             const status = createMemo(() => sync.data.session_status[id]?.type ?? "idle")
-            const statusColor = () =>
-              status() === "busy" ? theme.info : status() === "retry" ? theme.warning : theme.textMuted
+            // Semantic precedence: what blocks the user outranks what is merely running, which
+            // outranks work they have not looked at yet. Only one marker fits in a tab.
+            const marker = createMemo(() => {
+              if (state()?.attention) return { glyph: "◆", color: theme.warning }
+              if (state()?.busy || status() === "busy") return { glyph: "●", color: theme.info }
+              if (status() === "retry") return { glyph: "●", color: theme.warning }
+              if (state()?.unread) return { glyph: "●", color: theme.primary }
+              return { glyph: "·", color: theme.textMuted }
+            })
             const linkedID = createMemo(() => sessionLinkOf(kv, id))
             const title = () =>
               truncateTabTitle(
-                session()?.title ?? tab()?.title ?? `Session ${id.slice(-5)}`,
+                session()?.title ?? state()?.title ?? `Session ${id.slice(-5)}`,
                 layout().width - 8 - (linkedID() ? 3 : 0),
               )
             return (
@@ -204,14 +153,14 @@ export function SessionTabs() {
                 paddingTop={1}
                 paddingBottom={1}
                 overflow="hidden"
-                onMouseDown={() => open(id)}
+                onMouseDown={() => tabs.open(id)}
                 backgroundColor={selected() ? theme.backgroundElement : undefined}
                 border={selected() ? ["left"] : undefined}
                 borderColor={selected() ? theme.primary : undefined}
                 customBorderChars={selected() ? SplitBorder.customBorderChars : undefined}
               >
-                <text fg={statusColor()} wrapMode="none">
-                  {` ${status() === "idle" ? "·" : "●"} `}
+                <text fg={marker().color} wrapMode="none">
+                  {` ${marker().glyph} `}
                 </text>
                 <Show when={linkedID()}>
                   <text
@@ -250,7 +199,7 @@ export function SessionTabs() {
                     fg={theme.textMuted}
                     onMouseDown={(event) => {
                       event.stopPropagation()
-                      close(id)
+                      tabs.close(id)
                     }}
                     wrapMode="none"
                   >
@@ -277,7 +226,7 @@ export function SessionTabs() {
         paddingTop={1}
         paddingBottom={1}
         justifyContent="center"
-        onMouseDown={createSession}
+        onMouseDown={tabs.createSession}
         backgroundColor={route.data.type === "home" ? theme.backgroundElement : undefined}
         border={route.data.type === "home" ? ["left"] : undefined}
         borderColor={route.data.type === "home" ? theme.primary : undefined}

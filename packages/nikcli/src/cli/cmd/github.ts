@@ -290,7 +290,8 @@ export const GithubInstallCommand = cmd({
                 ? `start "" "${url}"`
                 : `xdg-open "${url}"`
 
-          exec(command, (error) => {
+          // Hides the intermediary console window, not the browser this launches.
+          exec(command, { windowsHide: true }, (error) => {
             if (error) {
               prompts.log.warn(`Could not open browser. Please visit: ${url}`)
             }

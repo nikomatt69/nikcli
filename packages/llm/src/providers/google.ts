@@ -1,6 +1,6 @@
 import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, typedModel, type ModelID, type TypedModelRef } from "../schema"
 import * as Gemini from "../protocols/gemini"
 import { withGoogleOptions, type GoogleProviderOptionsInput, type GoogleVariant } from "./google-options"
 
@@ -17,9 +17,14 @@ export type ModelOptions = Omit<RouteModelInput, "id" | "baseURL" | "providerOpt
 
 export const routes = [Gemini.route]
 
-export const model = (modelID: string | ModelID, options: ModelOptions = {}) => {
+export const model = (
+  modelID: string | ModelID,
+  options: ModelOptions = {},
+): TypedModelRef<GoogleProviderOptionsInput> => {
   const { variant, enableThoughts, ...rest } = options
-  return Gemini.model(withGoogleOptions(String(modelID), rest, { variant, enableThoughts }))
+  return typedModel<GoogleProviderOptionsInput>(
+    Gemini.model(withGoogleOptions(String(modelID), rest, { variant, enableThoughts })),
+  )
 }
 
 export const provider = Provider.make({

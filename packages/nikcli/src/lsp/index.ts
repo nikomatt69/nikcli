@@ -160,6 +160,7 @@ export namespace LSP {
           spawn: async (root) => {
             return {
               process: spawn(item.command[0], item.command.slice(1), {
+                windowsHide: true,
                 cwd: root,
                 env: {
                   ...process.env,

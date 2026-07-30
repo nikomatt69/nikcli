@@ -676,6 +676,7 @@ export function Prompt(props: PromptProps) {
       try {
         voiceAudioPath = filePath
         voiceRecorder = Bun.spawn(recorder.command, {
+          windowsHide: true,
           stdout: "ignore",
           stderr: "pipe",
         })

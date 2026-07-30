@@ -89,6 +89,7 @@ function run(file: string, volume: number) {
   if (!k) return
   try {
     return Bun.spawn(args(k, file, volume), {
+      windowsHide: true,
       stdin: "ignore",
       stdout: "ignore",
       stderr: "ignore",

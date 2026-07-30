@@ -10,7 +10,7 @@ import { File } from "../file"
 import { FileTime } from "../file/time"
 import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
-import { trimDiff } from "./edit"
+import { buildFileDiff, readAfterMutation, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
@@ -72,14 +72,22 @@ export const WriteTool = Tool.define("write", {
       metadata: {
         filepath,
         diff,
+        // Structured preview of the pending change, so the approval UI shows what will happen.
+        files: [buildFileDiff({ file: filepath, before: contentOld, after: params.content, patch: diff })],
       },
     })
 
-    await Bun.write(filepath, preserveOriginalShape(contentOld, params.content))
+    const written = preserveOriginalShape(contentOld, params.content)
+    await Bun.write(filepath, written)
     await Bus.publish(File.Event.Edited, {
       file: filepath,
     })
     await FileTime.read(ctx.sessionID, filepath)
+
+    // Formatters run as subscribers of the event above and `Bus.publish` awaits them, so the file
+    // on disk can already differ from what we wrote. Report the file as it now exists.
+    const contentNew = await readAfterMutation(filepath, written)
+    const filediff = buildFileDiff({ file: filepath, before: contentOld, after: contentNew })
 
     let output = "Wrote file successfully."
     const diagnostics = await runLSP(
@@ -112,6 +120,8 @@ export const WriteTool = Tool.define("write", {
         diagnostics,
         filepath,
         exists: exists,
+        diff: filediff.patch,
+        filediff,
       },
       output,
     }

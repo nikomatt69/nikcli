@@ -25,6 +25,16 @@ export namespace Shell {
     return POWERSHELL_MARKERS.some((marker) => marker.test(value))
   }
 
+  /**
+   * Whether {@link select} would route this command to PowerShell.
+   *
+   * Permission analysis needs to know, because the Bash grammar mis-reads PowerShell syntax and
+   * would derive the wrong set of commands to authorize.
+   */
+  export function isPowerShell(command: string) {
+    return hasPowerShellMarkers(command)
+  }
+
   function selectBinary(candidates: string[]) {
     for (const candidate of candidates) {
       const bin = Bun.which(candidate)
@@ -43,7 +53,7 @@ export namespace Shell {
 
     if (process.platform === "win32") {
       await new Promise<void>((resolve) => {
-        const killer = spawn("taskkill", ["/pid", String(pid), "/f", "/t"], { stdio: "ignore" })
+        const killer = spawn("taskkill", ["/pid", String(pid), "/f", "/t"], { windowsHide: true, stdio: "ignore" })
         killer.once("exit", () => resolve())
         killer.once("error", () => resolve())
       })
@@ -88,6 +98,26 @@ export namespace Shell {
       if (binary) return binary
     }
     return acceptable()
+  }
+
+  function isPowerShellBinary(binary: string) {
+    const name = path
+      .basename(binary)
+      .toLowerCase()
+      .replace(/\.exe$/, "")
+    return name === "pwsh" || name === "powershell"
+  }
+
+  /**
+   * Explicit argv for shells that need flags Node's `shell:` option cannot supply.
+   *
+   * PowerShell otherwise prints a startup banner into the captured output and stays interactive,
+   * so a command that hits a confirmation prompt would hang until the tool's timeout instead of
+   * failing. Returns `undefined` for shells that Node's own handling covers correctly.
+   */
+  export function directInvocation(binary: string, command: string): { file: string; args: string[] } | undefined {
+    if (!isPowerShellBinary(binary)) return undefined
+    return { file: binary, args: ["-NoLogo", "-NonInteractive", "-Command", command] }
   }
 
   export const preferred = lazy(() => {

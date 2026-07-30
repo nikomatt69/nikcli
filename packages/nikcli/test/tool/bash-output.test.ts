@@ -1,13 +1,30 @@
 import { describe, expect, it } from "bun:test"
-import { appendOutput, MAX_OUTPUT_LENGTH } from "@/tool/bash"
+import { appendOutput, MAX_METADATA_LENGTH, MAX_OUTPUT_LENGTH, previewOutput } from "@/tool/bash"
 
 describe("bash output bounds", () => {
   it("caps retained output while reporting truncation", () => {
     const result = appendOutput("prefix", Buffer.alloc(MAX_OUTPUT_LENGTH, "x"))
 
     expect(result.output).toHaveLength(MAX_OUTPUT_LENGTH)
-    expect(result.output.startsWith("prefix")).toBe(true)
     expect(result.truncated).toBe(true)
+  })
+
+  it("drops the beginning and keeps the end of oversized output", () => {
+    const filler = Buffer.alloc(MAX_OUTPUT_LENGTH, "x")
+    const result = appendOutput("output-start", filler)
+
+    expect(result.output.includes("output-start")).toBe(false)
+    expect(result.output.endsWith("x")).toBe(true)
+    expect(result.truncated).toBe(true)
+  })
+
+  it("retains the exit-status tail that arrives after the cap is reached", () => {
+    const overflowed = appendOutput("output-start", Buffer.alloc(MAX_OUTPUT_LENGTH, "x"))
+    const final = appendOutput(overflowed.output, Buffer.from("\nError: exit status 1"))
+
+    expect(final.output.endsWith("\nError: exit status 1")).toBe(true)
+    expect(final.output).toHaveLength(MAX_OUTPUT_LENGTH)
+    expect(final.truncated).toBe(true)
   })
 
   it("keeps normal chunks unchanged", () => {
@@ -15,6 +32,21 @@ describe("bash output bounds", () => {
       output: "prefix output",
       truncated: false,
     })
+  })
+})
+
+describe("bash metadata preview", () => {
+  it("passes short output through untouched", () => {
+    expect(previewOutput("short output")).toBe("short output")
+  })
+
+  it("previews the end of long output", () => {
+    const long = "head".padEnd(MAX_METADATA_LENGTH, "x") + "TAIL"
+    const preview = previewOutput(long)
+
+    expect(preview.startsWith("...")).toBe(true)
+    expect(preview.endsWith("TAIL")).toBe(true)
+    expect(preview.includes("head")).toBe(false)
   })
 })
 

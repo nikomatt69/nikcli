@@ -92,6 +92,7 @@ export const SessionListCommand = cmd({
 
       if (shouldPaginate) {
         const proc = Bun.spawn({
+          windowsHide: true,
           cmd: pagerCmd(),
           stdin: "pipe",
           stdout: "inherit",

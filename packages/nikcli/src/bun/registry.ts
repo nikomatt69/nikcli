@@ -17,6 +17,7 @@ export namespace PackageRegistry {
     }
 
     const proc = Bun.spawn([which(), "info", pkg, field], {
+      windowsHide: true,
       cwd,
       stdout: "pipe",
       stderr: "pipe",

@@ -5,6 +5,7 @@ import type { useKeybind } from "@tui/context/keybind"
 import type { useRoute } from "@tui/context/route"
 import type { useSDK } from "@tui/context/sdk"
 import type { useSync } from "@tui/context/sync"
+import type { useSessionTabs } from "@tui/context/session-tabs"
 import type { useTheme } from "@tui/context/theme"
 import { Dialog as DialogUI, type useDialog } from "@tui/ui/dialog"
 import type { TuiConfig } from "@/config/tui"
@@ -42,6 +43,7 @@ type Input = {
   theme: ReturnType<typeof useTheme>
   toast: ReturnType<typeof useToast>
   renderer: TuiPluginApi["renderer"]
+  tabs: ReturnType<typeof useSessionTabs>
 }
 
 function routeRegister(routes: RouteMap, list: TuiRouteDefinition[], bump: () => void) {
@@ -388,6 +390,35 @@ export function createTuiApi(input: Input): TuiPluginApi {
         },
         get open() {
           return input.dialog.stack.length > 0
+        },
+      },
+      tabs: {
+        enabled() {
+          return true
+        },
+        list() {
+          return input.tabs.list().map((tab) => ({
+            sessionID: tab.id,
+            title: tab.title,
+            active: tab.active,
+            busy: tab.busy,
+            attention: tab.attention,
+            unread: tab.unread,
+          }))
+        },
+        open(sessionID) {
+          // Navigating to a session is what creates its tab, so this covers "open" and "focus".
+          input.tabs.open(sessionID)
+        },
+        focus(sessionID) {
+          if (!input.tabs.ids().includes(sessionID)) return false
+          input.tabs.open(sessionID)
+          return true
+        },
+        close(sessionID) {
+          if (!input.tabs.ids().includes(sessionID)) return false
+          input.tabs.close(sessionID)
+          return true
         },
       },
     },

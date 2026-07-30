@@ -89,6 +89,7 @@ export namespace Git {
   export async function run(args: string[], opts: Options): Promise<Result> {
     try {
       const proc = spawn("git", [...CONFIG, ...args], {
+        windowsHide: true,
         cwd: opts.cwd,
         env: opts.env ? { ...process.env, ...opts.env } : process.env,
         stdio: [opts.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],

@@ -127,6 +127,7 @@ async function reservePort(): Promise<number> {
 
 async function runContainerCommand(runtime: ContainerConfig["runtime"], args: string[], allowFailure = false) {
   const proc = Bun.spawn([runtime, ...args], {
+    windowsHide: true,
     stdout: "pipe",
     stderr: "pipe",
   })

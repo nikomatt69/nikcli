@@ -1,7 +1,7 @@
 import { AuthOptions, type ProviderAuthOption } from "../route/auth-options"
 import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, typedModel, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAIChat from "../protocols/openai-chat"
 import * as OpenAIResponses from "../protocols/openai-responses"
 import { withOpenAIOptions, type OpenAIProviderOptionsInput } from "./openai-options"
@@ -23,24 +23,32 @@ type OpenAIModelInput<ModelInput> = Omit<ModelInput, "apiKey" | "auth" | "baseUR
 
 const auth = (options: ProviderAuthOption<"optional">) => AuthOptions.bearer(options, "OPENAI_API_KEY")
 
-export const responses = (id: string | ModelID, options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {}) => {
+export const responses = (
+  id: string | ModelID,
+  options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
+): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return OpenAIResponses.model(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true }))
+  return typedModel<OpenAIProviderOptionsInput>(
+    OpenAIResponses.model(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true })),
+  )
 }
 
 export const responsesWebSocket = (
   id: string | ModelID,
   options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
-) => {
+): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return OpenAIResponses.webSocketModel(
-    withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true }),
+  return typedModel<OpenAIProviderOptionsInput>(
+    OpenAIResponses.webSocketModel(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true })),
   )
 }
 
-export const chat = (id: string | ModelID, options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {}) => {
+export const chat = (
+  id: string | ModelID,
+  options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
+): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return OpenAIChat.model(withOpenAIOptions(id, { ...rest, auth: auth(options) }))
+  return typedModel<OpenAIProviderOptionsInput>(OpenAIChat.model(withOpenAIOptions(id, { ...rest, auth: auth(options) })))
 }
 
 export const provider = Provider.make({

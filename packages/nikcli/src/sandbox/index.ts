@@ -136,6 +136,7 @@ export namespace Sandbox {
             const start = performance.now()
             const env = scrubEnv(input.env)
             const proc = Bun.spawn(input.command as string[], {
+              windowsHide: true,
               cwd: input.cwd,
               env,
               stdin: input.stdin ? "pipe" : "ignore",

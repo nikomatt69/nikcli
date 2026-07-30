@@ -199,6 +199,7 @@ function DialogSkillshResults(props: { results: SkillshResult[]; refetch: () => 
 
     try {
       const proc = Bun.spawn({
+        windowsHide: true,
         cmd: ["bun", "x", "skills", "add", source, "-g", "-y"],
         stdin: "pipe",
         stdout: "pipe",
@@ -346,6 +347,7 @@ export function DialogSkills() {
 
             try {
               const proc = Bun.spawn({
+                windowsHide: true,
                 cmd: ["bun", "x", "skills", "find", query.trim()],
                 stdin: "pipe",
                 stdout: "pipe",

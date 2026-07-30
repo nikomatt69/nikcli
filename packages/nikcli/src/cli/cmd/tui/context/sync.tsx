@@ -29,7 +29,7 @@ import { Binary } from "@nikcli-ai/util/binary"
 import { createSimpleContext } from "./helper"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
-import { batch, onMount } from "solid-js"
+import { batch, onCleanup, onMount } from "solid-js"
 import { debounce } from "@solid-primitives/scheduled"
 import { Log } from "@/util/log"
 import { createLru } from "@tui/util/lru-cache"
@@ -269,7 +269,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       return undefined
     }
 
-    sdk.event.listen((e) => {
+    const applyEvent: Parameters<typeof sdk.event.listen>[0] = (e) => {
       const event = e.details
       switch (event.type) {
         // Note: InstanceDisposed events are handled explicitly by the caller
@@ -573,6 +573,34 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
       }
+    }
+
+    // Backend events arrive in bursts while a turn streams; applying each one as it lands makes a
+    // separate Solid update — and re-render — per event. Queue them and flush on a short timer
+    // inside a single batch, preserving arrival order.
+    const EVENT_FLUSH_MS = 10
+    let queuedEvents: Array<Parameters<typeof applyEvent>[0]> = []
+    let flushTimer: ReturnType<typeof setTimeout> | undefined
+
+    function flushEvents() {
+      flushTimer = undefined
+      if (queuedEvents.length === 0) return
+      const pending = queuedEvents
+      queuedEvents = []
+      batch(() => {
+        for (const event of pending) applyEvent(event)
+      })
+    }
+
+    sdk.event.listen((e) => {
+      queuedEvents.push(e)
+      flushTimer ??= setTimeout(flushEvents, EVENT_FLUSH_MS)
+    })
+
+    onCleanup(() => {
+      if (flushTimer !== undefined) clearTimeout(flushTimer)
+      flushTimer = undefined
+      queuedEvents = []
     })
 
     // vcs.branch.updated is directory-scoped: with the global event stream we

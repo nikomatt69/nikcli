@@ -136,6 +136,7 @@ export const Voice = Tool.define("voice", async () => {
 
         if (recorder.cmd.includes("rec")) {
           recordingProcess = Bun.spawn([recorder.cmd, audioPath, "silence", "1", "0.1", "1%", "-1", "1.0", "1%"], {
+            windowsHide: true,
             onExit() {
               ctx.abort.removeEventListener("abort", abortHandler)
               if (recordingToken === token) {
@@ -151,6 +152,7 @@ export const Voice = Tool.define("voice", async () => {
           recordingProcess = Bun.spawn(
             [recorder.cmd, "-f", "alsa", "-i", "default", "-t", String(duration), "-acodec", "pcm_s16le", audioPath],
             {
+              windowsHide: true,
               onExit() {
                 ctx.abort.removeEventListener("abort", abortHandler)
                 if (recordingToken === token) {

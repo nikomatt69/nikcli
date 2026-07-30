@@ -210,6 +210,19 @@ export interface Hooks {
       status: "ask" | "deny" | "allow"
     },
   ) => Promise<void>
+  "shell.create.before"?: (
+    input: {
+      sessionID: string
+      command: string
+    },
+    output: {
+      command: string
+      cwd: string
+      timeout: number
+      shell?: string
+      env: Record<string, string>
+    },
+  ) => Promise<void>
   "command.execute.before"?: (
     input: {
       command: string
