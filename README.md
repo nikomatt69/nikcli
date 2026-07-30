@@ -280,6 +280,28 @@ All main commands (registered in `packages/nikcli/src/index.ts`):
 | `nikcli completion`                                                           | Generate shell completion scripts.                                                                    |
 | Global flags                                                                  | `--print-logs`, `--log-level DEBUG                                                                    | INFO    | WARN                                                                | ERROR`, `--help/-h`, `--version/-v`. |
 
+### Auto-approving permissions
+
+`--auto` (aliases `--yolo`, `--dangerously-skip-permissions`) stops nikcli from pausing for
+permission confirmations. Intended for unattended runs — CI, scripted sessions, sandboxed
+worktrees — where there is nobody to answer a prompt.
+
+It converts every `ask` into `allow`. It does **not** override anything you explicitly set to
+`deny`: a denial is a rail you deliberately put in place, and a flag named "skip permissions"
+should not quietly remove it. Combine the flag with `permission` denials in your config to run
+unattended while keeping specific operations off-limits:
+
+```jsonc
+// nikcli.json
+{ "permission": { "bash": { "rm *": "deny", "git push *": "deny" } } }
+```
+
+```sh
+nikcli --auto run "migrate the config loader to zod v4"
+```
+
+The flag applies to the whole process, including the session worker the TUI runs in.
+
 ### OpenTelemetry / observability flags
 
 These environment variables configure the observability layer described in the
