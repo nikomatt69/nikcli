@@ -136,7 +136,12 @@ describe("result parsing", () => {
   })
 
   it("skips structured entries without a url", () => {
-    const structured = { results: [{ title: "no url", excerpts: [] }, { url: "https://ok.com", excerpts: [] }] }
+    const structured = {
+      results: [
+        { title: "no url", excerpts: [] },
+        { url: "https://ok.com", excerpts: [] },
+      ],
+    }
     expect(parseParallelStructured(structured)).toEqual([{ url: "https://ok.com" }])
   })
 
@@ -163,8 +168,10 @@ describe("MCP response parsing", () => {
   })
 
   it("skips an unparseable frame and uses a later one", () => {
-    const body = ["data: {not json", `data: ${JSON.stringify({ result: { content: [{ type: "text", text: "ok" }] } })}`]
-      .join("\n")
+    const body = [
+      "data: {not json",
+      `data: ${JSON.stringify({ result: { content: [{ type: "text", text: "ok" }] } })}`,
+    ].join("\n")
     expect(parseResponse(body).text).toBe("ok")
   })
 })

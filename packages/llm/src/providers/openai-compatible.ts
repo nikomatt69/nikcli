@@ -28,7 +28,10 @@ export type FamilyModelOptions = Omit<
 
 export const routes = [OpenAICompatibleChat.route]
 
-export const model = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAICompatibleProviderOptionsInput> => {
+export const model = (
+  modelID: string | ModelID,
+  options: ModelOptions,
+): TypedModelRef<OpenAICompatibleProviderOptionsInput> => {
   return OpenAICompatibleChat.model({
     ...withOpenAICompatibleOptions(String(modelID), options, { profile: options.provider }),
     provider: ProviderID.make(options.provider),

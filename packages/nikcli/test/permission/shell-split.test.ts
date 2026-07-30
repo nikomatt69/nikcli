@@ -32,10 +32,7 @@ describe("splitShellStatements", () => {
   })
 
   it("still splits a real separator that follows a quoted argument", () => {
-    expect(splitShellStatements(`echo "hello; world" && rm -rf build`)).toEqual([
-      `echo "hello; world"`,
-      "rm -rf build",
-    ])
+    expect(splitShellStatements(`echo "hello; world" && rm -rf build`)).toEqual([`echo "hello; world"`, "rm -rf build"])
   })
 
   it("joins a backslash line continuation into one command", () => {
@@ -49,9 +46,7 @@ describe("splitShellStatements", () => {
 
   it("keeps the tail when a quote is never closed", () => {
     // Mis-reading the line must not silently discard a command from the permission set.
-    expect(splitShellStatements(`echo "unterminated && rm -rf build`)).toEqual([
-      `echo "unterminated && rm -rf build`,
-    ])
+    expect(splitShellStatements(`echo "unterminated && rm -rf build`)).toEqual([`echo "unterminated && rm -rf build`])
   })
 
   it("splits PowerShell statements the same way", () => {

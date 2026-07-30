@@ -36,7 +36,9 @@ export const responsesWebSocket = (
   options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
 ): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return OpenAIResponses.webSocketModel(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true }))
+  return OpenAIResponses.webSocketModel(
+    withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true }),
+  )
 }
 
 export const chat = (

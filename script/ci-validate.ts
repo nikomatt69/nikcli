@@ -85,9 +85,9 @@ const steps: ValidationStep[] = [
       "bash",
       "-c",
       'command -v pwsh >/dev/null 2>&1 || { echo "pwsh not available — skipped"; exit 0; }; ' +
-        'pwsh -NoProfile -NonInteractive -Command \'$e = $null; ' +
+        "pwsh -NoProfile -NonInteractive -Command '$e = $null; " +
         "[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./install.ps1), [ref]$null, [ref]$e) | Out-Null; " +
-        "if ($e) { $e | Out-String | Write-Error; exit 1 }; Write-Output \"install.ps1 parses clean\"'",
+        'if ($e) { $e | Out-String | Write-Error; exit 1 }; Write-Output "install.ps1 parses clean"\'',
     ],
     critical: true,
     timeout: 30_000,

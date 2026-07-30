@@ -49,7 +49,10 @@ const converseModel = Route.model<ModelInput>(
   },
 )
 
-export const model = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<BedrockProviderOptionsInput> => {
+export const model = (
+  modelID: string | ModelID,
+  options: ModelOptions = {},
+): TypedModelRef<BedrockProviderOptionsInput> => {
   const { variant, ...rest } = options
   return converseModel({ ...withBedrockOptions(String(modelID), rest, { variant }) })
 }

@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.214.0 (July 2026)
+
+## Core
+
+- Improve path handling for Windows in cleanSource function (@nikomatt69)
+- Make tab history rebindable and restore forward navigation (@nikomatt69)
+- Enhance provider models with TypedModelRef for improved type safety (@nikomatt69)
+
+## TUI
+
+- Drop the tab-history forward binding that could never fire (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(llm): enhance provider models with TypedModelRef for improved type safety
+  - feat(llm): type Cloudflare provider options and guard the annotations
+  - docs: document the auto-approval flags
+  - fix(tui): drop the tab-history forward binding that could never fire
+  - feat(tui): make tab history rebindable and restore forward navigation
+  - fix(tui): improve path handling for Windows in cleanSource function
+
 ## v1.204.0 (July 2026)
 
 ## Core
