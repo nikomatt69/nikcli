@@ -5,7 +5,7 @@ import * as OpenAICompatibleChat from "../protocols/openai-compatible-chat"
 import { Auth } from "../route/auth"
 import { AuthOptions, type AtLeastOne, type ProviderAuthOption } from "../route/auth-options"
 import { Route } from "../route/client"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import { withCloudflareOptions, type CloudflareProviderOptionsInput } from "./cloudflare-options"
 
 export type { CloudflareProviderOptionsInput } from "./cloudflare-options"
@@ -128,10 +128,16 @@ const workersAIModel = Route.model<WorkersAIInput>(
   },
 )
 
-export const aiGateway = (modelID: string | ModelID, options: AIGatewayOptions) =>
+export const aiGateway = (
+  modelID: string | ModelID,
+  options: AIGatewayOptions,
+): TypedModelRef<CloudflareProviderOptionsInput> =>
   aiGatewayModel({ ...withCloudflareOptions(String(modelID), options) })
 
-export const workersAI = (modelID: string | ModelID, options: WorkersAIOptions) =>
+export const workersAI = (
+  modelID: string | ModelID,
+  options: WorkersAIOptions,
+): TypedModelRef<CloudflareProviderOptionsInput> =>
   workersAIModel({ ...withCloudflareOptions(String(modelID), options) })
 
 export const model = aiGateway

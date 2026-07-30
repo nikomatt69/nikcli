@@ -132,3 +132,41 @@ Each existing provider file consumes its options module:
 ## Bedrock protocol patch
 
 `bedrock-converse.ts:fromRequest` currently ignores `providerOptions.bedrock`. Add a small `bedrockOptions(request)` reader that emits `additionalModelRequestFields` from the `bedrock` namespace so `withBedrockOptions` defaults take effect on the wire. Pure additive change.
+
+## Type-level inference at the request boundary
+
+*(implemented 2026-07-30; ports opencode v2 #39493 + #39510)*
+
+The option modules above make the *defaults* provider-aware, but the call site still had no
+protection: `ProviderOptions` is `Record<string, Record<string, unknown>>` on the wire, so
+`{ anthropic: { thinkingBudget: 4000 } }` (the field is `thinking`) type-checked, shipped, and was
+silently dropped by the provider.
+
+The wire schema deliberately stays open — nikcli cannot know every provider's knobs, and a model
+resolved from config carries no type at all. Instead the *model* carries its option shape in the
+type system only:
+
+```
+schema/provider-options-typing.ts
+  TypedModelRef<Options>   ModelRef + a phantom, optional carrier property
+  ProviderOptionsOf<M>     the options a model accepts, falling back to ProviderOptions
+```
+
+`LLM.request` is generic over the model, so `providerOptions` is checked against
+`ProviderOptionsOf<typeof model>`.
+
+Two properties worth preserving when touching this:
+
+- **Nothing changes at runtime.** The carrier is a phantom type: no value is added, nothing is
+  serialized, and a plain `ModelRef` remains assignable in both directions. Untyped models simply
+  get the open `ProviderOptions` fallback.
+- **Providers opt in by annotating their return type**, e.g.
+  `export const model = (...): TypedModelRef<AnthropicProviderOptionsInput> => ...`. No wrapper
+  call is needed, because the carrier is optional and a plain `ModelRef` already satisfies the
+  branded type. An earlier `typedModel()` helper was removed for exactly this reason — it was a
+  second way to express the same thing.
+
+Typed today: `anthropic`, `google`, `openai` (responses/chat/websocket), `xai`, `openrouter`,
+`azure`, `amazon-bedrock`, `github-copilot`, `openai-compatible`, `cloudflare` (aiGateway/workersAI).
+Adding a provider is one return-type annotation plus a case in
+`test/provider-options-typing.test.ts`.

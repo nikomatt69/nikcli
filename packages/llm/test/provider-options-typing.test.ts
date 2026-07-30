@@ -3,6 +3,8 @@ import { LLM } from "../src"
 import type { ProviderOptions, ProviderOptionsOf, TypedModelRef } from "../src/schema"
 import * as Anthropic from "../src/providers/anthropic"
 import * as OpenAI from "../src/providers/openai"
+import * as Cloudflare from "../src/providers/cloudflare"
+import * as XAI from "../src/providers/xai"
 import * as OpenAIChat from "../src/protocols/openai-chat"
 import type { AnthropicProviderOptionsInput } from "../src/providers/anthropic-options"
 
@@ -65,6 +67,19 @@ describe("provider option typing", () => {
     // @ts-expect-error unknown Anthropic option
     const bad: ProviderOptionsOf<typeof model>["anthropic"] = { thinking: { type: "enabled", budget: 4_000 } }
     expect(bad).toBeDefined()
+  })
+
+  test("every wired provider carries a non-generic option type", () => {
+    // Guards against a provider quietly losing its annotation in a refactor: the fallback is the
+    // open record, so a regression here is invisible at the call site.
+    type NotGeneric<M> = Equals<ProviderOptionsOf<M>, ProviderOptions> extends true ? false : true
+
+    type _anthropic = Expect<NotGeneric<ReturnType<typeof Anthropic.model>>>
+    type _openai = Expect<NotGeneric<ReturnType<typeof OpenAI.chat>>>
+    type _xai = Expect<NotGeneric<ReturnType<typeof XAI.chat>>>
+    type _cloudflare = Expect<NotGeneric<ReturnType<typeof Cloudflare.aiGateway>>>
+
+    expect(true).toBe(true)
   })
 
   test("TypedModelRef accepts an explicit option type", () => {
