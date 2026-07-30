@@ -98,6 +98,7 @@ export class TunnelManager {
       this.process = spawn("npx", ["localtunnel", "--port", port.toString(), "--print-requests", "false"], {
         stdio: ["pipe", "pipe", "pipe"],
         shell: false,
+        windowsHide: true,
       })
 
       let output = ""
@@ -133,6 +134,7 @@ export class TunnelManager {
     return new Promise((resolve, reject) => {
       this.process = spawn("cloudflared", ["tunnel", "--url", `http://localhost:${port}`, "--metrics", "localhost:0"], {
         stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
       })
 
       let output = ""
@@ -169,6 +171,7 @@ export class TunnelManager {
     return new Promise((resolve, reject) => {
       this.process = spawn("ngrok", ["http", port.toString(), "--log=stdout", "--log-level=info"], {
         stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
       })
 
       let output = ""
@@ -224,7 +227,7 @@ export class TunnelManager {
           .map((arg) => arg.trim())
           .filter((arg) => Boolean(arg) && !arg.includes("{port}")) ?? []
 
-      this.process = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: false })
+      this.process = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: false, windowsHide: true })
 
       if (process.env.NODE_DEBUG?.includes("nikcli:remotosh")) {
         process.stderr.write(`[nikcli:remotosh] Spawning: ${cmd} ${args.join(" ")}\n`)
@@ -278,18 +281,18 @@ export async function checkTunnelAvailability(provider: TunnelProvider): Promise
           await import("localtunnel")
           return true
         } catch {
-          execSync("npx localtunnel --version", { stdio: "pipe" })
+          execSync("npx localtunnel --version", { stdio: "pipe", windowsHide: true })
           return true
         }
       case "cloudflared":
-        execSync("cloudflared --version", { stdio: "pipe" })
+        execSync("cloudflared --version", { stdio: "pipe", windowsHide: true })
         return true
       case "ngrok":
-        execSync("ngrok version", { stdio: "pipe" })
+        execSync("ngrok version", { stdio: "pipe", windowsHide: true })
         return true
       case "remotosh":
         try {
-          execSync("remoto --version", { stdio: "pipe" })
+          execSync("remoto --version", { stdio: "pipe", windowsHide: true })
           return true
         } catch {
           return false

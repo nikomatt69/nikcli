@@ -1521,6 +1521,7 @@ function discoverCursorModelsSync(): Record<
       encoding: "utf-8",
       timeout: 15000,
       env: runner.env,
+      windowsHide: true,
     })
     if (out.status !== 0 || !out.stdout) return result
     // Not logged in → CLI returns an auth error / "no models"; keep the static

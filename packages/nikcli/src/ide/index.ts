@@ -71,6 +71,7 @@ export namespace Ide {
     const p = spawn([cmd, "--install-extension", "sst-dev.nikcli"], {
       stdout: "pipe",
       stderr: "pipe",
+      windowsHide: true,
     })
     await p.exited
     const stdout = await new Response(p.stdout).text()
