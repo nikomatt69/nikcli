@@ -64,10 +64,11 @@ export async function listDirectory(directory: string): Promise<DirectoryEntry[]
   return [...directories.sort(byName), ...images.sort(byName)]
 }
 
-/** Display form of a path: `~` for the home directory, `/` kept as is. */
+/** Display form of a path: `~` for the home directory, separators kept as is. */
 export function shortenPath(target: string, home = os.homedir()) {
   if (target === home) return "~"
-  if (target.startsWith(`${home}/`)) return `~${target.slice(home.length)}`
+  const prefix = home.endsWith(path.sep) ? home : `${home}${path.sep}`
+  if (target.startsWith(prefix)) return `~${target.slice(home.length)}`
   return target
 }
 

@@ -60,6 +60,18 @@ describe("background settings", () => {
     expect(cleanSource("   ")).toBe("")
   })
 
+  test("keeps Windows separators instead of unescaping them", () => {
+    const windows = true
+    expect(cleanSource("C:\\Users\\39349\\a.png", "C:\\Users\\39349", windows)).toBe("C:\\Users\\39349\\a.png")
+    expect(cleanSource('"C:\\Users\\39349\\my image.png"', "C:\\Users\\39349", windows)).toBe(
+      "C:\\Users\\39349\\my image.png",
+    )
+    expect(cleanSource("~\\Pictures\\a.png", "C:\\Users\\39349", windows)).toBe(
+      path.join("C:\\Users\\39349", "Pictures\\a.png"),
+    )
+    expect(cleanSource("~", "C:\\Users\\39349", windows)).toBe("C:\\Users\\39349")
+  })
+
   test("cycles opacity within bounds and wraps around", () => {
     expect(clampOpacity(-1)).toBe(OPACITY_MIN)
     expect(stepOpacity(0.3)).toBe(0.35)

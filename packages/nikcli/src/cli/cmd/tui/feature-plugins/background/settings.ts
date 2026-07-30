@@ -68,17 +68,22 @@ export function isImagePath(value: string) {
 /**
  * Normalize whatever a terminal hands us when a file is dropped onto the
  * prompt: surrounding quotes, backslash-escaped spaces, a `~` home prefix.
+ *
+ * The backslash unescape is POSIX-only. On Windows `\` is the path separator,
+ * so stripping it would turn `C:\Users\me\a.png` into `C:Usersmea.png` —
+ * quoting, not escaping, is how cmd/PowerShell pass a path with spaces.
  */
-export function cleanSource(input: string, home = os.homedir()) {
+export function cleanSource(input: string, home = os.homedir(), windows = process.platform === "win32") {
   let value = input.trim()
   if (value.length === 0) return ""
   const quote = value[0]
   if ((quote === '"' || quote === "'") && value.endsWith(quote) && value.length > 1) {
     value = value.slice(1, -1)
   }
-  value = value.replace(/\\(.)/g, "$1").trim()
+  if (!windows) value = value.replace(/\\(.)/g, "$1")
+  value = value.trim()
   if (value === "~") return home
-  if (value.startsWith("~/")) return path.join(home, value.slice(2))
+  if (value.startsWith("~/") || (windows && value.startsWith("~\\"))) return path.join(home, value.slice(2))
   return value
 }
 
