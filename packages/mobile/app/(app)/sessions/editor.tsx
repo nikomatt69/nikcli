@@ -38,7 +38,7 @@ import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
 import { GitFileStatusBadge } from "@/components/git/GitFileStatusBadge"
 import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme, type ThemeColors } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { detectLanguage, highlightCode, DRACULA, type Segment } from "@/lib/syntax"
 import { PRESS_SPRING, useStaggeredAnimation, getAnimatedStyle } from "@/lib/animation"
@@ -397,7 +397,7 @@ export default function EditorScreen() {
         icon={icon}
         onPress={onPress}
         active={opts?.active ?? false}
-        activeBg={opts?.activeBg ?? (isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)")}
+        activeBg={opts?.activeBg ?? hexToRgba(palette.ink, isDark ? 0.15 : 0.1)}
         activeBorder={opts?.activeBorder ?? palette.accent}
         label={opts?.label}
         isDark={isDark}
@@ -433,7 +433,7 @@ export default function EditorScreen() {
             paddingHorizontal: 14,
             overflow: "hidden",
             borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(218,216,209,0.8)",
+            borderBottomColor: isDark ? hexToRgba(palette.ink, 0.07) : hexToRgba(palette.border, 0.8),
           }}
         >
           {/* Layer 1: Full-width glass background */}
@@ -603,14 +603,14 @@ export default function EditorScreen() {
                           inputRange: [0, 1],
                           outputRange: [
                             isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                            isDark ? "rgba(255,255,255,0.45)" : "rgba(20,20,19,0.35)",
+                            hexToRgba(palette.ink, isDark ? 0.45 : 0.35),
                           ],
                         }),
                         backgroundColor: modeProgress.interpolate({
                           inputRange: [0, 1],
                           outputRange: [
                             isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-                            isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.10)",
+                            hexToRgba(palette.ink, isDark ? 0.12 : 0.1),
                           ],
                         }),
                       }}
@@ -650,7 +650,7 @@ export default function EditorScreen() {
                     gap: 8,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.65)",
+                    borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.65),
                     overflow: "hidden",
                     paddingHorizontal: 12,
                     paddingVertical: 9,
@@ -933,7 +933,7 @@ export default function EditorScreen() {
           paddingBottom: bottom + 10,
           overflow: "hidden",
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(218,216,209,0.8)",
+          borderTopColor: isDark ? hexToRgba(palette.ink, 0.07) : hexToRgba(palette.border, 0.8),
         }}
       >
         <AdaptiveBlur
@@ -1027,7 +1027,7 @@ export default function EditorScreen() {
                     gap: 6,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.35)" : "rgba(20,20,19,0.25)",
+                    borderColor: hexToRgba(palette.ink, isDark ? 0.35 : 0.25),
                     overflow: "hidden",
                     paddingHorizontal: 14,
                     paddingVertical: 7,
@@ -1039,14 +1039,14 @@ export default function EditorScreen() {
                     tint={isDark ? "dark" : "light"}
                     intensity={40}
                     style={StyleSheet.absoluteFill}
-                    fallbackColor={isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.10)"}
+                    fallbackColor={hexToRgba(palette.ink, isDark ? 0.15 : 0.1)}
                     pointerEvents="none"
                   />
                   <View
                     style={[
                       StyleSheet.absoluteFill,
                       {
-                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.04)",
+                        backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.04),
                       },
                     ]}
                     pointerEvents="none"
@@ -1101,8 +1101,8 @@ export default function EditorScreen() {
               alignSelf: "flex-start",
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+              borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.18),
+              backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
               paddingHorizontal: 10,
               paddingVertical: 4,
             }}
@@ -1268,7 +1268,7 @@ interface LineNumbersProps {
   nums: number[]
   highlights: Array<number | undefined>
   isDark: boolean
-  palette: { accentLight: string }
+  palette: ThemeColors
   fontSize: number
   lineHeight: number
   fontFamily: string
@@ -1293,7 +1293,7 @@ function LineNumbers({ nums, highlights, isDark, palette, fontSize, lineHeight, 
           <View
             key={n}
             style={{
-              backgroundColor: isActive ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.08)") : "transparent",
+              backgroundColor: isActive ? hexToRgba(palette.ink, isDark ? 0.12 : 0.08) : "transparent",
               borderRadius: 4,
               paddingHorizontal: isActive ? 4 : 0,
               marginHorizontal: isActive ? -4 : 0,

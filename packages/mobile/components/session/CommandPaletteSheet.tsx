@@ -14,7 +14,7 @@ import {
 import { useEffect, useMemo, useRef } from "react"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { Search, Slash, Sparkles } from "lucide-react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export type CommandPaletteItem = {
   id: string
@@ -94,7 +94,10 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
   // grows monotonically otherwise, since each new id is added on first use
   // and never evicted. After the items list changes we diff and drop keys
   // that no longer appear.
-  const itemIdsSignature = props.items.map((it) => it.id).join("|")
+  //
+  // Memoised because it used to map + join every id on every render of the parent screen —
+  // which, during a streaming session, is every token.
+  const itemIdsSignature = useMemo(() => props.items.map((it) => it.id).join("|"), [props.items])
   useEffect(() => {
     const seen = new Set(props.items.map((it) => it.id))
     for (const key of [...itemScales.keys()]) {
@@ -104,6 +107,11 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
     // eslint disable covers the intentional read of props.items inside the
     // callback for diffing.
   }, [itemIdsSignature])
+
+  // A `<Modal visible={false}>` still builds and reconciles its whole subtree — every section
+  // and every row — on each parent render. Bailing out here keeps the closed palette out of
+  // the streaming session's render path entirely.
+  if (!props.visible) return null
 
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
@@ -147,13 +155,13 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                 tint={isDark ? "dark" : "light"}
                 intensity={isDark ? 92 : 80}
                 style={StyleSheet.absoluteFill}
-                fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+                fallbackColor={hexToRgba(palette.surface, isDark ? 0.85 : 0.82)}
               />
               <View
                 style={[
                   StyleSheet.absoluteFill,
                   {
-                    backgroundColor: isDark ? "rgba(17,17,17,0.68)" : "rgba(255,255,255,0.62)",
+                    backgroundColor: hexToRgba(palette.surface, isDark ? 0.68 : 0.62),
                   },
                 ]}
                 pointerEvents="none"
@@ -351,8 +359,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                   borderWidth: 1,
                                   borderColor: item.disabled
                                     ? isDark
-                                      ? "rgba(255,255,255,0.06)"
-                                      : "rgba(218,216,209,0.6)"
+                                      ? hexToRgba(palette.ink, 0.06)
+                                      : hexToRgba(palette.border, 0.6)
                                     : isDark
                                       ? "rgba(255,255,255,0.08)"
                                       : "rgba(255,255,255,0.78)",
@@ -404,8 +412,8 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                                       style={{
                                         borderRadius: 999,
                                         borderWidth: 1,
-                                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
-                                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+                                        borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.18),
+                                        backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
                                         paddingHorizontal: 10,
                                         paddingVertical: 4,
                                       }}

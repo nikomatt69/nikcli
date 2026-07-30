@@ -3,7 +3,7 @@ import { FileCode2, Folder, Globe, Search, Shield, SquareTerminal, type LucideIc
 import { ActionButton } from "@/components/ui/ActionButton"
 import { InfoChip } from "@/components/ui/InfoChip"
 import type { PermissionRequest } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 function permissionIcon(permission: string): LucideIcon {
   const value = permission.toLowerCase()
@@ -60,7 +60,7 @@ export function PermissionCard(props: {
     <View
       className="mb-3 overflow-hidden rounded-[8px] border p-4"
       style={{
-        borderColor: isDark ? "rgba(251,191,36,0.20)" : "rgba(192,110,46,0.20)",
+        borderColor: hexToRgba(palette.warn, 0.2),
         backgroundColor: isDark ? palette.surfaceMuted : palette.panel,
       }}
     >

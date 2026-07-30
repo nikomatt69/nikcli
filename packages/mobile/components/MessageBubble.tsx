@@ -37,7 +37,7 @@ import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
 import { triggerHaptic } from "@/lib/haptics"
 import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/session-artifacts"
 import { useUIStore } from "@/lib/store"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 function latestText(parts: MessageWithParts["parts"]) {
   return parts
@@ -160,7 +160,7 @@ function MessageVideo({ part }: { part: FilePart }) {
             borderRadius: 20,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+            backgroundColor: hexToRgba(palette.ink, 0.08),
           }}
         >
           <Play size={16} color={palette.accentLight} strokeWidth={2.2} />
@@ -331,7 +331,7 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
                 gap: 12,
                 borderRadius: 8,
                 borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
                 backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
                 paddingHorizontal: 12,
                 paddingVertical: 11,
@@ -380,7 +380,7 @@ function MessageArtifactSection(props: { artifacts: SessionPreview[]; onOpen(pre
                   paddingVertical: 8,
                   backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
                   borderWidth: 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                  borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
                   opacity: pressed ? 0.82 : 1,
                 })}
               >
@@ -716,16 +716,12 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                     borderRadius: 8,
                     borderWidth: 1,
                     borderColor: isUser
-                      ? isDark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(20,20,19,0.18)"
+                      ? hexToRgba(palette.ink, isDark ? 0.12 : 0.18)
                       : isDark
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(218,216,209,0.72)",
+                        ? hexToRgba(palette.ink, 0.08)
+                        : hexToRgba(palette.border, 0.72),
                     backgroundColor: isUser
-                      ? isDark
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(20,20,19,0.10)"
+                      ? hexToRgba(palette.ink, isDark ? 0.08 : 0.1)
                       : isDark
                         ? "rgba(255,255,255,0.04)"
                         : "rgba(247,246,242,0.78)",
@@ -740,7 +736,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                         borderRadius: 999,
                         paddingHorizontal: 7,
                         paddingVertical: 2,
-                        backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
+                        backgroundColor: hexToRgba(palette.ink, 0.1),
                       }}
                     >
                       <Text className="text-[10px] font-bold uppercase tracking-wide text-muted">Queued</Text>

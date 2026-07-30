@@ -349,7 +349,7 @@ export function SessionComposer({
 
   const borderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [palette.border, isDark ? "rgba(255,255,255,0.28)" : "rgba(20,20,19,0.28)"],
+    outputRange: [palette.border, hexToRgba(palette.ink, 0.28)],
   })
 
   // Idle: same chrome as the header buttons. With text: fills with ink.
@@ -507,8 +507,8 @@ export function SessionComposer({
                 : showOfflineBanner
                   ? hexToRgba(palette.warn, 0.22)
                   : isDark
-                    ? "rgba(255,255,255,0.10)"
-                    : "rgba(218,216,209,0.72)",
+                    ? hexToRgba(palette.ink, 0.1)
+                    : hexToRgba(palette.border, 0.72),
               backgroundColor: cleaned
                 ? hexToRgba(palette.danger, 0.08)
                 : showOfflineBanner
@@ -575,7 +575,7 @@ export function SessionComposer({
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)",
+                  backgroundColor: hexToRgba(palette.surface, isDark ? 0.94 : 0.96),
                 },
               ]}
               pointerEvents="none"
@@ -747,7 +747,7 @@ export function SessionComposer({
             <AdaptiveBlur
               tint={isDark ? "systemMaterialDark" : "systemMaterialLight"}
               intensity={72}
-              fallbackColor={isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)"}
+              fallbackColor={hexToRgba(palette.surface, isDark ? 0.94 : 0.96)}
               opaqueFallbackColor={isDark ? palette.surface : palette.background}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
@@ -864,7 +864,7 @@ export function SessionComposer({
               style={{
                 height: StyleSheet.hairlineWidth,
                 marginHorizontal: 16,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+                backgroundColor: hexToRgba(palette.ink, 0.08),
               }}
             />
 
@@ -1049,7 +1049,7 @@ export function SessionComposer({
                     style={[
                       styles.segment,
                       {
-                        borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(218,216,209,0.78)",
+                        borderColor: isDark ? hexToRgba(palette.ink, 0.13) : hexToRgba(palette.border, 0.78),
                       },
                     ]}
                   >
@@ -1063,7 +1063,7 @@ export function SessionComposer({
                           // on the UI thread.
                           transform: [{ translateX: segmentPillLeft }],
                           backgroundColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.95)",
-                          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.18)",
+                          borderColor: hexToRgba(palette.ink, 0.18),
                         },
                       ]}
                     />
@@ -1091,7 +1091,7 @@ export function SessionComposer({
                       flexShrink: 0,
                       borderRadius: 999,
                       borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(218,216,209,0.70)",
+                      borderColor: isDark ? hexToRgba(palette.ink, 0.12) : hexToRgba(palette.border, 0.7),
                       backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.62)",
                       paddingHorizontal: 14,
                       paddingVertical: 7,
@@ -1141,7 +1141,7 @@ export function SessionComposer({
                         borderRadius: 999,
                         borderCurve: "continuous",
                         borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
+                        borderColor: isDark ? hexToRgba(palette.ink, 0.16) : hexToRgba(palette.border, 0.82),
                         backgroundColor: isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)",
                         alignItems: "center",
                         justifyContent: "center",
@@ -1168,7 +1168,7 @@ export function SessionComposer({
                         height: 44,
                         borderRadius: 999,
                         borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
+                        borderColor: isDark ? hexToRgba(palette.ink, 0.16) : hexToRgba(palette.border, 0.82),
                         backgroundColor: "transparent",
                         alignItems: "center",
                         justifyContent: "center",

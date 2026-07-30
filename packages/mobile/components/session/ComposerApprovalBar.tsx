@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { ApprovalRequest, PermissionRequest, QuestionInfo, QuestionOption, QuestionRequest } from "@/lib/types"
 
 export type ApprovalBarProps = {
@@ -30,6 +30,8 @@ function getApprovalType(request: ApprovalRequest): ApprovalType {
 }
 
 function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDark: boolean }) {
+  const { palette } = useAppTheme()
+
   if (props.type === "question") {
     return (
       <View
@@ -55,8 +57,8 @@ function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDa
         style={{
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: props.isDark ? "rgba(52,211,153,0.28)" : "rgba(16,185,129,0.22)",
-          backgroundColor: props.isDark ? "rgba(52,211,153,0.10)" : "rgba(16,185,129,0.10)",
+          borderColor: hexToRgba(palette.success, props.isDark ? 0.28 : 0.22),
+          backgroundColor: hexToRgba(palette.success, 0.1),
           padding: 5,
           flexShrink: 0,
         }}
@@ -87,8 +89,8 @@ function ApprovalItemIcon(props: { type: ApprovalType; permission?: string; isDa
       style={{
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: props.isDark ? "rgba(255,180,0,0.22)" : "rgba(192,110,46,0.22)",
-        backgroundColor: props.isDark ? "rgba(255,180,0,0.10)" : "rgba(192,110,46,0.10)",
+        borderColor: hexToRgba(palette.warn, 0.22),
+        backgroundColor: hexToRgba(palette.warn, 0.1),
         padding: 5,
         flexShrink: 0,
       }}
@@ -104,6 +106,7 @@ function PermissionApprovalView(props: {
   onRespond: (response: "once" | "always" | "reject") => void
 }) {
   const { isDark } = props
+  const { palette } = useAppTheme()
   const permissionName = (props.request.permission || "Action")
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase())
@@ -134,7 +137,7 @@ function PermissionApprovalView(props: {
               fontFamily: "monospace",
               fontSize: 10.5,
               fontWeight: "600",
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.06)",
+              backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.06),
             }}
           >
             {command}
@@ -207,6 +210,7 @@ function QuestionApprovalView(props: {
   onSelectAnswer: (questionIndex: number, optionIndex: number, toggle: boolean) => void
 }) {
   const { isDark, selectedAnswers, onSelectAnswer } = props
+  const { palette } = useAppTheme()
   const questions = props.request.questions
   const [currentQuestion, setCurrentQuestion] = useState(0)
 
@@ -277,8 +281,8 @@ function QuestionApprovalView(props: {
                     ? "rgba(96,165,250,0.50)"
                     : "rgba(59,130,246,0.40)"
                   : isDark
-                    ? "rgba(255,255,255,0.14)"
-                    : "rgba(218,216,209,0.78)",
+                    ? hexToRgba(palette.ink, 0.14)
+                    : hexToRgba(palette.border, 0.78),
                 backgroundColor: isSelected
                   ? optionBgSelected
                   : pressed
@@ -488,7 +492,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
     return {
       border: isDark ? "rgba(217,161,74,0.24)" : "rgba(192,110,46,0.28)",
       background: isDark ? "rgba(217,161,74,0.07)" : "rgba(192,110,46,0.07)",
-      tint: isDark ? "rgba(255,180,0,0.04)" : "rgba(192,110,46,0.04)",
+      tint: hexToRgba(palette.warn, 0.04),
     }
   }
 
@@ -619,7 +623,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
               style={({ pressed }) => ({
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(207,45,86,0.22)",
+                borderColor: hexToRgba(palette.danger, isDark ? 0.3 : 0.22),
                 backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(207,45,86,0.08)",
                 padding: 7,
                 opacity: pressed ? 0.7 : 1,

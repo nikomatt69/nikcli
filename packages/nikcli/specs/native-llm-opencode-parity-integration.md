@@ -124,55 +124,56 @@ Sessioni lunghe (native + tool) **aumentano carico TUI** → 02/04 aiutano; **no
 
 ## 5. Piano per fasi
 
-### Fase 0 — P0 native chiusura (~1–2 gg)
+### Fase 0 — P0 native chiusura (~1–2 gg) — ✅ code (2026-07)
 
-| Task                                 | Errori                |
-| ------------------------------------ | --------------------- |
-| Smoke flag on/off                    | No toast su fallback  |
-| `packages/llm` test                  | `provider-error` wire |
-| Aggiornare plan clever-nebula        | Stato P0 done         |
-| Doc: retry native ≠ AI SDK fino P1.2 | Aspettative           |
+| Task                                 | Errori                | Status                     |
+| ------------------------------------ | --------------------- | -------------------------- |
+| Smoke flag on/off                    | No toast su fallback  | 🟡 manual dogfood          |
+| `packages/llm` test                  | `provider-error` wire | 🟡 run before release      |
+| Aggiornare plan clever-nebula        | Stato P0 done         | ✅ 2026-07-30              |
+| Doc: retry native ≠ AI SDK fino P1.2 | Aspettative           | ✅ superseded by F1.2 land |
 
 **Gate:** typecheck + session tests citati; chat + tool manuale.
 
-**Già fatto:** adapter, native-runtime `llmStreamRequest`, branch `llm.ts`, fallback pre-stream.
+**Già fatto:** adapter, native-runtime `llmStreamRequest` + `abortableIterable`, branch `llm.ts`, fallback pre-stream, `l.debug("llm.runtime")`.
 
 ---
 
 ### Fase 1 — Parità errori native (~1 settimana)
 
-| ID  | Task                                                                  |
-| --- | --------------------------------------------------------------------- |
-| 1.1 | OAuth + `status` ↔ `mapToModelRef`                                    |
-| 1.2 | Adapter `provider-error` → errore compatibile `fromError`/`retryable` |
-| 1.3 | Overflow message → path compaction (test obbligatori)                 |
-| 1.4 | Opz. `HeaderTimeoutError` in `fromError`                              |
-| 1.5 | Log/metriche `llm.fallback`, `llm.runtime`                            |
-| 1.6 | Test `native-runtime`; deprecare `native-request.ts`                  |
+| ID  | Task                                                                  | Status (2026-07-30)                   |
+| --- | --------------------------------------------------------------------- | ------------------------------------- |
+| 1.1 | OAuth + `status` ↔ `mapToModelRef`                                    | ✅ ADR: oauth → AI SDK                |
+| 1.2 | Adapter `provider-error` → errore compatibile `fromError`/`retryable` | ✅ `providerErrorToAPICallError`      |
+| 1.3 | Overflow message → path compaction (test obbligatori)                 | ⬜ open                               |
+| 1.4 | Opz. `HeaderTimeoutError` in `fromError`                              | ⬜ optional                           |
+| 1.5 | Log/metriche `llm.fallback`, `llm.runtime`                            | 🟡 `llm.runtime` only                 |
+| 1.6 | Test `native-runtime`; deprecare `native-request.ts`                  | 🟡 tests landed; builder file remains |
 
 **Gate:** test adapter + estensione `retry.test`; `packages/llm` verde.
 
 ---
 
-### Fase 2 — Schema flag parity (~2–3 gg, parallelo)
+### Fase 2 — Schema flag parity (~2–3 gg, parallelo) — ✅
 
-- Zod: `experimental.requests`, `.tui`, `.persist` (**default on** as of misty-moon wave 4, 2026-07-08).
-- `config/features.ts`.
-- Aggiornare `opencode-parity/README.md` con chiavi config.
-- **Nessun** wiring behavior.
+- Zod: `experimental.requests`, `.tui`, `.events` (defaults **off** after 2026-07-09 rollback of misty-moon wave 4).
+- `config/features.ts` + `test/config/features.test.ts`.
+- `opencode-parity/README.md` config key table.
+- Behavior wiring is **per-flag** in TUI/session callers (not “schema only” anymore).
 
 ---
 
-### Fase 3 — Parity B1→B6 (settimane, 1 spec/PR)
+### Fase 3 — Parity B1→B7 (settimane, 1 spec/PR) — mostly ✅
 
-1. **03** throttling
-2. **01** prompt history
-3. **02** cache eviction
-4. **04** virtualization
-5. **06** i18n (parallelo)
-6. **05** modularize (continuo)
+1. **03** throttling — ✅ always-on debounce; LSP latest-only flag
+2. **01** prompt history — ✅ blob store always-on
+3. **02** cache eviction — ✅ behind `tui.cacheEviction`
+4. **04** virtualization — ✅ windowed render behind `tui.messageVirtualization` (default off)
+5. **06** i18n — ✅ scaffold + first surfaces
+6. **05** modularize — 🟡 ongoing (mega-components still large)
+7. **07** TUI v2 selective port — ✅ v1.201.0 (`explorationGrouping`, reconnect, serve ready, SSE encode flag)
 
-Ogni PR: gate F0 session tests + test spec; **default flag on** as of misty-moon wave 4 (2026-07-08). Opt out per flag with `false` in user/project config.
+Ogni PR storica: gate F0 session tests + test spec. **Flags remain default-off** after the 2026-07-09 rollback (do not re-flip all at once).
 
 ---
 
@@ -180,17 +181,18 @@ Ogni PR: gate F0 session tests + test spec; **default flag on** as of misty-moon
 
 - Processor su `LLMEvent` diretto.
 - P3 clever-nebula (cache-policy, protocol cherry-pick).
+- Default-on single flags after soak.
 
 ---
 
 ## 6. Rollback
 
-| Problema          | Azione                             |
-| ----------------- | ---------------------------------- |
-| Stream/tool/retry | `experimental.nativeLlm: false`    |
-| Retry native      | F1.2 o disabilita native           |
-| TUI               | Kill switch flag spec              |
-| Doppio billing    | F1.5; evitare fallback post-stream |
+| Problema          | Azione                                        |
+| ----------------- | --------------------------------------------- |
+| Stream/tool/retry | `experimental.nativeLlm: false`               |
+| Retry native      | F1.2 already landed; disable native if needed |
+| TUI               | Kill switch flag spec                         |
+| Doppio billing    | F1.5; evitare fallback post-stream            |
 
 ---
 
@@ -198,27 +200,29 @@ Ogni PR: gate F0 session tests + test spec; **default flag on** as of misty-moon
 
 ```bash
 cd packages/nikcli && bun run typecheck
-cd packages/nikcli && bun test test/session/llm-event-adapter.test.ts test/session/retry.test.ts test/session/processor-effect-service.test.ts
+cd packages/nikcli && bun test test/session/llm-event-adapter.test.ts test/session/retry.test.ts test/session/processor-effect-service.test.ts test/session/native-runtime.test.ts
 cd packages/llm && bun test   # se llm/adapter
+cd packages/nikcli && bun test test/tui/ test/config/features.test.ts
 ```
 
-Manuale: native off/on; unsupported provider; (post-B1) autocomplete burst.
+Manuale: native off/on; unsupported oauth provider; autocomplete burst; abort mid-stream.
 
 ---
 
-## 8. Decisioni aperte
+## 8. Decisioni (chiuse / aperte)
 
-1. Ricostruire `APICallError` da `provider-error` + `providerMetadata`?
-2. Vietare fallback post-partial-stream (raccomandato: sì).
-3. Namespace config parity: tutto sotto `experimental`?
+1. Ricostruire `APICallError` da `provider-error` + `providerMetadata`? → **Chiusa: sì** (landed).
+2. Vietare fallback post-partial-stream (raccomandato: sì). → **Chiusa: sì** (pre-stream only).
+3. Namespace config parity: tutto sotto `experimental`? → **Chiusa: sì**.
+4. Overflow fatal stream → `ContextOverflowError` in `fromError`? → **Aperta (F1.3)**.
 
 ---
 
-## 9. Priorità immediate
+## 9. Priorità immediate (2026-07-30)
 
-1. **F0** — llm test + doc gap retry.
-2. **F1.2** — propagazione errori senza processor.
-3. **F2** — flags schema.
-4. **B1 (03)** — parity isolata.
+1. **F1.3** — overflow message → compaction / `fromError` case + tests.
+2. **F1.5 complete** — `llm.fallback` reason on pre-stream catch.
+3. **Soak** — single-flag default-on candidates after dogfood (`cacheEviction` first).
+4. **C-B6** — continue modularize mega-components.
 
-**Realismo:** oggi native è **funzionale** ma **retry/overflow** possono divergere da AI SDK fino a F1; parity TUI è **ortogonale** e va per flag indipendenti.
+**Realismo:** native è **funzionale** con retry parity via `APICallError`; **overflow** può ancora divergere da AI SDK fino a F1.3. Parity TUI è **ortogonale**, integrata dietro flag indipendenti.

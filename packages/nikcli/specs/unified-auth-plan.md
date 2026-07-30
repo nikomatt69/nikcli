@@ -259,15 +259,13 @@ for self-hosted servers without an issuer.
 > surfaces: CLI `nikcli account login` + TUI `/signin` dialog (device flow), desktop
 > shell OAuth-primary popover, mobile login OAuth-primary, Studio LoginForm (default
 > `oauth`) + `/dashboard/callback`, site `/user/authorize|callback` (password login
-> already retired with 410). **Blocked on operator actions**: (1) Email Sending not
-> enabled for nikcli.store (`wrangler email sending enable nikcli.store`) — email-code
-> login 500s in production; (2) GitHub OAuth app secrets not set
-> (`wrangler secret put GITHUB_CLIENT_ID|GITHUB_CLIENT_SECRET`, callback
-> `https://auth.nikcli.store/callback/github`) — GitHub login unavailable. W4 remains
-> (inference-dashboard port, console retirement).
+> already retired with 410). W4 remains (inference-dashboard full port, console
+> issuer retirement). **2026-07-30:** design doc `unified-auth.md` status → mostly
+> shipped; core W0–W3 still accurate.
 >
 > **Update (same day, "everything uses OAuth" audit)**: Email Sending enabled by the
-> operator — production email-code login verified working. Issuer verification is now
+> operator — production email-code login verified working. GitHub OAuth app secrets
+> remain an operator concern if GitHub login is required. Issuer verification is now
 > **default-on** in every nikcli server (`identity-auth.ts` defaults to
 > auth.nikcli.store; opt out with `NIKCLI_AUTH_ISSUER=off`; JWKS fetched lazily so
 > offline stays account-free). TUI startup login (`dialog-login.tsx`) is OAuth-first

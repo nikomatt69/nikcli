@@ -9,16 +9,20 @@ How to proceed with **native LLM**, **error propagation**, and **opencode-parity
 
 ## 0. Ground truth (reconcile plans with repo)
 
-| Area               | Plan said                     | Repo today                                                                                                                                                             |
-| ------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native P0          | Partial / broken `LLMRuntime` | **Done:** adapter, `llmStreamRequest`, `llm.ts` branch, tests green                                                                                                    |
-| 03 throttling      | Not started                   | **Mostly done:** `util/signal.ts`, autocomplete 180ms debounce + `createLatestOnlyAsync`, `dialog-tag`, `test/tui/util/signal.test.ts` — **no config flag**, always on |
-| F2 `features(cfg)` | Planned                       | **Not in code**                                                                                                                                                        |
-| F1.2 retry parity  | Gap                           | **`provider-error` → `throw Error` → `UnknownError`**; `retryable` on event ignored                                                                                    |
-| Native `abort`     | —                             | `StreamInput.abort` on AI SDK (`abortSignal`); **`streamRequest` path does not wire abort** into `LLMRequest` / iterator                                               |
-| OAuth native       | P0 unsupported                | `status()` returns unsupported even when `fetch` exists                                                                                                                |
+_Reconciled 2026-07-30 against `packages/nikcli` + `packages/llm`._
 
-**Implication:** next work is **not** “implement 03 from zero” but **harden + gate + measure**, while **F1.2** is the real native risk reducer.
+| Area               | Older plan said               | Repo today (2026-07-30)                                                                                                                                     |
+| ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native P0          | Partial / broken `LLMRuntime` | **Done:** adapter, `llmStreamRequest`, `llm.ts` branch + pre-stream fallback, tests green                                                                   |
+| 03 throttling      | Not started                   | **Done always-on:** `util/signal.ts`, autocomplete debounce + `createLatestOnlyAsync`, `dialog-tag`; LSP latest-only behind `requests.latestOnlyLspRefresh` |
+| F2 `features(cfg)` | Planned                       | **Done:** `src/config/features.ts` + Zod under `experimental.*` + `test/config/features.test.ts`                                                            |
+| F1.2 retry parity  | Gap                           | **Done:** `providerErrorToAPICallError` → `APICallError` with `isRetryable` from event/heuristics (`llm-event-adapter.ts`)                                  |
+| Native `abort`     | —                             | **Partial:** `abortableIterable` races iterator vs `AbortSignal` in `native-runtime.ts`; `@nikcli-ai/llm` `streamRequest` still has no native abort param   |
+| OAuth native       | P0 unsupported                | **ADR kept:** `status()` returns unsupported for `auth.type === "oauth"` → AI SDK fallback (no fetch injection yet)                                         |
+| F1.3 overflow      | Planned                       | **Open:** `ContextOverflowError` class exists; `fromError` has **no** `instanceof ContextOverflowError` case — overflow still mainly finish-step token path |
+| Track C parity     | Sequenced greenfield          | **01/02/03/06 integrated; 04 windowed behind flag; 05 partial; 07 selective port landed (v1.201.0)**                                                        |
+
+**Implication:** F1.2 and F2 are no longer the bottleneck. Highest remaining native leverage is **F1.3 overflow → compaction** and richer **`llm.fallback` reason tags**. TUI work is soak/default-on and modularization, not greenfield.
 
 ---
 
@@ -298,15 +302,15 @@ Max **~400 LOC** per PR except 04 virtualization.
 
 ---
 
-## 12. First commit I would make Monday
+## 12. Highest-leverage next step (updated 2026-07-30)
 
-**PR-1 skeleton:**
+PR-1 (F1.2 adapter + APICallError) **already landed**. Next skeleton:
 
-1. `native-errors.ts` — `providerErrorToThrown(event)` with APICallError + overflow.
-2. `llm-event-adapter.ts` — delegate `provider-error` case.
-3. `message-v2.ts` — `instanceof ContextOverflowError` in `fromError` (wire name already exists).
-4. Tests: adapter + `retry.test` + one table-driven case from Bedrock recorded event JSON.
+1. `llm-event-adapter.ts` / overflow helper — map overflow-shaped `provider-error` messages to `MessageV2.ContextOverflowError`.
+2. `message-v2.ts` — `instanceof ContextOverflowError` in `fromError` (wire name `MessageContextOverflowError` already exists).
+3. Tests: adapter + compaction path + one recorded overflow shape.
+4. Optional: `l.debug("llm.fallback", { reason })` on pre-stream catch in `llm.ts`.
 
-No config, no TUI, no processor.
+No config, no TUI, no processor refactor.
 
-That is the highest-leverage, best-prepared next step given the actual tree.
+That is the highest-leverage remaining native step given the actual tree.

@@ -1,13 +1,30 @@
 # Unified Auth — CLI · Mobile · Studio · Desktop · s.nikcli.store
 
-Status: proposed (2026-07-16). Decision: **yes, build a shared OAuth — but don't invent one.**
-Finish the OpenAuth issuer that already exists in `packages/console`, host it at
-`auth.nikcli.store` (the domain the CLI code already targets), and turn every other
-surface into either an OAuth client or a JWT resource server.
+Status: **mostly shipped** (reconciled 2026-07-30). Original decision date 2026-07-16.
 
-## 1. Current state (verified in code)
+**Decision (kept):** build a shared OAuth — don't invent one. Issuer lives at
+`auth.nikcli.store` (`packages/identity`); surfaces are OAuth clients or JWT resource
+servers via `@nikcli-ai/auth`.
 
-Four independent auth systems exist today:
+**Shipped core (see also `unified-auth-plan.md` W0–W3):**
+
+| Piece                                       | Evidence                                                        |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| Shared verifier + token client              | `packages/auth` (`@nikcli-ai/auth`, `@nikcli-ai/auth/client`)   |
+| Issuer Worker                               | `packages/identity` → `auth.nikcli.store`                       |
+| Server JWT accept + external user provision | `src/server/identity-auth.ts`, `UserDB.ensureExternalUser`      |
+| Default-on issuer verify                    | defaults to auth.nikcli.store; opt out `NIKCLI_AUTH_ISSUER=off` |
+| CLI / TUI device flow                       | `nikcli account login`, TUI sign-in dialogs                     |
+| Studio / mobile / desktop OAuth-primary     | web callback, mobile oauth, app account context                 |
+| Cloud + inference-dashboard JWT verify      | consume `@nikcli-ai/auth`                                       |
+
+**Still open (W4 / ops):** console issuer retirement, optional `NIKCLI_REQUIRE_OAUTH` hardening on hub, long-lived sync transport refresh-on-401, residual self-hosted password paths.
+
+---
+
+## 1. Historical baseline (pre-unification — 2026-07-16)
+
+Four independent auth systems existed at design time:
 
 | Surface                                | Mechanism                                                                                                                                                            | Key files                                                                 |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |

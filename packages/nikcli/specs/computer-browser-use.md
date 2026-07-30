@@ -1,45 +1,74 @@
 # Computer use and browser use
 
-nikcli exposes two first-class tools to both the WebGUI/desktop app and the TUI:
+Status: **implemented** (reconciled 2026-07-30).
 
-- `browser` runs persistent Browser Use Cloud SDK v3 sessions.
-- `computer` captures the local desktop and sends native mouse/keyboard input.
+nikcli exposes two first-class tools to the WebGUI/desktop app, TUI, and agents:
 
-Both are enabled by default, permission-gated, and can be disabled with
-`NIKCLI_DISABLE_BROWSER_TOOL` or `NIKCLI_DISABLE_COMPUTER_TOOL`.
+- `browser` drives a **local headless Chromium** via `@nikcli-ai/browser-control` (Playwright).
+- `computer` drives a **desktop session** via `@nikcli-ai/computer-use` (sandbox Linux desktop by default, optional host mode).
 
-## Browser Use SDK v3
-
-The browser tool uses the official `browser-use-sdk` TypeScript package. Set:
+Both are enabled by default and can be disabled with:
 
 ```sh
-export BROWSER_USE_API_KEY=bu_...
+NIKCLI_DISABLE_BROWSER_TOOL=1
+NIKCLI_DISABLE_COMPUTER_TOOL=1
 ```
 
-Each nikcli conversation owns one Browser Use session. `action=run` dispatches a
-natural-language task with `keepAlive: true`; subsequent runs reuse the same
-browser, cookies, tabs, and page state. The tool streams activity messages into
-tool metadata, including `liveUrl`, `summary`, and `screenshotUrl`, so desktop
-can embed the live browser and the TUI can report the current action.
+(`Flag.NIKCLI_EXPERIMENTAL_BROWSER_TOOL` / `NIKCLI_EXPERIMENTAL_COMPUTER_TOOL` are default-on unless those disable envs are set.)
 
-Browser Use integration skills, scheduled tasks, and temporary email are
-disabled. Optional profile IDs are accepted only when the user intentionally
-wants persisted authentication.
+Permission-gated: computer actions default to permission `ask`.
 
-Actions: `run`, `status`, `messages`, `stop`.
+---
 
-## Native computer driver
+## Browser — `@nikcli-ai/browser-control`
 
-Computer use stays local and does not use Browser Use or another desktop app.
-The driver implements screenshots and synthetic input using platform facilities:
+**Not** Browser Use Cloud. There is no `BROWSER_USE_API_KEY` / `browser-use-sdk` path in the current tree.
 
-- macOS: `screencapture` and System Events; optional `cliclick` for move/drag.
-- Linux/X11: `xdotool` plus `scrot`, ImageMagick, or GNOME Screenshot.
-- Windows: PowerShell, .NET, and User32.
+| Piece  | Location                                  |
+| ------ | ----------------------------------------- |
+| Tool   | `packages/nikcli/src/tool/browser.ts`     |
+| Engine | `packages/browser-control` (`playwright`) |
+| Skill  | `packages/browser-control/skills/`        |
 
-Actions: `screenshot`, `capabilities`, `screen_size`, `mouse_move`,
-`left_click`, `right_click`, `middle_click`, `double_click`,
-`left_click_drag`, `type`, `key`, and `scroll`.
+### Actions
 
-The expected control loop is screenshot, one action, then a fresh screenshot.
-Coordinates are screen pixels. Computer actions default to permission `ask`.
+`start`, `goto`, `click`, `fill`, `hover`, `scroll`, `send`, `wait`, `snapshot`, `resize`, `list`, `info`, `stop`, `remove`, `restart`, `start_recording`, `marker`, `stop_recording`, `recording_data`, `video_path`, `close_all`.
+
+Sessions are named (default: one per conversation). The agent plans selectors/waits itself; this is **not** an autonomous “run this NL task in the cloud” API.
+
+Evidence workflow: screenshots, GIF/MP4, manifest, PR-ready markdown via the package CLI/skill.
+
+---
+
+## Computer — `@nikcli-ai/computer-use`
+
+| Piece  | Location                                     |
+| ------ | -------------------------------------------- |
+| Tool   | `packages/nikcli/src/tool/computer.ts`       |
+| Engine | `packages/computer-use`                      |
+| Skill  | `packages/computer-use/skills/computer-use/` |
+
+### Modes (`computer.mode` config)
+
+| Mode                | Behavior                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| `sandbox` (default) | Isolated Linux desktop in a container (Colima on macOS). No real-time takeover of the user machine. |
+| `host`              | Drives the user’s real desktop. Opt-in only; needs Screen Recording + Accessibility on macOS.       |
+
+### Actions
+
+`screenshot`, `capabilities`, `screen_size`, `mouse_move`, `left_click`, `right_click`, `middle_click`, `double_click`, `left_click_drag`, `type`, `key`, `scroll`, `status`, `stop`.
+
+Control loop: screenshot → decide → action → screenshot. Coordinates are screen pixels from top-left.
+
+Sibling packages with the same control/evidence pattern:
+
+- `@nikcli-ai/browser-control` — headless pages
+- `@nikcli-ai/terminal-control` — PTY-backed TUI sessions
+- `@nikcli-ai/computer-use` — desktop sessions
+
+---
+
+## Historical note
+
+An earlier draft of this spec described **Browser Use Cloud SDK v3** (`browser-use-sdk`, `BROWSER_USE_API_KEY`, NL `run`/`keepAlive`). That product path was **not** shipped. The real implementation is local Playwright + the browser-control daemon/RPC package. Do not reintroduce Cloud-only docs without matching code.

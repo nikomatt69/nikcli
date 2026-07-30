@@ -14,7 +14,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Circle, GitBranch, GitCommit, History, Layers, RefreshCw } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { usePressAnimation } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
 import { GitFileTree } from "./GitFileTree"
 import { GitLineDiffEditor } from "./GitLineDiffEditor"
@@ -22,29 +23,6 @@ import { ActionButton } from "@/components/ui/ActionButton"
 import type { GitBranchInfo, GitFileStatus, GitState, ParsedFileDiff } from "@/lib/types"
 
 type TabType = "changes" | "graph" | "review"
-
-function createPressAnim() {
-  const pressAnim = new Animated.Value(1)
-  return {
-    onPressIn: () => {
-      Animated.spring(pressAnim, {
-        toValue: 0.97,
-        friction: 20,
-        tension: 170,
-        useNativeDriver: true,
-      }).start()
-    },
-    onPressOut: () => {
-      Animated.spring(pressAnim, {
-        toValue: 1,
-        friction: 16,
-        tension: 150,
-        useNativeDriver: true,
-      }).start()
-    },
-    scaleAnim: pressAnim,
-  }
-}
 
 interface GitReviewModalProps {
   visible: boolean
@@ -83,7 +61,7 @@ function MetricPill({ label, value, color }: { label: string; value: number; col
         gap: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.80)",
+        borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.8),
         backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.72)",
         paddingHorizontal: 10,
         paddingVertical: 7,
@@ -172,9 +150,7 @@ function BranchPill({ branch, onPress }: { branch: GitBranchInfo; onPress?: () =
           borderWidth: 1,
           borderColor: active ? palette.accent : palette.border,
           backgroundColor: active
-            ? isDark
-              ? "rgba(255,255,255,0.16)"
-              : "rgba(20,20,19,0.10)"
+            ? hexToRgba(palette.ink, isDark ? 0.16 : 0.1)
             : isDark
               ? "rgba(255,255,255,0.04)"
               : "rgba(255,255,255,0.64)",
@@ -342,9 +318,8 @@ export function GitReviewModal({
     opacity: contentFadeAnim,
   }
 
-  const closeButtonAnim = createPressAnim()
-  const refreshButtonAnim = createPressAnim()
-  const stageAllAnim = createPressAnim()
+  const closeButtonAnim = usePressAnimation()
+  const refreshButtonAnim = usePressAnimation()
 
   const fetchGitData = useCallback(async () => {
     setLoading(true)
@@ -592,7 +567,7 @@ export function GitReviewModal({
         >
           {/* Top row: back, title, actions */}
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12 }}>
-            <Animated.View style={{ transform: [{ scale: closeButtonAnim.scaleAnim }] }}>
+            <Animated.View style={{ transform: [{ scale: closeButtonAnim.scale }] }}>
               <Pressable
                 onPress={onClose}
                 onPressIn={closeButtonAnim.onPressIn}
@@ -632,7 +607,7 @@ export function GitReviewModal({
                 )}
               </View>
             </View>
-            <Animated.View style={{ transform: [{ scale: refreshButtonAnim.scaleAnim }] }}>
+            <Animated.View style={{ transform: [{ scale: refreshButtonAnim.scale }] }}>
               <Pressable
                 onPress={handleRefresh}
                 onPressIn={refreshButtonAnim.onPressIn}
@@ -909,7 +884,7 @@ export function GitReviewModal({
                       borderRadius: 12,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(20,20,19,0.10)",
+                      backgroundColor: hexToRgba(palette.ink, isDark ? 0.16 : 0.1),
                     }}
                   >
                     <GitCommit size={17} color={palette.accentLight} strokeWidth={2.2} />
@@ -1057,11 +1032,7 @@ export function GitReviewModal({
                           paddingVertical: 14,
                           borderBottomWidth: 1,
                           borderBottomColor: palette.border,
-                          backgroundColor: commit.isHead
-                            ? isDark
-                              ? "rgba(255,255,255,0.08)"
-                              : "rgba(20,20,19,0.05)"
-                            : "transparent",
+                          backgroundColor: commit.isHead ? hexToRgba(palette.ink, isDark ? 0.08 : 0.05) : "transparent",
                         })}
                       >
                         <View style={{ width: 36, alignItems: "center" }}>

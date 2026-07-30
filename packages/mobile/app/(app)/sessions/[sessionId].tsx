@@ -103,6 +103,9 @@ export type PendingAttachment = {
 }
 import { useSessionStream } from "@/hooks/use-session-stream"
 
+/** Stable identity so a closed palette never hands its child a fresh array. */
+const EMPTY_PALETTE_ITEMS: CommandPaletteItem[] = []
+
 function upsertMessage(messages: MessageWithParts[], next: MessageWithParts["info"]) {
   const index = messages.findIndex((item) => item.info.id === next.id)
   if (index !== -1) {
@@ -227,7 +230,7 @@ export default function SessionScreen() {
   const chromeButtonStyle = {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
+    borderColor: isDark ? hexToRgba(palette.ink, 0.16) : hexToRgba(palette.border, 0.82),
     overflow: "hidden",
     padding: 12,
   } as const
@@ -304,6 +307,20 @@ export default function SessionScreen() {
     }
   }, [client])
 
+  /**
+   * The git directory is a *string*, so it stays referentially equal across refetches even
+   * though `detail.info` is a freshly parsed object every time.
+   *
+   * Depending on `detail?.info` directly used to spin a network loop: `load()` replaced
+   * `detail`, which gave `loadGitState` a new identity, which changed the `useFocusEffect`
+   * callback below, which re-ran the effect, which called `load()` again — six requests per
+   * turn, as fast as the server could answer, for as long as the screen was open.
+   */
+  const gitDirectory = useMemo(
+    () => (detail?.info ? sessionWorkspaceDirectory(detail.info) : undefined),
+    [detail?.info],
+  )
+
   const loadGitState = useCallback(async () => {
     if (!client) {
       setGitState(null)
@@ -312,8 +329,7 @@ export default function SessionScreen() {
 
     try {
       setGitLoading(true)
-      const gitDir = detail?.info ? sessionWorkspaceDirectory(detail.info) : undefined
-      const gitClient = gitDir ? client.withDirectory(gitDir) : client
+      const gitClient = gitDirectory ? client.withDirectory(gitDirectory) : client
       const state = await gitClient.getGitStatus()
       setGitState(state)
     } catch (error) {
@@ -323,7 +339,7 @@ export default function SessionScreen() {
     } finally {
       setGitLoading(false)
     }
-  }, [client, detail?.info])
+  }, [client, gitDirectory])
 
   const loadPlugins = useCallback(async () => {
     if (!client) {
@@ -1240,6 +1256,11 @@ export default function SessionScreen() {
   }
 
   const paletteItems = useMemo<CommandPaletteItem[]>(() => {
+    // `input` is a dependency, so this rebuilt every command, preset and stash entry — then
+    // filtered them — on every keystroke in the composer, for a list nothing was showing.
+    // The palette is the only consumer, so while it is closed there is nothing to build.
+    if (!commandPaletteOpen) return EMPTY_PALETTE_ITEMS
+
     const localItems: CommandPaletteItem[] = [
       {
         id: "local.scroll.bottom",
@@ -1426,6 +1447,7 @@ export default function SessionScreen() {
     promptPresets,
     sessionBlocked,
     stashEntries,
+    commandPaletteOpen,
   ])
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { forwardRef, type ComponentProps } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
 import { ChevronRight, type LucideIcon } from "lucide-react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { usePressAnimation } from "@/lib/animation"
 
 type SettingsNavCardProps = {
@@ -45,7 +45,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
           borderRadius: 14,
           borderCurve: "continuous",
           opacity: pressed ? 0.9 : 1,
-          backgroundColor: pressed ? (isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.04)") : "transparent",
+          backgroundColor: pressed ? hexToRgba(palette.ink, isDark ? 0.05 : 0.04) : "transparent",
         })}
       >
         <View className="flex-row items-center justify-between gap-3">

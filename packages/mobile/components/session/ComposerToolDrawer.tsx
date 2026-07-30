@@ -40,7 +40,8 @@ import {
 } from "lucide-react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
-import { useAppTheme } from "@/lib/theme"
+import { usePressAnimation } from "@/lib/animation"
+import { hexToRgba, useAppTheme, type ThemeColors } from "@/lib/theme"
 import { formatVariantLabel, type MobileModelOption } from "@/lib/model-catalog"
 
 const styles = StyleSheet.create({
@@ -177,7 +178,23 @@ export function ComposerToolDrawer({
   if (contentScaleAnimRef.current === null) contentScaleAnimRef.current = new Animated.Value(0.94)
   const contentScaleAnim = contentScaleAnimRef.current
 
+  /**
+   * `visible` is the caller's intent; `mounted` keeps the drawer on screen just long enough
+   * to play its exit.
+   *
+   * Without this the drawer's whole tree — four tabs, every tool, skill, MCP server and model
+   * row — was rebuilt and reconciled on every render of the session screen, which during a
+   * streaming reply means every token, for a panel nobody was looking at.
+   */
+  const [mounted, setMounted] = useState(visible)
+
   useEffect(() => {
+    if (visible) setMounted(true)
+  }, [visible])
+
+  useEffect(() => {
+    if (!mounted) return
+
     const animation = visible
       ? Animated.parallel([
           Animated.timing(opacityAnim, {
@@ -213,9 +230,13 @@ export function ComposerToolDrawer({
             useNativeDriver: true,
           }),
         ])
-    animation.start()
+    animation.start(({ finished }) => {
+      if (finished && !visible) setMounted(false)
+    })
     return () => animation.stop()
-  }, [visible, opacityAnim, slideAnim, contentScaleAnim, onClose])
+  }, [visible, mounted, opacityAnim, slideAnim, contentScaleAnim])
+
+  if (!mounted) return null
 
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -227,7 +248,7 @@ export function ComposerToolDrawer({
   const enabledSkills = skills.length
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+    <Modal transparent visible={mounted} animationType="none" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
@@ -270,13 +291,13 @@ export function ComposerToolDrawer({
               tint={isDark ? "dark" : "light"}
               intensity={isDark ? 92 : 80}
               style={StyleSheet.absoluteFill}
-              fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+              fallbackColor={hexToRgba(palette.surface, isDark ? 0.85 : 0.82)}
             />
             <View
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: isDark ? "rgba(17,17,17,0.68)" : "rgba(255,255,255,0.62)",
+                  backgroundColor: hexToRgba(palette.surface, isDark ? 0.68 : 0.62),
                 },
               ]}
               pointerEvents="none"
@@ -297,12 +318,12 @@ export function ComposerToolDrawer({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 8,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+                    backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
                     paddingHorizontal: 10,
                     paddingVertical: 8,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.15)",
+                    borderColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.15),
                   }}
                 >
                   {(() => {
@@ -390,7 +411,7 @@ export function ComposerToolDrawer({
                   flex: 1,
                   overflow: "hidden",
                   borderTopWidth: 1,
-                  borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.10)",
+                  borderTopColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.1),
                 }}
               >
                 {activeTab === "model" && (
@@ -470,7 +491,7 @@ function AttachContent({
             paddingVertical: 14,
             opacity: pressed ? 0.6 : 1,
             borderBottomWidth: i < rows.length - 1 ? StyleSheet.hairlineWidth : 0,
-            borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+            borderBottomColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
           })}
         >
           <View
@@ -480,7 +501,7 @@ function AttachContent({
               borderRadius: 14,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+              backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
             }}
           >
             <row.Icon size={20} color={palette.accentLight} strokeWidth={2} />
@@ -506,7 +527,7 @@ function AnimatedTabButton({
   children: React.ReactNode
   isActive: boolean
   onPress: () => void
-  palette: { accent: string; muted: string; accentLight: string }
+  palette: ThemeColors
   isDark: boolean
 }) {
   const scaleAnimRef = useRef<Animated.Value | null>(null)
@@ -581,7 +602,7 @@ function AnimatedTabButton({
               inputRange: [0, 1],
               outputRange: [0, 1.5],
             }),
-            backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+            backgroundColor: isActive ? palette.accent : hexToRgba(palette.ink, 0.08),
           }}
         >
           {children}
@@ -603,47 +624,26 @@ function AnimatedItemCard({
   index?: number
   borderBottom: boolean
 }) {
-  const scaleAnimRef = useRef<Animated.Value | null>(null)
-  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
-  const scaleAnim = scaleAnimRef.current
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      damping: 20,
-      stiffness: 280,
-      mass: 0.8,
-      useNativeDriver: true,
-    }).start()
-  }
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      damping: 20,
-      stiffness: 280,
-      mass: 0.8,
-      useNativeDriver: true,
-    }).start()
-  }
+  const { palette } = useAppTheme()
+  const press = usePressAnimation()
 
   return (
     <Pressable
       disabled={!onPress}
       onPress={onPress}
-      onPressIn={onPress ? handlePressIn : undefined}
-      onPressOut={onPress ? handlePressOut : undefined}
+      onPressIn={onPress ? press.onPressIn : undefined}
+      onPressOut={onPress ? press.onPressOut : undefined}
     >
       <Animated.View
         style={{
-          transform: [{ scale: scaleAnim }],
+          transform: [{ scale: press.scale }],
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
           paddingHorizontal: 16,
           paddingVertical: 11,
           borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+          borderBottomColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
         }}
       >
         {children}
@@ -678,7 +678,7 @@ function EmptyState({
           width: 52,
           height: 52,
           borderRadius: 26,
-          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+          backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
           alignItems: "center",
           justifyContent: "center",
           marginBottom: 12,
@@ -823,8 +823,8 @@ function ModelContent({
             marginBottom: 12,
             borderRadius: 16,
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.16)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.05)",
+            borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.16),
+            backgroundColor: hexToRgba(palette.ink, 0.05),
             paddingHorizontal: 14,
             paddingVertical: 12,
             opacity: pressed ? 0.72 : 1,
@@ -930,11 +930,7 @@ function ModelContent({
                 borderRadius: 10,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: isActive
-                  ? "rgba(20,20,19,0.18)"
-                  : isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(20,20,19,0.08)",
+                backgroundColor: isActive ? "rgba(20,20,19,0.18)" : hexToRgba(palette.ink, 0.08),
               }}
             >
               <Brain size={15} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2.2} />
@@ -984,7 +980,7 @@ function ModelContent({
                       borderRadius: 6,
                       paddingHorizontal: 7,
                       paddingVertical: 2.5,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+                      backgroundColor: hexToRgba(palette.ink, 0.08),
                       alignSelf: "flex-start",
                     }}
                   >
@@ -1203,7 +1199,7 @@ function SkillsContent({
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+                  backgroundColor: hexToRgba(palette.ink, 0.08),
                 }}
               >
                 <Sparkles size={15} color={palette.accentLight} strokeWidth={2.2} />
@@ -1316,8 +1312,8 @@ function GitContent({
             style={[
               styles.gitBranchChip,
               {
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
-                borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.20)",
+                backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
+                borderColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.2),
               },
             ]}
           >
@@ -1341,7 +1337,7 @@ function GitContent({
               gap: 14,
               padding: 14,
               borderRadius: 16,
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(20,20,19,0.04)",
+              backgroundColor: hexToRgba(palette.ink, 0.04),
               transform: [{ scale: pressed ? 0.97 : 1 }],
               opacity: pressed ? 0.7 : 1,
             })}
@@ -1351,7 +1347,7 @@ function GitContent({
                 width: 42,
                 height: 42,
                 borderRadius: 12,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+                backgroundColor: hexToRgba(palette.ink, 0.08),
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -1435,7 +1431,7 @@ function ToolsContent({
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+                  backgroundColor: hexToRgba(palette.ink, 0.08),
                 }}
               >
                 <Terminal size={15} color={palette.accentLight} strokeWidth={2.2} />

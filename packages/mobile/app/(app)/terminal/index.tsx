@@ -9,7 +9,7 @@ import { Asset } from "expo-asset"
 import { File } from "expo-file-system"
 import * as Clipboard from "expo-clipboard"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -366,7 +366,7 @@ function TabBar({
       style={{
         flexShrink: 0,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(218,216,209,0.7)",
+        borderBottomColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.7),
         backgroundColor: isDark ? "#0d1117" : "#f6f9fc",
         paddingVertical: 6,
       }}

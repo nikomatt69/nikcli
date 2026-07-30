@@ -126,14 +126,8 @@ export default function PermissionsSettingsScreen() {
                     opacity: pressed ? 0.78 : 1,
                     backgroundColor: active
                       ? hexToRgba(palette.accentLight, 0.12)
-                      : isDark
-                        ? "rgba(255,255,255,0.04)"
-                        : "rgba(20,20,19,0.03)",
-                    borderColor: active
-                      ? hexToRgba(palette.accentLight, 0.28)
-                      : isDark
-                        ? "rgba(255,255,255,0.1)"
-                        : "rgba(20,20,19,0.1)",
+                      : hexToRgba(palette.ink, isDark ? 0.04 : 0.03),
+                    borderColor: active ? hexToRgba(palette.accentLight, 0.28) : hexToRgba(palette.ink, 0.1),
                   })}
                 >
                   <View className="flex-row items-center justify-between gap-3">

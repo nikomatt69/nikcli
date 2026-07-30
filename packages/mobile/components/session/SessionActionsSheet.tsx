@@ -13,7 +13,7 @@ import {
 } from "lucide-react-native"
 import { router } from "expo-router"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { useRef } from "react"
 
 type Props = {
@@ -77,9 +77,7 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled
         ? isDark
           ? "rgba(117,116,110,0.09)"
           : "rgba(90,89,84,0.08)"
-        : isDark
-          ? "rgba(255,255,255,0.08)"
-          : "rgba(20,20,19,0.09)"
+        : hexToRgba(palette.ink, isDark ? 0.08 : 0.09)
 
   const iconBorder =
     tone === "success"
@@ -90,9 +88,7 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent", disabled
         ? isDark
           ? "rgba(117,116,110,0.18)"
           : "rgba(90,89,84,0.16)"
-        : isDark
-          ? "rgba(255,255,255,0.12)"
-          : "rgba(20,20,19,0.18)"
+        : hexToRgba(palette.ink, isDark ? 0.12 : 0.18)
 
   const iconColor = tone === "success" ? palette.success : tone === "neutral" ? palette.soft : palette.accentLight
 
@@ -185,8 +181,8 @@ export function SessionActionsSheet({
           className="mt-2 self-start rounded-full px-2.5 py-1"
           style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+            borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.18),
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>

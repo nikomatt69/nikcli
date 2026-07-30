@@ -39,7 +39,7 @@ import {
 import { triggerHaptic } from "@/lib/haptics"
 import { usePressAnimation } from "@/lib/animation"
 import { useUIStore } from "@/lib/store"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export type { SessionPreview } from "@/lib/session-artifacts"
 
@@ -131,7 +131,7 @@ function ProjectWorkspaceCard(props: {
         marginBottom: 14,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.86)",
+        borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.86),
         backgroundColor: isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.86)",
         padding: 14,
         gap: 10,
@@ -163,7 +163,7 @@ function ProjectWorkspaceCard(props: {
               gap: 6,
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+              borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
               paddingHorizontal: 12,
               paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
@@ -183,7 +183,7 @@ function ProjectWorkspaceCard(props: {
               alignItems: "center",
               gap: 6,
               borderRadius: 8,
-              backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
+              backgroundColor: hexToRgba(palette.ink, 0.1),
               paddingHorizontal: 12,
               paddingVertical: 9,
               opacity: pressed ? 0.7 : 1,
@@ -312,7 +312,7 @@ function ArtifactVideoViewport(props: {
 }
 
 export function ArtifactMicroThumb(props: { preview: SessionPreview }) {
-  const { isDark } = useAppTheme()
+  const { isDark, palette } = useAppTheme()
 
   return (
     <View
@@ -322,7 +322,7 @@ export function ArtifactMicroThumb(props: { preview: SessionPreview }) {
         overflow: "hidden",
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+        borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.72),
         backgroundColor: isDark ? "#101010" : "#f8fafc",
       }}
     >
@@ -366,7 +366,7 @@ export function InlineArtifactCard(props: { preview: SessionPreview; onPress(): 
               overflow: "hidden",
               backgroundColor: isDark ? "#101010" : "#f8fafc",
               borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+              borderBottomColor: hexToRgba(palette.ink, 0.08),
             }}
           >
             <PreviewViewport
@@ -514,8 +514,8 @@ export const SessionPreviewSheet = forwardRef<ActionSheetRef, SessionPreviewShee
           className="mt-2 self-start rounded-full px-2.5 py-1"
           style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.18)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
+            borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.18),
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
           }}
         >
           <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>
@@ -635,7 +635,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                     borderRadius: 14,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.08)",
+                    backgroundColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.08),
                     opacity: pressed ? 0.65 : 1,
                   })}
                 >
@@ -662,11 +662,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
                       paddingVertical: 8,
                       alignItems: "center",
                       opacity: pressed ? 0.8 : 1,
-                      backgroundColor: active
-                        ? isDark
-                          ? "rgba(255,255,255,0.10)"
-                          : "rgba(20,20,19,0.08)"
-                        : "transparent",
+                      backgroundColor: active ? hexToRgba(palette.ink, isDark ? 0.1 : 0.08) : "transparent",
                     })}
                   >
                     <Text
@@ -723,7 +719,7 @@ export const ArtifactViewerSheet = forwardRef<ActionSheetRef, ArtifactViewerShee
           <View
             style={{
               borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+              borderTopColor: hexToRgba(palette.ink, 0.08),
               paddingHorizontal: 12,
               paddingTop: 10,
               paddingBottom: 20,
@@ -795,12 +791,8 @@ function ActionChip(props: {
           borderRadius: 12,
           borderCurve: "continuous",
           borderWidth: props.accent ? 0 : StyleSheet.hairlineWidth,
-          borderColor: props.isDark ? "rgba(255,255,255,0.12)" : "rgba(218,216,209,0.85)",
-          backgroundColor: props.accent
-            ? props.palette.ink
-            : props.isDark
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(20,20,19,0.05)",
+          borderColor: props.isDark ? hexToRgba(props.palette.ink, 0.12) : hexToRgba(props.palette.border, 0.85),
+          backgroundColor: props.accent ? props.palette.ink : hexToRgba(props.palette.ink, props.isDark ? 0.06 : 0.05),
           opacity: pressed ? 0.75 : 1,
         })}
       >
@@ -848,7 +840,7 @@ function PreviewCard(props: {
         overflow: "hidden",
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.86)",
+        borderColor: props.isDark ? hexToRgba(props.palette.ink, 0.1) : hexToRgba(props.palette.border, 0.86),
         backgroundColor: props.isDark ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.86)",
       }}
     >
@@ -870,7 +862,7 @@ function PreviewCard(props: {
               overflow: "hidden",
               backgroundColor: props.isDark ? "#101010" : "#f8fafc",
               borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: props.isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+              borderBottomColor: hexToRgba(props.palette.ink, 0.08),
             }}
           >
             <PreviewViewport
@@ -960,7 +952,7 @@ function PreviewCard(props: {
                 gap: 6,
                 borderRadius: 8,
                 borderWidth: 1,
-                borderColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.72)",
+                borderColor: props.isDark ? hexToRgba(props.palette.ink, 0.1) : hexToRgba(props.palette.border, 0.72),
                 paddingVertical: 9,
                 opacity: pressed ? 0.7 : 1,
               })}
@@ -988,7 +980,7 @@ function PreviewCard(props: {
                 justifyContent: "center",
                 gap: 6,
                 borderRadius: 8,
-                backgroundColor: props.isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.10)",
+                backgroundColor: hexToRgba(props.palette.ink, 0.1),
                 paddingVertical: 9,
                 opacity: pressed ? 0.7 : 1,
               })}

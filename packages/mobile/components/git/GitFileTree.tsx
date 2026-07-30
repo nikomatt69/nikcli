@@ -3,7 +3,7 @@ import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native
 import { ChevronRight, Folder, FolderOpen } from "lucide-react-native"
 import type { GitFileStatus, ParsedFileDiff } from "@/lib/types"
 import { GitFileStatusBadge } from "./GitFileStatusBadge"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 interface FileTreeItem {
   name: string
@@ -161,7 +161,7 @@ function TreeItem({
           paddingLeft: depth * 16 + 12,
           paddingRight: 12,
           paddingVertical: 8,
-          backgroundColor: isSelected ? (isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,19,0.08)") : "transparent",
+          backgroundColor: isSelected ? hexToRgba(palette.ink, isDark ? 0.15 : 0.08) : "transparent",
           borderRadius: 10,
           marginHorizontal: 8,
           marginVertical: 1,

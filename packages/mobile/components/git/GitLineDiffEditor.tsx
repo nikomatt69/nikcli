@@ -4,7 +4,7 @@ import { Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text
 import * as Clipboard from "expo-clipboard"
 import { ChevronDown, ChevronUp, Copy, Expand } from "lucide-react-native"
 import type { DiffHunk, DiffLine, ParsedFileDiff } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
 
@@ -239,19 +239,12 @@ export function GitLineDiffEditor({
               borderRadius: 8,
               backgroundColor:
                 index === selectedFileIndex
-                  ? isDark
-                    ? "rgba(255,255,255,0.2)"
-                    : "rgba(20,20,19,0.1)"
+                  ? hexToRgba(palette.ink, isDark ? 0.2 : 0.1)
                   : isDark
                     ? "rgba(255,255,255,0.05)"
                     : "rgba(0,0,0,0.04)",
               borderWidth: 1,
-              borderColor:
-                index === selectedFileIndex
-                  ? isDark
-                    ? "rgba(255,255,255,0.4)"
-                    : "rgba(20,20,19,0.2)"
-                  : palette.border,
+              borderColor: index === selectedFileIndex ? hexToRgba(palette.ink, isDark ? 0.4 : 0.2) : palette.border,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

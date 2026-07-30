@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
-import { Animated, Modal, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
-import { AdaptiveBlur } from "@/components/GlassView"
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { SheetShell } from "@/components/ui/SheetShell"
 import {
   AlertTriangle,
   Check,
@@ -20,8 +20,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react-native"
-import { Ease, SPRING_SETTLE, usePrefersReducedMotion, usePressAnimation } from "@/lib/animation"
-import { useAppTheme } from "@/lib/theme"
+import { usePressAnimation } from "@/lib/animation"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
+import { type as typeStyle } from "@/lib/typography"
 
 export type ActionSheetRef = {
   present(): void
@@ -50,16 +51,6 @@ function iconForName(name: ActionSheetIconName): LucideIcon {
   return Wrench
 }
 
-/** Progressive resistance past the top edge — real things slow before they stop. */
-function rubberband(overshoot: number, dimension: number, constant = 0.55) {
-  return (overshoot * dimension * constant) / (dimension + constant * overshoot)
-}
-
-/** Projects where a flick would coast to (UIScrollView-style exponential decay). */
-function projectMomentum(velocityPxPerSecond: number, decelerationRate = 0.998) {
-  return ((velocityPxPerSecond / 1000) * decelerationRate) / (1 - decelerationRate)
-}
-
 function snapPointHeight(value: string | number | undefined, windowHeight: number): number {
   if (typeof value === "number") return Math.min(value, windowHeight - 32)
   if (typeof value === "string" && value.endsWith("%")) {
@@ -78,42 +69,17 @@ export const ActionSheet = React.forwardRef<
   }
 >(function ActionSheet({ children, snapPoints = [280], onVisibilityChange }, ref) {
   const { height: windowHeight } = useWindowDimensions()
-  const { palette, isDark } = useAppTheme()
-  const prefersReducedMotion = usePrefersReducedMotion()
   const [visible, setVisible] = useState(false)
-  const translateYRef = useRef<Animated.Value | null>(null)
-  if (translateYRef.current === null) translateYRef.current = new Animated.Value(36)
-  const translateY = translateYRef.current
-  const opacityRef = useRef<Animated.Value | null>(null)
-  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
-  const opacity = opacityRef.current
+  const pendingDismissal = useRef<(() => void) | undefined>(undefined)
   const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
 
-  const dismiss = useCallback(
+  const close = useCallback(
     (onDismissed?: () => void) => {
+      pendingDismissal.current = onDismissed
       onVisibilityChange?.(false)
-      opacity.stopAnimation()
-      translateY.stopAnimation()
-      if (prefersReducedMotion) translateY.setValue(0)
-
-      const animation = Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: prefersReducedMotion ? 120 : 160,
-          easing: Ease.accelerate,
-          useNativeDriver: true,
-        }),
-        prefersReducedMotion
-          ? Animated.timing(translateY, { toValue: 0, duration: 120, useNativeDriver: true })
-          : Animated.spring(translateY, { toValue: 36, ...SPRING_SETTLE }),
-      ])
-      animation.start(({ finished }) => {
-        if (!finished) return
-        setVisible(false)
-        onDismissed?.()
-      })
+      setVisible(false)
     },
-    [onVisibilityChange, opacity, prefersReducedMotion, translateY],
+    [onVisibilityChange],
   )
 
   useImperativeHandle(
@@ -123,167 +89,25 @@ export const ActionSheet = React.forwardRef<
         onVisibilityChange?.(true)
         setVisible(true)
       },
-      dismiss,
+      dismiss: close,
     }),
-    [dismiss, onVisibilityChange],
+    [close, onVisibilityChange],
   )
-
-  const dismissWithVelocity = useCallback(
-    (velocityPxPerSecond: number) => {
-      onVisibilityChange?.(false)
-      const animation = Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 180,
-          easing: Ease.accelerate,
-          useNativeDriver: true,
-        }),
-        // Carry the finger's release velocity into the exit so there is no seam
-        // between dragging and animating.
-        Animated.spring(translateY, {
-          toValue: contentHeight,
-          velocity: velocityPxPerSecond,
-          ...SPRING_SETTLE,
-        }),
-      ])
-      animation.start(({ finished }) => {
-        if (!finished) return
-        setVisible(false)
-      })
-    },
-    [contentHeight, onVisibilityChange, opacity, translateY],
-  )
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderMove: (_event, gesture) => {
-          // 1:1 with the finger downward; rubber-band upward past the rest point.
-          translateY.setValue(gesture.dy >= 0 ? gesture.dy : -rubberband(-gesture.dy, contentHeight))
-        },
-        onPanResponderRelease: (_event, gesture) => {
-          const releaseVelocity = gesture.vy * 1000
-          const projected = gesture.dy + projectMomentum(releaseVelocity)
-          if (projected > contentHeight * 0.4 || releaseVelocity > 900) {
-            dismissWithVelocity(Math.max(releaseVelocity, 0))
-            return
-          }
-          Animated.spring(translateY, {
-            toValue: 0,
-            velocity: releaseVelocity,
-            ...SPRING_SETTLE,
-          }).start()
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(translateY, { toValue: 0, ...SPRING_SETTLE }).start()
-        },
-      }),
-    [contentHeight, dismissWithVelocity, translateY],
-  )
-
-  useEffect(() => {
-    if (!visible) return
-
-    opacity.setValue(0)
-    translateY.setValue(prefersReducedMotion ? 0 : 36)
-    const animation = Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: prefersReducedMotion ? 140 : 180,
-        easing: Ease.decelerate,
-        useNativeDriver: true,
-      }),
-      prefersReducedMotion
-        ? Animated.timing(translateY, { toValue: 0, duration: 140, useNativeDriver: true })
-        : Animated.spring(translateY, { toValue: 0, ...SPRING_SETTLE }),
-    ])
-    animation.start()
-    return () => animation.stop()
-  }, [opacity, prefersReducedMotion, translateY, visible])
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={() => dismiss()}>
-      <View style={{ flex: 1, justifyContent: "flex-end" }}>
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            { opacity, backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(20,20,19,0.18)" },
-          ]}
-        />
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Dismiss actions"
-          style={StyleSheet.absoluteFill}
-          onPress={() => dismiss()}
-        />
-
-        {/* Glass sheet — shadow on outer, clip on inner */}
-        <Animated.View
-          style={{
-            opacity,
-            transform: [{ translateY }],
-            height: contentHeight,
-            backgroundColor: palette.surface,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            borderCurve: "continuous",
-            shadowColor: palette.shadow,
-            shadowOpacity: isDark ? 0.28 : 0.12,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: -5 },
-            elevation: 16,
-          }}
-        >
-          {/* Glass fill — clipped to border radius */}
-          <View
-            style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" }]}
-            pointerEvents="none"
-          >
-            <AdaptiveBlur
-              tint={isDark ? "dark" : "light"}
-              intensity={isDark ? 90 : 75}
-              style={StyleSheet.absoluteFill}
-              fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
-              opaqueFallbackColor={isDark ? "#111111" : "#FFFFFF"}
-            />
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  borderTopLeftRadius: 28,
-                  borderTopRightRadius: 28,
-                  borderWidth: 1,
-                  borderBottomWidth: 0,
-                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.64)",
-                },
-              ]}
-            />
-          </View>
-
-          {/* Grabber doubles as the drag-to-dismiss handle; content below keeps its own scrolling. */}
-          <View
-            {...panResponder.panHandlers}
-            accessibilityRole="adjustable"
-            accessibilityLabel="Sheet handle"
-            accessibilityHint="Drag down to dismiss"
-            style={{ paddingTop: 9, paddingBottom: 8, alignItems: "center" }}
-          >
-            <View
-              style={{
-                width: 36,
-                height: 5,
-                borderRadius: 999,
-                backgroundColor: isDark ? "rgba(255,255,255,0.22)" : "rgba(20,20,19,0.18)",
-              }}
-            />
-          </View>
-          <View style={{ flex: 1, width: "100%", paddingBottom: 8 }}>{children}</View>
-        </Animated.View>
-      </View>
-    </Modal>
+    <SheetShell
+      visible={visible}
+      height={contentHeight}
+      accessibilityLabel="Actions"
+      onClose={() => close()}
+      onDismissed={() => {
+        const callback = pendingDismissal.current
+        pendingDismissal.current = undefined
+        callback?.()
+      }}
+    >
+      <View style={{ flex: 1, width: "100%", paddingBottom: 8 }}>{children}</View>
+    </SheetShell>
   )
 })
 
@@ -308,6 +132,8 @@ export function ActionSheetItem({
   const { palette, isDark } = useAppTheme()
   const press = usePressAnimation()
   const effectiveTone = destructive ? "destructive" : tone
+  // The tint is always derived from the tone's own token, so every theme keeps a coherent
+  // relationship between an action's icon and the well it sits in.
   const iconColor =
     effectiveTone === "destructive"
       ? palette.danger
@@ -316,30 +142,9 @@ export function ActionSheetItem({
         : effectiveTone === "neutral"
           ? palette.soft
           : palette.accentLight
-  const iconBackground =
-    effectiveTone === "destructive"
-      ? isDark
-        ? "rgba(248,113,113,0.10)"
-        : "rgba(207,45,86,0.08)"
-      : effectiveTone === "success"
-        ? isDark
-          ? "rgba(52,211,153,0.08)"
-          : "rgba(22,163,74,0.08)"
-        : isDark
-          ? "rgba(255,255,255,0.07)"
-          : "rgba(20,20,19,0.08)"
-  const iconBorder =
-    effectiveTone === "destructive"
-      ? isDark
-        ? "rgba(248,113,113,0.20)"
-        : "rgba(207,45,86,0.18)"
-      : effectiveTone === "success"
-        ? isDark
-          ? "rgba(52,211,153,0.18)"
-          : "rgba(22,163,74,0.16)"
-        : isDark
-          ? "rgba(255,255,255,0.11)"
-          : "rgba(20,20,19,0.16)"
+  const wellSource = effectiveTone === "destructive" || effectiveTone === "success" ? iconColor : palette.ink
+  const iconBackground = hexToRgba(wellSource, isDark ? 0.09 : 0.08)
+  const iconBorder = hexToRgba(wellSource, isDark ? 0.18 : 0.16)
 
   return (
     <Animated.View style={{ width: "100%", transform: [{ scale: press.scale }] }}>
@@ -384,16 +189,13 @@ export function ActionSheetItem({
             numberOfLines={1}
             style={{
               color: destructive ? palette.danger : palette.ink,
-              fontSize: 15,
-              lineHeight: 20,
-              fontWeight: "600",
-              letterSpacing: -0.2,
+              ...typeStyle(15, { weight: "600", leadingScale: 0.99 }),
             }}
           >
             {label || "Untitled action"}
           </Text>
           {description ? (
-            <Text numberOfLines={1} style={{ marginTop: 2, color: palette.soft, fontSize: 12.5, lineHeight: 16 }}>
+            <Text numberOfLines={1} style={{ marginTop: 2, color: palette.soft, ...typeStyle(12.5) }}>
               {description}
             </Text>
           ) : null}
@@ -409,7 +211,7 @@ export function ActionSheetDivider() {
     <View
       style={{
         height: StyleSheet.hairlineWidth,
-        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : palette.border,
+        backgroundColor: isDark ? hexToRgba(palette.ink, 0.08) : palette.border,
         marginHorizontal: 16,
         marginVertical: 4,
       }}

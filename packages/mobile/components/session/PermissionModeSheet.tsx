@@ -114,7 +114,7 @@ export function PermissionModeSheet({ sheetRef, mode, saving = false, onSelect, 
               justifyContent: "center",
               backgroundColor: isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)",
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(218,216,209,0.82)",
+              borderColor: isDark ? hexToRgba(palette.ink, 0.16) : hexToRgba(palette.border, 0.82),
             }}
           >
             <Settings size={18} color={palette.ink} strokeWidth={2.1} />

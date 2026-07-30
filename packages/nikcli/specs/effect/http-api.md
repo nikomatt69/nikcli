@@ -2,6 +2,18 @@
 
 Plan for replacing instance Hono route implementations with Effect `HttpApi` while preserving behavior, OpenAPI, and SDK output during the transition.
 
+## Status snapshot (2026-07-30)
+
+| Item                               | Reality                                                                                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NIKCLI_EXPERIMENTAL_HTTPAPI`      | **Default-on** (`flag.ts`: unset → `true`; opt out with `0`/`false`)                                                                                                         |
+| Mount model                        | Still primarily **in-Hono bridge** (`httpapi/bridge.ts`) after instance middleware; `server/backend.ts` exists for experimental fork but production path keeps Hono + bridge |
+| Contract parity                    | **2026-07-14:** `PublicApi` generation contract ≈ Hono op count; default SDK source still Hono until domain Effect Schemas finish (plugin types)                             |
+| TUI / session / loop / mission / … | Large subset **bridged** when flag on — see `httpapi-bridge-inventory.md`                                                                                                    |
+| Still Hono-only / special          | companion HTML, mobile runtime surface, PTY WebSocket connect, sync SSE stream, some streaming prompts                                                                       |
+
+Do **not** claim “flag off by default” or “bridge does not cover TUI” — both are stale.
+
 ## End State
 
 - JSON route contracts and handlers live in `src/server/httpapi/*`.
@@ -12,7 +24,7 @@ Plan for replacing instance Hono route implementations with Effect `HttpApi` whi
 
 ## Current State
 
-Current branch audit, 2026-07-07:
+Current branch audit, 2026-07-07 (superseded notes marked below; prefer status snapshot):
 
 - `src/server/routes/instance/*` does not exist on this branch.
 - `src/server/httpapi/question.ts` contains a real Effect `HttpApi` route slice for question list/reply/reject, covered by `bun test test/server/httpapi-question.test.ts`.
@@ -31,15 +43,15 @@ Current branch audit, 2026-07-07:
 - `src/server/httpapi/session.ts` contains a real Effect `HttpApi` route slice for session create/update/delete/fork/abort/revert/unrevert, read-only session routes, and non-streaming message/part JSON routes: `POST /session`, `DELETE /session/:sessionID`, `PATCH /session/:sessionID`, `POST /session/:sessionID/fork`, `POST /session/:sessionID/abort`, `POST /session/:sessionID/revert`, `POST /session/:sessionID/unrevert`, `GET /session`, `GET /session/status`, `GET /session/:sessionID`, `GET /session/:sessionID/children`, `GET /session/:sessionID/todo`, `GET /session/:sessionID/diff`, `GET /session/:sessionID/message`, `GET /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID/part/:partID`, and `PATCH /session/:sessionID/message/:messageID/part/:partID`.
 - `src/server/httpapi/workspace.ts` contains a real Effect `HttpApi` route slice for workspace routes: `GET /experimental/workspace/adaptor`, `GET /experimental/workspace`, `POST /experimental/workspace/:id`, `DELETE /experimental/workspace/:id`, `POST /experimental/workspace/:id/restore`, and `POST /experimental/workspace/:id/session/:sessionID/restore`.
 - `src/server/httpapi/public.ts` composes the implemented slices into one `PublicHttpApi`, covered by `bun test test/server/httpapi-public.test.ts`.
-- `src/server/httpapi/bridge.ts` mounts the implemented top-level, config, doctor, experimental, file, MCP, project, provider, question, permission, session, TUI, loop, and workspace slices through `HttpRouter.toWebHandler` when `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, and passes the active instance into the Effect context. The bridge matches exact method/path patterns so unported routes fall through to legacy Hono even while the flag is enabled. Coverage: `bun test test/server/`.
+- `src/server/httpapi/bridge.ts` mounts the implemented top-level, config, doctor, experimental, file, MCP, project, provider, question, permission, session, TUI, loop, mission, and workspace slices through `HttpRouter.toWebHandler` when HttpApi is enabled (default-on), and passes the active instance into the Effect context. The bridge matches exact method/path patterns so unported routes fall through to legacy Hono even while the flag is enabled. Coverage: `bun test test/server/`.
 - The active server route files are still `src/server/routes/*.ts` and import Hono / `hono-openapi`.
-- The current mount is an in-Hono experimental bridge after the existing instance/workspace middleware. The full backend-fork-at-startup path is still open.
-- The route checklist below remains unchecked until the corresponding Effect `HttpApi` route is mounted through the experimental backend/bridge and covered by tests or SDK/OpenAPI verification.
+- The current mount is an in-Hono bridge after the existing instance/workspace middleware. A pure Effect-only server (no Hono) is still the end state, not the default process shape.
+- The route checklist below remains the bar for **deleting** Hono implementations; bridged ≠ Hono deleted.
 
-Historical target state to reintroduce intentionally:
+Historical target notes (partially outdated — see status snapshot):
 
-- `NIKCLI_EXPERIMENTAL_HTTPAPI` selects the backend at server startup. Default is still `hono`.
-- `server/backend.ts` picks one of `effect-httpapi` or `hono`; `server.ts` builds either a pure Effect `HttpApi` web handler or the legacy Hono app accordingly. The earlier in-Hono "bridge" model has been replaced by this fork-at-startup.
+- `NIKCLI_EXPERIMENTAL_HTTPAPI` selects bridge/backend behavior. **Default is on** as of the post-jsonSafe soak; unset env → enabled.
+- `server/backend.ts` exists and can describe hono vs effect-httpapi; production still relies on Hono app + bridge rather than a pure Effect listener.
 - Legacy Hono routes remain mounted for the `hono` backend and remain the source for `hono-openapi` SDK generation.
 - An Effect `HttpApi` OpenAPI surface exists (`OpenApi.fromApi(PublicApi)` in `cli/cmd/generate.ts --httpapi`, `NIKCLI_SDK_OPENAPI=httpapi` in `packages/sdk/js/script/build.ts`) but is **opt-in**. The 2026-07-08 flip-all attempt was rolled back 2026-07-09: at the time the Effect spec covered only the bridged route subset (23 SDK classes vs 78 from Hono), so generating the SDK from it dropped namespaces the TUI depends on and crashed it at startup.
 - **2026-07-14 — full contract parity reached.** `public.ts` now exports two APIs: `PublicHttpApi.Api` (the _served_ subset — every group has handlers and is bridged) and `PublicApi` (the _generation contract_ — served groups plus contract-only groups with schemas but no handlers, for routes Hono still serves). Contract-only groups: `sync` (realigned to the real `routes/sync.ts` surface; the four invented Wave 4 endpoints `POST /sync/start|replay`, `GET /sync/history|snapshot` were dropped from spec, bridge, and generated clients — no callers existed), `auth`, `config-management`, `session-prompt`, `share`, `events`, `workspace-extra`, `users`, `pty-connect` (`httpapi/contract-extra.ts`), and `mobile` (all 84 `/mobile/*` ops, `httpapi/mobile.ts`). Every endpoint pins its operationId to the Hono value via `OpenApi.Identifier` (65 pre-existing endpoints were annotated too), and `generate.ts` injects the global `directory`/`workspace` optional query params that Hono's middleware adds to every operation. Result: Hono 280 ops vs Effect 281 (the extra one is `DELETE /session/:id/message/:messageID`, a real bridged endpoint Hono never described), **0 missing ops, 0 operationId mismatches**, and the hey-api SDK generated from the Effect spec has the **identical 78-class/method tree**. Repo-wide typecheck against the Effect-generated SDK passes everywhere except `@nikcli-ai/plugin`, which imports named domain types (`Event`, `Message`, `UserMessage`, `Part`, `Todo`, `Model`, `SessionStatus`) that the contract still types as `Schema.Unknown`. **The default SDK source stays Hono until those domain types exist as Effect Schemas (schema split)** — that is now the only flip blocker.

@@ -1,24 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import {
-  Alert,
-  Animated,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from "react-native"
+import { Alert, Animated, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
 import * as DocumentPicker from "expo-document-picker"
 import { File } from "expo-file-system"
 import * as ImagePicker from "expo-image-picker"
 import { Camera, ChevronRight, FileText, FolderOpen, Image, Search, X } from "lucide-react-native"
-import { AdaptiveBlur } from "@/components/GlassView"
+import { SheetShell, useSheetScrollProps } from "@/components/ui/SheetShell"
+import { usePressAnimation } from "@/lib/animation"
 import { triggerHaptic } from "@/lib/haptics"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 
 export type AttachmentPickerSheetProps = {
   visible: boolean
@@ -67,35 +56,8 @@ const ATTACHMENT_ITEMS: AttachmentItemDef[] = [
 
 export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPickerSheetProps) {
   const { palette, isDark } = useAppTheme()
-  const { width: SCREEN_WIDTH } = useWindowDimensions()
   const [searchQuery, setSearchQuery] = useState("")
-  const slideAnimRef = useRef<Animated.Value | null>(null)
-  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
-  const slideAnim = slideAnimRef.current
-  const opacityAnimRef = useRef<Animated.Value | null>(null)
-  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
-  const opacityAnim = opacityAnimRef.current
-  const cardScaleAnimRef = useRef<Animated.Value | null>(null)
-  if (cardScaleAnimRef.current === null) cardScaleAnimRef.current = new Animated.Value(0.92)
-  const cardScaleAnim = cardScaleAnimRef.current
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 1, damping: 20, stiffness: 260, mass: 0.8, useNativeDriver: true }),
-        Animated.spring(cardScaleAnim, { toValue: 1, damping: 22, stiffness: 300, mass: 0.7, useNativeDriver: true }),
-      ]).start()
-    } else {
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(cardScaleAnim, { toValue: 0.92, duration: 160, useNativeDriver: true }),
-      ]).start()
-    }
-  }, [visible, opacityAnim, slideAnim, cardScaleAnim])
-
-  const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_WIDTH * 0.4, 0] })
+  const sheetScroll = useSheetScrollProps()
 
   const filteredItems = ATTACHMENT_ITEMS.filter(
     (item) =>
@@ -182,193 +144,135 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
   }
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
-        <View style={{ flex: 1 }}>
-          <AdaptiveBlur
-            tint={isDark ? "dark" : "light"}
-            intensity={isDark ? 20 : 14}
-            style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(20,20,19,0.20)"}
+    <SheetShell visible={visible} onClose={onClose} variant="inset" accessibilityLabel="Attach">
+      <View style={{ padding: 16 }}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "700",
+                  color: palette.accentLight,
+                  letterSpacing: 1.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                Attach
+              </Text>
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: palette.ink }}>Choose a source</Text>
+            <Text style={{ fontSize: 14, lineHeight: 20, color: palette.soft }}>
+              Attach files, photos, or documents to your message.
+            </Text>
+          </View>
+
+          <CloseButton onPress={onClose} />
+        </View>
+
+        <View
+          style={[
+            styles.searchBar,
+            {
+              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.80)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)",
+            },
+          ]}
+        >
+          <Search size={16} color={palette.muted} strokeWidth={2.1} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search attachment types..."
+            placeholderTextColor={palette.muted}
+            selectionColor={palette.accent}
+            keyboardAppearance={isDark ? "dark" : "light"}
+            autoCapitalize="none"
+            style={{ flex: 1, fontSize: 15, color: palette.ink }}
           />
-          <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.65)" : "rgba(20,20,19,0.16)" }]}
-          />
+        </View>
 
-          <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <ScrollView style={{ marginTop: 16, maxHeight: 400 }} showsVerticalScrollIndicator={false} {...sheetScroll}>
+          <View style={{ gap: 10 }}>
+            {filteredItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <AnimatedItemCard
+                  key={item.id}
+                  onPress={() => itemActions[item.id]?.()}
+                  isDark={isDark}
+                  palette={palette}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
+                    <View
+                      style={[
+                        styles.itemIcon,
+                        {
+                          backgroundColor: hexToRgba(palette.ink, isDark ? 0.08 : 0.09),
+                          borderColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.16),
+                        },
+                      ]}
+                    >
+                      <Icon size={22} color={palette.accentLight} strokeWidth={2} />
+                    </View>
 
-          <Animated.View style={{ paddingHorizontal: 16, paddingBottom: 24, transform: [{ translateY }] }}>
-            <Animated.View
-              style={[
-                styles.card,
-                {
-                  transform: [{ scale: cardScaleAnim }],
-                  shadowOpacity: isDark ? 0.45 : 0.14,
-                },
-              ]}
-            >
-              <AdaptiveBlur
-                tint={isDark ? "dark" : "light"}
-                intensity={isDark ? 92 : 80}
-                style={StyleSheet.absoluteFill}
-                fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
-              />
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  { backgroundColor: isDark ? "rgba(17,17,17,0.68)" : "rgba(255,255,255,0.62)" },
-                ]}
-                pointerEvents="none"
-              />
-
-              <View style={{ padding: 16 }}>
-                <View style={styles.headerRow}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text
-                        style={{
-                          fontSize: 10,
-                          fontWeight: "700",
-                          color: palette.accentLight,
-                          letterSpacing: 1.8,
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        Attach
+                    <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}>{item.title}</Text>
+                      <Text style={{ fontSize: 12, lineHeight: 18, color: palette.soft }} numberOfLines={2}>
+                        {item.description}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 18, fontWeight: "600", color: palette.ink }}>Choose a source</Text>
-                    <Text style={{ fontSize: 14, lineHeight: 20, color: palette.soft }}>
-                      Attach files, photos, or documents to your message.
-                    </Text>
+
+                    <ChevronRight size={18} color={palette.muted} strokeWidth={2} />
                   </View>
+                </AnimatedItemCard>
+              )
+            })}
 
-                  <CloseButton onPress={onClose} />
-                </View>
-
-                <View
-                  style={[
-                    styles.searchBar,
-                    {
-                      borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.80)",
-                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)",
-                    },
-                  ]}
-                >
-                  <Search size={16} color={palette.muted} strokeWidth={2.1} />
-                  <TextInput
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder="Search attachment types..."
-                    placeholderTextColor={palette.muted}
-                    selectionColor={palette.accent}
-                    keyboardAppearance={isDark ? "dark" : "light"}
-                    autoCapitalize="none"
-                    style={{ flex: 1, fontSize: 15, color: palette.ink }}
-                  />
-                </View>
-
-                <ScrollView style={{ marginTop: 16, maxHeight: 400 }} showsVerticalScrollIndicator={false}>
-                  <View style={{ gap: 10 }}>
-                    {filteredItems.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <AnimatedItemCard
-                          key={item.id}
-                          onPress={() => itemActions[item.id]?.()}
-                          isDark={isDark}
-                          palette={palette}
-                        >
-                          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
-                            <View
-                              style={[
-                                styles.itemIcon,
-                                {
-                                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.09)",
-                                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.16)",
-                                },
-                              ]}
-                            >
-                              <Icon size={22} color={palette.accentLight} strokeWidth={2} />
-                            </View>
-
-                            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                              <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink }}>{item.title}</Text>
-                              <Text style={{ fontSize: 12, lineHeight: 18, color: palette.soft }} numberOfLines={2}>
-                                {item.description}
-                              </Text>
-                            </View>
-
-                            <ChevronRight size={18} color={palette.muted} strokeWidth={2} />
-                          </View>
-                        </AnimatedItemCard>
-                      )
-                    })}
-
-                    {filteredItems.length === 0 && (
-                      <View
-                        style={[
-                          styles.emptyCard,
-                          {
-                            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
-                            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
-                          },
-                        ]}
-                      >
-                        <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>
-                          No attachments found
-                        </Text>
-                        <Text style={{ marginTop: 4, fontSize: 12, lineHeight: 20, color: palette.soft }}>
-                          Try a different search term.
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </ScrollView>
+            {filteredItems.length === 0 && (
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.45)",
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>No attachments found</Text>
+                <Text style={{ marginTop: 4, fontSize: 12, lineHeight: 20, color: palette.soft }}>
+                  Try a different search term.
+                </Text>
               </View>
-            </Animated.View>
-          </Animated.View>
-        </View>
-      </Animated.View>
-    </Modal>
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </SheetShell>
   )
 }
 
 function CloseButton({ onPress }: { onPress: () => void }) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnimRef = useRef<Animated.Value | null>(null)
-  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
-  const scaleAnim = scaleAnimRef.current
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.9,
-      damping: 20,
-      stiffness: 300,
-      mass: 0.7,
-      useNativeDriver: true,
-    }).start()
-  }
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      damping: 20,
-      stiffness: 300,
-      mass: 0.7,
-      useNativeDriver: true,
-    }).start()
-  }
+  const press = usePressAnimation()
 
   return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+    <Pressable
+      onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      accessibilityRole="button"
+      accessibilityLabel="Close attachment picker"
+      // The glyph is 14px inside a 34px circle — the touch target has to be bigger than the paint.
+      hitSlop={10}
+    >
       <Animated.View
         style={[
           styles.closeBtn,
           {
-            transform: [{ scale: scaleAnim }],
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
-            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
+            transform: [{ scale: press.scale }],
+            borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.16),
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.05),
           },
         ]}
       >

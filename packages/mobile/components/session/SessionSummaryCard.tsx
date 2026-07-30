@@ -28,9 +28,7 @@ function MetricTile(props: { label: string; value: string; tone?: "neutral" | "a
   const { palette, isDark } = useAppTheme()
   const backgroundColor =
     props.tone === "accent"
-      ? isDark
-        ? "rgba(255,255,255,0.06)"
-        : "rgba(20,20,19,0.08)"
+      ? hexToRgba(palette.ink, isDark ? 0.06 : 0.08)
       : props.tone === "good"
         ? isDark
           ? "rgba(212,212,212,0.06)"
@@ -50,7 +48,7 @@ function MetricTile(props: { label: string; value: string; tone?: "neutral" | "a
         minWidth: 0,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.7)",
+        borderColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.7),
         backgroundColor,
         paddingHorizontal: 12,
         paddingVertical: 11,

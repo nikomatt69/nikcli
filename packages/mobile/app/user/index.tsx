@@ -32,7 +32,7 @@ import {
 } from "lucide-react-native"
 import { useServer } from "@/lib/server-context"
 import { userDelete, userList, userUpdate, type UserProfile } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
 import { InfoChip } from "@/components/ui/InfoChip"
@@ -111,19 +111,21 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
         }),
       ]),
     )
+    // `opacity` is native-animatable, so this loop has no business on the JS thread:
+    // running it there bridged a value every frame, forever, for a decorative glow.
     const glow = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
           duration: 2200,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(glowAnim, {
           toValue: 0.4,
           duration: 2200,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     )
@@ -165,8 +167,8 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
           alignItems: "center",
           justifyContent: "center",
           borderWidth: 2,
-          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.35)",
-          backgroundColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.12)",
+          borderColor: hexToRgba(palette.ink, isDark ? 0.18 : 0.35),
+          backgroundColor: hexToRgba(palette.ink, isDark ? 0.18 : 0.12),
           overflow: "hidden",
         }}
       >
@@ -174,7 +176,7 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
           tint={isDark ? "dark" : "light"}
           intensity={40}
           style={StyleSheet.absoluteFill}
-          fallbackColor={isDark ? "rgba(255,255,255,0.18)" : "rgba(20,20,19,0.12)"}
+          fallbackColor={hexToRgba(palette.ink, isDark ? 0.18 : 0.12)}
         />
         <Text
           style={{
@@ -205,15 +207,15 @@ function Avatar({ user, size = 38 }: { user: UserProfile; size?: number }) {
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1.5,
-        borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(20,20,19,0.30)",
-        backgroundColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(20,20,19,0.10)",
+        borderColor: hexToRgba(palette.ink, isDark ? 0.14 : 0.3),
+        backgroundColor: hexToRgba(palette.ink, isDark ? 0.14 : 0.1),
       }}
     >
       <AdaptiveBlur
         tint={isDark ? "dark" : "light"}
         intensity={30}
         style={StyleSheet.absoluteFill}
-        fallbackColor={isDark ? "rgba(255,255,255,0.14)" : "rgba(20,20,19,0.10)"}
+        fallbackColor={hexToRgba(palette.ink, isDark ? 0.14 : 0.1)}
       />
       <Text
         style={{
@@ -285,7 +287,7 @@ function StatCard({ icon, label, value, trend, color, animation, index }: StatCa
           borderRadius: 20,
           padding: 14,
           borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.80)",
+          borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.8),
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.25 : 0.08,
           shadowRadius: 14,
@@ -387,7 +389,7 @@ function AnimatedProgressBar({ label, value, max = 100, color, animation, delay 
         style={{
           height: 6,
           borderRadius: 3,
-          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.60)",
+          backgroundColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.6),
           overflow: "hidden",
         }}
       >
@@ -467,8 +469,8 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
               ? "rgba(255,215,0,0.12)"
               : "rgba(255,215,0,0.15)"
             : isDark
-              ? "rgba(255,255,255,0.04)"
-              : "rgba(218,216,209,0.30)",
+              ? hexToRgba(palette.ink, 0.04)
+              : hexToRgba(palette.border, 0.3),
           borderWidth: 1,
           borderColor: earned ? (isDark ? "rgba(255,215,0,0.30)" : "rgba(255,215,0,0.40)") : "transparent",
           minWidth: 80,
@@ -484,8 +486,8 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
                 ? "rgba(255,215,0,0.20)"
                 : "rgba(255,215,0,0.25)"
               : isDark
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(218,216,209,0.40)",
+                ? hexToRgba(palette.ink, 0.06)
+                : hexToRgba(palette.border, 0.4),
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -556,8 +558,8 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
         style={{
           borderRadius: 8,
           borderWidth: 1.5,
-          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.25)",
-          backgroundColor: isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.92)",
+          borderColor: hexToRgba(palette.ink, isDark ? 0.12 : 0.25),
+          backgroundColor: hexToRgba(palette.surface, isDark ? 0.85 : 0.92),
           overflow: "hidden",
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.3 : 0.1,
@@ -574,7 +576,7 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
             right: 0,
             height: 80,
             opacity: shimmerOpacity,
-            backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.10)",
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.05 : 0.1),
           }}
         />
         <View
@@ -624,7 +626,7 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
         style={{
           borderRadius: 8,
           borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.90)",
+          borderColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.9),
           backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
           overflow: "hidden",
           marginBottom: 16,
@@ -911,7 +913,7 @@ export default function UserScreen() {
             style={{
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.90)",
+              borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.9),
               backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
               overflow: "hidden",
               marginBottom: 16,

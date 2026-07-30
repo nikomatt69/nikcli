@@ -14,7 +14,7 @@ import {
 } from "lucide-react-native"
 import type { ToolPart } from "@/lib/types"
 import { usePrefersReducedMotion } from "@/lib/animation"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { useCopiedFeedback } from "@/hooks/use-copied-feedback"
 
 function toolIcon(toolName: string): LucideIcon {
@@ -150,8 +150,8 @@ export function ToolCallView(props: { part: ToolPart }) {
             ? "rgba(143,143,143,0.16)"
             : "rgba(207,45,86,0.22)"
           : isDark
-            ? "rgba(255,255,255,0.08)"
-            : "rgba(218,216,209,0.72)"
+            ? hexToRgba(palette.ink, 0.08)
+            : hexToRgba(palette.border, 0.72)
 
   async function copyOutput() {
     if (!output) return
@@ -163,7 +163,7 @@ export function ToolCallView(props: { part: ToolPart }) {
     <View
       className="min-w-0 overflow-hidden rounded-[20px] border"
       style={{
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(218,216,209,0.78)",
+        borderColor: isDark ? hexToRgba(palette.ink, 0.08) : hexToRgba(palette.border, 0.78),
         backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(247,246,242,0.78)",
       }}
     >

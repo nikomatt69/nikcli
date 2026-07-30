@@ -266,14 +266,15 @@ The phases below describe the **as-shipped** state at the time of writing.
   engine drives `/goal` on `ralph`; iteration via the existing goal loop.
   Server-side engine at `src/loop/{schema,manager,engine}.ts` plus HTTP routes at
   `src/server/routes/loop.ts`; SDK regenerated to expose the endpoints.
-- **Phase 2 — Live UX** ✅ **DONE** (abort is partial — see §9). Sidebar panel
-  with real-time status from the event bus; pause/resume controls; live
-  "next-fire" counter on the manager.
-- **Phase 3 — Power** ⏳ **PARTIAL**. `maxRuns` temporal cap is done (enforced
-  server-side in `engine.runOnce`). **TODO**: `kind: "event"` triggers,
-  `requireApproval` guardrail, `maxCostUSD` cost guardrail, "Promote active
-  goal to loop" action, real in-flight abort (currently a no-op that just
-  clears local state).
+- **Phase 2 — Live UX** ✅ **DONE**. Sidebar panel with real-time status from the
+  event bus; pause/resume controls; live "next-fire" counter on the manager.
+- **Phase 3 — Power** ⏳ **PARTIAL** (reconciled 2026-07-30). `maxRuns` temporal
+  cap is done (enforced server-side in `engine.runOnce`). **In-flight abort is
+  real** — `LoopEngine.abort` / run slots use `AbortController` and best-effort
+  `SessionPrompt` cancel (`src/loop/engine.ts`); not a local-state-only no-op.
+  **Still TODO**: `kind: "event"` triggers, `requireApproval` guardrail,
+  `maxCostUSD` cost guardrail, "Promote active goal to loop" action. Worktree
+  sandboxing for loops/missions also landed separately (`feat(worktree)`).
 - **Phase 4 — Meta** ✅ **DONE**. "Generate loop from description" (server route
   `POST /loop/generate` + SDK method `client.loop.generate()`) and a template
   library (`babysit-pr`, `keep-tests-green`, `docs-sync`, `nightly-qa`). The

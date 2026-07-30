@@ -1,7 +1,7 @@
 import { useRef } from "react"
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { ChevronRight, FileCode, Folder, FileText } from "lucide-react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { PRESS_SPRING } from "@/lib/animation"
 
@@ -90,9 +90,9 @@ export function EditorBreadcrumb(props: {
                 hitSlop={6}
                 style={{
                   ...styles.segment,
-                  backgroundColor: isLast ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(20,20,19,0.10)") : "transparent",
+                  backgroundColor: isLast ? hexToRgba(palette.ink, isDark ? 0.12 : 0.1) : "transparent",
                   borderWidth: isLast ? 1 : 0,
-                  borderColor: isLast ? (isDark ? "rgba(255,255,255,0.30)" : "rgba(20,20,19,0.20)") : "transparent",
+                  borderColor: isLast ? hexToRgba(palette.ink, isDark ? 0.3 : 0.2) : "transparent",
                 }}
               >
                 {!isLast && <SegmentIcon name={segment} size={11} color={palette.muted} />}

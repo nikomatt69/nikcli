@@ -1,41 +1,53 @@
 # Gap analysis: nikcli vs effect-smol (v4) — 2026-07-07
 
+> **Superseded snapshot.** Point-in-time audit from 2026-07-07. Several claims below are
+> **stale** as of 2026-07-30 — read the “Post-audit corrections” section first, then treat
+> the original body as historical evidence, not current truth. Prefer
+> `http-api.md` status snapshot, `httpapi-bridge-inventory.md`, and `ROADMAP.md`.
+
 Audit of `packages/nikcli/src` against `specs/effect/*`, `specs/opencode-parity/*`, and the
 `.opencode/references/effect-smol` reference tree (packages `effect`, `sql`, `platform-bun`,
 plus `migration/*.md`). Two questions: what is still missing, and what can we adopt from
 effect-smol to improve `src`.
 
-Branch: `live-main`. Baseline: `effect@4.0.0-beta.65` + `@effect/platform-bun@4.0.0-beta.65`
-are already the installed versions — nikcli is **on** effect-smol/v4, so "adopt" means using
-more of the library we already ship, not upgrading.
+Branch: `live-main`. Baseline at audit: `effect@4.0.0-beta.65` (later bumped; see httpapi-codegen).
+nikcli is **on** effect-smol/v4, so "adopt" means using more of the library we already ship.
 
-## Where we are (verified)
+## Post-audit corrections (2026-07-30)
+
+| 2026-07-07 claim                                             | 2026-07-30 reality                                                                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| HttpApi only behind explicit `=1`                            | `NIKCLI_EXPERIMENTAL_HTTPAPI` **default-on**                                                                       |
+| `/mission`, `/analytics`, `/global`, VCS writes never ported | Many are **bridged** (mission, analytics, global, vcs.apply/status/diff — see inventory)                           |
+| Effect OpenAPI surface not present                           | Present (`generate --httpapi`, `NIKCLI_SDK_OPENAPI=httpapi`); **default SDK still Hono** until domain Schema split |
+| `server/backend.ts` does not exist                           | **Exists**; production still Hono + in-process bridge                                                              |
+| 04 virtualization render flip not wired                      | **Wired** behind `tui.messageVirtualization`                                                                       |
+| Auth only Basic on bridge                                    | Issuer JWT via `@nikcli-ai/auth` / `identity-auth.ts` on server path                                               |
+
+**Still open (honest residual gaps):** pure Effect server (delete Hono), mobile/PTY-WS/sync-SSE specials, Effect `Config`/`HttpClient`/`ChildProcess` adoption counts, mega-TUI modularization, plugin SDK named domain types.
+
+## Where we are (verified at audit time — 2026-07-07)
 
 - 228 files import from the `effect` barrel; usage is dominated by `Effect` (197), `Schema`
   (94), `Layer` (68), `Context` (50). The service-shape migration checklist in `guide.md` is
   essentially complete except `SyncEvent` and `Workspace` (both deferred).
-- `src/server/httpapi/` has 18 route slices; the bridge carries **123** regex-matched routes
-  plus specials (`/event` SSE, streaming prompt) behind `NIKCLI_EXPERIMENTAL_HTTPAPI=1`.
+- `src/server/httpapi/` had 18 route slices; the bridge carried **123** regex-matched routes
+  plus specials (`/event` SSE, streaming prompt) behind HttpApi (now default-on).
 - `specs/effect/todo.md` P0 (typed errors, rendering, HTTP contracts) is done; P2–P5 are open.
 
-## What is missing (gaps, by weight)
+## What is missing (gaps, by weight) — original 2026-07-07 text
 
 ### 1. HTTP layer completion (specs/effect/http-api.md + specs/httpapi-bridge-inventory.md)
 
-- **The route inventory only covers the opencode-parity surface.** nikcli-only Hono groups
-  were never classified or ported: `/mission`, `/analytics`, `/global`, `/connectors`,
-  `/chatbot`, `/companion`, `/users`, `/mobile`, VCS writes (`vcs.apply`, `vcs.status`,
-  `vcs.diff.raw`), `/app/*`, `/experimental/managed-worktree`, and session
-  instructions/context/monitor/background routes. "Complete exact Hono route inventory" is
-  still unchecked in the spec checklist.
-- **OpenAPI/SDK flip.** The Effect OpenAPI surface (`--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`)
-  is not present on this branch; known shape gaps remain (~169 branded `pattern`s, ~107
-  per-property `description`s, `Event.*`/`SyncEvent.*` naming, dedup collisions). Hono cannot
-  be deleted until this flips.
-- **Backend fork-at-startup.** `server/backend.ts` (hono vs effect-httpapi) does not exist;
-  the bridge is still in-Hono. Auth via Effect `Config` and `auth_token` as a real
-  `HttpApiSecurity` scheme are unchecked.
-- **Sync routes** blocked on `Sync.Service` (F1.3); `Workspace`/`SyncEvent` services deferred.
+> Several bullets in this subsection were closed after the audit — see corrections table.
+
+- **The route inventory only covers the opencode-parity surface.** _(stale partial)_ nikcli-only
+  groups have since been classified; many are bridged. Remaining Hono-only: companion HTML,
+  mobile runtime, PTY WS, sync SSE, some streaming.
+- **OpenAPI/SDK flip.** Effect surface exists; default SDK generation remains Hono until domain
+  Effect Schemas replace `Schema.Unknown` for plugin-imported types.
+- **Backend fork-at-startup.** `server/backend.ts` exists; pure Effect listener still not default.
+- **Sync routes** contract-only / SSE special; not full Effect service rewrite.
 - **PTY websocket** unported (classified `special`).
 
 ### 2. Effect foundations still Promise/global-shaped (todo.md P2–P5)

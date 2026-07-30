@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native"
 import { Clock, FileCode2, FolderSearch, Hash, Search, X } from "lucide-react-native"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { SearchMatch } from "@/lib/types"
 import { triggerHaptic } from "@/lib/haptics"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -119,7 +119,7 @@ function Metric({ icon, label }: { icon: React.ReactNode; label: string }) {
         borderRadius: 999,
         paddingHorizontal: 9,
         paddingVertical: 5,
-        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.08)",
+        backgroundColor: hexToRgba(palette.ink, isDark ? 0.06 : 0.08),
       }}
     >
       {icon}
@@ -159,8 +159,8 @@ function SearchResultRow({
   palette: ReturnType<typeof useAppTheme>["palette"]
   onSelect: (file: string, line: number) => void
 }) {
-  const pressedBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.06)"
-  const iconBackground = isDark ? "rgba(255,255,255,0.07)" : "rgba(20,20,19,0.08)"
+  const pressedBackground = hexToRgba(palette.ink, 0.06)
+  const iconBackground = hexToRgba(palette.ink, isDark ? 0.07 : 0.08)
   const borderColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"
   const rowStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
@@ -384,13 +384,10 @@ export function FileSearchSheet(props: {
                 tint={isDark ? "dark" : "light"}
                 intensity={isDark ? 90 : 75}
                 style={StyleSheet.absoluteFill}
-                fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+                fallbackColor={hexToRgba(palette.surface, isDark ? 0.85 : 0.82)}
               />
               <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  { backgroundColor: isDark ? "rgba(17,17,17,0.58)" : "rgba(255,255,255,0.52)" },
-                ]}
+                style={[StyleSheet.absoluteFill, { backgroundColor: hexToRgba(palette.surface, isDark ? 0.58 : 0.52) }]}
               />
             </View>
 
@@ -426,7 +423,7 @@ export function FileSearchSheet(props: {
                     alignItems: "center",
                     justifyContent: "center",
                     opacity: pressed ? 0.65 : 1,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(20,20,19,0.06)",
+                    backgroundColor: hexToRgba(palette.ink, isDark ? 0.07 : 0.06),
                   })}
                 >
                   <X size={16} color={palette.ink} strokeWidth={2.2} />
@@ -568,11 +565,7 @@ export function FileSearchSheet(props: {
                       gap: 10,
                       paddingHorizontal: 16,
                       paddingVertical: 10,
-                      backgroundColor: pressed
-                        ? isDark
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(20,20,19,0.05)"
-                        : "transparent",
+                      backgroundColor: pressed ? hexToRgba(palette.ink, 0.05) : "transparent",
                       borderBottomWidth: StyleSheet.hairlineWidth,
                       borderBottomColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
                     })}

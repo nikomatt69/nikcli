@@ -1,8 +1,11 @@
 # HttpApi bridge inventory (Hono vs `implementedRoutes`)
 
-Audit date: 2026-07-08 (refreshed). Source of truth for bridged paths: `src/server/httpapi/bridge.ts` (`implementedRoutes` + `handle()` specials).
+Audit date: 2026-07-08 (refreshed; flag default reconciled 2026-07-30).
+Source of truth for bridged paths: `src/server/httpapi/bridge.ts` (`implementedRoutes` + `handle()` specials).
 
-When `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, `server.ts` forwards to `HttpApiBridge.handle` only if `HttpApiBridge.supports(path, method)` is true; otherwise Hono handles the request.
+`NIKCLI_EXPERIMENTAL_HTTPAPI` is **default-on** (unset → enabled; opt out with `0`/`false`).
+When enabled, `server.ts` forwards to `HttpApiBridge.handle` only if
+`HttpApiBridge.supports(path, method)` is true; otherwise Hono handles the request.
 
 ## Special handling (not only regex table)
 

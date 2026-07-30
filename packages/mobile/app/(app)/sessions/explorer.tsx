@@ -31,7 +31,7 @@ import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { triggerHaptic } from "@/lib/haptics"
 import { useServer } from "@/lib/server-context"
-import { useAppTheme } from "@/lib/theme"
+import { hexToRgba, useAppTheme } from "@/lib/theme"
 import type { FileNode, GitState } from "@/lib/types"
 
 type TreeNode = FileNode & {
@@ -71,8 +71,8 @@ function FileFilterRow({
   palette: ReturnType<typeof useAppTheme>["palette"]
   onOpen: (path: string) => void
 }) {
-  const iconBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(20,20,19,0.07)"
-  const pressedBackground = isDark ? "rgba(255,255,255,0.05)" : "rgba(20,20,19,0.05)"
+  const iconBackground = hexToRgba(palette.ink, isDark ? 0.06 : 0.07)
+  const pressedBackground = hexToRgba(palette.ink, 0.05)
   const borderColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"
   const rowStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
@@ -171,7 +171,7 @@ function ChromeIconButton({
   disabled?: boolean
 }) {
   const { palette, isDark } = useAppTheme()
-  const borderColor = isDark ? "rgba(255,255,255,0.13)" : "rgba(218,216,209,0.82)"
+  const borderColor = isDark ? hexToRgba(palette.ink, 0.13) : hexToRgba(palette.border, 0.82)
   const backgroundColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)"
   const buttonStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => ({
@@ -241,7 +241,7 @@ function GitTreeMarker({ status, dot }: { status?: "added" | "modified" | "delet
 }
 
 function IndentGuides({ depth }: { depth: number }) {
-  const { isDark } = useAppTheme()
+  const { isDark, palette } = useAppTheme()
   if (depth <= 0) return null
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -254,7 +254,7 @@ function IndentGuides({ depth }: { depth: number }) {
             top: 0,
             bottom: 0,
             width: StyleSheet.hairlineWidth,
-            backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,20,19,0.13)",
+            backgroundColor: hexToRgba(palette.ink, isDark ? 0.1 : 0.13),
           }}
         />
       ))}
@@ -281,11 +281,9 @@ function ExplorerStat({
         gap: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: active ? (isDark ? "rgba(255,255,255,0.34)" : "rgba(20,20,19,0.22)") : palette.border,
+        borderColor: active ? hexToRgba(palette.ink, isDark ? 0.34 : 0.22) : palette.border,
         backgroundColor: active
-          ? isDark
-            ? "rgba(255,255,255,0.12)"
-            : "rgba(20,20,19,0.08)"
+          ? hexToRgba(palette.ink, isDark ? 0.12 : 0.08)
           : isDark
             ? "rgba(255,255,255,0.045)"
             : "rgba(255,255,255,0.65)",
@@ -622,11 +620,9 @@ export default function ExplorerScreen() {
             borderRadius: 8,
             borderCurve: "continuous",
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(20,20,19,0.08)",
+            borderColor: hexToRgba(palette.ink, 0.08),
             backgroundColor: pressed
-              ? isDark
-                ? "rgba(255,255,255,0.09)"
-                : "rgba(20,20,19,0.08)"
+              ? hexToRgba(palette.ink, isDark ? 0.09 : 0.08)
               : isDark
                 ? "rgba(255,255,255,0.035)"
                 : "rgba(255,255,255,0.72)",
@@ -695,11 +691,7 @@ export default function ExplorerScreen() {
                   borderRadius: 9,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: pressed
-                    ? isDark
-                      ? "rgba(255,255,255,0.12)"
-                      : "rgba(20,20,19,0.08)"
-                    : "transparent",
+                  backgroundColor: pressed ? hexToRgba(palette.ink, isDark ? 0.12 : 0.08) : "transparent",
                 })}
               >
                 <FolderOpen size={14} color={palette.muted} strokeWidth={2.1} />
@@ -768,7 +760,7 @@ export default function ExplorerScreen() {
             borderRadius: 12,
             borderCurve: "continuous",
             borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(218,216,209,0.7)",
+            borderColor: isDark ? hexToRgba(palette.ink, 0.1) : hexToRgba(palette.border, 0.7),
             backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)",
             paddingHorizontal: 12,
             paddingVertical: 8,
