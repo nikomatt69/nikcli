@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.215.0 (July 2026)
+
+## Core
+
+- Enhance image decoding capabilities with WebP support (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(image): enhance image decoding capabilities with WebP support
+
 ## v1.204.0 (July 2026)
 
 ## Core

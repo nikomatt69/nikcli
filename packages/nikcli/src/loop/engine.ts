@@ -410,13 +410,7 @@ async function executeRun(
           firstError = "aborted"
           break
         }
-        const result = await (stageExecutorOverride ?? executeStage)(
-          def,
-          stage,
-          sessionID,
-          signal,
-          sandbox?.directory,
-        )
+        const result = await (stageExecutorOverride ?? executeStage)(def, stage, sessionID, signal, sandbox?.directory)
         if (!result.ok) {
           firstError = result.error ?? `Stage "${stage.name}" failed`
           break

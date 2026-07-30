@@ -79,8 +79,10 @@ const modelRef = Route.model<ModelInput>(route, {
   baseURL: profile.baseURL,
 })
 
-export const model = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<OpenRouterProviderOptionsInput> =>
-  modelRef(withOpenRouterOptions(String(modelID), options))
+export const model = (
+  modelID: string | ModelID,
+  options: ModelOptions = {},
+): TypedModelRef<OpenRouterProviderOptionsInput> => modelRef(withOpenRouterOptions(String(modelID), options))
 
 export const provider = Provider.make({
   id,

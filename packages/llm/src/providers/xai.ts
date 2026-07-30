@@ -25,7 +25,10 @@ const chatModel = OpenAICompatibleChat.model
 
 const auth = (options: ProviderAuthOption<"optional">) => AuthOptions.bearer(options, "XAI_API_KEY")
 
-export const responses = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<XAIProviderOptionsInput> => {
+export const responses = (
+  modelID: string | ModelID,
+  options: ModelOptions = {},
+): TypedModelRef<XAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
   return responsesModel(
     withXAIOptions(String(modelID), {

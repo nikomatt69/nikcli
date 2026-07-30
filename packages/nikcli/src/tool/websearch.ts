@@ -78,10 +78,7 @@ export const WebSearchTool = Tool.define("websearch", async () => {
       }
 
       return {
-        output:
-          results.length > 0
-            ? format(results)
-            : "No search results found. Please try a different query.",
+        output: results.length > 0 ? format(results) : "No search results found. Please try a different query.",
         title: `Web search: ${params.query}`,
         metadata: { provider: provider.id, results: results.length },
       }

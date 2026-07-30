@@ -39,8 +39,7 @@ export const brandAssets: BrandAssetGroup[] = [
   {
     id: "wordmarks",
     title: "Wordmarks",
-    blurb:
-      "Pixel-perfect wordmark rasterizations. Transparent background, 632×206 native, ≈3.07:1 aspect.",
+    blurb: "Pixel-perfect wordmark rasterizations. Transparent background, 632×206 native, ≈3.07:1 aspect.",
     items: [
       {
         src: "/brand/wordmark-dark.png",
@@ -68,8 +67,7 @@ export const brandAssets: BrandAssetGroup[] = [
   {
     id: "app-icons",
     title: "App icons",
-    blurb:
-      "1024×1024 rasterized icons for iOS, macOS, and desktop-shell surfaces. RGBA.",
+    blurb: "1024×1024 rasterized icons for iOS, macOS, and desktop-shell surfaces. RGBA.",
     items: [
       {
         src: "/brand/icon.png",
@@ -97,8 +95,7 @@ export const brandAssets: BrandAssetGroup[] = [
   {
     id: "adaptive-icons",
     title: "Adaptive icons",
-    blurb:
-      "Android-adaptive rasterizations (1024×1024) with a 33% safe-zone inset for OS-driven masking.",
+    blurb: "Android-adaptive rasterizations (1024×1024) with a 33% safe-zone inset for OS-driven masking.",
     items: [
       {
         src: "/brand/adaptive-icon.png",
@@ -119,8 +116,7 @@ export const brandAssets: BrandAssetGroup[] = [
   {
     id: "icon-marks",
     title: "Icon marks",
-    blurb:
-      "128×128 monogram glyphs (the «n» mark) for tight spaces where the full wordmark is too wide.",
+    blurb: "128×128 monogram glyphs (the «n» mark) for tight spaces where the full wordmark is too wide.",
     items: [
       {
         src: "/brand/app-icon-mark.png",
@@ -141,15 +137,14 @@ export const brandAssets: BrandAssetGroup[] = [
   {
     id: "favicons",
     title: "Favicons",
-    blurb:
-      "48×48 rasterized favicons used by <link rel=\"icon\"> declarations.",
+    blurb: '48×48 rasterized favicons used by <link rel="icon"> declarations.',
     items: [
       {
         src: "/brand/favicon.png",
         name: "favicon.png",
         dims: "48×48",
         variant: "Default",
-        desc: "Dark surface favicon for <link rel=\"icon\">.",
+        desc: 'Dark surface favicon for <link rel="icon">.',
       },
       {
         src: "/brand/favicon-light.png",
@@ -163,8 +158,7 @@ export const brandAssets: BrandAssetGroup[] = [
   {
     id: "splashes",
     title: "Splash screens",
-    blurb:
-      "1024×1024 launch screens for the iOS, macOS and desktop shell. Square; OS handles scaling.",
+    blurb: "1024×1024 launch screens for the iOS, macOS and desktop shell. Square; OS handles scaling.",
     items: [
       {
         src: "/brand/splash.png",
