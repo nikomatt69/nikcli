@@ -1,4 +1,13 @@
-import { batch, createContext, createEffect, createMemo, onCleanup, onMount, useContext, type ParentProps } from "solid-js"
+import {
+  batch,
+  createContext,
+  createEffect,
+  createMemo,
+  onCleanup,
+  onMount,
+  useContext,
+  type ParentProps,
+} from "solid-js"
 import { useKV } from "@tui/context/kv"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
@@ -179,8 +188,7 @@ export function SessionTabsProvider(props: ParentProps) {
   const list = createMemo<SessionTabState[]>(() =>
     openTabs().map((tab: OpenSessionTab) => {
       const status = sync.session.status(tab.id)
-      const blocked =
-        (sync.data.permission[tab.id]?.length ?? 0) > 0 || (sync.data.question[tab.id]?.length ?? 0) > 0
+      const blocked = (sync.data.permission[tab.id]?.length ?? 0) > 0 || (sync.data.question[tab.id]?.length ?? 0) > 0
       return {
         ...tab,
         active: active() === tab.id,

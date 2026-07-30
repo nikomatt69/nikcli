@@ -1,4 +1,4 @@
-import { docsSidebar } from "./docsSidebar";
+import { docsSidebar } from "./docsSidebar"
 
 /**
  * Retrieval index for the docs support assistant (`/api/docs-assistant`).
@@ -10,14 +10,14 @@ import { docsSidebar } from "./docsSidebar";
  * `bun run check:docs-index` fails when a sidebar page has no entry here.
  */
 export type DocsIndexEntry = {
-  title: string;
-  href: string;
-  group: string;
-  summary: string;
-  keywords: string[];
-};
+  title: string
+  href: string
+  group: string
+  summary: string
+  keywords: string[]
+}
 
-type DocsIndexMeta = { summary: string; keywords: string[] };
+type DocsIndexMeta = { summary: string; keywords: string[] }
 
 const meta: Record<string, DocsIndexMeta> = {
   "/docs": {
@@ -188,17 +188,7 @@ const meta: Record<string, DocsIndexMeta> = {
   "/docs/loops": {
     summary:
       "Server-side headless Loops engine: a thin orchestrator composing Scheduler and Goal for long-running autonomous work.",
-    keywords: [
-      "loop",
-      "loops",
-      "headless",
-      "autonomous",
-      "goal",
-      "scheduler",
-      "background",
-      "long running",
-      "iterate",
-    ],
+    keywords: ["loop", "loops", "headless", "autonomous", "goal", "scheduler", "background", "long running", "iterate"],
   },
   "/docs/missions": {
     summary:
@@ -217,8 +207,7 @@ const meta: Record<string, DocsIndexMeta> = {
     ],
   },
   "/docs/localization": {
-    summary:
-      "Language, region, timezone and model reply-language settings managed through the nikcli locale command.",
+    summary: "Language, region, timezone and model reply-language settings managed through the nikcli locale command.",
     keywords: [
       "locale",
       "localization",
@@ -311,33 +300,12 @@ const meta: Record<string, DocsIndexMeta> = {
   "/docs/web-app": {
     summary:
       "Browser-based access to nikcli sessions, the Studio management dashboard and the companion UI served from the web package.",
-    keywords: [
-      "web",
-      "web app",
-      "browser",
-      "studio",
-      "dashboard",
-      "companion",
-      "ui",
-      "online",
-      "cloud",
-    ],
+    keywords: ["web", "web app", "browser", "studio", "dashboard", "companion", "ui", "online", "cloud"],
   },
   "/docs/mobile": {
     summary:
       "Running and managing nikcli from the Expo mobile app against a host server, including pairing and remote sessions.",
-    keywords: [
-      "mobile",
-      "ios",
-      "android",
-      "expo",
-      "phone",
-      "app",
-      "remote",
-      "pair",
-      "teleport",
-      "push notification",
-    ],
+    keywords: ["mobile", "ios", "android", "expo", "phone", "app", "remote", "pair", "teleport", "push notification"],
   },
   "/docs/sync": {
     summary:
@@ -421,48 +389,20 @@ const meta: Record<string, DocsIndexMeta> = {
     ],
   },
   "/docs/tui-plugins": {
-    summary:
-      "Every built-in TUI feature plugin: what it registers, which commands it owns and where its state lives.",
-    keywords: [
-      "tui plugin",
-      "feature plugin",
-      "built-in",
-      "panel",
-      "command",
-      "registry",
-      "state",
-    ],
+    summary: "Every built-in TUI feature plugin: what it registers, which commands it owns and where its state lives.",
+    keywords: ["tui plugin", "feature plugin", "built-in", "panel", "command", "registry", "state"],
   },
   "/docs/brain": {
     summary:
       "The Brain subsystem periodically consolidates session memory and re-evaluates long-running context via TUI plugin, server route and headless scheduler.",
-    keywords: [
-      "brain",
-      "memory",
-      "consolidate",
-      "context",
-      "recall",
-      "long term",
-      "knowledge",
-      "embedding",
-    ],
+    keywords: ["brain", "memory", "consolidate", "context", "recall", "long term", "knowledge", "embedding"],
   },
   "/docs/island": {
-    summary:
-      "NikcliIsland.app, the macOS Dynamic-Island-style notch HUD showing live nikcli session state.",
-    keywords: [
-      "island",
-      "macos",
-      "notch",
-      "hud",
-      "menu bar",
-      "desktop app",
-      "status",
-    ],
+    summary: "NikcliIsland.app, the macOS Dynamic-Island-style notch HUD showing live nikcli session state.",
+    keywords: ["island", "macos", "notch", "hud", "menu bar", "desktop app", "status"],
   },
   "/docs/observability": {
-    summary:
-      "OpenTelemetry (OTLP) trace export and live in-process telemetry for the TUI observability panel.",
+    summary: "OpenTelemetry (OTLP) trace export and live in-process telemetry for the TUI observability panel.",
     keywords: [
       "observability",
       "telemetry",
@@ -494,8 +434,7 @@ const meta: Record<string, DocsIndexMeta> = {
     ],
   },
   "/docs/browser-control": {
-    summary:
-      "The browser-control engine driving headless Chromium sessions for web automation and page inspection.",
+    summary: "The browser-control engine driving headless Chromium sessions for web automation and page inspection.",
     keywords: [
       "browser",
       "chromium",
@@ -509,32 +448,13 @@ const meta: Record<string, DocsIndexMeta> = {
     ],
   },
   "/docs/terminal-control": {
-    summary:
-      "The terminal-control engine that records, replays and bundles PTY-driven TUI sessions.",
-    keywords: [
-      "terminal control",
-      "pty",
-      "record",
-      "replay",
-      "asciinema",
-      "bundle",
-      "demo",
-      "capture",
-    ],
+    summary: "The terminal-control engine that records, replays and bundles PTY-driven TUI sessions.",
+    keywords: ["terminal control", "pty", "record", "replay", "asciinema", "bundle", "demo", "capture"],
   },
   "/docs/packages": {
     summary:
       "The nikcli monorepo package map: the core CLI/TUI/server package plus supporting infrastructure, provider integrations and surface-area extensions.",
-    keywords: [
-      "package",
-      "packages",
-      "monorepo",
-      "workspace",
-      "npm package",
-      "sdk",
-      "suite",
-      "dependencies",
-    ],
+    keywords: ["package", "packages", "monorepo", "workspace", "npm package", "sdk", "suite", "dependencies"],
   },
   "/docs/brand": {
     summary:
@@ -544,16 +464,7 @@ const meta: Record<string, DocsIndexMeta> = {
   "/docs/source-map": {
     summary:
       "A practical map for finding the real implementation behind CLI commands, API routes, TUI views, mobile flows, providers, plugins and storage.",
-    keywords: [
-      "source map",
-      "source",
-      "where is",
-      "implementation",
-      "file",
-      "code",
-      "contribute",
-      "find code",
-    ],
+    keywords: ["source map", "source", "where is", "implementation", "file", "code", "contribute", "find code"],
   },
   "/docs/cli-debug": {
     summary:
@@ -573,7 +484,7 @@ const meta: Record<string, DocsIndexMeta> = {
       "error",
     ],
   },
-};
+}
 
 export const docsIndex: DocsIndexEntry[] = docsSidebar.flatMap((group) =>
   group.items.map((item) => ({
@@ -583,15 +494,13 @@ export const docsIndex: DocsIndexEntry[] = docsSidebar.flatMap((group) =>
     summary: meta[item.href]?.summary ?? item.title,
     keywords: meta[item.href]?.keywords ?? [],
   })),
-);
+)
 
 /** Sidebar pages with no retrieval metadata, and metadata for dead pages. */
 export function docsIndexGaps() {
-  const sidebarPaths = new Set(docsIndex.map((entry) => entry.href));
+  const sidebarPaths = new Set(docsIndex.map((entry) => entry.href))
   return {
-    missing: docsIndex
-      .filter((entry) => !meta[entry.href])
-      .map((entry) => entry.href),
+    missing: docsIndex.filter((entry) => !meta[entry.href]).map((entry) => entry.href),
     orphaned: Object.keys(meta).filter((href) => !sidebarPaths.has(href)),
-  };
+  }
 }

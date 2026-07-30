@@ -7,7 +7,9 @@ import { connect, type DriverSocket } from "./src/driver"
 
 const nikcli = resolve(import.meta.dir, "../nikcli")
 const IMAGE = process.env.BG_IMAGE ?? "/Users/nikoemme-os/Desktop/HOPVd8YXYAAPPGg.jpeg"
-const OUT = process.env.OUT ?? "/tmp/claude-501/-Volumes-SSD-Projects-nikcli/19050acc-19e7-481d-b88a-996fa5a61cf7/scratchpad/real-tui.png"
+const OUT =
+  process.env.OUT ??
+  "/tmp/claude-501/-Volumes-SSD-Projects-nikcli/19050acc-19e7-481d-b88a-996fa5a61cf7/scratchpad/real-tui.png"
 
 async function freePort() {
   return new Promise<number>((resolvePort, reject) => {

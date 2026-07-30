@@ -14,7 +14,10 @@ test("end to end", async () => {
   const image = await loadImage(await resolveSource("/Users/nikoemme-os/Desktop/HOPVd8YXYAAPPGg.jpeg"))
   console.log("decoded+prepared", image.width, "x", image.height)
 
-  for (const [name, opacity] of [["full", 1], ["dim", 0.3]] as const) {
+  for (const [name, opacity] of [
+    ["full", 1],
+    ["dim", 0.3],
+  ] as const) {
     const started = performance.now()
     const pixels = compose(image, {
       columns: COLUMNS,
@@ -29,9 +32,20 @@ test("end to end", async () => {
     const { captureSpans, renderOnce } = await testRender(
       () => (
         <box width={COLUMNS} height={ROWS} backgroundColor={RGBA.fromInts(15, 15, 20, 255)}>
-          <nikcli_background position="absolute" left={0} top={0} zIndex={-1} width={COLUMNS} height={ROWS} pixels={pixels} base={RGBA.fromInts(15,15,20,255)} />
+          <nikcli_background
+            position="absolute"
+            left={0}
+            top={0}
+            zIndex={-1}
+            width={COLUMNS}
+            height={ROWS}
+            pixels={pixels}
+            base={RGBA.fromInts(15, 15, 20, 255)}
+          />
           <box flexGrow={1} alignItems="center" justifyContent="center">
-            <text fg={RGBA.fromInts(255,255,255,255)}>ask anything... "what is the tech stack of this project?"</text>
+            <text fg={RGBA.fromInts(255, 255, 255, 255)}>
+              ask anything... "what is the tech stack of this project?"
+            </text>
           </box>
         </box>
       ),
@@ -50,7 +64,8 @@ test("end to end", async () => {
           const put = (y: number, c: { r: number; g: number; b: number }) => {
             if (col >= COLUMNS) return
             out.setPixelColor(
-              (((Math.round(c.r * 255) << 24) | (Math.round(c.g * 255) << 16) | (Math.round(c.b * 255) << 8) | 0xff) >>> 0),
+              ((Math.round(c.r * 255) << 24) | (Math.round(c.g * 255) << 16) | (Math.round(c.b * 255) << 8) | 0xff) >>>
+                0,
               col,
               y,
             )

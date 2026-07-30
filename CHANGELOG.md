@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.212.0 (July 2026)
+
+## Core
+
+- Add testing capabilities and enhance provider options typing (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(llm): add testing capabilities and enhance provider options typing
+
 ## v1.204.0 (July 2026)
 
 ## Core

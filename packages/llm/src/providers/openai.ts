@@ -48,7 +48,9 @@ export const chat = (
   options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
 ): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return typedModel<OpenAIProviderOptionsInput>(OpenAIChat.model(withOpenAIOptions(id, { ...rest, auth: auth(options) })))
+  return typedModel<OpenAIProviderOptionsInput>(
+    OpenAIChat.model(withOpenAIOptions(id, { ...rest, auth: auth(options) })),
+  )
 }
 
 export const provider = Provider.make({

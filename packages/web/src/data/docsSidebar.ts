@@ -1,7 +1,7 @@
 export type DocsNavGroup = {
-  title: string;
-  items: Array<{ title: string; href: string }>;
-};
+  title: string
+  items: Array<{ title: string; href: string }>
+}
 
 export const docsSidebar: DocsNavGroup[] = [
   {
@@ -63,4 +63,4 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "CLI Debug", href: "/docs/cli-debug" },
     ],
   },
-];
+]

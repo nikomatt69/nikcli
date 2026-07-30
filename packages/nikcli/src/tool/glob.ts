@@ -131,46 +131,49 @@ export const GlobTool = Tool.define("glob", {
     const size = isWide ? 400 : limit + 1
 
     let fallback = false
-    const rows = await withSearchDeadline(async (signal) => {
-      // Phase 1: Try FFF fuzzy file search
-      const fffResult = await FFF.filesRich(include(params.pattern), {
-        pageSize: size,
-        currentFile: path.join(dir, ".nikcli"),
-      })
+    const rows = await withSearchDeadline(
+      async (signal) => {
+        // Phase 1: Try FFF fuzzy file search
+        const fffResult = await FFF.filesRich(include(params.pattern), {
+          pageSize: size,
+          currentFile: path.join(dir, ".nikcli"),
+        })
 
-      let found: Row[] = []
-      if (fffResult) {
-        found = pick(
-          fffResult.items.map((item: { relativePath: string }) => item.relativePath),
-          dir,
-        )
-      }
+        let found: Row[] = []
+        if (fffResult) {
+          found = pick(
+            fffResult.items.map((item: { relativePath: string }) => item.relativePath),
+            dir,
+          )
+        }
 
-      // Phase 2: If FFF returned nothing and pattern has many words, try with fewer
-      if (!found.length) {
-        const words = params.pattern.trim().split(/\s+/).filter(Boolean)
-        if (words.length >= 3) {
-          const short = words.slice(0, 2).join(" ")
-          const next = await FFF.filesRich(include(short), {
-            pageSize: size,
-            currentFile: path.join(dir, ".nikcli"),
-          })
-          if (next) {
-            found = pick(
-              next.items.map((item: { relativePath: string }) => item.relativePath),
-              dir,
-            )
+        // Phase 2: If FFF returned nothing and pattern has many words, try with fewer
+        if (!found.length) {
+          const words = params.pattern.trim().split(/\s+/).filter(Boolean)
+          if (words.length >= 3) {
+            const short = words.slice(0, 2).join(" ")
+            const next = await FFF.filesRich(include(short), {
+              pageSize: size,
+              currentFile: path.join(dir, ".nikcli"),
+            })
+            if (next) {
+              found = pick(
+                next.items.map((item: { relativePath: string }) => item.relativePath),
+                dir,
+              )
+            }
           }
         }
-      }
 
-      // Phase 3: Fallback to filesystem glob scan
-      if (!found.length) {
-        fallback = true
-        found = await scan(params.pattern, dir, signal)
-      }
-      return found
-    }, { abort: ctx.abort })
+        // Phase 3: Fallback to filesystem glob scan
+        if (!found.length) {
+          fallback = true
+          found = await scan(params.pattern, dir, signal)
+        }
+        return found
+      },
+      { abort: ctx.abort },
+    )
 
     const truncated = rows.length > limit
     const files = rows.slice(0, limit).map((row) => row.path)
