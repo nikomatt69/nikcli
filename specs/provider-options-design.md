@@ -135,15 +135,15 @@ Each existing provider file consumes its options module:
 
 ## Type-level inference at the request boundary
 
-*(implemented 2026-07-30; ports opencode v2 #39493 + #39510)*
+_(implemented 2026-07-30; ports opencode v2 #39493 + #39510)_
 
-The option modules above make the *defaults* provider-aware, but the call site still had no
+The option modules above make the _defaults_ provider-aware, but the call site still had no
 protection: `ProviderOptions` is `Record<string, Record<string, unknown>>` on the wire, so
 `{ anthropic: { thinkingBudget: 4000 } }` (the field is `thinking`) type-checked, shipped, and was
 silently dropped by the provider.
 
 The wire schema deliberately stays open — nikcli cannot know every provider's knobs, and a model
-resolved from config carries no type at all. Instead the *model* carries its option shape in the
+resolved from config carries no type at all. Instead the _model_ carries its option shape in the
 type system only:
 
 ```

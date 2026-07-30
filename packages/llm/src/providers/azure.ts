@@ -64,10 +64,13 @@ const mapInput = (input: AzureModelInput) => {
 const chatModel = Route.model<AzureModelInput>(chatRoute, {}, { mapInput })
 const responsesModel = Route.model<AzureModelInput>(responsesRoute, {}, { mapInput })
 
-export const responses = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> =>
-  responsesModel({ ...options, id: modelID })
+export const responses = (
+  modelID: string | ModelID,
+  options: ModelOptions,
+): TypedModelRef<OpenAIProviderOptionsInput> => responsesModel({ ...options, id: modelID })
 
-export const chat = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> => chatModel({ ...options, id: modelID })
+export const chat = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> =>
+  chatModel({ ...options, id: modelID })
 
 export const model = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> => {
   if (options.useCompletionUrls === true) return chat(modelID, options)

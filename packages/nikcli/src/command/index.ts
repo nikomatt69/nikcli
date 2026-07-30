@@ -97,185 +97,191 @@ export namespace Command {
   export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
-      const state = yield* InstanceState.make<Record<string, Info>>((ctx) =>
-        Effect.gen(function* () {
-          const cfg = yield* Effect.promise(() => configGet(ctx))
-          const skills = yield* Effect.promise(() =>
-            runPromiseWithLayer(
-              Skill.defaultLayer,
-              locallyInstance(
-                ctx,
-                Effect.gen(function* () {
-                  const skill = yield* Skill.Service
-                  return yield* skill.all()
-                }),
+      const state = yield* InstanceState.make<Record<string, Info>>(
+        (ctx) =>
+          Effect.gen(function* () {
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            const skills = yield* Effect.promise(() =>
+              runPromiseWithLayer(
+                Skill.defaultLayer,
+                locallyInstance(
+                  ctx,
+                  Effect.gen(function* () {
+                    const skill = yield* Skill.Service
+                    return yield* skill.all()
+                  }),
+                ),
               ),
-            ),
-          )
+            )
 
-          const result: Record<string, Info> = {
-            [Default.INIT]: {
-              name: Default.INIT,
-              description: "create/update AGENTS.md",
-              get template() {
-                return PROMPT_INITIALIZE.replace("${path}", ctx.worktree)
+            const result: Record<string, Info> = {
+              [Default.INIT]: {
+                name: Default.INIT,
+                description: "create/update AGENTS.md",
+                get template() {
+                  return PROMPT_INITIALIZE.replace("${path}", ctx.worktree)
+                },
+                hints: hints(PROMPT_INITIALIZE),
               },
-              hints: hints(PROMPT_INITIALIZE),
-            },
-            [Default.REVIEW]: {
-              name: Default.REVIEW,
-              description: "review changes [commit|branch|pr], defaults to uncommitted",
-              get template() {
-                return PROMPT_REVIEW.replace("${path}", ctx.worktree)
+              [Default.REVIEW]: {
+                name: Default.REVIEW,
+                description: "review changes [commit|branch|pr], defaults to uncommitted",
+                get template() {
+                  return PROMPT_REVIEW.replace("${path}", ctx.worktree)
+                },
+                subtask: true,
+                hints: hints(PROMPT_REVIEW),
               },
-              subtask: true,
-              hints: hints(PROMPT_REVIEW),
-            },
-            [Default.ULTRAREVIEW]: {
-              name: Default.ULTRAREVIEW,
-              description: "deep multi-agent review via parallel monitor jobs [commit|branch|pr]",
-              get template() {
-                return PROMPT_ULTRAREVIEW.replace("${path}", ctx.worktree)
+              [Default.ULTRAREVIEW]: {
+                name: Default.ULTRAREVIEW,
+                description: "deep multi-agent review via parallel monitor jobs [commit|branch|pr]",
+                get template() {
+                  return PROMPT_ULTRAREVIEW.replace("${path}", ctx.worktree)
+                },
+                subtask: true,
+                hints: hints(PROMPT_ULTRAREVIEW),
               },
-              subtask: true,
-              hints: hints(PROMPT_ULTRAREVIEW),
-            },
-            [Default.GOAL]: {
-              name: Default.GOAL,
-              description: "work autonomously until a verifiable goal condition is met",
-              get template() {
-                return PROMPT_GOAL
+              [Default.GOAL]: {
+                name: Default.GOAL,
+                description: "work autonomously until a verifiable goal condition is met",
+                get template() {
+                  return PROMPT_GOAL
+                },
+                hints: hints(PROMPT_GOAL),
               },
-              hints: hints(PROMPT_GOAL),
-            },
-          }
+            }
 
-          for (const [name, command] of Object.entries(cfg.command ?? {})) {
-            // Full override: user supplies a complete template.
-            if (command.template !== undefined) {
-              const template = command.template
+            for (const [name, command] of Object.entries(cfg.command ?? {})) {
+              // Full override: user supplies a complete template.
+              if (command.template !== undefined) {
+                const template = command.template
+                result[name] = {
+                  name,
+                  agent: command.agent,
+                  model: command.model,
+                  description: command.description,
+                  get template() {
+                    return template
+                  },
+                  subtask: command.subtask,
+                  hints: hints(template),
+                  aliases: command.aliases,
+                }
+                continue
+              }
+              // Partial override (opencode #38071): user supplies one of
+              // agent/model/description/subtask without restating the
+              // template. Inherit from the built-in if present, otherwise
+              // drop the entry entirely (no orphan commands).
+              const existing = result[name]
+              if (existing === undefined || typeof (existing as { template?: unknown }).template !== "string") {
+                continue
+              }
               result[name] = {
                 name,
-                agent: command.agent,
-                model: command.model,
-                description: command.description,
+                agent: command.agent ?? (existing as { agent?: string }).agent,
+                model: command.model ?? (existing as { model?: string }).model,
+                description: command.description ?? (existing as { description?: string }).description,
                 get template() {
-                  return template
+                  return (existing as { template: string }).template
                 },
-                subtask: command.subtask,
-                hints: hints(template),
-                aliases: command.aliases,
+                subtask: command.subtask ?? (existing as { subtask?: boolean }).subtask,
+                hints: (existing as { hints?: unknown }).hints as never,
+                aliases: command.aliases ?? (existing as { aliases?: string[] }).aliases,
               }
-              continue
             }
-            // Partial override (opencode #38071): user supplies one of
-            // agent/model/description/subtask without restating the
-            // template. Inherit from the built-in if present, otherwise
-            // drop the entry entirely (no orphan commands).
-            const existing = result[name]
-            if (existing === undefined || typeof (existing as { template?: unknown }).template !== "string") {
-              continue
-            }
-            result[name] = {
-              name,
-              agent: command.agent ?? (existing as { agent?: string }).agent,
-              model: command.model ?? (existing as { model?: string }).model,
-              description: command.description ?? (existing as { description?: string }).description,
-              get template() {
-                return (existing as { template: string }).template
-              },
-              subtask: command.subtask ?? (existing as { subtask?: boolean }).subtask,
-              hints: (existing as { hints?: unknown }).hints as never,
-              aliases: command.aliases ?? (existing as { aliases?: string[] }).aliases,
-            }
-          }
-          const mcpPrompts = yield* Effect.promise(() =>
-            runPromiseWithLayer(
-              MCP.defaultLayer,
-              locallyInstance(
-                ctx,
-                Effect.gen(function* () {
-                  const mcp = yield* MCP.Service
-                  return yield* mcp.prompts()
-                }),
+            const mcpPrompts = yield* Effect.promise(() =>
+              runPromiseWithLayer(
+                MCP.defaultLayer,
+                locallyInstance(
+                  ctx,
+                  Effect.gen(function* () {
+                    const mcp = yield* MCP.Service
+                    return yield* mcp.prompts()
+                  }),
+                ),
               ),
-            ),
-          )
-          for (const [name, prompt] of Object.entries(mcpPrompts)) {
-            result[name] = {
-              name,
-              mcp: true,
-              description: prompt.description,
-              get template() {
-                return new Promise<string>(async (resolve, reject) => {
-                  const args = prompt.arguments
-                    ? Object.fromEntries(
-                        prompt.arguments?.map((argument: { name: string }, i: number) => [argument.name, `$${i + 1}`]),
-                      )
-                    : {}
-                  const template = await runPromiseWithLayer(
-                    MCP.defaultLayer,
-                    locallyInstance(
-                      ctx,
-                      Effect.gen(function* () {
-                        const mcp = yield* MCP.Service
-                        return yield* mcp.getPrompt(prompt.client, prompt.name, args)
-                      }),
-                    ),
-                  ).catch(reject)
-                  resolve(
-                    template?.messages
-                      .map((message: { content: { type: string; text?: string } }) =>
-                        message.content.type === "text" ? message.content.text : "",
-                      )
-                      .join("\n") || "",
-                  )
-                })
-              },
-              hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
-            }
-          }
-
-          for (const [name, prompt] of Object.entries(yield* Effect.promise(() => Connectors.prompts()))) {
-            const operationName = `${prompt.type}_${name.split("_").slice(2).join("_")}`
-            result[name] = {
-              name,
-              description: prompt.description,
-              get template() {
-                const argsEntries = prompt.arguments ? prompt.arguments.map((arg, i) => `${arg.name}: \$${i + 1}`) : []
-                const argsExample = prompt.arguments
-                  ? JSON.stringify(
-                      Object.fromEntries(prompt.arguments.map((arg, i) => [arg.name, `$${i + 1}`])),
-                      null,
-                      2,
+            )
+            for (const [name, prompt] of Object.entries(mcpPrompts)) {
+              result[name] = {
+                name,
+                mcp: true,
+                description: prompt.description,
+                get template() {
+                  return new Promise<string>(async (resolve, reject) => {
+                    const args = prompt.arguments
+                      ? Object.fromEntries(
+                          prompt.arguments?.map((argument: { name: string }, i: number) => [
+                            argument.name,
+                            `$${i + 1}`,
+                          ]),
+                        )
+                      : {}
+                    const template = await runPromiseWithLayer(
+                      MCP.defaultLayer,
+                      locallyInstance(
+                        ctx,
+                        Effect.gen(function* () {
+                          const mcp = yield* MCP.Service
+                          return yield* mcp.getPrompt(prompt.client, prompt.name, args)
+                        }),
+                      ),
+                    ).catch(reject)
+                    resolve(
+                      template?.messages
+                        .map((message: { content: { type: string; text?: string } }) =>
+                          message.content.type === "text" ? message.content.text : "",
+                        )
+                        .join("\n") || "",
                     )
-                  : "{}"
-                return `Use the use_connector tool:
+                  })
+                },
+                hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
+              }
+            }
+
+            for (const [name, prompt] of Object.entries(yield* Effect.promise(() => Connectors.prompts()))) {
+              const operationName = `${prompt.type}_${name.split("_").slice(2).join("_")}`
+              result[name] = {
+                name,
+                description: prompt.description,
+                get template() {
+                  const argsEntries = prompt.arguments
+                    ? prompt.arguments.map((arg, i) => `${arg.name}: \$${i + 1}`)
+                    : []
+                  const argsExample = prompt.arguments
+                    ? JSON.stringify(
+                        Object.fromEntries(prompt.arguments.map((arg, i) => [arg.name, `$${i + 1}`])),
+                        null,
+                        2,
+                      )
+                    : "{}"
+                  return `Use the use_connector tool:
 - connector: ${prompt.client}
 - operation: ${operationName}
 - args: ${argsExample}${argsEntries.length > 0 ? `\n\nReplace the placeholder values ($$) with actual values:\n${argsEntries.join("\n")}` : ""}`
-              },
-              hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
+                },
+                hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
+              }
             }
-          }
 
-          for (const skill of skills) {
-            const name = Skill.commandName(skill.name)
-            if (result[name]) continue
-            const template = skillTemplate(skill)
-            result[name] = {
-              name,
-              description: skill.description,
-              skill: true,
-              get template() {
-                return template
-              },
-              hints: hints(template),
+            for (const skill of skills) {
+              const name = Skill.commandName(skill.name)
+              if (result[name]) continue
+              const template = skillTemplate(skill)
+              result[name] = {
+                name,
+                description: skill.description,
+                skill: true,
+                get template() {
+                  return template
+                },
+                hints: hints(template),
+              }
             }
-          }
 
-          return result
-        }).pipe(Effect.orDie),
+            return result
+          }).pipe(Effect.orDie),
         // Pure derivation of config, the command files on disk and the skill
         // set, so it joins instance hot reload instead of pinning the command
         // list read at first access.

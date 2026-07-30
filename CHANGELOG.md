@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.216.0 (July 2026)
+
+## Core
+
+- Add renderer thread configuration for Windows platform (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): add renderer thread configuration for Windows platform
+
 ## v1.204.0 (July 2026)
 
 ## Core

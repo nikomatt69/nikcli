@@ -750,6 +750,12 @@ export class Loop extends HeyApiClient {
       maxRuns?: number
       timeoutMs?: number
       createPR?: boolean
+      sandbox?: boolean
+      worktree?: {
+        name: string
+        branch?: string
+        directory: string
+      }
       paused?: boolean
       enabled: boolean
     },
@@ -768,6 +774,8 @@ export class Loop extends HeyApiClient {
             { in: "body", key: "maxRuns" },
             { in: "body", key: "timeoutMs" },
             { in: "body", key: "createPR" },
+            { in: "body", key: "sandbox" },
+            { in: "body", key: "worktree" },
             { in: "body", key: "paused" },
             { in: "body", key: "enabled" },
           ],
@@ -951,6 +959,12 @@ export class Loop extends HeyApiClient {
       maxRuns?: number
       timeoutMs?: number
       createPR?: boolean
+      sandbox?: boolean
+      worktree?: {
+        name: string
+        branch?: string
+        directory: string
+      }
       paused?: boolean
       enabled: boolean
       createdAt: number
@@ -980,6 +994,8 @@ export class Loop extends HeyApiClient {
             { in: "body", key: "maxRuns" },
             { in: "body", key: "timeoutMs" },
             { in: "body", key: "createPR" },
+            { in: "body", key: "sandbox" },
+            { in: "body", key: "worktree" },
             { in: "body", key: "paused" },
             { in: "body", key: "enabled" },
             { in: "body", key: "createdAt" },
@@ -1349,6 +1365,12 @@ export class Mission extends HeyApiClient {
         orchestrator?: string
       }
       timeoutMs?: number
+      sandbox?: boolean
+      worktree?: {
+        name: string
+        branch?: string
+        directory: string
+      }
     },
     options?: Options<never, ThrowOnError>,
   ): RequestResult<MissionUpsertResponses, MissionUpsertErrors, ThrowOnError> {
@@ -1364,6 +1386,8 @@ export class Mission extends HeyApiClient {
             { in: "body", key: "milestones" },
             { in: "body", key: "models" },
             { in: "body", key: "timeoutMs" },
+            { in: "body", key: "sandbox" },
+            { in: "body", key: "worktree" },
           ],
         },
       ],
@@ -1551,6 +1575,12 @@ export class Mission extends HeyApiClient {
         orchestrator?: string
       }
       timeoutMs?: number
+      sandbox?: boolean
+      worktree?: {
+        name: string
+        branch?: string
+        directory: string
+      }
       status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
       createdAt: number
     },
@@ -1578,6 +1608,8 @@ export class Mission extends HeyApiClient {
             { in: "body", key: "milestones" },
             { in: "body", key: "models" },
             { in: "body", key: "timeoutMs" },
+            { in: "body", key: "sandbox" },
+            { in: "body", key: "worktree" },
             { in: "body", key: "status" },
             { in: "body", key: "createdAt" },
           ],

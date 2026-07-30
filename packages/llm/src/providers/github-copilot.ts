@@ -31,10 +31,13 @@ const mapInput = (input: CopilotModelInput) => withCopilotOptions(String(input.i
 const chatModel = Route.model<CopilotModelInput>(OpenAIChat.route, { provider: id }, { mapInput })
 const responsesModel = Route.model<CopilotModelInput>(OpenAIResponses.route, { provider: id }, { mapInput })
 
-export const responses = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<CopilotProviderOptionsInput> =>
-  responsesModel({ ...options, id: modelID })
+export const responses = (
+  modelID: string | ModelID,
+  options: ModelOptions,
+): TypedModelRef<CopilotProviderOptionsInput> => responsesModel({ ...options, id: modelID })
 
-export const chat = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<CopilotProviderOptionsInput> => chatModel({ ...options, id: modelID })
+export const chat = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<CopilotProviderOptionsInput> =>
+  chatModel({ ...options, id: modelID })
 
 export const model = (modelID: string | ModelID, options: ModelOptions) => {
   const create = shouldUseResponsesApi(modelID) ? responsesModel : chatModel
