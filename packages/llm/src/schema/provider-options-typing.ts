@@ -9,6 +9,8 @@
  *
  * The carrier is a phantom property: it exists only in the type system, so nothing changes at
  * runtime, nothing is serialized, and a plain `ModelRef` still works everywhere it did before.
+ * A provider helper opts in purely by annotating its return type — no wrapper call, because the
+ * carrier is optional and a plain `ModelRef` is already assignable to the branded type.
  */
 import type { ModelRef, ProviderOptions } from "./options"
 
@@ -37,12 +39,3 @@ export type ProviderOptionsOf<M> = M extends { readonly [ProviderOptionsCarrier]
       ? Options
       : ProviderOptions
   : ProviderOptions
-
-/**
- * Attaches the provider-options type to a model helper's result.
- *
- * Purely a type assertion: provider modules call this on the `ModelRef` they already build, so the
- * runtime value is untouched.
- */
-export const typedModel = <Options extends ProviderOptions>(model: ModelRef): TypedModelRef<Options> =>
-  model as TypedModelRef<Options>

@@ -93,9 +93,32 @@ const cli = yargs(hideBin(process.argv))
     type: "boolean",
     default: false,
   })
+  .option("auto", {
+    describe: "approve permission prompts automatically (explicit denials still apply)",
+    type: "boolean",
+    default: false,
+  })
+  // Two aliases rather than one flag: `--yolo` is what people type, and
+  // `--dangerously-skip-permissions` is what a script should say so the intent is obvious in CI
+  // logs and shell history.
+  .option("yolo", {
+    describe: "alias for --auto",
+    type: "boolean",
+    default: false,
+  })
+  .option("dangerously-skip-permissions", {
+    describe: "alias for --auto",
+    type: "boolean",
+    default: false,
+  })
   .middleware(async (opts) => {
     await initialize()
     process.env.NIKCLI_ISLAND = opts.island ? "1" : "0"
+    // Passed through the environment because the TUI runs the session in a worker thread, which
+    // never sees this argv.
+    if (opts.auto || opts.yolo || opts["dangerously-skip-permissions"]) {
+      process.env.NIKCLI_AUTO_APPROVE = "1"
+    }
     // IslandBridge.start() itself is called from inside Bus.publish (src/bus/index.ts) —
     // the one choke point every session/permission/tool event already flows through in
     // any realm, so the enabled bridge self-activates without this entrypoint (or the

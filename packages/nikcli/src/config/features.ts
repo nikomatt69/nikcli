@@ -45,6 +45,11 @@ export function features(cfg: { experimental?: Config.Info["experimental"] } | u
     nativeLlm: e?.nativeLlm === true,
     tui: {
       cacheEviction: e?.tui?.cacheEviction === true,
+      // Stays opt-in until the windowing heuristic is finished: it assumes a flat 6-row height for
+      // every message (see MESSAGE_HEIGHT_ESTIMATE in routes/session/index.tsx — heights are never
+      // measured), polls the scroll position on a 50ms timer, and disables itself while streaming,
+      // which is exactly when a long transcript costs the most. Turning it on by default would
+      // trade a real rendering cost for wrong scroll windows.
       messageVirtualization: e?.tui?.messageVirtualization === true,
       explorationGrouping: e?.tui?.explorationGrouping === true,
     },

@@ -3,7 +3,7 @@ import { type AtLeastOne, type ProviderAuthOption } from "../route/auth-options"
 import { Route } from "../route/client"
 import type { ModelInput } from "../llm"
 import { Provider } from "../provider"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAIChat from "../protocols/openai-chat"
 import * as OpenAIResponses from "../protocols/openai-responses"
 import { withOpenAIOptions, type OpenAIProviderOptionsInput } from "./openai-options"
@@ -64,12 +64,12 @@ const mapInput = (input: AzureModelInput) => {
 const chatModel = Route.model<AzureModelInput>(chatRoute, {}, { mapInput })
 const responsesModel = Route.model<AzureModelInput>(responsesRoute, {}, { mapInput })
 
-export const responses = (modelID: string | ModelID, options: ModelOptions) =>
+export const responses = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> =>
   responsesModel({ ...options, id: modelID })
 
-export const chat = (modelID: string | ModelID, options: ModelOptions) => chatModel({ ...options, id: modelID })
+export const chat = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> => chatModel({ ...options, id: modelID })
 
-export const model = (modelID: string | ModelID, options: ModelOptions) => {
+export const model = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAIProviderOptionsInput> => {
   if (options.useCompletionUrls === true) return chat(modelID, options)
   return responses(modelID, options)
 }

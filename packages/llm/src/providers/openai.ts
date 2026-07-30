@@ -1,7 +1,7 @@
 import { AuthOptions, type ProviderAuthOption } from "../route/auth-options"
 import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
-import { ProviderID, typedModel, type ModelID, type TypedModelRef } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAIChat from "../protocols/openai-chat"
 import * as OpenAIResponses from "../protocols/openai-responses"
 import { withOpenAIOptions, type OpenAIProviderOptionsInput } from "./openai-options"
@@ -28,9 +28,7 @@ export const responses = (
   options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
 ): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return typedModel<OpenAIProviderOptionsInput>(
-    OpenAIResponses.model(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true })),
-  )
+  return OpenAIResponses.model(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true }))
 }
 
 export const responsesWebSocket = (
@@ -38,9 +36,7 @@ export const responsesWebSocket = (
   options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
 ): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return typedModel<OpenAIProviderOptionsInput>(
-    OpenAIResponses.webSocketModel(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true })),
-  )
+  return OpenAIResponses.webSocketModel(withOpenAIOptions(id, { ...rest, auth: auth(options) }, { textVerbosity: true }))
 }
 
 export const chat = (
@@ -48,7 +44,7 @@ export const chat = (
   options: OpenAIModelInput<Omit<RouteModelInput, "id">> = {},
 ): TypedModelRef<OpenAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
-  return typedModel<OpenAIProviderOptionsInput>(OpenAIChat.model(withOpenAIOptions(id, { ...rest, auth: auth(options) })))
+  return OpenAIChat.model(withOpenAIOptions(id, { ...rest, auth: auth(options) }))
 }
 
 export const provider = Provider.make({

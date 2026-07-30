@@ -1,6 +1,6 @@
 import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
-import { ProviderID, typedModel, type ModelID, type TypedModelRef } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as AnthropicMessages from "../protocols/anthropic-messages"
 import { withAnthropicOptions, type AnthropicProviderOptionsInput, type AnthropicVariant } from "./anthropic-options"
 
@@ -21,9 +21,7 @@ export const model = (
   options: ModelOptions = {},
 ): TypedModelRef<AnthropicProviderOptionsInput> => {
   const { variant, ...rest } = options
-  return typedModel<AnthropicProviderOptionsInput>(
-    AnthropicMessages.model(withAnthropicOptions(String(modelID), rest, { variant })),
-  )
+  return AnthropicMessages.model(withAnthropicOptions(String(modelID), rest, { variant }))
 }
 
 export const provider = Provider.make({

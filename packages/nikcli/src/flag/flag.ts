@@ -4,6 +4,17 @@ function truthy(key: string) {
 }
 
 export namespace Flag {
+  /**
+   * Whether permission prompts are auto-approved for this process.
+   *
+   * Read on every access rather than captured at module load: the CLI sets the variable from its
+   * argv middleware, which runs after this module is first imported, and the TUI reads it again in
+   * a worker thread that inherits the environment.
+   */
+  export function autoApprove() {
+    return truthy("NIKCLI_AUTO_APPROVE")
+  }
+
   export const NIKCLI_AUTO_SHARE = truthy("NIKCLI_AUTO_SHARE")
   export const NIKCLI_GIT_BASH_PATH = process.env["NIKCLI_GIT_BASH_PATH"]
   export const NIKCLI_CONFIG = process.env["NIKCLI_CONFIG"]

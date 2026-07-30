@@ -4,7 +4,7 @@ import { Endpoint } from "../route/endpoint"
 import { Framing } from "../route/framing"
 import { Provider } from "../provider"
 import { Protocol } from "../route/protocol"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAICompatibleProfiles from "./openai-compatible-profile"
 import * as OpenAIChat from "../protocols/openai-chat"
 import { isRecord } from "../protocols/shared"
@@ -79,7 +79,7 @@ const modelRef = Route.model<ModelInput>(route, {
   baseURL: profile.baseURL,
 })
 
-export const model = (modelID: string | ModelID, options: ModelOptions = {}) =>
+export const model = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<OpenRouterProviderOptionsInput> =>
   modelRef(withOpenRouterOptions(String(modelID), options))
 
 export const provider = Provider.make({

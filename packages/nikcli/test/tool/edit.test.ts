@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { EditTool, replace } from "@/tool/edit"
+import { EditTool, replace, replaceWithCount } from "@/tool/edit"
 import { FileTime } from "@/file/time"
 import { Instance } from "@/project/instance"
 import { makeToolContext, withProjectDirectory } from "../helpers/tool-context"
@@ -30,7 +30,7 @@ describe("EditTool", () => {
       await FileTime.read(sessionID, filePath)
       return def.executeAsync({ filePath, oldString: "world", newString: "nikcli" }, ctx)
     })
-    expect(result.output).toContain("Edit applied successfully")
+    expect(result.output).toContain("Replaced 1 occurrence")
     expect(await fs.readFile(filePath, "utf-8")).toBe("hello nikcli\n")
     expect(asked.some((a) => a.permission === "edit")).toBe(true)
   })
@@ -41,7 +41,7 @@ describe("EditTool", () => {
     const result = await withProjectDirectory(projectDir, () =>
       def.executeAsync({ filePath, oldString: "", newString: "brand new\n" }, ctx),
     )
-    expect(result.output).toContain("Edit applied successfully")
+    expect(result.output).toContain("Created file.")
     expect(await fs.readFile(filePath, "utf-8")).toBe("brand new\n")
   })
 
@@ -132,7 +132,7 @@ describe("UnicodeNormalizedReplacer", () => {
 
   it("rejects ambiguous normalized matches", () => {
     const content = `a ${CURLY_SINGLE}\nb ${CURLY_SINGLE}\n`
-    expect(() => replace(content, "'hello'", "'bye'")).toThrow(/multiple matches/i)
+    expect(() => replace(content, "'hello'", "'bye'")).toThrow(/Found 2 matches/)
   })
 
   it("replaces every normalized occurrence with replaceAll", () => {
@@ -142,5 +142,35 @@ describe("UnicodeNormalizedReplacer", () => {
 
   it("leaves unrelated content untouched when nothing matches", () => {
     expect(() => replace("nothing here\n", "'missing'", "'x'")).toThrow(/Could not find/i)
+  })
+})
+
+describe("replaceWithCount", () => {
+  it("reports a single replacement", () => {
+    expect(replaceWithCount("a b a", "b", "c")).toEqual({ content: "a c a", replacements: 1 })
+  })
+
+  it("reports how many occurrences replaceAll touched", () => {
+    const result = replaceWithCount("x\nx\nx\n", "x", "y", true)
+    expect(result.content).toBe("y\ny\ny\n")
+    expect(result.replacements).toBe(3)
+  })
+
+  it("quantifies an ambiguous match instead of just refusing", () => {
+    expect(() => replaceWithCount("dup\ndup\ndup\n", "dup", "one")).toThrow(/Found 3 matches/)
+  })
+
+  it("suggests replaceAll when the match is ambiguous", () => {
+    expect(() => replaceWithCount("dup\ndup\n", "dup", "one")).toThrow(/replaceAll: true/)
+  })
+
+  it("names the file in a no-match failure", () => {
+    expect(() => replaceWithCount("hello", "missing", "x", false, "/tmp/a.ts")).toThrow(
+      /Could not find oldString in \/tmp\/a\.ts/,
+    )
+  })
+
+  it("still refuses a no-op edit", () => {
+    expect(() => replaceWithCount("hello", "same", "same")).toThrow(/identical/)
   })
 })

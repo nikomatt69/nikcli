@@ -1,5 +1,5 @@
 import { Provider } from "../provider"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAICompatibleChat from "../protocols/openai-compatible-chat"
 import type { OpenAICompatibleChatModelInput } from "../protocols/openai-compatible-chat"
 import { profiles, type OpenAICompatibleProfile } from "./openai-compatible-profile"
@@ -28,7 +28,7 @@ export type FamilyModelOptions = Omit<
 
 export const routes = [OpenAICompatibleChat.route]
 
-export const model = (modelID: string | ModelID, options: ModelOptions) => {
+export const model = (modelID: string | ModelID, options: ModelOptions): TypedModelRef<OpenAICompatibleProviderOptionsInput> => {
   return OpenAICompatibleChat.model({
     ...withOpenAICompatibleOptions(String(modelID), options, { profile: options.provider }),
     provider: ProviderID.make(options.provider),

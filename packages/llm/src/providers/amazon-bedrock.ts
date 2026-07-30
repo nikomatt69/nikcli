@@ -1,6 +1,6 @@
 import { Route, type RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as BedrockConverse from "../protocols/bedrock-converse"
 import type { BedrockCredentials } from "../protocols/bedrock-converse"
 import { withBedrockOptions, type BedrockProviderOptionsInput, type BedrockVariant } from "./bedrock-options"
@@ -49,7 +49,7 @@ const converseModel = Route.model<ModelInput>(
   },
 )
 
-export const model = (modelID: string | ModelID, options: ModelOptions = {}) => {
+export const model = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<BedrockProviderOptionsInput> => {
   const { variant, ...rest } = options
   return converseModel({ ...withBedrockOptions(String(modelID), rest, { variant }) })
 }

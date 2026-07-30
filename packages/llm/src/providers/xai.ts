@@ -2,7 +2,7 @@ import { AuthOptions, type ProviderAuthOption } from "../route/auth-options"
 import { Route } from "../route/client"
 import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
-import { ProviderID, type ModelID } from "../schema"
+import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAICompatibleProfiles from "./openai-compatible-profile"
 import * as OpenAICompatibleChat from "../protocols/openai-compatible-chat"
 import * as OpenAIResponses from "../protocols/openai-responses"
@@ -25,7 +25,7 @@ const chatModel = OpenAICompatibleChat.model
 
 const auth = (options: ProviderAuthOption<"optional">) => AuthOptions.bearer(options, "XAI_API_KEY")
 
-export const responses = (modelID: string | ModelID, options: ModelOptions = {}) => {
+export const responses = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<XAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
   return responsesModel(
     withXAIOptions(String(modelID), {
@@ -36,7 +36,7 @@ export const responses = (modelID: string | ModelID, options: ModelOptions = {})
   )
 }
 
-export const chat = (modelID: string | ModelID, options: ModelOptions = {}) => {
+export const chat = (modelID: string | ModelID, options: ModelOptions = {}): TypedModelRef<XAIProviderOptionsInput> => {
   const { apiKey: _, ...rest } = options
   return chatModel(
     withXAIOptions(String(modelID), {

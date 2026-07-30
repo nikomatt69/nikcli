@@ -10,6 +10,7 @@ import { ToolRegistry } from "@/tool/registry"
 import { MCP } from "@/mcp"
 import { PermissionNext } from "@/permission/next"
 import { PermissionRuleset } from "@/permission/ruleset"
+import { Flag } from "@/flag/flag"
 import { Truncate } from "@/tool/truncation"
 import { Tool } from "@/tool/tool"
 import { Config } from "@/config/config"
@@ -213,7 +214,14 @@ export async function resolveTools(input: {
   // hidden from the model entirely: advertising them wastes context and the
   // model can't invoke them anyway. Resource-scoped denies (pattern != "*")
   // are kept so the tool still appears in the model schema. See opencode #38060.
-  const permissionRuleset = PermissionNext.merge(input.agent.permission, input.session.permission ?? [])
+  // Single choke point for the effective ruleset, so `--auto`/`--yolo` applies uniformly to every
+  // agent instead of having to be threaded through each of their permission definitions.
+  const effectiveRuleset = () => {
+    const merged = PermissionNext.merge(input.agent.permission, input.session.permission ?? [])
+    return Flag.autoApprove() ? PermissionNext.autoApprove(merged) : merged
+  }
+
+  const permissionRuleset = effectiveRuleset()
 
   const context = (args: Record<string, unknown>, options: ToolCallOptions): Tool.Context => ({
     sessionID: input.session.id,
@@ -258,7 +266,7 @@ export async function resolveTools(input: {
           messageID: input.processor.message.id,
           callID: options.toolCallId,
         },
-        ruleset: PermissionNext.merge(input.agent.permission, input.session.permission ?? []),
+        ruleset: effectiveRuleset(),
       })
     },
   })

@@ -120,6 +120,23 @@ export namespace Shell {
     return { file: binary, args: ["-NoLogo", "-NonInteractive", "-Command", command] }
   }
 
+  /**
+   * Human-readable name of the shell commands will actually run under.
+   *
+   * Reported to the model so it writes commands in the right dialect instead of assuming the
+   * platform default. Falls back to the raw path when the basename is not informative.
+   */
+  export function describe() {
+    const binary = acceptable()
+    const name = path
+      .basename(binary)
+      .toLowerCase()
+      .replace(/\.exe$/, "")
+    if (name === "pwsh" || name === "powershell") return "PowerShell"
+    if (name === "cmd") return "cmd.exe"
+    return name || binary
+  }
+
   export const preferred = lazy(() => {
     const s = process.env.SHELL
     if (s) return s

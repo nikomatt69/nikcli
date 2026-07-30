@@ -1,4 +1,4 @@
-Execute a shell command (bash/PowerShell). Default cwd: ${directory}.
+Execute a shell command. Running on ${platform}; commands are interpreted by ${shell}, so use that shell's syntax. Default cwd: ${directory}.
 
 Use for: git, package managers, docker, builds, one-shot scripts.
 Do NOT use for file CRUD/search — prefer Read, Write, Edit, Glob, Grep, LS.

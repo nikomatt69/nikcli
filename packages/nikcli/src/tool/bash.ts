@@ -68,6 +68,15 @@ const SHELL_FILE_ARG_COMMANDS = new Set([
 
 export const log = Log.create({ service: "bash-tool" })
 
+const PLATFORM_LABEL =
+  process.platform === "darwin"
+    ? "macOS"
+    : process.platform === "win32"
+      ? "Windows"
+      : process.platform === "linux"
+        ? "Linux"
+        : process.platform
+
 function normalizePathInput(value: string) {
   return value
     .trim()
@@ -299,7 +308,12 @@ const parser = lazyAsync(async () => {
 
 export const BashTool = Tool.define("bash", async () => {
   return {
+    // The model otherwise guesses the shell dialect from the OS, which is wrong whenever the
+    // resolved shell is not the platform default (zsh vs bash on macOS, Git Bash or PowerShell on
+    // Windows) — and a command in the wrong dialect fails for reasons the model cannot see.
     description: DESCRIPTION.replaceAll("${directory}", Instance.directory)
+      .replaceAll("${platform}", PLATFORM_LABEL)
+      .replaceAll("${shell}", Shell.describe())
       .replaceAll("${maxLines}", String(Truncate.MAX_LINES))
       .replaceAll("${maxBytes}", String(Truncate.MAX_BYTES)),
     parameters: zod(
