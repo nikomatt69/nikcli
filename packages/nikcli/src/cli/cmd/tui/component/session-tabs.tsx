@@ -94,15 +94,18 @@ export function SessionTabs() {
       tabs.cycle(event.shift ? -1 : 1)
       return
     }
-    // Browser-style history over focused tabs, matching the editor convention.
+    // Ctrl-O steps back through focused tabs, browser style.
+    //
+    // Forward has no key binding on purpose. Ctrl-I — the obvious pair, and what editors use — is
+    // encoded by terminals as ASCII TAB, so it arrives indistinguishable from the Ctrl+Tab handled
+    // above and would silently cycle instead of stepping forward. Ctrl+Shift+O was tried and could
+    // not be shown to reach this handler, and no other binding in this TUI relies on shift with a
+    // letter. Rather than ship a key that quietly does nothing, forward stays available through
+    // `tabs.forward()` (plugins reach it via `ui.tabs`) until it can be wired to a leader chord
+    // through the keybind config, the way `session_new` is.
     if (event.name === "o") {
       event.preventDefault()
       tabs.back()
-      return
-    }
-    if (event.name === "i") {
-      event.preventDefault()
-      tabs.forward()
     }
   })
 
