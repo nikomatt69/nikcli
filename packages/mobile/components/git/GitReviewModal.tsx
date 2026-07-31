@@ -24,6 +24,9 @@ import type { GitBranchInfo, GitFileStatus, GitState, ParsedFileDiff } from "@/l
 
 type TabType = "changes" | "graph" | "review"
 
+/** Long enough to cover the Modal's own `animationType="slide"` dismissal before we unmount. */
+const NATIVE_SLIDE_EXIT_MS = 400
+
 interface GitReviewModalProps {
   visible: boolean
   onClose: () => void
@@ -230,6 +233,26 @@ export function GitReviewModal({
   if (tabSlideAnimRef.current === null) tabSlideAnimRef.current = new Animated.Value(0)
   const tabSlideAnim = tabSlideAnimRef.current
   const commitItemAnims = useRef<Map<string, Animated.Value>>(new Map())
+
+  /**
+   * `visible` drives the Modal's native slide; `mounted` decides whether this screen's tree
+   * exists at all.
+   *
+   * A `<Modal visible={false}>` still builds and reconciles everything below it on each parent
+   * render — the file tree, the diff editor, the commit list — while showing nothing. The exit
+   * here is the Modal's own native animation, so the subtree has to outlive `visible` briefly
+   * instead of disappearing outright.
+   */
+  const [mounted, setMounted] = useState(visible)
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true)
+      return
+    }
+    const timer = setTimeout(() => setMounted(false), NATIVE_SLIDE_EXIT_MS)
+    return () => clearTimeout(timer)
+  }, [visible])
 
   useEffect(() => {
     if (visible) {
@@ -553,6 +576,8 @@ export function GitReviewModal({
     { id: "review" as TabType, label: "Review", icon: GitBranch, count: diffFiles.length },
   ]
   const tabIndex = tabs.findIndex((t) => t.id === tab)
+
+  if (!mounted) return null
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>

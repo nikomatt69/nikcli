@@ -343,8 +343,13 @@ export function FileSearchSheet(props: {
     void triggerHaptic("selection")
   }, [])
 
+  // A `<Modal visible={false}>` still builds and reconciles its whole subtree on every parent
+  // render. This sheet has no exit animation — closing resets the values outright — so there is
+  // nothing to keep on screen and it can leave the render path entirely.
+  if (!props.visible) return null
+
   return (
-    <Modal visible={props.visible} transparent animationType="none" onRequestClose={props.onClose}>
+    <Modal visible transparent animationType="none" onRequestClose={props.onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1, justifyContent: "flex-end" }}
