@@ -392,6 +392,17 @@ export type TuiSlotMap = {
   "session.prompt.top": {
     sessionID: string
   }
+  /**
+   * The prompt's footer row (voice/web chips, shortcut hints, editor context).
+   * Rendered in `replace` mode: a plugin that registers it owns the whole row,
+   * and the built-in footer is what renders when none does.
+   */
+  "prompt.footer": {
+    sessionID?: string
+    /** Named `promptMode` because `mode` is the slot's own render mode. */
+    promptMode: "normal" | "shell"
+    busy: boolean
+  }
   "sidebar.content": {
     sessionID: string
   }

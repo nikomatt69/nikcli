@@ -13,6 +13,7 @@ import {
   For,
 } from "solid-js"
 import "opentui-spinner/solid"
+import { TuiPluginRuntime } from "@tui/plugin"
 import { useLocal } from "@tui/context/local"
 import { useLanguage } from "@tui/context/language"
 import { useTheme } from "@tui/context/theme"
@@ -2375,6 +2376,15 @@ export function Prompt(props: PromptProps) {
             </box>
           </Show>
           <Show when={status().type !== "retry"}>
+            {/* Replaceable footer: a plugin registering `prompt.footer` owns
+                this row; with none registered the built-in row below renders. */}
+            <TuiPluginRuntime.Slot
+              name="prompt.footer"
+              mode="replace"
+              sessionID={props.sessionID}
+              promptMode={store.mode}
+              busy={status().type !== "idle"}
+            >
             {/* alignItems center so the colored rec/web chips never stretch to
                 the row height when a sibling (shortcuts) wraps on a narrow
                 terminal — they kept their bg fill but grew several rows tall. */}
@@ -2466,6 +2476,7 @@ export function Prompt(props: PromptProps) {
                 )}
               </Show>
             </box>
+            </TuiPluginRuntime.Slot>
           </Show>
         </box>
       </box>

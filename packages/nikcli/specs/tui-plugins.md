@@ -356,6 +356,7 @@ Current host slot names:
 - `home_bottom`
 - `home_footer`
 - `session.prompt.top` with props `{ sessionID }`, rendered above the session prompt
+- `prompt.footer` with props `{ sessionID?, promptMode, busy }`, the prompt's footer row (voice/web chips, shortcut hints, editor context)
 - `sidebar_title` with props `{ session_id, title, share_url? }`
 - `sidebar_content` with props `{ session_id }`
 - `sidebar_footer` with props `{ session_id }`
@@ -367,6 +368,7 @@ Slot notes:
 - `api.slots.register(plugin)` does not return an unregister function.
 - Returned ids are `pluginId`, `pluginId:1`, `pluginId:2`, and so on.
 - Plugin-provided `id` is not allowed.
+- `prompt.footer` renders in `replace` mode with the built-in footer as its children: a plugin that registers it owns the whole row, and with no plugin registered (or one that renders nothing) the built-in row renders unchanged. `promptMode` is named that way because `mode` is the slot's own render mode.
 - A throwing slot render is contained per plugin by the slot registry's own error boundary: the slot renders nothing and one error toast reports `<id> crashed in slot <name>: <error>`. Repeats of the same failure stay silent until that plugin reloads.
 - The current host renders `home_logo`, `home_prompt`, and `session_prompt` with `replace`, `home_footer`, `sidebar_title`, and `sidebar_footer` with `single_winner`, and `app`, `home_prompt_right`, `session_prompt_right`, `home_bottom`, and `sidebar_content` with the slot library default mode.
 - Plugins can define custom slot names in `api.slots.register(...)` and render them from plugin UI with `ui.Slot`.
