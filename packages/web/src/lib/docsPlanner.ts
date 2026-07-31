@@ -1,5 +1,5 @@
-import { docsIndex } from "../data/docsIndex";
-import { docsPaths } from "./docsMarkdown";
+import { docsIndex } from "../data/docsIndex"
+import { docsPaths } from "./docsMarkdown"
 
 /**
  * Tool-calling retrieval planner.
@@ -11,15 +11,15 @@ import { docsPaths } from "./docsMarkdown";
  */
 
 export type ToolCall = {
-  name: string;
-  arguments: Record<string, unknown>;
-  result: string;
-};
+  name: string
+  arguments: Record<string, unknown>
+  result: string
+}
 
 export type PlannedDocs = {
-  paths: string[];
-  call: ToolCall | null;
-};
+  paths: string[]
+  call: ToolCall | null
+}
 
 /** Workers AI proxies vLLM's OpenAI endpoint, which requires this shape. */
 const OPEN_DOCS_TOOL = {
@@ -33,8 +33,7 @@ const OPEN_DOCS_TOOL = {
       properties: {
         pages: {
           type: "string",
-          description:
-            "Comma-separated documentation paths, e.g. /docs/permissions,/docs/tools",
+          description: "Comma-separated documentation paths, e.g. /docs/permissions,/docs/tools",
         },
         reason: {
           type: "string",
@@ -44,42 +43,40 @@ const OPEN_DOCS_TOOL = {
       required: ["pages"],
     },
   },
-};
+}
 
 type RawToolCall = {
-  name?: unknown;
-  arguments?: unknown;
-  function?: { name?: unknown; arguments?: unknown };
-};
+  name?: unknown
+  arguments?: unknown
+  function?: { name?: unknown; arguments?: unknown }
+}
 
 function parseToolCalls(response: unknown) {
   const data = response as {
-    tool_calls?: RawToolCall[];
-    choices?: Array<{ message?: { tool_calls?: RawToolCall[] } }>;
-  };
-  const raw = Array.isArray(data?.tool_calls)
-    ? data.tool_calls
-    : (data?.choices?.[0]?.message?.tool_calls ?? []);
+    tool_calls?: RawToolCall[]
+    choices?: Array<{ message?: { tool_calls?: RawToolCall[] } }>
+  }
+  const raw = Array.isArray(data?.tool_calls) ? data.tool_calls : (data?.choices?.[0]?.message?.tool_calls ?? [])
 
   return raw.flatMap((entry) => {
     // Responses come back either flat or wrapped in `function`.
     const call = {
       name: entry.function?.name ?? entry.name,
       arguments: entry.function?.arguments ?? entry.arguments,
-    };
-    if (typeof call.name !== "string") return [];
-    let args: Record<string, unknown> = {};
+    }
+    if (typeof call.name !== "string") return []
+    let args: Record<string, unknown> = {}
     if (typeof call.arguments === "string") {
       try {
-        args = JSON.parse(call.arguments) as Record<string, unknown>;
+        args = JSON.parse(call.arguments) as Record<string, unknown>
       } catch {
-        args = { pages: call.arguments };
+        args = { pages: call.arguments }
       }
     } else if (call.arguments && typeof call.arguments === "object") {
-      args = call.arguments as Record<string, unknown>;
+      args = call.arguments as Record<string, unknown>
     }
-    return [{ name: call.name, arguments: args }];
-  });
+    return [{ name: call.name, arguments: args }]
+  })
 }
 
 /**
@@ -87,14 +84,12 @@ function parseToolCalls(response: unknown) {
  * an empty list means the caller should keep its lexical selection.
  */
 export async function planDocs(input: {
-  ai: NonNullable<CloudflareEnv["AI"]>;
-  model: string;
-  question: string;
-  limit: number;
+  ai: NonNullable<CloudflareEnv["AI"]>
+  model: string
+  question: string
+  limit: number
 }): Promise<PlannedDocs> {
-  const toc = docsIndex
-    .map((entry) => `${entry.href} — ${entry.title}: ${entry.summary}`)
-    .join("\n");
+  const toc = docsIndex.map((entry) => `${entry.href} — ${entry.title}: ${entry.summary}`).join("\n")
 
   try {
     const response = await input.ai.run(input.model, {
@@ -108,30 +103,26 @@ export async function planDocs(input: {
         },
         { role: "user", content: input.question },
       ],
-    });
+    })
 
-    const call = parseToolCalls(response).find(
-      (item) => item.name === "open_docs",
-    );
-    if (!call) return { paths: [], call: null };
+    const call = parseToolCalls(response).find((item) => item.name === "open_docs")
+    if (!call) return { paths: [], call: null }
 
-    const raw = call.arguments.pages;
+    const raw = call.arguments.pages
     const paths = (typeof raw === "string" ? raw.split(/[,\s]+/) : [])
       .map((path) => path.trim().replace(/["'`]/g, "").replace(/\/$/, ""))
       .filter((path) => docsPaths.has(path))
-      .slice(0, input.limit);
+      .slice(0, input.limit)
 
     return {
       paths,
       call: {
         name: "open_docs",
         arguments: { pages: paths },
-        result: paths.length
-          ? `opened ${paths.length} page${paths.length === 1 ? "" : "s"}`
-          : "no match",
+        result: paths.length ? `opened ${paths.length} page${paths.length === 1 ? "" : "s"}` : "no match",
       },
-    };
+    }
   } catch {
-    return { paths: [], call: null };
+    return { paths: [], call: null }
   }
 }

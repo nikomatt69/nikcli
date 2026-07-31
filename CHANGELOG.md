@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.217.0 (July 2026)
+
+## Core
+
+- Unify color handling across components using hexToRgba (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(theme): unify color handling across components using hexToRgba
+
 ## v1.204.0 (July 2026)
 
 ## Core

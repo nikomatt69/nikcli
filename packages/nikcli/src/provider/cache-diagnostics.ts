@@ -54,7 +54,11 @@ export namespace CacheDiagnostics {
 
   // Truncated: this is a change detector, not a security boundary, and short
   // hashes keep the log line readable.
-  const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value) ?? "undefined").digest("hex").slice(0, 16)
+  const hash = (value: unknown) =>
+    createHash("sha256")
+      .update(JSON.stringify(value) ?? "undefined")
+      .digest("hex")
+      .slice(0, 16)
 
   export function snapshot(request: RequestLike): Snapshot {
     // System messages lead the prompt and invalidate everything after them, so
@@ -112,8 +116,7 @@ export namespace CacheDiagnostics {
    */
   function firstChange(previous: readonly Entry[], current: readonly Entry[], allowAppend: boolean) {
     const index = previous.findIndex((entry, i) => entry.hash !== current[i]?.hash)
-    if (index >= 0)
-      return { index, label: current[index]?.label ?? previous[index]?.label ?? `entry[${index}]` }
+    if (index >= 0) return { index, label: current[index]?.label ?? previous[index]?.label ?? `entry[${index}]` }
     if (current.length === previous.length || (allowAppend && current.length > previous.length)) return undefined
     return { index: previous.length, label: current[previous.length]?.label ?? `entry[${previous.length}]` }
   }
