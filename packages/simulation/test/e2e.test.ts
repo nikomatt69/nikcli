@@ -129,7 +129,9 @@ test("drives the real nikcli TUI through a deterministic OpenAI exchange and cap
     )
     await responder
     const sessionScreen = await ui.call<SimulationProtocol.Frontend.State>("ui.state")
-    expect(sessionScreen.screen).toContain("nikcli")
+    // The session view shows the compact logo ("NIK" + "CLI"); the ASCII-art
+    // wordmark asserted on the home screen only exists there.
+    expect(sessionScreen.screen).toContain("NIKCLI")
     expect(sessionScreen.screen).toContain("×")
     expect(sessionScreen.screen).toContain("+ new")
     expect(
