@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.221.0 (July 2026)
+
+## Core
+
+- Stop the validation step from sweeping the whole monorepo (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(simulation): assert the compact logo on the session screen
+  - perf(ci): stop the validation step from sweeping the whole monorepo
+
 ## v1.219.0 (July 2026)
 
 ## Core
