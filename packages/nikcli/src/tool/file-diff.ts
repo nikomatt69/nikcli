@@ -71,12 +71,13 @@ export function buildFileDiff(input: {
 }
 
 /**
- * Reads a file back after a mutation has been published.
+ * Reads a file back after a mutation has been formatted and published.
  *
- * Formatters run as subscribers of `File.Event.Edited`, and `Bus.publish` awaits them, so by the
- * time a mutation tool reaches this point the file on disk is the *formatted* result. Reporting the
- * content the tool wrote instead would hand the model a diff that no longer matches the file, and
- * the next edit against that stale text would fail to match.
+ * Mutation tools run the first successful matching formatter before publishing
+ * `File.Event.Edited`, so the file on disk is the final formatted result.
+ * Reporting the content the tool wrote instead would hand the model a diff
+ * that no longer matches the file, and the next edit against stale text would
+ * fail to match.
  */
 export async function readAfterMutation(file: string, fallback: string): Promise<string> {
   return await Bun.file(file)

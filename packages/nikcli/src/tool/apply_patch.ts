@@ -9,6 +9,8 @@ import { Patch } from "../patch"
 import { createTwoFilesPatch, diffLines } from "diff"
 import { assertExternalDirectory } from "./external-directory"
 import { buildFileDiff, readAfterMutation, trimDiff } from "./file-diff"
+import { Bom } from "../util/bom"
+import { Format } from "../format"
 import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
 import DESCRIPTION from "./apply_patch.txt"
@@ -59,6 +61,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
       diff: string
       additions: number
       deletions: number
+      oldBom?: boolean
     }> = []
 
     let totalDiff = ""
@@ -70,8 +73,11 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
       switch (hunk.type) {
         case "add": {
           const oldContent = ""
-          const newContent =
-            hunk.contents.length === 0 || hunk.contents.endsWith("\n") ? hunk.contents : `${hunk.contents}\n`
+          // opencode #39564: added content is normalized to BOM-free text so
+          // the before/after sides of every diff are BOM-consistent.
+          const newContent = Bom.split(
+            hunk.contents.length === 0 || hunk.contents.endsWith("\n") ? hunk.contents : `${hunk.contents}\n`,
+          ).text
           const diff = trimDiff(createTwoFilesPatch(filePath, filePath, oldContent, newContent))
 
           let additions = 0
@@ -102,12 +108,16 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
             throw new Error(`apply_patch verification failed: Failed to read file to update: ${filePath}`)
           }
 
-          const oldContent = await fs.readFile(filePath, "utf-8")
+          // opencode #39564: read the BOM explicitly and re-apply it on write,
+          // so patching a BOM file (and the formatter that runs afterwards)
+          // cannot corrupt its encoding.
+          const original = await Bom.readFile(filePath)
+          const oldContent = original.text
           let newContent = oldContent
 
           // Apply the update chunks to get new content
           try {
-            const fileUpdate = Patch.deriveNewContentsFromChunks(filePath, hunk.chunks)
+            const fileUpdate = Patch.deriveNewContentsFromChunks(filePath, hunk.chunks, original.text)
             newContent = fileUpdate.content
           } catch (error) {
             throw new Error(`apply_patch verification failed: ${error}`)
@@ -134,6 +144,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
             diff,
             additions,
             deletions,
+            oldBom: original.bom,
           })
 
           totalDiff += diff + "\n"
@@ -141,9 +152,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
         }
 
         case "delete": {
-          const contentToDelete = await fs.readFile(filePath, "utf-8").catch((error) => {
-            throw new Error(`apply_patch verification failed: ${error}`)
-          })
+          const contentToDelete = (await Bom.readFile(filePath)).text
           const deleteDiff = trimDiff(createTwoFilesPatch(filePath, filePath, contentToDelete, ""))
 
           const deletions = contentToDelete.split("\n").length
@@ -207,7 +216,9 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
           break
 
         case "update":
-          await fs.writeFile(change.filePath, change.newContent, "utf-8")
+          // Re-apply the original BOM the patch pipeline normalized away
+          // (opencode #39564).
+          await fs.writeFile(change.filePath, Bom.join(change.newContent, change.oldBom ?? false), "utf-8")
           changedFiles.push(change.filePath)
           break
 
@@ -215,7 +226,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
           if (change.movePath) {
             // Create parent directories (recursive: true is safe on existing/root dirs)
             await fs.mkdir(path.dirname(change.movePath), { recursive: true })
-            await fs.writeFile(change.movePath, change.newContent, "utf-8")
+            await fs.writeFile(change.movePath, Bom.join(change.newContent, change.oldBom ?? false), "utf-8")
             await fs.unlink(change.filePath)
             changedFiles.push(change.movePath)
           }
@@ -228,17 +239,21 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
       }
 
       if (edited) {
+        await Format.formatFile(edited, change.oldBom ?? false)
         await Bus.publish(File.Event.Edited, {
           file: edited,
         })
-        // Formatters subscribe to the event above and `Bus.publish` awaits them, so the file on
-        // disk can already differ from the content this hunk produced. Re-read it and restate the
-        // hunk's diff from the formatted result, otherwise the model's next edit against the text
-        // we reported here will fail to match the file.
+        // Re-read the formatted file and restate the hunk's diff from the final
+        // result, otherwise the model's next edit against the text we reported
+        // here will fail to match the file.
         const formatted = await readAfterMutation(edited, change.newContent)
         if (formatted !== change.newContent) {
           change.newContent = formatted
-          const restated = buildFileDiff({ file: edited, before: change.oldContent, after: formatted })
+          const restated = buildFileDiff({
+            file: edited,
+            before: change.oldContent,
+            after: formatted,
+          })
           change.diff = restated.patch
           change.additions = restated.additions
           change.deletions = restated.deletions

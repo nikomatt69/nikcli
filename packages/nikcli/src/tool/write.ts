@@ -9,6 +9,8 @@ import { Bus } from "../bus"
 import { File } from "../file"
 import { FileTime } from "../file/time"
 import { Filesystem } from "../util/filesystem"
+import { Bom } from "../util/bom"
+import { Format } from "../format"
 import { Instance } from "../project/instance"
 import { buildFileDiff, readAfterMutation, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
@@ -61,10 +63,15 @@ export const WriteTool = Tool.define("write", {
 
     const file = Bun.file(filepath)
     const exists = await file.exists()
-    const contentOld = exists ? await file.text() : ""
+    // opencode #39564: read with the BOM kept explicit — `Bun.file().text()`
+    // silently drops it, and the write below re-applies it so a formatter that
+    // strips the BOM cannot corrupt the file's encoding.
+    const original = exists ? await Bom.readFile(filepath) : { text: "", bom: false }
+    const contentOld = original.text
+    const { bom: contentBom, text: contentText } = Bom.split(params.content)
     if (exists) await FileTime.assert(ctx.sessionID, filepath)
 
-    const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, params.content))
+    const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentText))
     await ctx.ask({
       permission: "edit",
       patterns: [path.relative(Instance.worktree, filepath)],
@@ -73,21 +80,34 @@ export const WriteTool = Tool.define("write", {
         filepath,
         diff,
         // Structured preview of the pending change, so the approval UI shows what will happen.
-        files: [buildFileDiff({ file: filepath, before: contentOld, after: params.content, patch: diff })],
+        files: [
+          buildFileDiff({
+            file: filepath,
+            before: contentOld,
+            after: contentText,
+            patch: diff,
+          }),
+        ],
       },
     })
 
-    const written = preserveOriginalShape(contentOld, params.content)
+    const writtenBom = original.bom || contentBom
+    const written = Bom.join(preserveOriginalShape(contentOld, contentText), writtenBom)
     await Bun.write(filepath, written)
+    await Format.formatFile(filepath, writtenBom)
     await Bus.publish(File.Event.Edited, {
       file: filepath,
     })
     await FileTime.read(ctx.sessionID, filepath)
 
-    // Formatters run as subscribers of the event above and `Bus.publish` awaits them, so the file
-    // on disk can already differ from what we wrote. Report the file as it now exists.
+    // The formatter ran before the event above, so report the final file as it
+    // now exists rather than the pre-format content the tool wrote.
     const contentNew = await readAfterMutation(filepath, written)
-    const filediff = buildFileDiff({ file: filepath, before: contentOld, after: contentNew })
+    const filediff = buildFileDiff({
+      file: filepath,
+      before: contentOld,
+      after: contentNew,
+    })
 
     let output = "Wrote file successfully."
     const diagnostics = await runLSP(

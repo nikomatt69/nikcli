@@ -9,6 +9,8 @@ import { File } from "../file"
 import { Bus } from "../bus"
 import { FileTime } from "../file/time"
 import { Filesystem } from "../util/filesystem"
+import { Bom } from "../util/bom"
+import { Format } from "../format"
 import { Instance } from "../project/instance"
 import { buildFileDiff, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
@@ -75,7 +77,8 @@ export const EditTool = Tool.define("edit", {
     let replacements = 0
     await FileTime.withLock(filePath, async () => {
       if (params.oldString === "") {
-        contentNew = params.newString
+        const replacement = Bom.split(params.newString)
+        contentNew = replacement.text
         diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
         await ctx.ask({
           permission: "edit",
@@ -86,13 +89,23 @@ export const EditTool = Tool.define("edit", {
             diff,
             // Structured preview so the approval UI can render the change instead of a raw patch
             // string, and so the user approves what they can actually see.
-            files: [buildFileDiff({ file: filePath, before: contentOld, after: contentNew, patch: diff })],
+            files: [
+              buildFileDiff({
+                file: filePath,
+                before: contentOld,
+                after: contentNew,
+                patch: diff,
+              }),
+            ],
           },
         })
-        await Bun.write(filePath, params.newString)
+        await Bun.write(filePath, Bom.join(contentNew, replacement.bom))
+        await Format.formatFile(filePath, replacement.bom)
         await Bus.publish(File.Event.Edited, {
           file: filePath,
         })
+        contentNew = (await Bom.readFile(filePath)).text
+        diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
         await FileTime.read(ctx.sessionID, filePath)
         return
       }
@@ -102,9 +115,15 @@ export const EditTool = Tool.define("edit", {
       if (!stats) throw new Error(`File not found: ${filePath}`)
       if (stats.isDirectory()) throw new Error(`Path is a directory, not a file: ${filePath}`)
       await FileTime.assert(ctx.sessionID, filePath)
-      contentOld = await file.text()
+      // opencode #39564: `Bun.file().text()` drops the BOM, so read it explicitly
+      // and re-apply it below — otherwise every edit of a BOM file silently
+      // corrupts its encoding.
+      const original = await Bom.readFile(filePath)
+      contentOld = original.text
       const applied = replaceWithCount(contentOld, params.oldString, params.newString, params.replaceAll, filePath)
-      contentNew = applied.content
+      const replacement = Bom.split(applied.content)
+      contentNew = replacement.text
+      const writtenBom = original.bom || replacement.bom
       replacements = applied.replacements
 
       diff = trimDiff(
@@ -117,11 +136,19 @@ export const EditTool = Tool.define("edit", {
         metadata: {
           filepath: filePath,
           diff,
-          files: [buildFileDiff({ file: filePath, before: contentOld, after: contentNew, patch: diff })],
+          files: [
+            buildFileDiff({
+              file: filePath,
+              before: contentOld,
+              after: contentNew,
+              patch: diff,
+            }),
+          ],
         },
       })
 
-      await file.write(contentNew)
+      await file.write(Bom.join(contentNew, writtenBom))
+      await Format.formatFile(filePath, writtenBom)
       await Bus.publish(File.Event.Edited, {
         file: filePath,
       })
@@ -132,9 +159,14 @@ export const EditTool = Tool.define("edit", {
       await FileTime.read(ctx.sessionID, filePath)
     })
 
-    // `contentNew` was re-read after the edit was published, so it already reflects any formatter
-    // that ran as a subscriber; the diff below therefore describes the file as it now exists.
-    const filediff = buildFileDiff({ file: filePath, before: contentOld, after: contentNew, patch: diff })
+    // `contentNew` was re-read after formatting, so the diff below describes
+    // the file as it now exists.
+    const filediff = buildFileDiff({
+      file: filePath,
+      before: contentOld,
+      after: contentNew,
+      patch: diff,
+    })
 
     ctx.metadata({
       metadata: {
@@ -663,7 +695,10 @@ export function replaceWithCount(
       const index = content.indexOf(search)
       if (index === -1) continue
       if (replaceAll) {
-        return { content: content.replaceAll(search, newString), replacements: countOccurrences(content, search) }
+        return {
+          content: content.replaceAll(search, newString),
+          replacements: countOccurrences(content, search),
+        }
       }
       const lastIndex = content.lastIndexOf(search)
       if (index !== lastIndex) {

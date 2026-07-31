@@ -312,12 +312,23 @@ export namespace Patch {
     content: string
   }
 
-  export function deriveNewContentsFromChunks(filePath: string, chunks: UpdateFileChunk[]): ApplyPatchFileUpdate {
+  export function deriveNewContentsFromChunks(
+    filePath: string,
+    chunks: UpdateFileChunk[],
+    content?: string,
+  ): ApplyPatchFileUpdate {
+    // `content` lets callers pass BOM-normalized text (opencode #39564) so the
+    // derived content is BOM-free and can be re-joined with the original BOM on
+    // write instead of carrying `\uFEFF` through the line pipeline.
     let originalContent: string
-    try {
-      originalContent = readFileSync(filePath, "utf-8")
-    } catch (error) {
-      throw new Error(`Failed to read file ${filePath}: ${error}`)
+    if (content !== undefined) {
+      originalContent = content
+    } else {
+      try {
+        originalContent = readFileSync(filePath, "utf-8")
+      } catch (error) {
+        throw new Error(`Failed to read file ${filePath}: ${error}`)
+      }
     }
 
     let originalLines = originalContent.split("\n")
