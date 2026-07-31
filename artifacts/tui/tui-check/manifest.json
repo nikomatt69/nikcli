@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "createdAt": "2026-07-31T01:30:29.874Z",
+  "result": "passed",
+  "title": "nikcli TUI smoke verification",
+  "summary": "Home rendered, sign-in dialog dismissed, prompt input echoed, ctrl+p command palette opened — all verified from the live screen.",
+  "capture": {
+    "final": true
+  },
+  "sourceRecordingSha256": "d83ee7986a1af42f8997f0eaf3578047f847d49c17d79557a6479e2516b87092",
+  "artifacts": [
+    {
+      "kind": "screen-text",
+      "path": "screen.txt",
+      "bytes": 2246,
+      "sha256": "10cc984c4a36e3243c1ded4ae0c8c4821fb3b138440b69521017b1d0b323369b"
+    },
+    {
+      "kind": "screen-frame",
+      "path": "screen.json",
+      "bytes": 1741841,
+      "sha256": "411aa07e9166ebd86886ccf3bf8e0e54f7196badfae385717b1c00ee0e5aff03"
+    },
+    {
+      "kind": "screen-svg",
+      "path": "screen.svg",
+      "bytes": 414089,
+      "sha256": "da8734f4b88bd9f9012fc9904c14b82ee893e5b6b67dd6714d0cc92dbbbbb99e"
+    },
+    {
+      "kind": "screen-png",
+      "path": "screen.png",
+      "bytes": 45955,
+      "sha256": "7ce89910897931dd2a4be28ff5667964d9066c2fd8419e4b65f0df15703a6304"
+    },
+    {
+      "kind": "video",
+      "path": "demo.mp4",
+      "bytes": 488417,
+      "sha256": "cffb734e2161450984006c972db345c8cf3fa08fae19ba0f6f6205fd9c87b373"
+    },
+    {
+      "kind": "preview",
+      "path": "preview.gif",
+      "bytes": 835429,
+      "sha256": "30ba7c9363aab761d0d8debd8e7ef3c0398bb720f5a00d96214f1ab820471222"
+    },
+    {
+      "kind": "recording",
+      "path": "recording.termctrl",
+      "bytes": 623861,
+      "sha256": "d83ee7986a1af42f8997f0eaf3578047f847d49c17d79557a6479e2516b87092"
+    },
+    {
+      "kind": "pr-markdown",
+      "path": "pr.md",
+      "bytes": 394,
+      "sha256": "f2ea19a3450fbad42ecba0aa1c20510d8ffd986c61f45fe6d7e0dd3ab439ffdb"
+    }
+  ]
+}

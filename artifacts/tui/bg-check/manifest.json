@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "createdAt": "2026-07-31T01:43:57.977Z",
+  "result": "passed",
+  "title": "nikcli TUI background image verification",
+  "summary": "User-provided image (Creation of Adam) set as TUI background via kv.json; home renders the wallpaper, palette lists background commands, /background dialog shows source=creation-of-adam.jpg at 45% opacity.",
+  "capture": {
+    "final": true
+  },
+  "sourceRecordingSha256": "615297f88155abf11ac6fd821f71380ca91210bb7b5d3fe59a4421957b2665eb",
+  "artifacts": [
+    {
+      "kind": "screen-text",
+      "path": "screen.txt",
+      "bytes": 9589,
+      "sha256": "a21ea39d583df5a9e719f6a345da892849a870e77c145233f1859264c95a2843"
+    },
+    {
+      "kind": "screen-frame",
+      "path": "screen.json",
+      "bytes": 1752543,
+      "sha256": "1b20e33feea0be68ec94dd44bee0e040eda91271c7f34c7c8651e1c11fca2f7f"
+    },
+    {
+      "kind": "screen-svg",
+      "path": "screen.svg",
+      "bytes": 481734,
+      "sha256": "8389ca10bcbfd275e0164316ea73cfa023fc26e800988a785b8a1b8c2f829e0d"
+    },
+    {
+      "kind": "screen-png",
+      "path": "screen.png",
+      "bytes": 84599,
+      "sha256": "0e6c27c1d57290aeb15f4d39d3ce55652eeb2bb9459316c16d0b49aa732289fe"
+    },
+    {
+      "kind": "video",
+      "path": "demo.mp4",
+      "bytes": 1340532,
+      "sha256": "6fea2b39ab0dea95c1f952ec6298618252b9cfe8361c16d35802577e00876591"
+    },
+    {
+      "kind": "preview",
+      "path": "preview.gif",
+      "bytes": 2935292,
+      "sha256": "219c91a9ba38c17b54b10ab6b5baf88cb716058f03f158fc7ac568135556333a"
+    },
+    {
+      "kind": "recording",
+      "path": "recording.termctrl",
+      "bytes": 3079614,
+      "sha256": "615297f88155abf11ac6fd821f71380ca91210bb7b5d3fe59a4421957b2665eb"
+    },
+    {
+      "kind": "pr-markdown",
+      "path": "pr.md",
+      "bytes": 488,
+      "sha256": "baecb4bbef695ef24012f6d97605d7da15055839be2e164df62f699e943cbcbd"
+    }
+  ]
+}
