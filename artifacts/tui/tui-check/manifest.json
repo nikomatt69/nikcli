@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": "2026-07-31T01:30:29.874Z",
+  "createdAt": "2026-07-31T01:58:07.728Z",
   "result": "passed",
   "title": "nikcli TUI smoke verification",
   "summary": "Home rendered, sign-in dialog dismissed, prompt input echoed, ctrl+p command palette opened — all verified from the live screen.",
@@ -54,8 +54,8 @@
     {
       "kind": "pr-markdown",
       "path": "pr.md",
-      "bytes": 394,
-      "sha256": "f2ea19a3450fbad42ecba0aa1c20510d8ffd986c61f45fe6d7e0dd3ab439ffdb"
+      "bytes": 643,
+      "sha256": "84f737f8d9e3118f9e2212e8246eaaaaa214f77f25150df9731b79580e542c0f"
     }
   ]
 }

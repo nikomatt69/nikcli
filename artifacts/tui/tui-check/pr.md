@@ -4,8 +4,8 @@
 
 Home rendered, sign-in dialog dismissed, prompt input echoed, ctrl+p command palette opened — all verified from the live screen.
 
-![nikcli TUI smoke verification](artifacts/tui/tui-check/preview.gif)
+![nikcli TUI smoke verification](https://raw.githubusercontent.com/nikomatt69/nikcli/docs/tui-verification-evidence/artifacts/tui/tui-check/preview.gif)
 
-[Full MP4 recording](artifacts/tui/tui-check/demo.mp4)
+[Full MP4 recording](https://raw.githubusercontent.com/nikomatt69/nikcli/docs/tui-verification-evidence/artifacts/tui/tui-check/demo.mp4)
 
-[Raw .termctrl recording](artifacts/tui/tui-check/recording.termctrl)
+[Raw .termctrl recording](https://raw.githubusercontent.com/nikomatt69/nikcli/docs/tui-verification-evidence/artifacts/tui/tui-check/recording.termctrl)

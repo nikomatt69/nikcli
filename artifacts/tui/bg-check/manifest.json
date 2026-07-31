@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": "2026-07-31T01:43:57.977Z",
+  "createdAt": "2026-07-31T01:59:00.862Z",
   "result": "passed",
   "title": "nikcli TUI background image verification",
   "summary": "User-provided image (Creation of Adam) set as TUI background via kv.json; home renders the wallpaper, palette lists background commands, /background dialog shows source=creation-of-adam.jpg at 45% opacity.",
@@ -54,8 +54,8 @@
     {
       "kind": "pr-markdown",
       "path": "pr.md",
-      "bytes": 488,
-      "sha256": "baecb4bbef695ef24012f6d97605d7da15055839be2e164df62f699e943cbcbd"
+      "bytes": 737,
+      "sha256": "36696cc82b2a9ebf1ae29a4f90c80d27903b84f8eb3979fbf91e0e3c20588d50"
     }
   ]
 }
