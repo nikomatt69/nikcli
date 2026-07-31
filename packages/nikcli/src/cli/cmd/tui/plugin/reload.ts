@@ -113,6 +113,48 @@ export function createSourceWatcher(options: WatchOptions) {
       }
       arm(path.dirname(file), path.basename(file))
     },
+    /**
+     * Watches one file by name through its parent directory, whether or not it
+     * exists yet — that is how a config file created after startup is noticed.
+     */
+    addFile(target: string) {
+      if (disposed) return
+      const file = target.startsWith("file://") ? fileURLToPath(target) : target
+      arm(path.dirname(file), path.basename(file))
+    },
+    /** Watches every entry of a directory. A missing directory is skipped. */
+    addDirectory(target: string) {
+      if (disposed) return
+      const dir = target.startsWith("file://") ? fileURLToPath(target) : target
+      arm(dir, null)
+    },
+    /**
+     * Watches a path however far down it exists: when the target is missing,
+     * the nearest existing ancestor is watched for the creation of the next
+     * segment. That is what makes a plugin directory created after startup
+     * (`.nikcli/plugin/tui`) reach the running TUI.
+     */
+    addPath(target: string) {
+      if (disposed) return
+      const full = target.startsWith("file://") ? fileURLToPath(target) : target
+      const stat = Filesystem.stat(full)
+      if (stat) {
+        if (stat.isDirectory()) arm(full, null)
+        else arm(path.dirname(full), path.basename(full))
+        return
+      }
+
+      let current = full
+      while (true) {
+        const parent = path.dirname(current)
+        if (parent === current) return
+        if (Filesystem.stat(parent)) {
+          arm(parent, path.basename(current))
+          return
+        }
+        current = parent
+      }
+    },
     dispose() {
       disposed = true
       clearTimeout(timer)

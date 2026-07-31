@@ -451,6 +451,9 @@ export function createTuiApi(input: Input): TuiPluginApi {
       memory() {
         throw new Error("storage.memory is only available in plugin context")
       },
+      store() {
+        throw new Error("storage.store is only available in plugin context")
+      },
     },
     state: stateApi(input.sync),
     data,

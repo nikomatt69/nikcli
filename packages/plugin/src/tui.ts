@@ -286,7 +286,18 @@ export type TuiKV = {
 
 export type TuiMemoryEntry<Value extends object> = readonly [Store<Value>, (mutation: (draft: Value) => void) => void]
 
+export type TuiStoreEntry<Value extends object> = readonly [
+  Store<Value>,
+  (mutation: (draft: Value) => void) => Promise<void>,
+]
+
 export type TuiStorage = {
+  /**
+   * Durable JSON state, namespaced per plugin: persisted to disk, survives hot
+   * reloads and TUI restarts, and stays in sync across running TUI instances.
+   * Values must be JSON-serializable; updates resolve once written.
+   */
+  store: <Value extends object>(key: string, options: { readonly initial: Value }) => TuiStoreEntry<Value>
   /**
    * Ephemeral in-process state, keyed per plugin. Entries live above the plugin
    * lifecycle, so a hot reload hands the same live store to the new generation

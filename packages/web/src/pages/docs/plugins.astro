@@ -12,6 +12,7 @@ const toc = [
   { title: "Config patching", href: "#patching", depth: 2 },
   { title: "Server runtime", href: "#server-runtime", depth: 2 },
   { title: "TUI runtime", href: "#tui-runtime", depth: 2 },
+  { title: "TUI discovery and hot reload", href: "#tui-hot-reload", depth: 2 },
   { title: "Built-in plugins", href: "#built-ins", depth: 2 },
   { title: "Plugin manifest", href: "#manifest", depth: 2 },
   { title: "Skills", href: "#skills", depth: 2 },
@@ -133,8 +134,51 @@ nikcli plugin @scope/my-plugin@1.2.3 --force
         <tr><td>Dialog</td><td>Open, clear, size, and inspect dialog stack.</td></tr>
         <tr><td>Keybind</td><td>Match, print, and create plugin keybind definitions.</td></tr>
         <tr><td>Slots/features</td><td>Register sidebar or system plugin manager UI where supported.</td></tr>
+        <tr><td>Storage</td><td><code>api.storage.memory(key, &#123; initial &#125;)</code> keeps per-plugin state in memory across hot reloads; <code>api.storage.store(...)</code> persists it to disk and syncs it across TUI instances.</td></tr>
       </tbody>
     </table>
+    <p>
+      A plugin that throws while rendering is contained: the slot or route renders nothing and the
+      crash surfaces as a single error toast instead of taking the TUI down.
+    </p>
+  </section>
+
+  <section id="tui-hot-reload" class="doc-section">
+    <h2>TUI plugin discovery and hot reload</h2>
+    <p>
+      Local TUI plugins are discovered from <code>plugin/tui/</code> and <code>plugins/tui/</code>
+      inside every config root — the project <code>.nikcli</code> directories, the global config dir,
+      <code>NIKCLI_CONFIG_DIR</code>, and the managed dir. Anything else is declared in
+      <code>tui.json</code>. The extra <code>tui</code> level matters:
+      <code>&#123;plugin,plugins&#125;/*.&#123;ts,js&#125;</code> is the <em>server</em> plugin loader's
+      territory, so a TUI plugin placed directly there is loaded as a server plugin and fails.
+    </p>
+    <DocCode language="bash" title="project layout">
+.nikcli/
+  tui.json            # optional: declare plugins with options
+  plugin/tui/hud.tsx  # discovered automatically
+    </DocCode>
+    <p>
+      Editing a local plugin swaps that one plugin in the running TUI, typically within ~100 ms. Other
+      plugins — including built-ins — are never touched, in-memory state kept in
+      <code>api.storage.memory</code> survives, and a broken save keeps the last working version alive
+      with one error toast until the file is fixed. npm package plugins do not hot reload: their
+      entrypoints resolve into the package cache and are immutable for the session.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Change on disk</th><th>Effect on the running TUI</th></tr></thead>
+      <tbody>
+        <tr><td>Edit a local plugin file</td><td>That plugin is disposed and re-initialized from the fresh module.</td></tr>
+        <tr><td>Add a file to <code>plugin/tui/</code></td><td>The plugin is loaded and activated.</td></tr>
+        <tr><td>Add or remove a <code>tui.json</code> entry</td><td>The plugin is loaded, or torn down.</td></tr>
+        <tr><td>Change plugin options</td><td>That plugin restarts with the new options.</td></tr>
+        <tr><td>Flip <code>plugin_enabled</code></td><td>The plugin is disposed or initialized. Plugin-manager toggles are stored in KV and still win.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="note">
+      Hot reload is on by default. Set <code>NIKCLI_DISABLE_PLUGIN_RELOAD=1</code> to load plugins once
+      at startup; <code>--pure</code> / <code>NIKCLI_PURE</code> skips external TUI plugins entirely.
+    </DocCallout>
   </section>
 
   <section id="built-ins" class="doc-section">

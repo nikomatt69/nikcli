@@ -44,7 +44,7 @@ import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"
 import { clearSlotErrors, setupSlots, Slot as View } from "./slots"
 import type { HostPluginApi, HostSlots } from "./slots"
 import { adaptV2TuiPlugin, readV2TuiPlugin } from "./v2"
-import { pluginMemory } from "./memory"
+import { pluginStorage } from "./storage"
 import { createSourceWatcher, entrypointMtime, freshSpecifier, type SourceWatcher } from "./reload"
 import { dbg } from "../feature-plugins/background/__debug"
 
@@ -62,6 +62,11 @@ type PluginLoad = {
   version: string
   /** Config metadata, kept so a hot reload can re-resolve with the same scope. */
   config_meta?: TuiConfig.PluginMeta
+  /**
+   * Where this plugin came from. Only `config` entries follow the config file:
+   * a plugin added at runtime is not removed when it is absent from `tui.json`.
+   */
+  origin: "config" | "runtime" | "internal"
   retry: boolean
   source: PluginSource | "internal"
   id: string
@@ -217,6 +222,7 @@ function createThemeInstaller(meta: TuiConfig.PluginMeta, root: string, spec: st
 type LoadHooks = {
   /** Receives the first error that stopped this load, for user-facing reporting. */
   onFail?: (error: unknown) => void
+  origin?: PluginLoad["origin"]
 }
 
 async function loadExternalPlugin(
@@ -297,6 +303,7 @@ async function loadExternalPlugin(
     entry,
     version,
     config_meta: meta,
+    origin: hooks?.origin ?? "config",
     retry,
     source,
     id,
@@ -350,6 +357,7 @@ function loadInternalPlugin(item: InternalTuiPlugin): PluginLoad {
     target,
     entry: target,
     version: target,
+    origin: "internal",
     retry: false,
     source: "internal",
     id: item.id,
@@ -629,7 +637,7 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
     keybind: api.keybind,
     tuiConfig: api.tuiConfig,
     kv: api.kv,
-    storage: pluginMemory(base),
+    storage: pluginStorage(base),
     state: api.state,
     data: api.data,
     theme,
@@ -710,6 +718,27 @@ function watchLocalSources(state: RuntimeState) {
 }
 
 /**
+ * Watches the TUI config files and the plugin discovery directories, so adding
+ * or removing a plugin entry — or dropping a file into `plugin/tui` — reaches
+ * the running TUI. Config files are watched by name even when absent: creating
+ * `tui.json` later is exactly the case that has to work.
+ */
+async function watchConfigSources(state: RuntimeState) {
+  const watcher = state.watcher
+  if (!watcher) return
+  const sources = await withInstanceAsync({ directory: state.directory }, () => TuiConfig.sources()).catch((error) => {
+    log.warn("failed to resolve tui config sources", { error })
+    return undefined
+  })
+  if (!sources) return
+  for (const file of sources.files) watcher.addFile(file)
+  // addPath, not addDirectory: a discovery directory that does not exist yet
+  // is watched through its nearest existing ancestor, so creating it later
+  // still reaches the running TUI.
+  for (const dir of sources.directories) watcher.addPath(dir)
+}
+
+/**
  * Replaces one running plugin with a freshly imported version of itself.
  *
  * The swap is in place: the entry keeps its position in `state.plugins`, which
@@ -732,7 +761,6 @@ async function swapPluginEntry(state: RuntimeState, previous: PluginEntry, load:
   }
 
   const enabled = previous.enabled
-  const active = previous.scope !== undefined
   await deactivatePluginEntry(state, previous, false)
 
   state.plugins[index] = next
@@ -746,7 +774,9 @@ async function swapPluginEntry(state: RuntimeState, previous: PluginEntry, load:
   clearSlotErrors(next.id)
 
   log.info("hot reloaded tui plugin", { path: load.spec, id: next.id })
-  if (!enabled || !active) return true
+  // `enabled` is the persisted desired state: a manually deactivated plugin
+  // stays off, and a plugin whose setup threw gets another chance once fixed.
+  if (!enabled) return true
   return activatePluginEntry(state, next, false)
 }
 
@@ -756,17 +786,30 @@ async function swapPluginEntry(state: RuntimeState, previous: PluginEntry, load:
  * A failed import keeps the previous version running (`keep-last-good`) and
  * only reports; fixing the file swaps the fix in on the next event.
  */
-async function reloadPluginEntry(state: RuntimeState, plugin: PluginEntry) {
-  const item = plugin.load.item
+async function reloadPluginEntry(
+  state: RuntimeState,
+  plugin: PluginEntry,
+  override?: {
+    /** Re-declared config entry, when the reload is driven by a config change. */
+    item?: Config.PluginSpec
+    meta?: TuiConfig.PluginMeta
+    /** Reload even when the source is byte-identical (changed options). */
+    force?: boolean
+  },
+) {
+  const item = override?.item ?? plugin.load.item
   if (!item) return false
 
-  const mtime = entrypointMtime(plugin.load.entry)
-  // The source vanished (rename in flight, or deleted): keep it running.
-  if (mtime === undefined) return false
-  if (freshSpecifier(plugin.load.entry, mtime) === plugin.load.version) return false
+  if (!override?.force) {
+    const mtime = entrypointMtime(plugin.load.entry)
+    // The source vanished (rename in flight, or deleted): keep it running.
+    if (mtime === undefined) return false
+    if (freshSpecifier(plugin.load.entry, mtime) === plugin.load.version) return false
+  }
 
   let error: unknown
-  const load = await loadExternalPlugin(item, plugin.load.config_meta, false, {
+  const load = await loadExternalPlugin(item, override?.meta ?? plugin.load.config_meta, false, {
+    origin: plugin.load.origin,
     onFail: (value) => {
       error ??= value
     },
@@ -779,7 +822,7 @@ async function reloadPluginEntry(state: RuntimeState, plugin: PluginEntry) {
     )
     return false
   }
-  if (load.version === plugin.load.version) return false
+  if (!override?.force && load.version === plugin.load.version) return false
 
   const hit = await PluginMeta.touchMany([{ spec: load.spec, target: load.target, id: load.id }])
     .then((rows) => rows?.[0])
@@ -791,24 +834,126 @@ async function reloadPluginEntry(state: RuntimeState, plugin: PluginEntry) {
   return swapPluginEntry(state, plugin, load, createMeta(load.source, load.spec, load.target, hit, load.id))
 }
 
+function sameOptions(left: Config.PluginOptions | undefined, right: Config.PluginOptions | undefined) {
+  return Bun.deepEquals(left ?? null, right ?? null)
+}
+
+/** Tears a plugin down and drops it from the runtime. */
+async function removePluginEntry(state: RuntimeState, plugin: PluginEntry) {
+  await deactivatePluginEntry(state, plugin, false)
+  const index = state.plugins.indexOf(plugin)
+  if (index >= 0) state.plugins.splice(index, 1)
+  if (state.plugins_by_id.get(plugin.id) === plugin) state.plugins_by_id.delete(plugin.id)
+  state.failures.delete(plugin.id)
+  clearSlotErrors(plugin.id)
+  log.info("removed tui plugin", { path: plugin.load.spec, id: plugin.id })
+}
+
 /**
- * Reconcile pass: re-import every local plugin whose source changed, one at a
- * time so registration side effects stay ordered. Unchanged plugins cost one
- * stat, so spurious watch events are nearly free.
+ * Re-reads the TUI config (including directory-discovered plugins) and brings
+ * the running set in line with it: entries added to `tui.json` load, removed
+ * entries are torn down, and changed options restart their plugin.
+ *
+ * Only config-owned plugins are touched. Internal plugins and plugins added
+ * through `api.plugins.add(...)` never appear in the config and are left alone.
+ * New plugins are appended rather than rebuilding the whole set, so untouched
+ * plugins keep their registration order.
+ */
+async function reconcileConfiguredPlugins(state: RuntimeState) {
+  if (Flag.NIKCLI_PURE) return
+
+  const config = await TuiConfig.reload().catch((error) => {
+    log.warn("failed to reload tui config", { error })
+    return undefined
+  })
+  if (!config) return
+
+  const desired = new Map<string, Config.PluginSpec>()
+  for (const item of config.plugin ?? []) desired.set(Config.pluginSpecifier(item), item)
+  const meta = (spec: string) => config.plugin_meta?.[spec]
+  // Config `plugin_enabled` merged with the KV overrides, exactly as at startup:
+  // a manual toggle from the plugin manager still wins over the config value.
+  const enabledState = pluginEnabledState(state, config)
+
+  for (const plugin of [...state.plugins]) {
+    if (plugin.load.origin !== "config") continue
+    if (desired.has(plugin.load.spec)) continue
+    await removePluginEntry(state, plugin)
+  }
+
+  for (const [spec, item] of desired) {
+    const existing = state.plugins.find((plugin) => plugin.load.spec === spec)
+    if (existing) {
+      if (existing.load.origin !== "config") continue
+      const options = Config.pluginOptions(item)
+      if (sameOptions(existing.options, options)) continue
+      log.info("tui plugin options changed", { path: spec, id: existing.id })
+      await reloadPluginEntry(state, existing, { item, meta: meta(spec), force: true })
+      continue
+    }
+
+    let error: unknown
+    const load = await loadExternalPlugin(item, meta(spec), false, {
+      origin: "config",
+      onFail: (value) => {
+        error ??= value
+      },
+    })
+    if (!load) {
+      reportReloadFailure(state, spec, `${spec}: ${errorMessage(error ?? new Error("failed to load"))}`)
+      continue
+    }
+    if (state.plugins_by_id.has(load.id)) {
+      reportReloadFailure(state, spec, `${spec}: plugin id ${load.id} is already loaded`)
+      continue
+    }
+
+    const out = await addExternalPluginEntries(state, [load])
+    for (const plugin of out.plugins) {
+      state.failures.delete(spec)
+      log.info("loaded tui plugin from config", { path: spec, id: plugin.id })
+      // A plugin the user disabled (config or KV) loads dormant, exactly as it
+      // would have on the next startup.
+      plugin.enabled = enabledState[plugin.id] ?? true
+      if (!plugin.enabled) continue
+      await activatePluginEntry(state, plugin, false)
+    }
+  }
+
+  // Flipping `plugin_enabled` in the config takes effect too: a plugin turned
+  // off there is disposed, one turned back on is initialized. Internal plugins
+  // are included — the config keys them by id, like the plugin manager does.
+  for (const plugin of [...state.plugins]) {
+    const enabled = enabledState[plugin.id]
+    if (enabled === undefined || enabled === plugin.enabled) continue
+    log.info("tui plugin enable state changed", { id: plugin.id, enabled })
+    if (enabled) await activatePluginEntry(state, plugin, false)
+    else await deactivatePluginEntry(state, plugin, false)
+  }
+}
+
+/**
+ * Reconcile pass: bring the plugin set in line with the config, then re-import
+ * every local plugin whose source changed, one at a time so registration side
+ * effects stay ordered. Unchanged plugins cost one stat, so spurious watch
+ * events are nearly free.
  */
 async function reloadLocalPlugins(state: RuntimeState) {
-  const targets = state.plugins.filter((plugin) => plugin.load.source === "file" && plugin.load.item)
-  if (targets.length) {
-    await withInstanceAsync({ directory: state.directory }, async () => {
-      for (const plugin of targets) {
-        await reloadPluginEntry(state, plugin).catch((error) => {
-          fail("failed to hot reload tui plugin", { path: plugin.load.spec, id: plugin.id, error })
-        })
-      }
+  await withInstanceAsync({ directory: state.directory }, async () => {
+    await reconcileConfiguredPlugins(state).catch((error) => {
+      fail("failed to reconcile configured tui plugins", { directory: state.directory, error })
     })
-  }
-  // A plugin whose id changed, or one added at runtime, needs its own watch.
+
+    for (const plugin of state.plugins.filter((item) => item.load.source === "file" && item.load.item)) {
+      await reloadPluginEntry(state, plugin).catch((error) => {
+        fail("failed to hot reload tui plugin", { path: plugin.load.spec, id: plugin.id, error })
+      })
+    }
+  })
+  // A plugin whose id changed, or one added at runtime, needs its own watch;
+  // so do config files and plugin directories that appeared since the last pass.
   watchLocalSources(state)
+  await watchConfigSources(state)
 }
 
 function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.Info) {
@@ -824,8 +969,9 @@ async function resolveExternalPlugins(
   list: Config.PluginSpec[],
   wait: () => Promise<void>,
   meta: (item: Config.PluginSpec) => TuiConfig.PluginMeta | undefined,
+  origin: PluginLoad["origin"] = "config",
 ) {
-  const loaded = await Promise.all(list.map((item) => loadExternalPlugin(item, meta(item))))
+  const loaded = await Promise.all(list.map((item) => loadExternalPlugin(item, meta(item), false, { origin })))
   const ready: PluginLoad[] = []
   let deps: Promise<void> | undefined
 
@@ -840,7 +986,7 @@ async function resolveExternalPlugins(
         log.warn("failed waiting for tui plugin dependencies", { error })
       })
       await deps
-      entry = await loadExternalPlugin(item, meta(item), true)
+      entry = await loadExternalPlugin(item, meta(item), true, { origin })
     }
     if (!entry) continue
     ready.push(entry)
@@ -978,6 +1124,7 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
       [item],
       () => TuiConfig.waitForDependencies(),
       () => meta,
+      "runtime",
     ),
   ).catch((error) => {
     fail("failed to add tui plugin", { path: nextSpec, error })
@@ -1271,6 +1418,7 @@ export namespace TuiPluginRuntime {
         },
       })
       watchLocalSources(next)
+      await watchConfigSources(next)
     }
   }
 }

@@ -99,7 +99,10 @@ export default plugin
 - TUI path loading never uses `package.json` `main`.
 - Legacy compatibility: path specs like `./plugin` can resolve to `./plugin/index.ts` (or `index.js`) when `package.json` is missing.
 - The `./plugin -> ./plugin/index.*` fallback applies to both server and TUI v1 loading.
-- There is no directory auto-discovery for TUI plugins; they must be listed in `tui.json`.
+- TUI plugins are discovered from `plugin/tui/` and `plugins/tui/` inside every config root (`.nikcli` dirs, the global config dir, `NIKCLI_CONFIG_DIR`, the managed dir); anything else must be listed in `tui.json`.
+- Discovered extensions are `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, `.cts`. Files and symlinks count, nested directories do not.
+- The nesting matters: `plugin/` and `plugins/` themselves belong to the *server* plugin loader (`{plugin,plugins}/*.{ts,js}`, non-recursive), so a TUI plugin placed directly there is loaded as a server plugin and fails.
+- Discovered plugins load before configured ones and are deduped against them by resolved file spec, so declaring the same file in `tui.json` (to pass options) replaces the discovered entry.
 
 ## Package manifest and install
 
@@ -201,6 +204,7 @@ Top-level API groups exposed to `tui(api, options, meta)`:
 - `api.keybind.match`, `print`, `create`
 - `api.tuiConfig`
 - `api.kv.get`, `set`, `ready`
+- `api.storage.memory(key, { initial })`, `api.storage.store(key, { initial })`
 - `api.state`
 - `api.theme.current`, `selected`, `has`, `set`, `install`, `mode`, `ready`
 - `api.client`
@@ -258,6 +262,8 @@ slashAliases?, suggested?, hidden?, enabled?, run }`. `name` is the
 - `api.route.navigate("session", params)` only uses `params.sessionID`. It cannot set `initialPrompt`.
 - If multiple plugins register the same route name, the last registered route wins.
 - Unknown plugin routes render a fallback screen with a `go home` action.
+- A throwing plugin route render is contained by a per-route error boundary: it renders nothing, shows one error toast (`<id> crashed in route: <error>`), and leaves the rest of the TUI usable.
+- The boundary is keyed by route id and plugin generation, so navigating away or hot reloading the plugin clears a latched crash.
 
 ### Dialogs and toast
 
@@ -283,6 +289,15 @@ slashAliases?, suggested?, hidden?, enabled?, run }`. `name` is the
 
 - `api.kv` is the shared app KV store backed by `state/kv.json`. It is not plugin-namespaced.
 - `api.kv` exposes `ready`.
+- `api.storage.memory(key, { initial })` returns `[store, update]`, a Solid store plus a synchronous `produce` updater.
+- Memory entries are namespaced per plugin id and memoized above the plugin lifecycle, so a hot reload hands the same live store to the new generation.
+- Memory state is ephemeral: values need not be JSON-serializable and everything is gone when the TUI exits.
+- `api.storage.store(key, { initial })` is the durable twin: same shape, but the updater is async and resolves once the value is on disk.
+- Store entries live in `<state>/tui/plugin/<id>.<key>.json`, one file per plugin id and key. Values must be JSON-serializable.
+- Writes take a cross-process lock and land through a temp file plus rename, so a concurrent reader never sees partial JSON.
+- The store directory is watched: a write from another TUI instance is reconciled into the running store.
+- Unlike `api.kv`, both are namespaced per plugin; `api.kv` remains the shared, un-namespaced app store.
+- v2 plugins get the same APIs as `context.storage.memory(...)` and `context.storage.store(...)`.
 - `api.tuiConfig` and `api.state` are live host objects/getters, not frozen snapshots.
 - `api.state` exposes synced TUI state:
   - `ready`
@@ -340,6 +355,7 @@ Current host slot names:
 - `session_prompt_right` with props `{ session_id }`
 - `home_bottom`
 - `home_footer`
+- `session.prompt.top` with props `{ sessionID }`, rendered above the session prompt
 - `sidebar_title` with props `{ session_id, title, share_url? }`
 - `sidebar_content` with props `{ session_id }`
 - `sidebar_footer` with props `{ session_id }`
@@ -351,6 +367,7 @@ Slot notes:
 - `api.slots.register(plugin)` does not return an unregister function.
 - Returned ids are `pluginId`, `pluginId:1`, `pluginId:2`, and so on.
 - Plugin-provided `id` is not allowed.
+- A throwing slot render is contained per plugin by the slot registry's own error boundary: the slot renders nothing and one error toast reports `<id> crashed in slot <name>: <error>`. Repeats of the same failure stay silent until that plugin reloads.
 - The current host renders `home_logo`, `home_prompt`, and `session_prompt` with `replace`, `home_footer`, `sidebar_title`, and `sidebar_footer` with `single_winner`, and `app`, `home_prompt_right`, `session_prompt_right`, `home_bottom`, and `sidebar_content` with the slot library default mode.
 - Plugins can define custom slot names in `api.slots.register(...)` and render them from plugin UI with `ui.Slot`.
 
@@ -413,6 +430,29 @@ Metadata is persisted by plugin id.
 - Cleanup runs in reverse order.
 - Cleanup is awaited.
 - Total cleanup budget per plugin is 5 seconds; timeout/error is logged and shutdown continues.
+
+## Hot reload
+
+Editing a local TUI plugin takes effect in the running TUI without a restart.
+
+- Only local (`file://` / path) plugins hot reload. npm package plugins resolve into the package cache and are treated as immutable for the session.
+- Sources are watched through their parent directory (atomic-save editors replace the inode, which kills a direct file watch) and filtered by basename. Directory targets are watched at their root only: editing a non-entrypoint helper file does not change the entrypoint mtime and is not detected.
+- Watch events are debounced 100 ms into a serialized reload chain, so overlapping saves cannot interleave swaps.
+- A reload pass stats every local plugin and re-imports only the ones whose entrypoint mtime changed. Unchanged plugins, internal plugins, and npm plugins are never touched.
+- Local imports go through an mtime-busted specifier (Bun: plain path + `?mtime=`; Node: full URL), which doubles as the version token — equal versions mean an identical module.
+- Swaps are in place: the reloaded plugin keeps its position in the plugin list, which slot ordering (`replace` takes the last registration) and command precedence depend on.
+- A failed import keeps the previous version running (`keep-last-good`) and reports one error toast; fixing the file swaps the fix in. The same failure is not re-toasted until it changes.
+- A reload that resolves to an id already owned by another plugin is rejected and the previous version keeps running.
+- Enable state is preserved across a reload: a manually deactivated plugin stays deactivated, and an active one is re-activated after the swap.
+- Plugin metadata is re-touched on every swap, so `meta.state` reaches the new generation as `updated` and `load_count` keeps counting.
+- Plugins added at runtime with `api.plugins.add(spec)` are watched like configured ones.
+- The TUI config files and the `plugin/tui` discovery directories are watched too. Every reload pass re-reads the config (dependency installation is skipped) and reconciles the plugin set: entries added to `tui.json` — or files dropped into a discovery directory — load and activate, removed entries are torn down, and changed plugin options restart that plugin.
+- Config files are watched by name even when they do not exist yet, so creating `tui.json` later is picked up. Plugin directories are watched the same way: a missing `plugin/tui` is watched through its nearest existing ancestor, so creating the directory later also reaches the running TUI.
+- `plugin_enabled` changes are applied on reload: a plugin turned off in the config is disposed, one turned back on is initialized. Manual toggles from the plugin manager are stored in KV and still win over the config value, as at startup.
+- Only config-owned plugins follow the config: internal plugins and plugins added through `api.plugins.add(...)` are never removed by a config change (they still follow `plugin_enabled`).
+- Newly loaded plugins are appended rather than rebuilding the whole set, so untouched plugins keep their registration order. A plugin disabled in `plugin_enabled` (config or KV) loads dormant.
+- Hot reload is off in `--pure` / `NIKCLI_PURE` mode (no external plugins) and can be disabled with `NIKCLI_DISABLE_PLUGIN_RELOAD=1`.
+- Plugin state kept in `api.storage.memory(...)` (and `api.storage.store(...)`) survives the swap; everything else (commands, routes, slots, events, `onDispose` handlers) is torn down and rebuilt.
 
 ## Built-in plugins
 
