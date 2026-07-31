@@ -3,5 +3,6 @@ preload = ["@opentui/solid/preload"]
 [test]
 preload = ["./test/preload.ts"]
 timeout = 10000  # 10 seconds (default is 5000ms)
-# Enable code coverage
-coverage = true
+# Coverage is opt-in via `bun run test:coverage`: instrumenting every run costs
+# ~30% wall time and prints a per-file table long enough to drown CI logs (and
+# to trip Bun's WriteFailed on piped output, which masks the exit code).

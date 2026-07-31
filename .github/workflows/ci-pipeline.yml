@@ -17,6 +17,9 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    # Backstop for anything the per-step timeouts in ci-validate.ts cannot kill;
+    # the run itself should finish well inside this.
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

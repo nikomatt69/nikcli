@@ -59,8 +59,14 @@ const steps: ValidationStep[] = [
     timeout: 30_000,
   },
   {
+    // The package script, not a bare `bun test` from the root: run from here
+    // Bun sweeps all 400+ test files in the monorepo — benchmarks, integration
+    // suites and the simulation tests that boot a real TUI — with none of the
+    // per-package bunfig (preload, timeout) applied. The full matrix is the
+    // `test` workflow's job; validation only needs fast feedback on the core.
     name: "Run tests",
-    command: ["bun", "test"],
+    command: ["bun", "run", "test"],
+    cwd: "packages/nikcli",
     timeout: 300_000,
     critical: false,
   },
@@ -101,6 +107,8 @@ interface StepResult {
   outputTail: string
 }
 
+const DEFAULT_TIMEOUT = 300_000
+
 async function runStep(step: ValidationStep): Promise<StepResult> {
   const start = Date.now()
   let passed = false
@@ -114,14 +122,25 @@ async function runStep(step: ValidationStep): Promise<StepResult> {
       env: { ...process.env, TERM: "dumb", CI: "true" },
     })
 
+    // The declared timeout is enforced here. Without it a hung step (a test
+    // waiting on a socket, a watcher that never exits) ran until the job's own
+    // limit — hours, for a pipeline that should report in minutes.
+    const limit = step.timeout ?? DEFAULT_TIMEOUT
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      proc.kill(9)
+    }, limit)
+
     const stdout = await new Response(proc.stdout).text()
     const stderr = await new Response(proc.stderr).text()
     const exitCode = await proc.exited
+    clearTimeout(timer)
 
     const combined = `${stdout}\n${stderr}`.trim()
     const tailLines = combined.split("\n").slice(-20).join("\n")
-    outputTail = redact(tailLines)
-    passed = exitCode === 0
+    outputTail = redact(timedOut ? `${tailLines}\n[timed out after ${(limit / 1000).toFixed(0)}s]` : tailLines)
+    passed = !timedOut && exitCode === 0
   } catch (err) {
     outputTail = redact(String(err))
     passed = false
