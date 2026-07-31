@@ -2409,11 +2409,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     )
     if (firstRealUserIdx === -1) return
 
-    const isFirst =
-      input.history.filter((m) => m.info.role === "user" && !m.parts.every((p) => "synthetic" in p && p.synthetic))
-        .length === 1
-    if (!isFirst) return
-
+    // Titling is driven by the first real user message but is not restricted to
+    // the first turn: when generation failed (provider hiccup, no small model),
+    // the session keeps its default title and the next prompt retries. The
+    // default-title guard above is what stops a titled session from re-titling.
     const contextMessages = input.history.slice(0, firstRealUserIdx + 1)
     const firstRealUser = contextMessages[firstRealUserIdx]
 
@@ -2458,6 +2457,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       return sessionUpdate(
         input.session.id,
         (draft) => {
+          // Re-checked inside the update: a rename that landed while the title
+          // model was streaming must win over the generated title.
+          if (!Session.isDefaultTitle(draft.title)) return
+
           const cleaned = text
             .replace(/<think>[\s\S]*?<\/think>\s*/g, "")
             .split("\n")
