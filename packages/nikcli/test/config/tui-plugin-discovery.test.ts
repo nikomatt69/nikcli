@@ -56,9 +56,7 @@ describe("tui plugin discovery", () => {
     await writeFile(target, "export default {}")
     await symlink(target, path.join(directory, "linked.ts"))
 
-    expect(await TuiConfig.discoverPlugins(root)).toEqual([
-      pathToFileURL(path.join(directory, "linked.ts")).href,
-    ])
+    expect(await TuiConfig.discoverPlugins(root)).toEqual([pathToFileURL(path.join(directory, "linked.ts")).href])
   })
 
   it("returns nothing for a config root without plugin directories", async () => {

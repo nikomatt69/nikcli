@@ -149,10 +149,7 @@ async function bootTui(root: string, name: string) {
           // orphaned, and a few of those pile up enough to starve the next boot
           // in this file. Fall back to SIGKILL if it does not exit in time.
           child.kill("SIGTERM")
-          const exited = await Promise.race([
-            child.exited.then(() => true),
-            Bun.sleep(5_000).then(() => false),
-          ])
+          const exited = await Promise.race([child.exited.then(() => true), Bun.sleep(5_000).then(() => false)])
           if (!exited) {
             child.kill(9)
             await child.exited
@@ -164,7 +161,6 @@ async function bootTui(root: string, name: string) {
     },
   }
 }
-
 
 // Booting the real TUI is the expensive part, so each test drives as many
 // scenarios as it can through a single boot. Six boots in one process starved

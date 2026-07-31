@@ -756,7 +756,11 @@ async function swapPluginEntry(state: RuntimeState, previous: PluginEntry, load:
     return false
   }
   if (next.id !== previous.id && state.plugins_by_id.has(next.id)) {
-    reportReloadFailure(state, previous.id, `${load.spec}: plugin id ${next.id} is already loaded (previous version kept)`)
+    reportReloadFailure(
+      state,
+      previous.id,
+      `${load.spec}: plugin id ${next.id} is already loaded (previous version kept)`,
+    )
     return false
   }
 

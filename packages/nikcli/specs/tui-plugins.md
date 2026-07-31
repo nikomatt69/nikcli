@@ -101,7 +101,7 @@ export default plugin
 - The `./plugin -> ./plugin/index.*` fallback applies to both server and TUI v1 loading.
 - TUI plugins are discovered from `plugin/tui/` and `plugins/tui/` inside every config root (`.nikcli` dirs, the global config dir, `NIKCLI_CONFIG_DIR`, the managed dir); anything else must be listed in `tui.json`.
 - Discovered extensions are `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, `.cts`. Files and symlinks count, nested directories do not.
-- The nesting matters: `plugin/` and `plugins/` themselves belong to the *server* plugin loader (`{plugin,plugins}/*.{ts,js}`, non-recursive), so a TUI plugin placed directly there is loaded as a server plugin and fails.
+- The nesting matters: `plugin/` and `plugins/` themselves belong to the _server_ plugin loader (`{plugin,plugins}/*.{ts,js}`, non-recursive), so a TUI plugin placed directly there is loaded as a server plugin and fails.
 - Discovered plugins load before configured ones and are deduped against them by resolved file spec, so declaring the same file in `tui.json` (to pass options) replaces the discovered entry.
 
 ## Package manifest and install

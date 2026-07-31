@@ -3,6 +3,25 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.219.0 (July 2026)
+
+## Core
+
+- Discover project plugins, reload tui config, persist plugin state (@nikomatt69)
+- Retry failed title generation and stop clobbering renames (@nikomatt69)
+- Stop SSE reconnect loops on JSON-RPC errors (@nikomatt69)
+- Enhance plugin system with memory storage and error handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): enhance plugin system with memory storage and error handling
+  - fix(mcp): stop SSE reconnect loops on JSON-RPC errors
+  - fix(session): retry failed title generation and stop clobbering renames
+  - feat(tui): discover project plugins, reload tui config, persist plugin state
+  - feat(tui): add replaceable prompt footer slot
+  - feat(nikcli): integrate v2 formatter runtime
+
 ## v1.218.0 (July 2026)
 
 ## Mobile
