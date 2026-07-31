@@ -94,7 +94,20 @@ export class BackgroundRenderable extends FrameBufferRenderable {
   }
 
   protected override renderSelf(buffer: OptimizedBuffer) {
-    dbg("renderSelf", JSON.stringify({ painted: this._painted, x: this.x, y: this.y, w: this.width, h: this.height, fb: [this.frameBuffer.width, this.frameBuffer.height], px: this._pixels?.byteLength ?? 0, visible: this.visible, target: [buffer.width, buffer.height] }))
+    dbg(
+      "renderSelf",
+      JSON.stringify({
+        painted: this._painted,
+        x: this.x,
+        y: this.y,
+        w: this.width,
+        h: this.height,
+        fb: [this.frameBuffer.width, this.frameBuffer.height],
+        px: this._pixels?.byteLength ?? 0,
+        visible: this.visible,
+        target: [buffer.width, buffer.height],
+      }),
+    )
     if (!this._painted) {
       this._painted = this.paint()
       if (!this._painted) return
@@ -109,7 +122,12 @@ export class BackgroundRenderable extends FrameBufferRenderable {
         ),
       }
     }
-    dbg("after blit fb(5,5)", JSON.stringify(probe(this.frameBuffer, 5, 5)), "target(5,5)", JSON.stringify(probe(buffer, 5, 5)))
+    dbg(
+      "after blit fb(5,5)",
+      JSON.stringify(probe(this.frameBuffer, 5, 5)),
+      "target(5,5)",
+      JSON.stringify(probe(buffer, 5, 5)),
+    )
   }
 }
 

@@ -81,7 +81,8 @@ export namespace TurnUsage {
 
       if (total > 0) {
         const cached = assistant.tokens.cache.read
-        const drop = previousCacheRead !== undefined && cached < previousCacheRead ? previousCacheRead - cached : undefined
+        const drop =
+          previousCacheRead !== undefined && cached < previousCacheRead ? previousCacheRead - cached : undefined
         steps.push({
           finish: assistant.finish === "tool-calls" ? "tool-call" : (assistant.finish ?? "running"),
           newTokens: total - cached,

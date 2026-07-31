@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.218.0 (July 2026)
+
+## Mobile
+
+- Optimize modal rendering by controlling mount state (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(modal): optimize modal rendering by controlling mount state
+  - chore(docker): update NIKCLI_VERSION to 1.216.0 in Dockerfiles
+
 ## v1.204.0 (July 2026)
 
 ## Core

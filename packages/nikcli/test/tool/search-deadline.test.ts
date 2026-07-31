@@ -78,9 +78,12 @@ describe("withSearchDeadline", () => {
 
   it("surfaces the underlying failure when the work rejects before the deadline", async () => {
     await expect(
-      withSearchDeadline(async () => {
-        throw new Error("rg exploded")
-      }, { timeoutMs: 10_000 }),
+      withSearchDeadline(
+        async () => {
+          throw new Error("rg exploded")
+        },
+        { timeoutMs: 10_000 },
+      ),
     ).rejects.toThrow("rg exploded")
   })
 })

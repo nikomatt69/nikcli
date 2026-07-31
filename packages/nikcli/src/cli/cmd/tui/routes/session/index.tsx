@@ -1654,12 +1654,7 @@ function UserMessage(props: {
   )
 }
 
-function AssistantMessage(props: {
-  message: AssistantMessage
-  parts: Part[]
-  last: boolean
-  turn?: TurnUsage.Turn
-}) {
+function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean; turn?: TurnUsage.Turn }) {
   const ctx = use()
   const local = useLocal()
   const sync = useSync()

@@ -43,8 +43,6 @@ export function trimDiff(diff: string): string {
   return trimmedLines.join("\n")
 }
 
-
-
 /**
  * Shared construction of the `FileDiff` that write, edit and patch hand back to the model and the
  * TUI, so the three mutation tools cannot drift on patch text, line counts or status selection.

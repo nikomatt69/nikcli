@@ -1417,6 +1417,12 @@ export type LoopDefinition = {
   maxRuns?: number
   timeoutMs?: number
   createPR?: boolean
+  sandbox?: boolean
+  worktree?: {
+    name: string
+    branch?: string
+    directory: string
+  }
   paused?: boolean
   enabled: boolean
   createdAt: number
@@ -1497,6 +1503,12 @@ export type MissionDefinition = {
     orchestrator?: string
   }
   timeoutMs?: number
+  sandbox?: boolean
+  worktree?: {
+    name: string
+    branch?: string
+    directory: string
+  }
   status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
   createdAt: number
 }
@@ -1606,6 +1618,14 @@ export type KeybindsConfig = {
    * Toggle session pin
    */
   session_pin_toggle?: string
+  /**
+   * Go back through session tab history
+   */
+  session_tab_back?: string
+  /**
+   * Go forward through session tab history
+   */
+  session_tab_forward?: string
   /**
    * Quick switch to session slot 1
    */
@@ -3313,6 +3333,7 @@ export type WorktreeCreateInput = {
   baseBranch?: string
   remote?: string
   startCommand?: string
+  root?: string
 }
 
 export type WorkspaceConnectionStatus = {
@@ -4021,6 +4042,12 @@ export type MobileLoop = {
   maxRuns?: number
   timeoutMs?: number
   createPR?: boolean
+  sandbox?: boolean
+  worktree?: {
+    name: string
+    branch?: string
+    directory: string
+  }
   paused?: boolean
   enabled: boolean
   createdAt: number
@@ -4099,6 +4126,12 @@ export type MobileLoopWriteInput = {
   maxRuns?: number
   timeoutMs?: number
   createPR?: boolean
+  sandbox?: boolean
+  worktree?: {
+    name: string
+    branch?: string
+    directory: string
+  }
   paused?: boolean
   enabled: boolean
 }
@@ -4647,6 +4680,12 @@ export type LoopUpsertData = {
     maxRuns?: number
     timeoutMs?: number
     createPR?: boolean
+    sandbox?: boolean
+    worktree?: {
+      name: string
+      branch?: string
+      directory: string
+    }
     paused?: boolean
     enabled: boolean
   }
@@ -4821,6 +4860,12 @@ export type LoopUpdateData = {
     maxRuns?: number
     timeoutMs?: number
     createPR?: boolean
+    sandbox?: boolean
+    worktree?: {
+      name: string
+      branch?: string
+      directory: string
+    }
     paused?: boolean
     enabled: boolean
     createdAt: number
@@ -5079,6 +5124,12 @@ export type MissionUpsertData = {
       orchestrator?: string
     }
     timeoutMs?: number
+    sandbox?: boolean
+    worktree?: {
+      name: string
+      branch?: string
+      directory: string
+    }
   }
   path?: never
   query?: {
@@ -5257,6 +5308,12 @@ export type MissionUpdateData = {
       orchestrator?: string
     }
     timeoutMs?: number
+    sandbox?: boolean
+    worktree?: {
+      name: string
+      branch?: string
+      directory: string
+    }
     status?: "planning" | "ready" | "running" | "paused" | "frozen" | "complete" | "error"
     createdAt: number
   }

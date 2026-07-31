@@ -1,4 +1,4 @@
-import { artifactKind, writeArtifact } from "./artifact";
+import { artifactKind, writeArtifact } from "./artifact"
 
 /**
  * Artifact authoring for the docs assistant.
@@ -17,38 +17,38 @@ import { artifactKind, writeArtifact } from "./artifact";
  */
 
 export type PublishedArtifact = {
-  id: string;
-  url: string;
-  title: string;
-  filename: string;
-};
+  id: string
+  url: string
+  title: string
+  filename: string
+}
 
 export type ArtifactRequest = {
-  title: string;
-  filename: string;
-  content: string;
-};
+  title: string
+  filename: string
+  content: string
+}
 
 /** Max artifact the assistant may publish on its own. */
-const MAX_ARTIFACT_BYTES = 256 * 1024;
+const MAX_ARTIFACT_BYTES = 256 * 1024
 
-const ARTIFACT_BLOCK = /```artifact([^\n]*)\n([\s\S]*?)```(?:\s*\n|\s*$)/;
+const ARTIFACT_BLOCK = /```artifact([^\n]*)\n([\s\S]*?)```(?:\s*\n|\s*$)/
 /** Same block, left open because the model ran out of output tokens. */
-const OPEN_ARTIFACT_BLOCK = /```artifact([^\n]*)\n([\s\S]*)$/;
-export const ARTIFACT_MARKER = "```artifact";
+const OPEN_ARTIFACT_BLOCK = /```artifact([^\n]*)\n([\s\S]*)$/
+export const ARTIFACT_MARKER = "```artifact"
 
 function attribute(info: string, name: string) {
-  const match = info.match(new RegExp(`${name}\\s*=\\s*"([^"]*)"`, "i"));
-  return match?.[1].trim() ?? "";
+  const match = info.match(new RegExp(`${name}\\s*=\\s*"([^"]*)"`, "i"))
+  return match?.[1].trim() ?? ""
 }
 
 function safeFilename(value: string) {
   const cleaned = value
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^[-.]+|[-.]+$/g, "")
-    .slice(0, 80);
-  const base = cleaned || "artifact";
-  return /\.html?$/i.test(base) ? base : `${base.replace(/\.[^.]*$/, "")}.html`;
+    .slice(0, 80)
+  const base = cleaned || "artifact"
+  return /\.html?$/i.test(base) ? base : `${base.replace(/\.[^.]*$/, "")}.html`
 }
 
 /**
@@ -56,40 +56,38 @@ function safeFilename(value: string) {
  * block removed, so the chat transcript stays readable.
  */
 export function extractArtifact(answer: string): {
-  text: string;
-  artifact: ArtifactRequest | null;
+  text: string
+  artifact: ArtifactRequest | null
 } {
-  const match = answer.match(ARTIFACT_BLOCK) ?? answer.match(OPEN_ARTIFACT_BLOCK);
-  if (!match) return { text: answer, artifact: null };
+  const match = answer.match(ARTIFACT_BLOCK) ?? answer.match(OPEN_ARTIFACT_BLOCK)
+  if (!match) return { text: answer, artifact: null }
 
-  const [block, info, content] = match;
-  const body = content.replace(/\n+$/, "");
-  if (!body.trim()) return { text: answer.replace(block, ""), artifact: null };
+  const [block, info, content] = match
+  const body = content.replace(/\n+$/, "")
+  if (!body.trim()) return { text: answer.replace(block, ""), artifact: null }
 
   return {
-    text: answer.replace(block, "").replace(/\n{3,}/g, "\n\n").trim(),
+    text: answer
+      .replace(block, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim(),
     artifact: {
       title: attribute(info, "title") || "Nikcli artifact",
       filename: safeFilename(attribute(info, "filename")),
       content: body,
     },
-  };
+  }
 }
 
 const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
 const looksLikeHtml = (content: string) =>
   /<(!doctype|html|body|main|header|footer|nav|aside|section|article|div|span|h[1-6]|p|ul|ol|table|pre|form|button|input|label|canvas|figure|style|script)\b/i.test(
     content,
-  );
+  )
 
-const isFullDocument = (content: string) =>
-  /<!doctype html|<html[\s>]/i.test(content);
+const isFullDocument = (content: string) => /<!doctype html|<html[\s>]/i.test(content)
 
 /** Minimal Markdown → HTML, for when the model answers with Markdown anyway. */
 function markdownToHtml(source: string) {
@@ -97,69 +95,64 @@ function markdownToHtml(source: string) {
     .split(/```/)
     .map((block, index) => {
       if (index % 2 === 1) {
-        const body = block.replace(/^[a-zA-Z0-9+#-]*\n/, "").replace(/\n$/, "");
-        return `<pre><code>${escapeHtml(body)}</code></pre>`;
+        const body = block.replace(/^[a-zA-Z0-9+#-]*\n/, "").replace(/\n$/, "")
+        return `<pre><code>${escapeHtml(body)}</code></pre>`
       }
 
-      const html: string[] = [];
-      let list: { type: "ul" | "ol"; items: string[] } | null = null;
+      const html: string[] = []
+      let list: { type: "ul" | "ol"; items: string[] } | null = null
 
       const inline = (value: string) =>
         escapeHtml(value)
           .replace(/`([^`]+)`/g, "<code>$1</code>")
           .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-          .replace(
-            /\[([^\]]+)\]\((\/[^)\s]*|https?:\/\/[^)\s]+)\)/g,
-            '<a href="$2">$1</a>',
-          );
+          .replace(/\[([^\]]+)\]\((\/[^)\s]*|https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>')
 
       const flush = () => {
-        if (!list) return;
-        html.push(
-          `<${list.type}>${list.items.map((item) => `<li>${item}</li>`).join("")}</${list.type}>`,
-        );
-        list = null;
-      };
-
-      for (const rawLine of block.split("\n")) {
-        const line = rawLine.trimEnd();
-        if (!line.trim()) {
-          flush();
-          continue;
-        }
-
-        const heading = line.match(/^(#{1,6})\s+(.*)$/);
-        if (heading) {
-          flush();
-          const level = Math.min(heading[1].length + 1, 6);
-          html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
-          continue;
-        }
-
-        const bullet = line.match(/^\s*[-*]\s+(.*)$/);
-        if (bullet) {
-          if (list?.type !== "ul") flush();
-          list ??= { type: "ul", items: [] };
-          list.items.push(inline(bullet[1]));
-          continue;
-        }
-
-        const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/);
-        if (ordered) {
-          if (list?.type !== "ol") flush();
-          list ??= { type: "ol", items: [] };
-          list.items.push(inline(ordered[1]));
-          continue;
-        }
-
-        flush();
-        html.push(`<p>${inline(line)}</p>`);
+        if (!list) return
+        html.push(`<${list.type}>${list.items.map((item) => `<li>${item}</li>`).join("")}</${list.type}>`)
+        list = null
       }
 
-      flush();
-      return html.join("\n");
+      for (const rawLine of block.split("\n")) {
+        const line = rawLine.trimEnd()
+        if (!line.trim()) {
+          flush()
+          continue
+        }
+
+        const heading = line.match(/^(#{1,6})\s+(.*)$/)
+        if (heading) {
+          flush()
+          const level = Math.min(heading[1].length + 1, 6)
+          html.push(`<h${level}>${inline(heading[2])}</h${level}>`)
+          continue
+        }
+
+        const bullet = line.match(/^\s*[-*]\s+(.*)$/)
+        if (bullet) {
+          if (list?.type !== "ul") flush()
+          list ??= { type: "ul", items: [] }
+          list.items.push(inline(bullet[1]))
+          continue
+        }
+
+        const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/)
+        if (ordered) {
+          if (list?.type !== "ol") flush()
+          list ??= { type: "ol", items: [] }
+          list.items.push(inline(ordered[1]))
+          continue
+        }
+
+        flush()
+        html.push(`<p>${inline(line)}</p>`)
+      }
+
+      flush()
+      return html.join("\n")
     })
-    .join("\n");
+    .join("\n")
 }
 
 /**
@@ -170,7 +163,7 @@ function htmlDocument(title: string, body: string, source: string) {
   // When the artifact ships its own CSS, stay out of its way: only a reset,
   // so the page looks exactly like the HTML that was written — same as an
   // artifact published from the CLI.
-  const styled = /<style[\s>]/i.test(body);
+  const styled = /<style[\s>]/i.test(body)
   if (styled) {
     return `<!doctype html>
 <html lang="en">
@@ -192,7 +185,7 @@ function htmlDocument(title: string, body: string, source: string) {
 ${body}
 </body>
 </html>
-`;
+`
   }
 
   return `<!doctype html>
@@ -253,7 +246,7 @@ ${body}
 </main>
 </body>
 </html>
-`;
+`
 }
 
 /**
@@ -267,24 +260,19 @@ const RESPONSIVE_GUARD = `<style>
   pre, .scroll { max-width: 100%; overflow-x: auto; }
   img, svg, video, canvas, iframe { max-width: 100%; height: auto; }
   * { min-width: 0; overflow-wrap: anywhere; }
-</style>`;
+</style>`
 
 function withResponsiveGuard(html: string) {
-  if (/<\/head>/i.test(html))
-    return html.replace(/<\/head>/i, `${RESPONSIVE_GUARD}\n</head>`);
-  if (/<body[^>]*>/i.test(html))
-    return html.replace(/(<body[^>]*>)/i, `$1\n${RESPONSIVE_GUARD}`);
-  return `${RESPONSIVE_GUARD}\n${html}`;
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${RESPONSIVE_GUARD}\n</head>`)
+  if (/<body[^>]*>/i.test(html)) return html.replace(/(<body[^>]*>)/i, `$1\n${RESPONSIVE_GUARD}`)
+  return `${RESPONSIVE_GUARD}\n${html}`
 }
 
 /** Normalizes assistant output into a complete HTML document. */
 export function toHtmlFile(request: ArtifactRequest, origin: string) {
-  if (isFullDocument(request.content))
-    return withResponsiveGuard(request.content);
-  const body = looksLikeHtml(request.content)
-    ? request.content
-    : markdownToHtml(request.content);
-  return withResponsiveGuard(htmlDocument(request.title, body, origin));
+  if (isFullDocument(request.content)) return withResponsiveGuard(request.content)
+  const body = looksLikeHtml(request.content) ? request.content : markdownToHtml(request.content)
+  return withResponsiveGuard(htmlDocument(request.title, body, origin))
 }
 
 /**
@@ -296,19 +284,16 @@ export async function publishArtifact(
   request: ArtifactRequest,
   options: { origin: string; publicOrigin?: string; sessionID?: string },
 ): Promise<PublishedArtifact | null> {
-  const content = new TextEncoder().encode(
-    toHtmlFile(request, options.publicOrigin || options.origin),
-  );
-  if (content.byteLength === 0 || content.byteLength > MAX_ARTIFACT_BYTES)
-    return null;
+  const content = new TextEncoder().encode(toHtmlFile(request, options.publicOrigin || options.origin))
+  if (content.byteLength === 0 || content.byteLength > MAX_ARTIFACT_BYTES) return null
 
-  const contentType = "text/html; charset=utf-8";
-  const kind = artifactKind(contentType);
-  if (!kind) return null;
+  const contentType = "text/html; charset=utf-8"
+  const kind = artifactKind(contentType)
+  if (!kind) return null
 
-  const id = crypto.randomUUID();
-  const viewKey = crypto.randomUUID().replace(/-/g, "");
-  const now = Date.now();
+  const id = crypto.randomUUID()
+  const viewKey = crypto.randomUUID().replace(/-/g, "")
+  const now = Date.now()
 
   await writeArtifact(
     bucket,
@@ -329,17 +314,17 @@ export async function publishArtifact(
       time: { created: now, updated: now },
     },
     content.buffer as ArrayBuffer,
-  );
+  )
 
   // Artifacts are always shared under their canonical nikcli.store home, even
   // when created from a preview deployment or a local dev server.
-  const url = new URL(`/artifact/${id}`, options.publicOrigin || options.origin);
-  url.searchParams.set("key", viewKey);
+  const url = new URL(`/artifact/${id}`, options.publicOrigin || options.origin)
+  url.searchParams.set("key", viewKey)
 
   return {
     id,
     url: url.toString(),
     title: request.title,
     filename: request.filename,
-  };
+  }
 }
