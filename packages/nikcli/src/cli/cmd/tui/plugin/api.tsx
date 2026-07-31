@@ -447,6 +447,11 @@ export function createTuiApi(input: Input): TuiPluginApi {
         return input.kv.ready
       },
     },
+    storage: {
+      memory() {
+        throw new Error("storage.memory is only available in plugin context")
+      },
+    },
     state: stateApi(input.sync),
     data,
     get client() {

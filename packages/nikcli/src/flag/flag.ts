@@ -32,6 +32,9 @@ export namespace Flag {
   // Opt out of the in-process config hot reload (instance reload on config
   // file changes). Reload can still be triggered explicitly via the API.
   export const NIKCLI_DISABLE_HOT_RELOAD = truthy("NIKCLI_DISABLE_HOT_RELOAD")
+  // Opt out of TUI plugin hot reload (watching local plugin sources and
+  // swapping an edited plugin in place). Plugins then load once at startup.
+  export const NIKCLI_DISABLE_PLUGIN_RELOAD = truthy("NIKCLI_DISABLE_PLUGIN_RELOAD")
   /** Log which part of the request prefix changed between calls. See `provider/cache-diagnostics.ts`. */
   export const NIKCLI_PROMPT_CACHE_DIAGNOSTICS = truthy("NIKCLI_PROMPT_CACHE_DIAGNOSTICS")
   // Opt out of journaling local (non-workspace) session restore events into

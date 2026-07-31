@@ -41,15 +41,27 @@ import { Process } from "@/util/process"
 import { Flag } from "@/flag/flag"
 import { Installation } from "@/installation"
 import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"
-import { setupSlots, Slot as View } from "./slots"
+import { clearSlotErrors, setupSlots, Slot as View } from "./slots"
 import type { HostPluginApi, HostSlots } from "./slots"
 import { adaptV2TuiPlugin, readV2TuiPlugin } from "./v2"
+import { pluginMemory } from "./memory"
+import { createSourceWatcher, entrypointMtime, freshSpecifier, type SourceWatcher } from "./reload"
 import { dbg } from "../feature-plugins/background/__debug"
 
 type PluginLoad = {
   item?: Config.PluginSpec
   spec: string
   target: string
+  /** Resolved module entrypoint. Local sources are re-imported from it on edit. */
+  entry: string
+  /**
+   * Import identity. For local sources this is the mtime-busted specifier, so
+   * an unchanged version means an identical module; npm and internal plugins
+   * use their entrypoint, which never changes within a session.
+   */
+  version: string
+  /** Config metadata, kept so a hot reload can re-resolve with the same scope. */
+  config_meta?: TuiConfig.PluginMeta
   retry: boolean
   source: PluginSource | "internal"
   id: string
@@ -95,6 +107,9 @@ type RuntimeState = {
       meta: TuiConfig.PluginMeta
     }
   >
+  watcher?: SourceWatcher
+  /** Last reported reload failure per plugin id, so repeat reconciles stay silent. */
+  failures: Map<string, string>
 }
 
 const log = Log.create({ service: "tui.plugin" })
@@ -199,16 +214,23 @@ function createThemeInstaller(meta: TuiConfig.PluginMeta, root: string, spec: st
   }
 }
 
+type LoadHooks = {
+  /** Receives the first error that stopped this load, for user-facing reporting. */
+  onFail?: (error: unknown) => void
+}
+
 async function loadExternalPlugin(
   item: Config.PluginSpec,
   meta: TuiConfig.PluginMeta | undefined,
   retry = false,
+  hooks?: LoadHooks,
 ): Promise<PluginLoad | undefined> {
   const spec = Config.pluginSpecifier(item)
   if (isDeprecatedPlugin(spec)) return
   log.info("loading tui plugin", { path: spec, retry })
   const resolved = await resolvePluginTarget(spec).catch((error) => {
     fail("failed to resolve tui plugin", { path: spec, retry, error })
+    hooks?.onFail?.(error)
     return
   })
   if (!resolved) return
@@ -219,6 +241,7 @@ async function loadExternalPlugin(
       .then(() => true)
       .catch((error) => {
         fail("tui plugin incompatible", { path: spec, retry, error })
+        hooks?.onFail?.(error)
         return false
       })
     if (!ok) return
@@ -230,6 +253,7 @@ async function loadExternalPlugin(
       path: spec,
       retry,
     })
+    hooks?.onFail?.(new Error("missing plugin metadata"))
     return
   }
 
@@ -237,23 +261,31 @@ async function loadExternalPlugin(
   const install_theme = createThemeInstaller(meta, root, spec)
   const entry = await resolvePluginEntrypoint(spec, target, "tui").catch((error) => {
     fail("failed to resolve tui plugin entry", { path: spec, target, retry, error })
+    hooks?.onFail?.(error)
     return
   })
   if (!entry) return
 
-  const mod = await import(entry)
+  // Local sources are imported through an mtime-busted specifier so an edited
+  // file re-imports fresh instead of resolving to the stale ESM-cached module.
+  const mtime = source === "file" ? entrypointMtime(entry) : undefined
+  const version = mtime === undefined ? entry : freshSpecifier(entry, mtime)
+
+  const mod = await import(version)
     .then((raw) => {
       const value = raw as Record<string, unknown>
       return (readV1Plugin(value, spec, "tui", "detect") as TuiPluginModule | undefined) ?? readV2TuiPlugin(value, spec)
     })
     .catch((error) => {
       fail("failed to load tui plugin", { path: spec, target: entry, retry, error })
+      hooks?.onFail?.(error)
       return
     })
   if (!mod) return
 
   const id = await resolvePluginId(source, spec, target, readPluginId(mod.id, spec)).catch((error) => {
     fail("failed to load tui plugin", { path: spec, target, retry, error })
+    hooks?.onFail?.(error)
     return
   })
   if (!id) return
@@ -262,6 +294,9 @@ async function loadExternalPlugin(
     item,
     spec,
     target,
+    entry,
+    version,
+    config_meta: meta,
     retry,
     source,
     id,
@@ -313,6 +348,8 @@ function loadInternalPlugin(item: InternalTuiPlugin): PluginLoad {
   return {
     spec,
     target,
+    entry: target,
+    version: target,
     retry: false,
     source: "internal",
     id: item.id,
@@ -592,6 +629,7 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
     keybind: api.keybind,
     tuiConfig: api.tuiConfig,
     kv: api.kv,
+    storage: pluginMemory(base),
     state: api.state,
     data: api.data,
     theme,
@@ -649,6 +687,128 @@ function addPluginEntry(state: RuntimeState, plugin: PluginEntry) {
   state.plugins_by_id.set(plugin.id, plugin)
   state.plugins.push(plugin)
   return true
+}
+
+/**
+ * Reports a reload failure once. Repeat reconciles with the same error stay
+ * silent, so a broken file being saved over and over shows one toast.
+ */
+function reportReloadFailure(state: RuntimeState, id: string, message: string) {
+  if (state.failures.get(id) === message) return
+  state.failures.set(id, message)
+  state.api.ui.toast({ variant: "error", title: "Plugin", message })
+}
+
+/** Re-arms watches for every local plugin source currently loaded. */
+function watchLocalSources(state: RuntimeState) {
+  const watcher = state.watcher
+  if (!watcher) return
+  for (const plugin of state.plugins) {
+    if (plugin.load.source !== "file") continue
+    watcher.add(plugin.load.entry)
+  }
+}
+
+/**
+ * Replaces one running plugin with a freshly imported version of itself.
+ *
+ * The swap is in place: the entry keeps its position in `state.plugins`, which
+ * slot ordering (`replace` mode takes the last registration) and command
+ * precedence depend on. Only this plugin is torn down; every other plugin,
+ * including internal ones, is untouched.
+ */
+async function swapPluginEntry(state: RuntimeState, previous: PluginEntry, load: PluginLoad, meta: TuiPluginMeta) {
+  const index = state.plugins.indexOf(previous)
+  if (index < 0) return false
+
+  const [next] = collectPluginEntries(load, meta)
+  if (!next) {
+    reportReloadFailure(state, previous.id, `${load.spec}: reloaded module has no tui export (previous version kept)`)
+    return false
+  }
+  if (next.id !== previous.id && state.plugins_by_id.has(next.id)) {
+    reportReloadFailure(state, previous.id, `${load.spec}: plugin id ${next.id} is already loaded (previous version kept)`)
+    return false
+  }
+
+  const enabled = previous.enabled
+  const active = previous.scope !== undefined
+  await deactivatePluginEntry(state, previous, false)
+
+  state.plugins[index] = next
+  state.plugins_by_id.delete(previous.id)
+  state.plugins_by_id.set(next.id, next)
+  next.enabled = enabled
+  state.failures.delete(previous.id)
+  state.failures.delete(next.id)
+  // The fresh version gets to report its own render failures.
+  clearSlotErrors(previous.id)
+  clearSlotErrors(next.id)
+
+  log.info("hot reloaded tui plugin", { path: load.spec, id: next.id })
+  if (!enabled || !active) return true
+  return activatePluginEntry(state, next, false)
+}
+
+/**
+ * Reloads one local plugin when its entrypoint changed on disk.
+ *
+ * A failed import keeps the previous version running (`keep-last-good`) and
+ * only reports; fixing the file swaps the fix in on the next event.
+ */
+async function reloadPluginEntry(state: RuntimeState, plugin: PluginEntry) {
+  const item = plugin.load.item
+  if (!item) return false
+
+  const mtime = entrypointMtime(plugin.load.entry)
+  // The source vanished (rename in flight, or deleted): keep it running.
+  if (mtime === undefined) return false
+  if (freshSpecifier(plugin.load.entry, mtime) === plugin.load.version) return false
+
+  let error: unknown
+  const load = await loadExternalPlugin(item, plugin.load.config_meta, false, {
+    onFail: (value) => {
+      error ??= value
+    },
+  })
+  if (!load) {
+    reportReloadFailure(
+      state,
+      plugin.id,
+      `${plugin.load.spec}: ${errorMessage(error ?? new Error("failed to load"))} (previous version still active)`,
+    )
+    return false
+  }
+  if (load.version === plugin.load.version) return false
+
+  const hit = await PluginMeta.touchMany([{ spec: load.spec, target: load.target, id: load.id }])
+    .then((rows) => rows?.[0])
+    .catch((error) => {
+      log.warn("failed to track tui plugin", { path: load.spec, error })
+      return undefined
+    })
+
+  return swapPluginEntry(state, plugin, load, createMeta(load.source, load.spec, load.target, hit, load.id))
+}
+
+/**
+ * Reconcile pass: re-import every local plugin whose source changed, one at a
+ * time so registration side effects stay ordered. Unchanged plugins cost one
+ * stat, so spurious watch events are nearly free.
+ */
+async function reloadLocalPlugins(state: RuntimeState) {
+  const targets = state.plugins.filter((plugin) => plugin.load.source === "file" && plugin.load.item)
+  if (targets.length) {
+    await withInstanceAsync({ directory: state.directory }, async () => {
+      for (const plugin of targets) {
+        await reloadPluginEntry(state, plugin).catch((error) => {
+          fail("failed to hot reload tui plugin", { path: plugin.load.spec, id: plugin.id, error })
+        })
+      }
+    })
+  }
+  // A plugin whose id changed, or one added at runtime, needs its own watch.
+  watchLocalSources(state)
 }
 
 function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.Info) {
@@ -845,7 +1005,11 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
     if (!active) ok = false
   }
 
-  if (ok) state.pending.delete(spec)
+  if (ok) {
+    state.pending.delete(spec)
+    // A plugin added at runtime hot-reloads like a configured one.
+    watchLocalSources(state)
+  }
   if (!ok) {
     fail("failed to add tui plugin", { path: nextSpec })
   }
@@ -950,6 +1114,8 @@ export namespace TuiPluginRuntime {
   let dir = ""
   let loaded: Promise<void> | undefined
   let runtime: RuntimeState | undefined
+  /** Serializes reload passes so overlapping watch events cannot interleave swaps. */
+  let reloading: Promise<void> = Promise.resolve()
   export const Slot = View
 
   export async function init(api: HostPluginApi) {
@@ -987,6 +1153,13 @@ export namespace TuiPluginRuntime {
     return installPluginBySpec(runtime, spec, options?.global)
   }
 
+  /** Runs a reload pass now. Only for tests; the watcher drives this normally. */
+  export async function reload() {
+    const state = runtime
+    if (!state) return
+    await schedule(state)
+  }
+
   export async function dispose() {
     const task = loaded
     loaded = undefined
@@ -995,10 +1168,23 @@ export namespace TuiPluginRuntime {
     const state = runtime
     runtime = undefined
     if (!state) return
+    state.watcher?.dispose()
+    state.watcher = undefined
+    await reloading.catch(() => undefined)
     const queue = [...state.plugins].reverse()
     for (const plugin of queue) {
       await deactivatePluginEntry(state, plugin, false)
     }
+  }
+
+  function schedule(state: RuntimeState) {
+    reloading = reloading.catch(() => undefined).then(() => reloadLocalPlugins(state))
+    // Observe failures immediately: a plugin cleanup that throws would otherwise
+    // surface as an unhandled rejection until the next watch event.
+    void reloading.catch((error) => {
+      fail("failed to reload tui plugins", { directory: state.directory, error })
+    })
+    return reloading
   }
 
   async function load(api: Api) {
@@ -1013,6 +1199,7 @@ export namespace TuiPluginRuntime {
       plugins_by_id: new Map(),
       serverPlugins: [],
       pending: new Map(),
+      failures: new Map(),
     }
     runtime = next
 
@@ -1072,5 +1259,18 @@ export namespace TuiPluginRuntime {
       dbg("load() failed", String(error))
       fail("failed to load tui plugins", { directory: cwd, error })
     })
+
+    // Hot reload: watch local plugin sources so editing one swaps that plugin
+    // in place, without restarting the TUI or any other plugin. npm packages
+    // resolve into the package cache and are immutable for the session.
+    if (!Flag.NIKCLI_PURE && !Flag.NIKCLI_DISABLE_PLUGIN_RELOAD) {
+      next.watcher = createSourceWatcher({
+        onChange: () => {
+          if (runtime !== next) return
+          void schedule(next)
+        },
+      })
+      watchLocalSources(next)
+    }
   }
 }

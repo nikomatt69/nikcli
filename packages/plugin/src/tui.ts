@@ -15,6 +15,7 @@ import type {
 } from "@nikcli-ai/sdk/v2"
 import type { CliRenderer, ParsedKey, RGBA } from "@opentui/core"
 import type { JSX, SolidPlugin } from "@opentui/solid"
+import type { Store } from "solid-js/store"
 import type { Config as PluginConfig, PluginOptions } from "./index.js"
 import type { Data as TuiV2Data } from "./v2/tui/context.js"
 
@@ -283,6 +284,19 @@ export type TuiKV = {
   readonly ready: boolean
 }
 
+export type TuiMemoryEntry<Value extends object> = readonly [Store<Value>, (mutation: (draft: Value) => void) => void]
+
+export type TuiStorage = {
+  /**
+   * Ephemeral in-process state, keyed per plugin. Entries live above the plugin
+   * lifecycle, so a hot reload hands the same live store to the new generation
+   * and in-memory state survives editing the plugin source. Updates are
+   * synchronous, values need not be JSON-serializable, and everything is gone
+   * when the TUI exits. Use `api.kv` for state that must outlive the process.
+   */
+  memory: <Value extends object>(key: string, options: { readonly initial: Value }) => TuiMemoryEntry<Value>
+}
+
 export type TuiState = {
   readonly ready: boolean
   readonly config: SdkConfig
@@ -364,6 +378,9 @@ export type TuiSlotMap = {
   "app.bottom": {}
   "home.bottom": {}
   "home.footer": {}
+  "session.prompt.top": {
+    sessionID: string
+  }
   "sidebar.content": {
     sessionID: string
   }
@@ -477,6 +494,7 @@ export type TuiPluginApi = {
   }
   readonly tuiConfig: Frozen<TuiConfigView>
   kv: TuiKV
+  storage: TuiStorage
   state: TuiState
   /** Full reactive data contract used by v2 TUI plugins. */
   data: TuiV2Data

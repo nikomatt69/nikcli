@@ -81,6 +81,7 @@ import { dbg as dbgApp } from "./feature-plugins/background/__debug"
 import { BackgroundImage } from "./feature-plugins/background/view"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
+import { PluginRouteBoundary } from "./component/plugin-route-boundary"
 import { Reconnecting } from "./component/reconnecting"
 import { StartupLoading } from "./component/startup-loading"
 import { SessionTabs } from "./component/session-tabs"
@@ -1472,16 +1473,25 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
             <Workspace />
           </Match>
           <Match when={route.data.type === "plugin" && route.data}>
-            {(data) => {
-              pluginRouteKey()
-              const entries = routes.get(data().id)
-              const last = entries?.at(-1)
-              return last ? (
-                last.render({ params: data().data })
-              ) : (
-                <PluginRouteMissing id={data().id} onHome={() => route.navigate({ type: "home" })} />
-              )
-            }}
+            {(data) => (
+              // Keyed so navigating to another plugin route, or a hot reload of
+              // the plugin, recreates the boundary; otherwise one crash would
+              // latch every future plugin route into the fallback.
+              <Show keyed when={{ id: data().id, generation: pluginRouteKey() }}>
+                {(current) => (
+                  <PluginRouteBoundary id={current.id}>
+                    {(() => {
+                      const last = routes.get(current.id)?.at(-1)
+                      return last ? (
+                        last.render({ params: data().data })
+                      ) : (
+                        <PluginRouteMissing id={current.id} onHome={() => route.navigate({ type: "home" })} />
+                      )
+                    })()}
+                  </PluginRouteBoundary>
+                )}
+              </Show>
+            )}
           </Match>
         </Switch>
       </box>

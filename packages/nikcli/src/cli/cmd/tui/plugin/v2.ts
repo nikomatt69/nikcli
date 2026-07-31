@@ -63,6 +63,7 @@ export function adaptV2TuiPlugin(definition: Definition): TuiPlugin {
       options: options ?? {},
       client: api.client,
       data: api.data,
+      storage: api.storage,
       ui: {
         router: {
           register(page) {

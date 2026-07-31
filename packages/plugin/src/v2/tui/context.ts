@@ -24,6 +24,7 @@ import type {
   SessionEntryUser,
 } from "@nikcli-ai/sdk/v2"
 import type { JSX } from "@opentui/solid"
+import type { Store } from "solid-js/store"
 
 export type LocationRef = {
   readonly directory: string
@@ -153,9 +154,24 @@ export interface UI {
   readonly slot: (name: string, render: Slot) => () => void
 }
 
+export interface Storage {
+  /**
+   * Ephemeral in-memory state: survives plugin hot reloads (the old and the new
+   * generation share the same live store) and is gone when the TUI exits.
+   * Updates are synchronous and values need not be JSON-serializable.
+   */
+  memory<Value extends object>(
+    key: string,
+    options: {
+      readonly initial: Value
+    },
+  ): readonly [Store<Value>, (mutation: (draft: Value) => void) => void]
+}
+
 export interface Context {
   readonly options: Readonly<Record<string, unknown>>
   readonly client: NikcliClient
   readonly data: Data
+  readonly storage: Storage
   readonly ui: UI
 }

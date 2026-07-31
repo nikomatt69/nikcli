@@ -32,6 +32,7 @@ import {
   RGBA,
 } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
+import { TuiPluginRuntime } from "@tui/plugin"
 import {
   createNikcliClient,
   type AssistantMessage,
@@ -1472,6 +1473,7 @@ export function Session() {
               </Show>
             </scrollbox>
             <box flexShrink={0}>
+              <TuiPluginRuntime.Slot name="session.prompt.top" sessionID={route.sessionID} />
               <Show when={permissions().length > 0}>
                 <PermissionPrompt request={permissions()[0]} />
               </Show>
