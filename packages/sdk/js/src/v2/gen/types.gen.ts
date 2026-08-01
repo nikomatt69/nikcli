@@ -2824,6 +2824,7 @@ export type Config = {
   }
   formatter?:
     | false
+    | true
     | {
         [key: string]: {
           disabled?: boolean

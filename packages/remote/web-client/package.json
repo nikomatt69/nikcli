@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/remote-client",
-  "version": "1.219.0",
+  "version": "1.225.0",
   "private": true,
   "type": "module",
   "scripts": {

@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.225.0 (August 2026)
+
+## Core
+
+- Add paintEnabled option to BackgroundRenderable for dynamic rendering control (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): add paintEnabled option to BackgroundRenderable for dynamic rendering control
+
 ## v1.219.0 (July 2026)
 
 ## Core
