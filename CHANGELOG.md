@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.223.0 (August 2026)
+
+## Core
+
+- Improve background image handling and rendering logic (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(tui): improve background image handling and rendering logic
+
 ## v1.219.0 (July 2026)
 
 ## Core
