@@ -125,7 +125,7 @@ describe("background renderable", () => {
 
   test("stays mounted on its background layer when hidden and shown again", async () => {
     const image = createPixelImage(COLUMNS, ROWS * 2, [255, 0, 0, 255])
-    const [visible, setVisible] = createSignal(true)
+    const [enabled, setEnabled] = createSignal(true)
     const [width, setWidth] = createSignal(COLUMNS)
     const [height, setHeight] = createSignal(ROWS)
     const pixels = createMemo(() =>
@@ -150,7 +150,7 @@ describe("background renderable", () => {
             position="absolute"
             left={0}
             top={0}
-            visible={visible()}
+            paintEnabled={enabled()}
             width={width()}
             height={height()}
             pixels={pixels()}
@@ -165,20 +165,26 @@ describe("background renderable", () => {
     await renderOnce()
     const mounted = background
     for (let cycle = 0; cycle < 3; cycle++) {
-      setVisible(false)
+      setEnabled(false)
       await renderOnce()
-      setVisible(true)
+      const hiddenText = captureSpans()
+        .lines[0]!.spans.flatMap((span) => [...span.text].map((char) => ({ char, bg: span.bg })))
+        .find((cell) => cell.char === "h")
+      expect(hiddenText).toBeDefined()
+      expect(ints(hiddenText!.bg)).toEqual([0, 0, 0])
+      setEnabled(true)
       await renderOnce()
     }
 
-    setVisible(false)
+    setEnabled(false)
     setWidth(COLUMNS - 1)
     setHeight(ROWS - 1)
     await renderOnce()
-    setVisible(true)
+    setEnabled(true)
     await renderOnce()
 
     expect(background).toBe(mounted)
+    expect(background?.visible).toBe(true)
     expect(background?.zIndex).toBe(-1)
     expect(background?.frameBuffer.width).toBe(COLUMNS - 1)
     expect(background?.frameBuffer.height).toBe(ROWS - 1)

@@ -3,7 +3,7 @@
  * every route: `zIndex: -1` makes the root box paint it before its siblings,
  * and text draws over it with alpha blending.
  */
-import { createEffect, createMemo, createResource, Show, untrack } from "solid-js"
+import { createEffect, createMemo, createResource, untrack } from "solid-js"
 import { useTerminalDimensions } from "@opentui/solid"
 import { RGBA } from "@opentui/core"
 import { useKV } from "@tui/context/kv"
@@ -94,20 +94,16 @@ export function BackgroundImage() {
   })
 
   return (
-    <Show when={pixels()}>
-      {(data) => (
-        <nikcli_background
-          position="absolute"
-          left={0}
-          top={0}
-          visible={visible()}
-          width={dimensions().width}
-          height={dimensions().height}
-          pixels={data()}
-          base={theme.background}
-        />
-      )}
-    </Show>
+    <nikcli_background
+      position="absolute"
+      left={0}
+      top={0}
+      paintEnabled={visible()}
+      width={dimensions().width}
+      height={dimensions().height}
+      pixels={pixels()}
+      base={theme.background}
+    />
   )
 }
 

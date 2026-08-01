@@ -23,6 +23,7 @@ export type BackgroundRenderableOptions = {
   height?: number
   pixels?: Uint8Array
   base?: RGBA
+  paintEnabled?: boolean
 }
 
 const BLACK = RGBA.fromInts(0, 0, 0, 255)
@@ -31,6 +32,7 @@ export class BackgroundRenderable extends FrameBufferRenderable {
   private _pixels: Uint8Array | undefined
   private _base: RGBA = BLACK
   private _painted = false
+  private _paintEnabled = true
 
   constructor(ctx: RenderContext, options: BackgroundRenderableOptions) {
     // The frame buffer must exist before layout runs; it is resized to the
@@ -48,6 +50,7 @@ export class BackgroundRenderable extends FrameBufferRenderable {
     this.selectable = false
     if (options.base) this._base = options.base
     if (options.pixels) this._pixels = options.pixels
+    if (options.paintEnabled !== undefined) this._paintEnabled = options.paintEnabled
   }
 
   get pixels(): Uint8Array | undefined {
@@ -70,6 +73,17 @@ export class BackgroundRenderable extends FrameBufferRenderable {
     if (this._base === value) return
     this._base = value
     this._painted = false
+    this.requestRender()
+  }
+
+  get paintEnabled(): boolean {
+    return this._paintEnabled
+  }
+
+  set paintEnabled(value: boolean) {
+    dbg("set paint enabled", value)
+    if (this._paintEnabled === value) return
+    this._paintEnabled = value
     this.requestRender()
   }
 
@@ -98,6 +112,10 @@ export class BackgroundRenderable extends FrameBufferRenderable {
   }
 
   protected override renderSelf(buffer: OptimizedBuffer) {
+    // Do not use Renderable.visible for toggling the wallpaper. OpenTUI may
+    // rebuild layout/render ordering when a node re-enters the visible tree;
+    // keeping this node present and only skipping its blit preserves z-order.
+    if (!this._paintEnabled) return
     dbg(
       "renderSelf",
       JSON.stringify({
