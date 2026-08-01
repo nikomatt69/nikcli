@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.224.0 (August 2026)
+
+## Core
+
+- Enhance background image settings and test structure (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(tui): enhance background image settings and test structure
+
 ## v1.219.0 (July 2026)
 
 ## Core

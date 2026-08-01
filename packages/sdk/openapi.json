@@ -25878,6 +25878,10 @@
                 "const": false
               },
               {
+                "type": "boolean",
+                "const": true
+              },
+              {
                 "type": "object",
                 "propertyNames": {
                   "type": "string"
