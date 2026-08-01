@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.226.0 (August 2026)
+
+## Core
+
+- Update @opentui/core and @opentui/solid to version 0.4.5 across the project (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(dependencies): update @opentui/core and @opentui/solid to version 0.4.5 across the project
+
 ## v1.219.0 (July 2026)
 
 ## Core
