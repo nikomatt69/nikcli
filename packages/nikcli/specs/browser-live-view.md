@@ -34,16 +34,26 @@ loopback HTTP control server (random bearer token, `show`/`open`/`hide`/`status`
 two MCP servers so the *agent* can drive the same page, and a tab in the content
 area rather than a dialog.
 
-## 2. Why we can't just install it
+## 2. Why we still don't just install it
 
 `opentui-browser@0.1.0` declares `peerDependencies: { "@opentui/core": "^0.4.5" }`.
-nikcli pins `@opentui/core` and `@opentui/solid` at **0.1.95**
-(`packages/nikcli/package.json`). `BrowserRenderable` extends `BoxRenderable` and
-reaches into renderer internals, so it is not version-portable across that gap.
+As of 2026-08-01 nikcli pins `@opentui/core` and `@opentui/solid` at **0.4.5**
+(`packages/nikcli/package.json`), so that peer range is now satisfied — the
+version gap this section originally described is closed.
 
-Adopting the library therefore means upgrading OpenTUI 0.1 → 0.4 across the whole
-TUI — a separate project with its own risk surface. This spec deliberately does
-**not** depend on that upgrade; every piece below is built against 0.1.95.
+What remains is a design objection, not a version one. `BrowserRenderable` extends
+`BoxRenderable` and reaches into renderer internals, and the plugin layer around it
+duplicates capabilities nikcli already owns (see §3): a driven Chromium with a
+session lifecycle, Kitty/Sixel/iTerm2 encoding, and proven pixel compositing into
+the OpenTUI grid. Consuming the library would mean running a *second* CDP client
+and Chrome launcher next to `packages/browser-control`. So the build-out below
+still assembles the same result from packages already in the tree.
+
+Historical note on the upgrade itself: OpenTUI **0.1.97** introduced a regression
+where streamed assistant replies never reached the screen (bisected with
+`packages/simulation/test/e2e.test.ts`, which drives the real TUI headless;
+reproduced on 0.1.97 → 0.4.5). See `specs/opentui-0.4-upgrade.md` for the
+diagnosis and the fixes that unblocked the move to 0.4.5.
 
 ## 3. What nikcli already has
 
@@ -55,7 +65,7 @@ already in the monorepo:
 | A real Chromium, driven, with a session lifecycle and a background daemon | `packages/browser-control` — Playwright Chromium, `BrowserSession`/`SessionManager`, a Unix-socket daemon (`daemon.ts`), and a client (`daemon-client.ts`). Already powers the `browser` tool and `/browser`. |
 | Kitty / Sixel / iTerm2 encoding, capability detection, halfblock fallback | `packages/tui-image` — `encodeKittyVirtual`, `kittyPlaceholderGrid`, `kittyIdColor`, `detectCapabilities`, `applyLiveCapabilities`, `supportsKittyUnicodePlaceholders`, `renderImage`. |
 | Proof that pixels can be composited into the OpenTUI grid | `component/tui-image.tsx` — virtual placements, drawless transmission, native-overlay hook for Sixel/iTerm2. |
-| Terminal cell pixel size | `CliRenderer.resolution: PixelResolution \| null` (present in 0.1.95). Cell size = `resolution.width / terminalWidth`. |
+| Terminal cell pixel size | `CliRenderer.resolution: PixelResolution \| null` (present in 0.4.5). Cell size = `resolution.width / terminalWidth`. |
 
 What is missing: a **screencast** path (browser-control captures with
 `page.screenshot()`, which is far too slow to run in a loop), **coordinate

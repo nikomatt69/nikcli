@@ -30,8 +30,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@opentui/core": "^0.1.95",
-    "@opentui/solid": "^0.1.95",
+    "@opentui/core": "0.4.5",
+    "@opentui/solid": "0.4.5",
     "solid-js": "^1.9.10"
   },
   "devDependencies": {

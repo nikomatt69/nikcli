@@ -143,8 +143,15 @@ export function tui(input: {
         const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
         const drive = Boolean(process.env.NIKCLI_DRIVE)
         const headless = drive && process.env.NIKCLI_DRIVE_RENDERER === "headless"
+        // In drive mode the renderer must still be built from *this* package's
+        // `@opentui/core`, so hand the simulation package our constructors: the
+        // renderer's class identity is what `render(node, renderer)` below checks
+        // to decide whether to reuse it instead of creating a second one.
         const renderer = drive
-          ? await (await import("@nikcli-ai/simulation/frontend")).Drive.create(rendererConfig(tuiCfg))
+          ? await (await import("@nikcli-ai/simulation/frontend")).Drive.create(rendererConfig(tuiCfg), {
+              createCliRenderer,
+              createTestRenderer: (await import("@opentui/core/testing")).createTestRenderer,
+            })
           : await createCliRenderer(rendererConfig(tuiCfg))
         if (!headless) void renderer.getPalette({ size: 16 }).catch(() => undefined)
         const mode = headless ? "dark" : ((await (renderer as any).waitForThemeMode?.(1000)) ?? "dark")

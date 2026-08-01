@@ -471,7 +471,7 @@ function OpenRouterFreeMethod(props: { title: string }) {
     <DialogPrompt
       title="OpenRouter free tier"
       placeholder="OpenRouter API key (any free key from openrouter.ai)"
-      description={
+      description={() => (
         <box gap={1}>
           <text fg={theme.textMuted}>
             OpenRouter gives you a free API key at{" "}
@@ -482,7 +482,7 @@ function OpenRouterFreeMethod(props: { title: string }) {
             automatically.
           </text>
         </box>
-      }
+      )}
       onConfirm={async (value) => {
         if (!value) return
         await sdk.client.auth.set({
@@ -522,16 +522,18 @@ function ApiMethod(props: ApiMethodProps) {
       title={props.title}
       placeholder="API key"
       description={
-        props.providerID === "nikcli" ? (
-          <box gap={1}>
-            <text fg={theme.textMuted}>
-              Nikcli Zen gives you access to all the best coding models at the cheapest prices with a single API key.
-            </text>
-            <text fg={theme.text}>
-              Go to <span style={{ fg: theme.primary }}>https://nikcli.store/zen</span> to get a key
-            </text>
-          </box>
-        ) : undefined
+        props.providerID === "nikcli"
+          ? () => (
+              <box gap={1}>
+                <text fg={theme.textMuted}>
+                  Nikcli Zen gives you access to all the best coding models at the cheapest prices with a single API key.
+                </text>
+                <text fg={theme.text}>
+                  Go to <span style={{ fg: theme.primary }}>https://nikcli.store/zen</span> to get a key
+                </text>
+              </box>
+            )
+          : undefined
       }
       onConfirm={async (value) => {
         if (!value) return

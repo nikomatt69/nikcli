@@ -24,8 +24,9 @@
     "@napi-rs/canvas": "1.0.2",
     "@nikcli-ai/http-recorder": "workspace:*",
     "@nikcli-ai/llm": "workspace:*",
-    "@opentui/core": "0.1.95",
-    "effect": "4.0.0-beta.83"
+    "@opentui/core": "0.4.5",
+    "effect": "4.0.0-beta.83",
+    "web-tree-sitter": "0.25.10"
   },
   "devDependencies": {
     "@tsconfig/bun": "catalog:",

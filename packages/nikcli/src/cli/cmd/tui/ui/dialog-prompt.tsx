@@ -53,7 +53,7 @@ export function DialogPrompt(props: DialogPromptProps) {
         </Show>
       </box>
       <box gap={1}>
-        {props.description}
+        {props.description?.()}
         <Show
           when={!props.busy}
           fallback={

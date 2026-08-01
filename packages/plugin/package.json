@@ -66,8 +66,8 @@
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
-    "@opentui/core": "0.1.91",
-    "@opentui/solid": "0.1.91",
+    "@opentui/core": "0.4.5",
+    "@opentui/solid": "0.4.5",
     "effect": "4.0.0-beta.83",
     "solid-js": "catalog:",
     "zod": "catalog:"

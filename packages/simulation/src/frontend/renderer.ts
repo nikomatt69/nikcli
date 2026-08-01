@@ -1,8 +1,8 @@
 import type { CliRenderer, CliRendererConfig } from "@opentui/core"
-import { createTestRenderer } from "@opentui/core/testing"
+import { createTestRenderer as ownCreateTestRenderer } from "@opentui/core/testing"
 import { Timeline } from "../recording"
 
-type TestRendererSetup = Awaited<ReturnType<typeof createTestRenderer>>
+type TestRendererSetup = Awaited<ReturnType<typeof ownCreateTestRenderer>>
 
 const setups = new WeakMap<CliRenderer, TestRendererSetup>()
 const recordings = new WeakMap<CliRenderer, Timeline>()
@@ -12,8 +12,29 @@ export interface Viewport {
   readonly rows: number
 }
 
+/**
+ * Renderer constructors supplied by the host process.
+ *
+ * The renderer must be built from the *host's* `@opentui/core` module instance,
+ * not this package's. `@opentui/solid`'s `render(node, rendererOrConfig)` decides
+ * whether to reuse a renderer with `rendererOrConfig instanceof CliRenderer`; when
+ * bun resolves two physical copies of `@opentui/core` (this package and the host
+ * get different entries in `node_modules/.bun`), that check silently fails and
+ * Solid builds a *second* renderer — which since 0.4.x dies with
+ * "Cannot create CliRenderer: stdin is already used by another CliRenderer".
+ */
+export interface HostRuntime {
+  readonly createTestRenderer: typeof ownCreateTestRenderer
+}
+
 /** Create a real OpenTUI renderer backed by an in-memory terminal. */
-export async function create(options: CliRendererConfig, path?: string, viewport?: Viewport): Promise<CliRenderer> {
+export async function create(
+  options: CliRendererConfig,
+  path?: string,
+  viewport?: Viewport,
+  host?: HostRuntime,
+): Promise<CliRenderer> {
+  const createTestRenderer = host?.createTestRenderer ?? ownCreateTestRenderer
   const cols = viewport?.cols ?? 100
   const rows = viewport?.rows ?? 40
   if (!path) {

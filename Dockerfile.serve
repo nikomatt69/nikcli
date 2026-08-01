@@ -101,7 +101,7 @@ COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
 ENV NIKCLI_VERSION=1.216.0
-RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform-bun@4.0.0-beta.83
+RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.4.5 @effect/platform-bun@4.0.0-beta.83
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
 
 FROM base AS runtime

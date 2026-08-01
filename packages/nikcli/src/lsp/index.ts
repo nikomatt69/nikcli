@@ -646,6 +646,10 @@ export namespace LSP {
   export const defaultLayer = layer
 
   export namespace Diagnostic {
+    export function message(diagnostic: LSPClient.Diagnostic) {
+      return typeof diagnostic.message === "string" ? diagnostic.message : diagnostic.message.value
+    }
+
     export function pretty(diagnostic: LSPClient.Diagnostic) {
       const severityMap = {
         1: "ERROR",
@@ -658,7 +662,7 @@ export namespace LSP {
       const line = diagnostic.range.start.line + 1
       const col = diagnostic.range.start.character + 1
 
-      return `${severity} [${line}:${col}] ${diagnostic.message}`
+      return `${severity} [${line}:${col}] ${message(diagnostic)}`
     }
   }
 }

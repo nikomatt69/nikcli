@@ -65,7 +65,7 @@ import type { ComputerTool } from "@/tool/computer"
 import type { ArtifactTool } from "@/tool/artifact"
 
 import { normalizeVizComponents, type OpenTUIVizTool } from "@/tool/opentui"
-import type { LSP } from "@/lsp"
+import { LSP } from "@/lsp"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -1755,7 +1755,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
           customBorderChars={SplitBorder.customBorderChars}
           borderColor={theme.error}
         >
-          <text fg={theme.textMuted}>{props.message.error?.data.message}</text>
+          <text fg={theme.textMuted}>{friendlyErrorMessage(props.message.error)}</text>
         </box>
       </Show>
       <Switch>
@@ -2796,7 +2796,7 @@ function Write(props: ToolProps<typeof WriteTool>) {
             <For each={diagnostics()}>
               {(diagnostic) => (
                 <text fg={theme.error}>
-                  Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]: {diagnostic.message}
+                  Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]: {LSP.Diagnostic.message(diagnostic)}
                 </text>
               )}
             </For>
@@ -3793,7 +3793,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
                 {(diagnostic) => (
                   <text fg={theme.error}>
                     Error [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}]{" "}
-                    {diagnostic.message}
+                    {LSP.Diagnostic.message(diagnostic)}
                   </text>
                 )}
               </For>
