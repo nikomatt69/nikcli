@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.222.0 (August 2026)
+
+## Core
+
+- Implement live frame streaming and options for screencasting (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(screencast): implement live frame streaming and options for screencasting
+
 ## v1.219.0 (July 2026)
 
 ## Core
