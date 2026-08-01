@@ -1,11 +1,34 @@
 import { TextAttributes, TextareaRenderable } from "@opentui/core"
-import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
+import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import TurndownService from "turndown"
+import {
+  applyLiveCapabilities,
+  detectCapabilities,
+  bestOverlayProtocol,
+  supportsKittyUnicodePlaceholders,
+  type LiveCapabilities,
+} from "@nikcli-ai/tui-image"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme } from "@tui/context/theme"
+import {
+  BrowserSurface,
+  browserSurfaceKey,
+  type BrowserSurfaceControls,
+  type BrowserSurfaceState,
+  type SurfaceRenderer,
+} from "./browser-surface"
 
 type FocusArea = "url" | "content"
+
+/**
+ * `live` drives a real Chromium page and paints its pixels (see
+ * `specs/browser-live-view.md`); `reader` is the original fetch + Turndown
+ * path. Reader mode is not a degraded fallback so much as a different tool —
+ * it is the right rendering on a terminal without graphics, and it is what you
+ * want when you mean to *read* a page rather than use it.
+ */
+type PreviewMode = "live" | "reader"
 
 type PageState = {
   loading: boolean
@@ -248,7 +271,41 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   const dialog = useDialog()
   const { theme, syntax } = useTheme()
   const dimensions = useTerminalDimensions()
+  const renderer = useRenderer()
   const initialUrl = props.url ? normalizeUrl(props.url) : ""
+
+  // Env detection over-reports; the renderer's negotiated answer decides.
+  const capabilities = applyLiveCapabilities(
+    detectCapabilities(),
+    (renderer.capabilities ?? null) as LiveCapabilities | null,
+  )
+  /**
+   * Kitty placeholders give a real image; every other terminal gets the
+   * half-block super-sampler — the same path that paints the background photo,
+   * so it works literally everywhere. Live mode is therefore never
+   * *unavailable*, only sharper or blunter.
+   *
+   * `NIKCLI_BROWSER_LIVE=1` forces the Kitty path when detection is wrong
+   * (a multiplexer that swallowed the capability query, say).
+   */
+  const liveRenderer: SurfaceRenderer =
+    process.env["NIKCLI_BROWSER_LIVE"] === "1" || supportsKittyUnicodePlaceholders(capabilities)
+      ? "kitty"
+      : bestOverlayProtocol(capabilities)
+        ? "overlay"
+        : "halfblock"
+
+  /** What the current renderer costs you, said plainly rather than left to be discovered. */
+  const rendererNote = () => {
+    if (liveRenderer === "kitty") return ""
+    const terminal = capabilities.terminal ?? "this terminal"
+    if (liveRenderer === "overlay") return ""
+    return `▀ half-block: ${terminal} has no graphics protocol, so the page is approximated with block characters. Turn on "terminal.integrated.enableImages" in VS Code/Cursor settings for a real image, or run nikcli in Ghostty. ^- / ^+ zoom, ^⇧R reader.`
+  }
+
+  const [mode, setMode] = createSignal<PreviewMode>("live")
+  const [surface, setSurface] = createSignal<BrowserSurfaceState | undefined>()
+  let surfaceControls: BrowserSurfaceControls | undefined
 
   const [address, setAddress] = createSignal(initialUrl)
   const [focusArea, setFocusArea] = createSignal<FocusArea>(initialUrl ? "content" : "url")
@@ -267,15 +324,43 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   })
   const [selectedSection, setSelectedSection] = createSignal<string | null>(null)
 
+  const live = createMemo(() => mode() === "live")
   const contentHeight = createMemo(() => {
     const h = dimensions().height
+    // A reader can be short — you scroll it. A browser cannot: the box's shape
+    // *is* the window's shape, and a wide, short box means a wide, short
+    // viewport that shows a sliver of any page no matter how it is scaled. So
+    // live mode takes every row the dialog can spare.
+    if (live()) return Math.max(16, h - 12)
     return Math.max(12, Math.min(h - 14, Math.floor(h * 0.6)))
   })
   const innerHeight = createMemo(() => Math.max(6, contentHeight() - 2))
   const tight = createMemo(() => dimensions().width < 84)
   const wide = createMemo(() => dimensions().width >= 118)
-  const canGoBack = createMemo(() => historyIndex() > 0)
-  const canGoForward = createMemo(() => historyIndex() < historyStack().length - 1)
+  // `xlarge` dialog width, minus this component's padding (4), the content
+  // box's border (2) and its inner padding (2). Kept in step with the JSX
+  // below — the surface must be told its placement in cells, exactly.
+  /**
+   * Everything between the dialog's outer width and the surface's own cells.
+   * The surface is sized in absolute cells, so being wrong here doesn't reflow
+   * anything — it silently paints the page past the border. Counted once,
+   * here, rather than inferred at each level:
+   *
+   *   dialog panel padding  2 + 2
+   *   this component's padding 2 + 2
+   *   content box border    1 + 1
+   *   content box padding   1 + 1
+   */
+  const SURFACE_CHROME = 12
+
+  const liveColumns = createMemo(() => {
+    const dialogWidth = live()
+      ? Math.max(1, dimensions().width - 4)
+      : Math.min(120, Math.max(1, dimensions().width - 8))
+    return Math.max(20, dialogWidth - SURFACE_CHROME)
+  })
+  const canGoBack = createMemo(() => (live() ? true : historyIndex() > 0))
+  const canGoForward = createMemo(() => (live() ? true : historyIndex() < historyStack().length - 1))
   const sectionData = createMemo(() => page().sections.find((s) => s.slug === selectedSection()) ?? null)
   const displayedMarkdown = createMemo(() => sectionData()?.markdown || page().markdown)
 
@@ -304,6 +389,13 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
     focusContent()
     setSelectedSection(null)
 
+    // In live mode the page owns navigation and its own history; the reader's
+    // fetch/parse path below would be a second, divergent browser.
+    if (live()) {
+      surfaceControls?.goto(url)
+      return
+    }
+
     const id = ++reqId
     abortCtrl?.abort()
     const abort = new AbortController()
@@ -329,11 +421,19 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   }
 
   function reload() {
+    if (live()) {
+      surfaceControls?.reload()
+      return
+    }
     const target = page().url || address()
     if (target) void navigate(target)
   }
 
   function goBack() {
+    if (live()) {
+      surfaceControls?.back()
+      return
+    }
     if (!canGoBack()) return
     const idx = historyIndex() - 1
     setHistoryIndex(idx)
@@ -342,6 +442,10 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   }
 
   function goForward() {
+    if (live()) {
+      surfaceControls?.forward()
+      return
+    }
     if (!canGoForward()) return
     const idx = historyIndex() + 1
     setHistoryIndex(idx)
@@ -349,10 +453,30 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
     void navigate(url)
   }
 
+  /**
+   * Switching modes tears the surface down (its `onCleanup` removes the
+   * session), so live→reader always leaves a fetched copy of wherever the page
+   * had got to, not of wherever we started.
+   */
+  function toggleMode() {
+    const next: PreviewMode = live() ? "reader" : "live"
+    const current = live() ? (surface()?.url ?? address()) : page().url || address()
+    setMode(next)
+    surfaceControls = undefined
+    setSurface(undefined)
+    if (current) {
+      setAddress(current)
+      if (next === "reader") setTimeout(() => void navigate(current), 1)
+    }
+  }
+
+  createEffect(() => dialog.setSize(live() ? "full" : "xlarge"))
+
   onMount(() => {
-    dialog.setSize("xlarge")
     if (initialUrl) {
-      setTimeout(() => void navigate(initialUrl), 1)
+      // Live mode navigates through the surface, which boots with this URL
+      // already; only the reader needs an explicit first fetch.
+      if (!live()) setTimeout(() => void navigate(initialUrl), 1)
     } else {
       setTimeout(() => focusUrlBar(), 1)
     }
@@ -364,6 +488,45 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
 
   useKeyboard((evt) => {
     if (focusArea() === "url") return
+
+    // Chords the dialog keeps for itself in both modes. In live mode these are
+    // the *only* ones: everything else is the page's, the way it is in a real
+    // browser — which is why they are ctrl-prefixed rather than bare letters.
+    if (evt.ctrl && evt.name === "l") {
+      focusUrlBar()
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+    if (evt.ctrl && evt.shift && evt.name === "r") {
+      toggleMode()
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+    if (evt.ctrl && evt.shift && evt.name === "t" && live()) {
+      surfaceControls?.toggleTransmission()
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+    if (evt.ctrl && live() && (evt.name === "=" || evt.name === "+" || evt.name === "-")) {
+      surfaceControls?.zoom(evt.name === "-" ? -1 : 1)
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+
+    if (live()) {
+      // `esc` is deliberately not forwarded: it has to reach the dialog so the
+      // dialog can still be closed.
+      if (evt.name === "escape") return
+      if (browserSurfaceKey(surfaceControls, (input) => surfaceControls?.key(input), evt)) {
+        evt.preventDefault()
+        evt.stopPropagation()
+      }
+      return
+    }
 
     if (!evt.ctrl && !evt.meta && !evt.shift && evt.name === "r") {
       reload()
@@ -406,7 +569,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         <text fg={canGoForward() ? theme.text : theme.textMuted} onMouseUp={() => goForward()} flexShrink={0}>
           →
         </text>
-        <text fg={page().url ? theme.text : theme.textMuted} onMouseUp={() => reload()} flexShrink={0}>
+        <text fg={live() || page().url ? theme.text : theme.textMuted} onMouseUp={() => reload()} flexShrink={0}>
           ↺
         </text>
 
@@ -470,17 +633,46 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
       </box>
 
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
-        <text fg={page().title ? theme.text : theme.textMuted} attributes={TextAttributes.BOLD} wrapMode="char">
-          {page().title || (page().loading ? "Loading..." : "")}
+        <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="char">
+          {live()
+            ? surface()?.title || surface()?.url || ""
+            : page().title || (page().loading ? "Loading..." : "")}
         </text>
-        <text fg={page().loading ? theme.primary : page().error ? theme.error : theme.textMuted}>
-          {page().loading ? "loading" : page().error ? "error" : page().markdown ? "ready" : ""}
-        </text>
+        <Show
+          when={live()}
+          fallback={
+            <text fg={page().loading ? theme.primary : page().error ? theme.error : theme.textMuted}>
+              {page().loading ? "loading" : page().error ? "error" : page().markdown ? "reader" : ""}
+            </text>
+          }
+        >
+          <text
+            fg={
+              surface()?.status === "error"
+                ? theme.error
+                : surface()?.status === "live"
+                  ? theme.primary
+                  : theme.textMuted
+            }
+          >
+            {surface()?.status === "live"
+              ? `live · ${liveRenderer === "kitty" ? "kitty" : liveRenderer === "overlay" ? "sixel" : "half-block"}${surface()?.zoom ? ` · ${surface()!.zoom}×` : ""}${surface()?.measured ? "" : " · cell size assumed"}`
+              : (surface()?.status ?? "starting")}
+          </text>
+        </Show>
       </box>
 
-      <Show when={page().error}>
+      <Show when={live() ? surface()?.error : page().error}>
         <box flexShrink={0}>
-          <text fg={theme.error}>✗ {page().error}</text>
+          <text fg={theme.error}>✗ {live() ? surface()?.error : page().error}</text>
+        </box>
+      </Show>
+
+      <Show when={live() && rendererNote()}>
+        <box flexShrink={0}>
+          <text fg={theme.textMuted} wrapMode="word">
+            ⓘ {rendererNote()}
+          </text>
         </box>
       </Show>
 
@@ -492,6 +684,23 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         flexShrink={0}
         onMouseUp={() => focusContent()}
       >
+        <Show when={live()}>
+          <box paddingLeft={1} paddingRight={1} height={innerHeight()}>
+            <BrowserSurface
+              initialUrl={address() || "about:blank"}
+              columns={liveColumns()}
+              rows={innerHeight()}
+              focused={focusArea() === "content"}
+              renderer={liveRenderer}
+              onState={setSurface}
+              ref={(controls) => {
+                surfaceControls = controls
+              }}
+            />
+          </box>
+        </Show>
+
+        <Show when={!live()}>
         <box flexDirection={wide() ? "row" : "column"} gap={1} paddingLeft={1} paddingRight={1} height={innerHeight()}>
           <scrollbox height={innerHeight()} focused={focusArea() === "content"} flexGrow={1} flexShrink={1}>
             <box gap={1} paddingTop={1} paddingBottom={1}>
@@ -564,6 +773,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             </box>
           </Show>
         </box>
+        </Show>
       </box>
 
       <box
@@ -573,14 +783,33 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         gap={tight() ? 1 : 0}
       >
         <text fg={theme.textMuted} wrapMode="char">
-          {address() || ""}
+          {(live() ? surface()?.url : "") || address() || ""}
         </text>
-        <box flexDirection="row" gap={2}>
-          <text fg={theme.textMuted}>⌥← back</text>
-          <text fg={theme.textMuted}>⌥→ fwd</text>
-          <text fg={theme.textMuted}>r reload</text>
-          <text fg={theme.textMuted}>/ url</text>
-        </box>
+        <Show
+          when={live()}
+          fallback={
+            <box flexDirection="row" gap={2}>
+              <text fg={theme.textMuted}>⌥← back</text>
+              <text fg={theme.textMuted}>⌥→ fwd</text>
+              <text fg={theme.textMuted}>r reload</text>
+              <text fg={theme.textMuted}>/ url</text>
+              <text fg={theme.textMuted}>^⇧R live</text>
+            </box>
+          }
+        >
+          <box flexDirection="row" gap={2}>
+            <text fg={theme.textMuted}>^L url</text>
+            <text fg={theme.textMuted}>⌥← back</text>
+            <text fg={theme.textMuted}>⌥→ fwd</text>
+            <Show when={liveRenderer === "halfblock"}>
+              <text fg={theme.textMuted}>^± zoom</text>
+            </Show>
+            <Show when={liveRenderer === "kitty"}>
+              <text fg={theme.textMuted}>^⇧T transport</text>
+            </Show>
+            <text fg={theme.textMuted}>^⇧R reader</text>
+          </box>
+        </Show>
       </box>
     </box>
   )

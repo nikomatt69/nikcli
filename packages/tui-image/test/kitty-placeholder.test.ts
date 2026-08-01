@@ -5,6 +5,8 @@ import {
   ROW_COLUMN_DIACRITICS,
   deleteKittyVirtual,
   encodeKittyVirtual,
+  encodeKittyVirtualFile,
+  encodeKittyVirtualPng,
   kittyIdColor,
   kittyPlaceholderGrid,
   kittyPlaceholderRow,
@@ -91,6 +93,60 @@ describe("encodeKittyVirtual", () => {
     const image = createPixelImage(1, 1)
     expect(() => encodeKittyVirtual(image, { id: 0, columns: 1, rows: 1 })).toThrow(RangeError)
     expect(() => encodeKittyVirtual(image, { id: MAX_PLACEHOLDER_ID + 1, columns: 1, rows: 1 })).toThrow(RangeError)
+  })
+})
+
+describe("encodeKittyVirtualPng", () => {
+  it("transmits the given bytes verbatim", () => {
+    const image = createPixelImage(3, 3, [0, 128, 255, 255])
+    const png = Uint8Array.fromBase64(chunksOf(encodeKittyVirtual(image, { id: 1, columns: 1, rows: 1 }))[0]!.payload)
+
+    const output = encodeKittyVirtualPng(png, { id: 9, columns: 6, rows: 3 })
+    const chunks = chunksOf(output)
+    expect(chunks[0]!.control).toBe("a=T,U=1,q=2,f=100,i=9,c=6,r=3")
+    expect([...Uint8Array.fromBase64(chunks[0]!.payload)]).toEqual([...png])
+  })
+
+  it("produces the same command as the PixelImage path for the same pixels", () => {
+    const image = createPixelImage(4, 4, [10, 20, 30, 255])
+    const viaImage = encodeKittyVirtual(image, { id: 5, columns: 2, rows: 1 })
+    const png = Uint8Array.fromBase64(chunksOf(viaImage)[0]!.payload)
+    expect(encodeKittyVirtualPng(png, { id: 5, columns: 2, rows: 1 })).toBe(viaImage)
+  })
+
+  it("chunks large payloads per spec", () => {
+    const png = new Uint8Array(8192)
+    crypto.getRandomValues(png)
+    const chunks = chunksOf(encodeKittyVirtualPng(png, { id: 3, columns: 8, rows: 4 }))
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks[0]!.control).toBe("a=T,U=1,q=2,f=100,i=3,c=8,r=4,m=1")
+    expect(chunks.at(-1)!.control).toBe("m=0")
+    expect([...Uint8Array.fromBase64(chunks.map((c) => c.payload).join(""))]).toEqual([...png])
+  })
+
+  it("rejects out-of-range ids", () => {
+    expect(() => encodeKittyVirtualPng(new Uint8Array(4), { id: 0, columns: 1, rows: 1 })).toThrow(RangeError)
+  })
+})
+
+describe("encodeKittyVirtualFile", () => {
+  it("sends the path, not the pixels", () => {
+    const path = "/tmp/nikcli-screencast-abc/frame-2.png"
+    const chunks = chunksOf(encodeKittyVirtualFile(path, { id: 12, columns: 40, rows: 20 }))
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0]!.control).toBe("a=T,U=1,q=2,f=100,t=t,i=12,c=40,r=20")
+    expect(new TextDecoder().decode(Uint8Array.fromBase64(chunks[0]!.payload))).toBe(path)
+  })
+
+  it("stays a fixed size regardless of how big the image is", () => {
+    const short = encodeKittyVirtualFile("/tmp/a.png", { id: 1, columns: 1, rows: 1 })
+    const long = encodeKittyVirtualFile("/tmp/a.png", { id: 1, columns: 200, rows: 100 })
+    expect(short.length).toBeLessThan(120)
+    expect(long.length).toBeLessThan(130)
+  })
+
+  it("rejects out-of-range ids", () => {
+    expect(() => encodeKittyVirtualFile("/tmp/a.png", { id: 0, columns: 1, rows: 1 })).toThrow(RangeError)
   })
 })
 

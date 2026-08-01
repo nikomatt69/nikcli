@@ -62,6 +62,21 @@ async function mutationFormatter(directory: string) {
 }
 
 describe("Format runtime (opencode #39564)", () => {
+  it("accepts formatter true to enable built-ins", async () => {
+    const directory = await makeProject({})
+    await fs.writeFile(path.join(directory, "nikcli.json"), JSON.stringify({ formatter: true }))
+
+    const status = await runFormat(
+      directory,
+      Effect.gen(function* () {
+        const format = yield* Format.Service
+        return yield* format.status()
+      }),
+    )
+
+    expect(status.some((item) => item.name === "gofmt")).toBe(true)
+  })
+
   it("runs the first successful matching formatter and stops", async () => {
     const directory = await makeProject({})
     const first = await script(

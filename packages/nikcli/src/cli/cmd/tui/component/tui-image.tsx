@@ -216,7 +216,7 @@ type TuiImageState =
 
 const previewCache = new Map<string, Promise<TuiImageData>>()
 
-type NativeOverlay = {
+export type NativeOverlay = {
   box: BoxRenderable
   bytes: Uint8Array | string
   columns: number
@@ -251,7 +251,15 @@ function nativePayload(bytes: Uint8Array | string) {
   return typeof bytes === "string" ? bytes : Buffer.from(bytes).toString("ascii")
 }
 
-function registerNativeOverlay(renderer: CliRenderer, overlay: NativeOverlay) {
+/**
+ * Draw a cursor-positioned native image (Sixel / iTerm2) after OpenTUI has
+ * flushed its own frame, at the position of `overlay.box`.
+ *
+ * Exported because the browser surface needs the same trick for a *stream*:
+ * mutate `overlay.bytes` and call `renderer.requestRender()` and the next
+ * frame lands in the same place.
+ */
+export function registerNativeOverlay(renderer: CliRenderer, overlay: NativeOverlay) {
   const target = renderer as unknown as OverlayRenderer
   let manager = nativeOverlayManagers.get(renderer)
   if (!manager) {

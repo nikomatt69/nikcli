@@ -1551,6 +1551,7 @@ export namespace Config {
       formatter: z
         .union([
           z.literal(false),
+          z.literal(true),
           z.record(
             z.string(),
             z.object({

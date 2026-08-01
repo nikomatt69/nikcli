@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test"
-import { createPixelImage, crop, resize, resizeNearest } from "../src/pixels"
+import { describe, expect, it, test } from "bun:test"
+import { createPixelImage, crop, resize, resizeArea, resizeNearest } from "../src/pixels"
 import { solidImage } from "./_fixtures"
 
 describe("createPixelImage", () => {
@@ -53,5 +53,41 @@ describe("crop", () => {
     expect(out.width).toBe(2)
     expect(out.height).toBe(2)
     expect(out.data.length).toBe(16)
+  })
+})
+
+describe("resize picks a filter by direction", () => {
+  it("averages every contributing pixel when shrinking", () => {
+    // A 4x1 strip of two blacks then two whites, halved: each output pixel is
+    // the mean of the two it covers, so both are mid-grey. Bilinear would have
+    // read only the first of each pair and returned black, white.
+    const image = createPixelImage(4, 1)
+    image.data.set([0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255])
+    const out = resize(image, 2, 1)
+    expect(out.data[0]).toBe(0)
+    expect(out.data[4]).toBe(255)
+    expect(resizeArea(image, 1, 1).data[0]).toBe(128)
+  })
+
+  it("does not drop a lone bright pixel when shrinking hard", () => {
+    // A single white pixel in a 16x16 black field, shrunk to 2x2. Point-ish
+    // sampling misses it entirely; averaging keeps it as a faint value.
+    const image = createPixelImage(16, 16)
+    for (let i = 3; i < image.data.length; i += 4) image.data[i] = 255
+    const i = (5 * 16 + 5) * 4
+    image.data[i] = 255
+    image.data[i + 1] = 255
+    image.data[i + 2] = 255
+    const out = resize(image, 2, 2)
+    expect([...out.data].some((v, index) => index % 4 !== 3 && v > 0)).toBe(true)
+  })
+
+  it("still interpolates when enlarging", () => {
+    const image = createPixelImage(2, 1)
+    image.data.set([0, 0, 0, 255, 255, 255, 255, 255])
+    const out = resize(image, 4, 1)
+    // A mid sample must land strictly between the endpoints.
+    expect(out.data[4]).toBeGreaterThan(0)
+    expect(out.data[4]).toBeLessThan(255)
   })
 })

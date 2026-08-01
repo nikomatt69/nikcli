@@ -9,6 +9,10 @@ export * from "./frame"
 
 export {
   BrowserSession,
+  type KeyInput,
+  type MouseButton,
+  type PointerInput,
+  type PointerModifier,
   type SessionInfo,
   type SessionOptions,
   type SendMode,
@@ -18,6 +22,8 @@ export {
 } from "./session"
 export { SessionManager } from "./manager"
 export { translateKey, translateKeys } from "./keys"
+
+export { Screencast, pngDimensions, type ScreencastFrame, type ScreencastOptions } from "./screencast"
 
 export {
   Recorder,
@@ -65,5 +71,13 @@ export {
 } from "./evidence"
 
 // Background daemon — persists sessions across separate process invocations.
-export { ensureDaemon, rpc, shutdownDaemon, socketPathFor } from "./daemon-client"
-export { startDaemon } from "./daemon"
+export {
+  ensureDaemon,
+  openScreencast,
+  rpc,
+  shutdownDaemon,
+  socketPathFor,
+  type OpenScreencastOptions,
+  type ScreencastStreamFrame,
+} from "./daemon-client"
+export { startDaemon, type FrameMode } from "./daemon"

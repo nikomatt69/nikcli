@@ -99,6 +99,19 @@ export interface KittyVirtualOptions {
   readonly rows: number
 }
 
+/**
+ * How the PNG bytes reach the terminal.
+ *
+ * - `direct` (`t=d`) inlines base64 in the escape sequence, chunked at 4096
+ *   bytes. Works everywhere, including over ssh and multiplexers.
+ * - `temporary-file` (`t=t`) sends only a *path*; the terminal opens the file
+ *   itself and deletes it afterwards. The pixels never touch the PTY, which is
+ *   what makes a video-rate stream affordable — but it requires the terminal
+ *   and the writer to share a filesystem, and the path must live somewhere the
+ *   terminal is willing to treat as temporary (`/tmp`, `$TMPDIR`).
+ */
+export type KittyTransmission = "direct" | "temporary-file"
+
 function assertId(id: number) {
   if (!Number.isInteger(id) || id < 1 || id > MAX_PLACEHOLDER_ID) {
     throw new RangeError(`kitty virtual placement id must be 1..${MAX_PLACEHOLDER_ID}, got ${id}`)
@@ -114,17 +127,54 @@ function assertId(id: number) {
  * the `columns × rows` placeholder rectangle.
  */
 export function encodeKittyVirtual(image: PixelImage, options: KittyVirtualOptions): string {
+  return encodeKittyVirtualPng(compressedPng(image), options)
+}
+
+/**
+ * The same virtual placement, from PNG bytes that already exist.
+ *
+ * {@link encodeKittyVirtual} decodes to a {@link PixelImage} and re-encodes,
+ * which is fine once for a static preview and wasteful thirty times a second
+ * for a live stream whose producer (Chromium's screencast, an image file on
+ * disk) already handed over a PNG. Re-encoding also cannot improve the picture
+ * — it can only lose to the encoder that made it.
+ *
+ * Transmitting the same `id` again replaces the image in place, so a stream is
+ * just this function called repeatedly; the placeholder cells never change.
+ */
+export function encodeKittyVirtualPng(png: Uint8Array, options: KittyVirtualOptions): string {
   assertId(options.id)
   const columns = Math.max(1, Math.floor(options.columns))
   const rows = Math.max(1, Math.floor(options.rows))
-  const payload = base64FromBytes(compressedPng(image))
   const head = `a=T,U=1,q=2,f=100,i=${options.id},c=${columns},r=${rows}`
+  return chunked(head, base64FromBytes(png))
+}
+
+/**
+ * A virtual placement whose pixels the terminal reads from `path` itself
+ * (`t=t`). The payload is the *path*, base64-encoded — a fixed ~100 bytes
+ * through the PTY no matter how large the image.
+ *
+ * The terminal deletes the file once it has read it, so `path` must be
+ * disposable and must not be reused before the terminal has had a chance to
+ * consume it. Callers that stream should rotate through a small set of paths.
+ */
+export function encodeKittyVirtualFile(path: string, options: KittyVirtualOptions): string {
+  assertId(options.id)
+  const columns = Math.max(1, Math.floor(options.columns))
+  const rows = Math.max(1, Math.floor(options.rows))
+  const head = `a=T,U=1,q=2,f=100,t=t,i=${options.id},c=${columns},r=${rows}`
+  return chunked(head, base64FromBytes(new TextEncoder().encode(path)))
+}
+
+/**
+ * Kitty caps a single escape at 4096 bytes of base64. Per spec the first chunk
+ * carries every key plus `m=1`; continuation chunks carry ONLY `m` (and the
+ * payload); the final chunk has `m=0`.
+ */
+function chunked(head: string, payload: string): string {
   const chunkSize = 4096
-  if (payload.length <= chunkSize) {
-    return `${ESC}_G${head};${payload}${ST}`
-  }
-  // Chunked form, per spec: the first chunk carries every key plus `m=1`;
-  // continuation chunks carry ONLY `m` (and the payload); the last has `m=0`.
+  if (payload.length <= chunkSize) return `${ESC}_G${head};${payload}${ST}`
   const chunks: string[] = []
   for (let i = 0; i < payload.length; i += chunkSize) {
     const part = payload.slice(i, i + chunkSize)

@@ -10,8 +10,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Browser, BrowserContext, ConsoleMessage, Page } from "playwright"
 import type { BrowserFrame, ConsoleEntry, Viewport } from "./frame"
-import { translateKeys } from "./keys"
+import { translateKey, translateKeys } from "./keys"
 import { Recorder, type RecordingData, type RecordingMarker, type StartRecordingOptions } from "./recording"
+import { Screencast, type ScreencastOptions } from "./screencast"
 
 const CONSOLE_LOG_LIMIT = 200
 
@@ -55,6 +56,44 @@ export interface WaitResult {
   readonly frame: BrowserFrame
 }
 
+export type MouseButton = "left" | "middle" | "right"
+
+export type PointerModifier = "alt" | "control" | "meta" | "shift"
+
+/**
+ * A pointer event in *page pixels*. Selector-based {@link BrowserSession.click}
+ * is what an agent wants ("click the submit button"); this is what a live view
+ * needs, where the only thing known about the target is where the user pointed.
+ */
+export interface PointerInput {
+  readonly type: "move" | "click" | "down" | "up" | "wheel"
+  readonly x: number
+  readonly y: number
+  readonly button?: MouseButton
+  readonly clickCount?: number
+  readonly deltaX?: number
+  readonly deltaY?: number
+  readonly modifiers?: ReadonlyArray<PointerModifier>
+}
+
+/**
+ * A keyboard event as a *terminal* can actually report one. Terminals emit
+ * key presses, not down/up pairs, so modelling separate down and up events here
+ * would be a fiction: `key` is a press (`enter`, `ctrl+a`, …) and `text` is
+ * literal insertion (a printable character, or a paste).
+ */
+export interface KeyInput {
+  readonly key?: string
+  readonly text?: string
+}
+
+const MODIFIER_KEY: Record<PointerModifier, string> = {
+  alt: "Alt",
+  control: "Control",
+  meta: "Meta",
+  shift: "Shift",
+}
+
 export class BrowserSession {
   readonly name: string
 
@@ -66,6 +105,7 @@ export class BrowserSession {
   private consoleLog: ConsoleEntry[] = []
   private recorder: Recorder | null = null
   private videoDir: string | null = null
+  private screencast: Screencast | null = null
 
   static async create(browser: Browser, options: SessionOptions): Promise<BrowserSession> {
     const viewport = options.viewport ?? { width: 1280, height: 800 }
@@ -130,9 +170,84 @@ export class BrowserSession {
     for (const key of translateKeys(input)) await this.page.keyboard.press(key)
   }
 
+  /**
+   * Walk back one entry in the page's own history. Resolves `false` at the
+   * start of history.
+   *
+   * The return value is decided by comparing URLs, not by Playwright's — it
+   * resolves `null` whenever the navigation produced no HTTP response, which
+   * includes `data:` URLs and same-document history entries. Those *did*
+   * navigate, and a back button that reports failure after moving is worse
+   * than no back button.
+   */
+  async back(): Promise<boolean> {
+    this.assertRunning()
+    const before = this.page.url()
+    await this.page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {})
+    return this.page.url() !== before
+  }
+
+  /** Walk forward one entry in the page's own history. Resolves `false` at the end of history. */
+  async forward(): Promise<boolean> {
+    this.assertRunning()
+    const before = this.page.url()
+    await this.page.goForward({ waitUntil: "domcontentloaded" }).catch(() => {})
+    return this.page.url() !== before
+  }
+
+  async reload(): Promise<void> {
+    this.assertRunning()
+    await this.page.reload({ waitUntil: "domcontentloaded" })
+  }
+
   async click(selector: string): Promise<void> {
     this.assertRunning()
     await this.page.click(selector)
+  }
+
+  /** Dispatch a pointer event at page-pixel coordinates. See {@link PointerInput}. */
+  async pointer(input: PointerInput): Promise<void> {
+    this.assertRunning()
+    const held = input.modifiers ?? []
+    for (const modifier of held) await this.page.keyboard.down(MODIFIER_KEY[modifier])
+    try {
+      const button = input.button ?? "left"
+      const clickCount = input.clickCount ?? 1
+      switch (input.type) {
+        case "move":
+          await this.page.mouse.move(input.x, input.y)
+          break
+        case "click":
+          await this.page.mouse.click(input.x, input.y, { button, clickCount })
+          break
+        case "down":
+          await this.page.mouse.move(input.x, input.y)
+          await this.page.mouse.down({ button, clickCount })
+          break
+        case "up":
+          await this.page.mouse.move(input.x, input.y)
+          await this.page.mouse.up({ button, clickCount })
+          break
+        case "wheel":
+          await this.page.mouse.move(input.x, input.y)
+          await this.page.mouse.wheel(input.deltaX ?? 0, input.deltaY ?? 0)
+          break
+      }
+    } finally {
+      for (const modifier of [...held].reverse()) await this.page.keyboard.up(MODIFIER_KEY[modifier]).catch(() => {})
+    }
+  }
+
+  /** Dispatch a single key press, or insert literal text. See {@link KeyInput}. */
+  async key(input: KeyInput): Promise<void> {
+    this.assertRunning()
+    if (input.text !== undefined && input.text.length > 0) {
+      await this.page.keyboard.insertText(input.text)
+      return
+    }
+    if (input.key !== undefined && input.key.length > 0) {
+      await this.page.keyboard.press(translateKey(input.key))
+    }
   }
 
   async fill(selector: string, value: string): Promise<void> {
@@ -179,6 +294,30 @@ export class BrowserSession {
   async text(): Promise<string> {
     const frame = await this.snapshot()
     return frame.text
+  }
+
+  /**
+   * Open a live PNG stream of the page (see {@link Screencast}). At most one
+   * screencast runs per session; starting a second one replaces the first,
+   * because the consumer is a single view and a page has one set of pixels.
+   */
+  async startScreencast(options: ScreencastOptions = {}): Promise<Screencast> {
+    this.assertRunning()
+    await this.stopScreencast()
+    const screencast = await Screencast.start(this.context, this.page, options)
+    this.screencast = screencast
+    return screencast
+  }
+
+  async stopScreencast(): Promise<void> {
+    const screencast = this.screencast
+    if (!screencast) return
+    this.screencast = null
+    await screencast.stop()
+  }
+
+  isScreencasting(): boolean {
+    return this.screencast !== null
   }
 
   rawConsole(lines?: number): ConsoleEntry[] {
@@ -331,6 +470,7 @@ export class BrowserSession {
   async stop(): Promise<void> {
     if (this.status !== "running") return
     this.status = "closed"
+    await this.stopScreencast().catch(() => {})
     if (this.recorder) await this.recorder.stop().catch(() => {})
     await this.context.close().catch(() => {})
   }

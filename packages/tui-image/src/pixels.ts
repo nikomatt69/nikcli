@@ -102,10 +102,65 @@ export function resizeBilinear(image: PixelImage, targetWidth: number, targetHei
  * is pure JS and dependency-free; the caller can swap in a WASM-backed
  * `resizer` for production use (see `decode.ts`).
  */
+/**
+ * Box-average (area) resample: every destination pixel is the mean of the
+ * source rectangle it covers.
+ *
+ * This is the only correct way to *shrink*. Bilinear reads a 2×2 neighbourhood
+ * regardless of scale, so shrinking by more than half skips most source pixels
+ * entirely — which is point sampling with a little blur on top, and it aliases:
+ * thin lines flicker or vanish, text turns to speckle. Averaging looks at every
+ * pixel that contributes, which is what makes a shrunk picture look smooth
+ * rather than pixelated.
+ */
+export function resizeArea(image: PixelImage, targetWidth: number, targetHeight: number): PixelImage {
+  const out = createPixelImage(targetWidth, targetHeight)
+  const xRatio = image.width / targetWidth
+  const yRatio = image.height / targetHeight
+  for (let y = 0; y < targetHeight; y++) {
+    const y0 = Math.floor(y * yRatio)
+    const y1 = Math.max(y0 + 1, Math.min(image.height, Math.ceil((y + 1) * yRatio)))
+    for (let x = 0; x < targetWidth; x++) {
+      const x0 = Math.floor(x * xRatio)
+      const x1 = Math.max(x0 + 1, Math.min(image.width, Math.ceil((x + 1) * xRatio)))
+      let r = 0
+      let g = 0
+      let b = 0
+      let a = 0
+      let count = 0
+      for (let sy = y0; sy < y1; sy++) {
+        const row = sy * image.width
+        for (let sx = x0; sx < x1; sx++) {
+          const i = (row + sx) * 4
+          r += image.data[i] ?? 0
+          g += image.data[i + 1] ?? 0
+          b += image.data[i + 2] ?? 0
+          a += image.data[i + 3] ?? 0
+          count++
+        }
+      }
+      if (count === 0) count = 1
+      const dst = (y * targetWidth + x) * 4
+      out.data[dst] = Math.round(r / count)
+      out.data[dst + 1] = Math.round(g / count)
+      out.data[dst + 2] = Math.round(b / count)
+      out.data[dst + 3] = Math.round(a / count)
+    }
+  }
+  return out
+}
+
 export function resize(image: PixelImage, targetWidth: number, targetHeight: number): PixelImage {
   if (targetWidth === image.width && targetHeight === image.height) return image
   if (targetWidth <= 0 || targetHeight <= 0) {
     throw new RangeError(`target dimensions must be positive, got ${targetWidth}x${targetHeight}`)
+  }
+  // Shrinking and growing want opposite filters: averaging throws nothing away
+  // on the way down, interpolation invents smooth values on the way up. Mixed
+  // cases (narrower but taller) still shrink on one axis, so area wins there
+  // too — it degenerates to a 1-pixel box on the axis that grew.
+  if (targetWidth < image.width || targetHeight < image.height) {
+    return resizeArea(image, targetWidth, targetHeight)
   }
   return resizeBilinear(image, targetWidth, targetHeight)
 }

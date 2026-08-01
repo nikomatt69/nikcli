@@ -79,6 +79,74 @@ export async function rpc<T = unknown>(
   return body.result as T
 }
 
+/** One NDJSON line from `GET /screencast`. Exactly one of `path` / `pngBase64` is set. */
+export interface ScreencastStreamFrame {
+  readonly seq: number
+  readonly width: number
+  readonly height: number
+  readonly deviceWidth: number
+  readonly deviceHeight: number
+  readonly scrollOffsetX: number
+  readonly scrollOffsetY: number
+  readonly pageScaleFactor: number
+  readonly timestamp: number
+  /** Absolute path to a PNG the terminal can read directly (`file` mode). */
+  readonly path?: string
+  /** Base64 PNG bytes (`inline` mode). */
+  readonly pngBase64?: string
+}
+
+export interface OpenScreencastOptions {
+  readonly name: string
+  readonly mode?: "file" | "inline"
+  readonly maxWidth?: number
+  readonly maxHeight?: number
+  readonly fps?: number
+  readonly everyNthFrame?: number
+  readonly signal?: AbortSignal
+}
+
+/**
+ * Consume a session's live frame stream. Abort the passed signal (or stop
+ * iterating) to close it — the daemon stops the screencast with the request.
+ */
+export async function* openScreencast(
+  socketPath: string,
+  options: OpenScreencastOptions,
+): AsyncGenerator<ScreencastStreamFrame> {
+  const query = new URLSearchParams({ name: options.name })
+  if (options.mode) query.set("mode", options.mode)
+  if (options.maxWidth) query.set("maxWidth", String(Math.round(options.maxWidth)))
+  if (options.maxHeight) query.set("maxHeight", String(Math.round(options.maxHeight)))
+  if (options.fps) query.set("fps", String(options.fps))
+  if (options.everyNthFrame) query.set("everyNthFrame", String(options.everyNthFrame))
+
+  const res = await fetch(`http://localhost/screencast?${query.toString()}`, {
+    unix: socketPath,
+    ...(options.signal ? { signal: options.signal } : {}),
+  } as RequestInit)
+  if (!res.ok || !res.body) {
+    const body = (await res.json().catch(() => undefined)) as { error?: string } | undefined
+    throw new Error(body?.error ?? `browser-control screencast failed with HTTP ${res.status}`)
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    buffer += decoder.decode(chunk, { stream: true })
+    let newline = buffer.indexOf("\n")
+    while (newline !== -1) {
+      const line = buffer.slice(0, newline)
+      buffer = buffer.slice(newline + 1)
+      newline = buffer.indexOf("\n")
+      if (!line) continue
+      const message = JSON.parse(line) as { type: string; error?: string } & ScreencastStreamFrame
+      if (message.type === "error") throw new Error(message.error ?? "screencast failed")
+      if (message.type === "frame") yield message
+    }
+  }
+}
+
 export async function shutdownDaemon(socketPath: string): Promise<void> {
   if (!(await isDaemonAlive(socketPath))) return
   await fetch("http://localhost/shutdown", { method: "POST", unix: socketPath } as RequestInit).catch(() => {})

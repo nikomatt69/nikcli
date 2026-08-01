@@ -334,17 +334,27 @@ export function encodeSixel(image: PixelImage): Uint8Array {
   const pixels = new Int16Array(image.width * image.height)
   pixels.fill(-1)
   const usedPalette = new Map<number, number>()
+  // `nearestPaletteIndex` is a linear scan of 256 entries, and calling it once
+  // per pixel dominates everything else here. Real pictures — screenshots,
+  // rendered pages, UI — are made of far fewer distinct colours than pixels
+  // (a web page is typically a few thousand), so memoising the answer per
+  // colour turns `pixels × 256` comparisons into `colours × 256`.
+  const nearest = new Map<number, number>()
 
   for (let y = 0; y < image.height; y++) {
     for (let x = 0; x < image.width; x++) {
       const offset = (y * image.width + x) * 4
       const alpha = (image.data[offset + 3] ?? 0) / 255
       if (alpha < 0.5) continue
-      const paletteIndex = nearestPaletteIndex(
-        (image.data[offset] ?? 0) * alpha,
-        (image.data[offset + 1] ?? 0) * alpha,
-        (image.data[offset + 2] ?? 0) * alpha,
-      )
+      const r = (image.data[offset] ?? 0) * alpha
+      const g = (image.data[offset + 1] ?? 0) * alpha
+      const b = (image.data[offset + 2] ?? 0) * alpha
+      const key = ((r | 0) << 16) | ((g | 0) << 8) | (b | 0)
+      let paletteIndex = nearest.get(key)
+      if (paletteIndex === undefined) {
+        paletteIndex = nearestPaletteIndex(r, g, b)
+        nearest.set(key, paletteIndex)
+      }
       let register = usedPalette.get(paletteIndex)
       if (register === undefined) {
         register = usedPalette.size

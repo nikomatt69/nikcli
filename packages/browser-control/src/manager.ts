@@ -8,6 +8,8 @@
 import type { Browser } from "playwright"
 import {
   BrowserSession,
+  type KeyInput,
+  type PointerInput,
   type SessionInfo,
   type SessionOptions,
   type SendMode,
@@ -16,6 +18,7 @@ import {
 } from "./session"
 import type { BrowserFrame } from "./frame"
 import type { RecordingData, RecordingMarker, StartRecordingOptions } from "./recording"
+import type { Screencast, ScreencastOptions } from "./screencast"
 
 export class SessionManager {
   private readonly sessions = new Map<string, BrowserSession>()
@@ -87,8 +90,36 @@ export class SessionManager {
     return this.require(name).send(input, mode)
   }
 
+  back(name: string): Promise<boolean> {
+    return this.require(name).back()
+  }
+
+  forward(name: string): Promise<boolean> {
+    return this.require(name).forward()
+  }
+
+  reload(name: string): Promise<void> {
+    return this.require(name).reload()
+  }
+
   click(name: string, selector: string): Promise<void> {
     return this.require(name).click(selector)
+  }
+
+  pointer(name: string, input: PointerInput): Promise<void> {
+    return this.require(name).pointer(input)
+  }
+
+  key(name: string, input: KeyInput): Promise<void> {
+    return this.require(name).key(input)
+  }
+
+  startScreencast(name: string, options?: ScreencastOptions): Promise<Screencast> {
+    return this.require(name).startScreencast(options)
+  }
+
+  stopScreencast(name: string): Promise<void> {
+    return this.require(name).stopScreencast()
   }
 
   fill(name: string, selector: string, value: string): Promise<void> {

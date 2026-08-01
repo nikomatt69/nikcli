@@ -22,7 +22,7 @@ import { useToast } from "./toast"
  * - List rows gap: 1 (between items)
  * - Button spacing: gap=2 for grouped buttons
  */
-export type DialogSize = "medium" | "large" | "xlarge"
+export type DialogSize = "medium" | "large" | "xlarge" | "full"
 type DialogElement = JSX.Element | (() => JSX.Element)
 type DialogEntry = {
   element: DialogElement
@@ -51,6 +51,10 @@ export function Dialog(
 
   const width = () => {
     const dims = dimensions()
+    // `full` is for dialogs whose *content* is the window — the browser
+    // surface, where every column is a pixel of horizontal resolution and a
+    // 120-column cap is a cap on how much page you can see.
+    if (props.size === "full") return Math.max(1, dims.width - 4)
     if (props.size === "xlarge") return Math.min(120, Math.max(1, dims.width - 8))
     if (props.size === "large") return Math.min(88, Math.max(1, dims.width - 6))
     return Math.min(60, Math.max(1, dims.width - 4))

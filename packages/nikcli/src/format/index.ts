@@ -85,7 +85,7 @@ export namespace Format {
           }
           // opencode #39564: ruff and uv both format Python, so disabling one
           // disables both unless the other is explicitly re-enabled below.
-          const configured = cfg.formatter ?? {}
+          const configured = cfg.formatter === true ? {} : (cfg.formatter ?? {})
           if (configured.ruff?.disabled || configured.uv?.disabled) {
             for (const name of ["ruff", "uv"]) delete formatters[name]
           }
