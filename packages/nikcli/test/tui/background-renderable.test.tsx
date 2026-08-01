@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { testRender } from "@opentui/solid"
-import { createSignal, Show } from "solid-js"
+import { createMemo, createSignal, Show } from "solid-js"
 import { createPixelImage } from "@nikcli-ai/tui-image"
 import { bufferSize, compose } from "../../src/cli/cmd/tui/feature-plugins/background/pixels"
 import type { BackgroundRenderable } from "../../src/cli/cmd/tui/feature-plugins/background/renderable"
@@ -38,7 +38,7 @@ describe("background renderable", () => {
     const pixels = banner()
     expect(pixels).toHaveLength(bufferSize(COLUMNS, ROWS))
 
-    const { captureSpans, renderOnce } = await testRender(
+    const { captureSpans, renderer, renderOnce } = await testRender(
       () => (
         <box width={COLUMNS} height={ROWS} backgroundColor={BLACK}>
           <nikcli_background
@@ -74,13 +74,14 @@ describe("background renderable", () => {
     expect(text).toBeDefined()
     expect(ints(text!.fg)).toEqual([255, 255, 255])
     expect(ints(text!.bg)).toEqual([255, 0, 0])
+    renderer.destroy()
   })
 
   test("stays behind the UI even when it mounts after it without a JSX z-index", async () => {
     const pixels = banner()
     const [mounted, setMounted] = createSignal(false)
 
-    const { captureSpans, renderOnce } = await testRender(
+    const { captureSpans, renderer, renderOnce } = await testRender(
       () => (
         <box width={COLUMNS} height={ROWS} backgroundColor={BLACK}>
           <text fg={RGBA.fromInts(255, 255, 255, 255)}>hi</text>
@@ -119,14 +120,27 @@ describe("background renderable", () => {
     expect(text).toBeDefined()
     expect(ints(text!.fg)).toEqual([255, 255, 255])
     expect(ints(text!.bg)).toEqual([255, 0, 0])
+    renderer.destroy()
   })
 
   test("stays mounted on its background layer when hidden and shown again", async () => {
-    const pixels = banner()
+    const image = createPixelImage(COLUMNS, ROWS * 2, [255, 0, 0, 255])
     const [visible, setVisible] = createSignal(true)
+    const [width, setWidth] = createSignal(COLUMNS)
+    const [height, setHeight] = createSignal(ROWS)
+    const pixels = createMemo(() =>
+      compose(image, {
+        columns: width(),
+        rows: height(),
+        fit: "cover",
+        opacity: 1,
+        grayscale: false,
+        base: { r: 0, g: 0, b: 0 },
+      }),
+    )
     let background: BackgroundRenderable | undefined
 
-    const { captureSpans, renderOnce } = await testRender(
+    const { captureSpans, renderer, renderOnce } = await testRender(
       () => (
         <box width={COLUMNS} height={ROWS} backgroundColor={BLACK}>
           <nikcli_background
@@ -137,9 +151,9 @@ describe("background renderable", () => {
             left={0}
             top={0}
             visible={visible()}
-            width={COLUMNS}
-            height={ROWS}
-            pixels={pixels}
+            width={width()}
+            height={height()}
+            pixels={pixels()}
             base={BLACK}
           />
           <text fg={RGBA.fromInts(255, 255, 255, 255)}>hi</text>
@@ -150,22 +164,35 @@ describe("background renderable", () => {
 
     await renderOnce()
     const mounted = background
+    for (let cycle = 0; cycle < 3; cycle++) {
+      setVisible(false)
+      await renderOnce()
+      setVisible(true)
+      await renderOnce()
+    }
+
     setVisible(false)
+    setWidth(COLUMNS - 1)
+    setHeight(ROWS - 1)
     await renderOnce()
     setVisible(true)
     await renderOnce()
 
     expect(background).toBe(mounted)
+    expect(background?.zIndex).toBe(-1)
+    expect(background?.frameBuffer.width).toBe(COLUMNS - 1)
+    expect(background?.frameBuffer.height).toBe(ROWS - 1)
     const text = captureSpans()
       .lines[0]!.spans.flatMap((span) => [...span.text].map((char) => ({ char, fg: span.fg, bg: span.bg })))
       .find((cell) => cell.char === "h")
     expect(text).toBeDefined()
     expect(ints(text!.fg)).toEqual([255, 255, 255])
     expect(ints(text!.bg)).toEqual([255, 0, 0])
+    renderer.destroy()
   })
 
   test("skips painting when the pixel buffer does not match the terminal size", async () => {
-    const { captureSpans, renderOnce } = await testRender(
+    const { captureSpans, renderer, renderOnce } = await testRender(
       () => (
         <box width={COLUMNS} height={ROWS} backgroundColor={BLACK}>
           <nikcli_background
@@ -189,5 +216,6 @@ describe("background renderable", () => {
         expect(ints(span.bg)).toEqual([0, 0, 0])
       }
     }
+    renderer.destroy()
   })
 })

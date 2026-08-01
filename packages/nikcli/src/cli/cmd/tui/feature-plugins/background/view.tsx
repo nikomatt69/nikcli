@@ -3,7 +3,7 @@
  * every route: `zIndex: -1` makes the root box paint it before its siblings,
  * and text draws over it with alpha blending.
  */
-import { createEffect, createMemo, createResource, Show } from "solid-js"
+import { createEffect, createMemo, createResource, Show, untrack } from "solid-js"
 import { useTerminalDimensions } from "@opentui/solid"
 import { RGBA } from "@opentui/core"
 import { useKV } from "@tui/context/kv"
@@ -33,6 +33,10 @@ export function BackgroundImage() {
   const dimensions = useTerminalDimensions()
 
   const settings = createMemo(() => readSettings(kv))
+  const source = createMemo(() => settings().source)
+  const fit = createMemo(() => settings().fit)
+  const opacity = createMemo(() => settings().opacity)
+  const grayscale = createMemo(() => settings().grayscale)
   const visible = createMemo(() => {
     const current = settings()
     if (!current.enabled || !current.source) return false
@@ -40,7 +44,7 @@ export function BackgroundImage() {
   })
 
   const [image] = createResource(
-    () => (settings().source ? { source: settings().source, nonce: rotation.current } : undefined),
+    () => (visible() && source() ? { source: source(), nonce: rotation.current } : undefined),
     async (input) => loadImage(await resolveSource(input.source, input.nonce)),
   )
 
@@ -48,7 +52,10 @@ export function BackgroundImage() {
   let reported: string | undefined
   createEffect(() => {
     const error = image.error as Error | undefined
-    if (!error) return
+    if (!error) {
+      reported = undefined
+      return
+    }
     const key = `${settings().source}:${error.message}`
     if (reported === key) return
     reported = key
@@ -62,8 +69,8 @@ export function BackgroundImage() {
     dbg(
       "pixels memo",
       JSON.stringify({
-        visible: visible(),
-        settings: settings(),
+        visible: untrack(visible),
+        settings: untrack(settings),
         dims: dimensions(),
         loading: image.loading,
         error: String(image.error ?? ""),
@@ -76,13 +83,12 @@ export function BackgroundImage() {
     const source = image()
     const size = dimensions()
     if (!source || size.width <= 0 || size.height <= 0) return undefined
-    const current = settings()
     return compose(source, {
       columns: size.width,
       rows: size.height,
-      fit: current.fit,
-      opacity: current.opacity,
-      grayscale: current.grayscale,
+      fit: fit(),
+      opacity: opacity(),
+      grayscale: grayscale(),
       base: toRgb(theme.background),
     })
   })
