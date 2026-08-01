@@ -1446,6 +1446,12 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         }
       }}
     >
+      {/*
+        Keep the wallpaper first in logical child order as well as at z-index
+        -1. The image appears asynchronously; this gives Solid an anchor before
+        the UI when it inserts the renderable and avoids a foreground frame.
+      */}
+      <BackgroundImage />
       <Show when={route.data.type === "home" || route.data.type === "session"}>
         <SessionTabs />
       </Show>
@@ -1499,14 +1505,6 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         <TuiPluginRuntime.Slot name="app.bottom" />
       </box>
       <TuiPluginRuntime.Slot name="app" />
-      {/*
-        Wallpaper. Mounted by the app rather than by its plugin, and it has to
-        stay a direct child of this box: `zIndex: -1` sorts it below every
-        sibling here, but one level deeper (inside a plugin `SlotRenderable`)
-        it would only sort against that node's own children and would paint in
-        mount order — over the tabs and the prompt.
-      */}
-      <BackgroundImage />
       <StartupLoading ready={pluginsReady} />
       <Show when={sdk.connection.status() === "reconnecting"}>
         <Reconnecting attempt={sdk.connection.attempt()} error={sdk.connection.error()} />

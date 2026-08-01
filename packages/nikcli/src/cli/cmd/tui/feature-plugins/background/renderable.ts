@@ -39,6 +39,10 @@ export class BackgroundRenderable extends FrameBufferRenderable {
       ...options,
       width: Math.max(1, options.width ?? 1),
       height: Math.max(1, options.height ?? 1),
+      // Solid creates custom elements with only an id, inserts them, and then
+      // assigns JSX props. Set the layer here so the renderable can never be
+      // inserted at the default z-index and briefly paint over the UI.
+      zIndex: -1,
       respectAlpha: false,
     })
     this.selectable = false

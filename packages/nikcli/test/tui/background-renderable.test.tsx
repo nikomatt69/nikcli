@@ -4,6 +4,7 @@ import { testRender } from "@opentui/solid"
 import { createSignal, Show } from "solid-js"
 import { createPixelImage } from "@nikcli-ai/tui-image"
 import { bufferSize, compose } from "../../src/cli/cmd/tui/feature-plugins/background/pixels"
+import type { BackgroundRenderable } from "../../src/cli/cmd/tui/feature-plugins/background/renderable"
 import "../../src/cli/cmd/tui/feature-plugins/background/renderable"
 
 const BLACK = RGBA.fromInts(0, 0, 0, 255)
@@ -44,7 +45,6 @@ describe("background renderable", () => {
             position="absolute"
             left={0}
             top={0}
-            zIndex={-1}
             width={COLUMNS}
             height={ROWS}
             pixels={pixels}
@@ -76,7 +76,7 @@ describe("background renderable", () => {
     expect(ints(text!.bg)).toEqual([255, 0, 0])
   })
 
-  test("stays behind the UI even when it mounts after it", async () => {
+  test("stays behind the UI even when it mounts after it without a JSX z-index", async () => {
     const pixels = banner()
     const [mounted, setMounted] = createSignal(false)
 
@@ -96,7 +96,6 @@ describe("background renderable", () => {
               position="absolute"
               left={0}
               top={0}
-              zIndex={-1}
               width={COLUMNS}
               height={ROWS}
               pixels={pixels}
@@ -122,6 +121,49 @@ describe("background renderable", () => {
     expect(ints(text!.bg)).toEqual([255, 0, 0])
   })
 
+  test("stays mounted on its background layer when hidden and shown again", async () => {
+    const pixels = banner()
+    const [visible, setVisible] = createSignal(true)
+    let background: BackgroundRenderable | undefined
+
+    const { captureSpans, renderOnce } = await testRender(
+      () => (
+        <box width={COLUMNS} height={ROWS} backgroundColor={BLACK}>
+          <nikcli_background
+            ref={(value: BackgroundRenderable) => {
+              background = value
+            }}
+            position="absolute"
+            left={0}
+            top={0}
+            visible={visible()}
+            width={COLUMNS}
+            height={ROWS}
+            pixels={pixels}
+            base={BLACK}
+          />
+          <text fg={RGBA.fromInts(255, 255, 255, 255)}>hi</text>
+        </box>
+      ),
+      { width: COLUMNS, height: ROWS },
+    )
+
+    await renderOnce()
+    const mounted = background
+    setVisible(false)
+    await renderOnce()
+    setVisible(true)
+    await renderOnce()
+
+    expect(background).toBe(mounted)
+    const text = captureSpans()
+      .lines[0]!.spans.flatMap((span) => [...span.text].map((char) => ({ char, fg: span.fg, bg: span.bg })))
+      .find((cell) => cell.char === "h")
+    expect(text).toBeDefined()
+    expect(ints(text!.fg)).toEqual([255, 255, 255])
+    expect(ints(text!.bg)).toEqual([255, 0, 0])
+  })
+
   test("skips painting when the pixel buffer does not match the terminal size", async () => {
     const { captureSpans, renderOnce } = await testRender(
       () => (
@@ -130,7 +172,6 @@ describe("background renderable", () => {
             position="absolute"
             left={0}
             top={0}
-            zIndex={-1}
             width={COLUMNS}
             height={ROWS}
             // Sized for a different terminal: must be ignored, not read past.

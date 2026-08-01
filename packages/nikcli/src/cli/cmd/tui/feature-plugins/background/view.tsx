@@ -1,5 +1,5 @@
 /**
- * The background image itself, mounted in the `app` slot so it sits behind
+ * The background image itself, mounted directly under the app root so it sits behind
  * every route: `zIndex: -1` makes the root box paint it before its siblings,
  * and text draws over it with alpha blending.
  */
@@ -40,7 +40,7 @@ export function BackgroundImage() {
   })
 
   const [image] = createResource(
-    () => (visible() ? { source: settings().source, nonce: rotation.current } : undefined),
+    () => (settings().source ? { source: settings().source, nonce: rotation.current } : undefined),
     async (input) => loadImage(await resolveSource(input.source, input.nonce)),
   )
 
@@ -52,7 +52,10 @@ export function BackgroundImage() {
     const key = `${settings().source}:${error.message}`
     if (reported === key) return
     reported = key
-    toast.show({ message: `Background image: ${error.message}`, variant: "error" })
+    toast.show({
+      message: `Background image: ${error.message}`,
+      variant: "error",
+    })
   })
 
   const pixels = createMemo(() => {
@@ -72,7 +75,7 @@ export function BackgroundImage() {
     if (image.error) return undefined
     const source = image()
     const size = dimensions()
-    if (!source || !visible() || size.width <= 0 || size.height <= 0) return undefined
+    if (!source || size.width <= 0 || size.height <= 0) return undefined
     const current = settings()
     return compose(source, {
       columns: size.width,
@@ -91,7 +94,7 @@ export function BackgroundImage() {
           position="absolute"
           left={0}
           top={0}
-          zIndex={-1}
+          visible={visible()}
           width={dimensions().width}
           height={dimensions().height}
           pixels={data()}
