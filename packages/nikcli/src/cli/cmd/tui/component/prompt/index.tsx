@@ -2385,97 +2385,97 @@ export function Prompt(props: PromptProps) {
               promptMode={store.mode}
               busy={status().type !== "idle"}
             >
-            {/* alignItems center so the colored rec/web chips never stretch to
+              {/* alignItems center so the colored rec/web chips never stretch to
                 the row height when a sibling (shortcuts) wraps on a narrow
                 terminal — they kept their bg fill but grew several rows tall. */}
-            <box gap={2} flexDirection="row" alignItems="center">
-              <box
-                onMouseDown={() => {
-                  void handleVoiceButtonDown()
-                }}
-                onMouseUp={() => {
-                  void handleVoiceButtonUp()
-                }}
-                backgroundColor={theme.error}
-                paddingLeft={0.5}
-                paddingRight={0.5}
-                flexShrink={0}
-              >
-                <text fg={theme.background} wrapMode="none">
-                  <span style={{ bold: voiceStatus() === "recording" }}>
-                    {voiceStatus() === "recording"
-                      ? "release to send"
-                      : voiceStatus() === "transcribing"
-                        ? "wait"
-                        : (() => {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const shortcut = keybind.print("voice_record" as any)
-                            return shortcut ? (
-                              <>
-                                ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
-                              </>
-                            ) : (
-                              "⏺"
-                            )
-                          })()}
-                  </span>
-                </text>
-              </box>
-
-              <box
-                onMouseUp={() => {
-                  dialog.replace(() => <DialogWebPreview />)
-                }}
-                backgroundColor={theme.primary}
-                paddingLeft={1}
-                paddingRight={1}
-                flexShrink={0}
-              >
-                <text fg={theme.background} wrapMode="none">
-                  ⊕ <span style={{ fg: theme.background }}>web</span>
-                </text>
-              </box>
-
-              <Show when={kv.get("show_shortcuts", true)}>
-                <box gap={2} flexDirection="row">
-                  <Switch>
-                    <Match when={store.mode === "normal"}>
-                      <Switch>
-                        <Match when={usage()}>
-                          {(item) => (
-                            <text
-                              fg={theme.textMuted}
-                              wrapMode="none"
-                              onMouseUp={() => command.trigger("nikcli.usage")}
-                            >
-                              {[item().context, item().cost].filter(Boolean).join(" · ")}
-                            </text>
-                          )}
-                        </Match>
-                        <Match when={true}>
-                          <text fg={theme.text}>
-                            {keybind.print("command_list")}{" "}
-                            <span style={{ fg: theme.textMuted }}>{lang.t("prompt.commands")}</span>
-                          </text>
-                        </Match>
-                      </Switch>
-                    </Match>
-                    <Match when={store.mode === "shell"}>
-                      <text fg={theme.text}>
-                        esc <span style={{ fg: theme.textMuted }}>{lang.t("prompt.exitShellMode")}</span>
-                      </text>
-                    </Match>
-                  </Switch>
-                </box>
-              </Show>
-              <Show when={editorContextVisible() && editorFileLabelDisplay()}>
-                {(file) => (
-                  <text fg={theme.secondary} flexShrink={0} wrapMode="none">
-                    {file()}
+              <box gap={2} flexDirection="row" alignItems="center">
+                <box
+                  onMouseDown={() => {
+                    void handleVoiceButtonDown()
+                  }}
+                  onMouseUp={() => {
+                    void handleVoiceButtonUp()
+                  }}
+                  backgroundColor={theme.error}
+                  paddingLeft={0.5}
+                  paddingRight={0.5}
+                  flexShrink={0}
+                >
+                  <text fg={theme.background} wrapMode="none">
+                    <span style={{ bold: voiceStatus() === "recording" }}>
+                      {voiceStatus() === "recording"
+                        ? "release to send"
+                        : voiceStatus() === "transcribing"
+                          ? "wait"
+                          : (() => {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const shortcut = keybind.print("voice_record" as any)
+                              return shortcut ? (
+                                <>
+                                  ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
+                                </>
+                              ) : (
+                                "⏺"
+                              )
+                            })()}
+                    </span>
                   </text>
-                )}
-              </Show>
-            </box>
+                </box>
+
+                <box
+                  onMouseUp={() => {
+                    dialog.replace(() => <DialogWebPreview />)
+                  }}
+                  backgroundColor={theme.primary}
+                  paddingLeft={1}
+                  paddingRight={1}
+                  flexShrink={0}
+                >
+                  <text fg={theme.background} wrapMode="none">
+                    ⊕ <span style={{ fg: theme.background }}>web</span>
+                  </text>
+                </box>
+
+                <Show when={kv.get("show_shortcuts", true)}>
+                  <box gap={2} flexDirection="row">
+                    <Switch>
+                      <Match when={store.mode === "normal"}>
+                        <Switch>
+                          <Match when={usage()}>
+                            {(item) => (
+                              <text
+                                fg={theme.textMuted}
+                                wrapMode="none"
+                                onMouseUp={() => command.trigger("nikcli.usage")}
+                              >
+                                {[item().context, item().cost].filter(Boolean).join(" · ")}
+                              </text>
+                            )}
+                          </Match>
+                          <Match when={true}>
+                            <text fg={theme.text}>
+                              {keybind.print("command_list")}{" "}
+                              <span style={{ fg: theme.textMuted }}>{lang.t("prompt.commands")}</span>
+                            </text>
+                          </Match>
+                        </Switch>
+                      </Match>
+                      <Match when={store.mode === "shell"}>
+                        <text fg={theme.text}>
+                          esc <span style={{ fg: theme.textMuted }}>{lang.t("prompt.exitShellMode")}</span>
+                        </text>
+                      </Match>
+                    </Switch>
+                  </box>
+                </Show>
+                <Show when={editorContextVisible() && editorFileLabelDisplay()}>
+                  {(file) => (
+                    <text fg={theme.secondary} flexShrink={0} wrapMode="none">
+                      {file()}
+                    </text>
+                  )}
+                </Show>
+              </box>
             </TuiPluginRuntime.Slot>
           </Show>
         </box>

@@ -1,12 +1,4 @@
-export type MathVariant =
-  | "normal"
-  | "bold"
-  | "italic"
-  | "sans"
-  | "monospace"
-  | "double-struck"
-  | "script"
-  | "fraktur"
+export type MathVariant = "normal" | "bold" | "italic" | "sans" | "monospace" | "double-struck" | "script" | "fraktur"
 
 export type MathNode =
   | { type: "row"; body: MathNode[] }
@@ -24,14 +16,7 @@ export type MathNode =
   | { type: "overunder"; base: MathNode; over?: MathNode; under?: MathNode }
   | { type: "color"; color: string; body: MathNode }
 
-export type SymbolRole =
-  | "ordinary"
-  | "binary"
-  | "relation"
-  | "operator"
-  | "punctuation"
-  | "opening"
-  | "closing"
+export type SymbolRole = "ordinary" | "binary" | "relation" | "operator" | "punctuation" | "opening" | "closing"
 
 export type MatrixEnvironment =
   | "matrix"

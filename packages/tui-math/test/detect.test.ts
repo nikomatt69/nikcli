@@ -37,9 +37,7 @@ describe("splitMathSegments", () => {
 
   test("extracts inline dollar math", () => {
     const segments = splitMathSegments("The value $x^2 + 1$ is positive.")
-    expect(math(segments)).toEqual([
-      { type: "math", value: "x^2 + 1", raw: "$x^2 + 1$", display: false },
-    ])
+    expect(math(segments)).toEqual([{ type: "math", value: "x^2 + 1", raw: "$x^2 + 1$", display: false }])
   })
 
   test("extracts display math in all three forms", () => {

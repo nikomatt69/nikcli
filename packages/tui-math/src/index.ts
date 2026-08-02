@@ -42,18 +42,8 @@ export {
   type LatexStreamResult,
   type LatexStreamTarget,
 } from "./stream"
-export {
-  hasMathDelimiter,
-  splitMathSegments,
-  type MathSegment,
-  type SplitMathOptions,
-} from "./detect"
-export {
-  buildMathBlocks,
-  isMarkdownSafe,
-  type BuildMathBlocksOptions,
-  type MathBlock,
-} from "./markdown"
+export { hasMathDelimiter, splitMathSegments, type MathSegment, type SplitMathOptions } from "./detect"
+export { buildMathBlocks, isMarkdownSafe, type BuildMathBlocksOptions, type MathBlock } from "./markdown"
 export { flattenInline } from "./inline"
 export { LatexParseError } from "./types"
 export type {

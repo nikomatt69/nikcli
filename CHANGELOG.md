@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.228.0 (August 2026)
+
+## Core
+
+- Add @nikcli-ai/tui-math package and LaTeX rendering option (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): add @nikcli-ai/tui-math package and LaTeX rendering option
+
 ## v1.219.0 (July 2026)
 
 ## Core

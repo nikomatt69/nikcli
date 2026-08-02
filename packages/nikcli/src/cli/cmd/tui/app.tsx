@@ -148,7 +148,9 @@ export function tui(input: {
         // renderer's class identity is what `render(node, renderer)` below checks
         // to decide whether to reuse it instead of creating a second one.
         const renderer = drive
-          ? await (await import("@nikcli-ai/simulation/frontend")).Drive.create(rendererConfig(tuiCfg), {
+          ? await (
+              await import("@nikcli-ai/simulation/frontend")
+            ).Drive.create(rendererConfig(tuiCfg), {
               createCliRenderer,
               createTestRenderer: (await import("@opentui/core/testing")).createTestRenderer,
             })

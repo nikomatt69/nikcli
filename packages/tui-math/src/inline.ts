@@ -54,11 +54,7 @@ function flatten(node: MathNode): Flattened {
         node: {
           type: "row",
           // "ordinary" keeps the solidus tight: `1/6`, not `1 / 6`.
-          body: [
-            groupOperand(numerator),
-            { type: "symbol", value: "/", role: "ordinary" },
-            groupTrailing(denominator),
-          ],
+          body: [groupOperand(numerator), { type: "symbol", value: "/", role: "ordinary" }, groupTrailing(denominator)],
         },
         // A division is an expression; as someone else's operand it needs
         // brackets, which `group` adds.

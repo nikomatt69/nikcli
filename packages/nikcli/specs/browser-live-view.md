@@ -1,6 +1,6 @@
 # Browser live view — a real Chromium page inside the TUI
 
-Today `dialog-web-preview.tsx` is a *reader*: it `fetch`es a URL, strips the HTML
+Today `dialog-web-preview.tsx` is a _reader_: it `fetch`es a URL, strips the HTML
 with regexes, runs Turndown over it and renders markdown. No JavaScript runs, no
 layout happens, nothing is clickable. This spec describes replacing that with a
 real browser surface — pixels from a live Chromium page, composited into the
@@ -19,19 +19,19 @@ owns.
 The plugin repo is mostly plumbing (MCP registration, a loopback control server,
 tab-strip UI). The interesting 20% lives in `opentui-browser`:
 
-| Concern | How `opentui-browser` does it |
-| --- | --- |
-| Browser process | Its own minimal CDP client (`cdp.ts`) + Chrome launcher (`chromium.ts`) — temp profile, DevTools bound to loopback. No Playwright/Puppeteer. |
-| Frame source | **`Page.startScreencast`** (CDP). Chromium *pushes* a PNG whenever the page changes; each frame is acked with `Page.screencastFrameAck`. Not screenshot polling. |
-| Frame transport | Kitty graphics, and by default **`t=t` (temporary file)** rather than inline base64: the PNG is written to a temp file and only the *path* crosses the PTY. The terminal reads and deletes the file itself. |
-| Placement | Classic cursor-addressed placements with an explicit `column/row/columns/rows/zIndex`, moved with `a=p` and torn down with `a=d`. |
-| Backpressure | `KittyGraphicsTransport` serializes writes and keeps **at most one** queued frame; a newer frame resolves the older one as `dropped`. An in-flight write is never interrupted. |
-| Input | `Input.dispatchMouseEvent` / `dispatchKeyEvent` / `insertText` with a real modifier bitmask, virtual key codes, click counts and pressed-button tracking. Cell coordinates → page pixels via the terminal's pixel resolution. |
-| Terminal gating | `inspectBrowserTerminal()` / `waitForBrowserTerminalSupport()` refuse to start on terminals that can't do it, and say why. |
+| Concern         | How `opentui-browser` does it                                                                                                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser process | Its own minimal CDP client (`cdp.ts`) + Chrome launcher (`chromium.ts`) — temp profile, DevTools bound to loopback. No Playwright/Puppeteer.                                                                                  |
+| Frame source    | **`Page.startScreencast`** (CDP). Chromium _pushes_ a PNG whenever the page changes; each frame is acked with `Page.screencastFrameAck`. Not screenshot polling.                                                              |
+| Frame transport | Kitty graphics, and by default **`t=t` (temporary file)** rather than inline base64: the PNG is written to a temp file and only the _path_ crosses the PTY. The terminal reads and deletes the file itself.                   |
+| Placement       | Classic cursor-addressed placements with an explicit `column/row/columns/rows/zIndex`, moved with `a=p` and torn down with `a=d`.                                                                                             |
+| Backpressure    | `KittyGraphicsTransport` serializes writes and keeps **at most one** queued frame; a newer frame resolves the older one as `dropped`. An in-flight write is never interrupted.                                                |
+| Input           | `Input.dispatchMouseEvent` / `dispatchKeyEvent` / `insertText` with a real modifier bitmask, virtual key codes, click counts and pressed-button tracking. Cell coordinates → page pixels via the terminal's pixel resolution. |
+| Terminal gating | `inspectBrowserTerminal()` / `waitForBrowserTerminalSupport()` refuse to start on terminals that can't do it, and say why.                                                                                                    |
 
 The plugin layer around it adds: a shared page reused across sessions, a
 loopback HTTP control server (random bearer token, `show`/`open`/`hide`/`status`),
-two MCP servers so the *agent* can drive the same page, and a tab in the content
+two MCP servers so the _agent_ can drive the same page, and a tab in the content
 area rather than a dialog.
 
 ## 2. Why we still don't just install it
@@ -45,7 +45,7 @@ What remains is a design objection, not a version one. `BrowserRenderable` exten
 `BoxRenderable` and reaches into renderer internals, and the plugin layer around it
 duplicates capabilities nikcli already owns (see §3): a driven Chromium with a
 session lifecycle, Kitty/Sixel/iTerm2 encoding, and proven pixel compositing into
-the OpenTUI grid. Consuming the library would mean running a *second* CDP client
+the OpenTUI grid. Consuming the library would mean running a _second_ CDP client
 and Chrome launcher next to `packages/browser-control`. So the build-out below
 still assembles the same result from packages already in the tree.
 
@@ -60,12 +60,12 @@ diagnosis and the fixes that unblocked the move to 0.4.5.
 The gap is smaller than it looks, because three of the four hard parts are
 already in the monorepo:
 
-| Need | Already in tree |
-| --- | --- |
+| Need                                                                      | Already in tree                                                                                                                                                                                               |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A real Chromium, driven, with a session lifecycle and a background daemon | `packages/browser-control` — Playwright Chromium, `BrowserSession`/`SessionManager`, a Unix-socket daemon (`daemon.ts`), and a client (`daemon-client.ts`). Already powers the `browser` tool and `/browser`. |
-| Kitty / Sixel / iTerm2 encoding, capability detection, halfblock fallback | `packages/tui-image` — `encodeKittyVirtual`, `kittyPlaceholderGrid`, `kittyIdColor`, `detectCapabilities`, `applyLiveCapabilities`, `supportsKittyUnicodePlaceholders`, `renderImage`. |
-| Proof that pixels can be composited into the OpenTUI grid | `component/tui-image.tsx` — virtual placements, drawless transmission, native-overlay hook for Sixel/iTerm2. |
-| Terminal cell pixel size | `CliRenderer.resolution: PixelResolution \| null` (present in 0.4.5). Cell size = `resolution.width / terminalWidth`. |
+| Kitty / Sixel / iTerm2 encoding, capability detection, halfblock fallback | `packages/tui-image` — `encodeKittyVirtual`, `kittyPlaceholderGrid`, `kittyIdColor`, `detectCapabilities`, `applyLiveCapabilities`, `supportsKittyUnicodePlaceholders`, `renderImage`.                        |
+| Proof that pixels can be composited into the OpenTUI grid                 | `component/tui-image.tsx` — virtual placements, drawless transmission, native-overlay hook for Sixel/iTerm2.                                                                                                  |
+| Terminal cell pixel size                                                  | `CliRenderer.resolution: PixelResolution \| null` (present in 0.4.5). Cell size = `resolution.width / terminalWidth`.                                                                                         |
 
 What is missing: a **screencast** path (browser-control captures with
 `page.screenshot()`, which is far too slow to run in a loop), **coordinate
@@ -152,10 +152,10 @@ GET /screencast?name=<session>&maxWidth=&maxHeight=&fps=
 
 Two payload modes, negotiated by the client:
 
-| Mode | Payload | When |
-| --- | --- | --- |
-| `file` | `{ path, width, height, seq }` — the daemon writes the PNG to a temp file | Default. Terminal and browser are on the same machine, so the terminal reads the file itself: **the pixels never cross the socket or the PTY.** |
-| `inline` | `{ pngBase64, width, height, seq }` | Fallback when the terminal doesn't accept `t=t`, or the daemon is not local. |
+| Mode     | Payload                                                                   | When                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `file`   | `{ path, width, height, seq }` — the daemon writes the PNG to a temp file | Default. Terminal and browser are on the same machine, so the terminal reads the file itself: **the pixels never cross the socket or the PTY.** |
+| `inline` | `{ pngBase64, width, height, seq }`                                       | Fallback when the terminal doesn't accept `t=t`, or the daemon is not local.                                                                    |
 
 The `file` mode is the single most important performance decision in this
 design. Chromium writes a PNG; the terminal reads that same PNG; nikcli only
@@ -194,8 +194,8 @@ Virtual placements make the image an ordinary grid citizen — it scrolls,
 clips, and repaints with the rest of the TUI, and OpenTUI keeps layout
 authority. `t=t` transmission is orthogonal to `U=1` (they are independent keys
 in the same APC command), so the temp-file path and virtual placements compose.
-*This combination must still be confirmed visually on Ghostty and kitty before
-layer 2's `file` mode is made the default* — see
+_This combination must still be confirmed visually on Ghostty and kitty before
+layer 2's `file` mode is made the default_ — see
 `script/browser-kitty-smoke.ts`. If a terminal rejects it, the pump falls back
 to `inline` with no other change.
 
@@ -272,18 +272,18 @@ dialog and forgot about it".
 
 ## 6. File-by-file delta
 
-| File | Change |
-| --- | --- |
-| `packages/tui-image/src/kitty-placeholder.ts` | Add `encodeKittyVirtualPng(png, opts)`; `encodeKittyVirtual` delegates to it. Add `KittyTransmission` support (`t=t`). |
-| `packages/browser-control/src/screencast.ts` | **New.** CDP screencast over Playwright's `newCDPSession`, ack loop, frame typing. |
-| `packages/browser-control/src/session.ts` | Add `startScreencast`/`stopScreencast`, `mouse`, `key`, `back`, `forward`. |
-| `packages/browser-control/src/manager.ts` | Delegating methods for the above. |
-| `packages/browser-control/src/daemon.ts` | RPC handlers `mouse`/`key`/`back`/`forward`; new `GET /screencast` streaming endpoint + temp-file writer/reaper. |
-| `packages/browser-control/src/daemon-client.ts` | `openScreencast(socketPath, params): AsyncIterable<Frame>`. |
-| `packages/nikcli/src/cli/cmd/tui/util/browser-frames.ts` | **New.** `KittyFramePump` — image/placement lifecycle, frame drop, geometry diffing. |
-| `packages/nikcli/src/cli/cmd/tui/component/browser-surface.tsx` | **New.** The live surface: geometry, input mapping, placeholder grid. |
-| `packages/nikcli/src/cli/cmd/tui/component/dialog-web-preview.tsx` | Mode selection; keep reader mode intact; wire url bar / nav to real history. |
-| `packages/nikcli/src/cli/cmd/tui/feature-plugins/browser/index.tsx` | `/browser <url>` opens the live view directly (matches the plugin's slash-with-argument behavior). |
+| File                                                                | Change                                                                                                                 |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `packages/tui-image/src/kitty-placeholder.ts`                       | Add `encodeKittyVirtualPng(png, opts)`; `encodeKittyVirtual` delegates to it. Add `KittyTransmission` support (`t=t`). |
+| `packages/browser-control/src/screencast.ts`                        | **New.** CDP screencast over Playwright's `newCDPSession`, ack loop, frame typing.                                     |
+| `packages/browser-control/src/session.ts`                           | Add `startScreencast`/`stopScreencast`, `mouse`, `key`, `back`, `forward`.                                             |
+| `packages/browser-control/src/manager.ts`                           | Delegating methods for the above.                                                                                      |
+| `packages/browser-control/src/daemon.ts`                            | RPC handlers `mouse`/`key`/`back`/`forward`; new `GET /screencast` streaming endpoint + temp-file writer/reaper.       |
+| `packages/browser-control/src/daemon-client.ts`                     | `openScreencast(socketPath, params): AsyncIterable<Frame>`.                                                            |
+| `packages/nikcli/src/cli/cmd/tui/util/browser-frames.ts`            | **New.** `KittyFramePump` — image/placement lifecycle, frame drop, geometry diffing.                                   |
+| `packages/nikcli/src/cli/cmd/tui/component/browser-surface.tsx`     | **New.** The live surface: geometry, input mapping, placeholder grid.                                                  |
+| `packages/nikcli/src/cli/cmd/tui/component/dialog-web-preview.tsx`  | Mode selection; keep reader mode intact; wire url bar / nav to real history.                                           |
+| `packages/nikcli/src/cli/cmd/tui/feature-plugins/browser/index.tsx` | `/browser <url>` opens the live view directly (matches the plugin's slash-with-argument behavior).                     |
 
 Module-graph hygiene: the TUI must import `@nikcli-ai/browser-control/daemon-client`
 (subpath), never the package index — the index re-exports `evidence`/`recording`,
@@ -301,7 +301,7 @@ never pays for it (see `specs/startup-performance.md`).
 6. ✅ **Layer 5** — dialog mode switch, reader kept as a peer mode.
 7. 🟡 **Visual confirmation** — the byte stream is correct and the wiring
    typechecks and boots, but no automated check can assert that a terminal
-   *painted* it. `script/browser-kitty-smoke.ts` isolates exactly that question.
+   _painted_ it. `script/browser-kitty-smoke.ts` isolates exactly that question.
 8. Route/tab mount, if the dialog proves too cramped.
 
 ## 10. Keys
@@ -309,15 +309,15 @@ never pays for it (see `specs/startup-performance.md`).
 Live mode gives almost every key to the page, the way a browser does. The
 dialog keeps four chords, ctrl-prefixed so they can't collide with typing:
 
-| Key | Does |
-| --- | --- |
-| `esc` | Not forwarded — it has to reach the dialog, or the dialog can't be closed. |
-| `ctrl+l` | Focus the URL bar. |
-| `ctrl+shift+r` | Toggle live ↔ reader, carrying the current URL across. |
-| `ctrl+shift+t` | Toggle `t=t` ↔ inline transmission. |
+| Key            | Does                                                                       |
+| -------------- | -------------------------------------------------------------------------- |
+| `esc`          | Not forwarded — it has to reach the dialog, or the dialog can't be closed. |
+| `ctrl+l`       | Focus the URL bar.                                                         |
+| `ctrl+shift+r` | Toggle live ↔ reader, carrying the current URL across.                     |
+| `ctrl+shift+t` | Toggle `t=t` ↔ inline transmission.                                        |
 
 That last one is a diagnostic, not a preference. A terminal that ignores `t=t`
-draws *nothing* and answers no query about it — `q=2` suppresses every
+draws _nothing_ and answers no query about it — `q=2` suppresses every
 response — so there is no way to detect the case programmatically. Letting a
 human flip the switch and see which half works is the only honest fallback, and
 it is one keystroke.
@@ -330,16 +330,16 @@ nothing is competing for them there.
 Against a real local Chromium, headless (`bun run typecheck` clean, tui-image
 suite 77/77):
 
-| Claim | Result |
-| --- | --- |
-| CDP screencast produces frames through Playwright's `newCDPSession` | 30 frames in 3s at `maxFps: 10` — the throttle is exact. 640×400 PNGs at ~5.3KB. |
-| A concurrent RPC does not disturb an in-flight stream on the same Unix socket | 20 frames stream-only, 19 frames with an RPC interleaved per frame. |
-| `file` mode writes a real, readable PNG and sends only its path | 25,347-byte PNG on disk; the NDJSON line carries a 100-byte path. |
-| Coordinate input and real history navigation work | `pointer`, `key`, `back`, `forward` all round-trip. |
-| PTY cost per frame | **433 bytes** (`t=t`) vs **3,390 bytes** (`inline`) on a near-blank page; the gap widens with picture complexity, because only `inline` scales with it. |
-| The placeholder grid is written once, not per frame | 1,840 placeholder cells total for an 80×23 placement across 113 frames. |
+| Claim                                                                         | Result                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CDP screencast produces frames through Playwright's `newCDPSession`           | 30 frames in 3s at `maxFps: 10` — the throttle is exact. 640×400 PNGs at ~5.3KB.                                                                        |
+| A concurrent RPC does not disturb an in-flight stream on the same Unix socket | 20 frames stream-only, 19 frames with an RPC interleaved per frame.                                                                                     |
+| `file` mode writes a real, readable PNG and sends only its path               | 25,347-byte PNG on disk; the NDJSON line carries a 100-byte path.                                                                                       |
+| Coordinate input and real history navigation work                             | `pointer`, `key`, `back`, `forward` all round-trip.                                                                                                     |
+| PTY cost per frame                                                            | **433 bytes** (`t=t`) vs **3,390 bytes** (`inline`) on a near-blank page; the gap widens with picture complexity, because only `inline` scales with it. |
+| The placeholder grid is written once, not per frame                           | 1,840 placeholder cells total for an 80×23 placement across 113 frames.                                                                                 |
 
-Not yet measured, and not measurable from here: whether a terminal *renders*
+Not yet measured, and not measurable from here: whether a terminal _renders_
 any of it. That is phase 4.
 
 **A note on `goBack()`.** Playwright resolves it to `null` whenever a
@@ -361,5 +361,5 @@ stays warm and the client has a liveness signal.
 - Sixel/iTerm2 at video rates.
 - Replacing `packages/webrenderer` (native wry webview). It renders through a
   framebuffer at half-block fidelity and needs a Rust toolchain; it stays the
-  right answer for embedding web *content* nikcli itself authors, not for
+  right answer for embedding web _content_ nikcli itself authors, not for
   browsing the web.

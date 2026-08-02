@@ -48,9 +48,7 @@ describe("renderLatexToString", () => {
   })
 
   test("renders common textbook structures", () => {
-    const result = renderLatexToString(
-      String.raw`\left[\frac{-b \pm \sqrt{b^2-4ac}}{2a}\right]`,
-    )
+    const result = renderLatexToString(String.raw`\left[\frac{-b \pm \sqrt{b^2-4ac}}{2a}\right]`)
     expect(result).toContain("±")
     expect(result).toContain("√")
     expect(result).toContain("─")

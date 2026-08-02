@@ -605,12 +605,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
           }
         >
           <Match when={props.renderer === "halfblock"}>
-            <nikcli_background
-              width={props.columns}
-              height={props.rows}
-              pixels={pixels()!}
-              base={theme.background}
-            />
+            <nikcli_background width={props.columns} height={props.rows} pixels={pixels()!} base={theme.background} />
           </Match>
           <Match when={props.renderer === "overlay"}>
             {/* Empty: the picture is drawn over these cells by the terminal,

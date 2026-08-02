@@ -22,7 +22,12 @@ async function settle(renderOnce: () => Promise<unknown> | unknown) {
 /** The painted grid, trailing blanks trimmed, as one string per row. */
 function paint(captureSpans: () => CapturedFrame): string[] {
   return captureSpans()
-    .lines.map((line) => line.spans.map((span) => span.text).join("").replace(/\s+$/, ""))
+    .lines.map((line) =>
+      line.spans
+        .map((span) => span.text)
+        .join("")
+        .replace(/\s+$/, ""),
+    )
     .filter((line) => line.trim().length > 0)
 }
 
@@ -137,7 +142,16 @@ describe("inline substitution through the markdown renderer", () => {
   })
 
   test("every safe formula in a realistic corpus paints unchanged", async () => {
-    const corpus = [String.raw`x^2`, String.raw`\pi r^2`, String.raw`\frac{1}{6}`, String.raw`\sqrt{2}`, String.raw`\theta_{t+1}`, String.raw`a \ast b`, String.raw`x \sim y`, String.raw`P(A \mid B)`]
+    const corpus = [
+      String.raw`x^2`,
+      String.raw`\pi r^2`,
+      String.raw`\frac{1}{6}`,
+      String.raw`\sqrt{2}`,
+      String.raw`\theta_{t+1}`,
+      String.raw`a \ast b`,
+      String.raw`x \sim y`,
+      String.raw`P(A \mid B)`,
+    ]
     for (const latex of corpus) {
       const blocks = buildMathBlocks(`start $${latex}$ end`)
       if (blocks.length !== 1 || blocks[0]!.type !== "markdown") continue

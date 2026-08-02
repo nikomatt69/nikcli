@@ -31,9 +31,7 @@ import { layoutMath } from "./layout"
 import { parseLatex } from "./parser"
 import type { MathLayout, RenderLatexOptions } from "./types"
 
-export type MathBlock =
-  | { type: "markdown"; content: string }
-  | { type: "math"; content: string; display: boolean }
+export type MathBlock = { type: "markdown"; content: string } | { type: "math"; content: string; display: boolean }
 
 export interface BuildMathBlocksOptions extends SplitMathOptions {
   /**

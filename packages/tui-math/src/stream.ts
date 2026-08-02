@@ -69,11 +69,7 @@ export class LatexStreamController<T extends LatexStreamTarget = LatexStreamTarg
   constructor(target: T, options: LatexStreamOptions = {}) {
     this.target = target
     this.updateIntervalMs = nonNegativeInteger(options.updateIntervalMs, 75, "updateIntervalMs")
-    this.maxBufferLength = resolvePositiveInteger(
-      options.maxBufferLength,
-      DEFAULT_MAX_SOURCE_LENGTH,
-      "maxBufferLength",
-    )
+    this.maxBufferLength = resolvePositiveInteger(options.maxBufferLength, DEFAULT_MAX_SOURCE_LENGTH, "maxBufferLength")
     this.validationOptions = options.validationOptions ?? {}
     this.incompletePolicy = options.incompletePolicy ?? "retain"
     this.previewSource = options.preview
@@ -186,12 +182,7 @@ export class LatexStreamController<T extends LatexStreamTarget = LatexStreamTarg
       }
     }
 
-    if (
-      validationError &&
-      !force &&
-      renderedSource === source &&
-      this.incompletePolicy === "retain"
-    ) {
+    if (validationError && !force && renderedSource === source && this.incompletePolicy === "retain") {
       return this.remember({
         source,
         applied: false,
@@ -203,9 +194,7 @@ export class LatexStreamController<T extends LatexStreamTarget = LatexStreamTarg
     try {
       this.target.content = renderedSource
       const graphicsReady =
-        waitForGraphics && this.target.whenGraphicsReady
-          ? await this.target.whenGraphicsReady()
-          : undefined
+        waitForGraphics && this.target.whenGraphicsReady ? await this.target.whenGraphicsReady() : undefined
       return this.remember({
         source,
         ...(renderedSource !== source ? { renderedSource } : {}),
@@ -251,14 +240,8 @@ export class LatexStreamController<T extends LatexStreamTarget = LatexStreamTarg
  * environments. Returns `undefined` when the prefix cannot be repaired
  * confidently.
  */
-export function completeLatexPrefix(
-  source: string,
-  validationOptions: ParseOptions = {},
-): string | undefined {
-  type OpenConstruct =
-    | { kind: "group" }
-    | { kind: "left" }
-    | { kind: "environment"; name: string }
+export function completeLatexPrefix(source: string, validationOptions: ParseOptions = {}): string | undefined {
+  type OpenConstruct = { kind: "group" } | { kind: "left" } | { kind: "environment"; name: string }
 
   const stack: OpenConstruct[] = []
   let index = 0
@@ -287,10 +270,7 @@ export function completeLatexPrefix(
           if (command === "begin") {
             stack.push({ kind: "environment", name: environment.name })
           } else {
-            popConstruct(
-              stack,
-              (entry) => entry.kind === "environment" && entry.name === environment.name,
-            )
+            popConstruct(stack, (entry) => entry.kind === "environment" && entry.name === environment.name)
           }
         }
       } else if (command === "left") {
@@ -309,11 +289,7 @@ export function completeLatexPrefix(
   for (let openIndex = stack.length - 1; openIndex >= 0; openIndex--) {
     const entry = stack[openIndex]!
     candidate +=
-      entry.kind === "group"
-        ? "}"
-        : entry.kind === "left"
-          ? String.raw`\right.`
-          : String.raw`\end{${entry.name}}`
+      entry.kind === "group" ? "}" : entry.kind === "left" ? String.raw`\right.` : String.raw`\end{${entry.name}}`
   }
   let changed = candidate !== source
 
@@ -335,10 +311,7 @@ export function completeLatexPrefix(
   return undefined
 }
 
-function readEnvironmentToken(
-  source: string,
-  offset: number,
-): { name: string; end: number } | undefined {
+function readEnvironmentToken(source: string, offset: number): { name: string; end: number } | undefined {
   while (offset < source.length && /\s/.test(source[offset]!)) offset++
   if (source[offset] !== "{") return undefined
   const end = source.indexOf("}", offset + 1)
@@ -347,10 +320,7 @@ function readEnvironmentToken(
   return name ? { name, end: end + 1 } : undefined
 }
 
-function popConstruct<T>(
-  stack: T[],
-  matches: (entry: T) => boolean,
-): void {
+function popConstruct<T>(stack: T[], matches: (entry: T) => boolean): void {
   for (let index = stack.length - 1; index >= 0; index--) {
     if (!matches(stack[index]!)) continue
     stack.splice(index, 1)
