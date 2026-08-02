@@ -13,6 +13,11 @@ const { binaries } = await import("./build.ts")
   const name = `${pkg.name}-${process.platform}-${process.arch}`
   console.log(`smoke test: running dist/${name}/bin/nikcli --version`)
   await $`./dist/${name}/bin/nikcli --version`
+  // `--version` never imports @opentui/core, so it stayed green through the
+  // 1.226.0 release that crashed on every TUI launch. Boot the real TUI in a
+  // pty before anything gets published.
+  console.log(`smoke test: booting dist/${name}/bin/nikcli in a pty`)
+  await $`bun run ./script/tui-smoke.ts ./dist/${name}/bin/nikcli`
 }
 
 await $`mkdir -p ./dist/${pkg.name}`

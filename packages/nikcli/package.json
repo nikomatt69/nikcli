@@ -21,6 +21,7 @@
     "bench": "bun run --conditions=browser test/bench/viz.tsx",
     "bench:compare": "bun run script/bench-compare.ts",
     "build": "bun run script/build.ts",
+    "smoke:tui": "bun run script/tui-smoke.ts",
     "generate:httpapi-clients": "bun run script/generate-httpapi-clients.ts",
     "check:routes": "bun run script/check-route-coverage.ts",
     "dev": "bun run --conditions=browser ./src/index.ts",

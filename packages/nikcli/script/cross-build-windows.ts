@@ -35,9 +35,13 @@ const binPath = path.join(outDir, "bin", "nikcli.exe")
 await $`rm -rf ${outDir}`
 await $`mkdir -p ${path.join(outDir, "bin")}`
 
-const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
+// Keep in sync with script/build.ts: the tree-sitter worker has to be embedded as a
+// virtual *file* (not handed to `entrypoints` as a real node_modules path), otherwise
+// OpenTUI's `import(..., { with: { type: "file" } })` asset lookup gets a code module
+// back, `default` is undefined, and the TUI crashes on `loadedPath.startsWith(...)`.
+const treeSitterWorker = await Bun.file(fileURLToPath(import.meta.resolve("@opentui/core/parser.worker"))).text()
+const treeSitterWorkerPath = "opentui-tree-sitter-worker.js"
 const workerPath = "./src/cli/cmd/tui/worker.ts"
-const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
 console.log(`[cross-build] target=${target}`)
 console.log(`[cross-build] output=${binPath}`)
@@ -59,10 +63,13 @@ await Bun.build({
     execArgv: [`--user-agent=nikcli/${Script.version}`, "--use-system-ca", "--"],
     windows: {},
   },
-  entrypoints: ["./src/index.ts", parserWorker, workerPath],
+  files: {
+    [treeSitterWorkerPath]: treeSitterWorker,
+  },
+  entrypoints: ["./src/index.ts", treeSitterWorkerPath, workerPath],
   define: {
     NIKCLI_VERSION: `'${Script.version}'`,
-    OTUI_TREE_SITTER_WORKER_PATH: "B:/~BUN/root/" + workerRelativePath,
+    OTUI_TREE_SITTER_WORKER_PATH: "B:/~BUN/root/" + treeSitterWorkerPath,
     NIKCLI_WORKER_PATH: workerPath,
     NIKCLI_CHANNEL: `'local'`,
     NIKCLI_LIBC: "",

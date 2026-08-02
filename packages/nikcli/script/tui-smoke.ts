@@ -1,0 +1,134 @@
+#!/usr/bin/env bun
+/**
+ * Boots a *compiled* nikcli binary's real TUI inside a PTY and asserts it paints.
+ *
+ * `--version` / `--help` never import `@opentui/core`, so they stayed green
+ * right through the 1.226.0 regression where the bundled tree-sitter worker was
+ * compiled as code instead of embedded as a file: OpenTUI's asset import
+ * returned a namespace whose `default` was undefined and the runtime died with
+ * "undefined is not an object (evaluating 'loadedPath.startsWith')" during
+ * module evaluation — i.e. on every single TUI launch. Only starting the actual
+ * TUI exercises that path, so that is what this does: real binary, real pty,
+ * real render, then assert on what got painted.
+ *
+ * Usage:
+ *   bun run script/tui-smoke.ts [path/to/nikcli[.exe]]
+ *
+ * The binary is auto-detected from ./dist for the host platform when omitted.
+ */
+import { mkdtempSync, existsSync } from "node:fs"
+import { rm } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { spawn, type IExitEvent } from "bun-pty"
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const dir = path.resolve(__dirname, "..")
+process.chdir(dir)
+
+const SETTLE_MS = Number(process.env.NIKCLI_SMOKE_TIMEOUT_MS ?? 45_000)
+const COLS = 100
+const ROWS = 30
+
+/** Substrings that only ever show up when the TUI failed to boot. */
+const FAILURE_MARKERS = [
+  "loadedPath",
+  "Unexpected error",
+  "is not an object",
+  "is not a function",
+  "Cannot find module",
+  "ResolveMessage",
+]
+
+function resolveBinary() {
+  const explicit = process.argv[2] ?? process.env.NIKCLI_SMOKE_BIN
+  if (explicit) return path.resolve(explicit)
+  const platform = process.platform === "win32" ? "windows" : process.platform
+  const arch = process.arch === "arm64" ? "arm64" : "x64"
+  const exe = process.platform === "win32" ? "nikcli.exe" : "nikcli"
+  const candidates = [
+    path.join(dir, "dist", `nikcli-ai-${platform}-${arch}`, "bin", exe),
+    path.join(dir, "dist", `nikcli-ai-${platform}-${arch}-baseline`, "bin", exe),
+  ]
+  const found = candidates.find((item) => existsSync(item))
+  if (!found) throw new Error(`no compiled binary found; looked in:\n  ${candidates.join("\n  ")}`)
+  return found
+}
+
+/** Drop ANSI/OSC control sequences so cell-by-cell text reassembles into words. */
+function plain(raw: string) {
+  return raw
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1bP[^\x1b]*\x1b\\/g, "")
+    .replace(/\x1b\[[0-9;?<>=]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b[@-Z\\-_]/g, "")
+}
+
+const binary = resolveBinary()
+const home = mkdtempSync(path.join(os.tmpdir(), "nikcli-tui-smoke-"))
+
+console.log(`[tui-smoke] binary ${binary}`)
+console.log(`[tui-smoke] home   ${home}`)
+console.log(`[tui-smoke] pty    ${COLS}x${ROWS}, settling for ${SETTLE_MS}ms`)
+
+let raw = ""
+let exit: IExitEvent | undefined
+
+const pty = spawn(binary, [], {
+  name: "xterm-256color",
+  cols: COLS,
+  rows: ROWS,
+  cwd: home,
+  env: {
+    ...process.env,
+    // Isolate every path the CLI writes to, so the smoke never touches the
+    // developer's (or the runner's) real nikcli state.
+    NIKCLI_TEST_HOME: home,
+    NIKCLI_DISABLE_AUTOUPDATE: "1",
+    TERM: "xterm-256color",
+  } as Record<string, string>,
+})
+
+pty.onData((data) => {
+  raw += data
+})
+pty.onExit((event) => {
+  exit = event
+})
+
+const deadline = Date.now() + SETTLE_MS
+// Stop early once the renderer has clearly painted; otherwise wait it out so a
+// slow-but-healthy boot still passes and a crash still gets its output captured.
+while (Date.now() < deadline && !exit) {
+  if (raw.includes("\x1b[?1049h") && plain(raw).trim().length > 200) break
+  await Bun.sleep(250)
+}
+
+// Snapshot before killing: `kill()` synchronously drives `onExit`, so reading
+// `exit` afterwards would always look like the binary died on its own.
+const died = exit
+if (!died) pty.kill()
+await rm(home, { recursive: true, force: true }).catch(() => undefined)
+
+const text = plain(raw)
+const failures: string[] = []
+
+if (died) failures.push(`the binary exited (code ${died.exitCode}) instead of staying in the TUI`)
+if (!raw.includes("\x1b[?1049h"))
+  failures.push("the TUI never switched to the alternate screen — the renderer did not start")
+if (text.trim().length < 200) failures.push(`the TUI painted only ${text.trim().length} printable characters`)
+for (const marker of FAILURE_MARKERS) {
+  if (text.includes(marker)) failures.push(`runtime error surfaced in the TUI output: ${JSON.stringify(marker)}`)
+}
+
+if (failures.length > 0) {
+  console.error("[tui-smoke] FAIL")
+  for (const failure of failures) console.error(`  - ${failure}`)
+  console.error("[tui-smoke] captured output:")
+  console.error(text.trim() ? text.trim().slice(0, 4000) : "(nothing)")
+  process.exit(1)
+}
+
+console.log(`[tui-smoke] painted ${text.trim().length} printable characters, process still alive`)
+console.log("[tui-smoke] PASS — the compiled TUI booted and rendered")

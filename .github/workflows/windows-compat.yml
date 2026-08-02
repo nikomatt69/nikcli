@@ -165,6 +165,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "--version exited $LASTEXITCODE`n$out" }
           Write-Host "version: $out"
 
+      # --version / --help never import @opentui/core, which is how the 1.226.0
+      # release shipped a binary that crashed on every TUI launch. This boots the
+      # real TUI in a ConPTY and asserts it paints.
+      - name: Built nikcli.exe boots the TUI
+        shell: pwsh
+        run: |
+          $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "x64" }
+          bun run script/tui-smoke.ts ".\dist\nikcli-ai-windows-$arch\bin\nikcli.exe"
+          if ($LASTEXITCODE -ne 0) { throw "TUI smoke exited $LASTEXITCODE" }
+
       # --- installers: the npm wrapper and the PowerShell installer ---
 
       - name: npm path — postinstall + wrapper resolve nikcli.exe

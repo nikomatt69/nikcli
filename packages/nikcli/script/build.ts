@@ -7,7 +7,6 @@
 // under packages/nikcli/node_modules/.
 import solidPlugin from "@opentui/solid/bun-plugin"
 import path from "path"
-import fs from "fs"
 import { $ } from "bun"
 import { fileURLToPath } from "url"
 
@@ -88,6 +87,18 @@ const allTargets: {
   },
 ]
 
+// OpenTUI resolves its tree-sitter worker through `import("@opentui/core/parser.worker",
+// { with: { type: "file" } })` and expects a *path* back. Handing the real
+// node_modules/@opentui/core/parser.worker.js to `entrypoints` made Bun compile that
+// module as code, so the asset import returned a JS namespace whose `default` is
+// undefined and OpenTUI died on `loadedPath.startsWith(...)` during module evaluation —
+// i.e. every TUI launch, while `--version`/`--help` (which never touch @opentui/core)
+// kept working. Embed the worker source as a virtual file instead, exactly like the
+// upstream opencode build, so it compiles to a stable flat path inside bunfs that the
+// OTUI_TREE_SITTER_WORKER_PATH define below can point at.
+const treeSitterWorker = await Bun.file(fileURLToPath(import.meta.resolve("@opentui/core/parser.worker"))).text()
+const treeSitterWorkerPath = "opentui-tree-sitter-worker.js"
+
 const targets = singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
@@ -130,12 +141,10 @@ for (const item of targets) {
   console.log(`building ${name}`)
   await $`mkdir -p dist/${name}/bin`
 
-  const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
   const workerPath = "./src/cli/cmd/tui/worker.ts"
 
   // Use platform-specific bunfs root path based on target OS
   const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
-  const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
   await Bun.build({
     conditions: ["browser"],
@@ -153,10 +162,13 @@ for (const item of targets) {
       execArgv: [`--user-agent=nikcli/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
-    entrypoints: ["./src/index.ts", parserWorker, workerPath],
+    files: {
+      [treeSitterWorkerPath]: treeSitterWorker,
+    },
+    entrypoints: ["./src/index.ts", treeSitterWorkerPath, workerPath],
     define: {
       NIKCLI_VERSION: `'${Script.version}'`,
-      OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
+      OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + treeSitterWorkerPath,
       NIKCLI_WORKER_PATH: workerPath,
       NIKCLI_CHANNEL: `'${singleFlag ? "local" : Script.channel}'`,
       NIKCLI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
