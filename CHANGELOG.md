@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.227.0 (August 2026)
+
+## Core
+
+- Embed tree-sitter worker as a virtual file to prevent TUI crashes (@nikomatt69)
+- Document the OpenTUI 0.4.5 upgrade and its root cause (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - docs(tui): document the OpenTUI 0.4.5 upgrade and its root cause
+  - fix(tui): embed tree-sitter worker as a virtual file to prevent TUI crashes
+
 ## v1.219.0 (July 2026)
 
 ## Core

@@ -634,9 +634,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
 
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
         <text fg={theme.text} attributes={TextAttributes.BOLD} wrapMode="char">
-          {live()
-            ? surface()?.title || surface()?.url || ""
-            : page().title || (page().loading ? "Loading..." : "")}
+          {live() ? surface()?.title || surface()?.url || "" : page().title || (page().loading ? "Loading..." : "")}
         </text>
         <Show
           when={live()}
@@ -701,78 +699,84 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         </Show>
 
         <Show when={!live()}>
-        <box flexDirection={wide() ? "row" : "column"} gap={1} paddingLeft={1} paddingRight={1} height={innerHeight()}>
-          <scrollbox height={innerHeight()} focused={focusArea() === "content"} flexGrow={1} flexShrink={1}>
-            <box gap={1} paddingTop={1} paddingBottom={1}>
-              <Show when={page().description}>
-                <text fg={theme.textMuted} wrapMode="word">
-                  {page().description}
-                </text>
-              </Show>
-              <Show when={sectionData()}>
-                <box
-                  backgroundColor={theme.backgroundElement}
-                  paddingLeft={1}
-                  paddingRight={1}
-                  paddingTop={1}
-                  paddingBottom={1}
+          <box
+            flexDirection={wide() ? "row" : "column"}
+            gap={1}
+            paddingLeft={1}
+            paddingRight={1}
+            height={innerHeight()}
+          >
+            <scrollbox height={innerHeight()} focused={focusArea() === "content"} flexGrow={1} flexShrink={1}>
+              <box gap={1} paddingTop={1} paddingBottom={1}>
+                <Show when={page().description}>
+                  <text fg={theme.textMuted} wrapMode="word">
+                    {page().description}
+                  </text>
+                </Show>
+                <Show when={sectionData()}>
+                  <box
+                    backgroundColor={theme.backgroundElement}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    paddingTop={1}
+                    paddingBottom={1}
+                  >
+                    <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+                      {sectionData()!.title}
+                    </text>
+                    <text fg={theme.primary} onMouseUp={() => setSelectedSection(null)}>
+                      show full page
+                    </text>
+                  </box>
+                </Show>
+                <Show when={!wide() && (page().headings.length > 0 || page().links.length > 0)}>
+                  <Sidebar
+                    headings={page().headings}
+                    links={page().links}
+                    selectedSection={selectedSection()}
+                    onSelectSection={setSelectedSection}
+                    onNavigate={(u) => void navigate(u)}
+                  />
+                </Show>
+                <Show
+                  when={displayedMarkdown()}
+                  fallback={
+                    <text fg={page().loading ? theme.secondary : theme.textMuted} wrapMode="word">
+                      {page().loading ? "Fetching and formatting page..." : "Enter a URL above to preview a website."}
+                    </text>
+                  }
                 >
-                  <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
-                    {sectionData()!.title}
-                  </text>
-                  <text fg={theme.primary} onMouseUp={() => setSelectedSection(null)}>
-                    show full page
-                  </text>
-                </box>
-              </Show>
-              <Show when={!wide() && (page().headings.length > 0 || page().links.length > 0)}>
-                <Sidebar
-                  headings={page().headings}
-                  links={page().links}
-                  selectedSection={selectedSection()}
-                  onSelectSection={setSelectedSection}
-                  onNavigate={(u) => void navigate(u)}
-                />
-              </Show>
-              <Show
-                when={displayedMarkdown()}
-                fallback={
-                  <text fg={page().loading ? theme.secondary : theme.textMuted} wrapMode="word">
-                    {page().loading ? "Fetching and formatting page..." : "Enter a URL above to preview a website."}
-                  </text>
-                }
-              >
-                <markdown
-                  content={displayedMarkdown()}
-                  syntaxStyle={syntax()}
-                  fg={theme.text}
-                  conceal={true}
-                  tableOptions={{
-                    widthMode: "full",
-                    wrapMode: "word",
-                    cellPadding: tight() ? 0 : 1,
-                    borders: !tight(),
-                    outerBorder: false,
-                    borderColor: theme.borderSubtle,
-                  }}
-                />
-              </Show>
-            </box>
-          </scrollbox>
-          <Show when={wide() && (page().headings.length > 0 || page().links.length > 0)}>
-            <box width={30} flexShrink={0} height={innerHeight()}>
-              <scrollbox height={innerHeight()} paddingLeft={1} paddingRight={1}>
-                <Sidebar
-                  headings={page().headings}
-                  links={page().links}
-                  selectedSection={selectedSection()}
-                  onSelectSection={setSelectedSection}
-                  onNavigate={(u) => void navigate(u)}
-                />
-              </scrollbox>
-            </box>
-          </Show>
-        </box>
+                  <markdown
+                    content={displayedMarkdown()}
+                    syntaxStyle={syntax()}
+                    fg={theme.text}
+                    conceal={true}
+                    tableOptions={{
+                      widthMode: "full",
+                      wrapMode: "word",
+                      cellPadding: tight() ? 0 : 1,
+                      borders: !tight(),
+                      outerBorder: false,
+                      borderColor: theme.borderSubtle,
+                    }}
+                  />
+                </Show>
+              </box>
+            </scrollbox>
+            <Show when={wide() && (page().headings.length > 0 || page().links.length > 0)}>
+              <box width={30} flexShrink={0} height={innerHeight()}>
+                <scrollbox height={innerHeight()} paddingLeft={1} paddingRight={1}>
+                  <Sidebar
+                    headings={page().headings}
+                    links={page().links}
+                    selectedSection={selectedSection()}
+                    onSelectSection={setSelectedSection}
+                    onNavigate={(u) => void navigate(u)}
+                  />
+                </scrollbox>
+              </box>
+            </Show>
+          </box>
         </Show>
       </box>
 
