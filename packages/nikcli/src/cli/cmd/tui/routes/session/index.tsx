@@ -73,6 +73,7 @@ import { useKeybind } from "@tui/context/keybind"
 import { parsePatch } from "diff"
 import { useDialog } from "../../ui/dialog"
 import { TodoItem } from "../../component/todo-item"
+import { MathMarkdown } from "../../component/math-markdown"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
@@ -1980,7 +1981,7 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
         <ReasoningHeader done={done()} title={summary().title} duration={duration()} />
         <Show when={summary().body}>
           <box marginTop={1}>
-            <markdown
+            <MathMarkdown
               streaming={!props.last ? false : true}
               syntaxStyle={subtleSyntax()}
               content={body()}
@@ -2049,7 +2050,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   return (
     <Show when={props.part.text.trim()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
-        <markdown
+        <MathMarkdown
           streaming={!props.last ? false : true}
           syntaxStyle={syntax()}
           content={rendered()}

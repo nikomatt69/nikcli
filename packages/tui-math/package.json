@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/tui-math",
+  "version": "1.219.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "LaTeX math rendering primitives for TUI / OpenTUI terminals. Universal Unicode cell renderer with Yoga-measured renderable and streaming support.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./parser": "./src/parser.ts",
+    "./layout": "./src/layout.ts",
+    "./render": "./src/render.ts",
+    "./renderable": "./src/renderable.ts",
+    "./stream": "./src/stream.ts",
+    "./markdown": "./src/markdown.ts",
+    "./solid": "./src/solid.ts",
+    "./detect": "./src/detect.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@opentui/core": "0.4.5",
+    "@opentui/solid": "0.4.5"
+  },
+  "peerDependenciesMeta": {
+    "@opentui/solid": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@opentui/core": "0.4.5",
+    "@opentui/solid": "0.4.5",
+    "typescript": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

@@ -2684,6 +2684,10 @@ export type Config = {
      * Show a per-turn token breakdown after each answer, with a warning when the prompt cache is invalidated (default: false)
      */
     turn_tokens?: boolean
+    /**
+     * Render LaTeX math in messages as Unicode formulas instead of raw source (default: true). Set to false to keep $…$ and $$…$$ as written.
+     */
+    math?: boolean
   }
   ads?: AdsConfig
   server?: ServerConfig

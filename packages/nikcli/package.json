@@ -118,6 +118,7 @@
     "@nikcli-ai/script": "workspace:*",
     "@nikcli-ai/simulation": "workspace:*",
     "@nikcli-ai/tui-image": "workspace:*",
+    "@nikcli-ai/tui-math": "workspace:*",
     "@nikcli-ai/util": "workspace:*",
     "@octokit/graphql": "9.0.2",
     "@octokit/rest": "catalog:",

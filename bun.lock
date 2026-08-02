@@ -617,6 +617,7 @@
         "@nikcli-ai/script": "workspace:*",
         "@nikcli-ai/simulation": "workspace:*",
         "@nikcli-ai/tui-image": "workspace:*",
+        "@nikcli-ai/tui-math": "workspace:*",
         "@nikcli-ai/util": "workspace:*",
         "@octokit/graphql": "9.0.2",
         "@octokit/rest": "catalog:",
@@ -853,6 +854,24 @@
         "@resvg/resvg-js": "2.6.2",
         "@silvia-odwyer/photon-node": "0.3.4",
       },
+    },
+    "packages/tui-math": {
+      "name": "@nikcli-ai/tui-math",
+      "version": "1.219.0",
+      "devDependencies": {
+        "@opentui/core": "0.4.5",
+        "@opentui/solid": "0.4.5",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+      "peerDependencies": {
+        "@opentui/core": "0.4.5",
+        "@opentui/solid": "0.4.5",
+      },
+      "optionalPeers": [
+        "@opentui/solid",
+      ],
     },
     "packages/ui": {
       "name": "@nikcli-ai/ui",
@@ -2028,6 +2047,8 @@
     "@nikcli-ai/terminal-control": ["@nikcli-ai/terminal-control@workspace:packages/terminal-control"],
 
     "@nikcli-ai/tui-image": ["@nikcli-ai/tui-image@workspace:packages/tui-image"],
+
+    "@nikcli-ai/tui-math": ["@nikcli-ai/tui-math@workspace:packages/tui-math"],
 
     "@nikcli-ai/ui": ["@nikcli-ai/ui@workspace:packages/ui"],
 
@@ -6128,6 +6149,8 @@
     "@nikcli-ai/terminal-control/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/tui-image/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
+
+    "@nikcli-ai/tui-math/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/ui/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
