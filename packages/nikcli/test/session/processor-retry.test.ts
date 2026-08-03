@@ -1,42 +1,18 @@
-import { afterAll, describe, expect, it, mock } from "bun:test"
+import { afterAll, describe, expect, it, spyOn } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-processor-retry-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
-let streamAttempt = 0
-mock.module("@/session/llm", () => ({
-  LLM: {
-    stream: async () => {
-      streamAttempt++
-      return {
-        fullStream: (async function* () {
-          if (streamAttempt === 1) {
-            yield { type: "reasoning-start", id: "reasoning-1" }
-            yield { type: "reasoning-delta", id: "reasoning-1", text: "partial reasoning" }
-            throw new Error("transient failure")
-          }
-          throw new DOMException("Interrupted", "AbortError")
-        })(),
-      }
-    },
-  },
-}))
-mock.module("@/session/retry", () => ({
-  SessionRetry: {
-    RETRY_MAX_ATTEMPTS: 3,
-    delay: () => 0,
-    retryable: () => "Temporary provider failure",
-    sleep: async () => {},
-  },
-}))
-
 const [
   { SessionProcessor },
   { Session },
+  { LLM },
+  { SessionRetry },
   { locallyInstance },
   { Identifier },
   { Bus },
@@ -46,6 +22,8 @@ const [
 ] = await Promise.all([
   import("@/session/processor"),
   import("@/session"),
+  import("@/session/llm"),
+  import("@/session/retry"),
   import("@/effect"),
   import("@/id/id"),
   import("@/bus"),
@@ -54,8 +32,33 @@ const [
   import("effect"),
 ])
 
+// Spies, not `mock.module`: a module mock replaces the module for the whole bun
+// process and cannot be undone, so stubbing `@/session/retry` here left every
+// later file in the run with `SessionRetry.delay === () => 0` (all of
+// retry.test.ts failed whenever it ran after this file).
+let streamAttempt = 0
+const spies = [
+  spyOn(LLM, "stream").mockImplementation((async () => {
+    streamAttempt++
+    return {
+      fullStream: (async function* () {
+        if (streamAttempt === 1) {
+          yield { type: "reasoning-start", id: "reasoning-1" }
+          yield { type: "reasoning-delta", id: "reasoning-1", text: "partial reasoning" }
+          throw new Error("transient failure")
+        }
+        throw new DOMException("Interrupted", "AbortError")
+      })(),
+    }
+  }) as unknown as typeof LLM.stream),
+  spyOn(SessionRetry, "delay").mockReturnValue(0),
+  spyOn(SessionRetry, "retryable").mockReturnValue("Temporary provider failure"),
+  spyOn(SessionRetry, "sleep").mockResolvedValue(undefined),
+]
+
 afterAll(async () => {
-  await fs.rm(testHome, { recursive: true, force: true })
+  for (const spy of spies) spy.mockRestore()
+  await removeTestDir(testHome)
 })
 
 describe("SessionProcessor retry cleanup", () => {

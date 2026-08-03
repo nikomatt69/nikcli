@@ -1,6 +1,7 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { Instance } from "@/project/instance"
 import { Message } from "@/session/message"
@@ -1371,6 +1372,6 @@ afterEach(async () => {
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await removeTestDir(testHome)
   flushBenchmarkRun()
 })

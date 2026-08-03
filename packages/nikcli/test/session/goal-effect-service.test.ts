@@ -3,6 +3,7 @@ import { Effect } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-goal-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -19,7 +20,7 @@ function runGoal<A, E>(effect: Effect.Effect<A, E, any>) {
 }
 
 afterAll(async () => {
-  await fs.rm(testHome, { recursive: true, force: true })
+  await removeTestDir(testHome)
 })
 
 describe("SessionGoal.Service", () => {

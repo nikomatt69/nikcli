@@ -18,6 +18,12 @@ export function adapterState() {
     toolInputStarted: new Set<string>(),
     toolNames: {} as Record<string, string>,
     emittedStart: false,
+    // A step is what the processor snapshots and bills against. No native
+    // protocol emits step-start/step-finish — only request-start/request-finish
+    // — so the adapter opens and closes the step itself, and these two guards
+    // keep it from doubling up for a provider that emits both.
+    stepOpen: false,
+    stepFinished: false,
   }
 }
 
@@ -76,7 +82,9 @@ export function providerErrorToAPICallError(event: Extract<LLMEvent, { type: "pr
   })
 }
 
-function usageToAISDK(usage: LLMEvent & { type: "step-finish" }) {
+type FinishEvent = LLMEvent & { type: "step-finish" | "request-finish" }
+
+function usageToAISDK(usage: FinishEvent) {
   const u = usage.usage
   if (!u) return undefined
   return {
@@ -92,10 +100,74 @@ function usageToAISDK(usage: LLMEvent & { type: "step-finish" }) {
 // it from provider metadata. The native protocols decode cache writes uniformly
 // into `Usage.cacheWriteInputTokens`, so republish that under one provider-
 // neutral key instead of forcing getUsage to learn every native shape.
-function metadataWithCacheWrite(event: LLMEvent & { type: "step-finish" }) {
+function metadataWithCacheWrite(event: FinishEvent) {
   const write = event.usage?.cacheWriteInputTokens
   if (write === undefined) return event.providerMetadata
   return { ...(event.providerMetadata ?? {}), nikcli: { cacheWriteInputTokens: write } }
+}
+
+/**
+ * The processor bills and snapshots on `finish-step`; without one, a whole
+ * assistant turn persists with no finish reason, cost, or token count.
+ */
+function finishStep(state: AdapterState, event: FinishEvent): ProcessorStreamEvent[] {
+  if (state.stepFinished) return []
+  state.stepOpen = false
+  state.stepFinished = true
+  return [
+    {
+      type: "finish-step",
+      finishReason: finishReason(event.reason),
+      ...(event.rawReason ? { rawReason: event.rawReason } : {}),
+      usage: usageToAISDK(event),
+      providerMetadata: metadataWithCacheWrite(event),
+    } as ProcessorStreamEvent,
+  ]
+}
+
+function startStep(state: AdapterState): ProcessorStreamEvent[] {
+  if (state.stepOpen) return []
+  state.stepOpen = true
+  state.stepFinished = false
+  return [{ type: "start-step" } as ProcessorStreamEvent]
+}
+
+/**
+ * Text and reasoning parts stay `pending` until closed. A provider that ends
+ * the request without an explicit `text-end` would otherwise leave the last
+ * part of the turn hanging in the UI.
+ */
+function closeOpenParts(state: AdapterState): ProcessorStreamEvent[] {
+  const out: ProcessorStreamEvent[] = []
+  if (state.currentReasoningID) {
+    out.push({ type: "reasoning-end", id: state.currentReasoningID } as ProcessorStreamEvent)
+    state.currentReasoningID = undefined
+  }
+  if (state.currentTextID) {
+    out.push({ type: "text-end", id: state.currentTextID } as ProcessorStreamEvent)
+    state.currentTextID = undefined
+  }
+  return out
+}
+
+/**
+ * `ToolStateCompleted` demands a string output plus a title and metadata
+ * record. nikcli builds those itself for the tools it runs, but a
+ * provider-executed tool (Cursor's shell, OpenAI's web search) arrives as raw
+ * JSON straight from the wire — persist that as-is and the completed part is
+ * rejected by the schema.
+ */
+function providerExecutedOutput(
+  name: string,
+  normalized: { output: unknown; title?: string; metadata?: Record<string, unknown> },
+) {
+  const output =
+    typeof normalized.output === "string" ? normalized.output : JSON.stringify(normalized.output ?? "", null, 2)
+  return {
+    output,
+    title: normalized.title ?? name,
+    metadata: normalized.metadata ?? {},
+  }
 }
 
 function normalizeToolOutput(result: unknown): {
@@ -131,24 +203,19 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
     case "request-start": {
       if (state.emittedStart) return []
       state.emittedStart = true
-      return [{ type: "start" } as ProcessorStreamEvent]
+      return [{ type: "start" } as ProcessorStreamEvent, ...startStep(state)]
     }
 
     case "step-start":
-      return [{ type: "start-step" } as ProcessorStreamEvent]
+      return startStep(state)
 
     case "step-finish":
-      return [
-        {
-          type: "finish-step",
-          finishReason: finishReason(event.reason),
-          usage: usageToAISDK(event),
-          providerMetadata: metadataWithCacheWrite(event),
-        } as ProcessorStreamEvent,
-      ]
+      return finishStep(state, event)
 
     case "request-finish":
       return [
+        ...closeOpenParts(state),
+        ...finishStep(state, event),
         {
           type: "finish",
           finishReason: finishReason(event.reason),
@@ -187,6 +254,7 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
     }
 
     case "text-end":
+      if (state.currentTextID === event.id) state.currentTextID = undefined
       return [
         {
           type: "text-end",
@@ -253,12 +321,29 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
         toolCallId: event.id,
         toolName: event.name,
         input: event.input,
+        providerExecuted: event.providerExecuted,
         providerMetadata: event.providerMetadata,
       } as ProcessorStreamEvent)
       return out
     }
 
     case "tool-result": {
+      // A provider-executed tool reports its own failures through the result
+      // channel; surfacing that as a successful result would persist the error
+      // text as tool output.
+      const failed =
+        event.result && typeof event.result === "object" && (event.result as { type?: string }).type === "error"
+      if (failed) {
+        return [
+          {
+            type: "tool-error",
+            toolCallId: event.id,
+            toolName: event.name,
+            input: undefined,
+            error: new Error(String((event.result as { value?: unknown }).value ?? "Tool failed")),
+          } as ProcessorStreamEvent,
+        ]
+      }
       const normalized = normalizeToolOutput(event.result)
       return [
         {
@@ -266,7 +351,8 @@ export function mapLLMEvent(state: AdapterState, event: LLMEvent): ProcessorStre
           toolCallId: event.id,
           toolName: event.name,
           input: undefined,
-          output: normalized,
+          output: event.providerExecuted ? providerExecutedOutput(event.name, normalized) : normalized,
+          providerExecuted: event.providerExecuted,
         } as ProcessorStreamEvent,
       ]
     }
@@ -302,11 +388,10 @@ export async function* toProcessorStream(llmEvents: AsyncIterable<LLMEvent>): As
         yield mapped
       }
     }
-    if (state.currentReasoningID) {
-      yield {
-        type: "reasoning-end",
-        id: state.currentReasoningID,
-      } as ProcessorStreamEvent
+    // A stream that ends without `request-finish` (an aborted turn, a provider
+    // that just closes the socket) still has to leave every part closed.
+    for (const event of closeOpenParts(state)) {
+      yield event
     }
   } catch (e) {
     if (e instanceof Error) throw e

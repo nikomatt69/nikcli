@@ -3,6 +3,7 @@ import { Effect } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -16,7 +17,7 @@ const [{ Session }, { locallyInstance }, { Global }, { Identifier }] = await Pro
 ])
 
 afterAll(async () => {
-  await fs.rm(testHome, { recursive: true, force: true })
+  await removeTestDir(testHome)
 })
 
 describe("Session.Service", () => {

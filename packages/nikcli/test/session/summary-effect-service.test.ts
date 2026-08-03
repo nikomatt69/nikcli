@@ -3,6 +3,7 @@ import { Effect } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
 import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
 import { Instance } from "../../src/project/instance"
 
@@ -35,7 +36,7 @@ afterEach(async () => {
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await removeTestDir(testHome)
 })
 
 describe("SessionSummary.Service", () => {

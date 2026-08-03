@@ -1,6 +1,7 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import { Instance } from "@/project/instance"
 import { SessionStatus } from "@/session/status"
@@ -100,5 +101,5 @@ afterEach(async () => {
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await removeTestDir(testHome)
 })
