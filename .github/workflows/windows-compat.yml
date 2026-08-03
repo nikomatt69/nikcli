@@ -157,8 +157,12 @@ jobs:
           Write-Host "built: $bin ($size MB)"
           $out = & $bin --help 2>&1
           if ($LASTEXITCODE -ne 0) { throw "--help exited $LASTEXITCODE`n$out" }
-          if ($out -notmatch "nikcli") { throw "--help output missing 'nikcli'`n$out" }
-          Write-Host "nikcli.exe --help ok ($((($out | Out-String).Length)) chars)"
+          # Join first: against an array, -notmatch is a filter, and `if` on the
+          # resulting non-empty array is true whenever ANY single line lacks
+          # "nikcli" — which is every run, however good the output is.
+          $text = $out | Out-String
+          if ($text -notmatch "nikcli") { throw "--help output missing 'nikcli'`n$text" }
+          Write-Host "nikcli.exe --help ok ($($text.Length) chars)"
 
       - name: Built nikcli.exe --version exits 0
         shell: pwsh
