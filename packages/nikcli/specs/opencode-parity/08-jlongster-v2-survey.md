@@ -10,19 +10,19 @@ This document covers the **new** material only: 2026-06-08 → 2026-07-31.
 
 ## Verdict
 
-| opencode | PRs | nikcli | Action |
-| --- | --- | --- | --- |
-| Turn token usage diagnostics | #38398, #38514 | **Already present and larger**: `cli/cmd/tui/util/turn-usage.ts` (`f9f6022633`) groups steps into turns, compares cache across turn boundaries, and is paired with `provider/cache-diagnostics.ts` | Exposed in the UI (below) |
-| DevTools debug bar | #38359 | Absent | Not ported — see rationale |
-| Session export revamp | #35971 | Options dialog only; markdown-only output | **JSON format ported** |
-| V2 theme system | #36950 → #39967 (~25 commits) | 100 flat V1 JSON themes in `cli/cmd/tui/context/theme/` | Deferred — see rationale |
-| Batch event delivery | #39551 | `cli/cmd/tui/context/sdk.tsx` already batches, at 16 ms vs opencode's 10 ms | N/A |
-| Ecosystem skill dirs (`.claude`, `.agents`) | #35956 | `skill/skill.ts:99` `EXTERNAL_DIRS` | N/A |
-| Frontend logs over OTLP | #36152 | `observability/otlp.ts` + TUI observability feature-plugin | N/A |
-| V2 formatter runtime | #39564, #39575 | Config surface already identical (`false \| true \| record{disabled,command,environment,extensions}`, `config.ts:1557`); the BOM half of #39564 is in `tool/edit.ts:118` and `tool/write.ts:66` | N/A |
-| Simulation cluster | #34801 → #36306 | Ported: `ui.resize`, `ui.matches`, `ui.screenshot`, `llm.disconnect`, `toolCall` all in `packages/simulation/src/protocol` | N/A |
-| Event stream extraction / connection logging | #38872, #35973 | `context/sdk.tsx` already tracks status/attempt/reconnect | N/A |
-| Layer-node graph, tiered layers, Effect test wiring | #31531, #33937, … | opencode-internal | N/A — nikcli's Effect migration is deliberately partial |
+| opencode                                            | PRs                           | nikcli                                                                                                                                                                                             | Action                                                  |
+| --------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Turn token usage diagnostics                        | #38398, #38514                | **Already present and larger**: `cli/cmd/tui/util/turn-usage.ts` (`f9f6022633`) groups steps into turns, compares cache across turn boundaries, and is paired with `provider/cache-diagnostics.ts` | Exposed in the UI (below)                               |
+| DevTools debug bar                                  | #38359                        | Absent                                                                                                                                                                                             | Not ported — see rationale                              |
+| Session export revamp                               | #35971                        | Options dialog only; markdown-only output                                                                                                                                                          | **JSON format ported**                                  |
+| V2 theme system                                     | #36950 → #39967 (~25 commits) | 100 flat V1 JSON themes in `cli/cmd/tui/context/theme/`                                                                                                                                            | Deferred — see rationale                                |
+| Batch event delivery                                | #39551                        | `cli/cmd/tui/context/sdk.tsx` already batches, at 16 ms vs opencode's 10 ms                                                                                                                        | N/A                                                     |
+| Ecosystem skill dirs (`.claude`, `.agents`)         | #35956                        | `skill/skill.ts:99` `EXTERNAL_DIRS`                                                                                                                                                                | N/A                                                     |
+| Frontend logs over OTLP                             | #36152                        | `observability/otlp.ts` + TUI observability feature-plugin                                                                                                                                         | N/A                                                     |
+| V2 formatter runtime                                | #39564, #39575                | Config surface already identical (`false \| true \| record{disabled,command,environment,extensions}`, `config.ts:1557`); the BOM half of #39564 is in `tool/edit.ts:118` and `tool/write.ts:66`    | N/A                                                     |
+| Simulation cluster                                  | #34801 → #36306               | Ported: `ui.resize`, `ui.matches`, `ui.screenshot`, `llm.disconnect`, `toolCall` all in `packages/simulation/src/protocol`                                                                         | N/A                                                     |
+| Event stream extraction / connection logging        | #38872, #35973                | `context/sdk.tsx` already tracks status/attempt/reconnect                                                                                                                                          | N/A                                                     |
+| Layer-node graph, tiered layers, Effect test wiring | #31531, #33937, …             | opencode-internal                                                                                                                                                                                  | N/A — nikcli's Effect migration is deliberately partial |
 
 ## Applied
 
@@ -33,7 +33,7 @@ config-backed settings category **Diagnostics**
 (`cli/cmd/tui/component/dialog-settings/diagnostics.tsx`), registered in the same file's
 `SETTINGS_CATEGORIES` so it surfaces in the command palette.
 
-Config-backed rather than KV-backed on purpose: the toggle changes what the *session view*
+Config-backed rather than KV-backed on purpose: the toggle changes what the _session view_
 renders for every client of the project, so a per-terminal preference is the wrong scope.
 
 This is the nikcli-native answer to opencode's debug bar. A 533-line overlay whose content is
@@ -64,7 +64,7 @@ working, categorical hues for agent colors, a hovered state, syntax generated fr
 extraction into a standalone `@opencode/theme` package, and the resolved theme exposed to
 plugins.
 
-For nikcli the payoff would be *larger* than for opencode: TUI, desktop, mobile and web each
+For nikcli the payoff would be _larger_ than for opencode: TUI, desktop, mobile and web each
 carry a separate token vocabulary today, and a `@nikcli-ai/theme` resolving to both terminal
 RGBA and CSS custom properties would unify them. It is also a refactor touching every TUI
 component. If only a slice is wanted, the cheap one is `expandTheme` plus the resolved theme
@@ -84,6 +84,6 @@ exposed to plugins (#39536, #39967).
 
 ## Note for the next survey
 
-The 2026-06-06 survey and this one both initially scored *turn token diagnostics* as a gap. It
+The 2026-06-06 survey and this one both initially scored _turn token diagnostics_ as a gap. It
 is not, and has not been since `f9f6022633`. Check `cli/cmd/tui/util/turn-usage.ts` before
 concluding otherwise.

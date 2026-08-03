@@ -174,6 +174,7 @@ export type MessageContextOverflowError = {
   name: "MessageContextOverflowError"
   data: {
     message: string
+    statusCode?: number
     responseBody?: string
   }
 }
@@ -206,6 +207,7 @@ export type ApiError = {
     metadata?: {
       [key: string]: string
     }
+    classification?: "payload-too-large"
   }
 }
 

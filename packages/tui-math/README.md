@@ -44,21 +44,20 @@ tests and custom composition.
 
 ```tsx
 import "@nikcli-ai/tui-math/solid"
-
 ;<nikcli_latex content={String.raw`\int_0^\infty e^{-x}\,dx = 1`} foregroundColor="#cdd6f4" />
 ```
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `content` | `""` | LaTeX math source |
-| `foregroundColor` | `#e8e8f0` | Formula color |
-| `backgroundColor` | transparent | Formula background |
-| `displayMode` | `true` | Put limits above and below large operators |
-| `compactScripts` | `true` | Use Unicode super/subscripts where exact glyphs exist |
-| `macros` | `{}` | Expand lightweight user command macros |
-| `strict` | `false` | Throw on unknown commands |
-| `fallback` | `"message"` | Error behavior: `"message"`, `"source"`, or `"throw"` |
-| `errorColor` | `#ff6b6b` | Fallback error color |
+| Option            | Default     | Purpose                                               |
+| ----------------- | ----------- | ----------------------------------------------------- |
+| `content`         | `""`        | LaTeX math source                                     |
+| `foregroundColor` | `#e8e8f0`   | Formula color                                         |
+| `backgroundColor` | transparent | Formula background                                    |
+| `displayMode`     | `true`      | Put limits above and below large operators            |
+| `compactScripts`  | `true`      | Use Unicode super/subscripts where exact glyphs exist |
+| `macros`          | `{}`        | Expand lightweight user command macros                |
+| `strict`          | `false`     | Throw on unknown commands                             |
+| `fallback`        | `"message"` | Error behavior: `"message"`, `"source"`, or `"throw"` |
+| `errorColor`      | `#ff6b6b`   | Fallback error color                                  |
 
 ## Math In Prose
 
@@ -89,12 +88,12 @@ row, using the running-text spelling where one exists (`\frac{1}{6}` becomes
 be ambiguous). Anything else — a matrix, a binomial, an accent — becomes its
 own block rather than breaking the line box.
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `inlineHeightLimit` | `1` | Tallest layout still substituted into a paragraph |
-| `flattenInline` | `true` | Retry a tall inline formula as `a/b`, `√x` |
-| `maxLength` | `4000` | Longest accepted formula body |
-| `inline` / `display` | `true` | Recognize inline / display delimiters |
+| Option               | Default | Purpose                                           |
+| -------------------- | ------- | ------------------------------------------------- |
+| `inlineHeightLimit`  | `1`     | Tallest layout still substituted into a paragraph |
+| `flattenInline`      | `true`  | Retry a tall inline formula as `a/b`, `√x`        |
+| `maxLength`          | `4000`  | Longest accepted formula body                     |
+| `inline` / `display` | `true`  | Recognize inline / display delimiters             |
 
 Substituted text re-enters a markdown parser, which cannot be escaped against
 reliably — a renderer that conceals syntax markers deletes the marker and

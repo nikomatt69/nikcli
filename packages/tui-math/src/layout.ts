@@ -1,12 +1,4 @@
-import type {
-  MathCell,
-  MathLayout,
-  MathNode,
-  MathStyle,
-  MathVariant,
-  RenderLatexOptions,
-  SymbolRole,
-} from "./types"
+import type { MathCell, MathLayout, MathNode, MathStyle, MathVariant, RenderLatexOptions, SymbolRole } from "./types"
 
 interface Box {
   width: number
@@ -180,20 +172,11 @@ function layoutScripts(node: Extract<MathNode, { type: "scripts" }>, context: La
   const subscriptText = node.subscript ? simpleNodeText(node.subscript) : undefined
   const canCompactBase = !(node.base.type === "operator" && node.base.limits && context.displayMode)
 
-  if (
-    context.compactScripts &&
-    canCompactBase &&
-    superscriptText !== undefined &&
-    subscriptText !== undefined
-  ) {
+  if (context.compactScripts && canCompactBase && superscriptText !== undefined && subscriptText !== undefined) {
     const compactSuperscript = mapScript(superscriptText, superscripts)
     const compactSubscript = mapScript(subscriptText, subscripts)
     if (compactSuperscript !== undefined && compactSubscript !== undefined) {
-      return hpack([
-        simpleBase,
-        textBox(compactSuperscript, context.style),
-        textBox(compactSubscript, context.style),
-      ])
+      return hpack([simpleBase, textBox(compactSuperscript, context.style), textBox(compactSubscript, context.style)])
     }
   }
 
@@ -291,7 +274,8 @@ function layoutMatrix(
       const columnWidth = columnWidths[column]!
       if (cell) {
         const centered = environment !== "aligned" && environment !== "align" && environment !== "cases"
-        const cellX = x + (centered ? Math.floor((columnWidth - cell.width) / 2) : column % 2 === 0 ? columnWidth - cell.width : 0)
+        const cellX =
+          x + (centered ? Math.floor((columnWidth - cell.width) / 2) : column % 2 === 0 ? columnWidth - cell.width : 0)
         const cellY = y + rowAscents[rowIndex]! - cell.baseline
         overlay(result, cell, cellX, cellY)
       }
@@ -301,7 +285,13 @@ function layoutMatrix(
   }
 
   const delimiters = matrixDelimiters(environment)
-  return delimiters ? hpack([delimiterBox(delimiters[0], height, result.baseline, true, context.style), result, delimiterBox(delimiters[1], height, result.baseline, false, context.style)]) : result
+  return delimiters
+    ? hpack([
+        delimiterBox(delimiters[0], height, result.baseline, true, context.style),
+        result,
+        delimiterBox(delimiters[1], height, result.baseline, false, context.style),
+      ])
+    : result
 }
 
 function layoutAccent(
@@ -484,12 +474,7 @@ function nodeRole(node: MathNode): SymbolRole | undefined {
 
 function needsMathSpace(previous: SymbolRole | undefined, current: SymbolRole | undefined, count: number): boolean {
   if (count === 0) return false
-  if (
-    previous === "punctuation" ||
-    previous === "opening" ||
-    current === "punctuation" ||
-    current === "closing"
-  ) {
+  if (previous === "punctuation" || previous === "opening" || current === "punctuation" || current === "closing") {
     return false
   }
   return (

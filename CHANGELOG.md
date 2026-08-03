@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.229.0 (August 2026)
+
+## Core
+
+- Update classification handling and message structure in tests (@nikomatt69)
+- Enhance cache policy and request handling across protocols (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(llm): enhance cache policy and request handling across protocols
+  - fix(test): update message structure in OpenRouter tests to include optional role field
+  - fix(session): update classification handling and message structure in tests
+
 ## v1.219.0 (July 2026)
 
 ## Core

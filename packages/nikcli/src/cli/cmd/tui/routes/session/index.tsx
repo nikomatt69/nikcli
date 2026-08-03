@@ -2801,7 +2801,8 @@ function Write(props: ToolProps<typeof WriteTool>) {
             <For each={diagnostics()}>
               {(diagnostic) => (
                 <text fg={theme.error}>
-                  Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]: {LSP.Diagnostic.message(diagnostic)}
+                  Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]:{" "}
+                  {LSP.Diagnostic.message(diagnostic)}
                 </text>
               )}
             </For>

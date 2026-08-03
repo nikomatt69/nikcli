@@ -71,8 +71,12 @@ export function formatTranscriptJson(
 
 /** Drop the per-message provenance the markdown header would have omitted. */
 function stripMetadata(msg: AssistantMessage) {
-  const { agent: _agent, modelID: _modelID, providerID: _providerID, ...rest } = msg as AssistantMessage &
-    Record<string, unknown>
+  const {
+    agent: _agent,
+    modelID: _modelID,
+    providerID: _providerID,
+    ...rest
+  } = msg as AssistantMessage & Record<string, unknown>
   return rest
 }
 

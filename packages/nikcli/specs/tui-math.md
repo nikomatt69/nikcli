@@ -8,14 +8,14 @@ nikcli now renders them, on by default, in every terminal.
 
 ## Shape
 
-| Piece | Where |
-| --- | --- |
-| Renderer (parser, layout, renderable, streaming) | `packages/tui-math/src` |
-| Math-in-prose splitting | `packages/tui-math/src/{detect,markdown,inline}.ts` |
-| Solid intrinsic `<nikcli_latex>` | `packages/tui-math/src/solid.ts` |
-| TUI component | `packages/nikcli/src/cli/cmd/tui/component/math-markdown.tsx` |
-| Call sites | `TextPart` and `ReasoningPart` in `routes/session/index.tsx` |
-| Config | `tui.math` (default `true`) |
+| Piece                                            | Where                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| Renderer (parser, layout, renderable, streaming) | `packages/tui-math/src`                                       |
+| Math-in-prose splitting                          | `packages/tui-math/src/{detect,markdown,inline}.ts`           |
+| Solid intrinsic `<nikcli_latex>`                 | `packages/tui-math/src/solid.ts`                              |
+| TUI component                                    | `packages/nikcli/src/cli/cmd/tui/component/math-markdown.tsx` |
+| Call sites                                       | `TextPart` and `ReasoningPart` in `routes/session/index.tsx`  |
+| Config                                           | `tui.math` (default `true`)                                   |
 
 `packages/tui-math` is a port of
 [opentui-math](https://github.com/neriousy/opentui-math) (MIT), vendored as
@@ -47,13 +47,13 @@ the parsed tree into the spelling running text already uses — `1/6`, `√2` �
 and adds brackets wherever one dimension loses the grouping two dimensions
 gave for free:
 
-| Source | Inline |
-| --- | --- |
-| `\frac{n(n+1)}{2}` | `n(n + 1)/2` |
-| `\frac{a+b}{2}` | `(a + b)/2` |
+| Source                        | Inline       |
+| ----------------------------- | ------------ |
+| `\frac{n(n+1)}{2}`            | `n(n + 1)/2` |
+| `\frac{a+b}{2}`               | `(a + b)/2`  |
 | `\frac{1}{\sigma\sqrt{2\pi}}` | `1/(σ√(2π))` |
-| `\frac{-b}{2a}` | `-b/(2a)` |
-| `\sqrt{2\pi}` | `√(2π)` |
+| `\frac{-b}{2a}`               | `-b/(2a)`    |
+| `\sqrt{2\pi}`                 | `√(2π)`      |
 
 Numerators follow ordinary precedence, so a product needs no brackets before
 a `/`. Denominators and radicands are stricter — everything after a `/` or a
@@ -69,7 +69,7 @@ over/under) are promoted to their own block instead.
 snippets must stay text. `src/detect.ts` masks fenced blocks and inline code
 first, then applies the TeX-ish delimiter rules (no space just inside the
 delimiters, no digit right after the closer, no blank line inside, no purely
-numeric body). Ambiguous `$…$` spans additionally have to parse in *strict*
+numeric body). Ambiguous `$…$` spans additionally have to parse in _strict_
 mode; unambiguous delimiters (`$$`, `\[`, `\(`, `\begin{…}`) get the tolerant
 parser, because an author who writes `\[` meant math.
 

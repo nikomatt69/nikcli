@@ -3,11 +3,7 @@ import { LatexParseError } from "./types"
 export const DEFAULT_MAX_SOURCE_LENGTH = 100_000
 export const DEFAULT_MAX_NESTING_DEPTH = 256
 
-export function resolvePositiveInteger(
-  value: number | undefined,
-  fallback: number,
-  optionName: string,
-): number {
+export function resolvePositiveInteger(value: number | undefined, fallback: number, optionName: string): number {
   if (value === undefined) return fallback
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new RangeError(`${optionName} must be a positive safe integer`)

@@ -67,16 +67,8 @@ export function parseLatex(source: string, options: ParseOptions = {}): MathNode
 }
 
 export function expandLatexMacros(source: string, options: ParseOptions = {}): string {
-  const maxSourceLength = resolvePositiveInteger(
-    options.maxSourceLength,
-    DEFAULT_MAX_SOURCE_LENGTH,
-    "maxSourceLength",
-  )
-  const maxExpandedLength = resolvePositiveInteger(
-    options.maxExpandedLength,
-    maxSourceLength,
-    "maxExpandedLength",
-  )
+  const maxSourceLength = resolvePositiveInteger(options.maxSourceLength, DEFAULT_MAX_SOURCE_LENGTH, "maxSourceLength")
+  const maxExpandedLength = resolvePositiveInteger(options.maxExpandedLength, maxSourceLength, "maxExpandedLength")
   const maxExpand = resolvePositiveInteger(options.maxExpand, 100, "maxExpand")
   const maxDepth = resolvePositiveInteger(options.maxDepth, DEFAULT_MAX_NESTING_DEPTH, "maxDepth")
   assertSourceLength(source, maxSourceLength)
@@ -317,7 +309,11 @@ class Parser {
       return { type: "operator", value: largeOperators[command]!, limits: !command.includes("int") }
     }
     if (namedOperators.has(command)) {
-      return { type: "operator", value: command, limits: command.startsWith("lim") || command === "min" || command === "max" }
+      return {
+        type: "operator",
+        value: command,
+        limits: command.startsWith("lim") || command === "min" || command === "max",
+      }
     }
     if (command === "backslash") return { type: "symbol", value: "\\" }
     if (command in delimiterTable) return { type: "symbol", value: delimiterTable[command]! }
@@ -553,9 +549,7 @@ function row(body: MathNode[]): MathNode {
   return { type: "row", body }
 }
 
-function inferRole(
-  value: string,
-): "binary" | "relation" | "punctuation" | "opening" | "closing" | "ordinary" {
+function inferRole(value: string): "binary" | "relation" | "punctuation" | "opening" | "closing" | "ordinary" {
   if ("+-*/×÷±∓".includes(value)) return "binary"
   if ("=<>≤≥≠≈∈∉⊂⊃".includes(value)) return "relation"
   if (",;:".includes(value)) return "punctuation"

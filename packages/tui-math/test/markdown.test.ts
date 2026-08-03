@@ -3,9 +3,7 @@ import { buildMathBlocks, isMarkdownSafe, renderLatexToString } from "../src/ind
 
 describe("buildMathBlocks", () => {
   test("returns the message verbatim when it has no math", () => {
-    expect(buildMathBlocks("# Title\n\nsome prose")).toEqual([
-      { type: "markdown", content: "# Title\n\nsome prose" },
-    ])
+    expect(buildMathBlocks("# Title\n\nsome prose")).toEqual([{ type: "markdown", content: "# Title\n\nsome prose" }])
     expect(buildMathBlocks("")).toEqual([])
   })
 
@@ -51,9 +49,7 @@ describe("buildMathBlocks", () => {
   })
 
   test("keeps a math-only message as a single math block", () => {
-    expect(buildMathBlocks("$$E = mc^2$$")).toEqual([
-      { type: "math", content: "E = mc^2", display: true },
-    ])
+    expect(buildMathBlocks("$$E = mc^2$$")).toEqual([{ type: "math", content: "E = mc^2", display: true }])
   })
 
   test("handles several display blocks in a row", () => {

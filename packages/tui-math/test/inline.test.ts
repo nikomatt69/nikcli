@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test"
 import { buildMathBlocks, flattenInline, layoutMath, parseLatex } from "../src/index"
 
 function flat(latex: string): string {
-  return layoutMath(flattenInline(parseLatex(latex)), { displayMode: false }).toString().trim()
+  return layoutMath(flattenInline(parseLatex(latex)), { displayMode: false })
+    .toString()
+    .trim()
 }
 
 function inlineOf(message: string, options?: Parameters<typeof buildMathBlocks>[1]): string | undefined {
@@ -71,7 +73,11 @@ describe("flattenInline", () => {
   })
 
   test("leaves a formula with no stacked construct untouched", () => {
-    expect(flat(String.raw`a + b = c`)).toBe(layoutMath(parseLatex(String.raw`a + b = c`), { displayMode: false }).toString().trim())
+    expect(flat(String.raw`a + b = c`)).toBe(
+      layoutMath(parseLatex(String.raw`a + b = c`), { displayMode: false })
+        .toString()
+        .trim(),
+    )
   })
 })
 

@@ -16,8 +16,14 @@ describe("parseLatex", () => {
       type: "matrix",
       environment: "pmatrix",
       rows: [
-        [{ type: "symbol", value: "a" }, { type: "symbol", value: "b" }],
-        [{ type: "symbol", value: "c" }, { type: "symbol", value: "d" }],
+        [
+          { type: "symbol", value: "a" },
+          { type: "symbol", value: "b" },
+        ],
+        [
+          { type: "symbol", value: "c" },
+          { type: "symbol", value: "d" },
+        ],
       ],
     })
   })
@@ -26,7 +32,10 @@ describe("parseLatex", () => {
     expect(parseLatex(String.raw`\begin{array}{cc}a & b \\ c & d\end{array}`)).toMatchObject({
       type: "matrix",
       environment: "array",
-      rows: [[{}, {}], [{}, {}]],
+      rows: [
+        [{}, {}],
+        [{}, {}],
+      ],
     })
     expect(parseLatex(String.raw`\begin{align*}a &= b \\ c &= d\end{align*}`)).toMatchObject({
       type: "matrix",
@@ -89,8 +98,6 @@ describe("parseLatex", () => {
   test("bounds structural nesting with a parse error instead of overflowing the stack", () => {
     const source = "{".repeat(80) + "x" + "}".repeat(80)
     expect(() => parseLatex(source, { maxDepth: 64 })).toThrow(/64-level limit/)
-    expect(() => parseLatex(String.raw`\frac`.repeat(80) + "x", { maxDepth: 64 })).toThrow(
-      /64-level limit/,
-    )
+    expect(() => parseLatex(String.raw`\frac`.repeat(80) + "x", { maxDepth: 64 })).toThrow(/64-level limit/)
   })
 })

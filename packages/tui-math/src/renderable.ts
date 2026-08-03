@@ -149,9 +149,7 @@ export class LatexRenderable extends Renderable {
     const offsetY = Math.max(0, Math.floor((this.height - this.layout.height) / 2))
     const fallbackColor = this.renderError ? this._errorColor : this._foregroundColor
     const drawCell =
-      this._backgroundColor.a < 1
-        ? buffer.setCellWithAlphaBlending.bind(buffer)
-        : buffer.setCell.bind(buffer)
+      this._backgroundColor.a < 1 ? buffer.setCellWithAlphaBlending.bind(buffer) : buffer.setCell.bind(buffer)
 
     if (this._backgroundColor.a > 0) {
       buffer.fillRect(originX, originY, this.width, this.height, this._backgroundColor)
@@ -168,14 +166,7 @@ export class LatexRenderable extends Renderable {
         if (cell.style?.bold) attributes |= TextAttributes.BOLD
         if (cell.style?.italic) attributes |= TextAttributes.ITALIC
         if (cell.style?.dim) attributes |= TextAttributes.DIM
-        drawCell(
-          originX + offsetX + x,
-          originY + offsetY + y,
-          cell.char,
-          foreground,
-          this._backgroundColor,
-          attributes,
-        )
+        drawCell(originX + offsetX + x, originY + offsetY + y, cell.char, foreground, this._backgroundColor, attributes)
       }
     }
   }
@@ -188,9 +179,7 @@ export class LatexRenderable extends Renderable {
       this.renderError = error instanceof Error ? error : new Error(String(error))
       if (this._fallback === "throw") throw error
       const text =
-        this._fallback === "source"
-          ? sourcePreview(this._content)
-          : `LaTeX error: ${this.renderError.message}`
+        this._fallback === "source" ? sourcePreview(this._content) : `LaTeX error: ${this.renderError.message}`
       return renderLatex(String.raw`\text{${escapeText(text)}}`, { displayMode: false })
     }
   }
@@ -227,9 +216,7 @@ function extractRenderOptions(options: LatexRenderableOptions): RenderLatexOptio
 }
 
 function escapeText(value: string): string {
-  return value
-    .replace(/\r\n?|\n/g, " ")
-    .replace(/[{}%#$&_\\]/g, (char) => `\\${char}`)
+  return value.replace(/\r\n?|\n/g, " ").replace(/[{}%#$&_\\]/g, (char) => `\\${char}`)
 }
 
 function sourcePreview(value: string): string {

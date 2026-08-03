@@ -70,10 +70,6 @@ export function DialogSettingsDiagnostics() {
   }
 
   return (
-    <DialogSelect
-      title="Diagnostics Settings"
-      options={options()}
-      onSelect={(option) => void toggle(option.value)}
-    />
+    <DialogSelect title="Diagnostics Settings" options={options()} onSelect={(option) => void toggle(option.value)} />
   )
 }

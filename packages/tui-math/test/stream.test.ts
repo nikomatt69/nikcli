@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
-import {
-  completeLatexPrefix,
-  LatexRenderable,
-  LatexStreamController,
-  parseLatex,
-} from "../src/index"
+import { completeLatexPrefix, LatexRenderable, LatexStreamController, parseLatex } from "../src/index"
 
 let setup: TestRendererSetup | undefined
 
@@ -146,12 +141,8 @@ describe("LatexStreamController", () => {
 
   test("builds non-destructive previews for open arguments, delimiters, and environments", () => {
     expect(completeLatexPrefix(String.raw`\frac{1}{`)).toBe(String.raw`\frac{1}{}`)
-    expect(completeLatexPrefix(String.raw`\left(\frac{x}{2}`)).toBe(
-      String.raw`\left(\frac{x}{2}\right.`,
-    )
-    expect(
-      completeLatexPrefix(String.raw`\begin{aligned}A&=\begin{bmatrix}1&2\\`),
-    ).toBe(
+    expect(completeLatexPrefix(String.raw`\left(\frac{x}{2}`)).toBe(String.raw`\left(\frac{x}{2}\right.`)
+    expect(completeLatexPrefix(String.raw`\begin{aligned}A&=\begin{bmatrix}1&2\\`)).toBe(
       String.raw`\begin{aligned}A&=\begin{bmatrix}1&2\\\end{bmatrix}\end{aligned}`,
     )
     expect(completeLatexPrefix(String.raw`\beg`)).toBeUndefined()
