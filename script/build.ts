@@ -106,7 +106,13 @@ const targets = singleFlag
 await $`rm -rf dist`
 
 const binaries: Record<string, string> = {}
-if (!skipInstall) {
+// These two installs exist so a cross-platform build has every platform's
+// native binaries on disk. A --single build targets the current platform only,
+// whose natives the ordinary workspace install already provided — and re-running
+// install here relinks node_modules with the default linker, which breaks a
+// workspace installed with --linker hoisted (Windows CI): @opentui/solid's
+// nested @babel/core then cannot resolve @babel/helper-compilation-targets.
+if (!skipInstall && !singleFlag) {
   // `process.execPath`, not the bare name: `bun run` puts node_modules/.bin
   // first on PATH, and the `bun` npm package in the tree puts a `bun` shim
   // there. Under the hoisted linker Windows CI uses, that shim wins the lookup
