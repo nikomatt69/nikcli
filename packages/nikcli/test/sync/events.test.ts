@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -5,9 +6,11 @@ import { afterAll, describe, expect, it } from "bun:test"
 import z from "zod"
 
 const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-sync-events-"))
-process.env.NIKCLI_TEST_HOME ??= testDir
-process.env.NIKCLI_DB ??= path.join(testDir, "nikcli.db")
-process.env.XDG_DATA_HOME ??= path.join(testDir, "data")
+process.env.NIKCLI_TEST_HOME = testDir
+process.env.NIKCLI_DB = path.join(testDir, "nikcli.db")
+process.env.XDG_DATA_HOME = path.join(testDir, "data")
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DB", "XDG_DATA_HOME"])
 
 const { SyncEvents } = await import("@/sync/events")
 const { Sync } = await import("@/sync")

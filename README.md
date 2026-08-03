@@ -1,15 +1,17 @@
 # Nikcli
 
-> **Fork of [OpenCode](https://github.com/sst/opencode)** — AI-powered development tool: CLI, TUI, server, web, mobile, bots.
+> **Nikcli is a fork of [OpenCode](https://github.com/anomalyco/opencode)** — the open source coding agent. AI-powered development tool: CLI, TUI, server, web, mobile, bots.
 
-Nikcli is a **fork of [OpenCode](https://github.com/sst/opencode)** (the open-source project by [SST](https://sst.dev)) maintained by **nikomatt69**. Building on the OpenCode base, nikcli adds new commands (`goal`, `routine`, `mobile`, `ads`, `heap`, `locale`, `brain-model` / `image-model` / `speak-model`, `workspace-serve`, …), ACP integration, the Loops/Goal/Routines system, mobile pairing with a dedicated Expo app, the web companion UI, multi-channel bots, the Session v2 engine, and the in-progress migration to `Effect` Schema.
+Nikcli is a **fork of [OpenCode](https://github.com/anomalyco/opencode)**, the open source coding agent (the repo previously lived at `sst/opencode` — same project, same org). **All credit for the original project goes to the OpenCode authors and its community** — nikcli exists only because that work is open source, and every part of nikcli that came from OpenCode remains theirs.
 
-> Full credits, history, and original license in the upstream repository: [https://github.com/sst/opencode](https://github.com/sst/opencode).
+This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli adds new commands (`goal`, `routine`, `mobile`, `ads`, `heap`, `locale`, `brain-model` / `image-model` / `speak-model`, `workspace-serve`, …), ACP integration, the Loops/Goal/Routines system, mobile pairing with a dedicated Expo app, the web companion UI, multi-channel bots, the Session v2 engine, and the in-progress migration to `Effect` Schema.
 
-- **Maintainer**: nikomatt69 — [GitHub](https://github.com/nikomatt69) · [X](https://x.com/nikomatt69)
+> Nikcli is **not** affiliated with, endorsed by, or supported by the OpenCode project. Please report nikcli issues here, not upstream. Full credits, history, and the original license live in the upstream repository: [https://github.com/anomalyco/opencode](https://github.com/anomalyco/opencode).
+
+- **Upstream project**: OpenCode — [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
+- **Maintainer of this fork**: nikomatt69 — [GitHub](https://github.com/nikomatt69) · [X](https://x.com/nikomatt69)
 - **Version**: `1.149.0` · Package manager: `bun@1.3.14`
-- **Upstream**: [github.com/sst/opencode](https://github.com/sst/opencode)
-- **License**: MIT (see `LICENSE`).
+- **License**: MIT — see `LICENSE`, which retains the upstream OpenCode copyright.
 
 ---
 
@@ -33,10 +35,13 @@ Nikcli is a **fork of [OpenCode](https://github.com/sst/opencode)** (the open-so
 16. [Plugins, skills and TUI sub-plugins](#plugins-skills-and-tui-sub-plugins)
 17. [Configuration](#configuration)
 18. [Documentation and resources](#documentation-and-resources)
+19. [Credits](#credits)
 
 ---
 
 ## What nikcli is
+
+> Reminder: nikcli is a fork of [OpenCode](https://github.com/anomalyco/opencode). The architecture below — TUI, headless server, tool registry, session engine, plugin runtime — descends from OpenCode's design; credit for it belongs to the upstream project.
 
 Nikcli is not just a CLI to chat with a model: it is a **complete agentic platform** that orchestrates models, tools, subagents and project context. Its main surfaces:
 
@@ -674,7 +679,7 @@ Recognized env flags (see `flag/flag.ts`): `NIKCLI_SERVER_PASSWORD`, `NIKCLI_SER
 - **Quickstart**: [https://nikcli.store/docs/quickstart](https://nikcli.store/docs/quickstart)
 - **Web app**: [https://app.nikcli.store](https://app.nikcli.store)
 - **Slack bot**: [https://slack.nikcli.store](https://slack.nikcli.store)
-- **Upstream project**: [https://github.com/sst/opencode](https://github.com/sst/opencode)
+- **Upstream project (OpenCode)**: [https://github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
 - **This fork**: [https://github.com/nikomatt69/nikcli](https://github.com/nikomatt69/nikcli)
 - **Issue tracker & discussions**: GitHub repository.
 - **Internal specs** (in `specs/`): performance, modularization, i18n, loops, OpenAPI cleanup.
@@ -691,6 +696,17 @@ Useful repository files:
 
 ---
 
+## Credits
+
+Nikcli is a fork of **[OpenCode](https://github.com/anomalyco/opencode)**, the open source coding agent
+(the repo previously lived at `sst/opencode`). The core architecture, the terminal-first
+product idea, and a large share of the code in this repository originate there. Thanks to the OpenCode
+authors, maintainers, and contributors for releasing it under a permissive license.
+
+Nikcli is an independent fork, not affiliated with or endorsed by the OpenCode project. Any bug you hit
+in nikcli should be reported to this repository, never upstream.
+
 ## License
 
-MIT — see `LICENSE`.
+MIT — see `LICENSE`. The license file retains the upstream OpenCode copyright alongside the
+copyright for this fork's changes.

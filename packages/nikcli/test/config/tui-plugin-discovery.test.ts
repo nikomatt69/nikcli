@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { describe, expect, it } from "bun:test"
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "fs/promises"
 import { tmpdir } from "os"
@@ -11,6 +12,15 @@ process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
 process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+])
 
 const { TuiConfig } = await import("@/config/tui")
 

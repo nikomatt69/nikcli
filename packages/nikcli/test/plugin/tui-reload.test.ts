@@ -77,8 +77,16 @@ describe("tui plugin hot reload helpers", () => {
     })
     try {
       watcher.add(file)
-      await writeFile(file, "export default 2")
-      expect(await until(() => changes > 0)).toBe(true)
+      // fs.watch (FSEvents) can drop an edit that lands before the stream is
+      // fully armed, and delivery lags when the suite runs many files in one
+      // process: keep rewriting until the watcher observes a change, bounded
+      // to ~10s so a genuinely broken watcher still fails fast.
+      let observed = false
+      for (let attempt = 0; attempt < 10 && !observed; attempt++) {
+        await writeFile(file, `export default ${attempt + 2}`)
+        observed = await until(() => changes > 0, 50)
+      }
+      expect(observed).toBe(true)
 
       // Edits to unrelated files in the same directory are filtered out.
       const before = changes

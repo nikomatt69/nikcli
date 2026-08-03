@@ -42,11 +42,11 @@ Important current facts:
 - there is no `packages/core` or `packages/cli` workspace yet
 - there is no `packages/server` workspace yet on this branch
 - the main host server is still Hono-based in `src/server/server.ts`
-- current OpenAPI generation is Hono-based through `Server.openapi()` and `cli/cmd/generate.ts`
-- the Effect runtime and app layer are centralized in `src/effect/app-runtime.ts` and `src/effect/run-service.ts`
-- there are already bridged Effect `HttpApi` slices under `src/server/routes/instance/httpapi/*`
-- those slices are mounted into the Hono server behind `NIKCLI_EXPERIMENTAL_HTTPAPI`
-- the bridge currently covers `question`, `permission`, `provider`, partial `config`, and partial `project` routes
+- current OpenAPI generation supports the Hono and Effect contracts through `src/cli/cmd/generate.ts`
+- the Effect runtime and service runner are centralized in `src/effect/runtime.ts` and `src/effect/run-service.ts`
+- bridged Effect `HttpApi` contracts and handlers live under `src/server/httpapi/*`
+- `NIKCLI_EXPERIMENTAL_HTTPAPI` is default-on in `src/flag/flag.ts`; `0` or `false` opts out
+- the bridge covers a large route subset; `specs/httpapi-bridge-inventory.md` is the current inventory
 
 This means the package split should start from an extraction path, not from greenfield package ownership.
 
@@ -216,12 +216,13 @@ Current host and route composition:
 
 Current bridged `HttpApi` slices:
 
-- `src/server/routes/instance/httpapi/question.ts`
-- `src/server/routes/instance/httpapi/permission.ts`
-- `src/server/routes/instance/httpapi/provider.ts`
-- `src/server/routes/instance/httpapi/config.ts`
-- `src/server/routes/instance/httpapi/project.ts`
-- `src/server/routes/instance/httpapi/server.ts`
+- `src/server/httpapi/public.ts`
+- `src/server/httpapi/bridge.ts`
+- `src/server/httpapi/question.ts`
+- `src/server/httpapi/permission.ts`
+- `src/server/httpapi/provider.ts`
+- `src/server/httpapi/config.ts`
+- `src/server/httpapi/project.ts`
 
 Current OpenAPI flow:
 
@@ -231,7 +232,7 @@ Current OpenAPI flow:
 
 Current runtime and service layer:
 
-- `src/effect/app-runtime.ts`
+- `src/effect/runtime.ts`
 - `src/effect/run-service.ts`
 
 ## Ownership rules
@@ -250,7 +251,7 @@ Keep in `packages/nikcli` for now:
 - `src/server/routes/**/*.ts`
 - `src/server/middleware.ts`
 - `src/server/adapter.*.ts`
-- `src/effect/app-runtime.ts`
+- `src/effect/runtime.ts`
 - `src/effect/run-service.ts`
 - all Effect services until they move to `packages/core`
 
@@ -358,7 +359,7 @@ Done means:
 
 Scope:
 
-- extract the pure `HttpApi` contract from `src/server/routes/instance/httpapi/question.ts`
+- extract the pure `HttpApi` contract from `src/server/httpapi/question.ts`
 - place it in `packages/server/src/definition/question.ts`
 - aggregate it in `packages/server/src/definition/api.ts`
 - generate OpenAPI in `packages/server/src/openapi.ts`

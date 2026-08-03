@@ -1,5 +1,8 @@
 # nikcli Repository
 
+nikcli is a fork of [OpenCode](https://github.com/anomalyco/opencode). Much of the structure below comes from
+there — when in doubt about why something is shaped the way it is, check upstream first.
+
 ## Key Commands
 
 - **Test nikcli**: `bun run dev` in `packages/nikcli`

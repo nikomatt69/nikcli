@@ -1,22 +1,19 @@
-import { describe, expect, it, beforeAll, afterAll } from "bun:test"
+import { preserveTestEnv } from "../helpers/env"
+import { describe, expect, it, afterAll } from "bun:test"
 import { Database } from "@/database/database"
 import { Sync, type SyncEventRecord } from "@/sync"
 import { mkdtempSync, rmSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 
-let tempDir: string
-
-beforeAll(() => {
-  tempDir = mkdtempSync(join(tmpdir(), "nikcli-sync-on-emit-"))
-  process.env.NIKCLI_DB = join(tempDir, "test.db")
-  process.env.XDG_DATA_HOME = tempDir
-  // Force a fresh open
-  ;(Database as any)._singleton = undefined
-})
+const tempDir = mkdtempSync(join(tmpdir(), "nikcli-sync-on-emit-"))
+process.env.NIKCLI_DB = join(tempDir, "test.db")
+process.env.XDG_DATA_HOME = tempDir
+preserveTestEnv(["NIKCLI_DB", "XDG_DATA_HOME"])
 
 afterAll(() => {
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true })
+  Database.close(join(tempDir, "test.db"))
+  rmSync(tempDir, { recursive: true, force: true })
 })
 
 describe("Sync.onEmit", () => {

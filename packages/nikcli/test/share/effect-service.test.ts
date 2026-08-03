@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
 import fs from "fs/promises"
@@ -7,6 +8,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-share-next-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_SHARE = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_SHARE"])
 
 const { ShareNext } = await import("@/share/share-next")
 

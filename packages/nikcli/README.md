@@ -1,5 +1,9 @@
 # nikcli
 
+> **A fork of [OpenCode](https://github.com/anomalyco/opencode)** — the open source coding agent.
+> Credit for the original project goes to the OpenCode authors and contributors. nikcli is an
+> independent fork, not affiliated with or endorsed by them.
+
 nikcli is a Bun-based AI coding agent combining a terminal UI, an HTTP server API, external service connectors, and a mobile companion app.
 
 nikcli is an AI-powered development tool with connectors, a mobile companion, and a structured CLI command surface.
@@ -72,7 +76,7 @@ Local development runs the CLI entrypoint at `packages/nikcli/src/index.ts`.
 
 In-repo design and roadmap documents for contributors:
 
-- [`specs/integration-master-plan.md`](./specs/integration-master-plan.md) — the authoritative internal-refactor roadmap (Effect services, Hono→HttpApi, schema, ALS, `packages/server` extraction). 9 epochs, ordered by dependency.
-- [`specs/ux-roadmap.md`](./specs/ux-roadmap.md) — the user-facing UX / TUI / onboarding roadmap. What the end user sees, clicks, types, reads, and feels. Complement to the integration plan; sequenced independently. Batch 1 is the "new user can succeed" set.
+- [`specs/integration-plan-verified.md`](./specs/integration-plan-verified.md) — the verified internal-refactor roadmap (Effect services, Hono→HttpApi, schema, ALS, `packages/server` extraction). 9 phases, ordered by dependency.
+- [`specs/ROADMAP.md`](./specs/ROADMAP.md) — the canonical product and engineering roadmap.
 - [`specs/effect/`](./specs/effect/) — detailed Effect-migration specs feeding the integration plan.
 - [`specs/v2/`](./specs/v2/) — v2 API surface and TUI/keymap/notifications/message-shape specs.

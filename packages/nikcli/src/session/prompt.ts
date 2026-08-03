@@ -1,5 +1,4 @@
 import path from "path"
-import os from "os"
 import fs from "fs/promises"
 import z from "zod"
 import { quote } from "shell-quote"
@@ -29,7 +28,6 @@ import { ulid } from "ulid"
 import { spawn } from "child_process"
 import { Command } from "../command"
 import { $, fileURLToPath } from "bun"
-import { pathToFileURL } from "url"
 import { ConfigMarkdown } from "../config/markdown"
 import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
@@ -44,7 +42,7 @@ import { SessionStatus } from "./status"
 import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
-import { Context, Effect, Layer, ScopedCache } from "effect"
+import { Context, Effect, Layer } from "effect"
 import { Instance } from "@/project/instance"
 import {
   AppRuntime,
@@ -56,6 +54,10 @@ import {
 } from "@/effect"
 import { errorMessage } from "@/util/error"
 import { resolveTools, createStructuredOutputTool } from "./tools"
+import { PromptParts } from "./prompt-parts"
+import { PromptState } from "./prompt-state"
+import { PromptCommands } from "./prompt-commands"
+import { PromptTitle } from "./prompt-title"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -63,17 +65,6 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
-  type PromptState = Record<
-    string,
-    {
-      abort: AbortController
-      cancelling?: boolean
-      callbacks: {
-        resolve(input: MessageV2.WithParts): void
-        reject(error?: Error): void
-      }[]
-    }
-  >
 
   export function isUserInitiatedStop(error: unknown) {
     if (error === undefined) return true
@@ -81,22 +72,6 @@ export namespace SessionPrompt {
     if (error instanceof DOMException && error.name === "AbortError") return true
     if (errorMessage(error) === "RunnerCancelled") return true
     return error instanceof Error && error.name === "AbortError"
-  }
-
-  function sessionInterruptedError() {
-    return Effect.tryPromise({
-      try: () => Promise.resolve(new MessageV2.AbortedError({ message: "Session interrupted" })),
-      catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-    })
-  }
-
-  function rejectSessionWaiters(callbacks: PromptState[string]["callbacks"]) {
-    return Effect.gen(function* () {
-      const error = yield* sessionInterruptedError()
-      for (const callback of callbacks) {
-        yield* Effect.promise(() => Promise.resolve(callback.reject(error)))
-      }
-    })
   }
 
   function askPermission(input: PermissionNext.AskInput) {
@@ -391,47 +366,6 @@ export namespace SessionPrompt {
     return InstanceState.context.pipe(Effect.flatMap((ctx) => runInInstanceContext(ctx, fn)))
   }
 
-  class StateCache extends Context.Service<StateCache, ScopedCache.ScopedCache<string, PromptState>>()(
-    "SessionPrompt.StateCache",
-  ) {}
-
-  const stateLayer = Layer.effect(
-    StateCache,
-    InstanceState.make<PromptState>(() =>
-      Effect.gen(function* () {
-        const data: PromptState = {}
-        yield* Effect.addFinalizer(() =>
-          Effect.gen(function* () {
-            for (const item of Object.values(data)) {
-              if (!item.abort.signal.aborted) item.abort.abort()
-              if (!item.cancelling) {
-                item.cancelling = true
-                yield* Effect.orDie(rejectSessionWaiters(item.callbacks))
-                item.callbacks = []
-              }
-            }
-          }),
-        )
-        return data
-      }),
-    ),
-  )
-
-  function getStateEffect() {
-    return Effect.gen(function* () {
-      const cache = yield* StateCache
-      return yield* InstanceState.get(cache)
-    })
-  }
-
-  function getServiceStateEffect() {
-    return getStateEffect().pipe(Effect.provide(stateLayer))
-  }
-
-  function state(): PromptState {
-    return runtimeFor(stateLayer).runSync(withCurrentInstance(getStateEffect()))
-  }
-
   export const PromptInput = z.object({
     sessionID: Identifier.schema("session"),
     messageID: Identifier.schema("message").optional(),
@@ -452,50 +386,7 @@ export namespace SessionPrompt {
     format: MessageV2.Format.optional(),
     system: z.string().optional(),
     variant: z.string().optional(),
-    parts: z.array(
-      z.discriminatedUnion("type", [
-        MessageV2.TextPart.omit({
-          messageID: true,
-          sessionID: true,
-        })
-          .partial({
-            id: true,
-          })
-          .meta({
-            ref: "TextPartInput",
-          }),
-        MessageV2.FilePart.omit({
-          messageID: true,
-          sessionID: true,
-        })
-          .partial({
-            id: true,
-          })
-          .meta({
-            ref: "FilePartInput",
-          }),
-        MessageV2.AgentPart.omit({
-          messageID: true,
-          sessionID: true,
-        })
-          .partial({
-            id: true,
-          })
-          .meta({
-            ref: "AgentPartInput",
-          }),
-        MessageV2.SubtaskPart.omit({
-          messageID: true,
-          sessionID: true,
-        })
-          .partial({
-            id: true,
-          })
-          .meta({
-            ref: "SubtaskPartInput",
-          }),
-      ]),
-    ),
+    parts: z.array(PromptParts.InputPart),
   })
   export type PromptInput = z.infer<typeof PromptInput>
 
@@ -511,8 +402,8 @@ export namespace SessionPrompt {
     resolvePromptParts(template: string): Effect.Effect<PromptInput["parts"], unknown>
     cancel(sessionID: string): Effect.Effect<void>
     loop(sessionID: string): Effect.Effect<Awaited<ReturnType<typeof loop>>, unknown>
-    shell(input: ShellInput): Effect.Effect<Awaited<ReturnType<typeof shell>>, unknown>
-    command(input: CommandInput): Effect.Effect<Awaited<ReturnType<typeof command>>, unknown>
+    shell(input: ShellInput): Effect.Effect<Awaited<ReturnType<typeof PromptCommands.shell>>, unknown>
+    command(input: CommandInput): Effect.Effect<Awaited<ReturnType<typeof PromptCommands.command>>, unknown>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SessionPrompt.Service") {}
@@ -557,122 +448,18 @@ export namespace SessionPrompt {
 
     return loop(input.sessionID)
   })
-  async function resolvePromptPartsImpl(ctx: InstanceContext, template: string): Promise<PromptInput["parts"]> {
-    const parts: PromptInput["parts"] = [
-      {
-        type: "text",
-        text: template,
-      },
-    ]
-    const files = ConfigMarkdown.files(template)
-    const seen = new Set<string>()
-    await Promise.all(
-      files.map(async (match) => {
-        const name = match[1]
-        if (seen.has(name)) return
-        seen.add(name)
-        const filepath = name.startsWith("~/")
-          ? path.join(os.homedir(), name.slice(2))
-          : path.resolve(ctx.worktree, name)
-
-        const stats = await fs.stat(filepath).catch(() => undefined)
-        if (!stats) {
-          const agent = await agentGet(name)
-          if (agent) {
-            parts.push({
-              type: "agent",
-              name: agent.name,
-            })
-          }
-          return
-        }
-
-        if (stats.isDirectory()) {
-          parts.push({
-            type: "file",
-            url: pathToFileURL(filepath).href,
-            filename: name,
-            mime: "application/x-directory",
-          })
-          return
-        }
-
-        parts.push({
-          type: "file",
-          url: pathToFileURL(filepath).href,
-          filename: name,
-          mime: "text/plain",
-        })
-      }),
-    )
-    return parts
-  }
-
-  async function resolvePromptParts(template: string): Promise<PromptInput["parts"]> {
-    return resolvePromptPartsImpl(await currentContext(), template)
-  }
-
-  function start(sessionID: string) {
-    const s = state()
-    if (s[sessionID]) return
-    const controller = new AbortController()
-    s[sessionID] = {
-      abort: controller,
-      callbacks: [],
-    }
-    return controller
-  }
-
-  async function finish(sessionID: string, controller: AbortController) {
-    const s = state()
-    const match = s[sessionID]
-    if (!match || match.abort !== controller) return
-    if (!match.cancelling) {
-      match.cancelling = true
-      rejectSessionWaiters(match.callbacks)
-      match.callbacks = []
-    }
-    await setStatus(sessionID, { type: "idle" })
-    if (s[sessionID] === match) {
-      delete s[sessionID]
-    }
-  }
-
-  const cancel = (() => {
-    const log = Log.create({ service: "session.prompt" })
-    return async function cancel(sessionID: string) {
-      log.info("cancel", { sessionID })
-      const s = state()
-      const match = s[sessionID]
-      if (!match) {
-        await setStatus(sessionID, { type: "idle" })
-        return
-      }
-      if (!match.abort.signal.aborted) {
-        match.abort.abort()
-      }
-      if (match.cancelling) {
-        await rejectSessionWaiters(match.callbacks)
-      } else {
-        match.cancelling = true
-        rejectSessionWaiters(match.callbacks)
-        match.callbacks = []
-      }
-      await setStatus(sessionID, { type: "idle" })
-    }
-  })()
 
   const loop = fn(Identifier.schema("session"), async (sessionID) => {
-    const controller = start(sessionID)
+    const controller = PromptState.start(sessionID)
     if (!controller) {
       return new Promise<MessageV2.WithParts>((resolve, reject) => {
-        const callbacks = state()[sessionID].callbacks
+        const callbacks = PromptState.state()[sessionID].callbacks
         callbacks.push({ resolve, reject })
       })
     }
     const abort = controller.signal
 
-    await using _ = defer(() => finish(sessionID, controller))
+    await using _ = defer(() => PromptState.finish(sessionID, controller))
     const ctx = await currentContext()
 
     // Structured output state
@@ -744,7 +531,7 @@ export namespace SessionPrompt {
 
       step++
       if (step === 1)
-        ensureTitle({
+        PromptTitle.ensure(titleDeps, {
           session,
           modelID: lastUser.model.modelID,
           providerID: lastUser.model.providerID,
@@ -1292,7 +1079,7 @@ export namespace SessionPrompt {
     )
     for await (const item of MessageV2.stream(sessionID)) {
       if (item.info.role === "user") continue
-      const queued = state()[sessionID]?.callbacks ?? []
+      const queued = PromptState.state()[sessionID]?.callbacks ?? []
       for (const q of queued) {
         q.resolve(item)
       }
@@ -1875,605 +1662,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     return input.messages
   }
 
-  export const ShellInput = z.object({
-    sessionID: Identifier.schema("session"),
-    agent: z.string(),
-    model: z
-      .object({
-        providerID: z.string(),
-        modelID: z.string(),
-      })
-      .optional(),
-    command: z.string(),
-  })
-  export type ShellInput = z.infer<typeof ShellInput>
-  async function shell(input: ShellInput) {
-    const controller = start(input.sessionID)
-    if (!controller) {
-      throw new Session.BusyError({
-        sessionID: input.sessionID,
-        message: "Session is busy",
-      })
-    }
-    const abort = controller.signal
-    await using _ = defer(() => finish(input.sessionID, controller))
-    const ctx = await currentContext()
+  export const ShellInput = PromptCommands.ShellInput
+  export type ShellInput = PromptCommands.ShellInput
 
-    const session = await sessionGet(input.sessionID)
-    if (session.revert) {
-      void runRevert(
-        Effect.gen(function* () {
-          const revert = yield* SessionRevert.Service
-          yield* revert.cleanup(session)
-        }),
-      )
-    }
-    const agent = await agentRequired(input.agent)
-    const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
-    const userMsg: MessageV2.User = {
-      id: Identifier.ascending("message"),
-      sessionID: input.sessionID,
-      time: {
-        created: Date.now(),
-      },
-      role: "user",
-      agent: input.agent,
-      model: {
-        providerID: model.providerID,
-        modelID: model.modelID,
-      },
-    }
-    await sessionUpdateMessage(userMsg)
-    const userPart: MessageV2.Part = {
-      type: "text",
-      id: Identifier.ascending("part"),
-      messageID: userMsg.id,
-      sessionID: input.sessionID,
-      text: "The following tool was executed by the user",
-      synthetic: true,
-    }
-    await sessionUpdatePart(userPart)
-
-    const msg: MessageV2.Assistant = {
-      id: Identifier.ascending("message"),
-      sessionID: input.sessionID,
-      parentID: userMsg.id,
-      mode: input.agent,
-      agent: input.agent,
-      cost: 0,
-      path: {
-        cwd: ctx.directory,
-        root: ctx.worktree,
-      },
-      time: {
-        created: Date.now(),
-      },
-      role: "assistant",
-      tokens: {
-        input: 0,
-        output: 0,
-        reasoning: 0,
-        cache: { read: 0, write: 0 },
-      },
-      modelID: model.modelID,
-      providerID: model.providerID,
-    }
-    await sessionUpdateMessage(msg)
-    const part: MessageV2.Part = {
-      type: "tool",
-      id: Identifier.ascending("part"),
-      messageID: msg.id,
-      sessionID: input.sessionID,
-      tool: "bash",
-      callID: ulid(),
-      state: {
-        status: "running",
-        time: {
-          start: Date.now(),
-        },
-        input: {
-          command: input.command,
-        },
-      },
-    }
-    await sessionUpdatePart(part)
-    const shell = Shell.preferred()
-    const shellName = (
-      process.platform === "win32" ? path.win32.basename(shell, ".exe") : path.basename(shell)
-    ).toLowerCase()
-
-    const invocations: Record<string, { args: string[] }> = {
-      nu: {
-        args: ["-c", input.command],
-      },
-      fish: {
-        args: ["-c", input.command],
-      },
-      zsh: {
-        args: [
-          "-c",
-          "-l",
-          `
-            [[ -f ~/.zshenv ]] && source ~/.zshenv >/dev/null 2>&1 || true
-            [[ -f "\${ZDOTDIR:-$HOME}/.zshrc" ]] && source "\${ZDOTDIR:-$HOME}/.zshrc" >/dev/null 2>&1 || true
-            eval ${quote([input.command])}
-          `,
-        ],
-      },
-      bash: {
-        args: [
-          "-c",
-          "-l",
-          `
-            shopt -s expand_aliases
-            [[ -f ~/.bashrc ]] && source ~/.bashrc >/dev/null 2>&1 || true
-            eval ${quote([input.command])}
-          `,
-        ],
-      },
-      cmd: {
-        args: ["/c", input.command],
-      },
-      powershell: {
-        args: ["-NoProfile", "-Command", input.command],
-      },
-      pwsh: {
-        args: ["-NoProfile", "-Command", input.command],
-      },
-      "": {
-        args: ["-c", `${input.command}`],
-      },
-    }
-
-    const matchingInvocation = invocations[shellName] ?? invocations[""]
-    const args = matchingInvocation?.args
-
-    const proc = spawn(shell, args, {
-      windowsHide: true,
-      cwd: ctx.directory,
-      detached: process.platform !== "win32",
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        TERM: "dumb",
-      },
-    })
-
-    let output = ""
-
-    proc.stdout?.on("data", (chunk) => {
-      output += chunk.toString()
-      if (part.state.status === "running") {
-        part.state.metadata = {
-          output: output,
-          description: "",
-        }
-        void sessionUpdatePart(part)
-      }
-    })
-
-    proc.stderr?.on("data", (chunk) => {
-      output += chunk.toString()
-      if (part.state.status === "running") {
-        part.state.metadata = {
-          output: output,
-          description: "",
-        }
-        void sessionUpdatePart(part)
-      }
-    })
-
-    let aborted = false
-    let exited = false
-
-    let killPromise: Promise<void> | undefined
-    const kill = () => {
-      killPromise ??= Shell.killTree(proc, { exited: () => exited })
-      return killPromise
-    }
-
-    if (abort.aborted) {
-      aborted = true
-      await kill()
-    }
-
-    const abortHandler = () => {
-      aborted = true
-      void kill()
-    }
-
-    abort.addEventListener("abort", abortHandler, { once: true })
-
-    await new Promise<void>((resolve) => {
-      proc.on("close", () => {
-        exited = true
-        abort.removeEventListener("abort", abortHandler)
-        resolve()
-      })
-    })
-
-    if (aborted) {
-      output += "\n\n" + ["<metadata>", "User aborted the command", "</metadata>"].join("\n")
-    }
-    msg.time.completed = Date.now()
-    await sessionUpdateMessage(msg)
-    if (part.state.status === "running") {
-      part.state = {
-        status: "completed",
-        time: {
-          ...part.state.time,
-          end: Date.now(),
-        },
-        input: part.state.input,
-        title: "",
-        metadata: {
-          output,
-          description: "",
-        },
-        output,
-      }
-      await sessionUpdatePart(part)
-    }
-    return { info: msg, parts: [part] }
-  }
-
-  export const CommandInput = z.object({
-    messageID: Identifier.schema("message").optional(),
-    sessionID: Identifier.schema("session"),
-    agent: z.string().optional(),
-    model: z.string().optional(),
-    arguments: z.string(),
-    command: z.string(),
-    variant: z.string().optional(),
-    parts: z
-      .array(
-        z.discriminatedUnion("type", [
-          MessageV2.FilePart.omit({
-            messageID: true,
-            sessionID: true,
-          }).partial({
-            id: true,
-          }),
-        ]),
-      )
-      .optional(),
-  })
-  export type CommandInput = z.infer<typeof CommandInput>
-  const bashRegex = /!`([^`]+)`/g
-  const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi
-  const placeholderRegex = /\$(\d+)/g
-  const quoteTrimRegex = /^["']|["']$/g
-
-  async function command(input: CommandInput) {
-    log.info("command", input)
-    const command = await commandGet(input.command)
-    if (!command) throw new Error(`Command "${input.command}" not found`)
-    const agentName = command.agent ?? input.agent ?? (await defaultAgent())
-    const parsedGoal = input.command === Command.Default.GOAL ? SessionGoal.parseArguments(input.arguments) : undefined
-    const commandArguments = parsedGoal?.type === "objective" ? parsedGoal.objective : input.arguments
-
-    const raw = commandArguments.match(argsRegex) ?? []
-    const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
-
-    let templateCommand = await command.template
-    if (parsedGoal?.type === "objective" && parsedGoal.tokenBudget !== undefined) {
-      templateCommand = templateCommand.replace(
-        "$ARGUMENTS",
-        `$ARGUMENTS\n\nToken Budget: ${parsedGoal.tokenBudget} tokens`,
-      )
-    }
-
-    const placeholders = templateCommand.match(placeholderRegex) ?? []
-    let last = 0
-    for (const item of placeholders) {
-      const value = Number(item.slice(1))
-      if (value > last) last = value
-    }
-
-    const withArgs = templateCommand.replaceAll(placeholderRegex, (_, index) => {
-      const position = Number(index)
-      const argIndex = position - 1
-      if (argIndex >= args.length) return ""
-      if (position === last) return args.slice(argIndex).join(" ")
-      return args[argIndex]
-    })
-    const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
-    let template = withArgs.replaceAll("$ARGUMENTS", commandArguments)
-
-    if (placeholders.length === 0 && !usesArgumentsPlaceholder && commandArguments.trim()) {
-      template = template + "\n\n" + commandArguments
-    }
-
-    const shell = ConfigMarkdown.shell(template)
-    if (shell.length > 0) {
-      const results = await Promise.all(
-        shell.map(async ([, cmd]) => {
-          try {
-            return await $`${{ raw: cmd }}`.quiet().nothrow().text()
-          } catch (error) {
-            return `Error executing command: ${error instanceof Error ? error.message : String(error)}`
-          }
-        }),
-      )
-      let index = 0
-      template = template.replace(bashRegex, () => results[index++])
-    }
-    template = template.trim()
-
-    const taskModel = await (async () => {
-      if (command.model) {
-        return Provider.parseModel(command.model)
-      }
-      if (command.agent) {
-        const cmdAgent = await agentGet(command.agent)
-        if (cmdAgent?.model) {
-          return cmdAgent.model
-        }
-      }
-      if (input.model) return Provider.parseModel(input.model)
-      return await lastModel(input.sessionID)
-    })()
-
-    try {
-      await providerGetModel(taskModel.providerID, taskModel.modelID)
-    } catch (e) {
-      if (e instanceof Provider.ModelNotFoundError) {
-        const { providerID, modelID, suggestions } = e
-        const hint = suggestions?.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""
-        Bus.publish(Session.Event.Error, {
-          sessionID: input.sessionID,
-          error: EventError.unknown(`Model not found: ${providerID}/${modelID}.${hint}`),
-        })
-      }
-      throw e
-    }
-    const agent = await agentGet(agentName)
-    if (!agent) {
-      const available = await agentList().then((agents) => agents.filter((a) => !a.hidden).map((a) => a.name))
-      const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-      const agentNotFoundMsg = `Agent not found: "${agentName}".${hint}`
-      Bus.publish(Session.Event.Error, {
-        sessionID: input.sessionID,
-        error: EventError.unknown(agentNotFoundMsg),
-      })
-      throw new Agent.NotFoundError({ name: agentName })
-    }
-
-    const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true
-    const userAgent = isSubtask ? (input.agent ?? (await defaultAgent())) : agentName
-    const userModel = isSubtask
-      ? input.model
-        ? Provider.parseModel(input.model)
-        : await lastModel(input.sessionID)
-      : taskModel
-
-    if (parsedGoal?.type === "subcommand") {
-      const commandResult = await runGoal(
-        Effect.gen(function* () {
-          const goal = yield* SessionGoal.Service
-          if (parsedGoal.command === "pause") {
-            const paused = yield* goal.pause(input.sessionID)
-            return {
-              text: paused ? `Goal paused: ${paused.objective}` : "No active goal to pause.",
-              activeCommand: undefined,
-            }
-          }
-          if (parsedGoal.command === "resume") {
-            const resumed = yield* goal.resume(input.sessionID)
-            return {
-              text: resumed ? `Goal resumed: ${resumed.objective}` : "No paused goal to resume.",
-              activeCommand: resumed ? "goal" : undefined,
-            }
-          }
-          if (parsedGoal.command === "clear") {
-            const existing = yield* goal.get(input.sessionID)
-            yield* goal.clear(input.sessionID)
-            return {
-              text: existing ? `Goal cleared: ${existing.objective}` : "No active goal to clear.",
-              activeCommand: undefined,
-            }
-          }
-          const existing = yield* goal.get(input.sessionID)
-          if (!existing) {
-            return {
-              text: "No active goal is set for this session.",
-              activeCommand: undefined,
-            }
-          }
-          const budget =
-            existing.tokenBudget === undefined
-              ? `Tokens: ${existing.tokensUsed}`
-              : `Tokens: ${existing.tokensUsed} / ${existing.tokenBudget}`
-          return {
-            text: [
-              `Objective: ${existing.objective}`,
-              `Status: ${existing.status}`,
-              budget,
-              `Iterations: ${existing.iterationCount} / ${SessionGoal.MAX_ITERATIONS}`,
-              `Time used: ${SessionGoal.formatDuration(existing.timeUsedSeconds)}`,
-            ].join("\n"),
-            activeCommand: existing.status === "active" || existing.status === "budget_limited" ? "goal" : undefined,
-          }
-        }),
-      )
-      await sessionUpdate(input.sessionID, (draft) => {
-        draft.activeCommand = commandResult.activeCommand
-      })
-      const result = (await prompt({
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-        model: userModel,
-        agent: userAgent,
-        parts: [{ type: "text", text: commandResult.text }],
-        variant: input.variant,
-        noReply: true,
-      })) as MessageV2.WithParts
-      Bus.publish(Command.Event.Executed, {
-        name: input.command,
-        sessionID: input.sessionID,
-        arguments: commandArguments,
-        messageID: result.info.id,
-      })
-      return result
-    }
-
-    if (parsedGoal?.type === "objective") {
-      if (!parsedGoal.objective) throw new Error("You must provide a goal condition")
-      await runGoal(
-        Effect.gen(function* () {
-          const goal = yield* SessionGoal.Service
-          yield* goal.set(input.sessionID, parsedGoal.objective, parsedGoal.tokenBudget)
-        }),
-      )
-      await sessionUpdate(input.sessionID, (draft) => {
-        draft.activeCommand = "goal"
-      })
-    }
-
-    const templateParts = await resolvePromptParts(template)
-    const parts = isSubtask
-      ? [
-          {
-            type: "subtask" as const,
-            agent: agent.name,
-            description: command.description ?? "",
-            command: input.command,
-            model: {
-              providerID: taskModel.providerID,
-              modelID: taskModel.modelID,
-            },
-            prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
-          },
-        ]
-      : command.skill
-        ? // Opencode #28239: skill template is hidden from chat/TUI but still
-          // delivered to the LLM. The slash command itself stays visible (not
-          // synthetic) so the user sees what they typed; the SKILL.md body is
-          // marked synthetic so UIs filter it out.
-          [
-            {
-              type: "text" as const,
-              text: `/${command.name}`,
-              synthetic: false,
-            },
-            ...templateParts.map((p) => (p.type === "text" ? { ...p, synthetic: true } : p)),
-            ...(input.parts ?? []),
-          ]
-        : [...templateParts, ...(input.parts ?? [])]
-
-    await runPlugin(
-      Effect.gen(function* () {
-        const plugin = yield* Plugin.Service
-        yield* plugin.trigger(
-          "command.execute.before",
-          {
-            command: input.command,
-            sessionID: input.sessionID,
-            arguments: commandArguments,
-          },
-          { parts },
-        )
-      }),
-    )
-
-    const result = (await prompt({
-      sessionID: input.sessionID,
-      messageID: input.messageID,
-      model: userModel,
-      agent: userAgent,
-      parts,
-      variant: input.variant,
-    })) as MessageV2.WithParts
-
-    Bus.publish(Command.Event.Executed, {
-      name: input.command,
-      sessionID: input.sessionID,
-      arguments: commandArguments,
-      messageID: result.info.id,
-    })
-
-    return result
-  }
-
-  async function ensureTitle(input: {
-    session: Session.Info
-    history: MessageV2.WithParts[]
-    providerID: string
-    modelID: string
-  }) {
-    if (input.session.parentID) return
-    if (!Session.isDefaultTitle(input.session.title)) return
-
-    const firstRealUserIdx = input.history.findIndex(
-      (m) => m.info.role === "user" && !m.parts.every((p) => "synthetic" in p && p.synthetic),
-    )
-    if (firstRealUserIdx === -1) return
-
-    // Titling is driven by the first real user message but is not restricted to
-    // the first turn: when generation failed (provider hiccup, no small model),
-    // the session keeps its default title and the next prompt retries. The
-    // default-title guard above is what stops a titled session from re-titling.
-    const contextMessages = input.history.slice(0, firstRealUserIdx + 1)
-    const firstRealUser = contextMessages[firstRealUserIdx]
-
-    const subtaskParts = firstRealUser.parts.filter((p) => p.type === "subtask") as MessageV2.SubtaskPart[]
-    const hasOnlySubtaskParts = subtaskParts.length > 0 && firstRealUser.parts.every((p) => p.type === "subtask")
-
-    const agent = await agentGet("title")
-    if (!agent) return
-    const model = await iife(async () => {
-      if (agent.model) return await providerGetModel(agent.model.providerID, agent.model.modelID)
-      return (
-        (await providerGetSmallModel(input.providerID)) ?? (await providerGetModel(input.providerID, input.modelID))
-      )
-    })
-    const result = await LLM.stream({
-      agent,
-      user: firstRealUser.info as MessageV2.User,
-      system: [],
-      small: true,
-      tools: {},
-      model,
-      abort: new AbortController().signal,
-      sessionID: input.session.id,
-      retries: 2,
-      messages: [
-        {
-          role: "user",
-          content: "Generate a title for this conversation:\n",
-        },
-        ...(hasOnlySubtaskParts
-          ? [
-              {
-                role: "user" as const,
-                content: subtaskParts.map((p) => p.prompt).join("\n"),
-              },
-            ]
-          : MessageV2.toModelMessages(contextMessages, model)),
-      ],
-    })
-    const text = await result.text.catch((err) => log.error("failed to generate title", { error: err }))
-    if (text)
-      return sessionUpdate(
-        input.session.id,
-        (draft) => {
-          // Re-checked inside the update: a rename that landed while the title
-          // model was streaming must win over the generated title.
-          if (!Session.isDefaultTitle(draft.title)) return
-
-          const cleaned = text
-            .replace(/<think>[\s\S]*?<\/think>\s*/g, "")
-            .split("\n")
-            .map((line) => line.trim())
-            .find((line) => line.length > 0)
-          if (!cleaned) return
-
-          const title = cleaned.length > 100 ? cleaned.substring(0, 97) + "..." : cleaned
-          draft.title = title
-        },
-        { touch: false },
-      )
-  }
+  export const CommandInput = PromptCommands.CommandInput
+  export type CommandInput = PromptCommands.CommandInput
 
   /** Media types the model request path can ingest as file/image parts. */
   function isModelMediaMime(mime: string): boolean {
@@ -2513,12 +1706,38 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     return bytes.toString()
   }
 
+  const commandDeps: PromptCommands.Deps = {
+    commandGet,
+    agentGet,
+    agentRequired,
+    agentList,
+    defaultAgent,
+    lastModel,
+    providerGetModel,
+    sessionGet,
+    sessionUpdate,
+    sessionUpdateMessage,
+    sessionUpdatePart,
+    currentContext,
+    runRevert,
+    runGoal,
+    runPlugin,
+    prompt,
+  }
+
+  const titleDeps: PromptTitle.Deps = {
+    agentGet,
+    providerGetModel,
+    providerGetSmallModel,
+    sessionUpdate,
+  }
+
   export const layer = Layer.succeed(
     Service,
     Service.of({
       assertNotBusy: (sessionID) =>
         Effect.gen(function* () {
-          const match = (yield* getServiceStateEffect())[sessionID]
+          const match = (yield* PromptState.getServiceStateEffect())[sessionID]
           if (match)
             throw new Session.BusyError({
               sessionID,
@@ -2529,12 +1748,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       prompt: (input) => withInstanceContext(() => prompt(input)),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(
-          Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
+          Effect.flatMap((ctx) => Effect.tryPromise(() => PromptParts.resolve(ctx, template))),
         ),
-      cancel: (sessionID) => Effect.promise(() => cancel(sessionID)),
+      cancel: (sessionID) => Effect.promise(() => PromptState.cancel(sessionID)),
       loop: (sessionID) => withInstanceContext(() => loop(sessionID)),
-      shell: (input) => withInstanceContext(() => shell(input)),
-      command: (input) => withInstanceContext(() => command(input)),
+      shell: (input) => withInstanceContext(() => PromptCommands.shell(commandDeps, input, PromptState)),
+      command: (input) => withInstanceContext(() => PromptCommands.command(commandDeps, input)),
     }),
   )
 

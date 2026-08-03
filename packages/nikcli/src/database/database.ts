@@ -60,22 +60,18 @@ export namespace Database {
   // Synchronous singleton for domain modules
   // ============================================================================
 
-  let _singleton: Interface | undefined
+  const singletons = new Map<string, Interface>()
 
   function singleton(): Interface {
-    // Re-resolve on every access: NIKCLI_TEST_HOME/NIKCLI_DB can change
-    // between test files sharing this process, and the previous home may
-    // already be deleted. In production the resolved path never changes.
     const filename = path()
-    if (_singleton?.filename === filename) return _singleton
-    try {
-      _singleton?.native.close()
-    } catch {}
-    _singleton = open(filename)
+    const existing = singletons.get(filename)
+    if (existing) return existing
+    const service = open(filename)
+    singletons.set(filename, service)
     // Start the periodic WAL checkpoint loop on first DB open. No-op
     // thereafter if the same filename is reused.
     startWalCheckpointLoop()
-    return _singleton
+    return service
   }
 
   /** Shared Drizzle client for all domain modules. Safe to call from synchronous code. */
@@ -86,6 +82,28 @@ export namespace Database {
   /** Shared native SQLite client. Useful for admin/debug tooling only. */
   export function syncNative(): BunDatabase {
     return singleton().native
+  }
+
+  /** Close a synchronous database handle before its backing directory is removed. */
+  export function close(filename = path()): boolean {
+    const service = singletons.get(filename)
+    if (!service) return false
+    singletons.delete(filename)
+    try {
+      service.native.close()
+    } catch {}
+    return true
+  }
+
+  /** Close every synchronous database handle owned by this process. */
+  export function closeAll(): void {
+    stopWalCheckpointLoop()
+    for (const filename of Array.from(singletons.keys())) close(filename)
+  }
+
+  /** Test and diagnostics hook for asserting lifecycle cleanup. */
+  export function isOpen(filename = path()): boolean {
+    return singletons.has(filename)
   }
 
   // ============================================================================
@@ -147,14 +165,14 @@ export namespace Database {
       }
     }, WAL_CHECKPOINT_INTERVAL_MS)
     checkpointTimer.unref?.()
-    const stop = () => {
-      if (checkpointTimer) {
-        clearInterval(checkpointTimer)
-        checkpointTimer = undefined
-      }
-    }
-    process.once("SIGINT", stop)
-    process.once("SIGTERM", stop)
-    process.once("beforeExit", stop)
+    process.once("SIGINT", stopWalCheckpointLoop)
+    process.once("SIGTERM", stopWalCheckpointLoop)
+    process.once("beforeExit", stopWalCheckpointLoop)
+  }
+
+  export function stopWalCheckpointLoop(): void {
+    if (!checkpointTimer) return
+    clearInterval(checkpointTimer)
+    checkpointTimer = undefined
   }
 }

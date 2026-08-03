@@ -274,7 +274,7 @@ export namespace Monitor {
   async function syncToolPart(record: Record, attempt: number = 0): Promise<void> {
     const part = await resolveToolPart(record)
     if (!part || part.state.status !== "completed") {
-      if (attempt < PART_SYNC_RETRY_MAX) {
+      if (attempt < PART_SYNC_RETRY_MAX && process.env.NIKCLI_TEST_MODE !== "1") {
         setTimeout(() => {
           void syncToolPart(record, attempt + 1)
         }, PART_SYNC_RETRY_MS)

@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -10,6 +11,8 @@ import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const [{ Identifier }, { Instance }, { MessageV2 }, { Session }, { SessionRevert }, { Storage }] = await Promise.all([
   import("../../src/id/id"),

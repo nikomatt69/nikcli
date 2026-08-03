@@ -5,7 +5,7 @@ import { Cause, Effect, Layer, Logger, ManagedRuntime, Option } from "effect"
 import { InstanceRef, locallyInstance, type InstanceContext } from "./instance-ref"
 
 export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
-const runtimes = new WeakMap<Layer.Layer<any, any, never>, ManagedRuntime.ManagedRuntime<any, any>>()
+const runtimes = new WeakMap<Layer.Layer<any, any, never>, Map<string, ManagedRuntime.ManagedRuntime<any, any>>>()
 
 // Effect's default logger writes to the console, which corrupts the TUI when
 // runtime-internal logs fire (e.g. HttpApi span/error logs from the bridge).
@@ -44,11 +44,22 @@ export function makeRuntime<R, E>(layer: Layer.Layer<R, E, never>) {
 
 export const AppRuntime = makeRuntime(Layer.empty)
 
+function runtimeScope() {
+  if (process.env.NIKCLI_TEST_MODE !== "1") return "default"
+  return [process.env.NIKCLI_TEST_HOME ?? "", process.env.NIKCLI_DB ?? ""].join("\0")
+}
+
 export function runtimeFor<R, E>(layer: Layer.Layer<R, E, never>) {
-  let runtime = runtimes.get(layer) as ManagedRuntime.ManagedRuntime<R, E> | undefined
+  let scoped = runtimes.get(layer)
+  if (!scoped) {
+    scoped = new Map()
+    runtimes.set(layer, scoped)
+  }
+  const scope = runtimeScope()
+  let runtime = scoped.get(scope) as ManagedRuntime.ManagedRuntime<R, E> | undefined
   if (!runtime) {
     runtime = makeRuntime(layer)
-    runtimes.set(layer, runtime)
+    scoped.set(scope, runtime)
   }
   return runtime
 }

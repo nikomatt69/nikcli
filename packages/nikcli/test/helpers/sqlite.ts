@@ -62,6 +62,7 @@ export async function withIsolatedDatabase<T>(
   // value at module-load time).
   const previousHome = process.env.NIKCLI_TEST_HOME
   const previousProjectConfig = process.env.NIKCLI_DISABLE_PROJECT_CONFIG
+  const previousDatabase = process.env.NIKCLI_DB
 
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-iso-"))
   process.env.NIKCLI_TEST_HOME = home
@@ -69,16 +70,21 @@ export async function withIsolatedDatabase<T>(
   // of config — keeps tests isolated from the host's nikcli.json.
   process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
   const databasePath = path.join(home, "data", "nikcli.db")
+  process.env.NIKCLI_DB = databasePath
 
   try {
     return await fn({ home, databasePath })
   } finally {
+    const { Database } = await import("@/database/database")
+    Database.close(databasePath)
     // Restore the previous environment so other tests in the same
     // process are unaffected.
     if (previousHome === undefined) delete process.env.NIKCLI_TEST_HOME
     else process.env.NIKCLI_TEST_HOME = previousHome
     if (previousProjectConfig === undefined) delete process.env.NIKCLI_DISABLE_PROJECT_CONFIG
     else process.env.NIKCLI_DISABLE_PROJECT_CONFIG = previousProjectConfig
+    if (previousDatabase === undefined) delete process.env.NIKCLI_DB
+    else process.env.NIKCLI_DB = previousDatabase
     await fs.rm(home, { recursive: true, force: true }).catch(() => {})
   }
 }

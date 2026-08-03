@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -17,6 +18,8 @@ import { Effect } from "effect"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-deep-bench-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const projectDirs: string[] = []
 

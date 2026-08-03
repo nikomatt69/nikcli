@@ -1,12 +1,15 @@
 import "@opentui/solid/preload"
-import { afterAll, beforeAll } from "bun:test"
+import { afterAll, afterEach, beforeAll } from "bun:test"
 import path from "path"
 import { initialize as initGlobal } from "../src/global"
+import { setTestEnvBaseline } from "./helpers/env"
 
 // Keep the whole suite hermetic: skip the `bun add @nikcli-ai/plugin` bootstrap
 // step, which requires the npm registry and otherwise hangs/trips timeouts when
 // tests run offline. Individual tests can still override if needed.
 process.env.NIKCLI_TEST_MODE ??= "1"
+process.env.NIKCLI_DISABLE_WAL_CHECKPOINT ??= "1"
+setTestEnvBaseline()
 
 // Ensure global directories are created before tests run
 let globalInitPromise = initGlobal()
@@ -14,6 +17,12 @@ let globalInitPromise = initGlobal()
 // Make tests wait for global init before running
 beforeAll(async () => {
   await globalInitPromise
+})
+
+// CLI command tests intentionally exercise failure paths that set exitCode.
+// Do not let that process-global signal leak into Bun's suite result.
+afterEach(() => {
+  process.exitCode = 0
 })
 
 // Benchmark bookkeeping is opt-in via `NIKCLI_TEST_BENCH=1`. Without the

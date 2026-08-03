@@ -4,6 +4,8 @@ Plan for replacing instance Hono route implementations with Effect `HttpApi` whi
 
 ## Status snapshot (2026-07-30)
 
+> **Source of truth:** This snapshot and current code override contradictory historical phase notes below.
+
 | Item                               | Reality                                                                                                                                                                      |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NIKCLI_EXPERIMENTAL_HTTPAPI`      | **Default-on** (`flag.ts`: unset → `true`; opt out with `0`/`false`)                                                                                                         |

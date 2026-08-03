@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import fs from "fs/promises"
 import path from "path"
+import { Database } from "@/database/database"
 import { withIsolatedDatabase } from "./sqlite"
 
 describe("withIsolatedDatabase", () => {
@@ -28,6 +29,29 @@ describe("withIsolatedDatabase", () => {
       homes.push(ctx.home)
     })
     expect(homes[0]).not.toBe(homes[1])
+  })
+
+  test("closes the database before removing its temp directory", async () => {
+    let databasePath = ""
+    await withIsolatedDatabase(async (ctx) => {
+      databasePath = ctx.databasePath
+      Database.syncNative().exec("CREATE TABLE lifecycle_test (id INTEGER PRIMARY KEY)")
+      expect(Database.isOpen(databasePath)).toBe(true)
+    })
+    expect(Database.isOpen(databasePath)).toBe(false)
+    await expect(fs.access(databasePath)).rejects.toThrow()
+  })
+
+  test("isolates sequential database homes without reusing a closed handle", async () => {
+    const paths: string[] = []
+    for (let index = 0; index < 2; index++) {
+      await withIsolatedDatabase(async (ctx) => {
+        paths.push(ctx.databasePath)
+        Database.syncNative().exec(`CREATE TABLE lifecycle_${index} (id INTEGER PRIMARY KEY)`)
+      })
+    }
+    expect(paths[0]).not.toBe(paths[1])
+    expect(paths.every((item) => !Database.isOpen(item))).toBe(true)
   })
 
   test("restores the previous environment after the fn returns", async () => {

@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, describe, expect, it, spyOn } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -7,6 +8,8 @@ import { removeTestDir } from "../helpers/fs"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-processor-retry-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const [
   { SessionProcessor },

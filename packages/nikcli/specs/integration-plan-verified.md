@@ -2,7 +2,7 @@
 
 Documento operativo per `packages/nikcli`. Non replica solo i flag `[ ]` / `[~]` del master plan: ogni fase indica **file toccati**, **criterio di done** verificabile con grep/test, e **dipendenze reali** osservate nel repo (2026-06-18).
 
-Spec di riferimento: `integration-master-plan.md`, `effect/http-api.md`, root `specs/08|09|10`.
+Spec di riferimento: `ROADMAP.md`, `effect/http-api.md`, root `specs/08-unified-diff-hub.md`, `specs/09-cli-geolocalization-i18n.md`, e `specs/10-loops.md`.
 
 ---
 
@@ -11,7 +11,7 @@ Spec di riferimento: `integration-master-plan.md`, `effect/http-api.md`, root `s
 1. **Hono resta il server di produzione** finché `HttpApiBridge.implementedRoutes` non copre un path _e_ il SDK non è generato da Effect per quel path (`server/server.ts` L468, `httpapi/bridge.ts`).
 2. **Session v2 HTTP** — Hono + HttpApi (`httpapi/session.ts` `v2Entries|v2State|v2Events`) e regex v2 in `bridge.ts`; `public.ts` deve registrare gli handler (duplicato di `SessionHandlersLive`).
 3. **Quick win** indipendenti dal kill Hono: loop cancel desktop, Diff Hub fase 1, support attach, plugin keymap migration.
-4. Dopo ogni fase Effect: aggiornare `effect/schema.md` e `integration-master-plan.md` nello stesso commit (regola master plan).
+4. Dopo ogni fase Effect: aggiornare `effect/schema.md` e `ROADMAP.md` nello stesso commit.
 
 ---
 
@@ -74,14 +74,14 @@ Ordine interno allineato a `effect/http-api.md` Phase 1–3.
 
 ## Fase 4 — Effect platform services (E1 + E2 + E6 + E8)
 
-| ID  | Deliverable                | File                                                                             | Done quando                                                                         |
-| --- | -------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 4.1 | **Session domain schemas** | `effect/schema.md` inventory → migrate batch                                     | meno `.zod` duplicati su boundary migrati                                           |
-| 4.2 | **Sync.Service Effect**    | nuovo `src/sync/service.ts` (o simile); migrate una callsite da `namespace Sync` | `grep Sync.Service` > 0; test                                                       |
-| 4.3 | **Workspace.Service**      | `workspace/` Effect layer                                                        | idem                                                                                |
-| 4.4 | **Boot ScopedCache**       | `effect/instance-state.ts` + bootstrap                                           | item E2 Phase G acceptance in schema.md                                             |
-| 4.5 | **Shrink Instance**        | `project/instance.ts`, `effect/with-instance.ts`                                 | `Instance.provide` solo in bridge legacy; resto `withInstanceAsync` / InstanceState |
-| 4.6 | **Flag sweep**             | `flag.ts` reads → RuntimeFlags                                                   | `grep 'Flag\\.' src/` trend a zero                                                  |
+| ID  | Deliverable                | File                                                                    | Done quando                                                                         |
+| --- | -------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 4.1 | **Session domain schemas** | `effect/schema.md` inventory → migrate batch                            | meno `.zod` duplicati su boundary migrati                                           |
+| 4.2 | **Sync.Service Effect**    | nuovo servizio in `src/sync/`; migrate una callsite da `namespace Sync` | `grep Sync.Service` > 0; test                                                       |
+| 4.3 | **Workspace.Service**      | `workspace/` Effect layer                                               | idem                                                                                |
+| 4.4 | **Boot ScopedCache**       | `effect/instance-state.ts` + bootstrap                                  | item E2 Phase G acceptance in schema.md                                             |
+| 4.5 | **Shrink Instance**        | `project/instance.ts`, `effect/with-instance.ts`                        | `Instance.provide` solo in bridge legacy; resto `withInstanceAsync` / InstanceState |
+| 4.6 | **Flag sweep**             | `flag.ts` reads → RuntimeFlags                                          | `grep 'Flag\\.' src/` trend a zero                                                  |
 
 **Ordine:** 4.2–4.3 sbloccano 1.3 sync; 4.5–4.6 dopo E5 riduce churn (master plan sequencing).
 
@@ -89,12 +89,12 @@ Ordine interno allineato a `effect/http-api.md` Phase 1–3.
 
 ## Fase 5 — Diff Hub (spec 08, UX)
 
-| ID  | Deliverable             | File                                                                            | Done quando               |
-| --- | ----------------------- | ------------------------------------------------------------------------------- | ------------------------- |
-| 5.1 | **Skeleton `/diff`**    | `routes/diff/index.tsx`, route register, shim `changes` → `diff?source=session` | navigazione da session    |
-| 5.2 | **Source working-tree** | `vcs.diffRaw` / API esistente + TUI                                             | source `git` in hub       |
-| 5.3 | **Commit + PR sources** | `git/show`, PR diff endpoint se mancanti desktop                                | Enter da git-graph/github |
-| 5.4 | **Shared primitives**   | estrarre tree/patch da `changes/`                                               | LOC shared, KV `diff.*`   |
+| ID  | Deliverable             | File                                                                                   | Done quando               |
+| --- | ----------------------- | -------------------------------------------------------------------------------------- | ------------------------- |
+| 5.1 | **Skeleton `/diff`**    | partire da `src/cli/cmd/tui/routes/changes/index.tsx` e `specs/08-unified-diff-hub.md` | navigazione da session    |
+| 5.2 | **Source working-tree** | `vcs.diffRaw` / API esistente + TUI                                                    | source `git` in hub       |
+| 5.3 | **Commit + PR sources** | `git/show`, PR diff endpoint se mancanti desktop                                       | Enter da git-graph/github |
+| 5.4 | **Shared primitives**   | estrarre tree/patch da `changes/`                                                      | LOC shared, KV `diff.*`   |
 
 **Indipendente da** kill Hono; dipende da sync session diff già in TUI.
 
@@ -102,12 +102,12 @@ Ordine interno allineato a `effect/http-api.md` Phase 1–3.
 
 ## Fase 6 — Locale / i18n (spec 09)
 
-| ID  | Deliverable                 | File                            | Done quando                           |
-| --- | --------------------------- | ------------------------------- | ------------------------------------- |
-| 6.1 | **Geo.Service**             | `src/geo/` opt-in, cache KV     | test offline fallback                 |
-| 6.2 | **dialog-locale + /locale** | TUI command keymap              | picker region/language                |
-| 6.3 | **i18n catalog**            | `src/locale/i18n/en.ts` + `t()` | parity test come app                  |
-| 6.4 | **Intl migration**          | ~8 file TUI elencati in spec 09 | no hardcoded `en-US` nei path migrati |
+| ID  | Deliverable                 | File                                                                    | Done quando                           |
+| --- | --------------------------- | ----------------------------------------------------------------------- | ------------------------------------- |
+| 6.1 | **Geo.Service**             | seguire `specs/09-cli-geolocalization-i18n.md`                          | test offline fallback                 |
+| 6.2 | **dialog-locale + /locale** | TUI command keymap                                                      | picker region/language                |
+| 6.3 | **i18n catalog**            | estendere `src/locale/` seguendo `specs/09-cli-geolocalization-i18n.md` | parity test come app                  |
+| 6.4 | **Intl migration**          | ~8 file TUI elencati in spec 09                                         | no hardcoded `en-US` nei path migrati |
 
 **P1 già fatto:** `config.locale`, `locale/resolve.ts`, `cmd/locale.ts`.
 

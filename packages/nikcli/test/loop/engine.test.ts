@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -18,6 +19,15 @@ process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
 process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+])
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
   return runPromiseWithLayer(Storage.defaultLayer, effect)

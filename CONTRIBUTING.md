@@ -1,5 +1,9 @@
 # Contributing to Nikcli
 
+> Nikcli is a fork of [OpenCode](https://github.com/anomalyco/opencode). If your change fixes something that
+> also exists upstream, consider sending it to OpenCode as well — that is where the original project
+> lives and where the wider community benefits. Never open a nikcli issue on the upstream tracker.
+
 We want to make it easy for you to contribute to Nikcli. Here are the most common type of changes that get merged:
 
 - Bug fixes

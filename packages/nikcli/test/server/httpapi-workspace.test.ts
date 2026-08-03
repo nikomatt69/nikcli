@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -14,6 +15,17 @@ process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
 process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_TEST_MODE",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "NIKCLI_EXPERIMENTAL_HTTPAPI",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+])
 
 // The plugin-install bootstrap step (skipped above) normally creates these
 // directories; create them up front so instance creation doesn't ENOENT.

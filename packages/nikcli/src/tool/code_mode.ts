@@ -44,6 +44,8 @@ const EXCLUDED = new Set([
   "speak",
 ])
 
+const PINNED = new Set(["glob", "grep", "read"])
+
 type CallEntry = {
   tool: string
   status: "running" | "completed" | "error" | "interrupted"
@@ -79,6 +81,7 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
     catalogTree[tool.id] = ConfinedTool.make({
       description: tool.description.split("\n", 1)[0] ?? "",
       input: renderSchema(tool.parameters),
+      pinned: PINNED.has(tool.id),
       run: () => Effect.die("Catalog-only Code Mode tool cannot execute"),
     })
   }

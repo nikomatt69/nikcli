@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import { HttpRouter } from "effect/unstable/http"
 import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
@@ -9,6 +10,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-public-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { InstanceRef, InstanceScope, withCurrentInstance } = await import("@/effect")
 const { Instance } = await import("@/project/instance")

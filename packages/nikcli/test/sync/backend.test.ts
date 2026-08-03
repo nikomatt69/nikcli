@@ -1,11 +1,14 @@
+import { preserveTestEnv } from "../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { afterAll, describe, expect, it } from "bun:test"
 
 const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-sync-catchup-"))
-process.env.NIKCLI_TEST_HOME ??= testDir
-process.env.NIKCLI_DB ??= path.join(testDir, "nikcli.db")
+process.env.NIKCLI_TEST_HOME = testDir
+process.env.NIKCLI_DB = path.join(testDir, "nikcli.db")
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DB"])
 
 const { Sync, SyncStorage } = await import("@/sync")
 

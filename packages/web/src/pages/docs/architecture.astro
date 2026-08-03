@@ -33,6 +33,15 @@ const toc = [
 >
   <section id="overview" class="doc-section">
     <h2>Overview</h2>
+    <DocCallout type="info" title="Forked from OpenCode">
+      <p>
+        nikcli is a fork of
+        <a href="https://github.com/anomalyco/opencode" target="_blank" rel="noopener noreferrer">OpenCode</a>,
+        the open source coding agent. The runtime boundaries described on this page — CLI lifecycle,
+        instance model, server stack, session runtime, tool and permission layers — descend from
+        OpenCode's design, and credit for them belongs to the upstream project and its contributors.
+      </p>
+    </DocCallout>
     <p>
       nikcli is a Bun monorepo centered on <code>packages/nikcli</code>. The CLI process initializes
       global paths and logging, resolves project instances, loads config through Effect layers, and

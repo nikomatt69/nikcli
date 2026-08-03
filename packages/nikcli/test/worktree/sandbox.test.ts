@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -7,6 +8,8 @@ import { Instance } from "../../src/project/instance"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-sandbox-test-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const [{ RunSandbox }] = await Promise.all([import("../../src/worktree/sandbox")])
 

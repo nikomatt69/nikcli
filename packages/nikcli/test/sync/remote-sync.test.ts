@@ -1,12 +1,15 @@
+import { preserveTestEnv } from "../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { afterAll, describe, expect, it } from "bun:test"
 
 const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-remote-sync-"))
-process.env.NIKCLI_TEST_HOME ??= testDir
-process.env.NIKCLI_DB ??= path.join(testDir, "nikcli.db")
-process.env.XDG_DATA_HOME ??= path.join(testDir, "data")
+process.env.NIKCLI_TEST_HOME = testDir
+process.env.NIKCLI_DB = path.join(testDir, "nikcli.db")
+process.env.XDG_DATA_HOME = path.join(testDir, "data")
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DB", "XDG_DATA_HOME"])
 
 const { RemoteSync } = await import("@/sync/remote-sync")
 const { createInMemoryRemoteTransport, createInMemoryScheduler } = await import("@/sync/transport")

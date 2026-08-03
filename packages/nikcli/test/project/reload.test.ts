@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -5,7 +6,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-reload-home-"))
-process.env.NIKCLI_TEST_HOME ??= testHome
+process.env.NIKCLI_TEST_HOME = testHome
+
+preserveTestEnv(["NIKCLI_TEST_HOME"])
 
 const { InstanceScope, InstanceState, locallyInstance } = await import("@/effect")
 const { Instance } = await import("@/project/instance")

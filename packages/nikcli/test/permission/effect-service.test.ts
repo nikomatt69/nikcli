@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import { Effect, Fiber } from "effect"
 import fs from "fs/promises"
@@ -8,6 +9,8 @@ import type { PermissionNext as PermissionNextNamespace } from "@/permission/nex
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-permission-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { InstanceScope } = await import("@/effect")
 const { Instance } = await import("@/project/instance")

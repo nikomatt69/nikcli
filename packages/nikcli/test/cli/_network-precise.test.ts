@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -8,6 +9,8 @@ import type { MessageV2 } from "@/session/message-v2"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-net-precise-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.XDG_CONFIG_HOME = path.join(testHome, "xdg-config")
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "XDG_CONFIG_HOME"])
 await fs.mkdir(path.join(process.env.XDG_CONFIG_HOME, "nikcli"), { recursive: true })
 
 const { Config } = await import("@/config/config")

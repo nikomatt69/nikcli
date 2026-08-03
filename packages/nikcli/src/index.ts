@@ -192,6 +192,7 @@ const cli = yargs(hideBin(process.argv))
   .command(SyncCommand)
   .command(ConnectorsCommand)
   .command(BotCommand)
+  .epilogue("nikcli is a fork of opencode (https://github.com/anomalyco/opencode) — credits to its authors.")
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

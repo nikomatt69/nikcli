@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../../helpers/env"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -25,6 +26,15 @@ process.env.ISLAND_SUPPORT_DIR = supportDir
 process.env.NIKCLI_ISLAND_TEST_FORCE_DARWIN = "1"
 process.env.NIKCLI_ISLAND = "1"
 process.env.NIKCLI_PORT = "4123" // short-circuits the dynamic @/server/server import
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "ISLAND_SUPPORT_DIR",
+  "NIKCLI_ISLAND_TEST_FORCE_DARWIN",
+  "NIKCLI_ISLAND",
+  "NIKCLI_PORT",
+])
 
 IslandBridge.setEnabled(true)
 

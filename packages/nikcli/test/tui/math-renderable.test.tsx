@@ -8,17 +8,6 @@ import "@nikcli-ai/tui-math/solid"
 const FG = RGBA.fromInts(255, 255, 255, 255)
 const BG = RGBA.fromInts(0, 0, 0, 255)
 
-/**
- * `<markdown>` finishes its parse off the render tick, so one `renderOnce()`
- * captures an empty frame. Settle before reading the buffer.
- */
-async function settle(renderOnce: () => Promise<unknown> | unknown) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    await renderOnce()
-  }
-}
-
 /** The painted grid, trailing blanks trimmed, as one string per row. */
 function paint(captureSpans: () => CapturedFrame): string[] {
   return captureSpans()
@@ -108,8 +97,13 @@ describe("inline substitution through the markdown renderer", () => {
       ),
       { width: 60, height: 4 },
     )
-    await settle(renderOnce)
-    return paint(captureSpans).join("\n")
+    for (let attempt = 0; attempt < 50; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await renderOnce()
+      const output = paint(captureSpans).join("\n")
+      if (output) return output
+    }
+    return ""
   }
 
   /**

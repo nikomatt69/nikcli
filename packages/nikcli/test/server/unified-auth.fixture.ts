@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -17,6 +18,20 @@ process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
 process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_TEST_MODE",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "NIKCLI_REQUIRE_OAUTH",
+  "NIKCLI_AUTH_ISSUER",
+  "NIKCLI_AUTH_AUDIENCE",
+  "NIKCLI_AUTH_JWT_SECRET",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+])
 for (const dir of ["data", "cache", "config", "state"]) {
   await fs.mkdir(path.join(testHome, dir), { recursive: true })
 }

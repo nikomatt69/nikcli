@@ -1,5 +1,6 @@
 import fuzzysort from "fuzzysort"
 import { parseModel as parseModelLight } from "./parse"
+import * as ProviderSchema from "./schema"
 import { Config } from "../config/config"
 import { mapValues, mergeDeep, omit, pickBy, sortBy } from "remeda"
 import { NoSuchModelError, type Provider as SDK } from "ai"
@@ -112,6 +113,13 @@ function configGet(ctx?: InstanceContext): Promise<Config.Info> {
 }
 
 export namespace Provider {
+  export const Model = ProviderSchema.Model
+  export type Model = ProviderSchema.Model
+  export const Info = ProviderSchema.Info
+  export type Info = ProviderSchema.Info
+  export const ModelSchema = ProviderSchema.ModelSchema
+  export const InfoSchema = ProviderSchema.InfoSchema
+
   const log = Log.create({ service: "provider" })
   const OPENAI_HEADER_TIMEOUT_DEFAULT = 120_000
 
@@ -943,84 +951,70 @@ export namespace Provider {
     },
   } as unknown as Record<string, CustomLoader>
 
-  const CostBlockSchema = Schema.Struct({
-    read: Schema.Number,
-    write: Schema.Number,
-  })
+  type LooseModel = Omit<Partial<Model>, "api" | "capabilities" | "cost" | "limit"> & {
+    api?: Partial<Model["api"]>
+    capabilities?: Omit<Partial<Model["capabilities"]>, "input" | "output"> & {
+      input?: Partial<Model["capabilities"]["input"]>
+      output?: Partial<Model["capabilities"]["output"]>
+    }
+    cost?: Omit<Partial<Model["cost"]>, "cache"> & { cache?: Partial<Model["cost"]["cache"]> }
+    limit?: Partial<Model["limit"]>
+  }
 
-  const CapabilitiesIOSchema = Schema.Struct({
-    text: Schema.Boolean,
-    audio: Schema.Boolean,
-    image: Schema.Boolean,
-    video: Schema.Boolean,
-    pdf: Schema.Boolean,
-  })
-
-  export const ModelSchema = Schema.Struct({
-    id: Schema.String,
-    providerID: Schema.String,
-    api: Schema.Struct({
-      id: Schema.String,
-      // Optional: custom / config-only providers often leave the base URL
-      // implicit (resolved later from provider options.baseURL or npm defaults).
-      // Required here would reject real /config/providers payloads at the
-      // Effect HttpApi boundary even though Hono never validated them.
-      url: Schema.optional(Schema.String),
-      npm: Schema.String,
-    }),
-    name: Schema.String,
-    family: Schema.optional(Schema.String),
-    capabilities: Schema.Struct({
-      temperature: Schema.Boolean,
-      reasoning: Schema.Boolean,
-      attachment: Schema.Boolean,
-      toolcall: Schema.Boolean,
-      input: CapabilitiesIOSchema,
-      output: CapabilitiesIOSchema,
-      interleaved: Schema.Union([
-        Schema.Boolean,
-        Schema.Struct({
-          field: Schema.Literals(["reasoning_content", "reasoning_details"]),
-        }),
-      ]),
-    }),
-    cost: Schema.Struct({
-      input: Schema.Number,
-      output: Schema.Number,
-      cache: CostBlockSchema,
-      experimentalOver200K: Schema.optional(
-        Schema.Struct({
-          input: Schema.Number,
-          output: Schema.Number,
-          cache: CostBlockSchema,
-        }),
-      ),
-    }),
-    limit: Schema.Struct({
-      context: Schema.Number,
-      input: Schema.optional(Schema.Number),
-      output: Schema.Number,
-    }),
-    status: Schema.Literals(["alpha", "beta", "deprecated", "active"]),
-    options: Schema.Record(Schema.String, Schema.Unknown),
-    headers: Schema.Record(Schema.String, Schema.String),
-    release_date: Schema.String,
-    variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
-  }).annotate({ identifier: "Model" })
-  export const Model = zodObject(ModelSchema)
-  export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
-
-  export const InfoSchema = Schema.Struct({
-    id: Schema.String,
-    name: Schema.String,
-    source: Schema.Literals(["env", "config", "custom", "api"]),
-    env: Schema.mutable(Schema.Array(Schema.String)),
-    key: Schema.optional(Schema.String),
-    options: Schema.Record(Schema.String, Schema.Unknown),
-    models: Schema.Record(Schema.String, ModelSchema),
-  }).annotate({ identifier: "Provider" })
-  export const Info = zodObject(InfoSchema)
-  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
+  function normalizeModel(providerID: string, modelID: string, input: unknown, fallback?: Model): Model {
+    const model = input as LooseModel
+    return {
+      id: modelID,
+      providerID,
+      api: {
+        id: model.api?.id ?? fallback?.api.id ?? modelID,
+        npm: model.api?.npm ?? fallback?.api.npm ?? "@ai-sdk/openai-compatible",
+        url: model.api?.url ?? fallback?.api.url,
+      },
+      name: model.name ?? fallback?.name ?? modelID,
+      family: model.family ?? fallback?.family,
+      capabilities: {
+        temperature: model.capabilities?.temperature ?? fallback?.capabilities.temperature ?? false,
+        reasoning: model.capabilities?.reasoning ?? fallback?.capabilities.reasoning ?? false,
+        attachment: model.capabilities?.attachment ?? fallback?.capabilities.attachment ?? false,
+        toolcall: model.capabilities?.toolcall ?? fallback?.capabilities.toolcall ?? true,
+        input: {
+          text: model.capabilities?.input?.text ?? fallback?.capabilities.input.text ?? true,
+          audio: model.capabilities?.input?.audio ?? fallback?.capabilities.input.audio ?? false,
+          image: model.capabilities?.input?.image ?? fallback?.capabilities.input.image ?? false,
+          video: model.capabilities?.input?.video ?? fallback?.capabilities.input.video ?? false,
+          pdf: model.capabilities?.input?.pdf ?? fallback?.capabilities.input.pdf ?? false,
+        },
+        output: {
+          text: model.capabilities?.output?.text ?? fallback?.capabilities.output.text ?? true,
+          audio: model.capabilities?.output?.audio ?? fallback?.capabilities.output.audio ?? false,
+          image: model.capabilities?.output?.image ?? fallback?.capabilities.output.image ?? false,
+          video: model.capabilities?.output?.video ?? fallback?.capabilities.output.video ?? false,
+          pdf: model.capabilities?.output?.pdf ?? fallback?.capabilities.output.pdf ?? false,
+        },
+        interleaved: model.capabilities?.interleaved ?? fallback?.capabilities.interleaved ?? false,
+      },
+      cost: {
+        input: model.cost?.input ?? fallback?.cost.input ?? 0,
+        output: model.cost?.output ?? fallback?.cost.output ?? 0,
+        cache: {
+          read: model.cost?.cache?.read ?? fallback?.cost.cache.read ?? 0,
+          write: model.cost?.cache?.write ?? fallback?.cost.cache.write ?? 0,
+        },
+        experimentalOver200K: model.cost?.experimentalOver200K ?? fallback?.cost.experimentalOver200K,
+      },
+      limit: {
+        context: model.limit?.context ?? fallback?.limit.context ?? 0,
+        input: model.limit?.input ?? fallback?.limit.input,
+        output: model.limit?.output ?? fallback?.limit.output ?? 0,
+      },
+      status: model.status ?? fallback?.status ?? "active",
+      options: model.options ?? fallback?.options ?? {},
+      headers: model.headers ?? fallback?.headers ?? {},
+      release_date: model.release_date ?? fallback?.release_date ?? "",
+      variants: model.variants ?? fallback?.variants ?? {},
+    }
+  }
 
   function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model): Model {
     const m: Model = {
@@ -1089,7 +1083,7 @@ export namespace Provider {
 
     m.variants = mapValues(ProviderTransform.variants(m), (v) => v)
 
-    return m
+    return normalizeModel(provider.id, model.id, m)
   }
 
   export function fromModelsDevProvider(provider: ModelsDev.Provider): Info {
@@ -1447,8 +1441,10 @@ export namespace Provider {
             ...(apiNpm === "@ai-sdk/openai-compatible" && !model.modalities?.input
               ? {
                   input: {
-                    ...existingModel?.capabilities.input,
+                    text: existingModel?.capabilities.input.text ?? true,
+                    audio: existingModel?.capabilities.input.audio ?? false,
                     image: true,
+                    video: existingModel?.capabilities.input.video ?? false,
                     pdf: true,
                   },
                 }
@@ -1595,12 +1591,13 @@ export namespace Provider {
       const provider = providers[p.id]
       if (!provider) continue
       const pluginAuth = await authGet(p.id)
+      const currentModels = provider.models
       provider.models = await p
         // See auth.loader cast above — SDK Provider/Model lag the optional api.url.
         .models(provider as any, { auth: pluginAuth ?? undefined })
         .then((next) =>
           Object.fromEntries(
-            Object.entries(next).map(([id, model]) => [id, { ...model, id, providerID: p.id } as Model]),
+            Object.entries(next).map(([id, model]) => [id, normalizeModel(p.id, id, model, currentModels[id])]),
           ),
         )
         .catch((e) => {
@@ -1617,7 +1614,9 @@ export namespace Provider {
 
       const configProvider = config.provider?.[providerID]
 
-      for (const [modelID, model] of Object.entries(provider.models) as Array<[string, Model]>) {
+      for (const [modelID, rawModel] of Object.entries(provider.models) as Array<[string, Model]>) {
+        const model = normalizeModel(providerID, modelID, rawModel)
+        provider.models[modelID] = model
         model.api.id = model.api.id ?? model.id ?? modelID
         if (modelID === "gpt-5-chat-latest" || (providerID === "openrouter" && modelID === "openai/gpt-5-chat"))
           delete provider.models[modelID]

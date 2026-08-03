@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -7,6 +8,8 @@ const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-top-lev
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
+
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_EXPERIMENTAL_HTTPAPI"])
 
 const { Instance } = await import("@/project/instance")
 const { Server } = await import("@/server/server")

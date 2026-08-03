@@ -1,3 +1,4 @@
+import { preserveTestEnv } from "../helpers/env"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
 import fs from "fs/promises"
@@ -13,6 +14,17 @@ process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
 process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+preserveTestEnv([
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_DISABLE_PROJECT_CONFIG",
+  "NIKCLI_DISABLE_MODELS_FETCH",
+  "NIKCLI_EXPERIMENTAL_HTTPAPI",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+])
 
 const { Auth } = await import("@/auth")
 const { Instance } = await import("@/project/instance")
