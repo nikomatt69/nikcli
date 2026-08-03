@@ -211,7 +211,11 @@ export namespace Filesystem {
   ): Promise<{ ok: true; real: string } | { ok: false; reason: ContainmentReason }> {
     let canonicalRoot: string
     try {
-      canonicalRoot = realpathSync(root)
+      // `.native` like containsCanonical: on Windows the JS realpath resolves
+      // symlinks but leaves 8.3 short names alone, so a root spelled
+      // `C:\Users\RUNNER~1\...` and a child resolved to `C:\Users\runneradmin\...`
+      // would be two spellings of the same directory that no longer compare equal.
+      canonicalRoot = realpathSync.native(root)
     } catch {
       return { ok: false, reason: "escape" }
     }
@@ -267,7 +271,7 @@ export namespace Filesystem {
       }
       if (lstat.isSymbolicLink()) {
         try {
-          const realTarget: string = realpathSync(next)
+          const realTarget: string = realpathSync.native(next)
           if (!isContained(canonicalRoot, realTarget)) {
             rejectedReason = "symlink"
             break
@@ -283,7 +287,7 @@ export namespace Filesystem {
       // Regular directory or file: probe realpath for canonicalization.
       if (lstat.isDirectory()) {
         try {
-          currentReal = realpathSync(next)
+          currentReal = realpathSync.native(next)
         } catch {
           currentReal = next
         }

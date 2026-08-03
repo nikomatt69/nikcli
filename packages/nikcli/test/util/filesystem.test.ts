@@ -199,8 +199,11 @@ describe("Filesystem", () => {
     })
 
     it("handles absolute paths", () => {
-      const resolved = Filesystem.resolve("/absolute/path")
-      expect(resolved).toBe("/absolute/path")
+      // Resolving an already-absolute path is a no-op. Asserting the literal
+      // "/absolute/path" only holds on POSIX: on Windows a rooted path with no
+      // drive resolves against the current drive ("D:\absolute\path").
+      const absolute = path.resolve("/absolute/path")
+      expect(Filesystem.resolve(absolute)).toBe(absolute)
     })
   })
 

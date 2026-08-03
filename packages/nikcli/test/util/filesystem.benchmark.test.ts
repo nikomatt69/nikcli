@@ -5,6 +5,13 @@ import path from "path"
 import { Filesystem } from "@/util/filesystem"
 import { recordBenchmark } from "../benchmarks/runner"
 
+// `Filesystem.contains` is `path.relative`, and the win32 implementation
+// normalizes and case-folds both operands where the POSIX one walks the string
+// once — the same 100k loop costs ~2.7s on a Windows CI runner against ~0.2s
+// elsewhere. Budget per platform instead of failing the run on a number that
+// was only ever true for POSIX.
+const CONTAINS_BUDGET_MS = process.platform === "win32" ? 5000 : 1000
+
 describe("Filesystem Benchmark", () => {
   let testDir: string
 
@@ -123,7 +130,7 @@ describe("Filesystem Benchmark", () => {
         unit: "ms",
       })
 
-      expect(elapsed).toBeLessThan(1000)
+      expect(elapsed).toBeLessThan(CONTAINS_BUDGET_MS)
     })
 
     it("non-contained paths", async () => {
@@ -148,7 +155,7 @@ describe("Filesystem Benchmark", () => {
         unit: "ms",
       })
 
-      expect(elapsed).toBeLessThan(1000)
+      expect(elapsed).toBeLessThan(CONTAINS_BUDGET_MS)
     })
   })
 

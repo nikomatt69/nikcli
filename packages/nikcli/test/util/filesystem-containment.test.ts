@@ -23,12 +23,12 @@ describe("Filesystem.realpathInside", () => {
     const result = await Filesystem.realpathInside(root, path.join(root, "a.txt"))
     expect(result.ok).toBe(true)
     if (result.ok) {
-      // The returned real path is canonical (realpath'd), which may differ
-      // from the lexical path on platforms where the temp dir is a symlink
-      // (e.g. macOS /tmp -> /private/tmp). We assert containment via the
-      // canonical root instead of equality.
-      const canonicalRoot = await fs.realpath(root)
-      expect(result.real.startsWith(canonicalRoot)).toBe(true)
+      // The returned path is canonical, which differs from the lexical path
+      // wherever the temp dir is not already canonical (macOS /tmp ->
+      // /private/tmp; Windows C:\Users\RUNNER~1 -> C:\Users\runneradmin). A
+      // string prefix check compares two spellings of the same directory, so
+      // assert real containment with the module's own predicate instead.
+      expect(Filesystem.containsCanonical(root, result.real)).toBe(true)
     }
   })
 
