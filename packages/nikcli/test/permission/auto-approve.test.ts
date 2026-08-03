@@ -9,14 +9,14 @@ describe("PermissionRuleset.autoApprove", () => {
     const base: PermissionRuleset.Ruleset = [
       { permission: "*", pattern: "*", action: "allow" },
       { permission: "bash", pattern: "*", action: "ask" },
-      { permission: "browser", pattern: "*", action: "ask" },
+      { permission: "browser_control", pattern: "*", action: "ask" },
     ]
 
     const auto = PermissionRuleset.autoApprove(base)
 
     expect(evaluate(base, "bash")).toBe("ask")
     expect(evaluate(auto, "bash")).toBe("allow")
-    expect(evaluate(auto, "browser")).toBe("allow")
+    expect(evaluate(auto, "browser_control")).toBe("allow")
   })
 
   it("keeps explicit denials in force", () => {

@@ -2525,20 +2525,6 @@ export type ImageConfig = {
 }
 
 /**
- * Browser Use (browser tool) configuration
- */
-export type BrowserUseConfig = {
-  /**
-   * Default Browser Use model for the `browser` tool (e.g. bu-mini, bu-max, bu-ultra, gemini-3-flash, claude-sonnet-4.6, claude-opus-4.6, claude-opus-4.7, gpt-5.4-mini). Used when the tool call does not specify one.
-   */
-  model?: string
-  /**
-   * Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one.
-   */
-  max_cost_usd?: number
-}
-
-/**
  * Computer use (computer tool) configuration
  */
 export type ComputerConfig = {
@@ -3049,7 +3035,10 @@ export type Config = {
   }
   rag?: RagConfig
   image?: ImageConfig
-  browser?: BrowserUseConfig
+  /**
+   * Deprecated and ignored; the browser_control tool needs no config
+   */
+  browser?: unknown
   computer?: ComputerConfig
   attachment?: AttachmentConfig
   speak?: SpeakConfig

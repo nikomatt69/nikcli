@@ -907,7 +907,7 @@ function DesktopSidebar() {
 
 type AutomationPart = {
   id: string
-  tool: "browser" | "computer"
+  tool: AutomationTool
   state: {
     status: "pending" | "running" | "completed" | "error"
     input: Record<string, unknown>
@@ -924,8 +924,20 @@ type AutomationPart = {
 }
 
 type AutomationSurface = "browser" | "computer"
+type AutomationTool = "browser_control" | "computer"
 type SessionPanelSurface = "review" | "terminal" | "files"
 type WorkbenchSurface = SessionPanelSurface | AutomationSurface | "preview"
+
+// The workbench tab keeps the short "browser" id (it names a panel, and is
+// baked into i18n/icon keys); the tool it renders is `browser_control`.
+const AUTOMATION_TOOL: Record<AutomationSurface, AutomationTool> = {
+  browser: "browser_control",
+  computer: "computer",
+}
+const AUTOMATION_SURFACE: Record<AutomationTool, AutomationSurface> = {
+  browser_control: "browser",
+  computer: "computer",
+}
 
 const isAutomationSurface = (surface: WorkbenchSurface): surface is AutomationSurface =>
   surface === "browser" || surface === "computer"
@@ -948,7 +960,7 @@ function AutomationPanel(props: { surface: AutomationSurface; part?: AutomationP
   const screenshot = createMemo(() => automationScreenshot(props.part))
   const liveUrl = createMemo(() => {
     // Only "computer" (sandbox mode) has a cloud live-preview iframe; the
-    // local `browser` tool has no such thing — its state is a screenshot.
+    // local `browser_control` tool has no such thing — its state is a screenshot.
     if (props.surface !== "computer") return undefined
     const value = metadata().liveUrl
     return typeof value === "string" ? value : undefined
@@ -1172,7 +1184,10 @@ function DesktopTools() {
     if (!data || !sessionID) return [] as AutomationPart[]
     return (data.message[sessionID] ?? []).flatMap((message) =>
       (data.part[message.id] ?? [])
-        .filter((part) => part.type === "tool" && (part.tool === "browser" || part.tool === "computer"))
+        .filter(
+          (part) =>
+            part.type === "tool" && (part.tool === AUTOMATION_TOOL.browser || part.tool === AUTOMATION_TOOL.computer),
+        )
         .map((part) => part as unknown as AutomationPart),
     )
   })
@@ -1185,11 +1200,11 @@ function DesktopTools() {
   })
   const latestPart = createMemo(() => {
     const parts = automationParts()
-    return [...parts].reverse().find((part) => part.tool === activeAutomation())
+    return [...parts].reverse().find((part) => part.tool === AUTOMATION_TOOL[activeAutomation()])
   })
   const latestAutomation = createMemo(() => automationParts().at(-1))
   const hasRunningAutomation = (surface: AutomationSurface) =>
-    automationParts().some((part) => part.tool === surface && part.state.status === "running")
+    automationParts().some((part) => part.tool === AUTOMATION_TOOL[surface] && part.state.status === "running")
 
   const closeSessionPanels = (except?: SessionPanelSurface) => {
     if (except !== "review" && except !== "files") view.reviewPanel.close()
@@ -1331,8 +1346,8 @@ function DesktopTools() {
         batch(() => {
           closeSessionPanels()
           setWorkbench({
-            active: latest.tool,
-            automation: latest.tool,
+            active: AUTOMATION_SURFACE[latest.tool],
+            automation: AUTOMATION_SURFACE[latest.tool],
             collapsed: false,
           })
         })

@@ -215,10 +215,10 @@ export function getToolInfo(tool: string, input: any = {}): ToolInfo {
         title: i18n.t("ui.tool.webfetch"),
         subtitle: input.url,
       }
-    case "browser":
+    case "browser_control":
       return {
         icon: "window-cursor",
-        title: "Browser Use",
+        title: "Browser Control",
         subtitle: input.task || input.action,
       }
     case "computer":
@@ -1003,7 +1003,7 @@ ToolRegistry.register({
 })
 
 ToolRegistry.register({
-  name: "browser",
+  name: "browser_control",
   render(props) {
     const summary = () => (props.metadata.summary as string | undefined) || props.input.task || props.input.action
     const liveUrl = () => props.metadata.liveUrl as string | undefined
@@ -1013,7 +1013,7 @@ ToolRegistry.register({
         {...props}
         icon="window-cursor"
         trigger={{
-          title: "Browser Use",
+          title: "Browser Control",
           subtitle: summary(),
           args: status() ? [status()!] : [],
         }}

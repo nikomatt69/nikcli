@@ -60,12 +60,12 @@ diagnosis and the fixes that unblocked the move to 0.4.5.
 The gap is smaller than it looks, because three of the four hard parts are
 already in the monorepo:
 
-| Need                                                                      | Already in tree                                                                                                                                                                                               |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A real Chromium, driven, with a session lifecycle and a background daemon | `packages/browser-control` — Playwright Chromium, `BrowserSession`/`SessionManager`, a Unix-socket daemon (`daemon.ts`), and a client (`daemon-client.ts`). Already powers the `browser` tool and `/browser`. |
-| Kitty / Sixel / iTerm2 encoding, capability detection, halfblock fallback | `packages/tui-image` — `encodeKittyVirtual`, `kittyPlaceholderGrid`, `kittyIdColor`, `detectCapabilities`, `applyLiveCapabilities`, `supportsKittyUnicodePlaceholders`, `renderImage`.                        |
-| Proof that pixels can be composited into the OpenTUI grid                 | `component/tui-image.tsx` — virtual placements, drawless transmission, native-overlay hook for Sixel/iTerm2.                                                                                                  |
-| Terminal cell pixel size                                                  | `CliRenderer.resolution: PixelResolution \| null` (present in 0.4.5). Cell size = `resolution.width / terminalWidth`.                                                                                         |
+| Need                                                                      | Already in tree                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A real Chromium, driven, with a session lifecycle and a background daemon | `packages/browser-control` — Playwright Chromium, `BrowserSession`/`SessionManager`, a Unix-socket daemon (`daemon.ts`), and a client (`daemon-client.ts`). Already powers the `browser_control` tool and `/browser`. |
+| Kitty / Sixel / iTerm2 encoding, capability detection, halfblock fallback | `packages/tui-image` — `encodeKittyVirtual`, `kittyPlaceholderGrid`, `kittyIdColor`, `detectCapabilities`, `applyLiveCapabilities`, `supportsKittyUnicodePlaceholders`, `renderImage`.                                |
+| Proof that pixels can be composited into the OpenTUI grid                 | `component/tui-image.tsx` — virtual placements, drawless transmission, native-overlay hook for Sixel/iTerm2.                                                                                                          |
+| Terminal cell pixel size                                                  | `CliRenderer.resolution: PixelResolution \| null` (present in 0.4.5). Cell size = `resolution.width / terminalWidth`.                                                                                                 |
 
 What is missing: a **screencast** path (browser-control captures with
 `page.screenshot()`, which is far too slow to run in a loop), **coordinate
@@ -256,9 +256,9 @@ nothing beyond a route registration in `feature-plugins/browser/`.
 
 The plugin runs a loopback HTTP server with a bearer token plus two MCP servers
 so the agent can drive the displayed page. nikcli needs none of that: the
-`browser` tool already talks to the same daemon over the same Unix socket
-(`src/browser/browser.ts`), and sessions are already named per conversation
-(`nikcli-<sessionID>`). Pointing the live view at the conversation's existing
+`browser_control` tool already talks to the same daemon over the same Unix
+socket (`src/browser-control/browser-control.ts`), and sessions are already
+named per conversation (`nikcli-<sessionID>`). Pointing the live view at the conversation's existing
 session name means **the agent and the user are looking at the same page, for
 free** — the agent navigates, the user watches it happen.
 
@@ -356,7 +356,7 @@ stays warm and the client has a liveness signal.
 ## 8. Non-goals
 
 - Upgrading `@opentui/core` to 0.4.x.
-- MCP servers for browser control — the `browser` tool already covers it.
+- MCP servers for browser control — the `browser_control` tool already covers it.
 - The plugin's loopback control server and bearer-token handshake — same reason.
 - Sixel/iTerm2 at video rates.
 - Replacing `packages/webrenderer` (native wry webview). It renders through a

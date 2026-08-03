@@ -43,7 +43,7 @@ describe("ToolRegistry.Service", () => {
     expect(ids).toContain("create_goal")
     expect(ids).toContain("get_goal")
     expect(ids).toContain("update_goal")
-    expect(ids).toContain("browser")
+    expect(ids).toContain("browser_control")
     expect(ids).toContain("computer")
   })
 

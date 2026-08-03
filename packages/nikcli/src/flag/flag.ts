@@ -142,12 +142,16 @@ export namespace Flag {
   // Default-on; opt out with NIKCLI_DISABLE_CODE_MODE.
   export const NIKCLI_EXPERIMENTAL_CODE_MODE = !truthy("NIKCLI_DISABLE_CODE_MODE")
 
-  // Computer & browser use ("computer use" like Codex / Claude Code).
-  // Browser actions run through @nikcli-ai/browser-control's local, headless,
-  // background-daemon Chromium; desktop computer-use sends real input to the
-  // local machine. Both tools remain explicitly disableable.
-  // Opt out with NIKCLI_DISABLE_BROWSER_TOOL / NIKCLI_DISABLE_COMPUTER_TOOL.
-  export const NIKCLI_EXPERIMENTAL_BROWSER_TOOL = !truthy("NIKCLI_DISABLE_BROWSER_TOOL")
+  // Computer & browser control ("computer use" like Codex / Claude Code).
+  // The browser_control tool drives @nikcli-ai/browser-control's local,
+  // headless, background-daemon Chromium; desktop computer-use sends real
+  // input to the local machine. Both tools remain explicitly disableable.
+  // Opt out with NIKCLI_DISABLE_BROWSER_CONTROL_TOOL / NIKCLI_DISABLE_COMPUTER_TOOL.
+  // NIKCLI_DISABLE_BROWSER_TOOL stays honoured: it is what the tool was called
+  // before the rename, and it may already be set in someone's shell profile.
+  export const NIKCLI_EXPERIMENTAL_BROWSER_CONTROL_TOOL = !(
+    truthy("NIKCLI_DISABLE_BROWSER_CONTROL_TOOL") || truthy("NIKCLI_DISABLE_BROWSER_TOOL")
+  )
   export const NIKCLI_EXPERIMENTAL_COMPUTER_TOOL = !truthy("NIKCLI_DISABLE_COMPUTER_TOOL")
 
   // Opt-in filesystem scan of `{tool,tools}/*.{js,ts}` under config dirs.

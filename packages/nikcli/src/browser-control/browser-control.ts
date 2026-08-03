@@ -4,11 +4,12 @@ import { ensureDaemon, rpc, shutdownDaemon, socketPathFor, type SessionInfo } fr
 /**
  * Thin per-conversation binding onto `@nikcli-ai/browser-control`'s
  * background daemon: resolves the workspace socket once, and gives every
- * nikcli session a default browser-control session name so the `browser`
- * tool doesn't need one passed on every call (mirroring the old "one browser
- * session per conversation" convenience, without a cloud session behind it).
+ * nikcli session a default browser-control session name so the
+ * `browser_control` tool doesn't need one passed on every call (mirroring the
+ * old "one browser session per conversation" convenience, without a cloud
+ * session behind it).
  */
-export namespace Browser {
+export namespace BrowserControl {
   let cachedSocket: Promise<string> | undefined
 
   function socket(): Promise<string> {

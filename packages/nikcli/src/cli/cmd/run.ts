@@ -45,7 +45,7 @@ const TOOL: Record<string, [string, string]> = {
   apply_patch: ["Patch", UI.Style.TEXT_SUCCESS_BOLD],
   multiedit: ["Edit", UI.Style.TEXT_SUCCESS_BOLD],
   tree: ["Tree", UI.Style.TEXT_INFO_BOLD],
-  browser: ["Browser", UI.Style.TEXT_INFO_BOLD],
+  browser_control: ["Browser", UI.Style.TEXT_INFO_BOLD],
   computer: ["Computer", UI.Style.TEXT_INFO_BOLD],
   skill: ["Skill", UI.Style.TEXT_HIGHLIGHT_BOLD],
   lsp: ["LSP", UI.Style.TEXT_INFO_BOLD],

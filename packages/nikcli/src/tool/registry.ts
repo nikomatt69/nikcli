@@ -49,7 +49,7 @@ import { DelegatorTool } from "./delegator"
 import { CodeModeTool } from "./code_mode"
 import { SearchToolsTool } from "./search_tools"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
-import { BrowserTool } from "./browser"
+import { BrowserControlTool } from "./browser-control"
 import { ComputerTool } from "./computer"
 
 const _toolDir = import.meta.dir
@@ -334,7 +334,7 @@ export namespace ToolRegistry {
           SearchToolsTool,
           // exec_code (NativeExecutor, unconfined) is deprecated in favor of code_mode.
           ...(Flag.NIKCLI_EXPERIMENTAL_CODE_MODE ? [CodeModeTool] : []),
-          ...(Flag.NIKCLI_EXPERIMENTAL_BROWSER_TOOL ? [BrowserTool] : []),
+          ...(Flag.NIKCLI_EXPERIMENTAL_BROWSER_CONTROL_TOOL ? [BrowserControlTool] : []),
           ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_TOOL ? [ComputerTool] : []),
           ...custom,
         ]

@@ -2,7 +2,7 @@
  * @deprecated Re-export of the `@nikcli-ai/computer-use` package API for
  * callers that historically imported from `@/computer/computer`. The actual
  * implementation now lives in `packages/computer-use`, mirroring how
- * `@nikcli-ai/browser-control` is consumed via `@/browser/browser`.
+ * `@nikcli-ai/browser-control` is consumed via `@/browser-control/browser-control`.
  *
  * The wrapper preserves the historical `Computer.backend(mode, sessionID)`
  * shape (returning a `Backend` instead of a `SessionManager`) so the

@@ -1,34 +1,34 @@
-# Computer use and browser use
+# Computer use and browser control
 
-Status: **implemented** (reconciled 2026-07-30).
+Status: **implemented** (reconciled 2026-08-03).
 
 nikcli exposes two first-class tools to the WebGUI/desktop app, TUI, and agents:
 
-- `browser` drives a **local headless Chromium** via `@nikcli-ai/browser-control` (Playwright).
+- `browser_control` drives a **local headless Chromium** via `@nikcli-ai/browser-control` (Playwright).
 - `computer` drives a **desktop session** via `@nikcli-ai/computer-use` (sandbox Linux desktop by default, optional host mode).
 
 Both are enabled by default and can be disabled with:
 
 ```sh
-NIKCLI_DISABLE_BROWSER_TOOL=1
+NIKCLI_DISABLE_BROWSER_CONTROL_TOOL=1
 NIKCLI_DISABLE_COMPUTER_TOOL=1
 ```
 
-(`Flag.NIKCLI_EXPERIMENTAL_BROWSER_TOOL` / `NIKCLI_EXPERIMENTAL_COMPUTER_TOOL` are default-on unless those disable envs are set.)
+(`Flag.NIKCLI_EXPERIMENTAL_BROWSER_CONTROL_TOOL` / `NIKCLI_EXPERIMENTAL_COMPUTER_TOOL` are default-on unless those disable envs are set. The pre-rename `NIKCLI_DISABLE_BROWSER_TOOL` still opts out.)
 
 Permission-gated: computer actions default to permission `ask`.
 
 ---
 
-## Browser — `@nikcli-ai/browser-control`
+## Browser control — `@nikcli-ai/browser-control`
 
 **Not** Browser Use Cloud. There is no `BROWSER_USE_API_KEY` / `browser-use-sdk` path in the current tree.
 
-| Piece  | Location                                  |
-| ------ | ----------------------------------------- |
-| Tool   | `packages/nikcli/src/tool/browser.ts`     |
-| Engine | `packages/browser-control` (`playwright`) |
-| Skill  | `packages/browser-control/skills/`        |
+| Piece  | Location                                      |
+| ------ | --------------------------------------------- |
+| Tool   | `packages/nikcli/src/tool/browser-control.ts` |
+| Engine | `packages/browser-control` (`playwright`)     |
+| Skill  | `packages/browser-control/skills/`            |
 
 ### Actions
 

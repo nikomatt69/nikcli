@@ -1228,27 +1228,6 @@ export namespace Config {
     })
   export type Image = z.infer<typeof Image>
 
-  export const BrowserUse = z
-    .object({
-      model: z
-        .string()
-        .optional()
-        .describe(
-          "Default Browser Use model for the `browser` tool (e.g. bu-mini, bu-max, bu-ultra, gemini-3-flash, claude-sonnet-4.6, claude-opus-4.6, claude-opus-4.7, gpt-5.4-mini). Used when the tool call does not specify one.",
-        ),
-      max_cost_usd: z
-        .number()
-        .positive()
-        .max(100)
-        .optional()
-        .describe("Default hard cost cap (USD) applied to Browser Use tasks when the tool call does not specify one."),
-    })
-    .strict()
-    .meta({
-      ref: "BrowserUseConfig",
-    })
-  export type BrowserUse = z.infer<typeof BrowserUse>
-
   export const Computer = z
     .object({
       mode: z
@@ -1806,7 +1785,11 @@ export namespace Config {
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
-      browser: BrowserUse.optional().describe("Browser Use (browser tool) configuration"),
+      // Settings for the Browser Use Cloud path that was never shipped; nothing
+      // has ever read them and `browser_control` needs no configuration. The key
+      // stays accepted because the config object is strict — dropping it outright
+      // would make an old nikcli.json fail to load rather than be ignored.
+      browser: z.unknown().optional().describe("Deprecated and ignored; the browser_control tool needs no config"),
       computer: Computer.optional().describe("Computer use (computer tool) configuration"),
       attachment: Attachment.optional().describe("Attachment handling configuration"),
       speak: Speak.optional().describe("Text-to-speech configuration"),

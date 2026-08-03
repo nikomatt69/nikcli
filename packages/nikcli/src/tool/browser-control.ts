@@ -1,9 +1,9 @@
 import z from "zod"
 import { Tool } from "./tool"
-import DESCRIPTION from "./browser.txt"
+import DESCRIPTION from "./browser-control.txt"
 import { Identifier } from "../id/id"
 import type { MessageV2 } from "../session/message-v2"
-import { Browser } from "../browser/browser"
+import { BrowserControl } from "../browser-control/browser-control"
 import { rpc } from "@nikcli-ai/browser-control"
 import type { JSONFrame, SessionInfo } from "@nikcli-ai/browser-control"
 
@@ -33,7 +33,7 @@ const ACTIONS = [
 
 const parameters = z
   .object({
-    action: z.enum(ACTIONS).describe("The browser operation to perform"),
+    action: z.enum(ACTIONS).describe("The browser-control operation to perform"),
     name: z.string().optional().describe("Session name; defaults to one session per conversation"),
     url: z.string().optional().describe("For start/goto"),
     viewport: z
@@ -95,7 +95,7 @@ const parameters = z
 type Params = z.infer<typeof parameters>
 
 type Metadata = {
-  surface: "browser"
+  surface: "browser_control"
   action: string
   name?: string
 }
@@ -142,46 +142,50 @@ function imageAttachment(ctx: Tool.Context, base64: string): MessageV2.FilePart 
 }
 
 function baseMetadata(action: string, name?: string): Metadata {
-  return { surface: "browser", action, name }
+  return { surface: "browser_control", action, name }
 }
 
 /** Auto-start a blank session under `name` if one isn't already running, so most actions work without an explicit `start` first. */
 async function ensureSession(socket: string, name: string): Promise<void> {
-  const existing = await Browser.find(name)
+  const existing = await BrowserControl.find(name)
   if (existing?.status === "running") return
   await rpc(socket, "start", { name })
 }
 
-export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
+export const BrowserControlTool = Tool.define<typeof parameters, Metadata>("browser_control", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx): Promise<Tool.Result<Metadata>> {
     await ctx.ask({
-      permission: "browser",
+      permission: "browser_control",
       patterns: [params.action, params.name ?? "*"],
       always: ["*"],
       metadata: { action: params.action, name: params.name },
     })
     ctx.metadata({
-      title: params.name ? `Browser · ${params.action} · ${params.name}` : `Browser · ${params.action}`,
+      title: params.name ? `Browser Control · ${params.action} · ${params.name}` : `Browser Control · ${params.action}`,
       metadata: baseMetadata(params.action, params.name),
     })
 
     if (params.action === "close_all") {
-      await Browser.closeAll()
+      await BrowserControl.closeAll()
       return {
-        title: "Browser · close_all",
+        title: "Browser Control · close_all",
         output: "Closed all sessions and stopped the daemon.",
         metadata: baseMetadata(params.action),
       }
     }
     if (params.action === "list") {
-      const list = await Browser.call<SessionInfo[]>("list")
-      return { title: "Browser · list", output: JSON.stringify(list, null, 2), metadata: baseMetadata(params.action) }
+      const list = await BrowserControl.call<SessionInfo[]>("list")
+      return {
+        title: "Browser Control · list",
+        output: JSON.stringify(list, null, 2),
+        metadata: baseMetadata(params.action),
+      }
     }
 
-    const name = Browser.sessionName(ctx.sessionID, params.name)
-    const socket = await Browser.daemon()
+    const name = BrowserControl.sessionName(ctx.sessionID, params.name)
+    const socket = await BrowserControl.daemon()
 
     if (params.action === "start") {
       const info = await rpc<SessionInfo>(socket, "start", {
@@ -191,7 +195,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
         record: params.record,
       })
       return {
-        title: `Browser · start · ${name}`,
+        title: `Browser Control · start · ${name}`,
         output: JSON.stringify(info, null, 2),
         metadata: baseMetadata(params.action, name),
       }
@@ -214,7 +218,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "info": {
         const info = await rpc<SessionInfo>(socket, "info", { name })
         return {
-          title: `Browser · info · ${name}`,
+          title: `Browser Control · info · ${name}`,
           output: JSON.stringify(info, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -223,7 +227,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
         await rpc(socket, "goto", { name, url: params.url })
         const info = await rpc<SessionInfo>(socket, "info", { name })
         return {
-          title: `Browser · goto · ${name}`,
+          title: `Browser Control · goto · ${name}`,
           output: JSON.stringify(info, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -231,7 +235,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "click": {
         await rpc(socket, "click", { name, selector: params.selector })
         return {
-          title: `Browser · click · ${name}`,
+          title: `Browser Control · click · ${name}`,
           output: `Clicked ${params.selector}`,
           metadata: baseMetadata(params.action, name),
         }
@@ -239,7 +243,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "fill": {
         await rpc(socket, "fill", { name, selector: params.selector, value: params.value })
         return {
-          title: `Browser · fill · ${name}`,
+          title: `Browser Control · fill · ${name}`,
           output: `Filled ${params.selector}`,
           metadata: baseMetadata(params.action, name),
         }
@@ -247,23 +251,31 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "hover": {
         await rpc(socket, "hover", { name, selector: params.selector })
         return {
-          title: `Browser · hover · ${name}`,
+          title: `Browser Control · hover · ${name}`,
           output: `Hovered ${params.selector}`,
           metadata: baseMetadata(params.action, name),
         }
       }
       case "scroll": {
         await rpc(socket, "scroll", { name, dx: params.dx ?? 0, dy: params.dy ?? 0 })
-        return { title: `Browser · scroll · ${name}`, output: "Scrolled.", metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser Control · scroll · ${name}`,
+          output: "Scrolled.",
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "send": {
         await rpc(socket, "send", { name, mode: params.mode, input: params.input })
-        return { title: `Browser · send · ${name}`, output: "Input sent.", metadata: baseMetadata(params.action, name) }
+        return {
+          title: `Browser Control · send · ${name}`,
+          output: "Input sent.",
+          metadata: baseMetadata(params.action, name),
+        }
       }
       case "wait": {
         const result = await rpc(socket, "wait", { name, condition: waitCondition(params) })
         return {
-          title: `Browser · wait · ${name}`,
+          title: `Browser Control · wait · ${name}`,
           output: JSON.stringify(result, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -272,20 +284,20 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
         const frame = await rpc<JSONFrame>(socket, "snapshot", { name })
         if (params.format === "text") {
           return {
-            title: `Browser · snapshot · ${name}`,
+            title: `Browser Control · snapshot · ${name}`,
             output: frame.text,
             metadata: baseMetadata(params.action, name),
           }
         }
         if (params.format === "json") {
           return {
-            title: `Browser · snapshot · ${name}`,
+            title: `Browser Control · snapshot · ${name}`,
             output: JSON.stringify(frame, null, 2),
             metadata: baseMetadata(params.action, name),
           }
         }
         return {
-          title: `Browser · snapshot · ${name}`,
+          title: `Browser Control · snapshot · ${name}`,
           output: `Screenshot of ${frame.url} (${frame.viewport.width}x${frame.viewport.height}).`,
           metadata: baseMetadata(params.action, name),
           attachments: [imageAttachment(ctx, frame.screenshotBase64)],
@@ -297,7 +309,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
           : { width: params.width ?? 1280, height: params.height ?? 800 }
         const info = await rpc<SessionInfo>(socket, "resize", { name, ...size })
         return {
-          title: `Browser · resize · ${name}`,
+          title: `Browser Control · resize · ${name}`,
           output: JSON.stringify(info, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -305,7 +317,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "stop": {
         await rpc(socket, "stop", { name })
         return {
-          title: `Browser · stop · ${name}`,
+          title: `Browser Control · stop · ${name}`,
           output: `Stopped ${name}.`,
           metadata: baseMetadata(params.action, name),
         }
@@ -313,7 +325,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "remove": {
         await rpc(socket, "remove", { name })
         return {
-          title: `Browser · remove · ${name}`,
+          title: `Browser Control · remove · ${name}`,
           output: `Removed ${name}.`,
           metadata: baseMetadata(params.action, name),
         }
@@ -321,7 +333,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "restart": {
         const info = await rpc<SessionInfo>(socket, "restart", { name })
         return {
-          title: `Browser · restart · ${name}`,
+          title: `Browser Control · restart · ${name}`,
           output: JSON.stringify(info, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -329,7 +341,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "start_recording": {
         await rpc(socket, "startRecording", { name, sampleFps: params.sample_fps })
         return {
-          title: `Browser · start_recording · ${name}`,
+          title: `Browser Control · start_recording · ${name}`,
           output: `Recording started${params.sample_fps ? ` @ ${params.sample_fps}fps` : ""}.`,
           metadata: baseMetadata(params.action, name),
         }
@@ -337,7 +349,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "marker": {
         const marker = await rpc(socket, "marker", { name, markerName: params.marker_name })
         return {
-          title: `Browser · marker · ${name}`,
+          title: `Browser Control · marker · ${name}`,
           output: JSON.stringify(marker, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -345,7 +357,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "stop_recording": {
         const data = await rpc(socket, "stopRecording", { name })
         return {
-          title: `Browser · stop_recording · ${name}`,
+          title: `Browser Control · stop_recording · ${name}`,
           output: JSON.stringify(data, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -353,7 +365,7 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "recording_data": {
         const data = await rpc(socket, "recordingData", { name })
         return {
-          title: `Browser · recording_data · ${name}`,
+          title: `Browser Control · recording_data · ${name}`,
           output: JSON.stringify(data, null, 2),
           metadata: baseMetadata(params.action, name),
         }
@@ -361,14 +373,14 @@ export const BrowserTool = Tool.define<typeof parameters, Metadata>("browser", {
       case "video_path": {
         const result = await rpc<{ path?: string }>(socket, "videoPath", { name })
         return {
-          title: `Browser · video_path · ${name}`,
+          title: `Browser Control · video_path · ${name}`,
           output: result.path ?? "No video (session not started with record:true, or not yet stopped).",
           metadata: baseMetadata(params.action, name),
         }
       }
       default: {
         const never: never = params.action
-        throw new Error(`Unhandled browser action: ${never}`)
+        throw new Error(`Unhandled browser_control action: ${never}`)
       }
     }
   },

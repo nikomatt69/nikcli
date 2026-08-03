@@ -60,7 +60,7 @@ import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
 import type { MonitorTool } from "@/tool/monitor"
 import type { QuestionTool } from "@/tool/question"
-import type { BrowserTool } from "@/tool/browser"
+import type { BrowserControlTool } from "@/tool/browser-control"
 import type { ComputerTool } from "@/tool/computer"
 import type { ArtifactTool } from "@/tool/artifact"
 
@@ -2233,8 +2233,8 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           <Match when={props.part.tool === "opentui"}>
             <OpenTUIViz {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "browser"}>
-            <BrowserUse {...toolprops} />
+          <Match when={props.part.tool === "browser_control"}>
+            <BrowserControlView {...toolprops} />
           </Match>
           <Match when={props.part.tool === "computer"}>
             <ComputerUse {...toolprops} />
@@ -2265,16 +2265,16 @@ type ToolProps<T extends Tool.Info> = {
   part: ToolPart
 }
 
-function BrowserUse(props: ToolProps<typeof BrowserTool>) {
+function BrowserControlView(props: ToolProps<typeof BrowserControlTool>) {
   const { theme } = useTheme()
-  const action = createMemo(() => props.metadata.action ?? props.input.action ?? "browser")
+  const action = createMemo(() => props.metadata.action ?? props.input.action ?? "browser_control")
   const label = createMemo(() => (props.metadata.name ? `${action()} · ${props.metadata.name}` : action()))
 
   return (
     <Switch>
       <Match when={props.output !== undefined}>
         <BlockTool
-          title={`# Browser · ${label()}`}
+          title={`# Browser Control · ${label()}`}
           titleColor={theme.primary}
           accentColor={theme.primary}
           part={props.part}
@@ -2288,11 +2288,11 @@ function BrowserUse(props: ToolProps<typeof BrowserTool>) {
         <InlineTool
           icon="◎"
           iconColor={theme.primary}
-          pending="Running browser action..."
+          pending="Running browser-control action..."
           complete={label()}
           part={props.part}
         >
-          Browser · {label()}
+          Browser Control · {label()}
         </InlineTool>
       </Match>
     </Switch>
