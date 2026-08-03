@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.232.0 (August 2026)
+
+## Core
+
+- Canonicalize with the native realpath on Windows (@nikomatt69)
+- Open and close the step for native LLM protocols (@nikomatt69)
+- Rename the browser tool to browser_control (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(tool): rename the browser tool to browser_control
+  - fix(session): open and close the step for native LLM protocols
+  - fix(filesystem): canonicalize with the native realpath on Windows
+
 ## v1.230.0 (August 2026)
 
 ## Core
