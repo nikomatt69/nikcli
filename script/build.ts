@@ -107,8 +107,13 @@ await $`rm -rf dist`
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
-  await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
-  await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
+  // `process.execPath`, not the bare name: `bun run` puts node_modules/.bin
+  // first on PATH, and the `bun` npm package in the tree puts a `bun` shim
+  // there. Under the hoisted linker Windows CI uses, that shim wins the lookup
+  // and dies with "Bun failed to remap this bin to its proper location".
+  const bun = process.execPath
+  await $`${bun} install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
+  await $`${bun} install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
 }
 for (const item of targets) {
   const name = [
