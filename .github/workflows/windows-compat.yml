@@ -116,9 +116,12 @@ jobs:
           if (data.includes("/.local/share/")) { console.error("XDG POSIX fallback leaked:", data); process.exit(1) }
           console.log("Global.Path Windows fallback ok")
           '@
-          $tmp = "$env:RUNNER_TEMP\global-path-check.ts"
+          # Inside packages/nikcli, not RUNNER_TEMP: `@/` is a tsconfig paths
+          # alias, and bun resolves it from the nearest tsconfig to the file.
+          $tmp = "global-path-check.ts"
           Set-Content -Path $tmp -Value $script -Encoding UTF8
-          & bun --conditions=browser $tmp
+          try { & bun --conditions=browser $tmp } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+          exit $LASTEXITCODE
 
       - name: invariant — Shell.preferred / Shell.select on Windows
         shell: pwsh
@@ -133,9 +136,10 @@ jobs:
           console.log("PowerShell-marker selected:", psSel)
           console.log("Shell helpers ok")
           '@
-          $tmp = "$env:RUNNER_TEMP\shell-check.ts"
+          $tmp = "shell-check.ts"
           Set-Content -Path $tmp -Value $script -Encoding UTF8
-          & bun --conditions=browser $tmp
+          try { & bun --conditions=browser $tmp } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+          exit $LASTEXITCODE
 
       # --- Build + execute the native Windows binary ---
 
