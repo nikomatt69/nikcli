@@ -40,6 +40,56 @@ export function formatTranscript(
   return transcript
 }
 
+/**
+ * Structured counterpart to `formatTranscript`, for feeding a session to
+ * something other than a human — a diffing script, an eval harness, another
+ * model. The export dialog already advertised `.json` as a filename it accepts;
+ * until now every extension produced markdown regardless.
+ *
+ * The same options apply, and for the same reason: a transcript exported
+ * without tool output must not leak that output back through a second format.
+ */
+export function formatTranscriptJson(
+  session: SessionInfo,
+  messages: MessageWithParts[],
+  options: TranscriptOptions,
+): string {
+  return (
+    JSON.stringify(
+      {
+        session,
+        messages: messages.map((msg) => ({
+          info: options.assistantMetadata || msg.info.role !== "assistant" ? msg.info : stripMetadata(msg.info),
+          parts: msg.parts.flatMap((part) => filterPart(part, options)),
+        })),
+      },
+      null,
+      2,
+    ) + "\n"
+  )
+}
+
+/** Drop the per-message provenance the markdown header would have omitted. */
+function stripMetadata(msg: AssistantMessage) {
+  const { agent: _agent, modelID: _modelID, providerID: _providerID, ...rest } = msg as AssistantMessage &
+    Record<string, unknown>
+  return rest
+}
+
+/**
+ * Apply the transcript options to a part. Tool calls survive `toolDetails:
+ * false` as a bare record of the call — knowing a tool ran is not the same as
+ * dumping what it read, and the markdown path draws the line in the same place.
+ */
+function filterPart(part: Part, options: TranscriptOptions): unknown[] {
+  if (part.type === "text" && part.synthetic) return []
+  if (part.type === "reasoning" && !options.thinking) return []
+  if (part.type === "tool" && !options.toolDetails) {
+    return [{ type: part.type, tool: part.tool, state: { status: part.state.status } }]
+  }
+  return [part]
+}
+
 export function formatMessage(msg: UserMessage | AssistantMessage, parts: Part[], options: TranscriptOptions): string {
   let result = ""
 

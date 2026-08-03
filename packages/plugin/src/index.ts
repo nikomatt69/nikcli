@@ -211,6 +211,17 @@ export interface Hooks {
     input: { sessionID: string; agent: string; model: Model; provider: ProviderContext; message: UserMessage },
     output: { temperature: number; topP: number; topK: number; options: Record<string, any> },
   ) => Promise<void>
+  "chat.headers"?: (
+    input: { sessionID: string; agent: string; model: Model; provider: ProviderContext; message: UserMessage },
+    output: { headers: Record<string, string> },
+  ) => Promise<void>
+  /**
+   * Modify the final serialized HTTP request immediately before dispatch.
+   */
+  "chat.request"?: (
+    input: { sessionID: string; agent: string; model: Model },
+    output: { url: string; headers: Record<string, string>; body: string | undefined },
+  ) => Promise<void>
   "permission.ask"?: (input: PermissionRequest, output: { status: "ask" | "deny" | "allow" }) => Promise<void>
   /**
    * Augment the environment variables applied when a PTY/shell is created.

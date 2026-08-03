@@ -4,7 +4,7 @@ import type { Endpoint } from "./endpoint"
 import { RequestExecutor } from "./executor"
 import type { Framing } from "./framing"
 import { HttpTransport } from "./transport"
-import type { Transport, TransportRuntime } from "./transport"
+import type { HttpRequestTransform, Transport, TransportPrepareOptions, TransportRuntime } from "./transport"
 import { WebSocketExecutor } from "./transport"
 import type { Service as WebSocketExecutorService } from "./transport/websocket"
 import type { Protocol } from "./protocol"
@@ -47,7 +47,11 @@ export interface Route<Body, Prepared = unknown> {
   readonly body: RouteBody<Body>
   readonly with: (patch: RoutePatch<Body, Prepared>) => Route<Body, Prepared>
   readonly model: <Input extends RouteModelInput = RouteModelInput>(input: Input) => ModelRef
-  readonly prepareTransport: (body: Body, request: LLMRequest) => Effect.Effect<Prepared, LLMError>
+  readonly prepareTransport: (
+    body: Body,
+    request: LLMRequest,
+    options?: TransportPrepareOptions,
+  ) => Effect.Effect<Prepared, LLMError>
   readonly streamPrepared: (
     prepared: Prepared,
     request: LLMRequest,
@@ -230,13 +234,17 @@ export interface Interface {
   readonly generate: GenerateMethod
 }
 
+export interface StreamOptions {
+  readonly transform?: HttpRequestTransform
+}
+
 export interface StreamMethod {
-  (request: LLMRequest): Stream.Stream<LLMEvent, LLMError>
+  (request: LLMRequest, options?: StreamOptions): Stream.Stream<LLMEvent, LLMError>
   <T extends Tools>(options: ToolRuntime.RunOptions<T>): Stream.Stream<LLMEvent, LLMError>
 }
 
 export interface GenerateMethod {
-  (request: LLMRequest): Effect.Effect<LLMResponse, LLMError>
+  (request: LLMRequest, options?: StreamOptions): Effect.Effect<LLMResponse, LLMError>
   <T extends Tools>(options: ToolRuntime.RunOptions<T>): Effect.Effect<LLMResponse, LLMError>
 }
 
@@ -400,7 +408,7 @@ export function make<Body, Prepared, Frame, Event, State>(
 // `compile` is the important boundary: it turns a common `LLMRequest` into a
 // validated provider body plus transport-private prepared data, but does not
 // execute transport.
-const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest) {
+const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest, options?: StreamOptions) {
   // Placed before body lowering so protocols keep seeing plain inline hints and
   // stay unaware of the policy.
   const resolved = applyCachePolicy(resolveRequestOptions(request))
@@ -410,7 +418,7 @@ const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest) {
   const body = yield* route.body
     .from(resolved)
     .pipe(Effect.flatMap(ProviderShared.validateWith(Schema.decodeUnknownEffect(route.body.schema))))
-  const prepared = yield* route.prepareTransport(body, resolved)
+  const prepared = yield* route.prepareTransport(body, resolved, options)
 
   return {
     request: resolved,
@@ -433,10 +441,10 @@ const prepareWith = Effect.fn("LLMClient.prepare")(function* (request: LLMReques
   })
 })
 
-const streamRequestWith = (runtime: TransportRuntime) => (request: LLMRequest) =>
+const streamRequestWith = (runtime: TransportRuntime) => (request: LLMRequest, options?: StreamOptions) =>
   Stream.unwrap(
     Effect.gen(function* () {
-      const compiled = yield* compile(request)
+      const compiled = yield* compile(request, options)
       return compiled.route.streamPrepared(compiled.prepared, compiled.request, runtime)
     }),
   )
@@ -444,16 +452,18 @@ const streamRequestWith = (runtime: TransportRuntime) => (request: LLMRequest) =
 const isToolRunOptions = (input: LLMRequest | ToolRuntime.RunOptions<Tools>): input is ToolRuntime.RunOptions<Tools> =>
   "request" in input && "tools" in input
 
-const streamWith = (streamRequest: (request: LLMRequest) => Stream.Stream<LLMEvent, LLMError>): StreamMethod =>
-  ((input: LLMRequest | ToolRuntime.RunOptions<Tools>) => {
+const streamWith = (
+  streamRequest: (request: LLMRequest, options?: StreamOptions) => Stream.Stream<LLMEvent, LLMError>,
+): StreamMethod =>
+  ((input: LLMRequest | ToolRuntime.RunOptions<Tools>, options?: StreamOptions) => {
     if (isToolRunOptions(input)) return ToolRuntime.stream({ ...input, stream: streamRequest })
-    return streamRequest(input)
+    return streamRequest(input, options)
   }) as StreamMethod
 
 const generateWith = (stream: Interface["stream"]) =>
-  Effect.fn("LLM.generate")(function* (input: LLMRequest | ToolRuntime.RunOptions<Tools>) {
+  Effect.fn("LLM.generate")(function* (input: LLMRequest | ToolRuntime.RunOptions<Tools>, options?: StreamOptions) {
     return new LLMResponse(
-      yield* stream(input as never).pipe(
+      yield* stream(input as never, options).pipe(
         Stream.runFold(
           () => ({ events: [] as LLMEvent[], usage: undefined as LLMResponse["usage"] }),
           (acc, event) => {
@@ -469,28 +479,28 @@ const generateWith = (stream: Interface["stream"]) =>
 export const prepare = <Body = unknown>(request: LLMRequest) =>
   prepareWith(request) as Effect.Effect<PreparedRequestOf<Body>, LLMError>
 
-export function stream(request: LLMRequest): Stream.Stream<LLMEvent, LLMError>
+export function stream(request: LLMRequest, options?: StreamOptions): Stream.Stream<LLMEvent, LLMError>
 export function stream<T extends Tools>(options: ToolRuntime.RunOptions<T>): Stream.Stream<LLMEvent, LLMError>
-export function stream(input: LLMRequest | ToolRuntime.RunOptions<Tools>) {
+export function stream(input: LLMRequest | ToolRuntime.RunOptions<Tools>, options?: StreamOptions) {
   return Stream.unwrap(
     Effect.gen(function* () {
-      return (yield* Service).stream(input as never)
+      return (yield* Service).stream(input as never, options)
     }),
   )
 }
 
-export function generate(request: LLMRequest): Effect.Effect<LLMResponse, LLMError>
+export function generate(request: LLMRequest, options?: StreamOptions): Effect.Effect<LLMResponse, LLMError>
 export function generate<T extends Tools>(options: ToolRuntime.RunOptions<T>): Effect.Effect<LLMResponse, LLMError>
-export function generate(input: LLMRequest | ToolRuntime.RunOptions<Tools>) {
+export function generate(input: LLMRequest | ToolRuntime.RunOptions<Tools>, options?: StreamOptions) {
   return Effect.gen(function* () {
-    return yield* (yield* Service).generate(input as never)
+    return yield* (yield* Service).generate(input as never, options)
   })
 }
 
-export const streamRequest = (request: LLMRequest) =>
+export const streamRequest = (request: LLMRequest, options?: StreamOptions) =>
   Stream.unwrap(
     Effect.gen(function* () {
-      return (yield* Service).stream(request)
+      return (yield* Service).stream(request, options)
     }),
   )
 

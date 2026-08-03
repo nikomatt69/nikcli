@@ -135,6 +135,13 @@ export namespace ModelLimits {
     input instanceof ModelLimits ? input : new ModelLimits(input ?? {})
 }
 
+export const ModelMaxTokensFieldCompatibility = Schema.Literals(["max_completion_tokens", "max_tokens"])
+export type ModelMaxTokensFieldCompatibility = Schema.Schema.Type<typeof ModelMaxTokensFieldCompatibility>
+
+export class ModelCompatibility extends Schema.Class<ModelCompatibility>("LLM.ModelCompatibility")({
+  maxTokensField: Schema.optional(ModelMaxTokensFieldCompatibility),
+}) {}
+
 export class ModelRef extends Schema.Class<ModelRef>("LLM.ModelRef")({
   id: ModelID,
   provider: ProviderID,
@@ -155,6 +162,7 @@ export class ModelRef extends Schema.Class<ModelRef>("LLM.ModelRef")({
   limits: ModelLimits,
   /** Provider-neutral generation defaults. Request-level values override them. */
   generation: Schema.optional(GenerationOptions),
+  compatibility: Schema.optional(ModelCompatibility),
   /** Provider-owned typed-at-the-facade options for non-portable knobs. */
   providerOptions: Schema.optional(ProviderOptions),
   /** Serializable raw HTTP overlays applied to the final outgoing request. */
@@ -182,6 +190,7 @@ export namespace ModelRef {
     queryParams: model.queryParams,
     limits: model.limits,
     generation: model.generation,
+    compatibility: model.compatibility,
     providerOptions: model.providerOptions,
     http: model.http,
     native: model.native,

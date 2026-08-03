@@ -2,6 +2,7 @@ import { Layer, ManagedRuntime, Stream } from "effect"
 import { LLMClient, Service as LLMClientService } from "./route/client"
 import { RequestExecutor } from "./route/executor"
 import type { LLMEvent, LLMRequest, PreparedRequest } from "./schema"
+import type { StreamOptions } from "./route/client"
 
 const llmLayer = Layer.provide(LLMClient.layer, RequestExecutor.defaultLayer)
 
@@ -15,8 +16,8 @@ const getRuntime = (): Runtime => {
 export const prepareRequest = (request: LLMRequest): Promise<PreparedRequest> =>
   getRuntime().runPromise(LLMClient.prepare(request))
 
-export const streamRequest = (request: LLMRequest): AsyncIterable<LLMEvent> => {
-  const provided = LLMClient.stream(request).pipe(Stream.provide(llmLayer))
+export const streamRequest = (request: LLMRequest, options?: StreamOptions): AsyncIterable<LLMEvent> => {
+  const provided = LLMClient.stream(request, options).pipe(Stream.provide(llmLayer))
   return Stream.toAsyncIterable(provided)
 }
 

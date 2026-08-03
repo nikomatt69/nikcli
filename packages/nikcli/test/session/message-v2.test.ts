@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { JSONParseError } from "ai"
+import { APICallError, JSONParseError, type ModelMessage } from "ai"
 import { Identifier } from "@/id/id"
 import { MessageV2 } from "@/session/message-v2"
 
@@ -66,6 +66,89 @@ describe("MessageV2 schemas and helpers", () => {
     // message must be truncated to 200 chars (the wrapper prefix + truncated cause)
     expect(out.data.message.startsWith("Provider returned malformed JSON stream:")).toBe(true)
     expect(out.data.message.length).toBeLessThanOrEqual("Provider returned malformed JSON stream: ".length + 200)
+  })
+
+  it("fromError preserves status and separates payload size from context overflow", () => {
+    const makeError = (message: string, statusCode: number) =>
+      new APICallError({
+        message,
+        url: "https://example.com/v1/messages",
+        requestBodyValues: {},
+        statusCode,
+        responseHeaders: {},
+        responseBody: undefined,
+        isRetryable: false,
+      })
+
+    const payload = MessageV2.fromError(makeError("request too large", 413), { providerID: "anthropic" })
+    expect(payload).toMatchObject({
+      name: "APIError",
+      data: { statusCode: 413, classification: "payload-too-large" },
+    })
+
+    const overflow = MessageV2.fromError(makeError("maximum context length is 8192 tokens", 400), {
+      providerID: "openai",
+    })
+    expect(overflow).toMatchObject({
+      name: "MessageContextOverflowError",
+      data: { statusCode: 400 },
+    })
+  })
+
+  it("boundImagePayload removes oldest images without mutating source messages", () => {
+    const image = "a".repeat(9 * 1024 * 1024)
+    const messages = ["first", "second", "third"].map(
+      (name): ModelMessage => ({
+        role: "user",
+        content: [{ type: "image", image, mediaType: "image/png", filename: `${name}.png` }],
+      }),
+    )
+
+    const bounded = MessageV2.boundImagePayload(messages)
+    expect(bounded[0]?.content[0]).toMatchObject({ type: "text" })
+    expect(bounded[1]?.content[0]).toMatchObject({ type: "text" })
+    expect(bounded[2]?.content[0]).toMatchObject({ type: "image", filename: "third.png" })
+    expect(messages[0]?.content[0]).toMatchObject({ type: "image", filename: "first.png" })
+  })
+
+  it("boundImagePayload preserves history at or below the trigger", () => {
+    const messages: ModelMessage[] = [
+      {
+        role: "user",
+        content: [{ type: "image", image: "aGVsbG8=", mediaType: "image/png" }],
+      },
+    ]
+    expect(MessageV2.boundImagePayload(messages)).toBe(messages)
+  })
+
+  it("boundImagePayload replaces data-URI images nested in tool results", () => {
+    const image = "a".repeat(13 * 1024 * 1024)
+    const messages = [
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "read",
+            output: {
+              type: "content",
+              value: [
+                { type: "media", mediaType: "image/png", data: `data:image/png;base64,${image}` },
+                { type: "media", mediaType: "image/png", data: `data:image/png;base64,${image}` },
+              ],
+            },
+          },
+        ],
+      },
+    ] as unknown as ModelMessage[]
+
+    const bounded = MessageV2.boundImagePayload(messages) as any
+    expect(bounded[0].content[0].output.value).toEqual([
+      expect.objectContaining({ type: "text" }),
+      expect.objectContaining({ type: "media" }),
+    ])
+    expect((messages[0] as any).content[0].output.value[0].type).toBe("media")
   })
 
   it("toModelMessages maps a minimal user thread for OpenAI-compatible model", () => {

@@ -88,7 +88,10 @@ const GeminiToolConfig = Schema.Struct({
 const GeminiThinkingConfig = Schema.Struct({
   thinkingBudget: Schema.optional(Schema.Number),
   includeThoughts: Schema.optional(Schema.Boolean),
+  thinkingLevel: Schema.optional(Schema.String),
 })
+
+const GeminiSafetySetting = Schema.Struct({ category: Schema.String, threshold: Schema.String })
 
 const GeminiGenerationConfig = Schema.Struct({
   maxOutputTokens: Schema.optional(Schema.Number),
@@ -100,7 +103,10 @@ const GeminiGenerationConfig = Schema.Struct({
 })
 
 const GeminiBodyFields = {
+  cachedContent: Schema.optional(Schema.String),
   contents: Schema.Array(GeminiContent),
+  safetySettings: optionalArray(GeminiSafetySetting),
+  serviceTier: Schema.optional(Schema.String),
   systemInstruction: Schema.optional(GeminiSystemInstruction),
   tools: optionalArray(GeminiTool),
   toolConfig: Schema.optional(GeminiToolConfig),
@@ -244,30 +250,54 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
 
 const geminiOptions = (request: LLMRequest) => request.providerOptions?.gemini
 
-const thinkingConfig = (request: LLMRequest) => {
-  const value = geminiOptions(request)?.thinkingConfig
-  if (!ProviderShared.isRecord(value)) return undefined
+const resolveOptions = (request: LLMRequest) => {
+  const input = geminiOptions(request)
+  const value = input?.thinkingConfig
   const result = {
-    thinkingBudget: typeof value.thinkingBudget === "number" ? value.thinkingBudget : undefined,
-    includeThoughts: typeof value.includeThoughts === "boolean" ? value.includeThoughts : undefined,
+    thinkingBudget:
+      ProviderShared.isRecord(value) && typeof value.thinkingBudget === "number" ? value.thinkingBudget : undefined,
+    includeThoughts:
+      ProviderShared.isRecord(value) && typeof value.includeThoughts === "boolean"
+        ? value.includeThoughts
+        : ProviderShared.isRecord(value)
+          ? true
+          : undefined,
+    thinkingLevel:
+      ProviderShared.isRecord(value) && typeof value.thinkingLevel === "string" ? value.thinkingLevel : undefined,
   }
-  return Object.values(result).some((item) => item !== undefined) ? result : undefined
+  const safetySettings = Array.isArray(input?.safetySettings)
+    ? input.safetySettings.flatMap((item) =>
+        ProviderShared.isRecord(item) && typeof item.category === "string" && typeof item.threshold === "string"
+          ? [{ category: item.category, threshold: item.threshold }]
+          : [],
+      )
+    : undefined
+  return {
+    cachedContent: typeof input?.cachedContent === "string" ? input.cachedContent : undefined,
+    safetySettings,
+    serviceTier: typeof input?.serviceTier === "string" ? input.serviceTier : undefined,
+    thinkingConfig: Object.values(result).some((item) => item !== undefined) ? result : undefined,
+  }
 }
 
 const fromRequest = Effect.fn("Gemini.fromRequest")(function* (request: LLMRequest) {
   const toolsEnabled = request.tools.length > 0 && request.toolChoice?.type !== "none"
   const generation = request.generation
+  const options = resolveOptions(request)
   const generationConfig = {
     maxOutputTokens: generation?.maxTokens,
     temperature: generation?.temperature,
     topP: generation?.topP,
     topK: generation?.topK,
     stopSequences: generation?.stop,
-    thinkingConfig: thinkingConfig(request),
+    thinkingConfig: options.thinkingConfig,
   }
 
   return {
+    cachedContent: options.cachedContent,
     contents: yield* lowerMessages(request),
+    safetySettings: options.safetySettings,
+    serviceTier: options.serviceTier,
     systemInstruction:
       request.system.length === 0 ? undefined : { parts: [{ text: ProviderShared.joinText(request.system) }] },
     tools: toolsEnabled ? [{ functionDeclarations: request.tools.map(lowerTool) }] : undefined,

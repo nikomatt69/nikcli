@@ -204,6 +204,33 @@ export interface Hooks {
       options: Record<string, any>
     },
   ) => Promise<void>
+  "chat.headers"?: (
+    input: {
+      sessionID: string
+      agent: string
+      model: Model
+      provider: ProviderContext
+      message: UserMessage
+    },
+    output: {
+      headers: Record<string, string>
+    },
+  ) => Promise<void>
+  /**
+   * Modify the final serialized HTTP request immediately before dispatch.
+   */
+  "chat.request"?: (
+    input: {
+      sessionID: string
+      agent: string
+      model: Model
+    },
+    output: {
+      url: string
+      headers: Record<string, string>
+      body: string | undefined
+    },
+  ) => Promise<void>
   "permission.ask"?: (
     input: PermissionRequest,
     output: {

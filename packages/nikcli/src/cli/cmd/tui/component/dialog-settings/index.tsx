@@ -7,8 +7,9 @@ import { DialogSettingsPrompt } from "./prompt"
 import { DialogSettingsSidebar } from "./sidebar"
 import { DialogSettingsUI } from "./ui"
 import { DialogSettingsBrain } from "./brain"
+import { DialogSettingsDiagnostics } from "./diagnostics"
 
-export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui" | "brain"
+export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui" | "brain" | "diagnostics"
 
 type SettingsSearchEntry = {
   title: string
@@ -91,6 +92,19 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategoryInfo[] = [
       { title: "Brain Model", keywords: ["memory model", "provider"] },
     ],
   },
+  {
+    title: "Diagnostics",
+    value: "diagnostics",
+    description: "Token and cost instrumentation",
+    group: "General",
+    keywords: ["debug", "tokens", "cost", "cache", "usage"],
+    settings: [
+      {
+        title: "Per-Turn Token Breakdown",
+        keywords: ["turn tokens", "cache bust", "billing", "usage", "cost"],
+      },
+    ],
+  },
 ]
 
 export function openSettingsCategory(dialog: DialogContext, category: SettingsCategory) {
@@ -106,6 +120,8 @@ export function openSettingsCategory(dialog: DialogContext, category: SettingsCa
         return <DialogSettingsUI />
       case "brain":
         return <DialogSettingsBrain />
+      case "diagnostics":
+        return <DialogSettingsDiagnostics />
     }
   }
   dialog.replace(content)

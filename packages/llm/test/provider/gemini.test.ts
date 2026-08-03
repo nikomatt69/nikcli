@@ -34,6 +34,38 @@ describe("Gemini route", () => {
     }),
   )
 
+  it.effect("prepares Gemini native request options", () =>
+    Effect.gen(function* () {
+      const prepared = yield* LLMClient.prepare(
+        LLM.updateRequest(request, {
+          providerOptions: {
+            gemini: {
+              cachedContent: "cachedContents/example",
+              safetySettings: [{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" }],
+              serviceTier: "priority",
+              thinkingConfig: { thinkingBudget: 0, includeThoughts: false, thinkingLevel: "high" },
+            },
+          },
+        }),
+      )
+      const defaulted = yield* LLMClient.prepare(
+        LLM.updateRequest(request, {
+          providerOptions: { gemini: { thinkingConfig: { thinkingLevel: "high" } } },
+        }),
+      )
+
+      expect(prepared.body).toMatchObject({
+        cachedContent: "cachedContents/example",
+        safetySettings: [{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" }],
+        serviceTier: "priority",
+        generationConfig: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false, thinkingLevel: "high" } },
+      })
+      expect(defaulted.body).toMatchObject({
+        generationConfig: { thinkingConfig: { includeThoughts: true, thinkingLevel: "high" } },
+      })
+    }),
+  )
+
   it.effect("prepares multimodal user input and tool history", () =>
     Effect.gen(function* () {
       const prepared = yield* LLMClient.prepare(

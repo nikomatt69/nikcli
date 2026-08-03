@@ -8,9 +8,26 @@ export interface TransportRuntime {
   readonly webSocket?: WebSocketExecutorInterface
 }
 
+export interface HttpRequest {
+  url: string
+  readonly method: string
+  headers: Record<string, string>
+  body: string | undefined
+}
+
+export type HttpRequestTransform = (request: HttpRequest) => Effect.Effect<void>
+
+export interface TransportPrepareOptions {
+  readonly transform?: HttpRequestTransform
+}
+
 export interface Transport<Body, Prepared, Frame> {
   readonly id: string
-  readonly prepare: (body: Body, request: LLMRequest) => Effect.Effect<Prepared, LLMError>
+  readonly prepare: (
+    body: Body,
+    request: LLMRequest,
+    options?: TransportPrepareOptions,
+  ) => Effect.Effect<Prepared, LLMError>
   readonly frames: (
     prepared: Prepared,
     request: LLMRequest,

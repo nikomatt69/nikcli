@@ -85,20 +85,32 @@ export interface HttpJsonTransport<Body, Frame> extends Transport<Body, HttpPrep
 export const httpJson = <Body, Frame>(input: HttpJsonInput<Body, Frame>): HttpJsonTransport<Body, Frame> => ({
   id: "http-json",
   with: (patch) => httpJson({ ...input, ...patch }),
-  prepare: (body, request) =>
-    jsonRequestParts({
-      body,
-      request,
-      endpoint: input.endpoint,
-      auth: input.auth ?? Auth.bearer(),
-      encodeBody: input.encodeBody,
-      headers: input.headers,
-    }).pipe(
-      Effect.map((parts) => ({
-        request: ProviderShared.jsonPost({ url: parts.url, body: parts.bodyText, headers: parts.headers }),
+  prepare: (body, request, options) =>
+    Effect.gen(function* () {
+      const parts = yield* jsonRequestParts({
+        body,
+        request,
+        endpoint: input.endpoint,
+        auth: input.auth ?? Auth.bearer(),
+        encodeBody: input.encodeBody,
+        headers: input.headers,
+      })
+      const outgoing = {
+        url: parts.url,
+        method: "POST",
+        headers: Object.fromEntries(Object.entries(parts.headers).map(([name, value]) => [name, String(value)])),
+        body: parts.bodyText as string | undefined,
+      }
+      yield* options?.transform?.(outgoing) ?? Effect.void
+      return {
+        request: ProviderShared.jsonPost({
+          url: outgoing.url,
+          body: outgoing.body ?? "",
+          headers: Headers.fromInput(outgoing.headers),
+        }),
         framing: input.framing,
-      })),
-    ),
+      }
+    }),
   frames: (prepared, request, runtime) =>
     Stream.unwrap(
       runtime.http

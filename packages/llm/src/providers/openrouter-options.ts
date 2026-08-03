@@ -7,16 +7,54 @@ import { mergeProviderOptions } from "../schema"
  * `promptCacheKey` → `prompt_cache_key`, `usage: true` → `usage: { include: true }`).
  */
 export interface OpenRouterReasoning {
+  readonly enabled?: boolean
   readonly effort?: ReasoningEffort
   readonly maxTokens?: number
+  readonly max_tokens?: number
   readonly exclude?: boolean
 }
+
+type OpenRouterString<Known extends string> = Known | (string & {})
+
+export interface OpenRouterProviderRouting {
+  readonly [key: string]: unknown
+  readonly order?: ReadonlyArray<string>
+  readonly allow_fallbacks?: boolean
+  readonly require_parameters?: boolean
+  readonly data_collection?: OpenRouterString<"allow" | "deny">
+  readonly only?: ReadonlyArray<string>
+  readonly ignore?: ReadonlyArray<string>
+  readonly quantizations?: ReadonlyArray<string>
+  readonly sort?: OpenRouterString<"price" | "throughput" | "latency">
+  readonly max_price?: Readonly<
+    Partial<Record<"prompt" | "completion" | "image" | "audio" | "request", number | string>>
+  >
+  readonly zdr?: boolean
+}
+
+export type OpenRouterPlugin =
+  | Readonly<{ id: "web"; max_results?: number; search_prompt?: string; engine?: OpenRouterString<"native" | "exa"> }>
+  | Readonly<{ id: "file-parser"; max_files?: number; pdf?: { engine?: string } }>
+  | Readonly<{ id: "moderation" | "response-healing" }>
+  | Readonly<{ id: "auto-router"; allowed_models?: ReadonlyArray<string> }>
+  | Readonly<{ id: string & {}; [key: string]: unknown }>
 
 export interface OpenRouterOptionsInput {
   readonly [key: string]: unknown
   readonly usage?: boolean | Record<string, unknown>
   readonly reasoning?: OpenRouterReasoning | Record<string, unknown>
   readonly promptCacheKey?: string
+  readonly models?: ReadonlyArray<string>
+  readonly provider?: OpenRouterProviderRouting
+  readonly plugins?: ReadonlyArray<OpenRouterPlugin>
+  readonly transforms?: ReadonlyArray<OpenRouterString<"middle-out">>
+  readonly web_search_options?: Readonly<{
+    max_results?: number
+    search_prompt?: string
+    engine?: OpenRouterString<"native" | "exa">
+  }>
+  readonly debug?: Readonly<{ echo_upstream_body?: boolean }>
+  readonly user?: string
 }
 
 export type OpenRouterProviderOptionsInput = ProviderOptions & {
@@ -28,13 +66,7 @@ const definedEntries = (input: Record<string, unknown>) =>
 
 const openRouterProviderOptions = (options: OpenRouterOptionsInput | undefined): ProviderOptions | undefined => {
   if (!options) return undefined
-  const openrouter = Object.fromEntries(
-    definedEntries({
-      usage: options.usage,
-      reasoning: options.reasoning,
-      promptCacheKey: options.promptCacheKey,
-    }),
-  )
+  const openrouter = Object.fromEntries(definedEntries({ ...options }))
   if (Object.keys(openrouter).length === 0) return undefined
   return { openrouter }
 }

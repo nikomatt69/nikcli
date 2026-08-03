@@ -2,8 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { BashTool } from "@/tool/bash"
+import { authorizeBashCommand, BashTool } from "@/tool/bash"
 import { Instance } from "@/project/instance"
+import { Shell } from "@/shell/shell"
 import { makeToolContext, withProjectDirectory } from "../helpers/tool-context"
 
 describe("BashTool", () => {
@@ -75,5 +76,50 @@ describe("BashTool", () => {
       def.executeAsync({ command: "sh -c 'echo fail-out; exit 7'", description: "failing cmd" }, ctx),
     )
     expect(result.output).toContain("fail-out")
+  })
+
+  it("uses a clean non-interactive PowerShell invocation", () => {
+    expect(Shell.directInvocation("pwsh", "Write-Output hi")).toEqual({
+      file: "pwsh",
+      args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "Write-Output hi"],
+    })
+  })
+
+  it("authorizes PowerShell pipeline commands independently", async () => {
+    const { ctx, asked } = makeToolContext()
+    await withProjectDirectory(projectDir, () =>
+      authorizeBashCommand("Get-ChildItem -Recurse | Remove-Item -Force", projectDir, ctx, "pwsh"),
+    )
+    expect(asked.find((item) => item.permission === "bash")?.patterns).toEqual([
+      "Get-ChildItem -Recurse",
+      "Remove-Item -Force",
+    ])
+  })
+
+  it("extracts PowerShell location changes without approving them as commands", async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-powershell-outside-"))
+    try {
+      const { ctx, asked } = makeToolContext()
+      await withProjectDirectory(projectDir, () =>
+        authorizeBashCommand(`Set-Location -LiteralPath '${outside}'; Get-ChildItem`, projectDir, ctx, "pwsh"),
+      )
+      expect(asked.find((item) => item.permission === "external_directory")?.patterns).toEqual([
+        await fs.realpath(outside),
+      ])
+      expect(asked.find((item) => item.permission === "bash")?.patterns).toEqual(["Get-ChildItem"])
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it("keeps dynamic PowerShell location changes behind shell approval", async () => {
+    const { ctx, asked } = makeToolContext()
+    await withProjectDirectory(projectDir, () =>
+      authorizeBashCommand("Set-Location $target; Remove-Item build", projectDir, ctx, "pwsh"),
+    )
+    expect(asked.find((item) => item.permission === "bash")?.patterns).toEqual([
+      "Set-Location $target",
+      "Remove-Item build",
+    ])
   })
 })

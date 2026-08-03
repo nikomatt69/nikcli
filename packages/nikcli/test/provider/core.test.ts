@@ -79,12 +79,13 @@ describe("ProviderError", () => {
     }
   })
 
-  it("parseAPICallError classifies 413 as overflow regardless of message", () => {
+  it("parseAPICallError classifies 413 as payload too large and preserves status", () => {
     const parsed = ProviderError.parseAPICallError({
       providerID: "x",
       error: apiError({ message: "nope", statusCode: 413 }),
     })
-    expect(parsed.type).toBe("context_overflow")
+    expect(parsed.type).toBe("payload_too_large")
+    expect(parsed.statusCode).toBe(413)
   })
 
   it("parseAPICallError returns api_error with retryable flag", () => {
@@ -121,9 +122,11 @@ describe("ProviderError", () => {
     expect(ProviderError.parseStreamError(json)).toBeUndefined()
   })
 
-  it("parseStreamError uses isOverflow on non-JSON body", () => {
+  it("parseStreamError classifies generic payload size separately from overflow", () => {
     const r = ProviderError.parseStreamError("Request entity too large")
-    expect(r?.type).toBe("context_overflow")
+    expect(r?.type).toBe("payload_too_large")
+    expect(ProviderError.parseStreamError("413 status code (no body)")).toBeUndefined()
+    expect(ProviderError.parseStreamError("maximum context length is 8000 tokens")?.type).toBe("context_overflow")
   })
 
   it("isContextOverflowError detects named errors and message patterns", () => {

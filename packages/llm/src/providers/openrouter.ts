@@ -4,7 +4,7 @@ import { Endpoint } from "../route/endpoint"
 import { Framing } from "../route/framing"
 import { Provider } from "../provider"
 import { Protocol } from "../route/protocol"
-import { ProviderID, type ModelID, type TypedModelRef } from "../schema"
+import { ProviderID, type CacheHint, type ModelID, type TypedModelRef } from "../schema"
 import * as OpenAICompatibleProfiles from "./openai-compatible-profile"
 import * as OpenAIChat from "../protocols/openai-chat"
 import { isRecord } from "../protocols/shared"
@@ -39,7 +39,7 @@ export const protocol = Protocol.make({
   body: {
     schema: OpenRouterBody,
     from: (request) =>
-      OpenAIChat.protocol.body.from(request).pipe(
+      OpenAIChat.fromRequest(request, { cacheControl: cacheControl() }).pipe(
         Effect.map(
           (body) =>
             ({
@@ -54,14 +54,38 @@ export const protocol = Protocol.make({
 
 const bodyOptions = (input: unknown) => {
   const openrouter = isRecord(input) ? input : {}
+  const { promptCacheKey, ...options } = openrouter
+  const reasoning = isRecord(openrouter.reasoning)
+    ? {
+        ...openrouter.reasoning,
+        ...(typeof openrouter.reasoning.maxTokens === "number"
+          ? { max_tokens: openrouter.reasoning.maxTokens, maxTokens: undefined }
+          : {}),
+      }
+    : undefined
   return {
-    ...(openrouter.usage === true
+    ...options,
+    ...(openrouter.usage === undefined || openrouter.usage === true
       ? { usage: { include: true } }
-      : isRecord(openrouter.usage)
-        ? { usage: openrouter.usage }
-        : {}),
-    ...(isRecord(openrouter.reasoning) ? { reasoning: openrouter.reasoning } : {}),
-    ...(typeof openrouter.promptCacheKey === "string" ? { prompt_cache_key: openrouter.promptCacheKey } : {}),
+      : openrouter.usage === false
+        ? { usage: { include: false } }
+        : isRecord(openrouter.usage)
+          ? { usage: openrouter.usage }
+          : {}),
+    ...(reasoning ? { reasoning } : {}),
+    ...(typeof promptCacheKey === "string" ? { prompt_cache_key: promptCacheKey } : {}),
+  }
+}
+
+const cacheControl = () => {
+  let remaining = 4
+  return (cache: CacheHint | undefined) => {
+    if (!cache || remaining === 0) return undefined
+    remaining -= 1
+    return {
+      type: "ephemeral" as const,
+      ...(cache.ttlSeconds !== undefined && cache.ttlSeconds >= 3_600 ? { ttl: "1h" } : {}),
+    }
   }
 }
 

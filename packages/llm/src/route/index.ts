@@ -9,6 +9,7 @@ export type {
   Interface as LLMClientShape,
   Service as LLMClientService,
   ModelRefInput,
+  StreamOptions,
 } from "./client"
 export * from "./executor"
 export { Auth } from "./auth"
@@ -23,4 +24,4 @@ export type { ApiKeyMode, AuthOverride, ProviderAuthOption } from "./auth-option
 export type { Endpoint as EndpointFn, EndpointInput } from "./endpoint"
 export type { Framing as FramingDef } from "./framing"
 export type { Protocol as ProtocolDef } from "./protocol"
-export type { Transport as TransportDef, TransportRuntime } from "./transport"
+export type { HttpRequest, HttpRequestTransform, Transport as TransportDef, TransportRuntime } from "./transport"

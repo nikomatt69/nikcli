@@ -97,7 +97,7 @@ import { Global } from "@/global"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
-import { formatTranscript } from "../../util/transcript"
+import { formatTranscript, formatTranscriptJson } from "../../util/transcript"
 import { TurnUsage } from "../../util/turn-usage"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogOpenTUIViz, Renderer as VizRenderer } from "@tui/component/dialog-opentui-viz"
@@ -1223,18 +1223,22 @@ export function Session() {
 
           if (options === null) return
 
-          const transcript = formatTranscript(
-            sessionData,
-            sessionMessages.map((msg) => ({
-              info: msg,
-              parts: sync.data.part[msg.id] ?? [],
-            })),
-            {
-              thinking: options.thinking,
-              toolDetails: options.toolDetails,
-              assistantMetadata: options.assistantMetadata,
-            },
-          )
+          const withParts = sessionMessages.map((msg) => ({
+            info: msg,
+            parts: sync.data.part[msg.id] ?? [],
+          }))
+          const transcriptOptions = {
+            thinking: options.thinking,
+            toolDetails: options.toolDetails,
+            assistantMetadata: options.assistantMetadata,
+          }
+          // The filename picks the format — the dialog has always advertised
+          // `.json` as an accepted extension, it just never honoured it.
+          const format = options.filename.trim().toLowerCase().endsWith(".json") ? "json" : "markdown"
+          const transcript =
+            format === "json"
+              ? formatTranscriptJson(sessionData, withParts, transcriptOptions)
+              : formatTranscript(sessionData, withParts, transcriptOptions)
 
           if (options.openWithoutSaving) {
             // Just open in editor without saving
@@ -1253,7 +1257,7 @@ export function Session() {
             }
 
             toast.show({
-              message: `Session exported to ${filename}`,
+              message: `Session exported as ${format} to ${filepath}`,
               variant: "success",
             })
           }

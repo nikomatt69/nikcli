@@ -80,6 +80,7 @@ export namespace MessageV2 {
     name: Schema.Literal("MessageContextOverflowError"),
     data: Schema.Struct({
       message: Schema.String,
+      statusCode: Schema.optional(Schema.Number),
       responseBody: Schema.optional(Schema.String),
     }).annotate(strip),
   }).annotate({ ...strip, identifier: "MessageContextOverflowError" })
@@ -103,6 +104,7 @@ export namespace MessageV2 {
       responseHeaders: Schema.optional(Schema.Record(Schema.String, Schema.String)),
       responseBody: Schema.optional(Schema.String),
       metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+      classification: Schema.optional(Schema.Literal("payload-too-large")),
     }).annotate(strip),
   }).annotate({ ...strip, identifier: "APIError" })
 
@@ -111,6 +113,7 @@ export namespace MessageV2 {
     "MessageContextOverflowError",
     {
       message: Schema.String,
+      statusCode: Schema.optional(Schema.Number),
       responseBody: Schema.optional(Schema.String),
     },
   ) {}
@@ -147,6 +150,7 @@ export namespace MessageV2 {
     responseHeaders: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     responseBody: Schema.optional(Schema.String),
     metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+    classification: Schema.optional(Schema.Literal("payload-too-large")),
   }) {
     static readonly Schema = zodObject(APIErrorBody)
     static isInstance(error: unknown): error is z.infer<typeof APIError.Schema> {
@@ -164,6 +168,7 @@ export namespace MessageV2 {
           responseHeaders: this.responseHeaders,
           responseBody: this.responseBody,
           metadata: this.metadata,
+          classification: this.classification,
         },
       }
     }
@@ -642,6 +647,72 @@ export namespace MessageV2 {
     ].join("\n")
   }
 
+  const IMAGE_BYTES_TRIGGER = 25 * 1024 * 1024
+  const IMAGE_BYTES_TARGET = 15 * 1024 * 1024
+  const IMAGE_REMOVED =
+    "[This image was removed to reduce the request size and is no longer visible. Do not make claims about its contents from memory. If needed, retrieve it again with an available tool or ask the user to attach it again.]"
+
+  function imagePayloadSize(value: unknown): number {
+    if (value instanceof Uint8Array) return Math.ceil(value.byteLength / 3) * 4
+    if (value instanceof URL) return value.protocol === "data:" ? Buffer.byteLength(value.href) : 0
+    if (typeof value !== "string") return 0
+    if (/^(https?|file):/i.test(value)) return 0
+    return Buffer.byteLength(value)
+  }
+
+  function imageNodeSize(value: unknown): number {
+    if (!value || typeof value !== "object") return 0
+    const node = value as Record<string, unknown>
+    const dataUri = [node.image, node.data, node.url, node.uri].find(
+      (item) => typeof item === "string" && item.toLowerCase().startsWith("data:image/"),
+    )
+    const mediaType = String(node.mediaType ?? node.mimeType ?? node.mime ?? "").toLowerCase()
+    const isImage = mediaType.startsWith("image/") || dataUri !== undefined
+    if (!isImage || !["image", "file", "media"].includes(String(node.type))) return 0
+    return imagePayloadSize(node.image ?? node.data ?? node.url ?? node.uri)
+  }
+
+  function walkImagePayload(value: unknown, replace: boolean, state: { total: number; removed: number }): unknown {
+    const size = imageNodeSize(value)
+    if (size > 0) {
+      if (replace && state.total - state.removed > IMAGE_BYTES_TARGET) {
+        state.removed += size
+        return { type: "text", text: IMAGE_REMOVED }
+      }
+      if (!replace) state.total += size
+      return value
+    }
+    if (Array.isArray(value)) {
+      let changed = false
+      const next = value.map((item) => {
+        const mapped = walkImagePayload(item, replace, state)
+        changed ||= mapped !== item
+        return mapped
+      })
+      return changed ? next : value
+    }
+    if (!value || typeof value !== "object" || value instanceof URL || value instanceof Uint8Array) return value
+
+    const node = value as Record<string, unknown>
+    let changed = false
+    const next: Record<string, unknown> = { ...node }
+    for (const key of ["content", "output", "result", "value"]) {
+      if (!(key in node)) continue
+      const mapped = walkImagePayload(node[key], replace, state)
+      if (mapped === node[key]) continue
+      next[key] = mapped
+      changed = true
+    }
+    return changed ? next : value
+  }
+
+  export function boundImagePayload(messages: ModelMessage[]): ModelMessage[] {
+    const state = { total: 0, removed: 0 }
+    walkImagePayload(messages, false, state)
+    if (state.total <= IMAGE_BYTES_TRIGGER) return messages
+    return walkImagePayload(messages, true, state) as ModelMessage[]
+  }
+
   export function toModelMessages(
     input: WithParts[],
     model: Provider.Model,
@@ -882,11 +953,13 @@ export namespace MessageV2 {
       Array.from(toolNames).map((toolName) => [toolName, { toModelOutput }]),
     ) as unknown as ToolSet
 
-    return convertToModelMessages(
-      result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
-      {
-        tools,
-      },
+    return boundImagePayload(
+      convertToModelMessages(
+        result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
+        {
+          tools,
+        },
+      ),
     )
   }
 
@@ -1089,6 +1162,17 @@ export namespace MessageV2 {
         }).trim()
 
         const metadata = e.url ? { url: e.url } : undefined
+        const parsed = ProviderError.parseAPICallError({ providerID: ctx.providerID, error: e, message })
+        if (parsed.type === "context_overflow") {
+          return {
+            name: "MessageContextOverflowError" as const,
+            data: {
+              message: parsed.message,
+              statusCode: parsed.statusCode,
+              responseBody: parsed.responseBody,
+            },
+          }
+        }
         return {
           name: "APIError" as const,
           data: {
@@ -1098,6 +1182,7 @@ export namespace MessageV2 {
             responseHeaders: e.responseHeaders,
             responseBody: e.responseBody,
             metadata,
+            classification: parsed.type === "payload_too_large" ? "payload-too-large" : undefined,
           },
         }
       }

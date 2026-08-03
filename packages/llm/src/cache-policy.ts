@@ -33,7 +33,7 @@ const BREAKPOINT_CAP = 4
 
 // Only these protocols read inline hints; everywhere else placement is a no-op.
 // OpenAI and Gemini cache implicitly and have no breakpoint concept.
-const RESPECTS_INLINE_HINTS = new Set(["anthropic-messages", "bedrock-converse"])
+const RESPECTS_INLINE_HINTS = new Set(["anthropic-messages", "bedrock-converse", "openrouter"])
 
 // Resolution rules:
 //   - undefined   → "auto" — caching is on by default. The math favors it:
@@ -122,6 +122,7 @@ const countHints = (request: LLMRequest) =>
 
 export const applyCachePolicy = (request: LLMRequest): LLMRequest => {
   if (!RESPECTS_INLINE_HINTS.has(request.model.route)) return request
+  if (request.model.route === "openrouter" && (request.cache === undefined || request.cache === "auto")) return request
   const policy = resolve(request.cache)
   if (!policy.system && !policy.messages) return request
 

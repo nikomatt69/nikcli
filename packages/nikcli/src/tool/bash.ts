@@ -130,6 +130,7 @@ function registerCommandSignals(
   patterns: Set<string>,
   always: Set<string>,
   pendingPathResolutions: Promise<void>[],
+  resource?: string,
 ) {
   if (!cmd.length) return
   const normalizedCommand = cmd[0].toLowerCase()
@@ -142,8 +143,171 @@ function registerCommandSignals(
   }
 
   if (normalizedCommand !== "cd") {
-    patterns.add(cmd.join(" "))
+    patterns.add(resource ?? cmd.join(" "))
     always.add(BashArity.prefix(cmd).join(" ") + "*")
+  }
+}
+
+const POWERSHELL_DIRECTORY_COMMANDS = new Set([
+  "cd",
+  "chdir",
+  "sl",
+  "pushd",
+  "popd",
+  "set-location",
+  "push-location",
+  "pop-location",
+])
+const POWERSHELL_PATH_PARAMETERS = new Set(["-path", "-literalpath"])
+
+function splitPowerShellStatements(input: string) {
+  const parts: string[] = []
+  let current = ""
+  let quote: "'" | '"' | undefined
+  let escaped = false
+  let depth = 0
+  const flush = () => {
+    const value = current.trim()
+    if (value) parts.push(value)
+    current = ""
+  }
+
+  for (let index = 0; index < input.length; index++) {
+    const char = input[index]!
+    if (escaped) {
+      current += char
+      escaped = false
+      continue
+    }
+    if (char === "`") {
+      current += char
+      escaped = true
+      continue
+    }
+    if (quote) {
+      current += char
+      if (char === quote) {
+        if (quote === "'" && input[index + 1] === "'") current += input[++index]
+        else quote = undefined
+      }
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      current += char
+      continue
+    }
+    if (char === "(" || char === "[" || char === "{") depth++
+    if (char === ")" || char === "]" || char === "}") depth = Math.max(0, depth - 1)
+    if (depth === 0 && (char === ";" || char === "\n" || char === "|")) {
+      if (char === "|" && input[index + 1] === "|") index++
+      flush()
+      continue
+    }
+    if (depth === 0 && char === "&" && input[index + 1] === "&") {
+      index++
+      flush()
+      continue
+    }
+    current += char
+  }
+  flush()
+  return parts
+}
+
+function powerShellTokens(input: string) {
+  const tokens: string[] = []
+  let current = ""
+  let quote: "'" | '"' | undefined
+  let escaped = false
+  const flush = () => {
+    if (current) tokens.push(stripQuotedToken(current))
+    current = ""
+  }
+  for (const char of input) {
+    if (escaped) {
+      current += char
+      escaped = false
+      continue
+    }
+    if (char === "`") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      current += char
+      if (char === quote) quote = undefined
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      current += char
+      continue
+    }
+    if (/\s/.test(char)) flush()
+    else current += char
+  }
+  flush()
+  return tokens
+}
+
+function deterministicPowerShellPath(value: string, cwd: string, shell: string) {
+  let dynamic = false
+  const environment = (key: string) => {
+    if (process.platform !== "win32") return process.env[key]
+    const match = Object.keys(process.env).find((name) => name.toLowerCase() === key.toLowerCase())
+    return match ? process.env[match] : undefined
+  }
+  const expanded = value
+    .replace(/\$\{env:([^}]+)\}/gi, (_, key: string) => environment(key) ?? ((dynamic = true), ""))
+    .replace(/\$env:([A-Za-z_][A-Za-z0-9_]*)/gi, (_, key: string) => environment(key) ?? ((dynamic = true), ""))
+    .replace(/\$(HOME|PWD|PSHOME)(?=$|[\\/])/gi, (_, key: string) => {
+      if (key.toUpperCase() === "HOME") return os.homedir()
+      if (key.toUpperCase() === "PWD") return cwd
+      return path.dirname(shell)
+    })
+  if (dynamic || /[$`]/.test(expanded) || expanded.startsWith("(")) return undefined
+  return expanded
+}
+
+function registerPowerShellSignals(
+  input: string,
+  shell: string,
+  cwd: string,
+  directories: Set<string>,
+  patterns: Set<string>,
+  always: Set<string>,
+  pendingPathResolutions: Promise<void>[],
+) {
+  for (const statement of splitPowerShellStatements(input)) {
+    const tokens = powerShellTokens(statement)
+    while (tokens[0] === "&" || tokens[0] === ".") tokens.shift()
+    if (!tokens.length || (/^\$(?:env:)?[^=]+$/i.test(tokens[0]) && tokens[1] === "=")) continue
+    const name = tokens[0].toLowerCase()
+    if (!POWERSHELL_DIRECTORY_COMMANDS.has(name)) {
+      registerCommandSignals(tokens, cwd, directories, patterns, always, pendingPathResolutions, statement)
+      continue
+    }
+
+    let expectsPath = false
+    let foundPath = false
+    let dynamicPath = false
+    for (const token of tokens.slice(1)) {
+      if (token.startsWith("-")) {
+        expectsPath = POWERSHELL_PATH_PARAMETERS.has(token.toLowerCase())
+        continue
+      }
+      if (!expectsPath && foundPath) continue
+      const value = deterministicPowerShellPath(token, cwd, shell)
+      if (value === undefined) dynamicPath = true
+      else pendingPathResolutions.push(getPathLikePermissionCandidate(value, cwd, directories))
+      foundPath = true
+      expectsPath = false
+    }
+    // An expression-based location cannot be resolved safely. Keep the entire statement behind a
+    // shell approval instead of silently treating the directory change as authorized.
+    if (dynamicPath || !foundPath)
+      registerCommandSignals(tokens, cwd, directories, patterns, always, pendingPathResolutions, statement)
   }
 }
 
@@ -211,7 +375,7 @@ export async function triggerShellCreateBefore(input: {
   return output
 }
 
-export async function authorizeBashCommand(command: string, cwd: string, ctx: Tool.Context) {
+export async function authorizeBashCommand(command: string, cwd: string, ctx: Tool.Context, shell?: string) {
   const directories = new Set<string>()
   if (!Instance.containsPath(cwd)) directories.add(cwd)
   const patterns = new Set<string>()
@@ -220,7 +384,7 @@ export async function authorizeBashCommand(command: string, cwd: string, ctx: To
   // The tree-sitter grammar we bundle is Bash. Running it over PowerShell yields command nodes
   // that do not correspond to what PowerShell will actually execute, so a compound PowerShell line
   // could be authorized from a misread of its first cmdlet. Split those ourselves instead.
-  const powershell = Shell.isPowerShell(command)
+  const powershell = shell ? Shell.isPowerShellBinary(shell) : Shell.isPowerShell(command)
 
   const tree = powershell
     ? undefined
@@ -231,7 +395,17 @@ export async function authorizeBashCommand(command: string, cwd: string, ctx: To
   const pendingPathResolutions: Promise<void>[] = []
 
   if (!tree) {
-    registerCommandSignalsFromFallback(command, cwd, directories, patterns, always, pendingPathResolutions)
+    if (powershell)
+      registerPowerShellSignals(
+        command,
+        shell ?? "powershell",
+        cwd,
+        directories,
+        patterns,
+        always,
+        pendingPathResolutions,
+      )
+    else registerCommandSignalsFromFallback(command, cwd, directories, patterns, always, pendingPathResolutions)
   }
 
   if (tree) {
@@ -257,9 +431,9 @@ export async function authorizeBashCommand(command: string, cwd: string, ctx: To
     }
   }
 
-  if (directories.size > 0) {
-    await Promise.allSettled(pendingPathResolutions)
+  await Promise.allSettled(pendingPathResolutions)
 
+  if (directories.size > 0) {
     await ctx.ask({
       permission: "external_directory",
       patterns: Array.from(directories),
@@ -372,7 +546,7 @@ export const BashTool = Tool.define("bash", async () => {
         },
       })
 
-      await authorizeBashCommand(invocation.command, cwd, ctx)
+      await authorizeBashCommand(invocation.command, cwd, ctx, shell)
 
       const spawnOptions: SpawnOptions = {
         cwd,

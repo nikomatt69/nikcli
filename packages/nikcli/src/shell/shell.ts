@@ -100,7 +100,7 @@ export namespace Shell {
     return acceptable()
   }
 
-  function isPowerShellBinary(binary: string) {
+  export function isPowerShellBinary(binary: string) {
     const name = path
       .basename(binary)
       .toLowerCase()
@@ -117,7 +117,7 @@ export namespace Shell {
    */
   export function directInvocation(binary: string, command: string): { file: string; args: string[] } | undefined {
     if (!isPowerShellBinary(binary)) return undefined
-    return { file: binary, args: ["-NoLogo", "-NonInteractive", "-Command", command] }
+    return { file: binary, args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command] }
   }
 
   /**

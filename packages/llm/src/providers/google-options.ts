@@ -10,11 +10,20 @@ import { mergeProviderOptions } from "../schema"
 export interface GeminiThinkingConfig {
   readonly thinkingBudget?: number
   readonly includeThoughts?: boolean
+  readonly thinkingLevel?: "minimal" | "low" | "medium" | "high" | (string & {})
+}
+
+export interface GeminiSafetySetting {
+  readonly category: string
+  readonly threshold: string
 }
 
 export interface GoogleOptionsInput {
   readonly [key: string]: unknown
   readonly thinkingConfig?: GeminiThinkingConfig
+  readonly cachedContent?: string
+  readonly safetySettings?: ReadonlyArray<GeminiSafetySetting>
+  readonly serviceTier?: "standard" | "flex" | "priority" | (string & {})
   /** Reasoning effort that maps to a model-appropriate thinkingBudget value. */
   readonly variant?: GoogleVariant
 }
@@ -32,15 +41,25 @@ const definedEntries = (input: Record<string, unknown>) =>
   Object.entries(input).filter((entry) => entry[1] !== undefined)
 
 const googleProviderOptions = (options: GoogleOptionsInput | undefined): ProviderOptions | undefined => {
-  if (!options?.thinkingConfig) return undefined
-  const thinkingConfig = Object.fromEntries(
+  if (!options) return undefined
+  const thinkingConfig = options.thinkingConfig
+    ? Object.fromEntries(
+        definedEntries({
+          thinkingBudget: options.thinkingConfig.thinkingBudget,
+          includeThoughts: options.thinkingConfig.includeThoughts,
+          thinkingLevel: options.thinkingConfig.thinkingLevel,
+        }),
+      )
+    : undefined
+  const gemini = Object.fromEntries(
     definedEntries({
-      thinkingBudget: options.thinkingConfig.thinkingBudget,
-      includeThoughts: options.thinkingConfig.includeThoughts,
+      cachedContent: options.cachedContent,
+      safetySettings: options.safetySettings,
+      serviceTier: options.serviceTier,
+      thinkingConfig: thinkingConfig && Object.keys(thinkingConfig).length > 0 ? thinkingConfig : undefined,
     }),
   )
-  if (Object.keys(thinkingConfig).length === 0) return undefined
-  return { gemini: { thinkingConfig } }
+  return Object.keys(gemini).length === 0 ? undefined : { gemini }
 }
 
 /** Pro accepts up to 32768, Flash up to 24576. Source: Google Gemini API docs (2025). */

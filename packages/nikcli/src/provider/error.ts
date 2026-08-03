@@ -30,7 +30,6 @@ export namespace ProviderError {
     /context window exceeds limit/i,
     /exceeded model token limit/i,
     /context[ _]?length[ _]?exceeded/i,
-    /request entity too large/i,
     /context length is only \d+ tokens/i,
     /input length.*exceeds.*context length/i,
     /prompt too long; exceeded.*context length/i,
@@ -40,21 +39,48 @@ export namespace ProviderError {
     /response length.*exceeds/i,
   ]
 
+  const PAYLOAD_TOO_LARGE_PATTERNS = [
+    /request_too_large/i,
+    /request entity too large/i,
+    /payload too large/i,
+    /request too large/i,
+  ]
+
   function isOverflow(message: string): boolean {
-    return OVERFLOW_PATTERNS.some((p) => p.test(message)) || /^4(00|13)\s*\(no body\)/i.test(message)
+    return OVERFLOW_PATTERNS.some((p) => p.test(message)) || /^400\s*(status code)?\s*\(no body\)/i.test(message)
+  }
+
+  function isPayloadTooLarge(message: string): boolean {
+    return PAYLOAD_TOO_LARGE_PATTERNS.some((p) => p.test(message))
   }
 
   export type ParsedAPICallError =
-    | { type: "context_overflow"; message: string; responseBody?: string }
+    | { type: "context_overflow"; message: string; statusCode?: number; responseBody?: string }
+    | { type: "payload_too_large"; message: string; statusCode?: number; responseBody?: string }
     | { type: "api_error"; message: string; statusCode?: number; isRetryable: boolean; responseBody?: string }
 
-  export function parseAPICallError(input: { providerID: string; error: APICallError }): ParsedAPICallError {
-    const m = input.error.message || ""
+  export function parseAPICallError(input: {
+    providerID: string
+    error: APICallError
+    message?: string
+  }): ParsedAPICallError {
+    const m = input.message ?? input.error.message ?? ""
+    const searchable = [m, input.error.responseBody].filter(Boolean).join("\n")
 
-    if (isOverflow(m) || input.error.statusCode === 413) {
+    if (isOverflow(searchable)) {
       return {
         type: "context_overflow",
         message: m,
+        statusCode: input.error.statusCode,
+        responseBody: input.error.responseBody,
+      }
+    }
+
+    if (input.error.statusCode === 413 || isPayloadTooLarge(searchable)) {
+      return {
+        type: "payload_too_large",
+        message: m,
+        statusCode: input.error.statusCode,
         responseBody: input.error.responseBody,
       }
     }
@@ -68,7 +94,9 @@ export namespace ProviderError {
     }
   }
 
-  export function parseStreamError(input: string): { type: "context_overflow"; message: string } | undefined {
+  export function parseStreamError(
+    input: string,
+  ): { type: "context_overflow" | "payload_too_large"; message: string } | undefined {
     try {
       const body = JSON.parse(input)
       if (body?.type !== "error") return undefined
@@ -88,11 +116,21 @@ export namespace ProviderError {
           if (body?.error?.message && isOverflow(body.error.message)) {
             return { type: "context_overflow", message: body.error.message }
           }
+          if (
+            isPayloadTooLarge(body?.error?.message ?? "") ||
+            isPayloadTooLarge(body?.error?.type ?? "") ||
+            isPayloadTooLarge(body?.error?.code ?? "")
+          ) {
+            return { type: "payload_too_large", message: body.error.message || "Payload too large" }
+          }
           return undefined
       }
     } catch {
       if (isOverflow(input)) {
         return { type: "context_overflow", message: input }
+      }
+      if (isPayloadTooLarge(input)) {
+        return { type: "payload_too_large", message: input }
       }
       return undefined
     }
