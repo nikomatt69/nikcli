@@ -59,7 +59,11 @@ export namespace Installation {
       info: () => Effect.tryPromise(() => infoImpl()),
       method: () => Effect.tryPromise(() => methodImpl()),
       latest: (installMethod) => Effect.tryPromise(() => latestImpl(installMethod)),
-      upgrade: (method, target) => Effect.tryPromise(() => upgradeImpl(method, target)),
+      upgrade: (method, target) =>
+        Effect.tryPromise({
+          try: () => upgradeImpl(method, target),
+          catch: (error) => error,
+        }),
     }),
   )
 
@@ -171,6 +175,7 @@ export namespace Installation {
       cmd = $`powershell -NoProfile -NonInteractive -Command ${strategy.script}`.env({
         ...process.env,
         NIKCLI_VERSION: target,
+        NIKCLI_UPGRADE_PID: process.pid.toString(),
       })
     } else
       switch (strategy.method) {
@@ -211,7 +216,9 @@ export namespace Installation {
       const stderr =
         strategy.type === "package-manager" && strategy.method === "choco"
           ? "not running from an elevated command shell"
-          : result.stderr.toString("utf8")
+          : result.stderr.toString("utf8").trim() ||
+            result.stdout.toString("utf8").trim() ||
+            `Upgrade command exited with code ${result.exitCode}`
       throw new UpgradeFailedError({
         stderr: stderr,
       })

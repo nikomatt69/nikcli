@@ -1,4 +1,4 @@
-# Cache-bust: 2026-07-29T00-00-00Z
+# Cache-bust: 2026-08-03T00-00-00Z
 # nikcli installer for Windows (PowerShell 5.1+ / pwsh 7+)
 #
 #   irm https://nikcli.store/install.ps1 | iex
@@ -115,10 +115,20 @@ $urls = @(
 $installDir = $env:NIKCLI_INSTALL_DIR
 if (-not $installDir) { $installDir = Join-Path $HOME ".nikcli\bin" }
 $targetExe = Join-Path $installDir "$App.exe"
+$deferredInstall = $false
 
 # Same path the bash installer uses under Git Bash, so `nikcli upgrade` keeps
 # detecting the standalone install method on both.
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+
+# A locked upgrade stages the new binary next to the old one (see below) and a
+# detached process swaps it in later. If that process never got to run, the
+# staged copy would sit here forever, so sweep the ones nothing can be waiting
+# on anymore. The window is generous: the swap waits for the nikcli process to
+# exit, and a TUI session can stay open for a long time.
+Get-ChildItem -Path $installDir -Filter "$App.update.*.exe" -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.LastWriteTimeUtc -lt (Get-Date).ToUniversalTime().AddDays(-7) } |
+  ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
 
 if (Test-Path $targetExe) {
   try {
@@ -174,9 +184,57 @@ try {
   try {
     Copy-Item -Path $found.FullName -Destination $targetExe -Force
   } catch {
-    Fail "Could not write $targetExe - close any running nikcli process and retry. ($($_.Exception.Message))"
+    $upgradePid = 0
+    if ($env:NIKCLI_UPGRADE_PID) {
+      [void][int]::TryParse($env:NIKCLI_UPGRADE_PID, [ref]$upgradePid)
+    }
+    if ($upgradePid -le 0) {
+      Fail "Could not write $targetExe - close any running nikcli process and retry. ($($_.Exception.Message))"
+    }
+
+    # Windows locks a running executable. Stage the replacement beside it and
+    # let a detached PowerShell process swap it in after `nikcli upgrade` exits.
+    $pendingExe = Join-Path $installDir ("$App.update." + [System.Guid]::NewGuid().ToString("N") + ".exe")
+    try {
+      Copy-Item -Path $found.FullName -Destination $pendingExe -Force
+      $quotedPending = $pendingExe.Replace("'", "''")
+      $quotedTarget = $targetExe.Replace("'", "''")
+      $helperScript = @"
+`$ErrorActionPreference = 'SilentlyContinue'
+Wait-Process -Id $upgradePid -ErrorAction SilentlyContinue
+for (`$attempt = 0; `$attempt -lt 100; `$attempt++) {
+  try {
+    Move-Item -LiteralPath '$quotedPending' -Destination '$quotedTarget' -Force -ErrorAction Stop
+    exit 0
+  } catch {
+    Start-Sleep -Milliseconds 100
   }
-  Step "Installed to $targetExe"
+}
+Remove-Item -LiteralPath '$quotedPending' -Force -ErrorAction SilentlyContinue
+exit 1
+"@
+      $encodedHelper = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($helperScript))
+      # Re-use the host running this script (powershell.exe or pwsh.exe) so the
+      # swap keeps working on machines where only one of them is on PATH.
+      $powershellExe = $null
+      try { $powershellExe = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName } catch { }
+      if (-not $powershellExe -or ($powershellExe -notmatch "(powershell|pwsh)\.exe$")) {
+        $powershellExe = "powershell.exe"
+      }
+      Start-Process -FilePath $powershellExe -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile",
+        "-NonInteractive",
+        "-EncodedCommand",
+        $encodedHelper
+      ) | Out-Null
+      $deferredInstall = $true
+      Step "Update staged; nikcli.exe will be replaced when this command exits"
+    } catch {
+      Remove-Item $pendingExe -Force -ErrorAction SilentlyContinue
+      Fail "Could not stage the update for $targetExe. ($($_.Exception.Message))"
+    }
+  }
+  if (-not $deferredInstall) { Step "Installed to $targetExe" }
 } finally {
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

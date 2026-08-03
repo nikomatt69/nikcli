@@ -13,6 +13,7 @@ import {
 } from "@/cli/cmd/tui/context/sdk"
 import fs from "fs/promises"
 import path from "path"
+import { TERMINAL_RESET_SEQUENCE } from "@/cli/cmd/tui/win32"
 
 const root = path.resolve(import.meta.dir, "../../../..")
 
@@ -57,11 +58,24 @@ describe("Installation.Service", () => {
     }
   })
 
+  it("passes the running process ID to the lock-safe Windows installer", async () => {
+    const source = await readSrc("packages/nikcli/src/installation/index.ts")
+    expect(source).toContain("NIKCLI_UPGRADE_PID: process.pid.toString()")
+  })
+
   it("keeps the detected package manager strategy on non-Windows platforms", () => {
     expect(Installation.resolveUpgradeStrategy("npm", "darwin")).toEqual({
       type: "package-manager",
       method: "npm",
     })
+  })
+})
+
+describe("terminal teardown", () => {
+  it("disables OpenTUI mouse reporting modes", () => {
+    for (const mode of [1000, 1002, 1003, 1004, 1006, 1015]) {
+      expect(TERMINAL_RESET_SEQUENCE).toContain(`\x1b[?${mode}l`)
+    }
   })
 })
 

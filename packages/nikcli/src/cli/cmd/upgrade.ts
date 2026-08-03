@@ -4,6 +4,7 @@ import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
 import { runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"
+import { TERMINAL_RESET_SEQUENCE } from "@/cli/cmd/tui/win32"
 
 function runInstallation<A, E>(effect: Effect.Effect<A, E, Installation.Service>) {
   return runPromiseWithLayer(Installation.defaultLayer, effect)
@@ -26,6 +27,10 @@ export const UpgradeCommand = {
       })
   },
   handler: async (args: { target?: string; method?: string }) => {
+    // The build being replaced may have leaked mouse reporting into the
+    // terminal on exit, which turns every mouse move during the upgrade into
+    // visible escape-sequence noise. Clear it before printing anything.
+    if (process.stdout.isTTY) process.stdout.write(TERMINAL_RESET_SEQUENCE)
     UI.empty()
     UI.println(UI.logo("  "))
     UI.empty()

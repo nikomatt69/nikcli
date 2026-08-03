@@ -129,6 +129,32 @@ describe("release automation", () => {
     expect(ps1).toContain("IsProcessorFeaturePresent(40)")
   })
 
+  it("defers replacement when Windows locks the running executable", async () => {
+    const ps1 = await readRoot("install.ps1")
+
+    expect(ps1).toContain("NIKCLI_UPGRADE_PID")
+    expect(ps1).toContain("Wait-Process -Id $upgradePid")
+    expect(ps1).toContain("Move-Item -LiteralPath '$quotedPending'")
+    expect(ps1).toContain("Start-Process -FilePath $powershellExe")
+
+    // A staged binary the swap process never picked up must not be left behind.
+    expect(ps1).toContain('Filter "$App.update.*.exe"')
+
+    // Real Windows coverage: a plain parse cannot catch a swap that never runs.
+    const workflow = await readRoot(".github/workflows/windows-compat.yml")
+    expect(workflow).toContain("defers the swap when the target exe is locked")
+    expect(workflow).toContain("$env:NIKCLI_UPGRADE_PID = $running.Id")
+  })
+
+  it("clears leaked mouse reporting before the upgrade command prints", async () => {
+    // An older build could exit leaving mouse tracking on, which turns every
+    // mouse move during `nikcli upgrade` into escape-sequence noise.
+    const command = await readRoot("packages/nikcli/src/cli/cmd/upgrade.ts")
+
+    expect(command).toContain("TERMINAL_RESET_SEQUENCE")
+    expect(command).toContain("process.stdout.isTTY")
+  })
+
   it("publishes the per-platform binary packages the npm wrapper depends on", async () => {
     const publishScript = await readRoot("packages/nikcli/script/publish.ts")
 

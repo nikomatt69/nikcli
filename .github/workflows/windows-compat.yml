@@ -237,6 +237,56 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "installed nikcli.exe --version exited $LASTEXITCODE`n$out" }
           Write-Host "install.ps1 installed nikcli $out"
 
+      # `nikcli upgrade` replaces the binary it is running from, and Windows
+      # locks that image against writes — the plain copy can never succeed. The
+      # installer stages the new binary and hands the swap to a detached process
+      # that waits for NIKCLI_UPGRADE_PID to exit.
+      - name: install.ps1 — defers the swap when the target exe is locked
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "nikcli-ps1-upgrade"
+          Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $exe = Join-Path $dir "nikcli.exe"
+          # A placeholder stands in for the running binary: --version fails on it,
+          # so the installer treats it as replaceable and reaches the copy.
+          Set-Content -Path $exe -Value "placeholder" -Encoding ASCII
+
+          # Stands in for the nikcli process being upgraded: the swap must wait
+          # for it, and only this handle makes the copy fail the way a running
+          # image does.
+          $running = Start-Process powershell -PassThru -WindowStyle Hidden `
+            -ArgumentList "-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 120"
+          $lock = [IO.File]::Open($exe, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+          try {
+            $env:NIKCLI_INSTALL_DIR = $dir
+            $env:NIKCLI_NO_PATH = "1"
+            $env:NIKCLI_UPGRADE_PID = $running.Id
+            Get-Content .\install.ps1 -Raw | Invoke-Expression
+
+            $staged = @(Get-ChildItem -Path $dir -Filter "nikcli.update.*.exe" -File)
+            if ($staged.Count -ne 1) { throw "expected one staged update, found $($staged.Count)" }
+            Write-Host "staged: $($staged[0].Name)"
+            if ((Get-Content $exe -Raw).Trim() -ne "placeholder") { throw "locked exe was overwritten in place" }
+          } finally {
+            $lock.Dispose()
+            $env:NIKCLI_UPGRADE_PID = $null
+          }
+
+          Stop-Process -Id $running.Id -Force
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Get-Date) -lt $deadline -and @(Get-ChildItem -Path $dir -Filter "nikcli.update.*.exe" -File).Count -gt 0) {
+            Start-Sleep -Milliseconds 250
+          }
+          if (@(Get-ChildItem -Path $dir -Filter "nikcli.update.*.exe" -File).Count -gt 0) {
+            throw "staged update was never swapped in"
+          }
+          $out = & $exe --version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "swapped nikcli.exe --version exited $LASTEXITCODE`n$out" }
+          Write-Host "deferred upgrade produced nikcli $out"
+
       # --- cmd.exe leg: same binary, classic shell, no PowerShell ---
 
       - name: Re-run binary smoke from cmd.exe

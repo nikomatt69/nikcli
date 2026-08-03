@@ -94,7 +94,7 @@ import {
   shouldUseRendererThread,
   win32DisableProcessedInput,
   win32InstallCtrlCGuard,
-  win32FlushInputBuffer,
+  restoreTerminalState,
 } from "./win32"
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
@@ -458,12 +458,7 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
 
   onCleanup(() => {
     void TuiPluginRuntime.dispose()
-    // Reset terminal state on exit
-    if (process.platform === "win32") {
-      win32FlushInputBuffer()
-    }
-    // Ensure terminal cursor is visible and attributes are reset
-    process.stdout.write("\x1b[?25h\x1b[0m")
+    restoreTerminalState()
   })
 
   // Wire up console copy-to-clipboard via opentui's onCopySelection callback

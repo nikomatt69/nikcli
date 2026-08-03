@@ -3,6 +3,9 @@ import { dlopen, ptr } from "bun:ffi"
 const STD_INPUT_HANDLE = -10
 const ENABLE_PROCESSED_INPUT = 0x0001
 
+export const TERMINAL_RESET_SEQUENCE =
+  "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?25h\x1b[0m"
+
 const kernel = () =>
   dlopen("kernel32.dll", {
     GetStdHandle: { args: ["i32"], returns: "ptr" },
@@ -48,6 +51,11 @@ export function win32FlushInputBuffer() {
 
   const handle = k32!.symbols.GetStdHandle(STD_INPUT_HANDLE)
   k32!.symbols.FlushConsoleInputBuffer(handle)
+}
+
+export function restoreTerminalState() {
+  if (process.platform === "win32") win32FlushInputBuffer()
+  process.stdout.write(TERMINAL_RESET_SEQUENCE)
 }
 
 let unhook: (() => void) | undefined
