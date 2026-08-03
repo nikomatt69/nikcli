@@ -100,15 +100,15 @@ describe("MessageV2 schemas and helpers", () => {
     const messages = ["first", "second", "third"].map(
       (name): ModelMessage => ({
         role: "user",
-        content: [{ type: "image", image, mediaType: "image/png", filename: `${name}.png` }],
+        content: [{ type: "image", image, mediaType: "image/png", providerOptions: { test: { name } } }],
       }),
     )
 
     const bounded = MessageV2.boundImagePayload(messages)
     expect(bounded[0]?.content[0]).toMatchObject({ type: "text" })
     expect(bounded[1]?.content[0]).toMatchObject({ type: "text" })
-    expect(bounded[2]?.content[0]).toMatchObject({ type: "image", filename: "third.png" })
-    expect(messages[0]?.content[0]).toMatchObject({ type: "image", filename: "first.png" })
+    expect(bounded[2]?.content[0]).toMatchObject({ type: "image", providerOptions: { test: { name: "third" } } })
+    expect(messages[0]?.content[0]).toMatchObject({ type: "image", providerOptions: { test: { name: "first" } } })
   })
 
   it("boundImagePayload preserves history at or below the trigger", () => {

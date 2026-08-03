@@ -1182,7 +1182,7 @@ export namespace MessageV2 {
             responseHeaders: e.responseHeaders,
             responseBody: e.responseBody,
             metadata,
-            classification: parsed.type === "payload_too_large" ? "payload-too-large" : undefined,
+            classification: parsed.type === "payload_too_large" ? ("payload-too-large" as const) : undefined,
           },
         }
       }
