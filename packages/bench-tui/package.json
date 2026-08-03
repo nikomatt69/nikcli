@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/bench-tui",
-  "version": "1.229.0",
+  "version": "1.230.0",
   "type": "module",
   "description": "Standalone test interface and benchmark dashboard for Bun packages",
   "main": "./src/index.ts",

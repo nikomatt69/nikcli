@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.230.0 (August 2026)
+
+## Core
+
+- Replace the running nikcli.exe on Windows (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(upgrade): replace the running nikcli.exe on Windows
+
 ## v1.229.0 (August 2026)
 
 ## Core
