@@ -81,7 +81,7 @@ describe("OpenRouter", () => {
         }),
       )
 
-      const body = prepared.body as { messages: Array<{ content: unknown }> }
+      const body = prepared.body as { messages: Array<{ role?: string; content: unknown }> }
       const system = body.messages[0]?.content
       expect(Array.isArray(system) ? system.filter((part) => part.cache_control).length : 0).toBe(4)
       expect(system).toMatchObject([{ cache_control: { type: "ephemeral", ttl: "1h" } }])
