@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.233.0 (August 2026)
+
+## Core
+
+- Invoke bun by execPath, not by name (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(build): invoke bun by execPath, not by name
+
 ## v1.232.0 (August 2026)
 
 ## Core
