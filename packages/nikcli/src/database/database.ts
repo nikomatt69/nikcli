@@ -134,10 +134,7 @@ export namespace Database {
    * a sequence number, then append) must take the write lock up front or two
    * processes sharing nikcli.db can both read the same number.
    */
-  export function transaction<T>(
-    fn: (tx: TxOrDb) => T,
-    options: { behavior?: TransactionBehavior } = {},
-  ): T {
+  export function transaction<T>(fn: (tx: TxOrDb) => T, options: { behavior?: TransactionBehavior } = {}): T {
     if (pending) return fn(syncDb() as TxOrDb) as T
 
     const queue: (() => void)[] = []

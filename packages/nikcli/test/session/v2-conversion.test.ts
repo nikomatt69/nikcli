@@ -82,15 +82,7 @@ describe("SessionV2.toEntries", () => {
     )
 
     // A step is a `start` entry, one entry per part, and a sealing `complete`
-    expect(entries.map((e) => e.type)).toEqual([
-      "start",
-      "text",
-      "reasoning",
-      "tool",
-      "tool",
-      "tool",
-      "complete",
-    ])
+    expect(entries.map((e) => e.type)).toEqual(["start", "text", "reasoning", "tool", "tool", "tool", "complete"])
 
     const start = entries[0] as SessionEntry.Request
     expect(start.modelID).toBe("test-model")

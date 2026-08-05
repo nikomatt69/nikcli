@@ -40,8 +40,7 @@ export namespace MessageRepo {
   }
 
   export function upsertMessage(msg: MessageV2.Info, tx: Executor = db()): void {
-    tx
-      .insert(messageInfo)
+    tx.insert(messageInfo)
       .values({
         id: msg.id,
         sessionId: msg.sessionID,
@@ -86,8 +85,7 @@ export namespace MessageRepo {
   }
 
   export function upsertPart(part: MessageV2.Part, tx: Executor = db()): void {
-    tx
-      .insert(messagePart)
+    tx.insert(messagePart)
       .values({
         id: part.id,
         messageId: part.messageID,

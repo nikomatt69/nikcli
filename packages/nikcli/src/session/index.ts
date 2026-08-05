@@ -695,11 +695,7 @@ export namespace Session {
     const part = "delta" in input ? input.part : input
     const delta = "delta" in input ? input.delta : undefined
     SessionSync.install()
-    SyncEvent.run(
-      SessionSync.PartUpdated,
-      { sessionID: part.sessionID, part, delta },
-      { projectID: ctx.project.id },
-    )
+    SyncEvent.run(SessionSync.PartUpdated, { sessionID: part.sessionID, part, delta }, { projectID: ctx.project.id })
 
     // Record tool usage analytics
     if (part.type === "tool" && part.tool) {

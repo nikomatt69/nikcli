@@ -98,10 +98,7 @@ export async function start(
     // points inside the run's temp root, so this stays isolated.
     // NIKCLI_TEST_HOME wins over XDG for every Global.Path, so the global
     // config lives at <test home>/config/nikcli.json.
-    await Bun.write(
-      join(root, "home", "config", "nikcli.json"),
-      JSON.stringify({ experimental: options.experimental }),
-    )
+    await Bun.write(join(root, "home", "config", "nikcli.json"), JSON.stringify({ experimental: options.experimental }))
   }
 
   const child = Bun.spawn(

@@ -3,6 +3,34 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.237.0 (August 2026)
+
+## Core
+
+- Add a golden-screen corpus for the session renderer (@nikomatt69)
+- Add the session view seam, and make entry conversion deterministic (@nikomatt69)
+- Stop describing deleted code as current (@nikomatt69)
+- Make the entry id the sort key, and fold user parts (@nikomatt69)
+- Collapse the two v2 projections into one (@nikomatt69)
+- Stop double-journaling session events (@nikomatt69)
+- Persist entries as a first-class projection (@nikomatt69)
+- Event-source the session write path (@nikomatt69)
+- Flatten SessionEntry into a type-discriminated union (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(session/v2): flatten SessionEntry into a type-discriminated union
+  - feat(sync): event-source the session write path
+  - feat(session/v2): persist entries as a first-class projection
+  - fix(sync): stop double-journaling session events
+  - refactor(session/v2): collapse the two v2 projections into one
+  - fix(session/v2): make the entry id the sort key, and fold user parts
+  - docs(v2): stop describing deleted code as current
+  - feat(tui): add the session view seam, and make entry conversion deterministic
+  - test(simulation): add a golden-screen corpus for the session renderer
+  - test(simulation): cover tool rendering in the golden corpus
+
 ## v1.235.0 (August 2026)
 
 - No notable changes

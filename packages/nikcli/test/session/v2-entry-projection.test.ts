@@ -142,12 +142,7 @@ describe("v2 entry projection", () => {
           }),
         )
 
-        expect((await SessionV2.entries(session.id)).map((e) => e.type)).toEqual([
-          "user",
-          "start",
-          "text",
-          "tool",
-        ])
+        expect((await SessionV2.entries(session.id)).map((e) => e.type)).toEqual(["user", "start", "text", "tool"])
 
         // the tool's state transitions collapse onto the one entry
         await runSession(

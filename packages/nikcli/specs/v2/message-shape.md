@@ -226,14 +226,14 @@ transactional projector writing `session_entry`, and `SessionProjector`
 writing a second stream into `session_v2_event` off the bus. Two writers, two
 representations, two answers to the same question. That is now one:
 
-| | who | what | when |
-|---|---|---|---|
-| persistence | `SessionEntryProjection`, from the sync projectors | `session_entry` | inside the v1 write transaction |
-| live | `SessionProjector`, from the v1 bus | `session.entry.updated` / `.removed` | immediately, per change |
-| durable log | `SyncEvent` | `sync_event` | inside the v1 write transaction |
+|             | who                                                | what                                 | when                            |
+| ----------- | -------------------------------------------------- | ------------------------------------ | ------------------------------- |
+| persistence | `SessionEntryProjection`, from the sync projectors | `session_entry`                      | inside the v1 write transaction |
+| live        | `SessionProjector`, from the v1 bus                | `session.entry.updated` / `.removed` | immediately, per change         |
+| durable log | `SyncEvent`                                        | `sync_event`                         | inside the v1 write transaction |
 
 `session_v2_event` is dropped (migration `20260805120000`), along with
-`SessionV2EventRepo` and `SessionV2.replay()` — entries *are* the replayed
+`SessionV2EventRepo` and `SessionV2.replay()` — entries _are_ the replayed
 state, so reconstructing them from a second log was work with no consumer.
 `SessionV2.events()` now serves `sync_event` for the session aggregate: the
 real log, with real sequence numbers. Token-level part updates are absent
@@ -246,13 +246,13 @@ would rebuild is `entries()`.
 `idForMessage(messageID, kind)` → `evt_<messageBody>_<rank>` with rank
 `user`/`start` = 0, parts = 1, `complete` = 2, `compaction` = 3.
 
-*Derived* is what lets the two projections agree without coordinating: a
+_Derived_ is what lets the two projections agree without coordinating: a
 client applying a live `session.entry.updated` and a client re-reading
 `/v2/entries` converge on the same entries. It also removed the
 read-before-write in `SessionEntryRepo.upsert` (which existed only to keep
 the id stable) and guarantees an id never churns mid-stream.
 
-*Also the sort key* because otherwise the server would order by one
+_Also the sort key_ because otherwise the server would order by one
 convention (a `sort_key` column) and clients by another (the id), and the two
 would drift — `evt_X_complete` sorts before `evt_X_start` if you order the
 naive way. Identifier bodies are fixed-length and ascending, so lexicographic
@@ -358,7 +358,7 @@ Tests: `test/session/v2-conversion.test.ts`,
 
 The TUI renders from v1 messages and parts; every other client (mobile,
 desktop, plugins, SDK) is on entries. Converting the renderer means changing
-the data shape *and* 3971 lines of components at once, which is neither
+the data shape _and_ 3971 lines of components at once, which is neither
 reviewable nor testable — so the seam goes in first.
 
 `routes/session/view.ts` defines the `Turn` model with both sources behind
@@ -415,7 +415,7 @@ in different milliseconds.
 `packages/simulation/test/session-render.test.ts` captures what the real TUI
 paints, as **text**, for a corpus of scripted conversations. It is the
 instrument the renderer conversion needs: the unit suite cannot see a paint
-regression, and the TUI smoke test only asserts that *something* was painted.
+regression, and the TUI smoke test only asserts that _something_ was painted.
 
 Text rather than PNG deliberately — the failure of a render refactor should
 be a readable diff, not "the hashes differ". Regenerate with
@@ -432,14 +432,14 @@ simulation's deterministic OpenAI backend and exposes `send` / `respond` /
   the scripted reply on the thread title and a fallback in the message.
 - **What to normalize.** Ids, durations, token rates, costs, temp paths and
   clock times are stripped. The status bar goes whole: it ends with the file
-  the developer's editor has open, right-aligned, so its *length* shifts the
+  the developer's editor has open, right-aligned, so its _length_ shifts the
   entire line. That one made the corpus fail on roughly one run in three
   until it was normalized — a flaky golden is worse than no golden, because
   it teaches you to ignore the diff.
 
 Cost: one CLI process per scenario. Scenarios keep separate processes rather
 than sharing one and resetting between them — a scenario bleeding into the
-next would produce a *wrong* golden, which is worse than a slow suite. The
+next would produce a _wrong_ golden, which is worse than a slow suite. The
 simulation package's own suite is correspondingly heavier now, and
 `plugin-hot-reload` (300s budget) has been seen to time out under
 contention.

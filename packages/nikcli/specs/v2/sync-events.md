@@ -16,12 +16,12 @@ one-writer/many-readers sync possible without distributed clocks — a single
 
 ## Where it lives
 
-| File | Role |
-|---|---|
-| `src/sync/sync-event.ts` | `SyncEvent`: define / project / init / run / replay / remove |
-| `src/sync/projectors.ts` | installs every projector, freezes the registry |
+| File                        | Role                                                                |
+| --------------------------- | ------------------------------------------------------------------- |
+| `src/sync/sync-event.ts`    | `SyncEvent`: define / project / init / run / replay / remove        |
+| `src/sync/projectors.ts`    | installs every projector, freezes the registry                      |
 | `src/session/projectors.ts` | `SessionSync`: the session/message/part events and their projectors |
-| `src/database/database.ts` | `transaction()`, `effect()`, `use()`, `TxOrDb` |
+| `src/database/database.ts`  | `transaction()`, `effect()`, `use()`, `TxOrDb`                      |
 
 ## Deliberate divergences from opencode
 
@@ -35,7 +35,7 @@ the repo does not end up with two systems both called "sync".
 **Bus definitions are reused, not re-registered.** opencode calls
 `BusEvent.define(def.type, def.properties)` in `init`. nikcli registers its
 events with `BusEvent.schema` (Effect Schema) and `BusEvent.schemas()`
-*throws* if any registered event lacks one — re-defining would replace an
+_throws_ if any registered event lacks one — re-defining would replace an
 Effect Schema entry with a zod-only one and break the Effect PublicApi
 contract. So a sync event points at its existing registration via
 `bus: () => Session.Event.Updated`.
@@ -58,7 +58,7 @@ write problem. It is defined `log: false`: projected and published, but not
 logged and not consuming a sequence number. Its projection is an upsert that
 already carries the latest state, so nothing is lost.
 
-opencode solves the same problem by gating *all* log writes behind
+opencode solves the same problem by gating _all_ log writes behind
 `OPENCODE_EXPERIMENTAL_WORKSPACES`. Per-definition is finer: nikcli keeps a
 real log for everything that is not a token delta.
 

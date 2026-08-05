@@ -274,7 +274,10 @@ export namespace SyncEvent {
 
       if (!options.publish) return
       try {
-        void Bus.publish(def.bus?.() ?? { type: def.type, properties: def.properties }, convertEvent(def.type, event.data))
+        void Bus.publish(
+          def.bus?.() ?? { type: def.type, properties: def.properties },
+          convertEvent(def.type, event.data),
+        )
       } catch (error) {
         log.error("failed to publish sync event on the bus", { type: def.type, error })
       }

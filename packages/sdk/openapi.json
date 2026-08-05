@@ -7231,30 +7231,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/components/schemas/SessionEntry.User"
-                      },
-                      {
-                        "$ref": "#/components/schemas/SessionEntry.Synthetic"
-                      },
-                      {
-                        "anyOf": [
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.AssistantText"
-                          },
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.AssistantReasoning"
-                          },
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.AssistantTool"
-                          },
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.AssistantRetry"
-                          }
-                        ]
-                      }
-                    ]
+                    "$ref": "#/components/schemas/SessionEntry"
                   }
                 }
               }
@@ -7330,59 +7307,13 @@
                     "entries": {
                       "type": "array",
                       "items": {
-                        "anyOf": [
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.User"
-                          },
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.Synthetic"
-                          },
-                          {
-                            "anyOf": [
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantText"
-                              },
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantReasoning"
-                              },
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantTool"
-                              },
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantRetry"
-                              }
-                            ]
-                          }
-                        ]
+                        "$ref": "#/components/schemas/SessionEntry"
                       }
                     },
                     "pending": {
                       "type": "array",
                       "items": {
-                        "anyOf": [
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.User"
-                          },
-                          {
-                            "$ref": "#/components/schemas/SessionEntry.Synthetic"
-                          },
-                          {
-                            "anyOf": [
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantText"
-                              },
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantReasoning"
-                              },
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantTool"
-                              },
-                              {
-                                "$ref": "#/components/schemas/SessionEntry.AssistantRetry"
-                              }
-                            ]
-                          }
-                        ]
+                        "$ref": "#/components/schemas/SessionEntry"
                       }
                     }
                   },
@@ -7899,10 +7830,10 @@
                   "model": {
                     "type": "string"
                   },
-                  "arguments": {
+                  "command": {
                     "type": "string"
                   },
-                  "command": {
+                  "arguments": {
                     "type": "string"
                   },
                   "variant": {
@@ -7913,35 +7844,22 @@
                     "items": {
                       "anyOf": [
                         {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "type": {
-                              "type": "string",
-                              "const": "file"
-                            },
-                            "mime": {
-                              "type": "string"
-                            },
-                            "filename": {
-                              "type": "string"
-                            },
-                            "url": {
-                              "type": "string"
-                            },
-                            "source": {
-                              "$ref": "#/components/schemas/FilePartSource"
-                            }
-                          },
-                          "required": ["type", "mime", "url"]
+                          "$ref": "#/components/schemas/TextPartInput"
+                        },
+                        {
+                          "$ref": "#/components/schemas/FilePartInput"
+                        },
+                        {
+                          "$ref": "#/components/schemas/AgentPartInput"
+                        },
+                        {
+                          "$ref": "#/components/schemas/SubtaskPartInput"
                         }
                       ]
                     }
                   }
                 },
-                "required": ["arguments", "command"]
+                "required": ["command", "arguments"]
               }
             }
           }
@@ -22504,6 +22422,48 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.session.entry.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "session.entry.updated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "type": "string"
+              },
+              "entry": {}
+            },
+            "required": ["sessionID", "entry"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.session.entry.removed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "session.entry.removed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "type": "string"
+              },
+              "entryID": {
+                "type": "string"
+              }
+            },
+            "required": ["sessionID", "entryID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Pty": {
         "type": "object",
         "properties": {
@@ -23199,6 +23159,12 @@
           },
           {
             "$ref": "#/components/schemas/Event.session.v2.updated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.session.entry.updated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.session.entry.removed"
           },
           {
             "$ref": "#/components/schemas/Event.pty.created"
@@ -27220,6 +27186,9 @@
           "sessionID": {
             "type": "string"
           },
+          "messageID": {
+            "type": "string"
+          },
           "timestamp": {
             "type": "number"
           },
@@ -27230,7 +27199,7 @@
             },
             "additionalProperties": {}
           },
-          "role": {
+          "type": {
             "type": "string",
             "const": "user"
           },
@@ -27252,7 +27221,7 @@
             }
           }
         },
-        "required": ["id", "sessionID", "timestamp", "role", "text"]
+        "required": ["id", "sessionID", "timestamp", "type", "text"]
       },
       "SessionEntry.Synthetic": {
         "type": "object",
@@ -27264,6 +27233,9 @@
           "sessionID": {
             "type": "string"
           },
+          "messageID": {
+            "type": "string"
+          },
           "timestamp": {
             "type": "number"
           },
@@ -27274,22 +27246,25 @@
             },
             "additionalProperties": {}
           },
-          "role": {
+          "type": {
             "type": "string",
             "const": "synthetic"
           },
           "text": {
             "type": "string"
           },
-          "roleType": {
+          "role": {
             "default": "assistant",
             "type": "string",
             "enum": ["system", "user", "assistant"]
+          },
+          "ref": {
+            "type": "string"
           }
         },
-        "required": ["id", "sessionID", "timestamp", "role", "text"]
+        "required": ["id", "sessionID", "timestamp", "type", "text"]
       },
-      "SessionEntry.AssistantText": {
+      "SessionEntry.Request": {
         "type": "object",
         "properties": {
           "id": {
@@ -27297,6 +27272,9 @@
             "pattern": "^evt.*"
           },
           "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
             "type": "string"
           },
           "timestamp": {
@@ -27309,212 +27287,317 @@
             },
             "additionalProperties": {}
           },
-          "role": {
+          "type": {
             "type": "string",
-            "const": "assistant"
+            "const": "start"
           },
-          "sub": {
+          "providerID": {
+            "default": "",
+            "type": "string"
+          },
+          "modelID": {
+            "default": "",
+            "type": "string"
+          },
+          "agent": {
+            "default": "",
+            "type": "string"
+          },
+          "mode": {
+            "default": "",
+            "type": "string"
+          },
+          "variant": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type"]
+      },
+      "SessionEntry.Text": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
             "type": "string",
             "const": "text"
           },
-          "modelID": {
+          "text": {
             "type": "string"
           },
-          "providerID": {
+          "ignored": {
+            "type": "boolean"
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "completed": {
+            "type": "number"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "text"]
+      },
+      "SessionEntry.Reasoning": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "reasoning"
+          },
+          "text": {
+            "type": "string"
+          },
+          "completed": {
+            "type": "number"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "text"]
+      },
+      "SessionEntry.Tool": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "tool"
+          },
+          "callID": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ToolState"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "callID", "name", "state"]
+      },
+      "SessionEntry.Subtask": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "subtask"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "description": {
             "type": "string"
           },
           "agent": {
             "type": "string"
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "providerID": {
+                "type": "string"
+              },
+              "modelID": {
+                "type": "string"
+              }
+            },
+            "required": ["providerID", "modelID"]
+          },
+          "command": {
+            "type": "string"
+          },
+          "background": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "prompt", "description", "agent"]
+      },
+      "SessionEntry.Complete": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "complete"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "cost": {
+            "default": 0,
+            "type": "number"
+          },
+          "tokens": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "number"
+              },
+              "input": {
+                "type": "number"
+              },
+              "output": {
+                "type": "number"
+              },
+              "reasoning": {
+                "type": "number"
+              },
+              "cache": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "type": "number"
+                  },
+                  "write": {
+                    "type": "number"
+                  }
+                },
+                "required": ["read", "write"]
+              }
+            },
+            "required": ["input", "output", "reasoning", "cache"]
           },
           "finish": {
             "type": "string"
           },
-          "parts": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "text"
-                    },
-                    "text": {
-                      "type": "string"
-                    },
-                    "ignored": {
-                      "type": "boolean"
-                    },
-                    "metadata": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {}
-                    },
-                    "ref": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["type", "text"]
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "reasoning"
-                    },
-                    "text": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {}
-                    },
-                    "ref": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["type", "text"]
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "tool-call"
-                    },
-                    "toolCallId": {
-                      "type": "string"
-                    },
-                    "toolName": {
-                      "type": "string"
-                    },
-                    "args": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {}
-                    },
-                    "argsText": {
-                      "type": "string"
-                    },
-                    "ref": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["type", "toolCallId", "toolName", "args"]
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "tool-result"
-                    },
-                    "toolCallId": {
-                      "type": "string"
-                    },
-                    "toolName": {
-                      "type": "string"
-                    },
-                    "result": {
-                      "type": "string"
-                    },
-                    "error": {
-                      "type": "boolean"
-                    },
-                    "attachments": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/FilePart"
-                      }
-                    },
-                    "ref": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["type", "toolCallId", "toolName", "result"]
-                }
-              ]
-            }
-          }
-        },
-        "required": ["id", "sessionID", "timestamp", "role", "sub", "modelID", "providerID", "agent", "parts"]
-      },
-      "SessionEntry.AssistantReasoning": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^evt.*"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "number"
-          },
-          "metadata": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {}
-          },
-          "role": {
-            "type": "string",
-            "const": "assistant"
-          },
-          "sub": {
-            "type": "string",
-            "const": "reasoning"
-          },
-          "modelID": {
-            "type": "string"
-          },
-          "providerID": {
-            "type": "string"
-          },
-          "agent": {
-            "type": "string"
-          },
-          "parts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "const": "reasoning"
-                },
-                "text": {
-                  "type": "string"
-                },
-                "metadata": {
-                  "type": "object",
-                  "propertyNames": {
-                    "type": "string"
-                  },
-                  "additionalProperties": {}
-                },
-                "ref": {
-                  "type": "string"
-                }
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderAuthError"
               },
-              "required": ["type", "text"]
-            }
+              {
+                "$ref": "#/components/schemas/UnknownError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageOutputLengthError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageContextOverflowError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageAbortedError"
+              },
+              {
+                "$ref": "#/components/schemas/StructuredOutputError"
+              },
+              {
+                "$ref": "#/components/schemas/APIError"
+              }
+            ]
           }
         },
-        "required": ["id", "sessionID", "timestamp", "role", "sub", "modelID", "providerID", "agent", "parts"]
+        "required": ["id", "sessionID", "timestamp", "type", "reason", "tokens"]
       },
-      "SessionEntry.AssistantTool": {
+      "SessionEntry.Retry": {
         "type": "object",
         "properties": {
           "id": {
@@ -27522,6 +27605,9 @@
             "pattern": "^evt.*"
           },
           "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
             "type": "string"
           },
           "timestamp": {
@@ -27534,118 +27620,7 @@
             },
             "additionalProperties": {}
           },
-          "role": {
-            "type": "string",
-            "const": "assistant"
-          },
-          "sub": {
-            "type": "string",
-            "const": "tool"
-          },
-          "modelID": {
-            "type": "string"
-          },
-          "providerID": {
-            "type": "string"
-          },
-          "agent": {
-            "type": "string"
-          },
-          "parts": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "tool-call"
-                    },
-                    "toolCallId": {
-                      "type": "string"
-                    },
-                    "toolName": {
-                      "type": "string"
-                    },
-                    "args": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {}
-                    },
-                    "argsText": {
-                      "type": "string"
-                    },
-                    "ref": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["type", "toolCallId", "toolName", "args"]
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "tool-result"
-                    },
-                    "toolCallId": {
-                      "type": "string"
-                    },
-                    "toolName": {
-                      "type": "string"
-                    },
-                    "result": {
-                      "type": "string"
-                    },
-                    "error": {
-                      "type": "boolean"
-                    },
-                    "attachments": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/FilePart"
-                      }
-                    },
-                    "ref": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["type", "toolCallId", "toolName", "result"]
-                }
-              ]
-            }
-          }
-        },
-        "required": ["id", "sessionID", "timestamp", "role", "sub", "modelID", "providerID", "agent", "parts"]
-      },
-      "SessionEntry.AssistantRetry": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^evt.*"
-          },
-          "sessionID": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "number"
-          },
-          "metadata": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {}
-          },
-          "role": {
-            "type": "string",
-            "const": "assistant"
-          },
-          "sub": {
+          "type": {
             "type": "string",
             "const": "retry"
           },
@@ -27656,9 +27631,86 @@
           },
           "error": {
             "$ref": "#/components/schemas/APIError"
+          },
+          "ref": {
+            "type": "string"
           }
         },
-        "required": ["id", "sessionID", "timestamp", "role", "sub", "attempt", "error"]
+        "required": ["id", "sessionID", "timestamp", "type", "attempt", "error"]
+      },
+      "SessionEntry.Compaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "compaction"
+          },
+          "auto": {
+            "default": false,
+            "type": "boolean"
+          },
+          "overflow": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type"]
+      },
+      "SessionEntry": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SessionEntry.User"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Synthetic"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Request"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Text"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Reasoning"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Tool"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Subtask"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Complete"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Retry"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEntry.Compaction"
+          }
+        ]
       },
       "SessionEvent.FileAttachment": {
         "type": "object",
@@ -27918,6 +27970,31 @@
           },
           "finish": {
             "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderAuthError"
+              },
+              {
+                "$ref": "#/components/schemas/UnknownError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageOutputLengthError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageContextOverflowError"
+              },
+              {
+                "$ref": "#/components/schemas/MessageAbortedError"
+              },
+              {
+                "$ref": "#/components/schemas/StructuredOutputError"
+              },
+              {
+                "$ref": "#/components/schemas/APIError"
+              }
+            ]
           }
         },
         "required": ["id", "sessionID", "timestamp", "type", "messageID", "reason", "tokens"]
@@ -28026,6 +28103,43 @@
         },
         "required": ["id", "sessionID", "timestamp", "type", "messageID", "partID"]
       },
+      "SessionEvent.Compaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^evt.*"
+          },
+          "sessionID": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "type": {
+            "type": "string",
+            "const": "compaction"
+          },
+          "messageID": {
+            "type": "string"
+          },
+          "auto": {
+            "default": false,
+            "type": "boolean"
+          },
+          "overflow": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "sessionID", "timestamp", "type", "messageID"]
+      },
       "SessionEvent": {
         "anyOf": [
           {
@@ -28048,6 +28162,9 @@
           },
           {
             "$ref": "#/components/schemas/SessionEvent.PartRemoved"
+          },
+          {
+            "$ref": "#/components/schemas/SessionEvent.Compaction"
           }
         ]
       },

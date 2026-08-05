@@ -82,8 +82,7 @@ export namespace SessionRepo {
 
   export function upsert(info: Session.Info, tx: Executor = db()): void {
     const row = infoToRow(info)
-    tx
-      .insert(sessionInfo)
+    tx.insert(sessionInfo)
       .values(row)
       .onConflictDoUpdate({
         target: sessionInfo.id,
@@ -110,8 +109,7 @@ export namespace SessionRepo {
     if (!existing) return undefined
     const updated = editor(existing)
     const row = infoToRow(updated)
-    tx
-      .update(sessionInfo)
+    tx.update(sessionInfo)
       .set({
         title: row.title,
         directory: row.directory,

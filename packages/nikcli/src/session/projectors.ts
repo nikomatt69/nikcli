@@ -140,9 +140,7 @@ export namespace SessionSync {
       case "message.updated":
         return { info: payload.info }
       case "message.part.updated":
-        return payload.delta === undefined
-          ? { part: payload.part }
-          : { part: payload.part, delta: payload.delta }
+        return payload.delta === undefined ? { part: payload.part } : { part: payload.part, delta: payload.delta }
       default:
         return payload
     }
@@ -183,9 +181,7 @@ export namespace SessionSync {
 
     SyncEvent.project(PartRemoved, (tx, data) => {
       MessageRepo.removePart(data.messageID, data.partID, tx)
-      project("part.removed", () =>
-        SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID),
-      )
+      project("part.removed", () => SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID))
     }),
   ]
 

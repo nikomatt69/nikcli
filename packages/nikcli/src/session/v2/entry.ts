@@ -272,18 +272,7 @@ export namespace SessionEntry {
   // ============================================================================
 
   export const Entry = z
-    .discriminatedUnion("type", [
-      User,
-      Synthetic,
-      Request,
-      Text,
-      Reasoning,
-      Tool,
-      Subtask,
-      Complete,
-      Retry,
-      Compaction,
-    ])
+    .discriminatedUnion("type", [User, Synthetic, Request, Text, Reasoning, Tool, Subtask, Complete, Retry, Compaction])
     .meta({ ref: "SessionEntry" })
   export type Entry = z.infer<typeof Entry>
 
