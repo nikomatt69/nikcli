@@ -1,0 +1,23 @@
+┃
+ NIKCLI  ┃ · Fixture            ⇄  ×                                                          + new
+         ┃
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  ┃
+  ┃  read them
+  ┃
+
+     → Read alpha.txt
+     → Read beta.txt
+     → Read gamma.txt
+
+     Done.
+
+     ▣  Build · deterministic · Ns · N tok/s
+
+  ┃
+  ┃
+  ┃
+  ┃  Build  · Approve Deterministic simulation Nikcli deterministic simulation
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+[status bar]

@@ -41,6 +41,12 @@ export async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs 
 export interface Harness {
   readonly ui: DriverSocket
   readonly backend: DriverSocket
+  /**
+   * The project the CLI was started in. Scenarios that exercise tools write
+   * their fixtures here: a path outside it trips the "external directory"
+   * permission prompt, which is a different render path entirely.
+   */
+  readonly projectDir: string
   /** The rendered screen, as text. */
   screen(): Promise<string>
   /** Type into the prompt and submit. */
@@ -54,7 +60,7 @@ export interface Harness {
    * arrival order is what keeps a scenario's script landing on the message
    * instead of on the thread title.
    */
-  respond(items: readonly SimulationProtocol.Backend.Item[], reason?: string): Promise<void>
+  respond(items: readonly SimulationProtocol.Backend.Item[], reason?: string, continuation?: string): Promise<void>
   waitFor(text: string, timeoutMs?: number): Promise<void>
   close(): Promise<void>
 }
@@ -66,7 +72,9 @@ export interface Harness {
  * Extracted from `e2e.test.ts` so a corpus of render scenarios can reuse it
  * rather than each copying twenty lines of process wiring.
  */
-export async function start(options: { cols?: number; rows?: number } = {}): Promise<Harness> {
+export async function start(
+  options: { cols?: number; rows?: number; experimental?: Record<string, unknown> } = {},
+): Promise<Harness> {
   const root = await mkdtemp(join(tmpdir(), "nikcli-render-"))
   const registry = join(root, "registry")
   const media = join(root, "media")
@@ -83,6 +91,18 @@ export async function start(options: { cols?: number; rows?: number } = {}): Pro
     viewport: { cols: options.cols ?? 100, rows: options.rows ?? 30 },
   }
   await Bun.write(join(registry, "render.json"), JSON.stringify(manifest))
+  if (options.experimental) {
+    // The global config, not the project one: the harness sets
+    // NIKCLI_DISABLE_PROJECT_CONFIG so a developer's own project settings can
+    // never reach a golden, and that switch would swallow this too. XDG_CONFIG_HOME
+    // points inside the run's temp root, so this stays isolated.
+    // NIKCLI_TEST_HOME wins over XDG for every Global.Path, so the global
+    // config lives at <test home>/config/nikcli.json.
+    await Bun.write(
+      join(root, "home", "config", "nikcli.json"),
+      JSON.stringify({ experimental: options.experimental }),
+    )
+  }
 
   const child = Bun.spawn(
     [process.execPath, "run", "--conditions=browser", "./src/index.ts", project, "--model", "simulation/deterministic"],
@@ -125,6 +145,7 @@ export async function start(options: { cols?: number; rows?: number } = {}): Pro
   return {
     ui,
     backend,
+    projectDir: project,
     async screen() {
       const state = await ui.call<SimulationProtocol.Frontend.State>("ui.state")
       return state.screen
@@ -133,7 +154,8 @@ export async function start(options: { cols?: number; rows?: number } = {}): Pro
       await ui.call("ui.type", { text })
       await ui.call("ui.enter")
     },
-    async respond(items, reason = "stop") {
+    async respond(items, reason = "stop", continuation = "Done.") {
+      let scripted = false
       while (true) {
         const exchange = await backend
           .next<SimulationProtocol.Backend.OpenedExchange>("llm.request", 3_000)
@@ -141,8 +163,17 @@ export async function start(options: { cols?: number; rows?: number } = {}): Pro
         if (!exchange) return
         const body = exchange.body as { tools?: unknown[] } | null
         if (Array.isArray(body?.tools) && body.tools.length > 0) {
-          await backend.call("llm.chunk", { id: exchange.id, items })
-          await backend.call("llm.finish", { id: exchange.id, reason })
+          if (!scripted) {
+            scripted = true
+            await backend.call("llm.chunk", { id: exchange.id, items })
+            await backend.call("llm.finish", { id: exchange.id, reason })
+            continue
+          }
+          // The script is one assistant turn. After the tools run the engine
+          // opens a continuation exchange — replying with the same tool calls
+          // would loop forever, so it gets a terminating reply.
+          await backend.call("llm.chunk", { id: exchange.id, items: [{ type: "textDelta", text: continuation }] })
+          await backend.call("llm.finish", { id: exchange.id, reason: "stop" })
           continue
         }
         // Title generation and summarising carry no tools. They get something
