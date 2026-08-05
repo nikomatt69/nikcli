@@ -47,7 +47,8 @@ export namespace MessageRepo {
    * to at least one entry.
    */
   export function countMessages(sessionId: string): number {
-    return db().select({ id: messageInfo.id }).from(messageInfo).where(eq(messageInfo.sessionId, sessionId)).all().length
+    return db().select({ id: messageInfo.id }).from(messageInfo).where(eq(messageInfo.sessionId, sessionId)).all()
+      .length
   }
 
   export function upsertMessage(msg: MessageV2.Info, tx: Executor = db()): void {

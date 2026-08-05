@@ -198,9 +198,7 @@ export function fromEntries(entries: readonly ViewEntry[]): Turn[] {
 
 /** Give every turn the start time of the one before it. */
 function link(turns: Turn[]): Turn[] {
-  return turns.map((turn, index) =>
-    index === 0 ? turn : { ...turn, previousCreatedAt: turns[index - 1]!.createdAt },
-  )
+  return turns.map((turn, index) => (index === 0 ? turn : { ...turn, previousCreatedAt: turns[index - 1]!.createdAt }))
 }
 
 // ============================================================================

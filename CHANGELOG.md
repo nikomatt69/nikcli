@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.239.0 (August 2026)
+
+## Core
+
+- Ensure consistent export syntax and update type definitions (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix: ensure consistent export syntax and update type definitions
+
 ## v1.237.0 (August 2026)
 
 ## Core
