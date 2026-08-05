@@ -191,18 +191,18 @@ performed on every read. This is what opencode 2.0 sketched with
   holds one row per entry. `ref` is the identity — the originating v1 part
   id, or a synthesized `<messageID>#start` / `#complete` / `#user` /
   `#compaction` key — and it is the upsert target, so a streaming delta is a
-  single-row write. `sortKey` is `<messageID>#<rank>#<partID>`: message ids
-  and part ids are both ascending, so lexicographic order is conversation
-  order, with `start` ranked before the parts and `complete` after them.
+  single-row write. Ordering is the entry id itself — see the coherence pass
+  below.
 - `SessionEntryProjection` (projection.ts) derives entries from v1
   messages/parts. It runs inside the **same transaction** as the v1 write
   (session/projectors.ts), so the projection cannot drift from storage.
   Message-level entries are projected by `message`, parts by `part` —
   rewriting the parts on every message update would make a long step
   quadratic.
-- `SessionEntryRepo` preserves the entry id assigned on first sight across
-  upserts. Consumers key renders on it, and a churning id would remount
-  every row on every delta.
+- Entry ids are derived from the v1 id they come from, so re-projecting the
+  same part always produces the same id and nothing has to be read before
+  it is written. Consumers key renders on the id, and a churning id would
+  remount every row on every delta.
 - A projection failure is logged, never fatal: the message and part rows are
   the contract, the entries are derived data. `SessionEntry.Request` also
   defaults `providerID` / `modelID` / `agent`, because an assistant message
@@ -285,7 +285,13 @@ what the HTTP route returns, so clients type the read and cast the delta.
 
 TUI: `store.entry` in `context/sync.tsx`, kept live off those two events.
 
-## Implementation status (2026-06-10)
+## Implementation status (2026-06-10) — partly superseded
+
+> The entry/event/stepper split below still stands, but two claims no longer
+> hold: `SessionProjector` no longer persists an event log (it publishes
+> `session.entry.updated` instead), and `entries()` no longer converts v1
+> messages on every read (it reads `session_entry`). See the 2026-08-05
+> sections above.
 
 The entry/event/stepper shape is implemented in `src/session/v2/` and live,
 migrated by strangler over the v1 engine:
@@ -316,7 +322,14 @@ migrated by strangler over the v1 engine:
   `session.v2.updated` reaches clients through the existing bus → SSE
   forwarding.
 
-## Event persistence (2026-06-12)
+## Event persistence (2026-06-12) — SUPERSEDED, kept for the history
+
+> Everything below describes `session_v2_event`, `SessionV2EventRepo` and
+> `SessionV2.replay()`, all of which were **deleted** on 2026-08-05
+> (migration `20260805120000_drop_session_v2_event`). Entries are persisted
+> transactionally now and the durable log is `sync_event`; see "One
+> projection, two latencies" above. Read this section only to understand why
+> the earlier design existed, never as a description of the code.
 
 The v2 event stream is durable: `SessionV2EventRepo` (event-repo.ts) writes
 the projector's translated events into the `session_v2_event` table
