@@ -43,3 +43,9 @@ export function friendlyErrorMessage(error: unknown, fallback = "Something went 
 
   return fallback
 }
+
+/** The message shown when sharing a session fails. Used by the session route
+ *  and by the tool renderers that offer a share action. */
+export function shareErrorMessage(error: unknown): string {
+  return friendlyErrorMessage(error, "Failed to share session")
+}
