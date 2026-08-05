@@ -3,9 +3,8 @@ import { Identifier } from "@/id/id"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
-import type { SessionEvent } from "./event"
-import { SessionV2EventRepo } from "./event-repo"
 import { SessionEntryRepo } from "./entry-repo"
+import { SyncEvent } from "@/sync/sync-event"
 import { SessionEntryProjection } from "./projection"
 import { Database } from "@/database/database"
 import { SessionProjector } from "./projector"
@@ -230,19 +229,20 @@ export namespace SessionV2 {
   }
 
   /**
-   * Persisted v2 event log for a session, in replay order.
+   * The durable event log for a session, in sequence order.
+   *
+   * This is `sync_event` — the one log the write path appends to
+   * (sync/sync-event.ts), not a second v2-specific one. `session_v2_event`
+   * used to hold a parallel stream translated off the bus; entries are
+   * persisted transactionally now, so it was a second answer to a question
+   * that already had one, and it is gone.
+   *
+   * Token-level part updates are deliberately absent: they are defined
+   * `log: false` because logging them would be one row per token. The state
+   * they would reconstruct is `entries()`.
    */
-  export function events(sessionID: string): SessionEvent.Event[] {
-    return SessionV2EventRepo.list(sessionID)
-  }
-
-  /**
-   * Rebuild the Stepper reduction of a session from the persisted event
-   * log. Completed steps land in `entries`; a step without a sealing
-   * `step.ended` (crash, still in flight) stays in `pending`.
-   */
-  export function replay(sessionID: string): Stepper.MemoryState {
-    return SessionV2EventRepo.replay(sessionID)
+  export function events(sessionID: string): SyncEvent.HistoryEntry[] {
+    return SyncEvent.history(sessionID)
   }
 
   // ============================================================================

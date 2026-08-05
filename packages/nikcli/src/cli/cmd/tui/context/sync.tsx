@@ -19,6 +19,7 @@ import type {
   VcsInfo,
   FileDiff,
   Workspace,
+  SessionEntry,
 } from "@nikcli-ai/sdk/v2"
 import type { Config } from "@nikcli-ai/sdk/v2/client"
 import { createNikcliClient } from "@nikcli-ai/sdk/v2"
@@ -104,6 +105,15 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       todo: Record<string, Todo[]>
       message: Record<string, Message[]>
       part: Record<string, Part[]>
+      /**
+       * The v2 read model, kept live off `session.entry.updated`.
+       *
+       * Sorted by id, which is safe because entry ids are derived from the
+       * v1 ids they come from (`SessionEntry.idForPart`/`idForMessage`), so
+       * a delta always lands on the entry it updates rather than appending a
+       * near-duplicate.
+       */
+      entry: Record<string, SessionEntry[]>
       lsp: LspStatus[]
       mcp: Record<string, McpStatus>
       mcp_resource: Record<string, McpResource>
@@ -132,6 +142,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       todo: {},
       message: {},
       part: {},
+      entry: {},
       lsp: [],
       mcp: {},
       mcp_resource: {},
@@ -554,6 +565,48 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             setStore(
               "part",
               event.properties.messageID,
+              produce((draft) => {
+                draft.splice(result.index, 1)
+              }),
+            )
+          break
+        }
+
+        // ---- v2 read model -------------------------------------------------
+        // Entries arrive one at a time and are keyed on a derived id, so a
+        // delta replaces in place. This is the same shape `/v2/entries`
+        // returns, so a client can seed from the route and stay live here.
+        case "session.entry.updated": {
+          const { sessionID, entry } = event.properties as { sessionID: string; entry: SessionEntry }
+          const entries = store.entry[sessionID]
+          if (!entries) {
+            setStore("entry", sessionID, [entry])
+            break
+          }
+          const result = Binary.search(entries, entry.id, (e) => e.id)
+          if (result.found) {
+            setStore("entry", sessionID, result.index, reconcile(entry))
+            break
+          }
+          setStore(
+            "entry",
+            sessionID,
+            produce((draft) => {
+              draft.splice(result.index, 0, entry)
+            }),
+          )
+          break
+        }
+
+        case "session.entry.removed": {
+          const { sessionID, entryID } = event.properties as { sessionID: string; entryID: string }
+          const entries = store.entry[sessionID]
+          if (!entries) break
+          const result = Binary.search(entries, entryID, (e) => e.id)
+          if (result.found)
+            setStore(
+              "entry",
+              sessionID,
               produce((draft) => {
                 draft.splice(result.index, 1)
               }),

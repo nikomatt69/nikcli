@@ -24,6 +24,45 @@ export namespace SessionEntry {
   export const ID = Identifier.schema("event")
   export type ID = z.infer<typeof ID>
 
+  // ============================================================================
+  // Derived identity
+  // ============================================================================
+
+  /** Message-level entries: the kinds that frame a turn rather than stream. */
+  export type MessageKind = "user" | "start" | "complete" | "compaction"
+
+  function body(id: string) {
+    const underscore = id.indexOf("_")
+    return underscore < 0 ? id : id.slice(underscore + 1)
+  }
+
+  /**
+   * The entry id for a v1 part, derived from the part id.
+   *
+   * Deriving rather than generating is what lets the live projection and the
+   * persisted one agree without coordinating: both compute the same id from
+   * the same part, so a client applying a live `session.entry.updated` and a
+   * client re-reading `/v2/entries` converge on the same row. It also means
+   * an id never churns across a stream of deltas, which would remount the
+   * entry in every consumer on every token.
+   *
+   * opencode's commented-out projector sketches the same trick as
+   * `data.part.id.replace("prt", "ent")`.
+   */
+  export function idForPart(partID: string): string {
+    return `evt_${body(partID)}`
+  }
+
+  /** The entry id for a message-level entry. */
+  export function idForMessage(messageID: string, kind: MessageKind): string {
+    return `evt_${body(messageID)}_${kind}`
+  }
+
+  /** The stable identity of a message-level entry within its session. */
+  export function refForMessage(messageID: string, kind: MessageKind): string {
+    return `${messageID}#${kind}`
+  }
+
   /**
    * Fields shared by every entry. Spread (not `.extend`) so each member is a
    * plain object schema and `z.discriminatedUnion` can narrow on `type`.
@@ -266,7 +305,9 @@ export namespace SessionEntry {
    */
   export function fromV1Part(part: MessageV2.Part, ctx: FromV1Context): Entry | undefined {
     const base = {
-      id: ctx.id ?? Identifier.ascending("event"),
+      // Derived, not generated: the live and persisted projections have to
+      // land on the same id without coordinating. See `idForPart`.
+      id: ctx.id ?? idForPart(part.id),
       sessionID: ctx.sessionID,
       messageID: ctx.messageID ?? part.messageID,
       ref: part.id,

@@ -10,6 +10,7 @@ import syncUnify from "./migration/20260630000000_sync_unify"
 import workspaceDropEvents from "./migration/20260630000100_workspace_drop_events"
 import userExternalSubject from "./migration/20260716000000_user_external_subject"
 import sessionEntry from "./migration/20260805000000_session_entry"
+import dropSessionV2Event from "./migration/20260805120000_drop_session_v2_event"
 
 export const migrations = [
   initial,
@@ -23,4 +24,5 @@ export const migrations = [
   workspaceDropEvents,
   userExternalSubject,
   sessionEntry,
+  dropSessionV2Event,
 ] satisfies DatabaseMigration.Migration[]

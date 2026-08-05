@@ -1,4 +1,3 @@
-import { Identifier } from "@/id/id"
 import type { Database } from "@/database/database"
 import { MessageRepo } from "../message-repo"
 import { MessageV2 } from "../message-v2"
@@ -17,7 +16,8 @@ import { SessionEntryRepo } from "./entry-repo"
 export namespace SessionEntryProjection {
   type Executor = Database.TxOrDb
 
-  const { messageRef, Rank } = SessionEntryRepo
+  const { Rank } = SessionEntryRepo
+  const messageRef = SessionEntry.refForMessage
 
   /**
    * Project a message: the `user` entry, or the `start` / `complete` /
@@ -35,7 +35,7 @@ export namespace SessionEntryProjection {
     SessionEntryRepo.upsert(
       {
         entry: SessionEntry.Request.parse({
-          id: Identifier.ascending("event"),
+          id: SessionEntry.idForMessage(info.id, "start"),
           sessionID: info.sessionID,
           messageID: info.id,
           timestamp: info.time.created,
@@ -55,7 +55,7 @@ export namespace SessionEntryProjection {
       SessionEntryRepo.upsert(
         {
           entry: SessionEntry.Complete.parse({
-            id: Identifier.ascending("event"),
+            id: SessionEntry.idForMessage(info.id, "complete"),
             sessionID: info.sessionID,
             messageID: info.id,
             timestamp: completed ?? info.time.created,
@@ -77,7 +77,7 @@ export namespace SessionEntryProjection {
       SessionEntryRepo.upsert(
         {
           entry: SessionEntry.Compaction.parse({
-            id: Identifier.ascending("event"),
+            id: SessionEntry.idForMessage(info.id, "compaction"),
             sessionID: info.sessionID,
             messageID: info.id,
             timestamp: completed ?? info.time.created,
@@ -107,7 +107,7 @@ export namespace SessionEntryProjection {
     SessionEntryRepo.upsert(
       {
         entry: SessionEntry.User.parse({
-          id: Identifier.ascending("event"),
+          id: SessionEntry.idForMessage(info.id, "user"),
           sessionID: info.sessionID,
           messageID: info.id,
           timestamp: info.time.created,

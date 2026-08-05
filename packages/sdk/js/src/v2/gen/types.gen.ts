@@ -1110,6 +1110,22 @@ export type EventSessionV2Updated = {
   }
 }
 
+export type EventSessionEntryUpdated = {
+  type: "session.entry.updated"
+  properties: {
+    sessionID: string
+    entry: unknown
+  }
+}
+
+export type EventSessionEntryRemoved = {
+  type: "session.entry.removed"
+  properties: {
+    sessionID: string
+    entryID: string
+  }
+}
+
 export type Pty = {
   id: string
   title: string
@@ -1354,6 +1370,8 @@ export type Event =
   | EventMonitorCompleted
   | EventWorkspaceStatus
   | EventSessionV2Updated
+  | EventSessionEntryUpdated
+  | EventSessionEntryRemoved
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited

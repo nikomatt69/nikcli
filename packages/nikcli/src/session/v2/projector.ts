@@ -2,50 +2,78 @@ import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
-import z from "zod"
 import { Schema } from "effect"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
+import { SessionEntry } from "./entry"
+import { SessionEntryRepo } from "./entry-repo"
 import { SessionEvent } from "./event"
-import { SessionV2EventRepo } from "./event-repo"
 import { Stepper } from "./stepper"
 
 /**
- * SessionProjector — live v2 read model over the v1 session engine.
+ * SessionProjector — the live half of the v2 projection.
  *
- * The v1 engine (session/processor.ts) stays the only writer: it persists
- * messages and publishes `message.updated` / `message.part.updated` /
- * `message.part.removed` on the Bus. This projector translates those events
- * into the v2 `SessionEvent` vocabulary and reduces them through
- * `Stepper.stepWith`, so the live tail a consumer reads from `snapshot()` is
- * produced by the exact reducer the future native v2 engine will use —
- * migration by strangler, no behavior change in v1.
+ * There are two halves and they are deliberately split:
  *
- * Memory is bounded by construction: only the single in-flight assistant
- * message per session is reduced, and its state is dropped the moment v1
- * marks it completed (it is then readable from storage via
- * `SessionV2.entries()`), when it is removed, or when its session is
- * deleted/disposed.
+ *   persistence   `SessionEntryProjection`, run by the sync projectors inside
+ *                 the transaction that writes the v1 row (session/projectors.ts)
+ *   live          this module, driven by the v1 bus, publishing every entry
+ *                 change as `session.entry.updated` / `.removed`
  *
- * Consumers that need character-level deltas keep using the v1
- * `message.part.updated` events; `session.v2.updated` fires only on
- * entry-grade changes (message lifecycle, tool state transitions, retries,
- * part removal) to stay quiet during text streaming.
+ * They agree without coordinating because entry ids are *derived* from the v1
+ * id they come from (`SessionEntry.idForPart` / `idForMessage`): a client that
+ * applies a live event and a client that re-reads `/v2/entries` converge on
+ * the same rows.
  *
- * The translated events are also written to the durable event log
- * (`SessionV2EventRepo`) at the same entry-grade cadence: lifecycle events
- * immediately, part updates coalesced per part and flushed on grade changes
- * and at completion (sealed with a synthesized `step.ended`). Persistence
- * failures are logged and never break the live reduction.
+ * The split exists because the two have different latencies on purpose.
+ * Streaming text deltas are coalesced before they hit disk (150ms, see
+ * `SessionProcessor.updatePartCoalesced`), so the table lags the stream; the
+ * bus does not. Publishing from here gives consumers a per-token v2 stream
+ * without a transaction per token, which is exactly the split v1 already uses
+ * for messages and parts.
+ *
+ * `pending` is the in-memory Stepper reduction of the in-flight step, served
+ * by `/v2/state`. It is bounded by construction: only the single in-flight
+ * assistant message per session is reduced, and it is dropped the moment v1
+ * marks it completed, removed, or its session is deleted.
  */
 export namespace SessionProjector {
   const log = Log.create({ service: "session.v2.projector" })
 
   export const Event = {
+    /**
+     * A session's entry set changed. Coarse, kept for consumers that only
+     * want to know something moved.
+     */
     Updated: BusEvent.schema(
       "session.v2.updated",
       Schema.Struct({
         sessionID: Schema.String,
+      }),
+    ),
+    /**
+     * One entry appeared or changed.
+     *
+     * `entry` is `Unknown` on the wire because `SessionEntry` is defined in
+     * zod and the Effect contract needs an Effect Schema here — the same
+     * choice `SessionV2EntryList` and `SessionV2State` already make in
+     * server/httpapi/session.ts. The typed shape is what `GET
+     * /session/:id/v2/entries` returns, so clients type the read and cast the
+     * delta.
+     */
+    EntryUpdated: BusEvent.schema(
+      "session.entry.updated",
+      Schema.Struct({
+        sessionID: Schema.String,
+        entry: Schema.Unknown,
+      }),
+    ),
+    /** One entry went away (a part was removed, or its message was). */
+    EntryRemoved: BusEvent.schema(
+      "session.entry.removed",
+      Schema.Struct({
+        sessionID: Schema.String,
+        entryID: Schema.String,
       }),
     ),
   }
@@ -54,12 +82,9 @@ export namespace SessionProjector {
     state: Stepper.MemoryState
     /** messageID of the in-flight assistant message being reduced */
     inflight?: string
-    /** partID → last entry-grade signature, to publish only on grade changes */
+    /** partID → last entry-grade signature, to publish the coarse event only
+     *  on grade changes */
     seen: Map<string, string>
-    /** partID → latest translated part.updated event, flushed to the log on
-     * grade changes and on completion (per-delta writes would reintroduce
-     * the per-token disk write problem) */
-    latest: Map<string, SessionEvent.Event>
   }
 
   interface State {
@@ -84,7 +109,7 @@ export namespace SessionProjector {
       const live = (sessionID: string): Live => {
         let target = s.sessions.get(sessionID)
         if (!target) {
-          target = { state: empty(), seen: new Map(), latest: new Map() }
+          target = { state: empty(), seen: new Map() }
           s.sessions.set(sessionID, target)
         }
         return target
@@ -96,132 +121,109 @@ export namespace SessionProjector {
         return event
       }
 
-      const persist = (event: SessionEvent.Event) => {
-        try {
-          SessionV2EventRepo.append(event)
-        } catch (error) {
-          log.error("failed to persist v2 event", { type: event.type, error })
-        }
-      }
-
       const drop = (target: Live) => {
         target.state = empty()
         target.inflight = undefined
         target.seen.clear()
-        target.latest.clear()
       }
 
       s.unsubscribes.push(
         Bus.subscribe(MessageV2.Event.Updated, (event) => {
           const info = event.properties.info
-          if (info.role !== "assistant") return
+
+          if (info.role === "user") {
+            // A user entry aggregates its message's parts, which this module
+            // does not hold. The transactional projection has already written
+            // it by the time the bus fires, so republish what it wrote.
+            publishStored(info.sessionID, SessionEntry.refForMessage(info.id, "user"))
+            return
+          }
+
           const target = live(info.sessionID)
+
           if (info.time.completed) {
             if (target.inflight !== info.id) return
-            // flush the coalesced part rows and seal the step in the event
-            // log before storage becomes authoritative for the message
-            for (const event of target.latest.values()) persist(event)
-            persist(
-              SessionEvent.create({
-                type: "step.ended",
-                sessionID: info.sessionID,
-                messageID: info.id,
-                reason: info.error ? "error" : "completed",
-                cost: info.cost,
-                tokens: info.tokens,
-                finish: info.finish,
-                error: info.error,
-              }),
-            )
+            publishEntry(info.sessionID, completeEntry(info))
             // storage is authoritative from here on: drop the live tail
             drop(target)
             publish(info.sessionID)
             return
           }
+
           if (target.inflight === info.id) return
           // a new assistant message went in flight: restart the reduction
           drop(target)
           target.inflight = info.id
-          persist(
-            step(target, info.sessionID, {
-              type: "step.started",
-              sessionID: info.sessionID,
-              messageID: info.id,
-              providerID: info.providerID,
-              modelID: info.modelID,
-              agent: info.agent,
-            }),
-          )
+          step(target, info.sessionID, {
+            type: "step.started",
+            sessionID: info.sessionID,
+            messageID: info.id,
+            providerID: info.providerID,
+            modelID: info.modelID,
+            agent: info.agent,
+          })
+          publishEntry(info.sessionID, startEntry(info))
           publish(info.sessionID)
         }),
+
         Bus.subscribe(MessageV2.Event.PartUpdated, (event) => {
           const part = event.properties.part
           const target = s.sessions.get(part.sessionID)
-          if (!target || target.inflight !== part.messageID) return
+
           if (part.type === "retry") {
+            if (!target || target.inflight !== part.messageID) return
             // retries are terminal per attempt — translate once
             if (target.seen.has(part.id)) return
             target.seen.set(part.id, "retry")
-            persist(
-              step(target, part.sessionID, {
-                type: "retry.error",
-                sessionID: part.sessionID,
-                messageID: part.messageID,
-                attempt: part.attempt,
-                error: part.error,
-              }),
-            )
-            publish(part.sessionID)
-            return
+            step(target, part.sessionID, {
+              type: "retry.error",
+              sessionID: part.sessionID,
+              messageID: part.messageID,
+              attempt: part.attempt,
+              error: part.error,
+            })
           }
+
+          // Entries are published for every part of every message, in flight
+          // or not: the live stream is the v2 read model, so a consumer that
+          // only listens to it must not miss anything.
+          const entry = SessionEntry.fromV1Part(part, {
+            sessionID: part.sessionID,
+            messageID: part.messageID,
+          })
+          if (entry) publishEntry(part.sessionID, entry)
+
+          if (!target || target.inflight !== part.messageID) return
+          if (part.type !== "retry") {
+            step(target, part.sessionID, { type: "part.updated", sessionID: part.sessionID, part })
+          }
+
           const grade = part.type === "tool" ? part.state.status : "·"
           const before = target.seen.get(part.id)
           target.seen.set(part.id, grade)
-          const translated = step(target, part.sessionID, {
-            type: "part.updated",
-            sessionID: part.sessionID,
-            part,
-          })
-          target.latest.set(part.id, translated)
-          if (before === undefined || before !== grade) {
-            persist(translated)
-            publish(part.sessionID)
-          }
+          if (before === undefined || before !== grade) publish(part.sessionID)
         }),
+
         Bus.subscribe(MessageV2.Event.PartRemoved, (event) => {
           const { sessionID, messageID, partID } = event.properties
+          void Bus.publish(Event.EntryRemoved, { sessionID, entryID: SessionEntry.idForPart(partID) })
           const target = s.sessions.get(sessionID)
           if (!target || target.inflight !== messageID) return
           target.seen.delete(partID)
-          target.latest.delete(partID)
           step(target, sessionID, { type: "part.removed", sessionID, messageID, partID })
-          // a removed part un-happened: its coalesced row goes with it
-          try {
-            SessionV2EventRepo.removePart(partID)
-          } catch (error) {
-            log.error("failed to remove v2 event row", { partID, error })
-          }
           publish(sessionID)
         }),
+
         Bus.subscribe(MessageV2.Event.Removed, (event) => {
           const { sessionID, messageID } = event.properties
           const target = s.sessions.get(sessionID)
           if (!target || target.inflight !== messageID) return
           drop(target)
-          try {
-            SessionV2EventRepo.removeMessage(messageID)
-          } catch (error) {
-            log.error("failed to remove v2 event rows", { messageID, error })
-          }
           publish(sessionID)
         }),
+
         Bus.subscribe(Session.Event.Deleted, (event) => {
           s.sessions.delete(event.properties.info.id)
-          try {
-            SessionV2EventRepo.clear(event.properties.info.id)
-          } catch (error) {
-            log.error("failed to clear v2 event rows", { sessionID: event.properties.info.id, error })
-          }
         }),
       )
 
@@ -233,6 +235,56 @@ export namespace SessionProjector {
       s.sessions.clear()
     },
   )
+
+  // ============================================================================
+  // Entry construction — the same derivations the persisted projection uses
+  // ============================================================================
+
+  function startEntry(info: MessageV2.Assistant): SessionEntry.Entry {
+    return SessionEntry.Request.parse({
+      id: SessionEntry.idForMessage(info.id, "start"),
+      sessionID: info.sessionID,
+      messageID: info.id,
+      timestamp: info.time.created,
+      type: "start",
+      providerID: info.providerID,
+      modelID: info.modelID,
+      agent: info.agent,
+    })
+  }
+
+  function completeEntry(info: MessageV2.Assistant): SessionEntry.Entry {
+    return SessionEntry.Complete.parse({
+      id: SessionEntry.idForMessage(info.id, "complete"),
+      sessionID: info.sessionID,
+      messageID: info.id,
+      timestamp: info.time.completed ?? info.time.created,
+      type: "complete",
+      reason: info.error ? "error" : "completed",
+      cost: info.cost,
+      tokens: info.tokens,
+      finish: info.finish,
+      error: info.error,
+    })
+  }
+
+  function publishEntry(sessionID: string, entry: SessionEntry.Entry) {
+    void Bus.publish(Event.EntryUpdated, { sessionID, entry })
+  }
+
+  /** Republish an entry the persisted projection already wrote. */
+  function publishStored(sessionID: string, ref: string) {
+    try {
+      const entry = SessionEntryRepo.byRef(sessionID, ref)
+      if (entry) publishEntry(sessionID, entry)
+    } catch (error) {
+      log.warn("failed to read stored entry for publication", { sessionID, ref, error })
+    }
+  }
+
+  // ============================================================================
+  // Public surface
+  // ============================================================================
 
   /** Initialize (idempotent — first call per instance subscribes). */
   export function init() {

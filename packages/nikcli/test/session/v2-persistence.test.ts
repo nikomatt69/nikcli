@@ -27,9 +27,9 @@ preserveTestEnv([
 const { Identifier } = await import("@/id/id")
 const { Bus } = await import("@/bus")
 const { MessageV2 } = await import("@/session/message-v2")
+const { SessionEntry } = await import("@/session/v2/entry")
 const { SessionProjector } = await import("@/session/v2/projector")
 const { SessionV2 } = await import("@/session/v2")
-const { SessionV2EventRepo } = await import("@/session/v2/event-repo")
 const { Instance } = await import("@/project/instance")
 
 const projectDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-v2-persistence-project-")))
@@ -52,13 +52,28 @@ function assistantInfo(sessionID: string, overrides: Record<string, unknown> = {
   } as MessageV2Types.Assistant
 }
 
-describe("SessionV2 event persistence", () => {
-  it("persists the in-flight step, coalesces part deltas, and seals on completion", async () => {
+afterAll(async () => {
+  await removeTestDir(projectDir)
+  await removeTestDir(testHome)
+})
+
+/**
+ * The live projection is what a client with an open stream sees. It has to
+ * agree with the persisted one entry-for-entry and id-for-id, which is the
+ * whole reason entry ids are derived rather than generated.
+ */
+describe("live v2 entry stream", () => {
+  it("publishes an entry per change, with ids derived from the v1 ids", async () => {
     await Instance.provide({
       directory: projectDir,
       fn: async () => {
         SessionProjector.init()
         const sessionID = Identifier.descending("session")
+
+        const updates: Array<{ sessionID: string; entry: SessionEntryTypes.Entry }> = []
+        const unsubscribe = Bus.subscribe(SessionProjector.Event.EntryUpdated, (event) => {
+          updates.push(event.properties as { sessionID: string; entry: SessionEntryTypes.Entry })
+        })
 
         const info = assistantInfo(sessionID)
         await Bus.publish(MessageV2.Event.Updated, { info })
@@ -71,53 +86,65 @@ describe("SessionV2 event persistence", () => {
           text: "partial",
         }
         await Bus.publish(MessageV2.Event.PartUpdated, { part: textPart })
-        // streaming deltas must coalesce into the same row, not append rows
         await Bus.publish(MessageV2.Event.PartUpdated, { part: { ...textPart, text: "partial answer" } })
         await Bus.publish(MessageV2.Event.PartUpdated, { part: { ...textPart, text: "partial answer, final" } })
 
-        await Bus.publish(MessageV2.Event.PartUpdated, {
-          part: {
-            id: Identifier.ascending("part"),
-            sessionID,
-            messageID: info.id,
-            type: "tool" as const,
-            callID: "c1",
-            tool: "read",
-            state: {
-              status: "completed" as const,
-              input: {},
-              output: "ok",
-              title: "t",
-              metadata: {},
-              time: { start: 1, end: 2 },
-            },
-          },
-        })
+        // the step opened with a `start` entry, then every delta republished
+        // the same text entry — same id, never a new one
+        expect(updates[0]?.entry.type).toBe("start")
+        expect(updates[0]?.entry.id).toBe(SessionEntry.idForMessage(info.id, "start"))
 
+        const texts = updates.filter((u) => u.entry.type === "text")
+        expect(texts).toHaveLength(3)
+        expect(new Set(texts.map((t) => t.entry.id)).size).toBe(1)
+        expect(texts[0]!.entry.id).toBe(SessionEntry.idForPart(textPart.id))
+        expect((texts[2]!.entry as SessionEntryTypes.Text).text).toBe("partial answer, final")
+
+        // completion publishes the sealing entry
         await Bus.publish(MessageV2.Event.Updated, {
-          info: assistantInfo(sessionID, { id: info.id, time: { created: info.time.created, completed: Date.now() } }),
+          info: assistantInfo(sessionID, {
+            id: info.id,
+            time: { created: info.time.created, completed: Date.now() },
+            finish: "stop",
+          }),
         })
 
-        const events = SessionV2.events(sessionID)
-        expect(events.map((e) => e.type)).toEqual(["step.started", "part.updated", "part.updated", "step.ended"])
+        const complete = updates.at(-1)
+        expect(complete?.entry.type).toBe("complete")
+        expect(complete?.entry.id).toBe(SessionEntry.idForMessage(info.id, "complete"))
 
-        // the coalesced text row carries the final content
-        const persistedText = events.find((e) => e.type === "part.updated" && e.part.type === "text")
-        expect(
-          persistedText && persistedText.type === "part.updated" && (persistedText.part as { text: string }).text,
-        ).toBe("partial answer, final")
-
-        // replay reproduces the completed step from the log alone
-        const replayed = SessionV2.replay(sessionID)
-        expect(replayed.pending).toHaveLength(0)
-        expect(replayed.entries.map((e) => e.type)).toEqual(["start", "text", "tool", "complete"])
-        expect((replayed.entries[0] as SessionEntryTypes.Request).modelID).toBe("test-model")
-        expect(replayed.entries[1]).toMatchObject({ type: "text", text: "partial answer, final" })
+        unsubscribe()
       },
     })
   })
 
-  it("a step without step.ended replays as pending (crash recovery shape)", async () => {
+  it("announces a removed entry by its derived id", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        SessionProjector.init()
+        const sessionID = Identifier.descending("session")
+
+        const removed: string[] = []
+        const unsubscribe = Bus.subscribe(SessionProjector.Event.EntryRemoved, (event) => {
+          removed.push((event.properties as { entryID: string }).entryID)
+        })
+
+        const info = assistantInfo(sessionID)
+        await Bus.publish(MessageV2.Event.Updated, { info })
+        const partID = Identifier.ascending("part")
+        await Bus.publish(MessageV2.Event.PartUpdated, {
+          part: { id: partID, sessionID, messageID: info.id, type: "text" as const, text: "gone" },
+        })
+        await Bus.publish(MessageV2.Event.PartRemoved, { sessionID, messageID: info.id, partID })
+
+        expect(removed).toEqual([SessionEntry.idForPart(partID)])
+        unsubscribe()
+      },
+    })
+  })
+
+  it("keeps the in-flight tail in `pending` and drops it on completion", async () => {
     await Instance.provide({
       directory: projectDir,
       fn: async () => {
@@ -132,62 +159,38 @@ describe("SessionV2 event persistence", () => {
             sessionID,
             messageID: info.id,
             type: "text" as const,
-            text: "interrupted",
+            text: "in flight",
           },
         })
 
-        const replayed = SessionV2.replay(sessionID)
-        expect(replayed.entries).toHaveLength(0)
-        // no sealing step.ended: the whole step stays in the pending tail
-        expect(replayed.pending.map((e) => e.type)).toEqual(["start", "text"])
-      },
-    })
-  })
+        expect(SessionV2.state(sessionID).pending.map((e) => e.type)).toEqual(["start", "text"])
 
-  it("removed parts and removed messages disappear from the log", async () => {
-    await Instance.provide({
-      directory: projectDir,
-      fn: async () => {
-        SessionProjector.init()
-        const sessionID = Identifier.descending("session")
-
-        const info = assistantInfo(sessionID)
-        await Bus.publish(MessageV2.Event.Updated, { info })
-
-        const partID = Identifier.ascending("part")
-        await Bus.publish(MessageV2.Event.PartUpdated, {
-          part: { id: partID, sessionID, messageID: info.id, type: "text" as const, text: "to remove" },
+        await Bus.publish(MessageV2.Event.Updated, {
+          info: assistantInfo(sessionID, {
+            id: info.id,
+            time: { created: info.time.created, completed: Date.now() },
+          }),
         })
-        expect(SessionV2.events(sessionID).some((e) => e.type === "part.updated")).toBe(true)
-
-        await Bus.publish(MessageV2.Event.PartRemoved, { sessionID, messageID: info.id, partID })
-        expect(SessionV2.events(sessionID).some((e) => e.type === "part.updated")).toBe(false)
-
-        await Bus.publish(MessageV2.Event.Removed, { sessionID, messageID: info.id })
-        expect(SessionV2.events(sessionID)).toHaveLength(0)
-      },
-    })
-  })
-
-  it("clear removes all rows for a session", async () => {
-    await Instance.provide({
-      directory: projectDir,
-      fn: async () => {
-        SessionProjector.init()
-        const sessionID = Identifier.descending("session")
-
-        await Bus.publish(MessageV2.Event.Updated, { info: assistantInfo(sessionID) })
-        expect(SessionV2.events(sessionID).length).toBeGreaterThan(0)
-
-        SessionV2EventRepo.clear(sessionID)
-        expect(SessionV2.events(sessionID)).toHaveLength(0)
+        expect(SessionV2.state(sessionID).pending).toHaveLength(0)
       },
     })
   })
 })
 
-afterAll(async () => {
-  await Instance.disposeAll().catch(() => undefined)
-  await fs.rm(projectDir, { recursive: true, force: true })
-  await removeTestDir(testHome)
+describe("SessionV2.events", () => {
+  it("serves the durable sync log, which token deltas deliberately never enter", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const session = await SessionV2.create({ title: "durable" })
+
+        const events = SessionV2.events(session.id)
+        expect(events.map((e) => e.type)).toEqual(["session.created.1", "session.updated.1"])
+        expect(events.map((e) => e.seq)).toEqual([1, 2])
+        // message.part.updated is defined `log: false` — its state lives in
+        // `entries()`, not in the log
+        expect(events.some((e) => e.type.startsWith("message.part.updated"))).toBe(false)
+      },
+    })
+  })
 })

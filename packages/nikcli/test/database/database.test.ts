@@ -51,6 +51,7 @@ describe("Database.Service", () => {
       { id: "20260630000100_workspace_drop_events" },
       { id: "20260716000000_user_external_subject" },
       { id: "20260805000000_session_entry" },
+      { id: "20260805120000_drop_session_v2_event" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",

@@ -1,6 +1,6 @@
 import z from "zod"
 import type { ZodObject } from "zod"
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { Database } from "@/database/database"
@@ -363,6 +363,57 @@ export namespace SyncEvent {
 
       process(def, event, tx, { publish: options?.publish ?? false })
     })
+  }
+
+  /** One durable row of the log, as served to clients. */
+  export const HistoryEntry = z
+    .object({
+      id: z.string(),
+      seq: z.number().int(),
+      type: z.string(),
+      data: z.unknown(),
+      timestamp: z.number(),
+    })
+    .meta({ ref: "SyncEvent.HistoryEntry" })
+  export type HistoryEntry = z.infer<typeof HistoryEntry>
+
+  /**
+   * The durable log for one aggregate, in sequence order.
+   *
+   * Events defined `log: false` are absent by construction — see the flag on
+   * `Definition`.
+   */
+  export function history(aggregateID: string, projectID?: string): HistoryEntry[] {
+    const project = projectID ?? currentProject()
+    const rows = Database.use((db) =>
+      db
+        .select({
+          id: syncEvent.id,
+          seq: syncEvent.seq,
+          type: syncEvent.type,
+          data: syncEvent.data,
+          timestamp: syncEvent.timestamp,
+        })
+        .from(syncEvent)
+        .where(and(eq(syncEvent.projectId, project), eq(syncEvent.aggregate, aggregateID)))
+        .orderBy(asc(syncEvent.seq))
+        .all(),
+    )
+    return rows.map((row) => ({
+      id: row.id,
+      seq: row.seq,
+      type: row.type,
+      data: parse(row.data),
+      timestamp: row.timestamp,
+    }))
+  }
+
+  function parse(data: string): unknown {
+    try {
+      return JSON.parse(data)
+    } catch {
+      return null
+    }
   }
 
   /** Drop the log and sequence for an aggregate. */

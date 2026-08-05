@@ -30,11 +30,6 @@ export namespace SessionEntryRepo {
     trailer: 3,
   } as const
 
-  /** The stable identity of a message-level entry. */
-  export function messageRef(messageID: string, kind: "user" | "start" | "complete" | "compaction") {
-    return `${messageID}#${kind}`
-  }
-
   function sortKeyFor(messageID: string, rank: number, suffix = "") {
     return `${messageID}#${rank}${suffix ? `#${suffix}` : ""}`
   }
@@ -51,15 +46,11 @@ export namespace SessionEntryRepo {
     const { entry, ref, rank, suffix } = input
     const messageID = entry.messageID ?? ""
 
-    // Preserve the id the entry was first seen with: consumers key renders on
-    // it, and a churning id would remount every row on every delta.
-    const existing = tx
-      .select({ id: sessionEntry.id })
-      .from(sessionEntry)
-      .where(and(eq(sessionEntry.sessionId, entry.sessionID), eq(sessionEntry.ref, ref)))
-      .get()
-
-    const stable = existing ? { ...entry, id: existing.id } : entry
+    // No read-before-write: entry ids are derived from the v1 id they come
+    // from (SessionEntry.idForPart / idForMessage), so re-projecting the same
+    // part always produces the same id. That is also what lets the live
+    // projection agree with this one without coordinating.
+    const stable = entry
     const info = JSON.stringify(stable)
 
     tx.insert(sessionEntry)
@@ -88,6 +79,16 @@ export namespace SessionEntryRepo {
       .orderBy(asc(sessionEntry.sortKey))
       .all()
     return rows.map((row) => JSON.parse(row.info) as SessionEntry.Entry)
+  }
+
+  /** One entry by its stable identity within a session. */
+  export function byRef(sessionID: string, ref: string): SessionEntry.Entry | undefined {
+    const row = db()
+      .select({ info: sessionEntry.info })
+      .from(sessionEntry)
+      .where(and(eq(sessionEntry.sessionId, sessionID), eq(sessionEntry.ref, ref)))
+      .get()
+    return row ? (JSON.parse(row.info) as SessionEntry.Entry) : undefined
   }
 
   export function count(sessionID: string): number {

@@ -219,6 +219,52 @@ Clients: `SessionEntryInfo` and `session.entry.{list,refresh}` on the plugin
 TUI context (`plugin/v2/tui/context.ts`, `tui/plugin/data.ts`), backed by
 `GET /session/:id/v2/entries`.
 
+## One projection, two latencies (2026-08-05) — coherence pass
+
+The migration briefly had **two parallel v2 persistence paths**: the
+transactional projector writing `session_entry`, and `SessionProjector`
+writing a second stream into `session_v2_event` off the bus. Two writers, two
+representations, two answers to the same question. That is now one:
+
+| | who | what | when |
+|---|---|---|---|
+| persistence | `SessionEntryProjection`, from the sync projectors | `session_entry` | inside the v1 write transaction |
+| live | `SessionProjector`, from the v1 bus | `session.entry.updated` / `.removed` | immediately, per change |
+| durable log | `SyncEvent` | `sync_event` | inside the v1 write transaction |
+
+`session_v2_event` is dropped (migration `20260805120000`), along with
+`SessionV2EventRepo` and `SessionV2.replay()` — entries *are* the replayed
+state, so reconstructing them from a second log was work with no consumer.
+`SessionV2.events()` now serves `sync_event` for the session aggregate: the
+real log, with real sequence numbers. Token-level part updates are absent
+from it by construction (`log: false`), which is correct — the state they
+would rebuild is `entries()`.
+
+**Entry ids are derived, not generated.** `SessionEntry.idForPart(partID)`
+maps `prt_XXX` → `evt_XXX`; `idForMessage(messageID, kind)` maps `msg_XXX` →
+`evt_XXX_start`. This is what lets the two projections agree without
+coordinating: a client applying a live `session.entry.updated` and a client
+re-reading `/v2/entries` converge on the same rows. It also removed the
+read-before-write in `SessionEntryRepo.upsert` (which existed only to keep
+the id stable) and guarantees an id never churns mid-stream.
+
+opencode's commented-out projector sketches the same trick as
+`data.part.id.replace("prt", "ent")`.
+
+**Why two latencies and not one.** Streaming text is coalesced before it hits
+disk (150ms, `SessionProcessor.updatePartCoalesced`), so `session_entry` lags
+the stream. Publishing entries from the bus instead gives consumers a
+per-token v2 stream without a transaction per token — the same split v1
+already uses for messages and parts. A consumer seeds from `/v2/entries` and
+stays live on `session.entry.updated`.
+
+`entry` is `Schema.Unknown` on the bus payload: `SessionEntry` is defined in
+zod and `BusEvent.schemas()` needs an Effect Schema there. Same choice
+`SessionV2EntryList` and `SessionV2State` already make. The typed shape is
+what the HTTP route returns, so clients type the read and cast the delta.
+
+TUI: `store.entry` in `context/sync.tsx`, kept live off those two events.
+
 ## Implementation status (2026-06-10)
 
 The entry/event/stepper shape is implemented in `src/session/v2/` and live,
