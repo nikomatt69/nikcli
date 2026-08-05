@@ -2097,4 +2097,3 @@ function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; 
     </Show>
   )
 }
-
