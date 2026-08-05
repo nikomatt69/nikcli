@@ -14,8 +14,8 @@
     "./renderable": "./src/renderable.ts",
     "./stream": "./src/stream.ts",
     "./markdown": "./src/markdown.ts",
-    "./solid": "./src/solid.ts",
-    "./detect": "./src/detect.ts"
+    "./detect": "./src/detect.ts",
+    "./solid": "./src/solid.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -24,11 +24,6 @@
   "peerDependencies": {
     "@opentui/core": "0.4.5",
     "@opentui/solid": "0.4.5"
-  },
-  "peerDependenciesMeta": {
-    "@opentui/solid": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@opentui/core": "0.4.5",

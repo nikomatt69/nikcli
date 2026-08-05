@@ -62,7 +62,7 @@ import { useKeybind } from "@tui/context/keybind"
 import { parsePatch } from "diff"
 import { useDialog } from "../../ui/dialog"
 import { TodoItem } from "../../component/todo-item"
-import { MathMarkdown } from "../../component/math-markdown"
+import { MessageMarkdown } from "@tui/feature-plugins/math/markdown"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
@@ -107,7 +107,7 @@ import {
 import { friendlyErrorMessage, shareErrorMessage } from "../../util/error-message"
 import { Link } from "../../ui/link"
 import { context, use } from "./session-context"
-import { fromEntries, fromMessages, type Turn, type ViewEntry, type ViewMessage, type ViewPart } from "./view"
+import { fromEntries, stabilize, type Turn, type ViewEntry } from "./view"
 
 /** The file fields the user-message badge row and image preview read. */
 type FileAttachment = {
@@ -173,18 +173,14 @@ export function Session() {
    * turns from the v2 entry store, and `test/tui/session-view.test.ts` proves
    * the two agree. Swapping the provider is the whole remaining migration.
    */
-  const entryRenderer = createMemo(() => features(sync.data.config).tui.entryRenderer)
-  const turns = createMemo(() => {
-    if (entryRenderer()) {
-      return fromEntries((sync.data.entry[route.sessionID] ?? []) as unknown as ViewEntry[])
-    }
-    return fromMessages(
-      messages() as unknown as ViewMessage[],
-      (id) => (sync.data.part[id] ?? []) as unknown as ViewPart[],
-      toViewEntry,
-      toUserEntry,
-    )
-  })
+  // `stabilize` keeps the object identity of turns that did not change, because
+  // `<For>` below reconciles by reference: without it every arriving entry
+  // rebuilt the whole list and made Solid tear down and repaint every message
+  // in the conversation. See the comment on `stabilize` in ./view.
+  const turns = createMemo<Turn[]>(
+    (previous) => stabilize(previous, fromEntries((sync.data.entry[route.sessionID] ?? []) as unknown as ViewEntry[])),
+    [],
+  )
   /**
    * Per-turn token rows, keyed by the assistant message that ends the turn.
    * Computed once here rather than per row: each turn needs the steps before it,
@@ -1537,60 +1533,6 @@ const MIME_BADGE: Record<string, string> = {
   "application/x-directory": "dir",
 }
 
-/**
- * v1 part → view entry.
- *
- * Structural literals rather than `SessionEntry.fromV1Part`: that module
- * reaches into `MessageV2` and would drag the server graph into the TUI
- * bundle (see specs/startup-performance.md). Field names match the v2 entry
- * shape, so the leaf components read the same keys whichever provider built
- * the turn.
- *
- * The entry keeps the *part's* id here, so element identity is unchanged
- * while v1 is the source.
- */
-function toViewEntry(part: ViewPart, _message: ViewMessage): ViewEntry | undefined {
-  const base = { id: part.id, sessionID: part.sessionID, messageID: part.messageID, ref: part.id }
-  const time = part.time as { start?: number; end?: number } | undefined
-  switch (part.type) {
-    case "text":
-      return { ...base, type: "text", timestamp: time?.start ?? 0, text: String(part.text ?? "") }
-    case "reasoning":
-      return {
-        ...base,
-        type: "reasoning",
-        timestamp: time?.start ?? 0,
-        completed: time?.end,
-        text: String(part.text ?? ""),
-      }
-    case "tool":
-      return {
-        ...base,
-        type: "tool",
-        timestamp: time?.start ?? 0,
-        callID: part.callID,
-        name: part.tool,
-        state: part.state,
-      }
-    default:
-      return undefined
-  }
-}
-
-/** A user message is one entry: its text plus whatever it carried. */
-function toUserEntry(message: ViewMessage, parts: readonly ViewPart[]): ViewEntry {
-  const text = parts.find((part) => part.type === "text" && !part.synthetic)
-  return {
-    id: message.id,
-    sessionID: message.sessionID,
-    messageID: message.id,
-    type: "user",
-    timestamp: message.time.created,
-    text: String(text?.text ?? ""),
-    files: parts.filter((part) => part.type === "file"),
-  }
-}
-
 function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; pending?: string }) {
   const ctx = use()
   const local = useLocal()
@@ -2019,7 +1961,7 @@ function ReasoningPart(props: { last: boolean; entry: ViewEntry; sessionID: stri
         <ReasoningHeader done={done()} title={summary().title} duration={duration()} />
         <Show when={summary().body}>
           <box marginTop={1}>
-            <MathMarkdown
+            <MessageMarkdown
               streaming={!props.last ? false : true}
               syntaxStyle={subtleSyntax()}
               content={body()}
@@ -2088,7 +2030,7 @@ function TextPart(props: { last: boolean; entry: ViewEntry; sessionID: string })
   return (
     <Show when={String(props.entry.text ?? "").trim()}>
       <box id={"text-" + props.entry.id} paddingLeft={3} marginTop={1} flexShrink={0}>
-        <MathMarkdown
+        <MessageMarkdown
           streaming={!props.last ? false : true}
           syntaxStyle={syntax()}
           content={rendered()}

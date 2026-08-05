@@ -356,6 +356,14 @@ Tests: `test/session/v2-conversion.test.ts`,
 
 ## The renderer seam (2026-08-05) — foundation for the TUI move
 
+> **Closed the same day.** The seam carried both sources while the entry
+> source soaked; `fromMessages`, the `tui.entryRenderer` flag and the v1 →
+> entry conversion are now deleted. `routes/session/view.ts` is
+> `fromEntries(entries) ─► Turn[] ─► renderer`, full stop, and the TUI keeps
+> one shape in memory instead of two. The rest of this section is why the
+> seam existed and what it proved; see "One list, and it stays mounted"
+> below for the shape that survived.
+
 The TUI renders from v1 messages and parts; every other client (mobile,
 desktop, plugins, SDK) is on entries. Converting the renderer means changing
 the data shape _and_ 3971 lines of components at once, which is neither
@@ -443,3 +451,51 @@ next would produce a _wrong_ golden, which is worse than a slow suite. The
 simulation package's own suite is correspondingly heavier now, and
 `plugin-hot-reload` (300s budget) has been seen to time out under
 contention.
+
+## One list, and it stays mounted (2026-08-05) — the seam closes
+
+`fromMessages`, the `tui.entryRenderer` flag and the v1 → entry conversion
+are gone. `fromEntries` is the only source, and `context/sync.tsx` seeds
+`store.entry` on the one path every session open goes through, so there is no
+longer a branch that can render an empty transcript.
+
+What the removal is worth: the TUI held the conversation twice — v1 messages
+and parts for the renderer, v2 entries for everything else — and had to keep
+the two agreeing. It now holds one. (`store.message` / `store.part` stay:
+`TurnUsage`, the pending/last-assistant lookups and the fork/revert dialogs
+still read message-level v1 state. The *renderer* is what moved.)
+
+### The flicker, and why it was never about paint
+
+Turning the source over exposed a defect that had been there all along.
+`<For>` reconciles by **reference**, and `fromEntries` allocates a fresh
+`Turn` for every message on every run. So every entry that arrived — a tool
+call, a new text part, the `complete` sealing a turn — handed `<For>` an
+entirely new list, and Solid disposed and recreated *every message in the
+conversation*. Several full teardowns per assistant turn, worse the longer
+the session.
+
+`stabilize(previous, next)` returns the previous object for a turn that did
+not change, so only the turn that actually changed is rebuilt.
+
+Comparing `body` **by reference** is what makes it work and what keeps
+streamed text live at the same time:
+
+| what changes            | how the store changes it        | what the renderer does           |
+| ----------------------- | ------------------------------- | -------------------------------- |
+| a token lands in a part | entry updated in place, `reconcile` | nothing above the leaf moves; the leaf repaints reading `entry.text` |
+| a new part starts       | entry spliced into the array    | that one turn is rebuilt         |
+| the turn is sealed      | `complete` entry appended       | that one turn is rebuilt         |
+
+That table is the design. The persisted projection updating entries in place
+(see "One projection, two latencies") is precisely what lets identity above
+the leaf hold still while the text underneath it moves — the two decisions
+are the same decision, seen from the two ends.
+
+`fromEntries` also stopped spreading the turn per entry
+(`{ ...turn, body: [...turn.body, entry] }`), which was O(k²) in a turn's
+entry count and was paid again on every rebuild.
+
+`test/tui/session-view.test.ts` asserts object identity rather than values —
+the unit suite cannot see a repaint, so identity is the only observable the
+fix has.

@@ -865,20 +865,19 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const mode = options?.full ? "full" : "partial"
           const existing = syncedSessions.get(sessionID)
           const cached = existing === "full" || existing === mode
-          // A cache hit still refetches if the entry renderer was turned on
-          // after this session was synced — otherwise it would draw from an
-          // entry list that was never fetched.
-          if (cached && (!features(store.config).tui.entryRenderer || store.entry[sessionID])) {
+          // A cache hit still refetches when the entries are missing: they are
+          // what the session route draws from, and a session synced before
+          // they were seeded would render empty.
+          if (cached && store.entry[sessionID]) {
             return result.session.get(sessionID)
           }
           // Entries ride along with the messages rather than being fetched by
           // whoever happens to render the session. This function is the one
           // seam every open path goes through — the tab switch, the tab
           // prefetch, a warp, a workspace create/attach, resuming a teleported
-          // or backgrounded session — so seeding here is what makes
-          // `tui.entryRenderer` safe to leave on: there is no path that opens a
-          // session with messages loaded and entries missing.
-          const wantsEntries = features(store.config).tui.entryRenderer
+          // or backgrounded session — so seeding here is what guarantees there
+          // is no path that opens a session with messages loaded and entries
+          // missing.
           const [session, messages, todo, diff, backgroundJobs, goal, entries] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
@@ -886,7 +885,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.session.diff({ sessionID }),
             sdk.client.session.background({ sessionID }).catch(() => undefined),
             sdk.client.session.goal({ sessionID }).catch(() => undefined),
-            wantsEntries ? sdk.client.session.v2.entries({ sessionID }).catch(() => undefined) : undefined,
+            sdk.client.session.v2.entries({ sessionID }).catch(() => undefined),
           ])
           setStore(
             produce((draft) => {
@@ -902,7 +901,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.session_diff[sessionID] = diff.data ?? []
               if (goal?.data) draft.session_goal[sessionID] = goal.data as GoalState
               else delete draft.session_goal[sessionID]
-              if (wantsEntries) draft.entry[sessionID] = entries?.data ?? []
+              draft.entry[sessionID] = entries?.data ?? []
             }),
           )
           syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")

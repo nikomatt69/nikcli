@@ -2,19 +2,16 @@
  * Turn model for the session view — the seam between the renderer and the
  * conversation data.
  *
- * The renderer reads messages and parts today; entries are the model every
- * other client (mobile, desktop, plugins, SDK) already uses. Converting the
- * renderer means changing the data shape *and* 3971 lines of components at
- * once, which is neither reviewable nor testable.
+ * The renderer draws from v2 entries, the model every other client (mobile,
+ * desktop, plugins, SDK) already uses:
  *
- * So this module is introduced first, with both sources behind it:
+ *     fromEntries(entries) ─► Turn[] ─► renderer
  *
- *     fromMessages(messages, parts)  ─┐
- *                                     ├─► Turn[] ─► renderer
- *     fromEntries(entries)           ─┘
- *
- * The two are proved equivalent by test, so swapping the provider is a
- * one-line change with a known outcome rather than an exploration.
+ * It used to have a second source, `fromMessages`, converting v1 messages and
+ * parts into the same turns; the migration ran with both behind a flag until
+ * the entry source had soaked, and the pair was held equivalent by test. That
+ * is finished — entries are the only source now, so there is one shape in
+ * memory instead of two and nothing has to prove they agree.
  *
  * **The unit is the turn, and a turn is a message.** That is deliberate: the
  * renderer virtualizes over messages (see `MESSAGE_HEIGHT_ESTIMATE` in
@@ -36,31 +33,6 @@
 // that construct fixtures by hand, and naming only the fields it reads makes
 // the renderer's real dependency surface visible. Every field below is one
 // the session components actually use.
-
-export type ViewPart = {
-  readonly id: string
-  readonly messageID: string
-  readonly sessionID: string
-  readonly type: string
-  readonly [key: string]: unknown
-}
-
-export type ViewMessage = {
-  readonly id: string
-  readonly sessionID: string
-  readonly role: string
-  readonly time: { readonly created: number; readonly completed?: number }
-  readonly agent?: string
-  readonly mode?: string
-  readonly modelID?: string
-  readonly providerID?: string
-  readonly parentID?: string
-  readonly finish?: string
-  readonly error?: unknown
-  readonly summary?: boolean
-  readonly cost?: number
-  readonly tokens?: { readonly output?: number }
-}
 
 export type ViewEntry = {
   readonly id: string
@@ -91,7 +63,7 @@ export type Turn = {
    *
    * The footer shows how long a step took counting from the prompt that
    * caused it. v1 read that off `message.parentID`; a turn list has the
-   * answer next door, and it does not depend on which source built it.
+   * answer next door, without needing a back-reference on the entry.
    */
   readonly previousCreatedAt?: number
   /** Model, agent and mode the turn ran with. Absent on user turns. */
@@ -114,11 +86,8 @@ export type Turn = {
 }
 
 // ============================================================================
-// From entries — the v2 source
+// From entries
 // ============================================================================
-
-const HEAD = new Set(["user", "start"])
-const TRAILER = new Set(["complete", "compaction"])
 
 /**
  * Group flat entries into turns.
@@ -128,7 +97,11 @@ const TRAILER = new Set(["complete", "compaction"])
  * where `messageID` changes.
  */
 export function fromEntries(entries: readonly ViewEntry[]): Turn[] {
-  const turns: Turn[] = []
+  // Built mutably, then frozen into `Turn`s by `link`. The previous version
+  // spread the turn on every entry (`{ ...turn, body: [...turn.body, entry] }`),
+  // which made a turn of k entries cost O(k²) copies — paid again on every
+  // rebuild, i.e. on every part that arrives during a stream.
+  const turns: Mutable[] = []
   const index = new Map<string, number>()
 
   for (const entry of entries) {
@@ -151,125 +124,132 @@ export function fromEntries(entries: readonly ViewEntry[]): Turn[] {
 
     const turn = turns[at]!
     if (entry.type === "user") {
-      turns[at] = { ...turn, role: "user", createdAt: entry.timestamp, body: [...turn.body, entry] }
+      turn.role = "user"
+      turn.createdAt = entry.timestamp
+      turn.body.push(entry)
       continue
     }
 
     if (entry.type === "start") {
-      turns[at] = {
-        ...turn,
-        role: "assistant",
-        createdAt: entry.timestamp,
-        request: {
-          agent: String(entry.agent ?? ""),
-          mode: String(entry.mode ?? ""),
-          modelID: String(entry.modelID ?? ""),
-          providerID: String(entry.providerID ?? ""),
-        },
+      turn.role = "assistant"
+      turn.createdAt = entry.timestamp
+      turn.request = {
+        agent: String(entry.agent ?? ""),
+        mode: String(entry.mode ?? ""),
+        modelID: String(entry.modelID ?? ""),
+        providerID: String(entry.providerID ?? ""),
       }
       continue
     }
 
     if (entry.type === "complete") {
       const tokens = entry.tokens as { output?: number } | undefined
-      turns[at] = {
-        ...turn,
-        completedAt: entry.timestamp,
-        complete: {
-          finish: entry.finish as string | undefined,
-          error: entry.error,
-          outputTokens: tokens?.output ?? 0,
-          cost: typeof entry.cost === "number" ? entry.cost : 0,
-        },
+      turn.completedAt = entry.timestamp
+      turn.complete = {
+        finish: entry.finish as string | undefined,
+        error: entry.error,
+        outputTokens: tokens?.output ?? 0,
+        cost: typeof entry.cost === "number" ? entry.cost : 0,
       }
       continue
     }
 
     if (entry.type === "compaction") {
-      turns[at] = { ...turn, compacted: true }
+      turn.compacted = true
       continue
     }
 
-    turns[at] = { ...turn, body: [...turn.body, entry] }
+    turn.body.push(entry)
   }
 
   return link(turns)
+}
+
+/** `Turn` while it is still being assembled. */
+type Mutable = {
+  -readonly [K in keyof Turn]: Turn[K]
 }
 
 /** Give every turn the start time of the one before it. */
-function link(turns: Turn[]): Turn[] {
-  return turns.map((turn, index) => (index === 0 ? turn : { ...turn, previousCreatedAt: turns[index - 1]!.createdAt }))
+function link(turns: Mutable[]): Turn[] {
+  for (let index = 1; index < turns.length; index++) {
+    turns[index]!.previousCreatedAt = turns[index - 1]!.createdAt
+  }
+  return turns
 }
 
 // ============================================================================
-// From messages and parts — the v1 source
+// Identity across rebuilds
 // ============================================================================
 
 /**
- * Build the same turns from v1 messages and parts.
+ * Keep the object identity of turns that did not change.
  *
- * Kept structurally identical to `fromEntries` on purpose: the equivalence
- * test compares their output directly, so any divergence is a failure rather
- * than a surprise at render time.
+ * The renderer draws the turn list with Solid's `<For>`, which reconciles by
+ * **reference**. `fromEntries` allocates a fresh `Turn` for every message on
+ * every run, so without this every entry that arrives — a tool call, a new
+ * text part, the `complete` that seals the turn — handed `<For>` an entirely
+ * new list and made it dispose and recreate *every message in the
+ * conversation*. That is the flicker: the whole transcript is torn down and
+ * repainted several times per assistant turn, and it gets worse the longer the
+ * session runs.
+ *
+ * Returning the previous object for an unchanged turn means `<For>` leaves it
+ * mounted. Only the turn that actually changed is rebuilt.
+ *
+ * Comparing `body` by reference is what makes this work *and* what keeps
+ * streamed text live: entries are updated in place in the sync store
+ * (`setStore(..., reconcile(entry))`), so a token delta does not change any
+ * reference here — the turn stays identical and the leaf component, which
+ * reads `entry.text` through the store, repaints on its own. A turn is only
+ * rebuilt when its set of entries changes.
  */
-export function fromMessages(
-  messages: readonly ViewMessage[],
-  parts: (messageID: string) => readonly ViewPart[],
-  toEntry: (part: ViewPart, message: ViewMessage) => ViewEntry | undefined,
-  userEntry: (message: ViewMessage, parts: readonly ViewPart[]) => ViewEntry,
-): Turn[] {
-  const turns: Turn[] = []
-
-  for (const message of messages) {
-    const own = parts(message.id)
-
-    if (message.role === "user") {
-      turns.push({
-        messageID: message.id,
-        sessionID: message.sessionID,
-        role: "user",
-        createdAt: message.time.created,
-        // v1 carries compaction as a part on the message; v2 as its own
-        // entry. Either way it is a property of the turn.
-        compacted: own.some((part) => part.type === "compaction"),
-        body: [userEntry(message, own)],
-      })
-      continue
-    }
-
-    const body: ViewEntry[] = []
-    for (const part of own) {
-      const entry = toEntry(part, message)
-      if (!entry) continue
-      if (HEAD.has(entry.type) || TRAILER.has(entry.type)) continue
-      body.push(entry)
-    }
-
-    turns.push({
-      messageID: message.id,
-      sessionID: message.sessionID,
-      role: "assistant",
-      createdAt: message.time.created,
-      completedAt: message.time.completed,
-      request: {
-        agent: message.agent ?? "",
-        mode: message.mode ?? "",
-        modelID: message.modelID ?? "",
-        providerID: message.providerID ?? "",
-      },
-      complete:
-        message.time.completed !== undefined || message.error
-          ? {
-              finish: message.finish,
-              error: message.error,
-              outputTokens: message.tokens?.output ?? 0,
-              cost: message.cost ?? 0,
-            }
-          : undefined,
-      compacted: message.summary === true,
-      body,
-    })
+export function stabilize(previous: readonly Turn[], next: readonly Turn[]): Turn[] {
+  if (previous.length === next.length && previous.every((turn, index) => sameTurn(turn, next[index]!))) {
+    return previous as Turn[]
   }
-
-  return link(turns)
+  const before = new Map(previous.map((turn) => [turn.messageID, turn]))
+  return next.map((turn) => {
+    const old = before.get(turn.messageID)
+    return old && sameTurn(old, turn) ? old : turn
+  })
 }
+
+function sameTurn(a: Turn, b: Turn): boolean {
+  return (
+    a.messageID === b.messageID &&
+    a.sessionID === b.sessionID &&
+    a.role === b.role &&
+    a.createdAt === b.createdAt &&
+    a.completedAt === b.completedAt &&
+    a.previousCreatedAt === b.previousCreatedAt &&
+    a.compacted === b.compacted &&
+    sameRequest(a.request, b.request) &&
+    sameComplete(a.complete, b.complete) &&
+    sameBody(a.body, b.body)
+  )
+}
+
+function sameRequest(a: Turn["request"], b: Turn["request"]): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.agent === b.agent && a.mode === b.mode && a.modelID === b.modelID && a.providerID === b.providerID
+}
+
+function sameComplete(a: Turn["complete"], b: Turn["complete"]): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.finish === b.finish && a.error === b.error && a.outputTokens === b.outputTokens && a.cost === b.cost
+  )
+}
+
+function sameBody(a: readonly ViewEntry[], b: readonly ViewEntry[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  for (let index = 0; index < a.length; index++) {
+    if (a[index] !== b[index]) return false
+  }
+  return true
+}
+

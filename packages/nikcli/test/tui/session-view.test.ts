@@ -1,104 +1,38 @@
 import { describe, expect, it } from "bun:test"
-import { fromEntries, fromMessages, type ViewEntry, type ViewMessage, type ViewPart } from "@tui/routes/session/view"
+import { fromEntries, stabilize, type ViewEntry } from "@tui/routes/session/view"
 import { groupParts, toolOf } from "@tui/routes/session/rows"
 
 /**
- * The seam's contract: both sources produce the same turns.
+ * The turn model the session renderer draws from.
  *
- * This is what makes converting the renderer a one-line provider swap with a
- * known outcome instead of an exploration. If the two ever diverge, the swap
- * would change what is painted — and that is exactly what this catches.
+ * Two things are pinned here. What a turn carries — the fields the message
+ * components read, which is what made the renderer's move onto entries a
+ * mechanical change rather than an exploration. And the **object identity** of
+ * turns across rebuilds, which nothing else in the suite can see and which is
+ * the difference between a smooth stream and a flickering one.
  */
 
 const sessionID = "ses_1"
-
-function part(messageID: string, id: string, extra: Record<string, unknown>): ViewPart {
-  return { id, messageID, sessionID, ...extra } as ViewPart
-}
 
 /** Mirrors `SessionEntry.idForPart` / `idForMessage` without importing them. */
 const body = (id: string) => id.slice(id.indexOf("_") + 1)
 const idForPart = (messageID: string, partID: string) => `evt_${body(messageID)}_1_${body(partID)}`
 const idForMessage = (messageID: string, rank: number) => `evt_${body(messageID)}_${rank}`
 
-/** The v1 → entry conversion, mirroring `SessionEntry.fromV1Part`. */
-function toEntry(p: ViewPart, message: ViewMessage): ViewEntry | undefined {
-  const base = { id: idForPart(message.id, p.id), sessionID, messageID: message.id, ref: p.id }
-  switch (p.type) {
-    case "text":
-      return { ...base, type: "text", timestamp: 0, text: p.text as string }
-    case "reasoning":
-      return { ...base, type: "reasoning", timestamp: 0, text: p.text as string }
-    case "tool":
-      return {
-        ...base,
-        type: "tool",
-        timestamp: 0,
-        callID: p.callID as string,
-        name: p.tool as string,
-        state: p.state,
-      }
-    default:
-      return undefined
-  }
-}
-
-function userEntry(message: ViewMessage, parts: readonly ViewPart[]): ViewEntry {
-  return {
-    id: idForMessage(message.id, 0),
-    sessionID,
-    messageID: message.id,
-    type: "user",
-    timestamp: message.time.created,
-    text: parts
-      .filter((p) => p.type === "text")
-      .map((p) => p.text as string)
-      .join("\n"),
-  }
-}
-
 /** One user turn and one assistant step with text, a tool, and a sealing. */
 function conversation() {
   const userID = "msg_a"
   const assistantID = "msg_b"
 
-  const messages: ViewMessage[] = [
-    { id: userID, sessionID, role: "user", time: { created: 1 } },
-    {
-      id: assistantID,
-      sessionID,
-      role: "assistant",
-      time: { created: 2, completed: 9 },
-      parentID: userID,
-      agent: "build",
-      mode: "build",
-      modelID: "m",
-      providerID: "p",
-      finish: "stop",
-      cost: 0.5,
-      tokens: { output: 42 },
-    },
-  ]
-
-  const parts: Record<string, ViewPart[]> = {
-    [userID]: [part(userID, "prt_1", { type: "text", text: "do the thing" })],
-    [assistantID]: [
-      part(assistantID, "prt_2", { type: "reasoning", text: "hmm" }),
-      part(assistantID, "prt_3", { type: "text", text: "here you go" }),
-      part(assistantID, "prt_4", {
-        type: "tool",
-        callID: "c1",
-        tool: "read",
-        state: { status: "completed" },
-      }),
-      // not modelled as an entry — must be dropped by both sources alike
-      part(assistantID, "prt_5", { type: "step-start" }),
-    ],
-  }
-
-  // What the projections would have persisted for the same conversation.
   const entries: ViewEntry[] = [
-    userEntry(messages[0]!, parts[userID]!),
+    {
+      id: idForMessage(userID, 0),
+      sessionID,
+      messageID: userID,
+      type: "user",
+      timestamp: 1,
+      text: "do the thing",
+    },
     {
       id: idForMessage(assistantID, 0),
       sessionID,
@@ -110,10 +44,35 @@ function conversation() {
       modelID: "m",
       providerID: "p",
     },
-    ...parts[assistantID]!.flatMap((p) => {
-      const entry = toEntry(p, messages[1]!)
-      return entry ? [entry] : []
-    }),
+    {
+      id: idForPart(assistantID, "prt_2"),
+      sessionID,
+      messageID: assistantID,
+      type: "reasoning",
+      timestamp: 3,
+      ref: "prt_2",
+      text: "hmm",
+    },
+    {
+      id: idForPart(assistantID, "prt_3"),
+      sessionID,
+      messageID: assistantID,
+      type: "text",
+      timestamp: 4,
+      ref: "prt_3",
+      text: "here you go",
+    },
+    {
+      id: idForPart(assistantID, "prt_4"),
+      sessionID,
+      messageID: assistantID,
+      type: "tool",
+      timestamp: 5,
+      ref: "prt_4",
+      callID: "c1",
+      name: "read",
+      state: { status: "completed" },
+    },
     {
       id: idForMessage(assistantID, 2),
       sessionID,
@@ -127,19 +86,10 @@ function conversation() {
     },
   ]
 
-  return { messages, parts, entries }
+  return { entries, userID, assistantID }
 }
 
-describe("session view seam", () => {
-  it("both sources produce the same turns", () => {
-    const { messages, parts, entries } = conversation()
-
-    const viaMessages = fromMessages(messages, (id) => parts[id] ?? [], toEntry, userEntry)
-    const viaEntries = fromEntries(entries)
-
-    expect(viaEntries).toEqual(viaMessages)
-  })
-
+describe("session view", () => {
   it("a turn carries everything the components read off a message", () => {
     const { entries } = conversation()
     const [user, assistant] = fromEntries(entries)
@@ -155,6 +105,12 @@ describe("session view seam", () => {
     expect(assistant!.body.map((e) => e.type)).toEqual(["reasoning", "text", "tool"])
   })
 
+  it("the head and trailer entries frame the turn instead of sitting in it", () => {
+    const { entries } = conversation()
+    const [, assistant] = fromEntries(entries)
+    expect(assistant!.body.some((e) => e.type === "start" || e.type === "complete")).toBe(false)
+  })
+
   it("an in-flight turn has no `complete`, which is how the renderer knows it is live", () => {
     const { entries } = conversation()
     const live = fromEntries(entries.filter((e) => e.type !== "complete"))
@@ -163,16 +119,18 @@ describe("session view seam", () => {
   })
 
   it("a terminal error seals the turn even without a completion time", () => {
-    const messages: ViewMessage[] = [
+    const entries: ViewEntry[] = [
+      { id: "evt_x_0", sessionID, messageID: "msg_x", type: "start", timestamp: 1 },
       {
-        id: "msg_x",
+        id: "evt_x_2",
         sessionID,
-        role: "assistant",
-        time: { created: 1 },
+        messageID: "msg_x",
+        type: "complete",
+        timestamp: 1,
         error: { name: "MessageAbortedError" },
       },
     ]
-    const [turn] = fromMessages(messages, () => [], toEntry, userEntry)
+    const [turn] = fromEntries(entries)
     expect(turn!.complete?.error).toEqual({ name: "MessageAbortedError" })
   })
 
@@ -185,6 +143,89 @@ describe("session view seam", () => {
     const turns = fromEntries(withCompaction)
     expect(turns[1]!.compacted).toBe(true)
     expect(turns[1]!.body.some((e) => e.type === "compaction")).toBe(false)
+  })
+
+  /**
+   * The renderer draws the turn list with `<For>`, which reconciles by
+   * reference. `fromEntries` allocates fresh turns on every run, so without
+   * `stabilize` every arriving entry handed `<For>` an all-new list and made
+   * Solid tear down and repaint the entire transcript — the flicker.
+   *
+   * These assertions are about object identity, not values, because identity
+   * is the whole mechanism. Nothing else in the suite can see a repaint.
+   */
+  describe("identity across rebuilds", () => {
+    it("an unchanged conversation rebuilds to the very same array", () => {
+      const { entries } = conversation()
+      const first = fromEntries(entries)
+      const second = stabilize(first, fromEntries(entries))
+      expect(second).toBe(first)
+    })
+
+    it("a token delta does not touch the turn at all", () => {
+      const { entries } = conversation()
+      const first = fromEntries(entries)
+
+      // What the sync store does on `session.entry.updated`: the entry object
+      // is updated in place (`reconcile`), so no reference here changes — the
+      // leaf component repaints on its own by reading `entry.text`.
+      const streaming = entries.find((entry) => entry.type === "text")!
+      ;(streaming as unknown as { text: string }).text = "here you go, with more words"
+
+      expect(stabilize(first, fromEntries(entries))).toBe(first)
+    })
+
+    it("a new entry rebuilds only the turn it landed in", () => {
+      const { entries } = conversation()
+      const first = fromEntries(entries)
+      const grown = stabilize(
+        first,
+        fromEntries([
+          ...entries,
+          {
+            id: idForPart("msg_b", "prt_6"),
+            sessionID,
+            messageID: "msg_b",
+            type: "text",
+            timestamp: 10,
+            text: "and one more thing",
+          },
+        ]),
+      )
+
+      expect(grown).not.toBe(first)
+      // the user turn above it is untouched, so `<For>` leaves it mounted
+      expect(grown[0]).toBe(first[0])
+      expect(grown[1]).not.toBe(first[1])
+      expect(grown[1]!.body).toHaveLength(first[1]!.body.length + 1)
+    })
+
+    it("a whole new turn leaves every turn before it mounted", () => {
+      const { entries } = conversation()
+      const first = fromEntries(entries)
+      const next = stabilize(
+        first,
+        fromEntries([
+          ...entries,
+          { id: idForMessage("msg_c", 0), sessionID, messageID: "msg_c", type: "user", timestamp: 11, text: "again" },
+        ]),
+      )
+
+      expect(next).toHaveLength(3)
+      expect(next[0]).toBe(first[0])
+      expect(next[1]).toBe(first[1])
+    })
+
+    it("sealing a turn rebuilds it, so the footer appears", () => {
+      const { entries } = conversation()
+      const live = entries.filter((e) => e.type !== "complete")
+      const first = fromEntries(live)
+      const sealed = stabilize(first, fromEntries(entries))
+
+      expect(sealed[1]).not.toBe(first[1])
+      expect(sealed[1]!.complete).toBeDefined()
+      expect(sealed[0]).toBe(first[0])
+    })
   })
 
   it("row folding works unchanged on entries", () => {

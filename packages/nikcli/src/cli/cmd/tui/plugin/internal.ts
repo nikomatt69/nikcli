@@ -15,6 +15,7 @@ import Chatbot from "../feature-plugins/chatbot"
 import Computer from "../feature-plugins/computer"
 import Connectors from "../feature-plugins/connectors"
 import Observability from "../feature-plugins/observability"
+import Math from "../feature-plugins/math"
 import Island from "../feature-plugins/island"
 import Background from "../feature-plugins/background"
 import { Flag } from "@/flag/flag"
@@ -49,6 +50,7 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Computer,
   Connectors,
   Observability,
+  Math,
   Background,
   ...(Flag.NIKCLI_ISLAND ? [Island] : []),
 ]

@@ -31,12 +31,6 @@ export const TuiOptions = z.object({
     .describe(
       "Show a per-turn token breakdown after each answer, with a warning when the prompt cache is invalidated (default: false)",
     ),
-  math: z
-    .boolean()
-    .optional()
-    .describe(
-      "Render LaTeX math in messages as Unicode formulas instead of raw source (default: true). Set to false to keep $…$ and $$…$$ as written.",
-    ),
 })
 
 export const TuiInfo = z

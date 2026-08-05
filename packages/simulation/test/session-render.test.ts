@@ -150,23 +150,3 @@ test("folds a finished exploration run into one row", async () => {
     await h.close()
   }
 }, 120_000)
-
-/**
- * The migration's proof, now read in the other direction.
- *
- * `tui.entryRenderer` defaults on, so every scenario above is already painted
- * by `fromEntries` off the v2 entry store — against goldens that were captured
- * from v1 messages and parts. This one pins the old source explicitly and
- * asserts the same golden, so the corpus guards both providers and the escape
- * hatch stays a real escape hatch rather than an untested branch.
- */
-test("renders identically from v1 messages with the entry renderer off", async () => {
-  const h = await start({ experimental: { tui: { entryRenderer: false } } })
-  try {
-    await h.send("what is this")
-    await h.respond([{ type: "textDelta", text: "A deterministic answer." }])
-    await check("single-turn", await settled(h, "A deterministic answer."))
-  } finally {
-    await h.close()
-  }
-}, 120_000)

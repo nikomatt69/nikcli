@@ -2,8 +2,7 @@
  * Typed experimental feature flags.
  *
  * Central place for opencode-parity / native-LLM gates so callers don't
- * cast `config.experimental` ad hoc. Flags default **off** until soak
- * (`tui.entryRenderer` has soaked and is the exception — it defaults on).
+ * cast `config.experimental` ad hoc. Flags default **off** until soak.
  * (A 2026-07-08 flip-all attempt was rolled back 2026-07-09: with the flags
  * on, the TUI stopped rendering streamed assistant parts. Re-flip one flag
  * at a time after verifying the session stream end-to-end.)
@@ -16,7 +15,6 @@ export type Features = {
     readonly cacheEviction: boolean
     readonly messageVirtualization: boolean
     readonly explorationGrouping: boolean
-    readonly entryRenderer: boolean
   }
   readonly requests: {
     readonly latestOnlyLspRefresh: boolean
@@ -31,7 +29,6 @@ type Experimental = NonNullable<Config.Info["experimental"]> & {
     cacheEviction?: boolean
     messageVirtualization?: boolean
     explorationGrouping?: boolean
-    entryRenderer?: boolean
   }
   requests?: {
     latestOnlyLspRefresh?: boolean
@@ -55,17 +52,6 @@ export function features(cfg: { experimental?: Config.Info["experimental"] } | u
       // trade a real rendering cost for wrong scroll windows.
       messageVirtualization: e?.tui?.messageVirtualization === true,
       explorationGrouping: e?.tui?.explorationGrouping === true,
-      // Draw the session from v2 entries instead of v1 messages and parts.
-      // Both build the same `Turn[]` (routes/session/view.ts) and the two are
-      // proved equivalent by test and by golden screen, so this only changes
-      // which store feeds it.
-      //
-      // On by default: the entry store is now seeded wherever the message
-      // store is (`sync.session.sync`, the one seam every open path goes
-      // through), the server rebuilds a projection that does not cover every
-      // message, and the bulk importers project what they insert. `false`
-      // still puts the v1 source back, and nothing else changes with it.
-      entryRenderer: e?.tui?.entryRenderer !== false,
     },
     requests: {
       latestOnlyLspRefresh: e?.requests?.latestOnlyLspRefresh === true,

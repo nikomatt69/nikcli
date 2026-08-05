@@ -4,18 +4,20 @@ Assistant answers about anything quantitative arrive full of `$…$` and
 `$$…$$`. Before this, the markdown renderer painted those as literal dollar
 signs and backslashes — the reader got the LaTeX source, not the formula.
 
-nikcli now renders them, on by default, in every terminal.
+nikcli renders them as an opt-in feature — `/math` toggles it live — in
+every terminal.
 
 ## Shape
 
-| Piece                                            | Where                                                         |
-| ------------------------------------------------ | ------------------------------------------------------------- |
-| Renderer (parser, layout, renderable, streaming) | `packages/tui-math/src`                                       |
-| Math-in-prose splitting                          | `packages/tui-math/src/{detect,markdown,inline}.ts`           |
-| Solid intrinsic `<nikcli_latex>`                 | `packages/tui-math/src/solid.ts`                              |
-| TUI component                                    | `packages/nikcli/src/cli/cmd/tui/component/math-markdown.tsx` |
-| Call sites                                       | `TextPart` and `ReasoningPart` in `routes/session/index.tsx`  |
-| Config                                           | `tui.math` (default `true`)                                   |
+| Piece                                            | Where                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| Renderer (parser, layout, renderable, streaming) | `packages/tui-math/src`                                                |
+| Math-in-prose splitting                          | `packages/tui-math/src/{detect,markdown,inline}.ts`                    |
+| Solid intrinsic `<nikcli_latex>`                 | `packages/tui-math/src/solid.ts`                                       |
+| TUI feature plugin                               | `packages/nikcli/src/cli/cmd/tui/feature-plugins/math/`                |
+| TUI component                                    | `feature-plugins/math/markdown.tsx` (`MessageMarkdown`)                |
+| Call sites                                       | `TextPart` and `ReasoningPart` in `routes/session/index.tsx`           |
+| Toggle                                           | `/math` slash command, stored in the TUI key-value store (default off) |
 
 `packages/tui-math` is a port of
 [opentui-math](https://github.com/neriousy/opentui-math) (MIT), vendored as
@@ -104,8 +106,16 @@ survive the first content edit — which, while streaming, is immediate.
 Providing `renderNode` also disables the merging of consecutive markdown
 tokens into one block. Composing the blocks ourselves avoids both.
 
-## Configuration
+## Toggling
 
-`tui.math: false` restores the old behavior (raw `$…$` in the message). The
-option is in `Config.TUI` and `TuiOptions`; the SDK type is regenerated from
-the OpenAPI spec, not hand-edited.
+The feature is off by default. While a message streams, the math path
+re-splits the whole text on every chunk and swaps markdown blocks for formula
+renderables as delimiters open and close — visible as flicker on fast
+streams. The default message path therefore stays a single `<markdown>`,
+exactly what the call sites rendered before the feature existed.
+
+`/math` (aliases: `/latex`, `/tex`) flips the flag live; it is stored in the
+TUI key-value store (`kv.json`), not in `nikcli.json`, because it is a
+per-machine preference toggled mid-session. The session route reads the same
+flag through `MessageMarkdown`, so the command and the rendered view change
+exactly the same thing.

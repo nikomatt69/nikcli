@@ -40,10 +40,25 @@ tests and custom composition.
 ## In A TUI
 
 `LatexRenderable` measures itself through Yoga and repaints in place when its
-`content` changes. Importing the Solid entry point registers `<nikcli_latex>`:
+`content` changes.
+
+The package deliberately ships no Solid entry point: `extend()` writes into a
+process-wide catalogue, and the copy that must be written is the host
+application's `@opentui/solid`, not one resolved from here. So the host owns
+the binding — in nikcli that is
+`src/cli/cmd/tui/feature-plugins/math/renderable.ts`:
 
 ```tsx
-import "@nikcli-ai/tui-math/solid"
+import { extend } from "@opentui/solid"
+import { LatexRenderable } from "@nikcli-ai/tui-math/renderable"
+
+declare module "@opentui/solid" {
+  interface OpenTUIComponents {
+    nikcli_latex: typeof LatexRenderable
+  }
+}
+
+extend({ nikcli_latex: LatexRenderable })
 ;<nikcli_latex content={String.raw`\int_0^\infty e^{-x}\,dx = 1`} foregroundColor="#cdd6f4" />
 ```
 

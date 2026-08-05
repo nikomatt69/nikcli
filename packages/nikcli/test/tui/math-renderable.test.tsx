@@ -3,7 +3,7 @@ import { RGBA, SyntaxStyle, type CapturedFrame } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { buildMathBlocks, isMarkdownSafe, renderLatexToString } from "@nikcli-ai/tui-math"
-import "@nikcli-ai/tui-math/solid"
+import "@tui/feature-plugins/math/renderable"
 
 const FG = RGBA.fromInts(255, 255, 255, 255)
 const BG = RGBA.fromInts(0, 0, 0, 255)
