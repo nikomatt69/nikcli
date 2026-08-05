@@ -98,6 +98,7 @@ import { useLanguage } from "@tui/context/language"
 import { spacerHeights, visibleRange } from "./message-window"
 import { groupParts, type ExplorationGroup } from "./rows"
 import { wrapDiagramsInFences } from "./diagram"
+import { SESSION_SIDEBAR_WIDTH } from "@tui/ui/layout"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
 import {
@@ -284,7 +285,7 @@ export function Session() {
     return false
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
-  const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
+  const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? SESSION_SIDEBAR_WIDTH : 0) - 4)
 
   const scrollAcceleration = createMemo(() => {
     const tui = sync.data.config.tui

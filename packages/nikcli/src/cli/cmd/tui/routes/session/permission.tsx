@@ -14,25 +14,13 @@ import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import { Keybind } from "@/util/keybind"
 import { Locale } from "@/util/locale"
 import { Global } from "@/global"
+import { formatPath } from "@tui/util/path-format"
 
 type PermissionStage = "permission" | "always" | "reject"
 
+/** Display spelling for a path in this prompt. See `util/path-format`. */
 function normalizePath(input?: string) {
-  if (!input) return ""
-
-  const cwd = process.cwd()
-  const home = Global.Path.home
-  const absolute = path.isAbsolute(input) ? input : path.resolve(cwd, input)
-  const relative = path.relative(cwd, absolute)
-
-  if (!relative) return "."
-  if (!relative.startsWith("..")) return relative
-
-  // outside cwd - use ~ or absolute
-  if (home && (absolute === home || absolute.startsWith(home + path.sep))) {
-    return absolute.replace(home, "~")
-  }
-  return absolute
+  return formatPath(input, { base: process.cwd(), home: Global.Path.home })
 }
 
 function filetype(input?: string) {

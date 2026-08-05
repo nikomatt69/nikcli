@@ -73,6 +73,7 @@ import { usePromptRef } from "../../context/prompt"
 import { useExit } from "../../context/exit"
 import { Filesystem } from "@/util/filesystem"
 import { Global } from "@/global"
+import { formatPath } from "@tui/util/path-format"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
@@ -1950,12 +1951,14 @@ function Question(props: ToolProps<typeof QuestionTool>) {
   )
 }
 
+/**
+ * Display spelling for a path in a tool row.
+ *
+ * Used to differ from the permission prompt's version — it never abbreviated
+ * to `~`, so the same file was spelled two ways on one screen.
+ */
 function normalizePath(input?: string) {
-  if (!input) return ""
-  if (path.isAbsolute(input)) {
-    return path.relative(process.cwd(), input) || "."
-  }
-  return input
+  return formatPath(input, { base: process.cwd(), home: Global.Path.home })
 }
 
 function input(input: Record<string, any>, omit?: string[]): string {

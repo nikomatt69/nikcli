@@ -3,6 +3,7 @@ import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
 import { TuiPluginRuntime } from "@tui/plugin"
+import { SESSION_SIDEBAR_WIDTH } from "@tui/ui/layout"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sdk = useSDK()
@@ -23,7 +24,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
       {(current) => (
         <box
           backgroundColor={theme.backgroundPanel}
-          width={42}
+          width={SESSION_SIDEBAR_WIDTH}
           height="100%"
           paddingTop={1}
           paddingBottom={1}

@@ -10,6 +10,7 @@ import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useKeybind } from "@tui/context/keybind"
 import { Keybind } from "@/util/keybind"
 import { Locale } from "@/util/locale"
+import { moveSelection, reconcileSelection } from "./select-controller"
 
 export interface DialogSelectProps<T> {
   title: string
@@ -158,9 +159,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   }
 
   function clampIndex(index: number) {
-    const length = flat().length
-    if (length === 0) return 0
-    return Math.max(0, Math.min(index, length - 1))
+    return reconcileSelection(index, flat().length)
   }
 
   createEffect(
@@ -180,15 +179,9 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   )
 
   function move(direction: number, wrap = true) {
-    if (flat().length === 0) return
-    let next = store.selected + direction
-    if (wrap) {
-      if (next < 0) next = flat().length - 1
-      if (next >= flat().length) next = 0
-    } else {
-      next = clampIndex(next)
-    }
-    moveTo(next)
+    const count = flat().length
+    if (count === 0) return
+    moveTo(moveSelection(store.selected, { count, delta: direction, policy: wrap ? "wrap" : "clamp" }))
   }
 
   function moveTo(next: number, center = false) {
