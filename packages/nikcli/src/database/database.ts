@@ -107,6 +107,79 @@ export namespace Database {
   }
 
   // ============================================================================
+  // Transactions and post-commit effects
+  // ============================================================================
+
+  /** A Drizzle executor: either the root client or a transaction handle. */
+  export type Tx = Parameters<Parameters<Client["transaction"]>[0]>[0]
+  export type TxOrDb = Client | Tx
+
+  export type TransactionBehavior = "deferred" | "immediate" | "exclusive"
+
+  /**
+   * Side effects queued by `effect()` inside the current outermost
+   * transaction. They run once, after the commit succeeds — never on
+   * rollback, and never while the write lock is still held.
+   */
+  let pending: (() => void)[] | undefined
+
+  /**
+   * Run `fn` in a transaction, draining post-commit effects afterwards.
+   *
+   * Nested calls join the outer transaction (SQLite has no real nesting that
+   * would help here) and their effects drain with the outermost commit, so a
+   * rolled-back inner write can never publish.
+   *
+   * `behavior` defaults to "immediate": a read-then-write sequence (allocate
+   * a sequence number, then append) must take the write lock up front or two
+   * processes sharing nikcli.db can both read the same number.
+   */
+  export function transaction<T>(
+    fn: (tx: TxOrDb) => T,
+    options: { behavior?: TransactionBehavior } = {},
+  ): T {
+    if (pending) return fn(syncDb() as TxOrDb) as T
+
+    const queue: (() => void)[] = []
+    pending = queue
+    try {
+      const result = syncDb().transaction((tx) => fn(tx as TxOrDb), {
+        behavior: options.behavior ?? "immediate",
+      }) as T
+      pending = undefined
+      for (const effect of queue) {
+        try {
+          effect()
+        } catch (error) {
+          log.warn("post-commit effect failed", { error: errorMessage(error) })
+        }
+      }
+      return result
+    } catch (error) {
+      pending = undefined
+      throw error
+    }
+  }
+
+  /**
+   * Queue a side effect to run after the current transaction commits. Outside
+   * a transaction it runs immediately — the caller's write has already
+   * landed, so there is nothing to wait for.
+   */
+  export function effect(fn: () => void): void {
+    if (!pending) {
+      fn()
+      return
+    }
+    pending.push(fn)
+  }
+
+  /** Read through the shared client. Sugar for `fn(syncDb())`. */
+  export function use<T>(fn: (db: Client) => T): T {
+    return fn(syncDb())
+  }
+
+  // ============================================================================
   // Effect service layer
   // ============================================================================
 

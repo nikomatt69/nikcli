@@ -15,6 +15,13 @@ export namespace SessionRepo {
     return Database.syncDb()
   }
 
+  /**
+   * Writes accept an executor so a projector can run inside the same
+   * transaction that appends its event (see sync/sync-event.ts). Reads stay
+   * on the shared client — they are never part of a projection.
+   */
+  type Executor = Database.TxOrDb
+
   type SessionRow = typeof sessionInfo.$inferSelect
 
   /** Extract key fields for indexed columns; store the rest as JSON in `data` */
@@ -73,9 +80,9 @@ export namespace SessionRepo {
     return rows.map(rowToInfo)
   }
 
-  export function upsert(info: Session.Info): void {
+  export function upsert(info: Session.Info, tx: Executor = db()): void {
     const row = infoToRow(info)
-    db()
+    tx
       .insert(sessionInfo)
       .values(row)
       .onConflictDoUpdate({
@@ -94,12 +101,16 @@ export namespace SessionRepo {
       .run()
   }
 
-  export function update(id: string, editor: (session: Session.Info) => Session.Info): Session.Info | undefined {
+  export function update(
+    id: string,
+    editor: (session: Session.Info) => Session.Info,
+    tx: Executor = db(),
+  ): Session.Info | undefined {
     const existing = get(id)
     if (!existing) return undefined
     const updated = editor(existing)
     const row = infoToRow(updated)
-    db()
+    tx
       .update(sessionInfo)
       .set({
         title: row.title,
@@ -115,8 +126,8 @@ export namespace SessionRepo {
     return updated
   }
 
-  export function remove(id: string): boolean {
-    const result = db().delete(sessionInfo).where(eq(sessionInfo.id, id)).run()
+  export function remove(id: string, tx: Executor = db()): boolean {
+    const result = tx.delete(sessionInfo).where(eq(sessionInfo.id, id)).run()
     return (result as any).changes > 0
   }
 

@@ -305,6 +305,17 @@ export namespace Sync {
     }
   }
 
+  /**
+   * Fan an already-appended event out to the emit listeners.
+   *
+   * `SyncEvent` (sync-event.ts) writes its own rows transactionally with the
+   * projector, so it cannot go through `emitRaw` — but its events still have
+   * to reach the outbox. This is that entry point.
+   */
+  export function notify(record: SyncEventRecord, meta: { origin: string }) {
+    notifyEmitListeners(record, meta)
+  }
+
   function notifyEmitListeners(record: SyncEventRecord, meta: { origin: string }) {
     for (const listener of emitListeners) {
       try {

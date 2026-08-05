@@ -17,6 +17,9 @@ import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
 import { DeltaCoalescer } from "./delta-coalescer"
 import { MessageRepo } from "./message-repo"
+import { SessionSync } from "./projectors"
+import { SyncEvent } from "@/sync/sync-event"
+import { Instance } from "@/project/instance"
 import { ContentLoop } from "@/util/content-loop"
 import { Context, Effect, Layer } from "effect"
 import { stripDanglingXmlArtifacts } from "@/util/dangling-xml"
@@ -204,11 +207,23 @@ export namespace SessionProcessor {
 
     // For streaming deltas: publish Bus event immediately but coalesce the disk write.
     // This avoids ~500 SQL writes per response while keeping the UI responsive.
+    //
+    // The delta path is the one place that publishes ahead of the write
+    // instead of through the event system — a `SyncEvent.run` per token would
+    // be a transaction per token. The coalesced flush still goes through the
+    // projector (with `publish: false`, since the bus already heard every
+    // delta) so the row is written in exactly one place.
     async function updatePartCoalesced(part: MessageV2.TextPart | MessageV2.ReasoningPart, delta: string) {
       Bus.publish(MessageV2.Event.PartUpdated, { part, delta })
       const key = ["part", part.messageID, part.id]
       coalescer.schedule(key, part, async (_k, content) => {
-        MessageRepo.upsertPart(content as MessageV2.Part)
+        const flushed = content as MessageV2.Part
+        SessionSync.install()
+        SyncEvent.run(
+          SessionSync.PartUpdated,
+          { sessionID: flushed.sessionID, part: flushed },
+          { publish: false, projectID: Instance.project.id },
+        )
       })
     }
 

@@ -36,6 +36,8 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { zodObject, zodObjectMode, type DeepMutable } from "@/util/effect-zod"
 import { Analytics } from "../analytics/analytics"
 import { SessionRepo } from "./repo"
+import { SessionSync } from "./projectors"
+import { SyncEvent } from "@/sync/sync-event"
 import { MessageRepo } from "./message-repo"
 
 function configGet(ctx?: InstanceContext) {
@@ -333,17 +335,17 @@ export namespace Session {
     editor: (session: Info) => void,
     options?: { touch?: boolean },
   ) {
-    const result = SessionRepo.update(id, (draft) => {
-      editor(draft)
-      if (options?.touch !== false) {
-        draft.time.updated = Date.now()
-      }
-      return draft
-    })
-    if (!result) throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
-    await publishBus(ctx, Event.Updated, {
-      info: result,
-    })
+    // The event carries the whole session, and its projector performs the
+    // write: the edit is applied here only to compute what the event says.
+    const existing = SessionRepo.get(id)
+    if (!existing) throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
+    const result = structuredClone(existing)
+    editor(result)
+    if (options?.touch !== false) {
+      result.time.updated = Date.now()
+    }
+    SessionSync.install()
+    SyncEvent.run(SessionSync.Updated, { sessionID: id, info: result }, { projectID: ctx.project.id })
     return result
   }
 
@@ -453,11 +455,9 @@ export namespace Session {
       },
     }
     log.info("created", result)
-    SessionRepo.upsert(result)
+    SessionSync.install()
+    SyncEvent.run(SessionSync.Created, { sessionID: result.id, info: result }, { projectID: ctx.project.id })
     if (result.workspaceID) WorkspaceDB.touch(result.workspaceID, result.time.created)
-    await publishBus(ctx, Event.Created, {
-      info: result,
-    })
     const cfg = await configGet(ctx)
     if (!result.parentID && (Flag.NIKCLI_AUTO_SHARE || cfg.share === "auto"))
       shareImpl(ctx, result.id)
@@ -473,9 +473,7 @@ export namespace Session {
             error,
           })
         })
-    await publishBus(ctx, Event.Updated, {
-      info: result,
-    })
+    SyncEvent.run(SessionSync.Updated, { sessionID: result.id, info: result }, { projectID: ctx.project.id })
 
     // Record session creation for analytics
     Analytics.recordSession({
@@ -627,10 +625,8 @@ export namespace Session {
       await storageRemove(["goal", sessionID]).catch((err) => {
         log.error("Storage operation failed", { error: err })
       })
-      SessionRepo.remove(sessionID)
-      await publishBus(ctx, Event.Deleted, {
-        info: session,
-      })
+      SessionSync.install()
+      SyncEvent.run(SessionSync.Deleted, { sessionID, info: session }, { projectID: ctx.project.id })
     } catch (e) {
       log.error(e)
     }
@@ -641,10 +637,8 @@ export namespace Session {
   }
 
   async function updateMessageImpl(ctx: InstanceContext, msg: MessageV2.Info) {
-    MessageRepo.upsertMessage(msg)
-    await publishBus(ctx, MessageV2.Event.Updated, {
-      info: msg,
-    })
+    SessionSync.install()
+    SyncEvent.run(SessionSync.MessageUpdated, { sessionID: msg.sessionID, info: msg }, { projectID: ctx.project.id })
 
     // Record assistant message analytics
     if (msg.role === "assistant" && msg.tokens && msg.time.completed) {
@@ -674,11 +668,12 @@ export namespace Session {
   }
 
   async function removeMessageImpl(ctx: InstanceContext, input: RemoveMessageInput) {
-    await removeMessageWithPartsImpl(input.sessionID, input.messageID)
-    await publishBus(ctx, MessageV2.Event.Removed, {
-      sessionID: input.sessionID,
-      messageID: input.messageID,
-    })
+    SessionSync.install()
+    SyncEvent.run(
+      SessionSync.MessageRemoved,
+      { sessionID: input.sessionID, messageID: input.messageID },
+      { projectID: ctx.project.id },
+    )
     return input.messageID
   }
 
@@ -687,23 +682,24 @@ export namespace Session {
       sessionID: input.sessionID,
       messageID: input.messageID,
     })
-    MessageRepo.removePart(input.messageID, input.partID)
-    await publishBus(ctx, MessageV2.Event.PartRemoved, {
-      sessionID: input.sessionID,
-      messageID: input.messageID,
-      partID: input.partID,
-    })
+    SessionSync.install()
+    SyncEvent.run(
+      SessionSync.PartRemoved,
+      { sessionID: input.sessionID, messageID: input.messageID, partID: input.partID },
+      { projectID: ctx.project.id },
+    )
     return input.partID
   }
 
   async function updatePartImpl(ctx: InstanceContext, input: z.input<typeof UpdatePartInput>) {
     const part = "delta" in input ? input.part : input
     const delta = "delta" in input ? input.delta : undefined
-    MessageRepo.upsertPart(part)
-    await publishBus(ctx, MessageV2.Event.PartUpdated, {
-      part,
-      delta,
-    })
+    SessionSync.install()
+    SyncEvent.run(
+      SessionSync.PartUpdated,
+      { sessionID: part.sessionID, part, delta },
+      { projectID: ctx.project.id },
+    )
 
     // Record tool usage analytics
     if (part.type === "tool" && part.tool) {

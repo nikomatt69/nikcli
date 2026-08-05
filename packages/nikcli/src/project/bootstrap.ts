@@ -150,6 +150,14 @@ export async function InstanceBootstrap() {
       ),
     ),
   )
+  // Event-sourced write path: projectors have to be installed before the
+  // first session mutation, so this runs ahead of everything that writes.
+  try {
+    const { installProjectors } = await import("../sync/projectors")
+    await installProjectors()
+  } catch (error) {
+    Log.Default.error("sync projector install failed", { error })
+  }
   // Live v2 session projection — read-only subscriber of the v1 engine's
   // bus events; activating it cannot alter v1 behavior. Imported lazily:
   // session/v2 reaches back into this module's import graph via

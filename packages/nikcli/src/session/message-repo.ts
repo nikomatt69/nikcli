@@ -12,6 +12,13 @@ export namespace MessageRepo {
     return Database.syncDb()
   }
 
+  /**
+   * Writes accept an executor so a projector can run inside the same
+   * transaction that appends its event (see sync/sync-event.ts). Reads stay
+   * on the shared client — they are never part of a projection.
+   */
+  type Executor = Database.TxOrDb
+
   // ============================================================================
   // Message operations
   // ============================================================================
@@ -32,8 +39,8 @@ export namespace MessageRepo {
     return rows.map((row) => JSON.parse(row.info) as MessageV2.Info)
   }
 
-  export function upsertMessage(msg: MessageV2.Info): void {
-    db()
+  export function upsertMessage(msg: MessageV2.Info, tx: Executor = db()): void {
+    tx
       .insert(messageInfo)
       .values({
         id: msg.id,
@@ -51,10 +58,10 @@ export namespace MessageRepo {
       .run()
   }
 
-  export function removeMessage(sessionId: string, messageId: string): boolean {
+  export function removeMessage(sessionId: string, messageId: string, tx: Executor = db()): boolean {
     // Remove associated parts first
-    db().delete(messagePart).where(eq(messagePart.messageId, messageId)).run()
-    const result = db().delete(messageInfo).where(eq(messageInfo.id, messageId)).run()
+    tx.delete(messagePart).where(eq(messagePart.messageId, messageId)).run()
+    const result = tx.delete(messageInfo).where(eq(messageInfo.id, messageId)).run()
     return (result as any).changes > 0
   }
 
@@ -78,8 +85,8 @@ export namespace MessageRepo {
     return rows.map((row) => JSON.parse(row.info) as MessageV2.Part)
   }
 
-  export function upsertPart(part: MessageV2.Part): void {
-    db()
+  export function upsertPart(part: MessageV2.Part, tx: Executor = db()): void {
+    tx
       .insert(messagePart)
       .values({
         id: part.id,
@@ -99,8 +106,8 @@ export namespace MessageRepo {
       .run()
   }
 
-  export function removePart(messageId: string, partId: string): boolean {
-    const result = db().delete(messagePart).where(eq(messagePart.id, partId)).run()
+  export function removePart(messageId: string, partId: string, tx: Executor = db()): boolean {
+    const result = tx.delete(messagePart).where(eq(messagePart.id, partId)).run()
     return (result as any).changes > 0
   }
 
