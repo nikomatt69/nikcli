@@ -1,6 +1,7 @@
 import z from "zod"
 import { Identifier } from "@/id/id"
 import { Session } from "../index"
+import { MessageRepo } from "../message-repo"
 import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
 import { SessionEntryRepo } from "./entry-repo"
@@ -129,9 +130,19 @@ export namespace SessionV2 {
    *
    * `session_entry` is authoritative: the projectors write it in the same
    * transaction as the v1 row it derives from, so it covers committed and
-   * in-flight work alike and cannot have drifted. A session written before
-   * the table existed has no rows, so the first read backfills it from v1
-   * messages — a one-time cost per legacy session.
+   * in-flight work alike and cannot have drifted.
+   *
+   * What it can be is *incomplete*. Two kinds of session arrive with v1 rows
+   * the projectors never saw: one written before the table existed, and one
+   * whose messages were bulk-inserted through `MessageRepo` rather than the
+   * session service — a teleport landing, a `nikcli import`, a `run --session`
+   * transcript. So the guard is coverage, not emptiness: if the entries do not
+   * account for every message, rebuild them. Checking "are there any rows"
+   * instead would hand a half-drawn transcript to the renderer, which is worse
+   * than the blank one it was meant to prevent.
+   *
+   * Both counts are indexed scans of one column, and this runs when a session
+   * is opened, not per frame.
    *
    * The live projector tail is *not* appended here: it would duplicate rows
    * the projection already holds. Consumers that want the sub-flush-interval
@@ -139,7 +150,7 @@ export namespace SessionV2 {
    */
   export async function entries(sessionID: string): Promise<SessionEntry.Entry[]> {
     const rows = SessionEntryRepo.list(sessionID)
-    if (rows.length > 0) return rows
+    if (SessionEntryRepo.messageCount(sessionID) >= MessageRepo.countMessages(sessionID)) return rows
 
     const messages = await runSession(
       Effect.gen(function* () {

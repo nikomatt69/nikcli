@@ -9,6 +9,7 @@ import { Session } from "@/session"
 import { SessionStatus } from "@/session/status"
 import { MessageV2 } from "@/session/message-v2"
 import { MessageRepo } from "@/session/message-repo"
+import { SessionEntryProjection } from "@/session/v2/projection"
 import { Project } from "@/project/project"
 import { Global } from "@/global"
 import { Identifier } from "@/id/id"
@@ -208,13 +209,19 @@ async function importSession(input: TeleportInput, directory: string): Promise<T
   // Rewrite the session reference on every message/part so they attach to the
   // freshly created session, then persist them into the shared message store.
   let messageCount = 0
+  const imported: MessageV2.WithParts[] = []
   for (const message of input.messages) {
-    MessageRepo.upsertMessage({ ...message.info, sessionID: session.id } as MessageV2.Info)
+    const info = { ...message.info, sessionID: session.id } as MessageV2.Info
+    MessageRepo.upsertMessage(info)
     messageCount++
-    for (const part of message.parts) {
-      MessageRepo.upsertPart({ ...part, sessionID: session.id } as MessageV2.Part)
-    }
+    const parts = message.parts.map((part) => ({ ...part, sessionID: session.id }) as MessageV2.Part)
+    for (const part of parts) MessageRepo.upsertPart(part)
+    imported.push({ info, parts })
   }
+  // These rows bypassed the session service, so no projector saw them. Project
+  // the v2 entries now so the resumed session is readable from either model
+  // the moment the mobile client opens it.
+  SessionEntryProjection.rebuild(session.id, imported)
 
   // Land the session idle so the mobile app can immediately prompt it.
   await withInstance(

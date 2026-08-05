@@ -224,6 +224,13 @@ function parsePort(value: string | undefined) {
 }
 
 function resolveEditorConnection(): EditorConnection | undefined {
+  // The lock files live under the user's home, not the project, so a nikcli
+  // started anywhere attaches to whatever editor the developer has open — and
+  // the selection it reports gets prepended to their next prompt. Harnessed
+  // runs need to opt out of that: a golden screen would otherwise contain the
+  // file the developer happened to be looking at.
+  if (process.env.NIKCLI_DISABLE_EDITOR_CONTEXT === "1") return
+
   const lock = resolveEditorLockFile()
   if (lock) {
     return {

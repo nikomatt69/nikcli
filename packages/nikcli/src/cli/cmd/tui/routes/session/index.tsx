@@ -192,18 +192,6 @@ export function Session() {
       toUserEntry,
     )
   })
-  // Seed the entry store once per session; `session.entry.updated` keeps it
-  // live from there. Only when the flag is on — otherwise it is a request
-  // nothing reads.
-  createEffect(() => {
-    if (!entryRenderer()) return
-    const sessionID = route.sessionID
-    if (sync.data.entry[sessionID]) return
-    void sdk.client.session.v2
-      .entries({ sessionID }, { throwOnError: true })
-      .then((response) => sync.set("entry", sessionID, (response.data ?? []) as never))
-      .catch(() => {})
-  })
   /**
    * Per-turn token rows, keyed by the assistant message that ends the turn.
    * Computed once here rather than per row: each turn needs the steps before it,

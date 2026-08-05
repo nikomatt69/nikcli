@@ -152,16 +152,16 @@ test("folds a finished exploration run into one row", async () => {
 }, 120_000)
 
 /**
- * The migration's proof.
+ * The migration's proof, now read in the other direction.
  *
- * Same conversation, same golden — but the renderer is fed by `fromEntries`
- * off the v2 entry store instead of `fromMessages` off v1 messages and parts.
- * Asserting against `single-turn.txt`, the golden captured from the v1 source,
- * is what makes this a migration rather than a rewrite: if the two sources
- * painted differently, this fails.
+ * `tui.entryRenderer` defaults on, so every scenario above is already painted
+ * by `fromEntries` off the v2 entry store — against goldens that were captured
+ * from v1 messages and parts. This one pins the old source explicitly and
+ * asserts the same golden, so the corpus guards both providers and the escape
+ * hatch stays a real escape hatch rather than an untested branch.
  */
-test("renders identically from v2 entries", async () => {
-  const h = await start({ experimental: { tui: { entryRenderer: true } } })
+test("renders identically from v1 messages with the entry renderer off", async () => {
+  const h = await start({ experimental: { tui: { entryRenderer: false } } })
   try {
     await h.send("what is this")
     await h.respond([{ type: "textDelta", text: "A deterministic answer." }])

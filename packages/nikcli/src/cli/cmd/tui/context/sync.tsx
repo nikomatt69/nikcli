@@ -385,6 +385,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           setStore(
             produce((draft) => {
               delete draft.message[event.properties.info.id]
+              delete draft.entry[event.properties.info.id]
               delete draft.todo[event.properties.info.id]
               delete draft.background_job[event.properties.info.id]
               delete draft.monitor[event.properties.info.id]
@@ -694,6 +695,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         produce((draft) => {
           draft.message = {}
           draft.part = {}
+          draft.entry = {}
           draft.todo = {}
           draft.background_job = {}
           draft.monitor = {}
@@ -822,6 +824,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           for (const sid of evicted) {
             for (const message of draft.message[sid] ?? []) delete draft.part[message.id]
             delete draft.message[sid]
+            delete draft.entry[sid]
             delete draft.session_diff[sid]
             delete draft.todo[sid]
           }
@@ -861,14 +864,29 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           reapSessions(sessionID)
           const mode = options?.full ? "full" : "partial"
           const existing = syncedSessions.get(sessionID)
-          if (existing === "full" || existing === mode) return result.session.get(sessionID)
-          const [session, messages, todo, diff, backgroundJobs, goal] = await Promise.all([
+          const cached = existing === "full" || existing === mode
+          // A cache hit still refetches if the entry renderer was turned on
+          // after this session was synced — otherwise it would draw from an
+          // entry list that was never fetched.
+          if (cached && (!features(store.config).tui.entryRenderer || store.entry[sessionID])) {
+            return result.session.get(sessionID)
+          }
+          // Entries ride along with the messages rather than being fetched by
+          // whoever happens to render the session. This function is the one
+          // seam every open path goes through — the tab switch, the tab
+          // prefetch, a warp, a workspace create/attach, resuming a teleported
+          // or backgrounded session — so seeding here is what makes
+          // `tui.entryRenderer` safe to leave on: there is no path that opens a
+          // session with messages loaded and entries missing.
+          const wantsEntries = features(store.config).tui.entryRenderer
+          const [session, messages, todo, diff, backgroundJobs, goal, entries] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
             sdk.client.session.diff({ sessionID }),
             sdk.client.session.background({ sessionID }).catch(() => undefined),
             sdk.client.session.goal({ sessionID }).catch(() => undefined),
+            wantsEntries ? sdk.client.session.v2.entries({ sessionID }).catch(() => undefined) : undefined,
           ])
           setStore(
             produce((draft) => {
@@ -884,6 +902,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.session_diff[sessionID] = diff.data ?? []
               if (goal?.data) draft.session_goal[sessionID] = goal.data as GoalState
               else delete draft.session_goal[sessionID]
+              if (wantsEntries) draft.entry[sessionID] = entries?.data ?? []
             }),
           )
           syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")

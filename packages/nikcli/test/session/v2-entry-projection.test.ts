@@ -20,6 +20,8 @@ const [
   { Session },
   { SessionV2 },
   { SessionEntryRepo },
+  { MessageRepo },
+  { SessionEntryProjection },
   { Database },
   { Bus },
   { SessionProjector },
@@ -29,6 +31,8 @@ const [
   import("../../src/session"),
   import("../../src/session/v2"),
   import("../../src/session/v2/entry-repo"),
+  import("../../src/session/message-repo"),
+  import("../../src/session/v2/projection"),
   import("../../src/database/database"),
   import("../../src/bus"),
   import("../../src/session/v2/projector"),
@@ -285,6 +289,154 @@ describe("v2 entry projection", () => {
         expect(after.map((e) => e.type)).toEqual(before)
         // the backfill persisted, so the next read is a plain row read
         expect(SessionV2.entryCount(session.id)).toBe(after.length)
+      },
+    })
+  })
+
+  /**
+   * The bulk importers — a teleport landing, `nikcli import`, a shared-session
+   * import — write message rows straight through `MessageRepo`, so no
+   * projector ever sees them. A session that has *some* entries and messages
+   * they do not cover is the case a "backfill only when the table is empty"
+   * guard gets wrong: it hands the renderer a half-drawn transcript.
+   */
+  it("rebuilds a session whose entries do not cover every message", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session } = await conversation()
+        const projected = await SessionV2.entries(session.id)
+        expect(projected.length).toBeGreaterThan(0)
+
+        const smuggledID = Identifier.ascending("message")
+        MessageRepo.upsertMessage({
+          id: smuggledID,
+          sessionID: session.id,
+          role: "assistant",
+          time: { created: 2, completed: 3 },
+          providerID: "p",
+          modelID: "m",
+          agent: "build",
+          mode: "build",
+          cost: 0,
+          tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
+          path: { cwd: projectDir, root: projectDir },
+        } as any)
+        MessageRepo.upsertPart({
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: smuggledID,
+          type: "text",
+          text: "imported",
+        } as any)
+
+        const entries = await SessionV2.entries(session.id)
+        expect(entries.some((e) => e.messageID === smuggledID)).toBe(true)
+        expect(entries.some((e) => e.type === "text" && (e as SessionEntryTypes.Text).text === "imported")).toBe(true)
+        // the rebuild persisted, so the next read is a plain row read
+        expect(SessionV2.entryCount(session.id)).toBe(entries.length)
+      },
+    })
+  })
+
+  /**
+   * `rebuild` is what the importers call after their bulk insert. Whatever it
+   * produces has to be indistinguishable from what the projectors would have
+   * written had the rows gone through the session service — otherwise a
+   * teleported session renders differently from the one it was teleported
+   * from.
+   */
+  it("the bulk-import path projects what the write path would have", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session } = await conversation()
+        const projected = await SessionV2.entries(session.id)
+
+        const messages = await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            return yield* s.messages({ sessionID: session.id })
+          }),
+        )
+        SessionEntryProjection.rebuild(session.id, messages)
+
+        expect(await SessionV2.entries(session.id)).toEqual(projected)
+      },
+    })
+  })
+
+  it("removing a message with its parts drops that message's entries", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session, userID, assistantID } = await conversation()
+        await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            yield* s.updatePart({
+              id: Identifier.ascending("part"),
+              sessionID: session.id,
+              messageID: assistantID,
+              type: "text",
+              text: "goes away with its message",
+            } as any)
+          }),
+        )
+        expect((await SessionV2.entries(session.id)).some((e) => e.messageID === assistantID)).toBe(true)
+
+        await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            yield* s.removeMessageWithParts(session.id, assistantID)
+          }),
+        )
+
+        const remaining = await SessionV2.entries(session.id)
+        expect(remaining.some((e) => e.messageID === assistantID)).toBe(false)
+        // and it took only that message with it
+        expect(remaining.some((e) => e.messageID === userID)).toBe(true)
+      },
+    })
+  })
+
+  /**
+   * Fork clones a transcript into a new session. It clones through the session
+   * service, so the clone's entries are projected as they are written — this
+   * pins that, because a fork opened straight from the "created" event would
+   * otherwise be one of the paths that renders empty.
+   */
+  it("a forked session gets its own entries, without a backfill", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session, assistantID } = await conversation()
+        await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            yield* s.updatePart({
+              id: Identifier.ascending("part"),
+              sessionID: session.id,
+              messageID: assistantID,
+              type: "text",
+              text: "worth forking",
+            } as any)
+          }),
+        )
+        const original = (await SessionV2.entries(session.id)).map((e) => e.type)
+
+        const forked = await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            return yield* s.fork({ sessionID: session.id })
+          }),
+        )
+
+        // projected by the write path, so the rows are already there
+        expect(SessionV2.entryCount(forked.id)).toBeGreaterThan(0)
+        expect((await SessionV2.entries(forked.id)).map((e) => e.type)).toEqual(original)
+        // and they belong to the fork, not the original
+        expect((await SessionV2.entries(forked.id)).every((e) => e.sessionID === forked.id)).toBe(true)
       },
     })
   })

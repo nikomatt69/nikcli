@@ -632,8 +632,13 @@ export namespace Session {
     }
   }
 
-  async function removeMessageWithPartsImpl(sessionID: string, messageID: string) {
-    MessageRepo.removeMessage(sessionID, messageID)
+  /**
+   * `MessageRepo.removeMessage` deletes the message and its parts, but leaves
+   * the v2 entries projected from them — so this goes through the same sync
+   * event as `removeMessage`, which deletes both inside one transaction.
+   */
+  async function removeMessageWithPartsImpl(ctx: InstanceContext, sessionID: string, messageID: string) {
+    await removeMessageImpl(ctx, { sessionID, messageID })
   }
 
   async function updateMessageImpl(ctx: InstanceContext, msg: MessageV2.Info) {
@@ -1013,10 +1018,14 @@ export namespace Session {
           ),
         ),
       removeMessageWithParts: (sessionID, messageID) =>
-        Effect.tryPromise({
-          try: () => removeMessageWithPartsImpl(sessionID, messageID),
-          catch: asSessionError,
-        }),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => removeMessageWithPartsImpl(ctx, sessionID, messageID),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       updateMessage: (msg) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>

@@ -1,4 +1,4 @@
-import type { Database } from "@/database/database"
+import { Database } from "@/database/database"
 import { MessageRepo } from "../message-repo"
 import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
@@ -177,5 +177,22 @@ export namespace SessionEntryProjection {
       if (msg.info.role === "user") continue
       for (const item of msg.parts) part(tx, item)
     }
+  }
+
+  /**
+   * `backfill` in its own transaction, for the bulk importers.
+   *
+   * A teleport landing, `nikcli import` and a shared-session import all write
+   * message rows straight through `MessageRepo`, so no projector ever sees
+   * them. `entries()` would notice and rebuild on first read, but that leaves
+   * a window where the session exists with no entries — long enough for a
+   * client that opened it from an event to draw nothing. Projecting at the
+   * end of the import closes it.
+   *
+   * Must run *after* the rows are written: the projection reads them back
+   * (a part folds into its message's entry).
+   */
+  export function rebuild(sessionID: string, messages: MessageV2.WithParts[]): void {
+    Database.transaction((tx) => backfill(tx, sessionID, messages))
   }
 }

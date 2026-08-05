@@ -2,16 +2,18 @@ import { describe, expect, it } from "bun:test"
 import { features } from "@/config/features"
 
 describe("features()", () => {
-  it("defaults all flags off", () => {
+  // `tui.entryRenderer` is the one flag that has soaked and defaults on —
+  // the TUI draws the session from v2 entries unless it is explicitly off.
+  it("defaults every unsoaked flag off, and the entry renderer on", () => {
     expect(features(undefined)).toEqual({
       nativeLlm: false,
-      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false, entryRenderer: false },
+      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false, entryRenderer: true },
       requests: { latestOnlyLspRefresh: false },
       events: { schemaEncoding: false },
     })
     expect(features({})).toEqual({
       nativeLlm: false,
-      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false, entryRenderer: false },
+      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false, entryRenderer: true },
       requests: { latestOnlyLspRefresh: false },
       events: { schemaEncoding: false },
     })
@@ -30,6 +32,7 @@ describe("features()", () => {
     expect(f.tui.cacheEviction).toBe(true)
     expect(f.tui.messageVirtualization).toBe(true)
     expect(f.tui.explorationGrouping).toBe(true)
+    expect(f.tui.entryRenderer).toBe(true)
     expect(f.requests.latestOnlyLspRefresh).toBe(true)
     expect(f.events.schemaEncoding).toBe(true)
   })
@@ -38,7 +41,7 @@ describe("features()", () => {
     const f = features({
       experimental: {
         nativeLlm: false,
-        tui: { cacheEviction: false, messageVirtualization: true, explorationGrouping: false },
+        tui: { cacheEviction: false, messageVirtualization: true, explorationGrouping: false, entryRenderer: false },
         requests: { latestOnlyLspRefresh: false },
         events: { schemaEncoding: false },
       },
@@ -47,6 +50,7 @@ describe("features()", () => {
     expect(f.tui.cacheEviction).toBe(false)
     expect(f.tui.messageVirtualization).toBe(true)
     expect(f.tui.explorationGrouping).toBe(false)
+    expect(f.tui.entryRenderer).toBe(false)
     expect(f.requests.latestOnlyLspRefresh).toBe(false)
     expect(f.events.schemaEncoding).toBe(false)
   })

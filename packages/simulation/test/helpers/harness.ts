@@ -114,6 +114,11 @@ export async function start(
         NIKCLI_TEST_HOME: join(root, "home"),
         NIKCLI_DISABLE_PROJECT_CONFIG: "1",
         NIKCLI_DISABLE_DEFAULT_PLUGINS: "1",
+        // The editor bridge is discovered through ~/.claude/ide, which the
+        // temp home does not shadow — without this the CLI attaches to the
+        // developer's editor and prepends their current selection to the
+        // prompt, which then lands in a golden screen.
+        NIKCLI_DISABLE_EDITOR_CONTEXT: "1",
         NIKCLI_DISABLE_LSP_DOWNLOAD: "1",
         XDG_DATA_HOME: join(root, "xdg-data"),
         XDG_CACHE_HOME: join(root, "xdg-cache"),

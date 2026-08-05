@@ -4,6 +4,8 @@ import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { SessionRepo } from "../../session/repo"
 import { MessageRepo } from "../../session/message-repo"
+import type { MessageV2 } from "../../session/message-v2"
+import { SessionEntryProjection } from "../../session/v2/projection"
 import { Instance } from "../../project/instance"
 import { EOL } from "os"
 
@@ -188,13 +190,18 @@ export const ImportCommand = cmd({
       // Import into the current project regardless of where the export came from
       SessionRepo.upsert({ ...exportData.info, projectID: Instance.project.id })
 
+      const imported: MessageV2.WithParts[] = []
       for (const msg of exportData.messages) {
-        MessageRepo.upsertMessage({ ...msg.info, sessionID: exportData.info.id })
+        const info = { ...msg.info, sessionID: exportData.info.id }
+        MessageRepo.upsertMessage(info)
 
-        for (const part of msg.parts) {
-          MessageRepo.upsertPart({ ...part, sessionID: exportData.info.id, messageID: msg.info.id })
-        }
+        const parts = msg.parts.map((part) => ({ ...part, sessionID: exportData.info.id, messageID: msg.info.id }))
+        for (const part of parts) MessageRepo.upsertPart(part)
+        imported.push({ info, parts })
       }
+      // Written straight through MessageRepo, so no projector saw them —
+      // project the v2 entries the imported session will be read from.
+      SessionEntryProjection.rebuild(exportData.info.id, imported)
 
       process.stdout.write(`Imported session: ${exportData.info.id}`)
       process.stdout.write(EOL)

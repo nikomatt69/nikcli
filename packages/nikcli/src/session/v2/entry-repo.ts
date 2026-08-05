@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, ne } from "drizzle-orm"
 import { Database } from "@/database/database"
 import { sessionEntry } from "./entry.sql"
 import { SessionEntry } from "./entry"
@@ -79,6 +79,22 @@ export namespace SessionEntryRepo {
   export function count(sessionID: string): number {
     return db().select({ id: sessionEntry.id }).from(sessionEntry).where(eq(sessionEntry.sessionId, sessionID)).all()
       .length
+  }
+
+  /**
+   * How many distinct v1 messages this session's entries cover.
+   *
+   * Every message projects to at least one entry — a user message to its
+   * `user` entry, an assistant message to its `start` — so comparing this
+   * with `MessageRepo.countMessages` says whether the projection is complete
+   * without materializing either side.
+   */
+  export function messageCount(sessionID: string): number {
+    return db()
+      .selectDistinct({ messageId: sessionEntry.messageId })
+      .from(sessionEntry)
+      .where(and(eq(sessionEntry.sessionId, sessionID), ne(sessionEntry.messageId, "")))
+      .all().length
   }
 
   export function removeRef(sessionID: string, ref: string, tx: Executor = db()): void {

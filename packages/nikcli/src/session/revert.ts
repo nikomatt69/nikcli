@@ -1,6 +1,5 @@
 import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
-import { MessageRepo } from "./message-repo"
 import { Session } from "."
 import { Log } from "../util/log"
 import { Storage } from "../storage/storage"
@@ -243,13 +242,22 @@ export namespace SessionRevert {
       const partID = session.revert.partID
       const partIndex = target.parts.findIndex((x) => x.id === partID)
       const removeParts = partIndex === -1 ? [] : target.parts.slice(partIndex)
+      // Through the service, not `MessageRepo.removePart` + a hand-rolled
+      // publish: `removePart` runs the sync event, so the delete, the v2
+      // entry removal and the bus announcement stay one transaction. Deleting
+      // the row directly left the entry behind, and a session drawn from
+      // entries kept showing parts the revert had already thrown away.
       for (const part of removeParts) {
-        MessageRepo.removePart(target.info.id, part.id)
-        await Bus.publish(MessageV2.Event.PartRemoved, {
-          sessionID: sessionID,
-          messageID: target.info.id,
-          partID: part.id,
-        })
+        await runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            yield* sessionService.removePart({
+              sessionID,
+              messageID: target.info.id,
+              partID: part.id,
+            })
+          }),
+        )
       }
     }
     await runSession(

@@ -15,6 +15,7 @@ import { Agent } from "../../agent/agent"
 import { Storage } from "../../storage/storage"
 import { SessionRepo } from "../../session/repo"
 import { MessageRepo } from "../../session/message-repo"
+import { SessionEntryProjection } from "../../session/v2/projection"
 import type { Session } from "../../session"
 import type { MessageV2 } from "../../session/message-v2"
 import { Instance } from "../../project/instance"
@@ -342,19 +343,27 @@ async function importShareReference(input: string): Promise<string | undefined> 
     await storageWrite(["session_diff", info.id as string], normalized.diff)
   }
 
+  const imported: MessageV2.WithParts[] = []
   for (const msg of normalized.messages) {
-    MessageRepo.upsertMessage({
+    const messageInfo = {
       ...(msg.info as MessageV2.Info),
       sessionID: info.id as string,
-    })
-    for (const part of msg.parts) {
-      MessageRepo.upsertPart({
-        ...(part as MessageV2.Part),
-        sessionID: info.id as string,
-        messageID: msg.info.id as string,
-      })
     }
+    MessageRepo.upsertMessage(messageInfo)
+    const parts = msg.parts.map(
+      (part) =>
+        ({
+          ...(part as MessageV2.Part),
+          sessionID: info.id as string,
+          messageID: msg.info.id as string,
+        }) as MessageV2.Part,
+    )
+    for (const part of parts) MessageRepo.upsertPart(part)
+    imported.push({ info: messageInfo, parts })
   }
+  // Written straight through MessageRepo, so no projector saw them — project
+  // the v2 entries the imported session will be read from.
+  SessionEntryProjection.rebuild(info.id as string, imported)
 
   log.info("Share imported successfully", {
     shareID: parsed.shareID,

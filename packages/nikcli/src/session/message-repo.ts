@@ -39,6 +39,17 @@ export namespace MessageRepo {
     return rows.map((row) => JSON.parse(row.info) as MessageV2.Info)
   }
 
+  /**
+   * How many messages a session has, without deserializing any of them.
+   *
+   * Used to check that the v2 entry projection still covers every message
+   * (session/v2/index.ts) — a count is enough because every message projects
+   * to at least one entry.
+   */
+  export function countMessages(sessionId: string): number {
+    return db().select({ id: messageInfo.id }).from(messageInfo).where(eq(messageInfo.sessionId, sessionId)).all().length
+  }
+
   export function upsertMessage(msg: MessageV2.Info, tx: Executor = db()): void {
     tx.insert(messageInfo)
       .values({
