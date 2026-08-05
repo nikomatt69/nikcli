@@ -265,6 +265,7 @@ export namespace SessionProjector {
       providerID: info.providerID,
       modelID: info.modelID,
       agent: info.agent,
+      mode: info.mode,
     })
   }
 

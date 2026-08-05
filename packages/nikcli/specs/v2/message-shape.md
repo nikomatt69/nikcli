@@ -353,3 +353,59 @@ the projector's translated events into the `session_v2_event` table
 Not done yet: native v2 write path (engine swap) — v1 stays the only writer.
 Tests: `test/session/v2-conversion.test.ts`,
 `test/session/v2-projector.test.ts`, `test/session/v2-persistence.test.ts`.
+
+## The renderer seam (2026-08-05) — foundation for the TUI move
+
+The TUI renders from v1 messages and parts; every other client (mobile,
+desktop, plugins, SDK) is on entries. Converting the renderer means changing
+the data shape *and* 3971 lines of components at once, which is neither
+reviewable nor testable — so the seam goes in first.
+
+`routes/session/view.ts` defines the `Turn` model with both sources behind
+it:
+
+    fromMessages(messages, parts, …) ─┐
+                                       ├─► Turn[] ─► renderer
+    fromEntries(entries)             ─┘
+
+**The unit is the turn, and a turn is a message.** Deliberate: the renderer
+virtualizes over messages (`MESSAGE_HEIGHT_ESTIMATE`), so keying turns on
+`messageID` keeps the number of windowed units — and therefore the scroll
+maths, the fork/revert dialogs and `TurnUsage` — exactly where they are.
+Entries carry `messageID` precisely so this grouping costs nothing.
+
+`test/tui/session-view.test.ts` proves the two sources produce identical
+turns. That is what makes the eventual swap a one-line provider change with
+a known outcome instead of an exploration.
+
+Two things were needed to close the model gap, both verified:
+
+- **`mode` on `SessionEntry.Request`.** The step label renders it, and
+  `start` is by definition "what the request was made with".
+- **`rows.ts` accepts `name` as well as `tool`** (`toolOf`), so the
+  exploration-grouping logic — already dependency-free and separately tested
+  — works unchanged on either source.
+
+**There is no remaining model gap.** The renderer draws `file` parts (which
+ride on the `user` entry), text, reasoning and tools (whose full v1
+`ToolState` the `tool` entry carries verbatim). `patch`, `snapshot`,
+`step-start` and `step-finish` are never drawn, which is exactly why entries
+drop them.
+
+Not done: converting `UserMessage` / `AssistantMessage` to take a `Turn`.
+That is now mechanical — twelve fields, all mapped and pinned by the test —
+but a paint regression is user-visible and invisible to the suite, so it
+wants a golden-frame corpus captured with `packages/simulation` (which
+records terminal frames) before and after.
+
+### A determinism bug the seam's test caught
+
+`SessionEntry.fromV1Part` fell back to `Date.now()` for parts with no time of
+their own, so the live and persisted projections — which convert the same
+part independently — disagreed by a millisecond. A client that seeded from
+`/v2/entries` and then applied a live update would have seen the timestamp
+jump. Identifier ids encode their creation time, so the part is now its own
+deterministic source (`createdAt`).
+
+The failure was intermittent: it only showed when the two conversions landed
+in different milliseconds.

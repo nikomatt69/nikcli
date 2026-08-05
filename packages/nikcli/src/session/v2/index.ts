@@ -318,6 +318,7 @@ export namespace SessionV2 {
           providerID: msg.info.providerID,
           modelID: msg.info.modelID,
           agent: msg.info.agent,
+          mode: msg.info.mode,
         }),
       )
 

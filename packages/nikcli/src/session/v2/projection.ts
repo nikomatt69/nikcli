@@ -42,6 +42,7 @@ export namespace SessionEntryProjection {
           providerID: info.providerID,
           modelID: info.modelID,
           agent: info.agent,
+          mode: info.mode,
         }),
         ref: messageRef(info.id, "start"),
       },

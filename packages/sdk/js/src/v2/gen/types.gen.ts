@@ -3479,6 +3479,7 @@ export type SessionEntryRequest = {
   providerID?: string
   modelID?: string
   agent?: string
+  mode?: string
   variant?: string
   snapshot?: string
 }

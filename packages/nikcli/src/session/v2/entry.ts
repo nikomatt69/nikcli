@@ -149,6 +149,8 @@ export namespace SessionEntry {
       providerID: z.string().default(""),
       modelID: z.string().default(""),
       agent: z.string().default(""),
+      /** The agent mode the turn ran in — rendered as the step's label. */
+      mode: z.string().default(""),
       variant: z.string().optional(),
       snapshot: z.string().optional(),
     })
@@ -319,9 +321,29 @@ export namespace SessionEntry {
   }
 
   /**
+   * When a part was created, without reading the clock.
+   *
+   * The live and persisted projections convert the same part independently,
+   * so a `Date.now()` fallback made them disagree by a millisecond — a client
+   * that seeded from `/v2/entries` and then applied a live update would see
+   * the timestamp jump. Identifier ids encode their creation time, so the
+   * part itself is the deterministic source.
+   */
+  function createdAt(part: MessageV2.Part): number {
+    try {
+      return Identifier.timestamp(part.id)
+    } catch {
+      return 0
+    }
+  }
+
+  /**
    * Convert a single v1 message part to its v2 entry. Returns undefined for
    * part kinds the v2 shape does not model as entries (step markers,
    * snapshots, patches, and file/agent parts — those ride on the User entry).
+   *
+   * Deterministic: the same part always converts to the same entry, which is
+   * what lets the live and persisted projections agree without coordinating.
    */
   export function fromV1Part(part: MessageV2.Part, ctx: FromV1Context): Entry | undefined {
     const base = {
@@ -337,7 +359,7 @@ export namespace SessionEntry {
       case "text":
         return Text.parse({
           ...base,
-          timestamp: ctx.timestamp ?? part.time?.start ?? Date.now(),
+          timestamp: ctx.timestamp ?? part.time?.start ?? createdAt(part),
           type: "text",
           text: part.text,
           ignored: part.ignored,
@@ -347,7 +369,7 @@ export namespace SessionEntry {
       case "reasoning":
         return Reasoning.parse({
           ...base,
-          timestamp: ctx.timestamp ?? part.time?.start ?? Date.now(),
+          timestamp: ctx.timestamp ?? part.time?.start ?? createdAt(part),
           type: "reasoning",
           text: part.text,
           completed: part.time?.end,
@@ -355,7 +377,7 @@ export namespace SessionEntry {
       case "tool":
         return Tool.parse({
           ...base,
-          timestamp: ctx.timestamp ?? Date.now(),
+          timestamp: ctx.timestamp ?? createdAt(part),
           type: "tool",
           callID: part.callID,
           name: part.tool,
@@ -365,7 +387,7 @@ export namespace SessionEntry {
       case "subtask":
         return Subtask.parse({
           ...base,
-          timestamp: ctx.timestamp ?? Date.now(),
+          timestamp: ctx.timestamp ?? createdAt(part),
           type: "subtask",
           prompt: part.prompt,
           description: part.description,
@@ -385,7 +407,7 @@ export namespace SessionEntry {
       case "compaction":
         return Compaction.parse({
           ...base,
-          timestamp: ctx.timestamp ?? Date.now(),
+          timestamp: ctx.timestamp ?? createdAt(part),
           type: "compaction",
           auto: part.auto,
         })

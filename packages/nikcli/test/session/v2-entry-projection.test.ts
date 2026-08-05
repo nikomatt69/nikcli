@@ -405,8 +405,14 @@ describe("live and persisted projections agree", () => {
         )
 
         const persisted = await SessionV2.entries(session.id)
+        // The live entry is compared in its wire form: `session.entry.updated`
+        // reaches clients as JSON over SSE, and the persisted side has been
+        // through the same round trip on its way into the row. Comparing the
+        // in-memory object instead would fail on nothing but `k: undefined`
+        // vs. absent `k`, which no client can observe.
         const live = [...client.values()]
           .filter((entry) => entry.sessionID === session.id)
+          .map((entry) => JSON.parse(JSON.stringify(entry)) as SessionEntryTypes.Entry)
           .toSorted((a, b) => a.id.localeCompare(b.id))
 
         expect(live.map((e) => e.id)).toEqual(persisted.map((e) => e.id))

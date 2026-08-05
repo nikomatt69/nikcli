@@ -13,12 +13,24 @@
  * groups within one assistant message rather than across a whole session.
  */
 
-/** Minimum shape `groupParts` needs. Real parts carry much more. */
+/**
+ * Minimum shape `groupParts` needs. Real parts carry much more.
+ *
+ * `tool` is the v1 part's field, `name` the v2 entry's. Both are accepted so
+ * this module works unchanged on either source — it is the one piece of the
+ * render pipeline that was already shaped to be portable.
+ */
 export type RowPart = {
   readonly type: string
   readonly callID?: string
   readonly tool?: string
+  readonly name?: string
   readonly state?: { readonly status?: string }
+}
+
+/** The tool a row refers to, whichever source it came from. */
+export function toolOf(part: RowPart): string | undefined {
+  return part.tool ?? part.name
 }
 
 export type ExplorationGroup<Part> = {
@@ -85,7 +97,7 @@ export function groupParts<Part extends RowPart>(
   }
 
   for (const part of parts) {
-    if (part.type !== "tool" || !isExplorationTool(part.tool)) {
+    if (part.type !== "tool" || !isExplorationTool(toolOf(part))) {
       closeRun()
       rows.push({ type: "part", part })
       continue
