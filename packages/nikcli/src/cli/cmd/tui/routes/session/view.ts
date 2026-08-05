@@ -239,9 +239,7 @@ function sameRequest(a: Turn["request"], b: Turn["request"]): boolean {
 function sameComplete(a: Turn["complete"], b: Turn["complete"]): boolean {
   if (a === b) return true
   if (!a || !b) return false
-  return (
-    a.finish === b.finish && a.error === b.error && a.outputTokens === b.outputTokens && a.cost === b.cost
-  )
+  return a.finish === b.finish && a.error === b.error && a.outputTokens === b.outputTokens && a.cost === b.cost
 }
 
 function sameBody(a: readonly ViewEntry[], b: readonly ViewEntry[]): boolean {
@@ -252,4 +250,3 @@ function sameBody(a: readonly ViewEntry[], b: readonly ViewEntry[]): boolean {
   }
   return true
 }
-

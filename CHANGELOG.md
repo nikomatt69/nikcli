@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.240.0 (August 2026)
+
+## Core
+
+- Introduce math rendering plugin for LaTeX in messages (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tui): introduce math rendering plugin for LaTeX in messages
+
 ## v1.239.0 (August 2026)
 
 ## Core

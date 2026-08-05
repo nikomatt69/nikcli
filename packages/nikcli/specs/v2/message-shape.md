@@ -463,7 +463,7 @@ What the removal is worth: the TUI held the conversation twice — v1 messages
 and parts for the renderer, v2 entries for everything else — and had to keep
 the two agreeing. It now holds one. (`store.message` / `store.part` stay:
 `TurnUsage`, the pending/last-assistant lookups and the fork/revert dialogs
-still read message-level v1 state. The *renderer* is what moved.)
+still read message-level v1 state. The _renderer_ is what moved.)
 
 ### The flicker, and why it was never about paint
 
@@ -471,8 +471,8 @@ Turning the source over exposed a defect that had been there all along.
 `<For>` reconciles by **reference**, and `fromEntries` allocates a fresh
 `Turn` for every message on every run. So every entry that arrived — a tool
 call, a new text part, the `complete` sealing a turn — handed `<For>` an
-entirely new list, and Solid disposed and recreated *every message in the
-conversation*. Several full teardowns per assistant turn, worse the longer
+entirely new list, and Solid disposed and recreated _every message in the
+conversation_. Several full teardowns per assistant turn, worse the longer
 the session.
 
 `stabilize(previous, next)` returns the previous object for a turn that did
@@ -481,11 +481,11 @@ not change, so only the turn that actually changed is rebuilt.
 Comparing `body` **by reference** is what makes it work and what keeps
 streamed text live at the same time:
 
-| what changes            | how the store changes it        | what the renderer does           |
-| ----------------------- | ------------------------------- | -------------------------------- |
+| what changes            | how the store changes it            | what the renderer does                                               |
+| ----------------------- | ----------------------------------- | -------------------------------------------------------------------- |
 | a token lands in a part | entry updated in place, `reconcile` | nothing above the leaf moves; the leaf repaints reading `entry.text` |
-| a new part starts       | entry spliced into the array    | that one turn is rebuilt         |
-| the turn is sealed      | `complete` entry appended       | that one turn is rebuilt         |
+| a new part starts       | entry spliced into the array        | that one turn is rebuilt                                             |
+| the turn is sealed      | `complete` entry appended           | that one turn is rebuilt                                             |
 
 That table is the design. The persisted projection updating entries in place
 (see "One projection, two latencies") is precisely what lets identity above
