@@ -14,10 +14,10 @@ import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqli
  * `#complete` / `#user` key for the message-level ones. Upserting on it is
  * what makes a streaming delta a single-row write.
  *
- * `sortKey` gives the conversation its order without depending on insertion
- * time: `<messageID>#<rank>#<partID>`, where rank places `start` before the
- * parts and `complete` after them. Message ids and part ids are both
- * ascending, so lexicographic order is chronological order.
+ * Ordering is the `id` itself — see `SessionEntry.idForPart`. Keeping a
+ * separate sort column would mean the server ordered by one convention and
+ * clients by another, and the two would drift; deriving the id so that
+ * lexicographic order *is* conversation order removes the question.
  */
 export const sessionEntry = sqliteTable(
   "session_entry",
@@ -31,12 +31,11 @@ export const sessionEntry = sqliteTable(
     ref: text("ref").notNull(),
     /** Full JSON-serialized SessionEntry */
     info: text("info").notNull(),
-    sortKey: text("sort_key").notNull(),
     timestamp: integer("timestamp").notNull(),
   },
   (table) => ({
     refIdx: uniqueIndex("idx_session_entry_ref").on(table.sessionId, table.ref),
-    sessionIdx: index("idx_session_entry_session").on(table.sessionId, table.sortKey),
+    sessionIdx: index("idx_session_entry_session").on(table.sessionId, table.id),
     messageIdx: index("idx_session_entry_message").on(table.messageId),
   }),
 )

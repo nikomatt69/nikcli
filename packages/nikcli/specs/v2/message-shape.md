@@ -240,16 +240,36 @@ real log, with real sequence numbers. Token-level part updates are absent
 from it by construction (`log: false`), which is correct — the state they
 would rebuild is `entries()`.
 
-**Entry ids are derived, not generated.** `SessionEntry.idForPart(partID)`
-maps `prt_XXX` → `evt_XXX`; `idForMessage(messageID, kind)` maps `msg_XXX` →
-`evt_XXX_start`. This is what lets the two projections agree without
-coordinating: a client applying a live `session.entry.updated` and a client
-re-reading `/v2/entries` converge on the same rows. It also removed the
+**Entry ids are derived, and they are also the sort key.**
+
+`idForPart(messageID, partID)` → `evt_<messageBody>_1_<partBody>`;
+`idForMessage(messageID, kind)` → `evt_<messageBody>_<rank>` with rank
+`user`/`start` = 0, parts = 1, `complete` = 2, `compaction` = 3.
+
+*Derived* is what lets the two projections agree without coordinating: a
+client applying a live `session.entry.updated` and a client re-reading
+`/v2/entries` converge on the same entries. It also removed the
 read-before-write in `SessionEntryRepo.upsert` (which existed only to keep
 the id stable) and guarantees an id never churns mid-stream.
 
-opencode's commented-out projector sketches the same trick as
+*Also the sort key* because otherwise the server would order by one
+convention (a `sort_key` column) and clients by another (the id), and the two
+would drift — `evt_X_complete` sorts before `evt_X_start` if you order the
+naive way. Identifier bodies are fixed-length and ascending, so lexicographic
+id order is conversation order. `session_entry` therefore has no `sort_key`
+column (migration `20260805130000` rebuilds the table without it; a
+projection is disposable, so it is dropped and backfilled rather than
+altered).
+
+opencode's commented-out projector sketches the deriving half as
 `data.part.id.replace("prt", "ent")`.
+
+**A user message's parts fold into its `user` entry** — in both projections.
+The live one has to look the message up to know that; publishing part entries
+for them would hand a streaming client entries the projection does not have.
+`test/session/v2-entry-projection.test.ts` asserts the two agree
+entry-for-entry over a conversation with streamed deltas, tool transitions
+and a removed part; it is the test that protects the whole design.
 
 **Why two latencies and not one.** Streaming text is coalesced before it hits
 disk (150ms, `SessionProcessor.updatePartCoalesced`), so `session_entry` lags

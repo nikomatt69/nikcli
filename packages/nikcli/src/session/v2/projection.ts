@@ -16,7 +16,6 @@ import { SessionEntryRepo } from "./entry-repo"
 export namespace SessionEntryProjection {
   type Executor = Database.TxOrDb
 
-  const { Rank } = SessionEntryRepo
   const messageRef = SessionEntry.refForMessage
 
   /**
@@ -45,7 +44,6 @@ export namespace SessionEntryProjection {
           agent: info.agent,
         }),
         ref: messageRef(info.id, "start"),
-        rank: Rank.head,
       },
       tx,
     )
@@ -67,7 +65,6 @@ export namespace SessionEntryProjection {
             error: info.error,
           }),
           ref: messageRef(info.id, "complete"),
-          rank: Rank.complete,
         },
         tx,
       )
@@ -85,7 +82,6 @@ export namespace SessionEntryProjection {
             auto: true,
           }),
           ref: messageRef(info.id, "compaction"),
-          rank: Rank.trailer,
         },
         tx,
       )
@@ -117,7 +113,6 @@ export namespace SessionEntryProjection {
           agents: parts.filter((part) => part.type === "agent"),
         }),
         ref: messageRef(info.id, "user"),
-        rank: Rank.head,
       },
       tx,
     )
@@ -145,8 +140,6 @@ export namespace SessionEntryProjection {
       {
         entry,
         ref: input.id,
-        rank: Rank.part,
-        suffix: input.id,
       },
       tx,
     )

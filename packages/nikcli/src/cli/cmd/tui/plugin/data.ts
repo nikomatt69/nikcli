@@ -69,7 +69,6 @@ function permissionKey(rule: PermissionRule) {
 export function createV2Data(input: Input): Data {
   const [locations, setLocations] = createStore<Record<string, LocationData>>({})
   const [pending, setPending] = createStore<Record<string, SessionPendingInfo[]>>({})
-  const [entries, setEntries] = createStore<Record<string, SessionEntryInfo[]>>({})
   const [forms, setForms] = createStore<Record<string, Array<QuestionRequest & { readonly location?: LocationRef }>>>(
     {},
   )
@@ -230,13 +229,17 @@ export function createV2Data(input: Input): Data {
           setPending(sessionID, reconcile((response.data?.pending ?? []) as PendingEntry[]))
         },
       },
+      // Reads the shared sync store rather than a store of its own: that
+      // store is kept live by `session.entry.updated`, so a second copy here
+      // would go stale the moment anything streamed. `refresh` seeds it, the
+      // same way `refreshMessages` seeds `message`/`part`.
       entry: {
         list(sessionID) {
-          return entries[sessionID] ?? []
+          return input.sync.data.entry[sessionID] ?? []
         },
         async refresh(sessionID) {
           const response = await input.sdk.client.session.v2.entries({ sessionID }, { throwOnError: true })
-          setEntries(sessionID, reconcile((response.data ?? []) as SessionEntryInfo[]))
+          input.sync.set("entry", sessionID, reconcile((response.data ?? []) as SessionEntryInfo[]))
         },
       },
       async refresh(sessionID) {

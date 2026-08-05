@@ -12,12 +12,11 @@ export default {
         type TEXT NOT NULL,
         ref TEXT NOT NULL,
         info TEXT NOT NULL,
-        sort_key TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
 
       CREATE UNIQUE INDEX IF NOT EXISTS idx_session_entry_ref ON session_entry(session_id, ref);
-      CREATE INDEX IF NOT EXISTS idx_session_entry_session ON session_entry(session_id, sort_key);
+      CREATE INDEX IF NOT EXISTS idx_session_entry_session ON session_entry(session_id, id);
       CREATE INDEX IF NOT EXISTS idx_session_entry_message ON session_entry(message_id);
     `)
   },

@@ -97,7 +97,7 @@ describe("live v2 entry stream", () => {
         const texts = updates.filter((u) => u.entry.type === "text")
         expect(texts).toHaveLength(3)
         expect(new Set(texts.map((t) => t.entry.id)).size).toBe(1)
-        expect(texts[0]!.entry.id).toBe(SessionEntry.idForPart(textPart.id))
+        expect(texts[0]!.entry.id).toBe(SessionEntry.idForPart(info.id, textPart.id))
         expect((texts[2]!.entry as SessionEntryTypes.Text).text).toBe("partial answer, final")
 
         // completion publishes the sealing entry
@@ -138,7 +138,7 @@ describe("live v2 entry stream", () => {
         })
         await Bus.publish(MessageV2.Event.PartRemoved, { sessionID, messageID: info.id, partID })
 
-        expect(removed).toEqual([SessionEntry.idForPart(partID)])
+        expect(removed).toEqual([SessionEntry.idForPart(info.id, partID)])
         unsubscribe()
       },
     })

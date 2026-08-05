@@ -4,6 +4,7 @@ import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
 import { Schema } from "effect"
 import { Session } from "../index"
+import { MessageRepo } from "../message-repo"
 import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
 import { SessionEntryRepo } from "./entry-repo"
@@ -187,11 +188,21 @@ export namespace SessionProjector {
           // Entries are published for every part of every message, in flight
           // or not: the live stream is the v2 read model, so a consumer that
           // only listens to it must not miss anything.
-          const entry = SessionEntry.fromV1Part(part, {
-            sessionID: part.sessionID,
-            messageID: part.messageID,
-          })
-          if (entry) publishEntry(part.sessionID, entry)
+          //
+          // A user message's parts are the exception — they fold into that
+          // message's single `user` entry rather than becoming entries of
+          // their own, exactly as the persisted projection does. Publishing
+          // them separately would give a streaming client an entry the
+          // projection does not have.
+          if (isUserMessage(part.sessionID, part.messageID)) {
+            publishStored(part.sessionID, SessionEntry.refForMessage(part.messageID, "user"))
+          } else {
+            const entry = SessionEntry.fromV1Part(part, {
+              sessionID: part.sessionID,
+              messageID: part.messageID,
+            })
+            if (entry) publishEntry(part.sessionID, entry)
+          }
 
           if (!target || target.inflight !== part.messageID) return
           if (part.type !== "retry") {
@@ -206,7 +217,11 @@ export namespace SessionProjector {
 
         Bus.subscribe(MessageV2.Event.PartRemoved, (event) => {
           const { sessionID, messageID, partID } = event.properties
-          void Bus.publish(Event.EntryRemoved, { sessionID, entryID: SessionEntry.idForPart(partID) })
+          if (isUserMessage(sessionID, messageID)) {
+            publishStored(sessionID, SessionEntry.refForMessage(messageID, "user"))
+          } else {
+            void Bus.publish(Event.EntryRemoved, { sessionID, entryID: SessionEntry.idForPart(messageID, partID) })
+          }
           const target = s.sessions.get(sessionID)
           if (!target || target.inflight !== messageID) return
           target.seen.delete(partID)
@@ -266,6 +281,19 @@ export namespace SessionProjector {
       finish: info.finish,
       error: info.error,
     })
+  }
+
+  /**
+   * Whether a part belongs to a user message. The bus fires after the write
+   * commits, so the row is there to be read.
+   */
+  function isUserMessage(sessionID: string, messageID: string): boolean {
+    try {
+      return MessageRepo.getMessage(sessionID, messageID)?.role === "user"
+    } catch (error) {
+      log.warn("failed to resolve message role", { sessionID, messageID, error })
+      return false
+    }
   }
 
   function publishEntry(sessionID: string, entry: SessionEntry.Entry) {

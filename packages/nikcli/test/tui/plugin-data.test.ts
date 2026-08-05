@@ -57,6 +57,7 @@ function fixture() {
   const connector = { status: "connected" } as ConnectorStatus
   const mcp = { status: "connected" } as McpStatus
   const pending = { id: "pending", sessionID: "root", type: "user", timestamp: 1, text: "hello" } as SessionEntry
+  const entry = { id: "evt_root", sessionID: "root", type: "user", timestamp: 1, text: "seeded" } as SessionEntry
   const messages = {
     root: [{ id: "root-message", role: "assistant", cost: 1 }],
     child: [{ id: "child-message", role: "assistant", cost: 2 }],
@@ -76,6 +77,7 @@ function fixture() {
     mcp_resource: { resource },
     provider: [provider],
     config: { reference: { docs: { type: "local", path: "/docs" } } },
+    entry: {} as Record<string, SessionEntry[]>,
   })
 
   const response = <T>(data: T) => Promise.resolve({ data })
@@ -90,7 +92,10 @@ function fixture() {
             parts: [{ id: "part" }],
           },
         ]),
-      v2: { state: () => response({ entries: [pending], pending: [pending] }) },
+      v2: {
+        state: () => response({ entries: [pending], pending: [pending] }),
+        entries: () => response([entry]),
+      },
     },
     permission: { list: () => response([permission]) },
     question: { list: () => response([form]) },
@@ -124,12 +129,12 @@ function fixture() {
     onEnvelope: () => () => {},
   }
   const route = { data: { type: "home", workspaceID: "workspace" } }
-  return { data: createV2Data({ sdk, sync, route } as never), root, child }
+  return { data: createV2Data({ sdk, sync, route } as never), root, child, store }
 }
 
 describe("v2 tui plugin data", () => {
   it("implements the complete reactive context contract", async () => {
-    const { data } = fixture()
+    const { data, store } = fixture()
 
     expect(data.location.default()).toEqual({ directory: "/repo", workspaceID: "workspace" })
     expect(data.session.list().map((session) => session.id)).toEqual(["child", "root"])
@@ -143,6 +148,7 @@ describe("v2 tui plugin data", () => {
 
     await Promise.all([
       data.session.pending.refresh("root"),
+      data.session.entry.refresh("root"),
       data.session.refresh("root"),
       data.session.message.refresh("root"),
       data.session.permission.refresh("root"),
@@ -162,6 +168,10 @@ describe("v2 tui plugin data", () => {
     ])
 
     expect(data.session.pending.list("root")[0]?.id).toBe("pending")
+    // entries live in the shared sync store, not a second copy: refresh seeds
+    // it, and `session.entry.updated` keeps it live from there
+    expect(data.session.entry.list("root").map((e) => e.id)).toEqual(["evt_root"])
+    expect(store.entry.root?.[0]?.id).toBe("evt_root")
     expect(data.session.message.get("root", "root-message")?.parts[0]?.id).toBe("part")
     expect(data.session.permission.list("root")?.[0]?.id).toBe("permission")
     expect(data.session.form.list("root")?.[0]?.id).toBe("form")

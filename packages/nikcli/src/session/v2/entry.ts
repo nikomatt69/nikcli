@@ -31,31 +31,51 @@ export namespace SessionEntry {
   /** Message-level entries: the kinds that frame a turn rather than stream. */
   export type MessageKind = "user" | "start" | "complete" | "compaction"
 
+  /**
+   * Rank within a message. `start` (and a user message's single entry) comes
+   * first, then the parts, then the sealing `complete`, then any trailer.
+   * One digit, so it compares lexicographically.
+   */
+  const RANK: Record<MessageKind | "part", number> = {
+    user: 0,
+    start: 0,
+    part: 1,
+    complete: 2,
+    compaction: 3,
+  }
+
   function body(id: string) {
     const underscore = id.indexOf("_")
     return underscore < 0 ? id : id.slice(underscore + 1)
   }
 
   /**
-   * The entry id for a v1 part, derived from the part id.
+   * Entry ids are **derived, and they are also the sort key**.
    *
-   * Deriving rather than generating is what lets the live projection and the
-   * persisted one agree without coordinating: both compute the same id from
-   * the same part, so a client applying a live `session.entry.updated` and a
-   * client re-reading `/v2/entries` converge on the same row. It also means
-   * an id never churns across a stream of deltas, which would remount the
-   * entry in every consumer on every token.
+   * Derived — rather than generated — is what lets the live projection and
+   * the persisted one agree without coordinating: both compute the same id
+   * from the same v1 row, so a client applying a live `session.entry.updated`
+   * and a client re-reading `/v2/entries` converge on the same entries. It
+   * also means an id never churns across a stream of deltas, which would
+   * remount the entry in every consumer on every token.
    *
-   * opencode's commented-out projector sketches the same trick as
+   * Also the sort key — `<messageBody>_<rank>[_<partBody>]` — because
+   * otherwise the server would order by one convention and clients by
+   * another, and the two would drift. Identifier bodies are fixed-length and
+   * ascending, so lexicographic order is conversation order: every entry of
+   * an earlier message sorts before every entry of a later one, and within a
+   * message `start` precedes the parts precedes `complete`.
+   *
+   * opencode's commented-out projector sketches the deriving half as
    * `data.part.id.replace("prt", "ent")`.
    */
-  export function idForPart(partID: string): string {
-    return `evt_${body(partID)}`
+  export function idForPart(messageID: string, partID: string): string {
+    return `evt_${body(messageID)}_${RANK.part}_${body(partID)}`
   }
 
   /** The entry id for a message-level entry. */
   export function idForMessage(messageID: string, kind: MessageKind): string {
-    return `evt_${body(messageID)}_${kind}`
+    return `evt_${body(messageID)}_${RANK[kind]}`
   }
 
   /** The stable identity of a message-level entry within its session. */
@@ -307,7 +327,7 @@ export namespace SessionEntry {
     const base = {
       // Derived, not generated: the live and persisted projections have to
       // land on the same id without coordinating. See `idForPart`.
-      id: ctx.id ?? idForPart(part.id),
+      id: ctx.id ?? idForPart(ctx.messageID ?? part.messageID, part.id),
       sessionID: ctx.sessionID,
       messageID: ctx.messageID ?? part.messageID,
       ref: part.id,

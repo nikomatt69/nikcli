@@ -22,28 +22,14 @@ export namespace SessionEntryRepo {
     return Database.syncDb()
   }
 
-  /** Rank within a message: `start` before the parts, `complete` after them. */
-  export const Rank = {
-    head: 0,
-    part: 1,
-    complete: 2,
-    trailer: 3,
-  } as const
-
-  function sortKeyFor(messageID: string, rank: number, suffix = "") {
-    return `${messageID}#${rank}${suffix ? `#${suffix}` : ""}`
-  }
-
   export interface UpsertInput {
     entry: SessionEntry.Entry
+    /** Stable identity within the session — the upsert key. */
     ref: string
-    rank: number
-    /** Discriminates rows that share a rank — the part id, for parts. */
-    suffix?: string
   }
 
   export function upsert(input: UpsertInput, tx: Executor = db()): void {
-    const { entry, ref, rank, suffix } = input
+    const { entry, ref } = input
     const messageID = entry.messageID ?? ""
 
     // No read-before-write: entry ids are derived from the v1 id they come
@@ -61,7 +47,6 @@ export namespace SessionEntryRepo {
         type: stable.type,
         ref,
         info,
-        sortKey: sortKeyFor(messageID, rank, suffix),
         timestamp: stable.timestamp,
       })
       .onConflictDoUpdate({
@@ -76,7 +61,7 @@ export namespace SessionEntryRepo {
       .select({ info: sessionEntry.info })
       .from(sessionEntry)
       .where(eq(sessionEntry.sessionId, sessionID))
-      .orderBy(asc(sessionEntry.sortKey))
+      .orderBy(asc(sessionEntry.id))
       .all()
     return rows.map((row) => JSON.parse(row.info) as SessionEntry.Entry)
   }

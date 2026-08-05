@@ -14,15 +14,25 @@ process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
 preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
-const [{ Identifier }, { Instance }, { Session }, { SessionV2 }, { SessionEntryRepo }, { Database }] =
-  await Promise.all([
-    import("../../src/id/id"),
-    import("../../src/project/instance"),
-    import("../../src/session"),
-    import("../../src/session/v2"),
-    import("../../src/session/v2/entry-repo"),
-    import("../../src/database/database"),
-  ])
+const [
+  { Identifier },
+  { Instance },
+  { Session },
+  { SessionV2 },
+  { SessionEntryRepo },
+  { Database },
+  { Bus },
+  { SessionProjector },
+] = await Promise.all([
+  import("../../src/id/id"),
+  import("../../src/project/instance"),
+  import("../../src/session"),
+  import("../../src/session/v2"),
+  import("../../src/session/v2/entry-repo"),
+  import("../../src/database/database"),
+  import("../../src/bus"),
+  import("../../src/session/v2/projector"),
+])
 
 const projectDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-entry-projection-project-")))
 
@@ -299,6 +309,111 @@ describe("v2 entry projection", () => {
         )
 
         expect(SessionV2.entryCount(session.id)).toBe(0)
+      },
+    })
+  })
+})
+
+/**
+ * The load-bearing invariant of the whole design: the live projection (bus →
+ * `session.entry.updated`) and the persisted one (`session_entry`, written in
+ * the v1 write transaction) never coordinate, and must still agree. They do
+ * because entry ids are derived from the v1 ids — and because those ids are
+ * also the sort key, so a client ordering by id gets the same order the server
+ * serves.
+ *
+ * If someone ever replaces the derived ids with generated ones, this fails.
+ */
+describe("live and persisted projections agree", () => {
+  it("a client applying only live events reconstructs exactly /v2/entries", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        SessionProjector.init()
+
+        // A client's view: a map keyed by entry id, ordered by id — which is
+        // precisely what the TUI sync store does.
+        const client = new Map<string, SessionEntryTypes.Entry>()
+        const unsubscribes = [
+          Bus.subscribe(SessionProjector.Event.EntryUpdated, (event) => {
+            const { entry } = event.properties as { entry: SessionEntryTypes.Entry }
+            client.set(entry.id, entry)
+          }),
+          Bus.subscribe(SessionProjector.Event.EntryRemoved, (event) => {
+            client.delete((event.properties as { entryID: string }).entryID)
+          }),
+        ]
+
+        const { session, assistantID, assistant } = await conversation()
+
+        const textPart = {
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: assistantID,
+          type: "text",
+          text: "",
+        }
+        const toolPart = {
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: assistantID,
+          type: "tool",
+          callID: "c1",
+          tool: "read",
+          state: { status: "pending", input: {}, raw: "" },
+        }
+        const doomedPart = {
+          id: Identifier.ascending("part"),
+          sessionID: session.id,
+          messageID: assistantID,
+          type: "text",
+          text: "removed later",
+        }
+
+        await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            // a stream of deltas on one part
+            for (const text of ["a", "ab", "abc"]) yield* s.updatePart({ ...textPart, text } as any)
+            // a tool moving through its states
+            yield* s.updatePart(toolPart as any)
+            yield* s.updatePart({
+              ...toolPart,
+              state: { status: "running", input: { filePath: "a.ts" }, time: { start: 1 } },
+            } as any)
+            yield* s.updatePart({
+              ...toolPart,
+              state: {
+                status: "completed",
+                input: { filePath: "a.ts" },
+                output: "ok",
+                title: "a.ts",
+                metadata: {},
+                time: { start: 1, end: 2 },
+              },
+            } as any)
+            // a part that appears and then goes away
+            yield* s.updatePart(doomedPart as any)
+            yield* s.removePart({
+              sessionID: session.id,
+              messageID: assistantID,
+              partID: doomedPart.id,
+            })
+            // seal the step
+            yield* s.updateMessage({ ...assistant, time: { created: 2, completed: 3 }, finish: "stop" } as any)
+          }),
+        )
+
+        const persisted = await SessionV2.entries(session.id)
+        const live = [...client.values()]
+          .filter((entry) => entry.sessionID === session.id)
+          .toSorted((a, b) => a.id.localeCompare(b.id))
+
+        expect(live.map((e) => e.id)).toEqual(persisted.map((e) => e.id))
+        expect(live.map((e) => e.type)).toEqual(persisted.map((e) => e.type))
+        expect(live).toEqual(persisted)
+
+        for (const unsubscribe of unsubscribes) unsubscribe()
       },
     })
   })
