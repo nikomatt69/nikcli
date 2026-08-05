@@ -5,6 +5,9 @@ import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
 import type { SessionEvent } from "./event"
 import { SessionV2EventRepo } from "./event-repo"
+import { SessionEntryRepo } from "./entry-repo"
+import { SessionEntryProjection } from "./projection"
+import { Database } from "@/database/database"
 import { SessionProjector } from "./projector"
 import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
@@ -124,17 +127,59 @@ export namespace SessionV2 {
 
   /**
    * Get v2 entries for a session.
-   * Storage (v1) is the authoritative source for committed messages; the
-   * projector's in-flight assistant reduction is appended as the live tail.
+   *
+   * `session_entry` is authoritative: the projectors write it in the same
+   * transaction as the v1 row it derives from, so it covers committed and
+   * in-flight work alike and cannot have drifted. A session written before
+   * the table existed has no rows, so the first read backfills it from v1
+   * messages — a one-time cost per legacy session.
+   *
+   * The live projector tail is *not* appended here: it would duplicate rows
+   * the projection already holds. Consumers that want the sub-flush-interval
+   * tail read `state()` / `pending()`.
    */
   export async function entries(sessionID: string): Promise<SessionEntry.Entry[]> {
+    const rows = SessionEntryRepo.list(sessionID)
+    if (rows.length > 0) return rows
+
     const messages = await runSession(
       Effect.gen(function* () {
         const session = yield* Session.Service
         return yield* session.messages({ sessionID })
       }),
     )
-    return [...toEntries(messages, sessionID), ...SessionProjector.snapshot(sessionID).pending]
+    if (messages.length === 0) return []
+
+    try {
+      Database.transaction((tx) => {
+        SessionEntryProjection.backfill(tx, sessionID, messages)
+      })
+      return SessionEntryRepo.list(sessionID)
+    } catch (error) {
+      // A backfill failure must not make history unreadable: fall back to
+      // converting in memory, and let the next read try again.
+      log.warn("failed to backfill session entries", { sessionID, error })
+      return toEntries(messages, sessionID)
+    }
+  }
+
+  /** Number of persisted entries for a session, without materializing them. */
+  export function entryCount(sessionID: string): number {
+    return SessionEntryRepo.count(sessionID)
+  }
+
+  /** Force a rebuild of a session's entry projection from its v1 messages. */
+  export async function reproject(sessionID: string): Promise<SessionEntry.Entry[]> {
+    const messages = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.messages({ sessionID })
+      }),
+    )
+    Database.transaction((tx) => {
+      SessionEntryProjection.backfill(tx, sessionID, messages)
+    })
+    return SessionEntryRepo.list(sessionID)
   }
 
   /**

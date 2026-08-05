@@ -89,9 +89,8 @@ export namespace SyncEvent {
 
   export const registry = new Map<string, Definition>()
   const versions = new Map<string, number>()
-  let projectors: Map<Definition, ProjectorFunc> | undefined
-  let frozen = false
-  let convertEvent: ConvertEvent = (_, data) => data as Record<string, unknown>
+  const projectors = new Map<Definition, ProjectorFunc>()
+  const converters: ConvertEvent[] = []
 
   type Listener = (input: { def: Definition; event: Event }) => void
   const listeners = new Set<Listener>()
@@ -126,10 +125,6 @@ export namespace SyncEvent {
     bus?: () => BusEvent.Definition
     log?: boolean
   }) {
-    if (frozen) {
-      throw new Error(`Error defining sync event "${input.type}": the sync system has been frozen by init()`)
-    }
-
     const def = {
       type: input.type,
       version: input.version,
@@ -155,14 +150,20 @@ export namespace SyncEvent {
   }
 
   /**
-   * Install projectors and freeze the registry.
+   * Install a domain's projectors.
+   *
+   * Additive, unlike opencode's `init`, which replaces the projector map and
+   * then freezes the registry so a later `define` throws. nikcli loads
+   * domains independently — and a test file that installs its own events
+   * would otherwise poison every module loaded after it in the same process
+   * — so installing merges and defining stays open.
    *
    * Only the latest version of each event is registered on the Bus: code
    * emits latest only, and replaying an old version never goes through the
    * Bus, so the Bus stays free of version suffixes.
    */
   export function init(input: { projectors: Array<[Definition, ProjectorFunc]>; convertEvent?: ConvertEvent }) {
-    projectors = new Map(input.projectors)
+    for (const [def, func] of input.projectors) projectors.set(def, func)
 
     for (const [type, version] of versions.entries()) {
       const def = registry.get(versionedType(type, version))
@@ -174,20 +175,30 @@ export namespace SyncEvent {
       BusEvent.define(def.type, def.properties)
     }
 
-    frozen = true
-    convertEvent = input.convertEvent ?? ((_, data) => data as Record<string, unknown>)
-    log.info("initialized", { events: registry.size, projectors: input.projectors.length })
+    if (input.convertEvent && !converters.includes(input.convertEvent)) converters.push(input.convertEvent)
+    log.info("projectors installed", { events: registry.size, projectors: projectors.size })
   }
 
-  /** Drop projectors and unfreeze. Tests only. */
+  /** Drop every projector. Tests only. */
   export function reset() {
-    frozen = false
-    projectors = undefined
-    convertEvent = (_, data) => data as Record<string, unknown>
+    projectors.clear()
+    converters.length = 0
+  }
+
+  /** Whether a projector is installed for this definition. */
+  export function installed(def: Definition) {
+    return projectors.has(def)
   }
 
   export function initialized() {
-    return projectors !== undefined
+    return projectors.size > 0
+  }
+
+  /** Apply every registered reshape, in installation order. */
+  function convertEvent(type: string, data: unknown): Record<string, unknown> {
+    let result = data as Record<string, unknown>
+    for (const converter of converters) result = converter(type, result)
+    return result
   }
 
   // ============================================================================
@@ -217,10 +228,6 @@ export namespace SyncEvent {
    * while the write lock is held.
    */
   function process(def: Definition, event: Event, tx: Database.TxOrDb, options: { publish: boolean }) {
-    if (!projectors) {
-      throw new Error("No projectors installed. Call SyncEvent.init() before running events")
-    }
-
     const projector = projectors.get(def)
     if (!projector) {
       throw new Error(`Projector not found for event: ${def.type}`)

@@ -3458,9 +3458,9 @@ export type SessionEntryRequest = {
     [key: string]: unknown
   }
   type: "start"
-  providerID: string
-  modelID: string
-  agent: string
+  providerID?: string
+  modelID?: string
+  agent?: string
   variant?: string
   snapshot?: string
 }

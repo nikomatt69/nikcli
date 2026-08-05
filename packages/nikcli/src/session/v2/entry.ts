@@ -84,9 +84,12 @@ export namespace SessionEntry {
     .object({
       ...Base,
       type: z.literal("start"),
-      providerID: z.string(),
-      modelID: z.string(),
-      agent: z.string(),
+      // Defaulted, not required: an assistant message can reach the
+      // projection before the model has been resolved onto it, and a
+      // half-known step is still worth showing.
+      providerID: z.string().default(""),
+      modelID: z.string().default(""),
+      agent: z.string().default(""),
       variant: z.string().optional(),
       snapshot: z.string().optional(),
     })

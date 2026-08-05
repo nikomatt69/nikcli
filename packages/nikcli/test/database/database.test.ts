@@ -50,6 +50,7 @@ describe("Database.Service", () => {
       { id: "20260630000000_sync_unify" },
       { id: "20260630000100_workspace_drop_events" },
       { id: "20260716000000_user_external_subject" },
+      { id: "20260805000000_session_entry" },
     ])
     expect(result.tables.map((table) => table.name)).toEqual([
       "account",

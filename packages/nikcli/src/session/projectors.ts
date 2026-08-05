@@ -3,6 +3,8 @@ import { SyncEvent } from "@/sync/sync-event"
 import { MessageV2 } from "./message-v2"
 import { MessageRepo } from "./message-repo"
 import { SessionRepo } from "./repo"
+import { SessionEntryProjection } from "./v2/projection"
+import { Log } from "@/util/log"
 import { Session } from "./index"
 
 /**
@@ -23,6 +25,22 @@ import { Session } from "./index"
  * carries the latest state, so it is projected and published but not logged.
  */
 export namespace SessionSync {
+  const log = Log.create({ service: "session.sync" })
+
+  /**
+   * Run the v2 entry projection without letting it take the v1 write with
+   * it. The projection is derived data; the message and part rows are the
+   * contract. A schema the projection cannot make sense of is a bug worth
+   * shouting about, not a reason to roll back the conversation.
+   */
+  function project(what: string, fn: () => void) {
+    try {
+      fn()
+    } catch (error) {
+      log.error("v2 entry projection failed", { what, error })
+    }
+  }
+
   const SessionInfo = z.custom<Session.Info>()
   const MessageInfo = z.custom<MessageV2.Info>()
   const MessagePart = z.custom<MessageV2.Part>()
@@ -141,22 +159,33 @@ export namespace SessionSync {
 
     SyncEvent.project(Deleted, (tx, data) => {
       SessionRepo.remove(data.sessionID, tx)
+      project("session.removed", () => SessionEntryProjection.sessionRemoved(tx, data.sessionID))
     }),
 
+    // The v2 entry projection runs in the same transaction as the v1 write,
+    // and always after it: `SessionEntryProjection` reads the row it is
+    // deriving from (a part folds into its message's entry, and a user
+    // message aggregates its parts).
     SyncEvent.project(MessageUpdated, (tx, data) => {
       MessageRepo.upsertMessage(data.info, tx)
+      project("message", () => SessionEntryProjection.message(tx, data.info))
     }),
 
     SyncEvent.project(MessageRemoved, (tx, data) => {
       MessageRepo.removeMessage(data.sessionID, data.messageID, tx)
+      project("message.removed", () => SessionEntryProjection.messageRemoved(tx, data.messageID))
     }),
 
     SyncEvent.project(PartUpdated, (tx, data) => {
       MessageRepo.upsertPart(data.part, tx)
+      project("part", () => SessionEntryProjection.part(tx, data.part))
     }),
 
     SyncEvent.project(PartRemoved, (tx, data) => {
       MessageRepo.removePart(data.messageID, data.partID, tx)
+      project("part.removed", () =>
+        SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID),
+      )
     }),
   ]
 
@@ -170,7 +199,7 @@ export namespace SessionSync {
    * path.
    */
   export function install() {
-    if (SyncEvent.initialized()) return
+    if (SyncEvent.installed(Created)) return
     SyncEvent.init({ projectors, convertEvent })
   }
 }

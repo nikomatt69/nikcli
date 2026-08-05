@@ -181,6 +181,44 @@ Schemas stay **zod**, not Effect Schema: the `/v2/*` routes feed the Hono
 `resolver()` and nikcli's OpenAPI → SDK pipeline is zod-driven, so
 converting would break codegen for no gain.
 
+## Persisted entries (2026-08-05) — phases 4 and 5
+
+Entries are now a **first-class persisted projection**, not a conversion
+performed on every read. This is what opencode 2.0 sketched with
+`SessionEntryTable` and left commented out in `session/projectors.ts`.
+
+- `session_entry` (entry.sql.ts, migration `20260805000000_session_entry`)
+  holds one row per entry. `ref` is the identity — the originating v1 part
+  id, or a synthesized `<messageID>#start` / `#complete` / `#user` /
+  `#compaction` key — and it is the upsert target, so a streaming delta is a
+  single-row write. `sortKey` is `<messageID>#<rank>#<partID>`: message ids
+  and part ids are both ascending, so lexicographic order is conversation
+  order, with `start` ranked before the parts and `complete` after them.
+- `SessionEntryProjection` (projection.ts) derives entries from v1
+  messages/parts. It runs inside the **same transaction** as the v1 write
+  (session/projectors.ts), so the projection cannot drift from storage.
+  Message-level entries are projected by `message`, parts by `part` —
+  rewriting the parts on every message update would make a long step
+  quadratic.
+- `SessionEntryRepo` preserves the entry id assigned on first sight across
+  upserts. Consumers key renders on it, and a churning id would remount
+  every row on every delta.
+- A projection failure is logged, never fatal: the message and part rows are
+  the contract, the entries are derived data. `SessionEntry.Request` also
+  defaults `providerID` / `modelID` / `agent`, because an assistant message
+  can reach the projection before the model has been resolved onto it.
+
+`SessionV2.entries()` reads the rows. A session written before the table
+existed backfills on first read (`SessionEntryProjection.backfill`), and
+`SessionV2.reproject()` forces a rebuild. The live projector tail is no
+longer appended to `entries()` — it would duplicate rows the projection
+already holds; `state()` / `pending()` remain the sub-flush-interval
+streaming view.
+
+Clients: `SessionEntryInfo` and `session.entry.{list,refresh}` on the plugin
+TUI context (`plugin/v2/tui/context.ts`, `tui/plugin/data.ts`), backed by
+`GET /session/:id/v2/entries`.
+
 ## Implementation status (2026-06-10)
 
 The entry/event/stepper shape is implemented in `src/session/v2/` and live,

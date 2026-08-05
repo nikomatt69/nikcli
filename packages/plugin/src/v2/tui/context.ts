@@ -29,6 +29,8 @@ export type LocationRef = {
 export type SessionInfo = Session
 /** A live v2 entry — flat, discriminated on `type` (see session/v2/entry.ts). */
 export type SessionPendingInfo = SessionEntry
+/** A persisted v2 entry: the whole conversation, flat. */
+export type SessionEntryInfo = SessionEntry
 export type SessionMessageInfo = { readonly info: Message; readonly parts: Part[] }
 export type PermissionV2Request = PermissionRequest
 export type FormInfo = QuestionRequest
@@ -77,6 +79,16 @@ export interface Data {
     readonly message: {
       list(sessionID: string): SessionMessageInfo[]
       get(sessionID: string, messageID: string): SessionMessageInfo | undefined
+      refresh(sessionID: string): Promise<void>
+    }
+    /**
+     * The conversation as flat v2 entries — user, start, text, reasoning,
+     * tool, subtask, complete, retry, compaction. Backed by the persisted
+     * projection, so it covers committed and in-flight work alike; `pending`
+     * is the sub-flush-interval streaming tail on top of it.
+     */
+    readonly entry: {
+      list(sessionID: string): SessionEntryInfo[]
       refresh(sessionID: string): Promise<void>
     }
     readonly permission: {

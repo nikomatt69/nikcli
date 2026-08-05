@@ -19,6 +19,7 @@ import type {
   LocationRef,
   McpServer,
   ReferenceInfo,
+  SessionEntryInfo,
   SessionMessageInfo,
   SessionPendingInfo,
   SkillInfo,
@@ -68,6 +69,7 @@ function permissionKey(rule: PermissionRule) {
 export function createV2Data(input: Input): Data {
   const [locations, setLocations] = createStore<Record<string, LocationData>>({})
   const [pending, setPending] = createStore<Record<string, SessionPendingInfo[]>>({})
+  const [entries, setEntries] = createStore<Record<string, SessionEntryInfo[]>>({})
   const [forms, setForms] = createStore<Record<string, Array<QuestionRequest & { readonly location?: LocationRef }>>>(
     {},
   )
@@ -226,6 +228,15 @@ export function createV2Data(input: Input): Data {
         async refresh(sessionID) {
           const response = await input.sdk.client.session.v2.state({ sessionID }, { throwOnError: true })
           setPending(sessionID, reconcile((response.data?.pending ?? []) as PendingEntry[]))
+        },
+      },
+      entry: {
+        list(sessionID) {
+          return entries[sessionID] ?? []
+        },
+        async refresh(sessionID) {
+          const response = await input.sdk.client.session.v2.entries({ sessionID }, { throwOnError: true })
+          setEntries(sessionID, reconcile((response.data ?? []) as SessionEntryInfo[]))
         },
       },
       async refresh(sessionID) {

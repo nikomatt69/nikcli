@@ -146,7 +146,12 @@ describe("SyncEvent", () => {
       directory: projectDir,
       fn: async () => {
         const seen: string[] = []
-        const unsubscribe = Bus.subscribe(Created, (event) => {
+        // Subscribed through the bus registration `init()` created for this
+        // event, not through the sync definition: `SyncEvent.Definition.schema`
+        // is zod while `BusEvent.Definition.schema` is an Effect Schema, so the
+        // two shapes are not interchangeable in nikcli (they are in opencode).
+        // Real domain events carry `bus:` and consumers subscribe to that.
+        const unsubscribe = Bus.subscribe({ type: Created.type, properties: Thing }, (event) => {
           seen.push((event.properties as { name: string }).name)
         })
 
