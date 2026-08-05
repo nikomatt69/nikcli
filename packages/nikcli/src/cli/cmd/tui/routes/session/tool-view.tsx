@@ -114,7 +114,7 @@ export function ExplorationSummary(props: { group: ExplorationGroup<ToolEntry>; 
         </text>
       </box>
       <For each={props.group.pending}>
-        {(entry) => <ToolPartView last={false} entry={entry} sessionID={props.sessionID} />}
+        {(entry) => <ToolPartView last={false} streaming={false} entry={entry} sessionID={props.sessionID} />}
       </For>
     </>
   )
@@ -134,7 +134,7 @@ export type ToolEntry = {
   readonly state: ToolPart["state"]
 }
 
-export function ToolPartView(props: { last: boolean; entry: ToolEntry; sessionID: string }) {
+export function ToolPartView(props: { last: boolean; streaming: boolean; entry: ToolEntry; sessionID: string }) {
   const ctx = use()
   /** v1 parts name it `tool`, v2 entries name it `name`. */
   const toolName = createMemo(() => props.entry.tool ?? props.entry.name ?? "")

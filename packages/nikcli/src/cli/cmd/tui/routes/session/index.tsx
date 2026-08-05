@@ -97,6 +97,7 @@ import { features } from "@/config/features"
 import { useLanguage } from "@tui/context/language"
 import { spacerHeights, visibleRange } from "./message-window"
 import { groupParts, type ExplorationGroup } from "./rows"
+import { wrapDiagramsInFences } from "./diagram"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
 import {
@@ -1735,10 +1736,17 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
         {(row) => {
           if (row.type === "group") return <ExplorationSummary group={row as never} sessionID={props.turn.sessionID} />
           const component = PART_MAPPING[row.type as keyof typeof PART_MAPPING]
+          const entry = row as ViewEntry
           return (
-            <Show when={component}>
+            <Show when={component} fallback={<UnknownPart entry={entry} />}>
               <Dynamic
                 last={row === props.turn.body[props.turn.body.length - 1]}
+                // `last` means "bottom of the turn" and stays true forever once
+                // the turn is sealed. Whether the text is still *arriving* is a
+                // different question, and it is the one the renderers need — the
+                // same pair opencode reads (`part.time.completed`,
+                // `message.time.completed`).
+                streaming={entry.completed === undefined && props.turn.completedAt === undefined}
                 component={component}
                 entry={row as any}
                 sessionID={props.turn.sessionID}
@@ -1839,88 +1847,109 @@ function TurnTokens(props: { turn: TurnUsage.Turn }) {
   )
 }
 
+/**
+ * Which entry types draw themselves, and how.
+ *
+ * `fromEntries` folds four of the ten entry types into the turn itself (`user`,
+ * `start`, `complete`, `compaction`); everything else lands in `turn.body` and
+ * is looked up here. Anything missing from this table used to render as
+ * *nothing at all* — a retried request and a delegated sub-agent simply were
+ * not in the transcript, which is a step back from what the v1 renderer showed.
+ * `UnknownPart` is the backstop, so a new entry type is visible from the day it
+ * ships rather than silently dropped.
+ *
+ * None of the rows below stream: they are written once and never change, so
+ * they cost one renderable each and nothing per token.
+ */
 const PART_MAPPING = {
   text: TextPart,
   tool: ToolPartView,
   reasoning: ReasoningPart,
+  retry: RetryPart,
+  subtask: SubtaskPart,
+  synthetic: SyntheticPart,
 }
 
-// Box-drawing / arrow chars that signal an ASCII diagram. When the assistant
-// emits raw diagrams in prose, the markdown renderer would otherwise paint them
-// in plain theme.text. Wrapping diagram-looking line runs in a fenced code
-// block delegates to opentui's CodeRenderable, which restores the themed
-// `markdownCodeBlock` coloring that the old `<code filetype="markdown">` path
-// produced — without losing real markdown structure (headings, lists, tables)
-// elsewhere in the message.
-const DIAGRAM_CHARS = new Set(
-  "─━│┃┌┍┎┏┐┑┒┓└┕┖┗┘┙┚┛├┝┞┟┠┡┢┣┤┥┦┧┨┩┪┫┬┭┮┯┰┱┲┳┴┵┶┷┸┹┺┻┼┽┾┿╀╁╂╃╄╅╆╇╈╉╊╋" +
-    "═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬╭╮╯╰╱╲╳" +
-    "▲▼◀▶△▽◁▷◆◇■□●○◉◍◎★☆" +
-    "←→↑↓↔↕⇐⇒⇑⇓⇔⇕",
-)
-
-function looksLikeDiagramLine(line: string): boolean {
-  let count = 0
-  for (const ch of line) {
-    if (DIAGRAM_CHARS.has(ch)) {
-      count++
-      if (count >= 2) return true
-    }
-  }
-  return false
+/** A request that failed and was retried. Shows the attempt and why. */
+function RetryPart(props: { entry: ViewEntry }) {
+  const { theme } = useTheme()
+  const attempt = createMemo(() => {
+    const value = props.entry.attempt
+    return typeof value === "number" ? value : undefined
+  })
+  return (
+    <box paddingLeft={3} marginTop={1} flexShrink={0}>
+      <text>
+        <span style={{ fg: theme.warning }}>⟳ </span>
+        <span style={{ fg: theme.textMuted }}>
+          {attempt() === undefined ? "Retrying" : `Retry ${attempt()}`}
+          {" · "}
+          {friendlyErrorMessage(props.entry.error)}
+        </span>
+      </text>
+    </box>
+  )
 }
 
-function wrapDiagramsInFences(md: string): string {
-  if (md.length === 0) return md
-  // Fast path: no diagram chars at all
-  let hasAny = false
-  for (let i = 0; i < md.length; i++) {
-    if (DIAGRAM_CHARS.has(md[i])) {
-      hasAny = true
-      break
-    }
-  }
-  if (!hasAny) return md
-
-  const lines = md.split("\n")
-  const out: string[] = []
-  let inFence = false
-  let blockStart = -1
-
-  const flush = (endIdx: number) => {
-    if (blockStart < 0) return
-    out.push("```")
-    for (let j = blockStart; j <= endIdx; j++) out.push(lines[j])
-    out.push("```")
-    blockStart = -1
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmed = line.trim()
-
-    if (trimmed.startsWith("```")) {
-      flush(i - 1)
-      inFence = !inFence
-      out.push(line)
-      continue
-    }
-    if (inFence) {
-      out.push(line)
-      continue
-    }
-    if (looksLikeDiagramLine(line)) {
-      if (blockStart < 0) blockStart = i
-      continue
-    }
-    flush(i - 1)
-    out.push(line)
-  }
-  flush(lines.length - 1)
-  return out.join("\n")
+/**
+ * A delegated sub-agent run.
+ *
+ * nikcli-specific — opencode has no equivalent entry — and the one row where
+ * being invisible costs the most, because the work it stands for happened in
+ * another session the reader cannot see from here.
+ */
+function SubtaskPart(props: { entry: ViewEntry }) {
+  const local = useLocal()
+  const { theme } = useTheme()
+  const agent = createMemo(() => String(props.entry.agent ?? ""))
+  const description = createMemo(() => String(props.entry.description ?? "").trim())
+  return (
+    <box paddingLeft={3} marginTop={1} flexShrink={0}>
+      <text>
+        <span style={{ fg: local.agent.color(agent()) }}>◆ </span>
+        <span style={{ fg: theme.text }}>{Locale.titlecase(agent() || "task")}</span>
+        <Show when={description()}>
+          <span style={{ fg: theme.textMuted }}> · {description()}</span>
+        </Show>
+        <Show when={props.entry.background === true}>
+          <span style={{ fg: theme.textMuted }}> · background</span>
+        </Show>
+      </text>
+    </box>
+  )
 }
 
-function ReasoningPart(props: { last: boolean; entry: ViewEntry; sessionID: string }) {
+/** An auto-generated message the engine injected into the conversation. */
+function SyntheticPart(props: { entry: ViewEntry }) {
+  const { theme } = useTheme()
+  const text = createMemo(() => String(props.entry.text ?? "").trim())
+  return (
+    <Show when={text()}>
+      <box paddingLeft={3} marginTop={1} flexShrink={0}>
+        <text fg={theme.textMuted}>{text()}</text>
+      </box>
+    </Show>
+  )
+}
+
+/**
+ * The backstop for an entry type this table does not know.
+ *
+ * Deliberately dumb — a marker and the type name, no field guessing. Its job is
+ * to make the gap visible in the transcript instead of hiding it, so the next
+ * entry type added to `SessionEntry` shows up as an obviously unfinished row
+ * rather than as silence.
+ */
+function UnknownPart(props: { entry: ViewEntry }) {
+  const { theme } = useTheme()
+  return (
+    <box paddingLeft={3} marginTop={1} flexShrink={0}>
+      <text fg={theme.textMuted}>◌ {props.entry.type}</text>
+    </box>
+  )
+}
+
+function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; sessionID: string }) {
   const { theme, subtleSyntax } = useTheme()
   const ctx = use()
   const content = createMemo(() => {
@@ -1936,7 +1965,11 @@ function ReasoningPart(props: { last: boolean; entry: ViewEntry; sessionID: stri
     )
   })
   const summary = createMemo(() => reasoningSummary(content()))
-  const body = createMemo(() => (summary().body ? wrapDiagramsInFences(summary().body) : ""))
+  const body = createMemo(() => {
+    const text = summary().body
+    if (!text) return ""
+    return props.streaming ? text : wrapDiagramsInFences(text)
+  })
   const tight = createMemo(() => ctx.width < 84)
   const done = createMemo(() => {
     const end = props.entry.completed as number | undefined
@@ -1962,7 +1995,7 @@ function ReasoningPart(props: { last: boolean; entry: ViewEntry; sessionID: stri
         <Show when={summary().body}>
           <box marginTop={1}>
             <MessageMarkdown
-              streaming={!props.last ? false : true}
+              streaming={props.streaming}
               syntaxStyle={subtleSyntax()}
               content={body()}
               conceal={ctx.conceal()}
@@ -2014,24 +2047,35 @@ function ReasoningHeader(props: { done: boolean; title: string | null; duration?
   )
 }
 
-function TextPart(props: { last: boolean; entry: ViewEntry; sessionID: string }) {
+/**
+ * A text part.
+ *
+ * While the text is still arriving this renders what opencode's `TextPart`
+ * renders and nothing more: one trim, one `<markdown>`. The extra passes below
+ * — fencing ASCII diagrams, pulling image URLs out of the prose — each walk the
+ * *whole* message, so on a live part they cost O(n) per token and O(n²) over
+ * the message. They also cannot be right yet: a half-written line holds one box
+ * character and reads as prose, then reads as a diagram a character later, and
+ * the block it belongs to is rebuilt each time it changes its mind.
+ *
+ * So they wait for the text to settle. The message is scanned once, when it is
+ * finished, instead of once per token while it is being read.
+ */
+function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; sessionID: string }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
   const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
   const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
   const tight = createMemo(() => ctx.width < 84)
-  const rendered = createMemo(() => wrapDiagramsInFences(String(props.entry.text ?? "").trim()))
-
-  // O2: streaming tokens-per-sec indicator. Counts chars (4-chars-per-token
-  // heuristic) every second, shows the rolling rate as a small badge.
-  const streamingSpeed = createStreamingSpeed(rendered, () => !props.last)
+  const text = createMemo(() => String(props.entry.text ?? "").trim())
+  const rendered = createMemo(() => (props.streaming ? text() : wrapDiagramsInFences(text())))
 
   return (
-    <Show when={String(props.entry.text ?? "").trim()}>
+    <Show when={text()}>
       <box id={"text-" + props.entry.id} paddingLeft={3} marginTop={1} flexShrink={0}>
         <MessageMarkdown
-          streaming={!props.last ? false : true}
+          streaming={props.streaming}
           syntaxStyle={syntax()}
           content={rendered()}
           conceal={ctx.conceal()}
@@ -2046,65 +2090,11 @@ function TextPart(props: { last: boolean; entry: ViewEntry; sessionID: string })
             borderColor: theme.borderSubtle,
           }}
         />
-        <TuiImageList
-          text={String(props.entry.text ?? "")}
-          maxColumns={imagePreviewColumns()}
-          maxRows={imagePreviewRows()}
-        />
+        <Show when={!props.streaming}>
+          <TuiImageList text={text()} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
+        </Show>
       </box>
     </Show>
   )
 }
 
-/**
- * Track the rendered text length over time and report a rolling tokens-per-
- * second rate. Returns `{ rate, total }` where `rate` is 0 when not
- * streaming. Uses a 2-sample rolling window updated every second.
- */
-function createStreamingSpeed(text: () => string, isStreaming: () => boolean) {
-  const [rate, setRate] = createSignal(0)
-  const [total, setTotal] = createSignal(0)
-
-  let lastText = ""
-  let lastTime = 0
-  let timer: ReturnType<typeof setInterval> | undefined
-
-  const tick = () => {
-    const now = Date.now()
-    const len = text().length
-    const dt = now - lastTime
-    if (dt > 0 && len !== lastText.length) {
-      const dChars = len - lastText.length
-      // 4 chars per token is the standard English-text heuristic.
-      const dTokens = Math.max(0, dChars) / 4
-      const perSec = (dTokens / dt) * 1000
-      setRate(Math.round(perSec))
-    }
-    lastText = text()
-    lastTime = now
-    setTotal(Math.round(len / 4))
-  }
-
-  onMount(() => {
-    timer = setInterval(tick, 1000)
-  })
-  onCleanup(() => {
-    if (timer) clearInterval(timer)
-  })
-
-  // Reset when streaming ends.
-  createEffect(() => {
-    if (!isStreaming()) {
-      setTimeout(() => setRate(0), 2000)
-    }
-  })
-
-  return {
-    get rate() {
-      return rate()
-    },
-    get total() {
-      return total()
-    },
-  }
-}
