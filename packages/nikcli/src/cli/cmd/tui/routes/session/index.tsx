@@ -113,6 +113,15 @@ import {
 import { friendlyErrorMessage, shareErrorMessage } from "../../util/error-message"
 import { Link } from "../../ui/link"
 import { context, use } from "./session-context"
+import { fromEntries, fromMessages, type Turn, type ViewEntry, type ViewMessage, type ViewPart } from "./view"
+
+/** The file fields the user-message badge row and image preview read. */
+type FileAttachment = {
+  readonly mime: string
+  readonly filename?: string
+  readonly url?: string
+  readonly source?: { readonly type?: string; readonly path?: string }
+}
 import { DialogMonitorLog, ExplorationSummary, ToolPartView } from "./tool-view"
 
 addDefaultParsers(parsers.parsers)
@@ -165,6 +174,37 @@ export function Session() {
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   /**
+   * The conversation as turns — the seam the renderer draws from.
+   *
+   * Built from v1 messages and parts today; `fromEntries` produces the same
+   * turns from the v2 entry store, and `test/tui/session-view.test.ts` proves
+   * the two agree. Swapping the provider is the whole remaining migration.
+   */
+  const entryRenderer = createMemo(() => features(sync.data.config).tui.entryRenderer)
+  const turns = createMemo(() => {
+    if (entryRenderer()) {
+      return fromEntries((sync.data.entry[route.sessionID] ?? []) as unknown as ViewEntry[])
+    }
+    return fromMessages(
+      messages() as unknown as ViewMessage[],
+      (id) => (sync.data.part[id] ?? []) as unknown as ViewPart[],
+      toViewEntry,
+      toUserEntry,
+    )
+  })
+  // Seed the entry store once per session; `session.entry.updated` keeps it
+  // live from there. Only when the flag is on — otherwise it is a request
+  // nothing reads.
+  createEffect(() => {
+    if (!entryRenderer()) return
+    const sessionID = route.sessionID
+    if (sync.data.entry[sessionID]) return
+    void sdk.client.session.v2
+      .entries({ sessionID }, { throwOnError: true })
+      .then((response) => sync.set("entry", sessionID, (response.data ?? []) as never))
+      .catch(() => {})
+  })
+  /**
    * Per-turn token rows, keyed by the assistant message that ends the turn.
    * Computed once here rather than per row: each turn needs the steps before it,
    * so deriving it inside the message component would be quadratic over a long
@@ -176,7 +216,7 @@ export function Session() {
   // The virtualizer uses estimated heights. While the assistant is streaming,
   // the active row grows on every text delta, so those estimates no longer
   // describe the scroll position and can window the live response out.
-  const streaming = createMemo(() => messages().some((x) => x.role === "assistant" && !x.time.completed))
+  const streaming = createMemo(() => turns().some((turn) => turn.role === "assistant" && !turn.completedAt))
   /** Estimated row height per message for windowing (refined later from measured heights). */
   const MESSAGE_HEIGHT_ESTIMATE = 6
   const OVERSCAN = 5
@@ -199,7 +239,7 @@ export function Session() {
    * On any error → full list fallback.
    */
   const windowed = createMemo(() => {
-    const all = messages()
+    const all = turns()
     if (!virtualizationEnabled() || streaming() || all.length === 0) {
       return { items: all, top: 0, bottom: 0, baseIndex: 0 }
     }
@@ -1414,35 +1454,33 @@ export function Session() {
                 <RevertBanner count={revert()!.reverted.length} diffFiles={revert()!.diffFiles} />
               </Show>
               <For each={windowed().items}>
-                {(message, index) => (
+                {(turn, index) => (
                   <Switch>
-                    <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
+                    <Match when={revert()?.messageID && turn.messageID >= revert()!.messageID}>
                       <></>
                     </Match>
-                    <Match when={message.role === "user"}>
+                    <Match when={turn.role === "user"}>
                       <UserMessage
                         index={windowed().baseIndex + index()}
                         onMouseUp={() => {
                           if (renderer.getSelection()?.getSelectedText()) return
                           dialog.replace(() => (
                             <DialogMessage
-                              messageID={message.id}
+                              messageID={turn.messageID}
                               sessionID={route.sessionID}
                               setPrompt={(promptInfo) => prompt.set(promptInfo)}
                             />
                           ))
                         }}
-                        message={message as UserMessage}
-                        parts={sync.data.part[message.id] ?? []}
+                        turn={turn}
                         pending={pending()}
                       />
                     </Match>
-                    <Match when={message.role === "assistant"}>
+                    <Match when={turn.role === "assistant"}>
                       <AssistantMessage
-                        last={lastAssistant()?.id === message.id}
-                        message={message as AssistantMessage}
-                        parts={sync.data.part[message.id] ?? []}
-                        turn={turnUsage()?.get(message.id)}
+                        last={lastAssistant()?.id === turn.messageID}
+                        turn={turn}
+                        usage={turnUsage()?.get(turn.messageID)}
                       />
                     </Match>
                   </Switch>
@@ -1518,21 +1556,74 @@ const MIME_BADGE: Record<string, string> = {
   "application/x-directory": "dir",
 }
 
-function UserMessage(props: {
-  message: UserMessage
-  parts: Part[]
-  onMouseUp: () => void
-  index: number
-  pending?: string
-}) {
+/**
+ * v1 part → view entry.
+ *
+ * Structural literals rather than `SessionEntry.fromV1Part`: that module
+ * reaches into `MessageV2` and would drag the server graph into the TUI
+ * bundle (see specs/startup-performance.md). Field names match the v2 entry
+ * shape, so the leaf components read the same keys whichever provider built
+ * the turn.
+ *
+ * The entry keeps the *part's* id here, so element identity is unchanged
+ * while v1 is the source.
+ */
+function toViewEntry(part: ViewPart, _message: ViewMessage): ViewEntry | undefined {
+  const base = { id: part.id, sessionID: part.sessionID, messageID: part.messageID, ref: part.id }
+  const time = part.time as { start?: number; end?: number } | undefined
+  switch (part.type) {
+    case "text":
+      return { ...base, type: "text", timestamp: time?.start ?? 0, text: String(part.text ?? "") }
+    case "reasoning":
+      return {
+        ...base,
+        type: "reasoning",
+        timestamp: time?.start ?? 0,
+        completed: time?.end,
+        text: String(part.text ?? ""),
+      }
+    case "tool":
+      return {
+        ...base,
+        type: "tool",
+        timestamp: time?.start ?? 0,
+        callID: part.callID,
+        name: part.tool,
+        state: part.state,
+      }
+    default:
+      return undefined
+  }
+}
+
+/** A user message is one entry: its text plus whatever it carried. */
+function toUserEntry(message: ViewMessage, parts: readonly ViewPart[]): ViewEntry {
+  const text = parts.find((part) => part.type === "text" && !part.synthetic)
+  return {
+    id: message.id,
+    sessionID: message.sessionID,
+    messageID: message.id,
+    type: "user",
+    timestamp: message.time.created,
+    text: String(text?.text ?? ""),
+    files: parts.filter((part) => part.type === "file"),
+  }
+}
+
+function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; pending?: string }) {
   const ctx = use()
   const local = useLocal()
-  const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
-  const files = createMemo(() => props.parts.flatMap((x) => (x.type === "file" ? [x] : [])))
+  /** A user turn is exactly one entry: its text plus what it carried. */
+  const entry = createMemo(() => props.turn.body[0])
+  const text = createMemo(() => {
+    const value = entry()?.text
+    return typeof value === "string" && value.length > 0 ? value : undefined
+  })
+  const files = createMemo(() => (entry()?.files ?? []) as FileAttachment[])
   const { theme } = useTheme()
   const [hover, setHover] = createSignal(false)
-  const queued = createMemo(() => props.pending && props.message.id > props.pending)
-  const color = createMemo(() => local.agent.color(props.message.agent))
+  const queued = createMemo(() => props.pending && props.turn.messageID > props.pending)
+  const color = createMemo(() => local.agent.color(props.turn.request?.agent ?? ""))
   const queuedFg = createMemo(() => selectedForeground(theme, color()))
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
   const terminalDimensions = useTerminalDimensions()
@@ -1541,16 +1632,14 @@ function UserMessage(props: {
   const imagePreviewUrls = createMemo(() =>
     files()
       .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
-      .flatMap((file) => (file.url ? [file.url] : file.source?.type === "file" ? [file.source.path] : [])),
+      .flatMap((file) => (file.url ? [file.url] : file.source?.type === "file" && file.source.path ? [file.source.path] : [])),
   )
-
-  const compaction = createMemo(() => props.parts.find((x) => x.type === "compaction"))
 
   return (
     <>
       <Show when={text() || files().length > 0}>
         <box
-          id={props.message.id}
+          id={props.turn.messageID}
           border={["left"]}
           borderColor={color()}
           customBorderChars={SplitBorder.customBorderChars}
@@ -1570,9 +1659,9 @@ function UserMessage(props: {
             backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
             flexShrink={0}
           >
-            <Show when={text()}>{(part) => <text fg={theme.text}>{part().text}</text>}</Show>
+            <Show when={text()}>{(value) => <text fg={theme.text}>{value()}</text>}</Show>
             <TuiImageList
-              text={text()?.text ?? ""}
+              text={text() ?? ""}
               urls={imagePreviewUrls()}
               maxColumns={imagePreviewColumns()}
               maxRows={imagePreviewRows()}
@@ -1610,7 +1699,7 @@ function UserMessage(props: {
                 <Show when={ctx.showTimestamps()}>
                   <text fg={theme.textMuted}>
                     <span style={{ fg: theme.textMuted }}>
-                      {Locale.todayTimeOrDateTime(props.message.time.created)}
+                      {Locale.todayTimeOrDateTime(props.turn.createdAt)}
                     </span>
                   </text>
                 </Show>
@@ -1623,7 +1712,7 @@ function UserMessage(props: {
           </box>
         </box>
       </Show>
-      <Show when={compaction()}>
+      <Show when={props.turn.compacted}>
         <box
           marginTop={1}
           border={["top"]}
@@ -1636,7 +1725,7 @@ function UserMessage(props: {
   )
 }
 
-function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean; turn?: TurnUsage.Turn }) {
+function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.Turn }) {
   const ctx = use()
   const local = useLocal()
   const sync = useSync()
@@ -1651,42 +1740,50 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
    * finished — becomes a summary. With the flag off this is `props.parts`
    * unchanged, so the default render path keeps its stable part identities.
    */
-  const rows = createMemo<(Part | ExplorationGroup<Part>)[]>(() => {
-    if (!features(sync.data.config).tui.explorationGrouping) return props.parts
+  const rows = createMemo<(ViewEntry | ExplorationGroup<ViewEntry>)[]>(() => {
+    if (!features(sync.data.config).tui.explorationGrouping) return props.turn.body
     const blocked = new Set(
-      (sync.data.permission[props.message.sessionID] ?? []).flatMap((request) =>
+      (sync.data.permission[props.turn.sessionID] ?? []).flatMap((request) =>
         request.tool?.callID ? [request.tool.callID] : [],
       ),
     )
-    return groupParts(props.parts, {
-      closed: Boolean(props.message.time.completed),
+    return (groupParts as unknown as (
+      rows: readonly ViewEntry[],
+      options: { closed: boolean; isPending: (entry: ViewEntry) => boolean },
+    ) => ({ type: "part"; part: ViewEntry } | ExplorationGroup<ViewEntry>)[])(props.turn.body, {
+      closed: Boolean(props.turn.completedAt),
       isPending: (part) => "callID" in part && typeof part.callID === "string" && blocked.has(part.callID),
-    }).flatMap<Part | ExplorationGroup<Part>>((row) =>
+    }).flatMap<ViewEntry | ExplorationGroup<ViewEntry>>((row) =>
       row.type === "part" ? [row.part] : row.completed ? [row] : row.parts,
     )
   })
 
+  const error = createMemo(() => props.turn.complete?.error as { name?: string } | undefined)
+
   const final = createMemo(() => {
-    return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
+    const finish = props.turn.complete?.finish
+    return finish && !["tool-calls", "unknown"].includes(finish)
   })
 
   const stats = createMemo(() => {
-    const created = ctx.messageCreatedAt()[props.message.parentID]
+    // Counted from the prompt that caused the turn — which, in a turn list,
+    // is simply the turn before this one.
+    const created = props.turn.previousCreatedAt
     if (!created) return null
 
-    const completedAt = props.message.time.completed ?? Date.now()
+    const completedAt = props.turn.completedAt ?? Date.now()
     const duration = completedAt - created
 
     let text = ""
     let streamStart: number | undefined
     let streamEnd: number | undefined
 
-    for (const part of props.parts) {
-      if (part.type !== "text") continue
-      text += part.text
-      if (!part.time?.start) continue
-      streamStart = streamStart === undefined ? part.time.start : Math.min(streamStart, part.time.start)
-      const end = part.time.end ?? completedAt
+    for (const entry of props.turn.body) {
+      if (entry.type !== "text") continue
+      text += String(entry.text ?? "")
+      if (!entry.timestamp) continue
+      streamStart = streamStart === undefined ? entry.timestamp : Math.min(streamStart, entry.timestamp)
+      const end = (entry.completed as number | undefined) ?? completedAt
       streamEnd = streamEnd === undefined ? end : Math.max(streamEnd, end)
     }
 
@@ -1698,7 +1795,8 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     }
 
     const streamDuration = Math.max(0, streamEnd - streamStart)
-    const outputTokens = props.message.tokens.output > 0 ? props.message.tokens.output : Token.estimate(text)
+    const reported = props.turn.complete?.outputTokens ?? 0
+    const outputTokens = reported > 0 ? reported : Token.estimate(text)
 
     return {
       duration,
@@ -1710,21 +1808,21 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     <>
       <For each={rows()}>
         {(row) => {
-          if (row.type === "group") return <ExplorationSummary group={row} message={props.message} />
+          if (row.type === "group") return <ExplorationSummary group={row as never} sessionID={props.turn.sessionID} />
           const component = PART_MAPPING[row.type as keyof typeof PART_MAPPING]
           return (
             <Show when={component}>
               <Dynamic
-                last={row === props.parts[props.parts.length - 1]}
+                last={row === props.turn.body[props.turn.body.length - 1]}
                 component={component}
-                part={row as any}
-                message={props.message}
+                entry={row as any}
+                sessionID={props.turn.sessionID}
               />
             </Show>
           )
         }}
       </For>
-      <Show when={props.message.error && props.message.error.name !== "MessageAbortedError"}>
+      <Show when={error() && error()!.name !== "MessageAbortedError"}>
         <box
           border={["left"]}
           paddingTop={1}
@@ -1735,25 +1833,25 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
           customBorderChars={SplitBorder.customBorderChars}
           borderColor={theme.error}
         >
-          <text fg={theme.textMuted}>{friendlyErrorMessage(props.message.error)}</text>
+          <text fg={theme.textMuted}>{friendlyErrorMessage(error())}</text>
         </box>
       </Show>
       <Switch>
-        <Match when={props.last || final() || props.message.error?.name === "MessageAbortedError"}>
+        <Match when={props.last || final() || error()?.name === "MessageAbortedError"}>
           <box paddingLeft={3}>
             <text marginTop={1}>
               <span
                 style={{
                   fg:
-                    props.message.error?.name === "MessageAbortedError"
+                    error()?.name === "MessageAbortedError"
                       ? theme.textMuted
-                      : local.agent.color(props.message.agent),
+                      : local.agent.color(props.turn.request?.agent ?? ""),
                 }}
               >
                 ▣{" "}
               </span>{" "}
-              <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
-              <span style={{ fg: theme.textMuted }}> · {props.message.modelID}</span>
+              <span style={{ fg: theme.text }}>{Locale.titlecase(props.turn.request?.mode ?? "")}</span>
+              <span style={{ fg: theme.textMuted }}> · {props.turn.request?.modelID}</span>
               <Show when={stats()}>
                 {(value) => (
                   <span style={{ fg: theme.textMuted }}>
@@ -1763,14 +1861,14 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                   </span>
                 )}
               </Show>
-              <Show when={props.message.error?.name === "MessageAbortedError"}>
+              <Show when={error()?.name === "MessageAbortedError"}>
                 <span style={{ fg: theme.textMuted }}> · interrupted</span>
               </Show>
             </text>
           </box>
         </Match>
       </Switch>
-      <Show when={props.turn}>{(turn) => <TurnTokens turn={turn()} />}</Show>
+      <Show when={props.usage}>{(usage) => <TurnTokens turn={usage()} />}</Show>
     </>
   )
 }
@@ -1898,14 +1996,14 @@ function wrapDiagramsInFences(md: string): string {
   return out.join("\n")
 }
 
-function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: AssistantMessage }) {
+function ReasoningPart(props: { last: boolean; entry: ViewEntry; sessionID: string }) {
   const { theme, subtleSyntax } = useTheme()
   const ctx = use()
   const content = createMemo(() => {
     // Filter out redacted reasoning chunks from OpenRouter
     // OpenRouter sends encrypted reasoning data that appears as [REDACTED]
     return (
-      props.part.text
+      String(props.entry.text ?? "")
         .replace("[REDACTED]", "")
         // OpenAI Responses reasoning summaries separate sections with empty
         // HTML comments (`<!-- -->`); they are markers, not content.
@@ -1917,18 +2015,18 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
   const body = createMemo(() => (summary().body ? wrapDiagramsInFences(summary().body) : ""))
   const tight = createMemo(() => ctx.width < 84)
   const done = createMemo(() => {
-    const end = props.part.time.end
+    const end = (props.entry.completed as number | undefined)
     return end !== undefined
   })
   const duration = createMemo(() => {
-    const end = props.part.time.end
+    const end = (props.entry.completed as number | undefined)
     if (end === undefined) return
-    return Locale.duration(end - props.part.time.start)
+    return Locale.duration(end - props.entry.timestamp)
   })
   return (
     <Show when={content() && ctx.showThinking()}>
       <box
-        id={"text-" + props.part.id}
+        id={"text-" + props.entry.id}
         paddingLeft={2}
         marginTop={1}
         flexDirection="column"
@@ -1992,22 +2090,22 @@ function ReasoningHeader(props: { done: boolean; title: string | null; duration?
   )
 }
 
-function TextPart(props: { last: boolean; part: TextPart; message: AssistantMessage }) {
+function TextPart(props: { last: boolean; entry: ViewEntry; sessionID: string }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
   const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
   const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
   const tight = createMemo(() => ctx.width < 84)
-  const rendered = createMemo(() => wrapDiagramsInFences(props.part.text.trim()))
+  const rendered = createMemo(() => wrapDiagramsInFences(String(props.entry.text ?? "").trim()))
 
   // O2: streaming tokens-per-sec indicator. Counts chars (4-chars-per-token
   // heuristic) every second, shows the rolling rate as a small badge.
   const streamingSpeed = createStreamingSpeed(rendered, () => !props.last)
 
   return (
-    <Show when={props.part.text.trim()}>
-      <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
+    <Show when={String(props.entry.text ?? "").trim()}>
+      <box id={"text-" + props.entry.id} paddingLeft={3} marginTop={1} flexShrink={0}>
         <MathMarkdown
           streaming={!props.last ? false : true}
           syntaxStyle={syntax()}
@@ -2024,7 +2122,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
             borderColor: theme.borderSubtle,
           }}
         />
-        <TuiImageList text={props.part.text} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
+        <TuiImageList text={String(props.entry.text ?? "")} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
       </box>
     </Show>
   )

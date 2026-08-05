@@ -150,3 +150,23 @@ test("folds a finished exploration run into one row", async () => {
     await h.close()
   }
 }, 120_000)
+
+/**
+ * The migration's proof.
+ *
+ * Same conversation, same golden — but the renderer is fed by `fromEntries`
+ * off the v2 entry store instead of `fromMessages` off v1 messages and parts.
+ * Asserting against `single-turn.txt`, the golden captured from the v1 source,
+ * is what makes this a migration rather than a rewrite: if the two sources
+ * painted differently, this fails.
+ */
+test("renders identically from v2 entries", async () => {
+  const h = await start({ experimental: { tui: { entryRenderer: true } } })
+  try {
+    await h.send("what is this")
+    await h.respond([{ type: "textDelta", text: "A deterministic answer." }])
+    await check("single-turn", await settled(h, "A deterministic answer."))
+  } finally {
+    await h.close()
+  }
+}, 120_000)

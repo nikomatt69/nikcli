@@ -5,13 +5,13 @@ describe("features()", () => {
   it("defaults all flags off", () => {
     expect(features(undefined)).toEqual({
       nativeLlm: false,
-      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false },
+      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false, entryRenderer: false },
       requests: { latestOnlyLspRefresh: false },
       events: { schemaEncoding: false },
     })
     expect(features({})).toEqual({
       nativeLlm: false,
-      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false },
+      tui: { cacheEviction: false, messageVirtualization: false, explorationGrouping: false, entryRenderer: false },
       requests: { latestOnlyLspRefresh: false },
       events: { schemaEncoding: false },
     })
@@ -21,7 +21,7 @@ describe("features()", () => {
     const f = features({
       experimental: {
         nativeLlm: true,
-        tui: { cacheEviction: true, messageVirtualization: true, explorationGrouping: true },
+        tui: { cacheEviction: true, messageVirtualization: true, explorationGrouping: true, entryRenderer: true },
         requests: { latestOnlyLspRefresh: true },
         events: { schemaEncoding: true },
       },

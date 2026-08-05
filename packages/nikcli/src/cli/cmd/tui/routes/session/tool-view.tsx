@@ -126,7 +126,7 @@ import { use } from "./session-context"
  * Anything the user still has to answer is rendered in full underneath: a
  * permission prompt must never be what got collapsed away.
  */
-export function ExplorationSummary(props: { group: ExplorationGroup<Part>; message: AssistantMessage }) {
+export function ExplorationSummary(props: { group: ExplorationGroup<ToolEntry>; sessionID: string }) {
   const { theme } = useTheme()
   return (
     <>
@@ -136,7 +136,7 @@ export function ExplorationSummary(props: { group: ExplorationGroup<Part>; messa
         </text>
       </box>
       <For each={props.group.pending}>
-        {(part) => <ToolPartView last={false} part={part as ToolPart} message={props.message} />}
+        {(entry) => <ToolPartView last={false} entry={entry} sessionID={props.sessionID} />}
       </For>
     </>
   )
@@ -144,15 +144,29 @@ export function ExplorationSummary(props: { group: ExplorationGroup<Part>; messa
 
 // Pending messages moved to individual tool pending functions
 
-export function ToolPartView(props: { last: boolean; part: ToolPart; message: AssistantMessage }) {
+/** What a tool renderer needs, from a v1 part or a v2 entry alike. */
+export type ToolEntry = {
+  readonly id: string
+  readonly sessionID: string
+  readonly messageID?: string
+  readonly callID: string
+  /** v1 parts name it `tool`, v2 entries name it `name`. */
+  readonly tool?: string
+  readonly name?: string
+  readonly state: ToolPart["state"]
+}
+
+export function ToolPartView(props: { last: boolean; entry: ToolEntry; sessionID: string }) {
   const ctx = use()
+  /** v1 parts name it `tool`, v2 entries name it `name`. */
+  const toolName = createMemo(() => props.entry.tool ?? props.entry.name ?? "")
   const sync = useSync()
   const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
   const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
   const imagePreviewUrls = createMemo(() => {
-    if (props.part.state.status !== "completed") return []
-    return (props.part.state.attachments ?? [])
+    if (props.entry.state.status !== "completed") return []
+    return (props.entry.state.attachments ?? [])
       .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
       .flatMap((file) => (file.url ? [file.url] : file.source?.type === "file" ? [file.source.path] : []))
   })
@@ -160,34 +174,34 @@ export function ToolPartView(props: { last: boolean; part: ToolPart; message: As
   // Hide tool if showDetails is false and tool completed successfully
   const shouldHide = createMemo(() => {
     if (ctx.showDetails()) return false
-    if (props.part.state.status !== "completed") return false
+    if (props.entry.state.status !== "completed") return false
     return imagePreviewUrls().length === 0
   })
 
   const toolprops = {
     get metadata() {
-      if (props.part.state.status === "pending") return {}
+      if (props.entry.state.status === "pending") return {}
       return {
-        ...props.part.state.metadata,
-        ...(props.part.state.status === "running" ? (props.part.state.structured ?? {}) : {}),
+        ...props.entry.state.metadata,
+        ...(props.entry.state.status === "running" ? (props.entry.state.structured ?? {}) : {}),
       }
     },
     get input() {
-      return props.part.state.input ?? {}
+      return props.entry.state.input ?? {}
     },
     get output() {
-      return props.part.state.status === "completed" ? props.part.state.output : undefined
+      return props.entry.state.status === "completed" ? props.entry.state.output : undefined
     },
     get permission() {
-      const permissions = sync.data.permission[props.message.sessionID] ?? []
-      const permissionIndex = permissions.findIndex((x) => x.tool?.callID === props.part.callID)
+      const permissions = sync.data.permission[props.sessionID] ?? []
+      const permissionIndex = permissions.findIndex((x) => x.tool?.callID === props.entry.callID)
       return permissions[permissionIndex]
     },
     get tool() {
-      return props.part.tool
+      return toolName()
     },
     get part() {
-      return props.part
+      return props.entry
     },
   }
 
@@ -195,64 +209,64 @@ export function ToolPartView(props: { last: boolean; part: ToolPart; message: As
     <>
       <Show when={!shouldHide()}>
         <Switch>
-          <Match when={props.part.tool === "bash"}>
+          <Match when={toolName() === "bash"}>
             <Bash {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "exec_code" || props.part.tool === "code_mode"}>
+          <Match when={toolName() === "exec_code" || toolName() === "code_mode"}>
             <ExecCode {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "glob"}>
+          <Match when={toolName() === "glob"}>
             <Glob {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "read"}>
+          <Match when={toolName() === "read"}>
             <Read {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "grep"}>
+          <Match when={toolName() === "grep"}>
             <Grep {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "list"}>
+          <Match when={toolName() === "list"}>
             <List {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "webfetch"}>
+          <Match when={toolName() === "webfetch"}>
             <WebFetch {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "codesearch"}>
+          <Match when={toolName() === "codesearch"}>
             <CodeSearch {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "websearch"}>
+          <Match when={toolName() === "websearch"}>
             <WebSearch {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "write"}>
+          <Match when={toolName() === "write"}>
             <Write {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "edit"}>
+          <Match when={toolName() === "edit"}>
             <Edit {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "task"}>
+          <Match when={toolName() === "task"}>
             <Task {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "monitor"}>
+          <Match when={toolName() === "monitor"}>
             <Monitor {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "apply_patch"}>
+          <Match when={toolName() === "apply_patch"}>
             <ApplyPatch {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "todowrite"}>
+          <Match when={toolName() === "todowrite"}>
             <TodoWrite {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "question"}>
+          <Match when={toolName() === "question"}>
             <Question {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "opentui"}>
+          <Match when={toolName() === "opentui"}>
             <OpenTUIViz {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "browser_control"}>
+          <Match when={toolName() === "browser_control"}>
             <BrowserControlView {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "computer"}>
+          <Match when={toolName() === "computer"}>
             <ComputerUse {...toolprops} />
           </Match>
-          <Match when={props.part.tool === "artifact"}>
+          <Match when={toolName() === "artifact"}>
             <ArtifactView {...toolprops} />
           </Match>
           <Match when={true}>
@@ -275,7 +289,7 @@ type ToolProps<T extends Tool.Info> = {
   permission: Record<string, any>
   tool: string
   output?: string
-  part: ToolPart
+  part: ToolEntry
 }
 
 function BrowserControlView(props: ToolProps<typeof BrowserControlTool>) {
@@ -402,7 +416,7 @@ function InlineTool(props: {
   complete: any
   pending: string
   children: JSX.Element
-  part: ToolPart
+  part: ToolEntry
 }) {
   const [margin, setMargin] = createSignal(0)
   const { theme } = useTheme()
@@ -475,7 +489,7 @@ function BlockTool(props: {
   accentColor?: RGBA
   children: JSX.Element
   onClick?: () => void
-  part?: ToolPart
+  part?: ToolEntry
   /** Skip the accent background tint — keep accent only on border/title. */
   transparent?: boolean
 }) {

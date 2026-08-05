@@ -15,6 +15,7 @@ export type Features = {
     readonly cacheEviction: boolean
     readonly messageVirtualization: boolean
     readonly explorationGrouping: boolean
+    readonly entryRenderer: boolean
   }
   readonly requests: {
     readonly latestOnlyLspRefresh: boolean
@@ -29,6 +30,7 @@ type Experimental = NonNullable<Config.Info["experimental"]> & {
     cacheEviction?: boolean
     messageVirtualization?: boolean
     explorationGrouping?: boolean
+    entryRenderer?: boolean
   }
   requests?: {
     latestOnlyLspRefresh?: boolean
@@ -52,6 +54,12 @@ export function features(cfg: { experimental?: Config.Info["experimental"] } | u
       // trade a real rendering cost for wrong scroll windows.
       messageVirtualization: e?.tui?.messageVirtualization === true,
       explorationGrouping: e?.tui?.explorationGrouping === true,
+      // Draw the session from v2 entries instead of v1 messages and parts.
+      // Both build the same `Turn[]` (routes/session/view.ts) and the two are
+      // proved equivalent by test, so this only changes which store feeds it.
+      // Off until the entry store is seeded on every path a session can be
+      // opened from.
+      entryRenderer: e?.tui?.entryRenderer === true,
     },
     requests: {
       latestOnlyLspRefresh: e?.requests?.latestOnlyLspRefresh === true,

@@ -82,9 +82,18 @@ export type ViewEntry = {
  */
 export type Turn = {
   readonly messageID: string
+  readonly sessionID: string
   readonly role: "user" | "assistant"
   readonly createdAt: number
   readonly completedAt?: number
+  /**
+   * When the turn before this one started.
+   *
+   * The footer shows how long a step took counting from the prompt that
+   * caused it. v1 read that off `message.parentID`; a turn list has the
+   * answer next door, and it does not depend on which source built it.
+   */
+  readonly previousCreatedAt?: number
   /** Model, agent and mode the turn ran with. Absent on user turns. */
   readonly request?: {
     readonly agent: string
@@ -132,6 +141,7 @@ export function fromEntries(entries: readonly ViewEntry[]): Turn[] {
       index.set(messageID, at)
       turns.push({
         messageID,
+        sessionID: entry.sessionID,
         role: entry.type === "user" ? "user" : "assistant",
         createdAt: entry.timestamp,
         compacted: false,
@@ -183,7 +193,14 @@ export function fromEntries(entries: readonly ViewEntry[]): Turn[] {
     turns[at] = { ...turn, body: [...turn.body, entry] }
   }
 
-  return turns
+  return link(turns)
+}
+
+/** Give every turn the start time of the one before it. */
+function link(turns: Turn[]): Turn[] {
+  return turns.map((turn, index) =>
+    index === 0 ? turn : { ...turn, previousCreatedAt: turns[index - 1]!.createdAt },
+  )
 }
 
 // ============================================================================
@@ -211,9 +228,12 @@ export function fromMessages(
     if (message.role === "user") {
       turns.push({
         messageID: message.id,
+        sessionID: message.sessionID,
         role: "user",
         createdAt: message.time.created,
-        compacted: false,
+        // v1 carries compaction as a part on the message; v2 as its own
+        // entry. Either way it is a property of the turn.
+        compacted: own.some((part) => part.type === "compaction"),
         body: [userEntry(message, own)],
       })
       continue
@@ -229,6 +249,7 @@ export function fromMessages(
 
     turns.push({
       messageID: message.id,
+      sessionID: message.sessionID,
       role: "assistant",
       createdAt: message.time.created,
       completedAt: message.time.completed,
@@ -252,5 +273,5 @@ export function fromMessages(
     })
   }
 
-  return turns
+  return link(turns)
 }
