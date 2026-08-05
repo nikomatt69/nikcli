@@ -409,3 +409,37 @@ deterministic source (`createdAt`).
 
 The failure was intermittent: it only showed when the two conversions landed
 in different milliseconds.
+
+### The golden-screen corpus
+
+`packages/simulation/test/session-render.test.ts` captures what the real TUI
+paints, as **text**, for a corpus of scripted conversations. It is the
+instrument the renderer conversion needs: the unit suite cannot see a paint
+regression, and the TUI smoke test only asserts that *something* was painted.
+
+Text rather than PNG deliberately — the failure of a render refactor should
+be a readable diff, not "the hashes differ". Regenerate with
+`UPDATE_GOLDENS=1`, and read the diff before committing it; that is the
+entire value.
+
+`test/helpers/harness.ts` boots the real CLI headless against the
+simulation's deterministic OpenAI backend and exposes `send` / `respond` /
+`screen`. Two details it had to get right:
+
+- **Which exchange to script.** A prompt fans out into title generation,
+  summarising, and the chat turn. Only the chat turn carries tool
+  definitions, so `respond` matches on that. Answering by arrival order put
+  the scripted reply on the thread title and a fallback in the message.
+- **What to normalize.** Ids, durations, token rates, costs, temp paths and
+  clock times are stripped. The status bar goes whole: it ends with the file
+  the developer's editor has open, right-aligned, so its *length* shifts the
+  entire line. That one made the corpus fail on roughly one run in three
+  until it was normalized — a flaky golden is worse than no golden, because
+  it teaches you to ignore the diff.
+
+Cost: one CLI process per scenario. Scenarios keep separate processes rather
+than sharing one and resetting between them — a scenario bleeding into the
+next would produce a *wrong* golden, which is worse than a slow suite. The
+simulation package's own suite is correspondingly heavier now, and
+`plugin-hot-reload` (300s budget) has been seen to time out under
+contention.

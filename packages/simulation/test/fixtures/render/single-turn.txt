@@ -1,0 +1,19 @@
+┃
+ NIKCLI  ┃ · Fixture            ⇄  ×                                                          + new
+         ┃
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  ┃
+  ┃  what is this
+  ┃
+
+     A deterministic answer.
+
+     ▣  Build · deterministic · Ns · N tok/s
+
+  ┃
+  ┃
+  ┃
+  ┃  Build  · Approve Deterministic simulation Nikcli deterministic simulation
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+[status bar]
