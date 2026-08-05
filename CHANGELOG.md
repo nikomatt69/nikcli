@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.238.0 (August 2026)
+
+## Core
+
+- Draw the session from turns, and from v2 entries behind a flag (@nikomatt69)
+
+## TUI
+
+- Split the tool renderers out of the session route (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(tui): split the tool renderers out of the session route
+  - feat(tui): draw the session from turns, and from v2 entries behind a flag
+
 ## v1.237.0 (August 2026)
 
 ## Core

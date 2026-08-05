@@ -10,18 +10,7 @@
  * presentation. `ExplorationSummary` comes along because it renders tool
  * parts too — it is the collapsed form of a finished exploration run.
  */
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  Match,
-  on,
-  onCleanup,
-  onMount,
-  Show,
-  Switch,
-} from "solid-js"
+import { createEffect, createMemo, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import path from "path"
 import { useRoute } from "@tui/context/route"
@@ -30,19 +19,10 @@ import { useProject } from "@tui/context/project"
 import { SplitBorder } from "@tui/component/border"
 import { Spinner } from "@tui/component/spinner"
 import { useTheme, selectedForeground, tint } from "@tui/context/theme"
-import {
-  BoxRenderable,
-  ScrollBoxRenderable,
-  TextAttributes,
-  RGBA,
-} from "@opentui/core"
+import { BoxRenderable, ScrollBoxRenderable, TextAttributes, RGBA } from "@opentui/core"
 import { Prompt } from "@tui/component/prompt"
 import { TuiPluginRuntime } from "@tui/plugin"
-import {
-  type AssistantMessage,
-  type Part,
-  type ToolPart,
-} from "@nikcli-ai/sdk/v2"
+import { type AssistantMessage, type Part, type ToolPart } from "@nikcli-ai/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
 import { reasoningSummary } from "@tui/context/thinking"
@@ -84,7 +64,7 @@ import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import { Clipboard } from "../../util/clipboard"
-import {useToast } from "../../ui/toast"
+import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv.tsx"
 import { useServer } from "../../context/server"
 import { Editor } from "../../util/editor"
@@ -97,7 +77,7 @@ import { Global } from "@/global"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
-import {formatTranscriptJson } from "../../util/transcript"
+import { formatTranscriptJson } from "../../util/transcript"
 import { TurnUsage } from "../../util/turn-usage"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogOpenTUIViz, Renderer as VizRenderer } from "@tui/component/dialog-opentui-viz"
@@ -107,7 +87,7 @@ import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
 import { features } from "@/config/features"
 import { useLanguage } from "@tui/context/language"
-import {visibleRange } from "./message-window"
+import { visibleRange } from "./message-window"
 import { groupLabel, groupParts, type ExplorationGroup } from "./rows"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
@@ -118,7 +98,6 @@ import {
 import { friendlyErrorMessage, shareErrorMessage } from "../../util/error-message"
 import { Link } from "../../ui/link"
 import { use } from "./session-context"
-
 
 /**
  * One line standing in for a finished run of read-only tool calls.
@@ -1996,4 +1975,3 @@ function filetype(input?: string) {
   if (["typescriptreact", "javascriptreact", "javascript"].includes(language)) return "typescript"
   return language
 }
-

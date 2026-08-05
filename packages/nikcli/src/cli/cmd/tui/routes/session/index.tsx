@@ -20,13 +20,7 @@ import { useProject } from "@tui/context/project"
 import { SplitBorder } from "@tui/component/border"
 import { Spinner } from "@tui/component/spinner"
 import { useTheme, selectedForeground } from "@tui/context/theme"
-import {
-  ScrollBoxRenderable,
-  addDefaultParsers,
-  MacOSScrollAccel,
-  type ScrollAcceleration,
-  RGBA,
-} from "@opentui/core"
+import { ScrollBoxRenderable, addDefaultParsers, MacOSScrollAccel, type ScrollAcceleration, RGBA } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import { TuiPluginRuntime } from "@tui/plugin"
 import {
@@ -94,7 +88,7 @@ import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript, formatTranscriptJson } from "../../util/transcript"
 import { TurnUsage } from "../../util/turn-usage"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
-import {Renderer as VizRenderer } from "@tui/component/dialog-opentui-viz"
+import { Renderer as VizRenderer } from "@tui/component/dialog-opentui-viz"
 import { compilePartialSpec } from "@tui/util/spec-stream"
 import { TuiImageList } from "@tui/component/tui-image"
 import { DialogSelect } from "../../ui/dialog-select"
@@ -102,7 +96,7 @@ import { DialogBgAgents } from "./dialog-bg-agents"
 import { features } from "@/config/features"
 import { useLanguage } from "@tui/context/language"
 import { spacerHeights, visibleRange } from "./message-window"
-import {groupParts, type ExplorationGroup } from "./rows"
+import { groupParts, type ExplorationGroup } from "./rows"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
 import {
@@ -135,7 +129,6 @@ class CustomSpeedScroll implements ScrollAcceleration {
 
   reset(): void {}
 }
-
 
 export function Session() {
   const route = useRouteData("session")
@@ -1632,7 +1625,9 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
   const imagePreviewUrls = createMemo(() =>
     files()
       .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
-      .flatMap((file) => (file.url ? [file.url] : file.source?.type === "file" && file.source.path ? [file.source.path] : [])),
+      .flatMap((file) =>
+        file.url ? [file.url] : file.source?.type === "file" && file.source.path ? [file.source.path] : [],
+      ),
   )
 
   return (
@@ -1698,9 +1693,7 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
               fallback={
                 <Show when={ctx.showTimestamps()}>
                   <text fg={theme.textMuted}>
-                    <span style={{ fg: theme.textMuted }}>
-                      {Locale.todayTimeOrDateTime(props.turn.createdAt)}
-                    </span>
+                    <span style={{ fg: theme.textMuted }}>{Locale.todayTimeOrDateTime(props.turn.createdAt)}</span>
                   </text>
                 </Show>
               }
@@ -1747,10 +1740,12 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
         request.tool?.callID ? [request.tool.callID] : [],
       ),
     )
-    return (groupParts as unknown as (
-      rows: readonly ViewEntry[],
-      options: { closed: boolean; isPending: (entry: ViewEntry) => boolean },
-    ) => ({ type: "part"; part: ViewEntry } | ExplorationGroup<ViewEntry>)[])(props.turn.body, {
+    return (
+      groupParts as unknown as (
+        rows: readonly ViewEntry[],
+        options: { closed: boolean; isPending: (entry: ViewEntry) => boolean },
+      ) => ({ type: "part"; part: ViewEntry } | ExplorationGroup<ViewEntry>)[]
+    )(props.turn.body, {
       closed: Boolean(props.turn.completedAt),
       isPending: (part) => "callID" in part && typeof part.callID === "string" && blocked.has(part.callID),
     }).flatMap<ViewEntry | ExplorationGroup<ViewEntry>>((row) =>
@@ -1920,7 +1915,6 @@ const PART_MAPPING = {
   reasoning: ReasoningPart,
 }
 
-
 // Box-drawing / arrow chars that signal an ASCII diagram. When the assistant
 // emits raw diagrams in prose, the markdown renderer would otherwise paint them
 // in plain theme.text. Wrapping diagram-looking line runs in a fenced code
@@ -2015,11 +2009,11 @@ function ReasoningPart(props: { last: boolean; entry: ViewEntry; sessionID: stri
   const body = createMemo(() => (summary().body ? wrapDiagramsInFences(summary().body) : ""))
   const tight = createMemo(() => ctx.width < 84)
   const done = createMemo(() => {
-    const end = (props.entry.completed as number | undefined)
+    const end = props.entry.completed as number | undefined
     return end !== undefined
   })
   const duration = createMemo(() => {
-    const end = (props.entry.completed as number | undefined)
+    const end = props.entry.completed as number | undefined
     if (end === undefined) return
     return Locale.duration(end - props.entry.timestamp)
   })
@@ -2122,7 +2116,11 @@ function TextPart(props: { last: boolean; entry: ViewEntry; sessionID: string })
             borderColor: theme.borderSubtle,
           }}
         />
-        <TuiImageList text={String(props.entry.text ?? "")} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
+        <TuiImageList
+          text={String(props.entry.text ?? "")}
+          maxColumns={imagePreviewColumns()}
+          maxRows={imagePreviewRows()}
+        />
       </box>
     </Show>
   )
@@ -2180,4 +2178,3 @@ function createStreamingSpeed(text: () => string, isStreaming: () => boolean) {
     },
   }
 }
-
