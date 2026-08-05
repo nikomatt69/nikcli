@@ -79,6 +79,7 @@ import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { dbg as dbgApp } from "./feature-plugins/background/__debug"
 import { BackgroundImage } from "./feature-plugins/background/view"
+import { DevToolsBar } from "./feature-plugins/devtools/bar"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { PluginRouteBoundary } from "./component/plugin-route-boundary"
@@ -1508,6 +1509,13 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       <box flexShrink={0}>
         <TuiPluginRuntime.Slot name="app.bottom" />
       </box>
+      {/*
+        Mounted here rather than through a slot, like BackgroundImage above: a
+        slot would put a SlotRenderable between the bar and the layout, and the
+        one thing this component must not do is add to the cost it reports.
+        Renders nothing at all until `/devtools` turns it on.
+      */}
+      <DevToolsBar />
       <TuiPluginRuntime.Slot name="app" />
       <StartupLoading ready={pluginsReady} />
       <Show when={sdk.connection.status() === "reconnecting"}>

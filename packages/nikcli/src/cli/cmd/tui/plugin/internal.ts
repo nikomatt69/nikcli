@@ -18,6 +18,7 @@ import Observability from "../feature-plugins/observability"
 import Math from "../feature-plugins/math"
 import Island from "../feature-plugins/island"
 import Background from "../feature-plugins/background"
+import DevTools from "../feature-plugins/devtools"
 import { Flag } from "@/flag/flag"
 import { dbg } from "../feature-plugins/background/__debug"
 dbg("internal.ts imported")
@@ -52,5 +53,6 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   Observability,
   Math,
   Background,
+  DevTools,
   ...(Flag.NIKCLI_ISLAND ? [Island] : []),
 ]
