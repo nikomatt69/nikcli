@@ -37,14 +37,14 @@ function part<T extends Partial<MessageV2.Part>>(messageID: string, input: T) {
 
 describe("SessionV2.toEntries", () => {
   it("converts every tool state losslessly, including errors", () => {
-    const info = assistantInfo({ finish: "stop" })
+    const info = assistantInfo({ finish: "stop", time: { created: 1_700_000_000_000, completed: 1_700_000_000_900 } })
     const entries = SessionV2.toEntries(
       [
         {
           info,
           parts: [
             part(info.id, { type: "text", text: "hello" }),
-            part(info.id, { type: "reasoning", text: "thinking" }),
+            part(info.id, { type: "reasoning", text: "thinking", time: { start: 1 } }),
             part(info.id, {
               type: "tool",
               callID: "call-ok",
@@ -81,22 +81,38 @@ describe("SessionV2.toEntries", () => {
       sessionID,
     )
 
-    expect(entries).toHaveLength(1)
-    const entry = entries[0] as SessionEntry.AssistantText
-    expect(entry.role).toBe("assistant")
-    expect(entry.finish).toBe("stop")
-    expect(entry.parts.map((p) => p.type)).toEqual(["text", "reasoning", "tool-result", "tool-result", "tool-call"])
+    // A step is a `start` entry, one entry per part, and a sealing `complete`
+    expect(entries.map((e) => e.type)).toEqual([
+      "start",
+      "text",
+      "reasoning",
+      "tool",
+      "tool",
+      "tool",
+      "complete",
+    ])
 
-    const failed = entry.parts[3] as SessionEntry.ToolResultPart
-    expect(failed.error).toBe(true)
-    expect(failed.result).toBe("command failed")
-    expect(failed.toolCallId).toBe("call-bad")
+    const start = entries[0] as SessionEntry.Request
+    expect(start.modelID).toBe("test-model")
+    expect(start.providerID).toBe("test-provider")
+    expect(start.agent).toBe("build")
 
-    const running = entry.parts[4] as SessionEntry.ToolCallPart
-    expect(running.args).toEqual({ pattern: "x" })
+    const failed = entries[4] as SessionEntry.Tool
+    expect(failed.callID).toBe("call-bad")
+    expect(failed.state.status).toBe("error")
+    if (failed.state.status === "error") expect(failed.state.error).toBe("command failed")
+
+    const running = entries[5] as SessionEntry.Tool
+    expect(running.state.status).toBe("running")
+    expect(running.state.input).toEqual({ pattern: "x" })
+
+    const complete = entries[6] as SessionEntry.Complete
+    expect(complete.finish).toBe("stop")
+    expect(complete.reason).toBe("completed")
+    expect(complete.tokens.input).toBe(1)
   })
 
-  it("converts v1 retry parts into AssistantRetry entries", () => {
+  it("converts v1 retry parts into retry entries, in part order", () => {
     const info = assistantInfo()
     const entries = SessionV2.toEntries(
       [
@@ -119,28 +135,36 @@ describe("SessionV2.toEntries", () => {
       sessionID,
     )
 
-    expect(entries).toHaveLength(2)
-    const retry = entries[0] as SessionEntry.AssistantRetry
-    expect(retry.sub).toBe("retry")
+    expect(entries.map((e) => e.type)).toEqual(["start", "retry", "text"])
+    const retry = entries[1] as SessionEntry.Retry
     expect(retry.attempt).toBe(2)
     expect(retry.error.data.message).toBe("rate limited")
-    expect((entries[1] as SessionEntry.AssistantText).parts[0]).toEqual({
-      type: "text",
-      text: "recovered",
-      ref: expect.any(String),
-    })
+    const text = entries[2] as SessionEntry.Text
+    expect(text.text).toBe("recovered")
+    expect(text.ref).toEqual(expect.any(String))
   })
 
-  it("keeps terminal message errors instead of dropping the message", () => {
+  it("keeps terminal message errors on the complete entry", () => {
     const info = assistantInfo({
       error: { name: "MessageAbortedError", data: { message: "aborted" } },
     })
     const entries = SessionV2.toEntries([{ info, parts: [] }], sessionID)
 
-    expect(entries).toHaveLength(1)
-    const entry = entries[0] as SessionEntry.AssistantText
-    expect(entry.parts).toEqual([])
-    expect(entry.metadata?.error).toEqual({ name: "MessageAbortedError", data: { message: "aborted" } })
+    expect(entries.map((e) => e.type)).toEqual(["start", "complete"])
+    const complete = entries[1] as SessionEntry.Complete
+    expect(complete.reason).toBe("error")
+    expect(complete.error).toEqual({ name: "MessageAbortedError", data: { message: "aborted" } })
+  })
+
+  it("emits a compaction entry for summary messages", () => {
+    const info = assistantInfo({
+      summary: true,
+      time: { created: 1_700_000_000_000, completed: 1_700_000_000_500 },
+    })
+    const entries = SessionV2.toEntries([{ info, parts: [] }], sessionID)
+
+    expect(entries.map((e) => e.type)).toEqual(["start", "complete", "compaction"])
+    expect((entries[2] as SessionEntry.Compaction).auto).toBe(true)
   })
 
   it("converts user messages with files and agents", () => {
@@ -168,6 +192,7 @@ describe("SessionV2.toEntries", () => {
 
     expect(entries).toHaveLength(1)
     const user = entries[0] as SessionEntry.User
+    expect(user.type).toBe("user")
     expect(user.text).toBe("do the thing")
     expect(user.files).toHaveLength(1)
     expect(user.agents).toHaveLength(1)
@@ -212,11 +237,9 @@ describe("Stepper.stepWith", () => {
       }),
     })
 
-    expect(state.entries).toHaveLength(1)
-    expect(state.pending).toHaveLength(1)
-    const open = state.pending[0] as SessionEntry.AssistantText
-    expect(open.modelID).toBe("m")
-    expect(open.parts.map((p) => p.type)).toEqual(["text", "tool-result"])
+    expect(state.entries.map((e) => e.type)).toEqual(["user"])
+    expect(state.pending.map((e) => e.type)).toEqual(["start", "text", "tool"])
+    expect((state.pending[0] as SessionEntry.Request).modelID).toBe("m")
 
     apply({
       type: "step.ended",
@@ -227,7 +250,86 @@ describe("Stepper.stepWith", () => {
     })
 
     expect(state.pending).toHaveLength(0)
-    expect(state.entries).toHaveLength(2)
-    expect((state.entries[1] as SessionEntry.AssistantText).parts).toHaveLength(2)
+    expect(state.entries.map((e) => e.type)).toEqual(["user", "start", "text", "tool", "complete"])
+  })
+
+  it("upserts a streaming part in place instead of appending duplicates", () => {
+    const messageID = Identifier.ascending("message")
+    const textPart = part(messageID, { type: "text", text: "" })
+    let state: Stepper.MemoryState = { entries: [], pending: [] }
+    const { adapter } = Stepper.memory()
+
+    const apply = (draft: SessionEvent.Draft) =>
+      (state = Stepper.stepWith(state, adapter, sessionID, SessionEvent.create(draft)))
+
+    apply({ type: "step.started", sessionID, messageID, providerID: "p", modelID: "m", agent: "build" })
+    for (const text of ["a", "ab", "abc"]) {
+      apply({ type: "part.updated", sessionID, part: { ...textPart, text } as MessageV2.Part })
+    }
+
+    expect(state.pending.map((e) => e.type)).toEqual(["start", "text"])
+    expect((state.pending[1] as SessionEntry.Text).text).toBe("abc")
+  })
+
+  it("collapses a tool's state transitions onto one entry", () => {
+    const messageID = Identifier.ascending("message")
+    const toolPart = part(messageID, { type: "tool", callID: "c1", tool: "read" })
+    let state: Stepper.MemoryState = { entries: [], pending: [] }
+    const { adapter } = Stepper.memory()
+
+    const apply = (draft: SessionEvent.Draft) =>
+      (state = Stepper.stepWith(state, adapter, sessionID, SessionEvent.create(draft)))
+
+    apply({ type: "step.started", sessionID, messageID, providerID: "p", modelID: "m", agent: "build" })
+    apply({
+      type: "part.updated",
+      sessionID,
+      part: { ...toolPart, state: { status: "pending", input: {}, raw: "" } } as MessageV2.Part,
+    })
+    apply({
+      type: "part.updated",
+      sessionID,
+      part: {
+        ...toolPart,
+        state: { status: "running", input: { filePath: "a.ts" }, time: { start: 1 } },
+      } as MessageV2.Part,
+    })
+    apply({
+      type: "part.updated",
+      sessionID,
+      part: {
+        ...toolPart,
+        state: {
+          status: "completed",
+          input: { filePath: "a.ts" },
+          output: "ok",
+          title: "a.ts",
+          metadata: {},
+          time: { start: 1, end: 2 },
+        },
+      } as MessageV2.Part,
+    })
+
+    expect(state.pending.map((e) => e.type)).toEqual(["start", "tool"])
+    const tool = state.pending[1] as SessionEntry.Tool
+    expect(tool.state.status).toBe("completed")
+    expect(tool.callID).toBe("c1")
+  })
+
+  it("drops a removed part from the open step", () => {
+    const messageID = Identifier.ascending("message")
+    const textPart = part(messageID, { type: "text", text: "gone" })
+    let state: Stepper.MemoryState = { entries: [], pending: [] }
+    const { adapter } = Stepper.memory()
+
+    const apply = (draft: SessionEvent.Draft) =>
+      (state = Stepper.stepWith(state, adapter, sessionID, SessionEvent.create(draft)))
+
+    apply({ type: "step.started", sessionID, messageID, providerID: "p", modelID: "m", agent: "build" })
+    apply({ type: "part.updated", sessionID, part: textPart })
+    expect(state.pending.map((e) => e.type)).toEqual(["start", "text"])
+
+    apply({ type: "part.removed", sessionID, messageID, partID: textPart.id })
+    expect(state.pending.map((e) => e.type)).toEqual(["start"])
   })
 })

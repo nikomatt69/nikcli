@@ -9,7 +9,7 @@ function user(sessionID: string, n: number): SessionEntry.Entry {
     id: Identifier.ascending("event"),
     sessionID,
     timestamp: n,
-    role: "user",
+    type: "user",
     text: `t-${n}`,
     files: [],
     agents: [],

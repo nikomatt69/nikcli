@@ -77,7 +77,6 @@ import type {
   ExperimentalWorkspaceWarpResponses,
   FileListResponses,
   FilePartInput,
-  FilePartSource,
   FileReadResponses,
   FileStatusResponses,
   FileWriteResponses,
@@ -4172,17 +4171,10 @@ export class Session2 extends HeyApiClient {
       messageID?: string
       agent?: string
       model?: string
-      arguments: string
       command: string
+      arguments: string
       variant?: string
-      parts?: Array<{
-        id?: string
-        type: "file"
-        mime: string
-        filename?: string
-        url: string
-        source?: FilePartSource
-      }>
+      parts?: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
     },
     options?: Options<never, ThrowOnError>,
   ): RequestResult<SessionCommandResponses, SessionCommandErrors, ThrowOnError> {
@@ -4197,8 +4189,8 @@ export class Session2 extends HeyApiClient {
             { in: "body", key: "messageID" },
             { in: "body", key: "agent" },
             { in: "body", key: "model" },
-            { in: "body", key: "arguments" },
             { in: "body", key: "command" },
+            { in: "body", key: "arguments" },
             { in: "body", key: "variant" },
             { in: "body", key: "parts" },
           ],

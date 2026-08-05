@@ -2,240 +2,329 @@ import z from "zod"
 import { Identifier } from "@/id/id"
 import { MessageV2 } from "../message-v2"
 
+/**
+ * SessionEntry — the flat v2 conversation model.
+ *
+ * Every entry is a top-level record discriminated by `type`, aligned with
+ * opencode's `src/v2/session-entry.ts` shape. The previous nikcli shape
+ * nested streamed parts inside an `AssistantText.parts[]` array, which forced
+ * the whole array to be rewritten on every token and made the durable log
+ * coalesce by part id to survive it (see specs/v2/message-shape.md). Flat
+ * entries make a delta a single-row upsert instead.
+ *
+ * Two fields exist here that opencode's shape does not carry:
+ *
+ * - `ref` — the originating v1 part id. It is the upsert key for live
+ *   reductions: a stream re-emits the same part once per token, so the
+ *   reducer must replace in place rather than append.
+ * - `sessionID` / `messageID` — nikcli's event log and HTTP routes are
+ *   session-scoped and correlate rows back to the v1 message.
+ */
 export namespace SessionEntry {
   export const ID = Identifier.schema("event")
   export type ID = z.infer<typeof ID>
 
   /**
-   * Base schema for all entries
+   * Fields shared by every entry. Spread (not `.extend`) so each member is a
+   * plain object schema and `z.discriminatedUnion` can narrow on `type`.
    */
-  const Base = z.object({
+  const Base = {
     id: ID,
     sessionID: z.string(),
+    /** v1 message this entry was produced by, when it came from one */
+    messageID: z.string().optional(),
     timestamp: z.number(),
     metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-
-  // ============================================================================
-  // Sub-parts — aligned with AI SDK UIMessage parts
-  // ============================================================================
+  }
 
   /**
-   * Originating v1 part id. Set whenever a part is converted from a live v1
+   * Originating v1 part id. Set whenever an entry is converted from a live v1
    * part so repeated `part.updated` events upsert (replace) instead of
    * appending duplicates.
    */
   const Ref = z.string().optional()
 
-  /**
-   * Text part — maps directly to AI SDK's `type: "text"` part
-   */
-  export const TextPart = z.object({
-    type: z.literal("text"),
-    text: z.string(),
-    ignored: z.boolean().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    ref: Ref,
-  })
-  export type TextPart = z.infer<typeof TextPart>
-
-  /**
-   * Reasoning part — maps directly to AI SDK's `type: "reasoning"` part
-   */
-  export const ReasoningPart = z.object({
-    type: z.literal("reasoning"),
-    text: z.string(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    ref: Ref,
-  })
-  export type ReasoningPart = z.infer<typeof ReasoningPart>
-
-  /**
-   * Tool call part — maps directly to AI SDK's `type: "tool-call"` part
-   */
-  export const ToolCallPart = z.object({
-    type: z.literal("tool-call"),
-    toolCallId: z.string(),
-    toolName: z.string(),
-    args: z.record(z.string(), z.unknown()),
-    argsText: z.string().optional(),
-    ref: Ref,
-  })
-  export type ToolCallPart = z.infer<typeof ToolCallPart>
-
-  /**
-   * Tool result part — maps directly to AI SDK's `type: "tool-result"` part.
-   * `error` is set when the underlying v1 tool execution ended in state
-   * "error"; `result` then carries the error text so renderers degrade
-   * gracefully.
-   */
-  export const ToolResultPart = z.object({
-    type: z.literal("tool-result"),
-    toolCallId: z.string(),
-    toolName: z.string(),
-    result: z.string(),
-    error: z.boolean().optional(),
-    attachments: MessageV2.FilePart.array().optional(),
-    ref: Ref,
-  })
-  export type ToolResultPart = z.infer<typeof ToolResultPart>
-
-  /**
-   * Assistant reasoning part type
-   */
-  export type AssistantReasoning = ReasoningPart
-
-  /**
-   * Assistant tool part type (input)
-   */
-  export type AssistantTool = ToolCallPart
-
   // ============================================================================
-  // Assistant sub-types
+  // Input entries
   // ============================================================================
 
-  /**
-   * Assistant text — a text response from the model
-   */
-  export const AssistantText = Base.extend({
-    role: z.literal("assistant"),
-    sub: z.literal("text"),
-    modelID: z.string(),
-    providerID: z.string(),
-    agent: z.string(),
-    finish: z.string().optional(),
-    parts: z.array(z.discriminatedUnion("type", [TextPart, ReasoningPart, ToolCallPart, ToolResultPart])),
-  }).meta({ ref: "SessionEntry.AssistantText" })
-  export type AssistantText = z.infer<typeof AssistantText>
-
-  /**
-   * Assistant reasoning — a reasoning-only response (no text/tool calls)
-   */
-  export const AssistantReasoningEntry = Base.extend({
-    role: z.literal("assistant"),
-    sub: z.literal("reasoning"),
-    modelID: z.string(),
-    providerID: z.string(),
-    agent: z.string(),
-    parts: z.array(ReasoningPart),
-  }).meta({ ref: "SessionEntry.AssistantReasoning" })
-  export type AssistantReasoningEntry = z.infer<typeof AssistantReasoningEntry>
-
-  /**
-   * Assistant tool — a tool-use-only response (no text or reasoning)
-   */
-  export const AssistantToolEntry = Base.extend({
-    role: z.literal("assistant"),
-    sub: z.literal("tool"),
-    modelID: z.string(),
-    providerID: z.string(),
-    agent: z.string(),
-    parts: z.array(z.discriminatedUnion("type", [ToolCallPart, ToolResultPart])),
-  }).meta({ ref: "SessionEntry.AssistantTool" })
-  export type AssistantToolEntry = z.infer<typeof AssistantToolEntry>
-
-  /**
-   * Assistant retry — an error/retry from a previous attempt
-   */
-  export const AssistantRetry = Base.extend({
-    role: z.literal("assistant"),
-    sub: z.literal("retry"),
-    attempt: z.number().int().nonnegative(),
-    error: MessageV2.APIError.Schema,
-  }).meta({ ref: "SessionEntry.AssistantRetry" })
-  export type AssistantRetry = z.infer<typeof AssistantRetry>
-
-  // ============================================================================
-  // Top-level discriminated union
-  // ============================================================================
-
-  /**
-   * User entry — the user's prompt
-   */
-  export const User = Base.extend({
-    role: z.literal("user"),
-    text: z.string(),
-    files: MessageV2.FilePart.array().default([]),
-    agents: MessageV2.AgentPart.array().default([]),
-  }).meta({ ref: "SessionEntry.User" })
+  /** The user's prompt. */
+  export const User = z
+    .object({
+      ...Base,
+      type: z.literal("user"),
+      text: z.string(),
+      files: MessageV2.FilePart.array().default([]),
+      agents: MessageV2.AgentPart.array().default([]),
+    })
+    .meta({ ref: "SessionEntry.User" })
   export type User = z.infer<typeof User>
 
-  /**
-   * Synthetic entry — auto-generated messages (system, user, assistant)
-   */
-  export const Synthetic = Base.extend({
-    role: z.literal("synthetic"),
-    text: z.string(),
-    roleType: z.enum(["system", "user", "assistant"]).default("assistant"),
-  }).meta({ ref: "SessionEntry.Synthetic" })
+  /** Auto-generated message injected into the conversation. */
+  export const Synthetic = z
+    .object({
+      ...Base,
+      type: z.literal("synthetic"),
+      text: z.string(),
+      role: z.enum(["system", "user", "assistant"]).default("assistant"),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Synthetic" })
   export type Synthetic = z.infer<typeof Synthetic>
 
-  /**
-   * Assistant entry — a complete assistant response
-   * Discriminated by `sub` field: "text" | "reasoning" | "tool" | "retry"
-   */
-  export const Assistant = z.discriminatedUnion("sub", [
-    AssistantText,
-    AssistantReasoningEntry,
-    AssistantToolEntry,
-    AssistantRetry,
-  ])
-  export type Assistant = z.infer<typeof Assistant>
+  // ============================================================================
+  // Assistant step lifecycle
+  // ============================================================================
 
   /**
-   * Complete SessionEntry discriminated union
+   * Start of an assistant step — carries what the request was made with.
+   * `type` is "start" (not "request") to match opencode's literal.
    */
-  export const Entry = z.discriminatedUnion("role", [User, Synthetic, Assistant])
+  export const Request = z
+    .object({
+      ...Base,
+      type: z.literal("start"),
+      providerID: z.string(),
+      modelID: z.string(),
+      agent: z.string(),
+      variant: z.string().optional(),
+      snapshot: z.string().optional(),
+    })
+    .meta({ ref: "SessionEntry.Request" })
+  export type Request = z.infer<typeof Request>
+
+  /**
+   * End of an assistant step — cost, tokens and finish reason. Terminal
+   * message errors (abort, auth, overflow) ride on `error` so the conversion
+   * from a v1 message stays lossless.
+   */
+  export const Complete = z
+    .object({
+      ...Base,
+      type: z.literal("complete"),
+      reason: z.string(),
+      cost: z.number().default(0),
+      tokens: MessageV2.Assistant.shape.tokens,
+      finish: z.string().optional(),
+      error: MessageV2.AssistantError.optional(),
+    })
+    .meta({ ref: "SessionEntry.Complete" })
+  export type Complete = z.infer<typeof Complete>
+
+  /** A failed attempt that the engine retried. */
+  export const Retry = z
+    .object({
+      ...Base,
+      type: z.literal("retry"),
+      attempt: z.number().int().nonnegative(),
+      error: MessageV2.APIError.Schema,
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Retry" })
+  export type Retry = z.infer<typeof Retry>
+
+  /** History was compacted at this point in the conversation. */
+  export const Compaction = z
+    .object({
+      ...Base,
+      type: z.literal("compaction"),
+      auto: z.boolean().default(false),
+      overflow: z.boolean().optional(),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Compaction" })
+  export type Compaction = z.infer<typeof Compaction>
+
+  // ============================================================================
+  // Streamed content entries
+  // ============================================================================
+
+  /** Assistant text output. */
+  export const Text = z
+    .object({
+      ...Base,
+      type: z.literal("text"),
+      text: z.string(),
+      ignored: z.boolean().optional(),
+      synthetic: z.boolean().optional(),
+      completed: z.number().optional(),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Text" })
+  export type Text = z.infer<typeof Text>
+
+  /** Assistant reasoning output. */
+  export const Reasoning = z
+    .object({
+      ...Base,
+      type: z.literal("reasoning"),
+      text: z.string(),
+      completed: z.number().optional(),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Reasoning" })
+  export type Reasoning = z.infer<typeof Reasoning>
+
+  /**
+   * A tool invocation and its lifecycle. The v1 `ToolState` union is reused
+   * verbatim: one entry per `callID` moves pending → running → completed |
+   * error in place, so a tool never occupies more than one entry.
+   */
+  export const Tool = z
+    .object({
+      ...Base,
+      type: z.literal("tool"),
+      callID: z.string(),
+      name: z.string(),
+      state: MessageV2.ToolState,
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Tool" })
+  export type Tool = z.infer<typeof Tool>
+
+  /** A delegated sub-agent run. nikcli-specific; opencode has no equivalent. */
+  export const Subtask = z
+    .object({
+      ...Base,
+      type: z.literal("subtask"),
+      prompt: z.string(),
+      description: z.string(),
+      agent: z.string(),
+      model: z
+        .object({
+          providerID: z.string(),
+          modelID: z.string(),
+        })
+        .optional(),
+      command: z.string().optional(),
+      background: z.boolean().optional(),
+      ref: Ref,
+    })
+    .meta({ ref: "SessionEntry.Subtask" })
+  export type Subtask = z.infer<typeof Subtask>
+
+  // ============================================================================
+  // Union
+  // ============================================================================
+
+  export const Entry = z
+    .discriminatedUnion("type", [
+      User,
+      Synthetic,
+      Request,
+      Text,
+      Reasoning,
+      Tool,
+      Subtask,
+      Complete,
+      Retry,
+      Compaction,
+    ])
+    .meta({ ref: "SessionEntry" })
   export type Entry = z.infer<typeof Entry>
 
+  /** Entry kinds that carry a `ref` and are therefore upsert targets. */
+  export type Streamed = Text | Reasoning | Tool | Subtask | Retry | Compaction | Synthetic
+
+  const STREAMED = new Set(["text", "reasoning", "tool", "subtask", "retry", "compaction", "synthetic"])
+
+  export function isStreamed(entry: Entry): entry is Streamed {
+    return STREAMED.has(entry.type)
+  }
+
+  /** The originating v1 part id, when the entry came from one. */
+  export function refOf(entry: Entry): string | undefined {
+    return isStreamed(entry) ? entry.ref : undefined
+  }
+
+  const ASSISTANT = new Set(["start", "text", "reasoning", "tool", "subtask", "complete", "retry"])
+
+  /** True for entries produced by an assistant step (as opposed to input). */
+  export function isAssistant(entry: Entry): boolean {
+    return ASSISTANT.has(entry.type)
+  }
+
   // ============================================================================
-  // v1 part conversion
+  // v1 → v2 conversion
   // ============================================================================
 
+  /** Everything the conversion needs that does not live on the part itself. */
+  export interface FromV1Context {
+    sessionID: string
+    messageID?: string
+    id?: string
+    timestamp?: number
+  }
+
   /**
-   * Convert a single v1 message part to its v2 entry part. Returns undefined
-   * for part kinds the v2 shape does not model (step markers, snapshots,
-   * patches, files — files/agents live on the User entry instead).
+   * Convert a single v1 message part to its v2 entry. Returns undefined for
+   * part kinds the v2 shape does not model as entries (step markers,
+   * snapshots, patches, and file/agent parts — those ride on the User entry).
    */
-  export function fromV1Part(
-    part: MessageV2.Part,
-  ): TextPart | ReasoningPart | ToolCallPart | ToolResultPart | undefined {
+  export function fromV1Part(part: MessageV2.Part, ctx: FromV1Context): Entry | undefined {
+    const base = {
+      id: ctx.id ?? Identifier.ascending("event"),
+      sessionID: ctx.sessionID,
+      messageID: ctx.messageID ?? part.messageID,
+      ref: part.id,
+    }
+
     switch (part.type) {
       case "text":
-        return { type: "text", text: part.text, ignored: part.ignored, ref: part.id }
+        return Text.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? part.time?.start ?? Date.now(),
+          type: "text",
+          text: part.text,
+          ignored: part.ignored,
+          synthetic: part.synthetic,
+          completed: part.time?.end,
+        })
       case "reasoning":
-        return { type: "reasoning", text: part.text, ref: part.id }
+        return Reasoning.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? part.time?.start ?? Date.now(),
+          type: "reasoning",
+          text: part.text,
+          completed: part.time?.end,
+        })
       case "tool":
-        switch (part.state.status) {
-          case "completed":
-            return {
-              type: "tool-result",
-              toolCallId: part.callID,
-              toolName: part.tool,
-              result: part.state.output,
-              attachments: part.state.attachments,
-              ref: part.id,
-            }
-          case "error":
-            return {
-              type: "tool-result",
-              toolCallId: part.callID,
-              toolName: part.tool,
-              result: part.state.error,
-              error: true,
-              ref: part.id,
-            }
-          case "pending":
-          case "running":
-            return {
-              type: "tool-call",
-              toolCallId: part.callID,
-              toolName: part.tool,
-              args: part.state.input,
-              ref: part.id,
-            }
-        }
-        return undefined
+        return Tool.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? Date.now(),
+          type: "tool",
+          callID: part.callID,
+          name: part.tool,
+          state: part.state,
+          metadata: part.metadata,
+        })
+      case "subtask":
+        return Subtask.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? Date.now(),
+          type: "subtask",
+          prompt: part.prompt,
+          description: part.description,
+          agent: part.agent,
+          model: part.model,
+          command: part.command,
+          background: part.background,
+        })
+      case "retry":
+        return Retry.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? part.time.created,
+          type: "retry",
+          attempt: part.attempt,
+          error: part.error,
+        })
+      case "compaction":
+        return Compaction.parse({
+          ...base,
+          timestamp: ctx.timestamp ?? Date.now(),
+          type: "compaction",
+          auto: part.auto,
+        })
       default:
         return undefined
     }
@@ -245,14 +334,12 @@ export namespace SessionEntry {
   // Factory
   // ============================================================================
 
-  /**
-   * Factory to create a new entry with generated ID and timestamp
-   */
+  /** Create an entry, filling in a generated id and timestamp. */
   export function create<T extends Entry>(input: Omit<T, "id" | "timestamp"> & { id?: string; timestamp?: number }): T {
     return Entry.parse({
+      ...input,
       id: input.id ?? Identifier.ascending("event"),
       timestamp: input.timestamp ?? Date.now(),
-      ...input,
     }) as T
   }
 }

@@ -11,12 +11,7 @@ import type {
   Pty,
   QuestionRequest,
   ReferenceConfig,
-  SessionEntryAssistantReasoning,
-  SessionEntryAssistantRetry,
-  SessionEntryAssistantText,
-  SessionEntryAssistantTool,
-  SessionEntrySynthetic,
-  SessionEntryUser,
+  SessionEntry,
 } from "@nikcli-ai/sdk/v2"
 import type {
   Data,
@@ -52,13 +47,8 @@ type LocationData = {
   shell?: Pty[]
 }
 
-type PendingEntry =
-  | SessionEntryUser
-  | SessionEntrySynthetic
-  | SessionEntryAssistantText
-  | SessionEntryAssistantReasoning
-  | SessionEntryAssistantTool
-  | SessionEntryAssistantRetry
+/** A live v2 entry — flat, discriminated on `type` (see session/v2/entry.ts). */
+type PendingEntry = SessionEntry
 
 function locationKey(location: LocationRef) {
   return `${location.directory}\u0000${location.workspaceID ?? ""}`

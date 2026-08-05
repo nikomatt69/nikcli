@@ -135,6 +135,52 @@ const msg = {
 
 Tradeoff: stored messages get much smaller and cleaner, but replay now has to join messages with turn state and prompt hooks still need a way to pick which turn they belong to.
 
+## Flat entries (2026-08-05) — phase 1
+
+`SessionEntry` is now a **flat** union discriminated on `type`, aligned with
+opencode's `src/v2/session-entry.ts`. The previous shape nested streamed
+parts inside `AssistantText.parts[]`, which meant a token delta rewrote the
+whole array and forced the durable log to coalesce rows by part id to
+survive it.
+
+Entries: `user`, `synthetic`, `start` (was: the model fields on
+`AssistantText`), `text`, `reasoning`, `tool`, `subtask`, `complete`,
+`retry`, `compaction`.
+
+What changed and why:
+
+- **One entry per part.** A live delta is now a single-row upsert keyed on
+  `ref` (the originating v1 part id) instead of an array rewrite.
+- **`tool` reuses `MessageV2.ToolState` verbatim.** pending → running →
+  completed | error collapses onto one entry per `callID`; the old shape
+  emitted a `tool-call` part that a later `tool-result` part replaced.
+- **`start` / `complete` are first-class.** Model, provider and agent live
+  on `start`; cost, tokens, finish reason and any terminal message error
+  live on `complete`. Both were previously squeezed onto `AssistantText`
+  (and the error was hidden in `metadata.error`).
+- **`compaction` and `subtask` are modelled.** Both v1 part kinds were
+  silently dropped by the old conversion.
+- Two fields opencode's shape does not carry are kept: `ref` (the upsert
+  key — opencode has no live-projection path yet) and `sessionID` /
+  `messageID` (nikcli's routes and event log are session-scoped).
+
+Consequences downstream:
+
+- `Stepper.Action` gained `upsertPending` / `removePending` and lost
+  `upsertPart` / `removePart`. `indexOf` matches on `ref`, and additionally
+  on `callID` for tools.
+- `SessionEvent.StepEnded` gained `error`; a `compaction` event was added.
+- `MessageV2.AssistantError` is now exported as a zod schema (it was
+  Effect-only) so `Complete.error` can be typed.
+- The generated SDK types changed shape: `SessionEntryAssistantText` and
+  friends are gone, replaced by the flat `SessionEntry` union. Consumers
+  (`plugin/v2/tui/context.ts`, `tui/plugin/data.ts`) now use `SessionEntry`
+  directly.
+
+Schemas stay **zod**, not Effect Schema: the `/v2/*` routes feed the Hono
+`resolver()` and nikcli's OpenAPI → SDK pipeline is zod-driven, so
+converting would break codegen for no gain.
+
 ## Implementation status (2026-06-10)
 
 The entry/event/stepper shape is implemented in `src/session/v2/` and live,

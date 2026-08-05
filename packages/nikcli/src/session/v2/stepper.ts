@@ -6,13 +6,27 @@ import { Identifier } from "@/id/id"
 // Enable immer patches for replay functionality
 enablePatches()
 
+/**
+ * Stepper — the reducer that turns a `SessionEvent` stream into flat
+ * `SessionEntry` state.
+ *
+ * With the flat entry model every streamed part is a top-level entry, so a
+ * live delta is an upsert keyed on `ref` (the originating v1 part id) rather
+ * than a rewrite of a nested `parts[]` array. That keeps `stepWith`
+ * idempotent for streams that re-emit the same part once per token, which is
+ * what both the live projector and the durable-log replay depend on.
+ */
 export namespace Stepper {
   // ============================================================================
   // Types
   // ============================================================================
 
   /**
-   * The complete memory state managed by the stepper
+   * The complete memory state managed by the stepper.
+   *
+   * `entries` holds sealed conversation history; `pending` holds the
+   * in-flight assistant step, which is flushed into `entries` by a
+   * `step.ended` event.
    */
   export interface MemoryState {
     entries: SessionEntry.Entry[]
@@ -50,8 +64,8 @@ export namespace Stepper {
   export type Action =
     | { type: "append"; entry: SessionEntry.Entry }
     | { type: "appendPending"; entry: SessionEntry.Entry }
-    | { type: "upsertPart"; part: SessionEntry.AssistantText["parts"][number] }
-    | { type: "removePart"; ref: string }
+    | { type: "upsertPending"; entry: SessionEntry.Entry }
+    | { type: "removePending"; ref: string }
     | { type: "removeLastPending" }
     | { type: "replacePending"; entries: SessionEntry.Entry[] }
     | { type: "finish"; result: StepResult }
@@ -102,9 +116,20 @@ export namespace Stepper {
   // Reducer
   // ============================================================================
 
-  /** The open step: a pending assistant-text entry that parts attach to. */
-  function isOpenStep(entry: SessionEntry.Entry): entry is SessionEntry.AssistantText {
-    return entry.role === "assistant" && entry.sub === "text"
+  /**
+   * Index of the entry an incoming one replaces, or -1.
+   *
+   * Identity is the originating v1 part (`ref`); a tool additionally matches
+   * on `callID` so its pending → running → completed transitions collapse
+   * onto one entry even if the underlying part id changes.
+   */
+  function indexOf(entries: SessionEntry.Entry[], entry: SessionEntry.Entry): number {
+    const ref = SessionEntry.refOf(entry)
+    return entries.findIndex((existing) => {
+      if (ref !== undefined && SessionEntry.refOf(existing) === ref) return true
+      if (entry.type === "tool" && existing.type === "tool" && existing.callID === entry.callID) return true
+      return false
+    })
   }
 
   /**
@@ -121,30 +146,24 @@ export namespace Stepper {
           draft.pending.push(action.entry)
           break
         }
-        case "upsertPart": {
-          // Attach a part to the open (last pending assistant-text) step —
-          // `findLast` because a retry entry may sit after the open step.
-          // Idempotent: a part with the same originating v1 part (`ref`)
-          // replaces in place, and a tool-result replaces its tool-call
-          // (same toolCallId). Without an open step there is nowhere
-          // coherent to put it.
-          const open = draft.pending.findLast(isOpenStep)
-          if (!open) break
-          const part = action.part
-          const index = open.parts.findIndex(
-            (existing) =>
-              (part.ref !== undefined && existing.ref === part.ref) ||
-              (part.type === "tool-result" && existing.type === "tool-call" && existing.toolCallId === part.toolCallId),
-          )
-          if (index >= 0) open.parts[index] = part
-          else open.parts.push(part)
+        case "upsertPending": {
+          // Live streams re-emit the same part many times, so the reduction
+          // must replace in place rather than append. An entry with no match
+          // is new and lands at the end of the step.
+          const index = indexOf(draft.pending, action.entry)
+          if (index >= 0) {
+            // keep the id the entry was first seen with: consumers key
+            // renders on it, and the id is the stable position in the step
+            const existing = draft.pending[index]!
+            draft.pending[index] = { ...action.entry, id: existing.id }
+            break
+          }
+          draft.pending.push(action.entry)
           break
         }
-        case "removePart": {
-          const open = draft.pending.findLast(isOpenStep)
-          if (!open) break
-          const index = open.parts.findIndex((existing) => existing.ref === action.ref)
-          if (index >= 0) open.parts.splice(index, 1)
+        case "removePending": {
+          const index = draft.pending.findIndex((existing) => SessionEntry.refOf(existing) === action.ref)
+          if (index >= 0) draft.pending.splice(index, 1)
           break
         }
         case "removeLastPending": {
@@ -178,13 +197,15 @@ export namespace Stepper {
     sessionID: string,
     event: SessionEvent.Event,
   ): MemoryState {
+    const timestamp = event.timestamp ?? Date.now()
+    const base = { id: Identifier.ascending("event"), sessionID, timestamp }
+
     switch (event.type) {
       case "prompt": {
         const entry = SessionEntry.User.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          timestamp: event.timestamp ?? Date.now(),
-          role: "user",
+          ...base,
+          messageID: event.messageID,
+          type: "user",
           text: event.text,
           files: event.files,
           agents: event.agents,
@@ -194,73 +215,77 @@ export namespace Stepper {
 
       case "synthetic": {
         const entry = SessionEntry.Synthetic.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          timestamp: event.timestamp ?? Date.now(),
-          role: "synthetic",
+          ...base,
+          messageID: event.messageID,
+          type: "synthetic",
           text: event.text,
-          roleType: event.role,
+          role: event.role,
         })
         return reduce(state, { type: "append", entry })
       }
 
       case "step.started": {
-        const entry = SessionEntry.AssistantText.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          timestamp: event.timestamp ?? Date.now(),
-          role: "assistant",
-          sub: "text",
-          modelID: event.modelID,
+        const entry = SessionEntry.Request.parse({
+          ...base,
+          messageID: event.messageID,
+          type: "start",
           providerID: event.providerID,
+          modelID: event.modelID,
           agent: event.agent,
-          parts: [],
+          snapshot: event.snapshot,
         })
         return reduce(state, { type: "appendPending", entry })
       }
 
       case "step.ended": {
-        return reduce(state, { type: "finish", result: { finish: event.finish } })
+        // The step is sealed by its own entry, then the whole pending tail
+        // moves into history in one shot.
+        const entry = SessionEntry.Complete.parse({
+          ...base,
+          messageID: event.messageID,
+          type: "complete",
+          reason: event.reason,
+          cost: event.cost,
+          tokens: event.tokens,
+          finish: event.finish,
+          error: event.error,
+        })
+        return reduce(reduce(state, { type: "appendPending", entry }), {
+          type: "finish",
+          result: { finish: event.finish },
+        })
       }
 
       case "part.updated": {
-        // The v1 part is converted to its v2 shape and upserted into the open
-        // assistant step: live streams re-emit the same part (same `ref`)
-        // many times, so the reduction must be idempotent, not append-only.
-        const part = SessionEntry.fromV1Part(event.part)
-        if (!part) return state
-        if (state.pending.some(isOpenStep)) {
-          return reduce(state, { type: "upsertPart", part })
-        }
-        const entry = SessionEntry.AssistantText.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          timestamp: event.timestamp ?? Date.now(),
-          role: "assistant",
-          sub: "text",
-          modelID: "",
-          providerID: "",
-          agent: "",
-          parts: [part],
-        })
-        return reduce(state, { type: "appendPending", entry })
+        const entry = SessionEntry.fromV1Part(event.part, { sessionID, timestamp })
+        if (!entry) return state
+        return reduce(state, { type: "upsertPending", entry })
       }
 
       case "part.removed": {
-        return reduce(state, { type: "removePart", ref: event.partID })
+        return reduce(state, { type: "removePending", ref: event.partID })
       }
 
       case "retry.error": {
-        const entry = SessionEntry.AssistantRetry.parse({
-          id: Identifier.ascending("event"),
-          sessionID,
-          timestamp: event.timestamp ?? Date.now(),
-          role: "assistant",
-          sub: "retry",
+        const entry = SessionEntry.Retry.parse({
+          ...base,
+          messageID: event.messageID,
+          type: "retry",
           attempt: event.attempt,
           error: event.error,
         })
         return reduce(state, { type: "appendPending", entry })
+      }
+
+      case "compaction": {
+        const entry = SessionEntry.Compaction.parse({
+          ...base,
+          messageID: event.messageID,
+          type: "compaction",
+          auto: event.auto,
+          overflow: event.overflow,
+        })
+        return reduce(state, { type: "append", entry })
       }
 
       default: {

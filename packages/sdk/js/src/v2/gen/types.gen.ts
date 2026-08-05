@@ -3424,11 +3424,12 @@ export type ManagedWorktreeLinkInput = {
 export type SessionEntryUser = {
   id: string
   sessionID: string
+  messageID?: string
   timestamp: number
   metadata?: {
     [key: string]: unknown
   }
-  role: "user"
+  type: "user"
   text: string
   files?: Array<FilePart>
   agents?: Array<AgentPart>
@@ -3437,137 +3438,170 @@ export type SessionEntryUser = {
 export type SessionEntrySynthetic = {
   id: string
   sessionID: string
+  messageID?: string
   timestamp: number
   metadata?: {
     [key: string]: unknown
   }
-  role: "synthetic"
+  type: "synthetic"
   text: string
-  roleType?: "system" | "user" | "assistant"
+  role?: "system" | "user" | "assistant"
+  ref?: string
 }
 
-export type SessionEntryAssistantText = {
+export type SessionEntryRequest = {
   id: string
   sessionID: string
+  messageID?: string
   timestamp: number
   metadata?: {
     [key: string]: unknown
   }
-  role: "assistant"
-  sub: "text"
-  modelID: string
+  type: "start"
   providerID: string
+  modelID: string
   agent: string
-  finish?: string
-  parts: Array<
-    | {
-        type: "text"
-        text: string
-        ignored?: boolean
-        metadata?: {
-          [key: string]: unknown
-        }
-        ref?: string
-      }
-    | {
-        type: "reasoning"
-        text: string
-        metadata?: {
-          [key: string]: unknown
-        }
-        ref?: string
-      }
-    | {
-        type: "tool-call"
-        toolCallId: string
-        toolName: string
-        args: {
-          [key: string]: unknown
-        }
-        argsText?: string
-        ref?: string
-      }
-    | {
-        type: "tool-result"
-        toolCallId: string
-        toolName: string
-        result: string
-        error?: boolean
-        attachments?: Array<FilePart>
-        ref?: string
-      }
-  >
+  variant?: string
+  snapshot?: string
 }
 
-export type SessionEntryAssistantReasoning = {
+export type SessionEntryText = {
   id: string
   sessionID: string
+  messageID?: string
   timestamp: number
   metadata?: {
     [key: string]: unknown
   }
-  role: "assistant"
-  sub: "reasoning"
-  modelID: string
-  providerID: string
+  type: "text"
+  text: string
+  ignored?: boolean
+  synthetic?: boolean
+  completed?: number
+  ref?: string
+}
+
+export type SessionEntryReasoning = {
+  id: string
+  sessionID: string
+  messageID?: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "reasoning"
+  text: string
+  completed?: number
+  ref?: string
+}
+
+export type SessionEntryTool = {
+  id: string
+  sessionID: string
+  messageID?: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "tool"
+  callID: string
+  name: string
+  state: ToolState
+  ref?: string
+}
+
+export type SessionEntrySubtask = {
+  id: string
+  sessionID: string
+  messageID?: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "subtask"
+  prompt: string
+  description: string
   agent: string
-  parts: Array<{
-    type: "reasoning"
-    text: string
-    metadata?: {
-      [key: string]: unknown
+  model?: {
+    providerID: string
+    modelID: string
+  }
+  command?: string
+  background?: boolean
+  ref?: string
+}
+
+export type SessionEntryComplete = {
+  id: string
+  sessionID: string
+  messageID?: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "complete"
+  reason: string
+  cost?: number
+  tokens: {
+    total?: number
+    input: number
+    output: number
+    reasoning: number
+    cache: {
+      read: number
+      write: number
     }
-    ref?: string
-  }>
+  }
+  finish?: string
+  error?:
+    | ProviderAuthError
+    | UnknownError
+    | MessageOutputLengthError
+    | MessageContextOverflowError
+    | MessageAbortedError
+    | StructuredOutputError
+    | ApiError
 }
 
-export type SessionEntryAssistantTool = {
+export type SessionEntryRetry = {
   id: string
   sessionID: string
+  messageID?: string
   timestamp: number
   metadata?: {
     [key: string]: unknown
   }
-  role: "assistant"
-  sub: "tool"
-  modelID: string
-  providerID: string
-  agent: string
-  parts: Array<
-    | {
-        type: "tool-call"
-        toolCallId: string
-        toolName: string
-        args: {
-          [key: string]: unknown
-        }
-        argsText?: string
-        ref?: string
-      }
-    | {
-        type: "tool-result"
-        toolCallId: string
-        toolName: string
-        result: string
-        error?: boolean
-        attachments?: Array<FilePart>
-        ref?: string
-      }
-  >
-}
-
-export type SessionEntryAssistantRetry = {
-  id: string
-  sessionID: string
-  timestamp: number
-  metadata?: {
-    [key: string]: unknown
-  }
-  role: "assistant"
-  sub: "retry"
+  type: "retry"
   attempt: number
   error: ApiError
+  ref?: string
 }
+
+export type SessionEntryCompaction = {
+  id: string
+  sessionID: string
+  messageID?: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "compaction"
+  auto?: boolean
+  overflow?: boolean
+  ref?: string
+}
+
+export type SessionEntry =
+  | SessionEntryUser
+  | SessionEntrySynthetic
+  | SessionEntryRequest
+  | SessionEntryText
+  | SessionEntryReasoning
+  | SessionEntryTool
+  | SessionEntrySubtask
+  | SessionEntryComplete
+  | SessionEntryRetry
+  | SessionEntryCompaction
 
 export type SessionEventFileAttachment = {
   uri: string
@@ -3654,6 +3688,14 @@ export type SessionEventStepEnded = {
     }
   }
   finish?: string
+  error?:
+    | ProviderAuthError
+    | UnknownError
+    | MessageOutputLengthError
+    | MessageContextOverflowError
+    | MessageAbortedError
+    | StructuredOutputError
+    | ApiError
 }
 
 export type SessionEventRetryError = {
@@ -3693,6 +3735,19 @@ export type SessionEventPartRemoved = {
   partID: string
 }
 
+export type SessionEventCompaction = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "compaction"
+  messageID: string
+  auto?: boolean
+  overflow?: boolean
+}
+
 export type SessionEvent =
   | SessionEventPrompt
   | SessionEventSynthetic
@@ -3701,6 +3756,7 @@ export type SessionEvent =
   | SessionEventRetryError
   | SessionEventPartUpdated
   | SessionEventPartRemoved
+  | SessionEventCompaction
 
 export type TextPartInput = {
   id?: string
@@ -7612,14 +7668,7 @@ export type SessionV2EntriesResponses = {
   /**
    * List of v2 entries
    */
-  200: Array<
-    | SessionEntryUser
-    | SessionEntrySynthetic
-    | SessionEntryAssistantText
-    | SessionEntryAssistantReasoning
-    | SessionEntryAssistantTool
-    | SessionEntryAssistantRetry
-  >
+  200: Array<SessionEntry>
 }
 
 export type SessionV2EntriesResponse = SessionV2EntriesResponses[keyof SessionV2EntriesResponses]
@@ -7657,22 +7706,8 @@ export type SessionV2StateResponses = {
    * Live v2 state
    */
   200: {
-    entries: Array<
-      | SessionEntryUser
-      | SessionEntrySynthetic
-      | SessionEntryAssistantText
-      | SessionEntryAssistantReasoning
-      | SessionEntryAssistantTool
-      | SessionEntryAssistantRetry
-    >
-    pending: Array<
-      | SessionEntryUser
-      | SessionEntrySynthetic
-      | SessionEntryAssistantText
-      | SessionEntryAssistantReasoning
-      | SessionEntryAssistantTool
-      | SessionEntryAssistantRetry
-    >
+    entries: Array<SessionEntry>
+    pending: Array<SessionEntry>
   }
 }
 
@@ -7865,17 +7900,10 @@ export type SessionCommandData = {
     messageID?: string
     agent?: string
     model?: string
-    arguments: string
     command: string
+    arguments: string
     variant?: string
-    parts?: Array<{
-      id?: string
-      type: "file"
-      mime: string
-      filename?: string
-      url: string
-      source?: FilePartSource
-    }>
+    parts?: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
     /**

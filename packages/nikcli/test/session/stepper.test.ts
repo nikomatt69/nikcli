@@ -8,7 +8,7 @@ function sampleUserEntry(sessionID: string): SessionEntry.Entry {
     id: Identifier.ascending("event"),
     sessionID,
     timestamp: 1,
-    role: "user",
+    type: "user",
     text: "hi",
     files: [],
     agents: [],

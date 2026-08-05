@@ -110,11 +110,9 @@ describe("SessionV2 event persistence", () => {
         // replay reproduces the completed step from the log alone
         const replayed = SessionV2.replay(sessionID)
         expect(replayed.pending).toHaveLength(0)
-        expect(replayed.entries).toHaveLength(1)
-        const entry = replayed.entries[0] as SessionEntryTypes.AssistantText
-        expect(entry.modelID).toBe("test-model")
-        expect(entry.parts.map((p) => p.type)).toEqual(["text", "tool-result"])
-        expect(entry.parts[0]).toMatchObject({ type: "text", text: "partial answer, final" })
+        expect(replayed.entries.map((e) => e.type)).toEqual(["start", "text", "tool", "complete"])
+        expect((replayed.entries[0] as SessionEntryTypes.Request).modelID).toBe("test-model")
+        expect(replayed.entries[1]).toMatchObject({ type: "text", text: "partial answer, final" })
       },
     })
   })
@@ -140,7 +138,8 @@ describe("SessionV2 event persistence", () => {
 
         const replayed = SessionV2.replay(sessionID)
         expect(replayed.entries).toHaveLength(0)
-        expect(replayed.pending).toHaveLength(1)
+        // no sealing step.ended: the whole step stays in the pending tail
+        expect(replayed.pending.map((e) => e.type)).toEqual(["start", "text"])
       },
     })
   })

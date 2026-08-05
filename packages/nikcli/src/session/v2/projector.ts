@@ -126,10 +126,11 @@ export namespace SessionProjector {
                 type: "step.ended",
                 sessionID: info.sessionID,
                 messageID: info.id,
-                reason: "completed",
+                reason: info.error ? "error" : "completed",
                 cost: info.cost,
                 tokens: info.tokens,
                 finish: info.finish,
+                error: info.error,
               }),
             )
             // storage is authoritative from here on: drop the live tail

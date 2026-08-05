@@ -11,7 +11,7 @@ import type {
   Pty,
   QuestionRequest,
   Session,
-  SessionEntryUser,
+  SessionEntry,
 } from "@nikcli-ai/sdk/v2"
 import { createStore } from "solid-js/store"
 import { createV2Data } from "@/cli/cmd/tui/plugin/data"
@@ -56,7 +56,7 @@ function fixture() {
   const resource = { name: "resource", uri: "mcp://resource", client: "server" } as McpResource
   const connector = { status: "connected" } as ConnectorStatus
   const mcp = { status: "connected" } as McpStatus
-  const pending = { id: "pending", sessionID: "root", role: "user", timestamp: 1, text: "hello" } as SessionEntryUser
+  const pending = { id: "pending", sessionID: "root", type: "user", timestamp: 1, text: "hello" } as SessionEntry
   const messages = {
     root: [{ id: "root-message", role: "assistant", cost: 1 }],
     child: [{ id: "child-message", role: "assistant", cost: 2 }],

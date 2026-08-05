@@ -96,20 +96,19 @@ describe("SessionProjector", () => {
           },
         })
 
-        // live state is the Stepper reduction of the in-flight work: one open
-        // assistant step carrying the real model and the converted parts
+        // live state is the Stepper reduction of the in-flight work: the open
+        // step is a `start` entry carrying the real model, followed by one
+        // flat entry per converted part
         const live = SessionV2.state(sessionID)
-        expect(live.pending).toHaveLength(1)
-        const open = live.pending[0] as SessionEntryTypes.AssistantText
-        expect(open.role).toBe("assistant")
+        expect(live.pending.map((e) => e.type)).toEqual(["start", "text", "tool"])
+        const open = live.pending[0] as SessionEntryTypes.Request
         expect(open.modelID).toBe("test-model")
-        expect(open.parts.map((p) => p.type)).toEqual(["text", "tool-result"])
 
         // re-emitting the same part (streaming) must not duplicate it
         await Bus.publish(MessageV2.Event.PartUpdated, { part: { ...textPart, text: "partial answer, longer" } })
-        const replayed = SessionV2.state(sessionID).pending[0] as SessionEntryTypes.AssistantText
-        expect(replayed.parts).toHaveLength(2)
-        expect(replayed.parts[0]).toMatchObject({ type: "text", text: "partial answer, longer" })
+        const replayed = SessionV2.state(sessionID).pending
+        expect(replayed.map((e) => e.type)).toEqual(["start", "text", "tool"])
+        expect(replayed[1]).toMatchObject({ type: "text", text: "partial answer, longer" })
 
         // completion drops the live tail (storage becomes the source of truth)
         await Bus.publish(MessageV2.Event.Updated, {

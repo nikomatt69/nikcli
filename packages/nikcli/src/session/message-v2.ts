@@ -531,6 +531,8 @@ export namespace MessageV2 {
     StructuredOutputErrorBody,
     APIErrorBody,
   ]).annotate({ discriminator: "name" })
+  export const AssistantError = zod(AssistantErrorSchema)
+  export type AssistantError = DeepMutable<Schema.Schema.Type<typeof AssistantErrorSchema>>
 
   export const AssistantSchema = Schema.Struct({
     ...MessageBaseFields,

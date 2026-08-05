@@ -73,6 +73,9 @@ export namespace SessionEvent {
     cost: z.number().default(0),
     tokens: MessageV2.Assistant.shape.tokens,
     finish: z.string().optional(),
+    /** Terminal message error (abort, auth, overflow, ...) — kept on the
+     * sealing event so the reduction stays lossless. */
+    error: MessageV2.AssistantError.optional(),
   }).meta({ ref: "SessionEvent.StepEnded" })
   export type StepEnded = z.infer<typeof StepEnded>
 
@@ -98,8 +101,25 @@ export namespace SessionEvent {
   }).meta({ ref: "SessionEvent.PartRemoved" })
   export type PartRemoved = z.infer<typeof PartRemoved>
 
+  export const Compaction = Base.extend({
+    type: z.literal("compaction"),
+    messageID: z.string(),
+    auto: z.boolean().default(false),
+    overflow: z.boolean().optional(),
+  }).meta({ ref: "SessionEvent.Compaction" })
+  export type Compaction = z.infer<typeof Compaction>
+
   export const Event = z
-    .discriminatedUnion("type", [Prompt, Synthetic, StepStarted, StepEnded, RetryError, PartUpdated, PartRemoved])
+    .discriminatedUnion("type", [
+      Prompt,
+      Synthetic,
+      StepStarted,
+      StepEnded,
+      RetryError,
+      PartUpdated,
+      PartRemoved,
+      Compaction,
+    ])
     .meta({ ref: "SessionEvent" })
   export type Event = z.infer<typeof Event>
 

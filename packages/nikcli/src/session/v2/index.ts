@@ -218,13 +218,16 @@ export namespace SessionV2 {
   }
 
   /**
-   * Convert a v1 message to v2 entries — lossless for everything the v2
-   * shape models: text/reasoning parts, every tool state (including
-   * "error"), retry parts, finish reason and terminal message errors.
+   * Convert a v1 message to flat v2 entries — lossless for everything the v2
+   * shape models: an assistant step becomes a `start` entry, one entry per
+   * part (text, reasoning, tool with its full state, subtask, retry,
+   * compaction) and a sealing `complete` entry carrying cost, tokens, finish
+   * reason and any terminal message error.
    */
   function convertMessage(msg: MessageV2.WithParts, sessionID: string): SessionEntry.Entry[] {
     const entries: SessionEntry.Entry[] = []
     const timestamp = msg.info.time?.created ?? Date.now()
+    const messageID = msg.info.id
 
     if (msg.info.role === "user") {
       const textParts = msg.parts
@@ -239,53 +242,72 @@ export namespace SessionV2 {
         SessionEntry.User.parse({
           id: Identifier.ascending("event"),
           sessionID,
+          messageID,
           timestamp,
-          role: "user",
+          type: "user",
           text: textParts,
           files,
           agents,
         }),
       )
+
+      // A user message can still carry non-prompt parts (a compaction marker,
+      // a delegated subtask) — those are entries in their own right.
+      for (const part of msg.parts) {
+        if (part.type === "text" || part.type === "file" || part.type === "agent") continue
+        const converted = SessionEntry.fromV1Part(part, { sessionID, messageID })
+        if (converted) entries.push(converted)
+      }
+
+      return entries
     }
 
     if (msg.info.role === "assistant") {
-      const assistantParts: SessionEntry.AssistantText["parts"] = []
+      entries.push(
+        SessionEntry.Request.parse({
+          id: Identifier.ascending("event"),
+          sessionID,
+          messageID,
+          timestamp,
+          type: "start",
+          providerID: msg.info.providerID,
+          modelID: msg.info.modelID,
+          agent: msg.info.agent,
+        }),
+      )
 
       for (const part of msg.parts) {
-        if (part.type === "retry") {
-          entries.push(
-            SessionEntry.AssistantRetry.parse({
-              id: Identifier.ascending("event"),
-              sessionID,
-              timestamp: part.time.created,
-              role: "assistant",
-              sub: "retry",
-              attempt: part.attempt,
-              error: part.error,
-            }),
-          )
-          continue
-        }
-        const converted = SessionEntry.fromV1Part(part)
-        if (converted) assistantParts.push(converted)
+        const converted = SessionEntry.fromV1Part(part, { sessionID, messageID })
+        if (converted) entries.push(converted)
       }
 
-      if (assistantParts.length > 0 || msg.info.error) {
+      const completed = msg.info.time?.completed
+      if (completed !== undefined || msg.info.error) {
         entries.push(
-          SessionEntry.AssistantText.parse({
+          SessionEntry.Complete.parse({
             id: Identifier.ascending("event"),
             sessionID,
-            timestamp,
-            role: "assistant",
-            sub: "text",
-            modelID: msg.info.modelID,
-            providerID: msg.info.providerID,
-            agent: msg.info.agent,
+            messageID,
+            timestamp: completed ?? timestamp,
+            type: "complete",
+            reason: msg.info.error ? "error" : "completed",
+            cost: msg.info.cost,
+            tokens: msg.info.tokens,
             finish: msg.info.finish,
-            parts: assistantParts,
-            // Terminal message error (abort, auth, overflow, ...) — carried
-            // as metadata so the projection stays lossless.
-            metadata: msg.info.error ? { error: msg.info.error } : undefined,
+            error: msg.info.error,
+          }),
+        )
+      }
+
+      if (msg.info.summary) {
+        entries.push(
+          SessionEntry.Compaction.parse({
+            id: Identifier.ascending("event"),
+            sessionID,
+            messageID,
+            timestamp: completed ?? timestamp,
+            type: "compaction",
+            auto: true,
           }),
         )
       }

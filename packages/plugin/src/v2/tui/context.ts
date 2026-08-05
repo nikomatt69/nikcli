@@ -16,12 +16,7 @@ import type {
   QuestionRequest,
   ReferenceConfig,
   Session,
-  SessionEntryAssistantReasoning,
-  SessionEntryAssistantRetry,
-  SessionEntryAssistantText,
-  SessionEntryAssistantTool,
-  SessionEntrySynthetic,
-  SessionEntryUser,
+  SessionEntry,
 } from "@nikcli-ai/sdk/v2"
 import type { JSX } from "@opentui/solid"
 import type { Store } from "solid-js/store"
@@ -32,13 +27,8 @@ export type LocationRef = {
 }
 
 export type SessionInfo = Session
-export type SessionPendingInfo =
-  | SessionEntryUser
-  | SessionEntrySynthetic
-  | SessionEntryAssistantText
-  | SessionEntryAssistantReasoning
-  | SessionEntryAssistantTool
-  | SessionEntryAssistantRetry
+/** A live v2 entry — flat, discriminated on `type` (see session/v2/entry.ts). */
+export type SessionPendingInfo = SessionEntry
 export type SessionMessageInfo = { readonly info: Message; readonly parts: Part[] }
 export type PermissionV2Request = PermissionRequest
 export type FormInfo = QuestionRequest
