@@ -22,11 +22,16 @@ import { SessionRepo } from "./repo"
 
 const log = Log.create({ service: "session-sync-bridge" })
 
-/** Same shape the workspace loop persists: client-facing restore events. */
+/**
+ * Client-facing restore events that are *not* already journaled by
+ * `SyncEvent`.
+ *
+ * session.created / updated / deleted used to be journaled here off the bus.
+ * They are sync events now (session/projectors.ts), so they land in the log
+ * transactionally with the write — journaling them again off the bus would
+ * duplicate every row and inflate the sequence.
+ */
 const JOURNAL_EVENT_TYPES = new Set([
-  "session.created",
-  "session.updated",
-  "session.deleted",
   "session.status",
   "session.idle",
   "permission.asked",

@@ -60,6 +60,17 @@ const SESSION_EVENT_TYPES = new Set([
   "session.idle",
 ])
 
+/**
+ * Rows written by `SyncEvent` carry a versioned type (`session.updated.1`)
+ * so old versions stay replayable; rows written by the legacy bridges carry
+ * the bare type. Matching happens on the bare form.
+ */
+function baseType(type: string): string {
+  const dot = type.lastIndexOf(".")
+  if (dot < 0) return type
+  return /^\d+$/.test(type.slice(dot + 1)) ? type.slice(0, dot) : type
+}
+
 const PERMISSION_EVENT_TYPES = new Set(["permission.asked", "permission.replied"])
 
 const QUESTION_EVENT_TYPES = new Set(["question.asked", "question.replied", "question.rejected"])
@@ -110,25 +121,24 @@ export const SyncProjector = {
 
   session: (state: SessionState, event: SyncEventRecord): SessionState => {
     if (!event.data || typeof event.data !== "object") return state
-    if (!SESSION_EVENT_TYPES.has(event.type)) return state
+    if (!SESSION_EVENT_TYPES.has(baseType(event.type))) return state
     const data = event.data as Record<string, any>
+    // Three shapes reach here: the flat legacy payload, the bridge's
+    // `{ type, properties }` envelope, and `SyncEvent`'s `{ sessionID, info }`.
+    const source = data.info ?? data.properties ?? data
     return {
       ...state,
       id: event.aggregate,
       projectID: event.projectId,
-      workspaceID: Object.hasOwn(data, "workspaceID")
-        ? (data.workspaceID ?? undefined)
-        : Object.hasOwn(data.properties ?? {}, "workspaceID")
-          ? (data.properties.workspaceID ?? undefined)
-          : state.workspaceID,
-      title: data.title ?? data.properties?.title ?? state.title,
-      parentID: data.parentID ?? data.properties?.parentID ?? state.parentID,
+      workspaceID: Object.hasOwn(source, "workspaceID") ? (source.workspaceID ?? undefined) : state.workspaceID,
+      title: source.title ?? state.title,
+      parentID: source.parentID ?? state.parentID,
       lastTouchedAt: event.timestamp,
     }
   },
 
   permission: (state: PermissionState, event: SyncEventRecord): PermissionState => {
-    if (!PERMISSION_EVENT_TYPES.has(event.type)) return state
+    if (!PERMISSION_EVENT_TYPES.has(baseType(event.type))) return state
     const data = event.data as Record<string, any>
     const id = (data.id as string | undefined) ?? event.aggregate
     return {
@@ -141,7 +151,7 @@ export const SyncProjector = {
   },
 
   question: (state: QuestionState, event: SyncEventRecord): QuestionState => {
-    if (!QUESTION_EVENT_TYPES.has(event.type)) return state
+    if (!QUESTION_EVENT_TYPES.has(baseType(event.type))) return state
     const data = event.data as Record<string, any>
     const id = (data.id as string | undefined) ?? event.aggregate
     return {

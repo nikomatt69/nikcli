@@ -89,6 +89,34 @@ exactly one place; only the announcement is early.
   throws on a gap (out-of-order delivery is a bug under a single writer, not
   something to buffer).
 
+## The legacy session bridge
+
+`SessionSyncBridge` used to journal `session.created` / `updated` / `deleted`
+into `sync_event` by subscribing to the bus. Those are sync events now, so
+they land in the log transactionally with the write and the bridge no longer
+journals them — running both wrote every row twice and inflated the sequence
+(caught end-to-end against the compiled binary, not by the test suite).
+
+The bridge still covers `session.status`, `session.idle`, `permission.*` and
+`question.*`, which are bus events with no projector.
+
+Two knock-on changes in `SyncProjector`:
+
+- Types are matched on their **bare** form. `SyncEvent` writes
+  `session.updated.1` so old versions stay replayable; the legacy bridges
+  write the bare type. `baseType()` strips a trailing numeric segment.
+- The session reducer reads `data.info ?? data.properties ?? data`, because
+  three payload shapes now reach it: the flat legacy one, the bridge's
+  `{ type, properties }` envelope, and `SyncEvent`'s `{ sessionID, info }`.
+
+One behavior change worth knowing: the bridge skipped workspace-bound
+sessions, because the workspace loop journals them under the workspace
+aggregate. `SyncEvent` does not skip them — they now also have rows under
+their own session aggregate. That is an addition, not a duplication (the
+workspace loop writes `workspace.*` types under a different aggregate), and
+it means a workspace session can be resumed from the session log like any
+other.
+
 ## Not converted
 
 Message rows deleted as part of a session delete still go through
