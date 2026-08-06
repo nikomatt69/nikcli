@@ -123,6 +123,9 @@ function slugify(v: string) {
   )
 }
 
+/** Where the preview starts when it is opened without a URL. */
+const HOME_URL = "https://www.google.com"
+
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim()
   if (!trimmed) return ""
@@ -272,7 +275,9 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   const { theme, syntax } = useTheme()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
-  const initialUrl = props.url ? normalizeUrl(props.url) : ""
+  // Opened with no URL, the preview lands on a page rather than an empty box —
+  // the address bar still takes focus, so typing goes straight to the URL.
+  const initialUrl = props.url ? normalizeUrl(props.url) : HOME_URL
 
   // Env detection over-reports; the renderer's negotiated answer decides.
   const capabilities = applyLiveCapabilities(
@@ -308,7 +313,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   let surfaceControls: BrowserSurfaceControls | undefined
 
   const [address, setAddress] = createSignal(initialUrl)
-  const [focusArea, setFocusArea] = createSignal<FocusArea>(initialUrl ? "content" : "url")
+  const [focusArea, setFocusArea] = createSignal<FocusArea>(props.url ? "content" : "url")
   const [historyStack, setHistoryStack] = createSignal<string[]>([])
   const [historyIndex, setHistoryIndex] = createSignal(-1)
   const [page, setPage] = createSignal<PageState>({
@@ -473,13 +478,12 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   createEffect(() => dialog.setSize(live() ? "full" : "xlarge"))
 
   onMount(() => {
-    if (initialUrl) {
-      // Live mode navigates through the surface, which boots with this URL
-      // already; only the reader needs an explicit first fetch.
-      if (!live()) setTimeout(() => void navigate(initialUrl), 1)
-    } else {
-      setTimeout(() => focusUrlBar(), 1)
-    }
+    // Live mode navigates through the surface, which boots with this URL
+    // already; only the reader needs an explicit first fetch.
+    if (!live()) setTimeout(() => void navigate(initialUrl), 1)
+    // Without a URL of its own the dialog is a browser someone just opened:
+    // the home page is loading, and the cursor waits in the address bar.
+    if (!props.url) setTimeout(() => focusUrlBar(), 1)
   })
 
   onCleanup(() => {

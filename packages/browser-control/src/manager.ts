@@ -5,7 +5,7 @@
  * sessions outlive any single CLI invocation, the way `SessionManager` in
  * terminal-control outlives any single `send`/`wait` call against a PTY.
  */
-import type { Browser } from "playwright"
+import type { Browser, BrowserType } from "playwright"
 import {
   BrowserSession,
   type KeyInput,
@@ -20,14 +20,41 @@ import type { BrowserFrame } from "./frame"
 import type { RecordingData, RecordingMarker, StartRecordingOptions } from "./recording"
 import type { Screencast, ScreencastOptions } from "./screencast"
 
+/**
+ * Playwright's `chromium` reaches us through two hops of CJS/ESM interop
+ * (`playwright/index.mjs` re-exports `playwright-core/index.js`, which is
+ * `module.exports = require("./lib/coreBundle").inprocess.playwright`). Bundled
+ * into the compiled binary those hops can land on the CJS object instead of the
+ * namespace, and the named export reads back `undefined` — which used to
+ * surface as "undefined is not an object (evaluating 'chromium.launch')" the
+ * moment a web preview opened. Take the launcher from whichever shape actually
+ * carries it, and say so plainly when none of them does.
+ *
+ * The specifier stays a string literal: `import(variable)` is invisible to the
+ * bundler, which then leaves the import to be resolved at runtime — from a
+ * `/$bunfs` root that has no node_modules. Playwright silently drops out of the
+ * compiled binary and every platform's web preview fails, not just the one
+ * being debugged.
+ */
+async function resolveChromium(): Promise<BrowserType> {
+  const mod = (await import("playwright")) as Record<string, any>
+  const chromium = mod.chromium ?? mod.default?.chromium ?? mod.default?.default?.chromium
+  if (typeof chromium?.launch !== "function") {
+    throw new Error(
+      `Playwright's Chromium launcher is unavailable (playwright exports: ${Object.keys(mod).join(", ") || "none"}).`,
+    )
+  }
+  return chromium as BrowserType
+}
+
 export class SessionManager {
   private readonly sessions = new Map<string, BrowserSession>()
   private browser: Browser | null = null
   private counter = 0
 
   private async ensureBrowser(): Promise<Browser> {
-    if (!this.browser) {
-      const { chromium } = await import("playwright")
+    if (!this.browser || !this.browser.isConnected()) {
+      const chromium = await resolveChromium()
       this.browser = await chromium.launch({ headless: true })
     }
     return this.browser

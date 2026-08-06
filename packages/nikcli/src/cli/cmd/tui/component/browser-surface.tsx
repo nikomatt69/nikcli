@@ -399,15 +399,20 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
     }
   }
 
+  /** Start (or replace) this surface's session and attach the frame stream. */
+  async function startSession(url: string) {
+    if (!call) await connect()
+    if (disposed) return
+    await call!("start", { name, url, viewport: geometry().viewport })
+    if (disposed) return
+    started = true
+    void refreshInfo()
+    void stream()
+  }
+
   async function boot() {
     try {
-      await connect()
-      if (disposed) return
-      await call!("start", { name, url: props.initialUrl, viewport: geometry().viewport })
-      if (disposed) return
-      started = true
-      void refreshInfo()
-      void stream()
+      await startSession(props.initialUrl)
     } catch (cause) {
       fail(cause)
     }
@@ -420,12 +425,26 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   }
 
   const controls: BrowserSurfaceControls = {
+    /**
+     * Typing an address is also the retry: if the surface never came up (a
+     * daemon that failed to start, a session the daemon has since dropped),
+     * this starts one on the URL just typed rather than reporting the session
+     * missing — which is all "No browser session named …" ever meant here.
+     */
     goto(url) {
-      if (!call) return
       setStatus("starting")
-      void call("goto", { name, url })
-        .then(() => refreshInfo())
-        .catch(fail)
+      setError(undefined)
+      void (async () => {
+        if (!started) return startSession(url)
+        try {
+          await call!("goto", { name, url })
+        } catch (cause) {
+          if (!/No browser session/i.test(cause instanceof Error ? cause.message : String(cause))) throw cause
+          started = false
+          return startSession(url)
+        }
+        await refreshInfo()
+      })().catch(fail)
     },
     back() {
       void call?.("back", { name })
