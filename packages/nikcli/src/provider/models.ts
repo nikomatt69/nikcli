@@ -417,6 +417,32 @@ export namespace ModelsDev {
     options: Schema.Record(Schema.String, Schema.Unknown),
     headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     provider: Schema.optional(Schema.Struct({ npm: Schema.String, api: Schema.String })),
+    // Per-model reasoning variant controls (mirrors the upstream models.dev
+    // `reasoning_options` field). When present, `src/provider/variants.ts`
+    // turns these into the model.variants map; when absent, the loader falls
+    // back to the procedural `ProviderTransform.variants` derivation so we
+    // don't regress models whose entries haven't been migrated upstream yet.
+    reasoning_options: Schema.optional(
+      Schema.Array(
+        Schema.Union([
+          Schema.Struct({
+            type: Schema.Literal("effort"),
+            // null means "no effort control" (e.g. a toggle-only option that
+            // also wants to expose the off state as a named effort variant);
+            // skipped during variant synthesis.
+            values: Schema.Array(Schema.Union([Schema.String, Schema.Null])),
+          }),
+          Schema.Struct({
+            type: Schema.Literal("toggle"),
+          }),
+          Schema.Struct({
+            type: Schema.Literal("budget_tokens"),
+            min: Schema.optional(Schema.Number),
+            max: Schema.optional(Schema.Number),
+          }),
+        ]),
+      ),
+    ),
     variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
   })
   export const Model = zodObject(ModelSchema)

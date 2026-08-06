@@ -9,6 +9,7 @@ import { BunProc } from "../bun"
 import { Plugin } from "../plugin"
 import type { Hooks as PluginHooks } from "@nikcli-ai/plugin"
 import { ModelsDev } from "./models"
+import { reasoningVariants } from "./variants"
 
 import { Auth } from "../auth"
 import { Account } from "../account"
@@ -384,7 +385,11 @@ export namespace Provider {
         status: "active",
         headers: {},
         options: {},
-        cost: { input: m.pricing?.input ?? 0, output: m.pricing?.output ?? 0, cache: { read: 0, write: 0 } },
+        cost: {
+          input: m.pricing?.input ?? 0,
+          output: m.pricing?.output ?? 0,
+          cache: { read: 0, write: 0 },
+        },
         limit: { context, output: (seed.limit as { output: number }).output },
         capabilities: {
           temperature: true,
@@ -398,7 +403,13 @@ export namespace Provider {
             video: false,
             pdf: false,
           },
-          output: { text: true, audio: false, image: false, video: false, pdf: false },
+          output: {
+            text: true,
+            audio: false,
+            image: false,
+            video: false,
+            pdf: false,
+          },
           interleaved: false,
         },
         release_date: seed.release_date as string,
@@ -957,7 +968,9 @@ export namespace Provider {
       input?: Partial<Model["capabilities"]["input"]>
       output?: Partial<Model["capabilities"]["output"]>
     }
-    cost?: Omit<Partial<Model["cost"]>, "cache"> & { cache?: Partial<Model["cost"]["cache"]> }
+    cost?: Omit<Partial<Model["cost"]>, "cache"> & {
+      cache?: Partial<Model["cost"]["cache"]>
+    }
     limit?: Partial<Model["limit"]>
   }
 
@@ -1081,7 +1094,17 @@ export namespace Provider {
       variants: {},
     }
 
-    m.variants = mapValues(ProviderTransform.variants(m), (v) => v)
+    // Data-driven variant derivation, mirroring upstream opencode v2:
+    // when models.dev declares `reasoning_options` for a model we read the
+    // variant tiers straight from the catalog. When the field is absent
+    // (catalog not yet migrated upstream) we fall back to the procedural
+    // `ProviderTransform.variants` derivation so no model regresses.
+    const npm = m.api.npm
+    const fromCatalog = reasoningVariants(model, npm)
+    m.variants =
+      fromCatalog && Object.keys(fromCatalog).length > 0
+        ? fromCatalog
+        : (mapValues(ProviderTransform.variants(m), (v) => v) as typeof fromCatalog)
 
     return normalizeModel(provider.id, model.id, m)
   }
@@ -1468,7 +1491,17 @@ export namespace Provider {
           release_date: model.release_date ?? existingModel?.release_date ?? "",
           variants: {},
         }
-        const merged = mergeDeep(ProviderTransform.variants(parsedModel), model.variants ?? {})
+        // Data-driven first (mirrors upstream opencode v2): when the
+        // user-declared model carries `reasoning_options` in its catalog
+        // entry, derive variants from that. Fall back to the procedural
+        // derivation for entries that don't yet declare the new field, and
+        // always let explicit `model.variants` win on key collision so users
+        // can override catalog defaults per-model.
+        const baseVariants = reasoningVariants(model, parsedModel.api.npm)
+        const merged = mergeDeep(
+          baseVariants && Object.keys(baseVariants).length > 0 ? baseVariants : ProviderTransform.variants(parsedModel),
+          model.variants ?? {},
+        )
         parsedModel.variants = mapValues(
           pickBy(merged, (v) => !v.disabled),
           (v) => omit(v, ["disabled"]),
