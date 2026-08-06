@@ -15,12 +15,12 @@
  *     flips the bridge on/off.
  *   - `herdr.refresh` that pulls a fresh snapshot and repaints the dialog.
  */
-import { HerdrBridge } from "@/plugin/herdr/bridge";
-import type { HerdrSnapshot } from "@/plugin/herdr/bridge";
-import { DialogHerdrStatus } from "./dialog";
-import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui";
+import { HerdrBridge } from "@/plugin/herdr/bridge"
+import type { HerdrSnapshot } from "@/plugin/herdr/bridge"
+import { DialogHerdrStatus } from "./dialog"
+import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 
-const id = "internal:herdr";
+const id = "internal:herdr"
 
 const tui: TuiPlugin = async (api) => {
   // Auto-enable when running inside a Herdr pane so the agent appears
@@ -28,12 +28,12 @@ const tui: TuiPlugin = async (api) => {
   // Outside a Herdr pane, the bridge stays dormant — the user can flip
   // it on via `herdr.toggle` if they want a manual integration.
   if (HerdrBridge.isInHerdrPane() && !HerdrBridge.isEnabled()) {
-    HerdrBridge.setEnabled(true);
+    HerdrBridge.setEnabled(true)
     api.ui.toast({
       variant: "info",
       message: "Running inside Herdr pane; bridge auto-enabled",
       duration: 4000,
-    });
+    })
   }
 
   api.keymap.registerLayer({
@@ -42,36 +42,33 @@ const tui: TuiPlugin = async (api) => {
         name: "herdr.status",
         title: "Herdr status",
         namespace: "Integrations",
-        description:
-          "Check the Herdr bridge status and inspect workspaces/agents",
+        description: "Check the Herdr bridge status and inspect workspaces/agents",
         slashName: "herdr",
         slashAliases: ["herdr-status", "herdr-connect"],
         run() {
-          api.ui.dialog.replace(() => <DialogHerdrStatus />);
+          api.ui.dialog.replace(() => <DialogHerdrStatus />)
         },
       },
       {
         name: "herdr.toggle",
         title: "Herdr bridge",
         namespace: "Integrations",
-        description:
-          "Toggle the bridge that reports nikcli sessions to a running Herdr server",
+        description: "Toggle the bridge that reports nikcli sessions to a running Herdr server",
         run() {
-          const next = !HerdrBridge.isEnabled();
-          HerdrBridge.setEnabled(next);
+          const next = !HerdrBridge.isEnabled()
+          HerdrBridge.setEnabled(next)
           api.ui.toast({
             variant: next ? "success" : "info",
             message: next ? "Herdr bridge enabled" : "Herdr bridge disabled",
             duration: 3000,
-          });
+          })
         },
       },
       {
         name: "herdr.refresh",
         title: "Herdr refresh snapshot",
         namespace: "Integrations",
-        description:
-          "Pull a fresh Herdr session snapshot and cache it for the TUI",
+        description: "Pull a fresh Herdr session snapshot and cache it for the TUI",
         run() {
           HerdrBridge.refresh(api.state.path.directory || process.cwd())
             .then((snap: HerdrSnapshot) => {
@@ -79,36 +76,31 @@ const tui: TuiPlugin = async (api) => {
                 variant: "success",
                 message: `Herdr snapshot: ${snap.workspaces.length} workspaces, ${snap.panes.length} panes`,
                 duration: 3000,
-              });
+              })
             })
             .catch((error: unknown) => {
               api.ui.toast({
                 variant: "error",
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : "Herdr refresh failed",
+                message: error instanceof Error ? error.message : "Herdr refresh failed",
                 duration: 5000,
-              });
-            });
+              })
+            })
         },
       },
     ],
-  });
+  })
 
   // Best-effort: warm up the snapshot at startup so the status dialog has
   // fresh data ready if the user opens it within the first few seconds.
   // Fire-and-forget so a slow / missing herdr server never blocks the TUI.
   setTimeout(() => {
-    HerdrBridge.refresh(api.state.path.directory || process.cwd()).catch(
-      () => {},
-    );
-  }, 1500);
-};
+    HerdrBridge.refresh(api.state.path.directory || process.cwd()).catch(() => {})
+  }, 1500)
+}
 
 const plugin: TuiPluginModule & { id: string } = {
   id,
   tui,
-};
+}
 
-export default plugin;
+export default plugin

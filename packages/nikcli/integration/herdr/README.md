@@ -13,11 +13,11 @@ instant a permission is asked, not when a dialog happens to be visible.
 
 nikcli reports the same calls herdr's own plugin-based integrations make:
 
-| call | when |
-| --- | --- |
-| `pane.report_agent` | every state change — `working` / `idle` / `blocked` |
+| call                        | when                                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `pane.report_agent`         | every state change — `working` / `idle` / `blocked`                                                             |
 | `pane.report_agent_session` | on a new root session, so herdr can resume the pane into that conversation (`session.resume_agents_on_restore`) |
-| `pane.release_agent` | when nikcli hands the pane back |
+| `pane.release_agent`        | when nikcli hands the pane back                                                                                 |
 
 All of it is keyed to `source = "herdr:nikcli"`, `agent = "nikcli"` — the
 identity herdr shows in the sidebar and matches in

@@ -22,7 +22,7 @@ import { InputScheduler } from "@tui/util/browser-input"
 import { preparePhoton } from "@/image/photon"
 import { registerNativeOverlay, type NativeOverlay } from "./tui-image"
 import { useSync } from "@tui/context/sync"
-import { useTheme } from "@tui/context/theme" 
+import { useTheme } from "@tui/context/theme"
 
 export type BrowserSurfaceStatus = "starting" | "live" | "error"
 
@@ -456,10 +456,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       }}
     >
       <Show
-        when={
-          status() !== "error" &&
-          (props.renderer === "overlay" ? overlayBytes() : placeholder().length > 0)
-        }
+        when={status() !== "error" && (props.renderer === "overlay" ? overlayBytes() : placeholder().length > 0)}
         fallback={
           <box paddingLeft={1} paddingTop={1} gap={1}>
             <text fg={status() === "error" ? theme.error : theme.textMuted} wrapMode="word">

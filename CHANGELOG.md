@@ -3,6 +3,27 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.247.0 (August 2026)
+
+## Core
+
+- Add Herdr integration for nikcli (@nikomatt69)
+- Standardize code formatting and improve readability (@nikomatt69)
+- Implement patching for reasoning options in model variants (@nikomatt69)
+
+## TUI
+
+- Correct import statement for useTheme (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(variants): implement patching for reasoning options in model variants
+  - refactor(variants): standardize code formatting and improve readability
+  - feat(herdr): add Herdr integration for nikcli
+  - fix(browser-surface): correct import statement for useTheme
+  - fix(ci): unblock validate — pwsh exit hang, herdr env gate, pty output race
+
 ## v1.242.0 (August 2026)
 
 ## Core

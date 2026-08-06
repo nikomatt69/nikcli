@@ -10,37 +10,33 @@
  * that matters here, and it's safe to read from the TUI worker thread
  * because the bridge is process-local.
  */
-import { createMemo, createResource, For, Show } from "solid-js";
-import { useTheme } from "@tui/context/theme";
-import { useToast } from "@tui/ui/toast";
-import { HerdrBridge } from "@/plugin/herdr/bridge";
-import type { HerdrInstallInfo, HerdrSnapshot } from "@/plugin/herdr/bridge";
+import { createMemo, createResource, For, Show } from "solid-js"
+import { useTheme } from "@tui/context/theme"
+import { useToast } from "@tui/ui/toast"
+import { HerdrBridge } from "@/plugin/herdr/bridge"
+import type { HerdrInstallInfo, HerdrSnapshot } from "@/plugin/herdr/bridge"
 
 export function DialogHerdrStatus() {
-  const theme = useTheme().theme;
-  const toast = useToast();
-  const [info, { refetch: refetchInfo }] = createResource(() =>
-    HerdrBridge.detect(),
-  );
-  const [snap, { refetch: refetchSnap }] = createResource(() =>
-    HerdrBridge.refresh(process.cwd()),
-  );
-  const enabled = createMemo(() => HerdrBridge.isEnabled());
+  const theme = useTheme().theme
+  const toast = useToast()
+  const [info, { refetch: refetchInfo }] = createResource(() => HerdrBridge.detect())
+  const [snap, { refetch: refetchSnap }] = createResource(() => HerdrBridge.refresh(process.cwd()))
+  const enabled = createMemo(() => HerdrBridge.isEnabled())
 
   const refresh = async () => {
-    await refetchInfo();
-    await refetchSnap();
-  };
+    await refetchInfo()
+    await refetchSnap()
+  }
 
   const toggle = () => {
-    const next = !HerdrBridge.isEnabled();
-    HerdrBridge.setEnabled(next);
+    const next = !HerdrBridge.isEnabled()
+    HerdrBridge.setEnabled(next)
     toast.show({
       variant: next ? "success" : "info",
       message: next ? "Herdr bridge enabled" : "Herdr bridge disabled",
       duration: 3000,
-    });
-  };
+    })
+  }
 
   return (
     <box flexDirection="column" gap={1} paddingX={1} paddingY={1}>
@@ -49,23 +45,17 @@ export function DialogHerdrStatus() {
         <span style={{ fg: theme.textMuted }}> · https://herdr.dev</span>
       </text>
 
-      <Show when={info()}>
-        {(value) => <InstallBlock info={value()} theme={theme} />}
-      </Show>
+      <Show when={info()}>{(value) => <InstallBlock info={value()} theme={theme} />}</Show>
 
       <box flexDirection="row" gap={2}>
         <text fg={theme.text}>
           Bridge:{" "}
-          <span style={{ fg: enabled() ? theme.success : theme.textMuted }}>
-            {enabled() ? "enabled" : "disabled"}
-          </span>
+          <span style={{ fg: enabled() ? theme.success : theme.textMuted }}>{enabled() ? "enabled" : "disabled"}</span>
         </text>
       </box>
 
       <Show when={info()?.serverRunning}>
-        <Show when={snap()}>
-          {(value) => <SnapshotBlock snap={value()} theme={theme} />}
-        </Show>
+        <Show when={snap()}>{(value) => <SnapshotBlock snap={value()} theme={theme} />}</Show>
       </Show>
 
       <box flexDirection="row" gap={2}>
@@ -77,60 +67,45 @@ export function DialogHerdrStatus() {
         </text>
       </box>
     </box>
-  );
+  )
 }
 
-function InstallBlock(props: {
-  info: HerdrInstallInfo;
-  theme: ReturnType<typeof useTheme>["theme"];
-}) {
-  const theme = props.theme;
-  const info = props.info;
+function InstallBlock(props: { info: HerdrInstallInfo; theme: ReturnType<typeof useTheme>["theme"] }) {
+  const theme = props.theme
+  const info = props.info
   return (
     <box flexDirection="column" gap={0}>
       <text fg={theme.text}>
         Binary:{" "}
-        <span style={{ fg: info.installed ? theme.success : theme.warning }}>
-          {info.binPath ?? "(not installed)"}
-        </span>
+        <span style={{ fg: info.installed ? theme.success : theme.warning }}>{info.binPath ?? "(not installed)"}</span>
       </text>
       <text fg={theme.text}>
         Server:{" "}
-        <span
-          style={{ fg: info.serverRunning ? theme.success : theme.warning }}
-        >
+        <span style={{ fg: info.serverRunning ? theme.success : theme.warning }}>
           {info.serverRunning ? "running" : "not running"}
         </span>
       </text>
       <text fg={theme.text}>
-        Socket:{" "}
-        <span style={{ fg: theme.textMuted }}>
-          {info.socketPath ?? "(none)"}
-        </span>
+        Socket: <span style={{ fg: theme.textMuted }}>{info.socketPath ?? "(none)"}</span>
       </text>
     </box>
-  );
+  )
 }
 
-function SnapshotBlock(props: {
-  snap: HerdrSnapshot;
-  theme: ReturnType<typeof useTheme>["theme"];
-}) {
-  const theme = props.theme;
-  const snap = props.snap;
+function SnapshotBlock(props: { snap: HerdrSnapshot; theme: ReturnType<typeof useTheme>["theme"] }) {
+  const theme = props.theme
+  const snap = props.snap
   return (
     <box flexDirection="column" gap={0}>
       <text fg={theme.text}>
         <b>Snapshot</b>{" "}
         <span style={{ fg: theme.textMuted }}>
-          ({snap.workspaces.length} workspaces / {snap.tabs.length} tabs /{" "}
-          {snap.panes.length} panes / {snap.agents.length} agents)
+          ({snap.workspaces.length} workspaces / {snap.tabs.length} tabs / {snap.panes.length} panes /{" "}
+          {snap.agents.length} agents)
         </span>
       </text>
       <Show when={snap.workspaces.length === 0}>
-        <text
-          fg={theme.textMuted}
-        >{`No workspaces known yet. Start herdr, then refresh.`}</text>
+        <text fg={theme.textMuted}>{`No workspaces known yet. Start herdr, then refresh.`}</text>
       </Show>
       <For each={snap.workspaces}>
         {(w) => (
@@ -140,10 +115,7 @@ function SnapshotBlock(props: {
               <span style={{ fg: theme.textMuted }}> — {w.cwd}</span>
             </Show>
             <Show when={w.worktree}>
-              <span style={{ fg: theme.accent }}>
-                {" "}
-                [worktree {w.worktree!.branch}]
-              </span>
+              <span style={{ fg: theme.accent }}> [worktree {w.worktree!.branch}]</span>
             </Show>
           </text>
         )}
@@ -164,5 +136,5 @@ function SnapshotBlock(props: {
         </For>
       </Show>
     </box>
-  );
+  )
 }
