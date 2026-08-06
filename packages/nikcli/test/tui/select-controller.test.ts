@@ -39,8 +39,7 @@ describe("reconcileSelection", () => {
 })
 
 describe("moveSelection", () => {
-  const wrap = (selected: number, delta: number, count = 5) =>
-    moveSelection(selected, { count, delta, policy: "wrap" })
+  const wrap = (selected: number, delta: number, count = 5) => moveSelection(selected, { count, delta, policy: "wrap" })
   const clamp = (selected: number, delta: number, count = 5) =>
     moveSelection(selected, { count, delta, policy: "clamp" })
 

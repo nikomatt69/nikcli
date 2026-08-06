@@ -54,9 +54,9 @@ describe("formatPath", () => {
   })
 
   it("a windows base uses windows semantics", () => {
-    expect(
-      formatPath("C:\\Users\\me\\app\\src\\main.ts", { base: "C:\\Users\\me\\app", forwardSlashes: true }),
-    ).toBe("src/main.ts")
+    expect(formatPath("C:\\Users\\me\\app\\src\\main.ts", { base: "C:\\Users\\me\\app", forwardSlashes: true })).toBe(
+      "src/main.ts",
+    )
   })
 })
 

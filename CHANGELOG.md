@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.242.0 (August 2026)
+
+## Core
+
+- Show what the runtime is actually doing, behind /devtools (@nikomatt69)
+- Pull the dialog and path logic out of the components (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(tui): pull the dialog and path logic out of the components
+  - feat(tui): show what the runtime is actually doing, behind /devtools
+
 ## v1.241.0 (August 2026)
 
 ## Core

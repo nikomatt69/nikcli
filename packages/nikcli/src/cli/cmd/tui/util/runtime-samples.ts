@@ -98,8 +98,10 @@ export function brailleGraph(values: readonly number[], width: number): string {
   if (width <= 0 || values.length === 0) return ""
   const min = Math.min(...values)
   const range = Math.max(...values) - min
-  const points = [...Array<number | undefined>(Math.max(0, width * 2 - values.length)).fill(values.at(0)), ...values]
-    .slice(-width * 2)
+  const points = [
+    ...Array<number | undefined>(Math.max(0, width * 2 - values.length)).fill(values.at(0)),
+    ...values,
+  ].slice(-width * 2)
   // Dot bit positions per column, bottom row first — the braille block orders
   // its lower dots after the upper ones, so this cannot be a plain range.
   const dots = [
