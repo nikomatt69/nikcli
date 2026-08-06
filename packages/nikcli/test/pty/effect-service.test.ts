@@ -79,6 +79,7 @@ describe("Pty.Service", () => {
     )
     const testLayer = Pty.layer.pipe(Layer.provide(overlayLayer))
 
+    const expected = "plugin|plugin|xterm-256color"
     const collected: string[] = []
     // Minimal WSContext stub: subscribers are kept while readyState === 1 and
     // streamed PTY output arrives via send().
@@ -100,14 +101,19 @@ describe("Pty.Service", () => {
           })
           // Subscribe before the command finishes so its output streams live.
           yield* pty.connect(created.id, fakeWs as never)
-          yield* Effect.sleep("500 millis")
+          // Poll for the command's output instead of sleeping a fixed 500ms:
+          // on a slow CI runner the printf lands later than that, which tore
+          // the session down before anything reached the subscriber.
+          for (let i = 0; i < 100 && !collected.join("").includes(expected); i++) {
+            yield* Effect.sleep("50 millis")
+          }
           yield* pty.remove(created.id)
           return collected.join("")
         }).pipe(Effect.provide(testLayer)),
       ),
     )
 
-    expect(output).toContain("plugin|plugin|xterm-256color")
+    expect(output).toContain(expected)
   })
 })
 

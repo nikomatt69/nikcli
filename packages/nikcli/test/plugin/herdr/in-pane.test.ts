@@ -33,9 +33,12 @@ const maybeIt = serverReachable ? it : it.skip
 const originalEnv = { ...process.env }
 
 beforeAll(() => {
-  if (!serverReachable) return
   // Simulate a herdr server that spawned nikcli inside a pane. The real
-  // herdr daemon sets these in the child's environment.
+  // herdr daemon sets these in the child's environment. This is done
+  // unconditionally: isInHerdrPane() only reads the env contract and never
+  // touches the socket, so the detection tests must run on CI too — where
+  // no herdr daemon is listening. Only the live round-trip below is gated
+  // on `serverReachable`.
   process.env.HERDR_ENV = "1"
   process.env.HERDR_SOCKET_PATH = socketPath
   process.env.HERDR_PANE_ID = "w4:p1"

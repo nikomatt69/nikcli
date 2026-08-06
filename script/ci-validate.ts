@@ -86,17 +86,23 @@ const steps: ValidationStep[] = [
   {
     // GitHub's ubuntu runners ship pwsh; local machines may not, and a missing
     // shell must not turn into a red pipeline.
+    //
+    // The trailing `exit 0` is load-bearing: without it pwsh printed the parse
+    // result and then sat there instead of exiting, so the step hit its
+    // timeout despite the check itself having passed. Telemetry is opted out
+    // for the same reason — its first-run background work delays teardown.
     name: "PowerShell syntax check (install.ps1)",
     command: [
       "bash",
       "-c",
       'command -v pwsh >/dev/null 2>&1 || { echo "pwsh not available — skipped"; exit 0; }; ' +
-        "pwsh -NoProfile -NonInteractive -Command '$e = $null; " +
+        "POWERSHELL_TELEMETRY_OPTOUT=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 " +
+        "pwsh -NoProfile -NonInteractive -NoLogo -Command '$e = $null; " +
         "[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./install.ps1), [ref]$null, [ref]$e) | Out-Null; " +
-        'if ($e) { $e | Out-String | Write-Error; exit 1 }; Write-Output "install.ps1 parses clean"\'',
+        'if ($e) { $e | Out-String | Write-Error; exit 1 }; Write-Output "install.ps1 parses clean"; exit 0\'',
     ],
     critical: true,
-    timeout: 30_000,
+    timeout: 60_000,
   },
 ]
 
