@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.245.0 (August 2026)
+
+## Core
+
+- Add reasoning_options for enhanced model variant control (@nikomatt69)
+- Simplify browser surface rendering logic and improve terminal compatibility (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(tui): simplify browser surface rendering logic and improve terminal compatibility
+  - feat(models): add reasoning_options for enhanced model variant control
+
 ## v1.242.0 (August 2026)
 
 ## Core

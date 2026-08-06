@@ -456,10 +456,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       }}
     >
       <Show
-        when={
-          status() !== "error" &&
-          (props.renderer === "overlay" ? overlayBytes() : placeholder().length > 0)
-        }
+        when={status() !== "error" && (props.renderer === "overlay" ? overlayBytes() : placeholder().length > 0)}
         fallback={
           <box paddingLeft={1} paddingTop={1} gap={1}>
             <text fg={status() === "error" ? theme.error : theme.textMuted} wrapMode="word">

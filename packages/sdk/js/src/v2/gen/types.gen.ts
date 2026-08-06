@@ -2301,6 +2301,20 @@ export type ProviderConfig = {
         npm: string
         api: string
       }
+      reasoning_options?: Array<
+        | {
+            type: "effort"
+            values: Array<string | null>
+          }
+        | {
+            type: "toggle"
+          }
+        | {
+            type: "budget_tokens"
+            min?: number
+            max?: number
+          }
+      >
       /**
        * Variant-specific configuration
        */
@@ -8688,6 +8702,20 @@ export type ProviderListResponses = {
             npm: string
             api: string
           }
+          reasoning_options?: Array<
+            | {
+                type: "effort"
+                values: Array<string | null>
+              }
+            | {
+                type: "toggle"
+              }
+            | {
+                type: "budget_tokens"
+                min?: number
+                max?: number
+              }
+          >
           variants?: {
             [key: string]: {
               [key: string]: unknown
