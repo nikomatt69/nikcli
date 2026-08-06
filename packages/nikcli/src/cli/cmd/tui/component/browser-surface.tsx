@@ -22,7 +22,7 @@ import { InputScheduler } from "@tui/util/browser-input"
 import { preparePhoton } from "@/image/photon"
 import { registerNativeOverlay, type NativeOverlay } from "./tui-image"
 import { useSync } from "@tui/context/sync"
-import { useTheme } from "@tui/context/theme"
+import { useTheme } from "@tui/context/theme" 
 
 export type BrowserSurfaceStatus = "starting" | "live" | "error"
 
