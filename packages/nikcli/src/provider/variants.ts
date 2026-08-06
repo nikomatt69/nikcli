@@ -76,6 +76,11 @@ export function reasoningVariants(
     for (const value of effort.values) {
       if (value === null) continue
       if (value === "none" && Object.keys(off).length > 0) continue
+      // Direct @ai-sdk/xai rejects `xhigh` (its zod schema only allows
+      // low|medium|high); the OpenRouter passthrough DOES accept it, so
+      // we only filter when the npm is the direct xAI SDK. Mirrors the
+      // blacklist in the previous procedural derivation.
+      if (value === "xhigh" && npm === "@ai-sdk/xai") continue
       const settings = settingsForEffort(npm, source.id, value)
       if (settings) variants[value] = settings
     }

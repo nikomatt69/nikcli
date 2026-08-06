@@ -6,6 +6,7 @@ import { Installation } from "../installation"
 import { Flag } from "../flag/flag"
 import { cursorModelsDevProvider } from "../plugin/cursor"
 import { NIKCLI_INFERENCE_ID, nikcliInferenceModelsDevProvider } from "./nikcli-inference"
+import { patchReasoningOptions } from "./variants-catalog-patch"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Schema } from "effect"
 
@@ -362,6 +363,13 @@ export namespace ModelsDev {
     if (!database[NIKCLI_INFERENCE_ID]) {
       database[NIKCLI_INFERENCE_ID] = nikcliInferenceModelsDevProvider() as Provider
     }
+
+    // Catalog-driven variant generation, mirroring upstream opencode v2's
+    // `opencode.variant` plugin. The patch fills in `reasoning_options`
+    // for entries that the upstream registry doesn't enrich (grok, deepseek,
+    // kimi, qwen, glm, MiniMax M3). Entries that already declare options
+    // are left untouched, so explicit catalog overrides still win.
+    patchReasoningOptions(database as Record<string, Provider>)
 
     return database
   }

@@ -18,7 +18,7 @@ const LOGO_WIDTH = Math.max(...LOGO_LINES.map((line) => line.length))
 const REVEAL_DURATION = 950
 const SHINE_WIDTH = 5
 const ROW_LUMINANCE = [0.48, 0.62, 0.82, 1, 0.72, 0.5]
-const CREDIT = "forked from OpenCode by nikomatt69"
+const CREDIT = "by @nikomatt69"
 const GITHUB_PROFILE_URL = "https://github.com/nikomatt69"
 
 type Segment = {

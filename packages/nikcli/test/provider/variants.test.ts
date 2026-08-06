@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { reasoningVariants, type ReasoningOption } from "@/provider/variants"
+import { patchReasoningOptions } from "@/provider/variants-catalog-patch"
 import type { ModelsDev } from "@/provider/models"
 
 /**
@@ -68,6 +69,136 @@ describe("reasoningVariants — openrouter / openrouter-fusion", () => {
       high: { reasoning: { effort: "high" } },
       xhigh: { reasoning: { effort: "xhigh" } },
     })
+  })
+})
+
+describe("end-to-end: patchReasoningOptions + reasoningVariants", () => {
+  // These mirror the previously-blacklisted xAI / deepseek / kimi / glm
+  // models. The catalog doesn't carry `reasoning_options` for them
+  // upstream, so the patcher in `variants-catalog-patch.ts` injects them
+  // and the data-driven `reasoningVariants` then turns them into the
+  // same per-npm settings shape the procedural code used to emit.
+
+  function patchAndDerive(npm: string, id: string, output = 8192): Record<string, Record<string, unknown>> {
+    const source: ModelsDev.Model = {
+      id,
+      name: id,
+      release_date: "2026-01-01",
+      attachment: false,
+      reasoning: true,
+      temperature: true,
+      tool_call: true,
+      limit: { context: 200_000, output },
+      options: {},
+    } as unknown as ModelsDev.Model
+    const provider: ModelsDev.Provider = {
+      id: "test",
+      name: "Test",
+      env: [],
+      npm,
+      models: { [id]: source },
+    } as unknown as ModelsDev.Provider
+    patchReasoningOptions({ test: provider } as Record<string, ModelsDev.Provider>)
+    return reasoningVariants(source, npm)
+  }
+
+  it("grok-4.5 on @ai-sdk/xai → low/medium/high as reasoningEffort", () => {
+    expect(patchAndDerive("@ai-sdk/xai", "grok-4.5")).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("grok-3-mini on @ai-sdk/xai → low/high", () => {
+    expect(patchAndDerive("@ai-sdk/xai", "grok-3-mini")).toEqual({
+      low: { reasoningEffort: "low" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("grok multi-agent on @ai-sdk/xai → drops xhigh (sdk schema rejects it)", () => {
+    expect(patchAndDerive("@ai-sdk/xai", "grok-4.20-multi-agent-0309")).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("fixed-depth grok (grok-4.3) gets no variants", () => {
+    expect(patchAndDerive("@ai-sdk/xai", "grok-4.3")).toEqual({})
+  })
+
+  it("deepseek-v4 on @ai-sdk/openai-compatible → low/medium/high/max as reasoningEffort", () => {
+    expect(patchAndDerive("@ai-sdk/openai-compatible", "deepseek-v4")).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+      max: { reasoningEffort: "max" },
+    })
+  })
+
+  it("qwen on @ai-sdk/openai-compatible → low/medium/high", () => {
+    expect(patchAndDerive("@ai-sdk/openai-compatible", "qwen-plus")).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+    })
+  })
+
+  it("glm-4.6 on @ai-sdk/openai-compatible → low/medium/high/max", () => {
+    expect(patchAndDerive("@ai-sdk/openai-compatible", "glm-4.6")).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+      max: { reasoningEffort: "max" },
+    })
+  })
+
+  it("kimi-k2-thinking on @ai-sdk/anthropic → low/medium/high/max with budgetTokens", () => {
+    expect(patchAndDerive("@ai-sdk/anthropic", "kimi-k2-thinking")).toEqual({
+      low: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "low",
+      },
+      medium: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "medium",
+      },
+      high: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "high",
+      },
+      max: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "max",
+      },
+    })
+  })
+
+  it("minimax-m3 on @ai-sdk/anthropic → low/medium/high/max with adaptive thinking", () => {
+    expect(patchAndDerive("@ai-sdk/anthropic", "minimax-m3")).toEqual({
+      low: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "low",
+      },
+      medium: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "medium",
+      },
+      high: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "high",
+      },
+      max: {
+        thinking: { type: "adaptive", display: "summarized" },
+        effort: "max",
+      },
+    })
+  })
+
+  it("minimax-m2.5 stays unpatched (excluded by design)", () => {
+    expect(patchAndDerive("@ai-sdk/anthropic", "minimax-m2.5")).toEqual({})
   })
 })
 
