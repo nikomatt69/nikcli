@@ -684,17 +684,32 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
       >
         <Show when={live()}>
           <box paddingLeft={1} paddingRight={1} height={innerHeight()}>
-            <BrowserSurface
-              initialUrl={address() || "about:blank"}
-              columns={liveColumns()}
-              rows={innerHeight()}
-              focused={focusArea() === "content"}
-              renderer={liveRenderer}
-              onState={setSurface}
-              ref={(controls) => {
-                surfaceControls = controls
-              }}
-            />
+            <Show
+              when={address()}
+              fallback={
+                <box paddingLeft={1} paddingTop={1}>
+                  <text fg={theme.textMuted} wrapMode="word">
+                    Enter a URL above and press Go — live mode starts Chromium for that page.
+                    {"\n"}
+                    ^⇧R switches to reader mode (fetch + markdown, no browser).
+                  </text>
+                </box>
+              }
+            >
+              <BrowserSurface
+                // Keyed by address so a fresh surface boots for each navigation
+                // that tears down the previous session (mode toggles already do).
+                initialUrl={address()}
+                columns={liveColumns()}
+                rows={innerHeight()}
+                focused={focusArea() === "content"}
+                renderer={liveRenderer}
+                onState={setSurface}
+                ref={(controls) => {
+                  surfaceControls = controls
+                }}
+              />
+            </Show>
           </box>
         </Show>
 

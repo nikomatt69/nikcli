@@ -119,7 +119,16 @@ const handlers: Record<string, RpcHandler> = {
   },
 }
 
-export async function startDaemon(socketPath: string): Promise<void> {
+export type StartDaemonOptions = {
+  /**
+   * When true (default for a dedicated daemon process), idle/shutdown ends the
+   * OS process. When false (in-process host inside the compiled nikcli binary),
+   * only the Unix server and sessions are torn down — the host keeps running.
+   */
+  readonly exitProcess?: boolean
+}
+
+export async function startDaemon(socketPath: string, options: StartDaemonOptions = {}): Promise<void> {
   // A daemon that died without running its shutdown handler (crash, kill -9,
   // machine restart) leaves its socket file behind; Bun.serve can't bind over
   // an existing path, which would otherwise wedge every future ensureDaemon
@@ -127,6 +136,7 @@ export async function startDaemon(socketPath: string): Promise<void> {
   // last writer to bind always unlinks first.
   await unlink(socketPath).catch(() => {})
 
+  const exitProcess = options.exitProcess !== false
   const manager = new SessionManager()
   let lastActivity = Date.now()
   let shuttingDown = false
@@ -142,8 +152,11 @@ export async function startDaemon(socketPath: string): Promise<void> {
     clearInterval(idleTimer)
     await manager.closeAll().catch(() => {})
     await Sandbox.closeAll().catch(() => {})
+    try {
+      server.stop(true)
+    } catch {}
     await unlink(socketPath).catch(() => {})
-    process.exit(0)
+    if (exitProcess) process.exit(0)
   }
 
   const server = Bun.serve({
@@ -177,9 +190,15 @@ export async function startDaemon(socketPath: string): Promise<void> {
     },
   })
 
-  process.on("SIGTERM", () => void shutdown())
-  process.on("SIGINT", () => void shutdown())
-  process.on("exit", () => server.stop(true))
+  if (exitProcess) {
+    process.on("SIGTERM", () => void shutdown())
+    process.on("SIGINT", () => void shutdown())
+  }
+  process.on("exit", () => {
+    try {
+      server.stop(true)
+    } catch {}
+  })
 }
 
 if (import.meta.main) {
@@ -189,7 +208,7 @@ if (import.meta.main) {
     process.stderr.write("computer-use daemon requires --socket PATH\n")
     process.exit(1)
   }
-  startDaemon(socketPath).catch((error) => {
+  startDaemon(socketPath, { exitProcess: true }).catch((error) => {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(1)
   })

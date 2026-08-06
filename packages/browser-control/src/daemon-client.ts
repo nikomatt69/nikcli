@@ -1,13 +1,24 @@
 /**
- * Daemon client — resolves the per-workspace daemon socket, spawns the daemon
- * in the background on first use (detached via `.unref()` so the CLI process
- * that triggered it can exit immediately), and speaks the RPC protocol
- * implemented in `daemon.ts` over that Unix socket.
+ * Daemon client — resolves the per-workspace daemon socket, starts the daemon
+ * on first use, and speaks the RPC protocol implemented in `daemon.ts` over
+ * that Unix socket.
+ *
+ * Start strategy:
+ * - **Source / dev** (`bun run dev`): spawn `daemon.ts` with bun so the daemon
+ *   outlives a short CLI invocation.
+ * - **Compiled nikcli binary**: sources live under virtual `/$bunfs/root/`, so
+ *   there is no real `daemon.ts` on disk, and re-execing the 200MB+ binary just
+ *   to host the socket is killed by the OS (SIGKILL / OOM). Instead, start the
+ *   daemon **in-process** — the TUI (or tool) already has Playwright in the
+ *   module graph, and `BrowserSurface` tears the session down on unmount.
  */
 import { createHash } from "node:crypto"
-import { lstat } from "node:fs/promises"
-import { dirname, join, resolve } from "node:path"
+import { access, constants, lstat } from "node:fs/promises"
+import { basename, dirname, join, resolve } from "node:path"
 import { tmpdir } from "node:os"
+
+/** @deprecated Kept for callers/tests that still check the flag name. */
+export const INTERNAL_DAEMON_FLAG = "--browser-control-daemon"
 
 async function findWorkspaceRoot(start = process.cwd()): Promise<string> {
   let current = resolve(start)
@@ -37,7 +48,7 @@ async function isDaemonAlive(socketPath: string): Promise<boolean> {
   }
 }
 
-async function waitForDaemon(socketPath: string, attempts = 40): Promise<void> {
+async function waitForDaemon(socketPath: string, attempts = 150): Promise<void> {
   for (let i = 0; i < attempts; i++) {
     if (await isDaemonAlive(socketPath)) return
     await new Promise((r) => setTimeout(r, 100))
@@ -45,16 +56,146 @@ async function waitForDaemon(socketPath: string, attempts = 40): Promise<void> {
   throw new Error(`browser-control daemon did not come up on ${socketPath}`)
 }
 
+function bunExecutable(): string {
+  const exec = process.execPath
+  const name = basename(exec).toLowerCase()
+  if (name === "bun" || name.startsWith("bun-")) return exec
+  return Bun.which("bun") ?? "bun"
+}
+
+/** True when this module lives inside a Bun compiled executable's virtual FS. */
+export function isCompiledBinaryHost(dir = import.meta.dir): boolean {
+  // Bun embeds sources under `/$bunfs/root/...` (Unix) or `B:\~BUN\root\...` (Windows).
+  // Those paths are not real files `bun <path>` can execute as a child process.
+  return dir.includes("$bunfs") || dir.includes("~BUN") || dir.includes("\\~BUN")
+}
+
+/**
+ * Resolve how the daemon should be started. Exported for tests.
+ *
+ * - `{ mode: "spawn", argv }` when `daemon.ts` is a real file (dev).
+ * - `{ mode: "inprocess" }` inside a compiled binary (virtual bunfs path).
+ */
+export async function resolveDaemonLaunch(): Promise<
+  { mode: "spawn"; argv: (socketPath: string) => string[] } | { mode: "inprocess" }
+> {
+  if (isCompiledBinaryHost()) return { mode: "inprocess" }
+
+  const daemonEntry = resolve(import.meta.dir, "daemon.ts")
+  const entryOnDisk = await access(daemonEntry, constants.R_OK)
+    .then(() => true)
+    .catch(() => false)
+
+  if (entryOnDisk) {
+    return {
+      mode: "spawn",
+      argv: (socketPath) => [bunExecutable(), daemonEntry, "--socket", socketPath],
+    }
+  }
+  return { mode: "inprocess" }
+}
+
+/** @deprecated Prefer {@link resolveDaemonLaunch}. */
+export async function resolveDaemonSpawn(socketPath: string): Promise<string[]> {
+  const launch = await resolveDaemonLaunch()
+  if (launch.mode === "spawn") return launch.argv(socketPath)
+  return [process.execPath, INTERNAL_DAEMON_FLAG, "--socket", socketPath]
+}
+
+async function readStderrSnippet(proc: Bun.Subprocess, limit = 800): Promise<string> {
+  const stream = proc.stderr
+  if (!stream || typeof stream === "number") return ""
+  try {
+    const reader = (stream as ReadableStream<Uint8Array>).getReader()
+    const chunks: Uint8Array[] = []
+    let total = 0
+    const deadline = Date.now() + 200
+    while (total < limit && Date.now() < deadline) {
+      const remaining = Math.max(1, deadline - Date.now())
+      const result = await Promise.race([
+        reader.read(),
+        new Promise<{ done: true; value: undefined }>((resolve) =>
+          setTimeout(() => resolve({ done: true, value: undefined }), remaining),
+        ),
+      ])
+      if (result.done || !result.value) break
+      chunks.push(result.value)
+      total += result.value.byteLength
+    }
+    reader.releaseLock()
+    if (chunks.length === 0) return ""
+    const merged = new Uint8Array(total)
+    let offset = 0
+    for (const chunk of chunks) {
+      merged.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    return new TextDecoder().decode(merged).trim().slice(0, limit)
+  } catch {
+    return ""
+  }
+}
+
+/** Tracks in-process starts so concurrent ensureDaemon calls share one server. */
+const inprocessStarts = new Map<string, Promise<void>>()
+
+async function startInProcess(socketPath: string): Promise<void> {
+  const existing = inprocessStarts.get(socketPath)
+  if (existing) {
+    await existing
+    return
+  }
+  const boot = (async () => {
+    const { startDaemon } = await import("./daemon")
+    // Never process.exit from inside the host TUI/CLI process.
+    await startDaemon(socketPath, { exitProcess: false })
+  })()
+  inprocessStarts.set(socketPath, boot)
+  try {
+    await boot
+  } catch (error) {
+    inprocessStarts.delete(socketPath)
+    throw error
+  }
+}
+
 export async function ensureDaemon(socketPath: string): Promise<void> {
   if (await isDaemonAlive(socketPath)) return
-  const daemonEntry = resolve(import.meta.dir, "daemon.ts")
-  const proc = Bun.spawn(["bun", daemonEntry, "--socket", socketPath], {
+
+  // An in-process server may have idle-shut down while the host process stayed
+  // up — drop the stale boot promise so we can bind again.
+  if (inprocessStarts.has(socketPath) && !(await isDaemonAlive(socketPath))) {
+    inprocessStarts.delete(socketPath)
+  }
+
+  const launch = await resolveDaemonLaunch()
+
+  if (launch.mode === "inprocess") {
+    // startDaemon resolves once Bun.serve is listening; no wait loop needed.
+    await startInProcess(socketPath)
+    if (!(await isDaemonAlive(socketPath))) {
+      throw new Error(`browser-control daemon did not come up on ${socketPath} (in-process)`)
+    }
+    return
+  }
+
+  const argv = launch.argv(socketPath)
+  const proc = Bun.spawn(argv, {
     stdin: "ignore",
     stdout: "ignore",
-    stderr: "ignore",
+    stderr: "pipe",
+    env: process.env,
   })
   proc.unref()
-  await waitForDaemon(socketPath)
+
+  try {
+    await waitForDaemon(socketPath)
+  } catch (error) {
+    const stderr = await readStderrSnippet(proc)
+    const detail = stderr || (proc.exitCode !== null ? `exited ${proc.exitCode}` : `spawn: ${argv.join(" ")}`)
+    const base = error instanceof Error ? error.message : String(error)
+    throw new Error(`${base} (${detail})`)
+  }
 }
 
 export interface RpcResponse<T> {
@@ -150,4 +291,5 @@ export async function* openScreencast(
 export async function shutdownDaemon(socketPath: string): Promise<void> {
   if (!(await isDaemonAlive(socketPath))) return
   await fetch("http://localhost/shutdown", { method: "POST", unix: socketPath } as RequestInit).catch(() => {})
+  inprocessStarts.delete(socketPath)
 }

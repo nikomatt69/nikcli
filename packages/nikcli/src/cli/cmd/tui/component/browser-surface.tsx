@@ -587,10 +587,15 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
               : placeholder().length > 0)
         }
         fallback={
-          <box paddingLeft={1} paddingTop={1}>
+          <box paddingLeft={1} paddingTop={1} gap={1}>
             <text fg={status() === "error" ? theme.error : theme.textMuted} wrapMode="word">
               {status() === "error" ? `✗ ${error()}` : "Starting Chromium…"}
             </text>
+            <Show when={status() === "error"}>
+              <text fg={theme.textMuted} wrapMode="word">
+                Press ^⇧R for reader mode (no Chromium), or fix the browser-control daemon and reopen.
+              </text>
+            </Show>
           </box>
         }
       >
