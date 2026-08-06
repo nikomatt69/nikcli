@@ -23,6 +23,19 @@ import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui";
 const id = "internal:herdr";
 
 const tui: TuiPlugin = async (api) => {
+  // Auto-enable when running inside a Herdr pane so the agent appears
+  // as a first-class herdr agent without the user flipping a toggle.
+  // Outside a Herdr pane, the bridge stays dormant — the user can flip
+  // it on via `herdr.toggle` if they want a manual integration.
+  if (HerdrBridge.isInHerdrPane() && !HerdrBridge.isEnabled()) {
+    HerdrBridge.setEnabled(true);
+    api.ui.toast({
+      variant: "info",
+      message: "Running inside Herdr pane; bridge auto-enabled",
+      duration: 4000,
+    });
+  }
+
   api.keymap.registerLayer({
     commands: [
       {

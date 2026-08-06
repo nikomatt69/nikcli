@@ -16,24 +16,27 @@
  *      and waits.
  *
  *   3. On `dispose`, tears the bridge down so a hot reload of the plugin
- *      doesn't leave dangling subscriptions or zombie agents.
+ *      doesn't leave a zombie agent in herdr's sidebar.
  *
  * The companion TUI plugin (`packages/nikcli/src/cli/cmd/tui/feature-plugins/herdr/`)
  * uses the same bridge to surface status in the TUI; the two sides never
  * fight because the bridge is the single source of truth and the TUI only
  * reads + toggles the enabled flag.
  */
-import type { Hooks, PluginInput } from "@nikcli-ai/plugin";
-import { tool as definePluginTool } from "@nikcli-ai/plugin/tool";
-import z from "zod";
-import { HerdrBridge } from "./bridge";
-import * as bridge from "./bridge";
-import { Log } from "@/util/log";
-import { Instance } from "@/project/instance";
+import { existsSync } from "node:fs"
+import path from "node:path"
+import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
+import { tool as definePluginTool } from "@nikcli-ai/plugin/tool"
+import z from "zod"
+import { HerdrBridge } from "./bridge"
+import * as bridge from "./bridge"
+import { Global } from "@/global"
+import { Log } from "@/util/log"
+import { Instance } from "@/project/instance"
 
-export { HerdrBridge } from "./bridge";
+export { HerdrBridge } from "./bridge"
 
-const log = Log.create({ service: "herdr-plugin" });
+const log = Log.create({ service: "herdr-plugin" })
 
 /**
  * The `herdr` tool — an agent-facing adapter for the bridge. It mirrors
@@ -70,16 +73,14 @@ export const HerdrTool = definePluginTool({
     paneId: z.string().optional(),
   },
   async execute(params, _ctx) {
-    const directory = Instance.directory ?? process.cwd();
-    const info = await bridge.detect();
+    const directory = Instance.directory ?? process.cwd()
+    const info = await bridge.detect()
     if (!info.installed) {
       return {
         title: "Herdr not installed",
         metadata: { installed: false },
-        output:
-          "Herdr is not installed on PATH. Install it from https://herdr.dev " +
-          "to enable the integration.",
-      };
+        output: "Herdr is not installed on PATH. Install it from https://herdr.dev " + "to enable the integration.",
+      }
     }
     if (!info.serverRunning) {
       return {
@@ -90,20 +91,20 @@ export const HerdrTool = definePluginTool({
           socketPath: info.socketPath,
         },
         output: `Herdr binary is at ${info.binPath} but no server is reachable at ${info.socketPath}. Start one with \`herdr\`.`,
-      };
+      }
     }
 
     if (params.action === "status") {
-      const status = await bridge.status();
+      const status = await bridge.status()
       return {
         title: "Herdr status",
         metadata: status as unknown as Record<string, unknown>,
         output: formatStatus(status),
-      };
+      }
     }
 
     if (params.action === "snapshot" || params.action === "refresh") {
-      const snap = await bridge.refresh(directory);
+      const snap = await bridge.refresh(directory)
       return {
         title: "Herdr snapshot",
         metadata: {
@@ -114,22 +115,22 @@ export const HerdrTool = definePluginTool({
           takenAt: snap.takenAt,
         },
         output: formatSnapshot(snap),
-      };
+      }
     }
 
     if (params.action === "list_workspaces") {
-      const snap = bridge.snapshot(directory);
+      const snap = bridge.snapshot(directory)
       return {
         title: "Herdr workspaces",
         metadata: { count: snap.workspaces.length },
         output: snap.workspaces.length
           ? snap.workspaces.map((w) => formatWorkspace(w)).join("\n")
           : "No workspaces yet. The next line will be populated once you create one with `herdr workspace create`.",
-      };
+      }
     }
 
     if (params.action === "list_agents") {
-      const snap = bridge.snapshot(directory);
+      const snap = bridge.snapshot(directory)
       return {
         title: "Herdr agents",
         metadata: { count: snap.agents.length },
@@ -141,7 +142,7 @@ export const HerdrTool = definePluginTool({
               )
               .join("\n")
           : "No agents reported. Herdr only shows agents after a tool runs in a pane or a custom integration reports state.",
-      };
+      }
     }
 
     if (params.action === "report_session") {
@@ -149,9 +150,8 @@ export const HerdrTool = definePluginTool({
         return {
           title: "report_session needs sessionID",
           metadata: {},
-          output:
-            "Provide `sessionID` so the bridge knows which pane to report against.",
-        };
+          output: "Provide `sessionID` so the bridge knows which pane to report against.",
+        }
       }
       const result = await bridge.reportSession({
         directory,
@@ -160,13 +160,13 @@ export const HerdrTool = definePluginTool({
         state: params.state ?? "working",
         message: params.message,
         paneId: params.paneId,
-      });
+      })
       if (!result.ok) {
         return {
           title: "Herdr report failed",
           metadata: { reason: result.reason },
           output: `Could not report agent state to herdr: ${result.reason}.`,
-        };
+        }
       }
       return {
         title: "Herdr agent reported",
@@ -175,7 +175,7 @@ export const HerdrTool = definePluginTool({
           state: params.state ?? "working",
         },
         output: `Reported ${params.agent ?? "nikcli"} as ${params.state ?? "working"} to herdr.`,
-      };
+      }
     }
 
     if (params.action === "release_session") {
@@ -183,28 +183,27 @@ export const HerdrTool = definePluginTool({
         return {
           title: "release_session needs sessionID",
           metadata: {},
-          output:
-            "Provide `sessionID` so the bridge can release the matching pane.",
-        };
+          output: "Provide `sessionID` so the bridge can release the matching pane.",
+        }
       }
       const result = await bridge.releaseSession({
         directory,
         sessionID: params.sessionID,
         agent: params.agent ?? "nikcli",
         paneId: params.paneId,
-      });
+      })
       if (!result.ok) {
         return {
           title: "Herdr release failed",
           metadata: { reason: result.reason },
           output: `Could not release herdr agent: ${result.reason}.`,
-        };
+        }
       }
       return {
         title: "Herdr agent released",
         metadata: {},
         output: `Released the nikcli-backed pane in herdr.`,
-      };
+      }
     }
 
     // Should never get here — the schema exhausts the action union.
@@ -212,17 +211,16 @@ export const HerdrTool = definePluginTool({
       title: "Herdr unknown action",
       metadata: {},
       output: `Unknown action: ${String((params as { action: string }).action)}`,
-    };
+    }
   },
-});
+})
 
 function formatStatus(status: {
-  installed: boolean;
-  binPath?: string;
-  serverRunning: boolean;
-  socketPath?: string;
-  enabled: boolean;
-  subscriptions: number;
+  installed: boolean
+  binPath?: string
+  serverRunning: boolean
+  socketPath?: string
+  enabled: boolean
 }): string {
   const lines = [
     `Installed: ${status.installed ? "yes" : "no"}`,
@@ -230,30 +228,29 @@ function formatStatus(status: {
     `Server running: ${status.serverRunning ? "yes" : "no"}`,
     `Socket: ${status.socketPath ?? "(none)"}`,
     `Bridge enabled: ${status.enabled ? "yes" : "no"}`,
-    `Active subscriptions: ${status.subscriptions}`,
-  ];
-  return lines.join("\n");
+  ]
+  return lines.join("\n")
 }
 
 function formatWorkspace(w: {
-  id: string;
-  label?: string;
-  focused?: boolean;
-  cwd?: string;
-  worktree?: { branch: string; path?: string };
+  id: string
+  label?: string
+  focused?: boolean
+  cwd?: string
+  worktree?: { branch: string; path?: string }
 }): string {
-  const label = w.label ?? w.id;
-  const focus = w.focused ? " (focused)" : "";
-  const branch = w.worktree ? ` [worktree ${w.worktree.branch}]` : "";
-  const cwd = w.cwd ? ` — ${w.cwd}` : "";
-  return `• ${label}${focus}${branch}${cwd}`;
+  const label = w.label ?? w.id
+  const focus = w.focused ? " (focused)" : ""
+  const branch = w.worktree ? ` [worktree ${w.worktree.branch}]` : ""
+  const cwd = w.cwd ? ` — ${w.cwd}` : ""
+  return `• ${label}${focus}${branch}${cwd}`
 }
 
 function formatSnapshot(snap: {
-  takenAt: string;
-  workspaces: Array<{ id: string; label?: string }>;
-  tabs: Array<{ id: string; workspaceId: string; label?: string }>;
-  agents: Array<{ agent?: string; state?: string; message?: string }>;
+  takenAt: string
+  workspaces: Array<{ id: string; label?: string }>
+  tabs: Array<{ id: string; workspaceId: string; label?: string }>
+  agents: Array<{ agent?: string; state?: string; message?: string }>
 }): string {
   return [
     `Taken at: ${snap.takenAt}`,
@@ -266,45 +263,101 @@ function formatSnapshot(snap: {
     "Tabs:",
     ...snap.tabs.map((t) => `  • ${t.label ?? t.id} in ${t.workspaceId}`),
     "Agents:",
-    ...snap.agents.map(
-      (a) =>
-        `  • ${a.agent ?? "?"} (${a.state ?? "?"})${a.message ? ` — ${a.message}` : ""}`,
-    ),
-  ].join("\n");
+    ...snap.agents.map((a) => `  • ${a.agent ?? "?"} (${a.state ?? "?"})${a.message ? ` — ${a.message}` : ""}`),
+  ].join("\n")
+}
+
+/**
+ * Path of the standalone herdr integration plugin, when the user has one
+ * installed. Herdr's installer writes `herdr-agent-state.<ext>` into the
+ * agent's own plugin directory (that is how the opencode, kilo, and pi
+ * integrations work); nikcli scans both `plugin/` and `plugins/` under
+ * its global config dir.
+ */
+function externalIntegrationPath(): string | undefined {
+  for (const dir of ["plugin", "plugins"]) {
+    for (const ext of ["js", "ts"]) {
+      const candidate = path.join(Global.Path.config, dir, `herdr-agent-state.${ext}`)
+      if (existsSync(candidate)) return candidate
+    }
+  }
+  return undefined
 }
 
 /**
  * Plugin entry point. Registers the herdr tool and exposes the bridge so
  * the agent can drive it when the user opts in.
  *
- * IMPORTANT: this plugin does NOT auto-attach the bridge to GlobalBus.
- * The bridge is only wired when the user explicitly enables it (via the
- * TUI plugin's `/herdr` command or `setEnabled(true)` from a tool call).
- * Attaching the listener eagerly would intercept every bus event in the
- * process even when the user has no herdr server, which interferes with
- * the chat session stream.
+ * Auto-attach rule (matches the prime-agent "built-in" pattern): if the
+ * process is running inside a Herdr pane (`HERDR_ENV=1` + socket + pane
+ * id published by the wrapping server), the bridge enables itself and
+ * attaches the global bus listener right away. The user's TUI sees
+ * nikcli appear as a Herdr agent without them having to flip a toggle.
+ *
+ * Outside a Herdr pane the bridge stays dormant: it does not probe the
+ * socket, attach any listener, or touch the chat session stream. Users
+ * who explicitly want the bridge outside a Herdr pane can enable it
+ * through the TUI's `herdr.toggle` command.
  */
 export async function HerdrPlugin(_input: PluginInput): Promise<Hooks> {
+  if (HerdrBridge.isInHerdrPane()) {
+    const external = externalIntegrationPath()
+    if (external) {
+      // `herdr integration install nikcli` (or a manual copy) dropped the
+      // standalone plugin into the user's config dir. It reports under the
+      // same `herdr:nikcli` source, so running both would double every
+      // report — the installed file wins, we stay dormant.
+      log.info("herdr integration file installed; leaving reporting to it", {
+        path: external,
+      })
+    } else {
+      log.info("running inside a Herdr pane; auto-enabling bridge")
+      HerdrBridge.setEnabled(true)
+    }
+  } else {
+    log.debug("not inside a Herdr pane; bridge stays disabled until manually enabled")
+  }
+
   return {
     async dispose() {
-      log.info("disposing herdr plugin");
-      HerdrBridge.stop();
+      log.info("disposing herdr plugin")
+      HerdrBridge.stop()
     },
     async event(input) {
-      // The bridge attaches to GlobalBus only when enabled, so a normal
-      // event flow (with the plugin registered but not enabled) never
-      // touches this code path. We keep the hook for the case where a
-      // host wants to inspect every event by passing it through.
-      void input;
+      // Session lifecycle is already covered by the bridge's GlobalBus
+      // listener (which also serves the TUI toggle, where no plugin hook
+      // runs). Forwarding here too would double every report, so this
+      // hook stays a pass-through.
+      void input
+    },
+    // The user just submitted a prompt: mark the pane working before the
+    // first `session.status` busy event lands, so herdr's sidebar reacts
+    // on the same frame the TUI does.
+    "chat.message": async (input) => {
+      await HerdrBridge.handleChatMessage(input.sessionID)
+    },
+    // Tool calls are plugin hooks in nikcli, not bus events, so they need
+    // their own wiring to keep a long tool run from looking idle.
+    "tool.execute.before": async (input) => {
+      await HerdrBridge.handleEvent({
+        type: "tool.execute.before",
+        properties: { sessionID: input.sessionID },
+      })
+    },
+    "tool.execute.after": async (input) => {
+      await HerdrBridge.handleEvent({
+        type: "tool.execute.after",
+        properties: { sessionID: input.sessionID },
+      })
     },
     tool: {
       herdr: HerdrTool,
     },
-  };
+  }
 }
 
 /**
  * Default export — the plugin loader imports this as the module entry.
  * It must be a function: `(input) => Promise<Hooks>`.
  */
-export default HerdrPlugin;
+export default HerdrPlugin

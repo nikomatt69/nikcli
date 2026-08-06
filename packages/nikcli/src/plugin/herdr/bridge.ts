@@ -24,133 +24,134 @@
  *     bridge against `/new`, `/resume`, `/fork`, and `/reload`, all of
  *     which re-instantiate the reporter inside the same pane.
  *
- *   - The bridge is bound to a single session. We re-bind to the first
- *     session that publishes `session_start` and ignore events from any
- *     other session that shares the runtime (subagent, RLM children).
- *     Otherwise a subagent's `agent_end` would race the parent's
- *     session_ref and release the pane while the parent is still running.
- *
- *   - The release on `session_shutdown` is gated on `reason === "quit"`.
- *     On `/new`, `/resume`, `/fork`, or `/reload`, the successor instance
- *     re-reports immediately; releasing here would race the successor's
- *     report and herdr would clear the pane.
+ *   - Subagent sessions never own the pane. A child session's events can
+ *     still project state (a subagent asking for permission blocks the
+ *     pane) but never replace the pane's root conversation ref, so a
+ *     subagent finishing can't release a pane whose parent is still live.
  *
  *   - The bridge is fully lazy. The global bus listener is only attached
  *     when `setEnabled(true)` is called (e.g. by the TUI plugin's toggle
  *     command) — never on import. This protects the chat session stream
  *     from being hooked while the user has no pane registered.
  */
-import { createConnection, type NetConnectOpts, type Socket } from "node:net";
-import { platform } from "node:os";
-import fs from "fs/promises";
-import { homedir } from "os";
-import path from "path";
-import { z } from "zod";
-import { GlobalBus } from "@/bus/global";
-import { Log } from "@/util/log";
+import { createConnection, type NetConnectOpts, type Socket } from "node:net"
+import { platform } from "node:os"
+import fs from "fs/promises"
+import { homedir } from "os"
+import path from "path"
+import { z } from "zod"
+import { GlobalBus } from "@/bus/global"
+import { Log } from "@/util/log"
 
-const log = Log.create({ service: "herdr-bridge" });
+const log = Log.create({ service: "herdr-bridge" })
+
+/**
+ * Canonical identity we report under. Herdr keys agent authority by
+ * `source`, so this string is the integration's identity: it must match
+ * the `HERDR_INTEGRATION_ID` used by the standalone plugin file
+ * (`scripts/herdr-agent-state.js`) that `herdr integration install`
+ * would drop into `~/.config/nikcli/plugin/`. Herdr's own integrations
+ * use the same `herdr:<agent>` shape (`herdr:opencode`, `herdr:claude`).
+ */
+export const HERDR_SOURCE = "herdr:nikcli"
+export const HERDR_AGENT = "nikcli"
+
+/**
+ * Herdr's `PaneAgentState` enum. `done` is *not* a reportable state —
+ * herdr derives it itself from an idle agent whose tab was never seen —
+ * so anything that looks "finished" on our side is reported as `idle`.
+ */
+const REPORTABLE_STATES = new Set(["idle", "working", "blocked", "unknown"])
+
+function toReportableState(state: HerdrAgentState): string {
+  if (state === "done") return "idle"
+  return REPORTABLE_STATES.has(state) ? state : "unknown"
+}
 
 /**
  * One JSON-line socket request. Matches the format herdr's
- * `session.snapshot`, `pane.report_agent`, `pane.release_agent` and
- * `events.subscribe` endpoints accept (see https://herdr.dev/docs/socket-api/).
+ * `session.snapshot`, `pane.report_agent`, `pane.report_agent_session` and
+ * `pane.release_agent` endpoints accept (see https://herdr.dev/docs/socket-api/).
  */
 export type HerdrRequest = {
-  id: string;
-  method: string;
-  params?: Record<string, unknown>;
-};
+  id: string
+  method: string
+  params?: Record<string, unknown>
+}
 
 export type HerdrResponse = {
-  id?: string;
-  result?: unknown;
-  error?: { code?: string; message?: string };
-  /** Pushed events from a long-lived subscription. */
-  type?: string;
-};
+  id?: string
+  result?: unknown
+  error?: { code?: string; message?: string }
+  /** Response kind herdr tags the payload with. */
+  type?: string
+}
 
-export type HerdrAgentState =
-  | "idle"
-  | "working"
-  | "blocked"
-  | "done"
-  | "unknown";
+export type HerdrAgentState = "idle" | "working" | "blocked" | "done" | "unknown"
 
 export type HerdrWorkspace = {
-  id: string;
-  label?: string;
-  focused?: boolean;
-  cwd?: string;
-  worktree?: { branch: string; path?: string };
-};
+  id: string
+  label?: string
+  focused?: boolean
+  cwd?: string
+  worktree?: { branch: string; path?: string }
+}
 
 export type HerdrTab = {
-  id: string;
-  workspaceId: string;
-  label?: string;
-  focused?: boolean;
-};
+  id: string
+  workspaceId: string
+  label?: string
+  focused?: boolean
+}
 
 export type HerdrPane = {
-  id: string;
-  workspaceId: string;
-  tabId: string;
-  label?: string;
-  focused?: boolean;
+  id: string
+  workspaceId: string
+  tabId: string
+  label?: string
+  focused?: boolean
   /** Semantic agent state herdr sees for this pane. */
-  agentStatus?: HerdrAgentState;
+  agentStatus?: HerdrAgentState
   /** Foreground process name (shell, claude, codex, etc.). */
-  foreground?: string;
-};
+  foreground?: string
+}
 
 export type HerdrAgent = {
-  id: string;
-  workspaceId: string;
-  tabId: string;
-  paneId: string;
+  id: string
+  workspaceId: string
+  tabId: string
+  paneId: string
   /** What the agent says it is (claude, codex, opencode, …). */
-  agent?: string;
-  state?: HerdrAgentState;
-  source?: string;
-  message?: string;
-};
+  agent?: string
+  state?: HerdrAgentState
+  source?: string
+  message?: string
+}
 
 export type HerdrSnapshot = {
   /** ISO timestamp of the last full snapshot we successfully loaded. */
-  takenAt: string;
-  version?: string;
-  protocolVersion?: number;
-  focusedWorkspaceId?: string;
-  focusedTabId?: string;
-  focusedPaneId?: string;
-  workspaces: HerdrWorkspace[];
-  tabs: HerdrTab[];
-  panes: HerdrPane[];
-  agents: HerdrAgent[];
-};
+  takenAt: string
+  version?: string
+  protocolVersion?: number
+  focusedWorkspaceId?: string
+  focusedTabId?: string
+  focusedPaneId?: string
+  workspaces: HerdrWorkspace[]
+  tabs: HerdrTab[]
+  panes: HerdrPane[]
+  agents: HerdrAgent[]
+}
 
 export type HerdrInstallInfo = {
   /** True when the `herdr` binary is reachable on PATH. */
-  installed: boolean;
+  installed: boolean
   /** Resolved binary path, or `undefined` when not installed. */
-  binPath?: string;
+  binPath?: string
   /** True when the bridge can reach a running herdr server. */
-  serverRunning: boolean;
+  serverRunning: boolean
   /** Resolved socket path the bridge is connected to, when running. */
-  socketPath?: string;
-};
-
-/**
- * Wire details for a single herdr event subscription. Held in state so the
- * bridge can replay what it's listening to (e.g. for the status panel).
- */
-export type HerdrSubscription = {
-  id: string;
-  types: string[];
-  /** True when the underlying socket is still open. */
-  alive: boolean;
-};
+  socketPath?: string
+}
 
 const DefaultState: HerdrSnapshot = {
   takenAt: "",
@@ -158,32 +159,55 @@ const DefaultState: HerdrSnapshot = {
   tabs: [],
   panes: [],
   agents: [],
-};
+}
 
 type Runtime = {
   /** Per-instance state, keyed by project directory. */
-  snapshots: Map<string, HerdrSnapshot>;
-  /** Live subscriptions. */
-  subscriptions: HerdrSubscription[];
+  snapshots: Map<string, HerdrSnapshot>
   /** True when the bus listener has actually been attached to GlobalBus. */
-  busListenerInstalled: boolean;
+  busListenerInstalled: boolean
   /** True when the bridge is enabled for the current process. */
-  enabled: boolean;
+  enabled: boolean
   /** Local socket file used in tests, when we can't reach a real herdr. */
-  testSocketPath?: string;
-  /** First session id we bound to. */
-  boundSessionID?: string;
+  testSocketPath?: string
   /** True when this instance has been released; late reports are dropped. */
-  released: boolean;
-};
+  released: boolean
+  /**
+   * Last root session id we attached to a herdr report. Herdr uses it to
+   * resume the pane into its native conversation after a server restart
+   * (`session.resume_agents_on_restore`), so it must always track the
+   * pane's *root* session, never a subagent's.
+   */
+  reportedRootSessionID?: string
+  /**
+   * Subagent / child sessions seen in this process. Their events project
+   * state (a child asking for permission still blocks the pane) but never
+   * replace the pane's root session id.
+   */
+  childSessions: Set<string>
+}
 
 const runtime: Runtime = {
   snapshots: new Map(),
-  subscriptions: [],
   busListenerInstalled: false,
   enabled: false,
   released: false,
-};
+  childSessions: new Set(),
+}
+
+/**
+ * Herdr accepts one request per connection and orders reports by `seq`.
+ * Firing two sockets concurrently lets a lower-seq report land last, so
+ * every write goes through a single serialized chain — the same shape
+ * herdr's own opencode plugin uses.
+ */
+let requestChain: Promise<unknown> = Promise.resolve()
+
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const pending = requestChain.then(fn, fn)
+  requestChain = pending.catch(() => {})
+  return pending
+}
 
 /**
  * Force the bridge to talk to a user-provided socket path instead of the
@@ -191,17 +215,17 @@ const runtime: Runtime = {
  * `HERDR_SOCKET_PATH` and the per-platform default location.
  */
 export function setTestSocketPath(value: string | undefined) {
-  runtime.testSocketPath = value;
+  runtime.testSocketPath = value
 }
 
 function defaultSocketPath(): string {
-  if (process.env.HERDR_SOCKET_PATH) return process.env.HERDR_SOCKET_PATH;
-  const base = process.env.XDG_CONFIG_HOME ?? path.join(homedir(), ".config");
-  return path.join(base, "herdr", "herdr.sock");
+  if (process.env.HERDR_SOCKET_PATH) return process.env.HERDR_SOCKET_PATH
+  const base = process.env.XDG_CONFIG_HOME ?? path.join(homedir(), ".config")
+  return path.join(base, "herdr", "herdr.sock")
 }
 
 export function resolveSocketPath(): string {
-  return runtime.testSocketPath ?? defaultSocketPath();
+  return runtime.testSocketPath ?? defaultSocketPath()
 }
 
 /**
@@ -223,13 +247,13 @@ function socketOptions(socketPath: string): NetConnectOpts {
     // the OS dispatches by host+port where the port slot is the pipe
     // name string. This is the same shape the Node docs use for `net`
     // IPC over a named pipe.
-    return { host: "\\\\.\\pipe", port: socketPath as unknown as number };
+    return { host: "\\\\.\\pipe", port: socketPath as unknown as number }
   }
-  return { path: socketPath };
+  return { path: socketPath }
 }
 
 function openSocket(socketPath: string): Socket {
-  return createConnection(socketOptions(socketPath));
+  return createConnection(socketOptions(socketPath))
 }
 
 /**
@@ -238,31 +262,25 @@ function openSocket(socketPath: string): Socket {
  * throwing, since some sandboxes throw rather than return null.
  */
 export function resolveHerdrBin(): string | undefined {
-  const explicit = process.env.HERDR_BIN_PATH;
-  if (explicit && explicit.length > 0) return explicit;
-  if (typeof Bun === "undefined" || typeof Bun.which !== "function")
-    return undefined;
+  const explicit = process.env.HERDR_BIN_PATH
+  if (explicit && explicit.length > 0) return explicit
+  if (typeof Bun === "undefined" || typeof Bun.which !== "function") return undefined
   try {
-    return Bun.which("herdr") ?? undefined;
+    return Bun.which("herdr") ?? undefined
   } catch {
-    return undefined;
+    return undefined
   }
 }
 
-async function probeSocket(
-  socketPath: string,
-  timeoutMs = 750,
-): Promise<boolean> {
+async function probeSocket(socketPath: string, timeoutMs = 750): Promise<boolean> {
   try {
     const stat = await Promise.race([
       fs.stat(socketPath),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("probe timeout")), timeoutMs),
-      ),
-    ]);
-    return stat.isSocket() || stat.isFile() || stat.isFIFO();
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("probe timeout")), timeoutMs)),
+    ])
+    return stat.isSocket() || stat.isFile() || stat.isFIFO()
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -271,15 +289,15 @@ async function probeSocket(
  * running. The bridge is idempotent and cheap to call on every status read.
  */
 export async function detect(): Promise<HerdrInstallInfo> {
-  const binPath = resolveHerdrBin();
-  const socketPath = resolveSocketPath();
-  const serverRunning = await probeSocket(socketPath);
+  const binPath = resolveHerdrBin()
+  const socketPath = resolveSocketPath()
+  const serverRunning = await probeSocket(socketPath)
   return {
     installed: Boolean(binPath),
     binPath,
     serverRunning,
     socketPath: serverRunning ? socketPath : undefined,
-  };
+  }
 }
 
 /**
@@ -294,169 +312,70 @@ export async function call<T = unknown>(
   timeoutMs = 5000,
   options?: { socketPath?: string },
 ): Promise<T> {
-  const socketPath = options?.socketPath ?? resolveSocketPath();
-  const id = `nikcli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const socketPath = options?.socketPath ?? resolveSocketPath()
+  const id = `nikcli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   // Herdr's protocol rejects requests without a `params` field, so we
   // always send at least an empty object — `JSON.stringify` would otherwise
   // drop the key when the caller passes `undefined`.
-  const req: HerdrRequest = { id, method, params: params ?? {} };
+  const req: HerdrRequest = { id, method, params: params ?? {} }
   return new Promise<T>((resolve, reject) => {
-    let buffer = "";
-    let settled = false;
+    let buffer = ""
+    let settled = false
     const finish = (ok: boolean, value: T | Error) => {
-      if (settled) return;
-      settled = true;
+      if (settled) return
+      settled = true
       try {
-        socket.destroy();
+        socket.destroy()
       } catch {}
-      if (ok) resolve(value as T);
-      else reject(value as Error);
-    };
+      if (ok) resolve(value as T)
+      else reject(value as Error)
+    }
     const timer = setTimeout(
-      () =>
-        finish(
-          false,
-          new Error(`herdr ${method} timed out after ${timeoutMs}ms`),
-        ),
+      () => finish(false, new Error(`herdr ${method} timed out after ${timeoutMs}ms`)),
       timeoutMs,
-    );
-    const socket: Socket = openSocket(socketPath);
-    socket.on("error", (error) => finish(false, error));
+    )
+    const socket: Socket = openSocket(socketPath)
+    socket.on("error", (error) => finish(false, error))
     socket.on("connect", () => {
       try {
-        socket.write(JSON.stringify(req) + "\n");
+        socket.write(JSON.stringify(req) + "\n")
       } catch (error) {
-        finish(
-          false,
-          error instanceof Error ? error : new Error(String(error)),
-        );
+        finish(false, error instanceof Error ? error : new Error(String(error)))
       }
-    });
+    })
     socket.on("data", (data) => {
-      buffer += data.toString("utf8");
-      let idx = buffer.indexOf("\n");
+      buffer += data.toString("utf8")
+      let idx = buffer.indexOf("\n")
       while (idx >= 0) {
-        const line = buffer.slice(0, idx).trim();
-        buffer = buffer.slice(idx + 1);
+        const line = buffer.slice(0, idx).trim()
+        buffer = buffer.slice(idx + 1)
         if (line) {
           try {
-            const parsed = JSON.parse(line) as HerdrResponse;
+            const parsed = JSON.parse(line) as HerdrResponse
             if (parsed.id !== id) {
-              idx = buffer.indexOf("\n");
-              continue;
+              idx = buffer.indexOf("\n")
+              continue
             }
-            clearTimeout(timer);
+            clearTimeout(timer)
             if (parsed.error) {
-              finish(
-                false,
-                new Error(
-                  parsed.error.message ??
-                    parsed.error.code ??
-                    "unknown herdr error",
-                ),
-              );
-              return;
+              finish(false, new Error(parsed.error.message ?? parsed.error.code ?? "unknown herdr error"))
+              return
             }
-            finish(true, parsed.result as T);
-            return;
+            finish(true, parsed.result as T)
+            return
           } catch (error) {
-            clearTimeout(timer);
-            finish(
-              false,
-              error instanceof Error ? error : new Error(String(error)),
-            );
-            return;
+            clearTimeout(timer)
+            finish(false, error instanceof Error ? error : new Error(String(error)))
+            return
           }
         }
-        idx = buffer.indexOf("\n");
+        idx = buffer.indexOf("\n")
       }
-    });
+    })
     socket.on("close", () => {
-      if (!settled)
-        finish(false, new Error("herdr socket closed before reply"));
-    });
-  });
-}
-
-/**
- * Subscribe to a set of herdr events. Returns a disposable that closes the
- * underlying socket. Events are forwarded to the optional `onEvent` callback.
- */
-export async function subscribe(
-  types: string[],
-  onEvent: (event: HerdrResponse) => void,
-  options?: { socketPath?: string; timeoutMs?: number },
-): Promise<() => void> {
-  const socketPath = options?.socketPath ?? resolveSocketPath();
-  const timeoutMs = options?.timeoutMs ?? 10_000;
-  const id = `nikcli-sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const req: HerdrRequest = {
-    id,
-    method: "events.subscribe",
-    params: { subscriptions: types.map((type) => ({ type })) },
-  };
-  const sub: HerdrSubscription = { id, types, alive: true };
-  runtime.subscriptions.push(sub);
-  return new Promise<() => void>((resolve, reject) => {
-    let buffer = "";
-    let opened = false;
-    const socket = openSocket(socketPath);
-    socket.on("error", (error) => {
-      if (!opened) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-        return;
-      }
-      log.warn("herdr subscription socket error", {
-        error: errorMessage(error),
-      });
-    });
-    socket.on("connect", () => {
-      try {
-        socket.write(JSON.stringify(req) + "\n");
-        opened = true;
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
-    socket.on("data", (data) => {
-      buffer += data.toString("utf8");
-      let idx = buffer.indexOf("\n");
-      while (idx >= 0) {
-        const line = buffer.slice(0, idx).trim();
-        buffer = buffer.slice(idx + 1);
-        if (line) {
-          try {
-            const parsed = JSON.parse(line) as HerdrResponse;
-            onEvent(parsed);
-          } catch (error) {
-            log.warn("herdr subscription: failed to parse line", {
-              error: errorMessage(error),
-            });
-          }
-        }
-        idx = buffer.indexOf("\n");
-      }
-    });
-    socket.on("close", () => {
-      if (!opened) {
-        reject(new Error("herdr socket closed before subscription opened"));
-        return;
-      }
-      sub.alive = false;
-    });
-    const dispose = () => {
-      if (!sub.alive) return;
-      sub.alive = false;
-      try {
-        socket.destroy();
-      } catch {}
-      const idx = runtime.subscriptions.indexOf(sub);
-      if (idx >= 0) runtime.subscriptions.splice(idx, 1);
-      clearTimeout(timer);
-    };
-    const timer = setTimeout(dispose, timeoutMs);
-    resolve(dispose);
-  });
+      if (!settled) finish(false, new Error("herdr socket closed before reply"))
+    })
+  })
 }
 
 /**
@@ -466,30 +385,12 @@ export async function subscribe(
  * clobber each other.
  */
 export function snapshot(directory?: string): HerdrSnapshot {
-  const key = directory ?? process.cwd();
-  return runtime.snapshots.get(key) ?? { ...DefaultState };
+  const key = directory ?? process.cwd()
+  return runtime.snapshots.get(key) ?? { ...DefaultState }
 }
 
 export function setSnapshot(directory: string, next: HerdrSnapshot) {
-  runtime.snapshots.set(directory, next);
-}
-
-/**
- * Translate a nikcli session status into a herdr agent state. We use
- * `working` for both busy and retry (herdr has no retry concept; busy is
- * the closest semantic), and `blocked` whenever a permission/question is
- * pending.
- */
-export function sessionStatusToHerdrState(input: {
-  status?: { type: "idle" | "busy" | "retry" } | undefined;
-  permission?: boolean;
-  question?: boolean;
-}): HerdrAgentState {
-  if (input.permission || input.question) return "blocked";
-  if (!input.status) return "unknown";
-  if (input.status.type === "busy") return "working";
-  if (input.status.type === "retry") return "working";
-  return "idle";
+  runtime.snapshots.set(directory, next)
 }
 
 /**
@@ -502,11 +403,11 @@ export function sessionStatusToHerdrState(input: {
  * bridge instances in the process. The `Math.max(prev+1, Date.now()*1000)`
  * clamp guarantees we never regress, even when the host reloads.
  */
-let reportSeq = Date.now() * 1000;
+let reportSeq = Date.now() * 1000
 
 export function nextReportSeq(): number {
-  reportSeq = Math.max(reportSeq + 1, Date.now() * 1000);
-  return reportSeq;
+  reportSeq = Math.max(reportSeq + 1, Date.now() * 1000)
+  return reportSeq
 }
 
 /**
@@ -521,7 +422,7 @@ export function isInHerdrPane(): boolean {
     process.env["HERDR_ENV"] === "1" &&
     Boolean(process.env["HERDR_SOCKET_PATH"]) &&
     Boolean(process.env["HERDR_PANE_ID"])
-  );
+  )
 }
 
 /**
@@ -531,74 +432,128 @@ export function isInHerdrPane(): boolean {
  * first-class agent.
  */
 export async function reportAgent(input: {
-  state: HerdrAgentState;
-  message?: string;
-  seq?: number;
-  paneId?: string;
-  socketPath?: string;
-  source?: string;
-  agent?: string;
+  state: HerdrAgentState
+  message?: string
+  seq?: number
+  paneId?: string
+  socketPath?: string
+  source?: string
+  agent?: string
+  /** nikcli session id herdr should resume this pane into. */
+  sessionID?: string
 }) {
-  if (!runtime.enabled)
-    return { ok: false as const, reason: "disabled" as const };
-  if (runtime.released)
-    return { ok: false as const, reason: "released" as const };
-  const socketPath = input.socketPath ?? process.env["HERDR_SOCKET_PATH"];
-  const paneId = input.paneId ?? process.env["HERDR_PANE_ID"];
-  if (!socketPath || !paneId)
-    return { ok: false as const, reason: "no-pane" as const };
-  const seq = input.seq ?? nextReportSeq();
-  try {
-    await call(
-      "pane.report_agent",
-      {
-        pane_id: paneId,
-        source: input.source ?? "herdr:nikcli",
-        agent: input.agent ?? "nikcli",
-        state: input.state,
-        message: input.message,
-        seq,
-      },
-      1500,
-      { socketPath },
-    );
-    return { ok: true as const, seq };
-  } catch (error) {
-    log.debug("herdr report_agent failed", { error: errorMessage(error) });
-    return { ok: false as const, reason: "error" as const, error };
-  }
+  if (!runtime.enabled) return { ok: false as const, reason: "disabled" as const }
+  if (runtime.released) return { ok: false as const, reason: "released" as const }
+  const socketPath = input.socketPath ?? process.env["HERDR_SOCKET_PATH"]
+  const paneId = input.paneId ?? process.env["HERDR_PANE_ID"]
+  if (!socketPath || !paneId) return { ok: false as const, reason: "no-pane" as const }
+  if (input.sessionID) runtime.reportedRootSessionID = input.sessionID
+  return serialize(async () => {
+    const seq = input.seq ?? nextReportSeq()
+    try {
+      await call(
+        "pane.report_agent",
+        {
+          pane_id: paneId,
+          source: input.source ?? HERDR_SOURCE,
+          agent: input.agent ?? HERDR_AGENT,
+          state: toReportableState(input.state),
+          message: input.message,
+          agent_session_id: input.sessionID,
+          seq,
+        },
+        1500,
+        { socketPath },
+      )
+      return { ok: true as const, seq }
+    } catch (error) {
+      log.debug("herdr report_agent failed", { error: errorMessage(error) })
+      return { ok: false as const, reason: "error" as const, error }
+    }
+  })
+}
+
+/**
+ * Publish the pane's conversation reference without changing its state.
+ *
+ * This is what makes nikcli an "official" herdr integration rather than a
+ * status reporter: herdr persists the session ref and — with
+ * `session.resume_agents_on_restore` — relaunches the pane straight back
+ * into that nikcli session after a server restart.
+ *
+ * `startSource: "new"` tells herdr the pane genuinely started a new
+ * conversation, so it replaces the stored ref instead of treating the
+ * change as cross-talk from another session sharing the process.
+ */
+export async function reportAgentSession(input: {
+  sessionID: string
+  startSource?: string
+  paneId?: string
+  socketPath?: string
+  source?: string
+  agent?: string
+}) {
+  if (!runtime.enabled) return { ok: false as const, reason: "disabled" as const }
+  if (runtime.released) return { ok: false as const, reason: "released" as const }
+  if (!input.sessionID) return { ok: false as const, reason: "no-session" as const }
+  const socketPath = input.socketPath ?? process.env["HERDR_SOCKET_PATH"]
+  const paneId = input.paneId ?? process.env["HERDR_PANE_ID"]
+  if (!socketPath || !paneId) return { ok: false as const, reason: "no-pane" as const }
+  runtime.reportedRootSessionID = input.sessionID
+  return serialize(async () => {
+    const seq = nextReportSeq()
+    try {
+      await call(
+        "pane.report_agent_session",
+        {
+          pane_id: paneId,
+          source: input.source ?? HERDR_SOURCE,
+          agent: input.agent ?? HERDR_AGENT,
+          agent_session_id: input.sessionID,
+          session_start_source: input.startSource,
+          seq,
+        },
+        1500,
+        { socketPath },
+      )
+      return { ok: true as const, seq }
+    } catch (error) {
+      log.debug("herdr report_agent_session failed", {
+        error: errorMessage(error),
+      })
+      return { ok: false as const, reason: "error" as const, error }
+    }
+  })
 }
 
 /**
  * Release the pane. Called only on real quit (not on session replacement),
  * so the successor instance in the same pane can re-report without race.
  */
-export async function releasePane(input?: {
-  paneId?: string;
-  socketPath?: string;
-}) {
-  const socketPath = input?.socketPath ?? process.env["HERDR_SOCKET_PATH"];
-  const paneId = input?.paneId ?? process.env["HERDR_PANE_ID"];
-  if (!socketPath || !paneId)
-    return { ok: false as const, reason: "no-pane" as const };
-  runtime.released = true;
-  try {
-    await call(
-      "pane.release_agent",
-      {
-        pane_id: paneId,
-        source: "herdr:nikcli",
-        agent: "nikcli",
-        seq: nextReportSeq(),
-      },
-      1500,
-      { socketPath },
-    );
-    return { ok: true as const };
-  } catch (error) {
-    log.debug("herdr release_agent failed", { error: errorMessage(error) });
-    return { ok: false as const, reason: "error" as const, error };
-  }
+export async function releasePane(input?: { paneId?: string; socketPath?: string }) {
+  const socketPath = input?.socketPath ?? process.env["HERDR_SOCKET_PATH"]
+  const paneId = input?.paneId ?? process.env["HERDR_PANE_ID"]
+  if (!socketPath || !paneId) return { ok: false as const, reason: "no-pane" as const }
+  runtime.released = true
+  return serialize(async () => {
+    try {
+      await call(
+        "pane.release_agent",
+        {
+          pane_id: paneId,
+          source: HERDR_SOURCE,
+          agent: HERDR_AGENT,
+          seq: nextReportSeq(),
+        },
+        1500,
+        { socketPath },
+      )
+      return { ok: true as const }
+    } catch (error) {
+      log.debug("herdr release_agent failed", { error: errorMessage(error) })
+      return { ok: false as const, reason: "error" as const, error }
+    }
+  })
 }
 
 /**
@@ -607,49 +562,31 @@ export async function releasePane(input?: {
  * so a flaky herdr can't affect the session lifecycle.
  */
 export async function reportSession(input: {
-  directory: string;
-  sessionID: string;
-  agent: string;
-  state: HerdrAgentState;
-  message?: string;
-  paneId?: string;
-  source?: string;
+  directory: string
+  sessionID: string
+  agent: string
+  state: HerdrAgentState
+  message?: string
+  paneId?: string
+  source?: string
 }) {
-  if (!runtime.enabled)
-    return { ok: false as const, reason: "disabled" as const };
-  if (runtime.released)
-    return { ok: false as const, reason: "released" as const };
-  const info = await detect();
-  if (!info.serverRunning)
-    return { ok: false as const, reason: "no-server" as const };
-  const source = input.source ?? `nikcli:${input.agent}`;
-  const paneId = input.paneId ?? `nikcli-${input.sessionID}`;
   return reportAgent({
     state: input.state,
     message: input.message,
-    paneId,
-    source,
+    paneId: input.paneId,
+    source: input.source,
     agent: input.agent,
-  });
+    sessionID: input.sessionID,
+  })
 }
 
 /**
  * Release our authority over a nikcli-backed pane. Called when a session
  * ends so herdr doesn't keep a zombie "working" agent around.
  */
-export async function releaseSession(input: {
-  directory: string;
-  sessionID: string;
-  agent: string;
-  paneId?: string;
-}) {
-  if (!runtime.enabled)
-    return { ok: false as const, reason: "disabled" as const };
-  const info = await detect();
-  if (!info.serverRunning)
-    return { ok: false as const, reason: "no-server" as const };
-  const paneId = input.paneId ?? `nikcli-${input.sessionID}`;
-  return releasePane({ paneId });
+export async function releaseSession(input: { directory: string; sessionID: string; agent: string; paneId?: string }) {
+  if (!runtime.enabled) return { ok: false as const, reason: "disabled" as const }
+  return releasePane({ paneId: input.paneId })
 }
 
 /**
@@ -658,18 +595,16 @@ export async function releaseSession(input: {
  */
 export async function status(): Promise<
   HerdrInstallInfo & {
-    enabled: boolean;
-    inHerdrPane: boolean;
-    subscriptions: number;
+    enabled: boolean
+    inHerdrPane: boolean
   }
 > {
-  const info = await detect();
+  const info = await detect()
   return {
     ...info,
     enabled: runtime.enabled,
     inHerdrPane: isInHerdrPane(),
-    subscriptions: runtime.subscriptions.filter((s) => s.alive).length,
-  };
+  }
 }
 
 /**
@@ -684,20 +619,13 @@ export async function status(): Promise<
  * with the chat's session pipeline.
  */
 export function setEnabled(next: boolean) {
-  if (runtime.enabled === next) return;
-  runtime.enabled = next;
-  if (next) {
-    ensureBusListener();
-  } else {
-    for (const sub of [...runtime.subscriptions]) {
-      if (sub.alive) sub.alive = false;
-    }
-    runtime.subscriptions.length = 0;
-  }
+  if (runtime.enabled === next) return
+  runtime.enabled = next
+  if (next) ensureBusListener()
 }
 
 export function isEnabled() {
-  return runtime.enabled;
+  return runtime.enabled
 }
 
 /**
@@ -706,26 +634,128 @@ export function isEnabled() {
  * stale agent.
  */
 export function setReleased(value: boolean) {
-  runtime.released = value;
+  runtime.released = value
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  return err instanceof Error ? err.message : String(err)
 }
 
 /**
- * Bind the bridge to the first session that publishes `session_start`. The
- * host may run multiple sessions in the same process (subagent, RLM
- * children), and they all share the same GlobalBus. We re-bind only to
- * the parent session and ignore events from anyone else.
+ * nikcli session status → herdr state. Kept as a map (rather than the
+ * narrower typed union) because the bus carries
+ * status strings from several producers; an unrecognized status means
+ * "no state change", not "idle".
  */
-function bindSession(sessionID: string) {
-  if (runtime.boundSessionID === undefined) runtime.boundSessionID = sessionID;
+const SESSION_STATE_BY_STATUS = new Map<string, HerdrAgentState>([
+  ["idle", "idle"],
+  ["active", "working"],
+  ["busy", "working"],
+  ["pending", "working"],
+  ["retry", "working"],
+  ["running", "working"],
+  ["streaming", "working"],
+  ["working", "working"],
+])
+
+function stateFromSessionStatus(status: unknown): HerdrAgentState | undefined {
+  const kind = typeof status === "string" ? status : (status as { type?: unknown } | undefined)?.type
+  if (typeof kind !== "string") return undefined
+  return SESSION_STATE_BY_STATUS.get(kind.toLowerCase())
 }
 
-function isBoundSession(sessionID: string): boolean {
-  if (runtime.boundSessionID === undefined) return true;
-  return sessionID === runtime.boundSessionID;
+/** Child-session events that still project onto the pane's state. */
+const CHILD_EVENT_STATES = new Map<string, HerdrAgentState>([
+  ["permission.asked", "blocked"],
+  ["question.asked", "blocked"],
+  ["permission.replied", "working"],
+  ["question.replied", "working"],
+  ["question.rejected", "working"],
+])
+
+function sessionIDFrom(properties: any): string | undefined {
+  const direct = properties?.sessionID
+  if (typeof direct === "string" && direct) return direct
+  const info = properties?.info?.id
+  return typeof info === "string" && info ? info : undefined
+}
+
+/**
+ * Translate one nikcli bus event into herdr reports.
+ *
+ * Mirrors the plugin herdr installs for opencode (`herdr integration
+ * install opencode`) one-for-one, so a nikcli pane behaves exactly like
+ * any first-party agent in the sidebar, the attention queue, and
+ * `herdr agent wait`.
+ *
+ * Exported so both the bus listener and a host that forwards the plugin
+ * `event` hook can drive it.
+ */
+export function handleEvent(event: { type?: string; properties?: any }): Promise<unknown> {
+  if (!runtime.enabled) return Promise.resolve()
+  const type = event?.type
+  if (!type) return Promise.resolve()
+  const properties = event.properties ?? {}
+  const sessionID = sessionIDFrom(properties)
+
+  // A session with a parent is a subagent: remember it so its own
+  // lifecycle can never overwrite the pane's root conversation ref.
+  const info = properties.info
+  if (info?.id && info.parentID) runtime.childSessions.add(info.id)
+
+  if (sessionID && runtime.childSessions.has(sessionID)) {
+    const state = CHILD_EVENT_STATES.get(type)
+    // Reported without a session id — the subagent is blocking the pane,
+    // but the pane still belongs to the parent conversation.
+    return state ? reportState(state) : Promise.resolve()
+  }
+
+  switch (type) {
+    case "session.created":
+      // A root session.created is a genuine new-conversation start
+      // (subagent creates were filtered above), so herdr should replace
+      // whatever session ref the pane held.
+      return reportAgentSession({ sessionID: sessionID!, startSource: "new" })
+    case "session.updated":
+      if (sessionID && sessionID !== runtime.reportedRootSessionID) return reportAgentSession({ sessionID })
+      return Promise.resolve()
+    case "session.status": {
+      const state = stateFromSessionStatus(properties.status)
+      if (state) return reportState(state, sessionID)
+      return sessionID ? reportAgentSession({ sessionID }) : Promise.resolve()
+    }
+    case "tool.execute.before":
+    case "tool.execute.after":
+    case "permission.replied":
+    case "question.replied":
+    case "question.rejected":
+    case "session.compacted":
+      return reportState("working", sessionID)
+    case "permission.asked":
+    case "question.asked":
+    case "session.error":
+      return reportState("blocked", sessionID)
+    case "session.idle":
+      return reportState("idle", sessionID)
+    default:
+      return Promise.resolve()
+  }
+}
+
+/**
+ * Report the pane as working because the user just sent a prompt. Wired
+ * to the plugin's `chat.message` hook, which fires before the first
+ * `session.status` busy event.
+ */
+export function handleChatMessage(sessionID?: string): Promise<unknown> {
+  if (!runtime.enabled) return Promise.resolve()
+  if (sessionID && runtime.childSessions.has(sessionID)) return Promise.resolve()
+  return reportState("working", sessionID)
+}
+
+/** Report a state on the current pane, optionally carrying a session ref. */
+export function reportState(state: HerdrAgentState, sessionID?: string, message?: string): Promise<unknown> {
+  return reportAgent({ state, sessionID, message }).catch(() => undefined)
 }
 
 /**
@@ -735,98 +765,12 @@ function isBoundSession(sessionID: string): boolean {
  * (intentional, see setEnabled's doc).
  */
 function ensureBusListener() {
-  if (runtime.busListenerInstalled) return;
-  runtime.busListenerInstalled = true;
-  GlobalBus.on("event", ({ directory, payload }) => {
-    if (!runtime.enabled) return;
-    const type = payload?.type;
-    if (!type) return;
-
-    // Session lifecycle: bind to the first session we see, ignore others.
-    if (type === "session.created" || type === "session.start") {
-      const sessionID =
-        payload?.properties?.info?.id ?? payload?.properties?.sessionID;
-      if (typeof sessionID === "string") {
-        bindSession(sessionID);
-        // Seed "working" so the pane doesn't sit at idle while the agent
-        // is still streaming its first token.
-        if (isBoundSession(sessionID)) {
-          reportSession({
-            directory: directory ?? process.cwd(),
-            sessionID,
-            agent: "nikcli",
-            state: "working",
-            message: "starting",
-          }).catch(() => {});
-        }
-      }
-      return;
-    }
-
-    if (type === "session.status") {
-      const sessionID = payload?.properties?.sessionID;
-      if (typeof sessionID !== "string" || !isBoundSession(sessionID)) return;
-      const status = payload?.properties?.status;
-      const state = sessionStatusToHerdrState({ status });
-      reportSession({
-        directory: directory ?? process.cwd(),
-        sessionID,
-        agent: "nikcli",
-        state,
-      }).catch(() => {});
-      return;
-    }
-
-    if (type === "permission.asked") {
-      const sessionID = payload?.properties?.sessionID;
-      if (typeof sessionID !== "string" || !isBoundSession(sessionID)) return;
-      reportSession({
-        directory: directory ?? process.cwd(),
-        sessionID,
-        agent: "nikcli",
-        state: "blocked",
-        message: "awaiting permission",
-      }).catch(() => {});
-      return;
-    }
-
-    if (type === "permission.replied") {
-      const sessionID = payload?.properties?.sessionID;
-      if (typeof sessionID !== "string" || !isBoundSession(sessionID)) return;
-      reportSession({
-        directory: directory ?? process.cwd(),
-        sessionID,
-        agent: "nikcli",
-        state: "working",
-      }).catch(() => {});
-      return;
-    }
-
-    if (type === "session.idle" || type === "session.end") {
-      const sessionID =
-        payload?.properties?.info?.id ?? payload?.properties?.sessionID;
-      if (typeof sessionID !== "string" || !isBoundSession(sessionID)) return;
-      reportSession({
-        directory: directory ?? process.cwd(),
-        sessionID,
-        agent: "nikcli",
-        state: "idle",
-      }).catch(() => {});
-      return;
-    }
-
-    if (type === "session.deleted") {
-      const sessionID =
-        payload?.properties?.info?.id ?? payload?.properties?.sessionID;
-      if (typeof sessionID !== "string" || !isBoundSession(sessionID)) return;
-      releaseSession({
-        directory: directory ?? process.cwd(),
-        sessionID,
-        agent: "nikcli",
-      }).catch(() => {});
-      return;
-    }
-  });
+  if (runtime.busListenerInstalled) return
+  runtime.busListenerInstalled = true
+  GlobalBus.on("event", ({ payload }) => {
+    if (!runtime.enabled) return
+    handleEvent(payload).catch(() => {})
+  })
 }
 
 /**
@@ -835,7 +779,7 @@ function ensureBusListener() {
  * Most users should call `setEnabled(true)` instead.
  */
 export function start(): void {
-  ensureBusListener();
+  ensureBusListener()
 }
 
 /**
@@ -879,9 +823,7 @@ export const HerdrSnapshotSchema = z.object({
       tabId: z.string(),
       label: z.string().optional(),
       focused: z.boolean().optional(),
-      agentStatus: z
-        .enum(["idle", "working", "blocked", "done", "unknown"])
-        .optional(),
+      agentStatus: z.enum(["idle", "working", "blocked", "done", "unknown"]).optional(),
       foreground: z.string().optional(),
     }),
   ),
@@ -892,16 +834,14 @@ export const HerdrSnapshotSchema = z.object({
       tabId: z.string(),
       paneId: z.string(),
       agent: z.string().optional(),
-      state: z
-        .enum(["idle", "working", "blocked", "done", "unknown"])
-        .optional(),
+      state: z.enum(["idle", "working", "blocked", "done", "unknown"]).optional(),
       source: z.string().optional(),
       message: z.string().optional(),
     }),
   ),
-});
+})
 
-export type HerdrSnapshotWire = z.infer<typeof HerdrSnapshotSchema>;
+export type HerdrSnapshotWire = z.infer<typeof HerdrSnapshotSchema>
 
 /**
  * Convert a raw herdr `session.snapshot` response into our normalized
@@ -913,21 +853,15 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
   const fallback: HerdrSnapshot = {
     ...DefaultState,
     takenAt: new Date().toISOString(),
-  };
-  if (!raw || typeof raw !== "object") return fallback;
-  const root = raw as Record<string, unknown>;
-  const version = typeof root.version === "string" ? root.version : undefined;
-  const protocolVersion =
-    typeof root.protocol_version === "number"
-      ? root.protocol_version
-      : undefined;
-  const focused = (root.focused as Record<string, unknown> | undefined) ?? {};
-  const focusedWorkspaceId =
-    typeof focused.workspace_id === "string" ? focused.workspace_id : undefined;
-  const focusedTabId =
-    typeof focused.tab_id === "string" ? focused.tab_id : undefined;
-  const focusedPaneId =
-    typeof focused.pane_id === "string" ? focused.pane_id : undefined;
+  }
+  if (!raw || typeof raw !== "object") return fallback
+  const root = raw as Record<string, unknown>
+  const version = typeof root.version === "string" ? root.version : undefined
+  const protocolVersion = typeof root.protocol_version === "number" ? root.protocol_version : undefined
+  const focused = (root.focused as Record<string, unknown> | undefined) ?? {}
+  const focusedWorkspaceId = typeof focused.workspace_id === "string" ? focused.workspace_id : undefined
+  const focusedTabId = typeof focused.tab_id === "string" ? focused.tab_id : undefined
+  const focusedPaneId = typeof focused.pane_id === "string" ? focused.pane_id : undefined
   const workspaces = Array.isArray(root.workspaces)
     ? (root.workspaces as Array<Record<string, unknown>>).map((w) => ({
         id: String(w.id ?? w.workspace_id ?? ""),
@@ -937,18 +871,15 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
         worktree:
           w.worktree && typeof w.worktree === "object"
             ? {
-                branch: String(
-                  (w.worktree as Record<string, unknown>).branch ?? "",
-                ),
+                branch: String((w.worktree as Record<string, unknown>).branch ?? ""),
                 path:
-                  typeof (w.worktree as Record<string, unknown>).path ===
-                  "string"
+                  typeof (w.worktree as Record<string, unknown>).path === "string"
                     ? ((w.worktree as Record<string, unknown>).path as string)
                     : undefined,
               }
             : undefined,
       }))
-    : [];
+    : []
   const tabs = Array.isArray(root.tabs)
     ? (root.tabs as Array<Record<string, unknown>>).map((t) => ({
         id: String(t.id ?? t.tab_id ?? ""),
@@ -956,7 +887,7 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
         label: typeof t.label === "string" ? t.label : undefined,
         focused: Boolean(t.focused),
       }))
-    : [];
+    : []
   const panes = Array.isArray(root.panes)
     ? (root.panes as Array<Record<string, unknown>>).map((p) => ({
         id: String(p.id ?? p.pane_id ?? ""),
@@ -964,13 +895,10 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
         tabId: String(p.tab_id ?? ""),
         label: typeof p.label === "string" ? p.label : undefined,
         focused: Boolean(p.focused),
-        agentStatus:
-          typeof p.agent_status === "string"
-            ? (p.agent_status as HerdrAgentState)
-            : undefined,
+        agentStatus: typeof p.agent_status === "string" ? (p.agent_status as HerdrAgentState) : undefined,
         foreground: typeof p.foreground === "string" ? p.foreground : undefined,
       }))
-    : [];
+    : []
   const agents = Array.isArray(root.agents)
     ? (root.agents as Array<Record<string, unknown>>).map((a) => ({
         id: String(a.id ?? a.agent_id ?? ""),
@@ -978,14 +906,11 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
         tabId: String(a.tab_id ?? ""),
         paneId: String(a.pane_id ?? ""),
         agent: typeof a.agent === "string" ? a.agent : undefined,
-        state:
-          typeof a.state === "string"
-            ? (a.state as HerdrAgentState)
-            : undefined,
+        state: typeof a.state === "string" ? (a.state as HerdrAgentState) : undefined,
         source: typeof a.source === "string" ? a.source : undefined,
         message: typeof a.message === "string" ? a.message : undefined,
       }))
-    : [];
+    : []
   return {
     takenAt: new Date().toISOString(),
     version,
@@ -997,7 +922,7 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
     tabs,
     panes,
     agents,
-  };
+  }
 }
 
 /**
@@ -1005,37 +930,33 @@ export function normalizeSnapshot(raw: unknown): HerdrSnapshot {
  * to call repeatedly; the TUI uses this to keep the panel fresh.
  */
 export async function refresh(directory: string): Promise<HerdrSnapshot> {
-  const info = await detect();
-  if (!info.serverRunning) return snapshot(directory);
+  const info = await detect()
+  if (!info.serverRunning) return snapshot(directory)
   try {
-    const raw = await call<unknown>("session.snapshot", undefined, 3000);
+    const raw = await call<unknown>("session.snapshot", undefined, 3000)
     // Herdr wraps the snapshot in a `result.snapshot` envelope; the
     // sibling `type` is informational. Unwrap before normalizing so we
     // never end up parsing a `type: "session_snapshot"` blob.
-    const inner =
-      (raw as { snapshot?: unknown } | null | undefined)?.snapshot ?? raw;
-    const next = normalizeSnapshot(inner);
-    setSnapshot(directory, next);
-    return next;
+    const inner = (raw as { snapshot?: unknown } | null | undefined)?.snapshot ?? raw
+    const next = normalizeSnapshot(inner)
+    setSnapshot(directory, next)
+    return next
   } catch (error) {
-    log.debug("herdr refresh failed", { error: errorMessage(error) });
-    return snapshot(directory);
+    log.debug("herdr refresh failed", { error: errorMessage(error) })
+    return snapshot(directory)
   }
 }
 
 /**
  * Best-effort cleanup; called when the TUI plugin is deactivated or the
- * process is shutting down. We close subscriptions and clear cached state.
+ * process is shutting down. Detaches reporting and clears cached state.
  */
 export function stop(): void {
-  setEnabled(false);
-  for (const sub of runtime.subscriptions) {
-    sub.alive = false;
-  }
-  runtime.subscriptions.length = 0;
-  runtime.snapshots.clear();
-  runtime.boundSessionID = undefined;
-  runtime.released = false;
+  setEnabled(false)
+  runtime.snapshots.clear()
+  runtime.reportedRootSessionID = undefined
+  runtime.childSessions.clear()
+  runtime.released = false
 }
 
 /**
@@ -1056,14 +977,17 @@ export const HerdrBridge = {
   reportSession,
   releaseSession,
   reportAgent,
+  reportAgentSession,
+  reportState,
+  handleEvent,
+  handleChatMessage,
   releasePane,
   isInHerdrPane,
   nextReportSeq,
-  sessionStatusToHerdrState,
   normalizeSnapshot,
   setReleased,
   setTestSocketPath,
   resolveSocketPath,
   resolveHerdrBin,
   call,
-} as const;
+} as const

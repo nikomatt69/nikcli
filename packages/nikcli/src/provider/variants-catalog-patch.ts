@@ -23,8 +23,8 @@
  *     it would for a catalog-declared entry.
  */
 
-import type { ModelsDev } from "./models";
-import type { ReasoningOption } from "./variants";
+import type { ModelsDev } from "./models"
+import type { ReasoningOption } from "./variants"
 
 /**
  * Upstream-style (id, package) → reasoning_options patch. Each entry
@@ -37,10 +37,10 @@ import type { ReasoningOption } from "./variants";
  */
 const REASONING_OPTIONS: ReadonlyArray<{
   /** Match when the model's npm is in this list. Empty list = any npm. */
-  readonly npms: readonly string[];
+  readonly npms: readonly string[]
   /** Match when the model id (or model.modelID) lowercased contains one of these substrings. */
-  readonly idIncludes: readonly string[];
-  readonly options: readonly ReasoningOption[];
+  readonly idIncludes: readonly string[]
+  readonly options: readonly ReasoningOption[]
 }> = [
   // ─── xAI (grok) ──────────────────────────────────────────────────
   // Docs: https://docs.x.ai/docs/guides/reasoning
@@ -151,7 +151,7 @@ const REASONING_OPTIONS: ReadonlyArray<{
     idIncludes: ["minimax-m3"],
     options: [{ type: "effort", values: ["low", "medium", "high", "max"] }],
   },
-];
+]
 
 /**
  * Return the `reasoning_options` to inject for a model, or `[]` if
@@ -159,24 +159,20 @@ const REASONING_OPTIONS: ReadonlyArray<{
  * matches on the model's effective npm and on substring(s) of the id,
  * case-insensitive.
  */
-export function generateReasoningOptions(
-  model: ModelsDev.Model,
-  providerNpm: string | undefined,
-): ReasoningOption[] {
-  if (!providerNpm) return [];
+export function generateReasoningOptions(model: ModelsDev.Model, providerNpm: string | undefined): ReasoningOption[] {
+  if (!providerNpm) return []
   // The catalog source has only `id`; `modelID` is the resolved provider id
   // that exists on `Provider.Model` after normalization. We accept both
   // shapes here so the same matcher works when called from either stage.
-  const id = `${model.id ?? ""}`.toLowerCase();
-  if (!id.trim()) return [];
+  const id = `${model.id ?? ""}`.toLowerCase()
+  if (!id.trim()) return []
 
   for (const rule of REASONING_OPTIONS) {
-    if (rule.npms.length > 0 && !rule.npms.includes(providerNpm)) continue;
-    if (!rule.idIncludes.some((needle) => id.includes(needle.toLowerCase())))
-      continue;
-    return [...rule.options];
+    if (rule.npms.length > 0 && !rule.npms.includes(providerNpm)) continue
+    if (!rule.idIncludes.some((needle) => id.includes(needle.toLowerCase()))) continue
+    return [...rule.options]
   }
-  return [];
+  return []
 }
 
 /**
@@ -185,20 +181,17 @@ export function generateReasoningOptions(
  * fills in for entries that don't. Mirrors the merge logic in
  * `opencode.variant`: explicit beats generated.
  */
-export function patchReasoningOptions(
-  database: Record<string, ModelsDev.Provider>,
-): void {
+export function patchReasoningOptions(database: Record<string, ModelsDev.Provider>): void {
   for (const provider of Object.values(database)) {
-    const providerNpm = provider.npm;
+    const providerNpm = provider.npm
     for (const model of Object.values(provider.models ?? {})) {
-      if (model.reasoning_options && model.reasoning_options.length > 0)
-        continue;
-      const generated = generateReasoningOptions(model, providerNpm);
-      if (generated.length === 0) continue;
+      if (model.reasoning_options && model.reasoning_options.length > 0) continue
+      const generated = generateReasoningOptions(model, providerNpm)
+      if (generated.length === 0) continue
       // The schema for `ModelsDev.Model.reasoning_options` is a mutable
       // union; our internal `ReasoningOption` is `readonly`. Clone each
       // variant into the mutable shape the schema expects.
-      model.reasoning_options = generated.map(cloneOption);
+      model.reasoning_options = generated.map(cloneOption)
     }
   }
 }
@@ -209,18 +202,16 @@ export function patchReasoningOptions(
  * `Schema.Array(Schema.Union([...])).Type` widening that happens at
  * the catalog boundary.
  */
-function cloneOption(
-  option: ReasoningOption,
-): NonNullable<ModelsDev.Model["reasoning_options"]>[number] {
+function cloneOption(option: ReasoningOption): NonNullable<ModelsDev.Model["reasoning_options"]>[number] {
   if (option.type === "effort") {
-    return { type: "effort", values: [...option.values] };
+    return { type: "effort", values: [...option.values] }
   }
   if (option.type === "toggle") {
-    return { type: "toggle" };
+    return { type: "toggle" }
   }
   return {
     type: "budget_tokens",
     ...(option.min !== undefined ? { min: option.min } : {}),
     ...(option.max !== undefined ? { max: option.max } : {}),
-  };
+  }
 }

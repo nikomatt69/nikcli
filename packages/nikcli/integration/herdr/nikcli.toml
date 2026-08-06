@@ -1,0 +1,48 @@
+# Herdr agent-detection manifest for nikcli.
+#
+# Herdr classifies a pane's agent from its screen output when no
+# integration is reporting (a fresh pane, an older nikcli, a pane the
+# user launched by hand). This manifest is the nikcli entry for herdr's
+# catalog at https://herdr.dev/agent-detection/index.toml, modelled on
+# the published opencode manifest.
+#
+# Herdr resolves manifests in this order: local override, cached remote,
+# bundled. Remote manifests whose `id` herdr does not know are skipped,
+# so this file only takes effect once herdr ships `nikcli` as a known
+# agent id — see README.md for what upstream has to add.
+#
+# Verify with: herdr agent explain <pane> --verbose
+
+id = "nikcli"
+version = "2026.08.06.1"
+min_engine_version = 1
+updated_at = "2026-08-06T00:00:00Z"
+aliases = ["nikcli-ai", "herdr:nikcli"]
+
+# Permission and question prompts both block on user input. nikcli renders
+# the permission dialog with a "Permission required" title, and every
+# blocking prompt with an `esc dismiss` / `enter …` key hint row.
+[[rules]]
+id = "permission_required"
+state = "blocked"
+priority = 300
+region = "whole_recent"
+visible_blocker = true
+any = [
+  { contains = ["Permission required"] },
+  { contains = ["esc dismiss"], any = [{ contains = ["enter confirm"] }, { contains = ["enter submit"] }, { contains = ["enter toggle"] }], all = [{ any = [{ contains = ["↑↓ select"] }] }] },
+]
+
+# While a turn is streaming, the prompt footer shows the interrupt hint
+# next to the spinner: `esc interrupt`, or `esc again to interrupt` once
+# the first ESC has armed the gesture.
+[[rules]]
+id = "interrupt_hint_working"
+state = "working"
+priority = 110
+region = "whole_recent"
+visible_working = true
+any = [
+  { line_regex = ['(?i)esc\s+interrupt'] },
+  { line_regex = ['(?i)esc\s+again to interrupt'] },
+]
