@@ -18,20 +18,11 @@ import { useRenderer } from "@opentui/solid"
 import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js"
 import { encodeSixel, pickDecoder, resize } from "@nikcli-ai/tui-image"
 import { BrowserFramePump, cellSize, type FrameTransmission, type PumpStats } from "@tui/util/browser-frames"
-import { compose } from "@tui/feature-plugins/background/pixels"
+import { InputScheduler } from "@tui/util/browser-input"
 import { preparePhoton } from "@/image/photon"
-// `BackgroundRenderable` is only *named* for the background image: what it
-// actually is, is "paint an RGBA super-sample buffer into the grid" — a
-// `FrameBufferRenderable` handing the pixels to OpenTUI's native half-block
-// sampler in one call. That is exactly what a browser frame needs on a
-// terminal with no graphics protocol, and it is why the background photo
-// renders in terminals where Kitty placeholders cannot.
-import { BackgroundRenderable } from "@tui/feature-plugins/background/renderable"
 import { registerNativeOverlay, type NativeOverlay } from "./tui-image"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
-
-void BackgroundRenderable // keep the `extend()` registration in the module graph
 
 export type BrowserSurfaceStatus = "starting" | "live" | "error"
 
@@ -41,14 +32,14 @@ export type BrowserSurfaceStatus = "starting" | "live" | "error"
  * - `kitty` composites a real image over placeholder cells: full resolution,
  *   needs a terminal that implements the Kitty graphics protocol.
  * - `overlay` draws a real Sixel image over the grid, positioned after OpenTUI
- *   flushes its frame. Full resolution like `kitty`, but it costs a decode and
- *   a quantise per frame. This is what the VS Code / Cursor terminal can do,
- *   once `terminal.integrated.enableImages` is turned on.
- * - `halfblock` paints `▀` cells through the native super-sampler: two pixels
- *   per cell vertically, two horizontally, so a page is shapes and colour
- *   rather than readable text — but it needs nothing from the terminal at all.
+ *   flushes its frame. Full resolution like `kitty`, but it costs a quantise
+ *   per frame. This is what the VS Code / Cursor terminal can do, once
+ *   `terminal.integrated.enableImages` is turned on.
+ *
+ * A terminal with neither has no live view: it reads pages as markdown instead
+ * of being shown an approximation of one in block characters.
  */
-export type SurfaceRenderer = "kitty" | "overlay" | "halfblock"
+export type SurfaceRenderer = "kitty" | "overlay"
 
 export interface BrowserSurfaceState {
   readonly status: BrowserSurfaceStatus
@@ -60,8 +51,6 @@ export interface BrowserSurfaceState {
   readonly measured: boolean
   readonly transmission: FrameTransmission
   readonly stats: PumpStats
-  /** Page pixels per half-block sample; 0 when the renderer is `kitty`. */
-  readonly zoom: number
 }
 
 export interface BrowserSurfaceControls {
@@ -73,26 +62,7 @@ export interface BrowserSurfaceControls {
   key(input: { key?: string; text?: string }): void
   /** Flip `t=t` ↔ inline base64. The only usable diagnostic when nothing draws. */
   toggleTransmission(): void
-  /** Half-block only: trade page area against sharpness. See {@link ZOOM_STEPS}. */
-  zoom(direction: 1 | -1): void
 }
-
-/**
- * How many page pixels each half-block sample covers.
- *
- * The effective display is `columns × rows*2` — the sampler averages the two
- * horizontal samples of a cell into one value — so a factor of 4 lays the page
- * out four times wider than it can actually be shown, and the box average
- * throws the rest away.
- *
- * There is no correct value, only a trade: a lower factor is proportionally
- * sharper and shows proportionally less page. 1 is the default — one page
- * pixel per sample, nothing resampled away, so glyphs land exactly as the page
- * drew them and you scroll to read. Larger factors fit more layout on screen at
- * proportionally more blur.
- */
-const ZOOM_STEPS = [1, 2, 3, 4, 5, 6] as const
-const DEFAULT_ZOOM_INDEX = 0
 
 export interface BrowserSurfaceProps {
   /** Where the page starts. Later navigation goes through {@link BrowserSurfaceControls.goto}, not this prop. */
@@ -104,46 +74,6 @@ export interface BrowserSurfaceProps {
   readonly renderer: SurfaceRenderer
   readonly onState?: (state: BrowserSurfaceState) => void
   readonly ref?: (controls: BrowserSurfaceControls) => void
-}
-
-/**
- * How much of the sharpening pass to apply. 0 is the raw box average; much
- * above 1 and flat areas start ringing. Text on a page is almost entirely
- * high-frequency detail, which is exactly what a box average destroys, so this
- * sits deliberately on the strong side.
- */
-const SHARPEN_AMOUNT = 0.9
-
-/**
- * Unsharp mask, in place, on a composed RGBA buffer.
- *
- * Box averaging is the right way to *shrink* a picture — it is why the result
- * doesn't alias — but averaging is a low-pass filter, and a page shrunk five
- * times is mostly the frequencies it just threw away. Adding back the
- * difference between each pixel and its neighbourhood restores the edge
- * contrast that makes glyphs and borders readable, without reintroducing the
- * jaggies that point-sampling would have given.
- *
- * Runs over `columns × 2 · rows × 2` pixels — a few tens of thousands, once
- * per frame.
- */
-function sharpen(buffer: Uint8Array, width: number, height: number, amount = SHARPEN_AMOUNT): Uint8Array {
-  if (amount <= 0 || width < 3 || height < 3) return buffer
-  const source = new Uint8Array(buffer)
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const centre = (y * width + x) * 4
-      for (let channel = 0; channel < 3; channel++) {
-        const i = centre + channel
-        // 4-neighbour Laplacian: centre minus the mean of its neighbours.
-        const neighbours =
-          (source[i - 4] ?? 0) + (source[i + 4] ?? 0) + (source[i - width * 4] ?? 0) + (source[i + width * 4] ?? 0)
-        const value = (source[i] ?? 0) + amount * ((source[i] ?? 0) - neighbours / 4)
-        buffer[i] = value < 0 ? 0 : value > 255 ? 255 : Math.round(value)
-      }
-    }
-  }
-  return buffer
 }
 
 /** Session names are per surface instance: two dialogs must not fight over one page. */
@@ -160,14 +90,12 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   const name = surfaceSessionName()
 
   const [placeholder, setPlaceholder] = createSignal<string[]>([])
-  const [pixels, setPixels] = createSignal<Uint8Array | undefined>()
   const [status, setStatus] = createSignal<BrowserSurfaceStatus>("starting")
   const [error, setError] = createSignal<string | undefined>()
   const [pageUrl, setPageUrl] = createSignal(props.initialUrl)
   const [title, setTitle] = createSignal("")
   const [measured, setMeasured] = createSignal(true)
   const [transmission, setTransmission] = createSignal<FrameTransmission>(pump.mode)
-  const [zoomIndex, setZoomIndex] = createSignal(DEFAULT_ZOOM_INDEX)
   const [overlayBytes, setOverlayBytes] = createSignal<Uint8Array | undefined>()
   const [overlayBox, setOverlayBox] = createSignal<BoxRenderable>()
   const [stats, setStats] = createSignal<PumpStats>(pump.stats)
@@ -178,8 +106,11 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   let started = false
   let disposed = false
   let restartTimer: ReturnType<typeof setTimeout> | undefined
+  let rateTimer: ReturnType<typeof setTimeout> | undefined
   let box: BoxRenderable | undefined
   let generation = 0
+  /** The rate the open stream was asked for, so a focus change only reopens it when it differs. */
+  let streamedFps = 0
   let decoder: Awaited<ReturnType<typeof pickDecoder>> | undefined
   let decoding = false
   let nativeOverlay: NativeOverlay | undefined
@@ -193,7 +124,6 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       measured: measured(),
       transmission: transmission(),
       stats: stats(),
-      zoom: props.renderer === "halfblock" ? (ZOOM_STEPS[zoomIndex()] ?? 0) : 0,
     })
 
   createEffect(emit)
@@ -205,49 +135,17 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   }
 
   /**
-   * The page viewport, in pixels. Capture is always the same size as the
-   * viewport: the downscale has to happen in `compose`'s box-average
-   * resampler, because anything Chromium throws away first can never be
-   * averaged back. Same pipeline the background photo goes through, which is
-   * why that one looks smooth.
-   *
-   * `kitty` gets one page pixel per screen pixel, from the terminal's own cell
-   * size.
-   *
-   * `halfblock` sizes the viewport from the *sample grid* instead. The
-   * destination is `columns × 2` by `rows × 2` samples, and the page is laid
-   * out at 2× that horizontally and 4× vertically — `columns × 4` by
-   * `rows × 8`. Two things fall out of that choice:
-   *
-   *  - the aspect is `columns : rows × 2`, exactly what `compose` fits
-   *    against, so the `contain` fit letterboxes nothing;
-   *  - the page lays out at roughly tablet width rather than desktop width, so
-   *    text is physically larger *relative to the viewport* and survives the
-   *    downscale. A desktop-width layout squeezed into the same cells loses
-   *    around 5× horizontally and 10× vertically; this loses 2× and 4×.
-   *
-   * The vertical loss is always the worse of the two — a `▀` cell carries two
-   * samples down and two across while being twice as tall as it is wide. That
-   * is inherent to the technique, not a tuning choice.
+   * The page viewport, in pixels: one page pixel per screen pixel, from the
+   * terminal's own cell size. Capture is always the same size as the viewport —
+   * Chromium is asked for exactly the pixels the placement can show, so nothing
+   * is captured to be thrown away and nothing is scaled up to fill.
    */
   const geometry = () => {
     const cell = cellSize(renderer.resolution, renderer.terminalWidth, renderer.terminalHeight)
     setMeasured(cell.measured)
-
-    let size: { width: number; height: number }
-    if (props.renderer === "halfblock") {
-      const factor = ZOOM_STEPS[zoomIndex()] ?? 1
-      const raw = { width: props.columns * factor, height: props.rows * factor * 2 }
-      // Any floor has to scale *both* axes, or it would silently change the
-      // aspect and `contain` would letterbox what it was meant to fill. At 1×
-      // on a normal dialog this never triggers.
-      const scale = Math.max(1, 64 / raw.width, 48 / raw.height)
-      size = { width: Math.round(raw.width * scale), height: Math.round(raw.height * scale) }
-    } else {
-      size = {
-        width: Math.max(64, Math.round(props.columns * cell.width)),
-        height: Math.max(64, Math.round(props.rows * cell.height)),
-      }
+    const size = {
+      width: Math.max(64, Math.round(props.columns * cell.width)),
+      height: Math.max(64, Math.round(props.rows * cell.height)),
     }
     return { viewport: size, capture: size }
   }
@@ -259,6 +157,18 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
     await ensureDaemon(socketPath)
     call = <T,>(method: string, params?: Record<string, unknown>) => rpc<T>(socketPath!, method, params)
   }
+
+  /**
+   * Frames per second to ask Chromium for.
+   *
+   * A page nobody is looking at still repaints — a carousel, a spinner, an ad —
+   * and every one of those frames costs a capture, a transfer and (on Sixel) a
+   * quantise, for a picture the user is not reading. Unfocused, the stream drops
+   * to a heartbeat: enough that the box is never visibly stale when focus comes
+   * back, cheap enough to forget about. Sixel pays a quantise per frame
+   * (~130ms at full resolution), so it asks for fewer even when focused.
+   */
+  const frameRate = () => (props.focused ? (props.renderer === "overlay" ? 6 : 10) : 1)
 
   /**
    * (Re)open the frame stream. Called on mount and after a resize: the
@@ -273,25 +183,22 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
     streamAbort = abort
 
     const { openScreencast } = await import("@nikcli-ai/browser-control/daemon-client")
-    const half = props.renderer === "halfblock"
     const overlay = props.renderer === "overlay"
     const { capture } = geometry()
+    streamedFps = frameRate()
     try {
       for await (const frame of openScreencast(socketPath, {
         name,
-        // Half-block has to decode the picture to resample it, so it needs the
+        // Sixel has to resample the picture to quantise it, so it needs the
         // bytes in this process; `file` mode's whole point is *not* moving them.
-        mode: half || overlay ? "inline" : pump.mode,
+        mode: overlay ? "inline" : pump.mode,
         maxWidth: capture.width,
         maxHeight: capture.height,
-        // Overlay pays a decode *and* a sixel quantise per frame (~130ms for a
-        // full-resolution page), so it asks for fewer of them.
-        fps: half ? 8 : overlay ? 6 : 10,
+        fps: streamedFps,
         signal: abort.signal,
       })) {
         if (disposed || mine !== generation) break
-        if (half) await paintHalfblock(frame.pngBase64)
-        else if (overlay) await paintOverlay(frame.pngBase64)
+        if (overlay) await paintOverlay(frame.pngBase64)
         else pump.present(frame)
         setStats(pump.stats)
         if (status() !== "live") setStatus("live")
@@ -338,62 +245,6 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       }
     } catch {
       // One unencodable frame is not worth tearing the view down for.
-    } finally {
-      decoding = false
-    }
-  }
-
-  /**
-   * Decode a frame and hand it to the native super-sampler, the same way the
-   * background image is painted. `compose` letterboxes against the grid's
-   * physical shape and blends over the theme background, so the result is
-   * always fully opaque and exactly the size the renderable expects.
-   *
-   * The decode is the one genuinely expensive step per frame, which is why it
-   * runs on the wasm backend, caps the working image at the same size the
-   * background does, and never has more than one frame in flight.
-   */
-  async function paintHalfblock(pngBase64: string | undefined) {
-    if (!pngBase64 || disposed) return
-    if (decoding) return // one frame in flight at a time; newer frames win by arriving later
-    decoding = true
-    try {
-      if (!decoder) {
-        // Point photon at its embedded wasm before the decoder reaches for it:
-        // per-frame decoding is the one expensive step here, and the wasm
-        // backend is the fast one.
-        preparePhoton()
-        decoder = await pickDecoder({ preferWasm: true })
-      }
-      const image = await decoder(Uint8Array.fromBase64(pngBase64))
-      if (disposed || image.width <= 0 || image.height <= 0) return
-      // Deliberately *not* `prepare()`-d first, unlike the background photo: a
-      // photo is decoded once and resampled on every resize, so capping the
-      // working copy pays for itself. Here the capture is already sized to the
-      // grid, and the intermediate resample would just be a second pass of
-      // blur between the page and the screen.
-      const background = theme.background
-      setPixels(
-        sharpen(
-          compose(image, {
-            columns: props.columns,
-            rows: props.rows,
-            fit: "contain",
-            opacity: 1,
-            grayscale: false,
-            base: {
-              r: Math.round(background.r * 255),
-              g: Math.round(background.g * 255),
-              b: Math.round(background.b * 255),
-            },
-          }),
-          props.columns * 2,
-          props.rows * 2,
-        ),
-      )
-    } catch {
-      // A single undecodable frame is not worth tearing the view down for;
-      // the next one arrives in ~100ms.
     } finally {
       decoding = false
     }
@@ -468,18 +319,6 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       setTransmission(next)
       void stream()
     },
-    zoom(direction) {
-      if (props.renderer !== "halfblock") return
-      // Zooming *in* means covering fewer page pixels per sample, i.e. a
-      // smaller factor — hence the inverted step.
-      const next = zoomIndex() - direction
-      if (next < 0 || next >= ZOOM_STEPS.length) return
-      setZoomIndex(next)
-      const size = geometry().viewport
-      void call?.("resize", { name, width: size.width, height: size.height })
-        .then(() => stream())
-        .catch(fail)
-    },
   }
   props.ref?.(controls)
 
@@ -498,6 +337,16 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
         .then(() => stream())
         .catch(fail)
     }, 200)
+  })
+
+  // Focus decides the frame rate, and the rate is fixed when the stream opens,
+  // so a change means reopening it. Debounced: tabbing between the address bar
+  // and the page must not tear the stream down twice in a keystroke.
+  createEffect(() => {
+    const wanted = frameRate()
+    if (!started || wanted === streamedFps) return
+    clearTimeout(rateTimer)
+    rateTimer = setTimeout(() => void stream(), 250)
   })
 
   /**
@@ -521,8 +370,17 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
     return held
   }
 
-  function pointer(input: Record<string, unknown>) {
-    void call?.("pointer", { name, input }).catch(() => {})
+  /**
+   * Pointer traffic goes through the scheduler, so a drag or a fast scroll
+   * costs one RPC per frame instead of one per cell crossed or notch turned.
+   */
+  const input = new InputScheduler({
+    send: (payload) => void call?.("pointer", { name, input: payload }).catch(() => {}),
+  })
+  onCleanup(() => input.dispose())
+
+  function pointer(payload: Record<string, unknown> & { type: string }) {
+    input.push(payload)
   }
 
   createEffect(() => {
@@ -550,6 +408,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
   onCleanup(() => {
     disposed = true
     clearTimeout(restartTimer)
+    clearTimeout(rateTimer)
     streamAbort?.abort()
     pump.destroy()
     if (started && socketPath) {
@@ -599,11 +458,7 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
       <Show
         when={
           status() !== "error" &&
-          (props.renderer === "halfblock"
-            ? pixels()
-            : props.renderer === "overlay"
-              ? overlayBytes()
-              : placeholder().length > 0)
+          (props.renderer === "overlay" ? overlayBytes() : placeholder().length > 0)
         }
         fallback={
           <box paddingLeft={1} paddingTop={1} gap={1}>
@@ -628,9 +483,6 @@ export function BrowserSurface(props: BrowserSurfaceProps) {
             </For>
           }
         >
-          <Match when={props.renderer === "halfblock"}>
-            <nikcli_background width={props.columns} height={props.rows} pixels={pixels()!} base={theme.background} />
-          </Match>
           <Match when={props.renderer === "overlay"}>
             {/* Empty: the picture is drawn over these cells by the terminal,
                 after OpenTUI flushes. The box exists to pin the position. */}

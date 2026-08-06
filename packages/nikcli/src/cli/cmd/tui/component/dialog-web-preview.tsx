@@ -285,30 +285,31 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
     (renderer.capabilities ?? null) as LiveCapabilities | null,
   )
   /**
-   * Kitty placeholders give a real image; every other terminal gets the
-   * half-block super-sampler — the same path that paints the background photo,
-   * so it works literally everywhere. Live mode is therefore never
-   * *unavailable*, only sharper or blunter.
+   * Kitty placeholders give a real image, Sixel a slower one. A terminal with
+   * neither used to get the half-block super-sampler, which paints *something*
+   * for every terminal — but a page approximated in block characters is worse
+   * at being a page than its own text is, so that case now stays in the reader
+   * instead of pretending to be a browser.
    *
    * `NIKCLI_BROWSER_LIVE=1` forces the Kitty path when detection is wrong
    * (a multiplexer that swallowed the capability query, say).
    */
-  const liveRenderer: SurfaceRenderer =
+  const liveRenderer: SurfaceRenderer | undefined =
     process.env["NIKCLI_BROWSER_LIVE"] === "1" || supportsKittyUnicodePlaceholders(capabilities)
       ? "kitty"
       : bestOverlayProtocol(capabilities)
         ? "overlay"
-        : "halfblock"
+        : undefined
 
-  /** What the current renderer costs you, said plainly rather than left to be discovered. */
-  const rendererNote = () => {
-    if (liveRenderer === "kitty") return ""
-    const terminal = capabilities.terminal ?? "this terminal"
-    if (liveRenderer === "overlay") return ""
-    return `▀ half-block: ${terminal} has no graphics protocol, so the page is approximated with block characters. Turn on "terminal.integrated.enableImages" in VS Code/Cursor settings for a real image, or run nikcli in Ghostty. ^- / ^+ zoom, ^⇧R reader.`
-  }
+  /** Why Chromium is not on offer here, said once and plainly. */
+  const noGraphicsNote = () =>
+    `▀ ${capabilities.terminal ?? "this terminal"} has no graphics protocol, so pages are read as markdown. Turn on "terminal.integrated.enableImages" in VS Code/Cursor settings, or run nikcli in Ghostty, for the live Chromium view.`
 
-  const [mode, setMode] = createSignal<PreviewMode>("live")
+  // Reader first: fetching a page and rendering its markdown costs one request
+  // and works in every terminal, where live mode starts a headless Chromium and
+  // approximates the picture in whatever the terminal can paint. Chromium is a
+  // click away (the toolbar button, or ^⇧R) for whoever needs the real page.
+  const [mode, setMode] = createSignal<PreviewMode>("reader")
   const [surface, setSurface] = createSignal<BrowserSurfaceState | undefined>()
   let surfaceControls: BrowserSurfaceControls | undefined
 
@@ -329,7 +330,10 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
   })
   const [selectedSection, setSelectedSection] = createSignal<string | null>(null)
 
-  const live = createMemo(() => mode() === "live")
+  // A terminal that cannot paint an image has no live mode to be in, whatever
+  // the mode signal says — so every "are we live" question answers no, and the
+  // reader keeps the box.
+  const live = createMemo(() => mode() === "live" && liveRenderer !== undefined)
   const contentHeight = createMemo(() => {
     const h = dimensions().height
     // A reader can be short — you scroll it. A browser cannot: the box's shape
@@ -464,6 +468,9 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
    * had got to, not of wherever we started.
    */
   function toggleMode() {
+    // Nothing to switch to without a graphics protocol; the note under the
+    // toolbar already says why, so this is a no-op rather than a dead mode.
+    if (!liveRenderer) return
     const next: PreviewMode = live() ? "reader" : "live"
     const current = live() ? (surface()?.url ?? address()) : page().url || address()
     setMode(next)
@@ -510,12 +517,6 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
     }
     if (evt.ctrl && evt.shift && evt.name === "t" && live()) {
       surfaceControls?.toggleTransmission()
-      evt.preventDefault()
-      evt.stopPropagation()
-      return
-    }
-    if (evt.ctrl && live() && (evt.name === "=" || evt.name === "+" || evt.name === "-")) {
-      surfaceControls?.zoom(evt.name === "-" ? -1 : 1)
       evt.preventDefault()
       evt.stopPropagation()
       return
@@ -634,6 +635,21 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         >
           <text fg={theme.background}>Go</text>
         </box>
+
+        {/* Names where it takes you, not where you are — the mode you are in is
+            already spelled out in the status line under this row. Greyed out,
+            it means this terminal cannot paint a page at all. */}
+        <box
+          backgroundColor={liveRenderer ? (live() ? theme.backgroundElement : theme.secondary) : undefined}
+          paddingLeft={1}
+          paddingRight={1}
+          flexShrink={0}
+          onMouseUp={() => toggleMode()}
+        >
+          <text fg={!liveRenderer ? theme.textMuted : live() ? theme.text : theme.background}>
+            {live() ? "Markdown" : "Chromium"}
+          </text>
+        </box>
       </box>
 
       <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
@@ -658,7 +674,7 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             }
           >
             {surface()?.status === "live"
-              ? `live · ${liveRenderer === "kitty" ? "kitty" : liveRenderer === "overlay" ? "sixel" : "half-block"}${surface()?.zoom ? ` · ${surface()!.zoom}×` : ""}${surface()?.measured ? "" : " · cell size assumed"}`
+              ? `live · ${liveRenderer === "kitty" ? "kitty" : "sixel"}${surface()?.measured ? "" : " · cell size assumed"}`
               : (surface()?.status ?? "starting")}
           </text>
         </Show>
@@ -670,10 +686,10 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
         </box>
       </Show>
 
-      <Show when={live() && rendererNote()}>
+      <Show when={!liveRenderer}>
         <box flexShrink={0}>
           <text fg={theme.textMuted} wrapMode="word">
-            ⓘ {rendererNote()}
+            ⓘ {noGraphicsNote()}
           </text>
         </box>
       </Show>
@@ -707,7 +723,9 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
                 columns={liveColumns()}
                 rows={innerHeight()}
                 focused={focusArea() === "content"}
-                renderer={liveRenderer}
+                // `live()` is false without a renderer, so this branch only ever
+                // mounts with one.
+                renderer={liveRenderer!}
                 onState={setSurface}
                 ref={(controls) => {
                   surfaceControls = controls
@@ -816,7 +834,9 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
               <text fg={theme.textMuted}>⌥→ fwd</text>
               <text fg={theme.textMuted}>r reload</text>
               <text fg={theme.textMuted}>/ url</text>
-              <text fg={theme.textMuted}>^⇧R live</text>
+              <Show when={liveRenderer}>
+                <text fg={theme.textMuted}>^⇧R live</text>
+              </Show>
             </box>
           }
         >
@@ -824,9 +844,6 @@ export function DialogWebPreview(props: DialogWebPreviewProps) {
             <text fg={theme.textMuted}>^L url</text>
             <text fg={theme.textMuted}>⌥← back</text>
             <text fg={theme.textMuted}>⌥→ fwd</text>
-            <Show when={liveRenderer === "halfblock"}>
-              <text fg={theme.textMuted}>^± zoom</text>
-            </Show>
             <Show when={liveRenderer === "kitty"}>
               <text fg={theme.textMuted}>^⇧T transport</text>
             </Show>
