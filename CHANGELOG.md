@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.244.0 (August 2026)
+
+## TUI
+
+- Resolve Chromium launcher import issues and improve session management (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(browser-control): resolve Chromium launcher import issues and improve session management
+
 ## v1.242.0 (August 2026)
 
 ## Core
