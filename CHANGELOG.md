@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.243.0 (August 2026)
+
+## Core
+
+- Enhance daemon spawn logic and error handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(daemon-client): enhance daemon spawn logic and error handling
+
 ## v1.242.0 (August 2026)
 
 ## Core
