@@ -3,6 +3,23 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.257.0 (August 2026)
+
+## Core
+
+- Collapse @opentui/core to a single version in the bundle (@nikomatt69)
+- Update README formatting for clarity (@nikomatt69)
+- Route package-manager installs through their own manager (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(upgrade): route package-manager installs through their own manager
+  - fix(install.ps1): escape the target path in the deferred-swap log line
+  - fix(release): stop tracked astro artifacts from breaking the release rebase
+  - fix(docs): update README formatting for clarity
+  - fix(deps): collapse @opentui/core to a single version in the bundle
+
 ## v1.250.0 (August 2026)
 
 ## Core

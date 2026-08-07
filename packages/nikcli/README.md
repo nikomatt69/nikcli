@@ -1,6 +1,6 @@
 # nikcli
 
-> **A fork of [OpenCode](https://github.com/anomalyco/opencode)** — the open source coding agent. 
+> **A fork of [OpenCode](https://github.com/anomalyco/opencode)** — the open source coding agent.
 > Credit for the original project goes to the OpenCode authors and contributors. nikcli is an
 > independent fork, not affiliated with or endorsed by them.
 
