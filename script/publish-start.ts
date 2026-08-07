@@ -93,6 +93,15 @@ if (!Script.preview) {
   let branchPushed = false
   for (let attempt = 0; attempt < 5 && !branchPushed; attempt++) {
     await $`git fetch origin ${branch}`
+    // Build steps that run alongside the release (astro sync, codegen, ...) can
+    // regenerate tracked files after the commit above, and `git rebase` refuses
+    // to start on a dirty tree ("cannot rebase: You have unstaged changes").
+    // Fold anything that reappeared into the release commit so a retry is never
+    // blocked by generated noise.
+    if ((await $`git status --porcelain`.text()).trim()) {
+      await $`git add -A`
+      await $`git commit --amend --no-edit`
+    }
     const rebase = await $`git rebase origin/${branch}`.nothrow()
     if (rebase.exitCode !== 0) {
       await $`git rebase --abort`.nothrow()
