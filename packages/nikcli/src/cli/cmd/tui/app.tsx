@@ -1391,10 +1391,19 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         try {
           await upgradeCtx.upgradeNow?.(method, version)
         } catch (error) {
+          // UpgradeFailedError carries the real reason in `stderr`; its
+          // `message` is empty, which is what made this toast show a blank
+          // body for every failed update.
+          const message =
+            error instanceof Installation.UpgradeFailedError
+              ? error.stderr
+              : error instanceof Error
+                ? error.message || (error.cause instanceof Error ? error.cause.message : "Update failed")
+                : "Update failed"
           toast.show({
             variant: "error",
             title: "Update Failed",
-            message: error instanceof Error ? error.message : "Update failed",
+            message,
             duration: 10_000,
           })
           return

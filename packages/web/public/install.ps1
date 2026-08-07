@@ -130,6 +130,22 @@ Get-ChildItem -Path $installDir -Filter "$App.update.*.exe" -File -ErrorAction S
   Where-Object { $_.LastWriteTimeUtc -lt (Get-Date).ToUniversalTime().AddDays(-7) } |
   ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
 
+# The swap renames the outgoing binary aside before replacing it (a running exe
+# can be renamed but not overwritten). Those leftovers are dead weight -
+# hundreds of MB each - as soon as the process holding them exits, so drop the
+# ones we can now delete.
+Get-ChildItem -Path $installDir -Filter "$App.exe.old.*" -File -ErrorAction SilentlyContinue |
+  ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
+
+# A deferred swap runs after this script is gone, so its only way to report a
+# failure is this log. Surface it once, then clear it.
+$updateLog = Join-Path $installDir "$App.update.log"
+if (Test-Path $updateLog) {
+  $previousFailure = (Get-Content $updateLog -Raw -ErrorAction SilentlyContinue)
+  if ($previousFailure) { Warn "Previous deferred update failed: $($previousFailure.Trim())" }
+  Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
+}
+
 if (Test-Path $targetExe) {
   try {
     $installed = (& $targetExe --version 2>$null | Select-Object -First 1)
@@ -199,18 +215,39 @@ try {
       Copy-Item -Path $found.FullName -Destination $pendingExe -Force
       $quotedPending = $pendingExe.Replace("'", "''")
       $quotedTarget = $targetExe.Replace("'", "''")
+      $quotedLog = (Join-Path $installDir "$App.update.log").Replace("'", "''")
+      # Two escape hatches the previous version lacked:
+      #  - a 2 minute window instead of 10s, because moving a ~160MB binary on
+      #    a slow disk (or behind AV) can take longer than that;
+      #  - a rename-aside fallback: Windows refuses to overwrite a running exe
+      #    but does allow renaming it, so if the user relaunched nikcli in the
+      #    meantime we move the old file out of the way instead of giving up.
+      # And on failure the staged file is kept, not deleted, so the next
+      # installer run can still apply it - with the reason written to a log.
       $helperScript = @"
 `$ErrorActionPreference = 'SilentlyContinue'
 Wait-Process -Id $upgradePid -ErrorAction SilentlyContinue
-for (`$attempt = 0; `$attempt -lt 100; `$attempt++) {
+`$lastError = ''
+for (`$attempt = 0; `$attempt -lt 480; `$attempt++) {
   try {
     Move-Item -LiteralPath '$quotedPending' -Destination '$quotedTarget' -Force -ErrorAction Stop
     exit 0
   } catch {
-    Start-Sleep -Milliseconds 100
+    `$lastError = `$_.Exception.Message
+    Start-Sleep -Milliseconds 250
   }
 }
-Remove-Item -LiteralPath '$quotedPending' -Force -ErrorAction SilentlyContinue
+# Still locked: rename the running binary aside and slot the new one in. The
+# leftover is swept by the next installer run.
+try {
+  `$aside = '$quotedTarget' + '.old.' + [System.Guid]::NewGuid().ToString('N')
+  Move-Item -LiteralPath '$quotedTarget' -Destination `$aside -Force -ErrorAction Stop
+  Move-Item -LiteralPath '$quotedPending' -Destination '$quotedTarget' -Force -ErrorAction Stop
+  exit 0
+} catch {
+  `$lastError = `$_.Exception.Message
+}
+Set-Content -LiteralPath '$quotedLog' -Value ("Could not replace $quotedTarget: " + `$lastError + " (staged update kept at $quotedPending)") -ErrorAction SilentlyContinue
 exit 1
 "@
       $encodedHelper = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($helperScript))

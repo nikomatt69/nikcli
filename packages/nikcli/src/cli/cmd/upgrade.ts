@@ -23,7 +23,7 @@ export const UpgradeCommand = {
         alias: "m",
         describe: "installation method to use",
         type: "string",
-        choices: ["curl", "npm", "pnpm", "bun", "brew", "choco", "scoop"],
+        choices: ["curl", "npm", "yarn", "pnpm", "bun", "brew", "choco", "scoop"],
       })
   },
   handler: async (args: { target?: string; method?: string }) => {
@@ -94,7 +94,15 @@ export const UpgradeCommand = {
       prompts.outro("Done")
       process.exit(1)
     }
-    spinner.stop("Upgrade complete")
+    // The Windows installer cannot overwrite the binary that is running this
+    // command, so it stages the new one and swaps it in once this process
+    // exits. Saying "complete" there would be a lie until then.
+    if (Installation.resolveUpgradeStrategy(method).type === "windows-installer") {
+      spinner.stop("Upgrade staged")
+      prompts.log.info(`nikcli ${target} will be in place once this command exits. Open a new terminal to use it.`)
+    } else {
+      spinner.stop("Upgrade complete")
+    }
     prompts.outro("Done")
   },
 }

@@ -562,7 +562,14 @@ const toc = [
         </tr>
         <tr>
           <td><code>nikcli upgrade [target]</code></td>
-          <td>Upgrade to the latest release or a specific version target.</td>
+          <td>
+            Upgrade to the latest release or a specific version target. The install method is
+            detected automatically and the upgrade runs through it (npm, yarn, pnpm, bun, brew,
+            choco, scoop, or the standalone installer); override it with
+            <code>--method</code>. On Windows a standalone install cannot overwrite the binary
+            that is running the command, so the new version is staged and swapped in once the
+            command exits.
+          </td>
         </tr>
         <tr>
           <td><code>nikcli uninstall</code></td>

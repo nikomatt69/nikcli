@@ -47,13 +47,20 @@ describe("Installation.Service", () => {
     })
   })
 
-  it("always uses the PowerShell installer when upgrading on Windows", () => {
-    const methods: Installation.Method[] = ["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]
-
-    for (const method of methods) {
+  it("uses the PowerShell installer on Windows only for standalone installs", () => {
+    for (const method of ["curl", "unknown"] as Installation.Method[]) {
       expect(Installation.resolveUpgradeStrategy(method, "win32")).toEqual({
         type: "windows-installer",
         script: "irm https://nikcli.store/install.ps1 | iex",
+      })
+    }
+
+    // Package-manager installs must go through their own manager, whose shim
+    // shadows ~\.nikcli\bin on PATH.
+    for (const method of ["npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco"] as Installation.Method[]) {
+      expect(Installation.resolveUpgradeStrategy(method, "win32")).toEqual({
+        type: "package-manager",
+        method,
       })
     }
   })

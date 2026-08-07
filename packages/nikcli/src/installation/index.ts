@@ -154,7 +154,14 @@ export namespace Installation {
     method: Method,
     platform: NodeJS.Platform = process.platform,
   ): UpgradeStrategy {
-    if (platform === "win32") {
+    // On Windows only standalone installs (the "curl" method, i.e. the binary
+    // in ~/.nikcli/bin) and undetected installs go through the PowerShell
+    // installer. Package-manager installs must upgrade through their own
+    // manager: the manager's shim (%AppData%\npm\nikcli.cmd, the choco or
+    // scoop bin) comes before ~\.nikcli\bin on PATH, so a standalone
+    // installer run would report success while the command the user actually
+    // runs stays on the old version.
+    if (platform === "win32" && (method === "curl" || method === "unknown")) {
       return { type: "windows-installer", script: WINDOWS_UPGRADE_SCRIPT }
     }
     return { type: "package-manager", method }
@@ -180,6 +187,10 @@ export namespace Installation {
     } else
       switch (strategy.method) {
         case "curl":
+        case "unknown":
+          // "unknown" means detection failed and the user explicitly chose to
+          // install anyway — fall back to the standalone installer instead of
+          // throwing.
           cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
             ...process.env,
             VERSION: target,
@@ -187,6 +198,9 @@ export namespace Installation {
           break
         case "npm":
           cmd = $`npm install -g nikcli-ai@${target}`
+          break
+        case "yarn":
+          cmd = $`yarn global add nikcli-ai@${target}`
           break
         case "pnpm":
           cmd = $`pnpm install -g nikcli-ai@${target}`
@@ -213,12 +227,13 @@ export namespace Installation {
       }
     const result = await cmd.quiet().throws(false)
     if (result.exitCode !== 0) {
+      // Never overwrite the real failure reason: both the PowerShell installer
+      // and chocolatey report their errors on stdout rather than stderr, so
+      // prefer whichever stream actually carries a message.
       const stderr =
-        strategy.type === "package-manager" && strategy.method === "choco"
-          ? "not running from an elevated command shell"
-          : result.stderr.toString("utf8").trim() ||
-            result.stdout.toString("utf8").trim() ||
-            `Upgrade command exited with code ${result.exitCode}`
+        result.stderr.toString("utf8").trim() ||
+        result.stdout.toString("utf8").trim() ||
+        `Upgrade command exited with code ${result.exitCode}`
       throw new UpgradeFailedError({
         stderr: stderr,
       })
@@ -229,7 +244,41 @@ export namespace Installation {
       stdout: result.stdout.toString(),
       stderr: result.stderr.toString(),
     })
-    await $`${process.execPath} --version`.nothrow().quiet().text()
+    await verifyUpgrade(target)
+  }
+
+  /**
+   * Best-effort check that the upgrade actually took effect.
+   *
+   * Probing `process.execPath` proves nothing: that is the still-running old
+   * binary, and on Windows it is the locked file the installer could not even
+   * replace. What matters is what `nikcli` resolves to on PATH, which is where
+   * a package-manager shim would keep shadowing a standalone install.
+   *
+   * Skipped on Windows, where the swap is deliberately deferred until the
+   * current process exits (see install.ps1), so the old version is still the
+   * one on disk at this point by design.
+   */
+  async function verifyUpgrade(target: string) {
+    if (process.platform === "win32") return
+    const probe = (
+      await $`nikcli --version`
+        .nothrow()
+        .quiet()
+        .text()
+        .catch(() => "")
+    ).trim()
+    const installed = probe.replace(/^v/, "")
+    const expected = target.replace(/^v/, "")
+    // Only fail on a clean, different semver. An unparseable probe (nikcli not
+    // on PATH in this shell, a wrapper printing a banner, ...) means we cannot
+    // verify, so trust the installer's exit code rather than block a real
+    // upgrade.
+    if (/^\d+\.\d+\.\d+/.test(installed) && installed !== expected) {
+      throw new UpgradeFailedError({
+        stderr: `Upgrade did not take effect: nikcli on PATH reports ${installed}, expected ${expected}.`,
+      })
+    }
   }
 
   export const VERSION = typeof NIKCLI_VERSION === "string" ? NIKCLI_VERSION : "local"
@@ -251,12 +300,15 @@ export namespace Installation {
     if (detectedMethod === "brew") {
       const formula = await getBrewFormula()
       if (formula === "nikcli") {
-        return fetch("https://formulae.brew.sh/api/formula/nikcli.json")
-          .then((res) => {
-            if (!res.ok) throw new Error(res.statusText)
-            return res.json()
-          })
-          .then((data: any) => data.versions.stable)
+        // There is no nikcli formula in homebrew-core today (only the
+        // nikomatt69/tap one), so this 404s. If it is ever published we use
+        // it; until then fall through to the GitHub release below instead of
+        // failing the whole update check.
+        const res = await fetch("https://formulae.brew.sh/api/formula/nikcli.json").catch(() => null)
+        if (res?.ok) {
+          const data = (await res.json()) as { versions?: { stable?: string } }
+          if (data.versions?.stable) return data.versions.stable
+        }
       }
     }
 
@@ -284,7 +336,13 @@ export namespace Installation {
           if (!res.ok) throw new Error(res.statusText)
           return res.json()
         })
-        .then((data: any) => data.d.results[0].Version)
+        .then((data: any) => {
+          // The feed is empty while nikcli is unpublished on Chocolatey;
+          // indexing straight into it throws an opaque TypeError.
+          const version = data?.d?.results?.[0]?.Version
+          if (!version) throw new Error("nikcli is not published to Chocolatey")
+          return version
+        })
     }
 
     if (detectedMethod === "scoop") {
@@ -292,10 +350,13 @@ export namespace Installation {
         headers: { Accept: "application/json" },
       })
         .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
+          if (!res.ok) throw new Error("nikcli is not published to Scoop's Main bucket")
           return res.json()
         })
-        .then((data: any) => data.version)
+        .then((data: any) => {
+          if (!data?.version) throw new Error("nikcli is not published to Scoop's Main bucket")
+          return data.version
+        })
     }
 
     return fetch("https://api.github.com/repos/nikomatt69/nikcli/releases/latest")
