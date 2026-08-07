@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.260.0 (August 2026)
+
+## Core
+
+- Update tool enabling logic for opt-in tools (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(session): update tool enabling logic for opt-in tools
+
 ## v1.250.0 (August 2026)
 
 ## Core
