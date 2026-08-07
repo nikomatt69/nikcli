@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.259.0 (August 2026)
+
+## Core
+
+- Add detail option for background rendering (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(background): add detail option for background rendering
+
 ## v1.250.0 (August 2026)
 
 ## Core
