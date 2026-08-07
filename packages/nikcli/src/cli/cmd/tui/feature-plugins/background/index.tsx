@@ -2,8 +2,8 @@
  * Background image — internal TUI plugin.
  *
  * Mirrors `feature-plugins/browser`: a self-contained plugin that owns one
- * feature end to end. It paints a real image behind the TUI (truecolor
- * half-blocks, drawn by OpenTUI's native super-sampler) the way a terminal
+ * feature end to end. It paints a real image behind the TUI — truecolor cell
+ * backgrounds, composed by OpenTUI's native super-sampler — the way a terminal
  * wallpaper would, without needing the terminal to support one, and registers
  * the `/background` command that configures it. Nothing renders until an
  * image is picked.

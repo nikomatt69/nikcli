@@ -6,13 +6,15 @@
  * buffer super-sampled 2× on both axes — a 2×2 pixel block per cell, averaged
  * horizontally into the two halves of a `▀`. This module turns a decoded
  * image into exactly that buffer: crop to the terminal aspect, resample, then
- * blend over the theme background so text stays readable.
+ * blend over the theme background so text stays readable. In the default
+ * `flat` mode the two halves of a cell are averaged together, because the
+ * renderable then paints a space rather than a `▀` — see {@link flatten}.
  *
  * Everything here is pure and synchronous so it can be unit-tested without a
  * renderer or a real image file.
  */
 import { createPixelImage, type PixelImage } from "@nikcli-ai/tui-image"
-import type { BackgroundFit } from "./settings"
+import type { BackgroundDetail, BackgroundFit } from "./settings"
 
 export type Rect = { x: number; y: number; width: number; height: number }
 
@@ -28,6 +30,11 @@ export type ComposeOptions = {
   grayscale: boolean
   /** Theme background the image is blended over. */
   base: Rgb
+  /**
+   * `flat` (the default) collapses each cell to a single color, so the
+   * renderable can drop the `▀` glyph without losing anything.
+   */
+  detail?: BackgroundDetail
 }
 
 /** Super-sampling factor the native half-block renderer expects, per axis. */
@@ -210,5 +217,44 @@ export function compose(image: PixelImage, options: ComposeOptions): Uint8Array 
       out[target + 3] = 255
     }
   }
+  if ((options.detail ?? "flat") === "flat") flatten(out, columns, rows)
   return out
+}
+
+/**
+ * Collapse every cell to a single color, in place.
+ *
+ * A `flat` background is painted as a space, which can only carry the cell's
+ * background color — the half the super-sampler would have put in the
+ * foreground is dropped. So the cell's four samples are averaged into one
+ * color and written back to all of them: whichever half survives, it is the
+ * whole cell's color rather than one shifted half a row up.
+ *
+ * The cost is the vertical half-resolution the half-block bought, and there is
+ * no winning it back: a cell can hold one background color, so one color per
+ * cell is the most a screen the terminal can still select and link over will
+ * ever carry. Softening the grid to hide the steps only trades the mosaic for
+ * mush — `detail: "blocks"` is the way to ask for the sharper image, with the
+ * terminal-side cost that comes with it.
+ */
+function flatten(pixels: Uint8Array, columns: number, rows: number) {
+  const width = columns * SAMPLES_PER_CELL
+  const samples = SAMPLES_PER_CELL * SAMPLES_PER_CELL
+
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const offsets: number[] = []
+      for (let sampleY = 0; sampleY < SAMPLES_PER_CELL; sampleY++) {
+        for (let sampleX = 0; sampleX < SAMPLES_PER_CELL; sampleX++) {
+          offsets.push(((row * SAMPLES_PER_CELL + sampleY) * width + column * SAMPLES_PER_CELL + sampleX) * 4)
+        }
+      }
+      for (let channel = 0; channel < 3; channel++) {
+        let total = 0
+        for (const offset of offsets) total += pixels[offset + channel] ?? 0
+        const average = Math.round(total / samples)
+        for (const offset of offsets) pixels[offset + channel] = average
+      }
+    }
+  }
 }

@@ -3,7 +3,7 @@
  * every route: `zIndex: -1` makes the root box paint it before its siblings,
  * and text draws over it with alpha blending.
  */
-import { createEffect, createMemo, createResource, untrack } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, untrack } from "solid-js"
 import { useTerminalDimensions } from "@opentui/solid"
 import { RGBA } from "@opentui/core"
 import { useKV } from "@tui/context/kv"
@@ -11,6 +11,7 @@ import { useRoute } from "@tui/context/route"
 import { useTheme } from "@tui/context/theme"
 import { useToast } from "@tui/ui/toast"
 import { compose, type Rgb } from "./pixels"
+import { BackgroundGuardRenderable } from "./guard"
 import { BackgroundRenderable } from "./renderable"
 import { loadImage, resolveSource } from "./source"
 import { readSettings, rotation } from "./store"
@@ -37,6 +38,7 @@ export function BackgroundImage() {
   const fit = createMemo(() => settings().fit)
   const opacity = createMemo(() => settings().opacity)
   const grayscale = createMemo(() => settings().grayscale)
+  const detail = createMemo(() => settings().detail)
   const visible = createMemo(() => {
     const current = settings()
     if (!current.enabled || !current.source) return false
@@ -90,23 +92,45 @@ export function BackgroundImage() {
       opacity: opacity(),
       grayscale: grayscale(),
       base: toRgb(theme.background),
+      detail: detail(),
     })
   })
 
+  // The guard reads the frame the image painted, so it needs the renderable
+  // itself — not a prop derived from it.
+  const [painter, setPainter] = createSignal<BackgroundRenderable>()
+
   return (
-    <nikcli_background
-      position="absolute"
-      left={0}
-      top={0}
-      paintEnabled={visible()}
-      width={dimensions().width}
-      height={dimensions().height}
-      pixels={pixels()}
-      base={theme.background}
-    />
+    <>
+      <nikcli_background
+        ref={setPainter}
+        position="absolute"
+        left={0}
+        top={0}
+        paintEnabled={visible()}
+        flat={detail() === "flat"}
+        width={dimensions().width}
+        height={dimensions().height}
+        pixels={pixels()}
+        base={theme.background}
+      />
+      {/*
+        A sibling, not a child: the guard has to render after the whole UI, and
+        siblings of the app root are the only nodes whose `zIndex` sorts
+        against it. See `./guard`.
+      */}
+      <nikcli_background_guard
+        source={painter()}
+        position="absolute"
+        left={0}
+        top={0}
+        width={dimensions().width}
+        height={dimensions().height}
+      />
+    </>
   )
 }
 
-// Keeps the renderable registration in the module graph even if a bundler
-// decides the class itself is otherwise unused.
-export { BackgroundRenderable }
+// Keeps the renderable registrations in the module graph even if a bundler
+// decides the classes themselves are otherwise unused.
+export { BackgroundGuardRenderable, BackgroundRenderable }

@@ -176,6 +176,8 @@ describe("background pixels", () => {
   test("contain letterboxes with the theme background", () => {
     // A cell is twice as tall as it is wide, so 4×4 cells is 4×8 square units:
     // an 8×2 image fits as a single 4-unit-wide band centered on row 3.
+    // `blocks` keeps the raw sample grid — the geometry this asserts — where
+    // `flat` would average row 3 into its neighbour.
     const data = compose(solid(8, 2, [255, 255, 255, 255]), {
       columns: 4,
       rows: 4,
@@ -183,11 +185,41 @@ describe("background pixels", () => {
       opacity: 1,
       grayscale: false,
       base: { r: 10, g: 20, b: 30 },
+      detail: "blocks",
     })
     expect(pixel(data, 8, 0, 0)).toEqual([10, 20, 30, 255])
     expect(pixel(data, 8, 0, 3)).toEqual([255, 255, 255, 255])
     expect(pixel(data, 8, 7, 3)).toEqual([255, 255, 255, 255])
     expect(pixel(data, 8, 0, 7)).toEqual([10, 20, 30, 255])
+  })
+
+  test("flat averages the two halves of a cell so a space can carry the whole color", () => {
+    // Top half white, bottom half black.
+    const image = createPixelImage(2, 2)
+    image.data.set([255, 255, 255, 255], 0)
+    image.data.set([255, 255, 255, 255], 4)
+    image.data.set([0, 0, 0, 255], 8)
+    image.data.set([0, 0, 0, 255], 12)
+    const options = {
+      columns: 1,
+      rows: 1,
+      fit: "cover",
+      opacity: 1,
+      grayscale: false,
+      base: { r: 0, g: 0, b: 0 },
+    } as const
+
+    const blocks = compose(image, { ...options, detail: "blocks" })
+    expect(pixel(blocks, 2, 0, 0)).toEqual([255, 255, 255, 255])
+    expect(pixel(blocks, 2, 0, 1)).toEqual([0, 0, 0, 255])
+
+    // Both halves identical, and their average: the renderable drops the `▀`
+    // and paints the background, which must still read as the whole cell.
+    const flat = compose(image, { ...options, detail: "flat" })
+    expect(pixel(flat, 2, 0, 0)).toEqual([128, 128, 128, 255])
+    expect(pixel(flat, 2, 0, 1)).toEqual([128, 128, 128, 255])
+    // `flat` is what an unset `detail` means.
+    expect(Array.from(compose(image, options))).toEqual(Array.from(flat))
   })
 
   test("transparent source pixels keep the theme background", () => {

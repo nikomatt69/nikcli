@@ -14,6 +14,22 @@ export type BackgroundFit = "cover" | "contain"
 /** Where the image is painted: only the home splash, or every route. */
 export type BackgroundScope = "home" | "all"
 
+/**
+ * How a cell carries the image.
+ *
+ * `blocks` is the full-detail image: the half-block glyph `▀` gives a cell two
+ * colors and so doubles the vertical resolution. The glyph is also what the
+ * terminal's own text layer reads, so the background must not be allowed to
+ * stand where that layer expects whitespace — see `./guard`, which clears the
+ * gaps around and inside the UI's text after every frame.
+ *
+ * `flat` gives up the half-block entirely and paints one color per cell on a
+ * space, so *every* cell reads as blank rather than only the ones near text.
+ * It costs half the vertical resolution — worth it only when copying whole
+ * screens matters more than how the wallpaper looks.
+ */
+export type BackgroundDetail = "flat" | "blocks"
+
 export type BackgroundSettings = {
   /** Absolute path, directory, `file://`, `http(s)://` or `data:` URL. Empty when unset. */
   source: string
@@ -23,6 +39,7 @@ export type BackgroundSettings = {
   fit: BackgroundFit
   scope: BackgroundScope
   grayscale: boolean
+  detail: BackgroundDetail
 }
 
 export const BACKGROUND_KV_KEY = "background_image"
@@ -37,6 +54,9 @@ export const DEFAULT_SETTINGS: BackgroundSettings = {
   // back to the home splash.
   scope: "all",
   grayscale: false,
+  // Half-blocks, at full detail. What keeps the terminal's own selection and
+  // link detection working is the guard pass, not a coarser image.
+  detail: "blocks",
 }
 
 export const OPACITY_MIN = 0.05
@@ -104,7 +124,12 @@ export function normalize(value: unknown): BackgroundSettings {
     fit: pickString(record.fit, ["cover", "contain"] as const, DEFAULT_SETTINGS.fit),
     scope: pickString(record.scope, ["home", "all"] as const, DEFAULT_SETTINGS.scope),
     grayscale: typeof record.grayscale === "boolean" ? record.grayscale : DEFAULT_SETTINGS.grayscale,
+    detail: pickString(record.detail, ["flat", "blocks"] as const, DEFAULT_SETTINGS.detail),
   }
+}
+
+export function detailLabel(value: BackgroundDetail) {
+  return value === "blocks" ? "half-block" : "flat"
 }
 
 export function opacityLabel(value: number) {

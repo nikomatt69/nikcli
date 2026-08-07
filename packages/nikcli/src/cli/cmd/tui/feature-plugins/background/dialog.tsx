@@ -13,11 +13,21 @@ import { useTheme } from "@tui/context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
-import { cleanSource, opacityLabel, sourceLabel, stepOpacity } from "./settings"
+import { cleanSource, detailLabel, opacityLabel, sourceLabel, stepOpacity } from "./settings"
 import { readSettings, rotation, writeSettings } from "./store"
 import { listDirectory, shortenPath, suggestedFolders } from "./source"
 
-type Row = "browse" | "path" | "shuffle" | "opacity" | "fit" | "grayscale" | "scope" | "enabled" | "clear"
+type Row =
+  | "browse"
+  | "path"
+  | "shuffle"
+  | "opacity"
+  | "fit"
+  | "grayscale"
+  | "detail"
+  | "scope"
+  | "enabled"
+  | "clear"
 
 function isLocal(source: string) {
   return source !== "" && !source.startsWith("data:") && !/^[a-z][a-z0-9+.-]*:\/\//i.test(source)
@@ -240,6 +250,17 @@ export function DialogBackground() {
         category: "Appearance",
         footer: value(current.grayscale ? "on" : "off", !current.grayscale),
         onSelect: () => update({ grayscale: !current.grayscale }),
+      },
+      {
+        value: "detail",
+        title: "Detail",
+        description:
+          current.detail === "blocks"
+            ? "Half-blocks are sharper, but the terminal's own selection and cmd-click read them as text"
+            : "One color per cell, painted as a space — the terminal still selects and links normally",
+        category: "Appearance",
+        footer: value(detailLabel(current.detail), current.detail === "flat"),
+        onSelect: () => update({ detail: current.detail === "flat" ? "blocks" : "flat" }),
       },
       {
         value: "scope",

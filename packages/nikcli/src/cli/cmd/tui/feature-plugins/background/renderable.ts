@@ -24,15 +24,20 @@ export type BackgroundRenderableOptions = {
   pixels?: Uint8Array
   base?: RGBA
   paintEnabled?: boolean
+  flat?: boolean
 }
 
 const BLACK = RGBA.fromInts(0, 0, 0, 255)
+
+/** `" "` — what a flat cell holds instead of the half-block glyph. */
+const SPACE = 32
 
 export class BackgroundRenderable extends FrameBufferRenderable {
   private _pixels: Uint8Array | undefined
   private _base: RGBA = BLACK
   private _painted = false
   private _paintEnabled = true
+  private _flat = true
 
   constructor(ctx: RenderContext, options: BackgroundRenderableOptions) {
     // The frame buffer must exist before layout runs; it is resized to the
@@ -51,6 +56,7 @@ export class BackgroundRenderable extends FrameBufferRenderable {
     if (options.base) this._base = options.base
     if (options.pixels) this._pixels = options.pixels
     if (options.paintEnabled !== undefined) this._paintEnabled = options.paintEnabled
+    if (options.flat !== undefined) this._flat = options.flat
   }
 
   get pixels(): Uint8Array | undefined {
@@ -72,6 +78,27 @@ export class BackgroundRenderable extends FrameBufferRenderable {
   set base(value: RGBA) {
     if (this._base === value) return
     this._base = value
+    this._painted = false
+    this.requestRender()
+  }
+
+  /**
+   * Whether the last frame actually blitted the image — false while the source
+   * is still decoding, or after a resize the pixels have not caught up with.
+   * The guard reads it to know its copy of the frame is worth comparing
+   * against.
+   */
+  get painting(): boolean {
+    return this._paintEnabled && this._painted
+  }
+
+  get flat(): boolean {
+    return this._flat
+  }
+
+  set flat(value: boolean) {
+    if (this._flat === value) return
+    this._flat = value
     this._painted = false
     this.requestRender()
   }
@@ -108,6 +135,15 @@ export class BackgroundRenderable extends FrameBufferRenderable {
     }
     buffer.clear(this._base)
     buffer.drawSuperSampleBuffer(0, 0, ptr(pixels), pixels.byteLength, "rgba8unorm", bufferStride(buffer.width))
+    // The super-sampler writes a `▀` into every cell: the foreground is the top
+    // half, the background the bottom. That glyph is what the terminal's own
+    // text layer sees where it expects blank space — selection copies blocks,
+    // and link detection runs a path together with whatever sits left of it,
+    // because OpenTUI leaves a cell untouched when the UI draws a space over
+    // it. Blanking the char keeps the cell's color (it lives in the
+    // background) and hands the terminal a screen it can read. `compose` has
+    // already averaged the two halves, so nothing else is lost.
+    if (this._flat) buffer.buffers.char.fill(SPACE)
     return true
   }
 
