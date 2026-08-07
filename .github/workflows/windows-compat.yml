@@ -201,6 +201,12 @@ jobs:
           Copy-Item $built (Join-Path $dep "nikcli.exe")
           Copy-Item ".\bin\nikcli" (Join-Path $pkg "bin\nikcli")
           Copy-Item ".\script\postinstall.mjs" (Join-Path $pkg "postinstall.mjs")
+          # postinstall.mjs and the wrapper both locate the per-platform package
+          # with `require.resolve("<name>/package.json")`, so the stand-in needs a
+          # manifest — without one the resolve throws, the npm fallback tries to
+          # fetch a version that does not exist, and nothing is materialized.
+          @{ name = "nikcli-ai-windows-$arch"; version = "0.0.0" } | ConvertTo-Json |
+            Set-Content (Join-Path (Split-Path $dep -Parent) "package.json") -Encoding UTF8
           @{
             name = "nikcli-ai"; version = "0.0.0"
             bin = @{ nikcli = "./bin/nikcli" }
