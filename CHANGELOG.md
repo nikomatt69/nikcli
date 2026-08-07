@@ -3,6 +3,23 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.250.0 (August 2026)
+
+## Core
+
+- Repair upgrade strategy, verify applied version, surface real errors (@SandroHub013)
+
+## Desktop
+
+- Restore broken triple-slash reference in custom-elements.d.ts (@SandroHub013)
+
+**Thank you to 1 community contributor:**
+
+- @SandroHub013:
+  - fix(installation): repair upgrade strategy, verify applied version, surface real errors
+  - fix(app): restore broken triple-slash reference in custom-elements.d.ts
+  - fix(enterprise): restore broken triple-slash reference in custom-elements.d.ts
+
 ## v1.249.0 (August 2026)
 
 - No notable changes
