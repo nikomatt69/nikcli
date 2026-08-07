@@ -247,7 +247,7 @@ try {
 } catch {
   `$lastError = `$_.Exception.Message
 }
-Set-Content -LiteralPath '$quotedLog' -Value ("Could not replace $quotedTarget: " + `$lastError + " (staged update kept at $quotedPending)") -ErrorAction SilentlyContinue
+Set-Content -LiteralPath '$quotedLog' -Value ("Could not replace " + '$quotedTarget' + ": " + `$lastError + " (staged update kept at " + '$quotedPending' + ")") -ErrorAction SilentlyContinue
 exit 1
 "@
       $encodedHelper = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($helperScript))
