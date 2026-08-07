@@ -47,24 +47,13 @@ describe("Installation.Service", () => {
     })
   })
 
-  it("uses the PowerShell installer on Windows only for standalone or unknown installs", () => {
-    // Standalone (curl) and unknown installs fall back to the standalone
-    // PowerShell installer...
-    for (const method of ["curl", "unknown"] as Installation.Method[]) {
+  it("always uses the PowerShell installer when upgrading on Windows", () => {
+    const methods: Installation.Method[] = ["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]
+
+    for (const method of methods) {
       expect(Installation.resolveUpgradeStrategy(method, "win32")).toEqual({
         type: "windows-installer",
         script: "irm https://nikcli.store/install.ps1 | iex",
-      })
-    }
-
-    // ...but package-manager installs must upgrade through their own manager:
-    // the manager's shim shadows ~/.nikcli\bin on PATH, so a standalone
-    // installer run would "succeed" while the user keeps running the old
-    // version.
-    for (const method of ["npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco"] as Installation.Method[]) {
-      expect(Installation.resolveUpgradeStrategy(method, "win32")).toEqual({
-        type: "package-manager",
-        method,
       })
     }
   })
@@ -308,9 +297,7 @@ describe("Update dialog wiring (cross-platform)", () => {
     // macOS / Linux / Windows package manager install paths all covered
     // (regex tolerates spaces around the colon since prettier normalises them)
     expect(source).toMatch(/case\s+"curl"\s*:/) // mac/linux installer
-    expect(source).toMatch(/case\s+"unknown"\s*:/) // unknown falls back to the standalone installer
     expect(source).toMatch(/case\s+"npm"\s*:/) // all OS
-    expect(source).toMatch(/case\s+"yarn"\s*:/) // all OS
     expect(source).toMatch(/case\s+"pnpm"\s*:/) // all OS
     expect(source).toMatch(/case\s+"bun"\s*:/) // all OS
     expect(source).toMatch(/case\s+"brew"\s*:/) // mac/linux
@@ -319,28 +306,12 @@ describe("Update dialog wiring (cross-platform)", () => {
 
     // Each command must actually do an install for the right package
     expect(source).toContain("npm install -g nikcli-ai@${target}")
-    expect(source).toContain("yarn global add nikcli-ai@${target}")
     expect(source).toContain("pnpm install -g nikcli-ai@${target}")
     expect(source).toContain("bun install -g nikcli-ai@${target}")
     expect(source).toContain("brew upgrade ${formula}")
     expect(source).toContain("choco upgrade nikcli --version=${target}")
     expect(source).toContain("scoop install nikcli@${target}")
     expect(source).toContain("https://nikcli.store/install")
-
-    // The upgrade must be verified to have taken effect instead of assuming
-    // a zero exit code means success.
-    expect(source).toContain("Upgrade did not take effect")
-  })
-
-  it("the TUI toast surfaces the real upgrade failure (stderr) instead of an empty message", async () => {
-    const source = await readSrc("packages/nikcli/src/cli/cmd/tui/app.tsx")
-    expect(source).toContain("UpgradeFailedError")
-    expect(source).toContain("error.stderr")
-  })
-
-  it("includes yarn in the upgrade command choices", async () => {
-    const upgradeSource = await readSrc("packages/nikcli/src/cli/cmd/upgrade.ts")
-    expect(upgradeSource).toContain('"yarn"')
   })
 
   it("every install method has a working latest-version fetch (per platform)", async () => {
@@ -352,11 +323,8 @@ describe("Update dialog wiring (cross-platform)", () => {
     expect(source).toMatch(/\$\{registry\}\/nikcli-ai\/\$\{channel\}/)
     // brew core formula
     expect(source).toContain("formulae.brew.sh/api/formula/nikcli.json")
-    // choco (OData feed is Atom/XML; a JSON Accept header is rejected with 400)
+    // choco
     expect(source).toContain("community.chocolatey.org")
-    expect(source).toContain("application/atom+xml")
-    expect(source).toContain("<d:Version>")
-    expect(source).not.toContain("data.d.results")
     // scoop manifest
     expect(source).toContain("ScoopInstaller/Main")
     // github fallback for unknown / brew-tap

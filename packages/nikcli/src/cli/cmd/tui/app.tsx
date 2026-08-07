@@ -1391,18 +1391,10 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
         try {
           await upgradeCtx.upgradeNow?.(method, version)
         } catch (error) {
-          // UpgradeFailedError carries the real failure reason in `stderr`,
-          // not `message`, so prefer it over the generic Error message.
-          const message =
-            error instanceof Installation.UpgradeFailedError
-              ? error.stderr
-              : error instanceof Error
-                ? error.message || (error.cause instanceof Error ? error.cause.message : "Update failed")
-                : "Update failed"
           toast.show({
             variant: "error",
             title: "Update Failed",
-            message,
+            message: error instanceof Error ? error.message : "Update failed",
             duration: 10_000,
           })
           return

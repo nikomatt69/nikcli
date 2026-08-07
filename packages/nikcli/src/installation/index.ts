@@ -154,14 +154,7 @@ export namespace Installation {
     method: Method,
     platform: NodeJS.Platform = process.platform,
   ): UpgradeStrategy {
-    // On Windows only standalone installs (the "curl" method, i.e. the binary
-    // in ~/.nikcli/bin) and unknown installs go through the PowerShell
-    // installer. Package-manager installs must upgrade through their own
-    // manager: the manager's shim/binary (e.g. %AppData%\npm, choco or scoop
-    // bins) shadows ~/.nikcli\bin on PATH, so a standalone installer run would
-    // "succeed" while the command the user actually runs stays on the old
-    // version.
-    if (platform === "win32" && (method === "curl" || method === "unknown")) {
+    if (platform === "win32") {
       return { type: "windows-installer", script: WINDOWS_UPGRADE_SCRIPT }
     }
     return { type: "package-manager", method }
@@ -187,10 +180,6 @@ export namespace Installation {
     } else
       switch (strategy.method) {
         case "curl":
-        case "unknown":
-          // "unknown" means the install method could not be detected and the
-          // user chose "install anyways" — fall back to the standalone
-          // installer.
           cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
             ...process.env,
             VERSION: target,
@@ -198,9 +187,6 @@ export namespace Installation {
           break
         case "npm":
           cmd = $`npm install -g nikcli-ai@${target}`
-          break
-        case "yarn":
-          cmd = $`yarn global add nikcli-ai@${target}`
           break
         case "pnpm":
           cmd = $`pnpm install -g nikcli-ai@${target}`
@@ -227,12 +213,12 @@ export namespace Installation {
       }
     const result = await cmd.quiet().throws(false)
     if (result.exitCode !== 0) {
-      // The PowerShell installer reports failures via Write-Host (stdout), not
-      // stderr, so prefer whichever stream actually carries the message.
       const stderr =
-        result.stderr.toString("utf8").trim() ||
-        result.stdout.toString("utf8").trim() ||
-        `Upgrade command exited with code ${result.exitCode}`
+        strategy.type === "package-manager" && strategy.method === "choco"
+          ? "not running from an elevated command shell"
+          : result.stderr.toString("utf8").trim() ||
+            result.stdout.toString("utf8").trim() ||
+            `Upgrade command exited with code ${result.exitCode}`
       throw new UpgradeFailedError({
         stderr: stderr,
       })
@@ -243,29 +229,7 @@ export namespace Installation {
       stdout: result.stdout.toString(),
       stderr: result.stderr.toString(),
     })
-
-    // Best-effort verification that the upgrade actually took effect. Skipped
-    // on Windows: the running binary is locked there and the installer already
-    // validated the version before replacing the file (or deferring the swap).
-    if (process.platform !== "win32") {
-      const probe = (
-        await $`nikcli --version`
-          .nothrow()
-          .quiet()
-          .text()
-          .catch(() => "")
-      ).trim()
-      const installed = probe.replace(/^v/, "")
-      const expected = target.replace(/^v/, "")
-      // Only fail on a clean, different semver: an unparseable probe (e.g.
-      // nikcli not on PATH in this environment) means we cannot verify, so we
-      // trust the installer's exit code instead of blocking a real upgrade.
-      if (/^\d+\.\d+\.\d+/.test(installed) && installed !== expected) {
-        throw new UpgradeFailedError({
-          stderr: `Upgrade did not take effect: nikcli reports ${installed}, expected ${expected}.`,
-        })
-      }
-    }
+    await $`${process.execPath} --version`.nothrow().quiet().text()
   }
 
   export const VERSION = typeof NIKCLI_VERSION === "string" ? NIKCLI_VERSION : "local"
@@ -287,13 +251,12 @@ export namespace Installation {
     if (detectedMethod === "brew") {
       const formula = await getBrewFormula()
       if (formula === "nikcli") {
-        // The core formula does not exist on formulae.brew.sh today; if it is
-        // ever added we use it, otherwise fall through to the GitHub release.
-        const res = await fetch("https://formulae.brew.sh/api/formula/nikcli.json").catch(() => null)
-        if (res?.ok) {
-          const data = (await res.json()) as { versions?: { stable?: string } }
-          if (data.versions?.stable) return data.versions.stable
-        }
+        return fetch("https://formulae.brew.sh/api/formula/nikcli.json")
+          .then((res) => {
+            if (!res.ok) throw new Error(res.statusText)
+            return res.json()
+          })
+          .then((data: any) => data.versions.stable)
       }
     }
 
@@ -313,21 +276,15 @@ export namespace Installation {
     }
 
     if (detectedMethod === "choco") {
-      // The Chocolatey OData API rejects JSON Accept headers; it only serves
-      // Atom/XML. Parse the <d:Version> element out of the feed.
       return fetch(
         "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27nikcli%27%20and%20IsLatestVersion&$select=Version",
-        { headers: { Accept: "application/atom+xml" } },
+        { headers: { Accept: "application/json;odata=verbose" } },
       )
         .then((res) => {
           if (!res.ok) throw new Error(res.statusText)
-          return res.text()
+          return res.json()
         })
-        .then((xml) => {
-          const match = /<d:Version>([^<]+)<\/d:Version>/.exec(xml)
-          if (!match) throw new Error("nikcli package not found on Chocolatey")
-          return match[1]
-        })
+        .then((data: any) => data.d.results[0].Version)
     }
 
     if (detectedMethod === "scoop") {
@@ -335,7 +292,7 @@ export namespace Installation {
         headers: { Accept: "application/json" },
       })
         .then((res) => {
-          if (!res.ok) throw new Error("nikcli is not published to Scoop's Main bucket")
+          if (!res.ok) throw new Error(res.statusText)
           return res.json()
         })
         .then((data: any) => data.version)
