@@ -79,6 +79,31 @@ export namespace ToolRegistry {
     return left < right ? -1 : left > right ? 1 : 0
   }
 
+  /**
+   * Tools that stay registered but are **off until the user asks for them**.
+   *
+   * Everything else is on unless `session.disabledTools` says otherwise. These
+   * invert that: `opentui` carries a large schema and an equally large
+   * description, and it pays for that space in every prompt of every session —
+   * including the ones that will never draw a dashboard. Being registered but
+   * excluded is what lets `/usage` list it and switch it on per session; a flag
+   * in the registry would hide it from that dialog entirely.
+   */
+  export const OPT_IN = new Set(["opentui"])
+
+  /**
+   * Whether a tool goes into the model's tool list, given a session's
+   * `disabledTools` map.
+   *
+   * The map is tri-state for opt-in tools: absent means "not asked for", and
+   * only an explicit `false` — what the `/usage` toggle writes when it enables
+   * a source — turns one on.
+   */
+  export function enabled(id: string, disabled: Record<string, boolean> | undefined): boolean {
+    const value = disabled?.[id]
+    return OPT_IN.has(id) ? value === false : value !== true
+  }
+
   type State = {
     custom: Tool.Info[]
   }

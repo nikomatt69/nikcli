@@ -341,7 +341,7 @@ export namespace SessionContext {
           label: tool.id,
           detail: firstLine ? firstLine.slice(0, 80) : undefined,
           tokens: toolTokens(tool.description, schema),
-          enabled: disabledTools[tool.id] !== true,
+          enabled: ToolRegistry.enabled(tool.id, disabledTools),
           togglable: true,
           toggleKind: "tool",
           toggleKey: tool.id,

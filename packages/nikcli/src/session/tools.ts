@@ -207,7 +207,9 @@ export async function resolveTools(input: {
   const tools: Record<string, AITool> = {}
 
   // Tools the user disabled for this session are dropped entirely: the model
-  // never sees their schema and the permission rule is never registered.
+  // never sees their schema and the permission rule is never registered. The
+  // same map also carries the opt-in tools, which are dropped until it says
+  // otherwise — see `ToolRegistry.enabled`.
   const disabledTools = input.session.disabledTools ?? {}
 
   // Wholly-denied tools (`{ tool: { "name*": "deny" } }` with pattern "*") are
@@ -275,7 +277,7 @@ export async function resolveTools(input: {
     { modelID: input.model.api.id, providerID: input.model.providerID },
     input.agent,
   )) {
-    if (disabledTools[item.id] === true) continue
+    if (!ToolRegistry.enabled(item.id, disabledTools)) continue
     if (PermissionRuleset.disabled([item.id], permissionRuleset).has(item.id)) continue
     const schema = ProviderTransform.schema(
       input.model,
@@ -358,7 +360,7 @@ export async function resolveTools(input: {
     }),
   )
   for (const [key, item] of Object.entries(mcpTools)) {
-    if (disabledTools[key] === true) continue
+    if (!ToolRegistry.enabled(key, disabledTools)) continue
     if (PermissionRuleset.disabled([key], permissionRuleset).has(key)) continue
     const execute = item.execute
     if (!execute) continue

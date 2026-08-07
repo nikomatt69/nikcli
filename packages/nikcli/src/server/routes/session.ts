@@ -425,8 +425,10 @@ export const SessionRoutes = lazy(() =>
               const service = yield* Session.Service
               yield* service.update(sessionID, (draft) => {
                 const map = { ...(draft.disabledTools ?? {}) }
-                if (enabled) delete map[key]
-                else map[key] = true
+                // `false`, not a deleted key: an opt-in tool
+                // (`ToolRegistry.OPT_IN`) reads an absent entry as "never
+                // asked for" and stays off, so enabling has to be recorded.
+                map[key] = !enabled
                 draft.disabledTools = map
               })
             }),

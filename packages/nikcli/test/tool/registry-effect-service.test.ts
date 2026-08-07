@@ -95,6 +95,22 @@ describe("ToolRegistry.Service", () => {
     expect(ids.length).toBeGreaterThan(1)
   })
 
+  it("keeps opt-in tools out of a session that never asked for them", () => {
+    // `opentui` stays registered — that is what lets `/usage` list it — but it
+    // only reaches the model once the toggle has written an explicit `false`.
+    // An absent entry is "never asked for", not "enabled".
+    expect(ToolRegistry.OPT_IN.has("opentui")).toBe(true)
+    expect(ToolRegistry.enabled("opentui", undefined)).toBe(false)
+    expect(ToolRegistry.enabled("opentui", {})).toBe(false)
+    expect(ToolRegistry.enabled("opentui", { opentui: true })).toBe(false)
+    expect(ToolRegistry.enabled("opentui", { opentui: false })).toBe(true)
+
+    // Every other tool keeps the plain meaning: on unless disabled.
+    expect(ToolRegistry.enabled("bash", undefined)).toBe(true)
+    expect(ToolRegistry.enabled("bash", { bash: false })).toBe(true)
+    expect(ToolRegistry.enabled("bash", { bash: true })).toBe(false)
+  })
+
   it("orders ids by code unit rather than host locale", () => {
     // `localeCompare` would sort "Zebra" after "apple" under most locales, making the
     // same tool set serialize differently on different machines.
