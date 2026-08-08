@@ -17,17 +17,7 @@ import { cleanSource, detailLabel, opacityLabel, sourceLabel, stepOpacity } from
 import { readSettings, rotation, writeSettings } from "./store"
 import { listDirectory, shortenPath, suggestedFolders } from "./source"
 
-type Row =
-  | "browse"
-  | "path"
-  | "shuffle"
-  | "opacity"
-  | "fit"
-  | "grayscale"
-  | "detail"
-  | "scope"
-  | "enabled"
-  | "clear"
+type Row = "browse" | "path" | "shuffle" | "opacity" | "fit" | "grayscale" | "detail" | "scope" | "enabled" | "clear"
 
 function isLocal(source: string) {
   return source !== "" && !source.startsWith("data:") && !/^[a-z][a-z0-9+.-]*:\/\//i.test(source)

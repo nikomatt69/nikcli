@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.261.0 (August 2026)
+
+## Mobile
+
+- Update splash screen and app theme settings (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(android): update splash screen and app theme settings
+
 ## v1.250.0 (August 2026)
 
 ## Core
