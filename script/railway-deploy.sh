@@ -39,6 +39,7 @@ mkdir -p \
   "$CTX/packages/httpapi-codegen" \
   "$CTX/packages/simulation" \
   "$CTX/packages/tui-image" \
+  "$CTX/packages/tui-math" \
   "$CTX/packages/terminal-control" \
   "$CTX/packages/browser-control" \
   "$CTX/packages/computer-use" \
@@ -69,6 +70,7 @@ cp "$ROOT/packages/http-recorder/package.json" "$CTX/packages/http-recorder/pack
 cp "$ROOT/packages/httpapi-codegen/package.json" "$CTX/packages/httpapi-codegen/package.json"
 cp "$ROOT/packages/simulation/package.json" "$CTX/packages/simulation/package.json"
 cp "$ROOT/packages/tui-image/package.json" "$CTX/packages/tui-image/package.json"
+cp "$ROOT/packages/tui-math/package.json" "$CTX/packages/tui-math/package.json"
 cp "$ROOT/packages/terminal-control/package.json" "$CTX/packages/terminal-control/package.json"
 cp "$ROOT/packages/browser-control/package.json" "$CTX/packages/browser-control/package.json"
 cp "$ROOT/packages/computer-use/package.json" "$CTX/packages/computer-use/package.json"
@@ -114,6 +116,7 @@ rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/http-recorder/" "$CTX/packages/http-rec
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/httpapi-codegen/" "$CTX/packages/httpapi-codegen/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/simulation/"     "$CTX/packages/simulation/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui-image/"     "$CTX/packages/tui-image/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/tui-math/"       "$CTX/packages/tui-math/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/terminal-control/" "$CTX/packages/terminal-control/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/browser-control/" "$CTX/packages/browser-control/"
 rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/computer-use/" "$CTX/packages/computer-use/"
@@ -156,6 +159,8 @@ rm -rf \
   "$CTX/packages/simulation/.turbo" \
   "$CTX/packages/tui-image/.cache" \
   "$CTX/packages/tui-image/.turbo" \
+  "$CTX/packages/tui-math/.cache" \
+  "$CTX/packages/tui-math/.turbo" \
   "$CTX/packages/terminal-control/.cache" \
   "$CTX/packages/terminal-control/.turbo" \
   "$CTX/packages/browser-control/.cache" \

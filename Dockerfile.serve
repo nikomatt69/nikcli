@@ -37,6 +37,7 @@ COPY packages/http-recorder/package.json /app/packages/http-recorder/
 COPY packages/httpapi-codegen/package.json /app/packages/httpapi-codegen/
 COPY packages/simulation/package.json /app/packages/simulation/
 COPY packages/tui-image/package.json /app/packages/tui-image/
+COPY packages/tui-math/package.json /app/packages/tui-math/
 COPY packages/terminal-control/package.json /app/packages/terminal-control/
 COPY packages/browser-control/package.json /app/packages/browser-control/
 COPY packages/computer-use/package.json /app/packages/computer-use/
@@ -46,6 +47,7 @@ COPY github/package.json /app/github/
 RUN set -e; \
     for entry in \
       "packages/app:@nikcli-ai/app" \
+      "packages/bench-tui:@nikcli-ai/bench-tui" \
       "packages/cloud:@nikcli-ai/cloud" \
       "packages/companion/ui:@nikcli-ai/companion-ui" \
       "packages/console/app:@nikcli-ai/console-app" \
@@ -56,7 +58,10 @@ RUN set -e; \
       "packages/desktop:@nikcli-ai/desktop" \
       "packages/enterprise:@nikcli-ai/enterprise" \
       "packages/function:@nikcli-ai/function" \
+      "packages/inference:@nikcli-ai/inference" \
+      "packages/inference-dashboard:@nikcli-ai/inference-dashboard" \
       "packages/mobile:@nikcli-ai/mobile" \
+      "packages/nikcli-island:@nikcli-ai/nikcli-island" \
       "packages/plugin/plugins/agent-memory:@nikcli-ai/plugin-agent-memory" \
       "packages/plugin/plugins/background-agents:@nikcli-ai/plugin-background-agents" \
       "packages/plugin/plugins/background:@nikcli-ai/plugin-background" \
@@ -68,6 +73,7 @@ RUN set -e; \
       "packages/plugin/plugins/safety-net:@nikcli-ai/plugin-safety-net" \
       "packages/plugin/plugins/smart-title:@nikcli-ai/plugin-smart-title" \
       "packages/remote/web-client:@nikcli-ai/remote-client" \
+      "packages/sdk-next:@nikcli-ai/sdk-next" \
       "packages/ui:@nikcli-ai/ui" \
       "packages/web:@nikcli-ai/web" \
       "packages/webrenderer:@opentui/webrenderer" \
@@ -94,6 +100,7 @@ COPY packages/http-recorder /app/packages/http-recorder
 COPY packages/httpapi-codegen /app/packages/httpapi-codegen
 COPY packages/simulation /app/packages/simulation
 COPY packages/tui-image /app/packages/tui-image
+COPY packages/tui-math /app/packages/tui-math
 COPY packages/terminal-control /app/packages/terminal-control
 COPY packages/browser-control /app/packages/browser-control
 COPY packages/computer-use /app/packages/computer-use
