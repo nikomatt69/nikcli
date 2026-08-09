@@ -1,3 +1,4 @@
+import { removeTestDir } from "../helpers/fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -16,7 +17,7 @@ function runDatabase<A, E>(effect: Effect.Effect<A, E, Database.Service>) {
 }
 
 afterAll(async () => {
-  await fs.rm(testDir, { recursive: true, force: true })
+  await removeTestDir(testDir)
 })
 
 describe("Database.Service", () => {
@@ -213,7 +214,7 @@ describe("Database.Service", () => {
       expect(result.event?.seq).toBe(3)
       expect(result.sequence?.seq).toBe(3)
     } finally {
-      await fs.rm(legacyDir, { recursive: true, force: true })
+      await removeTestDir(legacyDir)
     }
   })
 })

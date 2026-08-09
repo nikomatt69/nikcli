@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { removeTestDir } from "../helpers/fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -74,8 +75,8 @@ afterEach(async () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await fs.rm(testHome, { recursive: true, force: true })
-  await fs.rm(projectDir, { recursive: true, force: true })
+  await removeTestDir(testHome)
+  await removeTestDir(projectDir)
 })
 
 function makeDef(overrides: Partial<LoopDefinition> = {}): LoopDefinition {

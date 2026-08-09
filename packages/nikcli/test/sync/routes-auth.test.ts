@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { removeTestDir } from "../helpers/fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -16,7 +17,7 @@ const { SyncRoutes } = await import("@/server/routes/sync")
 const run = Math.random().toString(36).slice(2)
 
 afterAll(async () => {
-  await fs.rm(testDir, { recursive: true, force: true })
+  await removeTestDir(testDir)
 })
 
 type FakeToken = { id: string; name: string; scope: string; createdAt: number }

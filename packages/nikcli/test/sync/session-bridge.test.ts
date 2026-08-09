@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { removeTestDir } from "../helpers/fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -21,7 +22,7 @@ const { SyncStorage } = await import("@/sync")
 const NoopEvent = BusEvent.define("test.session-bridge.noop", z.object({ sessionID: z.string() }))
 
 afterAll(async () => {
-  await fs.rm(testDir, { recursive: true, force: true })
+  await removeTestDir(testDir)
 })
 
 async function waitForEvents(projectID: string, aggregate: string, count: number, timeoutMs = 3_000) {
@@ -69,7 +70,7 @@ describe("SessionSyncBridge", () => {
       })
     } finally {
       await Instance.provide({ directory, fn: () => Instance.dispose() })
-      await fs.rm(directory, { recursive: true, force: true })
+      await removeTestDir(directory)
     }
   })
 })
