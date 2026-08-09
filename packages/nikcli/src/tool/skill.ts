@@ -15,6 +15,31 @@ function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
+/**
+ * The model-visible catalog: **names only**.
+ *
+ * Spelling out every skill's description, category and tags here cost ~16 KB of
+ * prompt for the bundled set — a quarter of the entire tool surface — and it is
+ * paid on every request of every session, almost all of it describing skills the
+ * task will never touch. The names are what the model needs in order to know a
+ * skill *exists*; `search` already returns the descriptions on demand and `name`
+ * loads the skill itself, so nothing is lost but the standing cost.
+ */
+export function catalogDescription(skills: readonly { name: string }[]): string {
+  if (skills.length === 0) {
+    return "Load a skill to get detailed instructions for a specific task. No skills are currently available."
+  }
+  return [
+    "Load a skill to get detailed instructions for a specific task.",
+    "Skills provide specialized knowledge and step-by-step guidance.",
+    "Only the skills named here are available:",
+    `<available_skills>${skills.map((skill) => skill.name).join(", ")}</available_skills>`,
+    "The names are deliberately terse. Call `skill({ search })` to read what any of them",
+    "actually do — matching on name, description, category or tags — then `skill({ name })`",
+    "to load one. When a task plausibly matches a name, search before assuming it does not fit.",
+  ].join(" ")
+}
+
 export const SkillTool = Tool.define("skill", async (ctx) => {
   const allSkills = await runSkill(
     Effect.gen(function* () {
@@ -31,26 +56,7 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
       })
     : allSkills
 
-  const description =
-    accessibleSkills.length === 0
-      ? "Load a skill to get detailed instructions for a specific task. No skills are currently available."
-      : [
-          "Load a skill to get detailed instructions for a specific task.",
-          "Skills provide specialized knowledge and step-by-step guidance.",
-          "Use this when a task matches an available skill's description.",
-          "Only the skills listed here are available:",
-          "<available_skills>",
-          ...accessibleSkills.flatMap((skill) =>
-            [
-              `  <skill>`,
-              `    <name>${skill.name}</name>`,
-              `    <description>${skill.description}</description>`,
-              skill.category ? `    <category>${skill.category}</category>` : null,
-              skill.tags?.length ? `    <tags>${skill.tags.join(", ")}</tags>` : null,
-            ].filter(Boolean),
-          ),
-          "</available_skills>",
-        ].join(" ")
+  const description = catalogDescription(accessibleSkills)
 
   const examples = accessibleSkills
     .map((skill) => `'${skill.name}'`)
