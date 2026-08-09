@@ -29,6 +29,12 @@ const { PtyEnvironment } = await import("@/pty/environment")
 
 const projectDirs: string[] = []
 
+// The PTY itself works on Windows — `bun-pty` opens a ConPTY there — but
+// `/bin/sleep` and `/bin/sh` do not exist, so a POSIX command line was the only
+// thing failing these cases. Driving the runtime already running the suite
+// keeps one command line for every platform and keeps the assertions intact.
+const RUNTIME = process.execPath
+
 async function makeProjectDir() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-pty-effect-project-"))
   const resolved = await fs.realpath(dir)
@@ -46,8 +52,8 @@ describe("Pty.Service", () => {
           const pty = yield* Pty.Service
           const empty = yield* pty.list()
           const created = yield* pty.create({
-            command: "/bin/sleep",
-            args: ["2"],
+            command: RUNTIME,
+            args: ["-e", "setTimeout(() => {}, 2000)"],
             title: "Effect PTY",
           })
           const found = yield* pty.get(created.id)
@@ -95,8 +101,11 @@ describe("Pty.Service", () => {
         Effect.gen(function* () {
           const pty = yield* Pty.Service
           const created = yield* pty.create({
-            command: "/bin/sh",
-            args: ["-c", 'printf "%s|%s|%s\\n" "$SHARED" "$PLUGIN" "$TERM"; sleep 1'],
+            command: RUNTIME,
+            args: [
+              "-e",
+              'const e = process.env; console.log([e.SHARED, e.PLUGIN, e.TERM].join("|")); setTimeout(() => {}, 1000)',
+            ],
             env: { SHARED: "caller", TERM: "caller" },
           })
           // Subscribe before the command finishes so its output streams live.
