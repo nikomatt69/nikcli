@@ -47,41 +47,40 @@ function harness() {
     },
   } as unknown as Env
 
+  const fetch = (request: Request) => Promise.resolve(app.fetch(request, env))
+
   const post = (path: string, form: Record<string, string>, ip = "203.0.113.7") =>
-    app.fetch(
+    fetch(
       new Request(`https://auth.nikcli.store${path}`, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded", "cf-connecting-ip": ip },
         body: new URLSearchParams(form).toString(),
       }),
-      env,
     )
 
-  const get = (path: string) => app.fetch(new Request(`https://auth.nikcli.store${path}`), env)
+  const get = (path: string) => fetch(new Request(`https://auth.nikcli.store${path}`))
 
   async function startDevice() {
-    const response = await app.fetch(
+    const response = await fetch(
       new Request("https://auth.nikcli.store/oauth/device/code", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ client_id: "nikcli", scope: "openid profile email offline_access" }),
       }),
-      env,
     )
     return (await response.json()) as { device_code: string; user_code: string; verification_uri_complete: string }
   }
 
-  const pollDevice = (deviceCode: string) =>
-    app
-      .fetch(
-        new Request("https://auth.nikcli.store/oauth/device/token", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ client_id: "nikcli", device_code: deviceCode }),
-        }),
-        env,
-      )
-      .then((response) => response.json() as Promise<{ status: string }>)
+  const pollDevice = async (deviceCode: string) => {
+    const response = await fetch(
+      new Request("https://auth.nikcli.store/oauth/device/token", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ client_id: "nikcli", device_code: deviceCode }),
+      }),
+    )
+    return (await response.json()) as { status: string }
+  }
 
   return { env, sent, db, post, get, startDevice, pollDevice }
 }
