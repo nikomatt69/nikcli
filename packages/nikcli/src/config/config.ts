@@ -922,6 +922,11 @@ export namespace Config {
       session_rename: z.string().optional().default("ctrl+r").describe("Rename session"),
       session_delete: z.string().optional().default("ctrl+d").describe("Delete session"),
       session_pin_toggle: z.string().optional().default("<leader>p").describe("Toggle session pin"),
+      session_scope_toggle: z
+        .string()
+        .optional()
+        .default("ctrl+g")
+        .describe("Toggle the session list between the current project and the global project"),
       session_tab_back: z.string().optional().default("ctrl+o").describe("Go back through session tab history"),
       session_tab_forward: z
         .string()

@@ -22,14 +22,30 @@ export interface DialogSelectProps<T> {
   onSelect?: (option: DialogSelectOption<T>) => void
   skipFilter?: boolean
   getOptionKey?: (option: DialogSelectOption<T>, index: number) => string
-  keybind?: {
-    keybind?: Keybind.Info
-    title: string
-    disabled?: boolean
-    onTrigger: (option: DialogSelectOption<T>) => void
-  }[]
+  keybind?: DialogSelectKeybind<T>[]
   current?: T
 }
+
+/**
+ * `allowEmpty` keybinds fire even with nothing selected, which is what actions
+ * that change *which* options exist (a scope switch, a reload) need: without it
+ * an empty result list is a dead end you cannot toggle out of.
+ */
+export type DialogSelectKeybind<T> =
+  | {
+      keybind?: Keybind.Info
+      title: string
+      disabled?: boolean
+      allowEmpty?: false
+      onTrigger: (option: DialogSelectOption<T>) => void
+    }
+  | {
+      keybind?: Keybind.Info
+      title: string
+      disabled?: boolean
+      allowEmpty: true
+      onTrigger: (option: DialogSelectOption<T> | undefined) => void
+    }
 
 export interface DialogSelectOption<T = unknown> {
   title: string
@@ -256,11 +272,10 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       if (item.disabled || !item.keybind) continue
       if (Keybind.match(item.keybind, keybind.parse(evt))) {
         const s = selected()
-        if (s) {
-          evt.preventDefault()
-          evt.stopPropagation()
-          item.onTrigger(s)
-        }
+        if (!s && !item.allowEmpty) continue
+        evt.preventDefault()
+        evt.stopPropagation()
+        item.onTrigger(s as DialogSelectOption<T>)
       }
     }
   })

@@ -14,8 +14,18 @@ import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 import { useToast } from "../ui/toast"
 import { Keybind } from "@/util/keybind"
 import { Spinner } from "./spinner"
+import { abbreviateHome } from "../util/path-format"
+import path from "path"
 import { DialogWorkspaceCreate, openWorkspace } from "./dialog-workspace-list"
 type WorkspaceStatus = "connected" | "connecting" | "disconnected" | "error"
+
+/**
+ * "project" lists what the instance's own project owns; "global" lists the
+ * global project — the sessions started outside any repo, which a project-bound
+ * TUI would otherwise have no way to reach. The switch is a view: sessions open
+ * by id regardless of which project stores them.
+ */
+type Scope = "project" | "global"
 
 export function DialogSessionList(props: { workspaceID?: string; localOnly?: boolean } = {}) {
   const dialog = useDialog()
@@ -29,6 +39,29 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
 
   const [toDelete, setToDelete] = createSignal<string>()
   const [search, setSearch] = createDebouncedSignal("", 150)
+  const [scope, setScope] = createSignal<Scope>("project")
+
+  // A workspace or local-only list is already scoped by its own rule; the
+  // project/global switch only makes sense for the plain session list.
+  const scopeSwitchable = createMemo(() => !props.workspaceID && !props.localOnly)
+  const globalScope = createMemo(() => scopeSwitchable() && scope() === "global")
+
+  /**
+   * The filesystem root has no `.git` above it, so the server resolves it to
+   * the global project — the same project a `nikcli` started outside a repo
+   * binds to.
+   */
+  const globalDirectory = createMemo(() => path.parse(sync.data.path.directory || sdk.directory || ".").root || "/")
+
+  /**
+   * `keybind.all` is typed from the generated `KeybindsConfig`, which only
+   * catches up with the config schema when the SDK is rebuilt — so read the
+   * configured binding off the raw config and fall back to the schema default.
+   */
+  const scopeKeybind = createMemo(() => {
+    const keybinds = sync.data.config.keybinds as Record<string, string | undefined> | undefined
+    return Keybind.parse(keybinds?.["session_scope_toggle"] || "ctrl+g")[0]
+  })
 
   const workspaceClient = () => {
     if (!props.workspaceID) return sdk.client
@@ -39,6 +72,17 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
       workspace: props.workspaceID,
     })
   }
+
+  const globalClient = createMemo(() =>
+    createNikcliClient({
+      baseUrl: sdk.url,
+      fetch: sdk.fetch,
+      directory: globalDirectory(),
+    }),
+  )
+
+  /** The client that owns the sessions currently on screen. */
+  const scopeClient = () => (globalScope() ? globalClient() : workspaceClient())
 
   async function restoreWorkspace(workspaceID: string) {
     const restored = await sdk.client.experimental.workspace.restore({ id: workspaceID }).catch(() => undefined)
@@ -61,25 +105,43 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
     },
   )
 
-  const [searchResults] = createResource(search, async (query) => {
-    if (!query || props.localOnly) return undefined
-    if (props.workspaceID) {
-      const ready = await restoreWorkspace(props.workspaceID)
-      if (!ready) return []
-    }
-    const result = await workspaceClient().session.list({
-      search: query,
-      limit: 30,
-      ...(props.workspaceID ? { roots: true } : {}),
-    })
-    return result.data ?? []
-  })
+  const [globalSessions, { mutate: mutateGlobal }] = createResource(
+    () => (globalScope() ? globalDirectory() : undefined),
+    async () => {
+      const result = await globalClient()
+        .session.list({ roots: true })
+        .catch(() => undefined)
+      if (!result) {
+        toast.show({ message: "Failed to load global sessions", variant: "error" })
+        return []
+      }
+      return result.data ?? []
+    },
+  )
+
+  const [searchResults] = createResource(
+    () => ({ query: search(), global: globalScope() }),
+    async (input) => {
+      if (!input.query || props.localOnly) return undefined
+      if (props.workspaceID) {
+        const ready = await restoreWorkspace(props.workspaceID)
+        if (!ready) return []
+      }
+      const result = await scopeClient().session.list({
+        search: input.query,
+        limit: 30,
+        ...(props.workspaceID || input.global ? { roots: true } : {}),
+      })
+      return result.data ?? []
+    },
+  )
 
   const currentSessionID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
 
   const sessions = createMemo(() => {
     if (searchResults()) return searchResults()!
     if (props.workspaceID) return listed() ?? []
+    if (globalScope()) return globalSessions() ?? []
     if (props.localOnly) return sync.data.session.filter((session) => !session.workspaceID)
     return sync.data.session
   })
@@ -99,6 +161,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
         if (x.parentID !== undefined) return false
         if (props.workspaceID && listed()) return true
         if (props.workspaceID) return x.workspaceID === props.workspaceID
+        if (globalScope()) return true
         if (props.localOnly) return !x.workspaceID
         return true
       })
@@ -130,7 +193,11 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           ? workspace
             ? `${workspace.config.type}: ${workspace.name || workspace.id}`
             : "unknown workspace"
-          : Locale.time(x.time.updated)
+          : globalScope()
+            ? // Global sessions come from anywhere on disk, so the time alone
+              // does not say which one you are about to open.
+              `${Locale.time(x.time.updated)} · ${abbreviateHome(x.directory, sync.data.path.home)}`
+            : Locale.time(x.time.updated)
 
         const gutter = isWorking ? (
           <Spinner />
@@ -157,7 +224,15 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
 
   return (
     <DialogSelect
-      title={props.workspaceID ? "Workspace Sessions" : props.localOnly ? "Local Sessions" : "Sessions"}
+      title={
+        props.workspaceID
+          ? "Workspace Sessions"
+          : props.localOnly
+            ? "Local Sessions"
+            : globalScope()
+              ? "Sessions · Global"
+              : "Sessions · Project"
+      }
       options={options()}
       skipFilter={!!props.localOnly}
       current={currentSessionID()}
@@ -179,7 +254,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           title: "delete",
           onTrigger: async (option) => {
             if (toDelete() === option.value) {
-              const deleted = await workspaceClient()
+              const deleted = await scopeClient()
                 .session.delete({
                   sessionID: option.value,
                 })
@@ -195,6 +270,10 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
               }
               if (props.workspaceID) {
                 mutateListed((sessions) => sessions?.filter((session) => session.id !== option.value))
+                return
+              }
+              if (globalScope()) {
+                mutateGlobal((sessions) => sessions?.filter((session) => session.id !== option.value))
                 return
               }
               sync.set(
@@ -224,6 +303,18 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
               variant: "info",
               duration: 2000,
             })
+          },
+        },
+        {
+          keybind: scopeKeybind(),
+          title: globalScope() ? "project scope" : "global scope",
+          disabled: !scopeSwitchable(),
+          // Fires with nothing selected on purpose: a scope with zero sessions
+          // must still be switchable back.
+          allowEmpty: true,
+          onTrigger: () => {
+            setToDelete(undefined)
+            setScope((current) => (current === "global" ? "project" : "global"))
           },
         },
         {

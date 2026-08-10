@@ -30,6 +30,12 @@ const { MessageRepo } = await import("@/session/message-repo")
 
 const projectDirs: string[] = []
 
+async function git(directory: string, ...args: string[]) {
+  const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
+  const [code, stderr] = await Promise.all([process.exited, new Response(process.stderr).text()])
+  if (code !== 0) throw new Error(stderr)
+}
+
 async function makeProjectDir() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-session-project-"))
   const resolved = await fs.realpath(dir)
@@ -61,6 +67,25 @@ async function patch(pathname: string, directory: string, body: unknown) {
 
 async function remove(pathname: string, directory: string) {
   return jsonRequest("DELETE", pathname, directory)
+}
+
+/**
+ * Lists sessions the way an SDK client does: the directory rides on
+ * `x-nikcli-directory` (instance selection) instead of the `directory` query
+ * parameter (a per-directory filter), so the result is the whole project the
+ * directory belongs to. This is what the TUI project/global scope switch uses.
+ */
+async function listByInstance(directory: string, params: Record<string, string> = {}) {
+  process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
+  const url = new URL("/session", "http://nikcli.local")
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value)
+  }
+  const response = await Server.App().fetch(new Request(url, { headers: { "x-nikcli-directory": directory } }))
+  if (response.status !== 200) {
+    throw new Error(`Expected /session to return 200, got ${response.status}: ${await response.text()}`)
+  }
+  return (await response.json()) as { id: string; title: string; directory: string }[]
 }
 
 async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown) {
@@ -260,6 +285,38 @@ describe("Session HttpApi bridge", () => {
 
     const todos = (await request(`/session/${created.id}/todo`, directory)) as unknown[]
     expect(todos).toEqual([])
+  })
+
+  it("separates project sessions from global ones so the TUI can switch scope", async () => {
+    const projectDirectory = await makeProjectDir()
+    await git(projectDirectory, "init")
+    await git(
+      projectDirectory,
+      "-c",
+      "user.email=test@example.com",
+      "-c",
+      "user.name=Test",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "root",
+    )
+    // No `.git` above a temp dir, so this one belongs to the global project —
+    // exactly like the `/` the TUI binds its global-scope client to.
+    const globalDirectory = await makeProjectDir()
+
+    const projectSession = (await post("/session", projectDirectory, { title: "Project scope" })) as { id: string }
+    const globalSession = (await post("/session", globalDirectory, { title: "Global scope" })) as { id: string }
+
+    const projectScope = await listByInstance(projectDirectory, { roots: "true" })
+    expect(projectScope.map((session) => session.id)).toContain(projectSession.id)
+    expect(projectScope.map((session) => session.id)).not.toContain(globalSession.id)
+
+    // `/` resolves to the global project, and lists its sessions whatever
+    // directory they were started in.
+    const globalScope = await listByInstance(path.parse(globalDirectory).root, { roots: "true" })
+    expect(globalScope.map((session) => session.id)).toContain(globalSession.id)
+    expect(globalScope.map((session) => session.id)).not.toContain(projectSession.id)
   })
 
   it("returns the declared 404 body for a missing session", async () => {
