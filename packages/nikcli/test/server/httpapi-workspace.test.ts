@@ -130,7 +130,8 @@ describe("Workspace HttpApi bridge", () => {
     }>
     expect(adaptors).toContainEqual({
       type: "worktree",
-      name: "Worktree",
+      // Surfaced as "Project copy" to match opencode v2's terminology.
+      name: "Project copy",
       description: "Create a local git worktree",
       available: true,
     })

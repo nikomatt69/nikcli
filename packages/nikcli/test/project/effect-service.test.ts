@@ -43,6 +43,9 @@ describe("Project.Service", () => {
       )
 
       expect(result.created.project.id).toBe("global")
+      // A directory with no VCS resolves to the filesystem root, matching
+      // opencode v2's `path.parse(input).root` fallback for the global project.
+      expect(result.created.project.canonical).toBe(path.parse(projectDir).root)
       expect(result.updated.name).toBe("Project Service Test")
       expect(result.listed.map((project) => project.id)).toContain("global")
       expect(result.withSandbox.sandboxes).toEqual([])
@@ -50,6 +53,65 @@ describe("Project.Service", () => {
     } finally {
       await fs.rm(projectDir, { recursive: true, force: true })
       await fs.rm(sandboxDir, { recursive: true, force: true })
+    }
+  })
+
+  it("uses a normalized origin identity and tracks canonical project directories", async () => {
+    const sshDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-project-ssh-"))
+    const httpsDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-project-https-"))
+    const git = async (directory: string, ...args: string[]) => {
+      const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
+      const [code, stderr] = await Promise.all([process.exited, new Response(process.stderr).text()])
+      if (code !== 0) throw new Error(stderr)
+    }
+
+    try {
+      await Promise.all(
+        [
+          [sshDir, "git@github.com:Acme/App.git"],
+          [httpsDir, "https://github.com/Acme/App.git"],
+        ].map(async ([directory, remote]) => {
+          await git(directory, "init")
+          await git(
+            directory,
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "root",
+          )
+          await git(directory, "remote", "add", "origin", remote)
+        }),
+      )
+
+      const [ssh, https] = await Promise.all([
+        runProject(
+          Effect.gen(function* () {
+            return yield* (yield* Project.Service).fromDirectory(sshDir)
+          }),
+        ),
+        runProject(
+          Effect.gen(function* () {
+            return yield* (yield* Project.Service).fromDirectory(httpsDir)
+          }),
+        ),
+      ])
+      expect(ssh.project.id).toBe(https.project.id)
+      expect(ssh.project.id).not.toBe("global")
+      expect(
+        await runProject(
+          Effect.gen(function* () {
+            return yield* (yield* Project.Service).directories(ssh.project.id)
+          }),
+        ),
+      ).toEqual(
+        expect.arrayContaining([{ directory: await fs.realpath(sshDir) }, { directory: await fs.realpath(httpsDir) }]),
+      )
+    } finally {
+      await Promise.all([sshDir, httpsDir].map((directory) => fs.rm(directory, { recursive: true, force: true })))
     }
   })
 })

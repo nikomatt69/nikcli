@@ -217,10 +217,10 @@ export function DialogWorkspaceList() {
 
   const options = createMemo(() => [
     {
-      title: "Local",
+      title: "Main checkout",
       value: "__local__",
-      category: "Workspace",
-      description: "Use the local machine",
+      category: "Project",
+      description: "Use the canonical project directory",
       footer: `${localCount()} session${localCount() === 1 ? "" : "s"}`,
     },
     ...sync.data.workspaceList
@@ -237,8 +237,12 @@ export function DialogWorkspaceList() {
                 ? `Delete ${label}? Press ${keybind.print("session_delete")} again`
                 : label,
           value: workspace.id,
-          category: workspace.config.type,
-          description: workspace.branch ? `Branch ${workspace.branch}` : undefined,
+          category: workspace.config.type === "worktree" ? "Project copy" : "Remote workspace",
+          description: workspace.branch
+            ? `Branch ${workspace.branch}`
+            : workspace.config.type === "worktree"
+              ? "Detached"
+              : undefined,
           gutter: (
             <text fg={status === "connected" ? theme.success : status === "error" ? theme.error : theme.textMuted}>
               ●
@@ -253,10 +257,10 @@ export function DialogWorkspaceList() {
         }
       }),
     {
-      title: "+ New workspace",
+      title: "+ New environment",
       value: "__create__",
       category: "Actions",
-      description: "Create a new workspace",
+      description: "Create a local project copy or remote workspace",
     },
   ])
 

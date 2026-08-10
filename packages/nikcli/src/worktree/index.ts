@@ -34,6 +34,8 @@ export namespace Worktree {
     baseBranch: Schema.optional(Schema.String),
     remote: Schema.optional(Schema.String),
     startCommand: Schema.optional(Schema.String),
+    detached: Schema.optional(Schema.Boolean),
+    sourceDirectory: Schema.optional(Schema.String),
     /**
      * Where to materialize the worktree directory. Relative paths resolve
      * against the project worktree; the default is nikcli's global data dir.
@@ -50,6 +52,7 @@ export namespace Worktree {
 
   const RemoveInputSchema = Schema.Struct({
     directory: Schema.String,
+    force: Schema.optional(Schema.Boolean),
   }).annotate({ identifier: "WorktreeRemoveInput" })
   export const RemoveInput = zodObject(RemoveInputSchema)
   export type RemoveInput = Schema.Schema.Type<typeof RemoveInputSchema>
@@ -84,6 +87,7 @@ export namespace Worktree {
 
   export class RemoveFailedError extends Schema.TaggedErrorClass<RemoveFailedError>()("WorktreeRemoveFailedError", {
     message: Schema.String,
+    forceRequired: Schema.optional(Schema.Boolean),
   }) {}
 
   export class ResetFailedError extends Schema.TaggedErrorClass<ResetFailedError>()("WorktreeResetFailedError", {
@@ -235,7 +239,14 @@ export namespace Worktree {
 
   const log = Log.create({ service: "worktree" })
 
-  export type WorktreeEntry = { path?: string; branch?: string }
+  export type WorktreeEntry = { path?: string; branch?: string; kind?: "main" | "linked" }
+
+  /**
+   * A git worktree tagged main-vs-linked, mirroring opencode v2's
+   * `git.worktree.list`. Unlike `list()` this keeps the main worktree so
+   * callers can classify project roots against their copies.
+   */
+  export type Entry = { directory: string; branch?: string; kind: "main" | "linked" }
   type RegistryRecord = Info & { createdAt: number; updatedAt: number }
 
   export class Service extends Context.Service<
@@ -252,6 +263,12 @@ export namespace Worktree {
       remove(input: RemoveInput): Effect.Effect<boolean, Error>
       reset(input: ResetInput): Effect.Effect<boolean, Error>
       list(): Effect.Effect<Info[], Error>
+      /**
+       * All worktrees of the repo containing `directory` (default: the project
+       * worktree), tagged main vs linked. Mirrors opencode v2's
+       * `git.worktree.list`, which `ProjectCopy` uses to reconcile.
+       */
+      listEntries(directory?: string): Effect.Effect<Entry[], Error>
     }
   >()("Worktree.Service") {}
 
@@ -325,6 +342,15 @@ export namespace Worktree {
           const ctx = yield* InstanceState.context
           return yield* Effect.tryPromise({
             try: () => listImpl(ctx),
+            catch: asWorktreeError,
+          })
+        })
+      },
+      listEntries(directory) {
+        return Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          return yield* Effect.tryPromise({
+            try: () => listEntriesImpl(ctx, directory),
             catch: asWorktreeError,
           })
         })
@@ -452,7 +478,8 @@ export namespace Worktree {
     return lines.reduce<WorktreeEntry[]>((acc, line) => {
       if (!line) return acc
       if (line.startsWith("worktree ")) {
-        acc.push({ path: line.slice("worktree ".length).trim() })
+        // `git worktree list --porcelain` always emits the main worktree first.
+        acc.push({ path: line.slice("worktree ".length).trim(), kind: acc.length === 0 ? "main" : "linked" })
         return acc
       }
       const current = acc[acc.length - 1]
@@ -481,6 +508,26 @@ export namespace Worktree {
       const name = base === primaryName ? path.basename(path.dirname(directory)) : base
       const branch = entry.branch?.replace(/^refs\/heads\//, "")
       result.push(Info.parse({ name, directory, ...(branch ? { branch } : {}) }))
+    }
+    return result
+  }
+
+  /**
+   * Every worktree of the repo containing `directory`, main one included.
+   * `parseWorktrees` drops the primary and is name-oriented; this keeps the
+   * `kind` tag so `ProjectCopy` can separate roots from copies.
+   */
+  async function listEntriesImpl(ctx: InstanceContext, directory?: string): Promise<Entry[]> {
+    const entries = await listWorktrees(ctx, directory)
+    const result: Entry[] = []
+    for (const entry of entries) {
+      if (!entry.path) continue
+      const branch = entry.branch?.replace(/^refs\/heads\//, "")
+      result.push({
+        directory: await canonicalPath(entry.path),
+        kind: entry.kind ?? "linked",
+        ...(branch ? { branch } : {}),
+      })
     }
     return result
   }
@@ -526,6 +573,7 @@ export namespace Worktree {
       branchPrefix?: string
       detached?: boolean
     },
+    cwd = ctx.worktree,
   ) {
     for (const attempt of Array.from({ length: 26 }, (_, i) => i)) {
       const base = input?.name
@@ -543,7 +591,7 @@ export namespace Worktree {
 
       if (branch) {
         const ref = `refs/heads/${branch}`
-        const branchCheck = await Git.run(["show-ref", "--verify", "--quiet", ref], { cwd: ctx.worktree })
+        const branchCheck = await Git.run(["show-ref", "--verify", "--quiet", ref], { cwd })
         if (branchCheck.exitCode === 0) continue
       }
 
@@ -584,12 +632,12 @@ export namespace Worktree {
   async function materializeWorktree(
     ctx: InstanceContext,
     info: Info,
-    input?: { startCommand?: string; target?: string },
+    input?: { startCommand?: string; target?: string; sourceDirectory?: string },
   ) {
     const args = info.branch
       ? ["worktree", "add", "-b", info.branch, info.directory, ...(input?.target ? [input.target] : [])]
       : ["worktree", "add", "--detach", info.directory, input?.target ?? "HEAD"]
-    const created = await Git.run(args, { cwd: ctx.worktree })
+    const created = await Git.run(args, { cwd: input?.sourceDirectory ?? ctx.worktree })
     if (created.exitCode !== 0) {
       throw new CreateFailedError({
         message: created.text().trim() || "Failed to create git worktree",
@@ -683,6 +731,7 @@ export namespace Worktree {
     }
 
     const root = resolveRoot(ctx, input?.root)
+    const sourceDirectory = input?.sourceDirectory ? await canonicalPath(input.sourceDirectory) : ctx.worktree
     await fs.mkdir(root, { recursive: true })
     await ignoreRoot(ctx, root)
 
@@ -693,13 +742,19 @@ export namespace Worktree {
       .map((part) => slug(part))
       .filter(Boolean)
       .join("/")
-    const info = await candidate(ctx, root, {
-      name: base || undefined,
-      branch: explicitBranch || undefined,
-      branchPrefix: branchPrefix || undefined,
-    })
+    const info = await candidate(
+      ctx,
+      root,
+      {
+        name: base || undefined,
+        branch: explicitBranch || undefined,
+        branchPrefix: branchPrefix || undefined,
+        detached: input?.detached,
+      },
+      sourceDirectory,
+    )
 
-    const remote = await detectRemote(ctx, input?.remote)
+    const remote = await detectRemote({ ...ctx, worktree: sourceDirectory }, input?.remote)
     const baseBranch = input?.baseBranch?.trim()
     const target = baseBranch ? (remote ? `${remote}/${baseBranch}` : baseBranch) : undefined
 
@@ -708,7 +763,7 @@ export namespace Worktree {
       const remoteTracking = `refs/remotes/${remote}/${baseBranch}`
       const fetchRefspec = `+${remoteHead}:${remoteTracking}`
       const fetch = await Git.run(["fetch", remote, fetchRefspec], {
-        cwd: ctx.worktree,
+        cwd: sourceDirectory,
       })
       if (fetch.exitCode !== 0) {
         throw new CreateFailedError({
@@ -720,6 +775,7 @@ export namespace Worktree {
     await materializeWorktree(ctx, info, {
       startCommand: input?.startCommand,
       target,
+      sourceDirectory,
     })
     return info
   }
@@ -764,12 +820,19 @@ export namespace Worktree {
     }
 
     await stopFsmonitor(entry.path)
-    const removed = await Git.run(["worktree", "remove", "--force", entry.path], { cwd: ctx.worktree })
+    const force = input.force !== false
+    const removed = await Git.run(["worktree", "remove", ...(force ? ["--force"] : []), entry.path], {
+      cwd: ctx.worktree,
+    })
     if (removed.exitCode !== 0) {
       const stale = await findWorktreeEntry(ctx, directory)
       if (stale?.path) {
+        // `Git.run().text()` is stdout-only, and git reports the dirty-worktree
+        // refusal on stderr, so the reason has to come from `errorText`.
+        const reason = errorText(removed)
         throw new RemoveFailedError({
-          message: removed.text().trim() || "Failed to remove git worktree",
+          message: reason || "Failed to remove git worktree",
+          forceRequired: !force && /contains modified or untracked files|is dirty|use --force/i.test(reason),
         })
       }
     }

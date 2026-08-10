@@ -1,6 +1,7 @@
 import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
+import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useProject } from "@tui/context/project"
@@ -18,10 +19,12 @@ type Adaptor = {
   description: string
 }
 
+// Fallback shown only when the adaptor list cannot be fetched; keep the wording
+// in sync with the server's `WorktreeAdaptor`.
 const DEFAULT_ADAPTORS: Adaptor[] = [
   {
     type: "worktree",
-    name: "Worktree",
+    name: "Project copy",
     description: "Create a local git worktree",
   },
 ]
@@ -177,14 +180,19 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
     })()
   })
 
+  const adaptorName = (type: string) => adaptors()?.find((item) => item.type === type)?.name ?? type
+
   const options = createMemo(() => {
     const type = creating()
     if (type) {
       return [
         {
-          title: `Creating ${type} workspace...`,
+          title: `Creating ${adaptorName(type)}...`,
           value: "creating" as const,
-          description: "This can take a while for remote environments",
+          description:
+            type === "worktree"
+              ? "Adding the git worktree and linking node_modules"
+              : "This can take a while for remote environments",
         },
       ]
     }
@@ -192,9 +200,9 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
     if (!list) {
       return [
         {
-          title: "Loading workspaces...",
+          title: "Loading environments...",
           value: "loading" as const,
-          description: "Fetching available workspace adaptors",
+          description: "Fetching available adaptors",
         },
       ]
     }
@@ -205,7 +213,7 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
     }))
   })
 
-  const create = async (type: string) => {
+  const create = async (type: string, name?: string) => {
     if (creating()) return
     setCreating(type)
     log.info("workspace create requested", { type })
@@ -218,6 +226,7 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
         config: {
           type,
           directory: sync.data.path.directory || sdk.directory || process.cwd(),
+          ...(type === "worktree" && name ? { name } : {}),
         } as any,
       })
       .catch((err) => {
@@ -249,11 +258,22 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
 
   return (
     <DialogSelect
-      title={creating() ? "Creating Workspace" : "New Workspace"}
+      title={creating() ? "Creating Environment" : "New Environment"}
       skipFilter={true}
       options={options()}
       onSelect={(option) => {
         if (option.value === "creating" || option.value === "loading") return
+        if (option.value === "worktree") {
+          dialog.replace(() => (
+            <DialogPrompt
+              title="Name project copy"
+              placeholder="leave blank to generate a name"
+              onConfirm={(value) => void create(option.value, value.trim())}
+              onCancel={() => dialog.replace(() => <DialogWorkspaceCreate {...props} />)}
+            />
+          ))
+          return
+        }
         void create(option.value)
       }}
     />

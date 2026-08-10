@@ -44,7 +44,7 @@ export function DialogSessionWarp(props: { sessionID: string }) {
     const items: DialogSelectOption<string>[] = []
 
     items.push({
-      title: "Local project (detach)",
+      title: "Main checkout",
       value: "__local__",
       description: current === "__local__" ? "Current location" : undefined,
     })
@@ -54,14 +54,21 @@ export function DialogSessionWarp(props: { sessionID: string }) {
       items.push({
         title: toDelete() === ws.id ? `Delete ${label}? Press ${keybind.print("session_delete")} again` : label,
         value: ws.id,
-        description: ws.id === current ? "Current location" : ws.config.type,
+        description:
+          ws.id === current
+            ? "Current location"
+            : ws.config.type === "worktree"
+              ? ws.branch
+                ? `Project copy · Branch ${ws.branch}`
+                : "Project copy · Detached"
+              : "Remote workspace",
       })
     }
 
     items.push({
-      title: "+ New workspace",
+      title: "+ New environment",
       value: "__create__",
-      description: "Create a workspace and move this session there",
+      description: "Create a project copy or remote workspace and move this session",
     })
 
     return items
@@ -146,7 +153,7 @@ export function DialogSessionWarp(props: { sessionID: string }) {
           .catch(() => undefined)
       }
       toast.show({
-        message: workspaceID ? `Moved to workspace` : `Detached to local project`,
+        message: workspaceID ? "Moved to selected environment" : "Moved to main checkout",
         variant: "info",
       })
       route.navigate({

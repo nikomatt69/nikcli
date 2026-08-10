@@ -16,17 +16,21 @@ function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
 }
 
 export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
-  name: "Worktree",
+  name: "Project copy",
   description: "Create a local git worktree",
   async create(_from: WorktreeConfig, branch: string | null | undefined, _workspaceID?: string) {
     // Never detached by default: without an explicit branch the worktree gets
-    // the generated `nikcli/<name>` branch (opencode parity — a detached
-    // worktree has no branch to switch to, so workspace switching would look
-    // like a no-op in git).
+    // the generated `nikcli/<name>` branch. A workspace is something you switch
+    // to, and a detached worktree has no branch to switch to, so warping would
+    // look like a no-op in git.
+    //
+    // opencode v2's detached-at-HEAD behaviour belongs to `ProjectCopy`, which
+    // is a different concept and passes `detached: true` itself.
     const next = await runWorktree(
       Effect.gen(function* () {
         const worktree = yield* Worktree.Service
         return yield* worktree.makeWorktreeInfo({
+          name: _from.name,
           branch: branch ?? undefined,
         })
       }),
@@ -37,6 +41,7 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
       config: {
         type: "worktree",
         directory: next.directory,
+        name: next.name,
         eventLimit: _from.eventLimit,
       },
       init: () =>

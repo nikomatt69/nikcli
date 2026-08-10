@@ -12,6 +12,8 @@ import { Git } from "@/git"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { storageList, storageRead, storageRemove, storageUpdate, storageWrite } from "@/storage/effect"
+import { Hash } from "@/util/hash"
+import { Lock } from "@/util/lock"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
@@ -54,9 +56,15 @@ export namespace Project {
   const InfoSchema = Schema.Struct({
     id: Schema.String,
     worktree: Schema.String,
+    canonical: Schema.String,
     vcs: Schema.optional(Schema.Literal("git")),
     name: Schema.optional(Schema.String),
     icon: Schema.optional(IconSchema),
+    commands: Schema.optional(
+      Schema.Struct({
+        start: Schema.optional(Schema.String),
+      }),
+    ),
     time: Schema.Struct({
       created: Schema.Number,
       updated: Schema.Number,
@@ -70,8 +78,20 @@ export namespace Project {
   // `zodObject` / walker-derived JSON Schema.
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
+  const DirectorySchema = Schema.Struct({
+    directory: Schema.String,
+    strategy: Schema.optional(Schema.String),
+  }).annotate({ identifier: "ProjectDirectory" })
+  export const Directory = zodObject(DirectorySchema)
+  export type Directory = Schema.Schema.Type<typeof DirectorySchema>
+
+  const DirectoriesUpdatedSchema = Schema.Struct({
+    projectID: Schema.String,
+  }).annotate({ identifier: "ProjectDirectoriesUpdated" })
+
   export const Event = {
     Updated: BusEvent.schema("project.updated", InfoSchema),
+    DirectoriesUpdated: BusEvent.schema("project.directories.updated", DirectoriesUpdatedSchema),
   }
 
   const UpdateInputSchema = Schema.Struct({
@@ -88,11 +108,96 @@ export namespace Project {
     setInitialized(projectID: string): Effect.Effect<void, unknown>
     list(): Effect.Effect<Info[], unknown>
     update(input: UpdateInput): Effect.Effect<Info, unknown>
+    directories(projectID: string): Effect.Effect<Directory[], unknown>
+    trackDirectory(
+      projectID: string,
+      directory: string,
+      strategy?: string,
+      behavior?: "ignore" | "replace",
+    ): Effect.Effect<boolean, unknown>
+    removeDirectory(projectID: string, directory: string): Effect.Effect<boolean, unknown>
     sandboxes(projectID: string): Effect.Effect<string[], unknown>
     removeSandbox(projectID: string, directory: string): Effect.Effect<Info, unknown>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Project.Service") {}
+
+  function remoteIdentity(input: string) {
+    const value = input.trim()
+    if (!value) return undefined
+    let host = ""
+    let pathname = ""
+    try {
+      const parsed = new URL(value)
+      if (parsed.protocol === "file:") return undefined
+      host = parsed.hostname
+      pathname = parsed.pathname
+    } catch {
+      const scp = value.match(/^([^@/:]+@)?([^/:]+):(.+)$/)
+      if (!scp) return undefined
+      host = scp[2] ?? ""
+      pathname = scp[3] ?? ""
+    }
+    pathname = pathname
+      .replace(/^\/+/, "")
+      .replace(/\.git\/?$/, "")
+      .replace(/\/+$/, "")
+    if (!host || !pathname) return undefined
+    return Hash.fast(`git-remote:${host.toLowerCase()}/${pathname}`)
+  }
+
+  async function canonicalDirectory(directory: string) {
+    return fs.realpath(directory).catch(() => path.resolve(directory))
+  }
+
+  function directoryKey(projectID: string) {
+    return ["project_directory", projectID]
+  }
+
+  async function readDirectories(projectID: string): Promise<Directory[]> {
+    const stored = await storageRead<Directory[]>(directoryKey(projectID)).catch(() => undefined)
+    if (stored) return stored
+    const project = await storageRead<Info>(["project", projectID]).catch(() => undefined)
+    if (!project) return []
+    const canonical = await canonicalDirectory(project.canonical ?? project.worktree)
+    const items: Directory[] = [{ directory: canonical }]
+    for (const sandbox of project.sandboxes ?? []) {
+      const directory = await canonicalDirectory(sandbox)
+      if (directory !== canonical) items.push({ directory, strategy: "git_worktree" })
+    }
+    await storageWrite(directoryKey(projectID), items)
+    return items
+  }
+
+  async function trackDirectoryImpl(
+    projectID: string,
+    input: string,
+    strategy?: string,
+    behavior: "ignore" | "replace" = "ignore",
+  ) {
+    using _ = await Lock.write(`project-directory:${projectID}`)
+    const directory = await canonicalDirectory(input)
+    const items = await readDirectories(projectID)
+    const index = items.findIndex((item) => item.directory === directory)
+    if (index >= 0) {
+      if (behavior !== "replace" || items[index]?.strategy === strategy) return false
+      items[index] = { directory, ...(strategy ? { strategy } : {}) }
+    } else {
+      items.push({ directory, ...(strategy ? { strategy } : {}) })
+    }
+    await storageWrite(directoryKey(projectID), items)
+    return true
+  }
+
+  async function removeDirectoryImpl(projectID: string, input: string) {
+    using _ = await Lock.write(`project-directory:${projectID}`)
+    const directory = await canonicalDirectory(input)
+    const items = await readDirectories(projectID)
+    const next = items.filter((item) => item.directory !== directory)
+    if (next.length === items.length) return false
+    await storageWrite(directoryKey(projectID), next)
+    return true
+  }
 
   async function fromDirectoryImpl(directory: string) {
     log.info("fromDirectory", { directory })
@@ -108,17 +213,22 @@ export namespace Project {
         const gitBinary = Bun.which("git")
 
         // Parallelize initial operations: git binary check + cache read
-        const [cachedId, commonGitDirResult] = await Promise.all([
+        const [cachedId, commonGitDirResult, remoteResult] = await Promise.all([
           readCachedID(git),
           gitBinary
             ? Git.run(["rev-parse", "--git-common-dir"], { cwd: sandbox })
                 .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
                 .catch(() => undefined)
             : Promise.resolve(undefined),
+          gitBinary
+            ? Git.run(["remote", "get-url", "origin"], { cwd: sandbox })
+                .then((result) => (result.exitCode === 0 ? remoteIdentity(result.text()) : undefined))
+                .catch(() => undefined)
+            : Promise.resolve(undefined),
         ])
 
         let commonGitDir = commonGitDirResult
-        let id = cachedId
+        let id = remoteResult ?? cachedId
 
         if (!id && commonGitDir && commonGitDir !== git) {
           id = await readCachedID(commonGitDir)
@@ -261,6 +371,7 @@ export namespace Project {
       existing = {
         id,
         worktree,
+        canonical: worktree,
         vcs: vcs as Info["vcs"],
         sandboxes: [],
         time: {
@@ -284,6 +395,7 @@ export namespace Project {
     const result: Info = {
       ...existing,
       worktree,
+      canonical: worktree,
       vcs: vcs as Info["vcs"],
       time: {
         ...existing.time,
@@ -293,6 +405,8 @@ export namespace Project {
     if (sandbox !== result.worktree && !result.sandboxes.includes(sandbox)) result.sandboxes.push(sandbox)
     result.sandboxes = result.sandboxes.filter((x: string) => existsSync(x))
     await storageWrite<Info>(["project", id], result)
+    await trackDirectoryImpl(id, worktree)
+    if (sandbox !== worktree) await trackDirectoryImpl(id, sandbox, vcs === "git" ? "git_worktree" : undefined)
     GlobalBus.emit("event", {
       payload: {
         type: Event.Updated.type,
@@ -377,6 +491,7 @@ export namespace Project {
     const projects = await Promise.all(keys.map((x) => storageRead<Info>(x)))
     return projects.map((project: Info) => ({
       ...project,
+      canonical: project.canonical ?? project.worktree,
       sandboxes: project.sandboxes?.filter((x: string) => existsSync(x)),
     }))
   }
@@ -405,9 +520,12 @@ export namespace Project {
 
   async function sandboxesImpl(projectID: string) {
     const project = await storageRead<Info>(["project", projectID]).catch(() => undefined)
-    if (!project?.sandboxes) return []
+    if (!project) return []
+    const canonical = await canonicalDirectory(project.canonical ?? project.worktree)
     const valid: string[] = []
-    for (const dir of project.sandboxes) {
+    for (const item of await readDirectories(projectID)) {
+      const dir = item.directory
+      if (dir === canonical) continue
       const stat = await fs.stat(dir).catch(() => undefined)
       if (stat?.isDirectory()) valid.push(dir)
     }
@@ -415,6 +533,7 @@ export namespace Project {
   }
 
   async function removeSandboxImpl(projectID: string, directory: string) {
+    await removeDirectoryImpl(projectID, directory)
     const result = await storageUpdate<Info>(["project", projectID], (draft) => {
       const sandboxes = draft.sandboxes ?? []
       draft.sandboxes = sandboxes.filter((sandbox: string) => sandbox !== directory)
@@ -437,6 +556,10 @@ export namespace Project {
       setInitialized: (projectID) => Effect.tryPromise(() => setInitializedImpl(projectID)),
       list: () => Effect.tryPromise(() => listImpl()),
       update: (input) => Effect.tryPromise(() => updateImpl(input)),
+      directories: (projectID) => Effect.tryPromise(() => readDirectories(projectID)),
+      trackDirectory: (projectID, directory, strategy, behavior) =>
+        Effect.tryPromise(() => trackDirectoryImpl(projectID, directory, strategy, behavior)),
+      removeDirectory: (projectID, directory) => Effect.tryPromise(() => removeDirectoryImpl(projectID, directory)),
       sandboxes: (projectID) => Effect.tryPromise(() => sandboxesImpl(projectID)),
       removeSandbox: (projectID, directory) => Effect.tryPromise(() => removeSandboxImpl(projectID, directory)),
     }),

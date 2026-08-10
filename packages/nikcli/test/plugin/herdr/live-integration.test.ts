@@ -25,13 +25,13 @@ try {
 const maybeIt = serverReachable ? it : it.skip
 
 describe("HerdrBridge — live integration (herdr running)", () => {
-  it("detect() reports the running server", async () => {
+  maybeIt("detect() reports the running server", async () => {
     const info = await detect()
     expect(info.serverRunning).toBe(true)
     expect(info.socketPath).toBe(socketPath)
   })
 
-  it("status() returns install/connection info", async () => {
+  maybeIt("status() returns install/connection info", async () => {
     const s = await status()
     expect(s.serverRunning).toBe(true)
     expect(s.inHerdrPane).toBe(false) // not running WITHIN a herdr pane

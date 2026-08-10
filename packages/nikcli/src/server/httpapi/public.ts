@@ -1,7 +1,7 @@
 import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi"
 import { Layer } from "effect"
 import { PermissionNext } from "@/permission/next"
-import { Project } from "@/project/project"
+import { ProjectCopy } from "@/project/copy"
 import { Question } from "@/question"
 import { AnalyticsHttpApi } from "./analytics"
 import { AppHttpApi } from "./app"
@@ -139,7 +139,11 @@ export namespace PublicHttpApi {
     handlers
       .handle("list", () => ProjectHttpApi.handlers.list())
       .handle("current", () => ProjectHttpApi.handlers.current())
-      .handle("update", (request) => ProjectHttpApi.handlers.update(request)),
+      .handle("update", (request) => ProjectHttpApi.handlers.update(request))
+      .handle("directoryList", (request) => ProjectHttpApi.handlers.directoryList(request))
+      .handle("copyCreate", (request) => ProjectHttpApi.handlers.copyCreate(request))
+      .handle("copyRemove", (request) => ProjectHttpApi.handlers.copyRemove(request))
+      .handle("copyRefresh", (request) => ProjectHttpApi.handlers.copyRefresh(request)),
   )
 
   const TuiHandlersLive = HttpApiBuilder.group(Api, "tui", (handlers) =>
@@ -322,7 +326,7 @@ export namespace PublicHttpApi {
         FileHandlersLive.pipe(Layer.provide(FileHttpApi.DependenciesLive)),
         GlobalHandlersLive,
         McpHandlersLive.pipe(Layer.provide(McpHttpApi.DependenciesLive)),
-        ProjectHandlersLive.pipe(Layer.provide(Project.defaultLayer)),
+        ProjectHandlersLive.pipe(Layer.provide(ProjectCopy.defaultLayer)),
         ProviderHandlersLive.pipe(Layer.provide(ProviderHttpApi.DependenciesLive)),
         PtyHandlersLive.pipe(Layer.provide(PtyHttpApi.DependenciesLive)),
         QuestionHandlersLive.pipe(Layer.provide(Question.defaultLayer)),
