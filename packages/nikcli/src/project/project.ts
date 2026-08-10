@@ -228,10 +228,21 @@ export namespace Project {
         ])
 
         let commonGitDir = commonGitDirResult
-        let id = remoteResult ?? cachedId
+        // A cached id always wins over the origin identity: the cache is what
+        // every already-stored session/project was keyed by, so letting the
+        // remote hash take over would orphan the whole history of a checkout
+        // the first time it resolves. Origin identity only fills the gap for
+        // checkouts that have never been resolved (fresh clones of a repo we
+        // already know), and gets cached so it stays stable if origin changes.
+        let id = cachedId
 
         if (!id && commonGitDir && commonGitDir !== git) {
           id = await readCachedID(commonGitDir)
+        }
+
+        if (!id && remoteResult) {
+          id = remoteResult
+          await writeCachedID(commonGitDir ?? git, remoteResult).catch(() => undefined)
         }
 
         if (!gitBinary) {

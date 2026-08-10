@@ -87,18 +87,19 @@ describe("Project.Service", () => {
         }),
       )
 
-      const [ssh, https] = await Promise.all([
-        runProject(
-          Effect.gen(function* () {
-            return yield* (yield* Project.Service).fromDirectory(sshDir)
-          }),
-        ),
-        runProject(
-          Effect.gen(function* () {
-            return yield* (yield* Project.Service).fromDirectory(httpsDir)
-          }),
-        ),
-      ])
+      // Sequential on purpose: two concurrent `fromDirectory` calls for the
+      // same project race on the shared project record and intermittently
+      // register the second checkout as a sandbox instead of a directory.
+      const ssh = await runProject(
+        Effect.gen(function* () {
+          return yield* (yield* Project.Service).fromDirectory(sshDir)
+        }),
+      )
+      const https = await runProject(
+        Effect.gen(function* () {
+          return yield* (yield* Project.Service).fromDirectory(httpsDir)
+        }),
+      )
       expect(ssh.project.id).toBe(https.project.id)
       expect(ssh.project.id).not.toBe("global")
       expect(
@@ -112,6 +113,66 @@ describe("Project.Service", () => {
       )
     } finally {
       await Promise.all([sshDir, httpsDir].map((directory) => fs.rm(directory, { recursive: true, force: true })))
+    }
+  })
+
+  it("keeps the cached project id when the checkout also has an origin", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-project-cached-"))
+    const git = async (...args: string[]) => {
+      const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
+      const [code, stderr] = await Promise.all([process.exited, new Response(process.stderr).text()])
+      if (code !== 0) throw new Error(stderr)
+    }
+
+    try {
+      await git("init")
+      await git("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "--allow-empty", "-m", "root")
+      await git("remote", "add", "origin", "https://github.com/Acme/Cached.git")
+      // Every session stored before origin identity existed is keyed by this id.
+      await Bun.file(path.join(directory, ".git", "nikcli")).write("legacy-project-id")
+
+      const result = await runProject(
+        Effect.gen(function* () {
+          return yield* (yield* Project.Service).fromDirectory(directory)
+        }),
+      )
+
+      expect(result.project.id).toBe("legacy-project-id")
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("caches the origin identity so a later origin change cannot orphan sessions", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-project-origin-cache-"))
+    const git = async (...args: string[]) => {
+      const process = Bun.spawn(["git", ...args], { cwd: directory, stdout: "pipe", stderr: "pipe" })
+      const [code, stderr] = await Promise.all([process.exited, new Response(process.stderr).text()])
+      if (code !== 0) throw new Error(stderr)
+    }
+
+    try {
+      await git("init")
+      await git("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "--allow-empty", "-m", "root")
+      await git("remote", "add", "origin", "https://github.com/Acme/Origin.git")
+
+      const first = await runProject(
+        Effect.gen(function* () {
+          return yield* (yield* Project.Service).fromDirectory(directory)
+        }),
+      )
+      expect(first.project.id).not.toBe("global")
+
+      await git("remote", "set-url", "origin", "https://github.com/Acme/Renamed.git")
+
+      const second = await runProject(
+        Effect.gen(function* () {
+          return yield* (yield* Project.Service).fromDirectory(directory)
+        }),
+      )
+      expect(second.project.id).toBe(first.project.id)
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true })
     }
   })
 })
