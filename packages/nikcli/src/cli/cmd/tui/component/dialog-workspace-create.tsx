@@ -10,6 +10,7 @@ import { setTimeout as sleep } from "node:timers/promises"
 import { errorData, errorMessage } from "@/util/error"
 import { Log } from "@/util/log"
 import { Identifier } from "@/id/id"
+import path from "node:path"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 
@@ -17,6 +18,20 @@ type Adaptor = {
   type: string
   name: string
   description: string
+}
+
+/**
+ * Which project owns the environment. The server takes the owner from the
+ * instance the request is bound to, so "global" simply means creating through
+ * the filesystem root — no `.git` above it, so it resolves to the global
+ * project. The environment itself is still built from the current directory;
+ * only its ownership (and therefore where it is listed) changes.
+ */
+export type WorkspaceScope = "project" | "global"
+
+export function workspaceScopeDirectory(directory: string, scope: WorkspaceScope) {
+  if (scope === "project") return directory
+  return path.parse(directory || ".").root || "/"
 }
 
 // Fallback shown only when the adaptor list cannot be fetched; keep the wording
@@ -157,7 +172,43 @@ export async function restoreWorkspaceSession(input: {
   input.dialog.clear()
 }
 
-export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) => Promise<void> | void }) {
+export function DialogWorkspaceScope(props: {
+  currentDirectory: string
+  current?: WorkspaceScope
+  onSelect: (scope: WorkspaceScope) => void
+}) {
+  const dialog = useDialog()
+
+  onMount(() => {
+    dialog.setSize("medium")
+  })
+
+  return (
+    <DialogSelect
+      title="New Environment · Scope"
+      skipFilter={true}
+      current={props.current}
+      options={[
+        {
+          title: "Project",
+          value: "project" as const,
+          description: props.currentDirectory || "The current project",
+        },
+        {
+          title: "Global",
+          value: "global" as const,
+          description: "Not tied to this project — listed from any directory",
+        },
+      ]}
+      onSelect={(option) => props.onSelect(option.value)}
+    />
+  )
+}
+
+export function DialogWorkspaceCreate(props: {
+  onSelect: (workspaceID: string) => Promise<void> | void
+  scope?: WorkspaceScope
+}) {
   const dialog = useDialog()
   const sync = useSync()
   const project = useProject()
@@ -166,10 +217,14 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
   const [creating, setCreating] = createSignal<string>()
   const [adaptors, setAdaptors] = createSignal<Adaptor[]>()
 
+  const currentDirectory = () => sync.data.path.directory || sdk.directory || process.cwd()
+  const scope = () => props.scope ?? "project"
+  const ownerDirectory = () => workspaceScopeDirectory(currentDirectory(), scope())
+
   onMount(() => {
     dialog.setSize("medium")
     void (async () => {
-      const dir = sync.data.path.directory || sdk.directory
+      const dir = ownerDirectory()
       const url = new URL("/experimental/workspace/adaptor", sdk.url)
       if (dir) url.searchParams.set("directory", dir)
       const res = await sdk
@@ -219,13 +274,19 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
     log.info("workspace create requested", { type })
 
     const id = Identifier.ascending("workspace")
-    const result = await sdk.client.experimental.workspace
+    // The owner comes from the instance this request is bound to; the
+    // environment is still built from the current directory either way.
+    const client =
+      scope() === "project"
+        ? sdk.client
+        : createNikcliClient({ baseUrl: sdk.url, fetch: sdk.fetch, directory: ownerDirectory() })
+    const result = await client.experimental.workspace
       .create({
         id,
         branch: null,
         config: {
           type,
-          directory: sync.data.path.directory || sdk.directory || process.cwd(),
+          directory: currentDirectory(),
           ...(type === "worktree" && name ? { name } : {}),
         } as any,
       })
@@ -258,7 +319,7 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
 
   return (
     <DialogSelect
-      title={creating() ? "Creating Environment" : "New Environment"}
+      title={`${creating() ? "Creating Environment" : "New Environment"} · ${scope() === "global" ? "Global" : "Project"}`}
       skipFilter={true}
       options={options()}
       onSelect={(option) => {

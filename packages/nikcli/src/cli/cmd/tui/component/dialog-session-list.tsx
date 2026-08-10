@@ -17,6 +17,7 @@ import { Spinner } from "./spinner"
 import { abbreviateHome } from "../util/path-format"
 import path from "path"
 import { DialogWorkspaceCreate, openWorkspace } from "./dialog-workspace-list"
+import { DialogWorkspaceScope, workspaceScopeDirectory } from "./dialog-workspace-create"
 type WorkspaceStatus = "connected" | "connecting" | "disconnected" | "error"
 
 /**
@@ -27,7 +28,14 @@ type WorkspaceStatus = "connected" | "connecting" | "disconnected" | "error"
  */
 type Scope = "project" | "global"
 
-export function DialogSessionList(props: { workspaceID?: string; localOnly?: boolean } = {}) {
+export function DialogSessionList(
+  props: {
+    workspaceID?: string
+    localOnly?: boolean
+    /** Instance that owns `workspaceID`; defaults to the current directory. */
+    directory?: string
+  } = {},
+) {
   const dialog = useDialog()
   const route = useRoute()
   const sync = useSync()
@@ -63,12 +71,14 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
     return Keybind.parse(keybinds?.["session_scope_toggle"] || "ctrl+g")[0]
   })
 
+  const ownerDirectory = () => props.directory || sync.data.path.directory || sdk.directory
+
   const workspaceClient = () => {
     if (!props.workspaceID) return sdk.client
     return createNikcliClient({
       baseUrl: sdk.url,
       fetch: sdk.fetch,
-      directory: sync.data.path.directory || sdk.directory,
+      directory: ownerDirectory(),
       workspace: props.workspaceID,
     })
   }
@@ -85,7 +95,9 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
   const scopeClient = () => (globalScope() ? globalClient() : workspaceClient())
 
   async function restoreWorkspace(workspaceID: string) {
-    const restored = await sdk.client.experimental.workspace.restore({ id: workspaceID }).catch(() => undefined)
+    const restored = await createNikcliClient({ baseUrl: sdk.url, fetch: sdk.fetch, directory: ownerDirectory() })
+      .experimental.workspace.restore({ id: workspaceID })
+      .catch(() => undefined)
     if (restored?.data) return true
     toast.show({
       message: "Failed to connect workspace",
@@ -147,9 +159,29 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
   })
 
   function createWorkspaceDialog() {
+    const directory = sync.data.path.directory || sdk.directory || process.cwd()
     dialog.replace(() => (
-      <DialogWorkspaceCreate
-        onSelect={(workspaceID) => openWorkspace({ dialog, route, sdk, sync, toast, workspaceID })}
+      <DialogWorkspaceScope
+        currentDirectory={directory}
+        current={globalScope() ? "global" : "project"}
+        onSelect={(scope) =>
+          dialog.replace(() => (
+            <DialogWorkspaceCreate
+              scope={scope}
+              onSelect={(workspaceID) =>
+                openWorkspace({
+                  dialog,
+                  route,
+                  sdk,
+                  sync,
+                  toast,
+                  workspaceID,
+                  directory: workspaceScopeDirectory(directory, scope),
+                })
+              }
+            />
+          ))
+        }
       />
     ))
   }

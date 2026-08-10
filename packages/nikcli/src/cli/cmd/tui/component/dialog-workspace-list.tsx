@@ -2,15 +2,17 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
-import { createEffect, createMemo, createSignal, onMount } from "solid-js"
-import type { Session } from "@nikcli-ai/sdk/v2"
+import { createEffect, createMemo, createResource, createSignal, onMount } from "solid-js"
+import type { Session, Workspace } from "@nikcli-ai/sdk/v2"
 import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+import { Keybind } from "@/util/keybind"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { useKeybind } from "../context/keybind"
 import { DialogSessionList } from "./dialog-session-list"
 import { useTheme } from "../context/theme"
-import { DialogWorkspaceCreate } from "./dialog-workspace-create"
+import { DialogWorkspaceCreate, DialogWorkspaceScope, workspaceScopeDirectory } from "./dialog-workspace-create"
+import type { WorkspaceScope } from "./dialog-workspace-create"
 import { useProject } from "../context/project"
 
 export { DialogWorkspaceCreate } from "./dialog-workspace-create"
@@ -23,6 +25,8 @@ export async function openWorkspace(input: {
   toast: ReturnType<typeof useToast>
   workspaceID: string
   forceCreate?: boolean
+  /** Instance the workspace is owned by; defaults to the current directory. */
+  directory?: string
 }) {
   const cacheSession = (session: Session) => {
     input.sync.set(
@@ -33,17 +37,18 @@ export async function openWorkspace(input: {
     )
   }
 
+  const directory = input.directory || input.sync.data.path.directory || input.sdk.directory
   function scoped(workspaceID?: string) {
     return createNikcliClient({
       baseUrl: input.sdk.url,
       fetch: input.sdk.fetch,
-      directory: input.sync.data.path.directory || input.sdk.directory,
+      directory,
       workspace: workspaceID,
     })
   }
   const client = scoped(input.workspaceID)
-  const restored = await input.sdk.client.experimental.workspace
-    .restore({ id: input.workspaceID })
+  const restored = await scoped()
+    .experimental.workspace.restore({ id: input.workspaceID })
     .catch(() => undefined)
   if (!restored?.data) {
     input.toast.show({
@@ -114,20 +119,53 @@ export function DialogWorkspaceList() {
     return createNikcliClient({
       baseUrl: sdk.url,
       fetch: sdk.fetch,
-      directory: sync.data.path.directory || sdk.directory,
+      directory: ownerDirectory(),
       workspace: workspaceID,
     })
   }
   const [toDelete, setToDelete] = createSignal<string>()
   const [removing, setRemoving] = createSignal<string>()
   const [counts, setCounts] = createSignal<Record<string, number | null | undefined>>({})
+  const [scope, setScope] = createSignal<WorkspaceScope>("project")
+
+  const currentDirectory = () => sync.data.path.directory || sdk.directory || process.cwd()
+  const ownerDirectory = createMemo(() => workspaceScopeDirectory(currentDirectory(), scope()))
+
+  /**
+   * `keybind.all` is typed from the generated `KeybindsConfig`, which only
+   * catches up with the config schema when the SDK is rebuilt — so read the
+   * configured binding off the raw config and fall back to the schema default.
+   */
+  const scopeKeybind = createMemo(() => {
+    const keybinds = sync.data.config.keybinds as Record<string, string | undefined> | undefined
+    return Keybind.parse(keybinds?.["session_scope_toggle"] || "ctrl+g")[0]
+  })
+
+  // Workspaces are owned by a project, so the global ones are simply the ones
+  // an instance bound outside any repo sees.
+  const [globalWorkspaces, { refetch: refetchGlobal }] = createResource(
+    () => (scope() === "global" ? ownerDirectory() : undefined),
+    async (directory) => {
+      const client = createNikcliClient({ baseUrl: sdk.url, fetch: sdk.fetch, directory })
+      const result = await client.experimental.workspace.list().catch(() => undefined)
+      if (!result) {
+        toast.show({ message: "Failed to load global environments", variant: "error" })
+        return [] as Workspace[]
+      }
+      return (result.data ?? []) as Workspace[]
+    },
+  )
+
+  const workspaces = createMemo(() =>
+    scope() === "global" ? (globalWorkspaces() ?? []) : (sync.data.workspaceList as Workspace[]),
+  )
 
   async function syncWorkspaces() {
     await sdk.client.experimental.workspace.syncList().catch(() => undefined)
     await Promise.all([sync.workspace.sync(), project.workspace.sync()])
   }
 
-  const open = (workspaceID: string, forceCreate?: boolean) =>
+  const open = (workspaceID: string, forceCreate?: boolean, directory?: string) =>
     openWorkspace({
       dialog,
       route,
@@ -136,7 +174,25 @@ export function DialogWorkspaceList() {
       toast,
       workspaceID,
       forceCreate,
+      directory: directory ?? ownerDirectory(),
     })
+
+  function openCreate() {
+    dialog.replace(() => (
+      <DialogWorkspaceScope
+        currentDirectory={currentDirectory()}
+        current={scope()}
+        onSelect={(next) =>
+          dialog.replace(() => (
+            <DialogWorkspaceCreate
+              scope={next}
+              onSelect={(workspaceID) => open(workspaceID, true, workspaceScopeDirectory(currentDirectory(), next))}
+            />
+          ))
+        }
+      />
+    ))
+  }
 
   async function selectWorkspace(workspaceID: string) {
     if (workspaceID === "__local__") {
@@ -159,7 +215,7 @@ export function DialogWorkspaceList() {
 
     const count = counts()[workspaceID]
     if (count && count > 0) {
-      dialog.replace(() => <DialogSessionList workspaceID={workspaceID} />)
+      dialog.replace(() => <DialogSessionList workspaceID={workspaceID} directory={ownerDirectory()} />)
       return
     }
 
@@ -171,7 +227,7 @@ export function DialogWorkspaceList() {
     const client = scoped(workspaceID)
     const listed = await client.session.list({ roots: true, limit: 1 }).catch(() => undefined)
     if (listed?.data?.length) {
-      dialog.replace(() => <DialogSessionList workspaceID={workspaceID} />)
+      dialog.replace(() => <DialogSessionList workspaceID={workspaceID} directory={ownerDirectory()} />)
       return
     }
     await open(workspaceID)
@@ -190,20 +246,21 @@ export function DialogWorkspaceList() {
 
   let run = 0
   createEffect(() => {
-    const workspaces = sync.data.workspaceList
+    const list = workspaces()
+    const directory = ownerDirectory()
     const next = ++run
-    if (!workspaces.length) {
+    if (!list.length) {
       setCounts({})
       return
     }
 
-    setCounts(Object.fromEntries(workspaces.map((workspace) => [workspace.id, undefined])))
+    setCounts(Object.fromEntries(list.map((workspace) => [workspace.id, undefined])))
     void Promise.all(
-      workspaces.map(async (workspace) => {
+      list.map(async (workspace) => {
         const client = createNikcliClient({
           baseUrl: sdk.url,
           fetch: sdk.fetch,
-          directory: sync.data.path.directory || sdk.directory,
+          directory,
           workspace: workspace.id,
         })
         const result = await client.session.list({ roots: true }).catch(() => undefined)
@@ -216,14 +273,20 @@ export function DialogWorkspaceList() {
   })
 
   const options = createMemo(() => [
-    {
-      title: "Main checkout",
-      value: "__local__",
-      category: "Project",
-      description: "Use the canonical project directory",
-      footer: `${localCount()} session${localCount() === 1 ? "" : "s"}`,
-    },
-    ...sync.data.workspaceList
+    // The main checkout is this project's own directory, so it has no meaning
+    // while the list shows what the global project owns.
+    ...(scope() === "project"
+      ? [
+          {
+            title: "Main checkout",
+            value: "__local__",
+            category: "Project",
+            description: "Use the canonical project directory",
+            footer: `${localCount()} session${localCount() === 1 ? "" : "s"}`,
+          },
+        ]
+      : []),
+    ...workspaces()
       .toSorted((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
       .map((workspace) => {
         const count = counts()[workspace.id]
@@ -271,7 +334,7 @@ export function DialogWorkspaceList() {
 
   return (
     <DialogSelect
-      title="Workspaces"
+      title={scope() === "global" ? "Workspaces · Global" : "Workspaces · Project"}
       skipFilter={true}
       options={options()}
       current={currentWorkspaceID()}
@@ -281,12 +344,23 @@ export function DialogWorkspaceList() {
       onSelect={(option) => {
         setToDelete(undefined)
         if (option.value === "__create__") {
-          dialog.replace(() => <DialogWorkspaceCreate onSelect={(workspaceID) => open(workspaceID, true)} />)
+          openCreate()
           return
         }
         void selectWorkspace(option.value)
       }}
       keybind={[
+        {
+          keybind: scopeKeybind(),
+          title: scope() === "global" ? "project scope" : "global scope",
+          // Fires with nothing selected on purpose: a scope with no
+          // environments must still be switchable back.
+          allowEmpty: true,
+          onTrigger: () => {
+            setToDelete(undefined)
+            setScope((current) => (current === "global" ? "project" : "global"))
+          },
+        },
         {
           keybind: keybind.all.session_delete?.[0],
           title: "delete",
@@ -298,7 +372,11 @@ export function DialogWorkspaceList() {
               return
             }
             setRemoving(option.value)
-            const result = await sdk.client.experimental.workspace.remove({ id: option.value }).catch(() => undefined)
+            // Removal has to go through the instance that owns the workspace,
+            // which for the global scope is not this project's.
+            const result = await scoped()
+              .experimental.workspace.remove({ id: option.value })
+              .catch(() => undefined)
             setToDelete(undefined)
             if (result?.error) {
               setRemoving(undefined)
@@ -314,8 +392,12 @@ export function DialogWorkspaceList() {
                 type: "home",
               })
             }
-            await syncWorkspaces()
-            await sync.bootstrap().catch(() => undefined)
+            if (scope() === "global") {
+              refetchGlobal()
+            } else {
+              await syncWorkspaces()
+              await sync.bootstrap().catch(() => undefined)
+            }
             setRemoving(undefined)
           },
         },
