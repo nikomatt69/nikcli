@@ -41,8 +41,15 @@ export const DeviceCodeResponse = z.object({
   device_code: DeviceCode,
   user_code: UserCode,
   verification_url: z.string().url(),
-  interval: z.number().int().positive(),
-  expires_in: z.number().int().positive(),
+  /**
+   * Verification URL with `user_code` already in the query string. The issuer
+   * prefills (and normalizes) the field from it, so the user approves with one
+   * click instead of retyping eight digits into a form that used to reject
+   * anything but the exact `0000-0000` shape.
+   */
+  verification_uri_complete: z.string().url().optional(),
+  interval: z.number().int().positive().default(5),
+  expires_in: z.number().int().positive().default(600),
 })
 export type DeviceCodeResponse = z.infer<typeof DeviceCodeResponse>
 

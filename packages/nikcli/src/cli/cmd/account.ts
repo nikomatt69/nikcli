@@ -59,11 +59,18 @@ export async function loginAccount(serverUrl?: string) {
       }),
     )
 
-    prompts.log.info(`Visit: ${loginResult.verificationUrl}`)
-    prompts.log.info(`Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
-    await open(loginResult.verificationUrl).catch((error) => {
-      log.debug("Failed to open verification URL", { error })
-    })
+    // Always hand out the prefilled link: the issuer fills the code in for the
+    // user, so approving is a click rather than eight digits retyped by hand.
+    prompts.log.info(`Visit: ${loginResult.verificationUrlComplete}`)
+    prompts.log.info(`Code (if asked): ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
+    const opened = await open(loginResult.verificationUrlComplete).then(
+      () => true,
+      (error) => {
+        log.debug("Failed to open verification URL", { error })
+        return false
+      },
+    )
+    if (!opened) prompts.log.warn("Could not open a browser automatically — open the link above.")
 
     spinner.start("Waiting for authorization...")
 
@@ -72,6 +79,7 @@ export async function loginAccount(serverUrl?: string) {
         const account = yield* Account.Service
         return yield* account.poll(loginResult.deviceCode, {
           serverUrl,
+          expiresIn: loginResult.expiresIn,
           onPending() {
             spinner.message("Waiting for authorization... (press Ctrl+C to cancel)")
           },

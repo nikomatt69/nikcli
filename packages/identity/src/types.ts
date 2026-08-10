@@ -32,6 +32,13 @@ export type EmailChallenge = {
   nonce: string
   codeHash: string
   attempts: number
+  /**
+   * Absolute expiry of the emailed code. Wrong attempts rewrite the KV entry,
+   * and rewriting it with a fresh `expirationTtl` would silently extend the
+   * code's life every time the user mistyped it. Keeping the original instant
+   * here lets each rewrite shorten the TTL to whatever is actually left.
+   */
+  expiresAt: number
 }
 
 export type DeviceCodeRow = {

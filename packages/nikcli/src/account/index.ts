@@ -9,11 +9,11 @@ import {
   AccountID,
   type DeviceCode,
   type DeviceCodeRequest,
-  type DeviceCodeResponse,
+  DeviceCodeResponse,
   type Info,
   type Org,
   type OrgID,
-  type PollResult,
+  PollResult,
   type RefreshToken,
   type UserCode,
 } from "./schema"
@@ -114,6 +114,25 @@ export namespace Account {
 
   const DEFAULT_ACCOUNT_URL = process.env.NIKCLI_ACCOUNT_URL ?? "https://auth.nikcli.store"
 
+  /** Fallback poll cadence when the issuer does not send one. */
+  const DEFAULT_POLL_INTERVAL_SECONDS = 5
+
+  /**
+   * Consecutive network/5xx failures tolerated while polling. The device code
+   * stays valid on the issuer for its full lifetime, so giving up on the first
+   * blip throws away a sign-in the user may already have approved.
+   */
+  const MAX_TRANSIENT_POLL_FAILURES = 6
+
+  /**
+   * Backoff between retries of a failed poll: 0.5s, 1s, 2s … capped at 30s.
+   * The first retry is deliberately quick — a dropped request is usually back
+   * before the next scheduled poll would have run anyway.
+   */
+  function backoffMs(failures: number): number {
+    return Math.min(30_000, 500 * 2 ** (failures - 1))
+  }
+
   // ============================================================================
   // Token cache — with eviction and size limits
   // ============================================================================
@@ -168,8 +187,16 @@ export namespace Account {
     deviceCode: DeviceCode
     userCode: UserCode
     verificationUrl: string
+    /**
+     * `verificationUrl` with the user code prefilled. Always open this one —
+     * it is what turns approval into a single click. Falls back to the bare
+     * verification URL when the issuer does not advertise it.
+     */
+    verificationUrlComplete: string
     interval: number
     expiresIn: number
+    /** Absolute instant the device code stops being pollable. */
+    expiresAt: number
   }
 
   export interface Interface {
@@ -180,6 +207,8 @@ export namespace Account {
         serverUrl?: string
         onPending?: () => void
         signal?: AbortSignal
+        /** Code lifetime from `login()`; polling stops once it elapses. */
+        expiresIn?: number
       },
     ): Effect.Effect<
       {
@@ -274,22 +303,42 @@ export namespace Account {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error")
+      const retryAfter = Number(response.headers.get("retry-after"))
       throw new LoginFlowError({
-        message: `Failed to start device code flow: ${response.status} ${errorText}`,
+        message:
+          response.status === 429
+            ? `Too many sign-in attempts from this network. Try again in ${
+                Number.isFinite(retryAfter) && retryAfter > 0 ? `${retryAfter}s` : "a minute"
+              }.`
+            : `Failed to start device code flow: ${response.status} ${errorText}`,
         status: response.status,
         responseBody: errorText,
       })
     }
 
-    const data = (await response.json()) as DeviceCodeResponse
+    // Validate rather than cast: a body missing `device_code` used to sail
+    // through here and only surface much later as an unexplained "expired"
+    // during polling.
+    const parsed = DeviceCodeResponse.safeParse(await response.json().catch(() => undefined))
+    if (!parsed.success) {
+      throw new LoginFlowError({
+        message: `The sign-in server returned an unexpected device-code response (${parsed.error.issues[0]?.message ?? "invalid body"}).`,
+        status: response.status,
+      })
+    }
+    const data = parsed.data
     log.info("device code received", { userCode: data.user_code })
 
     return {
       deviceCode: data.device_code,
       userCode: data.user_code,
       verificationUrl: data.verification_url,
+      verificationUrlComplete:
+        data.verification_uri_complete ??
+        `${data.verification_url}?user_code=${encodeURIComponent(data.user_code)}`,
       interval: data.interval,
       expiresIn: data.expires_in,
+      expiresAt: Date.now() + data.expires_in * 1000,
     }
   }
 
@@ -303,6 +352,7 @@ export namespace Account {
       serverUrl?: string
       onPending?: () => void
       signal?: AbortSignal
+      expiresIn?: number
     } = {},
   ): Promise<{
     accountID: AccountID
@@ -312,27 +362,67 @@ export namespace Account {
   }> {
     const serverUrl = normalizeServerUrl(options.serverUrl ?? DEFAULT_ACCOUNT_URL)
     const startTime = Date.now()
+    const deadline = startTime + (options.expiresIn ?? 600) * 1000
+    let interval = DEFAULT_POLL_INTERVAL_SECONDS
+    let transientFailures = 0
 
     log.info("polling for device code completion", { serverUrl })
 
     while (true) {
       options.signal?.throwIfAborted()
-      const response = await fetch(`${serverUrl}oauth/device/token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-          client_id: "nikcli",
-          device_code: deviceCode,
-        }),
-        signal: options.signal,
-      })
+
+      // A dropped wifi packet, a proxy hiccup, or a 502 from the edge used to
+      // abort the whole sign-in — after the user had already approved it in
+      // the browser. Transient failures are retried against the same device
+      // code, which stays valid until the issuer expires it.
+      let response: Response
+      try {
+        response = await fetch(`${serverUrl}oauth/device/token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+            client_id: "nikcli",
+            device_code: deviceCode,
+          }),
+          signal: options.signal,
+        })
+      } catch (cause) {
+        options.signal?.throwIfAborted()
+        transientFailures += 1
+        if (transientFailures > MAX_TRANSIENT_POLL_FAILURES) {
+          throw new LoginFlowError({
+            message: `Lost contact with the sign-in server: ${cause instanceof Error ? cause.message : String(cause)}`,
+          })
+        }
+        options.onPending?.()
+        await Bun.sleep(backoffMs(transientFailures))
+        continue
+      }
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "Unknown error")
+        if (response.status === 429 || response.status >= 500) {
+          transientFailures += 1
+          if (transientFailures > MAX_TRANSIENT_POLL_FAILURES) {
+            throw new LoginFlowError({
+              message: `The sign-in server kept failing (${response.status}). Please try again.`,
+              status: response.status,
+              responseBody: errorText,
+            })
+          }
+          const retryAfter = Number(response.headers.get("retry-after"))
+          options.onPending?.()
+          await Bun.sleep(
+            Number.isFinite(retryAfter) && retryAfter > 0
+              ? retryAfter * 1000
+              : backoffMs(transientFailures),
+          )
+          continue
+        }
         throw new LoginFlowError({
           message: `Failed to poll device code: ${response.status} ${errorText}`,
           status: response.status,
@@ -340,27 +430,49 @@ export namespace Account {
         })
       }
 
-      const result = (await response.json()) as PollResult
+      const parsed = PollResult.safeParse(await response.json().catch(() => undefined))
+      if (!parsed.success) {
+        transientFailures += 1
+        if (transientFailures > MAX_TRANSIENT_POLL_FAILURES) {
+          throw new LoginFlowError({
+            message: "The sign-in server returned an unexpected polling response.",
+            status: response.status,
+          })
+        }
+        await Bun.sleep(backoffMs(transientFailures))
+        continue
+      }
+      // Any well-formed answer means the round-trip works again.
+      transientFailures = 0
+      const result = parsed.data
 
       switch (result.status) {
         case "pending": {
+          interval = result.interval ?? interval
           options.onPending?.()
-          await Bun.sleep((result.interval ?? 5) * 1000)
+          await Bun.sleep(interval * 1000)
           break
         }
 
         case "slow_down": {
-          // Increase poll interval as requested by server
-          await Bun.sleep(result.interval * 1000)
+          // Honor the server's new interval for every later poll too, instead
+          // of sleeping once and immediately hammering it again.
+          interval = result.interval
+          options.onPending?.()
+          await Bun.sleep(interval * 1000)
           break
         }
 
         case "expired": {
-          throw new Error("Device code has expired. Please try logging in again.")
+          throw new LoginTimeoutError({
+            message: "The sign-in code expired before it was approved. Start sign-in again to get a new one.",
+          })
         }
 
         case "denied": {
-          throw new Error("Login was denied. Please try again.")
+          throw new LoginDeniedError({
+            message: "Sign-in was denied in the browser.",
+          })
         }
 
         case "success": {
@@ -378,9 +490,11 @@ export namespace Account {
               responseBody: errorText,
             })
           }
-          const profile = (await profileResponse.json()) as { email?: unknown }
+          const profile = (await profileResponse.json().catch(() => ({}))) as { email?: unknown }
           if (typeof profile.email !== "string" || !profile.email) {
-            throw new Error("The authenticated account does not have an email address.")
+            throw new LoginFlowError({
+              message: "The authenticated account does not have an email address.",
+            })
           }
 
           const email = profile.email.trim().toLowerCase()
@@ -410,9 +524,11 @@ export namespace Account {
         }
       }
 
-      // Safety: timeout after 10 minutes
-      if (Date.now() - startTime > 600_000) {
-        throw new Error("Login timed out. Please try again.")
+      // Safety net: stop once the issuer's own code lifetime is up.
+      if (Date.now() > deadline) {
+        throw new LoginTimeoutError({
+          message: "Sign-in timed out waiting for approval. Start sign-in again to get a new code.",
+        })
       }
     }
   }
@@ -432,6 +548,7 @@ export namespace Account {
 
     return pollImpl(start.deviceCode, {
       serverUrl: options.serverUrl,
+      expiresIn: start.expiresIn,
       onPending: () => options.onPending?.(start.userCode),
     })
   }
@@ -455,7 +572,7 @@ export namespace Account {
     // Get account from DB (with row cache)
     const account = getAccountRowCached(accountID)
     if (!account) {
-      throw new Error(`Account not found: ${accountID}`)
+      throw new NotFoundError({ message: `Account not found: ${accountID}`, accountID })
     }
 
     // Check if token is still valid
@@ -475,7 +592,7 @@ export namespace Account {
     // Re-check after acquiring lock
     const recheck = getAccountRowCached(accountID)
     if (!recheck) {
-      throw new Error(`Account not found: ${accountID}`)
+      throw new NotFoundError({ message: `Account not found: ${accountID}`, accountID })
     }
 
     if (recheck.token_expiry > Date.now() + 60_000) {
@@ -500,13 +617,35 @@ export namespace Account {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error")
-      throw new Error(`Token refresh failed: ${response.status} ${errorText}`)
+      // 400/401 means the refresh token is revoked, reused, or simply too old:
+      // no amount of retrying fixes it, the user has to sign in again. Say so
+      // instead of surfacing the raw OAuth error body.
+      if (response.status === 400 || response.status === 401) {
+        throw new TokenExpiredError({
+          message: "Your nikcli session expired. Run `nikcli account login` to sign in again.",
+        })
+      }
+      throw new TokenRefreshError({
+        message: `Could not refresh the nikcli session (${response.status}). Check your connection and try again.`,
+        accountID,
+        status: response.status,
+        responseBody: errorText,
+      })
     }
 
-    const result = (await response.json()) as {
-      access_token: string
-      refresh_token?: string
-      expires_in: number
+    const result = (await response.json().catch(() => undefined)) as
+      | {
+          access_token?: string
+          refresh_token?: string
+          expires_in?: number
+        }
+      | undefined
+    if (!result?.access_token || typeof result.expires_in !== "number") {
+      throw new TokenRefreshError({
+        message: "The sign-in server returned an unexpected token refresh response.",
+        accountID,
+        status: response.status,
+      })
     }
 
     // Persist updated tokens (only token fields, not email/url/created_at)
@@ -540,7 +679,7 @@ export namespace Account {
     // Reuse the cached account row instead of reading from DB again
     const account = getAccountRowCached(accountID)
     if (!account) {
-      throw new Error(`Account not found: ${accountID}`)
+      throw new NotFoundError({ message: `Account not found: ${accountID}`, accountID })
     }
 
     const serverUrl = normalizeServerUrl(account.url)
@@ -554,7 +693,12 @@ export namespace Account {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error")
-      throw new Error(`Failed to fetch orgs: ${response.status} ${errorText}`)
+      throw new FetchOrgsError({
+        message: `Failed to fetch orgs: ${response.status} ${errorText}`,
+        accountID,
+        status: response.status,
+        responseBody: errorText,
+      })
     }
 
     const data = (await response.json()) as { orgs: Org[] }

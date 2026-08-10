@@ -22,6 +22,7 @@ import {
   beginDeviceApproval,
   createLoginState,
   finishGitHub,
+  normalizeUserCode,
   requestEmailCode,
   startGitHub,
   verifyEmailCode,
@@ -120,7 +121,13 @@ app.get("/callback/github", finishGitHub)
 app.post("/login/email/request", requestEmailCode)
 app.post("/login/email/verify", verifyEmailCode)
 
-app.get("/device", (c) => devicePage(c, c.req.query("user_code")))
+// The CLI hands out `verification_uri_complete`, and users forward that link
+// between machines — normalize whatever shape the code arrives in so the field
+// is prefilled in its canonical form rather than rejected on submit.
+app.get("/device", (c) => {
+  const provided = c.req.query("user_code") ?? ""
+  return devicePage(c, normalizeUserCode(provided) || provided.replace(/\D+/g, "").slice(0, 8))
+})
 app.post("/device", beginDeviceApproval)
 
 app.post("/oauth/device/code", async (c) => {

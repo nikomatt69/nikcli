@@ -36,8 +36,21 @@ export function DialogAccountLogin(props: {
   const [start, setStart] = createSignal<Account.LoginStartResult>()
   const [status, setStatus] = createSignal("Contacting auth.nikcli.store…")
   const [error, setError] = createSignal<string>()
-  const controller = new AbortController()
+  const [browserOpened, setBrowserOpened] = createSignal(true)
+  const [now, setNow] = createSignal(Date.now())
+  let controller = new AbortController()
   let disposed = false
+
+  /** Minutes:seconds left before the code stops working, or undefined. */
+  const remaining = () => {
+    const expiresAt = start()?.expiresAt
+    if (!expiresAt) return undefined
+    const seconds = Math.max(0, Math.round((expiresAt - now()) / 1000))
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+  }
+
+  const ticker = setInterval(() => setNow(Date.now()), 1000)
+  onCleanup(() => clearInterval(ticker))
 
   onMount(() => {
     void runAccount(
@@ -57,8 +70,13 @@ export function DialogAccountLogin(props: {
   })
 
   async function begin() {
+    // A retry after a failed attempt needs its own signal — the previous one
+    // may already be aborted, which would kill the new poll instantly.
+    controller.abort()
+    controller = new AbortController()
     setError(undefined)
     setStart(undefined)
+    setBrowserOpened(true)
     setStatus("Contacting auth.nikcli.store…")
     try {
       const result = await runAccount(
@@ -70,14 +88,26 @@ export function DialogAccountLogin(props: {
       if (disposed) return
       setStart(result)
       setStatus("Waiting for approval in the browser…")
-      await open(result.verificationUrl).catch(() => undefined)
+      // The complete URL carries the code, so the browser page arrives with
+      // the field already filled — no retyping, no transcription mistakes.
+      const opened = await openVerification(result)
+      if (disposed) return
+      setBrowserOpened(opened)
+      if (!opened) setStatus("Could not open a browser — open the link below to approve.")
       const session = await runAccount(
         Effect.gen(function* () {
           const account = yield* Account.Service
           return yield* account.poll(result.deviceCode, {
             signal: controller.signal,
+            expiresIn: result.expiresIn,
             onPending() {
-              if (!disposed) setStatus("Waiting for approval in the browser… (esc to cancel)")
+              if (!disposed && !error()) {
+                setStatus(
+                  opened
+                    ? "Waiting for approval in the browser… (esc to cancel)"
+                    : "Waiting for approval… open the link below (esc to cancel)",
+                )
+              }
             },
           })
         }),
@@ -111,6 +141,12 @@ export function DialogAccountLogin(props: {
     }
   }
 
+  async function openVerification(result: Account.LoginStartResult): Promise<boolean> {
+    return open(result.verificationUrlComplete)
+      .then(() => true)
+      .catch(() => false)
+  }
+
   async function copyCode() {
     const value = start()?.userCode
     if (!value) return
@@ -119,17 +155,44 @@ export function DialogAccountLogin(props: {
       .catch(toast.error)
   }
 
+  async function copyUrl() {
+    const value = start()?.verificationUrlComplete
+    if (!value) return
+    await Clipboard.copy(value)
+      .then(() => toast.show({ message: "Sign-in link copied", variant: "success" }))
+      .catch(toast.error)
+  }
+
   useKeyboard((event) => {
     if (event.name === "escape") {
       dialog.clear()
       return
     }
-    if (!event.ctrl && !event.meta && event.name === "y") {
+    if (event.ctrl || event.meta) return
+    if (event.name === "y") {
       event.preventDefault()
       void copyCode()
       return
     }
-    if (!event.ctrl && !event.meta && event.name === "r" && error()) {
+    if (event.name === "u") {
+      event.preventDefault()
+      void copyUrl()
+      return
+    }
+    // Reopening the browser is the fix for the most common stall: the tab was
+    // closed, or `open` silently landed on the wrong browser.
+    if (event.name === "o") {
+      event.preventDefault()
+      const result = start()
+      if (!result) return
+      void openVerification(result).then((opened) => {
+        if (disposed) return
+        setBrowserOpened(opened)
+        if (!opened) toast.show({ message: "Could not open a browser — copy the link with u", variant: "error" })
+      })
+      return
+    }
+    if (event.name === "r" && error()) {
       event.preventDefault()
       void begin()
     }
@@ -160,14 +223,18 @@ export function DialogAccountLogin(props: {
         {(value) => (
           <box flexDirection="column" gap={1}>
             <box flexDirection="column">
-              <text fg={theme.textMuted}>Open in your browser</text>
+              <text fg={theme.textMuted}>
+                {browserOpened() ? "Opened in your browser (code prefilled)" : "Open this link to approve"}
+              </text>
               <text fg={theme.accent} selectable wrapMode="word">
-                {value().verificationUrl}
+                {value().verificationUrlComplete}
               </text>
             </box>
             <box flexDirection="column">
-              <text fg={theme.textMuted}>Enter this code</text>
-              <text attributes={TextAttributes.BOLD} fg={theme.primary}>
+              <text fg={theme.textMuted}>
+                {`Code, if the page asks for it${remaining() ? ` — expires in ${remaining()}` : ""}`}
+              </text>
+              <text attributes={TextAttributes.BOLD} fg={theme.primary} selectable>
                 {value().userCode}
               </text>
             </box>
@@ -176,7 +243,11 @@ export function DialogAccountLogin(props: {
       </Show>
 
       <box flexDirection="row" gap={2} marginTop={1}>
-        <text fg={theme.textMuted}>y copy code</text>
+        <Show when={start()}>
+          <text fg={theme.textMuted}>o reopen</text>
+          <text fg={theme.textMuted}>u copy link</text>
+          <text fg={theme.textMuted}>y copy code</text>
+        </Show>
         <Show when={error()}>
           <text fg={theme.textMuted}>r retry</text>
         </Show>

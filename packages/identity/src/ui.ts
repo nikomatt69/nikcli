@@ -70,36 +70,66 @@ function page(
   )
 }
 
-export function loginPage(c: Context, loginState: string, message?: string): Response {
+export function loginPage(
+  c: Context,
+  loginState: string,
+  message?: string,
+  status: ContentfulStatusCode = 200,
+): Response {
   const note = message
     ? `<div class="notice" role="alert">${escape(message)}</div>`
     : "<p>Continue to the nikcli web app, Studio, or CLI without sharing a password. If this is your first time, your account will be created automatically after verification.</p>"
   return page(
     c,
     "Sign in or create an account",
-    `${note}<div class="stack"><a class="button secondary" href="/login/github?login_state=${encodeURIComponent(loginState)}">${githubIcon}Continue with GitHub</a><div class="or">or use email</div><form class="stack" method="post" action="/login/email/request"><input type="hidden" name="login_state" value="${escape(loginState)}"><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required><button type="submit">${mailIcon}Email me a code</button></form></div>`,
+    `${note}<div class="stack"><a class="button secondary" href="/login/github?login_state=${encodeURIComponent(loginState)}">${githubIcon}Continue with GitHub</a><div class="or">or use email</div><form class="stack" method="post" action="/login/email/request"><input type="hidden" name="login_state" value="${escape(loginState)}"><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required><button type="submit">${mailIcon}Email me a code</button></form></div>`,
+    status,
   )
 }
 
-export function emailCodePage(c: Context, loginState: string, email: string, message?: string): Response {
+/**
+ * Both code inputs accept whatever the user actually hands us — pasted with a
+ * space in the middle, with the separating dash, or straight from an OTP
+ * autofill that appends a trailing blank. A strict `pattern` used to reject
+ * those client-side with the browser's own opaque "match the requested format"
+ * bubble, so the code never even reached the server that would have been happy
+ * to normalize it. The server strips non-digits; the pattern here only keeps
+ * obvious garbage out.
+ */
+const CODE_INPUT_PATTERN = "[0-9][0-9\\s\\-]*"
+
+export function emailCodePage(
+  c: Context,
+  loginState: string,
+  email: string,
+  message?: string,
+  status: ContentfulStatusCode = 200,
+): Response {
   const note = message
     ? `<div class="notice" role="alert">${escape(message)}</div>`
-    : `<p>Enter the six-digit code sent to <strong>${escape(email)}</strong>. The code expires shortly.</p>`
+    : `<p>Enter the six-digit code sent to <strong>${escape(email)}</strong>. The code expires in 10 minutes.</p>`
   return page(
     c,
     "Check your email",
-    `${note}<form class="stack" method="post" action="/login/email/verify"><input type="hidden" name="login_state" value="${escape(loginState)}"><label for="code">Verification code</label><input class="code" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus><button type="submit">${checkIcon}Verify and continue</button></form>`,
+    `${note}<form class="stack" method="post" action="/login/email/verify"><input type="hidden" name="login_state" value="${escape(loginState)}"><label for="code">Verification code</label><input class="code" id="code" name="code" type="text" inputmode="numeric" pattern="${CODE_INPUT_PATTERN}" maxlength="12" autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="000000" required autofocus><button type="submit">${checkIcon}Verify and continue</button></form><div class="or">no code?</div><form method="post" action="/login/email/request"><input type="hidden" name="login_state" value="${escape(loginState)}"><input type="hidden" name="email" value="${escape(email)}"><button class="secondary" type="submit">${mailIcon}Send a new code</button></form>`,
+    status,
   )
 }
 
-export function devicePage(c: Context, userCode = "", message?: string): Response {
+export function devicePage(
+  c: Context,
+  userCode = "",
+  message?: string,
+  status: ContentfulStatusCode = 200,
+): Response {
   const note = message
     ? `<div class="notice" role="alert">${escape(message)}</div>`
     : "<p>Enter the code shown in your terminal. Only approve a device you recognize.</p>"
   return page(
     c,
     "Connect a device",
-    `${note}<form class="stack" method="post" action="/device"><label for="user_code">Device code</label><input class="code" id="user_code" name="user_code" value="${escape(userCode)}" maxlength="9" autocomplete="one-time-code" placeholder="0000-0000" required autofocus><button name="decision" value="approve" type="submit">${checkIcon}Approve device</button><button class="danger" name="decision" value="deny" type="submit">Deny request</button></form>`,
+    `${note}<form class="stack" method="post" action="/device"><label for="user_code">Device code</label><input class="code" id="user_code" name="user_code" type="text" value="${escape(userCode)}" inputmode="numeric" pattern="${CODE_INPUT_PATTERN}" maxlength="12" autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="0000-0000" required autofocus><button name="decision" value="approve" type="submit">${checkIcon}Approve device</button><button class="danger" name="decision" value="deny" type="submit">Deny request</button></form>`,
+    status,
   )
 }
 
