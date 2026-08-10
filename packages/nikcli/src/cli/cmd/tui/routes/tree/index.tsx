@@ -1,5 +1,5 @@
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
-import { TextAttributes } from "@opentui/core"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
+import { TextAttributes, type MouseEvent, type Renderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import path from "node:path"
 import { useRoute, useRouteData } from "@tui/context/route"
@@ -13,6 +13,7 @@ import { SessionTreeFooter } from "./footer"
 import { sessionTreeActivityDisplay } from "./session-activity-line"
 import { DialogTimeline } from "../session/dialog-timeline"
 import { flattenTreeRows, listUserMessagePreviews, treeLinePrefix } from "./tree-rows"
+import { clampSelectionToWindow, scrollWindowStart, windowStartFor } from "./tree-window"
 
 type SyncContext = ReturnType<typeof useSync>
 type SessionInfo = SyncContext["data"]["session"][number]
@@ -93,6 +94,51 @@ export function SessionTree() {
     flattenTreeRows(visibleRoots(), childrenByParent(), open(), messageTimelineOpen(), sync.data),
   )
   const selectedRow = createMemo(() => rows()[selected()])
+
+  /**
+   * Only the rows that fit on screen are mounted. Every row is exactly one
+   * terminal line, so the window is plain arithmetic — no height bookkeeping.
+   * Without this a tree with a few hundred roots mounts thousands of
+   * renderables and every sync event re-reconciles all of them, which is what
+   * made the panel lock up on a large project.
+   */
+  const [viewportRows, setViewportRows] = createSignal(20)
+  const [windowStart, setWindowStart] = createSignal(0)
+  let listRef: Renderable | undefined
+
+  // Layout sizes are not reactive, so re-measure whenever the chrome around
+  // the list can have changed; a timeout puts the read after the next layout.
+  createEffect(() => {
+    dimensions()
+    filterOpen()
+    filterText()
+    const timer = setTimeout(() => {
+      const height = listRef?.height
+      if (typeof height !== "number" || height <= 0) return
+      setViewportRows(Math.max(1, Math.floor(height)))
+    }, 0)
+    onCleanup(() => clearTimeout(timer))
+  })
+
+  // The selection drives the window: keep it inside, and never scroll past the
+  // end when rows disappear (collapse, filter).
+  createEffect(() => {
+    const height = viewportRows()
+    const selectedIndex = selected()
+    const count = rows().length
+    setWindowStart((previous) => windowStartFor({ previous, selected: selectedIndex, count, height }))
+  })
+
+  const visibleRows = createMemo(() => rows().slice(windowStart(), windowStart() + viewportRows()))
+
+  function scrollBy(delta: number) {
+    const height = viewportRows()
+    const next = scrollWindowStart({ start: windowStart(), delta, count: rows().length, height })
+    if (next === windowStart()) return
+    setWindowStart(next)
+    // Drag the selection along so it stays on a mounted row.
+    setSelected((index) => clampSelectionToWindow({ selected: index, start: next, height }))
+  }
 
   const workspaceLabel = createMemo(() => {
     const id = routeData.workspaceID
@@ -474,16 +520,26 @@ export function SessionTree() {
           </box>
         }
       >
-        <scrollbox
+        <box
+          ref={(el: Renderable) => (listRef = el)}
+          flexDirection="column"
           flexGrow={1}
+          minHeight={0}
           paddingLeft={1}
           paddingRight={2}
           paddingTop={0}
           paddingBottom={1}
-          scrollbarOptions={{ visible: false }}
+          onMouseScroll={(event: MouseEvent) => {
+            const scroll = event.scroll
+            if (!scroll) return
+            const magnitude = Math.max(1, scroll.delta || 1)
+            if (scroll.direction === "up") scrollBy(-magnitude)
+            if (scroll.direction === "down") scrollBy(magnitude)
+          }}
         >
-          <For each={rows()}>
-            {(row, index) => {
+          <For each={visibleRows()}>
+            {(row, offset) => {
+              const index = () => windowStart() + offset()
               const isSelected = () => selected() === index()
               const isCurrent = () => {
                 if (row.kind === "user_message") return routeData.sessionID === row.parentSession.id
@@ -661,7 +717,7 @@ export function SessionTree() {
               )
             }}
           </For>
-        </scrollbox>
+        </box>
       </Show>
 
       <SessionTreeFooter
