@@ -23980,6 +23980,11 @@
             "default": "<leader>p",
             "type": "string"
           },
+          "session_scope_toggle": {
+            "description": "Toggle the session list between the current project and the global project",
+            "default": "ctrl+g",
+            "type": "string"
+          },
           "session_tab_back": {
             "description": "Go back through session tab history",
             "default": "ctrl+o",

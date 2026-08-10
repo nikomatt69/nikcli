@@ -1653,6 +1653,10 @@ export type KeybindsConfig = {
    */
   session_pin_toggle?: string
   /**
+   * Toggle the session list between the current project and the global project
+   */
+  session_scope_toggle?: string
+  /**
    * Go back through session tab history
    */
   session_tab_back?: string

@@ -3,6 +3,19 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.264.0 (August 2026)
+
+## Core
+
+- Implement project/global session scope switching (@nikomatt69)
+- Improve project ID handling and caching logic (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(project): improve project ID handling and caching logic
+  - feat(dialogs): implement project/global session scope switching
+
 ## v1.263.0 (August 2026)
 
 ## Core
