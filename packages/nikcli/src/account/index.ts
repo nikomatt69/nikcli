@@ -334,8 +334,7 @@ export namespace Account {
       userCode: data.user_code,
       verificationUrl: data.verification_url,
       verificationUrlComplete:
-        data.verification_uri_complete ??
-        `${data.verification_url}?user_code=${encodeURIComponent(data.user_code)}`,
+        data.verification_uri_complete ?? `${data.verification_url}?user_code=${encodeURIComponent(data.user_code)}`,
       interval: data.interval,
       expiresIn: data.expires_in,
       expiresAt: Date.now() + data.expires_in * 1000,
@@ -417,9 +416,7 @@ export namespace Account {
           const retryAfter = Number(response.headers.get("retry-after"))
           options.onPending?.()
           await Bun.sleep(
-            Number.isFinite(retryAfter) && retryAfter > 0
-              ? retryAfter * 1000
-              : backoffMs(transientFailures),
+            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoffMs(transientFailures),
           )
           continue
         }

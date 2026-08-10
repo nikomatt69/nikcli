@@ -3,6 +3,20 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.263.0 (August 2026)
+
+## Core
+
+- Update workspace and project terminology for consistency (@nikomatt69)
+- Enhance email and device code handling (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(identity): enhance email and device code handling
+  - refactor(dialogs): update workspace and project terminology for consistency
+  - refactor(identity): streamline fetch handling in tests
+
 ## v1.262.0 (August 2026)
 
 - No notable changes

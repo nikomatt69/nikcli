@@ -116,12 +116,7 @@ export function emailCodePage(
   )
 }
 
-export function devicePage(
-  c: Context,
-  userCode = "",
-  message?: string,
-  status: ContentfulStatusCode = 200,
-): Response {
+export function devicePage(c: Context, userCode = "", message?: string, status: ContentfulStatusCode = 200): Response {
   const note = message
     ? `<div class="notice" role="alert">${escape(message)}</div>`
     : "<p>Enter the code shown in your terminal. Only approve a device you recognize.</p>"

@@ -458,12 +458,7 @@ export async function beginDeviceApproval(c: AppContext): Promise<Response> {
   // Keep whatever digits the user typed in the field so a mistyped code is a
   // one-character correction instead of a retype from the terminal.
   if (!formatted) {
-    return devicePage(
-      c,
-      digitsOnly(submitted).slice(0, 8),
-      "Enter the eight digits shown in your terminal.",
-      400,
-    )
+    return devicePage(c, digitsOnly(submitted).slice(0, 8), "Enter the eight digits shown in your terminal.", 400)
   }
 
   const rate = await consumeRateLimit(

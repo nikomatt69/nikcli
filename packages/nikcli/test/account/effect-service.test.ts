@@ -152,7 +152,8 @@ describe("Account.Service", () => {
 
   it("rejects a malformed device-code response instead of failing later during polling", async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (async (_input: string | URL | Request) => Response.json({ user_code: "1234-5678" })) as typeof fetch
+    globalThis.fetch = (async (_input: string | URL | Request) =>
+      Response.json({ user_code: "1234-5678" })) as typeof fetch
 
     try {
       await expect(

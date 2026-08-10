@@ -3868,6 +3868,9 @@
                             "type": "string",
                             "const": "worktree"
                           },
+                          "name": {
+                            "type": "string"
+                          },
                           "strategy": {
                             "type": "string",
                             "enum": ["git", "cow"]
@@ -19323,6 +19326,9 @@
           "worktree": {
             "type": "string"
           },
+          "canonical": {
+            "type": "string"
+          },
           "vcs": {
             "type": "string",
             "const": "git"
@@ -19340,6 +19346,15 @@
                 "type": "string"
               },
               "color": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "commands": {
+            "type": "object",
+            "properties": {
+              "start": {
                 "type": "string"
               }
             },
@@ -19368,7 +19383,7 @@
             }
           }
         },
-        "required": ["id", "worktree", "time", "sandboxes"],
+        "required": ["id", "worktree", "canonical", "time", "sandboxes"],
         "additionalProperties": false
       },
       "Event.project.updated": {
@@ -19380,6 +19395,29 @@
           },
           "properties": {
             "$ref": "#/components/schemas/Project"
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "ProjectDirectoriesUpdated": {
+        "type": "object",
+        "properties": {
+          "projectID": {
+            "type": "string"
+          }
+        },
+        "required": ["projectID"],
+        "additionalProperties": false
+      },
+      "Event.project.directories.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "project.directories.updated"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/ProjectDirectoriesUpdated"
           }
         },
         "required": ["type", "properties"]
@@ -23086,6 +23124,9 @@
         "anyOf": [
           {
             "$ref": "#/components/schemas/Event.project.updated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.project.directories.updated"
           },
           {
             "$ref": "#/components/schemas/Event.telemetry.record"
@@ -26995,6 +27036,12 @@
           "startCommand": {
             "type": "string"
           },
+          "detached": {
+            "type": "boolean"
+          },
+          "sourceDirectory": {
+            "type": "string"
+          },
           "root": {
             "type": "string"
           }
@@ -27053,6 +27100,9 @@
                   "type": {
                     "type": "string",
                     "const": "worktree"
+                  },
+                  "name": {
+                    "type": "string"
                   },
                   "strategy": {
                     "type": "string",
@@ -27183,6 +27233,9 @@
         "properties": {
           "directory": {
             "type": "string"
+          },
+          "force": {
+            "type": "boolean"
           }
         },
         "required": ["directory"],
@@ -28488,6 +28541,9 @@
           "worktree": {
             "type": "string"
           },
+          "canonical": {
+            "type": "string"
+          },
           "vcs": {
             "type": "string",
             "const": "git"
@@ -28505,6 +28561,15 @@
                 "type": "string"
               },
               "color": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "commands": {
+            "type": "object",
+            "properties": {
+              "start": {
                 "type": "string"
               }
             },
@@ -28536,7 +28601,7 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "worktree", "time", "sandboxes", "current"],
+        "required": ["id", "worktree", "canonical", "time", "sandboxes", "current"],
         "additionalProperties": false
       },
       "MobileProjectType": {

@@ -7,12 +7,16 @@ export type ClientOptions = {
 export type Project = {
   id: string
   worktree: string
+  canonical: string
   vcs?: "git"
   name?: string
   icon?: {
     url?: string
     override?: string
     color?: string
+  }
+  commands?: {
+    start?: string
   }
   time: {
     created: number
@@ -25,6 +29,15 @@ export type Project = {
 export type EventProjectUpdated = {
   type: "project.updated"
   properties: Project
+}
+
+export type ProjectDirectoriesUpdated = {
+  projectID: string
+}
+
+export type EventProjectDirectoriesUpdated = {
+  type: "project.directories.updated"
+  properties: ProjectDirectoriesUpdated
 }
 
 export type EventTelemetryRecord = {
@@ -1326,6 +1339,7 @@ export type EventMissionAborted = {
 
 export type Event =
   | EventProjectUpdated
+  | EventProjectDirectoriesUpdated
   | EventTelemetryRecord
   | EventServerInstanceDisposed
   | EventInstallationUpdated
@@ -3357,6 +3371,8 @@ export type WorktreeCreateInput = {
   baseBranch?: string
   remote?: string
   startCommand?: string
+  detached?: boolean
+  sourceDirectory?: string
   root?: string
 }
 
@@ -3375,6 +3391,7 @@ export type Workspace = {
     | {
         directory: string
         type: "worktree"
+        name?: string
         strategy?: "git" | "cow"
         eventLimit?: number
       }
@@ -3411,6 +3428,7 @@ export type WorkspaceSessionRestore = {
 
 export type WorktreeRemoveInput = {
   directory: string
+  force?: boolean
 }
 
 export type WorktreeResetInput = {
@@ -3859,12 +3877,16 @@ export type MobileAuthTokenPublic = {
 export type MobileProject = {
   id: string
   worktree: string
+  canonical: string
   vcs?: "git"
   name?: string
   icon?: {
     url?: string
     override?: string
     color?: string
+  }
+  commands?: {
+    start?: string
   }
   time: {
     created: number
@@ -6221,6 +6243,7 @@ export type ExperimentalWorkspaceCreateData = {
       | {
           directory: string
           type: "worktree"
+          name?: string
           strategy?: "git" | "cow"
           eventLimit?: number
         }

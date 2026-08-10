@@ -2636,6 +2636,7 @@ export class Workspace extends HeyApiClient {
         | {
             directory: string
             type: "worktree"
+            name?: string
             strategy?: "git" | "cow"
             eventLimit?: number
           }
