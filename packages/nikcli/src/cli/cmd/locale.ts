@@ -65,7 +65,7 @@ export const LocaleCommand = cmd({
       }
 
       if (args.action === "set") {
-        const next: LocaleConfig = { ...(config.locale ?? {}) }
+        const next: LocaleConfig = { ...config.locale }
         if (args.language !== undefined) next.language = args.language
         if (args.region !== undefined) next.region = args.region
         if (args.locale !== undefined) next.locale = args.locale

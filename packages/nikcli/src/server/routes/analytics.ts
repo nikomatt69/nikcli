@@ -3,10 +3,6 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Analytics } from "../../analytics/analytics"
 import { AnalyticsData } from "../../analytics/data"
-import { AnalyticsRollup } from "../../analytics/rollup"
-import { Log } from "../../util/log"
-
-const log = Log.create({ service: "analytics-routes" })
 
 export function AnalyticsRoutes() {
   return new Hono()

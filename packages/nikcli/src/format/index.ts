@@ -114,9 +114,7 @@ export namespace Format {
               formatters[name] = {
                 ...builtIn,
                 extensions: item.extensions ?? builtIn.extensions,
-                environment: item.environment
-                  ? { ...(builtIn.environment ?? {}), ...item.environment }
-                  : builtIn.environment,
+                environment: item.environment ? { ...builtIn.environment, ...item.environment } : builtIn.environment,
               }
             } else {
               formatters[name] = {

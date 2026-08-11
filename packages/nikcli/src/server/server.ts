@@ -1180,9 +1180,10 @@ export namespace Server {
 
     _url = server.url
 
-    // Opt-in, once a day, and silent either way — it must never delay startup
-    // or surface an error to someone who did not ask for it.
-    void AnalyticsShare.run().catch(() => undefined)
+    // Opt-in and silent either way — it must never delay startup or surface an
+    // error to someone who did not ask for it. Runs now and then keeps itself
+    // going, so a server that stays up for days does not report only once.
+    AnalyticsShare.start()
 
     const shouldPublishMDNS =
       opts.mdns &&

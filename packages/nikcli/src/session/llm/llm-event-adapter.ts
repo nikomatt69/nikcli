@@ -103,7 +103,7 @@ function usageToAISDK(usage: FinishEvent) {
 function metadataWithCacheWrite(event: FinishEvent) {
   const write = event.usage?.cacheWriteInputTokens
   if (write === undefined) return event.providerMetadata
-  return { ...(event.providerMetadata ?? {}), nikcli: { cacheWriteInputTokens: write } }
+  return { ...event.providerMetadata, nikcli: { cacheWriteInputTokens: write } }
 }
 
 /**

@@ -105,15 +105,54 @@ export namespace AnalyticsShare {
    * number of rows accepted locally — zero when sharing is off, when there is
    * nothing new, or when the request failed.
    */
-  export async function run(): Promise<number> {
+  /** How often a long-lived server re-publishes while it stays up. */
+  const REFRESH_MS = 6 * 60 * 60 * 1000
+
+  let timer: ReturnType<typeof setInterval> | undefined
+
+  /**
+   * Start reporting in the background, and keep it going.
+   *
+   * A run at startup is what makes this automatic for the common case: most
+   * nikcli processes are short-lived, and every start catches up whatever days
+   * are still unpublished. The interval is for the ones that stay up for days,
+   * which would otherwise report once and go quiet.
+   *
+   * `includeToday` is on: the day in progress is sent too, so a page reading this
+   * is current rather than always a day behind. Resending it is free — the
+   * collector keys on (install, day, provider, model), so each send replaces the
+   * last, and tomorrow's run replaces the partial day with the complete one.
+   */
+  export function start(): void {
+    const tick = () => void run({ includeToday: true }).catch(() => undefined)
+    tick()
+    if (timer) return
+    timer = setInterval(tick, REFRESH_MS)
+    // Never hold the process open on account of reporting.
+    timer.unref?.()
+  }
+
+  /** Stop the background timer. Safe to call when it was never started. */
+  export function stop(): void {
+    if (!timer) return
+    clearInterval(timer)
+    timer = undefined
+  }
+
+  export async function run(options?: { force?: boolean; includeToday?: boolean }): Promise<number> {
     const analytics = await settings()
-    if (analytics?.share !== true) return 0
+    // `force` is for an explicit `nikcli analytics publish`: the user asked for it
+    // in that moment, which is the consent the config flag stands in for otherwise.
+    if (analytics?.share !== true && options?.force !== true) return 0
 
     const state = await readState()
-    // Yesterday is the newest whole day; today is still accumulating.
-    const yesterday = dayKey(Date.now() - DAY_MS)
+    // Yesterday is the newest whole day; today is still accumulating, so it is
+    // only sent when asked for — a partial day would be replaced by the complete
+    // one tomorrow, which the (install, day, model) key makes safe.
+    const newest = options?.includeToday ? dayKey(Date.now()) : dayKey(Date.now() - DAY_MS)
     const from = dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
-    if (from > yesterday) return 0
+    if (from > newest) return 0
+    const yesterday = newest
 
     // Recompute before reading: the rollup for a day is derived from that day's
     // messages, so rebuilding is what makes a resumed session or a late message
@@ -164,7 +203,7 @@ export namespace AnalyticsShare {
     }
 
     try {
-      const response = await fetch(analytics.endpoint ?? DEFAULT_ENDPOINT, {
+      const response = await fetch(analytics?.endpoint ?? DEFAULT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ installID: state.installID, version: Installation.VERSION, rows }),

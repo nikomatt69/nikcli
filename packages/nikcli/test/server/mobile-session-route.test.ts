@@ -37,7 +37,7 @@ function request(pathname: string, init?: RequestInit) {
       headers: {
         "content-type": "application/json",
         "x-nikcli-directory": projectDir,
-        ...(init?.headers ?? {}),
+        ...init?.headers,
       },
     }),
   )

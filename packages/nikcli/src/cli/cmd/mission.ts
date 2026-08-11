@@ -206,7 +206,7 @@ const MissionNewCommand = cmd({
       if (args.name) draft = { ...draft, name: String(args.name) }
       if (args.workerModel) {
         const models = {
-          ...(draft.models ?? {}),
+          ...draft.models,
           worker: String(args.workerModel),
         }
         draft = { ...draft, models }

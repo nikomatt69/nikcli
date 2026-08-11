@@ -54,6 +54,7 @@ import { HeapCommand } from "./cli/cmd/heap"
 import { RoutineCommand } from "./cli/cmd/routine"
 import { UsageCommand } from "./cli/cmd/usage"
 import { GoalCommand } from "./cli/cmd/goal"
+import { AnalyticsCommand } from "./cli/cmd/analytics"
 import { MissionCommand } from "./cli/cmd/mission"
 import { SyncCommand } from "./cli/cmd/sync"
 import { ConnectorsCommand } from "./cli/cmd/connectors"
@@ -163,6 +164,7 @@ export async function runCli() {
     .command(AttachCommand)
     .command(RunCommand)
     .command(GoalCommand)
+    .command(AnalyticsCommand)
     .command(GenerateCommand)
     .command(DebugCommand)
     .command(AuthCommand)

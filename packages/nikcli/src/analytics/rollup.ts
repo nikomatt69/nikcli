@@ -164,6 +164,35 @@ export namespace AnalyticsRollup {
     )
   }
 
+  /**
+   * The first day that has a message, and whether any rollup exists yet.
+   *
+   * A fresh install can have months of history in `message_info` and nothing in
+   * `analytics_stat`, because rollups are only written for days something asked
+   * for. Lifetime figures would silently start at whenever the feature was first
+   * used, so the first build backfills from here instead.
+   */
+  export function bounds(): Promise<{ earliestDay?: string; rollupRows: number }> {
+    return runPromiseWithLayer(
+      Database.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const { native } = yield* Database.Service
+          return yield* Effect.sync(() => {
+            const earliest = native
+              .query<
+                { day: string | null },
+                []
+              >(`SELECT ${DAY_OF} AS day FROM message_info WHERE ${HAS_MODEL} ORDER BY created_at ASC LIMIT 1`)
+              .get()
+            const counted = native.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_stat`).get()
+            return { earliestDay: earliest?.day ?? undefined, rollupRows: counted?.n ?? 0 }
+          })
+        }),
+      ),
+    )
+  }
+
   /** Read rollups back, oldest first — what the publisher sends and `/data` shows. */
   export function read(input: { from: string; to: string }): Promise<Row[]> {
     return runPromiseWithLayer(

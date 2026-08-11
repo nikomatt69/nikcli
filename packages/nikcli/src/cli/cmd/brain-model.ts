@@ -79,7 +79,7 @@ export const BrainModelCommand = cmd({
       }
 
       const config = await configGet()
-      const experimental = { ...(config.experimental ?? {}) }
+      const experimental = { ...config.experimental }
 
       if (args.reset) {
         delete experimental.brainModel

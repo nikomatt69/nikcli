@@ -851,7 +851,7 @@ export namespace SessionHttpApi {
         } else if (kind === "tool") {
           const session = yield* Session.Service
           yield* session.update(params.sessionID, (draft) => {
-            const map = { ...(draft.disabledTools ?? {}) }
+            const map = { ...draft.disabledTools }
             // `false`, not a deleted key: an opt-in tool (`ToolRegistry.OPT_IN`)
             // reads an absent entry as "never asked for" and stays off, so
             // enabling has to be recorded.

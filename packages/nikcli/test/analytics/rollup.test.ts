@@ -141,7 +141,7 @@ function buildData(turns: Turn[]) {
     directory: projectDir,
     fn: async () => {
       await seed(turns)
-      await AnalyticsRollup.rebuild({ from: dayKey(NOW - 120 * DAY), to: dayKey(NOW) })
+      await AnalyticsRollup.rebuild({ from: "2020-01-01", to: dayKey(NOW) })
       return AnalyticsData.build({ now: NOW })
     },
   })
@@ -391,5 +391,64 @@ describe("AnalyticsData", () => {
     expect(AnalyticsData.modelAuthor("something-nobody-knows")).toBe("unknown")
     // Routing suffixes describe delivery, not a different model.
     expect(AnalyticsData.normalizeModel("gpt-5-free")).toBe("gpt-5")
+  })
+})
+
+describe("AnalyticsData — day, month and lifetime", () => {
+  beforeEach(() => {
+    process.env.NIKCLI_DB = dbPath
+  })
+
+  it("reports every calendar month with usage, oldest first", async () => {
+    const data = (await buildData([
+      { session: "a", day: "2026-06-10", provider: "anthropic", model: "claude-opus-5", input: 100, cost: 1 },
+      { session: "b", day: "2026-07-10", provider: "anthropic", model: "claude-opus-5", input: 200, cost: 2 },
+      { session: "c", day: ago(1), provider: "anthropic", model: "claude-opus-5", input: 300, cost: 3 },
+    ]))!
+
+    expect(data.months.map((m) => m.month)).toEqual(["2026-06", "2026-07", "2026-08"])
+    expect(data.months[0]!.tokens).toBe(100)
+    expect(data.months[1]!.costUsd).toBeCloseTo(2)
+  })
+
+  it("counts a month's sessions distinctly rather than summing its days", async () => {
+    // One session on two days of the same month: the month has one session.
+    const data = (await buildData([
+      { session: "spans", day: "2026-07-10", provider: "anthropic", model: "opus", input: 10 },
+      { session: "spans", day: "2026-07-11", provider: "anthropic", model: "opus", input: 10 },
+      { session: "other", day: "2026-07-11", provider: "anthropic", model: "opus", input: 10 },
+    ]))!
+
+    const july = data.months.find((m) => m.month === "2026-07")!
+    expect(july.sessions).toBe(2)
+  })
+
+  it("covers all of recorded history, not just the window", async () => {
+    // The first day is far outside the 30-day window and every series window.
+    const data = (await buildData([
+      { session: "old", day: "2026-01-05", provider: "anthropic", model: "opus", input: 1000, cost: 10 },
+      { session: "new", day: ago(1), provider: "anthropic", model: "opus", input: 100, cost: 1 },
+    ]))!
+
+    // The window sees only the recent day...
+    expect(data.totals.tokens).toBe(100)
+    // ...while lifetime carries both, and its own distinct session count.
+    expect(data.lifetime.month).toBeNull()
+    expect(data.lifetime.tokens).toBe(1100)
+    expect(data.lifetime.sessions).toBe(2)
+    expect(data.lifetime.costUsd).toBeCloseTo(11)
+    expect(data.months).toHaveLength(2)
+  })
+
+  it("derives the same economics at every granularity", async () => {
+    const data = (await buildData([
+      { session: "s", day: ago(2), provider: "anthropic", model: "opus", input: 250, cacheRead: 750, cost: 2 },
+    ]))!
+
+    const month = data.months.at(-1)!
+    expect(month.pricePerMillion).toBeCloseTo(2000)
+    expect(month.costPerSession).toBeCloseTo(2)
+    expect(month.cacheRatio).toBeCloseTo(0.75)
+    expect(data.lifetime.pricePerMillion).toBeCloseTo(2000)
   })
 })

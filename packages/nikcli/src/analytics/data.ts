@@ -127,11 +127,34 @@ export namespace AnalyticsData {
     change: number | null
   }
 
+  /** One calendar month, or the whole of recorded history when `month` is null. */
+  export interface PeriodStat {
+    /** `YYYY-MM`, or `null` for the lifetime row. */
+    month: string | null
+    tokens: number
+    inputTokens: number
+    outputTokens: number
+    cacheReadTokens: number
+    messages: number
+    toolCalls: number
+    /** Distinct sessions in the period — counted, never summed from days. */
+    sessions: number
+    costUsd: number
+    models: number
+    pricePerMillion: number
+    costPerSession: number
+    cacheRatio: number | null
+  }
+
   export interface Data {
     totals: Totals
     models: ModelStat[]
     authors: AuthorStat[]
     series: SeriesPoint[]
+    /** Every calendar month with usage, oldest first. */
+    months: PeriodStat[]
+    /** Everything ever recorded, not just the window. */
+    lifetime: PeriodStat
     /** Models the stacked series draws, largest first, plus `other`. */
     seriesModels: string[]
     windowDays: number
@@ -166,7 +189,18 @@ export namespace AnalyticsData {
     const now = Date.now()
     const to = dayKey(now)
     // Twice the widest window, so the previous-window comparison is rebuilt too.
-    const from = dayKey(now - (Math.max(windowDays, seriesDays) * 2 - 1) * DAY_MS)
+    const recent = dayKey(now - (Math.max(windowDays, seriesDays) * 2 - 1) * DAY_MS)
+
+    // First run backfills everything, so the lifetime total covers the whole
+    // history rather than starting the day this feature was first used. After
+    // that only the recent window is recomputed — older days are already rolled
+    // up and their messages will not change.
+    const { earliestDay, rollupRows } = await AnalyticsRollup.bounds().catch(() => ({
+      earliestDay: undefined,
+      rollupRows: 1,
+    }))
+    const from = rollupRows === 0 && earliestDay && earliestDay < recent ? earliestDay : recent
+
     await AnalyticsRollup.rebuild({ from, to }).catch(() => 0)
     return build({ now, windowDays, seriesDays })
   }
@@ -208,9 +242,33 @@ export namespace AnalyticsData {
               >(`SELECT COUNT(DISTINCT session_id) AS sessions FROM message_info WHERE ${where}`)
               .get(from, to)
 
+            // Sessions per calendar month, and over all of recorded history.
+            // Neither is the sum of the day counts: a session running from the
+            // 31st into the 1st belongs to one month, and to one lifetime.
+            const monthWhere = `role = 'assistant'
+              AND json_extract(info, '$.modelID') IS NOT NULL
+              AND json_extract(info, '$.modelID') != ''`
+
+            const perMonth = native
+              .query<{ month: string; sessions: number }, []>(
+                `SELECT strftime('%Y-%m', created_at / 1000, 'unixepoch') AS month,
+                        COUNT(DISTINCT session_id) AS sessions
+                 FROM message_info WHERE ${monthWhere} GROUP BY 1 ORDER BY 1 ASC`,
+              )
+              .all()
+
+            const lifetime = native
+              .query<
+                { sessions: number },
+                []
+              >(`SELECT COUNT(DISTINCT session_id) AS sessions FROM message_info WHERE ${monthWhere}`)
+              .get()
+
             return {
               byModel: new Map(perModel.map((row) => [normalizeModel(row.model), row.sessions])),
               total: overall?.sessions ?? 0,
+              byMonth: new Map(perMonth.map((row) => [row.month, row.sessions])),
+              lifetime: lifetime?.sessions ?? 0,
             }
           })
         }),
@@ -239,15 +297,20 @@ export namespace AnalyticsData {
     const previousTo = dayKey(now - windowDays * DAY_MS)
     const seriesFrom = dayKey(now - (seriesDays - 1) * DAY_MS)
 
-    const [current, previous, series, sessions] = await Promise.all([
+    const [current, previous, series, sessions, everything] = await Promise.all([
       AnalyticsRollup.read({ from, to }),
       AnalyticsRollup.read({ from: previousFrom, to: previousTo }),
       AnalyticsRollup.read({ from: seriesFrom, to }),
       windowSessions(from, to),
+      // Month and lifetime rows cover all of recorded history, not the window.
+      AnalyticsRollup.read({ from: "0000-01-01", to: "9999-12-31" }),
     ])
 
     const totalTokens = current.reduce((sum, row) => sum + row.totalTokens, 0)
-    if (totalTokens === 0) return null
+    // Only "nothing was ever recorded" is nothing to show. A quiet month still
+    // has a lifetime total behind it, and returning null for an empty window
+    // would hide every month and the total along with it.
+    if (everything.length === 0) return null
 
     // Per model, summed across the providers that served it.
     const byModel = new Map<string, ModelStat & { providerTokens: Map<string, number> }>()
@@ -353,6 +416,45 @@ export namespace AnalyticsData {
       point.sessions += row.sessions
     }
 
+    // Months and lifetime. Token and cost columns are additive so they come from
+    // the day rollups; the session count for each period does not, so it comes
+    // from the distinct queries above.
+    const buildPeriod = (month: string | null, rows: AnalyticsRollup.Row[], sessionCount: number): PeriodStat => {
+      const sum = (pick: (row: AnalyticsRollup.Row) => number) => rows.reduce((total, row) => total + pick(row), 0)
+      const tokens = sum((row) => row.totalTokens)
+      const input = sum((row) => row.inputTokens)
+      const cacheRead = sum((row) => row.cacheReadTokens)
+      const cost = sum((row) => row.costMicroCents) / MICRO_CENTS_PER_USD
+      const cacheable = input + cacheRead
+      return {
+        month,
+        tokens,
+        inputTokens: input,
+        outputTokens: sum((row) => row.outputTokens),
+        cacheReadTokens: cacheRead,
+        messages: sum((row) => row.messages),
+        toolCalls: sum((row) => row.toolCalls),
+        sessions: sessionCount,
+        costUsd: cost,
+        models: new Set(rows.map((row) => normalizeModel(row.model))).size,
+        pricePerMillion: tokens > 0 ? (cost / tokens) * 1_000_000 : 0,
+        costPerSession: ratio(cost, sessionCount),
+        cacheRatio: cacheable > 0 ? cacheRead / cacheable : null,
+      }
+    }
+
+    const rowsByMonth = new Map<string, AnalyticsRollup.Row[]>()
+    for (const row of everything) {
+      const month = row.periodKey.slice(0, 7)
+      const bucket = rowsByMonth.get(month)
+      if (bucket) bucket.push(row)
+      else rowsByMonth.set(month, [row])
+    }
+    const months = [...rowsByMonth.entries()]
+      .sort((left, right) => (left[0] < right[0] ? -1 : 1))
+      .map(([month, rows]) => buildPeriod(month, rows, sessions.byMonth.get(month) ?? 0))
+    const lifetime = buildPeriod(null, everything, sessions.lifetime)
+
     const inputTokens = models.reduce((sum, model) => sum + model.inputTokens, 0)
     const cacheReadTokens = models.reduce((sum, model) => sum + model.cacheReadTokens, 0)
     const costUsd = models.reduce((sum, model) => sum + model.costUsd, 0)
@@ -380,6 +482,8 @@ export namespace AnalyticsData {
       },
       models,
       authors,
+      months,
+      lifetime,
       series: [...points.values()],
       seriesModels: [...seriesModels, "other"],
       windowDays,

@@ -106,7 +106,7 @@ type LenientGenerated = Parameters<typeof definitionFromGenerated>[0]
 function parseLenient(text: string): LenientGenerated {
   const briefMatch = text.match(/"brief"\s*:\s*"([^"]+)"/)
   const nameMatch = text.match(/"name"\s*:\s*"([^"]+)"/)
-  const milestonesMatch = text.match(/"milestones"\s*:\s*\[([\s\S]*)\]\s*[,\}]/)
+  const milestonesMatch = text.match(/"milestones"\s*:\s*\[([\s\S]*)\]\s*[,}]/)
   if (!milestonesMatch || !briefMatch) {
     throw new Error("Could not extract mission shape from model output")
   }
@@ -127,7 +127,7 @@ function parseLenient(text: string): LenientGenerated {
   const objRe = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g
   for (const m of block.matchAll(objRe)) {
     const obj = m[0]
-    const featuresMatch = obj.match(/"features"\s*:\s*\[([\s\S]*?)\](?=\s*[,\}])/)
+    const featuresMatch = obj.match(/"features"\s*:\s*\[([\s\S]*?)\](?=\s*[,}])/)
     if (!featuresMatch) continue
     const features: Array<{
       name?: string

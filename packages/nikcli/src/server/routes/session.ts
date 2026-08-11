@@ -424,7 +424,7 @@ export const SessionRoutes = lazy(() =>
             Effect.gen(function* () {
               const service = yield* Session.Service
               yield* service.update(sessionID, (draft) => {
-                const map = { ...(draft.disabledTools ?? {}) }
+                const map = { ...draft.disabledTools }
                 // `false`, not a deleted key: an opt-in tool
                 // (`ToolRegistry.OPT_IN`) reads an absent entry as "never
                 // asked for" and stays off, so enabling has to be recorded.

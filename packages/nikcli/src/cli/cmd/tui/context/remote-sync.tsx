@@ -124,7 +124,7 @@ export const { use: useRemoteSync, provider: RemoteSyncProvider } = createSimple
           signal: AbortSignal.timeout(10_000),
           headers: {
             "content-type": "application/json",
-            ...(init?.headers ?? {}),
+            ...init?.headers,
           },
         })
         if (!res.ok) return undefined

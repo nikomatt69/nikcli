@@ -73,7 +73,7 @@ export async function generateFromDescription(
 
 function parseLenient(text: string): Parameters<typeof definitionFromGenerated>[0] {
   const nameMatch = text.match(/"name"\s*:\s*"([^"]+)"/)
-  const stagesMatch = text.match(/"stages"\s*:\s*\[([\s\S]*?)\]\s*[,\}]/)
+  const stagesMatch = text.match(/"stages"\s*:\s*\[([\s\S]*?)\]\s*[,}]/)
   const intervalMatch = text.match(/"intervalMs"\s*:\s*(\d+)/)
   const maxRunsMatch = text.match(/"maxRuns"\s*:\s*(\d+)/)
   if (!stagesMatch) throw new Error("Could not extract stages from model output")
