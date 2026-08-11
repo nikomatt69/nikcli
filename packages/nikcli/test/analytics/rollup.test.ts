@@ -26,6 +26,7 @@ preserveTestEnv([
 
 const { Database } = await import("@/database/database")
 const { AnalyticsRollup } = await import("@/analytics/rollup")
+const { AnalyticsData } = await import("@/analytics/data")
 const { Instance } = await import("@/project/instance")
 const { runPromiseWithLayer } = await import("@/effect")
 const { Effect } = await import("effect")
@@ -121,8 +122,43 @@ function markPublished(periods: string[]) {
   return Instance.provide({ directory: projectDir, fn: () => AnalyticsRollup.markPublished(periods) })
 }
 
+/**
+ * `AnalyticsData` lives in this file rather than its own because the database
+ * path comes from a process-wide `NIKCLI_DB`, and the connection behind it is
+ * memoized. Two test files pointing it at two temp homes means whichever one
+ * cleans up first leaves the other reading a deleted file — one file, one
+ * database, no ordering to get wrong.
+ */
+const NOW = Date.parse("2026-08-11T12:00:00.000Z")
+const DAY = 86_400_000
+
+function dayKey(at: number) {
+  return new Date(at).toISOString().slice(0, 10)
+}
+
+function buildData(turns: Turn[]) {
+  return Instance.provide({
+    directory: projectDir,
+    fn: async () => {
+      await seed(turns)
+      await AnalyticsRollup.rebuild({ from: dayKey(NOW - 120 * DAY), to: dayKey(NOW) })
+      return AnalyticsData.build({ now: NOW })
+    },
+  })
+}
+
+/** A turn `n` whole days before the fixed NOW. */
+function ago(days: number) {
+  return dayKey(NOW - days * DAY)
+}
+
 describe("AnalyticsRollup", () => {
   beforeEach(async () => {
+    // Re-assert at run time, not just at import. Every test file that needs its
+    // own database sets NIKCLI_DB while its module body evaluates, so the last
+    // file imported would otherwise own the path for all of them — and the first
+    // one to delete its temp home would leave the rest pointing at nothing.
+    process.env.NIKCLI_DB = dbPath
     await seed([])
   })
 
@@ -264,5 +300,96 @@ describe("AnalyticsRollup", () => {
 
     expect(await read("2026-08-07", "2026-08-07")).toHaveLength(1)
     expect(await read("2026-08-08", "2026-08-08")).toEqual([])
+  })
+})
+
+describe("AnalyticsData", () => {
+  beforeEach(() => {
+    process.env.NIKCLI_DB = dbPath
+  })
+
+  it("returns nothing rather than a page of zeroes when no tokens were used", async () => {
+    expect(await buildData([])).toBeNull()
+  })
+
+  it("ranks models by tokens and derives the per-model economics", async () => {
+    const data = (await buildData([
+      { session: "s1", day: ago(1), provider: "anthropic", model: "claude-opus-5", input: 300, output: 700, cost: 2 },
+      { session: "s2", day: ago(2), provider: "openai", model: "gpt-5", input: 100, output: 100, cost: 0.5 },
+    ]))!
+
+    expect(data.models.map((m) => m.model)).toEqual(["claude-opus-5", "gpt-5"])
+    const opus = data.models[0]!
+    expect(opus.tokens).toBe(1000)
+    expect(opus.share).toBeCloseTo(1000 / 1200)
+    expect(opus.pricePerMillion).toBeCloseTo((2 / 1000) * 1_000_000)
+    expect(opus.costPerSession).toBeCloseTo(2)
+    expect(opus.tokensPerSession).toBeCloseTo(1000)
+  })
+
+  it("counts distinct sessions over the window instead of summing daily counts", async () => {
+    // One session spanning three days. Summing the day rollups would report 3.
+    const data = (await buildData([
+      { session: "long", day: ago(1), provider: "anthropic", model: "claude-opus-5", input: 10 },
+      { session: "long", day: ago(2), provider: "anthropic", model: "claude-opus-5", input: 10 },
+      { session: "long", day: ago(3), provider: "anthropic", model: "claude-opus-5", input: 10 },
+    ]))!
+
+    expect(data.models[0]!.sessions).toBe(1)
+    expect(data.totals.sessions).toBe(1)
+  })
+
+  it("uses input plus cache reads as the cache denominator, never output", async () => {
+    const data = (await buildData([
+      {
+        session: "s1",
+        day: ago(1),
+        provider: "anthropic",
+        model: "claude-opus-5",
+        input: 25,
+        output: 1000,
+        cacheRead: 75,
+      },
+    ]))!
+
+    // 75 of 100 cacheable tokens came from cache; the 1000 output tokens cannot.
+    expect(data.models[0]!.cacheRatio).toBeCloseTo(0.75)
+    expect(data.totals.cacheRatio).toBeCloseTo(0.75)
+  })
+
+  it("groups models by the organisation that made them", async () => {
+    const data = (await buildData([
+      { session: "s1", day: ago(1), provider: "anthropic", model: "claude-opus-5", input: 600 },
+      { session: "s2", day: ago(1), provider: "bedrock", model: "claude-haiku-4-5", input: 200 },
+      { session: "s3", day: ago(1), provider: "openai", model: "gpt-5", input: 200 },
+    ]))!
+
+    expect(data.authors.map((a) => a.author)).toEqual(["anthropic", "openai"])
+    expect(data.authors[0]!.tokens).toBe(800)
+    expect(data.authors[0]!.models).toBe(2)
+    expect(data.authors[0]!.share).toBeCloseTo(0.8)
+  })
+
+  it("keeps a dense series and folds the tail into one band", async () => {
+    const turns: Turn[] = []
+    for (const model of ["a-1", "b-1", "c-1", "d-1", "e-1", "f-1", "g-1"]) {
+      turns.push({ session: `s-${model}`, day: ago(1), provider: "p", model, input: 100 })
+    }
+    const data = (await buildData(turns))!
+
+    // Five bands plus `other`, so the stack stays readable however many models ran.
+    expect(data.seriesModels).toHaveLength(6)
+    expect(data.seriesModels.at(-1)).toBe("other")
+    expect(data.series).toHaveLength(AnalyticsData.SERIES_DAYS)
+    expect(data.series.find((point) => point.day === ago(1))!.byModel.other).toBe(200)
+  })
+
+  it("reads a model's author from its name, not its provider", () => {
+    expect(AnalyticsData.modelAuthor("claude-opus-5")).toBe("anthropic")
+    expect(AnalyticsData.modelAuthor("gpt-5")).toBe("openai")
+    expect(AnalyticsData.modelAuthor("qwen3-coder")).toBe("qwen")
+    expect(AnalyticsData.modelAuthor("something-nobody-knows")).toBe("unknown")
+    // Routing suffixes describe delivery, not a different model.
+    expect(AnalyticsData.normalizeModel("gpt-5-free")).toBe("gpt-5")
   })
 })

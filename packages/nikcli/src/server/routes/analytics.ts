@@ -2,6 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Analytics } from "../../analytics/analytics"
+import { AnalyticsData } from "../../analytics/data"
+import { AnalyticsRollup } from "../../analytics/rollup"
 import { Log } from "../../util/log"
 
 const log = Log.create({ service: "analytics-routes" })
@@ -165,6 +167,35 @@ export function AnalyticsRoutes() {
           .sort((a, b) => b.lastActive - a.lastActive)
 
         return c.json({ models, providers, projects })
+      },
+    )
+    .get(
+      "/data",
+      describeRoute({
+        summary: "Get the /data dataset",
+        description:
+          "Aggregate usage for a public data page: models ranked by tokens with a daily series, cost per session, blended price per million, cache ratio and share by model author. Computed from the local rollups; returns 204 when the window holds no tokens.",
+        operationId: "analytics.data",
+        responses: {
+          200: {
+            description: "Aggregate usage dataset, or null when the window holds no tokens",
+            content: { "application/json": { schema: resolver(z.any()) } },
+          },
+        },
+      }),
+      validator(
+        "query",
+        z.object({
+          days: z.string().optional(),
+          seriesDays: z.string().optional(),
+        }),
+      ),
+      async (c) => {
+        const query = c.req.valid("query")
+        // `null` rather than 204: the Effect bridge mirrors this endpoint, and a
+        // body both surfaces can return keeps them from drifting apart.
+        const data = await AnalyticsData.refreshed(query)
+        return c.json(data)
       },
     )
 }

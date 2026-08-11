@@ -1545,6 +1545,13 @@ export type AnalyticsSessionsOutput = any
 
 export type AnalyticsLeaderboardOutput = any
 
+export type AnalyticsDataInput = {
+  readonly days?: { readonly days?: string | undefined; readonly seriesDays?: string | undefined }["days"]
+  readonly seriesDays?: { readonly days?: string | undefined; readonly seriesDays?: string | undefined }["seriesDays"]
+}
+
+export type AnalyticsDataOutput = any
+
 export type AppLogInput = {
   readonly service: {
     readonly service: string

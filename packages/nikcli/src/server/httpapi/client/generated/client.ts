@@ -74,12 +74,23 @@ const Endpoint1_3 = (raw: RawClient["analytics"]) => () => raw["sessions"]({}).p
 
 const Endpoint1_4 = (raw: RawClient["analytics"]) => () => raw["leaderboard"]({}).pipe(Effect.mapError(mapClientError))
 
+type Endpoint1_5Request = Parameters<RawClient["analytics"]["data"]>[0]
+type Endpoint1_5Input = {
+  readonly days?: Endpoint1_5Request["query"]["days"]
+  readonly seriesDays?: Endpoint1_5Request["query"]["seriesDays"]
+}
+const Endpoint1_5 = (raw: RawClient["analytics"]) => (input?: Endpoint1_5Input) =>
+  raw["data"]({ query: { days: input?.["days"], seriesDays: input?.["seriesDays"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
 const adaptGroup1 = (raw: RawClient["analytics"]) => ({
   global: Endpoint1_0(raw),
   daily: Endpoint1_1(raw),
   session: Endpoint1_2(raw),
   sessions: Endpoint1_3(raw),
   leaderboard: Endpoint1_4(raw),
+  data: Endpoint1_5(raw),
 })
 
 type Endpoint2_0Request = Parameters<RawClient["app"]["log"]>[0]

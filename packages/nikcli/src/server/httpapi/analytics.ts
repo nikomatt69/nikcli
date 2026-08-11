@@ -1,6 +1,7 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Analytics } from "@/analytics/analytics"
+import { AnalyticsData } from "@/analytics/data"
 
 export namespace AnalyticsHttpApi {
   const UnknownJson = Schema.Unknown
@@ -22,6 +23,11 @@ export namespace AnalyticsHttpApi {
 
   const SessionIDPath = Schema.Struct({ sessionID: Schema.String })
 
+  const DataQuery = Schema.Struct({
+    days: Schema.optional(Schema.String),
+    seriesDays: Schema.optional(Schema.String),
+  })
+
   export const Group = HttpApiGroup.make("analytics")
     .add(HttpApiEndpoint.get("global", "/global", { success: UnknownJson }))
     .add(
@@ -39,6 +45,12 @@ export namespace AnalyticsHttpApi {
     )
     .add(HttpApiEndpoint.get("sessions", "/sessions", { success: UnknownJson }))
     .add(HttpApiEndpoint.get("leaderboard", "/leaderboard", { success: UnknownJson }))
+    .add(
+      HttpApiEndpoint.get("data", "/data", {
+        query: DataQuery,
+        success: UnknownJson,
+      }),
+    )
     .prefix("/analytics")
 
   export const Api = HttpApi.make("nikcli").add(Group)
@@ -100,6 +112,11 @@ export namespace AnalyticsHttpApi {
 
         return { models, providers, projects }
       }),
+
+    // Same helper the Hono route calls, so the two surfaces cannot answer
+    // differently. `null` when the window holds no tokens.
+    data: ({ query }: { query: typeof DataQuery.Type }) =>
+      fromPromise(() => AnalyticsData.refreshed(query) as Promise<unknown>),
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "analytics", (builder) =>
@@ -108,7 +125,8 @@ export namespace AnalyticsHttpApi {
       .handle("daily", handlers.daily)
       .handle("session", handlers.session)
       .handle("sessions", handlers.sessions)
-      .handle("leaderboard", handlers.leaderboard),
+      .handle("leaderboard", handlers.leaderboard)
+      .handle("data", handlers.data),
   )
 
   export const layer = ApiLive.pipe(Layer.provide(HandlersLive))

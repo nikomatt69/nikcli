@@ -418,6 +418,63 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               </div>
             </dl>
 
+            {community.totals.sessions > 0 && (
+              <dl class="mt-7 grid grid-cols-2 gap-x-6 gap-y-7 border-t border-terminal-border/50 pt-7 sm:grid-cols-4">
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Cost per session</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {money(community.totals.costPerSession, 4)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Tokens per session</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {compact.format(community.totals.tokensPerSession)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Blended $/1M</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {money(community.totals.pricePerMillion)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Cache hit</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {community.totals.cacheRatio === null ? "—" : percent.format(community.totals.cacheRatio)}
+                  </dd>
+                </div>
+              </dl>
+            )}
+
+            {community.authors.length > 1 && (
+              <>
+                <h3 class="mt-10 font-display text-card-title text-terminal-text">Share by model author</h3>
+                <p class="mt-1.5 max-w-2xl text-body text-terminal-muted">
+                  Tokens grouped by the organisation that made the model, across every provider that served it.
+                </p>
+                <ul class="mt-5 space-y-3">
+                  {community.authors.map((author) => (
+                    <li class="flex items-center gap-3">
+                      <span class="w-28 shrink-0 font-mono text-[13px] text-terminal-text">{author.author}</span>
+                      <span class="viz-track h-1.5 flex-1 overflow-hidden rounded-full" aria-hidden="true">
+                        <span
+                          class="block h-full rounded-full"
+                          style={`width:${Math.max(author.share * 100, 1)}%;background:var(--series-1)`}
+                        />
+                      </span>
+                      <span class="w-16 shrink-0 text-right tabular-nums text-terminal-muted">
+                        {percent.format(author.share)}
+                      </span>
+                      <span class="w-24 shrink-0 text-right tabular-nums text-terminal-muted">
+                        {compact.format(author.tokens)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
             <ul class="mt-7 flex flex-wrap gap-x-5 gap-y-2" aria-label="Models in this chart">
               {community.seriesModels.map((model) => (
                 <li class="flex items-center gap-2 text-[13px] text-terminal-muted">
@@ -559,6 +616,8 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                     <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Provider</th>
                     <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Tokens</th>
                     <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Share</th>
+                    <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">$/1M</th>
+                    <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Cache</th>
                     <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Installs</th>
                     <th scope="col" class="py-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Change</th>
                   </tr>
@@ -595,6 +654,12 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                           </span>
                           <span class="tabular-nums text-terminal-muted">{percent.format(model.share)}</span>
                         </span>
+                      </td>
+                      <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
+                        {model.pricePerMillion > 0 ? money(model.pricePerMillion) : "—"}
+                      </td>
+                      <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
+                        {model.cacheRatio === null ? "—" : percent.format(model.cacheRatio)}
                       </td>
                       <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
                         {whole.format(model.installs)}

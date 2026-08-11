@@ -79,12 +79,21 @@ export type AnalyticsSessionsOperation<E = never> = () => Effect.Effect<Endpoint
 export type Endpoint1_4Output = EffectValue<ReturnType<RawClient["analytics"]["leaderboard"]>>
 export type AnalyticsLeaderboardOperation<E = never> = () => Effect.Effect<Endpoint1_4Output, E>
 
+type Endpoint1_5Request = Parameters<RawClient["analytics"]["data"]>[0]
+export type Endpoint1_5Input = {
+  readonly days?: Endpoint1_5Request["query"]["days"]
+  readonly seriesDays?: Endpoint1_5Request["query"]["seriesDays"]
+}
+export type Endpoint1_5Output = EffectValue<ReturnType<RawClient["analytics"]["data"]>>
+export type AnalyticsDataOperation<E = never> = (input?: Endpoint1_5Input) => Effect.Effect<Endpoint1_5Output, E>
+
 export interface AnalyticsApi<E = never> {
   readonly global: AnalyticsGlobalOperation<E>
   readonly daily: AnalyticsDailyOperation<E>
   readonly session: AnalyticsSessionOperation<E>
   readonly sessions: AnalyticsSessionsOperation<E>
   readonly leaderboard: AnalyticsLeaderboardOperation<E>
+  readonly data: AnalyticsDataOperation<E>
 }
 
 type Endpoint2_0Request = Parameters<RawClient["app"]["log"]>[0]

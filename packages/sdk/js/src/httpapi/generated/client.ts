@@ -18,6 +18,8 @@ import type {
   AnalyticsSessionOutput,
   AnalyticsSessionsOutput,
   AnalyticsLeaderboardOutput,
+  AnalyticsDataInput,
+  AnalyticsDataOutput,
   AppLogInput,
   AppLogOutput,
   AppSkillCreateInput,
@@ -728,6 +730,18 @@ export function make(options: ClientOptions) {
       leaderboard: (requestOptions?: RequestOptions) =>
         request<AnalyticsLeaderboardOutput>(
           { method: "GET", path: `/analytics/leaderboard`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      data: (input?: AnalyticsDataInput, requestOptions?: RequestOptions) =>
+        request<AnalyticsDataOutput>(
+          {
+            method: "GET",
+            path: `/analytics/data`,
+            query: { days: input?.["days"], seriesDays: input?.["seriesDays"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
           requestOptions,
         ),
     },

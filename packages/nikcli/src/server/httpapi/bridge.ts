@@ -60,6 +60,7 @@ export namespace HttpApiBridge {
     ["GET", /^\/analytics\/session\/[^/]+$/],
     ["GET", /^\/analytics\/sessions$/],
     ["GET", /^\/analytics\/leaderboard$/],
+    ["GET", /^\/analytics\/data$/],
     ["GET", /^\/command$/],
     ["GET", /^\/config$/],
     ["GET", /^\/config\/providers$/],

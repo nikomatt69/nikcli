@@ -38,7 +38,15 @@ interface Bucket {
   model: string
   provider: string
   messages: number
+  sessions: number
+  toolCalls: number
+  inputTokens: number
+  outputTokens: number
+  reasoningTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
   tokens: number
+  durationMs: number
   cost: number
   installs: number
 }
@@ -52,10 +60,26 @@ export const GET: APIRoute = async (ctx) => {
   const previousStart = dayKey(now - WINDOW_DAYS * 2 * DAY)
   const seriesStart = dayKey(now - SERIES_DAYS * DAY)
 
+  // The full breakdown, so the page can show what opencode.ai/data shows —
+  // blended price per million, cache ratio, cost per session — measured across
+  // nikcli installs rather than across one gateway's traffic.
+  //
+  // `sessions` sums each install's per-day distinct count. Across installs that
+  // is exact, since two installs never share a session; across days it counts a
+  // session that ran past midnight once per day. It is activity, not reach —
+  // reach is `installs`, which is a distinct count.
   const bucketSQL = `
     SELECT model, provider,
            SUM(messages)                 AS messages,
+           SUM(sessions)                 AS sessions,
+           SUM(tool_calls)               AS toolCalls,
+           SUM(input_tokens)             AS inputTokens,
+           SUM(output_tokens)            AS outputTokens,
+           SUM(reasoning_tokens)         AS reasoningTokens,
+           SUM(cache_read_tokens)        AS cacheReadTokens,
+           SUM(cache_write_tokens)       AS cacheWriteTokens,
            SUM(total_tokens)             AS tokens,
+           SUM(duration_ms)              AS durationMs,
            SUM(cost_micro_cents) / 1e8   AS cost,
            COUNT(DISTINCT install_id)    AS installs
     FROM community_stat
@@ -80,11 +104,15 @@ export const GET: APIRoute = async (ctx) => {
         .all<Bucket>(),
       DB.prepare(bucketSQL).bind(previousStart, windowStart).all<Bucket>(),
       DB.prepare(
-        `SELECT day, model, SUM(total_tokens) AS tokens, SUM(messages) AS messages
+        `SELECT day, model,
+                SUM(total_tokens)          AS tokens,
+                SUM(messages)              AS messages,
+                SUM(sessions)              AS sessions,
+                COUNT(DISTINCT install_id) AS installs
          FROM community_stat WHERE day >= ? GROUP BY day, model ORDER BY day ASC`,
       )
         .bind(seriesStart)
-        .all<{ day: string; model: string; tokens: number; messages: number }>(),
+        .all<{ day: string; model: string; tokens: number; messages: number; sessions: number; installs: number }>(),
       DB.prepare(
         `SELECT day, COUNT(DISTINCT install_id) AS installs
          FROM community_stat WHERE day >= ? GROUP BY day ORDER BY day ASC`,

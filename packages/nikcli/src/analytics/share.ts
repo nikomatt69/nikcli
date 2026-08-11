@@ -55,10 +55,16 @@ export namespace AnalyticsShare {
     return new Date(at).toISOString().slice(0, 10)
   }
 
+  /**
+   * A random v4 UUID — 122 bits of entropy and nothing else.
+   *
+   * Deliberately not `Identifier.ascending`, which nikcli uses for ids elsewhere:
+   * those embed a timestamp, so the identifier itself would carry the moment the
+   * install first reported. This one is drawn from the CSPRNG and encodes no
+   * machine, no user and no clock.
+   */
   function newInstallID(): string {
-    const bytes = new Uint8Array(16)
-    crypto.getRandomValues(bytes)
-    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+    return crypto.randomUUID()
   }
 
   async function readState(): Promise<State> {

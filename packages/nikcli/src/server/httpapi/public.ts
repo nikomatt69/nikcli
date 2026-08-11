@@ -250,7 +250,8 @@ export namespace PublicHttpApi {
       .handle("daily", (request) => AnalyticsHttpApi.handlers.daily(request))
       .handle("session", (request) => AnalyticsHttpApi.handlers.session(request))
       .handle("sessions", () => AnalyticsHttpApi.handlers.sessions())
-      .handle("leaderboard", () => AnalyticsHttpApi.handlers.leaderboard()),
+      .handle("leaderboard", () => AnalyticsHttpApi.handlers.leaderboard())
+      .handle("data", (request) => AnalyticsHttpApi.handlers.data(request)),
   )
 
   const MissionHandlersLive = HttpApiBuilder.group(Api, "mission", (handlers) =>

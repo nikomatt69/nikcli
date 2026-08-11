@@ -246,6 +246,64 @@ describe("summarizeCommunity", () => {
     expect(summarizeCommunity(null, NOW)).toBeNull()
   })
 
+  test("derives the per-model economics the way opencode's page reads them", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [
+          row({
+            model: "claude-opus-5",
+            tokens: 1000,
+            cost: 2,
+            sessions: 4,
+            inputTokens: 250,
+            outputTokens: 700,
+            cacheReadTokens: 750,
+          }),
+        ],
+      }),
+      NOW,
+    )!
+    const model = stats.models[0]!
+    expect(model.pricePerMillion).toBeCloseTo(2000)
+    expect(model.costPerSession).toBeCloseTo(0.5)
+    expect(model.tokensPerSession).toBeCloseTo(250)
+    // Output tokens are not cacheable, so they stay out of the denominator:
+    // 750 of (250 + 750).
+    expect(model.cacheRatio).toBeCloseTo(0.75)
+    expect(stats.totals.pricePerMillion).toBeCloseTo(2000)
+    expect(stats.totals.costPerSession).toBeCloseTo(0.5)
+    expect(stats.totals.cacheRatio).toBeCloseTo(0.75)
+  })
+
+  test("groups token share by the organisation that made the model", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [
+          row({ model: "claude-opus-5", tokens: 600 }),
+          row({ model: "claude-haiku-4-5", provider: "bedrock", tokens: 200 }),
+          row({ model: "gpt-5", provider: "openai", tokens: 200 }),
+        ],
+      }),
+      NOW,
+    )!
+    expect(stats.authors.map((a) => a.author)).toEqual(["anthropic", "openai"])
+    expect(stats.authors[0]!.tokens).toBe(800)
+    expect(stats.authors[0]!.models).toBe(2)
+    expect(stats.authors[0]!.share).toBeCloseTo(0.8)
+    expect(stats.totals.authors).toBe(2)
+  })
+
+  test("leaves the new metrics at zero on a feed that predates the rollup shape", () => {
+    // The old feed carried only messages/tokens/cost. Reading zero is correct;
+    // inventing a cost per session from a missing denominator is not.
+    const stats = summarizeCommunity(report({ current: [row({ model: "gpt-5", tokens: 500, cost: 1 })] }), NOW)!
+    expect(stats.totals.sessions).toBe(0)
+    expect(stats.models[0]!.costPerSession).toBe(0)
+    expect(stats.models[0]!.cacheRatio).toBeNull()
+    // Price per million needs only tokens and cost, so it still reads.
+    expect(stats.models[0]!.pricePerMillion).toBeCloseTo(2000)
+  })
+
   test("ranks by tokens and shares add up to the whole window", () => {
     const stats = summarizeCommunity(
       report({

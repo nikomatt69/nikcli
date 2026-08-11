@@ -356,18 +356,76 @@ export function summarize(feed: unknown, now: number): GatewayStats | null {
 export interface CommunityModel {
   model: string
   provider: string
+  /** Organisation that made the model, derived from its name. */
+  author: string
   tokens: number
   messages: number
+  /**
+   * Sessions observed. Exact across installs, since two installs never share a
+   * session, but a session running past midnight counts once per day — this is
+   * activity, not reach. Reach is `installs`, which is a distinct count.
+   */
+  sessions: number
+  toolCalls: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
   costUsd: number
   /** Installs that ran this model in the window. */
   installs: number
   share: number
   change: number | null
+  /** Blended price of 1M tokens at what installs actually paid, USD. */
+  pricePerMillion: number
+  costPerSession: number
+  tokensPerSession: number
+  /** Input tokens served from cache, 0..1. `null` when there was no input. */
+  cacheRatio: number | null
+}
+
+/** Token share by the organisation that made the model. */
+export interface CommunityAuthor {
+  author: string
+  tokens: number
+  installs: number
+  models: number
+  share: number
+}
+
+/**
+ * Model name to the organisation that made it, by substring. Kept in step with
+ * `AnalyticsData.modelAuthor` in the CLI so the same model is attributed the
+ * same way whether it is counted locally or across installs.
+ */
+const AUTHOR_RULES: ReadonlyArray<{ match: string; author: string }> = [
+  { match: "claude", author: "anthropic" },
+  { match: "gemini", author: "google" },
+  { match: "gemma", author: "google" },
+  { match: "gpt", author: "openai" },
+  { match: "o1", author: "openai" },
+  { match: "o3", author: "openai" },
+  { match: "deepseek", author: "deepseek" },
+  { match: "grok", author: "xai" },
+  { match: "llama", author: "meta" },
+  { match: "mistral", author: "mistral" },
+  { match: "mixtral", author: "mistral" },
+  { match: "qwen", author: "qwen" },
+  { match: "kimi", author: "moonshot" },
+  { match: "glm", author: "zhipu" },
+  { match: "minimax", author: "minimax" },
+  { match: "nemotron", author: "nvidia" },
+  { match: "command", author: "cohere" },
+]
+
+export function modelAuthor(value: string | undefined): string {
+  const model = (value ?? "").toLowerCase()
+  return AUTHOR_RULES.find((rule) => model.includes(rule.match))?.author ?? "unknown"
 }
 
 export interface CommunityStats {
   models: CommunityModel[]
   providers: ProviderStat[]
+  authors: CommunityAuthor[]
   series: SeriesPoint[]
   seriesModels: string[]
   /** Installs active per day, over the series window. */
@@ -375,12 +433,20 @@ export interface CommunityStats {
   totals: {
     tokens: number
     messages: number
+    sessions: number
     costUsd: number
     models: number
     providers: number
+    authors: number
     /** Distinct installs that reported anything in the window. */
     installs: number
     change: number | null
+    /** Blended price of 1M tokens across every install, USD. */
+    pricePerMillion: number
+    costPerSession: number
+    tokensPerSession: number
+    /** Input tokens served from cache, 0..1. `null` when there was no input. */
+    cacheRatio: number | null
   }
   windowDays: number
   seriesDays: number
@@ -417,6 +483,13 @@ export function summarizeCommunity(feed: unknown, now: number): CommunityStats |
     provider: String(row.provider ?? "unknown"),
     tokens: number(row.tokens),
     messages: number(row.messages),
+    // Absent on feeds that predate the rollup shape; those sections then read
+    // zero rather than inventing a figure.
+    sessions: number(row.sessions),
+    toolCalls: number(row.toolCalls),
+    inputTokens: number(row.inputTokens),
+    outputTokens: number(row.outputTokens),
+    cacheReadTokens: number(row.cacheReadTokens),
     costUsd: number(row.cost ?? row.costUsd),
     installs: number(row.installs),
   })
@@ -438,18 +511,33 @@ export function summarizeCommunity(feed: unknown, now: number): CommunityStats |
       model = {
         model: row.model,
         provider: row.provider,
+        author: modelAuthor(row.model),
         tokens: 0,
         messages: 0,
+        sessions: 0,
+        toolCalls: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
         costUsd: 0,
         installs: 0,
         share: 0,
         change: null,
+        pricePerMillion: 0,
+        costPerSession: 0,
+        tokensPerSession: 0,
+        cacheRatio: null,
         providerTokens: new Map(),
       }
       perModel.set(row.model, model)
     }
     model.tokens += row.tokens
     model.messages += row.messages
+    model.sessions += row.sessions
+    model.toolCalls += row.toolCalls
+    model.inputTokens += row.inputTokens
+    model.outputTokens += row.outputTokens
+    model.cacheReadTokens += row.cacheReadTokens
     model.costUsd += row.costUsd
     model.providerTokens.set(row.provider, (model.providerTokens.get(row.provider) ?? 0) + row.tokens)
   }
@@ -476,14 +564,41 @@ export function summarizeCommunity(feed: unknown, now: number): CommunityStats |
           dominantTokens = tokens
         }
       }
+      // Output tokens cannot be cached, so the denominator is input only.
+      const cacheable = model.inputTokens + model.cacheReadTokens
       return {
         ...model,
         provider: dominant,
         share: ratio(model.tokens, totalTokens),
         change: before && before > 0 ? (model.tokens - before) / before : null,
+        pricePerMillion: model.tokens > 0 ? (model.costUsd / model.tokens) * 1_000_000 : 0,
+        costPerSession: ratio(model.costUsd, model.sessions),
+        tokensPerSession: ratio(model.tokens, model.sessions),
+        cacheRatio: cacheable > 0 ? model.cacheReadTokens / cacheable : null,
       }
     })
     .sort((a, b) => b.tokens - a.tokens)
+
+  // Share by the organisation that made the model. Installs are summed across an
+  // author's models, so an install running two of them counts twice — an upper
+  // bound on reach, reported as such rather than as a distinct count.
+  const perAuthor = new Map<string, { tokens: number; installs: number; models: Set<string> }>()
+  for (const model of models) {
+    const entry = perAuthor.get(model.author) ?? { tokens: 0, installs: 0, models: new Set<string>() }
+    entry.tokens += model.tokens
+    entry.installs += model.installs
+    entry.models.add(model.model)
+    perAuthor.set(model.author, entry)
+  }
+  const authors: CommunityAuthor[] = [...perAuthor.entries()]
+    .map(([author, entry]) => ({
+      author,
+      tokens: entry.tokens,
+      installs: entry.installs,
+      models: entry.models.size,
+      share: ratio(entry.tokens, totalTokens),
+    }))
+    .sort((a, b) => b.tokens - a.tokens || (a.author < b.author ? -1 : 1))
 
   const perProvider = new Map<string, { tokens: number; requests: number }>()
   for (const row of current) {
@@ -505,18 +620,31 @@ export function summarizeCommunity(feed: unknown, now: number): CommunityStats |
   }))
   const ranked = models.map((model) => ({ model: model.model }) as ModelStat)
 
+  const totalSessions = current.reduce((sum, row) => sum + row.sessions, 0)
+  const totalCost = current.reduce((sum, row) => sum + row.costUsd, 0)
+  const totalInput = current.reduce((sum, row) => sum + row.inputTokens, 0)
+  const totalCacheRead = current.reduce((sum, row) => sum + row.cacheReadTokens, 0)
+  const cacheable = totalInput + totalCacheRead
+
   return {
     models,
     providers,
+    authors,
     installs: rows(body.installs).map((row) => ({ day: String(row.day ?? ""), installs: number(row.installs) })),
     totals: {
       tokens: totalTokens,
       messages: current.reduce((sum, row) => sum + row.messages, 0),
-      costUsd: current.reduce((sum, row) => sum + row.costUsd, 0),
+      sessions: totalSessions,
+      costUsd: totalCost,
       models: models.length,
       providers: providers.length,
+      authors: authors.length,
       installs: number(body.installsInWindow),
       change: previousTotal > 0 ? (totalTokens - previousTotal) / previousTotal : null,
+      pricePerMillion: totalTokens > 0 ? (totalCost / totalTokens) * 1_000_000 : 0,
+      costPerSession: ratio(totalCost, totalSessions),
+      tokensPerSession: ratio(totalTokens, totalSessions),
+      cacheRatio: cacheable > 0 ? totalCacheRead / cacheable : null,
     },
     windowDays: number(body.windowDays) || WINDOW_DAYS,
     seriesDays,
