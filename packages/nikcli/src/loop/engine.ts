@@ -561,7 +561,14 @@ export async function runOnce(id: string): Promise<void> {
         })
         patch(id, (prev) => ({ ...prev, status: "idle" }))
         Scheduler.unregister(schedulerID(id))
-        void Manager.setEnabled(id, false).catch(() => {})
+        // Awaited: `runOnce` is the call that disarms the loop, so a caller that
+        // awaits it should be able to read the disabled definition back. Left as
+        // fire-and-forget, the persistence raced the return and the loop still
+        // read as enabled immediately afterwards — reliably on a slower
+        // filesystem. Failures stay swallowed: the in-memory state and the
+        // scheduler are already updated above, and a storage error should not
+        // turn a completed cap into a thrown tick.
+        await Manager.setEnabled(id, false).catch(() => {})
         return
       }
     }
