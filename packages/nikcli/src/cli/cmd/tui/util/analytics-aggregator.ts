@@ -1,5 +1,6 @@
 import type { Session, Message, Part, Todo, Workspace } from "@nikcli-ai/sdk/v2"
 import type { SessionAnalytics } from "@/analytics/analytics"
+import * as Activity from "@nikcli-ai/util/activity"
 
 export interface BackgroundJob {
   jobID: string
@@ -1338,165 +1339,24 @@ export function augmentAggregatedStatsFromPersistedSessions(
 // ===== Activity Heatmap Helpers =====
 //
 // Used by the Overview tab to render a GitHub-style contribution graph and the
-// headline KPIs ("Longest streak", "Avg / day", "Avg / week", "Total"). The shape
-// is decoupled from any specific metric (default: tokens) so a future "Cost
-// activity" view could reuse `buildActivityGrid(days, 365, d => d.cost)`.
+// headline KPIs ("Longest streak", "Avg / day", "Avg / week", "Total").
+//
+// The geometry itself lives in @nikcli-ai/util/activity, because the public
+// /data page draws the same grid from gateway aggregates rather than from a
+// local session database. These wrappers keep the TUI's call sites unchanged by
+// supplying the default metric — non-cache tokens, already summed in
+// `DayStats.tokens`.
 
-export interface ActivityStats {
-  totalDays: number
-  activeDays: number
-  longestStreak: number
-  currentStreak: number
-  avgPerActiveDay: number
-  avgPerWeek: number
-  total: number
-  maxDay: number
+export type { ActivityGrid, ActivityStats } from "@nikcli-ai/util/activity"
+
+export function computeActivityStats(days: DayStats[], metric: (d: DayStats) => number = (d) => d.tokens) {
+  return Activity.computeActivityStats(days, metric)
 }
 
-export interface ActivityGrid {
-  /** 7 rows (0=Mon .. 6=Sun) × N weeks. Each cell holds the metric value, or 0 if empty. */
-  cells: number[][]
-  /** First column where each month label should appear, plus the abbreviated month name. */
-  monthLabels: { col: number; label: string }[]
-  maxValue: number
-  weeks: number
-  /** ISO date (YYYY-MM-DD) of the first day in the rendered window. */
-  startDate: string
-  /** ISO date of the last day in the rendered window. */
-  endDate: string
-}
-
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const
-
-/**
- * Compute summary statistics for the activity heatmap: active days, longest
- * consecutive run, current trailing run, and averages. `metric` defaults to
- * non-cache token count (`input + output + reasoning` is already in
- * `DayStats.tokens`).
- */
-export function computeActivityStats(
-  days: DayStats[],
-  metric: (d: DayStats) => number = (d) => d.tokens,
-): ActivityStats {
-  if (days.length === 0) {
-    return {
-      totalDays: 0,
-      activeDays: 0,
-      longestStreak: 0,
-      currentStreak: 0,
-      avgPerActiveDay: 0,
-      avgPerWeek: 0,
-      total: 0,
-      maxDay: 0,
-    }
-  }
-
-  let activeDays = 0
-  let longestStreak = 0
-  let runStreak = 0
-  let total = 0
-  let maxDay = 0
-
-  for (const d of days) {
-    const v = metric(d)
-    if (v > 0) {
-      activeDays++
-      runStreak++
-      total += v
-      if (v > maxDay) maxDay = v
-      if (runStreak > longestStreak) longestStreak = runStreak
-    } else {
-      runStreak = 0
-    }
-  }
-
-  const totalWeeks = Math.max(1, Math.ceil(days.length / 7))
-  return {
-    totalDays: days.length,
-    activeDays,
-    longestStreak,
-    currentStreak: runStreak,
-    avgPerActiveDay: activeDays > 0 ? total / activeDays : 0,
-    avgPerWeek: total / totalWeeks,
-    total,
-    maxDay,
-  }
-}
-
-/**
- * Build a 7×N matrix for a GitHub-style contribution graph.
- *
- * Rows: 0=Mon .. 6=Sun. Columns: oldest week (left) → most recent week (right).
- * The grid is anchored to a Monday — leading days from the first partial week
- * and trailing days from the last partial week are left as 0 (empty cell).
- *
- * Months are emitted only when there is at least a 2-week gap from the previous
- * label so they never visually overlap.
- */
 export function buildActivityGrid(
   days: DayStats[],
   lookbackDays = 365,
   metric: (d: DayStats) => number = (d) => d.tokens,
-): ActivityGrid {
-  if (days.length === 0) {
-    return {
-      cells: [[], [], [], [], [], [], []],
-      monthLabels: [],
-      maxValue: 0,
-      weeks: 0,
-      startDate: "",
-      endDate: "",
-    }
-  }
-
-  // Use only the most recent `lookbackDays` entries.
-  const slice = days.length > lookbackDays ? days.slice(-lookbackDays) : days
-
-  const first = parseDateKey(slice[0]!.date)
-  const firstDow = (first.getUTCDay() + 6) % 7 // 0=Mon .. 6=Sun
-  const totalDays = slice.length + firstDow
-  const weeks = Math.max(1, Math.ceil(totalDays / 7))
-
-  const cells: number[][] = Array.from({ length: 7 }, () => new Array(weeks).fill(0))
-  let maxValue = 0
-
-  for (let i = 0; i < slice.length; i++) {
-    const d = slice[i]!
-    const v = metric(d)
-    if (v > maxValue) maxValue = v
-    const cellIndex = i + firstDow
-    const row = cellIndex % 7
-    const col = Math.floor(cellIndex / 7)
-    cells[row]![col] = v
-  }
-
-  // Month labels: emit the first column of each month, but skip if too close
-  // to the previous label (avoid overlap with truncated 2-char-wide labels).
-  const monthLabels: { col: number; label: string }[] = []
-  let prevMonth = -1
-  for (let i = 0; i < slice.length; i++) {
-    const d = slice[i]!
-    const month = parseDateKey(d.date).getUTCMonth()
-    if (month === prevMonth) continue
-    prevMonth = month
-    const cellIndex = i + firstDow
-    const col = Math.floor(cellIndex / 7)
-    const last = monthLabels[monthLabels.length - 1]
-    if (!last || col - last.col >= 2) {
-      monthLabels.push({ col, label: MONTH_NAMES[month]! })
-    }
-  }
-
-  return {
-    cells,
-    monthLabels,
-    maxValue,
-    weeks,
-    startDate: slice[0]!.date,
-    endDate: slice[slice.length - 1]!.date,
-  }
-}
-
-function parseDateKey(date: string): Date {
-  return new Date(`${date}T00:00:00.000Z`)
+) {
+  return Activity.buildActivityGrid(days, lookbackDays, metric)
 }

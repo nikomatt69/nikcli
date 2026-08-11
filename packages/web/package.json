@@ -23,6 +23,7 @@
     "@mixmark-io/domino": "^2.2.0",
     "@nikcli-ai/auth": "workspace:*",
     "@nikcli-ai/sdk": "workspace:*",
+    "@nikcli-ai/util": "workspace:*",
     "@tailwindcss/typography": "0.5.19",
     "@types/bcryptjs": "3.0.0",
     "@xterm/addon-fit": "0.11.0",

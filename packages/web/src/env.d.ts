@@ -18,6 +18,17 @@ interface CloudflareEnv {
   SESSIONS: KVNamespace
   ARTIFACTS: R2Bucket
   /**
+   * Aggregate gateway-usage feed behind /data, served by the console
+   * deployment. Optional on purpose: a preview without it renders the page's
+   * empty state rather than a 500.
+   */
+  CONSOLE_DATA_URL?: string
+  /**
+   * Aggregate feed of what nikcli installs report running on their own provider
+   * keys, served by the inference dashboard. Optional for the same reason.
+   */
+  COMMUNITY_DATA_URL?: string
+  /**
    * Workers AI, used by the docs support assistant (/api/docs-assistant).
    * Typed loosely on purpose: the model id is configurable at runtime, so it
    * cannot be checked against the generated model-name union.
