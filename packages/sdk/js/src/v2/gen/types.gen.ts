@@ -2761,7 +2761,7 @@ export type Config = {
    */
   analytics?: {
     /**
-     * Contribute anonymous per-day model totals to the public stats at nikcli.store/data. Off unless set. Only day, provider, model, message count, token count and cost are sent — never prompts, paths, repositories or session titles.
+     * Contribute anonymous per-day model totals to the public stats at nikcli.store/data. On by default; set false to opt out, or set DO_NOT_TRACK=1 / NIKCLI_DISABLE_ANALYTICS=1. Only day, provider, model, session count, message count, token count and cost are sent, under a random identifier — never prompts, paths, repositories, session titles or account.
      */
     share?: boolean
     /**

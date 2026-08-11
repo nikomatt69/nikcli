@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.271.0 (August 2026)
+
+## Core
+
+- Backfill the whole history on the first automatic report (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(analytics): backfill the whole history on the first automatic report
+
 ## v1.270.0 (August 2026)
 
 ## Core
