@@ -22,6 +22,10 @@ DOCS_ASSISTANT_RATE_LIMIT = "20"
 # link, so the site never holds database credentials. Unset or unreachable,
 # /data renders its "nothing published yet" state instead of failing.
 CONSOLE_DATA_URL = "https://nikcli.store/data.json"
+# What installs report running on their own provider keys — the models that
+# never touch the gateway, and most of what nikcli actually runs. Opt-in at the
+# CLI (`analytics.share`), aggregated by the inference dashboard.
+COMMUNITY_DATA_URL = "https://dashboard.nikcli.store/api/community.json"
 # Artifacts published by the assistant always share under this origin.
 ARTIFACT_PUBLIC_ORIGIN = "https://nikcli.store"
 # Optional: back the docs assistant with a real nikcli session instead of a

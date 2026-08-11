@@ -59,6 +59,7 @@ import { HttpApiBridge } from "./httpapi/bridge"
 import { Auth as ServerAuth } from "./httpapi/auth"
 import { ServerBackend } from "./backend"
 import { AnalyticsRoutes } from "./routes/analytics"
+import { AnalyticsShare } from "@/analytics/share"
 import { BrainRoutes } from "./routes/brain"
 import { DoctorRoutes } from "./routes/doctor"
 
@@ -1178,6 +1179,10 @@ export namespace Server {
     if (!server) throw new Error(`Failed to start server on port ${opts.port}`)
 
     _url = server.url
+
+    // Opt-in, once a day, and silent either way — it must never delay startup
+    // or surface an error to someone who did not ask for it.
+    void AnalyticsShare.run().catch(() => undefined)
 
     const shouldPublishMDNS =
       opts.mdns &&

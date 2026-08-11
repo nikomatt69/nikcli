@@ -24,6 +24,11 @@ interface CloudflareEnv {
    */
   CONSOLE_DATA_URL?: string
   /**
+   * Aggregate feed of what nikcli installs report running on their own provider
+   * keys, served by the inference dashboard. Optional for the same reason.
+   */
+  COMMUNITY_DATA_URL?: string
+  /**
    * Workers AI, used by the docs support assistant (/api/docs-assistant).
    * Typed loosely on purpose: the model id is configurable at runtime, so it
    * cannot be checked against the generated model-name union.

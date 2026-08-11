@@ -4,9 +4,11 @@ import { describe, expect, test } from "bun:test"
 import {
   ACTIVITY_DAYS,
   axisTicks,
+  fetchCommunity,
   fetchGateway,
   parseDownloads,
   summarize,
+  summarizeCommunity,
   SERIES_DAYS,
   type UsageBucket,
 } from "./publicStats"
@@ -215,6 +217,102 @@ describe("activity grid", () => {
     expect(stats.activityStats.longestStreak).toBe(3)
     expect(stats.activityStats.maxDay).toBe(400)
     expect(stats.activityStats.total).toBe(700)
+  })
+})
+
+describe("summarizeCommunity", () => {
+  const report = (over: Record<string, unknown> = {}) => ({
+    generatedAt: NOW,
+    windowDays: 30,
+    seriesDays: SERIES_DAYS,
+    installsInWindow: 0,
+    current: [],
+    previous: [],
+    daily: [],
+    installs: [],
+    ...over,
+  })
+  const row = (over: Record<string, unknown> & { model: string }) => ({
+    provider: "anthropic",
+    messages: 0,
+    tokens: 0,
+    cost: 0,
+    installs: 1,
+    ...over,
+  })
+
+  test("reports nothing rather than an empty page when no install has reported", () => {
+    expect(summarizeCommunity(report(), NOW)).toBeNull()
+    expect(summarizeCommunity(null, NOW)).toBeNull()
+  })
+
+  test("ranks by tokens and shares add up to the whole window", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [row({ model: "gpt-5.1", tokens: 250 }), row({ model: "sonnet-4-5", tokens: 750 })],
+        installsInWindow: 42,
+      }),
+      NOW,
+    )!
+    expect(stats.models.map((m) => m.model)).toEqual(["sonnet-4-5", "gpt-5.1"])
+    expect(stats.models[0].share).toBeCloseTo(0.75)
+    expect(stats.totals.installs).toBe(42)
+  })
+
+  test("never sums installs across providers, since one install can use both", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [
+          row({ model: "sonnet-4-5", provider: "anthropic", tokens: 800, installs: 30 }),
+          row({ model: "sonnet-4-5", provider: "bedrock", tokens: 200, installs: 5 }),
+        ],
+      }),
+      NOW,
+    )!
+    expect(stats.models).toHaveLength(1)
+    expect(stats.models[0].tokens).toBe(1000)
+    expect(stats.models[0].provider).toBe("anthropic")
+    // 30 and 5 might be the same 30 installs, so the count never exceeds the largest.
+    expect(stats.models[0].installs).toBe(30)
+  })
+
+  test("compares against the window before and marks first-seen models new", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [row({ model: "sonnet-4-5", tokens: 300 }), row({ model: "glm-4.6", tokens: 100 })],
+        previous: [row({ model: "sonnet-4-5", tokens: 150 })],
+      }),
+      NOW,
+    )!
+    expect(stats.models.find((m) => m.model === "sonnet-4-5")!.change).toBeCloseTo(1)
+    expect(stats.models.find((m) => m.model === "glm-4.6")!.change).toBeNull()
+  })
+
+  test("fills the daily series so quiet days stay visible", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [row({ model: "sonnet-4-5", tokens: 500 })],
+        daily: [{ day: "2026-08-10", model: "sonnet-4-5", tokens: 500, messages: 12 }],
+        installs: [{ day: "2026-08-10", installs: 7 }],
+      }),
+      NOW,
+    )!
+    expect(stats.series).toHaveLength(SERIES_DAYS + 1)
+    expect(stats.series.find((p) => p.day === "2026-08-10")!.tokens).toBe(500)
+    expect(stats.installs).toEqual([{ day: "2026-08-10", installs: 7 }])
+  })
+})
+
+describe("fetchCommunity", () => {
+  test("returns null with no feed URL", async () => {
+    expect(await fetchCommunity(undefined, NOW)).toBeNull()
+  })
+
+  test("returns null when the feed is unreachable, instead of failing the render", async () => {
+    const fetcher = (async () => {
+      throw new Error("network down")
+    }) as unknown as typeof fetch
+    expect(await fetchCommunity("https://example.test/community.json", NOW, fetcher)).toBeNull()
   })
 })
 

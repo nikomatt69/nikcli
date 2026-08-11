@@ -342,6 +342,175 @@ export function summarize(feed: unknown, now: number): GatewayStats | null {
   }
 }
 
+// ── Community reports ────────────────────────────────────────────────────────
+// What nikcli installs report running on their own provider keys. The gateway
+// table above only ever sees traffic that went through the gateway, which is a
+// slice of what nikcli actually runs; this is the rest, and it is opt-in.
+
+export interface CommunityModel {
+  model: string
+  provider: string
+  tokens: number
+  messages: number
+  costUsd: number
+  /** Installs that ran this model in the window. */
+  installs: number
+  share: number
+  change: number | null
+}
+
+export interface CommunityStats {
+  models: CommunityModel[]
+  providers: ProviderStat[]
+  series: SeriesPoint[]
+  seriesModels: string[]
+  /** Installs active per day, over the series window. */
+  installs: { day: string; installs: number }[]
+  totals: {
+    tokens: number
+    messages: number
+    costUsd: number
+    models: number
+    providers: number
+    /** Distinct installs that reported anything in the window. */
+    installs: number
+    change: number | null
+  }
+  windowDays: number
+  seriesDays: number
+  generatedAt: number
+}
+
+/** Reads the community feed. `null` when it is unset, failing, or empty. */
+export async function fetchCommunity(
+  url: string | undefined,
+  now: number,
+  fetcher: typeof fetch = fetch,
+): Promise<CommunityStats | null> {
+  if (!url) return null
+  try {
+    const response = await fetcher(url, { headers: { accept: "application/json" } })
+    if (!response.ok) return null
+    return summarizeCommunity(await response.json(), now)
+  } catch {
+    return null
+  }
+}
+
+/** Pure half of {@link fetchCommunity}, so the aggregation is testable alone. */
+export function summarizeCommunity(feed: unknown, now: number): CommunityStats | null {
+  if (typeof feed !== "object" || feed === null) return null
+  const body = feed as Record<string, unknown>
+  const rows = (value: unknown): Record<string, unknown>[] =>
+    Array.isArray(value)
+      ? (value.filter((row) => typeof row === "object" && row !== null) as Record<string, unknown>[])
+      : []
+
+  const bucket = (row: Record<string, unknown>) => ({
+    model: String(row.model ?? "unknown"),
+    provider: String(row.provider ?? "unknown"),
+    tokens: number(row.tokens),
+    messages: number(row.messages),
+    costUsd: number(row.cost ?? row.costUsd),
+    installs: number(row.installs),
+  })
+
+  const current = rows(body.current).map(bucket)
+  const previous = rows(body.previous).map(bucket)
+  const totalTokens = current.reduce((sum, row) => sum + row.tokens, 0)
+  if (totalTokens === 0) return null
+
+  const previousByModel = new Map<string, number>()
+  for (const row of previous) previousByModel.set(row.model, (previousByModel.get(row.model) ?? 0) + row.tokens)
+  const previousTotal = previous.reduce((sum, row) => sum + row.tokens, 0)
+
+  // A model reached through more than one provider is one row on the page.
+  const perModel = new Map<string, CommunityModel & { providerTokens: Map<string, number> }>()
+  for (const row of current) {
+    let model = perModel.get(row.model)
+    if (!model) {
+      model = {
+        model: row.model,
+        provider: row.provider,
+        tokens: 0,
+        messages: 0,
+        costUsd: 0,
+        installs: 0,
+        share: 0,
+        change: null,
+        providerTokens: new Map(),
+      }
+      perModel.set(row.model, model)
+    }
+    model.tokens += row.tokens
+    model.messages += row.messages
+    model.costUsd += row.costUsd
+    // Installs cannot be summed across providers without double-counting an
+    // install that used both, so the largest single count is the safe floor.
+    model.installs = Math.max(model.installs, row.installs)
+    model.providerTokens.set(row.provider, (model.providerTokens.get(row.provider) ?? 0) + row.tokens)
+  }
+
+  const models: CommunityModel[] = [...perModel.values()]
+    .map(({ providerTokens, ...model }) => {
+      const before = previousByModel.get(model.model)
+      let dominant = model.provider
+      let dominantTokens = -1
+      for (const [provider, tokens] of providerTokens) {
+        if (tokens > dominantTokens) {
+          dominant = provider
+          dominantTokens = tokens
+        }
+      }
+      return {
+        ...model,
+        provider: dominant,
+        share: ratio(model.tokens, totalTokens),
+        change: before && before > 0 ? (model.tokens - before) / before : null,
+      }
+    })
+    .sort((a, b) => b.tokens - a.tokens)
+
+  const perProvider = new Map<string, { tokens: number; requests: number }>()
+  for (const row of current) {
+    const entry = perProvider.get(row.provider) ?? { tokens: 0, requests: 0 }
+    entry.tokens += row.tokens
+    entry.requests += row.messages
+    perProvider.set(row.provider, entry)
+  }
+  const providers: ProviderStat[] = [...perProvider.entries()]
+    .map(([provider, entry]) => ({ provider, ...entry, share: ratio(entry.tokens, totalTokens) }))
+    .sort((a, b) => b.tokens - a.tokens)
+
+  const seriesDays = number(body.seriesDays) || SERIES_DAYS
+  const daily: DailyBucket[] = rows(body.daily).map((row) => ({
+    day: String(row.day ?? ""),
+    model: String(row.model ?? "unknown"),
+    tokens: number(row.tokens),
+    requests: number(row.messages),
+  }))
+  const ranked = models.map((model) => ({ model: model.model }) as ModelStat)
+
+  return {
+    models,
+    providers,
+    installs: rows(body.installs).map((row) => ({ day: String(row.day ?? ""), installs: number(row.installs) })),
+    totals: {
+      tokens: totalTokens,
+      messages: current.reduce((sum, row) => sum + row.messages, 0),
+      costUsd: current.reduce((sum, row) => sum + row.costUsd, 0),
+      models: models.length,
+      providers: providers.length,
+      installs: number(body.installsInWindow),
+      change: previousTotal > 0 ? (totalTokens - previousTotal) / previousTotal : null,
+    },
+    windowDays: number(body.windowDays) || WINDOW_DAYS,
+    seriesDays,
+    generatedAt: number(body.generatedAt) || now,
+    ...buildSeries(daily, ranked, now, seriesDays),
+  }
+}
+
 /** The `YYYY-MM-DD` day a unix-second timestamp falls in, in UTC. */
 function isoDay(seconds: number): string {
   return new Date(seconds * 1000).toISOString().slice(0, 10)

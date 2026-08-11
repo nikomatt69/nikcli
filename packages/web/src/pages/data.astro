@@ -13,13 +13,25 @@
 import Layout from "../layouts/Layout.astro"
 import Navbar from "../components/Navbar.astro"
 import statsMarkdown from "../../../../STATS.md?raw"
-import { ACTIVITY_DAYS, axisTicks, fetchGateway, parseDownloads, SERIES_DAYS, WINDOW_DAYS } from "../lib/publicStats"
+import {
+  ACTIVITY_DAYS,
+  axisTicks,
+  fetchCommunity,
+  fetchGateway,
+  parseDownloads,
+  SERIES_DAYS,
+  WINDOW_DAYS,
+  type SeriesPoint,
+} from "../lib/publicStats"
 
 const env = Astro.locals.runtime?.env
 const now = Math.floor(Date.now() / 1000)
 // The binding carries the feed URL in production; `import.meta.env` lets a
 // local `.env` point `astro dev` at a deployed console without one.
-const gateway = await fetchGateway(env?.CONSOLE_DATA_URL ?? import.meta.env.CONSOLE_DATA_URL, now)
+const [gateway, community] = await Promise.all([
+  fetchGateway(env?.CONSOLE_DATA_URL ?? import.meta.env.CONSOLE_DATA_URL, now),
+  fetchCommunity(env?.COMMUNITY_DATA_URL ?? import.meta.env.COMMUNITY_DATA_URL, now),
+])
 const downloads = parseDownloads(statsMarkdown)
 
 // The page is public and identical for everyone, so it is worth caching at the
@@ -94,55 +106,92 @@ function topRoundedBar(x: number, y: number, w: number, h: number): string {
 const series = gateway?.series ?? []
 const seriesModels = gateway?.seriesModels ?? []
 
-// Stacked tokens per day.
 const TOKENS_H = 236
-const tokenTicks = axisTicks(Math.max(0, ...series.map((p) => p.tokens)))
-const tokenMax = tokenTicks[tokenTicks.length - 1]
-const slot = plotW / Math.max(series.length, 1)
+/** Column pitch is shared by every daily chart so their x-axes line up. */
+const slot = plotW / Math.max(Math.max(series.length, community?.series.length ?? 0), 1)
 const barW = Math.min(24, Math.max(3, slot - 3))
-const tokenColumns = series.map((point, index) => {
-  const x = PAD.left + index * slot + (slot - barW) / 2
-  const bands = seriesModels
-    .map((model) => ({ model, tokens: point.byModel[model] ?? 0 }))
-    .filter((band) => band.tokens > 0)
-  let bottom = PAD.top + TOKENS_H
-  const segments = bands.map((band, i) => {
-    const raw = (band.tokens / tokenMax) * TOKENS_H
-    const top = bottom - raw
-    bottom = top
+
+/** Lays out one stacked column per day. Used by both the gateway and the community chart. */
+function stackColumns(points: SeriesPoint[], models: string[], height: number, max: number) {
+  return points.map((point, index) => {
+    const x = PAD.left + index * slot + (slot - barW) / 2
+    const bands = models
+      .map((model) => ({ model, tokens: point.byModel[model] ?? 0 }))
+      .filter((band) => band.tokens > 0)
+    let bottom = PAD.top + height
+    const segments = bands.map((band, i) => {
+      const raw = (band.tokens / max) * height
+      const top = bottom - raw
+      bottom = top
+      return {
+        ...band,
+        x,
+        y: top,
+        // The gap that separates touching segments is taken off the bottom of
+        // every segment except the one on the baseline, and it shrinks with the
+        // segment: a full 2px out of a 3px band would erase the band and leave
+        // the top of the stack looking like a barcode.
+        height: Math.max(raw - (i > 0 ? Math.min(SEGMENT_GAP, raw * 0.4) : 0), 0.75),
+        rounded: i === bands.length - 1,
+      }
+    })
+    return { day: point.day, tokens: point.tokens, requests: point.requests, x, segments }
+  })
+}
+
+/** Lays out one plain column per day, for the single-series charts. */
+function plainColumns(points: SeriesPoint[], value: (point: SeriesPoint) => number, height: number, max: number) {
+  return points.map((point, index) => {
+    const drawn = (value(point) / max) * height
     return {
-      ...band,
-      x,
-      y: top,
-      // The gap that separates touching segments is taken off the bottom of
-      // every segment except the one on the baseline, and it shrinks with the
-      // segment: a full 2px out of a 3px band would erase the band and leave
-      // the top of the stack looking like a barcode.
-      height: Math.max(raw - (i > 0 ? Math.min(SEGMENT_GAP, raw * 0.4) : 0), 0.75),
-      rounded: i === bands.length - 1,
+      day: point.day,
+      value: value(point),
+      x: PAD.left + index * slot + (slot - barW) / 2,
+      y: PAD.top + height - drawn,
+      height: Math.max(drawn, value(point) > 0 ? 1 : 0),
     }
   })
-  return { day: point.day, tokens: point.tokens, requests: point.requests, x, segments }
-})
-const peakDay = series.reduce<(typeof series)[number] | null>(
-  (best, point) => (best === null || point.tokens > best.tokens ? point : best),
-  null,
-)
+}
+
+const peak = (points: SeriesPoint[], value: (point: SeriesPoint) => number) =>
+  points.reduce<SeriesPoint | null>((best, point) => (best === null || value(point) > value(best) ? point : best), null)
+
+// Stacked tokens per day.
+const tokenTicks = axisTicks(Math.max(0, ...series.map((p) => p.tokens)))
+const tokenMax = tokenTicks[tokenTicks.length - 1]
+const tokenColumns = stackColumns(series, seriesModels, TOKENS_H, tokenMax)
+const peakDay = peak(series, (point) => point.tokens)
 
 // Daily requests — one series, so one color and no legend.
 const REQUESTS_H = 120
 const requestTicks = axisTicks(Math.max(0, ...series.map((p) => p.requests)), 3)
 const requestMax = requestTicks[requestTicks.length - 1]
-const requestColumns = series.map((point, index) => {
-  const height = (point.requests / requestMax) * REQUESTS_H
-  return {
-    day: point.day,
-    requests: point.requests,
-    x: PAD.left + index * slot + (slot - barW) / 2,
-    y: PAD.top + REQUESTS_H - height,
-    height: Math.max(height, point.requests > 0 ? 1 : 0),
-  }
-})
+const requestColumns = plainColumns(series, (point) => point.requests, REQUESTS_H, requestMax)
+
+// Community reports — the same two charts over what installs run themselves.
+const communitySeries = community?.series ?? []
+const communityTicks = axisTicks(Math.max(0, ...communitySeries.map((p) => p.tokens)))
+const communityMax = communityTicks[communityTicks.length - 1]
+const communityColumns = stackColumns(communitySeries, community?.seriesModels ?? [], TOKENS_H, communityMax)
+const communityPeak = peak(communitySeries, (point) => point.tokens)
+const installsByDay = new Map((community?.installs ?? []).map((row) => [row.day, row.installs]))
+const installTicks = axisTicks(Math.max(0, ...(community?.installs ?? []).map((row) => row.installs)), 3)
+const installMax = installTicks[installTicks.length - 1]
+const installColumns = plainColumns(
+  communitySeries,
+  (point) => installsByDay.get(point.day) ?? 0,
+  REQUESTS_H,
+  installMax,
+)
+/** Community models get their own colour slots, independent of the gateway's. */
+const communityRank = new Map((community?.models ?? []).map((m, i) => [m.model, i]))
+const communityBanded = new Set((community?.seriesModels ?? []).filter((model) => model !== "other"))
+const communityColor = (model: string): string | null => {
+  if (model === "other") return "var(--series-other)"
+  const rank = communityRank.get(model)
+  return communityBanded.has(model) && rank !== undefined ? `var(--series-${rank + 1})` : null
+}
+const communityBand = (model: string) => communityColor(model) ?? "var(--series-other)"
 
 // Activity grid — the same contribution-style picture nikcli's own analytics
 // view draws, from the shared helper in @nikcli-ai/util/activity.
@@ -235,6 +284,7 @@ const tooltipJson = JSON.stringify(tooltipSeries).replace(
 )
 
 const sections = [
+  ...(community ? [{ id: "community", label: "Models developers run" }] : []),
   ...(gateway
     ? [
         // Each chip repeats its section's heading verbatim, so a reader who
@@ -310,6 +360,275 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
       </nav>
     </section>
 
+    {/* ── What installs run on their own keys ──────────────────────────────
+        The gateway sections below only see traffic that went through the
+        gateway. Most people bring their own provider keys, so this is the
+        larger picture — and the one that says which models developers pick. */}
+    {
+      community && (
+        <section class="page-shell pb-14" aria-labelledby="community-heading" id="community">
+          <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+            <div class="flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h2 id="community-heading" class="font-display text-panel-title text-terminal-text">
+                  Models developers run
+                </h2>
+                <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                  Reported by nikcli installs that opted in, over the last {community.windowDays} days — including
+                  models run on their own provider keys, which never touch the nikcli gateway.
+                </p>
+              </div>
+              {community.totals.change !== null && (
+                <p class="flex items-center gap-1.5 text-body-sm">
+                  <span aria-hidden="true" class={changeClass[changeDirection(community.totals.change)]}>
+                    {changeArrow[changeDirection(community.totals.change)]}
+                  </span>
+                  <span class="font-semibold text-terminal-text">
+                    {changeDirection(community.totals.change) === "flat"
+                      ? "Flat"
+                      : signedPercent.format(community.totals.change)}
+                  </span>
+                  <span class="text-terminal-muted">vs the {community.windowDays} days before</span>
+                </p>
+              )}
+            </div>
+
+            <dl class="mt-7 grid grid-cols-2 gap-x-6 gap-y-7 border-t border-terminal-border/50 pt-7 sm:grid-cols-4">
+              <div>
+                <dt class="text-eyebrow uppercase text-terminal-muted">Tokens</dt>
+                <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                  {compact.format(community.totals.tokens)}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-eyebrow uppercase text-terminal-muted">Installs reporting</dt>
+                <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                  {compact.format(community.totals.installs)}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-eyebrow uppercase text-terminal-muted">Models seen</dt>
+                <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">{community.totals.models}</dd>
+              </div>
+              <div>
+                <dt class="text-eyebrow uppercase text-terminal-muted">Assistant messages</dt>
+                <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                  {compact.format(community.totals.messages)}
+                </dd>
+              </div>
+            </dl>
+
+            <ul class="mt-7 flex flex-wrap gap-x-5 gap-y-2" aria-label="Models in this chart">
+              {community.seriesModels.map((model) => (
+                <li class="flex items-center gap-2 text-[13px] text-terminal-muted">
+                  <span
+                    class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                    style={`background:${communityBand(model)}`}
+                    aria-hidden="true"
+                  />
+                  <span class="font-mono">{model}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div class="mt-5 overflow-x-auto">
+              <svg
+                viewBox={`0 0 ${CHART_W} ${PAD.top + TOKENS_H + PAD.bottom}`}
+                class="w-full min-w-[700px]"
+                role="img"
+                aria-label={`Tokens per day by model across reporting installs over the last ${community.seriesDays} days. Every model is listed in the table below.`}
+              >
+                {communityTicks.map((tick) => (
+                  <>
+                    <line
+                      x1={PAD.left}
+                      x2={CHART_W - PAD.right}
+                      y1={PAD.top + TOKENS_H - (tick / communityMax) * TOKENS_H}
+                      y2={PAD.top + TOKENS_H - (tick / communityMax) * TOKENS_H}
+                      class="viz-grid"
+                    />
+                    <text
+                      x={PAD.left - 10}
+                      y={PAD.top + TOKENS_H - (tick / communityMax) * TOKENS_H + 4}
+                      text-anchor="end"
+                      class="viz-tick"
+                    >
+                      {compact.format(tick)}
+                    </text>
+                  </>
+                ))}
+                {communityColumns.map((column) =>
+                  column.segments.map((segment) =>
+                    segment.rounded ? (
+                      <path
+                        d={topRoundedBar(segment.x, segment.y, barW, segment.height)}
+                        fill={communityBand(segment.model)}
+                      />
+                    ) : (
+                      <rect
+                        x={segment.x}
+                        y={segment.y}
+                        width={barW}
+                        height={segment.height}
+                        fill={communityBand(segment.model)}
+                      />
+                    ),
+                  ),
+                )}
+                {communitySeries
+                  .map((point, index) => ({ ...point, index }))
+                  .filter(({ index }) => index % 10 === 0 || index === communitySeries.length - 1)
+                  .map((point) => (
+                    <text
+                      x={PAD.left + point.index * slot + slot / 2}
+                      y={PAD.top + TOKENS_H + 20}
+                      text-anchor="middle"
+                      class="viz-tick"
+                    >
+                      {shortDay(point.day)}
+                    </text>
+                  ))}
+              </svg>
+            </div>
+            {communityPeak && communityPeak.tokens > 0 && (
+              <p class="mt-3 text-[13px] text-terminal-muted">
+                Peak <span class="font-semibold text-terminal-text">{compact.format(communityPeak.tokens)}</span> on{" "}
+                {shortDay(communityPeak.day)}.
+              </p>
+            )}
+
+            <h3 class="mt-10 font-display text-card-title text-terminal-text">Installs reporting each day</h3>
+            <div class="mt-4 overflow-x-auto">
+              <svg
+                viewBox={`0 0 ${CHART_W} ${PAD.top + REQUESTS_H + PAD.bottom}`}
+                class="w-full min-w-[700px]"
+                role="img"
+                aria-label={`Installs that reported usage each day, ${compact.format(community.totals.installs)} distinct over the window.`}
+              >
+                {installTicks.map((tick) => (
+                  <>
+                    <line
+                      x1={PAD.left}
+                      x2={CHART_W - PAD.right}
+                      y1={PAD.top + REQUESTS_H - (tick / installMax) * REQUESTS_H}
+                      y2={PAD.top + REQUESTS_H - (tick / installMax) * REQUESTS_H}
+                      class="viz-grid"
+                    />
+                    <text
+                      x={PAD.left - 10}
+                      y={PAD.top + REQUESTS_H - (tick / installMax) * REQUESTS_H + 4}
+                      text-anchor="end"
+                      class="viz-tick"
+                    >
+                      {compact.format(tick)}
+                    </text>
+                  </>
+                ))}
+                {installColumns.map(
+                  (column) =>
+                    column.height > 0 && (
+                      <path d={topRoundedBar(column.x, column.y, barW, column.height)} fill="var(--series-1)" />
+                    ),
+                )}
+                {communitySeries
+                  .map((point, index) => ({ ...point, index }))
+                  .filter(({ index }) => index % 10 === 0 || index === communitySeries.length - 1)
+                  .map((point) => (
+                    <text
+                      x={PAD.left + point.index * slot + slot / 2}
+                      y={PAD.top + REQUESTS_H + 20}
+                      text-anchor="middle"
+                      class="viz-tick"
+                    >
+                      {shortDay(point.day)}
+                    </text>
+                  ))}
+              </svg>
+            </div>
+
+            <h3 class="mt-10 font-display text-card-title text-terminal-text">Every model reported</h3>
+            <div class="mt-4 overflow-x-auto">
+              <table class="w-full min-w-[640px] border-collapse text-body-sm">
+                <caption class="sr-only">
+                  Models ranked by tokens reported over the last {community.windowDays} days
+                </caption>
+                <thead>
+                  <tr class="border-b border-terminal-border/60 text-left">
+                    <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">#</th>
+                    <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Model</th>
+                    <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Provider</th>
+                    <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Tokens</th>
+                    <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Share</th>
+                    <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Installs</th>
+                    <th scope="col" class="py-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {community.models.slice(0, LEADERBOARD_ROWS).map((model, index) => (
+                    <tr class="border-b border-terminal-border/40 last:border-0">
+                      <td class="py-3 pr-3 tabular-nums text-terminal-muted">{index + 1}</td>
+                      <td class="py-3 pr-3">
+                        <span class="flex items-center gap-2.5">
+                          {communityColor(model.model) ? (
+                            <span
+                              class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                              style={`background:${communityColor(model.model)}`}
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <span class="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                          )}
+                          <span class="font-mono text-[13px] text-terminal-text">{model.model}</span>
+                        </span>
+                      </td>
+                      <td class="py-3 pr-3 text-terminal-muted">{model.provider}</td>
+                      <td class="py-3 pr-3 text-right tabular-nums text-terminal-text">
+                        {compact.format(model.tokens)}
+                      </td>
+                      <td class="py-3 pr-3">
+                        <span class="flex items-center gap-2.5">
+                          <span class="viz-track h-1.5 w-24 shrink-0 overflow-hidden rounded-full" aria-hidden="true">
+                            <span
+                              class="block h-full rounded-full"
+                              style={`width:${Math.max(model.share * 100, 1)}%;background:${communityBand(model.model)}`}
+                            />
+                          </span>
+                          <span class="tabular-nums text-terminal-muted">{percent.format(model.share)}</span>
+                        </span>
+                      </td>
+                      <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
+                        {whole.format(model.installs)}
+                      </td>
+                      <td class="py-3 text-right tabular-nums">
+                        {model.change === null ? (
+                          <span class="text-terminal-muted">new</span>
+                        ) : (
+                          <span class="inline-flex items-center gap-1">
+                            <span aria-hidden="true" class={changeClass[changeDirection(model.change)]}>
+                              {changeArrow[changeDirection(model.change)]}
+                            </span>
+                            <span class="text-terminal-text">
+                              {changeDirection(model.change) === "flat" ? "flat" : signedPercent.format(model.change)}
+                            </span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p class="mt-6 text-[13px] text-terminal-muted">
+              Reporting is off unless you turn it on. With <code class="rounded-sm bg-terminal-code px-1.5 py-0.5">analytics.share</code>
+              {" "}set, nikcli sends one row per day, provider and model — message count, token count and cost. Never
+              prompts, paths, repositories or session titles.
+            </p>
+          </div>
+        </section>
+      )
+    }
+
     {
       gateway === null ? (
         <section class="page-shell pb-16">
@@ -330,7 +649,9 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               Last {WINDOW_DAYS} days at a glance
             </h2>
             <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
-              <p class="text-eyebrow uppercase text-terminal-muted">Tokens served · last {WINDOW_DAYS} days</p>
+              <p class="text-eyebrow uppercase text-terminal-muted">
+                Through the nikcli gateway · last {WINDOW_DAYS} days
+              </p>
               <p class="mt-2 font-sans text-[clamp(3rem,7vw,4.5rem)] font-bold leading-none tracking-tight text-terminal-text">
                 {compact.format(gateway.totals.tokens)}
               </p>
@@ -1090,10 +1411,11 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
         <h2 id="method-heading" class="font-display text-card-title text-terminal-text">How this is measured</h2>
         <dl class="mt-5 grid gap-5 sm:grid-cols-2">
           <div>
-            <dt class="text-body-sm font-semibold text-terminal-text">Source</dt>
+            <dt class="text-body-sm font-semibold text-terminal-text">Sources</dt>
             <dd class="mt-1 text-body-sm text-terminal-muted">
-              One row per served completion, written by the gateway to the same table billing reads, aggregated by the
-              console deployment and fetched from there. Adoption comes from STATS.md in the repository.
+              Gateway figures are one row per served completion, written to the same table billing reads. Community
+              figures are what installs opted in to report about the models they run themselves. Adoption comes from
+              STATS.md in the repository.
             </dd>
           </div>
           <div>
@@ -1107,7 +1429,8 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
             <dt class="text-body-sm font-semibold text-terminal-text">Privacy</dt>
             <dd class="mt-1 text-body-sm text-terminal-muted">
               Only aggregates are queried. No account, key or request identifier is read, so nothing here can be traced
-              to a user. Prompt content is never stored in the first place.
+              to a user. Prompt content is never stored in the first place. Community reporting is off unless you turn
+              it on, and the identifier an install sends is random, local, and never published.
             </dd>
           </div>
           <div>

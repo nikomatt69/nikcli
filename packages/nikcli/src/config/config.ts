@@ -1439,6 +1439,22 @@ export namespace Config {
         .strict()
         .optional()
         .describe("Optional hub-and-spoke remote sync settings, manageable from the TUI /sync dialog"),
+      analytics: z
+        .object({
+          share: z
+            .boolean()
+            .optional()
+            .describe(
+              "Contribute anonymous per-day model totals to the public stats at nikcli.store/data. Off unless set. Only day, provider, model, message count, token count and cost are sent — never prompts, paths, repositories or session titles.",
+            ),
+          endpoint: z
+            .string()
+            .optional()
+            .describe("Where reports are sent. Defaults to the public nikcli endpoint; set this to self-host them."),
+        })
+        .strict()
+        .optional()
+        .describe("Opt-in anonymous usage reporting"),
       share: z
         .enum(["manual", "auto", "disabled"])
         .optional()
