@@ -90,6 +90,60 @@ describe("CachePolicy.plan", () => {
   })
 })
 
+describe("CachePolicy.minCacheableChars", () => {
+  it("tracks the floor per model rather than assuming one value", () => {
+    // The floor is not monotonic across generations, so these have to differ.
+    expect(CachePolicy.minCacheableChars("claude-opus-5")).toBeLessThan(
+      CachePolicy.minCacheableChars("claude-sonnet-5"),
+    )
+    expect(CachePolicy.minCacheableChars("claude-sonnet-5")).toBeLessThan(
+      CachePolicy.minCacheableChars("claude-opus-4-7"),
+    )
+    expect(CachePolicy.minCacheableChars("claude-opus-4-7")).toBeLessThan(
+      CachePolicy.minCacheableChars("claude-haiku-4-5"),
+    )
+  })
+
+  it("does not confuse opus-5 with opus-4-5", () => {
+    expect(CachePolicy.minCacheableChars("claude-opus-4-5")).toBe(CachePolicy.minCacheableChars("claude-opus-4-6"))
+    expect(CachePolicy.minCacheableChars("claude-opus-5")).not.toBe(CachePolicy.minCacheableChars("claude-opus-4-5"))
+  })
+
+  it("falls back to the 1024 tier for a model it does not know", () => {
+    expect(CachePolicy.minCacheableChars("some-future-model")).toBe(CachePolicy.DEFAULT_MIN_CACHEABLE_TOKENS * 4)
+  })
+
+  it("marks a first system part that clears the low floor but not the high one", () => {
+    // ~2600 characters: above Opus 5's 512-token floor, below Haiku 4.5's 4096.
+    const mid = system("x".repeat(2600))
+    const last = system(BIG_PROMPT)
+    const msgs = [mid, last, user("only")]
+
+    expect(CachePolicy.plan(msgs, 4, CachePolicy.minCacheableChars("claude-opus-5"))).toContain(mid)
+    expect(CachePolicy.plan(msgs, 4, CachePolicy.minCacheableChars("claude-haiku-4-5"))).not.toContain(mid)
+  })
+})
+
+describe("CachePolicy.resolveRetention", () => {
+  it("defaults to the 5-minute entry so no existing caller pays the 2x write", () => {
+    expect(CachePolicy.resolveRetention({})).toBe("short")
+    expect(CachePolicy.ttlFor(CachePolicy.resolveRetention({}))).toBeUndefined()
+  })
+
+  it("opts into the 1-hour entry on request", () => {
+    expect(CachePolicy.resolveRetention({ NIKCLI_CACHE_RETENTION: "long" })).toBe("long")
+    expect(CachePolicy.ttlFor("long")).toBe("1h")
+  })
+
+  it("ignores casing and surrounding whitespace", () => {
+    expect(CachePolicy.resolveRetention({ NIKCLI_CACHE_RETENTION: " LONG " })).toBe("long")
+  })
+
+  it("treats anything else as the default rather than erroring", () => {
+    expect(CachePolicy.resolveRetention({ NIKCLI_CACHE_RETENTION: "1h" })).toBe("short")
+  })
+})
+
 describe("CachePolicy.countWireBreakpoints", () => {
   it("counts markers across tools, system and messages", () => {
     const body = {

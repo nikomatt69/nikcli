@@ -367,12 +367,22 @@ function normalizeMessages(
 function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
   // Placement is budgeted (see cache-policy.ts): message-level markers leave a slot
   // for the wire-level tool-definition breakpoint, so a request never exceeds the
-  // four Anthropic/Bedrock accept.
-  const targets = CachePolicy.plan(msgs)
+  // four Anthropic/Bedrock accept. The minimum cacheable prefix is per-model, so the
+  // floor comes from the model rather than a single constant.
+  const targets = CachePolicy.plan(
+    msgs,
+    CachePolicy.MESSAGE_BREAKPOINT_BUDGET,
+    CachePolicy.minCacheableChars(model.api.id ?? model.id),
+  )
+
+  // `ttl` is only carried on the Anthropic block: that is the provider whose
+  // `cacheControl` schema declares it (`"5m" | "1h"`). The others keep their default
+  // lifetime rather than being sent a field they may not accept.
+  const ttl = CachePolicy.ttlFor(CachePolicy.resolveRetention())
 
   const providerOptions = {
     anthropic: {
-      cacheControl: { type: "ephemeral" },
+      cacheControl: ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" },
     },
     openrouter: {
       cacheControl: { type: "ephemeral" },

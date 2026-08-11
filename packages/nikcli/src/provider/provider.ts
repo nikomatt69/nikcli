@@ -1880,7 +1880,11 @@ export namespace Provider {
               // but plugins and provider-specific paths can add their own.
               const spent = CachePolicy.countWireBreakpoints(body)
               if (!last.cache_control && spent < CachePolicy.BREAKPOINT_CAP) {
-                last.cache_control = { type: "ephemeral" }
+                // The tool array is the largest byte-stable block in the request, so
+                // it is the breakpoint that gains most from the longer lifetime — a
+                // retention setting that skipped it would miss the point.
+                const ttl = CachePolicy.ttlFor(CachePolicy.resolveRetention())
+                last.cache_control = ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" }
                 opts.body = JSON.stringify(body)
               } else if (spent >= CachePolicy.BREAKPOINT_CAP) {
                 log.warn("skipping tool cache breakpoint", {
