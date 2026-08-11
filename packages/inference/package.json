@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "1.269.0",
+  "version": "1.270.0",
   "name": "@nikcli-ai/inference",
   "type": "module",
   "license": "MIT",

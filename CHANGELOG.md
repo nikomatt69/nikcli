@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.270.0 (August 2026)
+
+## Core
+
+- Report automatically, and show day, month and lifetime (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(analytics): report automatically, and show day, month and lifetime
+
 ## v1.269.0 (August 2026)
 
 ## Core
