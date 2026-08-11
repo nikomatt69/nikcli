@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.274.0 (August 2026)
+
+## Core
+
+- Remove trailing whitespace in index.ts (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix: remove trailing whitespace in index.ts
+
 ## v1.271.0 (August 2026)
 
 ## Core

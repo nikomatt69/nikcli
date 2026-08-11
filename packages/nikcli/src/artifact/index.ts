@@ -1,7 +1,7 @@
 import path from "path"
 import { Effect } from "effect"
 import { Storage } from "@/storage/storage"
-import { Log } from "@/util/log" 
+import { Log } from "@/util/log"
 import { runPromiseWithLayer } from "@/effect"
 import { UserDB } from "@/user/users"
 
