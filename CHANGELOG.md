@@ -3,6 +3,22 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.265.0 (August 2026)
+
+## Core
+
+- Virtualize the session tree panel (@nikomatt69)
+
+## TUI
+
+- Choose project or global scope for environments (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - perf(tui): virtualize the session tree panel
+  - feat(tui): choose project or global scope for environments
+
 ## v1.264.0 (August 2026)
 
 ## Core
