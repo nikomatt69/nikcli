@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.272.0 (August 2026)
+
+## Core
+
+- --today --week --month --all on both subcommands (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(analytics): --today --week --month --all on both subcommands
+
 ## v1.271.0 (August 2026)
 
 ## Core
