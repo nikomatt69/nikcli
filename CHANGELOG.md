@@ -3,6 +3,28 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.268.0 (August 2026)
+
+## Core
+
+- Drive /data from local rollups, harden the ingest (@nikomatt69)
+- Put the models people actually run on /data (@SandroHub013)
+
+## TUI
+
+- Drive /data from the console usage table (@SandroHub013)
+
+**Thank you to 2 community contributors:**
+
+- @SandroHub013:
+  - feat(web): publish gateway usage on a /data page
+  - feat(web): drive /data from the console usage table
+  - fix(web): name the table /data actually reads
+  - feat: put the models people actually run on /data
+- @nikomatt69:
+  - Merge pull request #212 from nikomatt69/feat/web-data-page
+  - feat(analytics): drive /data from local rollups, harden the ingest
+
 ## v1.266.0 (August 2026)
 
 ## Core

@@ -2757,6 +2757,19 @@ export type Config = {
     autostart?: boolean
   }
   /**
+   * Opt-in anonymous usage reporting
+   */
+  analytics?: {
+    /**
+     * Contribute anonymous per-day model totals to the public stats at nikcli.store/data. Off unless set. Only day, provider, model, message count, token count and cost are sent — never prompts, paths, repositories or session titles.
+     */
+    share?: boolean
+    /**
+     * Where reports are sent. Defaults to the public nikcli endpoint; set this to self-host them.
+     */
+    endpoint?: string
+  }
+  /**
    * Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
    */
   share?: "manual" | "auto" | "disabled"

@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/companion-ui",
-  "version": "1.266.0",
+  "version": "1.268.0",
   "type": "module",
   "private": true,
   "scripts": {
