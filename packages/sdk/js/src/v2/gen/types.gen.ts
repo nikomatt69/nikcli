@@ -12476,6 +12476,25 @@ export type AnalyticsLeaderboardResponses = {
   200: unknown
 }
 
+export type AnalyticsDataData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    days?: string
+    seriesDays?: string
+  }
+  url: "/analytics/data"
+}
+
+export type AnalyticsDataResponses = {
+  /**
+   * Aggregate usage dataset, or null when the window holds no tokens
+   */
+  200: unknown
+}
+
 export type BrainStatusData = {
   body?: never
   path?: never

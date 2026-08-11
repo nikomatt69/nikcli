@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.269.0 (August 2026)
+
+## Core
+
+- Serve an opencode-style /data dataset from the local SQL (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(analytics): serve an opencode-style /data dataset from the local SQL
+
 ## v1.268.0 (August 2026)
 
 ## Core

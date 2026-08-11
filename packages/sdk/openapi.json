@@ -18236,6 +18236,59 @@
         ]
       }
     },
+    "/analytics/data": {
+      "get": {
+        "operationId": "analytics.data",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seriesDays",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get the /data dataset",
+        "description": "Aggregate usage for a public data page: models ranked by tokens with a daily series, cost per session, blended price per million, cache ratio and share by model author. Computed from the local rollups; returns 204 when the window holds no tokens.",
+        "responses": {
+          "200": {
+            "description": "Aggregate usage dataset, or null when the window holds no tokens",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.analytics.data({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/brain": {
       "get": {
         "operationId": "brain.status",

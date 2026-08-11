@@ -13,6 +13,7 @@ import {
 import type {
   AgentPartInput,
   AnalyticsDailyResponses,
+  AnalyticsDataResponses,
   AnalyticsGlobalResponses,
   AnalyticsLeaderboardResponses,
   AnalyticsSessionErrors,
@@ -9819,6 +9820,40 @@ export class Analytics extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<AnalyticsLeaderboardResponses, unknown, ThrowOnError>({
       url: "/analytics/leaderboard",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get the /data dataset
+   *
+   * Aggregate usage for a public data page: models ranked by tokens with a daily series, cost per session, blended price per million, cache ratio and share by model author. Computed from the local rollups; returns 204 when the window holds no tokens.
+   */
+  public data<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      days?: string
+      seriesDays?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ): RequestResult<AnalyticsDataResponses, unknown, ThrowOnError> {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "days" },
+            { in: "query", key: "seriesDays" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AnalyticsDataResponses, unknown, ThrowOnError>({
+      url: "/analytics/data",
       ...options,
       ...params,
     })
