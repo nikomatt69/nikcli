@@ -195,6 +195,7 @@ PR titles should follow conventional commit standards:
 - `docs:` documentation or README changes
 - `chore:` maintenance tasks, dependency updates, etc.
 - `refactor:` code refactoring without changing behavior
+- `perf:` performance work that keeps behavior the same
 - `test:` adding or updating tests
 
 You can optionally include a scope to indicate which package is affected:
