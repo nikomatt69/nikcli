@@ -394,6 +394,12 @@ function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage
   // `ttl` is only carried on the Anthropic block: that is the provider whose
   // `cacheControl` schema declares it (`"5m" | "1h"`). The others keep their default
   // lifetime rather than being sent a field they may not accept.
+  //
+  // OpenRouter is the tempting exception and is deliberately left out: its provider
+  // copies `cacheControl` through verbatim as `cache_control` with no schema, so it
+  // would forward a `ttl` rather than reject it — which means the request would be
+  // betting on an upstream contract this side cannot see. Extend only against a
+  // provider that documents the field.
   const ttl = CachePolicy.ttlFor(CachePolicy.resolveRetention())
 
   const providerOptions = {
