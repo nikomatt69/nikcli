@@ -21,7 +21,7 @@
  *     be something the user notices.
  */
 import { Effect } from "effect"
-import { Analytics } from "./analytics"
+import { AnalyticsRollup } from "./rollup"
 import { Config } from "@/config/config"
 import { Installation } from "@/installation"
 import { Storage } from "../storage/storage"
@@ -35,6 +35,8 @@ export namespace AnalyticsShare {
   /** How far back to catch up when an install has been offline. */
   const MAX_CATCHUP_DAYS = 7
   const DAY_MS = 86_400_000
+  /** Rollups store micro-cent integers; the wire keeps a USD number for older collectors. */
+  const MICRO_CENTS_PER_USD = 100_000_000
 
   const STATE_KEY = ["analytics", "share-state"]
 
@@ -104,30 +106,54 @@ export namespace AnalyticsShare {
     const state = await readState()
     // Yesterday is the newest whole day; today is still accumulating.
     const yesterday = dayKey(Date.now() - DAY_MS)
-    if (state.lastDay && state.lastDay >= yesterday) return 0
-
-    const earliest = dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
-    const from = state.lastDay && state.lastDay > earliest ? dayKey(Date.parse(state.lastDay) + DAY_MS) : earliest
+    const from = dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
     if (from > yesterday) return 0
 
-    const days = await Analytics.getDaily(from, yesterday).catch(() => [])
-    const rows = days.flatMap((day) =>
-      Object.entries(day.models).map(([model, stats]) => ({
-        day: day.date,
-        // Model keys are stored as `provider/model`; the provider half is the
-        // routing decision and the rest is the model, which can contain slashes.
-        provider: model.includes("/") ? model.slice(0, model.indexOf("/")) : "unknown",
-        model: model.includes("/") ? model.slice(model.indexOf("/") + 1) : model,
-        messages: stats.messages,
-        tokens: stats.tokens,
-        cost: stats.cost,
-      })),
-    )
+    // Recompute before reading: the rollup for a day is derived from that day's
+    // messages, so rebuilding is what makes a resumed session or a late message
+    // land in the numbers that get sent.
+    await AnalyticsRollup.rebuild({ from, to: yesterday }).catch(() => 0)
 
+    // Which days still need sending is asked of the rollups, not tracked as a
+    // high-water mark: a day that gained messages after it was first reported
+    // becomes pending again, where "last day sent" would have kept the stale
+    // numbers forever.
+    const periods = await AnalyticsRollup.pending({ from, to: yesterday }).catch((): string[] => [])
+    if (periods.length === 0) return 0
+
+    const wanted = new Set(periods)
+    const rollups = await AnalyticsRollup.read({ from, to: yesterday })
+      .then((all) => all.filter((stat) => wanted.has(stat.periodKey)))
+      .catch((): AnalyticsRollup.Row[] => [])
+
+    const rows = rollups.map((stat) => ({
+      day: stat.periodKey,
+      // Provider and model are separate columns in the rollup, taken from the
+      // message that produced them. They used to be recovered by splitting a
+      // `provider/model` key, which produced "unknown" whenever the key was a
+      // bare model id.
+      provider: stat.provider,
+      model: stat.model,
+      messages: stat.messages,
+      tokens: stat.totalTokens,
+      cost: stat.costMicroCents / MICRO_CENTS_PER_USD,
+      // Richer aggregates for collectors that understand them. Older ones ignore
+      // unknown fields, so both can read the same report.
+      sessions: stat.sessions,
+      toolCalls: stat.toolCalls,
+      inputTokens: stat.inputTokens,
+      outputTokens: stat.outputTokens,
+      reasoningTokens: stat.reasoningTokens,
+      cacheReadTokens: stat.cacheReadTokens,
+      cacheWriteTokens: stat.cacheWriteTokens,
+      costMicroCents: stat.costMicroCents,
+      durationMs: stat.durationMs,
+    }))
+
+    // A pending day with no rows ran nothing. Marking it published is what stops
+    // the catch-up window re-reading it on every startup.
     if (rows.length === 0) {
-      // Nothing ran on those days, but they are still done with: recording that
-      // stops the catch-up window re-reading them every startup.
-      await writeState({ ...state, lastDay: yesterday })
+      await AnalyticsRollup.markPublished(periods).catch(() => undefined)
       return 0
     }
 
@@ -146,8 +172,10 @@ export namespace AnalyticsShare {
       return 0
     }
 
-    await writeState({ ...state, lastDay: yesterday })
-    log.info("reported", { days: days.length, rows: rows.length })
+    // Only after the collector accepted them, and stamped with the revision that
+    // was actually sent — a rebuild after this point makes the day pending again.
+    await AnalyticsRollup.markPublished(periods).catch(() => undefined)
+    log.info("reported", { days: periods.length, rows: rows.length })
     return rows.length
   }
 }

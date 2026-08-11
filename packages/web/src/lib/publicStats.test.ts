@@ -259,7 +259,27 @@ describe("summarizeCommunity", () => {
     expect(stats.totals.installs).toBe(42)
   })
 
-  test("never sums installs across providers, since one install can use both", () => {
+  test("takes installs per model from the feed's own distinct count", () => {
+    const stats = summarizeCommunity(
+      report({
+        current: [
+          row({ model: "sonnet-4-5", provider: "anthropic", tokens: 800, installs: 30 }),
+          row({ model: "sonnet-4-5", provider: "bedrock", tokens: 200, installs: 5 }),
+        ],
+        // Neither 35 (double-counts an install that used both providers) nor 30
+        // (undercounts installs that used only bedrock) is right. Only a count
+        // over the raw identifiers is, and the feed is where they still exist.
+        modelInstalls: [{ model: "sonnet-4-5", installs: 32 }],
+      }),
+      NOW,
+    )!
+    expect(stats.models).toHaveLength(1)
+    expect(stats.models[0].tokens).toBe(1000)
+    expect(stats.models[0].provider).toBe("anthropic")
+    expect(stats.models[0].installs).toBe(32)
+  })
+
+  test("reports no install count rather than a wrong one on an older feed", () => {
     const stats = summarizeCommunity(
       report({
         current: [
@@ -269,11 +289,8 @@ describe("summarizeCommunity", () => {
       }),
       NOW,
     )!
-    expect(stats.models).toHaveLength(1)
     expect(stats.models[0].tokens).toBe(1000)
-    expect(stats.models[0].provider).toBe("anthropic")
-    // 30 and 5 might be the same 30 installs, so the count never exceeds the largest.
-    expect(stats.models[0].installs).toBe(30)
+    expect(stats.models[0].installs).toBe(0)
   })
 
   test("compares against the window before and marks first-seen models new", () => {

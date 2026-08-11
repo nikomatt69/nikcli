@@ -12,6 +12,7 @@ import userExternalSubject from "./migration/20260716000000_user_external_subjec
 import sessionEntry from "./migration/20260805000000_session_entry"
 import dropSessionV2Event from "./migration/20260805120000_drop_session_v2_event"
 import sessionEntryIdOrder from "./migration/20260805130000_session_entry_id_order"
+import analyticsStat from "./migration/20260811000000_analytics_stat"
 
 export const migrations = [
   initial,
@@ -27,4 +28,5 @@ export const migrations = [
   sessionEntry,
   dropSessionV2Event,
   sessionEntryIdOrder,
+  analyticsStat,
 ] satisfies DatabaseMigration.Migration[]

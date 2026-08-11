@@ -54,36 +54,49 @@ export const GET: APIRoute = async (ctx) => {
 
   const bucketSQL = `
     SELECT model, provider,
-           SUM(messages)               AS messages,
-           SUM(tokens)                 AS tokens,
-           SUM(cost)                   AS cost,
-           COUNT(DISTINCT install_id)  AS installs
-    FROM community_usage
+           SUM(messages)                 AS messages,
+           SUM(total_tokens)             AS tokens,
+           SUM(cost_micro_cents) / 1e8   AS cost,
+           COUNT(DISTINCT install_id)    AS installs
+    FROM community_stat
     WHERE day >= ? AND day < ?
     GROUP BY model, provider`
 
+  // Distinct installs per model, counted here rather than folded out of the
+  // per-model buckets afterwards. A model served by two providers has one bucket
+  // each: summing them double-counts an install that used both, and taking the
+  // larger silently undercounts two installs that each used one. Only a count
+  // over the raw identifiers is right, and this is the last place they exist.
+  const modelReachSQL = `
+    SELECT model, COUNT(DISTINCT install_id) AS installs
+    FROM community_stat
+    WHERE day >= ? AND day < ?
+    GROUP BY model`
+
   try {
-    // Distinct installs cannot be summed out of the per-model buckets — one
-    // install running three models is counted in each — so the window total is
-    // its own query.
-    const [current, previous, daily, installs, reach] = await Promise.all([
-      DB.prepare(bucketSQL).bind(windowStart, dayKey(now + DAY)).all<Bucket>(),
+    const [current, previous, daily, installs, reach, modelReach] = await Promise.all([
+      DB.prepare(bucketSQL)
+        .bind(windowStart, dayKey(now + DAY))
+        .all<Bucket>(),
       DB.prepare(bucketSQL).bind(previousStart, windowStart).all<Bucket>(),
       DB.prepare(
-        `SELECT day, model, SUM(tokens) AS tokens, SUM(messages) AS messages
-         FROM community_usage WHERE day >= ? GROUP BY day, model ORDER BY day ASC`,
+        `SELECT day, model, SUM(total_tokens) AS tokens, SUM(messages) AS messages
+         FROM community_stat WHERE day >= ? GROUP BY day, model ORDER BY day ASC`,
       )
         .bind(seriesStart)
         .all<{ day: string; model: string; tokens: number; messages: number }>(),
       DB.prepare(
         `SELECT day, COUNT(DISTINCT install_id) AS installs
-         FROM community_usage WHERE day >= ? GROUP BY day ORDER BY day ASC`,
+         FROM community_stat WHERE day >= ? GROUP BY day ORDER BY day ASC`,
       )
         .bind(seriesStart)
         .all<{ day: string; installs: number }>(),
-      DB.prepare(`SELECT COUNT(DISTINCT install_id) AS installs FROM community_usage WHERE day >= ?`)
+      DB.prepare(`SELECT COUNT(DISTINCT install_id) AS installs FROM community_stat WHERE day >= ?`)
         .bind(windowStart)
         .first<{ installs: number }>(),
+      DB.prepare(modelReachSQL)
+        .bind(windowStart, dayKey(now + DAY))
+        .all<{ model: string; installs: number }>(),
     ])
 
     return json(
@@ -96,6 +109,8 @@ export const GET: APIRoute = async (ctx) => {
         previous: previous.results ?? [],
         daily: daily.results ?? [],
         installs: installs.results ?? [],
+        /** Distinct installs per model — not derivable from `current`. */
+        modelInstalls: modelReach.results ?? [],
       },
       200,
       ok,

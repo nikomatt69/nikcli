@@ -19,7 +19,12 @@
  * When the feed is unreachable or empty the page renders an explicit "no rows
  * yet" state — a zero is never presented as a measurement.
  */
-import { buildActivityGrid, computeActivityStats, type ActivityGrid, type ActivityStats } from "@nikcli-ai/util/activity"
+import {
+  buildActivityGrid,
+  computeActivityStats,
+  type ActivityGrid,
+  type ActivityStats,
+} from "@nikcli-ai/util/activity"
 
 /** Rolling window the headline metrics and the leaderboard are measured over. */
 export const WINDOW_DAYS = 30
@@ -161,11 +166,7 @@ export async function fetchGateway(
 
 function tokensOf(bucket: UsageBucket): number {
   return (
-    bucket.inputTokens +
-    bucket.outputTokens +
-    bucket.reasoningTokens +
-    bucket.cacheReadTokens +
-    bucket.cacheWriteTokens
+    bucket.inputTokens + bucket.outputTokens + bucket.reasoningTokens + bucket.cacheReadTokens + bucket.cacheWriteTokens
   )
 }
 
@@ -203,7 +204,9 @@ export function summarize(feed: unknown, now: number): GatewayStats | null {
   if (typeof feed !== "object" || feed === null) return null
   const body = feed as Record<string, unknown>
   const asArray = (value: unknown): Record<string, unknown>[] =>
-    Array.isArray(value) ? (value.filter((row) => typeof row === "object" && row !== null) as Record<string, unknown>[]) : []
+    Array.isArray(value)
+      ? (value.filter((row) => typeof row === "object" && row !== null) as Record<string, unknown>[])
+      : []
 
   const current = asArray(body.current).map(toBucket)
   const previous = asArray(body.previous).map(toBucket)
@@ -232,7 +235,10 @@ export function summarize(feed: unknown, now: number): GatewayStats | null {
 
   // Per model: sum across providers, and remember which provider carried most
   // of the tokens so the leaderboard can name one.
-  type Accumulator = Omit<ModelStat, "provider" | "share" | "change" | "costPerRequest" | "tokensPerRequest" | "pricePerMillion" | "cacheRatio"> & {
+  type Accumulator = Omit<
+    ModelStat,
+    "provider" | "share" | "change" | "costPerRequest" | "tokensPerRequest" | "pricePerMillion" | "cacheRatio"
+  > & {
     providerTokens: Map<string, number>
   }
   const perModel = new Map<string, Accumulator>()
@@ -445,11 +451,19 @@ export function summarizeCommunity(feed: unknown, now: number): CommunityStats |
     model.tokens += row.tokens
     model.messages += row.messages
     model.costUsd += row.costUsd
-    // Installs cannot be summed across providers without double-counting an
-    // install that used both, so the largest single count is the safe floor.
-    model.installs = Math.max(model.installs, row.installs)
     model.providerTokens.set(row.provider, (model.providerTokens.get(row.provider) ?? 0) + row.tokens)
   }
+
+  // Installs per model come from the feed's own COUNT(DISTINCT install_id).
+  // They cannot be recovered from the per-provider buckets above: summing
+  // double-counts an install that used both providers of a model, and taking the
+  // largest undercounts two installs that each used a different one. Feeds that
+  // predate `modelInstalls` leave this at 0 rather than publishing a wrong count.
+  const installsByModel = new Map<string, number>()
+  for (const row of rows(body.modelInstalls)) {
+    installsByModel.set(String(row.model ?? ""), number(row.installs))
+  }
+  for (const [name, model] of perModel) model.installs = installsByModel.get(name) ?? 0
 
   const models: CommunityModel[] = [...perModel.values()]
     .map(({ providerTokens, ...model }) => {
