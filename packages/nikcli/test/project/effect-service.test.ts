@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { removeTestDir } from "../helpers/fs"
 import { afterAll, beforeEach, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
 import fs from "fs/promises"
@@ -18,7 +19,7 @@ function runProject<A, E>(effect: Effect.Effect<A, E, any>) {
 
 describe("Project.Service", () => {
   beforeEach(async () => {
-    await fs.rm(path.join(testHome, "data", "storage"), { recursive: true, force: true })
+    await removeTestDir(path.join(testHome, "data", "storage"))
   })
 
   it("creates, lists, updates, and removes project sandboxes through the Effect service boundary", async () => {
@@ -51,8 +52,8 @@ describe("Project.Service", () => {
       expect(result.withSandbox.sandboxes).toEqual([])
       expect(result.sandboxes).toEqual([])
     } finally {
-      await fs.rm(projectDir, { recursive: true, force: true })
-      await fs.rm(sandboxDir, { recursive: true, force: true })
+      await removeTestDir(projectDir)
+      await removeTestDir(sandboxDir)
     }
   })
 
@@ -112,7 +113,7 @@ describe("Project.Service", () => {
         expect.arrayContaining([{ directory: await fs.realpath(sshDir) }, { directory: await fs.realpath(httpsDir) }]),
       )
     } finally {
-      await Promise.all([sshDir, httpsDir].map((directory) => fs.rm(directory, { recursive: true, force: true })))
+      await Promise.all([sshDir, httpsDir].map((directory) => removeTestDir(directory)))
     }
   })
 
@@ -139,7 +140,7 @@ describe("Project.Service", () => {
 
       expect(result.project.id).toBe("legacy-project-id")
     } finally {
-      await fs.rm(directory, { recursive: true, force: true })
+      await removeTestDir(directory)
     }
   })
 
@@ -172,11 +173,11 @@ describe("Project.Service", () => {
       )
       expect(second.project.id).toBe(first.project.id)
     } finally {
-      await fs.rm(directory, { recursive: true, force: true })
+      await removeTestDir(directory)
     }
   })
 })
 
 afterAll(async () => {
-  await fs.rm(testHome, { recursive: true, force: true })
+  await removeTestDir(testHome)
 })

@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -68,8 +69,8 @@ afterEach(async () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
+  await removeTestDir(testHome)
 })
 
 describe("Worktree.list", () => {
