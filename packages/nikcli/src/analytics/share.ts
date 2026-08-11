@@ -171,6 +171,8 @@ export namespace AnalyticsShare {
     includeToday?: boolean
     /** Send every day on record, not just the catch-up window. */
     all?: boolean
+    /** Explicit window in days, counting back from today. Overrides `all`. */
+    days?: number
   }): Promise<number> {
     const analytics = await settings()
     // `force` is for an explicit `nikcli analytics publish`: the user asked for it
@@ -188,12 +190,14 @@ export namespace AnalyticsShare {
       publishedPeriods: 1,
     }))
 
-    // The first run reaches back to the first day on record, so an install that
-    // has been in use for months contributes that history rather than a week of
-    // it. Afterwards the short catch-up window is enough — a backfill is a thing
-    // that happens once, not on every boot. `--all` asks for it again explicitly.
+    // An explicit window wins — that is the caller naming a range. Otherwise the
+    // first run reaches back to the first day on record, so an install in use for
+    // months contributes that history rather than a week of it, and afterwards
+    // the short catch-up window is enough: a backfill happens once, not on every
+    // boot.
+    const explicit = options?.days ? dayKey(Date.now() - (options.days - 1) * DAY_MS) : undefined
     const backfill = options?.all === true || bounds.publishedPeriods === 0
-    const from = backfill ? (bounds.earliestDay ?? window) : window
+    const from = explicit ?? (backfill ? (bounds.earliestDay ?? window) : window)
     if (from > newest) return 0
     const yesterday = newest
 
