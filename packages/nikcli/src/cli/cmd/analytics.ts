@@ -108,10 +108,12 @@ export const AnalyticsCommand = cmd({
                 ),
               "",
               UI.Style.TEXT_NORMAL_BOLD + "  By day" + UI.Style.TEXT_NORMAL,
-              // Only days that saw traffic; the dense series is for charts.
+              // Every day in the range that saw traffic. Quiet days are dropped
+              // because the dense series exists for charts, not for a list — but
+              // the range itself is never trimmed: a command asked for a window
+              // and silently showing a fortnight of it would be a lie.
               ...data.series
                 .filter((entry) => entry.tokens > 0)
-                .slice(-14)
                 .map((point) => `  ${point.day}  ${million(point.tokens).padStart(9)}`),
               "",
               UI.Style.TEXT_NORMAL_BOLD + "  By month" + UI.Style.TEXT_NORMAL,

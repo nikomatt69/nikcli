@@ -26,8 +26,20 @@ import { z } from "zod"
  *     never required, and the account is never stored.
  */
 
-/** A day older than this is refused: reports are for the days just gone. */
-const MAX_AGE_DAYS = 7
+/**
+ * How far back a report may reach.
+ *
+ * Wide enough for a one-off backfill (`nikcli analytics publish --all`). The
+ * routine path still sends a few days at a time; this is the ceiling, not the
+ * norm. Without it the public page could only ever show the week just gone,
+ * while every install held months the page would never see.
+ *
+ * Widening it does not widen what a bad actor can claim. Every metric is clamped
+ * per row and rows are keyed by (install, day, provider, model), so more days
+ * buys more clamped rows rather than bigger numbers, and the per-source rate
+ * limit still caps how fast any of them arrive.
+ */
+const MAX_AGE_DAYS = 400
 /** One report covers one install's recent days; more than this is not a CLI. */
 const MAX_ROWS = 400
 
