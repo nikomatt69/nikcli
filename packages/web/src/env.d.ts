@@ -3,6 +3,7 @@
 
 type KVNamespace = import("@cloudflare/workers-types").KVNamespace
 type R2Bucket = import("@cloudflare/workers-types").R2Bucket
+type D1Database = import("@cloudflare/workers-types").D1Database
 
 /** Domino ships its types under the pre-fork `domino` module name. */
 declare module "@mixmark-io/domino" {
@@ -17,6 +18,12 @@ interface CloudflareEnv {
   USERS: KVNamespace
   SESSIONS: KVNamespace
   ARTIFACTS: R2Bucket
+  /**
+   * Gateway usage table read by the public /data page. Optional on purpose: a
+   * preview deployment without the binding renders the page's empty state
+   * rather than a 500.
+   */
+  USAGE_DB?: D1Database
   /**
    * Workers AI, used by the docs support assistant (/api/docs-assistant).
    * Typed loosely on purpose: the model id is configurable at runtime, so it

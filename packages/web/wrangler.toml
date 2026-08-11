@@ -47,6 +47,16 @@ id = "e9dfbfcd44c14909b03cef0629b4f80f"
 binding = "USERS"
 id = "bb2d5e50ff1644b482c71b7355a7684c"
 
+# Usage table behind the public /data page. Same `nikcli-inference` database the
+# gateway bills from (packages/inference-dashboard owns the schema and the
+# writes); this worker only ever runs the aggregate SELECTs in
+# src/lib/publicStats.ts. Unbound, /data renders its "nothing published yet"
+# state instead of failing.
+[[d1_databases]]
+binding = "USAGE_DB"
+database_name = "nikcli-inference"
+database_id = "5be2b87f-fc61-4642-a444-2f954430bbb6"
+
 # Published artifacts (nikcli.store/artifact/:id) — content + metadata.
 # Create the bucket once with: wrangler r2 bucket create nikcli-artifact
 [[r2_buckets]]

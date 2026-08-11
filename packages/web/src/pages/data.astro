@@ -1,0 +1,1212 @@
+---
+/**
+ * /data — what nikcli's own inference gateway actually did.
+ *
+ * Every gateway number is a SUM over `usage_events` in the `nikcli-inference`
+ * D1 database, the same table billing reads (see src/lib/publicStats.ts for the
+ * queries and for what is deliberately not published). The adoption series is
+ * STATS.md, appended by the download-stats workflow. Nothing is modelled: with
+ * no rows in the window the gateway sections say so instead of drawing zeroes.
+ */
+import Layout from "../layouts/Layout.astro"
+import Navbar from "../components/Navbar.astro"
+import statsMarkdown from "../../../../STATS.md?raw"
+import { axisTicks, parseDownloads, queryGateway, SERIES_DAYS, WINDOW_DAYS } from "../lib/publicStats"
+
+const env = Astro.locals.runtime?.env
+const now = Math.floor(Date.now() / 1000)
+const gateway = await queryGateway(env?.USAGE_DB, now)
+const downloads = parseDownloads(statsMarkdown)
+
+// The page is public and identical for everyone, so it is worth caching at the
+// edge: without this every visit runs three aggregate scans over D1.
+Astro.response.headers.set("cache-control", "public, max-age=900, s-maxage=900")
+
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 })
+const whole = new Intl.NumberFormat("en-US")
+const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 })
+const signedPercent = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 0,
+  signDisplay: "exceptZero",
+})
+const money = (value: number, digits = 2) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)
+const shortDay = (day: string) => {
+  const [y, m, d] = day.split("-").map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  })
+}
+
+/**
+ * Categorical slots are assigned once, by leaderboard rank, and then used for
+ * that model everywhere on the page — the stacked series, the legend, and the
+ * table all agree. Only the models the chart bands individually get a slot; the
+ * tail is drawn as one "other" band and carries no swatch in the table, so two
+ * different models are never shown wearing the same colour.
+ */
+const modelRank = new Map((gateway?.models ?? []).map((m, i) => [m.model, i]))
+const bandedModels = new Set((gateway?.seriesModels ?? []).filter((model) => model !== "other"))
+/** `null` for a model the chart folds into "other" — it has no colour of its own to show. */
+const colorOf = (model: string): string | null => {
+  const rank = modelRank.get(model)
+  if (model === "other") return "var(--series-other)"
+  return bandedModels.has(model) && rank !== undefined ? `var(--series-${rank + 1})` : null
+}
+/** The colour a chart mark is painted with; the tail all shares the "other" grey. */
+const bandColor = (model: string) => colorOf(model) ?? "var(--series-other)"
+const providerLabel = (provider: string | null) => provider ?? "served from cache"
+
+/**
+ * Movement under a percent is reported as flat, without an arrow or a colour:
+ * "▼ 0%" reads as a contradiction, and a column of coloured ±1% triangles reads
+ * as churn where the data has none.
+ */
+const changeDirection = (change: number): "up" | "down" | "flat" =>
+  Math.abs(change) < 0.01 ? "flat" : change > 0 ? "up" : "down"
+const changeClass = { up: "text-terminal-success", down: "text-terminal-error", flat: "text-terminal-muted" }
+const changeArrow = { up: "▲", down: "▼", flat: "—" }
+
+// ── Chart geometry ────────────────────────────────────────────────────────────
+// Charts are plain SVG sized in a 1000-unit viewBox and scaled by CSS, so the
+// page ships no charting library and no client-side layout pass.
+const CHART_W = 1000
+const PAD = { left: 62, right: 16, top: 12, bottom: 28 }
+const SEGMENT_GAP = 2
+const plotW = CHART_W - PAD.left - PAD.right
+
+function topRoundedBar(x: number, y: number, w: number, h: number): string {
+  const r = Math.min(4, w / 2, h)
+  return `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} L${x + w},${y + h} Z`
+}
+
+const series = gateway?.series ?? []
+const seriesModels = gateway?.seriesModels ?? []
+
+// Stacked tokens per day.
+const TOKENS_H = 236
+const tokenTicks = axisTicks(Math.max(0, ...series.map((p) => p.tokens)))
+const tokenMax = tokenTicks[tokenTicks.length - 1]
+const slot = plotW / Math.max(series.length, 1)
+const barW = Math.min(24, Math.max(3, slot - 3))
+const tokenColumns = series.map((point, index) => {
+  const x = PAD.left + index * slot + (slot - barW) / 2
+  const bands = seriesModels
+    .map((model) => ({ model, tokens: point.byModel[model] ?? 0 }))
+    .filter((band) => band.tokens > 0)
+  let bottom = PAD.top + TOKENS_H
+  const segments = bands.map((band, i) => {
+    const raw = (band.tokens / tokenMax) * TOKENS_H
+    const top = bottom - raw
+    bottom = top
+    return {
+      ...band,
+      x,
+      y: top,
+      // The gap that separates touching segments is taken off the bottom of
+      // every segment except the one on the baseline, and it shrinks with the
+      // segment: a full 2px out of a 3px band would erase the band and leave
+      // the top of the stack looking like a barcode.
+      height: Math.max(raw - (i > 0 ? Math.min(SEGMENT_GAP, raw * 0.4) : 0), 0.75),
+      rounded: i === bands.length - 1,
+    }
+  })
+  return { day: point.day, tokens: point.tokens, requests: point.requests, x, segments }
+})
+const peakDay = series.reduce<(typeof series)[number] | null>(
+  (best, point) => (best === null || point.tokens > best.tokens ? point : best),
+  null,
+)
+
+// Daily requests — one series, so one color and no legend.
+const REQUESTS_H = 120
+const requestTicks = axisTicks(Math.max(0, ...series.map((p) => p.requests)), 3)
+const requestMax = requestTicks[requestTicks.length - 1]
+const requestColumns = series.map((point, index) => {
+  const height = (point.requests / requestMax) * REQUESTS_H
+  return {
+    day: point.day,
+    requests: point.requests,
+    x: PAD.left + index * slot + (slot - barW) / 2,
+    y: PAD.top + REQUESTS_H - height,
+    height: Math.max(height, point.requests > 0 ? 1 : 0),
+  }
+})
+
+const axisDays = series
+  .map((point, index) => ({ ...point, index }))
+  .filter(({ index }) => index % 10 === 0 || index === series.length - 1)
+
+// Adoption — cumulative installs on a real time axis, so the irregular
+// recording interval cannot read as an even cadence. One line, not one per
+// source: npm outruns GitHub releases roughly twenty to one, and two series
+// that far apart put the smaller one flat on the axis where it says nothing.
+// The split lives in the table underneath, at full precision.
+const DOWNLOADS_H = 200
+const DOWNLOAD_TABLE_ROWS = 8
+const firstDownload = downloads[0]
+const lastDownload = downloads[downloads.length - 1]
+const downloadFrom = Date.parse(firstDownload?.date ?? "1970-01-01")
+const downloadSpan = Math.max(Date.parse(lastDownload?.date ?? "1970-01-02") - downloadFrom, 1)
+const downloadTicks = axisTicks(Math.max(0, ...downloads.map((p) => p.total)))
+const downloadMax = downloadTicks[downloadTicks.length - 1]
+const downloadX = (date: string) => PAD.left + ((Date.parse(date) - downloadFrom) / downloadSpan) * plotW
+const downloadY = (value: number) => PAD.top + DOWNLOADS_H - (value / downloadMax) * DOWNLOADS_H
+const downloadLine = downloads.map((p) => `${downloadX(p.date).toFixed(1)},${downloadY(p.total).toFixed(1)}`).join(" ")
+// Ticks are placed at even points in time, not every nth record, so a burst of
+// releases in one week cannot crowd the axis.
+const downloadAxisDates = Array.from({ length: 5 }, (_, i) => {
+  const at = downloadFrom + (downloadSpan / 4) * i
+  return {
+    date: new Date(at).toISOString().slice(0, 10),
+    anchor: i === 0 ? "start" : i === 4 ? "end" : "middle",
+  }
+})
+
+const tooltipSeries = tokenColumns.map((column) => ({
+  day: shortDay(column.day),
+  total: compact.format(column.tokens),
+  requests: whole.format(column.requests),
+  rows: [...column.segments]
+    .reverse()
+    .map((segment) => ({ model: segment.model, value: compact.format(segment.tokens), color: bandColor(segment.model) })),
+}))
+
+// Anchors for sections that are actually on the page: with no gateway rows the
+// nav would otherwise offer six links that scroll nowhere.
+/**
+ * Model names come from the database, so the serialised tooltip payload is
+ * escaped before it is written inside a <script> element: an unescaped
+ * `</script>` in a name would close the element early and let whatever follows
+ * be parsed as markup. `<` is a valid JSON string escape, so the payload
+ * still parses unchanged.
+ */
+const tooltipJson = JSON.stringify(tooltipSeries).replace(
+  /[<\u2028\u2029]/g,
+  (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+)
+
+const sections = [
+  ...(gateway
+    ? [
+        // Each chip repeats its section's heading verbatim, so a reader who
+        // clicks "Cost per completion" lands on a heading that says exactly that.
+        { id: "models", label: "Tokens by model" },
+        { id: "leaderboard", label: "Model leaderboard" },
+        { id: "cost", label: "Cost per completion" },
+        { id: "price", label: "Blended price per 1M" },
+        { id: "cache", label: "Cache hit ratio" },
+        { id: "providers", label: "Provider share" },
+      ]
+    : []),
+  ...(downloads.length > 1 ? [{ id: "adoption", label: "Adoption" }] : []),
+]
+
+const LEADERBOARD_ROWS = 20
+const leaderboard = (gateway?.models ?? []).slice(0, LEADERBOARD_ROWS)
+
+/**
+ * Every bar list is ranked by the value it draws, not by token volume: a chart
+ * of cost whose rows run in traffic order makes the reader hunt for the most
+ * expensive model instead of reading it off the top.
+ */
+const BAR_ROWS = 10
+const ranked = <T,>(rows: T[], by: (row: T) => number) => [...rows].sort((a, b) => by(b) - by(a)).slice(0, BAR_ROWS)
+const costLeaders = ranked(gateway?.models ?? [], (m) => m.costPerRequest)
+const priceLeaders = ranked(gateway?.models ?? [], (m) => m.pricePerMillion)
+const cacheLeaders = ranked(
+  (gateway?.models ?? []).filter((m) => m.cacheRatio !== null),
+  (m) => m.cacheRatio ?? 0,
+)
+const maxCostPerRequest = Math.max(0, ...costLeaders.map((m) => m.costPerRequest))
+const maxPricePerMillion = Math.max(0, ...priceLeaders.map((m) => m.pricePerMillion))
+const maxProviderTokens = Math.max(0, ...(gateway?.providers ?? []).map((p) => p.tokens))
+const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+})
+---
+
+<Layout
+  title="Data | nikcli"
+  description="Real usage from the nikcli inference gateway: token volume by model, request cost, cache hit ratio, provider share, and adoption over time."
+>
+  <Navbar />
+
+  <main id="main-content" class="viz flex-1">
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <section class="page-shell pt-12 pb-8 sm:pt-16">
+      <p class="text-eyebrow uppercase text-terminal-accent">Data</p>
+      <h1 class="mt-3 max-w-3xl font-display text-page-title text-terminal-text">
+        What nikcli actually runs on
+      </h1>
+      <p class="mt-4 max-w-2xl text-body-md text-terminal-muted">
+        Every number below is summed from <code class="rounded-sm bg-terminal-panel px-1.5 py-0.5 text-[0.85em]">usage_events</code>,
+        the row the inference gateway writes for each completion it serves — the same table billing reads.
+        Nothing is modelled, smoothed or back-filled.
+      </p>
+
+      <nav class="mt-8 flex flex-wrap gap-2" aria-label="Sections on this page">
+        {
+          sections.map((section) => (
+            <a
+              href={`#${section.id}`}
+              class="rounded-md border border-terminal-border/60 bg-terminal-panel/70 px-3 py-1.5 text-[13px] font-medium text-terminal-muted transition-colors duration-100 hover:border-terminal-accent/40 hover:text-terminal-text"
+            >
+              {section.label}
+            </a>
+          ))
+        }
+      </nav>
+    </section>
+
+    {
+      gateway === null ? (
+        <section class="page-shell pb-16">
+          <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-8">
+            <h2 class="font-display text-card-title text-terminal-text">No gateway usage published yet</h2>
+            <p class="mt-3 max-w-2xl text-body-sm text-terminal-muted">
+              The inference gateway has recorded no completions in the last {WINDOW_DAYS} days, or this deployment has
+              no read binding to the usage database. Rather than draw an empty axis, this page shows the sections it
+              can measure. Adoption, below, comes from the release log and is always current.
+            </p>
+          </div>
+        </section>
+      ) : (
+        <>
+          {/* ── Headline ─────────────────────────────────────────────────── */}
+          <section class="page-shell pb-14" aria-labelledby="overview-heading">
+            <h2 id="overview-heading" class="sr-only">
+              Last {WINDOW_DAYS} days at a glance
+            </h2>
+            <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <p class="text-eyebrow uppercase text-terminal-muted">Tokens served · last {WINDOW_DAYS} days</p>
+              <p class="mt-2 font-sans text-[clamp(3rem,7vw,4.5rem)] font-bold leading-none tracking-tight text-terminal-text">
+                {compact.format(gateway.totals.tokens)}
+              </p>
+              {gateway.totals.change !== null && (
+                <p class="mt-3 flex items-center gap-1.5 text-body-sm">
+                  <span aria-hidden="true" class={changeClass[changeDirection(gateway.totals.change)]}>
+                    {changeArrow[changeDirection(gateway.totals.change)]}
+                  </span>
+                  <span class="font-semibold text-terminal-text">
+                    {changeDirection(gateway.totals.change) === "flat"
+                      ? "Flat"
+                      : signedPercent.format(gateway.totals.change)}
+                  </span>
+                  <span class="text-terminal-muted">vs the {WINDOW_DAYS} days before</span>
+                </p>
+              )}
+
+              {/* Three across, two rows: six tiles in one row squeezes the
+                  longer labels onto a second line and knocks the values out of
+                  alignment with each other. */}
+              <dl class="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-t border-terminal-border/50 pt-7 sm:grid-cols-3">
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Completions</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {compact.format(gateway.totals.requests)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Models routed</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">{gateway.totals.models}</dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Blended price / 1M</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {money(gateway.totals.pricePerMillion, 2)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Billed</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {money(gateway.totals.billedUsd, 0)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Saved by cache</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {money(gateway.totals.savedUsd, 0)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Calls served from cache</dt>
+                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
+                    {gateway.totals.cacheRatio === null ? "Not reported" : percent.format(gateway.totals.cacheRatio)}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          {/* ── Tokens over time ─────────────────────────────────────────── */}
+          <section class="page-shell pb-14" aria-labelledby="models-heading" id="models">
+            <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <div class="flex flex-wrap items-baseline justify-between gap-3">
+                <div>
+                  <h2 id="models-heading" class="font-display text-panel-title text-terminal-text">
+                    Tokens by model
+                  </h2>
+                  <p class="mt-2 text-body-sm text-terminal-muted">
+                    Daily prompt plus completion tokens over the last {SERIES_DAYS} days, stacked by the model the
+                    router resolved to.
+                  </p>
+                </div>
+                {peakDay && peakDay.tokens > 0 && (
+                  <p class="text-body-sm text-terminal-muted">
+                    Peak <span class="font-semibold text-terminal-text">{compact.format(peakDay.tokens)}</span> on{" "}
+                    {shortDay(peakDay.day)}
+                  </p>
+                )}
+              </div>
+
+              <ul class="mt-6 flex flex-wrap gap-x-5 gap-y-2" aria-label="Models in this chart">
+                {seriesModels.map((model) => (
+                  <li class="flex items-center gap-2 text-[13px] text-terminal-muted">
+                    <span
+                      class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                      style={`background:${bandColor(model)}`}
+                      aria-hidden="true"
+                    />
+                    <span class="font-mono">{model}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Below ~700px the 61 columns would scale the 11px axis text down
+                  to something unreadable, so the chart keeps its size and the
+                  card scrolls instead. */}
+              <div class="viz-plot relative mt-5 overflow-x-auto" data-tooltip-host>
+                <svg
+                  viewBox={`0 0 ${CHART_W} ${PAD.top + TOKENS_H + PAD.bottom}`}
+                  class="w-full min-w-[700px]"
+                  role="img"
+                  aria-label={`Daily tokens by model over the last ${SERIES_DAYS} days. Total ${compact.format(gateway.totals.tokens)} tokens. Per-day values are listed in the leaderboard table below.`}
+                  tabindex="0"
+                  data-token-chart
+                >
+                  {tokenTicks.map((tick) => (
+                    <>
+                      <line
+                        x1={PAD.left}
+                        x2={CHART_W - PAD.right}
+                        y1={PAD.top + TOKENS_H - (tick / tokenMax) * TOKENS_H}
+                        y2={PAD.top + TOKENS_H - (tick / tokenMax) * TOKENS_H}
+                        class="viz-grid"
+                      />
+                      <text
+                        x={PAD.left - 10}
+                        y={PAD.top + TOKENS_H - (tick / tokenMax) * TOKENS_H + 4}
+                        text-anchor="end"
+                        class="viz-tick"
+                      >
+                        {compact.format(tick)}
+                      </text>
+                    </>
+                  ))}
+
+                  {tokenColumns.map((column) =>
+                    column.segments.map((segment) =>
+                      segment.rounded ? (
+                        <path d={topRoundedBar(segment.x, segment.y, barW, segment.height)} fill={bandColor(segment.model)} />
+                      ) : (
+                        <rect
+                          x={segment.x}
+                          y={segment.y}
+                          width={barW}
+                          height={segment.height}
+                          fill={bandColor(segment.model)}
+                        />
+                      ),
+                    ),
+                  )}
+
+                  {axisDays.map((point) => (
+                    <text
+                      x={PAD.left + point.index * slot + slot / 2}
+                      y={PAD.top + TOKENS_H + 20}
+                      text-anchor="middle"
+                      class="viz-tick"
+                    >
+                      {shortDay(point.day)}
+                    </text>
+                  ))}
+
+                  {tokenColumns.map((_column, index) => (
+                    <rect
+                      x={PAD.left + index * slot}
+                      y={PAD.top}
+                      width={slot}
+                      height={TOKENS_H}
+                      fill="transparent"
+                      data-column={index}
+                    />
+                  ))}
+                  <rect
+                    x={PAD.left}
+                    y={PAD.top}
+                    width={barW}
+                    height={TOKENS_H}
+                    fill="none"
+                    class="viz-cursor"
+                    data-cursor
+                    aria-hidden="true"
+                  />
+                </svg>
+                <div class="viz-tooltip" data-tooltip hidden role="status" aria-live="polite"></div>
+              </div>
+              <p class="mt-3 text-[13px] text-terminal-muted">
+                Hover a day for its breakdown, or focus the chart and use the arrow keys.
+              </p>
+            </div>
+          </section>
+
+          {/* ── Daily completions ────────────────────────────────────────── */}
+          <section class="page-shell pb-14" aria-labelledby="requests-heading">
+            <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <h2 id="requests-heading" class="font-display text-panel-title text-terminal-text">
+                Completions per day
+              </h2>
+              <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                One row of <code class="rounded-sm bg-terminal-code px-1.5 py-0.5 text-[0.85em]">usage_events</code> is
+                one call to <code class="rounded-sm bg-terminal-code px-1.5 py-0.5 text-[0.85em]">/v1/chat/completions</code>.
+              </p>
+              <div class="mt-5 overflow-x-auto">
+              <svg
+                viewBox={`0 0 ${CHART_W} ${PAD.top + REQUESTS_H + PAD.bottom}`}
+                class="w-full min-w-[700px]"
+                role="img"
+                aria-label={`Completions per day over the last ${SERIES_DAYS} days, ${whole.format(gateway.totals.requests)} in total.`}
+              >
+                {requestTicks.map((tick) => (
+                  <>
+                    <line
+                      x1={PAD.left}
+                      x2={CHART_W - PAD.right}
+                      y1={PAD.top + REQUESTS_H - (tick / requestMax) * REQUESTS_H}
+                      y2={PAD.top + REQUESTS_H - (tick / requestMax) * REQUESTS_H}
+                      class="viz-grid"
+                    />
+                    <text
+                      x={PAD.left - 10}
+                      y={PAD.top + REQUESTS_H - (tick / requestMax) * REQUESTS_H + 4}
+                      text-anchor="end"
+                      class="viz-tick"
+                    >
+                      {compact.format(tick)}
+                    </text>
+                  </>
+                ))}
+                {requestColumns.map(
+                  (column) =>
+                    column.height > 0 && (
+                      <path d={topRoundedBar(column.x, column.y, barW, column.height)} fill="var(--series-1)" />
+                    ),
+                )}
+                {axisDays.map((point) => (
+                  <text
+                    x={PAD.left + point.index * slot + slot / 2}
+                    y={PAD.top + REQUESTS_H + 20}
+                    text-anchor="middle"
+                    class="viz-tick"
+                  >
+                    {shortDay(point.day)}
+                  </text>
+                ))}
+              </svg>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Leaderboard ──────────────────────────────────────────────── */}
+          <section class="page-shell pb-14" aria-labelledby="leaderboard-heading" id="leaderboard">
+            <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <h2 id="leaderboard-heading" class="font-display text-panel-title text-terminal-text">
+                Model leaderboard
+              </h2>
+              <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                Ranked by tokens over the last {WINDOW_DAYS} days. Change compares against the {WINDOW_DAYS} days before
+                that; a model with no traffic then shows no change instead of an infinite one.
+                {gateway.models.length > LEADERBOARD_ROWS && (
+                  <> Showing the top {LEADERBOARD_ROWS} of {gateway.models.length} models routed.</>
+                )}
+              </p>
+              {/* Seven columns will not fit a phone, and a sideways-scrolling
+                  table hides its own columns with no affordance — so on small
+                  screens each model becomes a card carrying the same values. */}
+              <ul class="mt-6 space-y-3 md:hidden">
+                {leaderboard.map((model, index) => (
+                  <li class="rounded-md border border-terminal-border/60 p-4">
+                    <div class="flex items-center gap-2.5">
+                      <span class="tabular-nums text-body-sm text-terminal-muted">{index + 1}</span>
+                      {colorOf(model.model) && (
+                        <span
+                          class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                          style={`background:${colorOf(model.model)}`}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                    </div>
+                    <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div>
+                        <dt class="text-eyebrow uppercase text-terminal-muted">Tokens</dt>
+                        <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
+                          {compact.format(model.tokens)} · {percent.format(model.share)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="text-eyebrow uppercase text-terminal-muted">Completions</dt>
+                        <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
+                          {whole.format(model.requests)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="text-eyebrow uppercase text-terminal-muted">Provider</dt>
+                        <dd class="mt-0.5 truncate text-body-sm text-terminal-text">
+                          {providerLabel(model.provider)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="text-eyebrow uppercase text-terminal-muted">Change</dt>
+                        <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
+                          {model.change === null ? (
+                            "new"
+                          ) : (
+                            <>
+                              <span aria-hidden="true" class={changeClass[changeDirection(model.change)]}>
+                                {changeArrow[changeDirection(model.change)]}
+                              </span>{" "}
+                              {changeDirection(model.change) === "flat"
+                                ? "flat"
+                                : signedPercent.format(model.change)}
+                            </>
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+
+              <div class="mt-6 hidden overflow-x-auto md:block">
+                <table class="w-full min-w-[720px] border-collapse text-body-sm">
+                  <caption class="sr-only">
+                    Models ranked by tokens served in the last {WINDOW_DAYS} days
+                  </caption>
+                  <thead>
+                    <tr class="border-b border-terminal-border/60 text-left">
+                      <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">#</th>
+                      <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Model</th>
+                      <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Provider</th>
+                      <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Tokens</th>
+                      <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Share</th>
+                      <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Completions</th>
+                      <th scope="col" class="py-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map((model, index) => (
+                      <tr class="border-b border-terminal-border/40 last:border-0">
+                        <td class="py-3 pr-3 tabular-nums text-terminal-muted">{index + 1}</td>
+                        <td class="py-3 pr-3">
+                          <span class="flex items-center gap-2.5">
+                            {colorOf(model.model) ? (
+                              <span
+                                class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                                style={`background:${colorOf(model.model)}`}
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <span class="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                            )}
+                            <span class="font-mono text-[13px] text-terminal-text">{model.model}</span>
+                          </span>
+                        </td>
+                        <td class="py-3 pr-3 text-terminal-muted">{providerLabel(model.provider)}</td>
+                        <td class="py-3 pr-3 text-right tabular-nums text-terminal-text">
+                          {compact.format(model.tokens)}
+                        </td>
+                        <td class="py-3 pr-3">
+                          <span class="flex items-center gap-2.5">
+                            <span class="viz-track h-1.5 w-24 shrink-0 overflow-hidden rounded-full" aria-hidden="true">
+                              <span
+                                class="block h-full rounded-full"
+                                style={`width:${Math.max(model.share * 100, 1)}%;background:${bandColor(model.model)}`}
+                              />
+                            </span>
+                            <span class="tabular-nums text-terminal-muted">{percent.format(model.share)}</span>
+                          </span>
+                        </td>
+                        <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
+                          {whole.format(model.requests)}
+                        </td>
+                        <td class="py-3 text-right tabular-nums">
+                          {model.change === null ? (
+                            <span class="text-terminal-muted">new</span>
+                          ) : (
+                            <span class="inline-flex items-center gap-1">
+                              <span aria-hidden="true" class={changeClass[changeDirection(model.change)]}>
+                                {changeArrow[changeDirection(model.change)]}
+                              </span>
+                              <span class="text-terminal-text">
+                                {changeDirection(model.change) === "flat"
+                                  ? "flat"
+                                  : signedPercent.format(model.change)}
+                              </span>
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Cost per completion & blended price ──────────────────────── */}
+          <div class="page-shell grid items-start gap-6 pb-14 lg:grid-cols-2">
+            <section
+              class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
+              aria-labelledby="cost-heading"
+              id="cost"
+            >
+              <h2 id="cost-heading" class="font-display text-panel-title text-terminal-text">
+                Cost per completion
+              </h2>
+              <p class="mt-2 text-body-sm text-terminal-muted">
+                What one call actually billed, most expensive first —
+                {" "}{money(gateway.totals.costPerRequest, 4)} across all models. A call's cost is its price per token
+                times how many it used, so the tokens each model spends per call is shown beside it.
+              </p>
+              <ul class="mt-6 space-y-3.5">
+                {costLeaders.map((model) => (
+                  <li>
+                    <div class="flex items-baseline justify-between gap-3">
+                      <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                      <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
+                        {money(model.costPerRequest, 4)}
+                      </span>
+                    </div>
+                    <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
+                      <span
+                        class="block h-full rounded-full"
+                        style={`width:${maxCostPerRequest > 0 ? Math.max((model.costPerRequest / maxCostPerRequest) * 100, 1) : 0}%;background:var(--series-1)`}
+                      />
+                    </span>
+                    <p class="mt-1 text-[13px] tabular-nums text-terminal-muted">
+                      {compact.format(model.tokensPerRequest)} tokens per call
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section
+              class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
+              aria-labelledby="price-heading"
+              id="price"
+            >
+              <h2 id="price-heading" class="font-display text-panel-title text-terminal-text">
+                Blended price per 1M tokens
+              </h2>
+              <p class="mt-2 text-body-sm text-terminal-muted">
+                Billed dollars divided by tokens served, dearest first, so cached reads and the input/output mix are
+                already in the number. Not a rate card — what the traffic came to.
+              </p>
+              <ul class="mt-6 space-y-3.5">
+                {priceLeaders.map((model) => (
+                  <li>
+                    <div class="flex items-baseline justify-between gap-3">
+                      <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                      <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
+                        {money(model.pricePerMillion, 2)}
+                      </span>
+                    </div>
+                    <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
+                      <span
+                        class="block h-full rounded-full"
+                        style={`width:${maxPricePerMillion > 0 ? Math.max((model.pricePerMillion / maxPricePerMillion) * 100, 1) : 0}%;background:var(--series-1)`}
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+
+          {/* ── Cache & providers ────────────────────────────────────────── */}
+          <div class="page-shell grid items-start gap-6 pb-14 lg:grid-cols-2">
+            <section
+              class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
+              aria-labelledby="cache-heading"
+              id="cache"
+            >
+              <h2 id="cache-heading" class="font-display text-panel-title text-terminal-text">
+                Cache hit ratio
+              </h2>
+              <p class="mt-2 text-body-sm text-terminal-muted">
+                Share of calls the gateway answered from cache. Taken over the calls that reported a cache state, not
+                over every call.
+              </p>
+              {cacheLeaders.length === 0 ? (
+                <p class="mt-6 text-body-sm text-terminal-muted">No call in this window reported a cache state.</p>
+              ) : (
+                <ul class="mt-6 space-y-3.5">
+                  {cacheLeaders.map((model) => (
+                    <li>
+                      <div class="flex items-baseline justify-between gap-3">
+                        <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                        <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
+                          {percent.format(model.cacheRatio!)}
+                        </span>
+                      </div>
+                      <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
+                        <span
+                          class="block h-full rounded-full"
+                          style={`width:${Math.max(model.cacheRatio! * 100, 1)}%;background:var(--series-1)`}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section
+              class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
+              aria-labelledby="providers-heading"
+              id="providers"
+            >
+              <h2 id="providers-heading" class="font-display text-panel-title text-terminal-text">
+                Provider share
+              </h2>
+              <p class="mt-2 text-body-sm text-terminal-muted">
+                Which upstream served the tokens, as a share of the tokens that reached one at all.
+              </p>
+              <p class="mt-4 rounded-md border border-terminal-border/60 bg-terminal-code/60 px-3.5 py-2.5 text-body-sm text-terminal-muted">
+                <span class="font-semibold text-terminal-text">
+                  {compact.format(gateway.totals.cacheServedTokens)} tokens
+                </span>{" "}
+                ({percent.format(gateway.totals.cacheServedTokens / gateway.totals.tokens)} of the window) were answered
+                from cache and reached no provider, so they are held out of the shares below.
+              </p>
+              <ul class="mt-5 space-y-3.5">
+                {gateway.providers.map((provider) => (
+                  <li>
+                    <div class="flex items-baseline justify-between gap-3">
+                      <span class="truncate text-body-sm text-terminal-text">{provider.provider}</span>
+                      <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
+                        {percent.format(provider.share)}
+                      </span>
+                    </div>
+                    <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
+                      <span
+                        class="block h-full rounded-full"
+                        style={`width:${maxProviderTokens > 0 ? Math.max((provider.tokens / maxProviderTokens) * 100, 1) : 0}%;background:var(--series-1)`}
+                      />
+                    </span>
+                    <p class="mt-1 text-[13px] tabular-nums text-terminal-muted">
+                      {compact.format(provider.tokens)} tokens · {whole.format(provider.requests)} completions
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </>
+      )
+    }
+
+    {/* ── Adoption ───────────────────────────────────────────────────────── */}
+    {
+      downloads.length > 1 && (
+        <section class="page-shell pb-14" aria-labelledby="adoption-heading" id="adoption">
+          <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+            <div class="flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h2 id="adoption-heading" class="font-display text-panel-title text-terminal-text">
+                  Adoption
+                </h2>
+                <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                  Cumulative installs since {shortDay(firstDownload.date)}, recorded by the release workflow in
+                  STATS.md. Plotted on a real time axis — the log is written on release days, not daily.
+                </p>
+              </div>
+              <p class="text-body-sm text-terminal-muted">
+                <span class="font-semibold text-terminal-text">{whole.format(lastDownload.total)}</span> total
+              </p>
+            </div>
+
+            <div class="mt-6 overflow-x-auto">
+            <svg
+              viewBox={`0 0 ${CHART_W} ${PAD.top + DOWNLOADS_H + PAD.bottom}`}
+              class="w-full min-w-[520px]"
+              role="img"
+              aria-label={`Cumulative installs, reaching ${whole.format(lastDownload.total)} by ${shortDay(lastDownload.date)}. Every recorded figure is in the table below.`}
+            >
+              {downloadTicks.map((tick) => (
+                <>
+                  <line
+                    x1={PAD.left}
+                    x2={CHART_W - PAD.right}
+                    y1={downloadY(tick)}
+                    y2={downloadY(tick)}
+                    class="viz-grid"
+                  />
+                  <text x={PAD.left - 10} y={downloadY(tick) + 4} text-anchor="end" class="viz-tick">
+                    {compact.format(tick)}
+                  </text>
+                </>
+              ))}
+              <polyline
+                points={downloadLine}
+                fill="none"
+                stroke="var(--series-1)"
+                stroke-width="2"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+              />
+              {/* A dot at every reading, so the line reads as 24 release-day
+                  measurements joined up rather than a daily series. */}
+              {downloads.map((point) => (
+                <circle
+                  cx={downloadX(point.date)}
+                  cy={downloadY(point.total)}
+                  r="2.5"
+                  fill="var(--series-1)"
+                  class="viz-endpoint"
+                />
+              ))}
+              <circle
+                cx={downloadX(lastDownload.date)}
+                cy={downloadY(lastDownload.total)}
+                r="4.5"
+                fill="var(--series-1)"
+                class="viz-endpoint"
+              />
+              <text
+                x={downloadX(lastDownload.date) - 12}
+                y={downloadY(lastDownload.total) - 12}
+                text-anchor="end"
+                class="viz-label"
+              >
+                {compact.format(lastDownload.total)}
+              </text>
+              {downloadAxisDates.map((point) => (
+                <text
+                  x={downloadX(point.date)}
+                  y={PAD.top + DOWNLOADS_H + 20}
+                  text-anchor={point.anchor}
+                  class="viz-tick"
+                >
+                  {shortDay(point.date)}
+                </text>
+              ))}
+            </svg>
+            </div>
+
+            <p class="mt-8 text-body-sm text-terminal-muted">
+              The {Math.min(DOWNLOAD_TABLE_ROWS, downloads.length)} most recent of {downloads.length} readings, split by
+              source. Readings are taken on release days, so the dates are not consecutive.
+            </p>
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full min-w-[420px] border-collapse text-body-sm">
+                <caption class="sr-only">Recorded download totals, newest first</caption>
+                <thead>
+                  <tr class="border-b border-terminal-border/60 text-left">
+                    <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Recorded</th>
+                    <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">npm</th>
+                    <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">GitHub</th>
+                    <th scope="col" class="py-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...downloads].reverse().slice(0, DOWNLOAD_TABLE_ROWS).map((point) => (
+                    <tr class="border-b border-terminal-border/40 last:border-0">
+                      <td class="py-2.5 pr-3 text-terminal-muted">{shortDay(point.date)}</td>
+                      <td class="py-2.5 pr-3 text-right tabular-nums text-terminal-text">{whole.format(point.npm)}</td>
+                      <td class="py-2.5 pr-3 text-right tabular-nums text-terminal-text">{whole.format(point.github)}</td>
+                      <td class="py-2.5 text-right tabular-nums text-terminal-text">{whole.format(point.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )
+    }
+
+    {/* ── Methodology ────────────────────────────────────────────────────── */}
+    <section class="page-shell pb-20" aria-labelledby="method-heading">
+      <div class="rounded-card border border-terminal-border/60 bg-terminal-panel/60 p-6 sm:p-8">
+        <h2 id="method-heading" class="font-display text-card-title text-terminal-text">How this is measured</h2>
+        <dl class="mt-5 grid gap-5 sm:grid-cols-2">
+          <div>
+            <dt class="text-body-sm font-semibold text-terminal-text">Source</dt>
+            <dd class="mt-1 text-body-sm text-terminal-muted">
+              One row per served completion, written by the gateway to the same database billing reads. Adoption comes
+              from STATS.md in the repository.
+            </dd>
+          </div>
+          <div>
+            <dt class="text-body-sm font-semibold text-terminal-text">Time windows</dt>
+            <dd class="mt-1 text-body-sm text-terminal-muted">
+              Headline figures and the leaderboard cover {WINDOW_DAYS} days; the charts cover {SERIES_DAYS}. Change
+              compares consecutive {WINDOW_DAYS}-day windows.
+            </dd>
+          </div>
+          <div>
+            <dt class="text-body-sm font-semibold text-terminal-text">Privacy</dt>
+            <dd class="mt-1 text-body-sm text-terminal-muted">
+              Only aggregates are queried. No account, key or request identifier is read, so nothing here can be traced
+              to a user. Prompt content is never stored in the first place.
+            </dd>
+          </div>
+          <div>
+            <dt class="text-body-sm font-semibold text-terminal-text">Freshness</dt>
+            <dd class="mt-1 text-body-sm text-terminal-muted">
+              Rendered {updatedAt} UTC and cached at the edge for 15 minutes.
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  {gateway !== null && <script is:inline type="application/json" data-token-series set:html={tooltipJson} />}
+</Layout>
+
+<style>
+  /* Validated categorical palette (dataviz slots 1–8) stepped for each mode.
+     Light surface #ffffff and dark surface #0d0d0f are the panel colours these
+     charts actually render on; both modes pass the adjacent CVD and
+     normal-vision gates. The light steps sit under 3:1 on white, so the
+     leaderboard table ships the same values as text. */
+  .viz {
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+    --series-8: #e34948;
+    --series-other: #9c9a92;
+    --viz-grid: rgb(var(--terminal-border));
+    --viz-surface: rgb(var(--terminal-panel));
+  }
+
+  :root[data-theme="dark"] .viz {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --series-other: #6e6b64;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz {
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --series-5: #d55181;
+      --series-6: #008300;
+      --series-7: #9085e9;
+      --series-8: #e66767;
+      --series-other: #6e6b64;
+    }
+  }
+
+  .viz-grid {
+    stroke: var(--viz-grid);
+    stroke-width: 1;
+  }
+
+  .viz-tick {
+    fill: rgb(var(--terminal-muted));
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .viz-label {
+    fill: rgb(var(--terminal-text));
+    font-family: "Figtree", system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .viz-track {
+    background: rgb(var(--terminal-border) / 0.55);
+  }
+
+  .viz-endpoint {
+    stroke: var(--viz-surface);
+    stroke-width: 2;
+  }
+
+  .viz-cursor {
+    stroke: rgb(var(--terminal-text) / 0.35);
+    stroke-width: 1.5;
+    opacity: 0;
+  }
+
+  .viz-plot svg:focus-visible {
+    outline: 2px solid rgb(var(--terminal-accent));
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+  }
+
+  .viz-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    min-width: 9.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid rgb(var(--terminal-border));
+    border-radius: var(--radius-md);
+    background: rgb(var(--terminal-panel));
+    box-shadow: var(--shadow-strong);
+    pointer-events: none;
+    transform: translateX(-50%);
+  }
+
+  .viz-tooltip[hidden] {
+    display: none;
+  }
+</style>
+
+<script>
+  const initTokenChart = () => {
+    const svg = document.querySelector<SVGSVGElement>("[data-token-chart]")
+    const host = svg?.closest<HTMLElement>("[data-tooltip-host]")
+    const tooltip = host?.querySelector<HTMLElement>("[data-tooltip]")
+    const cursor = svg?.querySelector<SVGRectElement>("[data-cursor]")
+    const payload = document.querySelector<HTMLScriptElement>("[data-token-series]")
+    if (!svg || !host || !tooltip || !cursor || !payload) return
+
+    type Row = { model: string; value: string; color: string }
+    type Column = { day: string; total: string; requests: string; rows: Row[] }
+    let columns: Column[] = []
+    try {
+      columns = JSON.parse(payload.textContent ?? "[]")
+    } catch {
+      return
+    }
+    if (columns.length === 0) return
+
+    const hitAreas = [...svg.querySelectorAll<SVGRectElement>("[data-column]")]
+    let active = -1
+
+    // Series names come from the database, so every one of them is inserted as
+    // text, never as markup.
+    const render = (index: number) => {
+      const column = columns[index]
+      const target = hitAreas[index]
+      if (!column || !target) return
+      active = index
+      tooltip.replaceChildren()
+
+      const day = document.createElement("p")
+      day.className = "text-[11px] uppercase tracking-wider text-terminal-muted"
+      day.textContent = column.day
+      tooltip.append(day)
+
+      const total = document.createElement("p")
+      total.className = "mt-0.5 text-sm font-semibold text-terminal-text"
+      total.textContent = `${column.total} tokens`
+      tooltip.append(total)
+
+      const meta = document.createElement("p")
+      meta.className = "text-[12px] text-terminal-muted"
+      meta.textContent = `${column.requests} completions`
+      tooltip.append(meta)
+
+      if (column.rows.length > 0) {
+        const list = document.createElement("ul")
+        list.className = "mt-2 space-y-1 border-t border-terminal-border/60 pt-2"
+        for (const row of column.rows) {
+          const item = document.createElement("li")
+          item.className = "flex items-center justify-between gap-3 text-[12px]"
+          const name = document.createElement("span")
+          name.className = "flex min-w-0 items-center gap-1.5 text-terminal-muted"
+          const key = document.createElement("span")
+          key.className = "h-0.5 w-3 shrink-0 rounded-full"
+          key.style.background = row.color
+          const label = document.createElement("span")
+          label.className = "truncate font-mono"
+          label.textContent = row.model
+          name.append(key, label)
+          const value = document.createElement("span")
+          value.className = "shrink-0 font-semibold tabular-nums text-terminal-text"
+          value.textContent = row.value
+          item.append(name, value)
+          list.append(item)
+        }
+        tooltip.append(list)
+      }
+
+      const area = target.getBoundingClientRect()
+      const bounds = host.getBoundingClientRect()
+      tooltip.hidden = false
+      // Anchored inside the plot and kept clear of both edges: the card scrolls
+      // horizontally on small screens, so a tooltip hanging past its bounds
+      // would be clipped rather than merely overhang.
+      tooltip.style.left = "0px"
+      tooltip.style.top = "0px"
+      const width = tooltip.getBoundingClientRect().width
+      const centre = area.left - bounds.left + host.scrollLeft + area.width / 2
+      const limit = Math.max(host.scrollWidth - width / 2 - 8, width / 2 + 8)
+      tooltip.style.left = `${Math.min(Math.max(centre, width / 2 + 8), limit)}px`
+      tooltip.style.top = `${area.top - bounds.top + 8}px`
+
+      cursor.setAttribute("x", target.getAttribute("x") ?? "0")
+      cursor.setAttribute("width", target.getAttribute("width") ?? "0")
+      cursor.style.opacity = "1"
+    }
+
+    const clear = () => {
+      active = -1
+      tooltip.hidden = true
+      cursor.style.opacity = "0"
+    }
+
+    hitAreas.forEach((area, index) => {
+      area.addEventListener("pointerenter", () => render(index))
+    })
+    svg.addEventListener("pointerleave", clear)
+    svg.addEventListener("blur", clear)
+    svg.addEventListener("focus", () => render(active >= 0 ? active : columns.length - 1))
+    svg.addEventListener("keydown", (event) => {
+      const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0
+      if (step === 0) {
+        if (event.key === "Escape") clear()
+        return
+      }
+      event.preventDefault()
+      render(Math.min(Math.max((active < 0 ? columns.length - 1 : active) + step, 0), columns.length - 1))
+    })
+  }
+
+  initTokenChart()
+  document.addEventListener("astro:page-load", initTokenChart)
+</script>
