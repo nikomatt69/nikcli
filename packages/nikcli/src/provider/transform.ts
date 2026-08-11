@@ -5,6 +5,9 @@ import { Provider } from "./provider"
 import * as CachePolicy from "./cache-policy"
 import type { ModelsDev } from "./models"
 import { iife } from "@/util/iife"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "provider.transform" })
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
@@ -374,6 +377,19 @@ function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage
     CachePolicy.MESSAGE_BREAKPOINT_BUDGET,
     CachePolicy.minCacheableChars(model.api.id ?? model.id),
   )
+
+  // A marked message wider than the lookback window puts the previous entry out
+  // of reach, so the tail stops hitting with nothing in the response to say why.
+  // Reported rather than prevented: the fix is a narrower fan-out at the call
+  // site, not a different breakpoint here.
+  const wide = CachePolicy.overLookback(targets)
+  if (wide.length > 0) {
+    log.warn("cache tail breakpoint may miss", {
+      reason: "message carries more content blocks than the provider looks back over",
+      blocks: wide.map((msg) => CachePolicy.contentBlocks(msg)).join(","),
+      lookback: CachePolicy.LOOKBACK_BLOCKS,
+    })
+  }
 
   // `ttl` is only carried on the Anthropic block: that is the provider whose
   // `cacheControl` schema declares it (`"5m" | "1h"`). The others keep their default

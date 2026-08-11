@@ -38,6 +38,17 @@ export namespace Flag {
   export const NIKCLI_DISABLE_PLUGIN_RELOAD = truthy("NIKCLI_DISABLE_PLUGIN_RELOAD")
   /** Log which part of the request prefix changed between calls. See `provider/cache-diagnostics.ts`. */
   export const NIKCLI_PROMPT_CACHE_DIAGNOSTICS = truthy("NIKCLI_PROMPT_CACHE_DIAGNOSTICS")
+  /**
+   * Prompt-cache entry lifetime: `long` opts into the provider's 1-hour entry
+   * instead of the 5-minute default. See `provider/cache-policy.ts` for the
+   * cost tradeoff.
+   *
+   * A function rather than a constant for the same reason as `autoApprove`: the
+   * value can be set after this module is first imported.
+   */
+  export function cacheRetention() {
+    return process.env["NIKCLI_CACHE_RETENTION"]
+  }
   // Opt out of journaling local (non-workspace) session restore events into
   // the unified sync_event log.
   export const NIKCLI_DISABLE_SESSION_JOURNAL = truthy("NIKCLI_DISABLE_SESSION_JOURNAL")

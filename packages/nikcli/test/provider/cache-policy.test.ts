@@ -126,21 +126,58 @@ describe("CachePolicy.minCacheableChars", () => {
 
 describe("CachePolicy.resolveRetention", () => {
   it("defaults to the 5-minute entry so no existing caller pays the 2x write", () => {
-    expect(CachePolicy.resolveRetention({})).toBe("short")
-    expect(CachePolicy.ttlFor(CachePolicy.resolveRetention({}))).toBeUndefined()
+    expect(CachePolicy.resolveRetention(undefined)).toBe("short")
+    expect(CachePolicy.ttlFor(CachePolicy.resolveRetention(undefined))).toBeUndefined()
   })
 
   it("opts into the 1-hour entry on request", () => {
-    expect(CachePolicy.resolveRetention({ NIKCLI_CACHE_RETENTION: "long" })).toBe("long")
+    expect(CachePolicy.resolveRetention("long")).toBe("long")
     expect(CachePolicy.ttlFor("long")).toBe("1h")
   })
 
   it("ignores casing and surrounding whitespace", () => {
-    expect(CachePolicy.resolveRetention({ NIKCLI_CACHE_RETENTION: " LONG " })).toBe("long")
+    expect(CachePolicy.resolveRetention(" LONG ")).toBe("long")
   })
 
   it("treats anything else as the default rather than erroring", () => {
-    expect(CachePolicy.resolveRetention({ NIKCLI_CACHE_RETENTION: "1h" })).toBe("short")
+    // `1h` is the wire value, not the setting — accepting it here would make the
+    // setting look like it took effect when the resolver never matched it.
+    expect(CachePolicy.resolveRetention("1h")).toBe("short")
+  })
+})
+
+describe("CachePolicy.overLookback", () => {
+  const wide = (blocks: number): ModelMessage => ({
+    role: "assistant",
+    content: Array.from({ length: blocks }, (_, i) => ({ type: "text" as const, text: `block-${i}` })),
+  })
+
+  it("accepts a message that fits inside the window", () => {
+    expect(CachePolicy.overLookback([wide(CachePolicy.LOOKBACK_BLOCKS)])).toEqual([])
+  })
+
+  it("reports a fan-out wider than the window", () => {
+    const tooWide = wide(CachePolicy.LOOKBACK_BLOCKS + 1)
+    expect(CachePolicy.overLookback([tooWide])).toEqual([tooWide])
+  })
+
+  it("counts a string-content message as a single block", () => {
+    expect(CachePolicy.contentBlocks(system("plain string content"))).toBe(1)
+  })
+
+  it("bounds the gap to one message, which is why the tail is two messages long", () => {
+    // Marking both tail messages means consecutive entries are separated by one
+    // message's blocks, not the whole round-trip's — so a 15-call fan-out plus its
+    // 15 results stays reachable even though the pair totals 30 blocks.
+    const roundTrip = [
+      wide(15),
+      {
+        role: "user",
+        content: Array.from({ length: 15 }, () => ({ type: "text" as const, text: "r" })),
+      } as ModelMessage,
+    ]
+    expect(CachePolicy.overLookback(roundTrip)).toEqual([])
+    expect(CachePolicy.CONVERSATION_TAIL).toBe(2)
   })
 })
 

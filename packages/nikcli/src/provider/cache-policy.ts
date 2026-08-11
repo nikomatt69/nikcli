@@ -9,6 +9,7 @@
 // static-ness: the tool array is the largest byte-stable prefix, the last system part
 // carries the agent and project prompt, and the conversation tail rolls forward.
 import type { ModelMessage } from "ai"
+import { Flag } from "@/flag/flag"
 
 /** Anthropic/Bedrock hard limit on `cache_control` markers in a single request. */
 export const BREAKPOINT_CAP = 4
@@ -84,13 +85,39 @@ export type Retention = "short" | "long"
  * Opt-in rather than default because the 2x write is a real regression for bursty,
  * short-lived sessions that would have hit the 5-minute entry anyway.
  */
-export function resolveRetention(env: Record<string, string | undefined> = process.env): Retention {
-  return env["NIKCLI_CACHE_RETENTION"]?.trim().toLowerCase() === "long" ? "long" : "short"
+export function resolveRetention(value = Flag.cacheRetention()): Retention {
+  return value?.trim().toLowerCase() === "long" ? "long" : "short"
 }
 
 /** The `ttl` to put on a `cache_control` block, or undefined to take the provider default. */
 export function ttlFor(retention: Retention): "1h" | undefined {
   return retention === "long" ? "1h" : undefined
+}
+
+/**
+ * How far back a breakpoint looks for a prior cache entry, in content blocks.
+ *
+ * Marking the last two messages bounds the distance between consecutive entries
+ * to the block count of a *single* message, which is why `CONVERSATION_TAIL` is
+ * 2 rather than 1. That bound only holds while no single message carries more
+ * blocks than the provider will walk back: a turn that fans out past this many
+ * parallel tool calls — or the user turn carrying their results — puts the
+ * previous entry out of reach, and the conversation tail silently stops
+ * hitting while the tools and system breakpoints keep working.
+ *
+ * Nothing caps fan-out width, so this is detected and reported rather than
+ * prevented; the caller-side fix is a narrower fan-out.
+ */
+export const LOOKBACK_BLOCKS = 20
+
+/** Content blocks in a message, which is what the lookback window counts. */
+export function contentBlocks(msg: ModelMessage): number {
+  return Array.isArray(msg.content) ? msg.content.length : 1
+}
+
+/** Messages whose own block count exceeds what a breakpoint can look back over. */
+export function overLookback(msgs: readonly ModelMessage[]): ModelMessage[] {
+  return msgs.filter((msg) => contentBlocks(msg) > LOOKBACK_BLOCKS)
 }
 
 function textLength(msg: ModelMessage): number {
