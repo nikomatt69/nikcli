@@ -1,5 +1,5 @@
 /**
- * Opt-in usage reporting.
+ * Anonymous usage reporting, on by default.
  *
  * nikcli.store/data can only show what the inference gateway served, which is a
  * small slice of what nikcli actually runs: most people bring their own
@@ -7,18 +7,22 @@
  * per-day, per-model totals the CLI already keeps locally, so the public page
  * reflects the models developers really use.
  *
- * It is off unless `analytics.share` is true in the config. When it is on:
+ * Defaulting to on is what makes the picture representative — an opt-in sample
+ * measures the people who opted in — so the burden is on this file to be worth
+ * that default:
  *
- *   - only aggregates leave the machine — day, provider, model, message count,
- *     token count, cost. No prompt, no file path, no repository, no session
- *     title, no account, no environment;
- *   - the install identifier is a random string generated here, kept locally,
- *     and used by the server only to replace a day rather than double it and to
- *     count distinct installs. It is never published;
- *   - only whole days are sent, never the day in progress, and each day is sent
- *     once;
- *   - a failure is silent and the day is retried tomorrow. Reporting must never
- *     be something the user notices.
+ *   - only aggregates leave the machine: day, provider, model, session count,
+ *     message count, token count, cost. No prompt, no file path, no repository,
+ *     no session title, no account, no environment, no IP beyond the one any
+ *     HTTP request carries;
+ *   - the install identifier is a random v4 UUID generated here and kept
+ *     locally. The server uses it only to replace a day rather than double it,
+ *     and to count distinct installs. It is never published;
+ *   - turning it off is a single flag, and the two conventional environment
+ *     opt-outs are honoured before the config is even read, so a machine that
+ *     has said "do not track" is never asked twice;
+ *   - a failure is silent and retried later. Reporting must never be something
+ *     the user notices, in either direction.
  */
 import { Effect } from "effect"
 import { AnalyticsRollup } from "./rollup"
@@ -105,6 +109,27 @@ export namespace AnalyticsShare {
    * number of rows accepted locally — zero when sharing is off, when there is
    * nothing new, or when the request failed.
    */
+  /**
+   * Whether reporting is on, given the config value.
+   *
+   * On unless told otherwise, with two escape hatches ahead of the config:
+   * `DO_NOT_TRACK` is the cross-tool convention, and `NIKCLI_DISABLE_ANALYTICS`
+   * is the nikcli-specific one. Both are read from the environment so a machine
+   * or a CI image can opt out without a config file existing at all — which is
+   * exactly the situation where a default-on feature would otherwise be hardest
+   * to switch off.
+   */
+  export function enabled(share: boolean | undefined): boolean {
+    if (optedOutByEnv()) return false
+    return share !== false
+  }
+
+  function optedOutByEnv(): boolean {
+    const truthy = (value: string | undefined) =>
+      value !== undefined && value !== "" && value !== "0" && value.toLowerCase() !== "false"
+    return truthy(process.env.DO_NOT_TRACK) || truthy(process.env.NIKCLI_DISABLE_ANALYTICS)
+  }
+
   /** How often a long-lived server re-publishes while it stays up. */
   const REFRESH_MS = 6 * 60 * 60 * 1000
 
@@ -142,8 +167,8 @@ export namespace AnalyticsShare {
   export async function run(options?: { force?: boolean; includeToday?: boolean }): Promise<number> {
     const analytics = await settings()
     // `force` is for an explicit `nikcli analytics publish`: the user asked for it
-    // in that moment, which is the consent the config flag stands in for otherwise.
-    if (analytics?.share !== true && options?.force !== true) return 0
+    // in that moment, which is the consent the default stands in for otherwise.
+    if (!enabled(analytics?.share) && options?.force !== true) return 0
 
     const state = await readState()
     // Yesterday is the newest whole day; today is still accumulating, so it is
