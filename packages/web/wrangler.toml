@@ -17,6 +17,11 @@ DOCS_ASSISTANT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 # still covered by the free allocation because those questions are rarer.
 DOCS_ASSISTANT_ARTIFACT_MODEL = "@cf/openai/gpt-oss-20b"
 DOCS_ASSISTANT_RATE_LIMIT = "20"
+# Aggregate gateway-usage feed behind /data, served by the console deployment
+# (packages/console/app/src/routes/data.json.ts). Only aggregates cross this
+# link, so the site never holds database credentials. Unset or unreachable,
+# /data renders its "nothing published yet" state instead of failing.
+CONSOLE_DATA_URL = "https://nikcli.store/data.json"
 # Artifacts published by the assistant always share under this origin.
 ARTIFACT_PUBLIC_ORIGIN = "https://nikcli.store"
 # Optional: back the docs assistant with a real nikcli session instead of a
@@ -46,16 +51,6 @@ id = "e9dfbfcd44c14909b03cef0629b4f80f"
 [[kv_namespaces]]
 binding = "USERS"
 id = "bb2d5e50ff1644b482c71b7355a7684c"
-
-# Usage table behind the public /data page. Same `nikcli-inference` database the
-# gateway bills from (packages/inference-dashboard owns the schema and the
-# writes); this worker only ever runs the aggregate SELECTs in
-# src/lib/publicStats.ts. Unbound, /data renders its "nothing published yet"
-# state instead of failing.
-[[d1_databases]]
-binding = "USAGE_DB"
-database_name = "nikcli-inference"
-database_id = "5be2b87f-fc61-4642-a444-2f954430bbb6"
 
 # Published artifacts (nikcli.store/artifact/:id) — content + metadata.
 # Create the bucket once with: wrangler r2 bucket create nikcli-artifact

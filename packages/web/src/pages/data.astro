@@ -2,24 +2,28 @@
 /**
  * /data — what nikcli's own inference gateway actually did.
  *
- * Every gateway number is a SUM over `usage_events` in the `nikcli-inference`
- * D1 database, the same table billing reads (see src/lib/publicStats.ts for the
- * queries and for what is deliberately not published). The adoption series is
- * STATS.md, appended by the download-stats workflow. Nothing is modelled: with
- * no rows in the window the gateway sections say so instead of drawing zeroes.
+ * Every gateway number is a SUM over the `usage` table the gateway bills from,
+ * reached through the aggregate feed the console deployment publishes — see
+ * src/lib/publicStats.ts, and packages/console/app/src/routes/data.json.ts for
+ * the queries and for what is deliberately not published. The adoption series
+ * is STATS.md, appended by the download-stats workflow. Nothing is modelled:
+ * with no rows in the window the gateway sections say so instead of drawing
+ * zeroes.
  */
 import Layout from "../layouts/Layout.astro"
 import Navbar from "../components/Navbar.astro"
 import statsMarkdown from "../../../../STATS.md?raw"
-import { axisTicks, parseDownloads, queryGateway, SERIES_DAYS, WINDOW_DAYS } from "../lib/publicStats"
+import { ACTIVITY_DAYS, axisTicks, fetchGateway, parseDownloads, SERIES_DAYS, WINDOW_DAYS } from "../lib/publicStats"
 
 const env = Astro.locals.runtime?.env
 const now = Math.floor(Date.now() / 1000)
-const gateway = await queryGateway(env?.USAGE_DB, now)
+// The binding carries the feed URL in production; `import.meta.env` lets a
+// local `.env` point `astro dev` at a deployed console without one.
+const gateway = await fetchGateway(env?.CONSOLE_DATA_URL ?? import.meta.env.CONSOLE_DATA_URL, now)
 const downloads = parseDownloads(statsMarkdown)
 
 // The page is public and identical for everyone, so it is worth caching at the
-// edge: without this every visit runs three aggregate scans over D1.
+// edge: without this every visit re-fetches the console feed.
 Astro.response.headers.set("cache-control", "public, max-age=900, s-maxage=900")
 
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 })
@@ -63,7 +67,6 @@ const colorOf = (model: string): string | null => {
 }
 /** The colour a chart mark is painted with; the tail all shares the "other" grey. */
 const bandColor = (model: string) => colorOf(model) ?? "var(--series-other)"
-const providerLabel = (provider: string | null) => provider ?? "served from cache"
 
 /**
  * Movement under a percent is reported as flat, without an arrow or a colour:
@@ -141,6 +144,43 @@ const requestColumns = series.map((point, index) => {
   }
 })
 
+// Activity grid — the same contribution-style picture nikcli's own analytics
+// view draws, from the shared helper in @nikcli-ai/util/activity.
+const CELL = 11
+const CELL_GAP = 3
+const CELL_PITCH = CELL + CELL_GAP
+const GRID_GUTTER = 30
+const GRID_HEADER = 16
+const grid = gateway?.activityGrid
+const gridStartMs = grid?.startDate ? Date.parse(`${grid.startDate}T00:00:00Z`) : 0
+const gridFirstDow = grid?.startDate ? (new Date(gridStartMs).getUTCDay() + 6) % 7 : 0
+const gridEndMs = grid?.endDate ? Date.parse(`${grid.endDate}T00:00:00Z`) : 0
+/** The day a (row, column) cell stands for, or `null` for the padding before day one. */
+const cellDay = (row: number, col: number): Date | null => {
+  const offset = col * 7 + row - gridFirstDow
+  if (offset < 0) return null
+  const at = gridStartMs + offset * 86_400_000
+  return at > gridEndMs ? null : new Date(at)
+}
+/**
+ * Six steps of one hue: empty, then five shades of the sequential blue ramp.
+ * Thresholds are shares of the busiest day, so the ramp always spans the data.
+ */
+const activityStep = (value: number, max: number): number => {
+  if (value <= 0) return 0
+  const share = max > 0 ? value / max : 0
+  if (share <= 0.1) return 1
+  if (share <= 0.3) return 2
+  if (share <= 0.6) return 3
+  if (share <= 0.85) return 4
+  return 5
+}
+const WEEKDAY_LABELS = [
+  { row: 0, label: "Mon" },
+  { row: 2, label: "Wed" },
+  { row: 4, label: "Fri" },
+]
+
 const axisDays = series
   .map((point, index) => ({ ...point, index }))
   .filter(({ index }) => index % 10 === 0 || index === series.length - 1)
@@ -200,6 +240,7 @@ const sections = [
         // Each chip repeats its section's heading verbatim, so a reader who
         // clicks "Cost per completion" lands on a heading that says exactly that.
         { id: "models", label: "Tokens by model" },
+        { id: "activity", label: "A year of traffic" },
         { id: "leaderboard", label: "Model leaderboard" },
         { id: "cost", label: "Cost per completion" },
         { id: "price", label: "Blended price per 1M" },
@@ -330,19 +371,19 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 <div>
                   <dt class="text-eyebrow uppercase text-terminal-muted">Billed</dt>
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                    {money(gateway.totals.billedUsd, 0)}
+                    {money(gateway.totals.costUsd, 0)}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-eyebrow uppercase text-terminal-muted">Saved by cache</dt>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Providers</dt>
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                    {money(gateway.totals.savedUsd, 0)}
+                    {gateway.totals.providers}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-eyebrow uppercase text-terminal-muted">Calls served from cache</dt>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Input read from cache</dt>
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                    {gateway.totals.cacheRatio === null ? "Not reported" : percent.format(gateway.totals.cacheRatio)}
+                    {gateway.totals.cacheRatio === null ? "No input tokens" : percent.format(gateway.totals.cacheRatio)}
                   </dd>
                 </div>
               </dl>
@@ -528,6 +569,105 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
             </div>
           </section>
 
+          {/* ── Activity ─────────────────────────────────────────────────── */}
+          {grid && grid.weeks > 0 && (
+            <section class="page-shell pb-14" aria-labelledby="activity-heading" id="activity">
+              <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+                <h2 id="activity-heading" class="font-display text-panel-title text-terminal-text">
+                  A year of traffic
+                </h2>
+                <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                  Tokens per day over the last {gateway.activityDays} days, one square per day. Shade is that day's
+                  share of the busiest day.
+                </p>
+
+                <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+                  <div>
+                    <dt class="text-eyebrow uppercase text-terminal-muted">Days with traffic</dt>
+                    <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
+                      {whole.format(gateway.activityStats.activeDays)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="text-eyebrow uppercase text-terminal-muted">Longest streak</dt>
+                    <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
+                      {whole.format(gateway.activityStats.longestStreak)} days
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="text-eyebrow uppercase text-terminal-muted">Busiest day</dt>
+                    <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
+                      {compact.format(gateway.activityStats.maxDay)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="text-eyebrow uppercase text-terminal-muted">Tokens all year</dt>
+                    <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
+                      {compact.format(gateway.activityStats.total)}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div class="mt-6 overflow-x-auto">
+                  <svg
+                    viewBox={`0 0 ${GRID_GUTTER + grid.weeks * CELL_PITCH} ${GRID_HEADER + 7 * CELL_PITCH}`}
+                    width={GRID_GUTTER + grid.weeks * CELL_PITCH}
+                    height={GRID_HEADER + 7 * CELL_PITCH}
+                    role="img"
+                    aria-label={`Tokens per day over the last ${gateway.activityDays} days. ${whole.format(gateway.activityStats.activeDays)} days had traffic, the busiest ${compact.format(gateway.activityStats.maxDay)} tokens.`}
+                  >
+                    {grid.monthLabels.map((month) => (
+                      <text x={GRID_GUTTER + month.col * CELL_PITCH} y={GRID_HEADER - 5} class="viz-tick">
+                        {month.label}
+                      </text>
+                    ))}
+                    {WEEKDAY_LABELS.map((weekday) => (
+                      <text
+                        x={GRID_GUTTER - 6}
+                        y={GRID_HEADER + weekday.row * CELL_PITCH + CELL - 1}
+                        text-anchor="end"
+                        class="viz-tick"
+                      >
+                        {weekday.label}
+                      </text>
+                    ))}
+                    {grid.cells.map((week, row) =>
+                      week.map((value, col) => {
+                        const day = cellDay(row, col)
+                        return (
+                          <rect
+                            x={GRID_GUTTER + col * CELL_PITCH}
+                            y={GRID_HEADER + row * CELL_PITCH}
+                            width={CELL}
+                            height={CELL}
+                            rx="2"
+                            fill={`var(--heat-${day === null ? 0 : activityStep(value, grid.maxValue)})`}
+                          >
+                            {day !== null && (
+                              <title>{`${day.toISOString().slice(0, 10)}: ${whole.format(value)} tokens`}</title>
+                            )}
+                          </rect>
+                        )
+                      }),
+                    )}
+                  </svg>
+                </div>
+
+                <div class="mt-4 flex items-center gap-2 text-[13px] text-terminal-muted">
+                  <span>Quieter</span>
+                  {[0, 1, 2, 3, 4, 5].map((step) => (
+                    <span
+                      class="h-2.5 w-2.5 rounded-[2px]"
+                      style={`background:var(--heat-${step})`}
+                      aria-hidden="true"
+                    />
+                  ))}
+                  <span>Busier</span>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* ── Leaderboard ──────────────────────────────────────────────── */}
           <section class="page-shell pb-14" aria-labelledby="leaderboard-heading" id="leaderboard">
             <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
@@ -574,7 +714,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       <div>
                         <dt class="text-eyebrow uppercase text-terminal-muted">Provider</dt>
                         <dd class="mt-0.5 truncate text-body-sm text-terminal-text">
-                          {providerLabel(model.provider)}
+                          {model.provider}
                         </dd>
                       </div>
                       <div>
@@ -633,7 +773,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                             <span class="font-mono text-[13px] text-terminal-text">{model.model}</span>
                           </span>
                         </td>
-                        <td class="py-3 pr-3 text-terminal-muted">{providerLabel(model.provider)}</td>
+                        <td class="py-3 pr-3 text-terminal-muted">{model.provider}</td>
                         <td class="py-3 pr-3 text-right tabular-nums text-terminal-text">
                           {compact.format(model.tokens)}
                         </td>
@@ -757,11 +897,13 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 Cache hit ratio
               </h2>
               <p class="mt-2 text-body-sm text-terminal-muted">
-                Share of calls the gateway answered from cache. Taken over the calls that reported a cache state, not
-                over every call.
+                Share of input tokens read from cache rather than re-sent. Taken over input only — an output token is
+                generated every time, so it can never be cached. Across every model:
+                {" "}{compact.format(gateway.totals.cacheReadTokens)} cached against
+                {" "}{compact.format(gateway.totals.inputTokens)} sent.
               </p>
               {cacheLeaders.length === 0 ? (
-                <p class="mt-6 text-body-sm text-terminal-muted">No call in this window reported a cache state.</p>
+                <p class="mt-6 text-body-sm text-terminal-muted">No model in this window sent input tokens.</p>
               ) : (
                 <ul class="mt-6 space-y-3.5">
                   {cacheLeaders.map((model) => (
@@ -793,16 +935,9 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 Provider share
               </h2>
               <p class="mt-2 text-body-sm text-terminal-muted">
-                Which upstream served the tokens, as a share of the tokens that reached one at all.
+                Which upstream served the tokens. A model reached by more than one provider is counted under each.
               </p>
-              <p class="mt-4 rounded-md border border-terminal-border/60 bg-terminal-code/60 px-3.5 py-2.5 text-body-sm text-terminal-muted">
-                <span class="font-semibold text-terminal-text">
-                  {compact.format(gateway.totals.cacheServedTokens)} tokens
-                </span>{" "}
-                ({percent.format(gateway.totals.cacheServedTokens / gateway.totals.tokens)} of the window) were answered
-                from cache and reached no provider, so they are held out of the shares below.
-              </p>
-              <ul class="mt-5 space-y-3.5">
+              <ul class="mt-6 space-y-3.5">
                 {gateway.providers.map((provider) => (
                   <li>
                     <div class="flex items-baseline justify-between gap-3">
@@ -957,8 +1092,8 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
           <div>
             <dt class="text-body-sm font-semibold text-terminal-text">Source</dt>
             <dd class="mt-1 text-body-sm text-terminal-muted">
-              One row per served completion, written by the gateway to the same database billing reads. Adoption comes
-              from STATS.md in the repository.
+              One row per served completion, written by the gateway to the same table billing reads, aggregated by the
+              console deployment and fetched from there. Adoption comes from STATS.md in the repository.
             </dd>
           </div>
           <div>
@@ -1007,6 +1142,15 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
     --series-other: #9c9a92;
     --viz-grid: rgb(var(--terminal-border));
     --viz-surface: rgb(var(--terminal-panel));
+
+    /* Sequential blue ramp for the activity grid — one hue, light to dark, with
+       a neutral empty step so "no traffic" never reads as "a little traffic". */
+    --heat-0: rgb(var(--terminal-border) / 0.5);
+    --heat-1: #cde2fb;
+    --heat-2: #9ec5f4;
+    --heat-3: #5598e7;
+    --heat-4: #2a78d6;
+    --heat-5: #184f95;
   }
 
   :root[data-theme="dark"] .viz {
@@ -1019,6 +1163,14 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
     --series-7: #9085e9;
     --series-8: #e66767;
     --series-other: #6e6b64;
+    /* Dark steps run the ramp the other way: the deepest blue would vanish into
+       the panel, so the busiest day is the lightest step. */
+    --heat-0: rgb(var(--terminal-border) / 0.8);
+    --heat-1: #184f95;
+    --heat-2: #256abf;
+    --heat-3: #3987e5;
+    --heat-4: #6da7ec;
+    --heat-5: #9ec5f4;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -1032,6 +1184,14 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
       --series-7: #9085e9;
       --series-8: #e66767;
       --series-other: #6e6b64;
+    /* Dark steps run the ramp the other way: the deepest blue would vanish into
+       the panel, so the busiest day is the lightest step. */
+    --heat-0: rgb(var(--terminal-border) / 0.8);
+    --heat-1: #184f95;
+    --heat-2: #256abf;
+    --heat-3: #3987e5;
+    --heat-4: #6da7ec;
+    --heat-5: #9ec5f4;
     }
   }
 

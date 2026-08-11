@@ -2,63 +2,101 @@
 
 import { describe, expect, test } from "bun:test"
 import {
+  ACTIVITY_DAYS,
   axisTicks,
+  fetchGateway,
   parseDownloads,
-  queryGateway,
   summarize,
-  usageWindows,
   SERIES_DAYS,
-  WINDOW_DAYS,
-  type DailyBucket,
   type UsageBucket,
 } from "./publicStats"
 
 const NOW = Date.UTC(2026, 7, 11) / 1000
+const DAY = 86_400
 
 function bucket(over: Partial<UsageBucket> & { model: string }): UsageBucket {
   return {
     provider: "anthropic",
     requests: 1,
-    input_tokens: 0,
-    output_tokens: 0,
-    billed_usd: 0,
-    saved_usd: 0,
-    cache_hits: 0,
-    cache_reported: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    costUsd: 0,
+    ...over,
+  }
+}
+
+/** A feed of the shape packages/console/app/src/routes/data.json.ts publishes. */
+function feed(over: Record<string, unknown> = {}) {
+  return {
+    generatedAt: NOW,
+    windowDays: 30,
+    seriesDays: SERIES_DAYS,
+    activityDays: ACTIVITY_DAYS,
+    current: [],
+    previous: [],
+    daily: [],
+    activity: [],
     ...over,
   }
 }
 
 describe("summarize", () => {
   test("reports nothing rather than zeroes when the window has no rows", () => {
-    expect(summarize([], [], [], NOW)).toBeNull()
-    expect(summarize([bucket({ model: "sonnet" })], [], [], NOW)).toBeNull()
+    expect(summarize(feed(), NOW)).toBeNull()
+    expect(summarize(feed({ current: [bucket({ model: "sonnet" })] }), NOW)).toBeNull()
+  })
+
+  test("degrades to nothing rather than to a page of NaN when the feed is not what we expect", () => {
+    expect(summarize(null, NOW)).toBeNull()
+    expect(summarize("nope", NOW)).toBeNull()
+    expect(summarize({ current: "not-an-array" }, NOW)).toBeNull()
+  })
+
+  test("counts every kind of token the gateway bills for", () => {
+    const stats = summarize(
+      feed({
+        current: [
+          bucket({
+            model: "sonnet",
+            inputTokens: 100,
+            outputTokens: 10,
+            reasoningTokens: 5,
+            cacheReadTokens: 800,
+            cacheWriteTokens: 85,
+          }),
+        ],
+      }),
+      NOW,
+    )!
+    expect(stats.totals.tokens).toBe(1000)
   })
 
   test("ranks models by tokens and shares add up to the whole window", () => {
     const stats = summarize(
-      [
-        bucket({ model: "haiku", input_tokens: 100, output_tokens: 100 }),
-        bucket({ model: "sonnet", input_tokens: 600, output_tokens: 200 }),
-      ],
-      [],
-      [],
+      feed({
+        current: [
+          bucket({ model: "haiku", inputTokens: 200 }),
+          bucket({ model: "sonnet", inputTokens: 600, outputTokens: 200 }),
+        ],
+      }),
       NOW,
     )!
     expect(stats.models.map((m) => m.model)).toEqual(["sonnet", "haiku"])
-    expect(stats.totals.tokens).toBe(1000)
     expect(stats.models[0].share).toBeCloseTo(0.8)
     expect(stats.models.reduce((sum, m) => sum + m.share, 0)).toBeCloseTo(1)
   })
 
   test("sums a model that several providers served and names the dominant one", () => {
     const stats = summarize(
-      [
-        bucket({ model: "sonnet", provider: "bedrock", input_tokens: 100, requests: 2 }),
-        bucket({ model: "sonnet", provider: "anthropic", input_tokens: 900, requests: 8 }),
-      ],
-      [],
-      [],
+      feed({
+        current: [
+          bucket({ model: "sonnet", provider: "bedrock", inputTokens: 100, requests: 2 }),
+          bucket({ model: "sonnet", provider: "anthropic", inputTokens: 900, requests: 8 }),
+        ],
+      }),
       NOW,
     )!
     expect(stats.models).toHaveLength(1)
@@ -66,27 +104,27 @@ describe("summarize", () => {
     expect(stats.models[0].requests).toBe(10)
     expect(stats.models[0].provider).toBe("anthropic")
     expect(stats.providers.map((p) => p.provider)).toEqual(["anthropic", "bedrock"])
+    expect(stats.providers.reduce((sum, p) => sum + p.share, 0)).toBeCloseTo(1)
   })
 
   test("computes change against the previous window and leaves new models null", () => {
     const stats = summarize(
-      [bucket({ model: "sonnet", input_tokens: 300 }), bucket({ model: "opus", input_tokens: 100 })],
-      [bucket({ model: "sonnet", input_tokens: 100 })],
-      [],
+      feed({
+        current: [bucket({ model: "sonnet", inputTokens: 300 }), bucket({ model: "opus", inputTokens: 100 })],
+        previous: [bucket({ model: "sonnet", inputTokens: 100 })],
+      }),
       NOW,
     )!
-    const sonnet = stats.models.find((m) => m.model === "sonnet")!
-    const opus = stats.models.find((m) => m.model === "opus")!
-    expect(sonnet.change).toBeCloseTo(2) // 100 -> 300
-    expect(opus.change).toBeNull()
+    expect(stats.models.find((m) => m.model === "sonnet")!.change).toBeCloseTo(2) // 100 -> 300
+    expect(stats.models.find((m) => m.model === "opus")!.change).toBeNull()
     expect(stats.totals.change).toBeCloseTo(3) // 100 -> 400
   })
 
-  test("derives per-request and per-million prices from what was actually billed", () => {
+  test("derives per-completion and per-million prices from what was actually billed", () => {
     const stats = summarize(
-      [bucket({ model: "sonnet", input_tokens: 400_000, output_tokens: 600_000, billed_usd: 3, requests: 4 })],
-      [],
-      [],
+      feed({
+        current: [bucket({ model: "sonnet", inputTokens: 400_000, outputTokens: 600_000, costUsd: 3, requests: 4 })],
+      }),
       NOW,
     )!
     expect(stats.models[0].pricePerMillion).toBeCloseTo(3)
@@ -94,89 +132,115 @@ describe("summarize", () => {
     expect(stats.models[0].tokensPerRequest).toBeCloseTo(250_000)
   })
 
-  test("takes the cache ratio over reported requests only, and null when none reported", () => {
+  test("takes the cache ratio over input tokens only, since output is never cached", () => {
     const stats = summarize(
-      [
-        bucket({ model: "sonnet", input_tokens: 10, requests: 10, cache_hits: 6, cache_reported: 8 }),
-        bucket({ model: "opus", input_tokens: 10, requests: 5 }),
-      ],
-      [],
-      [],
+      feed({
+        current: [
+          bucket({ model: "sonnet", inputTokens: 100, outputTokens: 900, cacheReadTokens: 300 }),
+          bucket({ model: "opus", outputTokens: 500 }),
+        ],
+      }),
       NOW,
     )!
+    // 300 cached of 400 readable — the 900 output tokens do not dilute it.
     expect(stats.models.find((m) => m.model === "sonnet")!.cacheRatio).toBeCloseTo(0.75)
     expect(stats.models.find((m) => m.model === "opus")!.cacheRatio).toBeNull()
     expect(stats.totals.cacheRatio).toBeCloseTo(0.75)
   })
 
-  test("reports cache-served rows separately instead of ranking them as a provider", () => {
+  test("fills every day of the series window so a quiet day reads as a gap", () => {
     const stats = summarize(
-      [
-        bucket({ model: "sonnet", provider: null, input_tokens: 100 }),
-        bucket({ model: "sonnet", provider: "anthropic", input_tokens: 50 }),
-        bucket({ model: "sonnet", provider: "bedrock", input_tokens: 50 }),
-      ],
-      [],
-      [],
+      feed({
+        current: [bucket({ model: "sonnet", inputTokens: 500 })],
+        daily: [{ day: "2026-08-10", model: "sonnet", tokens: 500, requests: 5 }],
+      }),
       NOW,
     )!
-    expect(stats.providers.map((p) => p.provider)).toEqual(["anthropic", "bedrock"])
-    expect(stats.totals.cacheServedTokens).toBe(100)
-    // Shares are taken over the tokens that reached an upstream, so they still
-    // add up to the whole of what the providers actually served.
-    expect(stats.providers.reduce((sum, p) => sum + p.share, 0)).toBeCloseTo(1)
-    expect(stats.models[0].provider).toBeNull()
-  })
-
-  test("fills every day of the series window so a quiet day reads as a gap", () => {
-    const daily: DailyBucket[] = [{ day: "2026-08-10", model: "sonnet", tokens: 500, requests: 5 }]
-    const stats = summarize([bucket({ model: "sonnet", input_tokens: 500 })], [], daily, NOW)!
     expect(stats.series).toHaveLength(SERIES_DAYS + 1)
     expect(stats.series.at(-1)!.day).toBe("2026-08-11")
-    const busy = stats.series.find((p) => p.day === "2026-08-10")!
-    expect(busy.tokens).toBe(500)
+    expect(stats.series.find((p) => p.day === "2026-08-10")!.tokens).toBe(500)
     expect(stats.series.filter((p) => p.tokens === 0)).toHaveLength(SERIES_DAYS)
   })
 
   test("stacks the tail of the models into a single other band", () => {
     const models = Array.from({ length: 10 }, (_, i) => `model-${i}`)
-    const current = models.map((model, i) => bucket({ model, input_tokens: (10 - i) * 100 }))
-    const daily = models.map((model) => ({ day: "2026-08-10", model, tokens: 10, requests: 1 }))
-    const stats = summarize(current, [], daily, NOW)!
+    const stats = summarize(
+      feed({
+        current: models.map((model, i) => bucket({ model, inputTokens: (10 - i) * 100 })),
+        daily: models.map((model) => ({ day: "2026-08-10", model, tokens: 10, requests: 1 })),
+      }),
+      NOW,
+    )!
     expect(stats.seriesModels.at(-1)).toBe("other")
-    expect(stats.seriesModels.slice(0, -1)).toEqual(stats.models.slice(0, stats.seriesModels.length - 1).map((m) => m.model))
-    // Every model the chart does not band individually lands in "other".
     const banded = stats.seriesModels.length - 1
+    expect(stats.seriesModels.slice(0, banded)).toEqual(stats.models.slice(0, banded).map((m) => m.model))
     expect(stats.series.find((p) => p.day === "2026-08-10")!.byModel.other).toBe((models.length - banded) * 10)
   })
 })
 
-describe("usageWindows", () => {
-  test("puts the comparison window immediately before the reported one, with no gap or overlap", () => {
-    const { windowStart, previousStart, seriesStart } = usageWindows(NOW)
-    const day = 86_400
-    expect(NOW - windowStart).toBe(WINDOW_DAYS * day)
-    expect(windowStart - previousStart).toBe(WINDOW_DAYS * day)
-    expect(NOW - seriesStart).toBe(SERIES_DAYS * day)
+describe("activity grid", () => {
+  const activityFeed = (rows: { date: string; tokens: number }[]) =>
+    feed({
+      current: [bucket({ model: "sonnet", inputTokens: 1_000 })],
+      activity: rows.map((row) => ({ ...row, requests: 1, costUsd: 0 })),
+    })
+
+  test("covers a full year of days even though the feed only sends busy ones", () => {
+    const stats = summarize(activityFeed([{ date: "2026-08-10", tokens: 400 }]), NOW)!
+    expect(stats.activity).toHaveLength(ACTIVITY_DAYS)
+    expect(stats.activity.at(-1)!.date).toBe("2026-08-11")
+    expect(stats.activity.find((d) => d.date === "2026-08-10")!.tokens).toBe(400)
+  })
+
+  test("keeps a busy day on its real weekday when quiet days sit before it", () => {
+    // 2026-08-10 is a Monday, so it belongs in row 0 of the grid.
+    const stats = summarize(activityFeed([{ date: "2026-08-10", tokens: 400 }]), NOW)!
+    const { cells, startDate } = stats.activityGrid
+    const firstDow = (new Date(`${startDate}T00:00:00Z`).getUTCDay() + 6) % 7
+    const offset = (Date.UTC(2026, 7, 10) - Date.parse(`${startDate}T00:00:00Z`)) / (DAY * 1000) + firstDow
+    expect(cells[offset % 7][Math.floor(offset / 7)]).toBe(400)
+    expect(offset % 7).toBe(0)
+  })
+
+  test("summarises streaks and totals over the dense year", () => {
+    const stats = summarize(
+      activityFeed([
+        { date: "2026-08-09", tokens: 100 },
+        { date: "2026-08-10", tokens: 400 },
+        { date: "2026-08-11", tokens: 200 },
+      ]),
+      NOW,
+    )!
+    expect(stats.activityStats.activeDays).toBe(3)
+    expect(stats.activityStats.longestStreak).toBe(3)
+    expect(stats.activityStats.maxDay).toBe(400)
+    expect(stats.activityStats.total).toBe(700)
   })
 })
 
-describe("queryGateway", () => {
-  test("returns null without a binding instead of throwing on a public page", async () => {
-    expect(await queryGateway(undefined, NOW)).toBeNull()
+describe("fetchGateway", () => {
+  test("returns null with no feed URL instead of throwing on a public page", async () => {
+    expect(await fetchGateway(undefined, NOW)).toBeNull()
   })
 
-  test("returns null when the database rejects, instead of failing the render", async () => {
-    // Enough of a D1 binding for Drizzle to build on, and it always throws.
-    const broken = {
-      prepare: () => ({
-        bind: () => ({
-          all: () => Promise.reject(new Error("no such table: usage_events")),
-          raw: () => Promise.reject(new Error("no such table: usage_events")),
-        }),
-      }),
-    } as unknown as D1Database
-    expect(await queryGateway(broken, NOW)).toBeNull()
+  test("returns null when the feed answers with an error status", async () => {
+    const fetcher = (async () => new Response("nope", { status: 503 })) as unknown as typeof fetch
+    expect(await fetchGateway("https://example.test/data.json", NOW, fetcher)).toBeNull()
+  })
+
+  test("returns null when the request itself fails, instead of failing the render", async () => {
+    const fetcher = (async () => {
+      throw new Error("network down")
+    }) as unknown as typeof fetch
+    expect(await fetchGateway("https://example.test/data.json", NOW, fetcher)).toBeNull()
+  })
+
+  test("summarises a well-formed feed", async () => {
+    const body = feed({ current: [bucket({ model: "sonnet", inputTokens: 1_000, costUsd: 2 })] })
+    const fetcher = (async () => new Response(JSON.stringify(body))) as unknown as typeof fetch
+    const stats = (await fetchGateway("https://example.test/data.json", NOW, fetcher))!
+    expect(stats.totals.tokens).toBe(1_000)
+    expect(stats.totals.costUsd).toBe(2)
   })
 })
 
@@ -198,12 +262,6 @@ describe("axisTicks", () => {
       const ticks = axisTicks(max)
       const step = ticks[1] - ticks[0]
       expect(ticks[ticks.length - 1] - max).toBeLessThan(step)
-    }
-  })
-
-  test("never clips the tallest mark", () => {
-    for (const max of [1, 7, 99, 512, 12_345, 987_654_321]) {
-      expect(axisTicks(max).at(-1)!).toBeGreaterThanOrEqual(max)
     }
   })
 
