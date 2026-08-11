@@ -6,6 +6,7 @@ import { EditTool, replace, replaceWithCount } from "@/tool/edit"
 import { FileTime } from "@/file/time"
 import { Instance } from "@/project/instance"
 import { makeToolContext, withProjectDirectory } from "../helpers/tool-context"
+import * as LineAnchor from "@/tool/line-anchor"
 
 describe("EditTool", () => {
   let projectDir: string
@@ -33,6 +34,92 @@ describe("EditTool", () => {
     expect(result.output).toContain("Replaced 1 occurrence")
     expect(await fs.readFile(filePath, "utf-8")).toBe("hello nikcli\n")
     expect(asked.some((a) => a.permission === "edit")).toBe(true)
+  })
+
+  describe("anchored edits", () => {
+    const write = async (name: string, lines: string[]) => {
+      const filePath = path.join(projectDir, name)
+      await fs.writeFile(filePath, lines.join("\n"))
+      return filePath
+    }
+
+    it("replaces the line an anchor names, without being told its text", async () => {
+      const filePath = await write("anchored.ts", ["const a = 1", "const b = 2", "const c = 3"])
+      const { ctx, sessionID } = makeToolContext()
+
+      const result = await withProjectDirectory(projectDir, async () => {
+        await FileTime.read(sessionID, filePath)
+        return def.executeAsync(
+          { filePath, anchor: LineAnchor.format(2, "const b = 2"), newString: "const b = 99" },
+          ctx,
+        )
+      })
+
+      expect(result.output).toContain("Replaced 1 occurrence")
+      expect(await fs.readFile(filePath, "utf-8")).toBe("const a = 1\nconst b = 99\nconst c = 3")
+    })
+
+    it("refuses a stale anchor instead of editing whatever took that line", async () => {
+      // The file moves after the anchor was taken. This is the case the digest
+      // exists for: a line number alone would happily replace the new content.
+      const filePath = await write("stale.ts", ["const a = 1", "const b = 2"])
+      const stale = LineAnchor.format(2, "const b = 2")
+      await fs.writeFile(filePath, ["const a = 1", "const b = SOMETHING ELSE"].join("\n"))
+      const { ctx, sessionID } = makeToolContext()
+
+      const attempt = withProjectDirectory(projectDir, async () => {
+        await FileTime.read(sessionID, filePath)
+        return def.executeAsync({ filePath, anchor: stale, newString: "const b = 99" }, ctx)
+      })
+
+      await expect(attempt).rejects.toThrow(/no longer matches/)
+      // And the file is untouched — the refusal happens before the write.
+      expect(await fs.readFile(filePath, "utf-8")).toBe("const a = 1\nconst b = SOMETHING ELSE")
+    })
+
+    it("refuses an anchor past the end of the file", async () => {
+      const filePath = await write("short.ts", ["only one line"])
+      const { ctx, sessionID } = makeToolContext()
+
+      const attempt = withProjectDirectory(projectDir, async () => {
+        await FileTime.read(sessionID, filePath)
+        return def.executeAsync({ filePath, anchor: LineAnchor.format(9, "gone"), newString: "x" }, ctx)
+      })
+
+      await expect(attempt).rejects.toThrow(/has 1 line/)
+    })
+
+    it("refuses a malformed anchor rather than treating it as text", async () => {
+      const filePath = await write("malformed.ts", ["a"])
+      const { ctx, sessionID } = makeToolContext()
+
+      const attempt = withProjectDirectory(projectDir, async () => {
+        await FileTime.read(sessionID, filePath)
+        return def.executeAsync({ filePath, anchor: "line 42", newString: "x" }, ctx)
+      })
+
+      await expect(attempt).rejects.toThrow(/Not a line anchor/)
+    })
+
+    it("refuses both ways of naming the target at once", async () => {
+      const filePath = await write("both.ts", ["a"])
+      const { ctx } = makeToolContext()
+
+      const attempt = withProjectDirectory(projectDir, () =>
+        def.executeAsync({ filePath, anchor: LineAnchor.format(1, "a"), oldString: "a", newString: "b" }, ctx),
+      )
+
+      await expect(attempt).rejects.toThrow(/not both/)
+    })
+
+    it("refuses neither", async () => {
+      const filePath = await write("neither.ts", ["a"])
+      const { ctx } = makeToolContext()
+
+      const attempt = withProjectDirectory(projectDir, () => def.executeAsync({ filePath, newString: "b" }, ctx))
+
+      await expect(attempt).rejects.toThrow(/required/)
+    })
   })
 
   it("creates a new file when oldString is empty", async () => {

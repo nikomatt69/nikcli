@@ -1,6 +1,10 @@
-Edit the contents of a file by finding and replacing exact text.
+Edit the contents of a file by finding and replacing exact text, or by naming a line with the anchor Read printed for it.
 
-When editing text from Read output, preserve the exact indentation (tabs or spaces) and omit the line-number prefix, such as `1: `. Never include the prefix in `oldString` or `newString`.
+Read prints each line as `<line>#<digest>: <text>`, for example `42#a3f9c1: const timeout = 30`. That prefix is the line's anchor.
+
+To replace one whole line, pass `anchor` and `newString` and omit `oldString` — `anchor: "42#a3f9c1"` says the same thing as quoting the line back, in a few characters. Prefer it whenever the change is a whole line. If the line no longer matches its digest the edit is refused rather than applied: the file changed since you read it, so read it again and use the new anchor.
+
+Use `oldString` instead when the change is part of a line, spans several lines, or should apply in more than one place. When editing text from Read output, preserve the exact indentation (tabs or spaces) and omit the anchor prefix. Never include the prefix in `oldString` or `newString`. Pass `anchor` or `oldString`, never both.
 
 The edit fails if `oldString` is not found. By default, `oldString` must identify a UNIQUE location. Multiple matches FAIL unless `replaceAll` is true. Add more surrounding context to disambiguate, or set `replaceAll` to true to replace every occurrence. Use `replaceAll` when the change should apply to every occurrence, such as renaming a variable.
 

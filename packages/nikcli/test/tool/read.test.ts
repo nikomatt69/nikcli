@@ -37,12 +37,16 @@ describe("ReadTool", () => {
     const result = await withProjectDirectory(projectDir, () =>
       def.executeAsync({ filePath, offset: 2, limit: 2 }, ctx),
     )
+    // Each line is prefixed with its anchor — `<line>#<digest>: ` — so the
+    // patterns carry the digest shape rather than the bare number. Written as
+    // regexes on purpose: `.not.toMatch(/^\d+: a$/m)` would keep passing against
+    // the anchored format even if line `a` came back, and pass for the wrong reason.
     expect(result.output).toContain("b")
     expect(result.output).toContain("c")
-    expect(result.output).not.toMatch(/^\d+: a$/m)
-    expect(result.output).not.toMatch(/^\d+: e$/m)
-    expect(result.output).toContain("2: b")
-    expect(result.output).toContain("3: c")
+    expect(result.output).not.toMatch(/^\d+#[0-9a-f]{6}: a$/m)
+    expect(result.output).not.toMatch(/^\d+#[0-9a-f]{6}: e$/m)
+    expect(result.output).toMatch(/^2#[0-9a-f]{6}: b$/m)
+    expect(result.output).toMatch(/^3#[0-9a-f]{6}: c$/m)
   })
 
   it("lists directories with stable paging", async () => {
@@ -99,8 +103,8 @@ describe("ReadTool", () => {
     const { ctx } = makeToolContext()
 
     const result = await withProjectDirectory(projectDir, () => def.executeAsync({ filePath }, ctx))
-    expect(result.output).toContain(`1: ${"x".repeat(2_000)}...`)
-    expect(result.output).toContain("2: second")
+    expect(result.output).toMatch(new RegExp(`^1#[0-9a-f]{6}: x{2000}\\.\\.\\.$`, "m"))
+    expect(result.output).toMatch(/^2#[0-9a-f]{6}: second$/m)
     expect(result.output).not.toContain("x".repeat(2_001))
   })
 

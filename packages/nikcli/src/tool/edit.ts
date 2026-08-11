@@ -14,6 +14,7 @@ import { Format } from "../format"
 import { Instance } from "../project/instance"
 import { buildFileDiff, trimDiff } from "./file-diff"
 import { assertExternalDirectory } from "./external-directory"
+import * as LineAnchor from "./line-anchor"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@/util/log"
 
@@ -44,8 +45,14 @@ const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
     description: "The absolute path to the file to modify",
   }),
-  oldString: Schema.String.annotate({
-    description: "Exact text to find and replace",
+  oldString: Schema.optional(Schema.String).annotate({
+    description: "Exact text to find and replace. Omit when using `anchor`. Pass an empty string to create the file.",
+  }),
+  anchor: Schema.optional(Schema.String).annotate({
+    description:
+      "Line anchor from a previous read, in `<line>#<digest>` form (e.g. `42#a3f9c1`), naming the single line to replace. " +
+      "Use it instead of `oldString` when replacing one whole line: it costs a few characters rather than a copy of the line. " +
+      "Rejected if the line changed since it was read, so re-read the file when that happens.",
   }),
   newString: Schema.String.annotate({
     description: "Text to replace oldString with (must differ from oldString)",
@@ -64,7 +71,25 @@ export const EditTool = Tool.define("edit", {
       throw new Error("filePath is required")
     }
 
-    if (params.oldString === params.newString) {
+    // Exactly one way of naming the target. Accepting both would leave the tool
+    // deciding which one the model meant when they disagree, and silently
+    // editing the wrong place is the failure this anchor exists to prevent.
+    const hasAnchor = params.anchor !== undefined && params.anchor !== ""
+    if (hasAnchor && params.oldString !== undefined) {
+      throw new Error("Pass either anchor or oldString, not both: they name the same thing.")
+    }
+    if (!hasAnchor && params.oldString === undefined) {
+      throw new Error("Either anchor or oldString is required.")
+    }
+
+    const anchor = hasAnchor ? LineAnchor.parse(params.anchor!) : undefined
+    if (hasAnchor && !anchor) {
+      throw new Error(
+        `Not a line anchor: ${JSON.stringify(params.anchor)}. Anchors look like \`42#a3f9c1\` and come from a read.`,
+      )
+    }
+
+    if (!hasAnchor && params.oldString === params.newString) {
       throw new Error("No changes to apply: oldString and newString are identical.")
     }
 
@@ -120,7 +145,22 @@ export const EditTool = Tool.define("edit", {
       // corrupts its encoding.
       const original = await Bom.readFile(filePath)
       contentOld = original.text
-      const applied = replaceWithCount(contentOld, params.oldString, params.newString, params.replaceAll, filePath)
+
+      // The anchor names a line; from here on it is an ordinary replacement of
+      // that line's text, so the whole replacer chain below is untouched. The
+      // resolution is what makes the anchor safe: it is checked against the file
+      // as it is *now*, inside the same lock that performs the write.
+      let oldString = params.oldString ?? ""
+      if (anchor) {
+        const resolution = LineAnchor.resolve(anchor, contentOld.split("\n"))
+        if (!resolution.ok) throw new Error(resolution.message)
+        if (resolution.text === params.newString) {
+          throw new Error("No changes to apply: the anchored line already reads as newString.")
+        }
+        oldString = resolution.text
+      }
+
+      const applied = replaceWithCount(contentOld, oldString, params.newString, params.replaceAll, filePath)
       const replacement = Bom.split(applied.content)
       contentNew = replacement.text
       const writtenBom = original.bom || replacement.bom

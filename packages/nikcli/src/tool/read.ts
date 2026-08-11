@@ -9,6 +9,7 @@ import DESCRIPTION from "./read.txt"
 import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import { assertExternalDirectory } from "./external-directory"
+import * as LineAnchor from "./line-anchor"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Log } from "@/util/log"
 
@@ -137,8 +138,13 @@ export const ReadTool = Tool.define("read", {
     const page = await readTextPage(filepath, file, offset, limit)
     const raw = page.lines
 
+    // `42#a3f9c1: text` — the number for a human reading the transcript, the
+    // digest so `edit` can be handed the anchor instead of a copy of the line.
+    // Costs a handful of input bytes per line, paid once and then cached; saves
+    // the same line coming back as output, which is never cached and costs
+    // several times as much. See `./line-anchor`.
     const content = raw.map((line, index) => {
-      return `${index + offset}: ${line}`
+      return `${LineAnchor.format(index + offset, line)}: ${line}`
     })
     const preview = raw.slice(0, 20).join("\n")
 
