@@ -8,6 +8,8 @@ import { GlobTool } from "./glob"
 import { GrepTool } from "./grep"
 import { BatchTool } from "./batch"
 import { ReadTool } from "./read"
+import { MultiEditTool } from "./multiedit"
+import { Voice as VoiceTool } from "./voice"
 import { TaskTool } from "./task"
 import { TodoWriteTool, TodoReadTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
@@ -17,6 +19,7 @@ import { SkillTool } from "./skill"
 import type { Agent } from "../agent/agent"
 import { Tool } from "./tool"
 import { Config } from "../config/config"
+import { PermissionRuleset } from "../permission/ruleset"
 import path from "path"
 import { existsSync } from "fs"
 import { type ToolDefinition } from "@nikcli-ai/plugin"
@@ -104,6 +107,28 @@ export namespace ToolRegistry {
     return OPT_IN.has(id) ? value === false : value !== true
   }
 
+  /**
+   * The per-session half of "can the model call this tool", on top of the
+   * model/agent/flag filters {@link Interface.tools} already applies.
+   *
+   * Shared on purpose. `resolveTools` uses it to build the toolset the model
+   * receives and `search_tools` uses it to build the catalog it advertises; if
+   * the two drifted, `search_tools` would name a tool that is not in the
+   * model's schema and every call to it would come back as an unknown tool.
+   */
+  export function visible(
+    id: string,
+    input: { disabledTools?: Record<string, boolean>; ruleset: PermissionRuleset.Ruleset },
+  ): boolean {
+    // Tools the user switched off for this session, plus the opt-in tools
+    // nobody has asked for yet.
+    if (!enabled(id, input.disabledTools)) return false
+    // Wholly-denied tools (pattern "*"). Resource-scoped denies stay visible —
+    // the tool still works on the paths that are allowed.
+    if (PermissionRuleset.disabled([id], input.ruleset).has(id)) return false
+    return true
+  }
+
   type State = {
     custom: Tool.Info[]
   }
@@ -126,7 +151,7 @@ export namespace ToolRegistry {
         modelID: string
       },
       agent?: Agent.Info,
-      options?: { slim?: boolean; exclude?: ReadonlySet<string> },
+      options?: { exclude?: ReadonlySet<string> },
     ) => Effect.Effect<Resolved[], unknown>
   }
 
@@ -328,6 +353,7 @@ export namespace ToolRegistry {
           GrepTool,
           EditTool,
           WriteTool,
+          MultiEditTool,
           TaskTool,
           DelegationTool,
           ContextCollectTool,
@@ -353,6 +379,7 @@ export namespace ToolRegistry {
           ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
           ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
           SpeakTool,
+          VoiceTool,
           OpenTUIVizTool,
           AdvisorTool,
           DelegatorTool,
@@ -370,16 +397,13 @@ export namespace ToolRegistry {
         return list.map((t) => t.id)
       })
 
-      // Core tools loaded in slim mode — enough for most tasks + search_tools for discovery.
-      const SLIM_TOOLS = new Set(["bash", "read", "glob", "grep", "tree", "edit", "write", "task", "search_tools"])
-
       const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (
         model: {
           providerID: string
           modelID: string
         },
         agent?: Agent.Info,
-        options?: { slim?: boolean; exclude?: ReadonlySet<string> },
+        options?: { exclude?: ReadonlySet<string> },
       ) {
         const tools = yield* all()
         const result = yield* Effect.promise(() =>
@@ -387,7 +411,6 @@ export namespace ToolRegistry {
             tools
               .filter((t) => {
                 if (options?.exclude?.has(t.id)) return false
-                if (options?.slim) return SLIM_TOOLS.has(t.id)
 
                 if (t.id === "codesearch" || t.id === "websearch") {
                   return model.providerID === "nikcli" || Flag.NIKCLI_ENABLE_EXA
@@ -396,7 +419,10 @@ export namespace ToolRegistry {
                 const usePatch =
                   model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
                 if (t.id === "apply_patch") return usePatch
-                if (t.id === "edit" || t.id === "write") return !usePatch
+                // The string-replace edit family is the alternative to apply_patch,
+                // not an addition to it: a GPT model that got both would be offered
+                // two different ways to write the same file.
+                if (t.id === "edit" || t.id === "write" || t.id === "multiedit") return !usePatch
 
                 if (t.id === "advisor") return !!agent?.advisor
 

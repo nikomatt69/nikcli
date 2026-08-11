@@ -2175,23 +2175,10 @@ export type PermissionConfig =
       bash?: PermissionRuleConfig
       task?: PermissionRuleConfig
       subagents?: PermissionRuleConfig
-      docs_add?: PermissionRuleConfig
-      docs_search?: PermissionRuleConfig
-      docs_load?: PermissionRuleConfig
-      docs_unload?: PermissionRuleConfig
-      docs_context?: PermissionRuleConfig
-      docs_request?: PermissionRuleConfig
-      docs_gap_report?: PermissionRuleConfig
-      smart_docs?: PermissionRuleConfig
       context_collect?: PermissionRuleConfig
-      context_search?: PermissionRuleConfig
       context_related?: PermissionRuleConfig
       context_diagnostics?: PermissionRuleConfig
       memory_search?: PermissionRuleConfig
-      rag_index?: PermissionRuleConfig
-      rag_search?: PermissionRuleConfig
-      rag_status?: PermissionRuleConfig
-      rag_reset?: PermissionRuleConfig
       generate_image?: PermissionRuleConfig
       external_directory?: PermissionRuleConfig
       todowrite?: PermissionActionConfig
@@ -2203,6 +2190,7 @@ export type PermissionConfig =
       repo_clone?: PermissionActionConfig
       repo_overview?: PermissionActionConfig
       speak?: PermissionRuleConfig
+      voice?: PermissionRuleConfig
       lsp?: PermissionRuleConfig
       doom_loop?: PermissionActionConfig
       [key: string]: PermissionRuleConfig | Array<string> | PermissionActionConfig | undefined

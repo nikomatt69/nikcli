@@ -55,24 +55,56 @@ describe("ToolRegistry.Service", () => {
     expect(ids).toContain("update_goal")
     expect(ids).toContain("browser_control")
     expect(ids).toContain("computer")
+    expect(ids).toContain("multiedit")
+    expect(ids).toContain("voice")
   })
 
-  it("resolves slim tool definitions", async () => {
+  it("offers the string-replace edit family and apply_patch as alternatives, never both", async () => {
     const directory = await makeProjectDir()
-    const tools = await Effect.runPromise(
-      InstanceScope.with(
-        { directory },
-        Effect.gen(function* () {
-          const registry = yield* ToolRegistry.Service
-          return yield* registry.tools({ providerID: "", modelID: "" }, undefined, { slim: true })
-        }).pipe(Effect.provide(ToolRegistry.defaultLayer)),
-      ),
-    )
+    const resolve = (modelID: string) =>
+      Effect.runPromise(
+        InstanceScope.with(
+          { directory },
+          Effect.gen(function* () {
+            const registry = yield* ToolRegistry.Service
+            return yield* registry.tools({ providerID: "openai", modelID })
+          }).pipe(Effect.provide(ToolRegistry.defaultLayer)),
+        ),
+      ).then((tools) => new Set(tools.map((tool) => tool.id)))
 
+    const gpt = await resolve("gpt-5")
+    expect(gpt.has("apply_patch")).toBe(true)
+    for (const id of ["edit", "write", "multiedit"]) expect(gpt.has(id)).toBe(false)
+
+    const claude = await resolve("claude-opus-5")
+    expect(claude.has("apply_patch")).toBe(false)
+    for (const id of ["edit", "write", "multiedit"]) expect(claude.has(id)).toBe(true)
+  })
+
+  it("resolves tool definitions and honours exclude", async () => {
+    const directory = await makeProjectDir()
+    const resolve = (options?: { exclude?: ReadonlySet<string> }) =>
+      Effect.runPromise(
+        InstanceScope.with(
+          { directory },
+          Effect.gen(function* () {
+            const registry = yield* ToolRegistry.Service
+            return yield* registry.tools({ providerID: "", modelID: "" }, undefined, options)
+          }).pipe(Effect.provide(ToolRegistry.defaultLayer)),
+        ),
+      )
+
+    const tools = await resolve()
     expect(tools.some((tool) => tool.id === "bash")).toBe(true)
     for (const tool of tools) {
       expect(tool.description.length).toBeGreaterThan(0)
     }
+
+    // `exclude` is what keeps code_mode from bridging recursive/UI-only tools
+    // into its own catalog.
+    const trimmed = await resolve({ exclude: new Set(["bash"]) })
+    expect(trimmed.some((tool) => tool.id === "bash")).toBe(false)
+    expect(trimmed.length).toBe(tools.length - 1)
   })
 
   // The tool array is the first and largest component of the provider prompt-cache

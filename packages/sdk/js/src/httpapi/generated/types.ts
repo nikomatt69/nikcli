@@ -87,29 +87,33 @@ export type BrainResult = {
 
 export type Config = { [x: string]: any }
 
-export type Provider = {
+export type Model = {
   id: string
+  providerID: string
+  api: { id: string; url?: string | undefined; npm: string }
   name: string
-  source: "env" | "config" | "custom" | "api"
-  env: Array<string>
-  key?: string | undefined
-  options: { [x: string]: any }
-  models: {
-    [x: string]: {
-      id: string
-      providerID?: string | undefined
-      name: string
-      family?: string | undefined
-      cost?: any | undefined
-      limit?: any | undefined
-      api?: any | undefined
-      status?: string | undefined
-      options: { [x: string]: any }
-      headers: { [x: string]: string }
-      release_date: string
-      variants?: { [x: string]: any } | undefined
-    }
+  family?: string | undefined
+  capabilities: {
+    temperature: boolean
+    reasoning: boolean
+    attachment: boolean
+    toolcall: boolean
+    input: { text: boolean; audio: boolean; image: boolean; video: boolean; pdf: boolean }
+    output: { text: boolean; audio: boolean; image: boolean; video: boolean; pdf: boolean }
+    interleaved: boolean | { field: "reasoning_content" | "reasoning_details" }
   }
+  cost: {
+    input: number
+    output: number
+    cache: { read: number; write: number }
+    experimentalOver200K?: { input: number; output: number; cache: { read: number; write: number } } | undefined
+  }
+  limit: { context: number; input?: number | undefined; output: number }
+  status: "alpha" | "beta" | "deprecated" | "active"
+  options: { [x: string]: any }
+  headers: { [x: string]: string }
+  release_date: string
+  variants?: { [x: string]: { [x: string]: any } } | undefined
 }
 
 export type ConnectorsSuccess = { success: true }
@@ -200,12 +204,20 @@ export type MissionBooleanResult = boolean
 export type Project = {
   id: string
   worktree: string
+  canonical: string
   vcs?: "git" | undefined
   name?: string | undefined
   icon?: { url?: string | undefined; override?: string | undefined; color?: string | undefined } | undefined
+  commands?: { start?: string | undefined } | undefined
   time: { created: number; updated: number; initialized?: number | undefined }
   sandboxes: Array<string>
 }
+
+export type ProjectDirectory = { directory: string; strategy?: string | undefined }
+
+export type ProjectCopy = { directory: string }
+
+export type ProjectCopyRefresh = { updated: Array<string>; removed: Array<string> }
 
 export type ProviderAuthMethod = { type: "oauth" | "api"; label: string }
 
@@ -247,21 +259,12 @@ export type FileDiff = {
   after: string
 }
 
-export type SessionGithub = {
-  owner: string
-  repo: string
-  fullName: string
-  baseBranch: string
-  headBranch: string
+export type SessionWorktree = {
+  name: string
+  branch: string
+  directory: string
   repositoryDirectory?: string | undefined
-  cloneUrl?: string | undefined
-  htmlUrl?: string | undefined
-  private?: boolean | undefined
-  worktree: { name: string; branch: string; directory: string; cleanedAt?: number | undefined }
-  pullRequest?: { number: number; url: string; title: string } | undefined
-  lastCommitSha?: string | undefined
-  publishedAt?: number | undefined
-  publishError?: string | undefined
+  cleanedAt?: number | undefined
 }
 
 export type SessionMobile = {
@@ -298,7 +301,7 @@ export type MessageOutputLengthError = { name: "MessageOutputLengthError"; data:
 
 export type MessageContextOverflowError = {
   name: "MessageContextOverflowError"
-  data: { message: string; responseBody?: string | undefined }
+  data: { message: string; statusCode?: number | undefined; responseBody?: string | undefined }
 }
 
 export type MessageAbortedError = { name: "MessageAbortedError"; data: { message: string } }
@@ -314,6 +317,7 @@ export type APIError = {
     responseHeaders?: { [x: string]: string } | undefined
     responseBody?: string | undefined
     metadata?: { [x: string]: string } | undefined
+    classification?: "payload-too-large" | undefined
   }
 }
 
@@ -485,6 +489,8 @@ export type ConfigReloadResponse = { reloaded: boolean; directory: string }
 
 export type SuccessFlag = { success: boolean }
 
+export type ProjectDirectoriesUpdated = { projectID: string }
+
 export type EventTelemetryRecord = {
   type: "telemetry.record"
   properties: {
@@ -654,6 +660,13 @@ export type EventPtyExited = { type: "pty.exited"; properties: { id: string; exi
 export type EventPtyDeleted = { type: "pty.deleted"; properties: { id: string } }
 
 export type EventSessionV2Updated = { type: "session.v2.updated"; properties: { sessionID: string } }
+
+export type EventSessionEntryUpdated = { type: "session.entry.updated"; properties: { sessionID: string; entry: any } }
+
+export type EventSessionEntryRemoved = {
+  type: "session.entry.removed"
+  properties: { sessionID: string; entryID: string }
+}
 
 export type EventFileEdited = { type: "file.edited"; properties: { file: string } }
 
@@ -980,9 +993,15 @@ export type MobileRoutine = any
 
 export type MobilePtyInfo = any
 
-export type ConfigProviders = { providers: Array<Provider>; default: { [x: string]: string } }
-
-export type ProviderList = { all: Array<Provider>; default: { [x: string]: string }; connected: Array<string> }
+export type Provider = {
+  id: string
+  name: string
+  source: "env" | "config" | "custom" | "api"
+  env: Array<string>
+  key?: string | undefined
+  options: { [x: string]: any }
+  models: { [x: string]: Model }
+}
 
 export type DoctorReport = {
   ok: boolean
@@ -1017,6 +1036,23 @@ export type PtyList = Array<Pty>
 export type FileDiffList = Array<FileDiff>
 
 export type EventSessionDiff = { type: "session.diff"; properties: { sessionID: string; diff: Array<FileDiff> } }
+
+export type SessionGithub = {
+  owner: string
+  repo: string
+  fullName: string
+  baseBranch: string
+  headBranch: string
+  repositoryDirectory?: string | undefined
+  cloneUrl?: string | undefined
+  htmlUrl?: string | undefined
+  private?: boolean | undefined
+  worktree: SessionWorktree
+  pullRequest?: { number: number; url: string; title: string } | undefined
+  lastCommitSha?: string | undefined
+  publishedAt?: number | undefined
+  publishError?: string | undefined
+}
 
 export type PermissionRule = { permission: string; pattern: string; action: PermissionAction }
 
@@ -1114,6 +1150,11 @@ export type Workspace = {
   config: WorkspaceConfig
 }
 
+export type EventProjectDirectoriesUpdated = {
+  type: "project.directories.updated"
+  properties: ProjectDirectoriesUpdated
+}
+
 export type EventPermissionAsked = { type: "permission.asked"; properties: PermissionRequest1 }
 
 export type QuestionInfo1 = {
@@ -1193,6 +1234,10 @@ export type MobileGitStatus = {
   lastCommit?: { sha: string; message: string; author: string; timestamp: number } | undefined
 }
 
+export type ConfigProviders = { providers: Array<Provider>; default: { [x: string]: string } }
+
+export type ProviderList = { all: Array<Provider>; default: { [x: string]: string }; connected: Array<string> }
+
 export type QuestionRequest = {
   id: string
   sessionID: string
@@ -1225,6 +1270,7 @@ export type Session = {
   summary?: { additions: number; deletions: number; files: number; diffs?: Array<FileDiff> | undefined } | undefined
   share?: { url: string } | undefined
   github?: SessionGithub | undefined
+  worktree?: SessionWorktree | undefined
   mobile?: SessionMobile | undefined
   title: string
   activeCommand?: string | undefined
@@ -1328,6 +1374,7 @@ export type EventMessagePartUpdated = {
 
 export type Event =
   | EventProjectUpdated
+  | EventProjectDirectoriesUpdated
   | EventTelemetryRecord
   | EventServerInstanceDisposed
   | EventPermissionAsked
@@ -1372,6 +1419,8 @@ export type Event =
   | EventPtyExited
   | EventPtyDeleted
   | EventSessionV2Updated
+  | EventSessionEntryUpdated
+  | EventSessionEntryRemoved
   | EventFileEdited
   | EventMonitorCreated
   | EventMonitorUpdated
@@ -1992,6 +2041,43 @@ export type ProjectUpdateInput = {
 }
 
 export type ProjectUpdateOutput = Project
+
+export type ProjectDirectoryListInput = { readonly projectID: { readonly projectID: string }["projectID"] }
+
+export type ProjectDirectoryListOutput = Array<ProjectDirectory>
+
+export type ProjectCopyCreateInput = {
+  readonly projectID: { readonly projectID: string }["projectID"]
+  readonly strategy: {
+    readonly strategy: "git_worktree"
+    readonly directory: string
+    readonly name?: string | undefined
+  }["strategy"]
+  readonly directory: {
+    readonly strategy: "git_worktree"
+    readonly directory: string
+    readonly name?: string | undefined
+  }["directory"]
+  readonly name?: {
+    readonly strategy: "git_worktree"
+    readonly directory: string
+    readonly name?: string | undefined
+  }["name"]
+}
+
+export type ProjectCopyCreateOutput = ProjectCopy
+
+export type ProjectCopyRemoveInput = {
+  readonly projectID: { readonly projectID: string }["projectID"]
+  readonly directory: { readonly directory: string; readonly force: boolean }["directory"]
+  readonly force: { readonly directory: string; readonly force: boolean }["force"]
+}
+
+export type ProjectCopyRemoveOutput = void
+
+export type ProjectCopyRefreshInput = { readonly projectID: { readonly projectID: string }["projectID"] }
+
+export type ProjectCopyRefreshOutput = ProjectCopyRefresh
 
 export type ProviderListOutput = ProviderList
 

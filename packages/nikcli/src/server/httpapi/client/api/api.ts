@@ -527,10 +527,45 @@ export type Endpoint12_2Input = {
 export type Endpoint12_2Output = EffectValue<ReturnType<RawClient["project"]["update"]>>
 export type ProjectUpdateOperation<E = never> = (input: Endpoint12_2Input) => Effect.Effect<Endpoint12_2Output, E>
 
+type Endpoint12_3Request = Parameters<RawClient["project"]["directoryList"]>[0]
+export type Endpoint12_3Input = { readonly projectID: Endpoint12_3Request["params"]["projectID"] }
+export type Endpoint12_3Output = EffectValue<ReturnType<RawClient["project"]["directoryList"]>>
+export type ProjectDirectoryListOperation<E = never> = (
+  input: Endpoint12_3Input,
+) => Effect.Effect<Endpoint12_3Output, E>
+
+type Endpoint12_4Request = Parameters<RawClient["project"]["copyCreate"]>[0]
+export type Endpoint12_4Input = {
+  readonly projectID: Endpoint12_4Request["params"]["projectID"]
+  readonly strategy: Endpoint12_4Request["payload"]["strategy"]
+  readonly directory: Endpoint12_4Request["payload"]["directory"]
+  readonly name?: Endpoint12_4Request["payload"]["name"]
+}
+export type Endpoint12_4Output = EffectValue<ReturnType<RawClient["project"]["copyCreate"]>>
+export type ProjectCopyCreateOperation<E = never> = (input: Endpoint12_4Input) => Effect.Effect<Endpoint12_4Output, E>
+
+type Endpoint12_5Request = Parameters<RawClient["project"]["copyRemove"]>[0]
+export type Endpoint12_5Input = {
+  readonly projectID: Endpoint12_5Request["params"]["projectID"]
+  readonly directory: Endpoint12_5Request["payload"]["directory"]
+  readonly force: Endpoint12_5Request["payload"]["force"]
+}
+export type Endpoint12_5Output = EffectValue<ReturnType<RawClient["project"]["copyRemove"]>>
+export type ProjectCopyRemoveOperation<E = never> = (input: Endpoint12_5Input) => Effect.Effect<Endpoint12_5Output, E>
+
+type Endpoint12_6Request = Parameters<RawClient["project"]["copyRefresh"]>[0]
+export type Endpoint12_6Input = { readonly projectID: Endpoint12_6Request["params"]["projectID"] }
+export type Endpoint12_6Output = EffectValue<ReturnType<RawClient["project"]["copyRefresh"]>>
+export type ProjectCopyRefreshOperation<E = never> = (input: Endpoint12_6Input) => Effect.Effect<Endpoint12_6Output, E>
+
 export interface ProjectApi<E = never> {
   readonly list: ProjectListOperation<E>
   readonly current: ProjectCurrentOperation<E>
   readonly update: ProjectUpdateOperation<E>
+  readonly directoryList: ProjectDirectoryListOperation<E>
+  readonly copyCreate: ProjectCopyCreateOperation<E>
+  readonly copyRemove: ProjectCopyRemoveOperation<E>
+  readonly copyRefresh: ProjectCopyRefreshOperation<E>
 }
 
 export type Endpoint13_0Output = EffectValue<ReturnType<RawClient["provider"]["list"]>>

@@ -1,10 +1,12 @@
-Search available tools by name or capability keyword.
+Search the tools available in this session by name or capability keyword.
 
-Use this tool when you are looking for a tool that may not be in the active toolset or want to discover what tools are available for a specific task.
+The query is matched against both tool names and tool descriptions, so a capability word works even when no tool is named after it (e.g. "git" finds the tools that run git, "screenshot" finds the ones that can take one). Results are limited to tools that are actually callable in this session — anything disabled or denied by permission is left out, so a tool that appears here can be used.
+
+Each result is the tool name plus a one-line summary. Call the tool directly once you have the name.
 
 When to use:
-- You need a tool for a specific capability but don't know its name (e.g., "read", "git", "task")
-- You want to verify a tool exists before attempting to use it
+- You need a capability but don't know which tool provides it (e.g. "image", "memory", "browser")
+- You want to verify a tool exists, and is enabled here, before attempting to use it
 - You're exploring what capabilities are available
 
 When NOT to use:

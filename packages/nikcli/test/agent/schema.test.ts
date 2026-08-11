@@ -31,7 +31,10 @@ describe("Agent.SUBAGENT_TOOLSETS", () => {
   it("lists researcher tools including research-oriented entries", () => {
     const tools = Agent.SUBAGENT_TOOLSETS.researcher
     expect(tools).toContain("websearch")
-    expect(tools).toContain("docs_search")
+    expect(tools).toContain("webfetch")
+    // Was `docs_search` — a tool that never existed. See the drift guard in
+    // test/tool/permission-surface.test.ts.
+    expect(tools).toContain("memory_search")
   })
 
   it("lists scout repository research tools", () => {

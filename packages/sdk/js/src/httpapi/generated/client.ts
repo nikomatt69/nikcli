@@ -121,6 +121,14 @@ import type {
   ProjectCurrentOutput,
   ProjectUpdateInput,
   ProjectUpdateOutput,
+  ProjectDirectoryListInput,
+  ProjectDirectoryListOutput,
+  ProjectCopyCreateInput,
+  ProjectCopyCreateOutput,
+  ProjectCopyRemoveInput,
+  ProjectCopyRemoveOutput,
+  ProjectCopyRefreshInput,
+  ProjectCopyRefreshOutput,
   ProviderListOutput,
   ProviderAuthOutput,
   ProviderApiInput,
@@ -1352,6 +1360,52 @@ export function make(options: ClientOptions) {
             method: "PATCH",
             path: `/project/${encodeURIComponent(input.projectID)}`,
             body: { name: input["name"], icon: input["icon"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      directoryList: (input: ProjectDirectoryListInput, requestOptions?: RequestOptions) =>
+        request<ProjectDirectoryListOutput>(
+          {
+            method: "GET",
+            path: `/project/${encodeURIComponent(input.projectID)}/directory`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      copyCreate: (input: ProjectCopyCreateInput, requestOptions?: RequestOptions) =>
+        request<ProjectCopyCreateOutput>(
+          {
+            method: "POST",
+            path: `/project/${encodeURIComponent(input.projectID)}/copy`,
+            body: { strategy: input["strategy"], directory: input["directory"], name: input["name"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      copyRemove: (input: ProjectCopyRemoveInput, requestOptions?: RequestOptions) =>
+        request<ProjectCopyRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/project/${encodeURIComponent(input.projectID)}/copy`,
+            body: { directory: input["directory"], force: input["force"] },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+      copyRefresh: (input: ProjectCopyRefreshInput, requestOptions?: RequestOptions) =>
+        request<ProjectCopyRefreshOutput>(
+          {
+            method: "POST",
+            path: `/project/${encodeURIComponent(input.projectID)}/copy/refresh`,
             successStatus: 200,
             declaredStatuses: [],
             empty: false,

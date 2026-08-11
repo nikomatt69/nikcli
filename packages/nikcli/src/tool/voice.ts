@@ -74,11 +74,15 @@ export const Voice = Tool.define("voice", async () => {
   }
 
   async function findRecorder(): Promise<{ cmd: string; args: string[] } | null> {
-    const sox = Bun.which("rec")
+    // Pass PATH explicitly: bare `Bun.which` resolves against the PATH captured
+    // when the process started, so a PATH set later (env config, a shim added by
+    // the session) would be invisible.
+    const options = process.env.PATH ? { PATH: process.env.PATH } : undefined
+    const sox = Bun.which("rec", options)
     if (sox) {
       return { cmd: sox, args: [] }
     }
-    const ffmpeg = Bun.which("ffmpeg")
+    const ffmpeg = Bun.which("ffmpeg", options)
     if (ffmpeg) {
       return { cmd: ffmpeg, args: [] }
     }
@@ -116,6 +120,16 @@ export const Voice = Tool.define("voice", async () => {
             output: "No audio recorder found. Please install sox (rec command) or ffmpeg to use voice input.",
           }
         }
+
+        // Opening the microphone is the one irreversible thing this tool does —
+        // audio is captured before anyone sees a transcript, and it leaves the
+        // machine for transcription. Gate it the way `speak` gates playback.
+        await ctx.ask({
+          permission: "voice",
+          patterns: [`record:${language}`],
+          always: ["record:*"],
+          metadata: { duration, language, recorder: recorder.cmd },
+        })
 
         const audioPath = `${os.tmpdir()}/nikcli_voice_${Date.now()}.wav`
         tempAudioPath = audioPath

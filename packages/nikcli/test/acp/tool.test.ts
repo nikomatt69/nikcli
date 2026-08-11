@@ -25,6 +25,25 @@ describe("acp/tool", () => {
     expect(toToolKind("unknown-tool")).toBe("other")
   })
 
+  test("toToolKind uses the ids the registry actually emits", () => {
+    // The registry id is `list`; the mapping used to only carry `ls`, so every
+    // real call degraded to "other".
+    expect(toToolKind("list")).toBe("search")
+    expect(toToolKind("ls")).toBe("search")
+    expect(toToolKind("memory_search")).toBe("search")
+    // `plan` and `goal` are split into one id per operation.
+    expect(toToolKind("plan_enter")).toBe("think")
+    expect(toToolKind("plan_exit")).toBe("think")
+    expect(toToolKind("create_goal")).toBe("think")
+    expect(toToolKind("get_goal")).toBe("think")
+    expect(toToolKind("update_goal")).toBe("think")
+    expect(toToolKind("todoread")).toBe("other")
+  })
+
+  test("toLocations follows the list tool", () => {
+    expect(toLocations("list", { path: "/repo" })).toEqual([{ path: "/repo" }])
+  })
+
   test("toLocations extracts file paths from common inputs", () => {
     expect(toLocations("read", { filePath: "/a/b.txt" })).toEqual([{ path: "/a/b.txt" }])
     expect(toLocations("grep", { path: "/repo" })).toEqual([{ path: "/repo" }])

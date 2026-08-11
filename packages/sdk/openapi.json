@@ -24690,34 +24690,7 @@
               "subagents": {
                 "$ref": "#/components/schemas/PermissionRuleConfig"
               },
-              "docs_add": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "docs_search": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "docs_load": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "docs_unload": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "docs_context": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "docs_request": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "docs_gap_report": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "smart_docs": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
               "context_collect": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "context_search": {
                 "$ref": "#/components/schemas/PermissionRuleConfig"
               },
               "context_related": {
@@ -24727,18 +24700,6 @@
                 "$ref": "#/components/schemas/PermissionRuleConfig"
               },
               "memory_search": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "rag_index": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "rag_search": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "rag_status": {
-                "$ref": "#/components/schemas/PermissionRuleConfig"
-              },
-              "rag_reset": {
                 "$ref": "#/components/schemas/PermissionRuleConfig"
               },
               "generate_image": {
@@ -24772,6 +24733,9 @@
                 "$ref": "#/components/schemas/PermissionActionConfig"
               },
               "speak": {
+                "$ref": "#/components/schemas/PermissionRuleConfig"
+              },
+              "voice": {
                 "$ref": "#/components/schemas/PermissionRuleConfig"
               },
               "lsp": {

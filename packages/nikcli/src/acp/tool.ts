@@ -82,9 +82,11 @@ export function toToolKind(toolName: string): ToolKind {
     case "glob":
     case "codesearch":
     case "search_tools":
+    case "memory_search":
+    // The registry id is `list`; `ls` stays as an alias because models emit it.
+    case "list":
     case "ls":
     case "tree":
-    case "context_search":
     case "truncation":
     case "truncation-dir":
       return "search"
@@ -96,14 +98,22 @@ export function toToolKind(toolName: string): ToolKind {
       return "read"
 
     case "task":
+    // `plan` and `goal` are the generic names; the registry splits each into
+    // one id per operation, and those are what actually arrive here.
     case "plan":
+    case "plan_enter":
+    case "plan_exit":
     case "goal":
+    case "create_goal":
+    case "get_goal":
+    case "update_goal":
     case "monitor":
     case "delegation":
     case "delegator":
       return "think"
 
     case "todowrite":
+    case "todoread":
     case "todo":
     case "question":
     case "invalid":
@@ -146,10 +156,10 @@ export function toLocations(toolName: string, input: ToolInput, cwd?: string): T
     case "grep":
     case "glob":
     case "codesearch":
+    case "list":
     case "ls":
     case "tree":
     case "search_tools":
-    case "context_search":
       return locationFrom(input.path, input.pattern)
 
     default:

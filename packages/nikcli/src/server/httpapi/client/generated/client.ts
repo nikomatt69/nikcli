@@ -516,10 +516,49 @@ const Endpoint12_2 = (raw: RawClient["project"]) => (input: Endpoint12_2Input) =
     payload: { name: input["name"], icon: input["icon"] },
   }).pipe(Effect.mapError(mapClientError))
 
+type Endpoint12_3Request = Parameters<RawClient["project"]["directoryList"]>[0]
+type Endpoint12_3Input = { readonly projectID: Endpoint12_3Request["params"]["projectID"] }
+const Endpoint12_3 = (raw: RawClient["project"]) => (input: Endpoint12_3Input) =>
+  raw["directoryList"]({ params: { projectID: input["projectID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint12_4Request = Parameters<RawClient["project"]["copyCreate"]>[0]
+type Endpoint12_4Input = {
+  readonly projectID: Endpoint12_4Request["params"]["projectID"]
+  readonly strategy: Endpoint12_4Request["payload"]["strategy"]
+  readonly directory: Endpoint12_4Request["payload"]["directory"]
+  readonly name?: Endpoint12_4Request["payload"]["name"]
+}
+const Endpoint12_4 = (raw: RawClient["project"]) => (input: Endpoint12_4Input) =>
+  raw["copyCreate"]({
+    params: { projectID: input["projectID"] },
+    payload: { strategy: input["strategy"], directory: input["directory"], name: input["name"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint12_5Request = Parameters<RawClient["project"]["copyRemove"]>[0]
+type Endpoint12_5Input = {
+  readonly projectID: Endpoint12_5Request["params"]["projectID"]
+  readonly directory: Endpoint12_5Request["payload"]["directory"]
+  readonly force: Endpoint12_5Request["payload"]["force"]
+}
+const Endpoint12_5 = (raw: RawClient["project"]) => (input: Endpoint12_5Input) =>
+  raw["copyRemove"]({
+    params: { projectID: input["projectID"] },
+    payload: { directory: input["directory"], force: input["force"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint12_6Request = Parameters<RawClient["project"]["copyRefresh"]>[0]
+type Endpoint12_6Input = { readonly projectID: Endpoint12_6Request["params"]["projectID"] }
+const Endpoint12_6 = (raw: RawClient["project"]) => (input: Endpoint12_6Input) =>
+  raw["copyRefresh"]({ params: { projectID: input["projectID"] } }).pipe(Effect.mapError(mapClientError))
+
 const adaptGroup12 = (raw: RawClient["project"]) => ({
   list: Endpoint12_0(raw),
   current: Endpoint12_1(raw),
   update: Endpoint12_2(raw),
+  directoryList: Endpoint12_3(raw),
+  copyCreate: Endpoint12_4(raw),
+  copyRemove: Endpoint12_5(raw),
+  copyRefresh: Endpoint12_6(raw),
 })
 
 const Endpoint13_0 = (raw: RawClient["provider"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))

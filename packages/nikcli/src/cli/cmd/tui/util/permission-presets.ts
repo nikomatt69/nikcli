@@ -33,14 +33,10 @@ const PERMISSION_TOOL_KEYS = [
   "generate_image",
   "memory_search",
   "context_collect",
-  "context_search",
   "context_related",
   "context_diagnostics",
-  "rag_index",
-  "rag_search",
-  "rag_status",
-  "rag_reset",
   "speak",
+  "voice",
 ] as const
 
 const INTERNAL_DENY_PERMISSION_KEYS = ["question", "plan_enter", "plan_exit"] as const
@@ -65,11 +61,8 @@ const APPROVE_FOR_ME_PERMISSIONS: PermissionMap = {
   todowrite: "allow",
   repo_overview: "allow",
   context_collect: "allow",
-  context_search: "allow",
   context_related: "allow",
   context_diagnostics: "allow",
-  rag_search: "allow",
-  rag_status: "allow",
   speak: "allow",
   bash: "ask",
   webfetch: "ask",
@@ -82,8 +75,9 @@ const APPROVE_FOR_ME_PERMISSIONS: PermissionMap = {
   repo_clone: "ask",
   generate_image: "ask",
   memory_search: "ask",
-  rag_index: "ask",
-  rag_reset: "ask",
+  // Opens the microphone and ships the audio off for transcription — never
+  // silently allowed, even under "approve for me".
+  voice: "ask",
   question: "deny",
   plan_enter: "deny",
   plan_exit: "deny",

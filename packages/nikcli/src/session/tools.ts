@@ -9,7 +9,6 @@ import { Plugin } from "@/plugin"
 import { ToolRegistry } from "@/tool/registry"
 import { MCP } from "@/mcp"
 import { PermissionNext } from "@/permission/next"
-import { PermissionRuleset } from "@/permission/ruleset"
 import { Flag } from "@/flag/flag"
 import { Truncate } from "@/tool/truncation"
 import { Tool } from "@/tool/tool"
@@ -143,17 +142,13 @@ function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Ag
   )
 }
 
-function toolRegistryTools(
-  model: { providerID: string; modelID: string },
-  agent?: Agent.Info,
-  options?: { slim?: boolean },
-) {
+function toolRegistryTools(model: { providerID: string; modelID: string }, agent?: Agent.Info) {
   return runPromiseWithLayer(
     ToolRegistry.defaultLayer,
     withCurrentInstance(
       Effect.gen(function* () {
         const registry = yield* ToolRegistry.Service
-        return yield* registry.tools(model, agent, options)
+        return yield* registry.tools(model, agent)
       }),
     ),
   )
@@ -277,8 +272,7 @@ export async function resolveTools(input: {
     { modelID: input.model.api.id, providerID: input.model.providerID },
     input.agent,
   )) {
-    if (!ToolRegistry.enabled(item.id, disabledTools)) continue
-    if (PermissionRuleset.disabled([item.id], permissionRuleset).has(item.id)) continue
+    if (!ToolRegistry.visible(item.id, { disabledTools, ruleset: permissionRuleset })) continue
     const schema = ProviderTransform.schema(
       input.model,
       z.toJSONSchema(item.parameters) as import("@ai-sdk/provider").JSONSchema7,
@@ -360,8 +354,7 @@ export async function resolveTools(input: {
     }),
   )
   for (const [key, item] of Object.entries(mcpTools)) {
-    if (!ToolRegistry.enabled(key, disabledTools)) continue
-    if (PermissionRuleset.disabled([key], permissionRuleset).has(key)) continue
+    if (!ToolRegistry.visible(key, { disabledTools, ruleset: permissionRuleset })) continue
     const execute = item.execute
     if (!execute) continue
 
@@ -485,7 +478,10 @@ export async function resolveTools(input: {
 
   const { Connectors } = await import("@/connectors")
   for (const [key, item] of Object.entries(await Connectors.tools())) {
-    if (PermissionRuleset.disabled([key], permissionRuleset).has(key)) continue
+    // Same visibility rule as registry and MCP tools. Connector tools used to
+    // honour permission denials but ignore `disabledTools`, so switching one off
+    // did nothing the moment the toggle surfaces them.
+    if (!ToolRegistry.visible(key, { disabledTools, ruleset: permissionRuleset })) continue
     const execute = item.execute
     if (!execute) continue
 
