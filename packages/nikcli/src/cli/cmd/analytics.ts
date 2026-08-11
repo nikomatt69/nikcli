@@ -23,15 +23,30 @@ export const AnalyticsCommand = cmd({
         (y: Argv) =>
           y
             .option("days", { type: "number", describe: "window in days", default: 30 })
+            .option("all", { type: "boolean", describe: "cover every day on record", default: false })
             .option("json", { type: "boolean", describe: "print the raw dataset", default: false }),
         async (args) => {
           // The rollups read the project's database through the instance ALS
           // context, which only exists inside bootstrap.
           await bootstrap(process.cwd(), async () => {
             const { AnalyticsData } = await import("@/analytics/data")
-            const data = await AnalyticsData.refreshed({ days: String(args.days) })
+
+            // `--all` widens the window to the first day on record. Months and the
+            // lifetime total always cover everything; this is for the headline
+            // figures and the day series, which are windowed.
+            let days = args.days
+            if (args.all) {
+              const { AnalyticsRollup } = await import("@/analytics/rollup")
+              const { earliestDay } = await AnalyticsRollup.bounds().catch(() => ({ earliestDay: undefined }))
+              if (earliestDay) {
+                const span = Math.ceil((Date.now() - Date.parse(`${earliestDay}T00:00:00Z`)) / 86_400_000) + 1
+                days = Math.max(span, 1)
+              }
+            }
+
+            const data = await AnalyticsData.refreshed({ days: String(days), seriesDays: String(days) })
             if (!data) {
-              UI.println(UI.Style.TEXT_DIM + `No usage recorded in the last ${args.days} days.`)
+              UI.println(UI.Style.TEXT_DIM + "No usage recorded yet.")
               return
             }
             if (args.json) {
@@ -89,20 +104,37 @@ export const AnalyticsCommand = cmd({
         "publish",
         "send this install's rollups to the collector now",
         (y: Argv) =>
-          y.option("today", {
-            type: "boolean",
-            describe: "include the day in progress (it is replaced when the day completes)",
-            default: false,
-          }),
+          y
+            .option("today", {
+              type: "boolean",
+              describe: "include the day in progress (it is replaced when the day completes)",
+              default: false,
+            })
+            .option("all", {
+              type: "boolean",
+              describe: "send every day on record, not just the last week",
+              default: false,
+            }),
         async (args) => {
           await bootstrap(process.cwd(), async () => {
             const { AnalyticsShare } = await import("@/analytics/share")
-            const rows = await AnalyticsShare.run({ force: true, includeToday: args.today })
+            // A backfill is worth seeing the extent of before it goes.
+            if (args.all) {
+              const { AnalyticsRollup } = await import("@/analytics/rollup")
+              const { earliestDay } = await AnalyticsRollup.bounds().catch(() => ({ earliestDay: undefined }))
+              if (earliestDay) UI.println(UI.Style.TEXT_DIM + `Backfilling from ${earliestDay}…`)
+            }
+
+            const rows = await AnalyticsShare.run({
+              force: true,
+              includeToday: args.today || args.all,
+              all: args.all,
+            })
             if (rows === 0) {
               UI.println(
                 UI.Style.TEXT_DIM +
-                  "Nothing to publish. Every finished day is already reported" +
-                  (args.today ? "." : " — pass --today to include the day in progress."),
+                  "Nothing to publish. Every day on record is already reported" +
+                  (args.all ? "." : " — pass --all to resend the whole history, --today for the day in progress."),
               )
               return
             }

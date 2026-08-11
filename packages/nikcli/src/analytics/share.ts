@@ -39,6 +39,8 @@ export namespace AnalyticsShare {
   /** How far back to catch up when an install has been offline. */
   const MAX_CATCHUP_DAYS = 7
   const DAY_MS = 86_400_000
+  /** Matches the collector's per-request row cap, so no batch is rejected whole. */
+  const MAX_ROWS_PER_REPORT = 400
   /** Rollups store micro-cent integers; the wire keeps a USD number for older collectors. */
   const MICRO_CENTS_PER_USD = 100_000_000
 
@@ -164,7 +166,12 @@ export namespace AnalyticsShare {
     timer = undefined
   }
 
-  export async function run(options?: { force?: boolean; includeToday?: boolean }): Promise<number> {
+  export async function run(options?: {
+    force?: boolean
+    includeToday?: boolean
+    /** Send every day on record, not just the catch-up window. */
+    all?: boolean
+  }): Promise<number> {
     const analytics = await settings()
     // `force` is for an explicit `nikcli analytics publish`: the user asked for it
     // in that moment, which is the consent the default stands in for otherwise.
@@ -175,7 +182,14 @@ export namespace AnalyticsShare {
     // only sent when asked for — a partial day would be replaced by the complete
     // one tomorrow, which the (install, day, model) key makes safe.
     const newest = options?.includeToday ? dayKey(Date.now()) : dayKey(Date.now() - DAY_MS)
-    const from = dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
+    // `--all` reaches back to the first day on record. The routine path stays on
+    // the short window: a backfill is a thing you ask for once, not something to
+    // redo on every boot.
+    const earliest = options?.all
+      ? ((await AnalyticsRollup.bounds().catch(() => ({ earliestDay: undefined }))).earliestDay ??
+        dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS))
+      : dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
+    const from = earliest
     if (from > newest) return 0
     const yesterday = newest
 
@@ -227,25 +241,37 @@ export namespace AnalyticsShare {
       return 0
     }
 
-    try {
-      const response = await fetch(analytics?.endpoint ?? DEFAULT_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ installID: state.installID, version: Installation.VERSION, rows }),
-      })
-      if (!response.ok) {
-        log.info("report rejected", { status: response.status })
-        return 0
+    // Sent in batches the collector will accept whole. A year of history across a
+    // dozen models is thousands of rows, and one oversized request would be
+    // rejected outright rather than partially stored.
+    const endpoint = analytics?.endpoint ?? DEFAULT_ENDPOINT
+    const sent: string[] = []
+    for (let offset = 0; offset < rows.length; offset += MAX_ROWS_PER_REPORT) {
+      const batch = rows.slice(offset, offset + MAX_ROWS_PER_REPORT)
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ installID: state.installID, version: Installation.VERSION, rows: batch }),
+        })
+        if (!response.ok) {
+          log.info("report rejected", { status: response.status, batch: batch.length })
+          break
+        }
+      } catch (error) {
+        log.info("report failed", { error: String(error) })
+        break
       }
-    } catch (error) {
-      log.info("report failed", { error: String(error) })
-      return 0
+      sent.push(...batch.map((row) => row.day))
     }
+    if (sent.length === 0) return 0
 
-    // Only after the collector accepted them, and stamped with the revision that
-    // was actually sent — a rebuild after this point makes the day pending again.
-    await AnalyticsRollup.markPublished(periods).catch(() => undefined)
-    log.info("reported", { days: periods.length, rows: rows.length })
-    return rows.length
+    // Only the days a batch actually carried are marked, and only after the
+    // collector accepted them — a run that stopped halfway resumes where it
+    // stopped rather than claiming the whole range.
+    const delivered = periods.filter((period) => sent.includes(period))
+    await AnalyticsRollup.markPublished(delivered).catch(() => undefined)
+    log.info("reported", { days: delivered.length, rows: sent.length })
+    return sent.length
   }
 }
