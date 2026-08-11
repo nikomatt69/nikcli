@@ -59,6 +59,13 @@ describe("File HttpApi bridge", () => {
     }>
     expect(textMatches.some((match) => match.path.text.endsWith("src/sample.ts"))).toBe(true)
 
+    // `/find` above returns `/`-separated paths while `/find/file` returns the
+    // host's separator, so the two endpoints of the same API disagree on Windows.
+    // Compared separator-agnostically here so the case tests discovery rather
+    // than that inconsistency — which is worth settling on the API side, not by
+    // pinning one endpoint's current behaviour in a test.
+    const sameFile = (value: string) => value.replace(/\\/g, "/").endsWith("src/sample.ts")
+
     let fileMatches: string[] = []
     for (let attempt = 0; attempt < 5; attempt++) {
       fileMatches = (await request("/find/file", directory, {
@@ -66,10 +73,10 @@ describe("File HttpApi bridge", () => {
         type: "file",
         limit: "20",
       })) as string[]
-      if (fileMatches.some((item) => item.endsWith("src/sample.ts"))) break
+      if (fileMatches.some(sameFile)) break
       await new Promise((resolve) => setTimeout(resolve, 25))
     }
-    expect(fileMatches.some((item) => item.endsWith("src/sample.ts"))).toBe(true)
+    expect(fileMatches.some(sameFile)).toBe(true)
 
     const symbols = (await request("/find/symbol", directory, { query: "sample" })) as unknown[]
     expect(symbols).toEqual([])

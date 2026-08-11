@@ -57,7 +57,9 @@ describe("File.Service", () => {
     )
 
     expect(result.content.content).toBe("export const value = 1")
-    expect(result.listing.map((item) => item.path)).toContain("src/index.ts")
+    // Listing entries carry native separators, so the literal has to be built
+    // rather than written with a slash.
+    expect(result.listing.map((item) => item.path)).toContain(path.join("src", "index.ts"))
     expect(Array.isArray(result.search)).toBe(true)
     expect(result.status).toEqual([])
   })
