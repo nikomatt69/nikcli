@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.266.0 (August 2026)
+
+## Core
+
+- Enhance tool visibility and add new tools (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(tools): enhance tool visibility and add new tools
+
 ## v1.265.0 (August 2026)
 
 ## Core
