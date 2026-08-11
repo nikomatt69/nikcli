@@ -182,14 +182,18 @@ export namespace AnalyticsShare {
     // only sent when asked for — a partial day would be replaced by the complete
     // one tomorrow, which the (install, day, model) key makes safe.
     const newest = options?.includeToday ? dayKey(Date.now()) : dayKey(Date.now() - DAY_MS)
-    // `--all` reaches back to the first day on record. The routine path stays on
-    // the short window: a backfill is a thing you ask for once, not something to
-    // redo on every boot.
-    const earliest = options?.all
-      ? ((await AnalyticsRollup.bounds().catch(() => ({ earliestDay: undefined }))).earliestDay ??
-        dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS))
-      : dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
-    const from = earliest
+    const window = dayKey(Date.now() - MAX_CATCHUP_DAYS * DAY_MS)
+    const bounds = await AnalyticsRollup.bounds().catch(() => ({
+      earliestDay: undefined,
+      publishedPeriods: 1,
+    }))
+
+    // The first run reaches back to the first day on record, so an install that
+    // has been in use for months contributes that history rather than a week of
+    // it. Afterwards the short catch-up window is enough — a backfill is a thing
+    // that happens once, not on every boot. `--all` asks for it again explicitly.
+    const backfill = options?.all === true || bounds.publishedPeriods === 0
+    const from = backfill ? (bounds.earliestDay ?? window) : window
     if (from > newest) return 0
     const yesterday = newest
 

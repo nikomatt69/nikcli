@@ -172,7 +172,7 @@ export namespace AnalyticsRollup {
    * for. Lifetime figures would silently start at whenever the feature was first
    * used, so the first build backfills from here instead.
    */
-  export function bounds(): Promise<{ earliestDay?: string; rollupRows: number }> {
+  export function bounds(): Promise<{ earliestDay?: string; rollupRows: number; publishedPeriods: number }> {
     return runPromiseWithLayer(
       Database.defaultLayer,
       withCurrentInstance(
@@ -186,7 +186,14 @@ export namespace AnalyticsRollup {
               >(`SELECT ${DAY_OF} AS day FROM message_info WHERE ${HAS_MODEL} ORDER BY created_at ASC LIMIT 1`)
               .get()
             const counted = native.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_stat`).get()
-            return { earliestDay: earliest?.day ?? undefined, rollupRows: counted?.n ?? 0 }
+            // Zero published periods means this install has never reported, which
+            // is what distinguishes a first run from a routine one.
+            const published = native.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM analytics_publish`).get()
+            return {
+              earliestDay: earliest?.day ?? undefined,
+              rollupRows: counted?.n ?? 0,
+              publishedPeriods: published?.n ?? 0,
+            }
           })
         }),
       ),

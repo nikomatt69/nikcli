@@ -152,6 +152,23 @@ function ago(days: number) {
   return dayKey(NOW - days * DAY)
 }
 
+/**
+ * Clear the derived tables between tests.
+ *
+ * Deliberately not part of `seed`: one test seeds twice inside its own body to
+ * prove a published day becomes pending again when it is recomputed, and that
+ * only means something if the publish record survives the second seed.
+ */
+async function resetAnalytics() {
+  await runPromiseWithLayer(
+    Database.layerFromPath(dbPath),
+    Effect.gen(function* () {
+      const { native } = yield* Database.Service
+      yield* Effect.sync(() => native.exec("DELETE FROM analytics_publish; DELETE FROM analytics_stat;"))
+    }),
+  )
+}
+
 describe("AnalyticsRollup", () => {
   beforeEach(async () => {
     // Re-assert at run time, not just at import. Every test file that needs its
@@ -160,6 +177,7 @@ describe("AnalyticsRollup", () => {
     // one to delete its temp home would leave the rest pointing at nothing.
     process.env.NIKCLI_DB = dbPath
     await seed([])
+    await resetAnalytics()
   })
 
   it("groups by day, provider and model with the full token breakdown", async () => {
@@ -304,8 +322,9 @@ describe("AnalyticsRollup", () => {
 })
 
 describe("AnalyticsData", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.NIKCLI_DB = dbPath
+    await resetAnalytics()
   })
 
   it("returns nothing rather than a page of zeroes when no tokens were used", async () => {
@@ -395,8 +414,9 @@ describe("AnalyticsData", () => {
 })
 
 describe("AnalyticsData — day, month and lifetime", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.NIKCLI_DB = dbPath
+    await resetAnalytics()
   })
 
   it("reports every calendar month with usage, oldest first", async () => {
@@ -450,5 +470,31 @@ describe("AnalyticsData — day, month and lifetime", () => {
     expect(month.costPerSession).toBeCloseTo(2)
     expect(month.cacheRatio).toBeCloseTo(0.75)
     expect(data.lifetime.pricePerMillion).toBeCloseTo(2000)
+  })
+})
+
+describe("AnalyticsRollup.bounds", () => {
+  beforeEach(async () => {
+    process.env.NIKCLI_DB = dbPath
+    await resetAnalytics()
+  })
+
+  it("reports the first recorded day and whether anything has been published", async () => {
+    await seed([
+      { session: "s1", day: "2026-07-04", provider: "anthropic", model: "opus", input: 10 },
+      { session: "s2", day: "2026-07-09", provider: "anthropic", model: "opus", input: 10 },
+    ])
+    await rebuild("2026-07-01", "2026-07-31")
+
+    const before = await Instance.provide({ directory: projectDir, fn: () => AnalyticsRollup.bounds() })
+    expect(before.earliestDay).toBe("2026-07-04")
+    expect(before.rollupRows).toBeGreaterThan(0)
+    // Nothing published yet: this is what tells a first run from a routine one,
+    // and so what makes the first automatic report a backfill.
+    expect(before.publishedPeriods).toBe(0)
+
+    await markPublished(["2026-07-04"])
+    const after = await Instance.provide({ directory: projectDir, fn: () => AnalyticsRollup.bounds() })
+    expect(after.publishedPeriods).toBe(1)
   })
 })
