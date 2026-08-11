@@ -348,6 +348,14 @@ export namespace LLM {
     if (isCodex) {
       options.instructions = SystemPrompt.instructions()
     }
+    // Depth is per-agent, the same way the model already is. Left unset the
+    // provider runs at its own default, which is the deepest setting — so a
+    // subagent that greps and reports pays the same as the one designing the
+    // change. Merged rather than assigned so an explicit `options.anthropic`
+    // on the agent still wins.
+    if (input.agent.effort) {
+      options.anthropic = { effort: input.agent.effort, ...(options.anthropic ?? {}) }
+    }
 
     const params = await runPlugin(
       Effect.gen(function* () {

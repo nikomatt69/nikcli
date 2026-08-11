@@ -81,6 +81,8 @@ export namespace Agent {
     hidden: Schema.optional(Schema.Boolean),
     topP: Schema.optional(Schema.Number),
     temperature: Schema.optional(Schema.Number),
+    /** Reasoning depth for this agent; unset means the provider's own default. */
+    effort: Schema.optional(Schema.Literals(["low", "medium", "high", "max"])),
     color: Schema.optional(Schema.String),
     permission: Schema.mutable(Schema.Array(PermissionNext.RuleSchema)),
     model: Schema.optional(ModelRefSchema),
@@ -858,6 +860,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
       item.prompt = value.prompt ?? item.prompt
       item.description = value.description ?? item.description
       item.temperature = value.temperature ?? item.temperature
+      item.effort = value.effort ?? item.effort
       item.topP = value.top_p ?? item.topP
       item.mode = value.mode ?? item.mode
       item.color = value.color ?? item.color

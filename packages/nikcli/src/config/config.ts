@@ -804,6 +804,12 @@ export namespace Config {
         .describe("Default model variant for this agent (applies only when using the agent's configured model)."),
       temperature: z.number().optional(),
       top_p: z.number().optional(),
+      effort: z
+        .enum(["low", "medium", "high", "max"])
+        .optional()
+        .describe(
+          "How much reasoning depth this agent gets. Unset means the provider default, which is the deepest setting — worth lowering for agents whose work is mechanical.",
+        ),
       prompt: z.string().optional(),
       tools: z.record(z.string(), z.boolean()).optional().describe("@deprecated Use 'permission' field instead"),
       disable: z.boolean().optional(),
