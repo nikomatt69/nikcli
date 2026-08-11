@@ -41,7 +41,8 @@ describe("GlobTool", () => {
     const result = await withProjectDirectory(projectDir, () =>
       def.executeAsync({ pattern: "**/*.ts", path: projectDir }, ctx),
     )
-    expect(result.output).toContain("nested/d.ts")
+    // The tool returns native paths, so the separator is the host's.
+    expect(result.output).toContain(path.join("nested", "d.ts"))
   })
 
   it("defaults the search directory to Instance.directory", async () => {

@@ -61,10 +61,15 @@ describe("background settings", () => {
   })
 
   test("cleans terminal drag-and-drop paths", () => {
-    expect(cleanSource('"/tmp/my image.png"')).toBe("/tmp/my image.png")
-    expect(cleanSource("/tmp/my\\ image.png")).toBe("/tmp/my image.png")
-    expect(cleanSource("~/pics/a.png", "/Users/nik")).toBe("/Users/nik/pics/a.png")
-    expect(cleanSource("   ")).toBe("")
+    // `windows` defaults to the host platform, and these are the POSIX shapes:
+    // backslash means escaping here, not a separator. Pinned to false so the case
+    // asserts what it is named for on either host — the sibling test below pins
+    // it to true and covers the other half.
+    const posix = false
+    expect(cleanSource('"/tmp/my image.png"', "/Users/nik", posix)).toBe("/tmp/my image.png")
+    expect(cleanSource("/tmp/my\\ image.png", "/Users/nik", posix)).toBe("/tmp/my image.png")
+    expect(cleanSource("~/pics/a.png", "/Users/nik", posix)).toBe("/Users/nik/pics/a.png")
+    expect(cleanSource("   ", "/Users/nik", posix)).toBe("")
   })
 
   test("keeps Windows separators instead of unescaping them", () => {
@@ -276,9 +281,16 @@ describe("background source", () => {
   })
 
   test("shortens paths under the home directory", () => {
-    expect(shortenPath("/Users/nik/Pictures", "/Users/nik")).toBe("~/Pictures")
-    expect(shortenPath("/Users/nik", "/Users/nik")).toBe("~")
-    expect(shortenPath("/etc", "/Users/nik")).toBe("/etc")
+    // `shortenPath` matches the home prefix with `path.sep`, so a POSIX literal
+    // never matches on Windows and the case would fail for the separator rather
+    // than for the shortening. Built natively: the assertion is about what the
+    // function does, not about which slash the host uses.
+    const home = path.join(path.sep, "Users", "nik")
+    expect(shortenPath(path.join(home, "Pictures"), home)).toBe(`~${path.sep}Pictures`)
+    expect(shortenPath(home, home)).toBe("~")
+
+    const outside = path.join(path.sep, "etc")
+    expect(shortenPath(outside, home)).toBe(outside)
   })
 })
 
