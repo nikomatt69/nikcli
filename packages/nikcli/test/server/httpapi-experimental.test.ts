@@ -111,6 +111,10 @@ describe("Experimental HttpApi bridge", () => {
     expect(resources).toEqual({})
   })
 
+  // Three git worktree operations end to end, each spawning a process. Windows
+  // process creation is expensive enough that under a fully parallel suite run
+  // this exceeds the 30s default and fails on duration rather than behaviour.
+  // The budget is the fix; the assertions below are unchanged.
   it("serves experimental worktree create, reset, and remove routes", async () => {
     const directory = await makeGitProjectDir()
 
@@ -138,7 +142,7 @@ describe("Experimental HttpApi bridge", () => {
       directory: created.directory,
     })) as boolean
     expect(removed).toBe(true)
-  })
+  }, 120_000)
 })
 
 afterEach(async () => {

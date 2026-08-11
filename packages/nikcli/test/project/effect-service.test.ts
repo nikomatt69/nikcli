@@ -2,9 +2,21 @@ import { preserveTestEnv } from "../helpers/env"
 import { removeTestDir } from "../helpers/fs"
 import { afterAll, beforeEach, describe, expect, it } from "bun:test"
 import { Effect } from "effect"
+import { existsSync } from "fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+
+/** Whether any ancestor of `directory` is a git repository, itself included. */
+function repositoryAbove(directory: string) {
+  let current = path.resolve(directory)
+  for (;;) {
+    if (existsSync(path.join(current, ".git"))) return true
+    const parent = path.dirname(current)
+    if (parent === current) return false
+    current = parent
+  }
+}
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-project-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -46,7 +58,16 @@ describe("Project.Service", () => {
       expect(result.created.project.id).toBe("global")
       // A directory with no VCS resolves to the filesystem root, matching
       // opencode v2's `path.parse(input).root` fallback for the global project.
-      expect(result.created.project.canonical).toBe(path.parse(projectDir).root)
+      //
+      // Only assertable when the temp directory really has no repository above
+      // it. On Windows the OS temp directory lives under the user's home, so a
+      // home-level repository — dotfiles, most often — is discovered by the walk
+      // up and the canonical is that repository rather than the root. The
+      // fallback is then simply not the path under test on this host, and
+      // pinning the root would assert the machine's layout instead of the code.
+      if (!repositoryAbove(projectDir)) {
+        expect(result.created.project.canonical).toBe(path.parse(projectDir).root)
+      }
       expect(result.updated.name).toBe("Project Service Test")
       expect(result.listed.map((project) => project.id)).toContain("global")
       expect(result.withSandbox.sandboxes).toEqual([])
