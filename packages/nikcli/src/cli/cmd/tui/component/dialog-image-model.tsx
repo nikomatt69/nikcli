@@ -67,7 +67,7 @@ export function DialogImageModel() {
           disabled: isCurrent,
           onSelect: async () => {
             const { error } = await sdk.client.config.update({
-              config: { image: { provider: provider.id, model: modelID } } as any,
+              payload: { image: { provider: provider.id, model: modelID } } as any,
             })
             if (error) {
               toast.show({ message: "Failed to update image config", variant: "error" })

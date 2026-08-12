@@ -1,4 +1,4 @@
-import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient, type Event } from "@nikcli-ai/sdk/httpapi"
 import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, createSignal, onCleanup, onMount } from "solid-js"

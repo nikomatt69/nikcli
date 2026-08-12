@@ -18,7 +18,7 @@ import { DialogFork } from "@/components/dialog-fork"
 import { showToast } from "@nikcli-ai/ui/toast"
 import { findLast } from "@nikcli-ai/util/array"
 import { extractPromptFromParts } from "@/utils/prompt"
-import { UserMessage } from "@nikcli-ai/sdk/v2"
+import { UserMessage } from "@nikcli-ai/sdk/httpapi"
 import { combineCommandSections } from "@/pages/session/helpers"
 import { canAddSelectionContext } from "@/pages/session/session-command-helpers"
 

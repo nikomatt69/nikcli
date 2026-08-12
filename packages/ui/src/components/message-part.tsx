@@ -26,7 +26,7 @@ import {
   QuestionRequest,
   QuestionAnswer,
   QuestionInfo,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import { createStore } from "solid-js/store"
 import { useData } from "../context"
 import { useDiffComponent } from "../context/diff"

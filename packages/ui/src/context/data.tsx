@@ -7,7 +7,7 @@ import type {
   PermissionRequest,
   QuestionRequest,
   QuestionAnswer,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import { createSimpleContext } from "./helper"
 import { PreloadMultiFileDiffResult } from "@pierre/diffs/ssr"
 

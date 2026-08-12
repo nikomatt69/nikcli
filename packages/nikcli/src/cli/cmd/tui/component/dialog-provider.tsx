@@ -8,7 +8,7 @@ import { DialogPrompt } from "../ui/dialog-prompt"
 import { Link } from "../ui/link"
 import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
-import type { ProviderAuthAuthorization } from "@nikcli-ai/sdk/v2"
+import type { ProviderAuthAuthorization } from "@nikcli-ai/sdk/httpapi"
 import { DialogModel } from "./dialog-model"
 import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
@@ -160,7 +160,7 @@ function useDisconnectProvider() {
       if (!disabledProviders.includes(providerID)) {
         const update = await sdk.client.config
           .update({
-            config: {
+            payload: {
               disabled_providers: [...disabledProviders, providerID],
             },
           })
@@ -487,7 +487,7 @@ function OpenRouterFreeMethod(props: { title: string }) {
         if (!value) return
         await sdk.client.auth.set({
           providerID: "openrouter",
-          auth: { type: "api", key: value },
+          payload: { type: "api", key: value },
         })
         await sdk.client.instance.dispose()
         await sync.bootstrap()
@@ -540,7 +540,7 @@ function ApiMethod(props: ApiMethodProps) {
         if (!value) return
         await sdk.client.auth.set({
           providerID: props.providerID,
-          auth: { type: "api", key: value },
+          payload: { type: "api", key: value },
         })
         await sdk.client.instance.dispose()
         await sync.bootstrap()

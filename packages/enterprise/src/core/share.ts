@@ -1,4 +1,4 @@
-import { FileDiff, Message, Model, Part, Session } from "@nikcli-ai/sdk/v2"
+import { FileDiff, Message, Model, Part, Session } from "@nikcli-ai/sdk/httpapi"
 import { fn } from "@nikcli-ai/util/fn"
 import { iife } from "@nikcli-ai/util/iife"
 import { Identifier } from "@nikcli-ai/util/identifier"

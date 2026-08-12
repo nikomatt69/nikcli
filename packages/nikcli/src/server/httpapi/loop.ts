@@ -5,12 +5,32 @@ import { generateFromDescription } from "@/loop/generate"
 import * as Engine from "@/loop/engine"
 import * as Manager from "@/loop/manager"
 import { LOOP_TEMPLATES, generateID, validateDefinition, type LoopDefinition } from "@/loop/schema"
+import * as Domain from "./domain"
 
 export namespace LoopHttpApi {
   const BooleanResult = Schema.Boolean.annotate({
     identifier: "LoopBooleanResult",
   })
-  const UnknownJson = Schema.Unknown
+
+  /**
+   * Domain schemas live in `./domain` so the mobile contract can describe the
+   * same loop objects without importing the loop engine.
+   */
+  const ListOutput = Schema.Struct({
+    loops: Schema.Array(Domain.LoopDefinition),
+    runtimes: Schema.Array(Domain.LoopRuntime),
+  }).annotate({ identifier: "LoopListOutput" })
+
+  const TemplatesOutput = Schema.Struct({
+    templates: Schema.Array(Domain.LoopTemplate),
+  }).annotate({ identifier: "LoopTemplatesOutput" })
+
+  const RunsOutput = Schema.Struct({ runs: Schema.Array(Domain.LoopRun) }).annotate({ identifier: "LoopRunsOutput" })
+
+  const GetOutput = Schema.Struct({
+    loop: Domain.LoopDefinition,
+    runtime: Domain.LoopRuntime,
+  }).annotate({ identifier: "LoopGetOutput" })
 
   const NotFound = Schema.Struct({
     name: Schema.Literal("NotFound"),
@@ -64,32 +84,32 @@ export namespace LoopHttpApi {
   })
 
   export const Group = HttpApiGroup.make("loop")
-    .add(HttpApiEndpoint.get("list", "/", { success: UnknownJson }))
-    .add(HttpApiEndpoint.get("templates", "/templates", { success: UnknownJson }))
+    .add(HttpApiEndpoint.get("list", "/", { success: ListOutput }))
+    .add(HttpApiEndpoint.get("templates", "/templates", { success: TemplatesOutput }))
     .add(
       HttpApiEndpoint.post("generate", "/generate", {
         payload: GeneratePayload,
-        success: UnknownJson,
+        success: Domain.LoopDefinition,
         error: ValidationError,
       }),
     )
     .add(
       HttpApiEndpoint.get("recentRuns", "/runs/recent", {
         query: RecentRunsQuery,
-        success: UnknownJson,
+        success: RunsOutput,
       }),
     )
     .add(
       HttpApiEndpoint.get("get", "/:id", {
         params: LoopIDPath,
-        success: UnknownJson,
+        success: GetOutput,
         error: NotFound,
       }),
     )
     .add(
       HttpApiEndpoint.put("upsert", "/", {
         payload: CreatePayload,
-        success: UnknownJson,
+        success: Domain.LoopDefinition,
         error: ValidationError,
       }),
     )
@@ -97,7 +117,7 @@ export namespace LoopHttpApi {
       HttpApiEndpoint.post("update", "/:id", {
         params: LoopIDPath,
         payload: UpdatePayload,
-        success: UnknownJson,
+        success: Domain.LoopDefinition,
         error: [NotFound, ValidationError],
       }),
     )
@@ -112,7 +132,7 @@ export namespace LoopHttpApi {
       HttpApiEndpoint.post("toggle", "/:id/toggle", {
         params: LoopIDPath,
         payload: TogglePayload,
-        success: UnknownJson,
+        success: Domain.LoopDefinition,
         error: NotFound,
       }),
     )
@@ -148,7 +168,7 @@ export namespace LoopHttpApi {
       HttpApiEndpoint.get("runs", "/:id/runs", {
         params: LoopIDPath,
         query: RunsQuery,
-        success: UnknownJson,
+        success: RunsOutput,
       }),
     )
     .prefix("/loop")

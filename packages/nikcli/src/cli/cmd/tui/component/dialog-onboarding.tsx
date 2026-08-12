@@ -979,7 +979,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
   const persistImage = async (providerID: string, modelID: string) => {
     const result = await sdk.client.config.update({
-      config: { image: { provider: providerID, model: modelID } } as any,
+      payload: { image: { provider: providerID, model: modelID } } as any,
     })
     if ((result as { error?: unknown }).error) {
       const msg = errorMessage((result as { error?: unknown }).error)
@@ -999,7 +999,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
   const persistSpeak = async (providerID: string, voiceId: string, voiceName: string) => {
     const result = await sdk.client.config.update({
-      config: { speak: { provider: providerID, model: voiceId } } as any,
+      payload: { speak: { provider: providerID, model: voiceId } } as any,
     })
     if ((result as { error?: unknown }).error) {
       const msg = errorMessage((result as { error?: unknown }).error)
@@ -1030,7 +1030,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
   const persistRemote = async (providerID: string) => {
     const result = await sdk.client.config.update({
-      config: {
+      payload: {
         remote: { provider: providerID, enableTunnel: providerID !== "none" },
       } as any,
     })

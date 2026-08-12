@@ -6,6 +6,8 @@ import { Auth } from "@/auth"
 import "@/bus/all-events"
 import { BusEvent } from "@/bus/bus-event"
 import { MessageV2 } from "@/session/message-v2"
+import { Session } from "@/session"
+import { Snapshot } from "@/snapshot"
 import { Config } from "@/config/config"
 import { InstanceState, runPromiseWithLayer } from "@/effect"
 import { Instance } from "@/project/instance"
@@ -204,6 +206,21 @@ export namespace ContractExtraHttpApi {
     shareID: Schema.String,
   })
 
+  /**
+   * `ShareNext.Data` — the discriminated union stored per share item. All
+   * three JSON share endpoints return `Object.values(share.items)`, so they
+   * share one schema. Members reuse the services' own Effect Schemas.
+   */
+  const ShareData = Schema.Array(
+    Schema.Union([
+      Schema.Struct({ type: Schema.Literal("session"), data: Session.InfoSchema }),
+      Schema.Struct({ type: Schema.Literal("message"), data: MessageV2.InfoSchema }),
+      Schema.Struct({ type: Schema.Literal("part"), data: MessageV2.PartSchema }),
+      Schema.Struct({ type: Schema.Literal("session_diff"), data: Schema.Array(Snapshot.FileDiffSchema) }),
+      Schema.Struct({ type: Schema.Literal("model"), data: Schema.Array(Provider.ModelSchema) }),
+    ]),
+  ).annotate({ identifier: "ShareData" })
+
   export const ShareGroup = HttpApiGroup.make("share")
     .add(
       HttpApiEndpoint.get("short", "/s/:shareID", {
@@ -216,19 +233,19 @@ export namespace ContractExtraHttpApi {
     .add(
       HttpApiEndpoint.get("page", "/share/:shareID", {
         params: SharePath,
-        success: Schema.Unknown,
+        success: ShareData,
       }).annotate(OpenApi.Identifier, "getShare:shareID"),
     )
     .add(
       HttpApiEndpoint.get("api", "/api/share/:shareID", {
         params: SharePath,
-        success: Schema.Unknown,
+        success: ShareData,
       }).annotate(OpenApi.Identifier, "getApiShare:shareID"),
     )
     .add(
       HttpApiEndpoint.get("data", "/api/share/:shareID/data", {
         params: SharePath,
-        success: Schema.Unknown,
+        success: ShareData,
       }).annotate(OpenApi.Identifier, "getApiShare:shareIDData"),
     )
 
@@ -300,6 +317,22 @@ export namespace ContractExtraHttpApi {
   // (the shared `{ error }` body cannot round-trip the HttpApi error
   // encoder), described here for the SDK contract only. ---
 
+  /** `UserDB.PublicUser` — the stored user minus `password_hash`. */
+  const PublicUser = Schema.Struct({
+    id: Schema.String,
+    username: Schema.String,
+    email: Schema.String,
+    display_name: Schema.NullOr(Schema.String),
+    role: Schema.Literals(["admin", "user"]),
+    created_at: Schema.Number,
+    updated_at: Schema.Number,
+  }).annotate({ identifier: "PublicUser" })
+
+  const UserSession = Schema.Struct({
+    token: Schema.String,
+    user: PublicUser,
+  }).annotate({ identifier: "UserSession" })
+
   export const UsersGroup = HttpApiGroup.make("users")
     .add(
       HttpApiEndpoint.post("register", "/user/register", {
@@ -309,7 +342,7 @@ export namespace ContractExtraHttpApi {
           password: Schema.String,
           displayName: Schema.optional(Schema.String),
         }),
-        success: Schema.Unknown,
+        success: UserSession,
       }).annotate(OpenApi.Identifier, "postUserRegister"),
     )
     .add(
@@ -318,7 +351,7 @@ export namespace ContractExtraHttpApi {
           email: Schema.String,
           password: Schema.String,
         }),
-        success: Schema.Unknown,
+        success: UserSession,
       }).annotate(OpenApi.Identifier, "postUserLogin"),
     )
     .add(
@@ -329,7 +362,7 @@ export namespace ContractExtraHttpApi {
           password: Schema.optional(Schema.String),
           role: Schema.optional(Schema.Literals(["admin", "user"])),
         }),
-        success: Schema.Unknown,
+        success: PublicUser,
       }).annotate(OpenApi.Identifier, "patchUser:id"),
     )
 

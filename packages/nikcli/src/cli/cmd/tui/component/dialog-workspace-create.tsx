@@ -1,4 +1,4 @@
-import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"

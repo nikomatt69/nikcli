@@ -1,5 +1,4 @@
 import { Effect } from "effect"
-import { Config } from "@/config/config"
 import { ConnectorAuth } from "@/connectors/auth"
 import { Connectors } from "@/connectors"
 import { GithubApi } from "@/connectors/api/github"

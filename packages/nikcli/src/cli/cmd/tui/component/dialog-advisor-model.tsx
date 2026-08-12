@@ -27,7 +27,7 @@ export function DialogAdvisorModel(props: { agentName: string }) {
             onSelect: (ctx: DialogContext) => {
               sdk.client.config
                 .update({
-                  config: { agent: { [props.agentName]: { advisor: null, advisor_max_uses: null } } } as any,
+                  payload: { agent: { [props.agentName]: { advisor: null, advisor_max_uses: null } } } as any,
                 })
                 .then(({ error }) => {
                   if (error) {
@@ -67,7 +67,7 @@ export function DialogAdvisorModel(props: { agentName: string }) {
               onSelect: (ctx: DialogContext) => {
                 sdk.client.config
                   .update({
-                    config: { agent: { [props.agentName]: { advisor: `${providerID}/${modelID}` } } },
+                    payload: { agent: { [props.agentName]: { advisor: `${providerID}/${modelID}` } } },
                   })
                   .then(({ error }) => {
                     if (error) {

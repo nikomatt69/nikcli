@@ -13,7 +13,7 @@ export function DialogStatus() {
   const enabledFormatters = createMemo(() => sync.data.formatter.filter((f) => f.enabled))
 
   const plugins = createMemo(() => {
-    const list = sync.data.config.plugin ?? []
+    const list: Array<string | [string, unknown]> = sync.data.config.plugin ?? []
     const result = list.map((item) => {
       const value = typeof item === "string" ? item : item[0]
       if (value.startsWith("file://")) {

@@ -1,5 +1,5 @@
 import { batch, onCleanup, onMount } from "solid-js"
-import type { Path, Workspace } from "@nikcli-ai/sdk/v2"
+import type { Path, Workspace } from "@nikcli-ai/sdk/httpapi"
 import { createStore, reconcile } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"

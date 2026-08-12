@@ -1,7 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { type IPty } from "bun-pty"
-import z from "zod"
 import { Identifier } from "../id/id"
 import { Log } from "../util/log"
 import { Shell } from "@/shell/shell"
@@ -21,7 +20,7 @@ export namespace Pty {
     return spawn
   })
 
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     id: Schema.String.pipe(Schema.check(Schema.isStartsWith("pty"))),
     title: Schema.String,
     command: Schema.String,

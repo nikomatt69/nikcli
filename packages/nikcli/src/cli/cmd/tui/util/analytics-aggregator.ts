@@ -1,4 +1,4 @@
-import type { Session, Message, Part, Todo, Workspace } from "@nikcli-ai/sdk/v2"
+import type { Session, Message, Part, Todo, Workspace } from "@nikcli-ai/sdk/httpapi"
 import type { SessionAnalytics } from "@/analytics/analytics"
 import * as Activity from "@nikcli-ai/util/activity"
 

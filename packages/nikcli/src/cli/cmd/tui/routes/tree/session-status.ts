@@ -1,5 +1,5 @@
 import { TextAttributes, type RGBA } from "@opentui/core"
-import type { SessionStatus } from "@nikcli-ai/sdk/v2"
+import type { SessionStatus } from "@nikcli-ai/sdk/httpapi"
 import { formatMessageLineForTimeline, truncateOneLine } from "@tui/util/timeline-style-text"
 
 type TreeTheme = {

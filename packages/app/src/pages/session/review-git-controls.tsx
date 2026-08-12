@@ -3,7 +3,7 @@ import type {
   MobileGitBranchesResponse,
   MobileGitCommitsResponse,
   MobileGitStatusResponse,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import { Button } from "@nikcli-ai/ui/button"
 import { useDialog } from "@nikcli-ai/ui/context/dialog"
 import { Dialog } from "@nikcli-ai/ui/dialog"
@@ -582,7 +582,7 @@ function DialogGitHubAccount(props: { onChanged: () => void }) {
     const result = await requestData(
       sdk.client.mobile.github.oauth.device.poll({
         directory: sdk.directory,
-        mobileGithubDeviceAuthPollInput: { deviceCode: current.deviceCode },
+        deviceCode: current.deviceCode,
       }),
     )
     if (result.status === "pending") return false

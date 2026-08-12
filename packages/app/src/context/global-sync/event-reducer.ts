@@ -10,7 +10,7 @@ import type {
   Session,
   SessionStatus,
   Todo,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 import type { State, VcsCache } from "./types"
 import { trimSessions } from "./session-trim"
 

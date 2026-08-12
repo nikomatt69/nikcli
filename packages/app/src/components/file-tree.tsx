@@ -17,7 +17,7 @@ import {
   type ParentProps,
 } from "solid-js"
 import { Dynamic } from "solid-js/web"
-import type { FileNode } from "@nikcli-ai/sdk/v2"
+import type { FileNode } from "@nikcli-ai/sdk/httpapi"
 
 function pathToFileUrl(filepath: string): string {
   const encodedPath = filepath

@@ -1,4 +1,4 @@
-import type { AssistantMessage, Part, UserMessage } from "@nikcli-ai/sdk/v2"
+import type { AssistantMessage, Part, UserMessage } from "@nikcli-ai/sdk/httpapi"
 import { Locale } from "@/util/locale"
 
 export type TranscriptOptions = {

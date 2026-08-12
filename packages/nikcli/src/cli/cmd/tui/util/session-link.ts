@@ -1,4 +1,4 @@
-import type { Part } from "@nikcli-ai/sdk/v2"
+import type { Part } from "@nikcli-ai/sdk/httpapi"
 import type { useKV } from "@tui/context/kv"
 import type { useSDK } from "@tui/context/sdk"
 import type { useSync } from "@tui/context/sync"

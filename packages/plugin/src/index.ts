@@ -9,7 +9,7 @@ import type {
   Auth,
   Model,
   Config as SDKConfig,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 
 import type { BunShell } from "./shell"
 import { type ToolDefinition } from "./tool"

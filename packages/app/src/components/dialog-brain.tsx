@@ -59,7 +59,7 @@ export const DialogBrain: Component = () => {
     if (running()) return
     setRunning(true)
     try {
-      const res = await sdk.client.brain.trigger({ brainTriggerInput: { force: true } })
+      const res = await sdk.client.brain.trigger({ force: true })
       setResult(res.data as BrainResult | undefined)
       await refetch()
     } finally {

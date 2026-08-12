@@ -1,4 +1,4 @@
-import type { ProviderAuthAuthorization } from "@nikcli-ai/sdk/v2/client"
+import type { ProviderAuthAuthorization } from "@nikcli-ai/sdk/httpapi"
 import { Button } from "@nikcli-ai/ui/button"
 import { useDialog } from "@nikcli-ai/ui/context/dialog"
 import { Dialog } from "@nikcli-ai/ui/dialog"
@@ -254,7 +254,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                   setFormStore("error", undefined)
                   await globalSDK.client.auth.set({
                     providerID: props.provider,
-                    auth: {
+                    payload: {
                       type: "api",
                       key: apiKey,
                     },

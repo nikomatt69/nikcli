@@ -44,7 +44,7 @@ export function DialogSettingsDiagnostics() {
     if (saving()) return
     setSaving(true)
     try {
-      const { error } = await sdk.client.config.update({ config: { tui: patch } as any })
+      const { error } = await sdk.client.config.update({ payload: { tui: patch } as any })
       if (error) {
         toast.show({ message: `Failed to update settings: ${(error as any).message ?? error}`, variant: "error" })
         return

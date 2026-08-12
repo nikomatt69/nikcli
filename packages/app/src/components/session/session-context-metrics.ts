@@ -1,4 +1,4 @@
-import type { AssistantMessage, Message } from "@nikcli-ai/sdk/v2/client"
+import type { AssistantMessage, Message } from "@nikcli-ai/sdk/httpapi"
 
 type Provider = {
   id: string

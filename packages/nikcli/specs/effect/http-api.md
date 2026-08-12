@@ -13,8 +13,98 @@ Plan for replacing instance Hono route implementations with Effect `HttpApi` whi
 | Mount model                   | `Server.fetch` / `Server.listen` → `ServerRouter` (body-limit, CORS, auth, instance) → Effect HttpApi + raw handlers on `Bun.serve`. |
 | OpenAPI / SDK                 | Generated from `PublicApi` only (`cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts`).                                          |
 | Special / raw                 | Share, SSE events, prompt streaming, companion HTML, PTY/workspace WebSocket upgrades, website proxy.                                |
+| Client generation             | **`@nikcli-ai/httpapi-codegen` only**, from `PublicApi` directly (`script/generate-httpapi-clients.ts`): 30 groups, 282 endpoints.   |
 
 Historical notes below describe the in-Hono bridge era and are kept for migration context only.
+
+## SDK consumers moved off hey-api (2026-08-13)
+
+The server had been on Effect HttpApi for a while, but every consumer still
+imported `@nikcli-ai/sdk/v2` — 117 files against 2 on `/httpapi`. That directory
+was Hono-era hey-api output that nothing could reproduce, so the SDK was frozen
+and `packages/sdk/js/script/build.ts` was a live hazard.
+
+All 117 files now import `@nikcli-ai/sdk/httpapi`. `src/v2`, `src/gen` and
+`src/client.ts` are deleted, `@hey-api/openapi-ts` is gone from the repo, and
+`build.ts` regenerates from the contract before emitting `dist` — running it is
+safe.
+
+How the call sites survived without a 280-site rewrite: `src/httpapi/compat.ts`
+maps the namespaces callers already use onto the generated client. Its entries
+are typed references into `generated/client.ts`, so a codegen rename is a
+typecheck failure, not a runtime 404. It also owns three behaviours the raw
+client does not have:
+
+- results resolve as `{ data, error }` instead of rejecting (`throwOnError`
+  opts back in, per call or per client), so a failed call in a UI event handler
+  cannot become an unhandled rejection;
+- `directory` / `workspace` select the instance from either the input or the
+  options, folded into `x-nikcli-directory` / `x-nikcli-workspace`. Five inputs
+  declare a `directory` of their own (`worktreeRemove`, `worktreeReset`,
+  `session.list`, the two project-copy endpoints) and keep it as a real field —
+  their instance selection goes through the options argument;
+- `error.response.status` is recovered from `ClientError` so 5xx retry loops
+  still work.
+
+What genuinely changed at call sites: hey-api's body wrappers
+(`{ brainTriggerInput: … }`, `{ config: … }`, `{ auth: … }`) were flattened to
+the contract's own shape, and a handful of newly-precise types needed narrowing
+(`MessageOutputLengthError` carries no `data.message`; stored credentials are
+readonly).
+
+`auth.set` is back in the Promise client. It had been omitted globally because
+`HttpApiClient.ForApi` narrows a union payload to its first member; the
+generator now compiles two contracts, so only the Effect clients pay that cost.
+Promise client: 284 endpoints. Effect clients: 282.
+
+Still open: `packages/sdk/js/src/gen` is gone, but `Config` remains an open
+record, which is what forces the hand-written `McpLocalConfig` /
+`ReferenceConfig` / `KeybindsConfig` in `src/httpapi/client.ts` and leaves
+`config.plugin`, `config.ads` and friends untyped at call sites.
+
+## Contract schema split (2026-08-12)
+
+The contract described most domain payloads as `Schema.Unknown`, which the
+codegen emits as `any` — 61 `any` type aliases in the generated clients. That
+was the last thing standing between the Effect contract and a usable SDK.
+
+Now **9** remain. What changed:
+
+- **Reuse over redefinition.** Groups reference the Effect Schemas the services
+  already own — `Session.InfoSchema`, `Project.InfoSchema`, `Pty.InfoSchema`,
+  `Workspace.InfoSchema`, `ManagedWorktree.InfoSchema`, `MessageV2.PartSchema`
+  / `WithPartsSchema`, `Snapshot.FileDiffSchema`, `Monitor.RecordSchema` /
+  `LogSnapshotSchema`, `SessionGoal.StateEffect`, `Provider.ModelSchema`. Each
+  domain object has one definition across the whole contract. Several of these
+  were private consts and are now exported.
+- **`httpapi/domain.ts`** holds schemas for domain objects that several groups
+  describe but that exist only as zod in the services (loops, routines). It
+  imports nothing but `effect`, so the mobile contract can describe a loop
+  without pulling `loop/engine` into its module graph.
+- **Typed groups:** analytics (6), loop (9), mission (9), mobile (15),
+  users (3), share (4), session context/goal/background/monitor (8),
+  connectors (1), sync stats (1).
+- Handlers that returned `jsonSafe(x) as unknown` now return the value; the
+  schema types the handler, so a service whose shape drifts fails typecheck.
+
+**Runtime risk is not uniform.** Groups served by Effect handlers (analytics,
+loop, mission, session) encode responses against these schemas at request
+time, so a wrong field is a failed request — those were verified against the
+real services and the suite. `/mobile/*` and the contract-extra groups
+(users, share, sync stats) are served through `handleRaw` / raw
+implementations, so their schemas shape the generated SDK without adding any
+runtime encoding.
+
+**The 9 that stay open, and why:** `MobileProject`, `MobileGithubReposOutput`
+(upstream GitHub payloads spread through verbatim), `SessionV2EntryList`,
+`SessionV2State`, `SessionV2EventList`, `WorkspaceJournalEvent`
+(polymorphic event-sourced entries), `MobileSessionStreamOutput`,
+`SyncStreamOutput` (SSE frames), `ShareShortOutput` (a 308 with no body).
+Narrowing these would claim a shape the endpoint does not actually guarantee.
+
+`MobileConfigInfo` is an open record rather than `any`: the `nikcli.json`
+document is a ~550-line zod schema and is the remaining genuine schema-split
+item.
 
 ## End State
 

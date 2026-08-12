@@ -1,5 +1,5 @@
 import type { AgentSideConnection, ContentBlock } from "@agentclientprotocol/sdk"
-import type { Event, NikcliClient, Part, SessionMessageResponse, ToolPart } from "@nikcli-ai/sdk/v2"
+import type { Event, NikcliClient, Part, SessionMessageResponse, ToolPart } from "@nikcli-ai/sdk/httpapi"
 import { Log } from "@/util/log"
 import {
   completedToolUpdate,

@@ -6,7 +6,7 @@ import { DropdownMenu } from "@nikcli-ai/ui/dropdown-menu"
 import { InlineInput } from "@nikcli-ai/ui/inline-input"
 import { Tooltip } from "@nikcli-ai/ui/tooltip"
 import { SessionTurn } from "@nikcli-ai/ui/session-turn"
-import type { UserMessage } from "@nikcli-ai/sdk/v2"
+import type { UserMessage } from "@nikcli-ai/sdk/httpapi"
 import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
 
 export function MessageTimeline(props: {

@@ -1,7 +1,3 @@
-const sessions = new Map<string, any>()
-const cliSockets = new Map<string, any>()
-const browserSockets = new Map<string, any[]>()
-
 const CSS = `
 :root {
   --bg-primary: #0d1117;

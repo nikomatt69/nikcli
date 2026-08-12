@@ -10,7 +10,7 @@ import { Usage } from "../util/usage"
 import { useEditorContext } from "../context/editor"
 import { useKV } from "../context/kv"
 import { Token } from "@/util/token"
-import type { SessionContextResponse, AssistantMessage, Session } from "@nikcli-ai/sdk/v2"
+import type { SessionContextResponse, AssistantMessage, Session } from "@nikcli-ai/sdk/httpapi"
 import {
   BrailleSparkline,
   StackedBarChartV2,

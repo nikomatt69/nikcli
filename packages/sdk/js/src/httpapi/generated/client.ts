@@ -377,6 +377,8 @@ import type {
   SessionMessageRemoveOutput,
   SessionPartRemoveInput,
   SessionPartRemoveOutput,
+  SessionPartUpdateInput,
+  SessionPartUpdateOutput,
   SessionV2EntriesInput,
   SessionV2EntriesOutput,
   SessionV2StateInput,
@@ -453,6 +455,8 @@ import type {
   WorkspaceSessionRestoreOutput,
   WorkspaceWarpInput,
   WorkspaceWarpOutput,
+  AuthSetInput,
+  AuthSetOutput,
   AuthRemoveInput,
   AuthRemoveOutput,
   ConfigManagementReloadOutput,
@@ -2936,6 +2940,18 @@ export function make(options: ClientOptions) {
           },
           requestOptions,
         ),
+      partUpdate: (input: SessionPartUpdateInput, requestOptions?: RequestOptions) =>
+        request<SessionPartUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}/part/${encodeURIComponent(input.partID)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
       v2Entries: (input: SessionV2EntriesInput, requestOptions?: RequestOptions) =>
         request<SessionV2EntriesOutput>(
           {
@@ -3396,6 +3412,18 @@ export function make(options: ClientOptions) {
         ),
     },
     auth: {
+      set: (input: AuthSetInput, requestOptions?: RequestOptions) =>
+        request<AuthSetOutput>(
+          {
+            method: "PUT",
+            path: `/auth/${encodeURIComponent(input.providerID)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
       remove: (input: AuthRemoveInput, requestOptions?: RequestOptions) =>
         request<AuthRemoveOutput>(
           {

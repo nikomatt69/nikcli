@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import type { MobileSessionDetail, MobileSessionSummary } from "@nikcli-ai/sdk/v2/client"
+import type { MobileSessionDetail, MobileSessionSummary } from "@nikcli-ai/sdk/httpapi"
 
 export function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ")

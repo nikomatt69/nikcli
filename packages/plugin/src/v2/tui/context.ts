@@ -17,7 +17,7 @@ import type {
   ReferenceConfig,
   Session,
   SessionEntry,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import type { JSX } from "@opentui/solid"
 import type { Store } from "solid-js/store"
 

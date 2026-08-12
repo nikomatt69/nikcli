@@ -11,20 +11,16 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts",
+    "./client": "./src/httpapi/client.ts",
     "./server": "./src/server.ts",
     "./crypto": "./src/crypto/index.ts",
     "./cloud": "./src/cloud/index.ts",
-    "./v2": "./src/v2/index.ts",
-    "./v2/client": "./src/v2/client.ts",
-    "./v2/server": "./src/v2/server.ts",
     "./httpapi": "./src/httpapi/index.ts"
   },
   "files": [
     "dist"
   ],
   "devDependencies": {
-    "@hey-api/openapi-ts": "0.99.0",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
@@ -35,13 +31,10 @@
     "directory": "dist",
     "exports": {
       ".": "./index.js",
-      "./client": "./client.js",
+      "./client": "./httpapi/client.js",
       "./server": "./server.js",
       "./crypto": "./crypto/index.js",
       "./cloud": "./cloud/index.js",
-      "./v2": "./v2/index.js",
-      "./v2/client": "./v2/client.js",
-      "./v2/server": "./v2/server.js",
       "./httpapi": "./httpapi/index.js"
     }
   }

@@ -68,6 +68,33 @@ export namespace SyncHttpApi {
     error: Schema.optional(Schema.String),
   }).annotate({ identifier: "SyncConfigSetResponse" })
 
+  /** Shape returned by the raw `stats` handler below. */
+  const StatsEvent = Schema.Struct({
+    id: Schema.String,
+    projectId: Schema.String,
+    workspaceId: Schema.optional(Schema.String),
+    aggregate: Schema.String,
+    seq: Schema.Number,
+    type: Schema.String,
+    timestamp: Schema.Number,
+    origin: Schema.String,
+    dataPreview: Schema.Unknown,
+  }).annotate({ identifier: "SyncStatsEvent" })
+
+  const StatsOutput = Schema.Struct({
+    url: Schema.optional(Schema.String),
+    configured: Schema.Boolean,
+    source: Schema.String,
+    connected: Schema.Boolean,
+    pending: Schema.Number,
+    failed: Schema.Number,
+    total: Schema.Number,
+    lastSeq: Schema.Number,
+    lastError: Schema.optional(Schema.String),
+    lastChange: Schema.Number,
+    events: Schema.Array(StatsEvent),
+  }).annotate({ identifier: "SyncStatsOutput" })
+
   export const Group = HttpApiGroup.make("sync")
     .add(
       HttpApiEndpoint.post("event", "/event", {
@@ -102,7 +129,7 @@ export namespace SyncHttpApi {
     .add(
       HttpApiEndpoint.get("stats", "/stats", {
         query: Schema.Struct({ projectID: Schema.optional(Schema.String) }),
-        success: Schema.Unknown,
+        success: StatsOutput,
       }).annotate(OpenApi.Identifier, "sync.stats"),
     )
     .add(

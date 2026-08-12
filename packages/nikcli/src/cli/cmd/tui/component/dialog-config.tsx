@@ -145,7 +145,7 @@ function ConfigCategoryDetail(props: { category: ConfigCategory }) {
       }
 
       await sdk.client.config.update({
-        config: {
+        payload: {
           [props.category]: {
             [key]: parsed,
           },
@@ -185,7 +185,7 @@ function ConfigCategoryDetail(props: { category: ConfigCategory }) {
       }
 
       await sdk.client.config.update({
-        config: {
+        payload: {
           [props.category]: {
             [key]: parsed,
           },
@@ -246,7 +246,7 @@ export function DialogConfig() {
 
     try {
       const parsed = JSON.parse(result)
-      await sdk.client.config.update({ config: parsed })
+      await sdk.client.config.update({ payload: parsed })
       toast.show({ message: "Config updated", variant: "success" })
     } catch (error: any) {
       toast.show({ message: `Invalid JSON: ${error.message}`, variant: "error" })

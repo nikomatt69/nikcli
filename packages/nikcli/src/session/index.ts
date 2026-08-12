@@ -1,7 +1,6 @@
 import { Slug } from "@nikcli-ai/util/slug"
 import path from "path"
 import { BusEvent } from "@/bus/bus-event"
-import { Bus } from "@/bus"
 import { Decimal } from "decimal.js"
 import z from "zod"
 import { type LanguageModelV2Usage } from "@ai-sdk/provider"
@@ -13,7 +12,7 @@ import { Identifier } from "../id/id"
 import { Installation } from "../installation"
 
 import { Storage } from "../storage/storage"
-import { runStorage, storageRead, storageRemove, storageWrite } from "@/storage/effect"
+import { storageRead, storageRemove } from "@/storage/effect"
 import { Log } from "../util/log"
 import { MessageV2 } from "./message-v2"
 import { SessionPrimitives } from "./primitives"
@@ -46,19 +45,6 @@ function configGet(ctx?: InstanceContext) {
     return yield* config.get()
   })
   return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
-}
-
-function publishBus(ctx: InstanceContext, def: any, properties: any) {
-  return runPromiseWithLayer(
-    Bus.defaultLayer,
-    locallyInstance(
-      ctx,
-      Effect.gen(function* () {
-        const bus = yield* Bus.Service
-        yield* bus.publish(def, properties)
-      }),
-    ),
-  )
 }
 
 export namespace Session {

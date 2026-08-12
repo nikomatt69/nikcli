@@ -1,5 +1,5 @@
 import type { Hooks, PluginInput, Plugin as PluginInstance } from "@nikcli-ai/plugin"
-import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 import os from "os"
 import path from "path"
 import { fileURLToPath } from "url"

@@ -1,4 +1,4 @@
-import type { Message, Part, TextPart } from "@nikcli-ai/sdk/v2"
+import type { Message, Part, TextPart } from "@nikcli-ai/sdk/httpapi"
 
 /** Normalizes a message for one-line list display — matches `/timeline` (DialogTimeline). */
 export function formatMessageLineForTimeline(text: string): string {

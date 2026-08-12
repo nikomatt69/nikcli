@@ -1,4 +1,4 @@
-import type { McpLocalConfig } from "@nikcli-ai/sdk/v2"
+import type { McpLocalConfig } from "@nikcli-ai/sdk/httpapi"
 import { Runtime } from "@/util/runtime"
 
 export type CatalogMcp = {

@@ -1,7 +1,6 @@
 import fs from "fs/promises"
 import { Filesystem } from "../util/filesystem"
 import path from "path"
-import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { Flag } from "@/flag/flag"
 import { BusEvent } from "@/bus/bus-event"
@@ -11,7 +10,7 @@ import { existsSync } from "fs"
 import { Git } from "@/git"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import { storageList, storageRead, storageRemove, storageUpdate, storageWrite } from "@/storage/effect"
+import { storageList, storageRead, storageUpdate, storageWrite } from "@/storage/effect"
 import { Hash } from "@/util/hash"
 import { Lock } from "@/util/lock"
 
@@ -53,7 +52,7 @@ export namespace Project {
     color: Schema.optional(Schema.String),
   })
 
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     id: Schema.String,
     worktree: Schema.String,
     canonical: Schema.String,

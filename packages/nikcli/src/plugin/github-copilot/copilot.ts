@@ -1,5 +1,5 @@
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
-import type { Model } from "@nikcli-ai/sdk/v2"
+import type { Model } from "@nikcli-ai/sdk/httpapi"
 import { Installation } from "../../installation"
 import { iife } from "../../util/iife"
 import { Log } from "../../util/log"

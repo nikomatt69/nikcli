@@ -12,7 +12,7 @@
  * where `runtime` carries the live status fields.
  */
 
-import type { NikcliClient } from "@nikcli-ai/sdk/v2"
+import type { NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import type { TuiEventBus } from "@nikcli-ai/plugin/tui"
 import {
   type MissionDefinition,

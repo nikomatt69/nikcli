@@ -1,4 +1,4 @@
-import { createNikcliClient } from "@nikcli-ai/sdk/v2/client"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { base64Encode } from "@nikcli-ai/util/encode"
 
 export const serverHost = process.env.PLAYWRIGHT_SERVER_HOST ?? "localhost"

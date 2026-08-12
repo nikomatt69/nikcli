@@ -3,7 +3,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { useSync } from "@tui/context/sync"
 import { createMemo } from "solid-js"
 import { useSDK } from "../context/sdk"
-import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 
 interface DialogSessionRenameProps {
   session: string

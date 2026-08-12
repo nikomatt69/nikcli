@@ -287,7 +287,7 @@ export function DialogRemote() {
               disabled: isCurrent,
               onSelect: async () => {
                 const { error } = await sdk.client.config.update({
-                  config: { remote: { provider: provider.id, enableTunnel: provider.id !== "none" } } as any,
+                  payload: { remote: { provider: provider.id, enableTunnel: provider.id !== "none" } } as any,
                 })
                 if (error) {
                   toast.show({ message: "Failed to update remote config", variant: "error" })

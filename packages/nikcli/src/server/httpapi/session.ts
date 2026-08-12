@@ -140,6 +140,94 @@ export namespace SessionHttpApi {
     identifier: "MessageWithParts",
   })
   const MessagePart = MessageV2.PartSchema
+  /**
+   * Mirrors `SessionContext.Breakdown`, `SessionGoal.StateEffect`,
+   * `Delegation.JobItem` and the monitor records. Declared here so the
+   * generated clients carry real types; these endpoints encode their
+   * responses through the Effect handlers, so the shapes must match what the
+   * services return after `jsonSafe` drops `undefined` properties.
+   */
+  const ContextSource = Schema.Struct({
+    id: Schema.String,
+    category: Schema.Literals(["system", "instructions", "skills", "mcp", "tools", "agents", "messages"]),
+    label: Schema.String,
+    detail: Schema.optional(Schema.String),
+    tokens: Schema.Number,
+    enabled: Schema.Boolean,
+    togglable: Schema.Boolean,
+    toggleKind: Schema.optional(Schema.Literals(["mcp", "skill", "instruction", "tool"])),
+    toggleKey: Schema.optional(Schema.String),
+  }).annotate({ identifier: "SessionContextSource" })
+
+  const ContextBreakdown = Schema.Struct({
+    model: Schema.optional(
+      Schema.Struct({
+        providerID: Schema.String,
+        modelID: Schema.String,
+        name: Schema.String,
+        contextLimit: Schema.Number,
+      }),
+    ),
+    reported: Schema.Struct({
+      input: Schema.Number,
+      output: Schema.Number,
+      reasoning: Schema.Number,
+      cacheRead: Schema.Number,
+      cacheWrite: Schema.Number,
+      total: Schema.Number,
+    }),
+    sources: Schema.Array(ContextSource),
+    estimatedTotal: Schema.Number,
+  }).annotate({ identifier: "SessionContextBreakdown" })
+
+  /** `null` when the session has no goal. */
+  const GoalOutput = Schema.NullOr(SessionGoal.StateEffect).annotate({ identifier: "SessionGoalOutput" })
+
+  const DelegationJob = Schema.Struct({
+    jobID: Schema.String,
+    rootDelegationID: Schema.String,
+    parentSessionID: Schema.String,
+    title: Schema.String,
+    agent: Schema.String,
+    parentAgent: Schema.optional(Schema.String),
+    status: Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned", "synthesizing"]),
+    source: Schema.optional(
+      Schema.Literals([
+        "task",
+        "model-subtask",
+        "advisor",
+        "research",
+        "ultrareview",
+        "delegator",
+        "delegator-followup",
+        "loop",
+        "other",
+      ]),
+    ),
+    workerSessionID: Schema.optional(Schema.String),
+    delegatorID: Schema.optional(Schema.String),
+    delegatorSessionID: Schema.optional(Schema.String),
+    createdAt: Schema.Number,
+    updatedAt: Schema.Number,
+    completedAt: Schema.optional(Schema.Number),
+    lastActivityAt: Schema.optional(Schema.Number),
+    progressSummary: Schema.optional(Schema.String),
+    resultSummary: Schema.optional(Schema.String),
+    error: Schema.optional(Schema.String),
+  }).annotate({ identifier: "DelegationJob" })
+
+  const BackgroundOutput = Schema.Array(DelegationJob).annotate({ identifier: "SessionBackgroundOutput" })
+  /** `null` when the delegation is unknown or not visible to the session. */
+  const BackgroundInspectOutput = Schema.NullOr(DelegationJob).annotate({
+    identifier: "SessionBackgroundInspectOutput",
+  })
+
+  /** `null` when the monitor is unknown. */
+  const MonitorOutput = Schema.NullOr(Monitor.RecordSchema).annotate({ identifier: "SessionMonitorOutput" })
+  const MonitorLogOutput = Schema.NullOr(Monitor.LogSnapshotSchema).annotate({
+    identifier: "SessionMonitorLogOutput",
+  })
+
   const SessionV2EntryList = Schema.Array(Schema.Unknown).annotate({
     identifier: "SessionV2EntryList",
   })
@@ -426,7 +514,7 @@ export namespace SessionHttpApi {
     .add(
       HttpApiEndpoint.get("contextBreakdown", "/:sessionID/context", {
         params: SessionIDPath,
-        success: Schema.Unknown,
+        success: ContextBreakdown,
         error: [NotFound, Busy],
       }).annotate(OpenApi.Identifier, "session.context"),
     )
@@ -434,27 +522,27 @@ export namespace SessionHttpApi {
       HttpApiEndpoint.post("contextToggle", "/:sessionID/context/toggle", {
         params: SessionIDPath,
         payload: ContextTogglePayload,
-        success: Schema.Unknown,
+        success: ContextBreakdown,
         error: [NotFound, Busy],
       }),
     )
     .add(
       HttpApiEndpoint.get("goal", "/:sessionID/goal", {
         params: SessionIDPath,
-        success: Schema.Unknown,
+        success: GoalOutput,
       }),
     )
     .add(
       HttpApiEndpoint.get("background", "/:sessionID/background", {
         params: SessionIDPath,
-        success: Schema.Unknown,
+        success: BackgroundOutput,
         error: BackgroundNotFound,
       }),
     )
     .add(
       HttpApiEndpoint.get("backgroundInspect", "/:sessionID/background/:delegationID", {
         params: DelegationPath,
-        success: Schema.Unknown,
+        success: BackgroundInspectOutput,
       }).annotate(OpenApi.Identifier, "session.background.inspect"),
     )
     .add(
@@ -472,7 +560,7 @@ export namespace SessionHttpApi {
     .add(
       HttpApiEndpoint.get("monitor", "/:sessionID/monitor/:monitorID", {
         params: MonitorPath,
-        success: Schema.Unknown,
+        success: MonitorOutput,
         error: [NotFound, Busy],
       }),
     )
@@ -480,14 +568,14 @@ export namespace SessionHttpApi {
       HttpApiEndpoint.get("monitorLog", "/:sessionID/monitor/:monitorID/log", {
         params: MonitorPath,
         query: MonitorLogQuery,
-        success: Schema.Unknown,
+        success: MonitorLogOutput,
         error: [NotFound, Busy],
       }),
     )
     .add(
       HttpApiEndpoint.post("monitorCancel", "/:sessionID/monitor/:monitorID/cancel", {
         params: MonitorPath,
-        success: Schema.Unknown,
+        success: MonitorOutput,
         error: [NotFound, Busy],
       }),
     )
@@ -807,7 +895,7 @@ export namespace SessionHttpApi {
     contextBreakdown: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
-        return jsonSafe(result) as unknown
+        return jsonSafe(result)
       }).pipe(declaredErrors),
     contextToggle: ({
       params,
@@ -868,13 +956,13 @@ export namespace SessionHttpApi {
           })
         }
         const result = yield* Effect.promise(() => SessionContext.breakdown(params.sessionID))
-        return jsonSafe(result) as unknown
+        return jsonSafe(result)
       }).pipe(declaredErrors),
     goal: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const goal = yield* SessionGoal.Service
         const state = yield* goal.get(params.sessionID)
-        return jsonSafe(state ?? null) as unknown
+        return jsonSafe(state ?? null)
       }).pipe(Effect.orDie),
     background: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -887,11 +975,11 @@ export namespace SessionHttpApi {
           return yield* Effect.fail({ error: "Session not found" as const })
         }
         const jobs = yield* Effect.promise(() => Delegation.listJobs(params.sessionID))
-        return jsonSafe(jobs) as unknown
+        return jsonSafe(jobs)
       }),
     backgroundInspect: ({ params }: { params: typeof DelegationPath.Type }) =>
       Effect.promise(() => Delegation.inspectJobForSession(params.sessionID, params.delegationID)).pipe(
-        Effect.map((job) => jsonSafe(job ?? null) as unknown),
+        Effect.map((job) => jsonSafe(job ?? null)),
         Effect.orDie,
       ),
     backgroundRead: ({ params }: { params: typeof DelegationPath.Type }) =>
@@ -904,19 +992,19 @@ export namespace SessionHttpApi {
     monitor: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
         const record = yield* Effect.promise(() => Monitor.get(params.sessionID, params.monitorID))
-        return jsonSafe(record ?? null) as unknown
+        return jsonSafe(record ?? null)
       }).pipe(declaredErrors),
     monitorLog: ({ params, query }: { params: typeof MonitorPath.Type; query: typeof MonitorLogQuery.Type }) =>
       Effect.gen(function* () {
         const snapshot = yield* Effect.promise(() =>
           Monitor.readLog(params.sessionID, params.monitorID, query.lines ?? 200),
         )
-        return jsonSafe(snapshot ?? null) as unknown
+        return jsonSafe(snapshot ?? null)
       }).pipe(declaredErrors),
     monitorCancel: ({ params }: { params: typeof MonitorPath.Type }) =>
       Effect.gen(function* () {
         const record = yield* Effect.promise(() => Monitor.cancel(params.sessionID, params.monitorID))
-        return jsonSafe(record ?? null) as unknown
+        return jsonSafe(record ?? null)
       }).pipe(declaredErrors),
   }
 

@@ -5,7 +5,7 @@ import { retry } from "@nikcli-ai/util/retry"
 import { createSimpleContext } from "@nikcli-ai/ui/context"
 import { useGlobalSync } from "./global-sync"
 import { useSDK } from "./sdk"
-import type { Message, Part } from "@nikcli-ai/sdk/v2/client"
+import type { Message, Part } from "@nikcli-ai/sdk/httpapi"
 
 const keyFor = (directory: string, id: string) => `${directory}\n${id}`
 

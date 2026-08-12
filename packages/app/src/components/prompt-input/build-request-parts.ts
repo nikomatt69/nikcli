@@ -1,5 +1,5 @@
 import { getFilename } from "@nikcli-ai/util/path"
-import { type AgentPartInput, type FilePartInput, type Part, type TextPartInput } from "@nikcli-ai/sdk/v2/client"
+import { type AgentPartInput, type FilePartInput, type Part, type TextPartInput } from "@nikcli-ai/sdk/httpapi"
 import type { FileSelection } from "@/context/file"
 import type { AgentPart, FileAttachmentPart, ImageAttachmentPart, Prompt } from "@/context/prompt"
 import { Identifier } from "@/utils/id"

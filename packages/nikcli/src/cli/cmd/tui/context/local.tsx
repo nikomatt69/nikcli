@@ -535,7 +535,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             },
           },
         }
-        await sdk.client.config.update({ config: { connectors: nextConfig.connectors } })
+        await sdk.client.config.update({ payload: { connectors: nextConfig.connectors } })
         sync.set("config", nextConfig)
       },
       async auth(
@@ -547,7 +547,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           teamId?: string
         },
       ) {
-        await sdk.client.connectors.auth.set({ name, ...payload })
+        await sdk.client.connectors.auth.set({ name, payload })
       },
       async logout(name: string) {
         await sdk.client.connectors.auth.remove({ name })

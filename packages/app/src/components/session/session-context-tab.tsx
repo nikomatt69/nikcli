@@ -11,7 +11,7 @@ import { Accordion } from "@nikcli-ai/ui/accordion"
 import { StickyAccordionHeader } from "@nikcli-ai/ui/sticky-accordion-header"
 import { Code } from "@nikcli-ai/ui/code"
 import { Markdown } from "@nikcli-ai/ui/markdown"
-import type { Message, Part, UserMessage } from "@nikcli-ai/sdk/v2/client"
+import type { Message, Part, UserMessage } from "@nikcli-ai/sdk/httpapi"
 import { useLanguage } from "@/context/language"
 import { getSessionContextMetrics } from "./session-context-metrics"
 

@@ -7,7 +7,7 @@ import {
   type ProviderListResponse,
   type QuestionRequest,
   createNikcliClient,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 import { batch } from "solid-js"
 import { reconcile, type SetStoreFunction, type Store } from "solid-js/store"
 import { retry } from "@nikcli-ai/util/retry"

@@ -25,7 +25,7 @@ import { Tooltip, TooltipKeybind } from "@nikcli-ai/ui/tooltip"
 import { DropdownMenu } from "@nikcli-ai/ui/dropdown-menu"
 import { Dialog } from "@nikcli-ai/ui/dialog"
 import { getFilename } from "@nikcli-ai/util/path"
-import { Session, type Message } from "@nikcli-ai/sdk/v2/client"
+import { Session, type Message } from "@nikcli-ai/sdk/httpapi"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { createStore, produce, reconcile } from "solid-js/store"
@@ -1204,7 +1204,7 @@ export default function Layout(props: ParentProps) {
     setBusy(directory, true)
 
     const result = await globalSDK.client.worktree
-      .remove({ directory: root, worktreeRemoveInput: { directory } })
+      .remove({ directory }, { directory: root })
       .then((x) => x.data)
       .catch((err) => {
         showToast({
@@ -1243,7 +1243,7 @@ export default function Layout(props: ParentProps) {
       .catch(() => [])
 
     const result = await globalSDK.client.worktree
-      .reset({ directory: root, worktreeResetInput: { directory } })
+      .reset({ directory }, { directory: root })
       .then((x) => x.data)
       .catch((err) => {
         showToast({

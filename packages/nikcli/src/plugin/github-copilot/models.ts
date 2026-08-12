@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { Model } from "@nikcli-ai/sdk/v2"
+import type { Model } from "@nikcli-ai/sdk/httpapi"
 
 export namespace CopilotModels {
   export const schema = z.object({

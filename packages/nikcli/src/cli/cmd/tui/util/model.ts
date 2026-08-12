@@ -1,4 +1,4 @@
-import type { Provider } from "@nikcli-ai/sdk/v2"
+import type { Provider } from "@nikcli-ai/sdk/httpapi"
 
 export function index(list: Provider[] | undefined) {
   return new Map((list ?? []).map((item) => [item.id, item] as const))

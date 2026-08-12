@@ -26,7 +26,7 @@ import { Handler as PermissionHandler } from "./permission"
 import { Provider } from "@/provider/provider"
 import { Agent as AgentModule } from "@/agent/agent"
 import { Command } from "@/command"
-import type { NikcliClient, SessionMessageResponse } from "@nikcli-ai/sdk/v2"
+import type { NikcliClient, SessionMessageResponse } from "@nikcli-ai/sdk/httpapi"
 import type {
   AgentSideConnection,
   AuthMethod,

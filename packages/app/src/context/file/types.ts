@@ -1,4 +1,4 @@
-import type { FileContent } from "@nikcli-ai/sdk/v2"
+import type { FileContent } from "@nikcli-ai/sdk/httpapi"
 
 export type FileSelection = {
   startLine: number

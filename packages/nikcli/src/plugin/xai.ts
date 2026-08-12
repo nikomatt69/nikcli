@@ -509,19 +509,22 @@ export async function XAIAuthPlugin(input: PluginInput): Promise<Hooks> {
               tokenEndpointCached = endpoints.token_endpoint
             }
 
-            if (!currentAuth.access || currentAuth.expires < Date.now()) {
+            // The stored credential is readonly, so the refreshed token is held
+            // locally for the rest of this request.
+            let access = currentAuth.access
+            if (!access || currentAuth.expires < Date.now()) {
               log.info("refreshing xai access token")
               const tokens = await refreshAccessToken(currentAuth.refresh, tokenEndpointCached)
               await input.client.auth.set({
                 providerID: "xai",
-                auth: {
+                payload: {
                   type: "oauth",
                   refresh: tokens.refresh_token ?? currentAuth.refresh,
                   access: tokens.access_token,
                   expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
                 },
               })
-              currentAuth.access = tokens.access_token
+              access = tokens.access_token
             }
 
             const headers = new Headers()
@@ -539,7 +542,7 @@ export async function XAIAuthPlugin(input: PluginInput): Promise<Hooks> {
               }
             }
 
-            headers.set("authorization", `Bearer ${currentAuth.access}`)
+            headers.set("authorization", `Bearer ${access}`)
             headers.set("User-Agent", USER_AGENT)
 
             return fetch(requestInput, { ...init, headers })

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { applyPatch } from "diff"
 import type { AgentSideConnection, PermissionOption, RequestPermissionResponse } from "@agentclientprotocol/sdk"
-import type { Event, NikcliClient } from "@nikcli-ai/sdk/v2"
+import type { Event, NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Log } from "@/util/log"
 import { toLocations, toToolKind, type ToolInput } from "./tool"
 

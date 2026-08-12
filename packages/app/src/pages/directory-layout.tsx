@@ -6,7 +6,7 @@ import { LocalProvider } from "@/context/local"
 
 import { DataProvider } from "@nikcli-ai/ui/context"
 import { iife } from "@nikcli-ai/util/iife"
-import type { QuestionAnswer } from "@nikcli-ai/sdk/v2"
+import type { QuestionAnswer } from "@nikcli-ai/sdk/httpapi"
 import { decode64 } from "@/utils/base64"
 import { showToast } from "@nikcli-ai/ui/toast"
 import { useLanguage } from "@/context/language"

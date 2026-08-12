@@ -12,7 +12,7 @@ import type {
   SessionStatus,
   Workspace,
   Config as SdkConfig,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import type { CliRenderer, ParsedKey, RGBA } from "@opentui/core"
 import type { JSX, SolidPlugin } from "@opentui/solid"
 import type { Store } from "solid-js/store"

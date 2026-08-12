@@ -31,14 +31,91 @@ This file contains guidelines for AI agents operating in the nikcli repository.
 - **Pattern**: `bun test --match "pattern"`
 - Prefer `withIsolatedDatabase` (`test/helpers/sqlite.ts`) for SQLite-touching suites and `makeToolContext` + `withProjectDirectory` (`test/helpers/tool-context.ts`) for tool behavioural tests
 
-### SDK Generation
+### Client & OpenAPI Generation
 
-- **Regenerate JavaScript SDK**: `./packages/sdk/js/script/build.ts`
+- **Regenerate HTTP clients**: `bun run generate:httpapi-clients`
+- **Regenerate the OpenAPI document**: `bun dev generate`
 - **HttpApi route coverage**: `bun run check:routes` (pass `--strict` to fail on contract/handler/raw inventory gaps)
+
+- **Build the publishable SDK**: `bun run --cwd ../sdk/js build` — regenerates
+  the client from the contract, then emits `dist`. hey-api is gone; there is no
+  OpenAPI round-trip in the client path.
+
+Consumers import `@nikcli-ai/sdk/httpapi`, which exposes the generated Promise
+client (`NikCli.make`) plus `createNikcliClient`, a namespaced view of it
+defined in `src/httpapi/compat.ts`. Every entry there is a typed reference into
+the generated client, so a codegen rename fails the SDK typecheck instead of
+404ing at runtime. Calls resolve to `{ data, error }` rather than rejecting
+(pass `throwOnError` to opt out), and accept `directory` / `workspace` for
+instance selection.
 
 ## Server architecture
 
-The nikcli HTTP server is Effect HttpApi + raw Request/Response handlers on Bun.serve. There is no Hono app, no `Server.App()`, and no `NIKCLI_EXPERIMENTAL_HTTPAPI` fallback. In-process clients use `Server.fetch(request)`. OpenAPI and the JS SDK are generated from `PublicApi`.
+The nikcli HTTP server is Effect HttpApi + raw Request/Response handlers on Bun.serve. There is no Hono app, no `Server.App()`, and no `NIKCLI_EXPERIMENTAL_HTTPAPI` fallback. In-process clients use `Server.fetch(request)`. OpenAPI and the generated clients both come from `PublicApi`.
+
+Request path: `Server.fetch` / `Server.listen` → `ServerRouter` (body limit, CORS, auth, instance selection) → Effect HttpApi groups + raw handlers.
+
+`src/server/httpapi/public.ts` exports two APIs:
+
+- `PublicHttpApi.Api` — the **served** subset: every group has handlers.
+- `PublicApi` — the **generation contract**: served groups plus contract-only
+  groups whose routes are served by raw implementations (share, users, sync
+  stats, SSE feeds, websocket upgrades). This is what codegen compiles.
+
+## HTTP integration workflow
+
+Adding or changing an endpoint:
+
+1. **Contract** — edit the group in `src/server/httpapi/<group>.ts`:
+   `HttpApiGroup.make(...)` + `HttpApiEndpoint.<method>(name, path, { params, query, payload, success, error })`.
+   Pin the operationId with `.annotate(OpenApi.Identifier, "...")` when the
+   client method name must stay stable.
+2. **Compose** — add the group in `src/server/httpapi/public.ts`: to
+   `PublicHttpApi.Api` if you are writing Effect handlers, to `PublicApi` only
+   if a raw implementation serves it.
+3. **Handler** — `HttpApiBuilder.group(Api, "<group>", (b) => b.handle(...))`
+   for encoded JSON, or `.handleRaw(...)` when you need the raw
+   Request/Response (streaming, websocket upgrade, redirects).
+4. **Raw routes** — if the route is served outside the HttpApi handlers, list
+   it in `src/server/httpapi/inventory.ts` so coverage stays accounted for.
+5. **Regenerate** — `bun run generate:httpapi-clients`. It compiles `PublicApi`
+   directly (no OpenAPI round-trip) and writes three targets:
+   - `packages/sdk/js/src/httpapi/generated` (Promise client)
+   - `src/server/httpapi/client/generated` (Effect client)
+   - `src/server/httpapi/client/api` (Effect shape)
+     Commit the generated output with the change.
+6. **Verify** — `bun run check:routes`, `bun run typecheck`, and
+   `bun test test/server/`.
+
+### Schema rules for the contract
+
+- **Never leave `Schema.Unknown` on an endpoint's `success` or on a domain
+  object.** The codegen emits it as `any`, which silently removes type safety
+  from every client. Measure with:
+  ```sh
+  grep -cE '^export type [A-Za-z0-9_]+ = (any|Array<any>)$' ../sdk/js/src/httpapi/generated/types.ts
+  ```
+  Only genuinely open payloads may stay `Unknown` (upstream passthrough,
+  polymorphic event-sourced entries, SSE frames, bodyless redirects), and each
+  one is justified in `specs/effect/http-api.md`.
+- **Reuse, do not redefine.** Reference the Effect Schema the service already
+  owns (`Session.InfoSchema`, `Project.InfoSchema`, `Pty.InfoSchema`,
+  `Workspace.InfoSchema`, `ManagedWorktree.InfoSchema`, `MessageV2.PartSchema`
+  / `WithPartsSchema`, `Snapshot.FileDiffSchema`, `Monitor.RecordSchema`,
+  `SessionGoal.StateEffect`, `Provider.ModelSchema`). Export the const if it is
+  private rather than writing a second definition.
+- **Shared domain schemas go in `src/server/httpapi/domain.ts`** when more than
+  one group describes the same object and the service defines it only in zod
+  (loops, routines). That module imports nothing but `effect`, so contract
+  modules can describe a loop without pulling `loop/engine` into their graph.
+- **Effect handlers validate responses at runtime** — unlike the old Hono
+  routes, which serialised whatever they were given. A schema that does not
+  match what the service actually returns turns into a failed request, not a
+  dropped field. Verify a new schema against real data, not just typecheck.
+  Handlers that push bodies through `jsonSafe` drop `undefined` properties, so
+  optional fields are genuinely absent; model them with `Schema.optional`.
+- `handleRaw` endpoints and contract-only groups are **not** encoded at
+  runtime, so their schemas shape the SDK without any request-time risk.
 
 ## Security & quality gates
 
@@ -247,7 +324,7 @@ getSession.force(unvalidatedInput) // skip validation
 - **Validation**: All inputs validated with Zod schemas
 - **Logging**: Use `Log.create({ service: "name" })` pattern
 - **Storage**: Use `Storage` namespace for persistence
-- **API Client**: The TypeScript TUI (built with SolidJS + OpenTUI) communicates with the Nikcli server using `@nikcli-ai/sdk`. When adding/modifying server endpoints in `src/server/server.ts`, regenerate the SDK in `packages/sdk/js` to keep types in sync.
+- **API Client**: The TypeScript TUI (built with SolidJS + OpenTUI) communicates with the Nikcli server using `@nikcli-ai/sdk`. When adding or modifying an endpoint, edit its contract in `src/server/httpapi/` and run `bun run generate:httpapi-clients` — see "HTTP integration workflow" above. Endpoints do not live in `src/server/server.ts`; that file only owns the listener and the request pipeline.
 
 ## Parallel Execution
 
@@ -257,7 +334,7 @@ getSession.force(unvalidatedInput) // skip validation
 
 ## Important Notes
 
-- **Default branch**: `dev`
+- **Default branch**: `live-main`
 - **Test files**: Located in `test/` directory, use `.test.ts` suffix
 - **Tool files**: Use kebab-case naming (e.g., `memory-search.ts`)
 - **Avoid mocks/placeholders**: All code should be production-ready

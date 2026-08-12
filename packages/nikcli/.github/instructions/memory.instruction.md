@@ -4,9 +4,9 @@
 
 ## Start Here
 
-nikcli is an AI coding-agent runtime and OpenCode fork maintained by `nikomatt69`. It uses Bun, Hono, Solid/OpenTUI, Vercel AI SDK, SQLite/Drizzle, and an ongoing Effect 4 service migration. The main package is `packages/nikcli`.
+nikcli is an AI coding-agent runtime and OpenCode fork maintained by `nikomatt69`. It uses Bun, Effect HttpApi, Solid/OpenTUI, Vercel AI SDK, SQLite/Drizzle, and an ongoing Effect 4 service migration. The main package is `packages/nikcli`.
 
-- The actual default branch is **`live-main`**. References to `dev` or `nikoemme-main` in `AGENTS.md` are stale.
+- The default branch is **`live-main`** (both `AGENTS.md` files now agree).
 - The root workspace has about 30 packages; key packages are `nikcli`, `sdk`, `mobile`, `desktop`, `web`, `plugin`, `remote`, `companion`, `llm`, `tui-image`, and `terminal-control`.
 - Use Bun only. In `packages/nikcli`: `bun run typecheck`, `bun test`, `bun run build`.
 - Do not echo secrets: repo-root `nikcli.json` contains a real `nkm_*` bearer token. Treat it as sensitive.
@@ -25,7 +25,7 @@ nikcli is an AI coding-agent runtime and OpenCode fork maintained by `nikomatt69
 - Tools use `Tool.define()` (src/tool/tool.ts:122) and return `{ title, metadata, output, attachments? }`. Validation is Zod; the wrapper converts Promise/Effect implementations, applies truncation (2,000 lines / 50 KB), and supports `ctx.ask()` permissions.
 - `ToolRegistry.Service` (src/tool/registry.ts:199, :289) combines built-ins, feature flags, plugins, and opt-in pinned custom tools. `resolveTools` (src/session/tools.ts:194) adds permissions, deadlines, session metadata, AI SDK adapters.
 - `Provider.Service` (src/provider/provider.ts:1250; Effect impl at :2078) owns per-instance provider/model/SDK caches. `LLM.stream` (src/session/llm.ts:254, :479) picks native `@nikcli-ai/llm` or AI SDK fallback.
-- Server is Hono on Bun (src/server/server.ts) with REST, SSE, WebSockets, OpenAPI, and workspace-aware request context. TUI/server communication uses generated `@nikcli-ai/sdk/v2`.
+- Server is Effect HttpApi on Bun.serve (src/server/) with REST, SSE, WebSockets, OpenAPI, and workspace-aware request context. TUI/server communication uses generated `@nikcli-ai/sdk/httpapi`.
 - Per-request flow: `Server.App` applies errors/auth/CORS/global routing, resolves workspace + directory, enters `WorkspaceContext.provide` + `withInstanceAsync` (src/server/server.ts:389). Legacy ambient scope is `Instance.provide` (src/project/instance.ts:32).
 
 ## Effect Migration Status

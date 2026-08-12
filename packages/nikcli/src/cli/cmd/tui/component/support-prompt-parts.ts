@@ -1,4 +1,4 @@
-import type { FilePart, FileSource, TextPart } from "@nikcli-ai/sdk/v2"
+import type { FilePart, FileSource, TextPart } from "@nikcli-ai/sdk/httpapi"
 
 /** Paste attachments are not tied to prompt inline ranges; mirror autocomplete placeholder source. */
 function fileSourceFromPath(filepath: string): FileSource {

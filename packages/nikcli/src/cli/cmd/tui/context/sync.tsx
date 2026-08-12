@@ -20,9 +20,9 @@ import type {
   FileDiff,
   Workspace,
   SessionEntry,
-} from "@nikcli-ai/sdk/v2"
-import type { Config } from "@nikcli-ai/sdk/v2/client"
-import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
+import type { Config } from "@nikcli-ai/sdk/httpapi"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { useProject } from "@tui/context/project"
@@ -35,7 +35,7 @@ import { debounce } from "@solid-primitives/scheduled"
 import { Log } from "@/util/log"
 import { createLru } from "@tui/util/lru-cache"
 import { createLatestOnlyAsync } from "@tui/util/signal"
-import type { Path } from "@nikcli-ai/sdk/v2"
+import type { Path } from "@nikcli-ai/sdk/httpapi"
 import { features } from "@/config/features"
 
 type BackgroundJob = {

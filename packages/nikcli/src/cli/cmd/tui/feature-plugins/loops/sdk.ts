@@ -7,7 +7,7 @@
  * subscribes to the bus events published by the engine so live state stays in
  * sync even when the interval trigger fires while the TUI is open.
  */
-import type { NikcliClient } from "@nikcli-ai/sdk/v2"
+import type { NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import type { TuiEventBus } from "@nikcli-ai/plugin/tui"
 import type { LoopDefinition, LoopTemplate, LoopRun } from "@/loop/schema"
 import { DEFAULT_LOOP_AGENT, definitionFromGenerated, isValidModel, validateDefinition } from "@/loop/schema"
@@ -216,12 +216,14 @@ export class LoopApi {
     const error = validateDefinition(def)
     if (error) throw new Error(error)
     const res = await this.client.loop.upsert({
-      name: def.name,
-      stages: def.stages,
-      trigger: def.trigger,
-      ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
-      ...(def.createPR === true ? { createPR: true } : {}),
-      enabled: def.enabled,
+      payload: {
+        name: def.name,
+        stages: def.stages,
+        trigger: def.trigger,
+        ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
+        ...(def.createPR === true ? { createPR: true } : {}),
+        enabled: def.enabled,
+      },
     })
     const saved = asDefinition((res.data as unknown) ?? undefined)
     if (!saved) throw new Error("Server returned an invalid loop definition")
@@ -232,15 +234,17 @@ export class LoopApi {
     const error = validateDefinition(def)
     if (error) throw new Error(error)
     const res = await this.client.loop.update({
-      path_id: def.id,
-      body_id: def.id,
-      name: def.name,
-      stages: def.stages,
-      trigger: def.trigger,
-      ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
-      ...(def.createPR === true ? { createPR: true } : {}),
-      enabled: def.enabled,
-      createdAt: def.createdAt,
+      id: def.id,
+      payload: {
+        id: def.id,
+        name: def.name,
+        stages: def.stages,
+        trigger: def.trigger,
+        ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
+        ...(def.createPR === true ? { createPR: true } : {}),
+        enabled: def.enabled,
+        createdAt: def.createdAt,
+      },
     })
     const saved = asDefinition((res.data as unknown) ?? undefined)
     if (!saved) throw new Error("Server returned an invalid loop definition")

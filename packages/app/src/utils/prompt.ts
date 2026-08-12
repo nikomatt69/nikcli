@@ -1,4 +1,4 @@
-import type { AgentPart as MessageAgentPart, FilePart, Part, TextPart } from "@nikcli-ai/sdk/v2"
+import type { AgentPart as MessageAgentPart, FilePart, Part, TextPart } from "@nikcli-ai/sdk/httpapi"
 import type { AgentPart, FileAttachmentPart, ImageAttachmentPart, Prompt } from "@/context/prompt"
 
 type Inline =

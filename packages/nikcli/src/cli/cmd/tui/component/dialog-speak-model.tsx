@@ -164,7 +164,7 @@ export function DialogSpeakModel() {
           setSaving(true)
           try {
             const { error } = await sdk.client.config.update({
-              config: {
+              payload: {
                 speak: {
                   provider: providerId,
                   model: resolveOpenRouterVoice(current?.model),
@@ -211,7 +211,7 @@ export function DialogSpeakModel() {
             setSaving(true)
             try {
               const { error } = await sdk.client.config.update({
-                config: {
+                payload: {
                   speak: {
                     provider: providerId,
                     model: resolveOpenRouterVoice(current?.model),
@@ -251,7 +251,7 @@ export function DialogSpeakModel() {
         setSaving(true)
         try {
           const { error } = await sdk.client.config.update({
-            config: { speak: { provider: providerId, model: voice.id } } as any,
+            payload: { speak: { provider: providerId, model: voice.id } } as any,
           })
           if (error) {
             toast.show({ message: "Failed to update speak config", variant: "error" })

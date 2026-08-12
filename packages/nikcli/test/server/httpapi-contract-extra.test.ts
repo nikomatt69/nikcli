@@ -48,13 +48,12 @@ async function makeProjectDir() {
 function request(directory: string, pathname: string, method = "GET", payload?: unknown) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
-  return Server.fetch(
-    new Request(url, {
-      method,
-      headers: payload === undefined ? undefined : { "content-type": "application/json" },
-      body: payload === undefined ? undefined : JSON.stringify(payload),
-    }),
-  )
+  const init: RequestInit = { method }
+  if (payload !== undefined) {
+    init.headers = { "content-type": "application/json" }
+    init.body = JSON.stringify(payload)
+  }
+  return Server.fetch(new Request(url, init))
 }
 
 describe("ContractExtra HttpApi handlers", () => {

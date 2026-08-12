@@ -5,7 +5,7 @@ import {
   type ProviderAuthResponse,
   type ProviderListResponse,
   createNikcliClient,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useGlobalSDK } from "./global-sdk"
 import type { InitError } from "../pages/error"
@@ -328,7 +328,7 @@ function createGlobalSync() {
     bootstrap,
     updateConfig: (config: Config) => {
       setGlobalStore("reload", "pending")
-      return globalSDK.client.config.update({ config }).finally(() => {
+      return globalSDK.client.config.update({ payload: config }).finally(() => {
         setTimeout(() => {
           setGlobalStore("reload", "complete")
         }, 1000)

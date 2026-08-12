@@ -1,7 +1,7 @@
 import { createMemo, onMount } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
-import type { TextPart } from "@nikcli-ai/sdk/v2"
+import type { TextPart } from "@nikcli-ai/sdk/httpapi"
 import { Locale } from "@/util/locale"
 import { formatMessageLineForTimeline } from "@tui/util/timeline-style-text"
 import { DialogMessage } from "./dialog-message"

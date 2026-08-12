@@ -12,7 +12,7 @@ import type {
   QuestionRequest,
   Session,
   SessionEntry,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import { createStore } from "solid-js/store"
 import { createV2Data } from "@/cli/cmd/tui/plugin/data"
 

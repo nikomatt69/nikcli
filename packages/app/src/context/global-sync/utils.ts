@@ -1,4 +1,4 @@
-import type { Project, ProviderListResponse } from "@nikcli-ai/sdk/v2/client"
+import type { Project, ProviderListResponse } from "@nikcli-ai/sdk/httpapi"
 
 export const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 

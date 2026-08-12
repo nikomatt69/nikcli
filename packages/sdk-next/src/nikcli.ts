@@ -17,13 +17,12 @@ export interface Options {
 
 export const create = Effect.fn("NikCli.create")(function* (options?: Options) {
   const directory = options?.directory ?? process.cwd()
-  const app = Server.App()
   const fetch = Object.assign(
     (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init)
       const bound = new URL(request.url).searchParams.has("directory") || request.headers.has("x-nikcli-directory")
       if (!bound) request.headers.set("x-nikcli-directory", directory)
-      return Promise.resolve(app.fetch(request))
+      return Server.fetch(request)
     },
     { preconnect: () => undefined },
   ) satisfies typeof globalThis.fetch
@@ -45,10 +44,10 @@ export const create = Effect.fn("NikCli.create")(function* (options?: Options) {
       catch: (error) => (error instanceof Error ? error : new Error(String(error))),
     })
   })
-  return {
+  return yield* Effect.succeed({
     ...client,
     tools: { register },
-  }
+  })
 })
 
 export type Interface = Effect.Success<ReturnType<typeof create>>

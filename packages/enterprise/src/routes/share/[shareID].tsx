@@ -1,4 +1,4 @@
-import { FileDiff, Message, Model, Part, Session, SessionStatus, UserMessage } from "@nikcli-ai/sdk/v2"
+import { FileDiff, Message, Model, Part, Session, SessionStatus, UserMessage } from "@nikcli-ai/sdk/httpapi"
 import { SessionTurn } from "@nikcli-ai/ui/session-turn"
 import { SessionReview } from "@nikcli-ai/ui/session-review"
 import { DataProvider } from "@nikcli-ai/ui/context"

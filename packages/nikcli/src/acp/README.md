@@ -102,7 +102,7 @@ nikcli acp --cwd /path/to/project
 ```ts
 import { ACP } from "@/acp/agent"
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk"
-import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 
 const sdk = createNikcliClient({ baseUrl: "http://127.0.0.1:4096" })
 const stream = ndJsonStream(stdout, stdin)

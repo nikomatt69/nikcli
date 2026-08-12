@@ -1,5 +1,5 @@
 import { createEffect, on, onCleanup, createSignal, type JSX } from "solid-js"
-import type { FileDiff } from "@nikcli-ai/sdk/v2"
+import type { FileDiff } from "@nikcli-ai/sdk/httpapi"
 import { SessionReview } from "@nikcli-ai/ui/session-review"
 import type { SelectedLineRange } from "@/context/file"
 import { useSDK } from "@/context/sdk"

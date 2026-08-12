@@ -8,7 +8,7 @@ import { Command } from "../../command"
 import { EOL } from "os"
 import { pathToFileURL } from "url"
 import { select } from "@clack/prompts"
-import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/httpapi"
 import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
@@ -731,9 +731,9 @@ export const RunCommand = cmd({
       if (cfgResult.data && (cfgResult.data.share === "auto" || Flag.NIKCLI_AUTO_SHARE || args.share)) {
         const shareResult = await sdk.session.share({ sessionID }, { throwOnError: true }).catch((error) => {
           UI.println(UI.Style.TEXT_DANGER_BOLD + "!  " + shareErrorMessage(error))
-          return { error }
+          return { data: undefined, error }
         })
-        if (!("error" in shareResult) && shareResult.data?.share?.url) {
+        if (!shareResult.error && shareResult.data?.share?.url) {
           UI.println(UI.Style.TEXT_INFO_BOLD + "~  " + shareResult.data.share.url)
         }
       }
@@ -794,9 +794,9 @@ export const RunCommand = cmd({
       if (cfgResult.data && (cfgResult.data.share === "auto" || Flag.NIKCLI_AUTO_SHARE || args.share)) {
         const shareResult = await sdk.session.share({ sessionID }, { throwOnError: true }).catch((error) => {
           UI.println(UI.Style.TEXT_DANGER_BOLD + "!  " + shareErrorMessage(error))
-          return { error }
+          return { data: undefined, error }
         })
-        if (!("error" in shareResult) && shareResult.data?.share?.url) {
+        if (!shareResult.error && shareResult.data?.share?.url) {
           UI.println(UI.Style.TEXT_INFO_BOLD + "~  " + shareResult.data.share.url)
         }
       }

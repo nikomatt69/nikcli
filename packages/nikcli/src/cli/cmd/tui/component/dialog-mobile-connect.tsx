@@ -222,7 +222,7 @@ function RemoteServerPanel(props: { mode: "cloud" | "teleport"; sessionID?: stri
   }
 
   async function saveRemoteServer(url: string, token: string) {
-    await sdk.client.config.update({ config: { teleport: { url, token } } as any }).catch(() => undefined)
+    await sdk.client.config.update({ payload: { teleport: { url, token } } as any }).catch(() => undefined)
   }
 
   async function connectCloud() {

@@ -40,7 +40,7 @@ export function DialogOpenTelemetry() {
     const next = !enabled()
     try {
       await sdk.client.config.update({
-        config: { experimental: { openTelemetry: next } } as any,
+        payload: { experimental: { openTelemetry: next } } as any,
       })
       toast.show({
         message: next ? "AI SDK telemetry enabled" : "AI SDK telemetry disabled",

@@ -12,7 +12,7 @@ import {
   PromptBlob,
 } from "../../util/prompt-blob"
 import { PromptStashStore } from "@/prompt/stash-store"
-import type { AgentPart, FilePart, TextPart } from "@nikcli-ai/sdk/v2"
+import type { AgentPart, FilePart, TextPart } from "@nikcli-ai/sdk/httpapi"
 
 export type PromptInfo = {
   input: string

@@ -7,7 +7,7 @@ import { createMemo, createResource, createEffect, onMount, onCleanup, Index, Sh
 import { createStore } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
-import type { Command } from "@nikcli-ai/sdk/v2"
+import type { Command } from "@nikcli-ai/sdk/httpapi"
 import { useTheme, selectedForeground } from "@tui/context/theme"
 import { SplitBorder } from "@tui/component/border"
 import { useCommandDialog } from "@tui/component/dialog-command"

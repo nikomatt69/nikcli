@@ -158,7 +158,7 @@ export function DialogPermissionMode() {
     setSaving(true)
     try {
       const { error } = await sdk.client.config.update({
-        config: {
+        payload: {
           agent: {
             [name]: {
               permission: patch,

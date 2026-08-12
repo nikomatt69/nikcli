@@ -37,7 +37,7 @@ describe("mobile framework-neutral dispatcher", () => {
   it("dispatches loop templates without Hono", async () => {
     const response = await dispatchMobileRequest(new Request("http://nikcli.local/mobile/loops/templates"))
     expect(response?.status).toBe(200)
-    expect(Array.isArray(((await response?.json()) as { templates: unknown[] }).templates)).toBe(true)
+    expect(await response?.json()).toMatchObject({ templates: expect.any(Array) })
   })
 
   it("validates PTY creation without Hono", async () => {

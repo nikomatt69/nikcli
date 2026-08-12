@@ -13,7 +13,7 @@ import { MessageNav } from "@nikcli-ai/ui/message-nav"
 import { Spinner } from "@nikcli-ai/ui/spinner"
 import { Tooltip } from "@nikcli-ai/ui/tooltip"
 import { getFilename } from "@nikcli-ai/util/path"
-import { type Message, type Session, type TextPart } from "@nikcli-ai/sdk/v2/client"
+import { type Message, type Session, type TextPart } from "@nikcli-ai/sdk/httpapi"
 import { For, Match, Show, Switch, createMemo, onCleanup, type Accessor, type JSX } from "solid-js"
 import { agentColor } from "@/utils/agent"
 

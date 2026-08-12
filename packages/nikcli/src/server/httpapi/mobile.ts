@@ -1,14 +1,24 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Schema } from "effect"
+import { Project } from "@/project/project"
+import { Pty } from "@/pty"
+import { MessageV2 } from "@/session/message-v2"
+import { Session } from "@/session"
+import { Snapshot } from "@/snapshot"
+import { Workspace } from "@/workspace"
+import { ManagedWorktree } from "@/worktree/managed"
+import * as Domain from "./domain"
 
 /**
  * Effect schema for the whole `/mobile/*` surface.
  *
  * Mobile-specific wrapper shapes are typed faithfully after
- * `mobile/helpers.ts`; domain objects that only exist as zod schemas
- * today (Session.Info, MessageV2.WithParts, Routine.Record, LoopDefinition,
- * Pty, Worktree.Info, Project.Info, Workspace.Info, …) stay `Schema.Unknown`
- * until the schema/protocol split gives them Effect definitions.
+ * `mobile/helpers.ts`. Domain objects reuse the Effect Schemas their services
+ * already own (`Session.InfoSchema`, `Project.InfoSchema`, `Pty.InfoSchema`,
+ * …) or the shared definitions in `./domain`, so each one has a single
+ * definition across the contract. The few shapes still typed as open records
+ * are the ones whose only definition is a zod schema (the `nikcli.json`
+ * config document, message parts).
  *
  * `OpenApi.Identifier` pins each operationId to the value the Hono OpenAPI
  * emits, so the SDK generated from either source has the same class tree.
@@ -23,16 +33,21 @@ export namespace MobileHttpApi {
   const SessionIDPath = Schema.Struct({ sessionID: Schema.String })
   const IDPath = Schema.Struct({ id: Schema.String })
 
-  // Domain objects still defined in zod only (schema split follow-up).
-  const SessionInfo = Schema.Unknown.annotate({ identifier: "MobileSessionInfo" })
-  const WorktreeInfo = Schema.Unknown.annotate({ identifier: "MobileWorktreeInfo" })
-  const ProjectInfo = Schema.Unknown.annotate({ identifier: "MobileProjectInfo" })
-  const WorkspaceInfo = Schema.Unknown.annotate({ identifier: "MobileWorkspaceInfo" })
-  const PtyInfo = Schema.Unknown.annotate({ identifier: "MobilePtyInfo" })
-  const RoutineRecord = Schema.Unknown.annotate({ identifier: "MobileRoutine" })
-  const LoopDefinition = Schema.Unknown.annotate({ identifier: "MobileLoop" })
-  const LoopRun = Schema.Unknown.annotate({ identifier: "MobileLoopRun" })
-  const ConfigInfo = Schema.Unknown.annotate({ identifier: "MobileConfigInfo" })
+  // Domain objects reuse the Effect Schemas the services already own, so the
+  // generated clients get real types and there is a single definition per
+  // domain object. Every `/mobile/*` endpoint is served through `handleRaw`
+  // (see `mobile-handlers.ts`), so these are contract-only: they shape the
+  // generated SDK without adding response encoding at runtime.
+  const SessionInfo = Session.InfoSchema
+  const WorktreeInfo = ManagedWorktree.InfoSchema
+  const ProjectInfo = Project.InfoSchema
+  const WorkspaceInfo = Workspace.InfoSchema
+  const PtyInfo = Pty.InfoSchema
+  const RoutineRecord = Domain.Routine
+  const LoopDefinition = Domain.LoopDefinition
+  const LoopRun = Domain.LoopRun
+  /** The full `nikcli.json` document; still zod-only, so it stays open. */
+  const ConfigInfo = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "MobileConfigInfo" })
 
   const PublicToken = Schema.Struct({
     id: Schema.String,
@@ -131,7 +146,19 @@ export namespace MobileHttpApi {
     commit: Schema.Struct({ sha: Schema.String }),
   }).annotate({ identifier: "MobileGithubBranch" })
 
-  const GithubImport = Schema.Unknown.annotate({ identifier: "MobileGithubImport" })
+  /** Mirrors `MobileGithubRepo.Import`. */
+  const GithubImport = Schema.Struct({
+    owner: Schema.String,
+    repo: Schema.String,
+    fullName: Schema.String,
+    directory: Schema.String,
+    cloneUrl: Schema.String,
+    defaultBranch: Schema.String,
+    private: Schema.Boolean,
+    importedAt: Schema.Number,
+    updatedAt: Schema.Number,
+    projectID: Schema.optional(Schema.String),
+  }).annotate({ identifier: "MobileGithubImport" })
 
   const GithubDeviceAuthStart = Schema.Struct({
     deviceCode: Schema.String,
@@ -177,7 +204,7 @@ export namespace MobileHttpApi {
   const SessionDetail = Schema.Struct({
     info: SessionInfo,
     status: Schema.optional(Schema.Unknown),
-    messages: Schema.Array(Schema.Unknown),
+    messages: Schema.Array(MessageV2.WithPartsSchema),
     artifacts: Schema.Array(Schema.Unknown),
     permissions: Schema.Array(Schema.Unknown),
     questions: Schema.Array(Schema.Unknown),
@@ -218,7 +245,7 @@ export namespace MobileHttpApi {
     format: Schema.optional(Schema.Unknown),
     system: Schema.optional(Schema.String),
     variant: Schema.optional(Schema.String),
-    parts: Schema.Array(Schema.Unknown),
+    parts: Schema.Array(MessageV2.PartSchema),
   }).annotate({ identifier: "MobileSessionMessageInput" })
 
   const GithubPublishInput = Schema.Struct({
@@ -494,7 +521,7 @@ export namespace MobileHttpApi {
     .add(
       HttpApiEndpoint.get("sessionDiff", "/session/:sessionID/diff/:messageID", {
         params: Schema.Struct({ sessionID: Schema.String, messageID: Schema.String }),
-        success: Schema.Array(Schema.Unknown),
+        success: Schema.Array(Snapshot.FileDiffSchema),
       }).annotate(OpenApi.Identifier, "mobile.session.diff"),
     )
     .add(
@@ -507,17 +534,14 @@ export namespace MobileHttpApi {
       HttpApiEndpoint.post("sessionCommand", "/session/:sessionID/command", {
         params: SessionIDPath,
         payload: SessionCommandInput,
-        success: Schema.Struct({
-          info: Schema.Unknown,
-          parts: Schema.Array(Schema.Unknown),
-        }),
+        success: MessageV2.WithPartsSchema,
       }).annotate(OpenApi.Identifier, "mobile.session.command"),
     )
     .add(
       HttpApiEndpoint.post("sessionMessage", "/session/:sessionID/message", {
         params: SessionIDPath,
         payload: PromptPayload,
-        success: Schema.Unknown,
+        success: Schema.Struct({ accepted: Schema.Literal(true) }),
       }).annotate(OpenApi.Identifier, "mobile.session.message"),
     )
     .add(

@@ -6,31 +6,35 @@ import { Effect } from "effect"
 import { fileURLToPath } from "node:url"
 import { PublicApi } from "../src/server/httpapi/public"
 
-const contract = compile(PublicApi, {
-  // WebSocket upgrade endpoints; neither generated HTTP transport owns them.
-  // `auth.set` and `part.update` carry union payloads, which
-  // `HttpApiClient.ForApi` narrows to the first member — omit them until the
-  // upstream union-payload derivation is fixed.
-  omitEndpoints: new Set(["pty-connect.connect", "mobile.ptyConnect", "auth.set", "session.partUpdate"]),
-  // OpenApi.Identifier annotations pin operationIds to the Hono OpenAPI
-  // contract (dotted ids that collide as client paths); keep client method
-  // names derived from the Effect endpoint names instead.
-  clientPathsFromEndpointNames: true,
-})
+// WebSocket upgrade endpoints: no generated HTTP transport owns them.
+const upgrades = ["pty-connect.connect", "mobile.ptyConnect"]
+
+// Union payloads. The Promise transport passes them through untouched, but
+// `HttpApiClient.ForApi` narrows a union payload to its first member, so the
+// Effect clients cannot express these until the upstream derivation is fixed.
+const unionPayloads = ["auth.set", "session.partUpdate"]
+
+// OpenApi.Identifier annotations pin operationIds to the Hono OpenAPI contract
+// (dotted ids that collide as client paths); keep client method names derived
+// from the Effect endpoint names instead.
+const shared = { clientPathsFromEndpointNames: true } as const
+
+const promiseContract = compile(PublicApi, { ...shared, omitEndpoints: new Set(upgrades) })
+const effectContract = compile(PublicApi, { ...shared, omitEndpoints: new Set([...upgrades, ...unionPayloads]) })
 
 await Effect.runPromise(
   Effect.all(
     [
       write(
-        emitPromise(contract, { mutableOutputs: true, relativeImportExtension: ".js" }),
+        emitPromise(promiseContract, { mutableOutputs: true, relativeImportExtension: ".js" }),
         fileURLToPath(new URL("../../sdk/js/src/httpapi/generated", import.meta.url)),
       ),
       write(
-        emitEffectImported(contract, { module: "../../public", api: "PublicApi" }),
+        emitEffectImported(effectContract, { module: "../../public", api: "PublicApi" }),
         fileURLToPath(new URL("../src/server/httpapi/client/generated", import.meta.url)),
       ),
       write(
-        emitEffectShape(contract, { module: "../../public", api: "PublicApi" }),
+        emitEffectShape(effectContract, { module: "../../public", api: "PublicApi" }),
         fileURLToPath(new URL("../src/server/httpapi/client/api", import.meta.url)),
       ),
     ],
@@ -38,5 +42,9 @@ await Effect.runPromise(
   ).pipe(Effect.provide(BunFileSystem.layer)),
 )
 
-const endpoints = contract.groups.reduce((total, group) => total + group.endpoints.length, 0)
-console.log(`Generated Promise and Effect clients for ${contract.groups.length} groups and ${endpoints} endpoints`)
+const count = (contract: typeof promiseContract) =>
+  contract.groups.reduce((total, group) => total + group.endpoints.length, 0)
+console.log(
+  `Generated Promise client (${promiseContract.groups.length} groups, ${count(promiseContract)} endpoints)` +
+    ` and Effect clients (${effectContract.groups.length} groups, ${count(effectContract)} endpoints)`,
+)

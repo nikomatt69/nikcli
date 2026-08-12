@@ -16,7 +16,7 @@ import type {
   SessionStatus,
   Todo,
   VcsInfo,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 import type { Accessor } from "solid-js"
 import type { SetStoreFunction, Store } from "solid-js/store"
 

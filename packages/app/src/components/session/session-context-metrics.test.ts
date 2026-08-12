@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { Message } from "@nikcli-ai/sdk/v2/client"
+import type { Message } from "@nikcli-ai/sdk/httpapi"
 import { getSessionContextMetrics } from "./session-context-metrics"
 
 const assistant = (

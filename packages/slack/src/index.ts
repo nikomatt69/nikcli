@@ -3,10 +3,11 @@ import {
   createNikcli,
   createNikcliClient,
   type Part,
+  type SessionPromptResponse,
   type TextPart,
   type ToolPart,
   type ToolStateCompleted,
-} from "@nikcli-ai/sdk"
+} from "@nikcli-ai/sdk/httpapi"
 import { ChannelMemory } from "./channel-memory"
 import { ChannelTools } from "./channel-tools"
 import { FollowUps } from "./followups"
@@ -30,7 +31,7 @@ const modelBody = providerID && modelID ? { model: { providerID, modelID } } : {
 // Working repository the agent operates on (the entrypoint clones it here).
 // When unset (local dev), nikcli falls back to its own cwd.
 const WORKDIR = process.env.NIKCLI_WORKDIR
-const dirQuery = WORKDIR ? { directory: WORKDIR } : undefined
+const dirQuery = WORKDIR ? { directory: WORKDIR } : {}
 
 type Session = { sessionId: string; channel: string; thread: string }
 
@@ -393,14 +394,12 @@ async function processPrompt(
       try {
         console.log("Sending to nikcli:", prompt)
         const result = await nikcli.client.session.prompt({
-          path: { id: session.sessionId },
-          ...(dirQuery ? { query: dirQuery } : {}),
-          body: {
-            parts: [{ type: "text", text: prompt }],
-            ...modelBody,
-            ...(system ? { system } : {}),
-            ...(tools ? { tools } : {}),
-          },
+          sessionID: session.sessionId,
+          ...dirQuery,
+          parts: [{ type: "text", text: prompt }],
+          ...modelBody,
+          ...(system ? { system } : {}),
+          ...(tools ? { tools } : {}),
         })
 
         if (result.error) {
@@ -566,14 +565,13 @@ function formatForSlack(text: string): string {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "<$2|$1>") // [text](url) → <url|text>
 }
 
-function extractResponseText(
-  data?: { info?: { error?: { name?: string; data?: { message?: string } } }; parts?: Part[] } | null,
-): string {
+function extractResponseText(data?: SessionPromptResponse | null): string {
   if (!data) return "I received your message but had no response."
 
-  const apiError = data.info?.error
+  const apiError = data.info.role === "assistant" ? data.info.error : undefined
   if (apiError) {
-    const msg = apiError.data?.message ?? apiError.name ?? "Unknown error"
+    // `MessageOutputLengthError` carries no `data.message`.
+    const msg = ("message" in apiError.data ? apiError.data.message : undefined) ?? apiError.name ?? "Unknown error"
     return `⚠️ ${msg}`
   }
 
@@ -594,8 +592,8 @@ async function getSession(sessionKey: string, channel: string, thread: string, s
   console.log("Creating new nikcli session...")
 
   const createResult = await nikcli.client.session.create({
-    body: { title: `Slack thread ${thread}` },
-    ...(dirQuery ? { query: dirQuery } : {}),
+    title: `Slack thread ${thread}`,
+    ...dirQuery,
   })
 
   if (createResult.error || !createResult.data?.id) {
@@ -610,7 +608,7 @@ async function getSession(sessionKey: string, channel: string, thread: string, s
   sessions.set(sessionKey, session)
   schedulePersist()
 
-  const shareResult = await nikcli.client.session.share({ path: { id: createResult.data.id } })
+  const shareResult = await nikcli.client.session.share({ sessionID: createResult.data.id, ...dirQuery })
   if (!shareResult.error && shareResult.data?.share?.url) {
     await app.client.chat
       .postMessage({

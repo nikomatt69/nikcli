@@ -13,7 +13,7 @@ import {
 } from "@tui/util/context-usage"
 import type { Theme } from "@tui/context/theme"
 import type { RGBA } from "@opentui/core"
-import type { SessionContextResponse } from "@nikcli-ai/sdk/v2"
+import type { SessionContextResponse } from "@nikcli-ai/sdk/httpapi"
 
 function rgba(r: number, g: number, b: number): RGBA {
   return { r, g, b, a: 1 } as RGBA

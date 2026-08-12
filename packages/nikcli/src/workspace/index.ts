@@ -1,5 +1,4 @@
 import z from "zod"
-import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { Identifier } from "@/id/id"
@@ -78,7 +77,7 @@ export namespace Workspace {
     ),
   }
 
-  const InfoSchema = Schema.Struct({
+  export const InfoSchema = Schema.Struct({
     id: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
     name: Schema.String,
     timeUsed: Schema.Number,

@@ -1,4 +1,4 @@
-import type { Event as NikcliEvent, Message, MobileSessionDetail, Part } from "@nikcli-ai/sdk/v2/client"
+import type { Event as NikcliEvent, Message, MobileSessionDetail, Part } from "@nikcli-ai/sdk/httpapi"
 
 export type MessageWithParts = MobileSessionDetail["messages"][number]
 

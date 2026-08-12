@@ -4,7 +4,17 @@ import { Connectors } from "@/connectors"
 import { ConnectorAuth } from "@/connectors/auth"
 
 export namespace ConnectorsHttpApi {
-  const UnknownJson = Schema.Unknown
+  /** Mirrors `Connectors.StatusSchema` — one entry per configured connector. */
+  const ConnectorStatus = Schema.Union([
+    Schema.Struct({ status: Schema.Literal("connected") }),
+    Schema.Struct({ status: Schema.Literal("disabled") }),
+    Schema.Struct({ status: Schema.Literal("failed"), error: Schema.String }),
+    Schema.Struct({ status: Schema.Literal("needs_auth") }),
+  ]).annotate({ identifier: "ConnectorStatus" })
+
+  const StatusOutput = Schema.Record(Schema.String, ConnectorStatus).annotate({
+    identifier: "ConnectorsStatusOutput",
+  })
 
   const Success = Schema.Struct({
     success: Schema.Literal(true),
@@ -29,7 +39,7 @@ export namespace ConnectorsHttpApi {
   const fromPromise = <A>(fn: () => Promise<A>) => Effect.promise(fn).pipe(Effect.orDie)
 
   export const Group = HttpApiGroup.make("connectors")
-    .add(HttpApiEndpoint.get("status", "/", { success: UnknownJson }))
+    .add(HttpApiEndpoint.get("status", "/", { success: StatusOutput }))
     .add(
       HttpApiEndpoint.post("authSet", "/:name/auth", {
         params: NamePath,

@@ -812,8 +812,6 @@ export async function storeGithubToken(tokenOrGrant: string | GithubTokenGrant) 
   Connectors.invalidateConnector("github")
 }
 
-const GITHUB_TOKEN_REFRESH_MARGIN_MS = 5 * 60_000
-
 async function refreshGithubToken(key: string): Promise<string | null> {
   const entry = await runConnectorAuth(
     Effect.gen(function* () {

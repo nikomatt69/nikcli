@@ -39,7 +39,7 @@ export function nikcliBackendConfig(env: CloudflareEnv): NikcliBackendConfig | n
 }
 
 async function createClient(config: NikcliBackendConfig) {
-  const { createNikcliClient } = await import("@nikcli-ai/sdk/v2/client")
+  const { createNikcliClient } = await import("@nikcli-ai/sdk/httpapi")
   return createNikcliClient({
     baseUrl: config.url,
     directory: config.directory,

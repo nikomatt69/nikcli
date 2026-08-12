@@ -238,7 +238,7 @@ async function importStoredCursorSession(input: PluginInput, getAuth: () => Prom
 
   await input.client.auth.set({
     providerID: "cursor",
-    auth: {
+    payload: {
       type: "oauth",
       access: tokens.access,
       refresh: tokens.refresh,
@@ -257,7 +257,7 @@ async function refreshFromCliConfig(input: PluginInput): Promise<ImportedTokens 
   const tokens = cliConfigToOAuth(current.config)
   await input.client.auth.set({
     providerID: "cursor",
-    auth: {
+    payload: {
       type: "oauth",
       access: tokens.access,
       refresh: tokens.refresh,

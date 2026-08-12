@@ -41,7 +41,7 @@ import {
   type Pty,
   type Session,
   type Worktree,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 
 export type {
   MobileGitBranchesResponse,

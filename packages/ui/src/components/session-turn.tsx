@@ -7,7 +7,7 @@ import {
   type QuestionRequest,
   TextPart,
   ToolPart,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 import { useData } from "../context"
 import { type UiI18nKey, type UiI18nParams, useI18n } from "../context/i18n"
 
@@ -289,8 +289,13 @@ export function SessionTurn(
   const lastAssistantMessage = createMemo(() => assistantMessages().at(-1))
 
   const error = createMemo(() => assistantMessages().find((m) => m.error)?.error)
+  // `MessageOutputLengthError` carries no `data.message`, so read it defensively.
+  const errorMessage = createMemo(() => {
+    const data = error()?.data
+    return data && "message" in data ? data.message : undefined
+  })
   const errorText = createMemo(() => {
-    const msg = error()?.data?.message
+    const msg = errorMessage()
     if (typeof msg === "string") return unwrap(msg)
     if (msg === undefined || msg === null) return ""
     return unwrap(String(msg))
@@ -541,7 +546,7 @@ export function SessionTurn(
 
   let errorLog = ""
   createEffect(() => {
-    const value = error()?.data?.message
+    const value = errorMessage()
     if (value === undefined || value === null) return
     const raw = typeof value === "string" ? value : String(value)
     if (!raw) return

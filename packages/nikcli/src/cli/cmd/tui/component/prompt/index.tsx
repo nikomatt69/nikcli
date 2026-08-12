@@ -34,7 +34,7 @@ import { Editor } from "@tui/util/editor"
 import { useExit } from "../../context/exit"
 import { useEditorContext } from "../../context/editor"
 import { Clipboard } from "../../util/clipboard"
-import type { AssistantMessage, FilePart } from "@nikcli-ai/sdk/v2"
+import type { AssistantMessage, FilePart } from "@nikcli-ai/sdk/httpapi"
 import { TuiEvent } from "../../event"
 import { iife } from "@/util/iife"
 import { userFacingParts } from "@/util/user-error"
@@ -897,7 +897,7 @@ export function Prompt(props: PromptProps) {
 
   const getAvailableAds = () => {
     const adsConfig = ads()
-    const items = (adsConfig?.items ?? []).filter((item) => item.enabled !== false)
+    const items = (adsConfig?.items ?? []).filter((item: { enabled?: boolean }) => item.enabled !== false)
     const enabled = adsConfig?.enabled ?? true
     if (!enabled || items.length === 0) return []
     return items

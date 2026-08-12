@@ -1,6 +1,6 @@
 import { createResource, createSignal, Match, Show, Switch } from "solid-js"
 import { TextAttributes } from "@opentui/core"
-import type { MobileRoutine, RoutineTrigger, RoutineTriggerApi, RoutineTriggerSchedule } from "@nikcli-ai/sdk/v2"
+import type { MobileRoutine, RoutineTrigger, RoutineTriggerApi, RoutineTriggerSchedule } from "@nikcli-ai/sdk/httpapi"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
@@ -387,7 +387,7 @@ function DialogRoutineCreate(props: { onDone: () => void }) {
     try {
       const chosen = model()
       const result = await sdk.client.mobile.routine.create({
-        mobileRoutineCreateInput: {
+        payload: {
           name: name(),
           prompt: prompt(),
           triggers: triggers(),
@@ -555,7 +555,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
     try {
       const result = await sdk.client.mobile.routine.update({
         id: props.routine.id,
-        mobileRoutineUpdateInput: input,
+        payload: input,
       })
       const routine = assertData<MobileRoutine>(result, "Failed to update routine")
       toast.show({ message: "Routine updated", variant: "success" })
@@ -572,7 +572,7 @@ function DialogRoutineActions(props: { routine: MobileRoutine; onDone: () => voi
       const runContext = text?.trim()
       const result = await sdk.client.mobile.routine.run({
         id: props.routine.id,
-        mobileRoutineRunInput: runContext ? { text: runContext } : undefined,
+        ...(runContext ? { text: runContext } : {}),
       })
       const session = assertData<{ id: string }>(result, "Run failed")
       toast.show({ message: `Session started: ${session.id}`, variant: "success" })

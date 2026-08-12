@@ -1,6 +1,6 @@
 import { Accessor } from "solid-js"
 import { useNavigate, useParams } from "@solidjs/router"
-import { createNikcliClient, type Message } from "@nikcli-ai/sdk/v2/client"
+import { createNikcliClient, type Message } from "@nikcli-ai/sdk/httpapi"
 import { showToast } from "@nikcli-ai/ui/toast"
 import { base64Encode } from "@nikcli-ai/util/encode"
 import { useLocal } from "@/context/local"

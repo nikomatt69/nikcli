@@ -11,7 +11,7 @@ import { useToast } from "@tui/ui/toast"
 import { Clipboard } from "@tui/util/clipboard"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { buildSupportDocsIndex } from "@/agent/prompt/support-docs"
-import type { Part, TextPart } from "@nikcli-ai/sdk/v2"
+import type { Part, TextPart } from "@nikcli-ai/sdk/httpapi"
 import {
   buildSupportPromptParts,
   supportPartFromPaste,

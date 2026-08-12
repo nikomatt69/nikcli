@@ -15,7 +15,6 @@ import { createWriteStream, type WriteStream } from "fs"
 import fs from "fs/promises"
 import path from "path"
 import { ulid } from "ulid"
-import z from "zod"
 import { Effect, Schema } from "effect"
 import { type DeepMutable, zod, zodObject } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -79,7 +78,7 @@ export namespace Monitor {
   export const Status = zod(StatusSchema)
   export type Status = Schema.Schema.Type<typeof StatusSchema>
 
-  const RecordSchema = Schema.Struct({
+  export const RecordSchema = Schema.Struct({
     id: Schema.String,
     sessionID: Schema.String,
     messageID: Schema.String.pipe(Schema.check(Schema.isStartsWith("msg"))),
@@ -110,7 +109,7 @@ export namespace Monitor {
   export const Record = zodObject(RecordSchema)
   export type Record = DeepMutable<Schema.Schema.Type<typeof RecordSchema>>
 
-  const LogSnapshotSchema = Schema.Struct({
+  export const LogSnapshotSchema = Schema.Struct({
     record: RecordSchema,
     output: Schema.String,
     truncated: Schema.Boolean,

@@ -1,4 +1,4 @@
-import { createNikcliClient } from "@nikcli-ai/sdk/v2/client"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 
 export type ServerHealth = { healthy: boolean; version?: string }
 

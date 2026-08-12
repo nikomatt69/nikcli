@@ -11,7 +11,7 @@ import type {
   MobileSessionDetail,
   MobileSessionSummary,
   QuestionRequest,
-} from "@nikcli-ai/sdk/v2/client"
+} from "@nikcli-ai/sdk/httpapi"
 import {
   clearServerConfig,
   formatRelativeTime,

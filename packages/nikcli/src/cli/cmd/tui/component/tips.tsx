@@ -1,6 +1,6 @@
 import { createMemo, For } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
-import type { Config } from "@nikcli-ai/sdk/v2/client"
+import type { Config } from "@nikcli-ai/sdk/httpapi"
 
 type TipPart = { text: string; highlight: boolean }
 type TipEntry = { type: "tip"; text: string }
@@ -58,7 +58,7 @@ export function Tips(props: { ads?: AdsConfig }) {
 }
 
 function selectEntry(ads?: AdsConfig): Entry {
-  const items = (ads?.items ?? []).filter((item) => item.enabled !== false)
+  const items = (ads?.items ?? []).filter((item: AdsItem) => item.enabled !== false)
   const enabled = ads?.enabled ?? true
   const ratio = clampRatio(ads?.ratio)
 

@@ -19,7 +19,110 @@ export namespace MissionHttpApi {
   const BooleanResult = Schema.Boolean.annotate({
     identifier: "MissionBooleanResult",
   })
-  const UnknownJson = Schema.Unknown
+  /**
+   * Mirrors the zod schemas in `@/mission/schema` and the runtime shape in
+   * `@/mission/orchestrator`. Declared as Effect Schemas so the generated
+   * clients carry real types instead of `any`. Handlers push every body
+   * through `jsonSafe`, which drops `undefined` properties, so optional
+   * fields are genuinely absent rather than explicitly undefined.
+   */
+  const MissionFeature = Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    objective: Schema.String,
+    agent: Schema.String,
+    model: Schema.optional(Schema.String),
+    tokenBudget: Schema.optional(Schema.Number),
+    dependsOn: Schema.Array(Schema.String),
+    status: Schema.Literals(["pending", "running", "done", "blocked", "skipped", "error"]),
+    error: Schema.optional(Schema.String),
+  }).annotate({ identifier: "MissionFeature" })
+
+  const MissionMilestone = Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    features: Schema.Array(MissionFeature),
+    validation: Schema.Literals(["scrutiny", "user-test", "none"]),
+    status: Schema.Literals(["pending", "running", "validating", "done", "blocked"]),
+  }).annotate({ identifier: "MissionMilestone" })
+
+  const MissionModels = Schema.Struct({
+    worker: Schema.optional(Schema.String),
+    validation: Schema.optional(Schema.String),
+    orchestrator: Schema.optional(Schema.String),
+  }).annotate({ identifier: "MissionModels" })
+
+  const MissionWorktree = Schema.Struct({
+    name: Schema.String,
+    branch: Schema.optional(Schema.String),
+    directory: Schema.String,
+  }).annotate({ identifier: "MissionWorktree" })
+
+  const MissionDefinitionOutput = Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    brief: Schema.String,
+    milestones: Schema.Array(MissionMilestone),
+    models: MissionModels,
+    timeoutMs: Schema.optional(Schema.Number),
+    sandbox: Schema.optional(Schema.Boolean),
+    worktree: Schema.optional(MissionWorktree),
+    status: Schema.Literals(["planning", "ready", "running", "paused", "frozen", "complete", "error"]),
+    createdAt: Schema.Number,
+  }).annotate({ identifier: "MissionDefinition" })
+
+  const MissionExecSchema = Schema.Struct({
+    id: Schema.String,
+    missionID: Schema.String,
+    kind: Schema.Literals(["feature", "validation"]),
+    targetID: Schema.String,
+    targetName: Schema.String,
+    startedAt: Schema.Number,
+    endedAt: Schema.optional(Schema.Number),
+    status: Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
+    heartbeatAt: Schema.optional(Schema.Number),
+    sessionID: Schema.optional(Schema.String),
+    error: Schema.optional(Schema.String),
+    ok: Schema.Boolean,
+  }).annotate({ identifier: "MissionExec" })
+
+  /** `Engine.getRuntime()` merged with the mission id the handlers attach. */
+  const MissionRuntime = Schema.Struct({
+    missionID: Schema.String,
+    status: Schema.Literals(["idle", "running", "paused", "error", "cancelling"]),
+    sessionID: Schema.optional(Schema.String),
+    currentMilestoneID: Schema.optional(Schema.String),
+    currentFeatureID: Schema.optional(Schema.String),
+    doneFeatures: Schema.Number,
+    totalFeatures: Schema.Number,
+    lastError: Schema.optional(Schema.String),
+    lastRunAt: Schema.optional(Schema.Number),
+  }).annotate({ identifier: "MissionRuntime" })
+
+  const MissionTemplateSchema = Schema.Struct({
+    id: Schema.String,
+    title: Schema.String,
+    description: Schema.String,
+    brief: Schema.String,
+  }).annotate({ identifier: "MissionTemplate" })
+
+  const ListOutput = Schema.Struct({
+    missions: Schema.Array(MissionDefinitionOutput),
+    runtimes: Schema.Array(MissionRuntime),
+  }).annotate({ identifier: "MissionListOutput" })
+
+  const TemplatesOutput = Schema.Struct({
+    templates: Schema.Array(MissionTemplateSchema),
+  }).annotate({ identifier: "MissionTemplatesOutput" })
+
+  const GetOutput = Schema.Struct({
+    mission: MissionDefinitionOutput,
+    runtime: MissionRuntime,
+  }).annotate({ identifier: "MissionGetOutput" })
+
+  const ExecsOutput = Schema.Struct({ execs: Schema.Array(MissionExecSchema) }).annotate({
+    identifier: "MissionExecsOutput",
+  })
 
   const NotFound = Schema.Struct({
     name: Schema.Literal("NotFound"),
@@ -86,32 +189,32 @@ export namespace MissionHttpApi {
   }).annotate({ identifier: "MissionFeatureMutateInput" })
 
   export const Group = HttpApiGroup.make("mission")
-    .add(HttpApiEndpoint.get("list", "/", { success: UnknownJson }))
-    .add(HttpApiEndpoint.get("templates", "/templates", { success: UnknownJson }))
+    .add(HttpApiEndpoint.get("list", "/", { success: ListOutput }))
+    .add(HttpApiEndpoint.get("templates", "/templates", { success: TemplatesOutput }))
     .add(
       HttpApiEndpoint.post("generate", "/generate", {
         payload: GeneratePayload,
-        success: UnknownJson,
+        success: MissionDefinitionOutput,
         error: ValidationError,
       }),
     )
     .add(
       HttpApiEndpoint.get("recentExecs", "/execs/recent", {
         query: ExecsQuery,
-        success: UnknownJson,
+        success: ExecsOutput,
       }),
     )
     .add(
       HttpApiEndpoint.get("get", "/:id", {
         params: MissionIDPath,
-        success: UnknownJson,
+        success: GetOutput,
         error: NotFound,
       }),
     )
     .add(
       HttpApiEndpoint.put("upsert", "/", {
         payload: CreatePayload,
-        success: UnknownJson,
+        success: MissionDefinitionOutput,
         error: ValidationError,
       }),
     )
@@ -119,7 +222,7 @@ export namespace MissionHttpApi {
       HttpApiEndpoint.post("update", "/:id", {
         params: MissionIDPath,
         payload: UpdatePayload,
-        success: UnknownJson,
+        success: MissionDefinitionOutput,
         error: [NotFound, ValidationError],
       }),
     )
@@ -155,7 +258,7 @@ export namespace MissionHttpApi {
       HttpApiEndpoint.post("featureMutate", "/:id/feature/:featureID", {
         params: FeaturePath,
         payload: FeatureMutatePayload,
-        success: UnknownJson,
+        success: MissionDefinitionOutput,
         error: [NotFound, ValidationError],
       }).annotate(OpenApi.Identifier, "mission.feature.mutate"),
     )
@@ -163,7 +266,7 @@ export namespace MissionHttpApi {
       HttpApiEndpoint.get("execs", "/:id/execs", {
         params: MissionIDPath,
         query: ExecsQuery,
-        success: UnknownJson,
+        success: ExecsOutput,
       }),
     )
     .prefix("/mission")

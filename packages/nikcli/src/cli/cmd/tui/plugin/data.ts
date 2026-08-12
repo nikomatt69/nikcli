@@ -12,7 +12,7 @@ import type {
   QuestionRequest,
   ReferenceConfig,
   SessionEntry,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import type {
   Data,
   IntegrationInfo,
@@ -60,6 +60,15 @@ function query(location: LocationRef) {
     directory: location.directory,
     workspace: location.workspaceID,
   }
+}
+
+/**
+ * `config.reference` comes back untyped — the contract still carries the whole
+ * `nikcli.json` document as an open record — so the entries are narrowed here.
+ */
+function references(value: unknown): ReferenceInfo[] {
+  if (typeof value !== "object" || value === null) return []
+  return Object.entries(value as Record<string, ReferenceConfig>).map(([name, reference]) => ({ ...reference, name }))
 }
 
 function permissionKey(rule: PermissionRule) {
@@ -403,17 +412,13 @@ export function createV2Data(input: Input): Data {
         },
       ),
       reference: collection(
-        () =>
-          Object.entries(input.sync.data.config.reference ?? {}).map(([name, reference]) => ({ name, ...reference })),
+        () => references(input.sync.data.config.reference),
         "reference",
         async (ref) => {
           const response = await input.sdk.client.config.get(query(ref), { throwOnError: true })
           const config = response.data
           if (isDefault(ref) && config) input.sync.set("config", reconcile(config))
-          return Object.entries(config?.reference ?? {}).map(([name, reference]: [string, ReferenceConfig]) => ({
-            name,
-            ...reference,
-          }))
+          return references(config?.reference)
         },
       ),
       skill: collection(

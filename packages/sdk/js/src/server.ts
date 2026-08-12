@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { type Config } from "./gen/types.gen.js"
+import { type Config } from "./httpapi/generated/types.js"
 
 export type ServerOptions = {
   hostname?: string

@@ -30,7 +30,7 @@ import {
   type UserMessage,
   type TextPart,
   type ReasoningPart,
-} from "@nikcli-ai/sdk/v2"
+} from "@nikcli-ai/sdk/httpapi"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
 import { reasoningSummary } from "@tui/context/thinking"

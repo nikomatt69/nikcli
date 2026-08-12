@@ -6,7 +6,7 @@ import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
-import type * as SDK from "@nikcli-ai/sdk/v2"
+import type * as SDK from "@nikcli-ai/sdk/httpapi"
 import { Context, Effect, Layer } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 

@@ -1,4 +1,4 @@
-import type { FileNode } from "@nikcli-ai/sdk/v2"
+import type { FileNode } from "@nikcli-ai/sdk/httpapi"
 
 type WatcherEvent = {
   type: string

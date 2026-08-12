@@ -228,12 +228,12 @@ export function DialogCustomProvider(props: Props) {
     setForm("saving", true)
 
     const disabledProviders = globalSync.data.config.disabled_providers ?? []
-    const nextDisabled = disabledProviders.filter((id) => id !== result.providerID)
+    const nextDisabled = disabledProviders.filter((id: string) => id !== result.providerID)
 
     const auth = result.key
       ? globalSDK.client.auth.set({
           providerID: result.providerID,
-          auth: {
+          payload: {
             type: "api",
             key: result.key,
           },

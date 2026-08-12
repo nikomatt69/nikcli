@@ -7,7 +7,7 @@ import { useDialog } from "@nikcli-ai/ui/context/dialog"
 import { Dialog } from "@nikcli-ai/ui/dialog"
 import { List } from "@nikcli-ai/ui/list"
 import { extractPromptFromParts } from "@/utils/prompt"
-import type { TextPart as SDKTextPart } from "@nikcli-ai/sdk/v2/client"
+import type { TextPart as SDKTextPart } from "@nikcli-ai/sdk/httpapi"
 import { base64Encode } from "@nikcli-ai/util/encode"
 import { useLanguage } from "@/context/language"
 
