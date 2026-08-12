@@ -72,7 +72,7 @@ jobs:
               });
             }
 
-            const titlePattern = /^(feat|fix|docs|chore|refactor|test)\s*(\([a-zA-Z0-9-]+\))?\s*:/;
+            const titlePattern = /^(feat|fix|docs|chore|refactor|perf|test)\s*(\([a-zA-Z0-9-]+\))?\s*:/;
             const hasValidTitle = titlePattern.test(title);
 
             if (!hasValidTitle) {
