@@ -677,11 +677,13 @@ function densify(rows: ActivityBucket[], now: number, days: number): ActivityBuc
 /**
  * Densifies the daily rows into one point per day across the whole series
  * window, so a gap in traffic reads as a gap and not as a missing column.
- * Only the five largest models get their own band; the rest stack as "other".
- * Five is not the palette's limit — it is where a band stays thick enough to
- * see, and the leaderboard already carries the tail at full precision.
+ * Only the four largest models get their own band; the rest stack as "other".
+ * Four is not the palette's limit. It is where a band stays thick enough to
+ * see — and it lets both charts' bands share one colour ordering, since the
+ * union of two four-model sets still fits the eight validated slots. The
+ * leaderboards carry the tail at full precision either way.
  */
-const SERIES_BANDS = 5
+const SERIES_BANDS = 4
 
 function buildSeries(
   daily: DailyBucket[],
@@ -710,6 +712,11 @@ function buildSeries(
     series.push(byDay.get(day) ?? { day, byModel: {}, tokens: 0, requests: 0 })
   }
 
+  // Draw order, bottom of the stack first: the largest model sits on the axis
+  // so its own shape can be read day to day, and the tail rides on top. Put
+  // "other" on the baseline instead and every band above it floats on a moving
+  // pedestal, which is the one thing a stacked chart must not do to its
+  // leading series.
   const seriesModels = models.slice(0, SERIES_BANDS).map((m) => m.model)
   if (daily.some((row) => !named.has(row.model))) seriesModels.push("other")
   return { series, seriesModels }
@@ -721,8 +728,12 @@ function buildSeries(
  * 3.4M. `count` is the target number of steps, not a promise — once the step is
  * clean the axis stops at the first tick that covers the data, so a 52.7K
  * series gets an axis to 60K rather than a mostly empty one to 80K.
+ *
+ * `count` defaults to five rather than four because a coarser step overshoots:
+ * a 404M peak on four steps lands a 200M step and an axis to 600M, leaving a
+ * third of the plot empty, where five steps land 100M and stop at 500M.
  */
-export function axisTicks(max: number, count = 4): number[] {
+export function axisTicks(max: number, count = 5): number[] {
   if (!(max > 0)) return [0, 1]
   const magnitude = 10 ** Math.floor(Math.log10(max / count))
   const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate * count >= max)!
