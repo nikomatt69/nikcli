@@ -436,8 +436,8 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                   Models developers run
                 </h2>
                 <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
-                  Reported by nikcli installs that opted in — including models run on their own provider keys, which never touch
-                  the nikcli gateway. Figures cover the last {community.windowDays} days; the chart below covers
+                  Reported by nikcli installs — including models run on their own provider keys, which never touch the
+                  nikcli gateway. Figures cover the last {community.windowDays} days; the chart below covers
                   {community.seriesDays}.
                 </p>
               </div>
@@ -845,9 +845,14 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
             </div>
 
             <p class="mt-6 text-[13px] text-terminal-muted">
-              Reporting is off unless you turn it on. With <code class="rounded-sm bg-terminal-code px-1.5 py-0.5">analytics.share</code>
-              {" "}set, nikcli sends one row per day, provider and model — message count, token count and cost. Never
-              prompts, paths, repositories or session titles.
+              nikcli reports one row per day, provider and model — session count, message count, token count and cost,
+              under a random identifier. Never prompts, paths, repositories, session titles or account. It is on by
+              default, because a sample of only those who opted in would measure those people rather than the
+              community. <code class="rounded-sm bg-terminal-code px-1.5 py-0.5">DO_NOT_TRACK=1</code>,
+              {" "}<code class="rounded-sm bg-terminal-code px-1.5 py-0.5">NIKCLI_DISABLE_ANALYTICS=1</code> or
+              {" "}<code class="rounded-sm bg-terminal-code px-1.5 py-0.5">analytics.share: false</code> turns it off;
+              {" "}<a class="underline underline-offset-2 hover:text-terminal-text" href="/docs/configuration#analytics">the docs</a>
+              {" "}spell out exactly what is sent.
             </p>
           </div>
         </section>
@@ -1631,7 +1636,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
             <dt class="text-body-sm font-semibold text-terminal-text">Sources</dt>
             <dd class="mt-1 text-body-sm text-terminal-muted">
               Gateway figures are one row per served completion, written to the same table billing reads. Community
-              figures are what installs opted in to report about the models they run themselves. Adoption comes from
+              figures are what installs report about the models they run themselves. Adoption comes from
               STATS.md in the repository.
             </dd>
           </div>
