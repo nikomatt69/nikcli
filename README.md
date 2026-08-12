@@ -10,7 +10,7 @@ This fork is maintained by **nikomatt69**. On top of the OpenCode base, nikcli a
 
 - **Upstream project**: OpenCode — [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
 - **Maintainer of this fork**: nikomatt69 — [GitHub](https://github.com/nikomatt69) · [X](https://x.com/nikomatt69)
-- **Version**: `1.149.0` · Package manager: `bun@1.3.14`
+- **Version**: see [releases](https://github.com/nikomatt69/nikcli/releases/latest) · Package manager: `bun@1.3.14`
 - **License**: MIT — see `LICENSE`, which retains the upstream OpenCode copyright.
 
 ---
@@ -116,7 +116,7 @@ Useful development scripts:
 | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `bun run dev`                                  | Start the nikcli CLI/TUI from source                                                 |
 | `bun run typecheck`                            | `bun turbo typecheck` across the whole workspace                                     |
-| `bun run build`                                | Build all packages                                                                   |
+| `bun turbo build`                              | Build all packages                                                                   |
 | `bun run web:dev`                              | Dev server for the `packages/web` site                                               |
 | `cd packages/sdk/js && bun script/build.ts`    | Regenerate the JavaScript SDK after modifying `packages/nikcli/src/server/server.ts` |
 | `cd packages/nikcli && bun run bench`          | TUI bench (`test/bench/viz.tsx`)                                                     |
