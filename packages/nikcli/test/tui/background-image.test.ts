@@ -78,8 +78,12 @@ describe("background settings", () => {
     expect(cleanSource('"C:\\Users\\39349\\my image.png"', "C:\\Users\\39349", windows)).toBe(
       "C:\\Users\\39349\\my image.png",
     )
+    // `path.win32`, not `path.join`: the whole point of passing `windows` is that
+    // the assertion describes Windows on either host. Bare `path.join` resolves
+    // against the *runner*, so on POSIX this expected the mixed
+    // `C:\Users\39349/Pictures\a.png` and the case failed everywhere but Windows.
     expect(cleanSource("~\\Pictures\\a.png", "C:\\Users\\39349", windows)).toBe(
-      path.join("C:\\Users\\39349", "Pictures\\a.png"),
+      path.win32.join("C:\\Users\\39349", "Pictures\\a.png"),
     )
     expect(cleanSource("~", "C:\\Users\\39349", windows)).toBe("C:\\Users\\39349")
   })
