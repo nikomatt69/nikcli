@@ -40,7 +40,24 @@ Astro.response.headers.set("cache-control", "public, max-age=900, s-maxage=900")
 
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 })
 const whole = new Intl.NumberFormat("en-US")
-const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 })
+/** Compact with a fixed decimal, so a column of them aligns: 8.1B, 243.8M, 65.0M. */
+/**
+ * One unit for a whole axis. Formatting each tick on its own gives a column
+ * reading 2.5K, 2K, 1.5K, 1K, 500 — five ticks in two different units.
+ */
+const axisFormat = (ticks: number[]) => {
+  const max = ticks[ticks.length - 1] ?? 0
+  const [divisor, suffix] = max >= 1e9 ? [1e9, "B"] : max >= 1e6 ? [1e6, "M"] : max >= 1e3 ? [1e3, "K"] : [1, ""]
+  const scaled = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })
+  return (value: number) => (value === 0 ? "0" : `${scaled.format(value / divisor)}${suffix}`)
+}
+
+const compactFixed = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+const percent = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const signedPercent = new Intl.NumberFormat("en-US", {
   style: "percent",
   maximumFractionDigits: 0,
@@ -63,21 +80,31 @@ const shortDay = (day: string) => {
 }
 
 /**
- * Categorical slots are assigned once, by leaderboard rank, and then used for
- * that model everywhere on the page — the stacked series, the legend, and the
- * table all agree. Only the models the chart bands individually get a slot; the
- * tail is drawn as one "other" band and carries no swatch in the table, so two
- * different models are never shown wearing the same colour.
+ * One colour ordering for the whole page, not one per chart.
+ *
+ * Both halves band their own top models, and a reader who learns "sonnet is
+ * blue" in the community chart must not meet a different blue model in the
+ * gateway chart. So the slots are assigned from the union of the two banded
+ * sets — four each, which is why the union fits the eight validated slots — and
+ * every swatch, band and table row then agrees across the page.
+ *
+ * A model outside that union has no colour of its own: it is drawn inside the
+ * grey "other" band and carries no swatch, so two different models are never
+ * shown wearing the same one.
  */
-const modelRank = new Map((gateway?.models ?? []).map((m, i) => [m.model, i]))
-const bandedModels = new Set((gateway?.seriesModels ?? []).filter((model) => model !== "other"))
-/** `null` for a model the chart folds into "other" — it has no colour of its own to show. */
+const bandedModels = [
+  ...new Set(
+    [...(gateway?.seriesModels ?? []), ...(community?.seriesModels ?? [])].filter((model) => model !== "other"),
+  ),
+]
+const slotOf = new Map(bandedModels.map((model, index) => [model, index + 1]))
+/** `null` when the model has no slot of its own. */
 const colorOf = (model: string): string | null => {
-  const rank = modelRank.get(model)
   if (model === "other") return "var(--series-other)"
-  return bandedModels.has(model) && rank !== undefined ? `var(--series-${rank + 1})` : null
+  const slot = slotOf.get(model)
+  return slot !== undefined && slot <= 8 ? `var(--series-${slot})` : null
 }
-/** The colour a chart mark is painted with; the tail all shares the "other" grey. */
+/** The colour a chart mark is painted with; everything unslotted shares the "other" grey. */
 const bandColor = (model: string) => colorOf(model) ?? "var(--series-other)"
 
 /**
@@ -95,7 +122,7 @@ const changeArrow = { up: "▲", down: "▼", flat: "—" }
 // page ships no charting library and no client-side layout pass.
 const CHART_W = 1000
 const PAD = { left: 62, right: 16, top: 12, bottom: 28 }
-const SEGMENT_GAP = 2
+const SEGMENT_GAP = 1
 const plotW = CHART_W - PAD.left - PAD.right
 
 function topRoundedBar(x: number, y: number, w: number, h: number): string {
@@ -131,7 +158,7 @@ function stackColumns(points: SeriesPoint[], models: string[], height: number, m
         // every segment except the one on the baseline, and it shrinks with the
         // segment: a full 2px out of a 3px band would erase the band and leave
         // the top of the stack looking like a barcode.
-        height: Math.max(raw - (i > 0 ? Math.min(SEGMENT_GAP, raw * 0.4) : 0), 0.75),
+        height: Math.max(raw - (i > 0 && raw > 6 ? SEGMENT_GAP : 0), 0.75),
         rounded: i === bands.length - 1,
       }
     })
@@ -164,9 +191,10 @@ const peakDay = peak(series, (point) => point.tokens)
 
 // Daily requests — one series, so one color and no legend.
 const REQUESTS_H = 120
-const requestTicks = axisTicks(Math.max(0, ...series.map((p) => p.requests)), 3)
+const requestTicks = axisTicks(Math.max(0, ...series.map((p) => p.requests)))
 const requestMax = requestTicks[requestTicks.length - 1]
 const requestColumns = plainColumns(series, (point) => point.requests, REQUESTS_H, requestMax)
+const requestPeak = peak(series, (point) => point.requests)
 
 // Community reports — the same two charts over what installs run themselves.
 const communitySeries = community?.series ?? []
@@ -175,7 +203,7 @@ const communityMax = communityTicks[communityTicks.length - 1]
 const communityColumns = stackColumns(communitySeries, community?.seriesModels ?? [], TOKENS_H, communityMax)
 const communityPeak = peak(communitySeries, (point) => point.tokens)
 const installsByDay = new Map((community?.installs ?? []).map((row) => [row.day, row.installs]))
-const installTicks = axisTicks(Math.max(0, ...(community?.installs ?? []).map((row) => row.installs)), 3)
+const installTicks = axisTicks(Math.max(0, ...(community?.installs ?? []).map((row) => row.installs)))
 const installMax = installTicks[installTicks.length - 1]
 const installColumns = plainColumns(
   communitySeries,
@@ -183,20 +211,13 @@ const installColumns = plainColumns(
   REQUESTS_H,
   installMax,
 )
-/** Community models get their own colour slots, independent of the gateway's. */
-const communityRank = new Map((community?.models ?? []).map((m, i) => [m.model, i]))
-const communityBanded = new Set((community?.seriesModels ?? []).filter((model) => model !== "other"))
-const communityColor = (model: string): string | null => {
-  if (model === "other") return "var(--series-other)"
-  const rank = communityRank.get(model)
-  return communityBanded.has(model) && rank !== undefined ? `var(--series-${rank + 1})` : null
-}
-const communityBand = (model: string) => communityColor(model) ?? "var(--series-other)"
+const installPeak = peak(communitySeries, (point) => installsByDay.get(point.day) ?? 0)
+const installPeakValue = installPeak ? (installsByDay.get(installPeak.day) ?? 0) : 0
 
 // Activity grid — the same contribution-style picture nikcli's own analytics
 // view draws, from the shared helper in @nikcli-ai/util/activity.
-const CELL = 11
-const CELL_GAP = 3
+const CELL = 17
+const CELL_GAP = 4
 const CELL_PITCH = CELL + CELL_GAP
 const GRID_GUTTER = 30
 const GRID_HEADER = 16
@@ -260,46 +281,79 @@ const downloadAxisDates = Array.from({ length: 5 }, (_, i) => {
   }
 })
 
-const tooltipSeries = tokenColumns.map((column) => ({
-  day: shortDay(column.day),
-  total: compact.format(column.tokens),
-  requests: whole.format(column.requests),
-  rows: [...column.segments]
-    .reverse()
-    .map((segment) => ({ model: segment.model, value: compact.format(segment.tokens), color: bandColor(segment.model) })),
-}))
-
 // Anchors for sections that are actually on the page: with no gateway rows the
 // nav would otherwise offer six links that scroll nowhere.
 /**
- * Model names come from the database, so the serialised tooltip payload is
+ * Model names come from the database, so a serialised tooltip payload is
  * escaped before it is written inside a <script> element: an unescaped
  * `</script>` in a name would close the element early and let whatever follows
- * be parsed as markup. `<` is a valid JSON string escape, so the payload
- * still parses unchanged.
+ * be parsed as markup. `<` is a valid JSON string escape, so the payload still
+ * parses unchanged. The two line separators are escaped for the same reason.
  */
-const tooltipJson = JSON.stringify(tooltipSeries).replace(
-  /[<\u2028\u2029]/g,
-  (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
-)
+const escapeForScript = (value: unknown) =>
+  JSON.stringify(value).replace(
+    /[<\u2028\u2029]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  )
 
-const sections = [
-  ...(community ? [{ id: "community", label: "Models developers run" }] : []),
-  ...(gateway
-    ? [
-        // Each chip repeats its section's heading verbatim, so a reader who
-        // clicks "Cost per completion" lands on a heading that says exactly that.
-        { id: "models", label: "Tokens by model" },
-        { id: "activity", label: "A year of traffic" },
-        { id: "leaderboard", label: "Model leaderboard" },
-        { id: "cost", label: "Cost per completion" },
-        { id: "price", label: "Blended price per 1M" },
-        { id: "cache", label: "Cache hit ratio" },
-        { id: "providers", label: "Provider share" },
-      ]
-    : []),
-  ...(downloads.length > 1 ? [{ id: "adoption", label: "Adoption" }] : []),
-]
+/**  differs by feed: the gateway counts completions, installs report messages. */
+/** `unit` differs by feed: the gateway counts completions, installs report messages. */
+const tokenTick = axisFormat(tokenTicks)
+const requestTick = axisFormat(requestTicks)
+const communityTick = axisFormat(communityTicks)
+const installTick = axisFormat(installTicks)
+const downloadTick = axisFormat(downloadTicks)
+
+const tooltipRows = (columns: typeof tokenColumns, unit: string) =>
+  columns.map((column) => ({
+    day: shortDay(column.day),
+    total: compact.format(column.tokens),
+    requests: `${whole.format(column.requests)} ${unit}`,
+    rows: [...column.segments].reverse().map((segment) => ({
+      model: segment.model,
+      value: compact.format(segment.tokens),
+      color: bandColor(segment.model),
+    })),
+  }))
+
+const tooltipJson = escapeForScript(tooltipRows(tokenColumns, "completions"))
+const communityTooltipJson = escapeForScript(tooltipRows(communityColumns, "assistant messages"))
+
+// Grouped by feed, because the two halves are the page's whole point and an
+// undifferentiated row of chips hides that. Every chip repeats its section's
+// heading verbatim, so a reader lands on the words they clicked.
+const sectionGroups = [
+  {
+    label: "Community reports",
+    sections: community
+      ? [
+          { id: "community", label: "Models developers run" },
+          { id: "community-tokens", label: "Tokens by model, reported" },
+          { id: "community-installs", label: "Installs reporting each day" },
+          { id: "community-models", label: "Every model reported" },
+        ]
+      : [],
+  },
+  {
+    label: "Hosted gateway",
+    sections: gateway
+      ? [
+          { id: "gateway", label: "Through the hosted gateway" },
+          { id: "models", label: "Tokens by model, billed" },
+          { id: "requests", label: "Completions per day" },
+          { id: "activity", label: "A year of traffic" },
+          { id: "leaderboard", label: "Model leaderboard" },
+          { id: "cost", label: "What a call costs" },
+          { id: "cache", label: "Cache hit ratio" },
+          { id: "providers", label: "Provider share" },
+        ]
+      : [],
+  },
+  {
+    label: "Release log",
+    sections: downloads.length > 1 ? [{ id: "adoption", label: "Adoption" }] : [],
+  },
+].filter((group) => group.sections.length > 0)
 
 const LEADERBOARD_ROWS = 20
 const leaderboard = (gateway?.models ?? []).slice(0, LEADERBOARD_ROWS)
@@ -310,16 +364,17 @@ const leaderboard = (gateway?.models ?? []).slice(0, LEADERBOARD_ROWS)
  * expensive model instead of reading it off the top.
  */
 const BAR_ROWS = 10
-const ranked = <T,>(rows: T[], by: (row: T) => number) => [...rows].sort((a, b) => by(b) - by(a)).slice(0, BAR_ROWS)
-const costLeaders = ranked(gateway?.models ?? [], (m) => m.costPerRequest)
-const priceLeaders = ranked(gateway?.models ?? [], (m) => m.pricePerMillion)
-const cacheLeaders = ranked(
+const ranked = <T,>(rows: T[], by: (row: T) => number) => [...rows].sort((a, b) => by(b) - by(a))
+/** Ranked and cut, with the count kept so the heading can admit the cut. */
+const topBy = <T,>(rows: T[], by: (row: T) => number) => {
+  const all = ranked(rows, by)
+  return { rows: all.slice(0, BAR_ROWS), total: all.length }
+}
+const priceLeaders = topBy(gateway?.models ?? [], (m) => m.pricePerMillion)
+const cacheLeaders = topBy(
   (gateway?.models ?? []).filter((m) => m.cacheRatio !== null),
   (m) => m.cacheRatio ?? 0,
 )
-const maxCostPerRequest = Math.max(0, ...costLeaders.map((m) => m.costPerRequest))
-const maxPricePerMillion = Math.max(0, ...priceLeaders.map((m) => m.pricePerMillion))
-const maxProviderTokens = Math.max(0, ...(gateway?.providers ?? []).map((p) => p.tokens))
 const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -341,20 +396,26 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
         What nikcli actually runs on
       </h1>
       <p class="mt-4 max-w-2xl text-body-md text-terminal-muted">
-        Every number below is summed from <code class="rounded-sm bg-terminal-panel px-1.5 py-0.5 text-[0.85em]">usage</code>,
-        the row the inference gateway writes for each completion it serves — the same table billing reads.
-        Nothing is modelled, smoothed or back-filled.
+        Two telemetry sources, kept apart because they measure different things: what installs report about the
+        models they run on their own provider keys, and what the hosted gateway billed. Every card says which one it
+        is drawing. Adoption, at the end, comes from a third — the public release log. Nothing is modelled, smoothed
+        or back-filled.
       </p>
 
-      <nav class="mt-8 flex flex-wrap gap-2" aria-label="Sections on this page">
+      <nav class="mt-8 space-y-4" aria-label="Sections on this page">
         {
-          sections.map((section) => (
-            <a
-              href={`#${section.id}`}
-              class="rounded-md border border-terminal-border/60 bg-terminal-panel/70 px-3 py-1.5 text-[13px] font-medium text-terminal-muted transition-colors duration-100 hover:border-terminal-accent/40 hover:text-terminal-text"
-            >
-              {section.label}
-            </a>
+          sectionGroups.map((group) => (
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="w-full text-eyebrow uppercase text-terminal-muted sm:w-auto sm:pr-2">{group.label}</span>
+              {group.sections.map((section) => (
+                <a
+                  href={`#${section.id}`}
+                  class="rounded-md border border-terminal-border/60 bg-terminal-panel/70 px-3 py-1.5 text-[13px] font-medium text-terminal-muted transition-colors duration-100 hover:border-terminal-accent/40 hover:text-terminal-text"
+                >
+                  {section.label}
+                </a>
+              ))}
+            </div>
           ))
         }
       </nav>
@@ -366,20 +427,33 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
         larger picture — and the one that says which models developers pick. */}
     {
       community && (
-        <section class="page-shell pb-14" aria-labelledby="community-heading" id="community">
+        <section class="page-shell space-y-6 pb-14" aria-labelledby="community-heading" id="community">
           <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
             <div class="flex flex-wrap items-baseline justify-between gap-3">
               <div>
+                <p class="viz-source">Community reports</p>
                 <h2 id="community-heading" class="font-display text-panel-title text-terminal-text">
                   Models developers run
                 </h2>
                 <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
-                  Reported by nikcli installs that opted in, over the last {community.windowDays} days — including
-                  models run on their own provider keys, which never touch the nikcli gateway.
+                  Reported by nikcli installs that opted in — including models run on their own provider keys, which never touch
+                  the nikcli gateway. Figures cover the last {community.windowDays} days; the chart below covers
+                  {community.seriesDays}.
                 </p>
               </div>
+            </div>
+
+            {/* The page's one hero figure lives here, on the larger of the two
+                feeds. The gateway total below it is a stat tile, not a rival. */}
+            <div class="mt-7 border-t border-terminal-border/50 pt-7">
+              <p class="text-eyebrow uppercase text-terminal-muted">
+                Tokens reported · last {community.windowDays} days
+              </p>
+              <p class="mt-2 font-sans text-[clamp(3rem,7vw,4.5rem)] font-bold leading-none tracking-tight text-terminal-text">
+                {compact.format(community.totals.tokens)}
+              </p>
               {community.totals.change !== null && (
-                <p class="flex items-center gap-1.5 text-body-sm">
+                <p class="mt-3 flex items-center gap-1.5 text-body-sm">
                   <span aria-hidden="true" class={changeClass[changeDirection(community.totals.change)]}>
                     {changeArrow[changeDirection(community.totals.change)]}
                   </span>
@@ -393,13 +467,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               )}
             </div>
 
-            <dl class="mt-7 grid grid-cols-2 gap-x-6 gap-y-7 border-t border-terminal-border/50 pt-7 sm:grid-cols-4">
-              <div>
-                <dt class="text-eyebrow uppercase text-terminal-muted">Tokens</dt>
-                <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                  {compact.format(community.totals.tokens)}
-                </dd>
-              </div>
+            <dl class="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-3">
               <div>
                 <dt class="text-eyebrow uppercase text-terminal-muted">Installs reporting</dt>
                 <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
@@ -475,12 +543,18 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               </>
             )}
 
-            <ul class="mt-7 flex flex-wrap gap-x-5 gap-y-2" aria-label="Models in this chart">
+
+          </div>
+
+          <div id="community-tokens" class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+            <p class="viz-source">Community reports</p>
+            <h3 class="font-display text-card-title text-terminal-text">Tokens by model, reported</h3>
+            <ul class="mt-5 flex flex-wrap gap-x-5 gap-y-2" aria-label="Models in this chart">
               {community.seriesModels.map((model) => (
                 <li class="flex items-center gap-2 text-[13px] text-terminal-muted">
                   <span
                     class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                    style={`background:${communityBand(model)}`}
+                    style={`background:${bandColor(model)}`}
                     aria-hidden="true"
                   />
                   <span class="font-mono">{model}</span>
@@ -488,11 +562,13 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               ))}
             </ul>
 
-            <div class="mt-5 overflow-x-auto">
+            <div class="viz-plot relative mt-5 overflow-x-auto" data-tooltip-host>
               <svg
                 viewBox={`0 0 ${CHART_W} ${PAD.top + TOKENS_H + PAD.bottom}`}
-                class="w-full min-w-[700px]"
+                class="w-full min-w-[1000px]"
                 role="img"
+                tabindex="0"
+                data-token-chart="community"
                 aria-label={`Tokens per day by model across reporting installs over the last ${community.seriesDays} days. Every model is listed in the table below.`}
               >
                 {communityTicks.map((tick) => (
@@ -510,7 +586,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       text-anchor="end"
                       class="viz-tick"
                     >
-                      {compact.format(tick)}
+                      {communityTick(tick)}
                     </text>
                   </>
                 ))}
@@ -519,7 +595,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                     segment.rounded ? (
                       <path
                         d={topRoundedBar(segment.x, segment.y, barW, segment.height)}
-                        fill={communityBand(segment.model)}
+                        fill={bandColor(segment.model)}
                       />
                     ) : (
                       <rect
@@ -527,7 +603,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                         y={segment.y}
                         width={barW}
                         height={segment.height}
-                        fill={communityBand(segment.model)}
+                        fill={bandColor(segment.model)}
                       />
                     ),
                   ),
@@ -545,7 +621,28 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       {shortDay(point.day)}
                     </text>
                   ))}
+                {communityColumns.map((_column, index) => (
+                  <rect
+                    x={PAD.left + index * slot}
+                    y={PAD.top}
+                    width={slot}
+                    height={TOKENS_H}
+                    fill="transparent"
+                    data-column={index}
+                  />
+                ))}
+                <rect
+                  x={PAD.left}
+                  y={PAD.top}
+                  width={barW}
+                  height={TOKENS_H}
+                  fill="none"
+                  class="viz-cursor"
+                  data-cursor
+                  aria-hidden="true"
+                />
               </svg>
+              <div class="viz-tooltip" data-tooltip hidden role="status" aria-live="polite"></div>
             </div>
             {communityPeak && communityPeak.tokens > 0 && (
               <p class="mt-3 text-[13px] text-terminal-muted">
@@ -553,12 +650,20 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 {shortDay(communityPeak.day)}.
               </p>
             )}
+            <p class="mt-2 hidden text-[13px] text-terminal-muted sm:block">
+              Hover a day for its breakdown, or focus the chart and use the arrow keys.
+            </p>
+            <p class="mt-2 text-[13px] text-terminal-muted sm:hidden">Scroll the chart sideways for the full window.</p>
 
-            <h3 class="mt-10 font-display text-card-title text-terminal-text">Installs reporting each day</h3>
+          </div>
+
+          <div id="community-installs" class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+            <p class="viz-source">Community reports</p>
+            <h3 class="font-display text-card-title text-terminal-text">Installs reporting each day</h3>
             <div class="mt-4 overflow-x-auto">
               <svg
                 viewBox={`0 0 ${CHART_W} ${PAD.top + REQUESTS_H + PAD.bottom}`}
-                class="w-full min-w-[700px]"
+                class="w-full min-w-[1000px]"
                 role="img"
                 aria-label={`Installs that reported usage each day, ${compact.format(community.totals.installs)} distinct over the window.`}
               >
@@ -577,7 +682,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       text-anchor="end"
                       class="viz-tick"
                     >
-                      {compact.format(tick)}
+                      {installTick(tick)}
                     </text>
                   </>
                 ))}
@@ -602,9 +707,76 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                   ))}
               </svg>
             </div>
+            {installPeak && installPeakValue > 0 && (
+              <p class="mt-3 text-[13px] text-terminal-muted">
+                Peak <span class="font-semibold text-terminal-text">{whole.format(installPeakValue)}</span> installs on{" "}
+                {shortDay(installPeak.day)}.
+              </p>
+            )}
+            <p class="mt-2 text-[13px] text-terminal-muted sm:hidden">Scroll the chart sideways for the full window.</p>
 
-            <h3 class="mt-10 font-display text-card-title text-terminal-text">Every model reported</h3>
-            <div class="mt-4 overflow-x-auto">
+          </div>
+
+          <div id="community-models" class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+            <p class="viz-source">Community reports</p>
+            <h3 class="font-display text-card-title text-terminal-text">Every model reported</h3>
+            {/* Seven columns do not fit a phone, and a sideways-scrolling table
+                hides its own columns with no affordance — so on small screens
+                each model becomes a card, matching the gateway leaderboard. */}
+            <ul class="mt-4 space-y-3 md:hidden">
+              {community.models.slice(0, LEADERBOARD_ROWS).map((model, index) => (
+                <li class="rounded-md border border-terminal-border/60 p-4">
+                  <div class="flex items-center gap-2.5">
+                    <span class="tabular-nums text-body-sm text-terminal-muted">{index + 1}</span>
+                    {colorOf(model.model) ? (
+                      <span
+                        class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                        style={`background:${colorOf(model.model)}`}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <span class="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                    )}
+                    <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                  </div>
+                  <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <dt class="text-eyebrow uppercase text-terminal-muted">Tokens</dt>
+                      <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
+                        {compactFixed.format(model.tokens)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt class="text-eyebrow uppercase text-terminal-muted">Installs</dt>
+                      <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
+                        {whole.format(model.installs)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt class="text-eyebrow uppercase text-terminal-muted">Provider</dt>
+                      <dd class="mt-0.5 truncate text-body-sm text-terminal-text">{model.provider}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-eyebrow uppercase text-terminal-muted">Change</dt>
+                      <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
+                        {model.change === null ? (
+                          "new"
+                        ) : (
+                          <>
+                            <span aria-hidden="true" class={changeClass[changeDirection(model.change)]}>
+                              {changeArrow[changeDirection(model.change)]}
+                            </span>{" "}
+                            {changeDirection(model.change) === "flat" ? "flat" : signedPercent.format(model.change)}
+                          </>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div class="mt-4 hidden overflow-x-auto md:block">
               <table class="w-full min-w-[640px] border-collapse text-body-sm">
                 <caption class="sr-only">
                   Models ranked by tokens reported over the last {community.windowDays} days
@@ -615,7 +787,6 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                     <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Model</th>
                     <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Provider</th>
                     <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Tokens</th>
-                    <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Share</th>
                     <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">$/1M</th>
                     <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Cache</th>
                     <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Installs</th>
@@ -628,10 +799,10 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       <td class="py-3 pr-3 tabular-nums text-terminal-muted">{index + 1}</td>
                       <td class="py-3 pr-3">
                         <span class="flex items-center gap-2.5">
-                          {communityColor(model.model) ? (
+                          {colorOf(model.model) ? (
                             <span
                               class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                              style={`background:${communityColor(model.model)}`}
+                              style={`background:${colorOf(model.model)}`}
                               aria-hidden="true"
                             />
                           ) : (
@@ -642,18 +813,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       </td>
                       <td class="py-3 pr-3 text-terminal-muted">{model.provider}</td>
                       <td class="py-3 pr-3 text-right tabular-nums text-terminal-text">
-                        {compact.format(model.tokens)}
-                      </td>
-                      <td class="py-3 pr-3">
-                        <span class="flex items-center gap-2.5">
-                          <span class="viz-track h-1.5 w-24 shrink-0 overflow-hidden rounded-full" aria-hidden="true">
-                            <span
-                              class="block h-full rounded-full"
-                              style={`width:${Math.max(model.share * 100, 1)}%;background:${communityBand(model.model)}`}
-                            />
-                          </span>
-                          <span class="tabular-nums text-terminal-muted">{percent.format(model.share)}</span>
-                        </span>
+                        {compactFixed.format(model.tokens)}
                       </td>
                       <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
                         {model.pricePerMillion > 0 ? money(model.pricePerMillion) : "—"}
@@ -709,15 +869,19 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
       ) : (
         <>
           {/* ── Headline ─────────────────────────────────────────────────── */}
-          <section class="page-shell pb-14" aria-labelledby="overview-heading">
-            <h2 id="overview-heading" class="sr-only">
-              Last {WINDOW_DAYS} days at a glance
-            </h2>
+          <section class="page-shell pb-14" aria-labelledby="overview-heading" id="gateway">
             <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
-              <p class="text-eyebrow uppercase text-terminal-muted">
-                Through the nikcli gateway · last {WINDOW_DAYS} days
+              <p class="viz-source">Hosted gateway</p>
+              <h2 id="overview-heading" class="font-display text-panel-title text-terminal-text">Through the hosted gateway</h2>
+              <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                A separate, smaller thing: completions nikcli's own gateway billed, one row each in
+                {" "}<code class="rounded-sm bg-terminal-code px-1.5 py-0.5 text-[0.85em]">usage</code> — the table
+                billing reads. Nothing above passes through it.
               </p>
-              <p class="mt-2 font-sans text-[clamp(3rem,7vw,4.5rem)] font-bold leading-none tracking-tight text-terminal-text">
+              <p class="mt-6 text-eyebrow uppercase text-terminal-muted">
+                Gateway tokens · last {gateway.windowDays} days
+              </p>
+              <p class="mt-1.5 font-sans text-4xl font-bold leading-none tracking-tight text-terminal-text">
                 {compact.format(gateway.totals.tokens)}
               </p>
               {gateway.totals.change !== null && (
@@ -734,10 +898,10 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 </p>
               )}
 
-              {/* Three across, two rows: six tiles in one row squeezes the
-                  longer labels onto a second line and knocks the values out of
-                  alignment with each other. */}
-              <dl class="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-t border-terminal-border/50 pt-7 sm:grid-cols-3">
+              {/* Blended price and cache ratio are deliberately absent: both get
+                  a section of their own further down, and repeating them here
+                  made the reader meet the same two numbers twice. */}
+              <dl class="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-t border-terminal-border/50 pt-7 sm:grid-cols-4">
                 <div>
                   <dt class="text-eyebrow uppercase text-terminal-muted">Completions</dt>
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
@@ -749,27 +913,15 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">{gateway.totals.models}</dd>
                 </div>
                 <div>
-                  <dt class="text-eyebrow uppercase text-terminal-muted">Blended price / 1M</dt>
-                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                    {money(gateway.totals.pricePerMillion, 2)}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-eyebrow uppercase text-terminal-muted">Billed</dt>
-                  <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                    {money(gateway.totals.costUsd, 0)}
-                  </dd>
-                </div>
-                <div>
                   <dt class="text-eyebrow uppercase text-terminal-muted">Providers</dt>
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
                     {gateway.totals.providers}
                   </dd>
                 </div>
                 <div>
-                  <dt class="text-eyebrow uppercase text-terminal-muted">Input read from cache</dt>
+                  <dt class="text-eyebrow uppercase text-terminal-muted">Billed</dt>
                   <dd class="mt-1.5 font-sans text-2xl font-semibold text-terminal-text">
-                    {gateway.totals.cacheRatio === null ? "No input tokens" : percent.format(gateway.totals.cacheRatio)}
+                    {money(gateway.totals.costUsd, 0)}
                   </dd>
                 </div>
               </dl>
@@ -779,23 +931,14 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
           {/* ── Tokens over time ─────────────────────────────────────────── */}
           <section class="page-shell pb-14" aria-labelledby="models-heading" id="models">
             <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
-              <div class="flex flex-wrap items-baseline justify-between gap-3">
-                <div>
-                  <h2 id="models-heading" class="font-display text-panel-title text-terminal-text">
-                    Tokens by model
-                  </h2>
-                  <p class="mt-2 text-body-sm text-terminal-muted">
-                    Daily prompt plus completion tokens over the last {SERIES_DAYS} days, stacked by the model the
-                    router resolved to.
-                  </p>
-                </div>
-                {peakDay && peakDay.tokens > 0 && (
-                  <p class="text-body-sm text-terminal-muted">
-                    Peak <span class="font-semibold text-terminal-text">{compact.format(peakDay.tokens)}</span> on{" "}
-                    {shortDay(peakDay.day)}
-                  </p>
-                )}
-              </div>
+              <p class="viz-source">Hosted gateway</p>
+              <h2 id="models-heading" class="font-display text-panel-title text-terminal-text">
+                Tokens by model, billed
+              </h2>
+              <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                Daily prompt plus completion tokens, stacked by the model the router resolved to. This chart covers
+                the last {gateway.seriesDays} days — twice the window of the figures above it.
+              </p>
 
               <ul class="mt-6 flex flex-wrap gap-x-5 gap-y-2" aria-label="Models in this chart">
                 {seriesModels.map((model) => (
@@ -816,11 +959,11 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               <div class="viz-plot relative mt-5 overflow-x-auto" data-tooltip-host>
                 <svg
                   viewBox={`0 0 ${CHART_W} ${PAD.top + TOKENS_H + PAD.bottom}`}
-                  class="w-full min-w-[700px]"
+                  class="w-full min-w-[1000px]"
                   role="img"
                   aria-label={`Daily tokens by model over the last ${SERIES_DAYS} days. Total ${compact.format(gateway.totals.tokens)} tokens. Per-day values are listed in the leaderboard table below.`}
                   tabindex="0"
-                  data-token-chart
+                  data-token-chart="gateway"
                 >
                   {tokenTicks.map((tick) => (
                     <>
@@ -837,7 +980,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                         text-anchor="end"
                         class="viz-tick"
                       >
-                        {compact.format(tick)}
+                        {tokenTick(tick)}
                       </text>
                     </>
                   ))}
@@ -892,15 +1035,23 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 </svg>
                 <div class="viz-tooltip" data-tooltip hidden role="status" aria-live="polite"></div>
               </div>
-              <p class="mt-3 text-[13px] text-terminal-muted">
+              {peakDay && peakDay.tokens > 0 && (
+                <p class="mt-3 text-[13px] text-terminal-muted">
+                  Peak <span class="font-semibold text-terminal-text">{compact.format(peakDay.tokens)}</span> on{" "}
+                  {shortDay(peakDay.day)}.
+                </p>
+              )}
+              <p class="mt-2 hidden text-[13px] text-terminal-muted sm:block">
                 Hover a day for its breakdown, or focus the chart and use the arrow keys.
               </p>
+              <p class="mt-2 text-[13px] text-terminal-muted sm:hidden">Scroll the chart sideways for the full window.</p>
             </div>
           </section>
 
           {/* ── Daily completions ────────────────────────────────────────── */}
-          <section class="page-shell pb-14" aria-labelledby="requests-heading">
+          <section class="page-shell pb-14" aria-labelledby="requests-heading" id="requests">
             <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <p class="viz-source">Hosted gateway</p>
               <h2 id="requests-heading" class="font-display text-panel-title text-terminal-text">
                 Completions per day
               </h2>
@@ -911,7 +1062,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               <div class="mt-5 overflow-x-auto">
               <svg
                 viewBox={`0 0 ${CHART_W} ${PAD.top + REQUESTS_H + PAD.bottom}`}
-                class="w-full min-w-[700px]"
+                class="w-full min-w-[1000px]"
                 role="img"
                 aria-label={`Completions per day over the last ${SERIES_DAYS} days, ${whole.format(gateway.totals.requests)} in total.`}
               >
@@ -930,7 +1081,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       text-anchor="end"
                       class="viz-tick"
                     >
-                      {compact.format(tick)}
+                      {requestTick(tick)}
                     </text>
                   </>
                 ))}
@@ -952,6 +1103,14 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 ))}
               </svg>
               </div>
+              {requestPeak && requestPeak.requests > 0 && (
+                <p class="mt-3 text-[13px] text-terminal-muted">
+                  Peak <span class="font-semibold text-terminal-text">{whole.format(requestPeak.requests)}</span>{" "}
+                  completions on{" "}
+                  {shortDay(requestPeak.day)}.
+                </p>
+              )}
+              <p class="mt-2 text-[13px] text-terminal-muted sm:hidden">Scroll the chart sideways for the full window.</p>
             </div>
           </section>
 
@@ -959,6 +1118,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
           {grid && grid.weeks > 0 && (
             <section class="page-shell pb-14" aria-labelledby="activity-heading" id="activity">
               <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+                <p class="viz-source">Hosted gateway</p>
                 <h2 id="activity-heading" class="font-display text-panel-title text-terminal-text">
                   A year of traffic
                 </h2>
@@ -967,7 +1127,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                   share of the busiest day.
                 </p>
 
-                <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+                <dl class="mt-6 grid grid-cols-3 gap-x-6 gap-y-5">
                   <div>
                     <dt class="text-eyebrow uppercase text-terminal-muted">Days with traffic</dt>
                     <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
@@ -981,13 +1141,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                     </dd>
                   </div>
                   <div>
-                    <dt class="text-eyebrow uppercase text-terminal-muted">Busiest day</dt>
-                    <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
-                      {compact.format(gateway.activityStats.maxDay)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-eyebrow uppercase text-terminal-muted">Tokens all year</dt>
+                    <dt class="text-eyebrow uppercase text-terminal-muted">Gateway tokens · 365d</dt>
                     <dd class="mt-1 font-sans text-xl font-semibold text-terminal-text">
                       {compact.format(gateway.activityStats.total)}
                     </dd>
@@ -1027,7 +1181,8 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                             width={CELL}
                             height={CELL}
                             rx="2"
-                            fill={`var(--heat-${day === null ? 0 : activityStep(value, grid.maxValue)})`}
+                            fill={day === null ? "currentColor" : `var(--heat-${activityStep(value, grid.maxValue)})`}
+                            class={day === null ? "viz-heat-none" : activityStep(value, grid.maxValue) === 0 ? "viz-heat-empty" : undefined}
                           >
                             {day !== null && (
                               <title>{`${day.toISOString().slice(0, 10)}: ${whole.format(value)} tokens`}</title>
@@ -1039,16 +1194,22 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                   </svg>
                 </div>
 
-                <div class="mt-4 flex items-center gap-2 text-[13px] text-terminal-muted">
+                <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-terminal-muted">
+                  <span class="flex items-center gap-2">
+                    <span class="viz-heat-none-key h-2.5 w-2.5 rounded-[2px]" aria-hidden="true" />
+                    No data
+                  </span>
+                  <span class="flex items-center gap-2">
                   <span>Quieter</span>
                   {[0, 1, 2, 3, 4, 5].map((step) => (
                     <span
-                      class="h-2.5 w-2.5 rounded-[2px]"
+                      class={`h-2.5 w-2.5 rounded-[2px]${step === 0 ? " viz-heat-empty" : ""}`}
                       style={`background:var(--heat-${step})`}
                       aria-hidden="true"
                     />
                   ))}
                   <span>Busier</span>
+                  </span>
                 </div>
               </div>
             </section>
@@ -1057,6 +1218,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
           {/* ── Leaderboard ──────────────────────────────────────────────── */}
           <section class="page-shell pb-14" aria-labelledby="leaderboard-heading" id="leaderboard">
             <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <p class="viz-source">Hosted gateway</p>
               <h2 id="leaderboard-heading" class="font-display text-panel-title text-terminal-text">
                 Model leaderboard
               </h2>
@@ -1075,12 +1237,14 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                   <li class="rounded-md border border-terminal-border/60 p-4">
                     <div class="flex items-center gap-2.5">
                       <span class="tabular-nums text-body-sm text-terminal-muted">{index + 1}</span>
-                      {colorOf(model.model) && (
+                      {colorOf(model.model) ? (
                         <span
                           class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
                           style={`background:${colorOf(model.model)}`}
                           aria-hidden="true"
                         />
+                      ) : (
+                        <span class="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
                       )}
                       <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
                     </div>
@@ -1088,7 +1252,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       <div>
                         <dt class="text-eyebrow uppercase text-terminal-muted">Tokens</dt>
                         <dd class="mt-0.5 tabular-nums text-body-sm text-terminal-text">
-                          {compact.format(model.tokens)} · {percent.format(model.share)}
+                          {compactFixed.format(model.tokens)} · {percent.format(model.share)}
                         </dd>
                       </div>
                       <div>
@@ -1136,7 +1300,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                       <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Model</th>
                       <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Provider</th>
                       <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Tokens</th>
-                      <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Share</th>
+                      <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Share</th>
                       <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Completions</th>
                       <th scope="col" class="py-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Change</th>
                     </tr>
@@ -1161,19 +1325,9 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                         </td>
                         <td class="py-3 pr-3 text-terminal-muted">{model.provider}</td>
                         <td class="py-3 pr-3 text-right tabular-nums text-terminal-text">
-                          {compact.format(model.tokens)}
+                          {compactFixed.format(model.tokens)}
                         </td>
-                        <td class="py-3 pr-3">
-                          <span class="flex items-center gap-2.5">
-                            <span class="viz-track h-1.5 w-24 shrink-0 overflow-hidden rounded-full" aria-hidden="true">
-                              <span
-                                class="block h-full rounded-full"
-                                style={`width:${Math.max(model.share * 100, 1)}%;background:${bandColor(model.model)}`}
-                              />
-                            </span>
-                            <span class="tabular-nums text-terminal-muted">{percent.format(model.share)}</span>
-                          </span>
-                        </td>
+                        <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">{percent.format(model.share)}</td>
                         <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
                           {whole.format(model.requests)}
                         </td>
@@ -1201,101 +1355,111 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
             </div>
           </section>
 
-          {/* ── Cost per completion & blended price ──────────────────────── */}
-          <div class="page-shell grid items-start gap-6 pb-14 lg:grid-cols-2">
-            <section
-              class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
-              aria-labelledby="cost-heading"
-              id="cost"
-            >
+          {/* ── What a call costs ────────────────────────────────────────── */}
+          {/* One table, not two bar lists. Cost per call is price per token
+              times tokens per call, so as separate charts the two drew the same
+              shape twice and the third column — the one that explains the
+              difference — was buried in a caption. */}
+          <section class="page-shell pb-14" aria-labelledby="cost-heading" id="cost">
+            <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
+              <p class="viz-source">Hosted gateway</p>
               <h2 id="cost-heading" class="font-display text-panel-title text-terminal-text">
-                Cost per completion
+                What a call costs
               </h2>
-              <p class="mt-2 text-body-sm text-terminal-muted">
-                What one call actually billed, most expensive first —
-                {" "}{money(gateway.totals.costPerRequest, 4)} across all models. A call's cost is its price per token
-                times how many it used, so the tokens each model spends per call is shown beside it.
+              <p class="mt-2 max-w-2xl text-body-sm text-terminal-muted">
+                Gateway models, dearest per token first. Price is billed dollars divided by tokens served, so cached
+                reads and the input/output mix are already in it — a rate card would not be. Across everything:
+                {" "}{money(gateway.totals.pricePerMillion, 2)} per million, {money(gateway.totals.costPerRequest, 4)}
+                {" "}a call, at {compact.format(gateway.totals.tokensPerRequest)} tokens each.
+                {priceLeaders.total > priceLeaders.rows.length && (
+                  <> Showing the dearest {priceLeaders.rows.length} of {priceLeaders.total}.</>
+                )}
               </p>
-              <ul class="mt-6 space-y-3.5">
-                {costLeaders.map((model) => (
-                  <li>
-                    <div class="flex items-baseline justify-between gap-3">
-                      <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
-                      <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
-                        {money(model.costPerRequest, 4)}
-                      </span>
-                    </div>
-                    <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
-                      <span
-                        class="block h-full rounded-full"
-                        style={`width:${maxCostPerRequest > 0 ? Math.max((model.costPerRequest / maxCostPerRequest) * 100, 1) : 0}%;background:var(--series-1)`}
-                      />
-                    </span>
-                    <p class="mt-1 text-[13px] tabular-nums text-terminal-muted">
-                      {compact.format(model.tokensPerRequest)} tokens per call
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section
-              class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
-              aria-labelledby="price-heading"
-              id="price"
-            >
-              <h2 id="price-heading" class="font-display text-panel-title text-terminal-text">
-                Blended price per 1M tokens
-              </h2>
-              <p class="mt-2 text-body-sm text-terminal-muted">
-                Billed dollars divided by tokens served, dearest first, so cached reads and the input/output mix are
-                already in the number. Not a rate card — what the traffic came to.
-              </p>
-              <ul class="mt-6 space-y-3.5">
-                {priceLeaders.map((model) => (
-                  <li>
-                    <div class="flex items-baseline justify-between gap-3">
-                      <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
-                      <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
-                        {money(model.pricePerMillion, 2)}
-                      </span>
-                    </div>
-                    <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
-                      <span
-                        class="block h-full rounded-full"
-                        style={`width:${maxPricePerMillion > 0 ? Math.max((model.pricePerMillion / maxPricePerMillion) * 100, 1) : 0}%;background:var(--series-1)`}
-                      />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
+              <div class="mt-6 overflow-x-auto">
+                <table class="w-full min-w-[520px] border-collapse text-body-sm">
+                  <caption class="sr-only">
+                    Gateway models ranked by blended price per million tokens, last {gateway.windowDays} days
+                  </caption>
+                  <thead>
+                    <tr class="border-b border-terminal-border/60 text-left">
+                      <th scope="col" class="py-3 pr-3 text-eyebrow uppercase font-semibold text-terminal-muted">Model</th>
+                      <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Per 1M tokens</th>
+                      <th scope="col" class="py-3 pr-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Tokens per call</th>
+                      <th scope="col" class="py-3 text-right text-eyebrow uppercase font-semibold text-terminal-muted">Per call</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceLeaders.rows.map((model) => (
+                      <tr class="border-b border-terminal-border/40 last:border-0">
+                        <td class="py-3 pr-3">
+                          <span class="flex items-center gap-2.5">
+                            {colorOf(model.model) ? (
+                              <span
+                                class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                                style={`background:${colorOf(model.model)}`}
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <span class="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                            )}
+                            <span class="font-mono text-[13px] text-terminal-text">{model.model}</span>
+                          </span>
+                        </td>
+                        <td class="py-3 pr-3 text-right tabular-nums text-terminal-text">
+                          {money(model.pricePerMillion, 2)}
+                        </td>
+                        <td class="py-3 pr-3 text-right tabular-nums text-terminal-muted">
+                          {compactFixed.format(model.tokensPerRequest)}
+                        </td>
+                        <td class="py-3 text-right tabular-nums text-terminal-text">
+                          {money(model.costPerRequest, 4)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
 
           {/* ── Cache & providers ────────────────────────────────────────── */}
-          <div class="page-shell grid items-start gap-6 pb-14 lg:grid-cols-2">
+          <div class="page-shell grid items-stretch gap-6 pb-14 lg:grid-cols-2">
             <section
               class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8"
               aria-labelledby="cache-heading"
               id="cache"
             >
+              <p class="viz-source">Hosted gateway</p>
               <h2 id="cache-heading" class="font-display text-panel-title text-terminal-text">
                 Cache hit ratio
               </h2>
               <p class="mt-2 text-body-sm text-terminal-muted">
-                Share of input tokens read from cache rather than re-sent. Taken over input only — an output token is
-                generated every time, so it can never be cached. Across every model:
+                Share of input tokens read from cache rather than re-sent, over the last {gateway.windowDays} days.
+                Taken over input only — an output token is generated every time, so it can never be cached. Across
+                every model:
                 {" "}{compact.format(gateway.totals.cacheReadTokens)} cached against
                 {" "}{compact.format(gateway.totals.inputTokens)} sent.
+                {cacheLeaders.total > cacheLeaders.rows.length && (
+                  <> Showing the {cacheLeaders.rows.length} best of {cacheLeaders.total}.</>
+                )}
               </p>
-              {cacheLeaders.length === 0 ? (
+              {cacheLeaders.rows.length === 0 ? (
                 <p class="mt-6 text-body-sm text-terminal-muted">No model in this window sent input tokens.</p>
               ) : (
                 <ul class="mt-6 space-y-3.5">
-                  {cacheLeaders.map((model) => (
+                  {cacheLeaders.rows.map((model) => (
                     <li>
                       <div class="flex items-baseline justify-between gap-3">
-                        <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                        <span class="flex min-w-0 items-center gap-2.5">
+                          {colorOf(model.model) && (
+                            <span
+                              class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                              style={`background:${colorOf(model.model)}`}
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span class="truncate font-mono text-[13px] text-terminal-text">{model.model}</span>
+                        </span>
                         <span class="shrink-0 tabular-nums text-body-sm text-terminal-text">
                           {percent.format(model.cacheRatio!)}
                         </span>
@@ -1306,6 +1470,10 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                           style={`width:${Math.max(model.cacheRatio! * 100, 1)}%;background:var(--series-1)`}
                         />
                       </span>
+                      <p class="mt-1 text-[13px] tabular-nums text-terminal-muted">
+                        {compactFixed.format(model.cacheReadTokens)} cached ·{" "}
+                        {compactFixed.format(model.inputTokens)} sent
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -1317,11 +1485,13 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
               aria-labelledby="providers-heading"
               id="providers"
             >
+              <p class="viz-source">Hosted gateway</p>
               <h2 id="providers-heading" class="font-display text-panel-title text-terminal-text">
                 Provider share
               </h2>
               <p class="mt-2 text-body-sm text-terminal-muted">
-                Which upstream served the tokens. A model reached by more than one provider is counted under each.
+                Which upstream served the tokens over the last {gateway.windowDays} days. A model reached by more
+                than one provider is counted under each.
               </p>
               <ul class="mt-6 space-y-3.5">
                 {gateway.providers.map((provider) => (
@@ -1335,11 +1505,11 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                     <span class="viz-track mt-1.5 block h-2 overflow-hidden rounded-full" aria-hidden="true">
                       <span
                         class="block h-full rounded-full"
-                        style={`width:${maxProviderTokens > 0 ? Math.max((provider.tokens / maxProviderTokens) * 100, 1) : 0}%;background:var(--series-1)`}
+                        style={`width:${Math.max(provider.share * 100, 0.25)}%;min-width:2px;background:var(--series-1)`}
                       />
                     </span>
                     <p class="mt-1 text-[13px] tabular-nums text-terminal-muted">
-                      {compact.format(provider.tokens)} tokens · {whole.format(provider.requests)} completions
+                      {compactFixed.format(provider.tokens)} tokens · {whole.format(provider.requests)} completions
                     </p>
                   </li>
                 ))}
@@ -1357,6 +1527,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
           <div class="rounded-card border border-terminal-border/60 bg-terminal-panel p-6 sm:p-8">
             <div class="flex flex-wrap items-baseline justify-between gap-3">
               <div>
+                <p class="viz-source">Release log</p>
                 <h2 id="adoption-heading" class="font-display text-panel-title text-terminal-text">
                   Adoption
                 </h2>
@@ -1387,7 +1558,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                     class="viz-grid"
                   />
                   <text x={PAD.left - 10} y={downloadY(tick) + 4} text-anchor="end" class="viz-tick">
-                    {compact.format(tick)}
+                    {downloadTick(tick)}
                   </text>
                 </>
               ))}
@@ -1399,17 +1570,6 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 stroke-linejoin="round"
                 stroke-linecap="round"
               />
-              {/* A dot at every reading, so the line reads as 24 release-day
-                  measurements joined up rather than a daily series. */}
-              {downloads.map((point) => (
-                <circle
-                  cx={downloadX(point.date)}
-                  cy={downloadY(point.total)}
-                  r="2.5"
-                  fill="var(--series-1)"
-                  class="viz-endpoint"
-                />
-              ))}
               <circle
                 cx={downloadX(lastDownload.date)}
                 cy={downloadY(lastDownload.total)}
@@ -1417,14 +1577,6 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
                 fill="var(--series-1)"
                 class="viz-endpoint"
               />
-              <text
-                x={downloadX(lastDownload.date) - 12}
-                y={downloadY(lastDownload.total) - 12}
-                text-anchor="end"
-                class="viz-label"
-              >
-                {compact.format(lastDownload.total)}
-              </text>
               {downloadAxisDates.map((point) => (
                 <text
                   x={downloadX(point.date)}
@@ -1509,7 +1661,10 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
     </section>
   </main>
 
-  {gateway !== null && <script is:inline type="application/json" data-token-series set:html={tooltipJson} />}
+  {gateway !== null && <script is:inline type="application/json" data-token-series="gateway" set:html={tooltipJson} />}
+  {community !== null && (
+    <script is:inline type="application/json" data-token-series="community" set:html={communityTooltipJson} />
+  )}
 </Layout>
 
 <style>
@@ -1533,7 +1688,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
 
     /* Sequential blue ramp for the activity grid — one hue, light to dark, with
        a neutral empty step so "no traffic" never reads as "a little traffic". */
-    --heat-0: rgb(var(--terminal-border) / 0.5);
+    --heat-0: #e8f1fd;
     --heat-1: #cde2fb;
     --heat-2: #9ec5f4;
     --heat-3: #5598e7;
@@ -1553,7 +1708,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
     --series-other: #6e6b64;
     /* Dark steps run the ramp the other way: the deepest blue would vanish into
        the panel, so the busiest day is the lightest step. */
-    --heat-0: rgb(var(--terminal-border) / 0.8);
+    --heat-0: #1b3e6b;
     --heat-1: #184f95;
     --heat-2: #256abf;
     --heat-3: #3987e5;
@@ -1574,7 +1729,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
       --series-other: #6e6b64;
     /* Dark steps run the ramp the other way: the deepest blue would vanish into
        the panel, so the busiest day is the lightest step. */
-    --heat-0: rgb(var(--terminal-border) / 0.8);
+    --heat-0: #1b3e6b;
     --heat-1: #184f95;
     --heat-2: #256abf;
     --heat-3: #3987e5;
@@ -1600,6 +1755,31 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
     font-family: "Figtree", system-ui, sans-serif;
     font-size: 13px;
     font-weight: 600;
+  }
+
+  /* Source tag. Small, quiet, and on every card — the page's whole claim is
+     that its two halves are different things, so each one says which it is. */
+  .viz-source {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid rgb(var(--terminal-border));
+    border-radius: var(--radius-sm);
+    color: rgb(var(--terminal-muted));
+    font-size: var(--type-eyebrow);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .viz-heat-none,
+  .viz-heat-none-key {
+    fill: rgb(var(--terminal-border) / 0.45);
+    background: rgb(var(--terminal-border) / 0.45);
+  }
+
+  .viz-heat-empty {
+    box-shadow: inset 0 0 0 1px rgb(var(--terminal-border));
   }
 
   .viz-track {
@@ -1644,13 +1824,13 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
 </style>
 
 <script>
-  const initTokenChart = () => {
-    const svg = document.querySelector<SVGSVGElement>("[data-token-chart]")
-    const host = svg?.closest<HTMLElement>("[data-tooltip-host]")
+  const initTokenChart = (svg: SVGSVGElement) => {
+    const key = svg.dataset.tokenChart
+    const host = svg.closest<HTMLElement>("[data-tooltip-host]")
     const tooltip = host?.querySelector<HTMLElement>("[data-tooltip]")
-    const cursor = svg?.querySelector<SVGRectElement>("[data-cursor]")
-    const payload = document.querySelector<HTMLScriptElement>("[data-token-series]")
-    if (!svg || !host || !tooltip || !cursor || !payload) return
+    const cursor = svg.querySelector<SVGRectElement>("[data-cursor]")
+    const payload = document.querySelector<HTMLScriptElement>(`[data-token-series="${key}"]`)
+    if (!host || !tooltip || !cursor || !payload) return
 
     type Row = { model: string; value: string; color: string }
     type Column = { day: string; total: string; requests: string; rows: Row[] }
@@ -1686,7 +1866,7 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
 
       const meta = document.createElement("p")
       meta.className = "text-[12px] text-terminal-muted"
-      meta.textContent = `${column.requests} completions`
+      meta.textContent = column.requests
       tooltip.append(meta)
 
       if (column.rows.length > 0) {
@@ -1755,6 +1935,10 @@ const updatedAt = new Date(now * 1000).toLocaleString("en-US", {
     })
   }
 
-  initTokenChart()
-  document.addEventListener("astro:page-load", initTokenChart)
+  const initTokenCharts = () => {
+    document.querySelectorAll<SVGSVGElement>("[data-token-chart]").forEach(initTokenChart)
+  }
+
+  initTokenCharts()
+  document.addEventListener("astro:page-load", initTokenCharts)
 </script>
