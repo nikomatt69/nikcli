@@ -164,7 +164,7 @@ describe("summarize", () => {
     expect(stats.series.filter((p) => p.tokens === 0)).toHaveLength(SERIES_DAYS)
   })
 
-  test("stacks the tail of the models into a single other band", () => {
+  test("stacks the tail of the models into an other band, drawn on top", () => {
     const models = Array.from({ length: 10 }, (_, i) => `model-${i}`)
     const stats = summarize(
       feed({
@@ -173,7 +173,10 @@ describe("summarize", () => {
       }),
       NOW,
     )!
+    // Last in draw order means top of the stack: the largest model keeps the
+    // axis, so its own height can be read day to day.
     expect(stats.seriesModels.at(-1)).toBe("other")
+    expect(stats.seriesModels[0]).toBe(stats.models[0].model)
     const banded = stats.seriesModels.length - 1
     expect(stats.seriesModels.slice(0, banded)).toEqual(stats.models.slice(0, banded).map((m) => m.model))
     expect(stats.series.find((p) => p.day === "2026-08-10")!.byModel.other).toBe((models.length - banded) * 10)
@@ -344,9 +347,14 @@ describe("fetchGateway", () => {
 
 describe("axisTicks", () => {
   test("rounds the step up to a clean 1/2/5 number", () => {
-    expect(axisTicks(1000)).toEqual([0, 250, 500, 750, 1000])
+    expect(axisTicks(1000)).toEqual([0, 200, 400, 600, 800, 1000])
     expect(axisTicks(1700)).toEqual([0, 500, 1000, 1500, 2000])
     expect(axisTicks(3.4)).toEqual([0, 1, 2, 3, 4])
+  })
+
+  test("does not overshoot a skewed peak the way a coarser step would", () => {
+    // Four steps would pick 200M and run the axis to 600M for a 404M peak.
+    expect(axisTicks(404_000_000)).toEqual([0, 100_000_000, 200_000_000, 300_000_000, 400_000_000, 500_000_000])
   })
 
   test("stops at the first tick that covers the data, not at a fixed count", () => {
