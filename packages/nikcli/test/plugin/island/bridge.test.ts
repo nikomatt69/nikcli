@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../../helpers/env"
+import { removeTestDir } from "../../helpers/fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -279,7 +280,7 @@ describe("IslandBridge", () => {
 
 afterAll(async () => {
   await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
-  await fs.rm(supportDir, { recursive: true, force: true })
+  await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
+  await removeTestDir(testHome)
+  await removeTestDir(supportDir)
 })

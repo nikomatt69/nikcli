@@ -3,6 +3,7 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { Filesystem } from "@/util/filesystem"
+import { canCreateFileSymlinks, symlinkDir } from "../helpers/fs"
 
 describe("Filesystem.realpathInside", () => {
   let root: string
@@ -53,7 +54,7 @@ describe("Filesystem.realpathInside", () => {
 
   test("rejects a symlink that points outside the root", async () => {
     await fs.writeFile(path.join(outside, "secret.txt"), "x")
-    await fs.symlink(outside, path.join(root, "escape"))
+    await symlinkDir(outside, path.join(root, "escape"))
     const result = await Filesystem.realpathInside(root, path.join(root, "escape", "secret.txt"))
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -61,7 +62,9 @@ describe("Filesystem.realpathInside", () => {
     }
   })
 
-  test("rejects a symlink whose leaf points outside the root", async () => {
+  // The leaf is a link to a *file*, which has no junction equivalent, so an
+  // unprivileged Windows host cannot set this case up at all.
+  test.skipIf(!canCreateFileSymlinks())("rejects a symlink whose leaf points outside the root", async () => {
     await fs.writeFile(path.join(outside, "secret.txt"), "x")
     const nested = path.join(root, "a", "b")
     await fs.mkdir(nested, { recursive: true })
@@ -92,7 +95,7 @@ describe("Filesystem.realpathInside", () => {
     const inner = path.join(root, "real")
     await fs.mkdir(inner, { recursive: true })
     await fs.writeFile(path.join(inner, "ok.txt"), "x")
-    await fs.symlink(inner, path.join(root, "link"))
+    await symlinkDir(inner, path.join(root, "link"))
     const result = await Filesystem.realpathInside(root, path.join(root, "link", "ok.txt"))
     expect(result.ok).toBe(true)
   })
@@ -119,7 +122,7 @@ describe("Filesystem.realpathInside", () => {
 
   test("rejects a broken symlink that points outside the root", async () => {
     const ghost = path.join(os.tmpdir(), "nikcli-realpath-ghost-target-" + Date.now())
-    await fs.symlink(ghost, path.join(root, "broken"))
+    await symlinkDir(ghost, path.join(root, "broken"))
     const result = await Filesystem.realpathInside(root, path.join(root, "broken"))
     expect(result.ok).toBe(false)
     if (!result.ok) {

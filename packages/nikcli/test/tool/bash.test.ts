@@ -13,6 +13,14 @@ describe("BashTool", () => {
 
   beforeAll(async () => {
     projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-bash-test-"))
+    // The worktree is discovered by walking up for a `.git`, so without one here
+    // it lands on whatever repository happens to contain the OS temp directory.
+    // On Windows temp sits under the user's home, so a home-level repository —
+    // not unusual for dotfiles — makes the worktree the home directory and every
+    // sibling temp directory "inside" it. The external-directory cases below then
+    // silently assert nothing. Anchoring the worktree here makes them mean the
+    // same thing on every host.
+    await fs.mkdir(path.join(projectDir, ".git"), { recursive: true })
     def = await withProjectDirectory(projectDir, () => BashTool.init())
   })
 

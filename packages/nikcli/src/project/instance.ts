@@ -21,6 +21,16 @@ interface Context {
 const context = Context.create<Context>("instance")
 const cache = new Map<string, Promise<Context>>()
 
+/**
+ * Whether a directory is the root of its filesystem — `/` on POSIX, `C:\` and
+ * friends on Windows. Written against `path.parse` rather than a literal so the
+ * two platforms are covered by the same rule.
+ */
+export function isFilesystemRoot(directory: string) {
+  if (!directory) return false
+  return directory === "/" || path.parse(directory).root === directory
+}
+
 function normalizeDirectory(directory: string) {
   try {
     return realpathSync(directory)
@@ -87,10 +97,19 @@ export const Instance = {
   containsPath(filepath: string) {
     try {
       const canonicalInstance = realpathSync(Instance.directory)
-      const canonicalWorktree = Instance.worktree === "/" ? "/" : realpathSync(Instance.worktree)
       const canonicalPath = Filesystem.canonicalizePath(filepath)
       if (Filesystem.contains(canonicalInstance, canonicalPath)) return true
-      if (canonicalWorktree === "/") return false
+      // A worktree sitting at the filesystem root is the "no repository" fallback
+      // (`path.parse(dir).root`), not a containment boundary — treating it as one
+      // puts every path on the volume inside the instance, and callers such as the
+      // bash tool's external-directory check then never prompt.
+      //
+      // Only the POSIX spelling `/` used to be recognised, so on Windows the drive
+      // root `C:\` fell straight through to the containment test, where
+      // `contains("C:\\", anything-on-C)` is true.
+      if (isFilesystemRoot(Instance.worktree)) return false
+      const canonicalWorktree = realpathSync(Instance.worktree)
+      if (isFilesystemRoot(canonicalWorktree)) return false
       return Filesystem.contains(canonicalWorktree, canonicalPath)
     } catch {
       return false

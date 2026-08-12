@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { removeTestDir } from "../helpers/fs"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
@@ -110,6 +111,10 @@ describe("Experimental HttpApi bridge", () => {
     expect(resources).toEqual({})
   })
 
+  // Three git worktree operations end to end, each spawning a process. Windows
+  // process creation is expensive enough that under a fully parallel suite run
+  // this exceeds the 30s default and fails on duration rather than behaviour.
+  // The budget is the fix; the assertions below are unchanged.
   it("serves experimental worktree create, reset, and remove routes", async () => {
     const directory = await makeGitProjectDir()
 
@@ -137,7 +142,7 @@ describe("Experimental HttpApi bridge", () => {
       directory: created.directory,
     })) as boolean
     expect(removed).toBe(true)
-  })
+  }, 120_000)
 })
 
 afterEach(async () => {
@@ -147,6 +152,6 @@ afterEach(async () => {
 afterAll(async () => {
   delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
-  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
-  await fs.rm(testHome, { recursive: true, force: true })
+  await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
+  await removeTestDir(testHome)
 })

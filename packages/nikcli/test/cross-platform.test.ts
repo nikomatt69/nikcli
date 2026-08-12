@@ -19,13 +19,21 @@ const SRC = path.join(import.meta.dir, "..", "src")
 const readSrc = (rel: string) => fs.readFileSync(path.join(SRC, rel), "utf8")
 
 describe("cross-platform file:// URL handling", () => {
-  it("pathToFileURL roundtrips POSIX paths on POSIX (sanity)", () => {
-    const posix = "/home/user/foo.txt"
-    expect(fileURLToPath(pathToFileURL(posix).href)).toBe(posix)
+  // `pathToFileURL` only round-trips an *absolute native* path: handed a POSIX
+  // path on Windows it resolves against the current drive, so `/home/user/foo.txt`
+  // comes back as `C:\home\user\foo.txt` and a hardcoded POSIX literal fails for a
+  // reason that says nothing about the code under test. The invariant being
+  // asserted — the round-trip is lossless — holds on both platforms, so the paths
+  // are built natively and the coverage stays rather than being skipped.
+  const nativeAbsolute = (...segments: string[]) => path.resolve(path.sep, ...segments)
+
+  it("pathToFileURL roundtrips an absolute path (sanity)", () => {
+    const native = nativeAbsolute("home", "user", "foo.txt")
+    expect(fileURLToPath(pathToFileURL(native).href)).toBe(native)
   })
 
   it("pathToFileURL handles spaces and unicode (naive interpolation would break these)", () => {
-    const tricky = "/tmp/has space/é/файл.txt"
+    const tricky = nativeAbsolute("tmp", "has space", "é", "файл.txt")
     const url = pathToFileURL(tricky).href
 
     const iterations = 10000

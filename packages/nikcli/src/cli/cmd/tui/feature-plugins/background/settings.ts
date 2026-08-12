@@ -103,7 +103,12 @@ export function cleanSource(input: string, home = os.homedir(), windows = proces
   if (!windows) value = value.replace(/\\(.)/g, "$1")
   value = value.trim()
   if (value === "~") return home
-  if (value.startsWith("~/") || (windows && value.startsWith("~\\"))) return path.join(home, value.slice(2))
+  // Joined through the flag rather than the host: `windows` already decides how
+  // the input is read, so letting `path.join` decide how it is written left the
+  // function half-parameterized and unable to describe one platform from the
+  // other. On a matching host both branches are what `path.join` would do.
+  if (value.startsWith("~/") || (windows && value.startsWith("~\\")))
+    return (windows ? path.win32 : path.posix).join(home, value.slice(2))
   return value
 }
 

@@ -1,4 +1,5 @@
 import { preserveTestEnv } from "../helpers/env"
+import { canCreateFileSymlinks } from "../helpers/fs"
 import { describe, expect, it } from "bun:test"
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "fs/promises"
 import { tmpdir } from "os"
@@ -57,7 +58,9 @@ describe("tui plugin discovery", () => {
     ])
   })
 
-  it("follows symlinked plugin files", async () => {
+  // A plugin file is linked as a file, and file symlinks stay privileged on
+  // Windows — no junction equivalent, so the case is unbuildable there.
+  it.skipIf(!canCreateFileSymlinks())("follows symlinked plugin files", async () => {
     await using tmp = await scratch()
     const root = path.join(tmp.path, ".nikcli")
     const directory = path.join(root, "plugin", "tui")
