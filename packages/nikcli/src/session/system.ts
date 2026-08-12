@@ -10,6 +10,7 @@ import PROMPT_CODEX from "./prompt/codex_header.txt"
 import PROMPT_SUMMARIZE from "./prompt/summarize.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import type { Provider } from "@/provider/provider"
+import { Profile } from "@/profile"
 import { Skill } from "@/skill"
 import { Context, Effect, Layer } from "effect"
 import { AppRuntime, InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
@@ -21,6 +22,8 @@ export namespace SystemPrompt {
     environment(): Effect.Effect<string[], unknown>
     custom(disabled?: string[]): Effect.Effect<string[], unknown>
     skills(names?: string[]): Effect.Effect<string[], unknown>
+    /** The signed-in user's personalization block, or `[]` when unset. */
+    profile(): Effect.Effect<string[], unknown>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SystemPrompt.Service") {}
@@ -216,6 +219,7 @@ export namespace SystemPrompt {
     Service,
     Effect.gen(function* () {
       const skill = yield* Skill.Service
+      const profile = yield* Profile.Service
       function configGet(ctx: InstanceContext) {
         return runPromiseWithLayer(
           Config.defaultLayer,
@@ -243,9 +247,18 @@ export namespace SystemPrompt {
             return yield* Effect.tryPromise(() => customImpl(ctx, cfg, disabled))
           }),
         skills: (names = []) => Effect.tryPromise(() => skillsImpl(skill, names)),
+        profile: () =>
+          Effect.gen(function* () {
+            // The habits file is project-local (`.nikcli/habits.md`), so the
+            // reminder needs the instance's project root, not just the profile.
+            const ctx = yield* InstanceState.context
+            return yield* profile.reminder(Profile.projectRoot(ctx))
+          }),
       })
     }),
   )
 
-  export const defaultLayer = Layer.unwrap(Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))))
+  export const defaultLayer = Layer.unwrap(
+    Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer), Layer.provide(Profile.defaultLayer))),
+  )
 }

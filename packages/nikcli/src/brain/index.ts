@@ -2,6 +2,7 @@ import fs from "fs/promises"
 import path from "path"
 import { Global } from "@/global"
 import { Log } from "@/util/log"
+import { Profile } from "@/profile"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
@@ -111,6 +112,46 @@ import { BRAIN_SESSION_TITLE } from "./constants"
 
 function memoryPath(): string {
   return path.join(Instance.directory, ".github", "instructions", "memory.instruction.md")
+}
+
+/**
+ * The user-facing half of a Brain pass: `.nikcli/habits.md`.
+ *
+ * `memory.instruction.md` remembers the *project* — architecture, decisions,
+ * gotchas. This file remembers the *person* — the workflow they keep repeating,
+ * the tools they reach for, the corrections they keep having to make. Splitting
+ * them keeps either file from turning into a dumping ground, and lets the user
+ * switch the learned half off (`/profile`) without losing project memory.
+ */
+function habitsPath(): string {
+  // Same root the system prompt reads from, so a Brain pass never writes a file
+  // the next session cannot find.
+  return Profile.habitsFile(Profile.projectRoot({ directory: Instance.directory, worktree: Instance.worktree }))
+}
+
+const HABITS_HEADER = [
+  "# User habits",
+  "",
+  "Maintained automatically by nikcli's Brain pass from past sessions in this project.",
+  "Every session's agents read this file. Edit or delete anything that is wrong —",
+  "or turn the whole thing off with `/profile`.",
+  "",
+].join("\n")
+
+export async function getHabitsContent(): Promise<string> {
+  return fs.readFile(habitsPath(), "utf8").catch(() => "")
+}
+
+/**
+ * Create the habits file if it is missing so the Brain session has something to
+ * read and can reach it with the edit tool alone — asking a model to create a
+ * file in a directory that may not exist yet is the step that fails.
+ */
+async function ensureHabitsFile(): Promise<void> {
+  const target = habitsPath()
+  if (await Bun.file(target).exists()) return
+  await fs.mkdir(path.dirname(target), { recursive: true })
+  await fs.writeFile(target, HABITS_HEADER, "utf8")
 }
 
 function lockPath(): string {
@@ -333,10 +374,14 @@ export namespace Brain {
       log.info("brain triggered", { hoursSince })
 
       const before = await getBrainMemoryContent()
+      const habitsBefore = await getHabitsContent()
       const sessionID = await executeBrain(sessionIds)
       const after = await getBrainMemoryContent()
+      const habitsAfter = await getHabitsContent()
 
-      if (before !== after) {
+      // Either output counts: a pass that only learned something about how the
+      // user works did its job even if project memory was already current.
+      if (before !== after || habitsBefore !== habitsAfter) {
         await recordBrain()
         log.info("brain completed", {
           sessionsReviewed: sessionIds.length,
@@ -386,9 +431,14 @@ export namespace Brain {
       const memory = await getBrainMemoryContent()
       const memoryFile = memoryPath()
       await fs.mkdir(path.dirname(memoryFile), { recursive: true })
+      await ensureHabitsFile().catch((e) => log.warn("could not seed habits file", { error: String(e) }))
+      const habits = await getHabitsContent()
       const reviews = await buildSessionReviews(sessionIds)
 
-      const prompt = buildBrainPrompt(memoryFile, reviews, memory)
+      const prompt = buildBrainPrompt(memoryFile, reviews, memory, {
+        path: habitsPath(),
+        content: habits,
+      })
       log.info("brain prompt built", {
         promptLength: prompt.length,
         sessionCount: sessionIds.length,
@@ -468,50 +518,94 @@ export namespace Brain {
     }
   }
 
-  export function buildBrainPrompt(memoryPath: string, sessionReviews: string, currentMemory: string): string {
+  export function buildBrainPrompt(
+    memoryPath: string,
+    sessionReviews: string,
+    currentMemory: string,
+    habits?: { path: string; content: string },
+  ): string {
     return `# Brain: Memory Consolidation
 
-You are performing a Brain pass over project memory. Synthesize what you've learned recently into durable, well-organized memories so that future sessions can orient quickly.
+You are performing a Brain pass over ${habits ? "two memories" : "project memory"}. Synthesize what you've learned recently into durable, well-organized notes so that future sessions can orient quickly.
 
-Memory file to maintain: \`${memoryPath}\`
+${
+  habits
+    ? `Files to maintain:
+- Project memory: \`${memoryPath}\` — what is true about this codebase.
+- User habits: \`${habits.path}\` — how the person working on it works.
+
+Keep them strictly separate. A fact about the code never belongs in the user file, and a preference of the user's never belongs in project memory.`
+    : `Memory file to maintain: \`${memoryPath}\``
+}
 
 ---
 
 ## Phase 1 — Orient
 
-- Read the existing memory file if it exists
-- Review what memories currently exist before making changes
+- Read the existing files if they exist
+- Review what is already recorded before making changes
 
 ## Phase 2 — Gather recent signal
 
 Look for new information worth persisting from the session transcripts included below.
 
-## Phase 3 — Consolidate
+## Phase 3 — Consolidate project memory
 
-For each thing worth remembering, update the memory file at \`${memoryPath}\`.
+For each thing worth remembering about the codebase, update \`${memoryPath}\`.
 
 Focus on:
 - Merging new signal into existing content rather than creating duplicates
 - Converting relative dates to absolute dates
 - Deleting contradicted facts
 - Keeping the file concise and useful for future coding sessions
+${
+  habits
+    ? `
+## Phase 3b — Consolidate user habits
 
+Update \`${habits.path}\` with what the transcripts reveal about **how this user works**. This file is read by every agent in every future session, so only durable, repeated signal belongs in it.
+
+Record things like:
+- Tools, commands and workflows they consistently use or consistently reject ("runs typecheck through the monitor tool", "never wants npm")
+- Corrections they have had to give more than once — write the rule, not the incident
+- How they like work delivered: answer length, how much explanation, commit and PR habits, when they want to be asked versus told
+- Recurring conventions in how they name, structure and review code
+
+Rules for this file:
+- One short, imperative line per habit, grouped under \`##\` headings; no narrative
+- Only patterns seen more than once, or stated outright by the user — a single occurrence is not a habit
+- Never record secrets, credentials, file contents, or anything about a specific bug or task
+- Never record personal data beyond how they want to be worked with
+- Remove a habit the moment the transcripts contradict it, and prefer rewriting an existing line over adding a near-duplicate
+- If the recent transcripts reveal no durable habit, leave the file untouched — an empty pass is a correct outcome
+`
+    : ""
+}
 ## Phase 4 — Prune and index
 
-Keep the memory file concise and well-organized. Remove stale entries, add important new ones.
+Keep ${habits ? "both files" : "the memory file"} concise and well-organized. Remove stale entries, add important new ones.
 
 Important:
-- Do not create a new memory file somewhere else
+- Do not create ${habits ? "these files" : "a new memory file"} somewhere else
 - Do not ask the user questions
-- Use only the provided file tools you need to inspect or update the memory file
+- Use only the provided file tools you need to inspect or update ${habits ? "these files" : "the memory file"}
 
 ---
 
-Current memory content:
+Current project memory:
 \`\`\`
 ${currentMemory || "(empty)"}
 \`\`\`
-
+${
+  habits
+    ? `
+Current user habits:
+\`\`\`
+${habits.content || "(empty)"}
+\`\`\`
+`
+    : ""
+}
 Recent session transcripts:
 
 ${sessionReviews || "(none)"}

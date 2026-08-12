@@ -216,6 +216,26 @@ export namespace SessionContext {
       })
     }
 
+    // 2b. User profile block — small, but it is in every request, so it belongs
+    //     in the breakdown rather than hiding inside "System prompt".
+    const profile = await runSystemPrompt(
+      Effect.gen(function* () {
+        const service = yield* SystemPrompt.Service
+        return yield* service.profile()
+      }),
+    ).catch(() => [] as string[])
+    if (profile.length > 0) {
+      sources.push({
+        id: "system:profile",
+        category: "system",
+        label: "User profile",
+        detail: "/profile",
+        tokens: est(profile.join("\n")),
+        enabled: true,
+        togglable: false,
+      })
+    }
+
     // 3. Instruction files (AGENTS.md, CLAUDE.md, config instructions) — one source per
     //    file/url, togglable. Disabled files are still read so their token cost is shown.
     const disabledInstructions = new Set(session.disabledInstructions ?? [])

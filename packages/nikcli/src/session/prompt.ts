@@ -158,13 +158,21 @@ export namespace SessionPrompt {
       withCurrentInstance(
         Effect.gen(function* () {
           const systemPrompt = yield* SystemPrompt.Service
-          const [activeSkillMessages, environment, custom] = yield* Effect.all(
-            [systemPrompt.skills(skills), systemPrompt.environment(), systemPrompt.custom(disabledInstructions)],
+          const [activeSkillMessages, environment, custom, profile] = yield* Effect.all(
+            [
+              systemPrompt.skills(skills),
+              systemPrompt.environment(),
+              systemPrompt.custom(disabledInstructions),
+              systemPrompt.profile(),
+            ],
             { concurrency: "unbounded" },
           )
           return {
             activeSkillMessages,
-            system: [...environment, ...custom],
+            // The profile goes last: it is the smallest, most user-specific
+            // block, and everything before it (project AGENTS.md included)
+            // should be read as the stronger instruction when they disagree.
+            system: [...environment, ...custom, ...profile],
           }
         }),
       ),

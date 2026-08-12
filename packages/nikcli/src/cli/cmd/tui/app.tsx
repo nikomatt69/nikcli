@@ -1015,6 +1015,20 @@ function App(props: { checkUpgrade?: () => Promise<void> }) {
       },
     },
     {
+      title: "Personalize nikcli",
+      value: "account.profile",
+      category: "Account",
+      slash: {
+        name: "profile",
+        aliases: ["me", "personalize"],
+      },
+      onSelect: () => {
+        void import("@tui/component/dialog-profile").then(({ DialogProfile }) =>
+          dialog.replace(() => <DialogProfile />),
+        )
+      },
+    },
+    {
       title: "Manage Account",
       value: "auth.manage",
       category: "Account",
