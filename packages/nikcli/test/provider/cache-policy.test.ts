@@ -90,6 +90,97 @@ describe("CachePolicy.plan", () => {
   })
 })
 
+describe("CachePolicy.minCacheableChars", () => {
+  it("tracks the floor per model rather than assuming one value", () => {
+    // The floor is not monotonic across generations, so these have to differ.
+    expect(CachePolicy.minCacheableChars("claude-opus-5")).toBeLessThan(
+      CachePolicy.minCacheableChars("claude-sonnet-5"),
+    )
+    expect(CachePolicy.minCacheableChars("claude-sonnet-5")).toBeLessThan(
+      CachePolicy.minCacheableChars("claude-opus-4-7"),
+    )
+    expect(CachePolicy.minCacheableChars("claude-opus-4-7")).toBeLessThan(
+      CachePolicy.minCacheableChars("claude-haiku-4-5"),
+    )
+  })
+
+  it("does not confuse opus-5 with opus-4-5", () => {
+    expect(CachePolicy.minCacheableChars("claude-opus-4-5")).toBe(CachePolicy.minCacheableChars("claude-opus-4-6"))
+    expect(CachePolicy.minCacheableChars("claude-opus-5")).not.toBe(CachePolicy.minCacheableChars("claude-opus-4-5"))
+  })
+
+  it("falls back to the 1024 tier for a model it does not know", () => {
+    expect(CachePolicy.minCacheableChars("some-future-model")).toBe(CachePolicy.DEFAULT_MIN_CACHEABLE_TOKENS * 4)
+  })
+
+  it("marks a first system part that clears the low floor but not the high one", () => {
+    // ~2600 characters: above Opus 5's 512-token floor, below Haiku 4.5's 4096.
+    const mid = system("x".repeat(2600))
+    const last = system(BIG_PROMPT)
+    const msgs = [mid, last, user("only")]
+
+    expect(CachePolicy.plan(msgs, 4, CachePolicy.minCacheableChars("claude-opus-5"))).toContain(mid)
+    expect(CachePolicy.plan(msgs, 4, CachePolicy.minCacheableChars("claude-haiku-4-5"))).not.toContain(mid)
+  })
+})
+
+describe("CachePolicy.resolveRetention", () => {
+  it("defaults to the 5-minute entry so no existing caller pays the 2x write", () => {
+    expect(CachePolicy.resolveRetention(undefined)).toBe("short")
+    expect(CachePolicy.ttlFor(CachePolicy.resolveRetention(undefined))).toBeUndefined()
+  })
+
+  it("opts into the 1-hour entry on request", () => {
+    expect(CachePolicy.resolveRetention("long")).toBe("long")
+    expect(CachePolicy.ttlFor("long")).toBe("1h")
+  })
+
+  it("ignores casing and surrounding whitespace", () => {
+    expect(CachePolicy.resolveRetention(" LONG ")).toBe("long")
+  })
+
+  it("treats anything else as the default rather than erroring", () => {
+    // `1h` is the wire value, not the setting — accepting it here would make the
+    // setting look like it took effect when the resolver never matched it.
+    expect(CachePolicy.resolveRetention("1h")).toBe("short")
+  })
+})
+
+describe("CachePolicy.overLookback", () => {
+  const wide = (blocks: number): ModelMessage => ({
+    role: "assistant",
+    content: Array.from({ length: blocks }, (_, i) => ({ type: "text" as const, text: `block-${i}` })),
+  })
+
+  it("accepts a message that fits inside the window", () => {
+    expect(CachePolicy.overLookback([wide(CachePolicy.LOOKBACK_BLOCKS)])).toEqual([])
+  })
+
+  it("reports a fan-out wider than the window", () => {
+    const tooWide = wide(CachePolicy.LOOKBACK_BLOCKS + 1)
+    expect(CachePolicy.overLookback([tooWide])).toEqual([tooWide])
+  })
+
+  it("counts a string-content message as a single block", () => {
+    expect(CachePolicy.contentBlocks(system("plain string content"))).toBe(1)
+  })
+
+  it("bounds the gap to one message, which is why the tail is two messages long", () => {
+    // Marking both tail messages means consecutive entries are separated by one
+    // message's blocks, not the whole round-trip's — so a 15-call fan-out plus its
+    // 15 results stays reachable even though the pair totals 30 blocks.
+    const roundTrip = [
+      wide(15),
+      {
+        role: "user",
+        content: Array.from({ length: 15 }, () => ({ type: "text" as const, text: "r" })),
+      } as ModelMessage,
+    ]
+    expect(CachePolicy.overLookback(roundTrip)).toEqual([])
+    expect(CachePolicy.CONVERSATION_TAIL).toBe(2)
+  })
+})
+
 describe("CachePolicy.countWireBreakpoints", () => {
   it("counts markers across tools, system and messages", () => {
     const body = {

@@ -5,6 +5,9 @@ import { Provider } from "./provider"
 import * as CachePolicy from "./cache-policy"
 import type { ModelsDev } from "./models"
 import { iife } from "@/util/iife"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "provider.transform" })
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
@@ -367,12 +370,41 @@ function normalizeMessages(
 function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
   // Placement is budgeted (see cache-policy.ts): message-level markers leave a slot
   // for the wire-level tool-definition breakpoint, so a request never exceeds the
-  // four Anthropic/Bedrock accept.
-  const targets = CachePolicy.plan(msgs)
+  // four Anthropic/Bedrock accept. The minimum cacheable prefix is per-model, so the
+  // floor comes from the model rather than a single constant.
+  const targets = CachePolicy.plan(
+    msgs,
+    CachePolicy.MESSAGE_BREAKPOINT_BUDGET,
+    CachePolicy.minCacheableChars(model.api.id ?? model.id),
+  )
+
+  // A marked message wider than the lookback window puts the previous entry out
+  // of reach, so the tail stops hitting with nothing in the response to say why.
+  // Reported rather than prevented: the fix is a narrower fan-out at the call
+  // site, not a different breakpoint here.
+  const wide = CachePolicy.overLookback(targets)
+  if (wide.length > 0) {
+    log.warn("cache tail breakpoint may miss", {
+      reason: "message carries more content blocks than the provider looks back over",
+      blocks: wide.map((msg) => CachePolicy.contentBlocks(msg)).join(","),
+      lookback: CachePolicy.LOOKBACK_BLOCKS,
+    })
+  }
+
+  // `ttl` is only carried on the Anthropic block: that is the provider whose
+  // `cacheControl` schema declares it (`"5m" | "1h"`). The others keep their default
+  // lifetime rather than being sent a field they may not accept.
+  //
+  // OpenRouter is the tempting exception and is deliberately left out: its provider
+  // copies `cacheControl` through verbatim as `cache_control` with no schema, so it
+  // would forward a `ttl` rather than reject it — which means the request would be
+  // betting on an upstream contract this side cannot see. Extend only against a
+  // provider that documents the field.
+  const ttl = CachePolicy.ttlFor(CachePolicy.resolveRetention())
 
   const providerOptions = {
     anthropic: {
-      cacheControl: { type: "ephemeral" },
+      cacheControl: ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" },
     },
     openrouter: {
       cacheControl: { type: "ephemeral" },
