@@ -46,6 +46,23 @@ const EXCLUDED = new Set([
 
 const PINNED = new Set(["glob", "grep", "read"])
 
+/**
+ * How much of the bridged catalog to inline as full call signatures.
+ *
+ * Every tool CodeMode bridges is also advertised to the model as a native tool
+ * in the same request, so a full signature here is the second copy of a schema
+ * the model already has — measured at 11.4 KB of the tool surface, all of it
+ * duplicate. Below the budget the catalog degrades to one line per tool: the
+ * ids are flat, so each becomes its own namespace and the model still sees
+ * every name, which is what tells it the tool exists. Exact arguments come
+ * from the native advertisement, or from CodeMode's own `search`.
+ *
+ * Pinned tools are charged before the budget applies, so `glob`, `grep` and
+ * `read` keep their signatures inline: they are the ones a program reaches for
+ * first, and three lines is a cheap hedge against a wasted turn.
+ */
+const CATALOG_BUDGET = 0
+
 type CallEntry = {
   tool: string
   status: "running" | "completed" | "error" | "interrupted"
@@ -85,7 +102,7 @@ export const CodeModeTool = Tool.define<typeof Parameters, Tool.Metadata>("code_
       run: () => Effect.die("Catalog-only Code Mode tool cannot execute"),
     })
   }
-  const catalog = CodeMode.make({ tools: catalogTree }).instructions()
+  const catalog = CodeMode.make({ tools: catalogTree, discovery: { catalogBudget: CATALOG_BUDGET } }).instructions()
 
   return {
     description: `${DESCRIPTION}\n\n${catalog}`,
