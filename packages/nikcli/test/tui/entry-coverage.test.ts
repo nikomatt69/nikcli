@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { fileURLToPath } from "node:url"
 import { SessionEntry } from "@/session/v2/entry"
 
 /**
@@ -16,7 +17,9 @@ import { SessionEntry } from "@/session/v2/entry"
  * renderer fails here.
  */
 
-const root = new URL("../../src/", import.meta.url).pathname
+// `URL.pathname` is `/C:/…` on Windows — the leading slash makes the path
+// unopenable. `fileURLToPath` yields a native path on every platform.
+const root = fileURLToPath(new URL("../../src/", import.meta.url))
 
 async function source(path: string) {
   return await Bun.file(root + path).text()
