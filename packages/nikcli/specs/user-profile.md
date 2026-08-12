@@ -1,19 +1,19 @@
 # User profile & learned habits
 
-Per-user personalization for nikcli: what the user *tells* us about themselves
-(`/profile`) and what nikcli *learns* about them by watching sessions
+Per-user personalization for nikcli: what the user _tells_ us about themselves
+(`/profile`) and what nikcli _learns_ about them by watching sessions
 (`.nikcli/habits.md`). Both end up as a small standing block in the system prompt
 of every agent, primary and subagent alike.
 
 ## Why two halves
 
-| | Declared | Learned |
-|---|---|---|
-| Source | the user, in the `/profile` dialog | the Brain consolidation pass |
-| Storage | `<config>/profile/<accountID>.json` | `<project>/.nikcli/habits.md` |
-| Scope | the person, across every project on the machine | the person *in this project* |
-| Prompt block | `<user_profile>` | `<user_habits>` |
-| Authority | stated preference | inferred prior, droppable on contradiction |
+|              | Declared                                        | Learned                                    |
+| ------------ | ----------------------------------------------- | ------------------------------------------ |
+| Source       | the user, in the `/profile` dialog              | the Brain consolidation pass               |
+| Storage      | `<config>/profile/<accountID>.json`             | `<project>/.nikcli/habits.md`              |
+| Scope        | the person, across every project on the machine | the person _in this project_               |
+| Prompt block | `<user_profile>`                                | `<user_habits>`                            |
+| Authority    | stated preference                               | inferred prior, droppable on contradiction |
 
 Keeping them apart is the whole design. A declared preference is something the
 user is accountable for; a learned habit is a guess a model made from
@@ -40,20 +40,20 @@ Shape (`Profile.Info`, all fields optional except bookkeeping):
 ```jsonc
 {
   "version": 1,
-  "key": "acc_…",           // or "local"
+  "key": "acc_…", // or "local"
   "name": "Nik",
   "role": "senior backend engineer",
   "about": "builds CLIs and TUIs, ships small and often",
   "stack": ["bun", "solid", "effect"],
-  "expertise": ["distributed systems"],   // skip the basics here
-  "learning": ["rust"],                   // explain more here
-  "skills": ["effect", "opentui"],        // reach for these first
+  "expertise": ["distributed systems"], // skip the basics here
+  "learning": ["rust"], // explain more here
+  "skills": ["effect", "opentui"], // reach for these first
   "tools": { "preferred": ["monitor"], "avoid": ["bash"] },
   "conventions": ["always bun, never npm"],
   "communication": { "verbosity": "concise", "explain": false, "language": "Italian" },
   "custom": "free text appended verbatim",
-  "habits": true,           // false = hide the learned half from agents
-  "updatedAt": 1765000000000
+  "habits": true, // false = hide the learned half from agents
+  "updatedAt": 1765000000000,
 }
 ```
 
@@ -112,7 +112,7 @@ finds nothing durable. An empty pass is a correct outcome.
 
 `ensureHabitsFile()` seeds the file with a header before the session starts —
 asking a model to create a file in a directory that may not exist yet is the step
-that fails. A pass now counts as successful if *either* file changed.
+that fails. A pass now counts as successful if _either_ file changed.
 
 Triggering is unchanged: `experimental.brain`, `brainMinHours` (24),
 `brainMinSessions` (5), `experimental.memory` to switch memory off entirely.
@@ -127,7 +127,7 @@ Account. `src/cli/cmd/tui/component/dialog-profile.tsx`.
   and avoided tools (from `/experimental/tool/ids`), conventions
 - **Communication** — answer length, explain reasoning, reply language, extra notes
 - **Learned habits** — toggle visibility, review the file, forget it
-- **Actions** — *Preview what agents receive* (the literal rendered blocks), reset
+- **Actions** — _Preview what agents receive_ (the literal rendered blocks), reset
 
 The dialog calls the `Profile` service in-process, like the account sign-in
 dialog beside it; only the skill and tool catalogs go through the SDK, because
@@ -137,7 +137,7 @@ component swallows an empty submit.
 ## Not done yet
 
 - **HTTP routes + SDK.** The profile is read and written in-process, so a session
-  driven against a *remote* nikcli server reads that machine's profile, not the
+  driven against a _remote_ nikcli server reads that machine's profile, not the
   local one. Desktop and mobile parity needs `GET/PATCH/DELETE /profile` plus a
   codegen run.
 - **Preferred skills are advisory.** They are named in the prompt; they do not

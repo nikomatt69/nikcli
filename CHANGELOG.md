@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.277.0 (August 2026)
+
+## Core
+
+- Move every consumer off hey-api onto the Effect contract (@nikomatt69)
+- Remove Hono dependencies and streamline HTTP server implementation (@nikomatt69)
+- Introduce user profile and habits management (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(profile): introduce user profile and habits management
+  - refactor(nikcli): remove Hono dependencies and streamline HTTP server implementation
+  - refactor(sdk): move every consumer off hey-api onto the Effect contract
+
 ## v1.275.0 (August 2026)
 
 - No notable changes
