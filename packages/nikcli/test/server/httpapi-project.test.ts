@@ -8,9 +8,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-project-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 
-preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_EXPERIMENTAL_HTTPAPI"])
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { Instance } = await import("@/project/instance")
 const { Server } = await import("@/server/server")
@@ -27,11 +26,11 @@ async function makeProjectDir() {
 async function request(pathname: string, directory: string, init?: RequestInit) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
-  return Server.App().fetch(new Request(url, init))
+  return Server.fetch(new Request(url, init))
 }
 
 describe("Project HttpApi bridge", () => {
-  it("serves current, list, and update project routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
+  it("serves current, list, and update project routes via Server.fetch", async () => {
     const directory = await makeProjectDir()
 
     const currentResponse = await request("/project/current", directory)
@@ -62,7 +61,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

@@ -7,7 +7,6 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-file-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
@@ -16,7 +15,6 @@ process.env.XDG_STATE_HOME = path.join(testHome, "state")
 preserveTestEnv([
   "NIKCLI_TEST_HOME",
   "NIKCLI_DISABLE_PROJECT_CONFIG",
-  "NIKCLI_EXPERIMENTAL_HTTPAPI",
   "XDG_DATA_HOME",
   "XDG_CACHE_HOME",
   "XDG_CONFIG_HOME",
@@ -42,13 +40,13 @@ async function request(pathname: string, directory: string, params: Record<strin
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
   }
-  const response = await Server.App().fetch(new Request(url))
+  const response = await Server.fetch(new Request(url))
   expect(response.status).toBe(200)
   return response.json()
 }
 
 describe("File HttpApi bridge", () => {
-  it("serves file search, list, content, symbol, and status routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
+  it("serves file search, list, content, symbol, and status routes via Server.fetch", async () => {
     const directory = await makeProjectDir()
     await fs.mkdir(path.join(directory, "src"), { recursive: true })
     await fs.writeFile(path.join(directory, "src", "sample.ts"), "export const sampleValue = 42\n")
@@ -93,7 +91,7 @@ describe("File HttpApi bridge", () => {
     expect(HttpApiBridge.supports("/file/content", "PUT")).toBe(true)
     const writeUrl = new URL("/file/content", "http://nikcli.local")
     writeUrl.searchParams.set("directory", directory)
-    const writeResponse = await Server.App().fetch(
+    const writeResponse = await Server.fetch(
       new Request(writeUrl, {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -111,7 +109,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
   await fs.rm(testHome, { recursive: true, force: true })

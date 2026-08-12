@@ -708,7 +708,7 @@ export namespace Plugin {
     const client = createNikcliClient({
       baseUrl: "http://localhost:4096",
       // @ts-ignore - fetch type incompatibility
-      fetch: async (...args) => Server.App().fetch(...args),
+      fetch: async (...args) => Server.fetch(...args),
     })
     const config = await configGetFor(ctx)
     const hooks: Hooks[] = []

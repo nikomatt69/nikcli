@@ -8,9 +8,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-top-level-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 
-preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_EXPERIMENTAL_HTTPAPI"])
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { Instance } = await import("@/project/instance")
 const { Server } = await import("@/server/server")
@@ -27,13 +26,13 @@ async function makeProjectDir() {
 async function request(pathname: string, directory: string, init?: RequestInit) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
-  const response = await Server.App().fetch(new Request(url, init))
+  const response = await Server.fetch(new Request(url, init))
   expect(response.status).toBe(200)
   return response.json()
 }
 
 describe("Top-level HttpApi bridge", () => {
-  it("serves implemented top-level read routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
+  it("serves implemented top-level read routes via Server.fetch", async () => {
     const directory = await makeProjectDir()
 
     const paths = (await request("/path", directory)) as {
@@ -81,7 +80,7 @@ describe("Top-level HttpApi bridge", () => {
 
     const url = new URL("/vcs/diff/raw", "http://nikcli.local")
     url.searchParams.set("directory", directory)
-    const diff = await Server.App().fetch(new Request(url))
+    const diff = await Server.fetch(new Request(url))
     expect(diff.status).toBe(200)
     expect(diff.headers.get("content-type")).toContain("text/x-diff")
     expect(typeof (await diff.text())).toBe("string")
@@ -90,7 +89,7 @@ describe("Top-level HttpApi bridge", () => {
     // { name: "VcsApplyError", data: { message, reason } } 400 body.
     const applyUrl = new URL("/vcs/apply", "http://nikcli.local")
     applyUrl.searchParams.set("directory", directory)
-    const apply = await Server.App().fetch(
+    const apply = await Server.fetch(
       new Request(applyUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -112,7 +111,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

@@ -15,10 +15,8 @@ import { Storage } from "../../storage/storage"
  *  - `PUT    /pty/:ptyID`  → `pty.update`
  *  - `DELETE /pty/:ptyID`  → `pty.remove`
  *
- * The WebSocket upgrade at `GET /pty/:ptyID/connect` stays a Hono
- * "special" branch — `BunHttpServer.upgradeWebSocket` is not yet shipped in
- * `@effect/platform-bun`, so the bridge must fall through to
- * `routes/pty.ts` for that path. See `specs/effect/pty-httpapi.md`.
+ * The WebSocket upgrade at `GET /pty/:ptyID/connect` is served by native
+ * Bun `server.upgrade` in `Server.listen` (`src/server/websocket.ts`).
  *
  * `Pty.Info`, `Pty.CreateInput`, and `Pty.UpdateInput` are `zodObject` codecs
  * from `src/pty/index.ts` (built by `effect-zod`'s `zodObject`). They cannot

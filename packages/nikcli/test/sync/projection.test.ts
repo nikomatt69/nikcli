@@ -4,7 +4,6 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { afterAll, describe, expect, it } from "bun:test"
-import { Hono } from "hono"
 
 const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-sync-projection-"))
 process.env.NIKCLI_TEST_HOME = testDir
@@ -15,7 +14,7 @@ preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DB"])
 const { Sync } = await import("@/sync")
 const { SyncProjection } = await import("@/sync/projection")
 const { SyncSnapshot } = await import("@/sync/snapshot")
-const { SyncRoutes } = await import("@/server/routes/sync")
+const { Server } = await import("@/server/server")
 
 const run = Math.random().toString(36).slice(2)
 const projectID = `proj_projection_${run}`
@@ -72,8 +71,6 @@ describe("SyncProjection", () => {
 })
 
 describe("GET /sync/snapshot/:aggregateID", () => {
-  const app = new Hono().route("/sync", SyncRoutes)
-
   it("returns the projected state for a session aggregate", async () => {
     const sessionID = `ses_route_${run}`
     await Sync.emitRaw(projectID, sessionID, {
@@ -81,7 +78,7 @@ describe("GET /sync/snapshot/:aggregateID", () => {
       properties: { sessionID, title: "Via route" },
     })
 
-    const res = await app.request(`http://localhost/sync/snapshot/${sessionID}?projectID=${projectID}`)
+    const res = await Server.fetch(new Request(`http://localhost/sync/snapshot/${sessionID}?projectID=${projectID}`))
     expect(res.status).toBe(200)
     const body = (await res.json()) as { lastSeq: number; state: { title: string } }
     expect(body.lastSeq).toBe(1)
@@ -89,7 +86,7 @@ describe("GET /sync/snapshot/:aggregateID", () => {
   })
 
   it("rejects unsupported aggregate kinds", async () => {
-    const res = await app.request(`http://localhost/sync/snapshot/foo_unknown?projectID=${projectID}`)
+    const res = await Server.fetch(new Request(`http://localhost/sync/snapshot/foo_unknown?projectID=${projectID}`))
     expect(res.status).toBe(400)
   })
 })

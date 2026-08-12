@@ -201,6 +201,151 @@ export type McpMutationSuccess = { success: true }
 
 export type MissionBooleanResult = boolean
 
+export type MobileAuthTokenPublic = {
+  id: string
+  name?: string | undefined
+  scope?: string | undefined
+  createdAt?: number | undefined
+  expiresAt?: number | undefined
+}
+
+export type MobileProject = any
+
+export type MobileCommand = {
+  name: string
+  description?: string | undefined
+  agent?: string | undefined
+  model?: string | undefined
+  mcp?: boolean | undefined
+  skill?: boolean | undefined
+  subtask?: boolean | undefined
+  hints: Array<string>
+}
+
+export type MobilePromptHistoryEntry = {
+  id: string
+  input: string
+  mode?: "normal" | "shell" | undefined
+  partsCount: number
+}
+
+export type MobileMemorySearchHit = {
+  id: string
+  sessionID: string
+  sessionTitle: string
+  messageID: string
+  role: "user" | "assistant"
+  createdAt: number
+  preview: string
+}
+
+export type MobilePromptStashEntry = { id: string; input: string; timestamp: number; partsCount: number }
+
+export type MobileSuccess = { success: true }
+
+export type MobileGithubBranch = { name: string; protected?: boolean | undefined; commit: { sha: string } }
+
+export type MobileGithubImport = any
+
+export type MobileConfigInfo = any
+
+export type MobileGithubDeviceAuthStart = {
+  deviceCode: string
+  userCode: string
+  verificationUri: string
+  verificationUriComplete?: string | undefined
+  expiresAt: number
+  interval: number
+}
+
+export type MobileGithubDeviceAuthPollResult = {
+  status: "pending" | "approved" | "denied" | "expired"
+  interval?: number | undefined
+  user?: { login: string; name?: string | null | undefined; avatar_url?: string | undefined } | undefined
+}
+
+export type MobileProjectInfo = any
+
+export type MobileSessionInfo = any
+
+export type MobileWorktreeInfo = any
+
+export type MobileWorkspaceInfo = any
+
+export type MobileGithubPublishResult = {
+  commitSha: string
+  branch: string
+  pullRequest: { number: number; url: string; title: string }
+}
+
+export type MobileTeleportResult = {
+  sessionID: string
+  title?: string | undefined
+  messageCount: number
+  directory?: string | undefined
+  workspace: boolean
+}
+
+export type MobileGitChange = {
+  status: "added" | "modified" | "deleted" | "renamed"
+  path: string
+  additions?: number | undefined
+  deletions?: number | undefined
+  oldPath?: string | undefined
+}
+
+export type MobileGitFileDiff = {
+  file: string
+  oldPath?: string | undefined
+  hunks: Array<{
+    header: { oldStart: number; oldLines: number; newStart: number; newLines: number }
+    lines: Array<{
+      type: "add" | "remove" | "context"
+      text: string
+      oldLineNumber?: number | undefined
+      newLineNumber?: number | undefined
+    }>
+  }>
+  isBinary: boolean
+  additions: number
+  deletions: number
+}
+
+export type MobileGitCommit = {
+  sha: string
+  message: string
+  author: { name: string; email: string }
+  timestamp: number
+  filesCount: number
+  additions: number
+  deletions: number
+}
+
+export type MobileGitBranch = {
+  name: string
+  isCurrent: boolean
+  isProtected: boolean
+  aheadBy: number
+  behindBy: number
+}
+
+export type MobileLoop = any
+
+export type MobileLoopRuntime = {
+  loopID: string
+  status: "idle" | "running" | "paused" | "error" | "cancelling"
+  runs: number
+  lastRunAt?: number | undefined
+  lastError?: string | undefined
+  sessionID?: string | undefined
+}
+
+export type MobileLoopRun = any
+
+export type MobileRoutine = any
+
+export type MobilePtyInfo = any
+
 export type Project = {
   id: string
   worktree: string
@@ -439,6 +584,18 @@ export type SessionV2EventList = Array<any>
 
 export type SessionInstructionList = Array<{ path: string; name: string }>
 
+export type SyncOutboxResponse = { events: Array<any>; hasMore: boolean }
+
+export type SyncSnapshotResponse = { lastSeq: number; state: any }
+
+export type SyncConfigSetResponse = {
+  configured: boolean
+  url?: string | undefined
+  source?: "env" | "config" | undefined
+  started: boolean
+  error?: string | undefined
+}
+
 export type TuiBooleanResult = boolean
 
 export type TuiControlRequest = { path: string; body: any }
@@ -471,18 +628,6 @@ export type WorkspaceSessionRestore = {
   sessionID: string
   sessions: Array<string>
   events: Array<any>
-}
-
-export type SyncOutboxResponse = { events: Array<any>; hasMore: boolean }
-
-export type SyncSnapshotResponse = { lastSeq: number; state: any }
-
-export type SyncConfigSetResponse = {
-  configured: boolean
-  url?: string | undefined
-  source?: "env" | "config" | undefined
-  started: boolean
-  error?: string | undefined
 }
 
 export type ConfigReloadResponse = { reloaded: boolean; directory: string }
@@ -848,151 +993,6 @@ export type WorkspaceJournalEvent = any
 
 export type WorkspaceSessionWarpResponse = { sessionID: string; workspaceID: string | null }
 
-export type MobileAuthTokenPublic = {
-  id: string
-  name?: string | undefined
-  scope?: string | undefined
-  createdAt?: number | undefined
-  expiresAt?: number | undefined
-}
-
-export type MobileProject = any
-
-export type MobileCommand = {
-  name: string
-  description?: string | undefined
-  agent?: string | undefined
-  model?: string | undefined
-  mcp?: boolean | undefined
-  skill?: boolean | undefined
-  subtask?: boolean | undefined
-  hints: Array<string>
-}
-
-export type MobilePromptHistoryEntry = {
-  id: string
-  input: string
-  mode?: "normal" | "shell" | undefined
-  partsCount: number
-}
-
-export type MobileMemorySearchHit = {
-  id: string
-  sessionID: string
-  sessionTitle: string
-  messageID: string
-  role: "user" | "assistant"
-  createdAt: number
-  preview: string
-}
-
-export type MobilePromptStashEntry = { id: string; input: string; timestamp: number; partsCount: number }
-
-export type MobileSuccess = { success: true }
-
-export type MobileGithubBranch = { name: string; protected?: boolean | undefined; commit: { sha: string } }
-
-export type MobileGithubImport = any
-
-export type MobileConfigInfo = any
-
-export type MobileGithubDeviceAuthStart = {
-  deviceCode: string
-  userCode: string
-  verificationUri: string
-  verificationUriComplete?: string | undefined
-  expiresAt: number
-  interval: number
-}
-
-export type MobileGithubDeviceAuthPollResult = {
-  status: "pending" | "approved" | "denied" | "expired"
-  interval?: number | undefined
-  user?: { login: string; name?: string | null | undefined; avatar_url?: string | undefined } | undefined
-}
-
-export type MobileProjectInfo = any
-
-export type MobileSessionInfo = any
-
-export type MobileWorktreeInfo = any
-
-export type MobileWorkspaceInfo = any
-
-export type MobileGithubPublishResult = {
-  commitSha: string
-  branch: string
-  pullRequest: { number: number; url: string; title: string }
-}
-
-export type MobileTeleportResult = {
-  sessionID: string
-  title?: string | undefined
-  messageCount: number
-  directory?: string | undefined
-  workspace: boolean
-}
-
-export type MobileGitChange = {
-  status: "added" | "modified" | "deleted" | "renamed"
-  path: string
-  additions?: number | undefined
-  deletions?: number | undefined
-  oldPath?: string | undefined
-}
-
-export type MobileGitFileDiff = {
-  file: string
-  oldPath?: string | undefined
-  hunks: Array<{
-    header: { oldStart: number; oldLines: number; newStart: number; newLines: number }
-    lines: Array<{
-      type: "add" | "remove" | "context"
-      text: string
-      oldLineNumber?: number | undefined
-      newLineNumber?: number | undefined
-    }>
-  }>
-  isBinary: boolean
-  additions: number
-  deletions: number
-}
-
-export type MobileGitCommit = {
-  sha: string
-  message: string
-  author: { name: string; email: string }
-  timestamp: number
-  filesCount: number
-  additions: number
-  deletions: number
-}
-
-export type MobileGitBranch = {
-  name: string
-  isCurrent: boolean
-  isProtected: boolean
-  aheadBy: number
-  behindBy: number
-}
-
-export type MobileLoop = any
-
-export type MobileLoopRuntime = {
-  loopID: string
-  status: "idle" | "running" | "paused" | "error" | "cancelling"
-  runs: number
-  lastRunAt?: number | undefined
-  lastError?: string | undefined
-  sessionID?: string | undefined
-}
-
-export type MobileLoopRun = any
-
-export type MobileRoutine = any
-
-export type MobilePtyInfo = any
-
 export type Provider = {
   id: string
   name: string
@@ -1018,6 +1018,61 @@ export type McpResourceMap = { [x: string]: McpResource }
 export type ManagedWorktreeList = Array<ManagedWorktreeInfo>
 
 export type MCPStatusMap = { [x: string]: MCPStatus }
+
+export type MobileBootstrap = {
+  version: string
+  auth: { bearerEnabled: boolean; currentToken?: MobileAuthTokenPublic | undefined }
+  currentProject: MobileProject
+  projects: Array<MobileProject>
+  execution: { container: { available: boolean; runtime?: "docker" | "podman" | undefined; image: string } }
+  github: {
+    connected: boolean
+    tokenAvailable?: boolean | undefined
+    reconnectRequired?: boolean | undefined
+    oauthDeviceEnabled: boolean
+    oauthDeviceConfigured?: boolean | undefined
+    oauthClientSource?: "flag" | "config" | "env" | undefined
+    user?: { login: string; name?: string | null | undefined; avatar_url?: string | undefined } | undefined
+  }
+  expo: { available: boolean; easAvailable: boolean; details: Array<string> }
+  mobileProject?:
+    | {
+        detected: boolean
+        platforms?: Array<string> | undefined
+        primaryPlatform?: string | undefined
+        method?: string | undefined
+        root?: string | undefined
+      }
+    | undefined
+}
+
+export type MobileSessionSummary = { info: MobileSessionInfo; status?: any | undefined }
+
+export type MobileSessionDetail = {
+  info: MobileSessionInfo
+  status?: any | undefined
+  messages: Array<any>
+  artifacts: Array<any>
+  permissions: Array<any>
+  questions: Array<any>
+}
+
+export type MobileGithubSessionCreateResult = {
+  session: MobileSessionInfo
+  worktree: MobileWorktreeInfo
+  project: MobileProjectInfo
+  workspace?: MobileWorkspaceInfo | undefined
+}
+
+export type MobileGitStatus = {
+  branch: string
+  staged: Array<MobileGitChange>
+  unstaged: Array<MobileGitChange>
+  untracked: Array<string>
+  commitsAhead: number
+  commitsBehind: number
+  lastCommit?: { sha: string; message: string; author: string; timestamp: number } | undefined
+}
 
 export type EventProjectUpdated = { type: "project.updated"; properties: Project }
 
@@ -1178,61 +1233,6 @@ export type EventSessionGoal = {
 export type EventPtyCreated = { type: "pty.created"; properties: { info: Pty1 } }
 
 export type EventPtyUpdated = { type: "pty.updated"; properties: { info: Pty1 } }
-
-export type MobileBootstrap = {
-  version: string
-  auth: { bearerEnabled: boolean; currentToken?: MobileAuthTokenPublic | undefined }
-  currentProject: MobileProject
-  projects: Array<MobileProject>
-  execution: { container: { available: boolean; runtime?: "docker" | "podman" | undefined; image: string } }
-  github: {
-    connected: boolean
-    tokenAvailable?: boolean | undefined
-    reconnectRequired?: boolean | undefined
-    oauthDeviceEnabled: boolean
-    oauthDeviceConfigured?: boolean | undefined
-    oauthClientSource?: "flag" | "config" | "env" | undefined
-    user?: { login: string; name?: string | null | undefined; avatar_url?: string | undefined } | undefined
-  }
-  expo: { available: boolean; easAvailable: boolean; details: Array<string> }
-  mobileProject?:
-    | {
-        detected: boolean
-        platforms?: Array<string> | undefined
-        primaryPlatform?: string | undefined
-        method?: string | undefined
-        root?: string | undefined
-      }
-    | undefined
-}
-
-export type MobileSessionSummary = { info: MobileSessionInfo; status?: any | undefined }
-
-export type MobileSessionDetail = {
-  info: MobileSessionInfo
-  status?: any | undefined
-  messages: Array<any>
-  artifacts: Array<any>
-  permissions: Array<any>
-  questions: Array<any>
-}
-
-export type MobileGithubSessionCreateResult = {
-  session: MobileSessionInfo
-  worktree: MobileWorktreeInfo
-  project: MobileProjectInfo
-  workspace?: MobileWorkspaceInfo | undefined
-}
-
-export type MobileGitStatus = {
-  branch: string
-  staged: Array<MobileGitChange>
-  unstaged: Array<MobileGitChange>
-  untracked: Array<string>
-  commitsAhead: number
-  commitsBehind: number
-  lastCommit?: { sha: string; message: string; author: string; timestamp: number } | undefined
-}
 
 export type ConfigProviders = { providers: Array<Provider>; default: { [x: string]: string } }
 
@@ -2019,6 +2019,789 @@ export type MissionExecsInput = {
 
 export type MissionExecsOutput = any
 
+export type MobileAuthTokenListOutput = Array<MobileAuthTokenPublic>
+
+export type MobileAuthTokenCreateInput = {
+  readonly name?: { readonly name?: string | undefined; readonly expiresInDays?: number | undefined }["name"]
+  readonly expiresInDays?: {
+    readonly name?: string | undefined
+    readonly expiresInDays?: number | undefined
+  }["expiresInDays"]
+}
+
+export type MobileAuthTokenCreateOutput = { token: string; info: MobileAuthTokenPublic }
+
+export type MobileAuthTokenRevokeInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileAuthTokenRevokeOutput = { revoked: boolean }
+
+export type MobileBootstrapOutput = MobileBootstrap
+
+export type MobileCommandListOutput = Array<MobileCommand>
+
+export type MobileProjectListOutput = Array<MobileProject>
+
+export type MobileMemoryHistoryOutput = Array<MobilePromptHistoryEntry>
+
+export type MobileMemorySearchInput = { readonly query: { readonly query: string }["query"] }
+
+export type MobileMemorySearchOutput = Array<MobileMemorySearchHit>
+
+export type MobileMemoryStashListOutput = Array<MobilePromptStashEntry>
+
+export type MobileMemoryStashCreateInput = { readonly input: { readonly input: string }["input"] }
+
+export type MobileMemoryStashCreateOutput = MobilePromptStashEntry
+
+export type MobileMemoryStashDeleteInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileMemoryStashDeleteOutput = MobileSuccess
+
+export type MobileGithubReposOutput = Array<any>
+
+export type MobileGithubBranchesInput = {
+  readonly owner: { readonly owner: string; readonly repo: string }["owner"]
+  readonly repo: { readonly owner: string; readonly repo: string }["repo"]
+}
+
+export type MobileGithubBranchesOutput = Array<MobileGithubBranch>
+
+export type MobileGithubImportsOutput = Array<MobileGithubImport>
+
+export type MobileGithubOauthClientInput = { readonly clientId: { readonly clientId: string }["clientId"] }
+
+export type MobileGithubOauthClientOutput = MobileConfigInfo
+
+export type MobileGithubOauthDeviceStartOutput = MobileGithubDeviceAuthStart
+
+export type MobileGithubOauthDevicePollInput = { readonly deviceCode: { readonly deviceCode: string }["deviceCode"] }
+
+export type MobileGithubOauthDevicePollOutput = MobileGithubDeviceAuthPollResult
+
+export type MobileGithubAuthSetInput = { readonly token: { readonly token: string }["token"] }
+
+export type MobileGithubAuthSetOutput = MobileSuccess
+
+export type MobileGithubAuthRemoveOutput = MobileSuccess
+
+export type MobileGithubImportInput = { readonly payload: unknown }
+
+export type MobileGithubImportOutput = { import: MobileGithubImport; project: MobileProjectInfo }
+
+export type MobileGithubSessionCreateInput = {
+  readonly owner: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["owner"]
+  readonly repo: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["repo"]
+  readonly cloneUrl: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["cloneUrl"]
+  readonly htmlUrl?: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["htmlUrl"]
+  readonly defaultBranch: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["defaultBranch"]
+  readonly baseBranch: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["baseBranch"]
+  readonly private?: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["private"]
+  readonly title?: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["title"]
+  readonly executionTarget?: {
+    readonly owner: string
+    readonly repo: string
+    readonly cloneUrl: string
+    readonly htmlUrl?: string | undefined
+    readonly defaultBranch: string
+    readonly baseBranch: string
+    readonly private?: boolean | undefined
+    readonly title?: string | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["executionTarget"]
+}
+
+export type MobileGithubSessionCreateOutput = MobileGithubSessionCreateResult
+
+export type MobileSessionListInput = {
+  readonly limit?: { readonly limit?: number | undefined; readonly search?: string | undefined }["limit"]
+  readonly search?: { readonly limit?: number | undefined; readonly search?: string | undefined }["search"]
+}
+
+export type MobileSessionListOutput = Array<MobileSessionSummary>
+
+export type MobileSessionCreateInput = {
+  readonly parentID?: {
+    readonly parentID?: string | undefined
+    readonly title?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly github?: unknown | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["parentID"]
+  readonly title?: {
+    readonly parentID?: string | undefined
+    readonly title?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly github?: unknown | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["title"]
+  readonly permission?: {
+    readonly parentID?: string | undefined
+    readonly title?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly github?: unknown | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["permission"]
+  readonly github?: {
+    readonly parentID?: string | undefined
+    readonly title?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly github?: unknown | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["github"]
+  readonly executionTarget?: {
+    readonly parentID?: string | undefined
+    readonly title?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly github?: unknown | undefined
+    readonly executionTarget?: "local" | "container" | undefined
+  }["executionTarget"]
+}
+
+export type MobileSessionCreateOutput = MobileSessionInfo
+
+export type MobileSessionDetailInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionDetailOutput = MobileSessionDetail
+
+export type MobileSessionDeleteInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionDeleteOutput = MobileSuccess
+
+export type MobileSessionDiffInput = {
+  readonly sessionID: { readonly sessionID: string; readonly messageID: string }["sessionID"]
+  readonly messageID: { readonly sessionID: string; readonly messageID: string }["messageID"]
+}
+
+export type MobileSessionDiffOutput = Array<any>
+
+export type MobileSessionCommandListInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionCommandListOutput = Array<MobileCommand>
+
+export type MobileSessionCommandInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly command: {
+    readonly command: string
+    readonly arguments?: string | undefined
+    readonly agent?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly variant?: string | undefined
+  }["command"]
+  readonly arguments?: {
+    readonly command: string
+    readonly arguments?: string | undefined
+    readonly agent?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly variant?: string | undefined
+  }["arguments"]
+  readonly agent?: {
+    readonly command: string
+    readonly arguments?: string | undefined
+    readonly agent?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly variant?: string | undefined
+  }["agent"]
+  readonly model?: {
+    readonly command: string
+    readonly arguments?: string | undefined
+    readonly agent?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly variant?: string | undefined
+  }["model"]
+  readonly variant?: {
+    readonly command: string
+    readonly arguments?: string | undefined
+    readonly agent?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly variant?: string | undefined
+  }["variant"]
+}
+
+export type MobileSessionCommandOutput = { info: any; parts: Array<any> }
+
+export type MobileSessionMessageInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly messageID?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["messageID"]
+  readonly model?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["model"]
+  readonly agent?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["agent"]
+  readonly noReply?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["noReply"]
+  readonly tools?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["tools"]
+  readonly format?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["format"]
+  readonly system?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["system"]
+  readonly variant?: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["variant"]
+  readonly parts: {
+    readonly messageID?: string | undefined
+    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
+    readonly agent?: string | undefined
+    readonly noReply?: boolean | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly format?: unknown | undefined
+    readonly system?: string | undefined
+    readonly variant?: string | undefined
+    readonly parts: ReadonlyArray<unknown>
+  }["parts"]
+}
+
+export type MobileSessionMessageOutput = any
+
+export type MobileSessionAbortInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionAbortOutput = MobileSuccess
+
+export type MobilePermissionRespondInput = {
+  readonly sessionID: { readonly sessionID: string; readonly permissionID: string }["sessionID"]
+  readonly permissionID: { readonly sessionID: string; readonly permissionID: string }["permissionID"]
+  readonly response: { readonly response: string }["response"]
+}
+
+export type MobilePermissionRespondOutput = MobileSuccess
+
+export type MobileQuestionRespondInput = {
+  readonly sessionID: { readonly sessionID: string; readonly requestID: string }["sessionID"]
+  readonly requestID: { readonly sessionID: string; readonly requestID: string }["requestID"]
+  readonly answers: { readonly answers: ReadonlyArray<ReadonlyArray<string>> }["answers"]
+}
+
+export type MobileQuestionRespondOutput = MobileSuccess
+
+export type MobileQuestionRejectInput = {
+  readonly sessionID: { readonly sessionID: string; readonly requestID: string }["sessionID"]
+  readonly requestID: { readonly sessionID: string; readonly requestID: string }["requestID"]
+}
+
+export type MobileQuestionRejectOutput = MobileSuccess
+
+export type MobileSessionPublishInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly title?: {
+    readonly title?: string | undefined
+    readonly body?: string | undefined
+    readonly commitMessage?: string | undefined
+  }["title"]
+  readonly body?: {
+    readonly title?: string | undefined
+    readonly body?: string | undefined
+    readonly commitMessage?: string | undefined
+  }["body"]
+  readonly commitMessage?: {
+    readonly title?: string | undefined
+    readonly body?: string | undefined
+    readonly commitMessage?: string | undefined
+  }["commitMessage"]
+}
+
+export type MobileSessionPublishOutput = MobileGithubPublishResult
+
+export type MobileSessionCleanupInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionCleanupOutput = MobileSuccess
+
+export type MobileSessionStreamInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type MobileSessionStreamOutput = any
+
+export type MobileSessionRenameInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly title: { readonly title: string }["title"]
+}
+
+export type MobileSessionRenameOutput = MobileSuccess
+
+export type MobileTeleportUploadBeginOutput = { uploadID: string }
+
+export type MobileTeleportUploadChunkInput = { readonly uploadID: { readonly uploadID: string }["uploadID"] }
+
+export type MobileTeleportUploadChunkOutput = { ok: boolean }
+
+export type MobileTeleportInInput = {
+  readonly title?: {
+    readonly title?: string | undefined
+    readonly name?: string | undefined
+    readonly origin?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly messages: ReadonlyArray<unknown>
+    readonly uploadID?: string | undefined
+  }["title"]
+  readonly name?: {
+    readonly title?: string | undefined
+    readonly name?: string | undefined
+    readonly origin?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly messages: ReadonlyArray<unknown>
+    readonly uploadID?: string | undefined
+  }["name"]
+  readonly origin?: {
+    readonly title?: string | undefined
+    readonly name?: string | undefined
+    readonly origin?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly messages: ReadonlyArray<unknown>
+    readonly uploadID?: string | undefined
+  }["origin"]
+  readonly permission?: {
+    readonly title?: string | undefined
+    readonly name?: string | undefined
+    readonly origin?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly messages: ReadonlyArray<unknown>
+    readonly uploadID?: string | undefined
+  }["permission"]
+  readonly messages: {
+    readonly title?: string | undefined
+    readonly name?: string | undefined
+    readonly origin?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly messages: ReadonlyArray<unknown>
+    readonly uploadID?: string | undefined
+  }["messages"]
+  readonly uploadID?: {
+    readonly title?: string | undefined
+    readonly name?: string | undefined
+    readonly origin?: string | undefined
+    readonly permission?: unknown | undefined
+    readonly messages: ReadonlyArray<unknown>
+    readonly uploadID?: string | undefined
+  }["uploadID"]
+}
+
+export type MobileTeleportInOutput = MobileTeleportResult
+
+export type MobileTeleportOutInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly url: {
+    readonly url: string
+    readonly token: string
+    readonly content?: boolean | undefined
+    readonly includeGit?: boolean | undefined
+  }["url"]
+  readonly token: {
+    readonly url: string
+    readonly token: string
+    readonly content?: boolean | undefined
+    readonly includeGit?: boolean | undefined
+  }["token"]
+  readonly content?: {
+    readonly url: string
+    readonly token: string
+    readonly content?: boolean | undefined
+    readonly includeGit?: boolean | undefined
+  }["content"]
+  readonly includeGit?: {
+    readonly url: string
+    readonly token: string
+    readonly content?: boolean | undefined
+    readonly includeGit?: boolean | undefined
+  }["includeGit"]
+}
+
+export type MobileTeleportOutOutput = MobileTeleportResult
+
+export type MobileWorktreeCreateInput = { readonly payload: unknown }
+
+export type MobileWorktreeCreateOutput = MobileWorktreeInfo
+
+export type MobileWorktreeRemoveInput = { readonly payload: unknown }
+
+export type MobileWorktreeRemoveOutput = MobileSuccess
+
+export type MobileWorktreeResetInput = { readonly payload: unknown }
+
+export type MobileWorktreeResetOutput = MobileSuccess
+
+export type MobileGitStatusOutput = MobileGitStatus
+
+export type MobileGitDiffInput = {
+  readonly file?: { readonly file?: string | undefined; readonly staged?: "true" | "false" | undefined }["file"]
+  readonly staged?: { readonly file?: string | undefined; readonly staged?: "true" | "false" | undefined }["staged"]
+}
+
+export type MobileGitDiffOutput = Array<MobileGitFileDiff>
+
+export type MobileGitCommitsInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
+
+export type MobileGitCommitsOutput = Array<MobileGitCommit>
+
+export type MobileGitBranchesOutput = Array<MobileGitBranch>
+
+export type MobileGitCommitInput = {
+  readonly message: {
+    readonly message: string
+    readonly files?: ReadonlyArray<string> | undefined
+    readonly amend?: boolean | undefined
+    readonly stagedOnly?: boolean | undefined
+  }["message"]
+  readonly files?: {
+    readonly message: string
+    readonly files?: ReadonlyArray<string> | undefined
+    readonly amend?: boolean | undefined
+    readonly stagedOnly?: boolean | undefined
+  }["files"]
+  readonly amend?: {
+    readonly message: string
+    readonly files?: ReadonlyArray<string> | undefined
+    readonly amend?: boolean | undefined
+    readonly stagedOnly?: boolean | undefined
+  }["amend"]
+  readonly stagedOnly?: {
+    readonly message: string
+    readonly files?: ReadonlyArray<string> | undefined
+    readonly amend?: boolean | undefined
+    readonly stagedOnly?: boolean | undefined
+  }["stagedOnly"]
+}
+
+export type MobileGitCommitOutput = { sha: string; message: string }
+
+export type MobileGitCheckoutInput = {
+  readonly branch: { readonly branch: string; readonly create?: boolean | undefined }["branch"]
+  readonly create?: { readonly branch: string; readonly create?: boolean | undefined }["create"]
+}
+
+export type MobileGitCheckoutOutput = MobileSuccess
+
+export type MobileGitStageInput = { readonly files: { readonly files: ReadonlyArray<string> }["files"] }
+
+export type MobileGitStageOutput = MobileSuccess
+
+export type MobileGitUnstageInput = { readonly files: { readonly files: ReadonlyArray<string> }["files"] }
+
+export type MobileGitUnstageOutput = MobileSuccess
+
+export type MobileGitDiscardInput = { readonly files: { readonly files: ReadonlyArray<string> }["files"] }
+
+export type MobileGitDiscardOutput = MobileSuccess
+
+export type MobileGitPushInput = { readonly upstream?: { readonly upstream?: string | undefined }["upstream"] }
+
+export type MobileGitPushOutput = { success: true; pushed: boolean }
+
+export type MobileGitPullOutput = { success: true; pulled: boolean; conflicts?: Array<string> | undefined }
+
+export type MobileLoopListOutput = { loops: Array<MobileLoop>; runtimes: Array<MobileLoopRuntime> }
+
+export type MobileLoopCreateInput = { readonly payload: unknown }
+
+export type MobileLoopCreateOutput = MobileLoop
+
+export type MobileLoopTemplatesOutput = { templates: Array<any> }
+
+export type MobileLoopGenerateInput = {
+  readonly description: { readonly description: string; readonly model?: string | undefined }["description"]
+  readonly model?: { readonly description: string; readonly model?: string | undefined }["model"]
+}
+
+export type MobileLoopGenerateOutput = MobileLoop
+
+export type MobileLoopRunsRecentInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
+
+export type MobileLoopRunsRecentOutput = { runs: Array<MobileLoopRun> }
+
+export type MobileLoopGetInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileLoopGetOutput = { loop: MobileLoop; runtime: MobileLoopRuntime }
+
+export type MobileLoopDeleteInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileLoopDeleteOutput = MobileSuccess
+
+export type MobileLoopUpdateInput = { readonly id: { readonly id: string }["id"]; readonly payload: unknown }
+
+export type MobileLoopUpdateOutput = MobileLoop
+
+export type MobileLoopRunsInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly limit?: { readonly limit?: number | undefined }["limit"]
+}
+
+export type MobileLoopRunsOutput = { runs: Array<MobileLoopRun> }
+
+export type MobileLoopRunInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileLoopRunOutput = MobileSuccess
+
+export type MobileLoopAbortInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileLoopAbortOutput = MobileSuccess
+
+export type MobileLoopToggleInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly enabled: { readonly enabled: boolean }["enabled"]
+}
+
+export type MobileLoopToggleOutput = MobileLoop
+
+export type MobileLoopPauseInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileLoopPauseOutput = MobileSuccess
+
+export type MobileLoopResumeInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileLoopResumeOutput = MobileSuccess
+
+export type MobileRoutineListOutput = Array<MobileRoutine>
+
+export type MobileRoutineCreateInput = { readonly payload: unknown }
+
+export type MobileRoutineCreateOutput = MobileRoutine
+
+export type MobileRoutineGetInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileRoutineGetOutput = MobileRoutine
+
+export type MobileRoutineDeleteInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileRoutineDeleteOutput = MobileSuccess
+
+export type MobileRoutineUpdateInput = { readonly id: { readonly id: string }["id"]; readonly payload: unknown }
+
+export type MobileRoutineUpdateOutput = MobileRoutine
+
+export type MobileRoutineRunInput = {
+  readonly id: { readonly id: string }["id"]
+  readonly text?: { readonly text?: string | undefined }["text"]
+}
+
+export type MobileRoutineRunOutput = MobileSessionInfo
+
+export type MobileRoutinePauseInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileRoutinePauseOutput = MobileRoutine
+
+export type MobileRoutineResumeInput = { readonly id: { readonly id: string }["id"] }
+
+export type MobileRoutineResumeOutput = MobileRoutine
+
+export type MobileRoutineTriggerInput = {
+  readonly token: { readonly token: string }["token"]
+  readonly text?: { readonly text?: string | undefined }["text"]
+}
+
+export type MobileRoutineTriggerOutput = MobileSessionInfo
+
+export type MobilePtyListOutput = Array<MobilePtyInfo>
+
+export type MobilePtyCreateInput = {
+  readonly command?: {
+    readonly command?: string | undefined
+    readonly args?: ReadonlyArray<string> | undefined
+    readonly cwd?: string | undefined
+    readonly title?: string | undefined
+    readonly env?: { readonly [x: string]: string } | undefined
+  }["command"]
+  readonly args?: {
+    readonly command?: string | undefined
+    readonly args?: ReadonlyArray<string> | undefined
+    readonly cwd?: string | undefined
+    readonly title?: string | undefined
+    readonly env?: { readonly [x: string]: string } | undefined
+  }["args"]
+  readonly cwd?: {
+    readonly command?: string | undefined
+    readonly args?: ReadonlyArray<string> | undefined
+    readonly cwd?: string | undefined
+    readonly title?: string | undefined
+    readonly env?: { readonly [x: string]: string } | undefined
+  }["cwd"]
+  readonly title?: {
+    readonly command?: string | undefined
+    readonly args?: ReadonlyArray<string> | undefined
+    readonly cwd?: string | undefined
+    readonly title?: string | undefined
+    readonly env?: { readonly [x: string]: string } | undefined
+  }["title"]
+  readonly env?: {
+    readonly command?: string | undefined
+    readonly args?: ReadonlyArray<string> | undefined
+    readonly cwd?: string | undefined
+    readonly title?: string | undefined
+    readonly env?: { readonly [x: string]: string } | undefined
+  }["env"]
+}
+
+export type MobilePtyCreateOutput = MobilePtyInfo
+
+export type MobilePtyGetInput = { readonly ptyID: { readonly ptyID: string }["ptyID"] }
+
+export type MobilePtyGetOutput = MobilePtyInfo
+
+export type MobilePtyUpdateInput = {
+  readonly ptyID: { readonly ptyID: string }["ptyID"]
+  readonly title?: {
+    readonly title?: string | undefined
+    readonly size?: { readonly rows: number; readonly cols: number } | undefined
+  }["title"]
+  readonly size?: {
+    readonly title?: string | undefined
+    readonly size?: { readonly rows: number; readonly cols: number } | undefined
+  }["size"]
+}
+
+export type MobilePtyUpdateOutput = MobilePtyInfo
+
+export type MobilePtyRemoveInput = { readonly ptyID: { readonly ptyID: string }["ptyID"] }
+
+export type MobilePtyRemoveOutput = boolean
+
 export type ProjectListOutput = Array<Project>
 
 export type ProjectCurrentOutput = Project
@@ -2676,6 +3459,92 @@ export type SessionMonitorCancelInput = {
 
 export type SessionMonitorCancelOutput = any
 
+export type SyncEventInput = {
+  readonly event: {
+    readonly event: {
+      readonly id: string
+      readonly projectId: string
+      readonly workspaceId?: string | undefined
+      readonly aggregate: string
+      readonly seq: number
+      readonly type: string
+      readonly data: unknown
+      readonly timestamp: number
+      readonly origin?: string | undefined
+      readonly originSeq?: number | undefined
+    }
+    readonly projectID: string
+  }["event"]
+  readonly projectID: {
+    readonly event: {
+      readonly id: string
+      readonly projectId: string
+      readonly workspaceId?: string | undefined
+      readonly aggregate: string
+      readonly seq: number
+      readonly type: string
+      readonly data: unknown
+      readonly timestamp: number
+      readonly origin?: string | undefined
+      readonly originSeq?: number | undefined
+    }
+    readonly projectID: string
+  }["projectID"]
+}
+
+export type SyncEventOutput = void
+
+export type SyncOutboxInput = {
+  readonly projectID: { readonly projectID: string; readonly since?: number | undefined }["projectID"]
+  readonly since?: { readonly projectID: string; readonly since?: number | undefined }["since"]
+}
+
+export type SyncOutboxOutput = SyncOutboxResponse
+
+export type SyncSnapshotInput = {
+  readonly aggregateID: { readonly aggregateID: string }["aggregateID"]
+  readonly projectID: { readonly projectID: string }["projectID"]
+}
+
+export type SyncSnapshotOutput = SyncSnapshotResponse
+
+export type SyncStreamInput = {
+  readonly projectID: { readonly projectID: string; readonly token: string }["projectID"]
+  readonly token: { readonly projectID: string; readonly token: string }["token"]
+}
+
+export type SyncStreamOutput = any
+
+export type SyncStatsInput = { readonly projectID?: { readonly projectID?: string | undefined }["projectID"] }
+
+export type SyncStatsOutput = any
+
+export type SyncConfigInput = {
+  readonly url: {
+    readonly url: string
+    readonly token?: string | undefined
+    readonly autostart?: boolean | undefined
+  }["url"]
+  readonly token?: {
+    readonly url: string
+    readonly token?: string | undefined
+    readonly autostart?: boolean | undefined
+  }["token"]
+  readonly autostart?: {
+    readonly url: string
+    readonly token?: string | undefined
+    readonly autostart?: boolean | undefined
+  }["autostart"]
+}
+
+export type SyncConfigOutput = SyncConfigSetResponse
+
+export type SyncConnectOutput = void
+
+export type SyncDisconnectOutput = void
+
+export type SyncDrainOutput = void
+
 export type TuiAppendPromptInput = { readonly payload: unknown }
 
 export type TuiAppendPromptOutput = TuiBooleanResult
@@ -2827,92 +3696,6 @@ export type WorkspaceWarpInput = {
 }
 
 export type WorkspaceWarpOutput = void
-
-export type SyncEventInput = {
-  readonly event: {
-    readonly event: {
-      readonly id: string
-      readonly projectId: string
-      readonly workspaceId?: string | undefined
-      readonly aggregate: string
-      readonly seq: number
-      readonly type: string
-      readonly data: unknown
-      readonly timestamp: number
-      readonly origin?: string | undefined
-      readonly originSeq?: number | undefined
-    }
-    readonly projectID: string
-  }["event"]
-  readonly projectID: {
-    readonly event: {
-      readonly id: string
-      readonly projectId: string
-      readonly workspaceId?: string | undefined
-      readonly aggregate: string
-      readonly seq: number
-      readonly type: string
-      readonly data: unknown
-      readonly timestamp: number
-      readonly origin?: string | undefined
-      readonly originSeq?: number | undefined
-    }
-    readonly projectID: string
-  }["projectID"]
-}
-
-export type SyncEventOutput = void
-
-export type SyncOutboxInput = {
-  readonly projectID: { readonly projectID: string; readonly since?: number | undefined }["projectID"]
-  readonly since?: { readonly projectID: string; readonly since?: number | undefined }["since"]
-}
-
-export type SyncOutboxOutput = SyncOutboxResponse
-
-export type SyncSnapshotInput = {
-  readonly aggregateID: { readonly aggregateID: string }["aggregateID"]
-  readonly projectID: { readonly projectID: string }["projectID"]
-}
-
-export type SyncSnapshotOutput = SyncSnapshotResponse
-
-export type SyncStreamInput = {
-  readonly projectID: { readonly projectID: string; readonly token: string }["projectID"]
-  readonly token: { readonly projectID: string; readonly token: string }["token"]
-}
-
-export type SyncStreamOutput = any
-
-export type SyncStatsInput = { readonly projectID?: { readonly projectID?: string | undefined }["projectID"] }
-
-export type SyncStatsOutput = any
-
-export type SyncConfigInput = {
-  readonly url: {
-    readonly url: string
-    readonly token?: string | undefined
-    readonly autostart?: boolean | undefined
-  }["url"]
-  readonly token?: {
-    readonly url: string
-    readonly token?: string | undefined
-    readonly autostart?: boolean | undefined
-  }["token"]
-  readonly autostart?: {
-    readonly url: string
-    readonly token?: string | undefined
-    readonly autostart?: boolean | undefined
-  }["autostart"]
-}
-
-export type SyncConfigOutput = SyncConfigSetResponse
-
-export type SyncConnectOutput = void
-
-export type SyncDisconnectOutput = void
-
-export type SyncDrainOutput = void
 
 export type AuthRemoveInput = { readonly providerID: { readonly providerID: string }["providerID"] }
 
@@ -4484,786 +5267,3 @@ export type UsersUpdateInput = {
 }
 
 export type UsersUpdateOutput = any
-
-export type MobileAuthTokenListOutput = Array<MobileAuthTokenPublic>
-
-export type MobileAuthTokenCreateInput = {
-  readonly name?: { readonly name?: string | undefined; readonly expiresInDays?: number | undefined }["name"]
-  readonly expiresInDays?: {
-    readonly name?: string | undefined
-    readonly expiresInDays?: number | undefined
-  }["expiresInDays"]
-}
-
-export type MobileAuthTokenCreateOutput = { token: string; info: MobileAuthTokenPublic }
-
-export type MobileAuthTokenRevokeInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileAuthTokenRevokeOutput = { revoked: boolean }
-
-export type MobileBootstrapOutput = MobileBootstrap
-
-export type MobileCommandListOutput = Array<MobileCommand>
-
-export type MobileProjectListOutput = Array<MobileProject>
-
-export type MobileMemoryHistoryOutput = Array<MobilePromptHistoryEntry>
-
-export type MobileMemorySearchInput = { readonly query: { readonly query: string }["query"] }
-
-export type MobileMemorySearchOutput = Array<MobileMemorySearchHit>
-
-export type MobileMemoryStashListOutput = Array<MobilePromptStashEntry>
-
-export type MobileMemoryStashCreateInput = { readonly input: { readonly input: string }["input"] }
-
-export type MobileMemoryStashCreateOutput = MobilePromptStashEntry
-
-export type MobileMemoryStashDeleteInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileMemoryStashDeleteOutput = MobileSuccess
-
-export type MobileGithubReposOutput = Array<any>
-
-export type MobileGithubBranchesInput = {
-  readonly owner: { readonly owner: string; readonly repo: string }["owner"]
-  readonly repo: { readonly owner: string; readonly repo: string }["repo"]
-}
-
-export type MobileGithubBranchesOutput = Array<MobileGithubBranch>
-
-export type MobileGithubImportsOutput = Array<MobileGithubImport>
-
-export type MobileGithubOauthClientInput = { readonly clientId: { readonly clientId: string }["clientId"] }
-
-export type MobileGithubOauthClientOutput = MobileConfigInfo
-
-export type MobileGithubOauthDeviceStartOutput = MobileGithubDeviceAuthStart
-
-export type MobileGithubOauthDevicePollInput = { readonly deviceCode: { readonly deviceCode: string }["deviceCode"] }
-
-export type MobileGithubOauthDevicePollOutput = MobileGithubDeviceAuthPollResult
-
-export type MobileGithubAuthSetInput = { readonly token: { readonly token: string }["token"] }
-
-export type MobileGithubAuthSetOutput = MobileSuccess
-
-export type MobileGithubAuthRemoveOutput = MobileSuccess
-
-export type MobileGithubImportInput = { readonly payload: unknown }
-
-export type MobileGithubImportOutput = { import: MobileGithubImport; project: MobileProjectInfo }
-
-export type MobileGithubSessionCreateInput = {
-  readonly owner: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["owner"]
-  readonly repo: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["repo"]
-  readonly cloneUrl: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["cloneUrl"]
-  readonly htmlUrl?: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["htmlUrl"]
-  readonly defaultBranch: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["defaultBranch"]
-  readonly baseBranch: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["baseBranch"]
-  readonly private?: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["private"]
-  readonly title?: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["title"]
-  readonly executionTarget?: {
-    readonly owner: string
-    readonly repo: string
-    readonly cloneUrl: string
-    readonly htmlUrl?: string | undefined
-    readonly defaultBranch: string
-    readonly baseBranch: string
-    readonly private?: boolean | undefined
-    readonly title?: string | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["executionTarget"]
-}
-
-export type MobileGithubSessionCreateOutput = MobileGithubSessionCreateResult
-
-export type MobileSessionListInput = {
-  readonly limit?: { readonly limit?: number | undefined; readonly search?: string | undefined }["limit"]
-  readonly search?: { readonly limit?: number | undefined; readonly search?: string | undefined }["search"]
-}
-
-export type MobileSessionListOutput = Array<MobileSessionSummary>
-
-export type MobileSessionCreateInput = {
-  readonly parentID?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly github?: unknown | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["parentID"]
-  readonly title?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly github?: unknown | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["title"]
-  readonly permission?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly github?: unknown | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["permission"]
-  readonly github?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly github?: unknown | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["github"]
-  readonly executionTarget?: {
-    readonly parentID?: string | undefined
-    readonly title?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly github?: unknown | undefined
-    readonly executionTarget?: "local" | "container" | undefined
-  }["executionTarget"]
-}
-
-export type MobileSessionCreateOutput = MobileSessionInfo
-
-export type MobileSessionDetailInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
-
-export type MobileSessionDetailOutput = MobileSessionDetail
-
-export type MobileSessionDeleteInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
-
-export type MobileSessionDeleteOutput = MobileSuccess
-
-export type MobileSessionDiffInput = {
-  readonly sessionID: { readonly sessionID: string; readonly messageID: string }["sessionID"]
-  readonly messageID: { readonly sessionID: string; readonly messageID: string }["messageID"]
-}
-
-export type MobileSessionDiffOutput = Array<any>
-
-export type MobileSessionCommandListInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
-
-export type MobileSessionCommandListOutput = Array<MobileCommand>
-
-export type MobileSessionCommandInput = {
-  readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly command: {
-    readonly command: string
-    readonly arguments?: string | undefined
-    readonly agent?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly variant?: string | undefined
-  }["command"]
-  readonly arguments?: {
-    readonly command: string
-    readonly arguments?: string | undefined
-    readonly agent?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly variant?: string | undefined
-  }["arguments"]
-  readonly agent?: {
-    readonly command: string
-    readonly arguments?: string | undefined
-    readonly agent?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly variant?: string | undefined
-  }["agent"]
-  readonly model?: {
-    readonly command: string
-    readonly arguments?: string | undefined
-    readonly agent?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly variant?: string | undefined
-  }["model"]
-  readonly variant?: {
-    readonly command: string
-    readonly arguments?: string | undefined
-    readonly agent?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly variant?: string | undefined
-  }["variant"]
-}
-
-export type MobileSessionCommandOutput = { info: any; parts: Array<any> }
-
-export type MobileSessionMessageInput = {
-  readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly messageID?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["messageID"]
-  readonly model?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["model"]
-  readonly agent?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["agent"]
-  readonly noReply?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["noReply"]
-  readonly tools?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["tools"]
-  readonly format?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["format"]
-  readonly system?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["system"]
-  readonly variant?: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["variant"]
-  readonly parts: {
-    readonly messageID?: string | undefined
-    readonly model?: { readonly providerID: string; readonly modelID: string } | undefined
-    readonly agent?: string | undefined
-    readonly noReply?: boolean | undefined
-    readonly tools?: { readonly [x: string]: boolean } | undefined
-    readonly format?: unknown | undefined
-    readonly system?: string | undefined
-    readonly variant?: string | undefined
-    readonly parts: ReadonlyArray<unknown>
-  }["parts"]
-}
-
-export type MobileSessionMessageOutput = any
-
-export type MobileSessionAbortInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
-
-export type MobileSessionAbortOutput = MobileSuccess
-
-export type MobilePermissionRespondInput = {
-  readonly sessionID: { readonly sessionID: string; readonly permissionID: string }["sessionID"]
-  readonly permissionID: { readonly sessionID: string; readonly permissionID: string }["permissionID"]
-  readonly response: { readonly response: string }["response"]
-}
-
-export type MobilePermissionRespondOutput = MobileSuccess
-
-export type MobileQuestionRespondInput = {
-  readonly sessionID: { readonly sessionID: string; readonly requestID: string }["sessionID"]
-  readonly requestID: { readonly sessionID: string; readonly requestID: string }["requestID"]
-  readonly answers: { readonly answers: ReadonlyArray<ReadonlyArray<string>> }["answers"]
-}
-
-export type MobileQuestionRespondOutput = MobileSuccess
-
-export type MobileQuestionRejectInput = {
-  readonly sessionID: { readonly sessionID: string; readonly requestID: string }["sessionID"]
-  readonly requestID: { readonly sessionID: string; readonly requestID: string }["requestID"]
-}
-
-export type MobileQuestionRejectOutput = MobileSuccess
-
-export type MobileSessionPublishInput = {
-  readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly title?: {
-    readonly title?: string | undefined
-    readonly body?: string | undefined
-    readonly commitMessage?: string | undefined
-  }["title"]
-  readonly body?: {
-    readonly title?: string | undefined
-    readonly body?: string | undefined
-    readonly commitMessage?: string | undefined
-  }["body"]
-  readonly commitMessage?: {
-    readonly title?: string | undefined
-    readonly body?: string | undefined
-    readonly commitMessage?: string | undefined
-  }["commitMessage"]
-}
-
-export type MobileSessionPublishOutput = MobileGithubPublishResult
-
-export type MobileSessionCleanupInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
-
-export type MobileSessionCleanupOutput = MobileSuccess
-
-export type MobileSessionStreamInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
-
-export type MobileSessionStreamOutput = any
-
-export type MobileSessionRenameInput = {
-  readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly title: { readonly title: string }["title"]
-}
-
-export type MobileSessionRenameOutput = MobileSuccess
-
-export type MobileTeleportUploadBeginOutput = { uploadID: string }
-
-export type MobileTeleportUploadChunkInput = { readonly uploadID: { readonly uploadID: string }["uploadID"] }
-
-export type MobileTeleportUploadChunkOutput = { ok: boolean }
-
-export type MobileTeleportInInput = {
-  readonly title?: {
-    readonly title?: string | undefined
-    readonly name?: string | undefined
-    readonly origin?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly messages: ReadonlyArray<unknown>
-    readonly uploadID?: string | undefined
-  }["title"]
-  readonly name?: {
-    readonly title?: string | undefined
-    readonly name?: string | undefined
-    readonly origin?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly messages: ReadonlyArray<unknown>
-    readonly uploadID?: string | undefined
-  }["name"]
-  readonly origin?: {
-    readonly title?: string | undefined
-    readonly name?: string | undefined
-    readonly origin?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly messages: ReadonlyArray<unknown>
-    readonly uploadID?: string | undefined
-  }["origin"]
-  readonly permission?: {
-    readonly title?: string | undefined
-    readonly name?: string | undefined
-    readonly origin?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly messages: ReadonlyArray<unknown>
-    readonly uploadID?: string | undefined
-  }["permission"]
-  readonly messages: {
-    readonly title?: string | undefined
-    readonly name?: string | undefined
-    readonly origin?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly messages: ReadonlyArray<unknown>
-    readonly uploadID?: string | undefined
-  }["messages"]
-  readonly uploadID?: {
-    readonly title?: string | undefined
-    readonly name?: string | undefined
-    readonly origin?: string | undefined
-    readonly permission?: unknown | undefined
-    readonly messages: ReadonlyArray<unknown>
-    readonly uploadID?: string | undefined
-  }["uploadID"]
-}
-
-export type MobileTeleportInOutput = MobileTeleportResult
-
-export type MobileTeleportOutInput = {
-  readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly url: {
-    readonly url: string
-    readonly token: string
-    readonly content?: boolean | undefined
-    readonly includeGit?: boolean | undefined
-  }["url"]
-  readonly token: {
-    readonly url: string
-    readonly token: string
-    readonly content?: boolean | undefined
-    readonly includeGit?: boolean | undefined
-  }["token"]
-  readonly content?: {
-    readonly url: string
-    readonly token: string
-    readonly content?: boolean | undefined
-    readonly includeGit?: boolean | undefined
-  }["content"]
-  readonly includeGit?: {
-    readonly url: string
-    readonly token: string
-    readonly content?: boolean | undefined
-    readonly includeGit?: boolean | undefined
-  }["includeGit"]
-}
-
-export type MobileTeleportOutOutput = MobileTeleportResult
-
-export type MobileWorktreeCreateInput = { readonly payload: unknown }
-
-export type MobileWorktreeCreateOutput = MobileWorktreeInfo
-
-export type MobileWorktreeRemoveInput = { readonly payload: unknown }
-
-export type MobileWorktreeRemoveOutput = MobileSuccess
-
-export type MobileWorktreeResetInput = { readonly payload: unknown }
-
-export type MobileWorktreeResetOutput = MobileSuccess
-
-export type MobileGitStatusOutput = MobileGitStatus
-
-export type MobileGitDiffInput = {
-  readonly file?: { readonly file?: string | undefined; readonly staged?: "true" | "false" | undefined }["file"]
-  readonly staged?: { readonly file?: string | undefined; readonly staged?: "true" | "false" | undefined }["staged"]
-}
-
-export type MobileGitDiffOutput = Array<MobileGitFileDiff>
-
-export type MobileGitCommitsInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
-
-export type MobileGitCommitsOutput = Array<MobileGitCommit>
-
-export type MobileGitBranchesOutput = Array<MobileGitBranch>
-
-export type MobileGitCommitInput = {
-  readonly message: {
-    readonly message: string
-    readonly files?: ReadonlyArray<string> | undefined
-    readonly amend?: boolean | undefined
-    readonly stagedOnly?: boolean | undefined
-  }["message"]
-  readonly files?: {
-    readonly message: string
-    readonly files?: ReadonlyArray<string> | undefined
-    readonly amend?: boolean | undefined
-    readonly stagedOnly?: boolean | undefined
-  }["files"]
-  readonly amend?: {
-    readonly message: string
-    readonly files?: ReadonlyArray<string> | undefined
-    readonly amend?: boolean | undefined
-    readonly stagedOnly?: boolean | undefined
-  }["amend"]
-  readonly stagedOnly?: {
-    readonly message: string
-    readonly files?: ReadonlyArray<string> | undefined
-    readonly amend?: boolean | undefined
-    readonly stagedOnly?: boolean | undefined
-  }["stagedOnly"]
-}
-
-export type MobileGitCommitOutput = { sha: string; message: string }
-
-export type MobileGitCheckoutInput = {
-  readonly branch: { readonly branch: string; readonly create?: boolean | undefined }["branch"]
-  readonly create?: { readonly branch: string; readonly create?: boolean | undefined }["create"]
-}
-
-export type MobileGitCheckoutOutput = MobileSuccess
-
-export type MobileGitStageInput = { readonly files: { readonly files: ReadonlyArray<string> }["files"] }
-
-export type MobileGitStageOutput = MobileSuccess
-
-export type MobileGitUnstageInput = { readonly files: { readonly files: ReadonlyArray<string> }["files"] }
-
-export type MobileGitUnstageOutput = MobileSuccess
-
-export type MobileGitDiscardInput = { readonly files: { readonly files: ReadonlyArray<string> }["files"] }
-
-export type MobileGitDiscardOutput = MobileSuccess
-
-export type MobileGitPushInput = { readonly upstream?: { readonly upstream?: string | undefined }["upstream"] }
-
-export type MobileGitPushOutput = { success: true; pushed: boolean }
-
-export type MobileGitPullOutput = { success: true; pulled: boolean; conflicts?: Array<string> | undefined }
-
-export type MobileLoopListOutput = { loops: Array<MobileLoop>; runtimes: Array<MobileLoopRuntime> }
-
-export type MobileLoopCreateInput = { readonly payload: unknown }
-
-export type MobileLoopCreateOutput = MobileLoop
-
-export type MobileLoopTemplatesOutput = { templates: Array<any> }
-
-export type MobileLoopGenerateInput = {
-  readonly description: { readonly description: string; readonly model?: string | undefined }["description"]
-  readonly model?: { readonly description: string; readonly model?: string | undefined }["model"]
-}
-
-export type MobileLoopGenerateOutput = MobileLoop
-
-export type MobileLoopRunsRecentInput = { readonly limit?: { readonly limit?: number | undefined }["limit"] }
-
-export type MobileLoopRunsRecentOutput = { runs: Array<MobileLoopRun> }
-
-export type MobileLoopGetInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileLoopGetOutput = { loop: MobileLoop; runtime: MobileLoopRuntime }
-
-export type MobileLoopDeleteInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileLoopDeleteOutput = MobileSuccess
-
-export type MobileLoopUpdateInput = { readonly id: { readonly id: string }["id"]; readonly payload: unknown }
-
-export type MobileLoopUpdateOutput = MobileLoop
-
-export type MobileLoopRunsInput = {
-  readonly id: { readonly id: string }["id"]
-  readonly limit?: { readonly limit?: number | undefined }["limit"]
-}
-
-export type MobileLoopRunsOutput = { runs: Array<MobileLoopRun> }
-
-export type MobileLoopRunInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileLoopRunOutput = MobileSuccess
-
-export type MobileLoopAbortInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileLoopAbortOutput = MobileSuccess
-
-export type MobileLoopToggleInput = {
-  readonly id: { readonly id: string }["id"]
-  readonly enabled: { readonly enabled: boolean }["enabled"]
-}
-
-export type MobileLoopToggleOutput = MobileLoop
-
-export type MobileLoopPauseInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileLoopPauseOutput = MobileSuccess
-
-export type MobileLoopResumeInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileLoopResumeOutput = MobileSuccess
-
-export type MobileRoutineListOutput = Array<MobileRoutine>
-
-export type MobileRoutineCreateInput = { readonly payload: unknown }
-
-export type MobileRoutineCreateOutput = MobileRoutine
-
-export type MobileRoutineGetInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileRoutineGetOutput = MobileRoutine
-
-export type MobileRoutineDeleteInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileRoutineDeleteOutput = MobileSuccess
-
-export type MobileRoutineUpdateInput = { readonly id: { readonly id: string }["id"]; readonly payload: unknown }
-
-export type MobileRoutineUpdateOutput = MobileRoutine
-
-export type MobileRoutineRunInput = {
-  readonly id: { readonly id: string }["id"]
-  readonly text?: { readonly text?: string | undefined }["text"]
-}
-
-export type MobileRoutineRunOutput = MobileSessionInfo
-
-export type MobileRoutinePauseInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileRoutinePauseOutput = MobileRoutine
-
-export type MobileRoutineResumeInput = { readonly id: { readonly id: string }["id"] }
-
-export type MobileRoutineResumeOutput = MobileRoutine
-
-export type MobileRoutineTriggerInput = {
-  readonly token: { readonly token: string }["token"]
-  readonly text?: { readonly text?: string | undefined }["text"]
-}
-
-export type MobileRoutineTriggerOutput = MobileSessionInfo
-
-export type MobilePtyListOutput = Array<MobilePtyInfo>
-
-export type MobilePtyCreateInput = {
-  readonly command?: {
-    readonly command?: string | undefined
-    readonly args?: ReadonlyArray<string> | undefined
-    readonly cwd?: string | undefined
-    readonly title?: string | undefined
-    readonly env?: { readonly [x: string]: string } | undefined
-  }["command"]
-  readonly args?: {
-    readonly command?: string | undefined
-    readonly args?: ReadonlyArray<string> | undefined
-    readonly cwd?: string | undefined
-    readonly title?: string | undefined
-    readonly env?: { readonly [x: string]: string } | undefined
-  }["args"]
-  readonly cwd?: {
-    readonly command?: string | undefined
-    readonly args?: ReadonlyArray<string> | undefined
-    readonly cwd?: string | undefined
-    readonly title?: string | undefined
-    readonly env?: { readonly [x: string]: string } | undefined
-  }["cwd"]
-  readonly title?: {
-    readonly command?: string | undefined
-    readonly args?: ReadonlyArray<string> | undefined
-    readonly cwd?: string | undefined
-    readonly title?: string | undefined
-    readonly env?: { readonly [x: string]: string } | undefined
-  }["title"]
-  readonly env?: {
-    readonly command?: string | undefined
-    readonly args?: ReadonlyArray<string> | undefined
-    readonly cwd?: string | undefined
-    readonly title?: string | undefined
-    readonly env?: { readonly [x: string]: string } | undefined
-  }["env"]
-}
-
-export type MobilePtyCreateOutput = MobilePtyInfo
-
-export type MobilePtyGetInput = { readonly ptyID: { readonly ptyID: string }["ptyID"] }
-
-export type MobilePtyGetOutput = MobilePtyInfo
-
-export type MobilePtyUpdateInput = {
-  readonly ptyID: { readonly ptyID: string }["ptyID"]
-  readonly title?: {
-    readonly title?: string | undefined
-    readonly size?: { readonly rows: number; readonly cols: number } | undefined
-  }["title"]
-  readonly size?: {
-    readonly title?: string | undefined
-    readonly size?: { readonly rows: number; readonly cols: number } | undefined
-  }["size"]
-}
-
-export type MobilePtyUpdateOutput = MobilePtyInfo
-
-export type MobilePtyRemoveInput = { readonly ptyID: { readonly ptyID: string }["ptyID"] }
-
-export type MobilePtyRemoveOutput = boolean

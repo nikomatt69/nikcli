@@ -1,13 +1,11 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Schema } from "effect"
 
 /**
- * Contract-only Effect schema for the whole `/mobile/*` surface served by
- * Hono (`routes/mobile/`). Part of `PublicApi` (the generation contract),
- * NOT of the served `PublicHttpApi.Api` — see `SyncHttpApi` for the pattern.
+ * Effect schema for the whole `/mobile/*` surface.
  *
  * Mobile-specific wrapper shapes are typed faithfully after
- * `routes/mobile/helpers.ts`; domain objects that only exist as zod schemas
+ * `mobile/helpers.ts`; domain objects that only exist as zod schemas
  * today (Session.Info, MessageV2.WithParts, Routine.Record, LoopDefinition,
  * Pty, Worktree.Info, Project.Info, Workspace.Info, …) stay `Schema.Unknown`
  * until the schema/protocol split gives them Effect definitions.
@@ -895,4 +893,6 @@ export namespace MobileHttpApi {
       }).annotate(OpenApi.Identifier, "mobile.pty.connect"),
     )
     .prefix("/mobile")
+
+  export const Api = HttpApi.make("nikcli").add(Group)
 }

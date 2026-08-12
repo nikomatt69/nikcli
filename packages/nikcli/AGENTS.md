@@ -34,7 +34,11 @@ This file contains guidelines for AI agents operating in the nikcli repository.
 ### SDK Generation
 
 - **Regenerate JavaScript SDK**: `./packages/sdk/js/script/build.ts`
-- **HttpApi route coverage**: `bun run check:routes` (advisory; pass `--strict` to fail on uncovered Hono routes)
+- **HttpApi route coverage**: `bun run check:routes` (pass `--strict` to fail on contract/handler/raw inventory gaps)
+
+## Server architecture
+
+The nikcli HTTP server is Effect HttpApi + raw Request/Response handlers on Bun.serve. There is no Hono app, no `Server.App()`, and no `NIKCLI_EXPERIMENTAL_HTTPAPI` fallback. In-process clients use `Server.fetch(request)`. OpenAPI and the JS SDK are generated from `PublicApi`.
 
 ## Security & quality gates
 

@@ -16,17 +16,12 @@ import { Log } from "@/util/log"
  *   3. legacy credentials (`nku_` session, Basic, Tailscale), gated by
  *      `NIKCLI_REQUIRE_OAUTH` / `NIKCLI_LEGACY_LOGIN`.
  *
- * Hono's middleware in `server.ts` is a thin adapter: it calls
- * `authenticate` and copies the resolved principal into Hono context. The
- * HttpApi bridge calls the same function for direct consumers (tests,
- * embedded sdk-next, the future pure-Effect backend), so both backends
- * accept exactly the same credentials.
+ * `ServerRouter` calls `authenticate` and remembers the principal on the
+ * request. The HttpApi bridge calls the same function for direct consumers
+ * (tests, embedded clients), so every entry point accepts the same credentials.
  *
  * `auth_token` (legacy `?token=` query parameter used by mobile and websocket
- * clients — see `MobileAuth.bearer`) is accepted as a bearer everywhere; the
- * `/sync/*` and `/chatbot/*` webhook receivers additionally verify scope via
- * `c.get("mobileAuth")` because webhook payloads need the raw request for
- * signature verification.
+ * clients — see `MobileAuth.bearer`) is accepted as a bearer everywhere.
  */
 export namespace Auth {
   const log = Log.create({ service: "httpapi.auth" })
@@ -47,8 +42,18 @@ export namespace Auth {
     | { readonly ok: true; readonly principal: Principal }
     | { readonly ok: false; readonly response: Response }
 
+  const principals = new WeakMap<Request, Principal>()
+
+  export function principal(request: Request): Principal | undefined {
+    return principals.get(request)
+  }
+
+  export function remember(request: Request, value: Principal) {
+    principals.set(request, value)
+  }
+
   export interface AuthenticateOptions {
-    /** Listen-state Hono passes in; direct bridge consumers omit both. */
+    /** Listen-state the router passes in; direct bridge consumers omit both. */
     readonly mobileAuthRequired?: boolean
     readonly listenHostname?: string
     /** Test seam replacing the Flag-derived basic-auth credentials. */

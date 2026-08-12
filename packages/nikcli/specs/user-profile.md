@@ -81,9 +81,16 @@ The profile goes **last** and the block says outright that it never overrides
 project instructions or the current request. Ordering plus wording, because
 either alone is easy for a model to misread.
 
-`SystemPrompt.profile()` resolves the instance worktree from `InstanceState`
-before calling `Profile.reminder(worktree)` — the habits half is project-local,
-so it cannot be read without knowing which project we are in.
+`SystemPrompt.profile()` resolves the project root from `InstanceState` before
+calling `Profile.reminder(root)` — the habits half is project-local, so it cannot
+be read without knowing which project we are in.
+
+`Profile.projectRoot({ directory, worktree })` is that resolution, and every
+reader shares it: the worktree when there is one (so every directory in a repo
+sees one habits file), the working directory when the worktree has degraded to
+the filesystem root because we are not in a repository. The Brain writer and the
+`/profile` dialog call the same helper — a mismatch here would have Brain writing
+a file no session ever reads.
 
 `/usage` (context breakdown) lists the block as its own `system:profile` source,
 so its token cost is visible rather than hidden inside "System prompt".
@@ -144,5 +151,14 @@ component swallows an empty submit.
 
 - `test/profile/profile.test.ts` — storage round-trip, merge/clear semantics,
   malformed file, rendering of both blocks, truncation, opt-out, habits path.
+- `test/profile/system-prompt.test.ts` — the real injection path: a saved profile
+  plus a `.nikcli/habits.md` come back out of `SystemPrompt.profile()` inside an
+  instance scope.
 - `test/brain/brain-habits.test.ts` — the two-file prompt, its guardrails, and
   clean degradation to the project-only pass.
+- `test/tui/profile-command.test.ts` — `/profile` stays registered and lazily
+  resolves to the dialog (source-level, like `entry-coverage.test.ts`).
+
+The TUI dialog itself is not render-tested: this package has no harness for
+mounting a dialog with its contexts, and the OpenTUI renderer aborts under a PTY
+in a headless sandbox, so `script/tui-smoke.ts` needs a real terminal.

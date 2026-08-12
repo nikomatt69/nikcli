@@ -5,7 +5,7 @@ import { Bus } from "@/bus"
 import { Session } from "@/session"
 import { Storage } from "@/storage/storage"
 import { TuiEvent } from "@/cli/cmd/tui/event"
-import { TuiControlQueues } from "../routes/tui"
+import { TuiControlQueues } from "../tui-control"
 
 export namespace TuiHttpApi {
   const BooleanResult = Schema.Boolean.annotate({
@@ -17,7 +17,7 @@ export namespace TuiHttpApi {
     body: Schema.Unknown,
   }).annotate({ identifier: "TuiControlRequest" })
 
-  /** Payload validation failures mirror @hono/standard-validator: 400 with
+  /** Payload validation failures return 400 with
    * `{ data, error, success: false }`. */
   const ValidationError = Schema.Struct({
     data: Schema.Unknown,

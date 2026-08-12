@@ -40,6 +40,8 @@ export namespace HttpApiBridge {
   }
 
   const implementedRoutes = [
+    ["PUT", /^\/auth\/[^/]+$/],
+    ["DELETE", /^\/auth\/[^/]+$/],
     ["DELETE", /^\/provider\/[^/]+\/auth$/],
     ["DELETE", /^\/config\/mcp\/[^/]+$/],
     ["DELETE", /^\/session\/[^/]+$/],
@@ -65,7 +67,7 @@ export namespace HttpApiBridge {
     ["GET", /^\/config$/],
     ["GET", /^\/config\/providers$/],
     ["GET", /^\/doctor\/?$/],
-    ["GET", /^\/profiles$/],
+    ["GET", /^\/config\/profiles$/],
     ["GET", /^\/experimental\/resource$/],
     ["GET", /^\/experimental\/tool$/],
     ["GET", /^\/experimental\/tool\/ids$/],
@@ -146,8 +148,8 @@ export namespace HttpApiBridge {
     ["PATCH", /^\/session\/[^/]+\/message\/[^/]+\/part\/[^/]+$/],
     ["POST", /^\/mcp$/],
     ["POST", /^\/config\/mcp$/],
-    ["POST", /^\/profiles$/],
-    ["POST", /^\/profiles\/activate\/[^/]+$/],
+    ["POST", /^\/config\/profiles$/],
+    ["POST", /^\/config\/profiles\/activate\/[^/]+$/],
     ["POST", /^\/mcp\/[^/]+\/connect$/],
     ["POST", /^\/mcp\/[^/]+\/disconnect$/],
     ["POST", /^\/mcp\/[^/]+\/toggle$/],
@@ -221,10 +223,26 @@ export namespace HttpApiBridge {
     ["POST", /^\/tui\/publish$/],
     ["POST", /^\/tui\/select-session$/],
     ["POST", /^\/tui\/control\/response$/],
+    ["POST", /^\/sync\/event$/],
+    ["GET", /^\/sync\/outbox$/],
+    ["GET", /^\/sync\/snapshot\/[^/]+$/],
+    ["GET", /^\/sync\/stream$/],
+    ["GET", /^\/sync\/stats$/],
+    ["POST", /^\/sync\/config$/],
+    ["POST", /^\/sync\/connect$/],
+    ["POST", /^\/sync\/disconnect$/],
+    ["POST", /^\/sync\/drain$/],
+    // Prefix match: a handler 404 under `/mobile/*` must not fall through to
+    // the website proxy (that was returning 200 HTML for deleted loops).
+    ["GET", /^\/mobile\//],
+    ["POST", /^\/mobile\//],
+    ["PUT", /^\/mobile\//],
+    ["PATCH", /^\/mobile\//],
+    ["DELETE", /^\/mobile\//],
   ] as const
 
   /**
-   * Instance-less routes served before the `/global` Hono mount. These must
+   * Instance-less routes served before instance context is bound. These must
    * never require `InstanceRef` — they run outside the instance/workspace
    * middleware, so `handleGlobal` provides no instance context.
    */
@@ -283,10 +301,10 @@ export namespace HttpApiBridge {
   }
 
   /**
-   * Shared Effect HttpApi layer used by the in-Hono bridge today and by the
-   * future pure Effect backend. `LogRedirect` replaces Effect's console
-   * default logger so router-internal logs (HttpApi spans, encode errors)
-   * land in nikcli's `Log` sink instead of corrupting the TUI's stdout.
+   * Shared Effect HttpApi layer used by `Server.fetch`. `LogRedirect` replaces
+   * Effect's console default logger so router-internal logs (HttpApi spans,
+   * encode errors) land in nikcli's `Log` sink instead of corrupting the TUI's
+   * stdout.
    */
   export const layer = Layer.mergeAll(
     PublicHttpApi.layer.pipe(
@@ -353,9 +371,9 @@ export namespace HttpApiBridge {
         return ChatbotHttp.handle(request).then((response) => response ?? new Response("Not Found", { status: 404 }))
       }
     }
-    // Requests normally arrive through Server.App(), whose Hono middleware
-    // already ran `Auth.authenticate`; direct bridge consumers and
-    // request-level tests get the same canonical check here.
+    // Requests normally arrive through Server.fetch(), whose router already
+    // ran `Auth.authenticate`; direct bridge consumers and request-level tests
+    // get the same canonical check here.
     if (!options?.upstreamAuthVerified) {
       const result = await Auth.authenticate(request, { credentials: testAuthOverride ?? undefined })
       if (!result.ok) return result.response

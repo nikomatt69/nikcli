@@ -213,7 +213,7 @@ describe("effect-zod walker", () => {
         nick: Schema.optional(Schema.String),
       }),
     )
-    // The AI SDK / hono-openapi calls z.toJSONSchema(...). It throws if the schema contains
+    // The AI SDK / OpenAPI JSON Schema path calls z.toJSONSchema(...). It throws if the schema contains
     // `z.undefined()` arms, so the walker must strip undefined from the union arms produced
     // by Schema.optional(X) and rely on `.optional()` on the property signature alone.
     expect(() => z.toJSONSchema(s)).not.toThrow()

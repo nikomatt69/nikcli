@@ -8,9 +8,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-pty-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 
-preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_EXPERIMENTAL_HTTPAPI"])
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
@@ -33,17 +32,17 @@ async function request(method: string, pathname: string, directory: string, body
     init.headers = { "content-type": "application/json" }
     init.body = JSON.stringify(body)
   }
-  return Server.App().fetch(new Request(url, init))
+  return Server.fetch(new Request(url, init))
 }
 
 /**
- * Wave 4 Path B: `/pty` JSON CRUD is bridged through the Effect HttpApi
- * layer while `/pty/:ptyID/connect` (WebSocket upgrade) stays a Hono
- * "special" branch. The schema-level tests below exercise every CRUD route
+ * `/pty` JSON CRUD is served through the Effect HttpApi layer while
+ * `/pty/:ptyID/connect` (WebSocket upgrade) is handled by native Bun
+ * `server.upgrade`. The schema-level tests below exercise every CRUD route
  * and verify:
  *  - `HttpApiBridge.supports(...)` returns true for the five CRUD entries.
  *  - `HttpApiBridge.supports(...)` returns false for the WS path
- *    (`/pty/:id/connect`) — must fall through to `routes/pty.ts`.
+ *    (`/pty/:id/connect`) — upgrades are handled outside HttpApi.
  *  - the schema layer accepts the canonical payload shapes and returns a
  *    typed body on success (200) or a 404 body for missing sessions.
  *
@@ -60,7 +59,7 @@ describe("Pty HttpApi (Wave 4 Path B)", () => {
     expect(HttpApiBridge.supports("/pty/pty_test", "GET")).toBe(true)
     expect(HttpApiBridge.supports("/pty/pty_test", "PUT")).toBe(true)
     expect(HttpApiBridge.supports("/pty/pty_test", "DELETE")).toBe(true)
-    // WS upgrade must fall through to Hono (Path B): not in implementedRoutes.
+    // WS upgrade is handled by native Bun, not the HttpApi bridge.
     expect(HttpApiBridge.supports("/pty/pty_test/connect", "GET")).toBe(false)
   })
 
@@ -96,7 +95,7 @@ describe("Pty HttpApi (Wave 4 Path B)", () => {
     const directory = await makeProjectDir()
     const response = await request("DELETE", "/pty/pty_definitely_missing", directory)
     // Pty.Service.remove is total: missing session is a silent no-op. The
-    // Hono route at routes/pty.ts:163 also returns 200 + `true`.
+    // Pty.Service.remove is total: missing session is a silent no-op.
     expect(response.status).toBe(200)
     const body = (await response.json()) as boolean
     expect(body).toBe(true)
@@ -117,7 +116,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

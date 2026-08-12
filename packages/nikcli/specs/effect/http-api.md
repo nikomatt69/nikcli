@@ -2,19 +2,19 @@
 
 Plan for replacing instance Hono route implementations with Effect `HttpApi` while preserving behavior, OpenAPI, and SDK output during the transition.
 
-## Status snapshot (2026-07-30)
+## Status snapshot (2026-08-12)
 
 > **Source of truth:** This snapshot and current code override contradictory historical phase notes below.
 
-| Item                               | Reality                                                                                                                                                                      |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NIKCLI_EXPERIMENTAL_HTTPAPI`      | **Default-on** (`flag.ts`: unset → `true`; opt out with `0`/`false`)                                                                                                         |
-| Mount model                        | Still primarily **in-Hono bridge** (`httpapi/bridge.ts`) after instance middleware; `server/backend.ts` exists for experimental fork but production path keeps Hono + bridge |
-| Contract parity                    | **2026-07-14:** `PublicApi` generation contract ≈ Hono op count; default SDK source still Hono until domain Effect Schemas finish (plugin types)                             |
-| TUI / session / loop / mission / … | Large subset **bridged** when flag on — see `httpapi-bridge-inventory.md`                                                                                                    |
-| Still Hono-only / special          | companion HTML, mobile runtime surface, PTY WebSocket connect, sync SSE stream, some streaming prompts                                                                       |
+| Item                          | Reality                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Hono                          | **Removed** from `packages/nikcli`. No `hono` / `hono-openapi` / `@hono/*` package or import.                                        |
+| `NIKCLI_EXPERIMENTAL_HTTPAPI` | **Deleted.** There is no Hono fallback.                                                                                              |
+| Mount model                   | `Server.fetch` / `Server.listen` → `ServerRouter` (body-limit, CORS, auth, instance) → Effect HttpApi + raw handlers on `Bun.serve`. |
+| OpenAPI / SDK                 | Generated from `PublicApi` only (`cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts`).                                          |
+| Special / raw                 | Share, SSE events, prompt streaming, companion HTML, PTY/workspace WebSocket upgrades, website proxy.                                |
 
-Do **not** claim “flag off by default” or “bridge does not cover TUI” — both are stale.
+Historical notes below describe the in-Hono bridge era and are kept for migration context only.
 
 ## End State
 

@@ -746,7 +746,7 @@ export const RunCommand = cmd({
 
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init)
-        return Server.App().fetch(request)
+        return Server.fetch(request)
       }) as typeof globalThis.fetch
 
       const sdk = createNikcliClient({

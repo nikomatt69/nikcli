@@ -119,229 +119,6 @@ import type {
   MissionFeatureMutateOutput,
   MissionExecsInput,
   MissionExecsOutput,
-  ProjectListOutput,
-  ProjectCurrentOutput,
-  ProjectUpdateInput,
-  ProjectUpdateOutput,
-  ProjectDirectoryListInput,
-  ProjectDirectoryListOutput,
-  ProjectCopyCreateInput,
-  ProjectCopyCreateOutput,
-  ProjectCopyRemoveInput,
-  ProjectCopyRemoveOutput,
-  ProjectCopyRefreshInput,
-  ProjectCopyRefreshOutput,
-  ProviderListOutput,
-  ProviderAuthOutput,
-  ProviderApiInput,
-  ProviderApiOutput,
-  ProviderRemoveAuthInput,
-  ProviderRemoveAuthOutput,
-  ProviderOauthAuthorizeInput,
-  ProviderOauthAuthorizeOutput,
-  ProviderOauthCallbackInput,
-  ProviderOauthCallbackOutput,
-  QuestionListOutput,
-  QuestionReplyInput,
-  QuestionReplyOutput,
-  QuestionRejectInput,
-  QuestionRejectOutput,
-  PermissionListOutput,
-  PermissionReplyInput,
-  PermissionReplyOutput,
-  PtyListOutput,
-  PtyCreateInput,
-  PtyCreateOutput,
-  PtyGetInput,
-  PtyGetOutput,
-  PtyUpdateInput,
-  PtyUpdateOutput,
-  PtyRemoveInput,
-  PtyRemoveOutput,
-  LoopListOutput,
-  LoopTemplatesOutput,
-  LoopGenerateInput,
-  LoopGenerateOutput,
-  LoopRecentRunsInput,
-  LoopRecentRunsOutput,
-  LoopGetInput,
-  LoopGetOutput,
-  LoopUpsertInput,
-  LoopUpsertOutput,
-  LoopUpdateInput,
-  LoopUpdateOutput,
-  LoopRemoveInput,
-  LoopRemoveOutput,
-  LoopToggleInput,
-  LoopToggleOutput,
-  LoopRunInput,
-  LoopRunOutput,
-  LoopAbortInput,
-  LoopAbortOutput,
-  LoopPauseInput,
-  LoopPauseOutput,
-  LoopResumeInput,
-  LoopResumeOutput,
-  LoopRunsInput,
-  LoopRunsOutput,
-  SessionListInput,
-  SessionListOutput,
-  SessionCreateInput,
-  SessionCreateOutput,
-  SessionStatusOutput,
-  SessionGetInput,
-  SessionGetOutput,
-  SessionRemoveInput,
-  SessionRemoveOutput,
-  SessionUpdateInput,
-  SessionUpdateOutput,
-  SessionForkInput,
-  SessionForkOutput,
-  SessionAbortInput,
-  SessionAbortOutput,
-  SessionRevertInput,
-  SessionRevertOutput,
-  SessionUnrevertInput,
-  SessionUnrevertOutput,
-  SessionShareInput,
-  SessionShareOutput,
-  SessionUnshareInput,
-  SessionUnshareOutput,
-  SessionSummarizeInput,
-  SessionSummarizeOutput,
-  SessionCommandInput,
-  SessionCommandOutput,
-  SessionShellInput,
-  SessionShellOutput,
-  SessionPermissionRespondInput,
-  SessionPermissionRespondOutput,
-  SessionChildrenInput,
-  SessionChildrenOutput,
-  SessionTodoInput,
-  SessionTodoOutput,
-  SessionDiffInput,
-  SessionDiffOutput,
-  SessionMessagesInput,
-  SessionMessagesOutput,
-  SessionMessageInput,
-  SessionMessageOutput,
-  SessionMessageRemoveInput,
-  SessionMessageRemoveOutput,
-  SessionPartRemoveInput,
-  SessionPartRemoveOutput,
-  SessionV2EntriesInput,
-  SessionV2EntriesOutput,
-  SessionV2StateInput,
-  SessionV2StateOutput,
-  SessionV2EventsInput,
-  SessionV2EventsOutput,
-  SessionInstructionsInput,
-  SessionInstructionsOutput,
-  SessionContextBreakdownInput,
-  SessionContextBreakdownOutput,
-  SessionContextToggleInput,
-  SessionContextToggleOutput,
-  SessionGoalInput,
-  SessionGoalOutput,
-  SessionBackgroundInput,
-  SessionBackgroundOutput,
-  SessionBackgroundInspectInput,
-  SessionBackgroundInspectOutput,
-  SessionBackgroundReadInput,
-  SessionBackgroundReadOutput,
-  SessionBackgroundCancelInput,
-  SessionBackgroundCancelOutput,
-  SessionMonitorInput,
-  SessionMonitorOutput,
-  SessionMonitorLogInput,
-  SessionMonitorLogOutput,
-  SessionMonitorCancelInput,
-  SessionMonitorCancelOutput,
-  TuiAppendPromptInput,
-  TuiAppendPromptOutput,
-  TuiOpenHelpOutput,
-  TuiOpenSessionsOutput,
-  TuiOpenThemesOutput,
-  TuiOpenModelsOutput,
-  TuiSubmitPromptOutput,
-  TuiClearPromptOutput,
-  TuiExecuteCommandInput,
-  TuiExecuteCommandOutput,
-  TuiShowToastInput,
-  TuiShowToastOutput,
-  TuiPublishInput,
-  TuiPublishOutput,
-  TuiSelectSessionInput,
-  TuiSelectSessionOutput,
-  TuiControlNextOutput,
-  TuiControlResponseInput,
-  TuiControlResponseOutput,
-  WorkspaceAdaptorsOutput,
-  WorkspaceSyncListOutput,
-  WorkspaceStatusOutput,
-  WorkspaceCreateInput,
-  WorkspaceCreateOutput,
-  WorkspaceListOutput,
-  WorkspaceRemoveInput,
-  WorkspaceRemoveOutput,
-  WorkspaceRestoreInput,
-  WorkspaceRestoreOutput,
-  WorkspaceSessionRestoreInput,
-  WorkspaceSessionRestoreOutput,
-  WorkspaceWarpInput,
-  WorkspaceWarpOutput,
-  SyncEventInput,
-  SyncEventOutput,
-  SyncOutboxInput,
-  SyncOutboxOutput,
-  SyncSnapshotInput,
-  SyncSnapshotOutput,
-  SyncStreamInput,
-  SyncStreamOutput,
-  SyncStatsInput,
-  SyncStatsOutput,
-  SyncConfigInput,
-  SyncConfigOutput,
-  SyncConnectOutput,
-  SyncDisconnectOutput,
-  SyncDrainOutput,
-  AuthRemoveInput,
-  AuthRemoveOutput,
-  ConfigManagementReloadOutput,
-  ConfigManagementMcpAddInput,
-  ConfigManagementMcpAddOutput,
-  ConfigManagementMcpUpdateInput,
-  ConfigManagementMcpUpdateOutput,
-  ConfigManagementMcpRemoveInput,
-  ConfigManagementMcpRemoveOutput,
-  ConfigManagementProfileCreateInput,
-  ConfigManagementProfileCreateOutput,
-  ConfigManagementProfileActivateInput,
-  ConfigManagementProfileActivateOutput,
-  SessionPromptPromptInput,
-  SessionPromptPromptOutput,
-  SessionPromptPromptAsyncInput,
-  SessionPromptPromptAsyncOutput,
-  ShareShortInput,
-  ShareShortOutput,
-  SharePageInput,
-  SharePageOutput,
-  ShareApiInput,
-  ShareApiOutput,
-  ShareDataInput,
-  ShareDataOutput,
-  EventsSubscribeOutput,
-  EventsGlobalOutput,
-  WorkspaceExtraEventsInput,
-  WorkspaceExtraEventsOutput,
-  WorkspaceExtraSessionWarpInput,
-  WorkspaceExtraSessionWarpOutput,
-  UsersRegisterInput,
-  UsersRegisterOutput,
-  UsersLoginInput,
-  UsersLoginOutput,
-  UsersUpdateInput,
-  UsersUpdateOutput,
   MobileAuthTokenListOutput,
   MobileAuthTokenCreateInput,
   MobileAuthTokenCreateOutput,
@@ -490,6 +267,229 @@ import type {
   MobilePtyUpdateOutput,
   MobilePtyRemoveInput,
   MobilePtyRemoveOutput,
+  ProjectListOutput,
+  ProjectCurrentOutput,
+  ProjectUpdateInput,
+  ProjectUpdateOutput,
+  ProjectDirectoryListInput,
+  ProjectDirectoryListOutput,
+  ProjectCopyCreateInput,
+  ProjectCopyCreateOutput,
+  ProjectCopyRemoveInput,
+  ProjectCopyRemoveOutput,
+  ProjectCopyRefreshInput,
+  ProjectCopyRefreshOutput,
+  ProviderListOutput,
+  ProviderAuthOutput,
+  ProviderApiInput,
+  ProviderApiOutput,
+  ProviderRemoveAuthInput,
+  ProviderRemoveAuthOutput,
+  ProviderOauthAuthorizeInput,
+  ProviderOauthAuthorizeOutput,
+  ProviderOauthCallbackInput,
+  ProviderOauthCallbackOutput,
+  QuestionListOutput,
+  QuestionReplyInput,
+  QuestionReplyOutput,
+  QuestionRejectInput,
+  QuestionRejectOutput,
+  PermissionListOutput,
+  PermissionReplyInput,
+  PermissionReplyOutput,
+  PtyListOutput,
+  PtyCreateInput,
+  PtyCreateOutput,
+  PtyGetInput,
+  PtyGetOutput,
+  PtyUpdateInput,
+  PtyUpdateOutput,
+  PtyRemoveInput,
+  PtyRemoveOutput,
+  LoopListOutput,
+  LoopTemplatesOutput,
+  LoopGenerateInput,
+  LoopGenerateOutput,
+  LoopRecentRunsInput,
+  LoopRecentRunsOutput,
+  LoopGetInput,
+  LoopGetOutput,
+  LoopUpsertInput,
+  LoopUpsertOutput,
+  LoopUpdateInput,
+  LoopUpdateOutput,
+  LoopRemoveInput,
+  LoopRemoveOutput,
+  LoopToggleInput,
+  LoopToggleOutput,
+  LoopRunInput,
+  LoopRunOutput,
+  LoopAbortInput,
+  LoopAbortOutput,
+  LoopPauseInput,
+  LoopPauseOutput,
+  LoopResumeInput,
+  LoopResumeOutput,
+  LoopRunsInput,
+  LoopRunsOutput,
+  SessionListInput,
+  SessionListOutput,
+  SessionCreateInput,
+  SessionCreateOutput,
+  SessionStatusOutput,
+  SessionGetInput,
+  SessionGetOutput,
+  SessionRemoveInput,
+  SessionRemoveOutput,
+  SessionUpdateInput,
+  SessionUpdateOutput,
+  SessionForkInput,
+  SessionForkOutput,
+  SessionAbortInput,
+  SessionAbortOutput,
+  SessionRevertInput,
+  SessionRevertOutput,
+  SessionUnrevertInput,
+  SessionUnrevertOutput,
+  SessionShareInput,
+  SessionShareOutput,
+  SessionUnshareInput,
+  SessionUnshareOutput,
+  SessionSummarizeInput,
+  SessionSummarizeOutput,
+  SessionCommandInput,
+  SessionCommandOutput,
+  SessionShellInput,
+  SessionShellOutput,
+  SessionPermissionRespondInput,
+  SessionPermissionRespondOutput,
+  SessionChildrenInput,
+  SessionChildrenOutput,
+  SessionTodoInput,
+  SessionTodoOutput,
+  SessionDiffInput,
+  SessionDiffOutput,
+  SessionMessagesInput,
+  SessionMessagesOutput,
+  SessionMessageInput,
+  SessionMessageOutput,
+  SessionMessageRemoveInput,
+  SessionMessageRemoveOutput,
+  SessionPartRemoveInput,
+  SessionPartRemoveOutput,
+  SessionV2EntriesInput,
+  SessionV2EntriesOutput,
+  SessionV2StateInput,
+  SessionV2StateOutput,
+  SessionV2EventsInput,
+  SessionV2EventsOutput,
+  SessionInstructionsInput,
+  SessionInstructionsOutput,
+  SessionContextBreakdownInput,
+  SessionContextBreakdownOutput,
+  SessionContextToggleInput,
+  SessionContextToggleOutput,
+  SessionGoalInput,
+  SessionGoalOutput,
+  SessionBackgroundInput,
+  SessionBackgroundOutput,
+  SessionBackgroundInspectInput,
+  SessionBackgroundInspectOutput,
+  SessionBackgroundReadInput,
+  SessionBackgroundReadOutput,
+  SessionBackgroundCancelInput,
+  SessionBackgroundCancelOutput,
+  SessionMonitorInput,
+  SessionMonitorOutput,
+  SessionMonitorLogInput,
+  SessionMonitorLogOutput,
+  SessionMonitorCancelInput,
+  SessionMonitorCancelOutput,
+  SyncEventInput,
+  SyncEventOutput,
+  SyncOutboxInput,
+  SyncOutboxOutput,
+  SyncSnapshotInput,
+  SyncSnapshotOutput,
+  SyncStreamInput,
+  SyncStreamOutput,
+  SyncStatsInput,
+  SyncStatsOutput,
+  SyncConfigInput,
+  SyncConfigOutput,
+  SyncConnectOutput,
+  SyncDisconnectOutput,
+  SyncDrainOutput,
+  TuiAppendPromptInput,
+  TuiAppendPromptOutput,
+  TuiOpenHelpOutput,
+  TuiOpenSessionsOutput,
+  TuiOpenThemesOutput,
+  TuiOpenModelsOutput,
+  TuiSubmitPromptOutput,
+  TuiClearPromptOutput,
+  TuiExecuteCommandInput,
+  TuiExecuteCommandOutput,
+  TuiShowToastInput,
+  TuiShowToastOutput,
+  TuiPublishInput,
+  TuiPublishOutput,
+  TuiSelectSessionInput,
+  TuiSelectSessionOutput,
+  TuiControlNextOutput,
+  TuiControlResponseInput,
+  TuiControlResponseOutput,
+  WorkspaceAdaptorsOutput,
+  WorkspaceSyncListOutput,
+  WorkspaceStatusOutput,
+  WorkspaceCreateInput,
+  WorkspaceCreateOutput,
+  WorkspaceListOutput,
+  WorkspaceRemoveInput,
+  WorkspaceRemoveOutput,
+  WorkspaceRestoreInput,
+  WorkspaceRestoreOutput,
+  WorkspaceSessionRestoreInput,
+  WorkspaceSessionRestoreOutput,
+  WorkspaceWarpInput,
+  WorkspaceWarpOutput,
+  AuthRemoveInput,
+  AuthRemoveOutput,
+  ConfigManagementReloadOutput,
+  ConfigManagementMcpAddInput,
+  ConfigManagementMcpAddOutput,
+  ConfigManagementMcpUpdateInput,
+  ConfigManagementMcpUpdateOutput,
+  ConfigManagementMcpRemoveInput,
+  ConfigManagementMcpRemoveOutput,
+  ConfigManagementProfileCreateInput,
+  ConfigManagementProfileCreateOutput,
+  ConfigManagementProfileActivateInput,
+  ConfigManagementProfileActivateOutput,
+  SessionPromptPromptInput,
+  SessionPromptPromptOutput,
+  SessionPromptPromptAsyncInput,
+  SessionPromptPromptAsyncOutput,
+  ShareShortInput,
+  ShareShortOutput,
+  SharePageInput,
+  SharePageOutput,
+  ShareApiInput,
+  ShareApiOutput,
+  ShareDataInput,
+  ShareDataOutput,
+  EventsSubscribeOutput,
+  EventsGlobalOutput,
+  WorkspaceExtraEventsInput,
+  WorkspaceExtraEventsOutput,
+  WorkspaceExtraSessionWarpInput,
+  WorkspaceExtraSessionWarpOutput,
+  UsersRegisterInput,
+  UsersRegisterOutput,
+  UsersLoginInput,
+  UsersLoginOutput,
+  UsersUpdateInput,
+  UsersUpdateOutput,
 } from "./types.js"
 import { ClientError } from "./client-error.js"
 
@@ -1350,1387 +1350,6 @@ export function make(options: ClientOptions) {
             method: "GET",
             path: `/mission/${encodeURIComponent(input.id)}/execs`,
             query: { limit: input["limit"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    project: {
-      list: (requestOptions?: RequestOptions) =>
-        request<ProjectListOutput>(
-          { method: "GET", path: `/project`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      current: (requestOptions?: RequestOptions) =>
-        request<ProjectCurrentOutput>(
-          { method: "GET", path: `/project/current`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      update: (input: ProjectUpdateInput, requestOptions?: RequestOptions) =>
-        request<ProjectUpdateOutput>(
-          {
-            method: "PATCH",
-            path: `/project/${encodeURIComponent(input.projectID)}`,
-            body: { name: input["name"], icon: input["icon"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      directoryList: (input: ProjectDirectoryListInput, requestOptions?: RequestOptions) =>
-        request<ProjectDirectoryListOutput>(
-          {
-            method: "GET",
-            path: `/project/${encodeURIComponent(input.projectID)}/directory`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      copyCreate: (input: ProjectCopyCreateInput, requestOptions?: RequestOptions) =>
-        request<ProjectCopyCreateOutput>(
-          {
-            method: "POST",
-            path: `/project/${encodeURIComponent(input.projectID)}/copy`,
-            body: { strategy: input["strategy"], directory: input["directory"], name: input["name"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      copyRemove: (input: ProjectCopyRemoveInput, requestOptions?: RequestOptions) =>
-        request<ProjectCopyRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/project/${encodeURIComponent(input.projectID)}/copy`,
-            body: { directory: input["directory"], force: input["force"] },
-            successStatus: 204,
-            declaredStatuses: [],
-            empty: true,
-          },
-          requestOptions,
-        ),
-      copyRefresh: (input: ProjectCopyRefreshInput, requestOptions?: RequestOptions) =>
-        request<ProjectCopyRefreshOutput>(
-          {
-            method: "POST",
-            path: `/project/${encodeURIComponent(input.projectID)}/copy/refresh`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    provider: {
-      list: (requestOptions?: RequestOptions) =>
-        request<ProviderListOutput>(
-          { method: "GET", path: `/provider`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      auth: (requestOptions?: RequestOptions) =>
-        request<ProviderAuthOutput>(
-          { method: "GET", path: `/provider/auth`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      api: (input: ProviderApiInput, requestOptions?: RequestOptions) =>
-        request<ProviderApiOutput>(
-          {
-            method: "POST",
-            path: `/provider/${encodeURIComponent(input.providerID)}/api`,
-            body: { key: input["key"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      removeAuth: (input: ProviderRemoveAuthInput, requestOptions?: RequestOptions) =>
-        request<ProviderRemoveAuthOutput>(
-          {
-            method: "DELETE",
-            path: `/provider/${encodeURIComponent(input.providerID)}/auth`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      oauthAuthorize: (input: ProviderOauthAuthorizeInput, requestOptions?: RequestOptions) =>
-        request<ProviderOauthAuthorizeOutput>(
-          {
-            method: "POST",
-            path: `/provider/${encodeURIComponent(input.providerID)}/oauth/authorize`,
-            body: { method: input["method"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      oauthCallback: (input: ProviderOauthCallbackInput, requestOptions?: RequestOptions) =>
-        request<ProviderOauthCallbackOutput>(
-          {
-            method: "POST",
-            path: `/provider/${encodeURIComponent(input.providerID)}/oauth/callback`,
-            body: { method: input["method"], code: input["code"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    question: {
-      list: (requestOptions?: RequestOptions) =>
-        request<QuestionListOutput>(
-          { method: "GET", path: `/question`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      reply: (input: QuestionReplyInput, requestOptions?: RequestOptions) =>
-        request<QuestionReplyOutput>(
-          {
-            method: "POST",
-            path: `/question/${encodeURIComponent(input.requestID)}/reply`,
-            body: { answers: input["answers"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      reject: (input: QuestionRejectInput, requestOptions?: RequestOptions) =>
-        request<QuestionRejectOutput>(
-          {
-            method: "POST",
-            path: `/question/${encodeURIComponent(input.requestID)}/reject`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    permission: {
-      list: (requestOptions?: RequestOptions) =>
-        request<PermissionListOutput>(
-          { method: "GET", path: `/permission`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      reply: (input: PermissionReplyInput, requestOptions?: RequestOptions) =>
-        request<PermissionReplyOutput>(
-          {
-            method: "POST",
-            path: `/permission/${encodeURIComponent(input.requestID)}/reply`,
-            body: { reply: input["reply"], message: input["message"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    pty: {
-      list: (requestOptions?: RequestOptions) =>
-        request<PtyListOutput>(
-          { method: "GET", path: `/pty`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      create: (input?: PtyCreateInput, requestOptions?: RequestOptions) =>
-        request<PtyCreateOutput>(
-          {
-            method: "POST",
-            path: `/pty`,
-            body: {
-              command: input?.["command"],
-              args: input?.["args"],
-              cwd: input?.["cwd"],
-              title: input?.["title"],
-              env: input?.["env"],
-            },
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      get: (input: PtyGetInput, requestOptions?: RequestOptions) =>
-        request<PtyGetOutput>(
-          {
-            method: "GET",
-            path: `/pty/${encodeURIComponent(input.ptyID)}`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      update: (input: PtyUpdateInput, requestOptions?: RequestOptions) =>
-        request<PtyUpdateOutput>(
-          {
-            method: "PUT",
-            path: `/pty/${encodeURIComponent(input.ptyID)}`,
-            body: { title: input["title"], size: input["size"] },
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      remove: (input: PtyRemoveInput, requestOptions?: RequestOptions) =>
-        request<PtyRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/pty/${encodeURIComponent(input.ptyID)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    loop: {
-      list: (requestOptions?: RequestOptions) =>
-        request<LoopListOutput>(
-          { method: "GET", path: `/loop`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      templates: (requestOptions?: RequestOptions) =>
-        request<LoopTemplatesOutput>(
-          { method: "GET", path: `/loop/templates`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      generate: (input: LoopGenerateInput, requestOptions?: RequestOptions) =>
-        request<LoopGenerateOutput>(
-          {
-            method: "POST",
-            path: `/loop/generate`,
-            body: { description: input["description"], model: input["model"], agent: input["agent"] },
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      recentRuns: (input?: LoopRecentRunsInput, requestOptions?: RequestOptions) =>
-        request<LoopRecentRunsOutput>(
-          {
-            method: "GET",
-            path: `/loop/runs/recent`,
-            query: { limit: input?.["limit"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      get: (input: LoopGetInput, requestOptions?: RequestOptions) =>
-        request<LoopGetOutput>(
-          {
-            method: "GET",
-            path: `/loop/${encodeURIComponent(input.id)}`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      upsert: (input: LoopUpsertInput, requestOptions?: RequestOptions) =>
-        request<LoopUpsertOutput>(
-          {
-            method: "PUT",
-            path: `/loop`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      update: (input: LoopUpdateInput, requestOptions?: RequestOptions) =>
-        request<LoopUpdateOutput>(
-          {
-            method: "POST",
-            path: `/loop/${encodeURIComponent(input.id)}`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [404, 400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      remove: (input: LoopRemoveInput, requestOptions?: RequestOptions) =>
-        request<LoopRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/loop/${encodeURIComponent(input.id)}`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      toggle: (input: LoopToggleInput, requestOptions?: RequestOptions) =>
-        request<LoopToggleOutput>(
-          {
-            method: "POST",
-            path: `/loop/${encodeURIComponent(input.id)}/toggle`,
-            body: { enabled: input["enabled"] },
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      run: (input: LoopRunInput, requestOptions?: RequestOptions) =>
-        request<LoopRunOutput>(
-          {
-            method: "POST",
-            path: `/loop/${encodeURIComponent(input.id)}/run`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      abort: (input: LoopAbortInput, requestOptions?: RequestOptions) =>
-        request<LoopAbortOutput>(
-          {
-            method: "POST",
-            path: `/loop/${encodeURIComponent(input.id)}/abort`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      pause: (input: LoopPauseInput, requestOptions?: RequestOptions) =>
-        request<LoopPauseOutput>(
-          {
-            method: "POST",
-            path: `/loop/${encodeURIComponent(input.id)}/pause`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      resume: (input: LoopResumeInput, requestOptions?: RequestOptions) =>
-        request<LoopResumeOutput>(
-          {
-            method: "POST",
-            path: `/loop/${encodeURIComponent(input.id)}/resume`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      runs: (input: LoopRunsInput, requestOptions?: RequestOptions) =>
-        request<LoopRunsOutput>(
-          {
-            method: "GET",
-            path: `/loop/${encodeURIComponent(input.id)}/runs`,
-            query: { limit: input["limit"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    session: {
-      list: (input?: SessionListInput, requestOptions?: RequestOptions) =>
-        request<SessionListOutput>(
-          {
-            method: "GET",
-            path: `/session`,
-            query: {
-              directory: input?.["directory"],
-              roots: input?.["roots"],
-              start: input?.["start"],
-              search: input?.["search"],
-              limit: input?.["limit"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      create: (input?: SessionCreateInput, requestOptions?: RequestOptions) =>
-        request<SessionCreateOutput>(
-          {
-            method: "POST",
-            path: `/session`,
-            body: {
-              parentID: input?.["parentID"],
-              title: input?.["title"],
-              permission: input?.["permission"],
-              skills: input?.["skills"],
-              github: input?.["github"],
-              workspaceID: input?.["workspaceID"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      status: (requestOptions?: RequestOptions) =>
-        request<SessionStatusOutput>(
-          { method: "GET", path: `/session/status`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      get: (input: SessionGetInput, requestOptions?: RequestOptions) =>
-        request<SessionGetOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      remove: (input: SessionRemoveInput, requestOptions?: RequestOptions) =>
-        request<SessionRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/session/${encodeURIComponent(input.sessionID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      update: (input: SessionUpdateInput, requestOptions?: RequestOptions) =>
-        request<SessionUpdateOutput>(
-          {
-            method: "PATCH",
-            path: `/session/${encodeURIComponent(input.sessionID)}`,
-            body: { title: input["title"], time: input["time"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      fork: (input: SessionForkInput, requestOptions?: RequestOptions) =>
-        request<SessionForkOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/fork`,
-            body: { messageID: input["messageID"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      abort: (input: SessionAbortInput, requestOptions?: RequestOptions) =>
-        request<SessionAbortOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/abort`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      revert: (input: SessionRevertInput, requestOptions?: RequestOptions) =>
-        request<SessionRevertOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/revert`,
-            body: { messageID: input["messageID"], partID: input["partID"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      unrevert: (input: SessionUnrevertInput, requestOptions?: RequestOptions) =>
-        request<SessionUnrevertOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/unrevert`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      share: (input: SessionShareInput, requestOptions?: RequestOptions) =>
-        request<SessionShareOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/share`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      unshare: (input: SessionUnshareInput, requestOptions?: RequestOptions) =>
-        request<SessionUnshareOutput>(
-          {
-            method: "DELETE",
-            path: `/session/${encodeURIComponent(input.sessionID)}/share`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      summarize: (input: SessionSummarizeInput, requestOptions?: RequestOptions) =>
-        request<SessionSummarizeOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/summarize`,
-            body: { providerID: input["providerID"], modelID: input["modelID"], auto: input["auto"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      command: (input: SessionCommandInput, requestOptions?: RequestOptions) =>
-        request<SessionCommandOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/command`,
-            body: {
-              messageID: input["messageID"],
-              agent: input["agent"],
-              model: input["model"],
-              arguments: input["arguments"],
-              command: input["command"],
-              variant: input["variant"],
-              parts: input["parts"],
-            },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      shell: (input: SessionShellInput, requestOptions?: RequestOptions) =>
-        request<SessionShellOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/shell`,
-            body: { agent: input["agent"], model: input["model"], command: input["command"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      permissionRespond: (input: SessionPermissionRespondInput, requestOptions?: RequestOptions) =>
-        request<SessionPermissionRespondOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/permissions/${encodeURIComponent(input.permissionID)}`,
-            body: { response: input["response"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      children: (input: SessionChildrenInput, requestOptions?: RequestOptions) =>
-        request<SessionChildrenOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/children`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      todo: (input: SessionTodoInput, requestOptions?: RequestOptions) =>
-        request<SessionTodoOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/todo`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      diff: (input: SessionDiffInput, requestOptions?: RequestOptions) =>
-        request<SessionDiffOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/diff`,
-            query: { messageID: input["messageID"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      messages: (input: SessionMessagesInput, requestOptions?: RequestOptions) =>
-        request<SessionMessagesOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/message`,
-            query: { limit: input["limit"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      message: (input: SessionMessageInput, requestOptions?: RequestOptions) =>
-        request<SessionMessageOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      messageRemove: (input: SessionMessageRemoveInput, requestOptions?: RequestOptions) =>
-        request<SessionMessageRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      partRemove: (input: SessionPartRemoveInput, requestOptions?: RequestOptions) =>
-        request<SessionPartRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}/part/${encodeURIComponent(input.partID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      v2Entries: (input: SessionV2EntriesInput, requestOptions?: RequestOptions) =>
-        request<SessionV2EntriesOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/v2/entries`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      v2State: (input: SessionV2StateInput, requestOptions?: RequestOptions) =>
-        request<SessionV2StateOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/v2/state`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      v2Events: (input: SessionV2EventsInput, requestOptions?: RequestOptions) =>
-        request<SessionV2EventsOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/v2/events`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      instructions: (input: SessionInstructionsInput, requestOptions?: RequestOptions) =>
-        request<SessionInstructionsOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/instructions`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      contextBreakdown: (input: SessionContextBreakdownInput, requestOptions?: RequestOptions) =>
-        request<SessionContextBreakdownOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/context`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      contextToggle: (input: SessionContextToggleInput, requestOptions?: RequestOptions) =>
-        request<SessionContextToggleOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/context/toggle`,
-            body: { kind: input["kind"], key: input["key"], enabled: input["enabled"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      goal: (input: SessionGoalInput, requestOptions?: RequestOptions) =>
-        request<SessionGoalOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/goal`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      background: (input: SessionBackgroundInput, requestOptions?: RequestOptions) =>
-        request<SessionBackgroundOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/background`,
-            successStatus: 200,
-            declaredStatuses: [404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      backgroundInspect: (input: SessionBackgroundInspectInput, requestOptions?: RequestOptions) =>
-        request<SessionBackgroundInspectOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/background/${encodeURIComponent(input.delegationID)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      backgroundRead: (input: SessionBackgroundReadInput, requestOptions?: RequestOptions) =>
-        request<SessionBackgroundReadOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/background/${encodeURIComponent(input.delegationID)}/read`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      backgroundCancel: (input: SessionBackgroundCancelInput, requestOptions?: RequestOptions) =>
-        request<SessionBackgroundCancelOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/background/${encodeURIComponent(input.delegationID)}/cancel`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      monitor: (input: SessionMonitorInput, requestOptions?: RequestOptions) =>
-        request<SessionMonitorOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/monitor/${encodeURIComponent(input.monitorID)}`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      monitorLog: (input: SessionMonitorLogInput, requestOptions?: RequestOptions) =>
-        request<SessionMonitorLogOutput>(
-          {
-            method: "GET",
-            path: `/session/${encodeURIComponent(input.sessionID)}/monitor/${encodeURIComponent(input.monitorID)}/log`,
-            query: { lines: input["lines"] },
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      monitorCancel: (input: SessionMonitorCancelInput, requestOptions?: RequestOptions) =>
-        request<SessionMonitorCancelOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/monitor/${encodeURIComponent(input.monitorID)}/cancel`,
-            successStatus: 200,
-            declaredStatuses: [404, 409],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    tui: {
-      appendPrompt: (input: TuiAppendPromptInput, requestOptions?: RequestOptions) =>
-        request<TuiAppendPromptOutput>(
-          {
-            method: "POST",
-            path: `/tui/append-prompt`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      openHelp: (requestOptions?: RequestOptions) =>
-        request<TuiOpenHelpOutput>(
-          { method: "POST", path: `/tui/open-help`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      openSessions: (requestOptions?: RequestOptions) =>
-        request<TuiOpenSessionsOutput>(
-          { method: "POST", path: `/tui/open-sessions`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      openThemes: (requestOptions?: RequestOptions) =>
-        request<TuiOpenThemesOutput>(
-          { method: "POST", path: `/tui/open-themes`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      openModels: (requestOptions?: RequestOptions) =>
-        request<TuiOpenModelsOutput>(
-          { method: "POST", path: `/tui/open-models`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      submitPrompt: (requestOptions?: RequestOptions) =>
-        request<TuiSubmitPromptOutput>(
-          { method: "POST", path: `/tui/submit-prompt`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      clearPrompt: (requestOptions?: RequestOptions) =>
-        request<TuiClearPromptOutput>(
-          { method: "POST", path: `/tui/clear-prompt`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      executeCommand: (input: TuiExecuteCommandInput, requestOptions?: RequestOptions) =>
-        request<TuiExecuteCommandOutput>(
-          {
-            method: "POST",
-            path: `/tui/execute-command`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      showToast: (input: TuiShowToastInput, requestOptions?: RequestOptions) =>
-        request<TuiShowToastOutput>(
-          {
-            method: "POST",
-            path: `/tui/show-toast`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      publish: (input: TuiPublishInput, requestOptions?: RequestOptions) =>
-        request<TuiPublishOutput>(
-          {
-            method: "POST",
-            path: `/tui/publish`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [400],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      selectSession: (input: TuiSelectSessionInput, requestOptions?: RequestOptions) =>
-        request<TuiSelectSessionOutput>(
-          {
-            method: "POST",
-            path: `/tui/select-session`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [400, 404],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      controlNext: (requestOptions?: RequestOptions) =>
-        request<TuiControlNextOutput>(
-          { method: "GET", path: `/tui/control/next`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      controlResponse: (input: TuiControlResponseInput, requestOptions?: RequestOptions) =>
-        request<TuiControlResponseOutput>(
-          {
-            method: "POST",
-            path: `/tui/control/response`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    workspace: {
-      adaptors: (requestOptions?: RequestOptions) =>
-        request<WorkspaceAdaptorsOutput>(
-          {
-            method: "GET",
-            path: `/experimental/workspace/adaptor`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      syncList: (requestOptions?: RequestOptions) =>
-        request<WorkspaceSyncListOutput>(
-          {
-            method: "POST",
-            path: `/experimental/workspace/sync-list`,
-            successStatus: 204,
-            declaredStatuses: [],
-            empty: true,
-          },
-          requestOptions,
-        ),
-      status: (requestOptions?: RequestOptions) =>
-        request<WorkspaceStatusOutput>(
-          {
-            method: "GET",
-            path: `/experimental/workspace/status`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      create: (input: WorkspaceCreateInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceCreateOutput>(
-          {
-            method: "POST",
-            path: `/experimental/workspace/${encodeURIComponent(input.id)}`,
-            body: { branch: input["branch"], config: input["config"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      list: (requestOptions?: RequestOptions) =>
-        request<WorkspaceListOutput>(
-          { method: "GET", path: `/experimental/workspace`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      remove: (input: WorkspaceRemoveInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/experimental/workspace/${encodeURIComponent(input.id)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      restore: (input: WorkspaceRestoreInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceRestoreOutput>(
-          {
-            method: "POST",
-            path: `/experimental/workspace/${encodeURIComponent(input.id)}/restore`,
-            query: { timeoutMs: input["timeoutMs"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      sessionRestore: (input: WorkspaceSessionRestoreInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceSessionRestoreOutput>(
-          {
-            method: "POST",
-            path: `/experimental/workspace/${encodeURIComponent(input.id)}/session/${encodeURIComponent(input.sessionID)}/restore`,
-            query: { timeoutMs: input["timeoutMs"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      warp: (input: WorkspaceWarpInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceWarpOutput>(
-          {
-            method: "POST",
-            path: `/experimental/workspace/warp`,
-            body: {
-              id: input["id"],
-              sessionID: input["sessionID"],
-              copyChanges: input["copyChanges"],
-              timeoutMs: input["timeoutMs"],
-            },
-            successStatus: 204,
-            declaredStatuses: [],
-            empty: true,
-          },
-          requestOptions,
-        ),
-    },
-    sync: {
-      event: (input: SyncEventInput, requestOptions?: RequestOptions) =>
-        request<SyncEventOutput>(
-          {
-            method: "POST",
-            path: `/sync/event`,
-            body: { event: input["event"], projectID: input["projectID"] },
-            successStatus: 204,
-            declaredStatuses: [],
-            empty: true,
-          },
-          requestOptions,
-        ),
-      outbox: (input: SyncOutboxInput, requestOptions?: RequestOptions) =>
-        request<SyncOutboxOutput>(
-          {
-            method: "GET",
-            path: `/sync/outbox`,
-            query: { projectID: input["projectID"], since: input["since"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      snapshot: (input: SyncSnapshotInput, requestOptions?: RequestOptions) =>
-        request<SyncSnapshotOutput>(
-          {
-            method: "GET",
-            path: `/sync/snapshot/${encodeURIComponent(input.aggregateID)}`,
-            query: { projectID: input["projectID"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      stream: (input: SyncStreamInput, requestOptions?: RequestOptions): AsyncIterable<SyncStreamOutput> =>
-        sse<SyncStreamOutput>(
-          {
-            method: "GET",
-            path: `/sync/stream`,
-            query: { projectID: input["projectID"], token: input["token"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      stats: (input?: SyncStatsInput, requestOptions?: RequestOptions) =>
-        request<SyncStatsOutput>(
-          {
-            method: "GET",
-            path: `/sync/stats`,
-            query: { projectID: input?.["projectID"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      config: (input: SyncConfigInput, requestOptions?: RequestOptions) =>
-        request<SyncConfigOutput>(
-          {
-            method: "POST",
-            path: `/sync/config`,
-            body: { url: input["url"], token: input["token"], autostart: input["autostart"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      connect: (requestOptions?: RequestOptions) =>
-        request<SyncConnectOutput>(
-          { method: "POST", path: `/sync/connect`, successStatus: 204, declaredStatuses: [], empty: true },
-          requestOptions,
-        ),
-      disconnect: (requestOptions?: RequestOptions) =>
-        request<SyncDisconnectOutput>(
-          { method: "POST", path: `/sync/disconnect`, successStatus: 204, declaredStatuses: [], empty: true },
-          requestOptions,
-        ),
-      drain: (requestOptions?: RequestOptions) =>
-        request<SyncDrainOutput>(
-          { method: "POST", path: `/sync/drain`, successStatus: 204, declaredStatuses: [], empty: true },
-          requestOptions,
-        ),
-    },
-    auth: {
-      remove: (input: AuthRemoveInput, requestOptions?: RequestOptions) =>
-        request<AuthRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/auth/${encodeURIComponent(input.providerID)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    "config-management": {
-      reload: (requestOptions?: RequestOptions) =>
-        request<ConfigManagementReloadOutput>(
-          { method: "POST", path: `/config/reload`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      mcpAdd: (input: ConfigManagementMcpAddInput, requestOptions?: RequestOptions) =>
-        request<ConfigManagementMcpAddOutput>(
-          {
-            method: "POST",
-            path: `/config/mcp`,
-            body: { name: input["name"], config: input["config"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      mcpUpdate: (input: ConfigManagementMcpUpdateInput, requestOptions?: RequestOptions) =>
-        request<ConfigManagementMcpUpdateOutput>(
-          {
-            method: "PATCH",
-            path: `/config/mcp/${encodeURIComponent(input.name)}`,
-            body: input["payload"],
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      mcpRemove: (input: ConfigManagementMcpRemoveInput, requestOptions?: RequestOptions) =>
-        request<ConfigManagementMcpRemoveOutput>(
-          {
-            method: "DELETE",
-            path: `/config/mcp/${encodeURIComponent(input.name)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      profileCreate: (input: ConfigManagementProfileCreateInput, requestOptions?: RequestOptions) =>
-        request<ConfigManagementProfileCreateOutput>(
-          {
-            method: "POST",
-            path: `/config/profiles`,
-            body: { name: input["name"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      profileActivate: (input: ConfigManagementProfileActivateInput, requestOptions?: RequestOptions) =>
-        request<ConfigManagementProfileActivateOutput>(
-          {
-            method: "POST",
-            path: `/config/profiles/activate/${encodeURIComponent(input.name)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    "session-prompt": {
-      prompt: (input: SessionPromptPromptInput, requestOptions?: RequestOptions) =>
-        request<SessionPromptPromptOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/message`,
-            body: {
-              messageID: input["messageID"],
-              model: input["model"],
-              agent: input["agent"],
-              noReply: input["noReply"],
-              tools: input["tools"],
-              format: input["format"],
-              system: input["system"],
-              variant: input["variant"],
-              parts: input["parts"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      promptAsync: (input: SessionPromptPromptAsyncInput, requestOptions?: RequestOptions) =>
-        request<SessionPromptPromptAsyncOutput>(
-          {
-            method: "POST",
-            path: `/session/${encodeURIComponent(input.sessionID)}/prompt_async`,
-            body: {
-              messageID: input["messageID"],
-              model: input["model"],
-              agent: input["agent"],
-              noReply: input["noReply"],
-              tools: input["tools"],
-              format: input["format"],
-              system: input["system"],
-              variant: input["variant"],
-              parts: input["parts"],
-            },
-            successStatus: 204,
-            declaredStatuses: [],
-            empty: true,
-          },
-          requestOptions,
-        ),
-    },
-    share: {
-      short: (input: ShareShortInput, requestOptions?: RequestOptions) =>
-        request<ShareShortOutput>(
-          {
-            method: "GET",
-            path: `/s/${encodeURIComponent(input.shareID)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      page: (input: SharePageInput, requestOptions?: RequestOptions) =>
-        request<SharePageOutput>(
-          {
-            method: "GET",
-            path: `/share/${encodeURIComponent(input.shareID)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      api: (input: ShareApiInput, requestOptions?: RequestOptions) =>
-        request<ShareApiOutput>(
-          {
-            method: "GET",
-            path: `/api/share/${encodeURIComponent(input.shareID)}`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      data: (input: ShareDataInput, requestOptions?: RequestOptions) =>
-        request<ShareDataOutput>(
-          {
-            method: "GET",
-            path: `/api/share/${encodeURIComponent(input.shareID)}/data`,
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    events: {
-      subscribe: (requestOptions?: RequestOptions): AsyncIterable<EventsSubscribeOutput> =>
-        sse<EventsSubscribeOutput>(
-          { method: "GET", path: `/event`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-      global: (requestOptions?: RequestOptions): AsyncIterable<EventsGlobalOutput> =>
-        sse<EventsGlobalOutput>(
-          { method: "GET", path: `/global/event`, successStatus: 200, declaredStatuses: [], empty: false },
-          requestOptions,
-        ),
-    },
-    "workspace-extra": {
-      events: (input: WorkspaceExtraEventsInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceExtraEventsOutput>(
-          {
-            method: "GET",
-            path: `/experimental/workspace/${encodeURIComponent(input.id)}/events`,
-            query: { from: input["from"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      sessionWarp: (input: WorkspaceExtraSessionWarpInput, requestOptions?: RequestOptions) =>
-        request<WorkspaceExtraSessionWarpOutput>(
-          {
-            method: "POST",
-            path: `/experimental/workspace/session/${encodeURIComponent(input.sessionID)}/warp`,
-            body: {
-              workspaceID: input["workspaceID"],
-              copyChanges: input["copyChanges"],
-              timeoutMs: input["timeoutMs"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-    },
-    users: {
-      register: (input: UsersRegisterInput, requestOptions?: RequestOptions) =>
-        request<UsersRegisterOutput>(
-          {
-            method: "POST",
-            path: `/user/register`,
-            body: {
-              username: input["username"],
-              email: input["email"],
-              password: input["password"],
-              displayName: input["displayName"],
-            },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      login: (input: UsersLoginInput, requestOptions?: RequestOptions) =>
-        request<UsersLoginOutput>(
-          {
-            method: "POST",
-            path: `/user/login`,
-            body: { email: input["email"], password: input["password"] },
-            successStatus: 200,
-            declaredStatuses: [],
-            empty: false,
-          },
-          requestOptions,
-        ),
-      update: (input: UsersUpdateInput, requestOptions?: RequestOptions) =>
-        request<UsersUpdateOutput>(
-          {
-            method: "PATCH",
-            path: `/user/${encodeURIComponent(input.id)}`,
-            body: { displayName: input["displayName"], password: input["password"], role: input["role"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,
@@ -3643,6 +2262,1387 @@ export function make(options: ClientOptions) {
           {
             method: "DELETE",
             path: `/mobile/pty/${encodeURIComponent(input.ptyID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    project: {
+      list: (requestOptions?: RequestOptions) =>
+        request<ProjectListOutput>(
+          { method: "GET", path: `/project`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      current: (requestOptions?: RequestOptions) =>
+        request<ProjectCurrentOutput>(
+          { method: "GET", path: `/project/current`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      update: (input: ProjectUpdateInput, requestOptions?: RequestOptions) =>
+        request<ProjectUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/project/${encodeURIComponent(input.projectID)}`,
+            body: { name: input["name"], icon: input["icon"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      directoryList: (input: ProjectDirectoryListInput, requestOptions?: RequestOptions) =>
+        request<ProjectDirectoryListOutput>(
+          {
+            method: "GET",
+            path: `/project/${encodeURIComponent(input.projectID)}/directory`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      copyCreate: (input: ProjectCopyCreateInput, requestOptions?: RequestOptions) =>
+        request<ProjectCopyCreateOutput>(
+          {
+            method: "POST",
+            path: `/project/${encodeURIComponent(input.projectID)}/copy`,
+            body: { strategy: input["strategy"], directory: input["directory"], name: input["name"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      copyRemove: (input: ProjectCopyRemoveInput, requestOptions?: RequestOptions) =>
+        request<ProjectCopyRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/project/${encodeURIComponent(input.projectID)}/copy`,
+            body: { directory: input["directory"], force: input["force"] },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+      copyRefresh: (input: ProjectCopyRefreshInput, requestOptions?: RequestOptions) =>
+        request<ProjectCopyRefreshOutput>(
+          {
+            method: "POST",
+            path: `/project/${encodeURIComponent(input.projectID)}/copy/refresh`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    provider: {
+      list: (requestOptions?: RequestOptions) =>
+        request<ProviderListOutput>(
+          { method: "GET", path: `/provider`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      auth: (requestOptions?: RequestOptions) =>
+        request<ProviderAuthOutput>(
+          { method: "GET", path: `/provider/auth`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      api: (input: ProviderApiInput, requestOptions?: RequestOptions) =>
+        request<ProviderApiOutput>(
+          {
+            method: "POST",
+            path: `/provider/${encodeURIComponent(input.providerID)}/api`,
+            body: { key: input["key"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      removeAuth: (input: ProviderRemoveAuthInput, requestOptions?: RequestOptions) =>
+        request<ProviderRemoveAuthOutput>(
+          {
+            method: "DELETE",
+            path: `/provider/${encodeURIComponent(input.providerID)}/auth`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      oauthAuthorize: (input: ProviderOauthAuthorizeInput, requestOptions?: RequestOptions) =>
+        request<ProviderOauthAuthorizeOutput>(
+          {
+            method: "POST",
+            path: `/provider/${encodeURIComponent(input.providerID)}/oauth/authorize`,
+            body: { method: input["method"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      oauthCallback: (input: ProviderOauthCallbackInput, requestOptions?: RequestOptions) =>
+        request<ProviderOauthCallbackOutput>(
+          {
+            method: "POST",
+            path: `/provider/${encodeURIComponent(input.providerID)}/oauth/callback`,
+            body: { method: input["method"], code: input["code"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    question: {
+      list: (requestOptions?: RequestOptions) =>
+        request<QuestionListOutput>(
+          { method: "GET", path: `/question`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      reply: (input: QuestionReplyInput, requestOptions?: RequestOptions) =>
+        request<QuestionReplyOutput>(
+          {
+            method: "POST",
+            path: `/question/${encodeURIComponent(input.requestID)}/reply`,
+            body: { answers: input["answers"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      reject: (input: QuestionRejectInput, requestOptions?: RequestOptions) =>
+        request<QuestionRejectOutput>(
+          {
+            method: "POST",
+            path: `/question/${encodeURIComponent(input.requestID)}/reject`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    permission: {
+      list: (requestOptions?: RequestOptions) =>
+        request<PermissionListOutput>(
+          { method: "GET", path: `/permission`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      reply: (input: PermissionReplyInput, requestOptions?: RequestOptions) =>
+        request<PermissionReplyOutput>(
+          {
+            method: "POST",
+            path: `/permission/${encodeURIComponent(input.requestID)}/reply`,
+            body: { reply: input["reply"], message: input["message"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    pty: {
+      list: (requestOptions?: RequestOptions) =>
+        request<PtyListOutput>(
+          { method: "GET", path: `/pty`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      create: (input?: PtyCreateInput, requestOptions?: RequestOptions) =>
+        request<PtyCreateOutput>(
+          {
+            method: "POST",
+            path: `/pty`,
+            body: {
+              command: input?.["command"],
+              args: input?.["args"],
+              cwd: input?.["cwd"],
+              title: input?.["title"],
+              env: input?.["env"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      get: (input: PtyGetInput, requestOptions?: RequestOptions) =>
+        request<PtyGetOutput>(
+          {
+            method: "GET",
+            path: `/pty/${encodeURIComponent(input.ptyID)}`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      update: (input: PtyUpdateInput, requestOptions?: RequestOptions) =>
+        request<PtyUpdateOutput>(
+          {
+            method: "PUT",
+            path: `/pty/${encodeURIComponent(input.ptyID)}`,
+            body: { title: input["title"], size: input["size"] },
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      remove: (input: PtyRemoveInput, requestOptions?: RequestOptions) =>
+        request<PtyRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/pty/${encodeURIComponent(input.ptyID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    loop: {
+      list: (requestOptions?: RequestOptions) =>
+        request<LoopListOutput>(
+          { method: "GET", path: `/loop`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      templates: (requestOptions?: RequestOptions) =>
+        request<LoopTemplatesOutput>(
+          { method: "GET", path: `/loop/templates`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      generate: (input: LoopGenerateInput, requestOptions?: RequestOptions) =>
+        request<LoopGenerateOutput>(
+          {
+            method: "POST",
+            path: `/loop/generate`,
+            body: { description: input["description"], model: input["model"], agent: input["agent"] },
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      recentRuns: (input?: LoopRecentRunsInput, requestOptions?: RequestOptions) =>
+        request<LoopRecentRunsOutput>(
+          {
+            method: "GET",
+            path: `/loop/runs/recent`,
+            query: { limit: input?.["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      get: (input: LoopGetInput, requestOptions?: RequestOptions) =>
+        request<LoopGetOutput>(
+          {
+            method: "GET",
+            path: `/loop/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      upsert: (input: LoopUpsertInput, requestOptions?: RequestOptions) =>
+        request<LoopUpsertOutput>(
+          {
+            method: "PUT",
+            path: `/loop`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      update: (input: LoopUpdateInput, requestOptions?: RequestOptions) =>
+        request<LoopUpdateOutput>(
+          {
+            method: "POST",
+            path: `/loop/${encodeURIComponent(input.id)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [404, 400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      remove: (input: LoopRemoveInput, requestOptions?: RequestOptions) =>
+        request<LoopRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/loop/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      toggle: (input: LoopToggleInput, requestOptions?: RequestOptions) =>
+        request<LoopToggleOutput>(
+          {
+            method: "POST",
+            path: `/loop/${encodeURIComponent(input.id)}/toggle`,
+            body: { enabled: input["enabled"] },
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      run: (input: LoopRunInput, requestOptions?: RequestOptions) =>
+        request<LoopRunOutput>(
+          {
+            method: "POST",
+            path: `/loop/${encodeURIComponent(input.id)}/run`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      abort: (input: LoopAbortInput, requestOptions?: RequestOptions) =>
+        request<LoopAbortOutput>(
+          {
+            method: "POST",
+            path: `/loop/${encodeURIComponent(input.id)}/abort`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      pause: (input: LoopPauseInput, requestOptions?: RequestOptions) =>
+        request<LoopPauseOutput>(
+          {
+            method: "POST",
+            path: `/loop/${encodeURIComponent(input.id)}/pause`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      resume: (input: LoopResumeInput, requestOptions?: RequestOptions) =>
+        request<LoopResumeOutput>(
+          {
+            method: "POST",
+            path: `/loop/${encodeURIComponent(input.id)}/resume`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      runs: (input: LoopRunsInput, requestOptions?: RequestOptions) =>
+        request<LoopRunsOutput>(
+          {
+            method: "GET",
+            path: `/loop/${encodeURIComponent(input.id)}/runs`,
+            query: { limit: input["limit"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    session: {
+      list: (input?: SessionListInput, requestOptions?: RequestOptions) =>
+        request<SessionListOutput>(
+          {
+            method: "GET",
+            path: `/session`,
+            query: {
+              directory: input?.["directory"],
+              roots: input?.["roots"],
+              start: input?.["start"],
+              search: input?.["search"],
+              limit: input?.["limit"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      create: (input?: SessionCreateInput, requestOptions?: RequestOptions) =>
+        request<SessionCreateOutput>(
+          {
+            method: "POST",
+            path: `/session`,
+            body: {
+              parentID: input?.["parentID"],
+              title: input?.["title"],
+              permission: input?.["permission"],
+              skills: input?.["skills"],
+              github: input?.["github"],
+              workspaceID: input?.["workspaceID"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      status: (requestOptions?: RequestOptions) =>
+        request<SessionStatusOutput>(
+          { method: "GET", path: `/session/status`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      get: (input: SessionGetInput, requestOptions?: RequestOptions) =>
+        request<SessionGetOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      remove: (input: SessionRemoveInput, requestOptions?: RequestOptions) =>
+        request<SessionRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/session/${encodeURIComponent(input.sessionID)}`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      update: (input: SessionUpdateInput, requestOptions?: RequestOptions) =>
+        request<SessionUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/session/${encodeURIComponent(input.sessionID)}`,
+            body: { title: input["title"], time: input["time"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      fork: (input: SessionForkInput, requestOptions?: RequestOptions) =>
+        request<SessionForkOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/fork`,
+            body: { messageID: input["messageID"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      abort: (input: SessionAbortInput, requestOptions?: RequestOptions) =>
+        request<SessionAbortOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/abort`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      revert: (input: SessionRevertInput, requestOptions?: RequestOptions) =>
+        request<SessionRevertOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/revert`,
+            body: { messageID: input["messageID"], partID: input["partID"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      unrevert: (input: SessionUnrevertInput, requestOptions?: RequestOptions) =>
+        request<SessionUnrevertOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/unrevert`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      share: (input: SessionShareInput, requestOptions?: RequestOptions) =>
+        request<SessionShareOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/share`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      unshare: (input: SessionUnshareInput, requestOptions?: RequestOptions) =>
+        request<SessionUnshareOutput>(
+          {
+            method: "DELETE",
+            path: `/session/${encodeURIComponent(input.sessionID)}/share`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      summarize: (input: SessionSummarizeInput, requestOptions?: RequestOptions) =>
+        request<SessionSummarizeOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/summarize`,
+            body: { providerID: input["providerID"], modelID: input["modelID"], auto: input["auto"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      command: (input: SessionCommandInput, requestOptions?: RequestOptions) =>
+        request<SessionCommandOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/command`,
+            body: {
+              messageID: input["messageID"],
+              agent: input["agent"],
+              model: input["model"],
+              arguments: input["arguments"],
+              command: input["command"],
+              variant: input["variant"],
+              parts: input["parts"],
+            },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      shell: (input: SessionShellInput, requestOptions?: RequestOptions) =>
+        request<SessionShellOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/shell`,
+            body: { agent: input["agent"], model: input["model"], command: input["command"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      permissionRespond: (input: SessionPermissionRespondInput, requestOptions?: RequestOptions) =>
+        request<SessionPermissionRespondOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/permissions/${encodeURIComponent(input.permissionID)}`,
+            body: { response: input["response"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      children: (input: SessionChildrenInput, requestOptions?: RequestOptions) =>
+        request<SessionChildrenOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/children`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      todo: (input: SessionTodoInput, requestOptions?: RequestOptions) =>
+        request<SessionTodoOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/todo`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      diff: (input: SessionDiffInput, requestOptions?: RequestOptions) =>
+        request<SessionDiffOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/diff`,
+            query: { messageID: input["messageID"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      messages: (input: SessionMessagesInput, requestOptions?: RequestOptions) =>
+        request<SessionMessagesOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message`,
+            query: { limit: input["limit"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      message: (input: SessionMessageInput, requestOptions?: RequestOptions) =>
+        request<SessionMessageOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      messageRemove: (input: SessionMessageRemoveInput, requestOptions?: RequestOptions) =>
+        request<SessionMessageRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      partRemove: (input: SessionPartRemoveInput, requestOptions?: RequestOptions) =>
+        request<SessionPartRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}/part/${encodeURIComponent(input.partID)}`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      v2Entries: (input: SessionV2EntriesInput, requestOptions?: RequestOptions) =>
+        request<SessionV2EntriesOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/v2/entries`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      v2State: (input: SessionV2StateInput, requestOptions?: RequestOptions) =>
+        request<SessionV2StateOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/v2/state`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      v2Events: (input: SessionV2EventsInput, requestOptions?: RequestOptions) =>
+        request<SessionV2EventsOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/v2/events`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      instructions: (input: SessionInstructionsInput, requestOptions?: RequestOptions) =>
+        request<SessionInstructionsOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/instructions`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      contextBreakdown: (input: SessionContextBreakdownInput, requestOptions?: RequestOptions) =>
+        request<SessionContextBreakdownOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/context`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      contextToggle: (input: SessionContextToggleInput, requestOptions?: RequestOptions) =>
+        request<SessionContextToggleOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/context/toggle`,
+            body: { kind: input["kind"], key: input["key"], enabled: input["enabled"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      goal: (input: SessionGoalInput, requestOptions?: RequestOptions) =>
+        request<SessionGoalOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/goal`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      background: (input: SessionBackgroundInput, requestOptions?: RequestOptions) =>
+        request<SessionBackgroundOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/background`,
+            successStatus: 200,
+            declaredStatuses: [404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      backgroundInspect: (input: SessionBackgroundInspectInput, requestOptions?: RequestOptions) =>
+        request<SessionBackgroundInspectOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/background/${encodeURIComponent(input.delegationID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      backgroundRead: (input: SessionBackgroundReadInput, requestOptions?: RequestOptions) =>
+        request<SessionBackgroundReadOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/background/${encodeURIComponent(input.delegationID)}/read`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      backgroundCancel: (input: SessionBackgroundCancelInput, requestOptions?: RequestOptions) =>
+        request<SessionBackgroundCancelOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/background/${encodeURIComponent(input.delegationID)}/cancel`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      monitor: (input: SessionMonitorInput, requestOptions?: RequestOptions) =>
+        request<SessionMonitorOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/monitor/${encodeURIComponent(input.monitorID)}`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      monitorLog: (input: SessionMonitorLogInput, requestOptions?: RequestOptions) =>
+        request<SessionMonitorLogOutput>(
+          {
+            method: "GET",
+            path: `/session/${encodeURIComponent(input.sessionID)}/monitor/${encodeURIComponent(input.monitorID)}/log`,
+            query: { lines: input["lines"] },
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      monitorCancel: (input: SessionMonitorCancelInput, requestOptions?: RequestOptions) =>
+        request<SessionMonitorCancelOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/monitor/${encodeURIComponent(input.monitorID)}/cancel`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    sync: {
+      event: (input: SyncEventInput, requestOptions?: RequestOptions) =>
+        request<SyncEventOutput>(
+          {
+            method: "POST",
+            path: `/sync/event`,
+            body: { event: input["event"], projectID: input["projectID"] },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+      outbox: (input: SyncOutboxInput, requestOptions?: RequestOptions) =>
+        request<SyncOutboxOutput>(
+          {
+            method: "GET",
+            path: `/sync/outbox`,
+            query: { projectID: input["projectID"], since: input["since"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      snapshot: (input: SyncSnapshotInput, requestOptions?: RequestOptions) =>
+        request<SyncSnapshotOutput>(
+          {
+            method: "GET",
+            path: `/sync/snapshot/${encodeURIComponent(input.aggregateID)}`,
+            query: { projectID: input["projectID"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      stream: (input: SyncStreamInput, requestOptions?: RequestOptions): AsyncIterable<SyncStreamOutput> =>
+        sse<SyncStreamOutput>(
+          {
+            method: "GET",
+            path: `/sync/stream`,
+            query: { projectID: input["projectID"], token: input["token"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      stats: (input?: SyncStatsInput, requestOptions?: RequestOptions) =>
+        request<SyncStatsOutput>(
+          {
+            method: "GET",
+            path: `/sync/stats`,
+            query: { projectID: input?.["projectID"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      config: (input: SyncConfigInput, requestOptions?: RequestOptions) =>
+        request<SyncConfigOutput>(
+          {
+            method: "POST",
+            path: `/sync/config`,
+            body: { url: input["url"], token: input["token"], autostart: input["autostart"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      connect: (requestOptions?: RequestOptions) =>
+        request<SyncConnectOutput>(
+          { method: "POST", path: `/sync/connect`, successStatus: 204, declaredStatuses: [], empty: true },
+          requestOptions,
+        ),
+      disconnect: (requestOptions?: RequestOptions) =>
+        request<SyncDisconnectOutput>(
+          { method: "POST", path: `/sync/disconnect`, successStatus: 204, declaredStatuses: [], empty: true },
+          requestOptions,
+        ),
+      drain: (requestOptions?: RequestOptions) =>
+        request<SyncDrainOutput>(
+          { method: "POST", path: `/sync/drain`, successStatus: 204, declaredStatuses: [], empty: true },
+          requestOptions,
+        ),
+    },
+    tui: {
+      appendPrompt: (input: TuiAppendPromptInput, requestOptions?: RequestOptions) =>
+        request<TuiAppendPromptOutput>(
+          {
+            method: "POST",
+            path: `/tui/append-prompt`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      openHelp: (requestOptions?: RequestOptions) =>
+        request<TuiOpenHelpOutput>(
+          { method: "POST", path: `/tui/open-help`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      openSessions: (requestOptions?: RequestOptions) =>
+        request<TuiOpenSessionsOutput>(
+          { method: "POST", path: `/tui/open-sessions`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      openThemes: (requestOptions?: RequestOptions) =>
+        request<TuiOpenThemesOutput>(
+          { method: "POST", path: `/tui/open-themes`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      openModels: (requestOptions?: RequestOptions) =>
+        request<TuiOpenModelsOutput>(
+          { method: "POST", path: `/tui/open-models`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      submitPrompt: (requestOptions?: RequestOptions) =>
+        request<TuiSubmitPromptOutput>(
+          { method: "POST", path: `/tui/submit-prompt`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      clearPrompt: (requestOptions?: RequestOptions) =>
+        request<TuiClearPromptOutput>(
+          { method: "POST", path: `/tui/clear-prompt`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      executeCommand: (input: TuiExecuteCommandInput, requestOptions?: RequestOptions) =>
+        request<TuiExecuteCommandOutput>(
+          {
+            method: "POST",
+            path: `/tui/execute-command`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      showToast: (input: TuiShowToastInput, requestOptions?: RequestOptions) =>
+        request<TuiShowToastOutput>(
+          {
+            method: "POST",
+            path: `/tui/show-toast`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      publish: (input: TuiPublishInput, requestOptions?: RequestOptions) =>
+        request<TuiPublishOutput>(
+          {
+            method: "POST",
+            path: `/tui/publish`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      selectSession: (input: TuiSelectSessionInput, requestOptions?: RequestOptions) =>
+        request<TuiSelectSessionOutput>(
+          {
+            method: "POST",
+            path: `/tui/select-session`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [400, 404],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      controlNext: (requestOptions?: RequestOptions) =>
+        request<TuiControlNextOutput>(
+          { method: "GET", path: `/tui/control/next`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      controlResponse: (input: TuiControlResponseInput, requestOptions?: RequestOptions) =>
+        request<TuiControlResponseOutput>(
+          {
+            method: "POST",
+            path: `/tui/control/response`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    workspace: {
+      adaptors: (requestOptions?: RequestOptions) =>
+        request<WorkspaceAdaptorsOutput>(
+          {
+            method: "GET",
+            path: `/experimental/workspace/adaptor`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      syncList: (requestOptions?: RequestOptions) =>
+        request<WorkspaceSyncListOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/sync-list`,
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+      status: (requestOptions?: RequestOptions) =>
+        request<WorkspaceStatusOutput>(
+          {
+            method: "GET",
+            path: `/experimental/workspace/status`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      create: (input: WorkspaceCreateInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceCreateOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/${encodeURIComponent(input.id)}`,
+            body: { branch: input["branch"], config: input["config"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      list: (requestOptions?: RequestOptions) =>
+        request<WorkspaceListOutput>(
+          { method: "GET", path: `/experimental/workspace`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      remove: (input: WorkspaceRemoveInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/experimental/workspace/${encodeURIComponent(input.id)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      restore: (input: WorkspaceRestoreInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceRestoreOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/${encodeURIComponent(input.id)}/restore`,
+            query: { timeoutMs: input["timeoutMs"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionRestore: (input: WorkspaceSessionRestoreInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceSessionRestoreOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/${encodeURIComponent(input.id)}/session/${encodeURIComponent(input.sessionID)}/restore`,
+            query: { timeoutMs: input["timeoutMs"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      warp: (input: WorkspaceWarpInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceWarpOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/warp`,
+            body: {
+              id: input["id"],
+              sessionID: input["sessionID"],
+              copyChanges: input["copyChanges"],
+              timeoutMs: input["timeoutMs"],
+            },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    auth: {
+      remove: (input: AuthRemoveInput, requestOptions?: RequestOptions) =>
+        request<AuthRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/auth/${encodeURIComponent(input.providerID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    "config-management": {
+      reload: (requestOptions?: RequestOptions) =>
+        request<ConfigManagementReloadOutput>(
+          { method: "POST", path: `/config/reload`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      mcpAdd: (input: ConfigManagementMcpAddInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementMcpAddOutput>(
+          {
+            method: "POST",
+            path: `/config/mcp`,
+            body: { name: input["name"], config: input["config"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      mcpUpdate: (input: ConfigManagementMcpUpdateInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementMcpUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/config/mcp/${encodeURIComponent(input.name)}`,
+            body: input["payload"],
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      mcpRemove: (input: ConfigManagementMcpRemoveInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementMcpRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/config/mcp/${encodeURIComponent(input.name)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      profileCreate: (input: ConfigManagementProfileCreateInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementProfileCreateOutput>(
+          {
+            method: "POST",
+            path: `/config/profiles`,
+            body: { name: input["name"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      profileActivate: (input: ConfigManagementProfileActivateInput, requestOptions?: RequestOptions) =>
+        request<ConfigManagementProfileActivateOutput>(
+          {
+            method: "POST",
+            path: `/config/profiles/activate/${encodeURIComponent(input.name)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    "session-prompt": {
+      prompt: (input: SessionPromptPromptInput, requestOptions?: RequestOptions) =>
+        request<SessionPromptPromptOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/message`,
+            body: {
+              messageID: input["messageID"],
+              model: input["model"],
+              agent: input["agent"],
+              noReply: input["noReply"],
+              tools: input["tools"],
+              format: input["format"],
+              system: input["system"],
+              variant: input["variant"],
+              parts: input["parts"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      promptAsync: (input: SessionPromptPromptAsyncInput, requestOptions?: RequestOptions) =>
+        request<SessionPromptPromptAsyncOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/prompt_async`,
+            body: {
+              messageID: input["messageID"],
+              model: input["model"],
+              agent: input["agent"],
+              noReply: input["noReply"],
+              tools: input["tools"],
+              format: input["format"],
+              system: input["system"],
+              variant: input["variant"],
+              parts: input["parts"],
+            },
+            successStatus: 204,
+            declaredStatuses: [],
+            empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    share: {
+      short: (input: ShareShortInput, requestOptions?: RequestOptions) =>
+        request<ShareShortOutput>(
+          {
+            method: "GET",
+            path: `/s/${encodeURIComponent(input.shareID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      page: (input: SharePageInput, requestOptions?: RequestOptions) =>
+        request<SharePageOutput>(
+          {
+            method: "GET",
+            path: `/share/${encodeURIComponent(input.shareID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      api: (input: ShareApiInput, requestOptions?: RequestOptions) =>
+        request<ShareApiOutput>(
+          {
+            method: "GET",
+            path: `/api/share/${encodeURIComponent(input.shareID)}`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      data: (input: ShareDataInput, requestOptions?: RequestOptions) =>
+        request<ShareDataOutput>(
+          {
+            method: "GET",
+            path: `/api/share/${encodeURIComponent(input.shareID)}/data`,
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    events: {
+      subscribe: (requestOptions?: RequestOptions): AsyncIterable<EventsSubscribeOutput> =>
+        sse<EventsSubscribeOutput>(
+          { method: "GET", path: `/event`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+      global: (requestOptions?: RequestOptions): AsyncIterable<EventsGlobalOutput> =>
+        sse<EventsGlobalOutput>(
+          { method: "GET", path: `/global/event`, successStatus: 200, declaredStatuses: [], empty: false },
+          requestOptions,
+        ),
+    },
+    "workspace-extra": {
+      events: (input: WorkspaceExtraEventsInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceExtraEventsOutput>(
+          {
+            method: "GET",
+            path: `/experimental/workspace/${encodeURIComponent(input.id)}/events`,
+            query: { from: input["from"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      sessionWarp: (input: WorkspaceExtraSessionWarpInput, requestOptions?: RequestOptions) =>
+        request<WorkspaceExtraSessionWarpOutput>(
+          {
+            method: "POST",
+            path: `/experimental/workspace/session/${encodeURIComponent(input.sessionID)}/warp`,
+            body: {
+              workspaceID: input["workspaceID"],
+              copyChanges: input["copyChanges"],
+              timeoutMs: input["timeoutMs"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    users: {
+      register: (input: UsersRegisterInput, requestOptions?: RequestOptions) =>
+        request<UsersRegisterOutput>(
+          {
+            method: "POST",
+            path: `/user/register`,
+            body: {
+              username: input["username"],
+              email: input["email"],
+              password: input["password"],
+              displayName: input["displayName"],
+            },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      login: (input: UsersLoginInput, requestOptions?: RequestOptions) =>
+        request<UsersLoginOutput>(
+          {
+            method: "POST",
+            path: `/user/login`,
+            body: { email: input["email"], password: input["password"] },
+            successStatus: 200,
+            declaredStatuses: [],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      update: (input: UsersUpdateInput, requestOptions?: RequestOptions) =>
+        request<UsersUpdateOutput>(
+          {
+            method: "PATCH",
+            path: `/user/${encodeURIComponent(input.id)}`,
+            body: { displayName: input["displayName"], password: input["password"], role: input["role"] },
             successStatus: 200,
             declaredStatuses: [],
             empty: false,

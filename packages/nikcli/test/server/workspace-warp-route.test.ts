@@ -4,8 +4,8 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 
-// Regression test for the default (hono) warp route. The TUI talks to this
-// route (HttpApi bridge is off by default), and two bugs made warp fail:
+// Regression test for the workspace warp route. The TUI talks to this
+// route, and two bugs made warp fail:
 //   1. `POST /warp` was registered after `POST /:id`, so it matched the create
 //      route as id="warp" and 400'd ("must start with wrk").
 //   2. The `id` validator used z.union([wrkString, null]) which rejected null,
@@ -54,7 +54,7 @@ async function git(directory: string, ...args: string[]) {
   return stdout.trim()
 }
 
-describe("workspace warp (hono route)", () => {
+describe("workspace warp route", () => {
   it("warps a session to a worktree and detaches back to local", async () => {
     const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-warp-route-project-")))
     await git(dir, "init")
@@ -81,7 +81,7 @@ describe("workspace warp (hono route)", () => {
         })
 
         const warp = (id: string | null) =>
-          Server.App().fetch(
+          Server.fetch(
             new Request("http://nikcli.local/experimental/workspace/warp", {
               method: "POST",
               headers: {

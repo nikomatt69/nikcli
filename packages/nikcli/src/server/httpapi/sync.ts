@@ -1,29 +1,28 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
-import { Schema } from "effect"
+import { and, eq, gt, sql } from "drizzle-orm"
+import { Effect, Schema } from "effect"
+import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
+import { GlobalBus } from "@/bus/global"
+import { Database } from "@/database/database"
+import { MobileAuth } from "@/mobile/auth"
+import { syncEvent, syncOutbox } from "@/sync/sync.sql"
+import { SyncConfig } from "@/sync/sync-config"
+import { Log } from "@/util/log"
+import { configUpdateGlobal } from "../mobile/helpers"
+import { Auth } from "./auth"
 
-/**
- * Contract-only Effect schema for the real `/sync/*` surface served by Hono
- * (`routes/sync.ts`). This group is part of `PublicApi` (the generation
- * contract) but NOT of the served `PublicHttpApi.Api`: every `/sync` request
- * is handled by the Hono router today, so no Effect handlers exist here.
- *
- * History: an earlier Wave 4 group exposed four invented endpoints
- * (`POST /sync/start`, `POST /sync/replay`, `GET /sync/history`,
- * `GET /sync/snapshot`) that never existed on the Hono side and had no
- * callers. They were dropped when the spec was realigned with the real
- * routes — the Effect handler migration for the real surface below is a
- * follow-up tied to the Sync.Service extraction (`specs/effect/sync-service.md`).
- *
- * `OpenApi.Identifier` pins each operationId to the value the Hono OpenAPI
- * emits, so the SDK generated from either source has the same class tree.
- */
 export namespace SyncHttpApi {
+  const log = Log.create({ service: "server.sync" })
+  const PUSH_WINDOW_MS = 60_000
+  const PUSH_LIMIT_PER_WINDOW = 100
+  const pushWindows = new Map<string, { windowStart: number; count: number }>()
+
   const SyncEventRecord = Schema.Struct({
     id: Schema.String,
     projectId: Schema.String,
     workspaceId: Schema.optional(Schema.String),
     aggregate: Schema.String,
-    seq: Schema.Number,
+    seq: Schema.Int,
     type: Schema.String,
     data: Schema.Unknown,
     timestamp: Schema.Number,
@@ -48,29 +47,10 @@ export namespace SyncHttpApi {
     hasMore: Schema.Boolean,
   }).annotate({ identifier: "SyncOutboxResponse" })
 
-  const SnapshotPath = Schema.Struct({
-    aggregateID: Schema.String,
-  })
-
-  const SnapshotQuery = Schema.Struct({
-    projectID: Schema.String,
-  })
-
   const SnapshotResponse = Schema.Struct({
     lastSeq: Schema.Number,
     state: Schema.Unknown,
   }).annotate({ identifier: "SyncSnapshotResponse" })
-
-  const StreamQuery = Schema.Struct({
-    projectID: Schema.String,
-    token: Schema.String.annotate({
-      description: "Bearer token via query parameter — EventSource cannot send custom headers",
-    }),
-  })
-
-  const StatsQuery = Schema.Struct({
-    projectID: Schema.optional(Schema.String),
-  })
 
   const ConfigSetPayload = Schema.Struct({
     url: Schema.String,
@@ -103,20 +83,25 @@ export namespace SyncHttpApi {
     )
     .add(
       HttpApiEndpoint.get("snapshot", "/snapshot/:aggregateID", {
-        params: SnapshotPath,
-        query: SnapshotQuery,
+        params: Schema.Struct({ aggregateID: Schema.String }),
+        query: Schema.Struct({ projectID: Schema.String }),
         success: SnapshotResponse,
       }).annotate(OpenApi.Identifier, "sync.snapshot.get"),
     )
     .add(
       HttpApiEndpoint.get("stream", "/stream", {
-        query: StreamQuery,
+        query: Schema.Struct({
+          projectID: Schema.String,
+          token: Schema.String.annotate({
+            description: "Bearer token via query parameter — EventSource cannot send custom headers",
+          }),
+        }),
         success: HttpApiSchema.StreamSse({ data: Schema.Unknown }),
       }).annotate(OpenApi.Identifier, "sync.event.stream"),
     )
     .add(
       HttpApiEndpoint.get("stats", "/stats", {
-        query: StatsQuery,
+        query: Schema.Struct({ projectID: Schema.optional(Schema.String) }),
         success: Schema.Unknown,
       }).annotate(OpenApi.Identifier, "sync.stats"),
     )
@@ -127,19 +112,404 @@ export namespace SyncHttpApi {
       }).annotate(OpenApi.Identifier, "sync.config.set"),
     )
     .add(
-      HttpApiEndpoint.post("connect", "/connect", {
-        success: HttpApiSchema.NoContent,
-      }).annotate(OpenApi.Identifier, "sync.connect"),
+      HttpApiEndpoint.post("connect", "/connect", { success: HttpApiSchema.NoContent }).annotate(
+        OpenApi.Identifier,
+        "sync.connect",
+      ),
     )
     .add(
-      HttpApiEndpoint.post("disconnect", "/disconnect", {
-        success: HttpApiSchema.NoContent,
-      }).annotate(OpenApi.Identifier, "sync.disconnect"),
+      HttpApiEndpoint.post("disconnect", "/disconnect", { success: HttpApiSchema.NoContent }).annotate(
+        OpenApi.Identifier,
+        "sync.disconnect",
+      ),
     )
     .add(
-      HttpApiEndpoint.post("drain", "/drain", {
-        success: HttpApiSchema.NoContent,
-      }).annotate(OpenApi.Identifier, "sync.drain"),
+      HttpApiEndpoint.post("drain", "/drain", { success: HttpApiSchema.NoContent }).annotate(
+        OpenApi.Identifier,
+        "sync.drain",
+      ),
     )
     .prefix("/sync")
+
+  export const Api = HttpApi.make("nikcli").add(Group)
+
+  function pushAllowed(identity: string) {
+    const now = Date.now()
+    const window = pushWindows.get(identity)
+    if (!window || now - window.windowStart >= PUSH_WINDOW_MS) {
+      if (pushWindows.size > 1_000) {
+        for (const [key, value] of pushWindows) {
+          if (now - value.windowStart >= PUSH_WINDOW_MS) pushWindows.delete(key)
+        }
+      }
+      pushWindows.set(identity, { windowStart: now, count: 1 })
+      return { allowed: true, retryAfterMs: 0 }
+    }
+    if (window.count >= PUSH_LIMIT_PER_WINDOW) {
+      return { allowed: false, retryAfterMs: window.windowStart + PUSH_WINDOW_MS - now }
+    }
+    window.count++
+    return { allowed: true, retryAfterMs: 0 }
+  }
+
+  async function principal(request: Request) {
+    return Auth.resolveBearer(request)
+  }
+
+  async function scopeDenied(request: Request): Promise<Response | undefined> {
+    const resolved = await principal(request)
+    if (resolved?.type !== "mobile") return
+    const scope = resolved.token.scope ?? "mobile"
+    if (MobileAuth.SYNC_SCOPES.has(scope as MobileAuth.Scope)) return
+    log.warn("sync access denied: insufficient scope", {
+      tokenID: resolved.token.id,
+      scope,
+      path: new URL(request.url).pathname,
+    })
+    return new Response("Forbidden: sync requires a mobile, cli-sync, or studio token", { status: 403 })
+  }
+
+  function raw(handler: (request: Request) => Promise<Response>) {
+    return ({ request: serverRequest }: { readonly request: HttpServerRequest.HttpServerRequest }) =>
+      Effect.gen(function* () {
+        const request = serverRequest.source as Request
+        const denied = yield* Effect.promise(() => scopeDenied(request))
+        const response = denied ?? (yield* Effect.promise(() => handler(request)))
+        return HttpServerResponse.fromWeb(response)
+      })
+  }
+
+  const event = raw(async (request) => {
+    const body = await decodeJson(EventPushPayload, request)
+    if (body instanceof Response) return body
+    const resolved = await principal(request)
+    const token = resolved?.type === "mobile" ? resolved.token : undefined
+    const identity = token?.id ?? "operator"
+    const rate = pushAllowed(identity)
+    if (!rate.allowed) {
+      log.warn("sync push rate limited", { identity, path: new URL(request.url).pathname })
+      return new Response("Rate limit exceeded", {
+        status: 429,
+        headers: { "retry-after": String(Math.ceil(rate.retryAfterMs / 1_000)) },
+      })
+    }
+    const db = Database.syncDb()
+    const existing = db.select({ id: syncEvent.id }).from(syncEvent).where(eq(syncEvent.id, body.event.id)).get()
+    if (existing) return new Response(null, { status: 204 })
+    const inserted = db.transaction((tx) => {
+      const last = tx
+        .select({ seq: syncEvent.seq })
+        .from(syncEvent)
+        .where(and(eq(syncEvent.projectId, body.event.projectId), eq(syncEvent.aggregate, body.event.aggregate)))
+        .orderBy(syncEvent.seq)
+        .all()
+        .at(-1)
+      const nextSeq = (last?.seq ?? 0) + 1
+      tx.insert(syncEvent)
+        .values({
+          id: body.event.id,
+          projectId: body.event.projectId,
+          workspaceId: body.event.workspaceId,
+          aggregate: body.event.aggregate,
+          seq: nextSeq,
+          type: body.event.type,
+          data: JSON.stringify(body.event.data),
+          timestamp: body.event.timestamp,
+          origin: body.event.origin ?? "remote",
+          originSeq: body.event.seq,
+        })
+        .run()
+      return nextSeq
+    })
+    GlobalBus.emit("event", {
+      directory: body.event.projectId,
+      payload: { type: "sync.received", properties: { eventID: body.event.id, seq: inserted } },
+    })
+    log.info("remote event accepted", {
+      eventID: body.event.id,
+      seq: inserted,
+      aggregate: body.event.aggregate,
+      type: body.event.type,
+      tokenID: token?.id ?? "operator",
+      tokenName: token?.name,
+    })
+    return new Response(null, { status: 204 })
+  })
+
+  const outbox = raw(async (request) => {
+    const url = new URL(request.url)
+    const projectID = url.searchParams.get("projectID")
+    if (!projectID) return new Response("Invalid query", { status: 400 })
+    const since = Number(url.searchParams.get("since") ?? 0)
+    if (!Number.isInteger(since) || since < 0) return new Response("Invalid query", { status: 400 })
+    const rows = Database.syncDb()
+      .select()
+      .from(syncEvent)
+      .where(and(eq(syncEvent.projectId, projectID), gt(syncEvent.seq, since)))
+      .orderBy(syncEvent.seq)
+      .limit(500)
+      .all()
+    return Response.json({
+      events: rows.map((row) => ({
+        id: row.id,
+        projectId: row.projectId,
+        workspaceId: row.workspaceId ?? undefined,
+        aggregate: row.aggregate,
+        seq: row.seq,
+        type: row.type,
+        data: safeJson(row.data),
+        timestamp: row.timestamp,
+        origin: row.origin,
+        originSeq: row.originSeq ?? undefined,
+      })),
+      hasMore: rows.length === 500,
+    })
+  })
+
+  const snapshot = raw(async (request) => {
+    const url = new URL(request.url)
+    const aggregateID = decodeURIComponent(url.pathname.slice("/sync/snapshot/".length))
+    const projectID = url.searchParams.get("projectID")
+    if (!projectID) return new Response("Invalid query", { status: 400 })
+    const { SyncProjection } = await import("@/sync/projection")
+    const result = await SyncProjection.byAggregate(projectID, aggregateID)
+    return result ? Response.json(result) : new Response("Unsupported aggregate kind", { status: 400 })
+  })
+
+  const stats = raw(async (request) => {
+    const projectID = new URL(request.url).searchParams.get("projectID") ?? ""
+    const db = Database.syncDb()
+    const remote = await SyncConfig.resolve()
+    const url = remote.url
+    const { RemoteSync } = await import("@/sync/remote-sync")
+    const connected = remote.configured && Boolean(url && RemoteSync.isActive({ url }))
+    const lastError = formatHubError(url ? RemoteSync.lastHubError(url) : undefined)
+    if (remote.configured && remote.autostart && url && remote.token && !connected) {
+      const { SyncCliInit } = await import("@/sync/cli-init")
+      void SyncCliInit.startForAllProjects({ url, token: remote.token }).catch((error) => {
+        log.warn("sync autostart failed", { error })
+      })
+    }
+    const pending = db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(syncOutbox)
+      .where(eq(syncOutbox.status, "pending"))
+      .get()
+    const failed = db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(syncOutbox)
+      .where(eq(syncOutbox.status, "failed"))
+      .get()
+    const filterProjectID = await resolveStatsProjectID(projectID)
+    const where = filterProjectID ? eq(syncEvent.projectId, filterProjectID) : undefined
+    const latestQuery = db.select().from(syncEvent)
+    const latest = (where ? latestQuery.where(where) : latestQuery)
+      .orderBy(sql`${syncEvent.seq} DESC`)
+      .limit(1)
+      .get()
+    const recentQuery = db.select().from(syncEvent)
+    const recent = (where ? recentQuery.where(where) : recentQuery)
+      .orderBy(sql`${syncEvent.seq} DESC`)
+      .limit(50)
+      .all()
+    return Response.json({
+      url,
+      configured: remote.configured,
+      source: remote.source,
+      connected,
+      pending: pending?.count ?? 0,
+      failed: failed?.count ?? 0,
+      total: (pending?.count ?? 0) + (failed?.count ?? 0),
+      lastSeq: latest?.seq ?? 0,
+      lastError,
+      lastChange: Date.now(),
+      events: recent.map((row) => ({
+        id: row.id,
+        projectId: row.projectId,
+        workspaceId: row.workspaceId ?? undefined,
+        aggregate: row.aggregate,
+        seq: row.seq,
+        type: row.type,
+        timestamp: row.timestamp,
+        origin: row.origin,
+        dataPreview: previewPayload(row.data),
+      })),
+    })
+  })
+
+  const config = raw(async (request) => {
+    const body = await decodeJson(ConfigSetPayload, request)
+    if (body instanceof Response) return body
+    const url = normalizeHubUrl(body.url)
+    if (!url) return new Response("Invalid hub URL", { status: 400 })
+    const patch: { sync: { url: string; token?: string; autostart?: boolean } } = { sync: { url } }
+    if (body.token) patch.sync.token = body.token
+    patch.sync.autostart = body.autostart ?? true
+    await configUpdateGlobal(patch)
+    SyncConfig.invalidate()
+    const resolved = await SyncConfig.resolve()
+    let started = false
+    let error: string | undefined
+    if (resolved.configured) {
+      try {
+        const { SyncCliInit } = await import("@/sync/cli-init")
+        const result = await SyncCliInit.startForAllProjects({ url: resolved.url!, token: resolved.token! })
+        started = result.count > 0
+      } catch (cause) {
+        error = cause instanceof Error ? cause.message : String(cause)
+      }
+    }
+    log.info("sync config saved from TUI", { url, configured: resolved.configured, started })
+    return Response.json({
+      configured: resolved.configured,
+      url: resolved.url,
+      source: resolved.source,
+      started,
+      error,
+    })
+  })
+
+  const connect = raw(async () => {
+    log.info("sync connect requested from TUI")
+    const resolved = await SyncConfig.resolve()
+    if (resolved.configured) {
+      const { SyncCliInit } = await import("@/sync/cli-init")
+      await SyncCliInit.startForAllProjects({ url: resolved.url!, token: resolved.token! }).catch((error) => {
+        log.warn("sync connect failed", { error })
+      })
+    }
+    return new Response(null, { status: 204 })
+  })
+
+  const noContent = (message: string) =>
+    raw(async () => {
+      log.info(message)
+      return new Response(null, { status: 204 })
+    })
+
+  export const HandlersLive = HttpApiBuilder.group(Api, "sync", (handlers) =>
+    handlers
+      .handleRaw("event", event)
+      .handleRaw("outbox", outbox)
+      .handleRaw("snapshot", snapshot)
+      .handleRaw("stream", raw(handleSse))
+      .handleRaw("stats", stats)
+      .handleRaw("config", config)
+      .handleRaw("connect", connect)
+      .handleRaw("disconnect", noContent("sync disconnect requested from TUI"))
+      .handleRaw("drain", noContent("sync drain requested from TUI")),
+  )
+
+  export async function handleSse(request: Request): Promise<Response> {
+    const denied = await scopeDenied(request)
+    if (denied) return denied
+    const projectID = new URL(request.url).searchParams.get("projectID") ?? ""
+    let close: (() => void) | undefined
+    const abortHandler = () => close?.()
+    const stream = new ReadableStream<Uint8Array>({
+      cancel() {
+        close?.()
+      },
+      start(controller) {
+        const encoder = new TextEncoder()
+        let closed = false
+        const send = (data: unknown) => {
+          if (closed) return
+          try {
+            controller.enqueue(encoder.encode(`event: sync\ndata: ${JSON.stringify(data)}\n\n`))
+          } catch {
+            close?.()
+          }
+        }
+        controller.enqueue(encoder.encode(": connected\n\n"))
+        const handler = (raw: unknown) => {
+          const envelope = raw as { directory?: string; payload?: unknown }
+          if (envelope?.directory === projectID) send(envelope.payload)
+        }
+        GlobalBus.on("event", handler as never)
+        const ping = setInterval(() => {
+          if (closed) return
+          try {
+            controller.enqueue(encoder.encode(": ping\n\n"))
+          } catch {
+            close?.()
+          }
+        }, 15_000)
+        close = () => {
+          if (closed) return
+          closed = true
+          clearInterval(ping)
+          GlobalBus.off("event", handler as never)
+          request.signal.removeEventListener("abort", abortHandler)
+          try {
+            controller.close()
+          } catch {}
+        }
+        request.signal.addEventListener("abort", abortHandler)
+      },
+    })
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+      },
+    })
+  }
+
+  function formatHubError(error: string | undefined) {
+    if (!error) return undefined
+    return error.includes("401") ? `${error} — check the token is valid on the hub` : error
+  }
+
+  async function resolveStatsProjectID(raw: string) {
+    if (!raw) return ""
+    if (!raw.includes("/") && !raw.includes("\\")) return raw
+    try {
+      const { Instance } = await import("@/project/instance")
+      if (!Instance.has(raw)) return ""
+      return await Instance.provide({ directory: raw, fn: () => Instance.project.id })
+    } catch {
+      return ""
+    }
+  }
+
+  function normalizeHubUrl(raw: string) {
+    let value = raw.trim()
+    if (!value) return undefined
+    if (!/^https?:\/\//i.test(value)) value = `https://${value}`
+    try {
+      const url = new URL(value)
+      return (url.origin + url.pathname).replace(/\/+$/, "")
+    } catch {
+      return undefined
+    }
+  }
+
+  function previewPayload(value: string) {
+    try {
+      const parsed = JSON.parse(value)
+      if (parsed && typeof parsed === "object" && typeof parsed.type === "string") return parsed.type
+      const result = JSON.stringify(parsed)
+      return result.length > 80 ? result.slice(0, 79) + "…" : result
+    } catch {
+      return "raw"
+    }
+  }
+
+  function safeJson(value: string): unknown {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+
+  async function decodeJson<A>(schema: Schema.Decoder<A>, request: Request): Promise<A | Response> {
+    try {
+      return await Schema.decodeUnknownPromise(schema)(await request.json())
+    } catch {
+      return new Response("Invalid payload", { status: 400 })
+    }
+  }
 }

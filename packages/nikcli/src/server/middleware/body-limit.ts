@@ -1,4 +1,3 @@
-import type { Context, MiddlewareHandler } from "hono"
 import { Flag } from "@/flag/flag"
 
 /**
@@ -24,7 +23,6 @@ const LARGE_BODY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024 // 2 GB (matches Bun defau
 
 const LARGE_BODY_PATTERNS: RegExp[] = [
   // Chunked working-tree uploads — begin + per-chunk append.
-  // Real mount: `.route("/mobile", MobileRoutes())` + `/teleport/upload*`.
   /^\/mobile\/teleport\/upload(?:\/|$)/,
 ]
 
@@ -48,11 +46,11 @@ export function limitFor(path: string): number {
   return Math.min(configured, ceiling)
 }
 
-export const bodyLimitMiddleware: MiddlewareHandler = async (c: Context, next) => {
-  const header = c.req.raw.headers.get("content-length")
+export function bodyLimitResponse(request: Request): Response | undefined {
+  const header = request.headers.get("content-length")
   if (header) {
     const n = Number(header)
-    const limit = limitFor(c.req.path)
+    const limit = limitFor(new URL(request.url).pathname)
     if (Number.isFinite(n) && n > limit) {
       return new Response(`Payload too large (limit ${limit} bytes)`, {
         status: 413,
@@ -60,5 +58,4 @@ export const bodyLimitMiddleware: MiddlewareHandler = async (c: Context, next) =
       })
     }
   }
-  return next()
 }

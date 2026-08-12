@@ -31,7 +31,7 @@ const { Instance } = await import("@/project/instance")
 const { Server } = await import("@/server/server")
 
 function request(pathname: string, init?: RequestInit) {
-  return Server.App().fetch(
+  return Server.fetch(
     new Request(`http://nikcli.local/mobile/loops${pathname}`, {
       ...init,
       headers: {

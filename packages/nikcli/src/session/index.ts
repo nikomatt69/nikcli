@@ -154,7 +154,7 @@ export namespace Session {
     github: Schema.optional(GithubInfoSchema),
     /**
      * Isolated worktree for plain (non-GitHub) sessions -- see
-     * createSessionWorktreeContext in server/routes/mobile/helpers.ts.
+     * createSessionWorktreeContext in server/mobile/helpers.ts.
      * GitHub-linked sessions keep their worktree nested under `github`
      * instead, since it doubles as PR/publish metadata there.
      */

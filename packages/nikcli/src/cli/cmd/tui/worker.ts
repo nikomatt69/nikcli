@@ -7,7 +7,6 @@ import { Rpc } from "@/util/rpc"
 import { upgrade, upgradeNow } from "@/cli/upgrade"
 import { GlobalBus } from "@/bus/global"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
-import type { BunWebSocketData } from "hono/bun"
 import { Flag } from "@/flag/flag"
 import { Process } from "@/util/process"
 import { IslandBridge } from "@/plugin/island/bridge"
@@ -41,7 +40,7 @@ GlobalBus.on("event", (event) => {
   Rpc.emit("global.event", event)
 })
 
-let server: Bun.Server<BunWebSocketData> | undefined
+let server: ReturnType<typeof Server.listen> | undefined
 let shuttingDown: Promise<void> | undefined
 
 const eventStreams = new Map<string, AbortController>()
@@ -56,7 +55,7 @@ function startEventStream(directory: string) {
     const request = new Request(input, init)
     const auth = getAuthorizationHeader()
     if (auth) request.headers.set("Authorization", auth)
-    return Server.App().fetch(request)
+    return Server.fetch(request)
   }) as typeof globalThis.fetch
 
   const sdk = createNikcliClient({
@@ -125,7 +124,7 @@ export const rpc = {
       headers,
       body: input.body,
     })
-    const response = await Server.App().fetch(request)
+    const response = await Server.fetch(request)
     const body = await response.text()
     return {
       status: response.status,

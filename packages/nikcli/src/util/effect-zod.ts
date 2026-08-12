@@ -2,7 +2,7 @@
  * Effect Schema → Zod walker.
  *
  * Walks an Effect Schema AST and produces an equivalent `z.ZodType`. The Zod
- * output is intended to feed `hono-openapi` and produce JSON Schema that is
+ * output is intended to feed OpenAPI JSON Schema generation that is
  * byte-identical (for the supported constructs) to a hand-written Zod schema.
  *
  * Supported constructs (matches current `src/server/httpapi/*` usage plus the
@@ -28,7 +28,7 @@
  * - `Schema.Brand` → branded zod type with the same JSON Schema shape.
  * - Annotations: `identifier` → `z.meta({ ref })`, `description` → `.describe()`,
  *   `default` → `.default(...)`, `examples` (passed through `.meta` so
- *   `hono-openapi` keeps them in OpenAPI output).
+ *   OpenAPI generation keeps them in output).
  *
  * Escape hatch: `Schema.annotate({ [ZodOverrideId]: () => zodSchema })`
  * replaces the entire derivation with a hand-crafted zod schema. Use for cases
@@ -531,7 +531,7 @@ function walk(ast: AST): z.ZodType {
  * Convert an Effect Schema to its Zod equivalent.
  *
  * Use this at the boundary between Effect-Schema-owned domain types and any
- * remaining Zod-only consumer (hono-openapi route validators, AI SDK tool
+ * remaining Zod-only consumer (OpenAPI JSON Schema, AI SDK tool
  * parameter schemas, legacy SDK output).
  */
 export function zod<S extends Schema.Top>(schema: S): z.ZodType<DeepMutable<S["Type"]>, DeepMutable<S["Type"]>> {

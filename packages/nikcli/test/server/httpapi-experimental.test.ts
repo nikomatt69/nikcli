@@ -8,7 +8,6 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-experimental-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
@@ -17,7 +16,6 @@ process.env.XDG_STATE_HOME = path.join(testHome, "state")
 preserveTestEnv([
   "NIKCLI_TEST_HOME",
   "NIKCLI_DISABLE_PROJECT_CONFIG",
-  "NIKCLI_EXPERIMENTAL_HTTPAPI",
   "XDG_DATA_HOME",
   "XDG_CACHE_HOME",
   "XDG_CONFIG_HOME",
@@ -64,7 +62,7 @@ async function request(pathname: string, directory: string, params: Record<strin
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
   }
-  const response = await Server.App().fetch(new Request(url))
+  const response = await Server.fetch(new Request(url))
   expect(response.status).toBe(200)
   return response.json()
 }
@@ -72,7 +70,7 @@ async function request(pathname: string, directory: string, params: Record<strin
 async function jsonRequest(method: string, pathname: string, directory: string, body: unknown) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
-  const response = await Server.App().fetch(
+  const response = await Server.fetch(
     new Request(url, {
       method,
       headers: { "content-type": "application/json" },
@@ -150,7 +148,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

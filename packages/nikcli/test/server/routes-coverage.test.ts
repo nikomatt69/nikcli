@@ -1,29 +1,24 @@
 import { describe, expect, it } from "bun:test"
-import { HttpApiBridge } from "@/server/httpapi/bridge"
+import {
+  handlerRoutes,
+  inventoryFailures,
+  publicRoutes,
+  rawRouteImplementations,
+  routeKey,
+} from "@/server/httpapi/inventory"
 
-describe("HttpApi bridge route coverage", () => {
-  it("exposes a non-empty implemented route table", () => {
-    const routes = HttpApiBridge.listImplemented()
-    expect(routes.length).toBeGreaterThan(50)
-    expect(routes.some((r) => r.scope === "global")).toBe(true)
-    expect(routes.some((r) => r.scope === "main")).toBe(true)
+describe("PublicApi route inventory", () => {
+  it("covers every contract with exactly one handler or raw implementation", () => {
+    expect(publicRoutes().length).toBeGreaterThan(250)
+    expect(handlerRoutes().length).toBeGreaterThan(150)
+    expect(rawRouteImplementations.size).toBeGreaterThan(0)
+    expect(handlerRoutes().length + rawRouteImplementations.size).toBe(publicRoutes().length)
+    expect(inventoryFailures()).toEqual([])
   })
 
-  it("every bridge pattern matches supports()/supportsGlobal() for a sample path", () => {
-    const failures: string[] = []
-    for (const route of HttpApiBridge.listImplemented()) {
-      const sample = HttpApiBridge.samplePathFor(route.pattern)
-      const ok =
-        route.scope === "global"
-          ? HttpApiBridge.supportsGlobal(sample, route.method)
-          : HttpApiBridge.supports(sample, route.method)
-      if (!ok) failures.push(`${route.method} ${route.pattern} sample=${sample}`)
-    }
-    expect(failures).toEqual([])
-  })
-
-  it("samplePathFor strips anchors and fills dynamic segments", () => {
-    expect(HttpApiBridge.samplePathFor("^\\/session\\/[^/]+\\/message$")).toBe("/session/x/message")
-    expect(HttpApiBridge.samplePathFor("^\\/chatbot\\/(discord|slack)\\/[^/]+$")).toBe("/chatbot/discord/x")
+  it("preserves unique operation IDs and response status contracts", () => {
+    const routes = publicRoutes()
+    expect(new Set(routes.map((route) => route.operationId)).size).toBe(routes.length)
+    expect(routes.filter((route) => route.statuses.length === 0).map(routeKey)).toEqual([])
   })
 })

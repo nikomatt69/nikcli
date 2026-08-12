@@ -4,7 +4,6 @@ import { type IPty } from "bun-pty"
 import z from "zod"
 import { Identifier } from "../id/id"
 import { Log } from "../util/log"
-import type { WSContext } from "hono/ws"
 import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
 import { zodObject, type DeepMutable } from "@/util/effect-zod"
@@ -70,7 +69,13 @@ export namespace Pty {
     info: Info
     process: IPty
     buffer: string
-    subscribers: Set<WSContext>
+    subscribers: Set<Socket>
+  }
+
+  export interface Socket {
+    readonly readyState: number
+    readonly send: (data: string | ArrayBuffer | Uint8Array) => void
+    readonly close: (code?: number, reason?: string) => void
   }
 
   export interface Connection {
@@ -102,7 +107,7 @@ export namespace Pty {
     readonly remove: (id: string) => Effect.Effect<void, never>
     readonly resize: (id: string, cols: number, rows: number) => Effect.Effect<void, never>
     readonly write: (id: string, data: string) => Effect.Effect<void, never>
-    readonly connect: (id: string, ws: WSContext) => Effect.Effect<Connection | undefined, never>
+    readonly connect: (id: string, ws: Socket) => Effect.Effect<Connection | undefined, never>
   }
 
   export class Service extends Context.Service<Service, Interface>()("@nikcli/Pty") {}
@@ -260,7 +265,7 @@ export namespace Pty {
         }
       })
 
-      const connect: Interface["connect"] = Effect.fn("Pty.connect")(function* (id: string, ws: WSContext) {
+      const connect: Interface["connect"] = Effect.fn("Pty.connect")(function* (id: string, ws: Socket) {
         const session = (yield* InstanceState.get(state)).get(id)
         if (!session) {
           ws.close()

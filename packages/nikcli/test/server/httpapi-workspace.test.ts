@@ -11,7 +11,6 @@ process.env.NIKCLI_TEST_HOME = testHome
 // which otherwise hangs offline and trips the test timeout.
 process.env.NIKCLI_TEST_MODE = "1"
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
@@ -21,7 +20,6 @@ preserveTestEnv([
   "NIKCLI_TEST_HOME",
   "NIKCLI_TEST_MODE",
   "NIKCLI_DISABLE_PROJECT_CONFIG",
-  "NIKCLI_EXPERIMENTAL_HTTPAPI",
   "XDG_DATA_HOME",
   "XDG_CACHE_HOME",
   "XDG_CONFIG_HOME",
@@ -74,13 +72,12 @@ async function makeGitProjectDir() {
 }
 
 async function request(pathname: string, directory: string, params: Record<string, string> = {}) {
-  process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
   }
-  const response = await Server.App().fetch(new Request(url))
+  const response = await Server.fetch(new Request(url))
   if (response.status !== 200) {
     throw new Error(`Expected ${pathname} to return 200, got ${response.status}: ${await response.text()}`)
   }
@@ -88,12 +85,11 @@ async function request(pathname: string, directory: string, params: Record<strin
 }
 
 async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown, expectedStatus = 200) {
-  process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
   const headers = new Headers()
   if (body !== undefined) headers.set("content-type", "application/json")
-  const response = await Server.App().fetch(
+  const response = await Server.fetch(
     new Request(url, {
       method,
       headers,
@@ -278,7 +274,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

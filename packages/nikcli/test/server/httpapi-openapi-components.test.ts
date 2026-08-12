@@ -6,6 +6,7 @@ import os from "os"
 import path from "path"
 import { Effect, Schema } from "effect"
 import { OpenApi } from "effect/unstable/httpapi"
+import baseline from "../../../sdk/openapi.json"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-openapi-components-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -45,6 +46,46 @@ async function makeProjectDir() {
  * collapses these into empty/anonymous schemas and drops the public types.
  */
 describe("Effect PublicApi OpenAPI components", () => {
+  it(
+    "preserves the SDK baseline paths and operation IDs",
+    async () => {
+      const { PublicApi } = await import("@/server/httpapi/public")
+      const current = OpenApi.fromApi(PublicApi) as Record<string, any>
+      const methods = ["get", "post", "put", "delete", "patch"] as const
+      const contracts = (spec: Record<string, any>) =>
+        new Map(
+          Object.entries((spec.paths ?? {}) as Record<string, any>).flatMap(([path, item]) =>
+            methods.flatMap((method) => {
+              const operation = item?.[method]
+              if (!operation) return []
+              return [
+                [
+                  `${method.toUpperCase()} ${path}`,
+                  {
+                    operationId: operation.operationId,
+                    statuses: Object.keys(operation.responses ?? {}).sort(),
+                  },
+                ] as const,
+              ]
+            }),
+          ),
+        )
+
+      const expected = contracts(baseline as Record<string, any>)
+      const actual = contracts(current)
+      const missing = [...expected].flatMap(([key, contract]) => {
+        const emitted = actual.get(key)
+        if (!emitted) return [`missing contract: ${key}`]
+        if (emitted.operationId !== contract.operationId)
+          return [`operationId mismatch: ${key}: ${String(contract.operationId)} != ${String(emitted.operationId)}`]
+        return []
+      })
+
+      expect(missing).toEqual([])
+    },
+    { timeout: 60_000 },
+  )
+
   it(
     "emits the named domain components required by the SDK",
     async () => {

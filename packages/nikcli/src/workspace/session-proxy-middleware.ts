@@ -1,4 +1,3 @@
-import type { MiddlewareHandler } from "hono"
 import { Installation } from "../installation"
 import { Session } from "../session"
 import { Workspace } from "."
@@ -90,7 +89,7 @@ async function resolveWorkspaceID(req: Request) {
   return undefined
 }
 
-async function proxySessionRequest(req: Request) {
+export async function proxySessionRequest(req: Request) {
   if (req.method === "GET") return
 
   const workspaceID = await resolveWorkspaceID(req)
@@ -112,14 +111,7 @@ async function proxySessionRequest(req: Request) {
   return ServerProxy.http(target, req)
 }
 
-export const SessionProxyMiddleware: MiddlewareHandler = async (c, next) => {
-  if (!Installation.isLocal()) {
-    return next()
-  }
-
-  const response = await proxySessionRequest(c.req.raw)
-  if (response) {
-    return response
-  }
-  return next()
+export async function withSessionProxy(request: Request, next: () => Promise<Response>) {
+  if (!Installation.isLocal()) return next()
+  return (await proxySessionRequest(request)) ?? next()
 }

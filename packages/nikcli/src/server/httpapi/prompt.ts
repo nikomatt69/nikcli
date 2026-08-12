@@ -8,7 +8,7 @@ import { Log } from "@/util/log"
 
 /**
  * Prompt routes for the Effect backend — raw streaming responses served by
- * the bridge ahead of the HttpApi router, with the exact Hono wire shape:
+ * the bridge ahead of the HttpApi router:
  *
  * - `POST /session/:id/message` opens a chunked 200 immediately (clients
  *   see headers while the prompt runs) and writes the final message JSON
@@ -17,8 +17,8 @@ import { Log } from "@/util/log"
  *   (admission), then starts the model loop in the background and returns
  *   204 so clients can read the submitted message immediately.
  *
- * Payload validation mirrors @hono/standard-validator's failure contract:
- * `{ data, error, success: false }` with status 400.
+ * Payload validation failures return `{ data, error, success: false }` with
+ * status 400.
  */
 export namespace HttpApiPrompt {
   const log = Log.create({ service: "httpapi.prompt" })

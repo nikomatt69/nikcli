@@ -55,7 +55,7 @@ async function jwt(overrides: { audience?: string; expiresAt?: number } = {}) {
 }
 
 function request(pathname: string, token?: string) {
-  return Server.App().fetch(
+  return Server.fetch(
     new Request(`http://nikcli.local${pathname}`, {
       headers: {
         "x-nikcli-directory": projectDir,
@@ -111,7 +111,7 @@ describe("unified server authentication", () => {
   })
 
   it("closes password login and registration", async () => {
-    const login = await Server.App().fetch(
+    const login = await Server.fetch(
       new Request("http://nikcli.local/user/login", {
         method: "POST",
         headers: { "content-type": "application/json" },

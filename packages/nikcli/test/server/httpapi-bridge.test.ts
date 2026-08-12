@@ -9,9 +9,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-bridge-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 
-preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_EXPERIMENTAL_HTTPAPI"])
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { runPromiseWithLayer, withCurrentInstance } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
@@ -33,7 +32,7 @@ async function makeProjectDir() {
 function request(pathname: string, directory: string, init?: RequestInit) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
-  return Server.App().fetch(new Request(url, init))
+  return Server.fetch(new Request(url, init))
 }
 
 async function waitForList<T>(pathname: string, directory: string) {
@@ -60,9 +59,12 @@ describe("HttpApi bridge", () => {
     expect(HttpApiBridge.supports("/loop", "GET")).toBe(true)
     expect(HttpApiBridge.supports("/loop/templates", "GET")).toBe(true)
     expect(HttpApiBridge.supports("/loop/loop_1/abort", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/mobile/loops", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/mobile/loops/loop_1", "DELETE")).toBe(true)
+    expect(HttpApiBridge.supports("/mobile/loops/loop_1", "GET")).toBe(true)
   })
 
-  it("serves implemented question and permission routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
+  it("serves implemented question and permission routes via Server.fetch", async () => {
     const directory = await makeProjectDir()
 
     const questionFiber = await Instance.provide({
@@ -143,7 +145,7 @@ describe("HttpApi bridge", () => {
   it("serves the prompt routes without Hono", async () => {
     const directory = await makeProjectDir()
 
-    // invalid payload mirrors the @hono/standard-validator 400 contract
+    // invalid payload mirrors the historical 400 contract
     const invalid = await request("/session/ses_bridge_prompt/message", directory, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -203,7 +205,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

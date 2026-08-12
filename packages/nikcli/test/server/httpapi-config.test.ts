@@ -9,7 +9,6 @@ const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-config-
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "0"
 process.env.NIKCLI_DISABLE_MODELS_FETCH = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 process.env.XDG_DATA_HOME = path.join(testHome, "data")
 process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
 process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
@@ -19,7 +18,6 @@ preserveTestEnv([
   "NIKCLI_TEST_HOME",
   "NIKCLI_DISABLE_PROJECT_CONFIG",
   "NIKCLI_DISABLE_MODELS_FETCH",
-  "NIKCLI_EXPERIMENTAL_HTTPAPI",
   "XDG_DATA_HOME",
   "XDG_CACHE_HOME",
   "XDG_CONFIG_HOME",
@@ -41,11 +39,11 @@ async function makeProjectDir() {
 async function request(pathname: string, directory: string, init?: RequestInit) {
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
-  return Server.App().fetch(new Request(url, init))
+  return Server.fetch(new Request(url, init))
 }
 
 describe("Config HttpApi bridge", () => {
-  it("serves get, update, and provider summary routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
+  it("serves get, update, and provider summary routes via Server.fetch", async () => {
     const directory = await makeProjectDir()
 
     const initialResponse = await request("/config", directory)
@@ -123,7 +121,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await Promise.all(projectDirs.map((dir) => removeTestDir(dir)))
   await removeTestDir(testHome)

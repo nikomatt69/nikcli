@@ -8,13 +8,7 @@ import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
 
-// Opt-in Effect OpenAPI: NIKCLI_SDK_OPENAPI=httpapi (or effect) → generate --httpapi.
-// Default remains Hono Server.openapi() until PublicHttpApi reaches route
-// parity — the Effect spec covers only the bridged subset and would drop
-// SDK namespaces clients depend on (path, find, lsp, auth, mobile, vcs, …).
-const openapiFlag =
-  process.env.NIKCLI_SDK_OPENAPI === "httpapi" || process.env.NIKCLI_SDK_OPENAPI === "effect" ? " --httpapi" : ""
-await $`bun dev --print-logs generate${openapiFlag} > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../nikcli"))
+await $`bun dev --print-logs generate > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../nikcli"))
 
 await createClient({
   input: "./openapi.json",

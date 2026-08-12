@@ -22,7 +22,9 @@ describe("profile command", () => {
     expect(app).toContain('value: "account.profile"')
     expect(app).toContain('name: "profile"')
     expect(app).toContain('aliases: ["me", "personalize"]')
-    expect(app).toContain('import("@tui/component/dialog-profile")')
+    // Not spelled as a call: bun rewrites `import("…")` even inside a string
+    // literal, and the assertion would compare against a resolved file:// URL.
+    expect(app).toContain("@tui/component/dialog-profile")
   })
 
   it("resolves to an exported dialog", async () => {

@@ -1,6 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test"
-import { Hono } from "hono"
-import { limitFor, bodyLimitMiddleware } from "@/server/middleware/body-limit"
+import { limitFor, bodyLimitResponse } from "@/server/middleware/body-limit"
 
 const ORIGINAL = process.env["NIKCLI_DEFAULT_BODY_MAX"]
 
@@ -51,29 +50,23 @@ describe("body-limit middleware", () => {
     })
   })
 
-  describe("bodyLimitMiddleware (HTTP)", () => {
-    const app = new Hono()
-      .use(bodyLimitMiddleware)
-      .post("/echo", (c) => c.text((c.req.raw as Request).headers.get("content-length") ?? "", 200))
-      .post("/mobile/teleport/upload", (c) => c.text("ok", 200))
-      .post("/mobile/teleport/upload/:uploadID", (c) => c.text("ok", 200))
+  describe("bodyLimitResponse (HTTP)", () => {
+    const handle = (request: Request) => bodyLimitResponse(request) ?? new Response("ok")
 
     it("accepts a small body under the default", async () => {
-      const res = await app.request(postWithBody("http://localhost/echo", "hello"))
+      const res = handle(postWithBody("http://localhost/echo", "hello"))
       expect(res.status).toBe(200)
     })
 
     it("rejects a body over the default with 413", async () => {
-      const res = await app.request(
-        postWithBody("http://localhost/echo", "x".repeat(2048), { NIKCLI_DEFAULT_BODY_MAX: 1024 }),
-      )
+      const res = handle(postWithBody("http://localhost/echo", "x".repeat(2048), { NIKCLI_DEFAULT_BODY_MAX: 1024 }))
       expect(res.status).toBe(413)
     })
 
     it("accepts a body that exceeds the default but fits the teleport budget", async () => {
       // Default 1 KB, but teleport upload route has the server ceiling —
       // even a 100 KB body must pass.
-      const res = await app.request(
+      const res = handle(
         postWithBody("http://localhost/mobile/teleport/upload", "x".repeat(100 * 1024), {
           NIKCLI_DEFAULT_BODY_MAX: 1024,
         }),
@@ -86,7 +79,7 @@ describe("body-limit middleware", () => {
       // maxRequestBodySize (configured separately) is the last line of defence.
       delete process.env["NIKCLI_DEFAULT_BODY_MAX"]
       const req = new Request("http://localhost/echo", { method: "POST", body: "anything" })
-      const res = await app.request(req)
+      const res = handle(req)
       expect(res.status).toBe(200)
     })
   })

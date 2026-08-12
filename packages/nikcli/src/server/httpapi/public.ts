@@ -7,6 +7,7 @@ import { AnalyticsHttpApi } from "./analytics"
 import { AppHttpApi } from "./app"
 import { ContractExtraHttpApi } from "./contract-extra"
 import { MobileHttpApi } from "./mobile"
+import { MobileHandlersLive } from "./mobile-handlers"
 import { BrainHttpApi } from "./brain"
 import { ConfigHttpApi } from "./config"
 import { ConnectorsHttpApi } from "./connectors"
@@ -32,7 +33,7 @@ export namespace PublicHttpApi {
   /**
    * The *served* Effect surface: every group here has handlers below and is
    * reachable through the HttpApi bridge. Contract-only groups (schemas for
-   * routes still served by Hono) live on `PublicApi` instead.
+   * routes served as raw Request/Response handlers) live on `PublicApi` instead.
    */
   export const Api = HttpApi.make("nikcli")
     .add(TopLevelHttpApi.Group)
@@ -47,6 +48,7 @@ export namespace PublicHttpApi {
     .add(GlobalHttpApi.Group)
     .add(McpHttpApi.Group)
     .add(MissionHttpApi.Group)
+    .add(MobileHttpApi.Group)
     .add(ProjectHttpApi.Group)
     .add(ProviderHttpApi.Group)
     .add(QuestionHttpApi.Group)
@@ -54,6 +56,7 @@ export namespace PublicHttpApi {
     .add(PtyHttpApi.Group)
     .add(LoopHttpApi.Group)
     .add(SessionHttpApi.Group)
+    .add(SyncHttpApi.Group)
     .add(TuiHttpApi.Group)
     .add(WorkspaceHttpApi.Group)
 
@@ -334,7 +337,9 @@ export namespace PublicHttpApi {
         PermissionHandlersLive.pipe(Layer.provide(PermissionNext.defaultLayer)),
         LoopHandlersLive,
         MissionHandlersLive,
+        MobileHandlersLive,
         SessionHandlersLive.pipe(Layer.provide(SessionHttpApi.DependenciesLive)),
+        SyncHttpApi.HandlersLive,
         TuiHandlersLive.pipe(Layer.provide(TuiHttpApi.DependenciesLive)),
         WorkspaceHandlersLive,
       ),
@@ -345,11 +350,10 @@ export namespace PublicHttpApi {
 /**
  * Authoritative public contract used for OpenAPI/SDK generation and by the
  * generated Effect clients. Superset of the served `PublicHttpApi.Api`:
- * contract-only groups describe routes that Hono still serves, so they have
- * schemas here but no Effect handlers yet.
+ * contract-only groups describe routes served as raw Request/Response handlers,
+ * so they have schemas here but no Effect HttpApi handlers.
  */
-export const PublicApi = PublicHttpApi.Api.add(SyncHttpApi.Group)
-  .add(ContractExtraHttpApi.AuthGroup)
+export const PublicApi = PublicHttpApi.Api.add(ContractExtraHttpApi.AuthGroup)
   .add(ContractExtraHttpApi.ConfigManagementGroup)
   .add(ContractExtraHttpApi.SessionPromptGroup)
   .add(ContractExtraHttpApi.ShareGroup)
@@ -357,4 +361,3 @@ export const PublicApi = PublicHttpApi.Api.add(SyncHttpApi.Group)
   .add(ContractExtraHttpApi.WorkspaceExtraGroup)
   .add(ContractExtraHttpApi.UsersGroup)
   .add(ContractExtraHttpApi.PtyConnectGroup)
-  .add(MobileHttpApi.Group)

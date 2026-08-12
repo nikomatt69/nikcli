@@ -131,7 +131,6 @@ export namespace Flag {
 
   // Experimental
   export const NIKCLI_EXPERIMENTAL = truthy("NIKCLI_EXPERIMENTAL")
-  export declare const NIKCLI_EXPERIMENTAL_HTTPAPI: boolean
   export const NIKCLI_EXPERIMENTAL_FILEWATCHER = true
   export const NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER = truthy("NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER")
   export const NIKCLI_EXPERIMENTAL_ICON_DISCOVERY = NIKCLI_EXPERIMENTAL || truthy("NIKCLI_EXPERIMENTAL_ICON_DISCOVERY")
@@ -218,17 +217,6 @@ Object.defineProperty(Flag, "NIKCLI_CONFIG_DIR", {
 Object.defineProperty(Flag, "NIKCLI_TUI_CONFIG", {
   get() {
     return process.env["NIKCLI_TUI_CONFIG"]
-  },
-  enumerable: true,
-  configurable: false,
-})
-
-Object.defineProperty(Flag, "NIKCLI_EXPERIMENTAL_HTTPAPI", {
-  get() {
-    // Default on (2026-07-08 — misty-moon wave 4 flip-all). Set to "0"/"false"
-    // to opt out and fall back to pure Hono.
-    if (process.env["NIKCLI_EXPERIMENTAL_HTTPAPI"] === undefined) return true
-    return truthy("NIKCLI_EXPERIMENTAL_HTTPAPI")
   },
   enumerable: true,
   configurable: false,

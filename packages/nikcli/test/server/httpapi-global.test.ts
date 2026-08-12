@@ -7,9 +7,8 @@ import path from "path"
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-global-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
 
-preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG", "NIKCLI_EXPERIMENTAL_HTTPAPI"])
+preserveTestEnv(["NIKCLI_TEST_HOME", "NIKCLI_DISABLE_PROJECT_CONFIG"])
 
 const { Instance } = await import("@/project/instance")
 const { HttpApiBridge } = await import("@/server/httpapi/bridge")
@@ -18,7 +17,7 @@ const { Server } = await import("@/server/server")
 
 async function request(pathname: string, init?: RequestInit) {
   const url = new URL(pathname, "http://nikcli.local")
-  return Server.App().fetch(new Request(url, init))
+  return Server.fetch(new Request(url, init))
 }
 
 describe("Global HttpApi", () => {
@@ -66,7 +65,6 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
   await Instance.disposeAll().catch(() => undefined)
   await fs.rm(testHome, { recursive: true, force: true })
 })

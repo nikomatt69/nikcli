@@ -1,7 +1,4 @@
 import type { Target } from "../workspace/adaptors/types"
-import { lazy } from "@/util/lazy"
-import { Hono } from "hono"
-import { upgradeWebSocket } from "hono/bun"
 
 const hop = new Set([
   "connection",
@@ -16,97 +13,42 @@ const hop = new Set([
   "host",
 ])
 
-type Msg = string | ArrayBuffer | Uint8Array
-
-/** Bun/DOM `WebSocket.send` is typed with `BufferSource`; `Uint8Array` uses `ArrayBufferLike` and does not match. */
-function remoteSend(ws: WebSocket, item: Msg) {
-  ws.send(item as Parameters<WebSocket["send"]>[0])
-}
+export type Message = string | ArrayBuffer | Uint8Array
 
 function headers(req: Request, extra?: HeadersInit) {
   const out = new Headers(req.headers)
   for (const key of hop) out.delete(key)
   out.delete("x-nikcli-directory")
   out.delete("x-nikcli-workspace")
-  if (!extra) return out
-  for (const [key, value] of new Headers(extra).entries()) {
-    out.set(key, value)
-  }
+  for (const [key, value] of new Headers(extra).entries()) out.set(key, value)
   return out
 }
 
 function protocols(req: Request) {
-  const value = req.headers.get("sec-websocket-protocol")
-  if (!value) return []
-  return value
+  return (req.headers.get("sec-websocket-protocol") ?? "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
 }
 
-function socket(url: string | URL) {
-  const next = new URL(url)
-  if (next.protocol === "http:") next.protocol = "ws:"
-  if (next.protocol === "https:") next.protocol = "wss:"
-  return next.toString()
+function socketUrl(target: Extract<Target, { type: "remote" }>, req: Request) {
+  const base = new URL(String(target.url))
+  const source = new URL(req.url)
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:"
+  base.pathname = source.pathname
+  base.search = source.search
+  return base.toString()
 }
-
-function send(ws: { send(data: string | ArrayBuffer | Uint8Array): void }, data: unknown) {
-  if (data instanceof Blob) {
-    return data.arrayBuffer().then((x) => ws.send(x))
-  }
-  return ws.send(data as Msg)
-}
-
-const app = lazy(() =>
-  new Hono().get(
-    "/__workspace_ws",
-    upgradeWebSocket((c) => {
-      const url = c.req.header("x-nikcli-proxy-url")
-      const queue: Msg[] = []
-      let remote: WebSocket | undefined
-      return {
-        onOpen(_, ws) {
-          if (!url) {
-            ws.close(1011, "missing proxy target")
-            return
-          }
-          remote = new WebSocket(url, protocols(c.req.raw))
-          remote.binaryType = "arraybuffer"
-          remote.onopen = () => {
-            for (const item of queue) {
-              if (remote) remoteSend(remote, item)
-            }
-            queue.length = 0
-          }
-          remote.onmessage = (event) => {
-            send(ws, event.data)
-          }
-          remote.onerror = () => {
-            ws.close(1011, "proxy error")
-          }
-          remote.onclose = (event) => {
-            ws.close(event.code, event.reason)
-          }
-        },
-        onMessage(event) {
-          const data = event.data
-          if (typeof data !== "string" && !(data instanceof Uint8Array) && !(data instanceof ArrayBuffer)) return
-          if (remote?.readyState === WebSocket.OPEN) {
-            remoteSend(remote, data)
-            return
-          }
-          queue.push(data)
-        },
-        onClose(event) {
-          remote?.close(event.code, event.reason)
-        },
-      }
-    }),
-  ),
-)
 
 export namespace ServerProxy {
+  export interface WebSocketData {
+    readonly type: "proxy"
+    readonly url: string
+    readonly protocols: string[]
+    remote?: WebSocket
+    queue: Message[]
+  }
+
   export function http(target: Extract<Target, { type: "remote" }>, req: Request) {
     const baseURL = String(target.url).replace(/\/?$/, "")
     const url = new URL(req.url)
@@ -119,21 +61,37 @@ export namespace ServerProxy {
     })
   }
 
-  export function websocket(target: Extract<Target, { type: "remote" }>, req: Request, env: unknown) {
-    const url = new URL(req.url)
-    url.pathname = "/__workspace_ws"
-    url.search = ""
-    const baseURL = String(target.url).replace(/\/?$/, "")
-    const wsUrl = socket(baseURL + new URL(req.url).pathname)
-    const next = new Headers(req.headers)
-    next.set("x-nikcli-proxy-url", wsUrl)
-    return app().fetch(
-      new Request(url, {
-        method: req.method,
-        headers: next,
-        signal: req.signal,
-      }),
-      env as never,
-    )
+  export function data(target: Extract<Target, { type: "remote" }>, req: Request): WebSocketData {
+    return { type: "proxy", url: socketUrl(target, req), protocols: protocols(req), queue: [] }
+  }
+
+  export function open(ws: Bun.ServerWebSocket<WebSocketData>) {
+    const data = ws.data
+    const remote = new WebSocket(data.url, data.protocols)
+    data.remote = remote
+    remote.binaryType = "arraybuffer"
+    remote.onopen = () => {
+      for (const item of data.queue) remote.send(item as Parameters<WebSocket["send"]>[0])
+      data.queue.length = 0
+    }
+    remote.onmessage = (event) => {
+      if (event.data instanceof Blob) void event.data.arrayBuffer().then((value) => ws.send(value))
+      else ws.send(event.data as Message)
+    }
+    remote.onerror = () => ws.close(1011, "proxy error")
+    remote.onclose = (event) => ws.close(event.code, event.reason)
+  }
+
+  export function message(ws: Bun.ServerWebSocket<WebSocketData>, message: Message) {
+    const remote = ws.data.remote
+    if (remote?.readyState === WebSocket.OPEN) {
+      remote.send(message as Parameters<WebSocket["send"]>[0])
+      return
+    }
+    ws.data.queue.push(message)
+  }
+
+  export function close(ws: Bun.ServerWebSocket<WebSocketData>, code: number, reason: string) {
+    ws.data.remote?.close(code, reason)
   }
 }

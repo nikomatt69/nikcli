@@ -511,1222 +511,102 @@ const adaptGroup11 = (raw: RawClient["mission"]) => ({
   execs: Endpoint11_12(raw),
 })
 
-const Endpoint12_0 = (raw: RawClient["project"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_0 = (raw: RawClient["mobile"]) => () => raw["authTokenList"]({}).pipe(Effect.mapError(mapClientError))
 
-const Endpoint12_1 = (raw: RawClient["project"]) => () => raw["current"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint12_2Request = Parameters<RawClient["project"]["update"]>[0]
-type Endpoint12_2Input = {
-  readonly projectID: Endpoint12_2Request["params"]["projectID"]
-  readonly name?: Endpoint12_2Request["payload"]["name"]
-  readonly icon?: Endpoint12_2Request["payload"]["icon"]
+type Endpoint12_1Request = Parameters<RawClient["mobile"]["authTokenCreate"]>[0]
+type Endpoint12_1Input = {
+  readonly name?: Endpoint12_1Request["payload"]["name"]
+  readonly expiresInDays?: Endpoint12_1Request["payload"]["expiresInDays"]
 }
-const Endpoint12_2 = (raw: RawClient["project"]) => (input: Endpoint12_2Input) =>
-  raw["update"]({
-    params: { projectID: input["projectID"] },
-    payload: { name: input["name"], icon: input["icon"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint12_3Request = Parameters<RawClient["project"]["directoryList"]>[0]
-type Endpoint12_3Input = { readonly projectID: Endpoint12_3Request["params"]["projectID"] }
-const Endpoint12_3 = (raw: RawClient["project"]) => (input: Endpoint12_3Input) =>
-  raw["directoryList"]({ params: { projectID: input["projectID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint12_4Request = Parameters<RawClient["project"]["copyCreate"]>[0]
-type Endpoint12_4Input = {
-  readonly projectID: Endpoint12_4Request["params"]["projectID"]
-  readonly strategy: Endpoint12_4Request["payload"]["strategy"]
-  readonly directory: Endpoint12_4Request["payload"]["directory"]
-  readonly name?: Endpoint12_4Request["payload"]["name"]
-}
-const Endpoint12_4 = (raw: RawClient["project"]) => (input: Endpoint12_4Input) =>
-  raw["copyCreate"]({
-    params: { projectID: input["projectID"] },
-    payload: { strategy: input["strategy"], directory: input["directory"], name: input["name"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint12_5Request = Parameters<RawClient["project"]["copyRemove"]>[0]
-type Endpoint12_5Input = {
-  readonly projectID: Endpoint12_5Request["params"]["projectID"]
-  readonly directory: Endpoint12_5Request["payload"]["directory"]
-  readonly force: Endpoint12_5Request["payload"]["force"]
-}
-const Endpoint12_5 = (raw: RawClient["project"]) => (input: Endpoint12_5Input) =>
-  raw["copyRemove"]({
-    params: { projectID: input["projectID"] },
-    payload: { directory: input["directory"], force: input["force"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint12_6Request = Parameters<RawClient["project"]["copyRefresh"]>[0]
-type Endpoint12_6Input = { readonly projectID: Endpoint12_6Request["params"]["projectID"] }
-const Endpoint12_6 = (raw: RawClient["project"]) => (input: Endpoint12_6Input) =>
-  raw["copyRefresh"]({ params: { projectID: input["projectID"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup12 = (raw: RawClient["project"]) => ({
-  list: Endpoint12_0(raw),
-  current: Endpoint12_1(raw),
-  update: Endpoint12_2(raw),
-  directoryList: Endpoint12_3(raw),
-  copyCreate: Endpoint12_4(raw),
-  copyRemove: Endpoint12_5(raw),
-  copyRefresh: Endpoint12_6(raw),
-})
-
-const Endpoint13_0 = (raw: RawClient["provider"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint13_1 = (raw: RawClient["provider"]) => () => raw["auth"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint13_2Request = Parameters<RawClient["provider"]["api"]>[0]
-type Endpoint13_2Input = {
-  readonly providerID: Endpoint13_2Request["params"]["providerID"]
-  readonly key: Endpoint13_2Request["payload"]["key"]
-}
-const Endpoint13_2 = (raw: RawClient["provider"]) => (input: Endpoint13_2Input) =>
-  raw["api"]({ params: { providerID: input["providerID"] }, payload: { key: input["key"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint13_3Request = Parameters<RawClient["provider"]["removeAuth"]>[0]
-type Endpoint13_3Input = { readonly providerID: Endpoint13_3Request["params"]["providerID"] }
-const Endpoint13_3 = (raw: RawClient["provider"]) => (input: Endpoint13_3Input) =>
-  raw["removeAuth"]({ params: { providerID: input["providerID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint13_4Request = Parameters<RawClient["provider"]["oauthAuthorize"]>[0]
-type Endpoint13_4Input = {
-  readonly providerID: Endpoint13_4Request["params"]["providerID"]
-  readonly method: Endpoint13_4Request["payload"]["method"]
-}
-const Endpoint13_4 = (raw: RawClient["provider"]) => (input: Endpoint13_4Input) =>
-  raw["oauthAuthorize"]({ params: { providerID: input["providerID"] }, payload: { method: input["method"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint13_5Request = Parameters<RawClient["provider"]["oauthCallback"]>[0]
-type Endpoint13_5Input = {
-  readonly providerID: Endpoint13_5Request["params"]["providerID"]
-  readonly method: Endpoint13_5Request["payload"]["method"]
-  readonly code?: Endpoint13_5Request["payload"]["code"]
-}
-const Endpoint13_5 = (raw: RawClient["provider"]) => (input: Endpoint13_5Input) =>
-  raw["oauthCallback"]({
-    params: { providerID: input["providerID"] },
-    payload: { method: input["method"], code: input["code"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup13 = (raw: RawClient["provider"]) => ({
-  list: Endpoint13_0(raw),
-  auth: Endpoint13_1(raw),
-  api: Endpoint13_2(raw),
-  removeAuth: Endpoint13_3(raw),
-  oauthAuthorize: Endpoint13_4(raw),
-  oauthCallback: Endpoint13_5(raw),
-})
-
-const Endpoint14_0 = (raw: RawClient["question"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint14_1Request = Parameters<RawClient["question"]["reply"]>[0]
-type Endpoint14_1Input = {
-  readonly requestID: Endpoint14_1Request["params"]["requestID"]
-  readonly answers: Endpoint14_1Request["payload"]["answers"]
-}
-const Endpoint14_1 = (raw: RawClient["question"]) => (input: Endpoint14_1Input) =>
-  raw["reply"]({ params: { requestID: input["requestID"] }, payload: { answers: input["answers"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint14_2Request = Parameters<RawClient["question"]["reject"]>[0]
-type Endpoint14_2Input = { readonly requestID: Endpoint14_2Request["params"]["requestID"] }
-const Endpoint14_2 = (raw: RawClient["question"]) => (input: Endpoint14_2Input) =>
-  raw["reject"]({ params: { requestID: input["requestID"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup14 = (raw: RawClient["question"]) => ({
-  list: Endpoint14_0(raw),
-  reply: Endpoint14_1(raw),
-  reject: Endpoint14_2(raw),
-})
-
-const Endpoint15_0 = (raw: RawClient["permission"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint15_1Request = Parameters<RawClient["permission"]["reply"]>[0]
-type Endpoint15_1Input = {
-  readonly requestID: Endpoint15_1Request["params"]["requestID"]
-  readonly reply: Endpoint15_1Request["payload"]["reply"]
-  readonly message?: Endpoint15_1Request["payload"]["message"]
-}
-const Endpoint15_1 = (raw: RawClient["permission"]) => (input: Endpoint15_1Input) =>
-  raw["reply"]({
-    params: { requestID: input["requestID"] },
-    payload: { reply: input["reply"], message: input["message"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup15 = (raw: RawClient["permission"]) => ({ list: Endpoint15_0(raw), reply: Endpoint15_1(raw) })
-
-const Endpoint16_0 = (raw: RawClient["pty"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint16_1Request = Parameters<RawClient["pty"]["create"]>[0]
-type Endpoint16_1Input = {
-  readonly command?: Endpoint16_1Request["payload"]["command"]
-  readonly args?: Endpoint16_1Request["payload"]["args"]
-  readonly cwd?: Endpoint16_1Request["payload"]["cwd"]
-  readonly title?: Endpoint16_1Request["payload"]["title"]
-  readonly env?: Endpoint16_1Request["payload"]["env"]
-}
-const Endpoint16_1 = (raw: RawClient["pty"]) => (input?: Endpoint16_1Input) =>
-  raw["create"]({
-    payload: {
-      command: input?.["command"],
-      args: input?.["args"],
-      cwd: input?.["cwd"],
-      title: input?.["title"],
-      env: input?.["env"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint16_2Request = Parameters<RawClient["pty"]["get"]>[0]
-type Endpoint16_2Input = { readonly ptyID: Endpoint16_2Request["params"]["ptyID"] }
-const Endpoint16_2 = (raw: RawClient["pty"]) => (input: Endpoint16_2Input) =>
-  raw["get"]({ params: { ptyID: input["ptyID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint16_3Request = Parameters<RawClient["pty"]["update"]>[0]
-type Endpoint16_3Input = {
-  readonly ptyID: Endpoint16_3Request["params"]["ptyID"]
-  readonly title?: Endpoint16_3Request["payload"]["title"]
-  readonly size?: Endpoint16_3Request["payload"]["size"]
-}
-const Endpoint16_3 = (raw: RawClient["pty"]) => (input: Endpoint16_3Input) =>
-  raw["update"]({ params: { ptyID: input["ptyID"] }, payload: { title: input["title"], size: input["size"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint16_4Request = Parameters<RawClient["pty"]["remove"]>[0]
-type Endpoint16_4Input = { readonly ptyID: Endpoint16_4Request["params"]["ptyID"] }
-const Endpoint16_4 = (raw: RawClient["pty"]) => (input: Endpoint16_4Input) =>
-  raw["remove"]({ params: { ptyID: input["ptyID"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup16 = (raw: RawClient["pty"]) => ({
-  list: Endpoint16_0(raw),
-  create: Endpoint16_1(raw),
-  get: Endpoint16_2(raw),
-  update: Endpoint16_3(raw),
-  remove: Endpoint16_4(raw),
-})
-
-const Endpoint17_0 = (raw: RawClient["loop"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint17_1 = (raw: RawClient["loop"]) => () => raw["templates"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_2Request = Parameters<RawClient["loop"]["generate"]>[0]
-type Endpoint17_2Input = {
-  readonly description: Endpoint17_2Request["payload"]["description"]
-  readonly model?: Endpoint17_2Request["payload"]["model"]
-  readonly agent?: Endpoint17_2Request["payload"]["agent"]
-}
-const Endpoint17_2 = (raw: RawClient["loop"]) => (input: Endpoint17_2Input) =>
-  raw["generate"]({
-    payload: { description: input["description"], model: input["model"], agent: input["agent"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_3Request = Parameters<RawClient["loop"]["recentRuns"]>[0]
-type Endpoint17_3Input = { readonly limit?: Endpoint17_3Request["query"]["limit"] }
-const Endpoint17_3 = (raw: RawClient["loop"]) => (input?: Endpoint17_3Input) =>
-  raw["recentRuns"]({ query: { limit: input?.["limit"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_4Request = Parameters<RawClient["loop"]["get"]>[0]
-type Endpoint17_4Input = { readonly id: Endpoint17_4Request["params"]["id"] }
-const Endpoint17_4 = (raw: RawClient["loop"]) => (input: Endpoint17_4Input) =>
-  raw["get"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_5Request = Parameters<RawClient["loop"]["upsert"]>[0]
-type Endpoint17_5Input = { readonly payload: Endpoint17_5Request["payload"] }
-const Endpoint17_5 = (raw: RawClient["loop"]) => (input: Endpoint17_5Input) =>
-  raw["upsert"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_6Request = Parameters<RawClient["loop"]["update"]>[0]
-type Endpoint17_6Input = {
-  readonly id: Endpoint17_6Request["params"]["id"]
-  readonly payload: Endpoint17_6Request["payload"]
-}
-const Endpoint17_6 = (raw: RawClient["loop"]) => (input: Endpoint17_6Input) =>
-  raw["update"]({ params: { id: input["id"] }, payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_7Request = Parameters<RawClient["loop"]["remove"]>[0]
-type Endpoint17_7Input = { readonly id: Endpoint17_7Request["params"]["id"] }
-const Endpoint17_7 = (raw: RawClient["loop"]) => (input: Endpoint17_7Input) =>
-  raw["remove"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_8Request = Parameters<RawClient["loop"]["toggle"]>[0]
-type Endpoint17_8Input = {
-  readonly id: Endpoint17_8Request["params"]["id"]
-  readonly enabled: Endpoint17_8Request["payload"]["enabled"]
-}
-const Endpoint17_8 = (raw: RawClient["loop"]) => (input: Endpoint17_8Input) =>
-  raw["toggle"]({ params: { id: input["id"] }, payload: { enabled: input["enabled"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint17_9Request = Parameters<RawClient["loop"]["run"]>[0]
-type Endpoint17_9Input = { readonly id: Endpoint17_9Request["params"]["id"] }
-const Endpoint17_9 = (raw: RawClient["loop"]) => (input: Endpoint17_9Input) =>
-  raw["run"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_10Request = Parameters<RawClient["loop"]["abort"]>[0]
-type Endpoint17_10Input = { readonly id: Endpoint17_10Request["params"]["id"] }
-const Endpoint17_10 = (raw: RawClient["loop"]) => (input: Endpoint17_10Input) =>
-  raw["abort"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_11Request = Parameters<RawClient["loop"]["pause"]>[0]
-type Endpoint17_11Input = { readonly id: Endpoint17_11Request["params"]["id"] }
-const Endpoint17_11 = (raw: RawClient["loop"]) => (input: Endpoint17_11Input) =>
-  raw["pause"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_12Request = Parameters<RawClient["loop"]["resume"]>[0]
-type Endpoint17_12Input = { readonly id: Endpoint17_12Request["params"]["id"] }
-const Endpoint17_12 = (raw: RawClient["loop"]) => (input: Endpoint17_12Input) =>
-  raw["resume"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint17_13Request = Parameters<RawClient["loop"]["runs"]>[0]
-type Endpoint17_13Input = {
-  readonly id: Endpoint17_13Request["params"]["id"]
-  readonly limit?: Endpoint17_13Request["query"]["limit"]
-}
-const Endpoint17_13 = (raw: RawClient["loop"]) => (input: Endpoint17_13Input) =>
-  raw["runs"]({ params: { id: input["id"] }, query: { limit: input["limit"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup17 = (raw: RawClient["loop"]) => ({
-  list: Endpoint17_0(raw),
-  templates: Endpoint17_1(raw),
-  generate: Endpoint17_2(raw),
-  recentRuns: Endpoint17_3(raw),
-  get: Endpoint17_4(raw),
-  upsert: Endpoint17_5(raw),
-  update: Endpoint17_6(raw),
-  remove: Endpoint17_7(raw),
-  toggle: Endpoint17_8(raw),
-  run: Endpoint17_9(raw),
-  abort: Endpoint17_10(raw),
-  pause: Endpoint17_11(raw),
-  resume: Endpoint17_12(raw),
-  runs: Endpoint17_13(raw),
-})
-
-type Endpoint18_0Request = Parameters<RawClient["session"]["list"]>[0]
-type Endpoint18_0Input = {
-  readonly directory?: Endpoint18_0Request["query"]["directory"]
-  readonly roots?: Endpoint18_0Request["query"]["roots"]
-  readonly start?: Endpoint18_0Request["query"]["start"]
-  readonly search?: Endpoint18_0Request["query"]["search"]
-  readonly limit?: Endpoint18_0Request["query"]["limit"]
-}
-const Endpoint18_0 = (raw: RawClient["session"]) => (input?: Endpoint18_0Input) =>
-  raw["list"]({
-    query: {
-      directory: input?.["directory"],
-      roots: input?.["roots"],
-      start: input?.["start"],
-      search: input?.["search"],
-      limit: input?.["limit"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_1Request = Parameters<RawClient["session"]["create"]>[0]
-type Endpoint18_1Input = {
-  readonly parentID?: Extract<Endpoint18_1Request["payload"], object>["parentID"]
-  readonly title?: Extract<Endpoint18_1Request["payload"], object>["title"]
-  readonly permission?: Extract<Endpoint18_1Request["payload"], object>["permission"]
-  readonly skills?: Extract<Endpoint18_1Request["payload"], object>["skills"]
-  readonly github?: Extract<Endpoint18_1Request["payload"], object>["github"]
-  readonly workspaceID?: Extract<Endpoint18_1Request["payload"], object>["workspaceID"]
-}
-const Endpoint18_1 = (raw: RawClient["session"]) => (input?: Endpoint18_1Input) =>
-  raw["create"]({
-    payload: {
-      parentID: input?.["parentID"],
-      title: input?.["title"],
-      permission: input?.["permission"],
-      skills: input?.["skills"],
-      github: input?.["github"],
-      workspaceID: input?.["workspaceID"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-const Endpoint18_2 = (raw: RawClient["session"]) => () => raw["status"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_3Request = Parameters<RawClient["session"]["get"]>[0]
-type Endpoint18_3Input = { readonly sessionID: Endpoint18_3Request["params"]["sessionID"] }
-const Endpoint18_3 = (raw: RawClient["session"]) => (input: Endpoint18_3Input) =>
-  raw["get"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_4Request = Parameters<RawClient["session"]["remove"]>[0]
-type Endpoint18_4Input = { readonly sessionID: Endpoint18_4Request["params"]["sessionID"] }
-const Endpoint18_4 = (raw: RawClient["session"]) => (input: Endpoint18_4Input) =>
-  raw["remove"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_5Request = Parameters<RawClient["session"]["update"]>[0]
-type Endpoint18_5Input = {
-  readonly sessionID: Endpoint18_5Request["params"]["sessionID"]
-  readonly title?: Endpoint18_5Request["payload"]["title"]
-  readonly time?: Endpoint18_5Request["payload"]["time"]
-}
-const Endpoint18_5 = (raw: RawClient["session"]) => (input: Endpoint18_5Input) =>
-  raw["update"]({
-    params: { sessionID: input["sessionID"] },
-    payload: { title: input["title"], time: input["time"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_6Request = Parameters<RawClient["session"]["fork"]>[0]
-type Endpoint18_6Input = {
-  readonly sessionID: Endpoint18_6Request["params"]["sessionID"]
-  readonly messageID?: Endpoint18_6Request["payload"]["messageID"]
-}
-const Endpoint18_6 = (raw: RawClient["session"]) => (input: Endpoint18_6Input) =>
-  raw["fork"]({ params: { sessionID: input["sessionID"] }, payload: { messageID: input["messageID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_7Request = Parameters<RawClient["session"]["abort"]>[0]
-type Endpoint18_7Input = { readonly sessionID: Endpoint18_7Request["params"]["sessionID"] }
-const Endpoint18_7 = (raw: RawClient["session"]) => (input: Endpoint18_7Input) =>
-  raw["abort"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_8Request = Parameters<RawClient["session"]["revert"]>[0]
-type Endpoint18_8Input = {
-  readonly sessionID: Endpoint18_8Request["params"]["sessionID"]
-  readonly messageID: Endpoint18_8Request["payload"]["messageID"]
-  readonly partID?: Endpoint18_8Request["payload"]["partID"]
-}
-const Endpoint18_8 = (raw: RawClient["session"]) => (input: Endpoint18_8Input) =>
-  raw["revert"]({
-    params: { sessionID: input["sessionID"] },
-    payload: { messageID: input["messageID"], partID: input["partID"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_9Request = Parameters<RawClient["session"]["unrevert"]>[0]
-type Endpoint18_9Input = { readonly sessionID: Endpoint18_9Request["params"]["sessionID"] }
-const Endpoint18_9 = (raw: RawClient["session"]) => (input: Endpoint18_9Input) =>
-  raw["unrevert"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_10Request = Parameters<RawClient["session"]["share"]>[0]
-type Endpoint18_10Input = { readonly sessionID: Endpoint18_10Request["params"]["sessionID"] }
-const Endpoint18_10 = (raw: RawClient["session"]) => (input: Endpoint18_10Input) =>
-  raw["share"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_11Request = Parameters<RawClient["session"]["unshare"]>[0]
-type Endpoint18_11Input = { readonly sessionID: Endpoint18_11Request["params"]["sessionID"] }
-const Endpoint18_11 = (raw: RawClient["session"]) => (input: Endpoint18_11Input) =>
-  raw["unshare"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_12Request = Parameters<RawClient["session"]["summarize"]>[0]
-type Endpoint18_12Input = {
-  readonly sessionID: Endpoint18_12Request["params"]["sessionID"]
-  readonly providerID: Endpoint18_12Request["payload"]["providerID"]
-  readonly modelID: Endpoint18_12Request["payload"]["modelID"]
-  readonly auto?: Endpoint18_12Request["payload"]["auto"]
-}
-const Endpoint18_12 = (raw: RawClient["session"]) => (input: Endpoint18_12Input) =>
-  raw["summarize"]({
-    params: { sessionID: input["sessionID"] },
-    payload: { providerID: input["providerID"], modelID: input["modelID"], auto: input["auto"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_13Request = Parameters<RawClient["session"]["command"]>[0]
-type Endpoint18_13Input = {
-  readonly sessionID: Endpoint18_13Request["params"]["sessionID"]
-  readonly messageID?: Endpoint18_13Request["payload"]["messageID"]
-  readonly agent?: Endpoint18_13Request["payload"]["agent"]
-  readonly model?: Endpoint18_13Request["payload"]["model"]
-  readonly arguments: Endpoint18_13Request["payload"]["arguments"]
-  readonly command: Endpoint18_13Request["payload"]["command"]
-  readonly variant?: Endpoint18_13Request["payload"]["variant"]
-  readonly parts?: Endpoint18_13Request["payload"]["parts"]
-}
-const Endpoint18_13 = (raw: RawClient["session"]) => (input: Endpoint18_13Input) =>
-  raw["command"]({
-    params: { sessionID: input["sessionID"] },
-    payload: {
-      messageID: input["messageID"],
-      agent: input["agent"],
-      model: input["model"],
-      arguments: input["arguments"],
-      command: input["command"],
-      variant: input["variant"],
-      parts: input["parts"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_14Request = Parameters<RawClient["session"]["shell"]>[0]
-type Endpoint18_14Input = {
-  readonly sessionID: Endpoint18_14Request["params"]["sessionID"]
-  readonly agent: Endpoint18_14Request["payload"]["agent"]
-  readonly model?: Endpoint18_14Request["payload"]["model"]
-  readonly command: Endpoint18_14Request["payload"]["command"]
-}
-const Endpoint18_14 = (raw: RawClient["session"]) => (input: Endpoint18_14Input) =>
-  raw["shell"]({
-    params: { sessionID: input["sessionID"] },
-    payload: { agent: input["agent"], model: input["model"], command: input["command"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_15Request = Parameters<RawClient["session"]["permissionRespond"]>[0]
-type Endpoint18_15Input = {
-  readonly sessionID: Endpoint18_15Request["params"]["sessionID"]
-  readonly permissionID: Endpoint18_15Request["params"]["permissionID"]
-  readonly response: Endpoint18_15Request["payload"]["response"]
-}
-const Endpoint18_15 = (raw: RawClient["session"]) => (input: Endpoint18_15Input) =>
-  raw["permissionRespond"]({
-    params: { sessionID: input["sessionID"], permissionID: input["permissionID"] },
-    payload: { response: input["response"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_16Request = Parameters<RawClient["session"]["children"]>[0]
-type Endpoint18_16Input = { readonly sessionID: Endpoint18_16Request["params"]["sessionID"] }
-const Endpoint18_16 = (raw: RawClient["session"]) => (input: Endpoint18_16Input) =>
-  raw["children"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_17Request = Parameters<RawClient["session"]["todo"]>[0]
-type Endpoint18_17Input = { readonly sessionID: Endpoint18_17Request["params"]["sessionID"] }
-const Endpoint18_17 = (raw: RawClient["session"]) => (input: Endpoint18_17Input) =>
-  raw["todo"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_18Request = Parameters<RawClient["session"]["diff"]>[0]
-type Endpoint18_18Input = {
-  readonly sessionID: Endpoint18_18Request["params"]["sessionID"]
-  readonly messageID?: Endpoint18_18Request["query"]["messageID"]
-}
-const Endpoint18_18 = (raw: RawClient["session"]) => (input: Endpoint18_18Input) =>
-  raw["diff"]({ params: { sessionID: input["sessionID"] }, query: { messageID: input["messageID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_19Request = Parameters<RawClient["session"]["messages"]>[0]
-type Endpoint18_19Input = {
-  readonly sessionID: Endpoint18_19Request["params"]["sessionID"]
-  readonly limit?: Endpoint18_19Request["query"]["limit"]
-}
-const Endpoint18_19 = (raw: RawClient["session"]) => (input: Endpoint18_19Input) =>
-  raw["messages"]({ params: { sessionID: input["sessionID"] }, query: { limit: input["limit"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_20Request = Parameters<RawClient["session"]["message"]>[0]
-type Endpoint18_20Input = {
-  readonly sessionID: Endpoint18_20Request["params"]["sessionID"]
-  readonly messageID: Endpoint18_20Request["params"]["messageID"]
-}
-const Endpoint18_20 = (raw: RawClient["session"]) => (input: Endpoint18_20Input) =>
-  raw["message"]({ params: { sessionID: input["sessionID"], messageID: input["messageID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_21Request = Parameters<RawClient["session"]["messageRemove"]>[0]
-type Endpoint18_21Input = {
-  readonly sessionID: Endpoint18_21Request["params"]["sessionID"]
-  readonly messageID: Endpoint18_21Request["params"]["messageID"]
-}
-const Endpoint18_21 = (raw: RawClient["session"]) => (input: Endpoint18_21Input) =>
-  raw["messageRemove"]({ params: { sessionID: input["sessionID"], messageID: input["messageID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_22Request = Parameters<RawClient["session"]["partRemove"]>[0]
-type Endpoint18_22Input = {
-  readonly sessionID: Endpoint18_22Request["params"]["sessionID"]
-  readonly messageID: Endpoint18_22Request["params"]["messageID"]
-  readonly partID: Endpoint18_22Request["params"]["partID"]
-}
-const Endpoint18_22 = (raw: RawClient["session"]) => (input: Endpoint18_22Input) =>
-  raw["partRemove"]({
-    params: { sessionID: input["sessionID"], messageID: input["messageID"], partID: input["partID"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_23Request = Parameters<RawClient["session"]["v2Entries"]>[0]
-type Endpoint18_23Input = { readonly sessionID: Endpoint18_23Request["params"]["sessionID"] }
-const Endpoint18_23 = (raw: RawClient["session"]) => (input: Endpoint18_23Input) =>
-  raw["v2Entries"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_24Request = Parameters<RawClient["session"]["v2State"]>[0]
-type Endpoint18_24Input = { readonly sessionID: Endpoint18_24Request["params"]["sessionID"] }
-const Endpoint18_24 = (raw: RawClient["session"]) => (input: Endpoint18_24Input) =>
-  raw["v2State"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_25Request = Parameters<RawClient["session"]["v2Events"]>[0]
-type Endpoint18_25Input = { readonly sessionID: Endpoint18_25Request["params"]["sessionID"] }
-const Endpoint18_25 = (raw: RawClient["session"]) => (input: Endpoint18_25Input) =>
-  raw["v2Events"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_26Request = Parameters<RawClient["session"]["instructions"]>[0]
-type Endpoint18_26Input = { readonly sessionID: Endpoint18_26Request["params"]["sessionID"] }
-const Endpoint18_26 = (raw: RawClient["session"]) => (input: Endpoint18_26Input) =>
-  raw["instructions"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_27Request = Parameters<RawClient["session"]["contextBreakdown"]>[0]
-type Endpoint18_27Input = { readonly sessionID: Endpoint18_27Request["params"]["sessionID"] }
-const Endpoint18_27 = (raw: RawClient["session"]) => (input: Endpoint18_27Input) =>
-  raw["contextBreakdown"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_28Request = Parameters<RawClient["session"]["contextToggle"]>[0]
-type Endpoint18_28Input = {
-  readonly sessionID: Endpoint18_28Request["params"]["sessionID"]
-  readonly kind: Endpoint18_28Request["payload"]["kind"]
-  readonly key: Endpoint18_28Request["payload"]["key"]
-  readonly enabled: Endpoint18_28Request["payload"]["enabled"]
-}
-const Endpoint18_28 = (raw: RawClient["session"]) => (input: Endpoint18_28Input) =>
-  raw["contextToggle"]({
-    params: { sessionID: input["sessionID"] },
-    payload: { kind: input["kind"], key: input["key"], enabled: input["enabled"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_29Request = Parameters<RawClient["session"]["goal"]>[0]
-type Endpoint18_29Input = { readonly sessionID: Endpoint18_29Request["params"]["sessionID"] }
-const Endpoint18_29 = (raw: RawClient["session"]) => (input: Endpoint18_29Input) =>
-  raw["goal"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_30Request = Parameters<RawClient["session"]["background"]>[0]
-type Endpoint18_30Input = { readonly sessionID: Endpoint18_30Request["params"]["sessionID"] }
-const Endpoint18_30 = (raw: RawClient["session"]) => (input: Endpoint18_30Input) =>
-  raw["background"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_31Request = Parameters<RawClient["session"]["backgroundInspect"]>[0]
-type Endpoint18_31Input = {
-  readonly sessionID: Endpoint18_31Request["params"]["sessionID"]
-  readonly delegationID: Endpoint18_31Request["params"]["delegationID"]
-}
-const Endpoint18_31 = (raw: RawClient["session"]) => (input: Endpoint18_31Input) =>
-  raw["backgroundInspect"]({ params: { sessionID: input["sessionID"], delegationID: input["delegationID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_32Request = Parameters<RawClient["session"]["backgroundRead"]>[0]
-type Endpoint18_32Input = {
-  readonly sessionID: Endpoint18_32Request["params"]["sessionID"]
-  readonly delegationID: Endpoint18_32Request["params"]["delegationID"]
-}
-const Endpoint18_32 = (raw: RawClient["session"]) => (input: Endpoint18_32Input) =>
-  raw["backgroundRead"]({ params: { sessionID: input["sessionID"], delegationID: input["delegationID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_33Request = Parameters<RawClient["session"]["backgroundCancel"]>[0]
-type Endpoint18_33Input = {
-  readonly sessionID: Endpoint18_33Request["params"]["sessionID"]
-  readonly delegationID: Endpoint18_33Request["params"]["delegationID"]
-}
-const Endpoint18_33 = (raw: RawClient["session"]) => (input: Endpoint18_33Input) =>
-  raw["backgroundCancel"]({ params: { sessionID: input["sessionID"], delegationID: input["delegationID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_34Request = Parameters<RawClient["session"]["monitor"]>[0]
-type Endpoint18_34Input = {
-  readonly sessionID: Endpoint18_34Request["params"]["sessionID"]
-  readonly monitorID: Endpoint18_34Request["params"]["monitorID"]
-}
-const Endpoint18_34 = (raw: RawClient["session"]) => (input: Endpoint18_34Input) =>
-  raw["monitor"]({ params: { sessionID: input["sessionID"], monitorID: input["monitorID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint18_35Request = Parameters<RawClient["session"]["monitorLog"]>[0]
-type Endpoint18_35Input = {
-  readonly sessionID: Endpoint18_35Request["params"]["sessionID"]
-  readonly monitorID: Endpoint18_35Request["params"]["monitorID"]
-  readonly lines?: Endpoint18_35Request["query"]["lines"]
-}
-const Endpoint18_35 = (raw: RawClient["session"]) => (input: Endpoint18_35Input) =>
-  raw["monitorLog"]({
-    params: { sessionID: input["sessionID"], monitorID: input["monitorID"] },
-    query: { lines: input["lines"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint18_36Request = Parameters<RawClient["session"]["monitorCancel"]>[0]
-type Endpoint18_36Input = {
-  readonly sessionID: Endpoint18_36Request["params"]["sessionID"]
-  readonly monitorID: Endpoint18_36Request["params"]["monitorID"]
-}
-const Endpoint18_36 = (raw: RawClient["session"]) => (input: Endpoint18_36Input) =>
-  raw["monitorCancel"]({ params: { sessionID: input["sessionID"], monitorID: input["monitorID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-const adaptGroup18 = (raw: RawClient["session"]) => ({
-  list: Endpoint18_0(raw),
-  create: Endpoint18_1(raw),
-  status: Endpoint18_2(raw),
-  get: Endpoint18_3(raw),
-  remove: Endpoint18_4(raw),
-  update: Endpoint18_5(raw),
-  fork: Endpoint18_6(raw),
-  abort: Endpoint18_7(raw),
-  revert: Endpoint18_8(raw),
-  unrevert: Endpoint18_9(raw),
-  share: Endpoint18_10(raw),
-  unshare: Endpoint18_11(raw),
-  summarize: Endpoint18_12(raw),
-  command: Endpoint18_13(raw),
-  shell: Endpoint18_14(raw),
-  permissionRespond: Endpoint18_15(raw),
-  children: Endpoint18_16(raw),
-  todo: Endpoint18_17(raw),
-  diff: Endpoint18_18(raw),
-  messages: Endpoint18_19(raw),
-  message: Endpoint18_20(raw),
-  messageRemove: Endpoint18_21(raw),
-  partRemove: Endpoint18_22(raw),
-  v2Entries: Endpoint18_23(raw),
-  v2State: Endpoint18_24(raw),
-  v2Events: Endpoint18_25(raw),
-  instructions: Endpoint18_26(raw),
-  contextBreakdown: Endpoint18_27(raw),
-  contextToggle: Endpoint18_28(raw),
-  goal: Endpoint18_29(raw),
-  background: Endpoint18_30(raw),
-  backgroundInspect: Endpoint18_31(raw),
-  backgroundRead: Endpoint18_32(raw),
-  backgroundCancel: Endpoint18_33(raw),
-  monitor: Endpoint18_34(raw),
-  monitorLog: Endpoint18_35(raw),
-  monitorCancel: Endpoint18_36(raw),
-})
-
-type Endpoint19_0Request = Parameters<RawClient["tui"]["appendPrompt"]>[0]
-type Endpoint19_0Input = { readonly payload: Endpoint19_0Request["payload"] }
-const Endpoint19_0 = (raw: RawClient["tui"]) => (input: Endpoint19_0Input) =>
-  raw["appendPrompt"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_1 = (raw: RawClient["tui"]) => () => raw["openHelp"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_2 = (raw: RawClient["tui"]) => () => raw["openSessions"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_3 = (raw: RawClient["tui"]) => () => raw["openThemes"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_4 = (raw: RawClient["tui"]) => () => raw["openModels"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_5 = (raw: RawClient["tui"]) => () => raw["submitPrompt"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_6 = (raw: RawClient["tui"]) => () => raw["clearPrompt"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint19_7Request = Parameters<RawClient["tui"]["executeCommand"]>[0]
-type Endpoint19_7Input = { readonly payload: Endpoint19_7Request["payload"] }
-const Endpoint19_7 = (raw: RawClient["tui"]) => (input: Endpoint19_7Input) =>
-  raw["executeCommand"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint19_8Request = Parameters<RawClient["tui"]["showToast"]>[0]
-type Endpoint19_8Input = { readonly payload: Endpoint19_8Request["payload"] }
-const Endpoint19_8 = (raw: RawClient["tui"]) => (input: Endpoint19_8Input) =>
-  raw["showToast"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint19_9Request = Parameters<RawClient["tui"]["publish"]>[0]
-type Endpoint19_9Input = { readonly payload: Endpoint19_9Request["payload"] }
-const Endpoint19_9 = (raw: RawClient["tui"]) => (input: Endpoint19_9Input) =>
-  raw["publish"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint19_10Request = Parameters<RawClient["tui"]["selectSession"]>[0]
-type Endpoint19_10Input = { readonly payload: Endpoint19_10Request["payload"] }
-const Endpoint19_10 = (raw: RawClient["tui"]) => (input: Endpoint19_10Input) =>
-  raw["selectSession"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-const Endpoint19_11 = (raw: RawClient["tui"]) => () => raw["controlNext"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint19_12Request = Parameters<RawClient["tui"]["controlResponse"]>[0]
-type Endpoint19_12Input = { readonly payload: Endpoint19_12Request["payload"] }
-const Endpoint19_12 = (raw: RawClient["tui"]) => (input: Endpoint19_12Input) =>
-  raw["controlResponse"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup19 = (raw: RawClient["tui"]) => ({
-  appendPrompt: Endpoint19_0(raw),
-  openHelp: Endpoint19_1(raw),
-  openSessions: Endpoint19_2(raw),
-  openThemes: Endpoint19_3(raw),
-  openModels: Endpoint19_4(raw),
-  submitPrompt: Endpoint19_5(raw),
-  clearPrompt: Endpoint19_6(raw),
-  executeCommand: Endpoint19_7(raw),
-  showToast: Endpoint19_8(raw),
-  publish: Endpoint19_9(raw),
-  selectSession: Endpoint19_10(raw),
-  controlNext: Endpoint19_11(raw),
-  controlResponse: Endpoint19_12(raw),
-})
-
-const Endpoint20_0 = (raw: RawClient["workspace"]) => () => raw["adaptors"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint20_1 = (raw: RawClient["workspace"]) => () => raw["syncList"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint20_2 = (raw: RawClient["workspace"]) => () => raw["status"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint20_3Request = Parameters<RawClient["workspace"]["create"]>[0]
-type Endpoint20_3Input = {
-  readonly id: Endpoint20_3Request["params"]["id"]
-  readonly branch: Endpoint20_3Request["payload"]["branch"]
-  readonly config: Endpoint20_3Request["payload"]["config"]
-}
-const Endpoint20_3 = (raw: RawClient["workspace"]) => (input: Endpoint20_3Input) =>
-  raw["create"]({ params: { id: input["id"] }, payload: { branch: input["branch"], config: input["config"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-const Endpoint20_4 = (raw: RawClient["workspace"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint20_5Request = Parameters<RawClient["workspace"]["remove"]>[0]
-type Endpoint20_5Input = { readonly id: Endpoint20_5Request["params"]["id"] }
-const Endpoint20_5 = (raw: RawClient["workspace"]) => (input: Endpoint20_5Input) =>
-  raw["remove"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint20_6Request = Parameters<RawClient["workspace"]["restore"]>[0]
-type Endpoint20_6Input = {
-  readonly id: Endpoint20_6Request["params"]["id"]
-  readonly timeoutMs?: Endpoint20_6Request["query"]["timeoutMs"]
-}
-const Endpoint20_6 = (raw: RawClient["workspace"]) => (input: Endpoint20_6Input) =>
-  raw["restore"]({ params: { id: input["id"] }, query: { timeoutMs: input["timeoutMs"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint20_7Request = Parameters<RawClient["workspace"]["sessionRestore"]>[0]
-type Endpoint20_7Input = {
-  readonly id: Endpoint20_7Request["params"]["id"]
-  readonly sessionID: Endpoint20_7Request["params"]["sessionID"]
-  readonly timeoutMs?: Endpoint20_7Request["query"]["timeoutMs"]
-}
-const Endpoint20_7 = (raw: RawClient["workspace"]) => (input: Endpoint20_7Input) =>
-  raw["sessionRestore"]({
-    params: { id: input["id"], sessionID: input["sessionID"] },
-    query: { timeoutMs: input["timeoutMs"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint20_8Request = Parameters<RawClient["workspace"]["warp"]>[0]
-type Endpoint20_8Input = {
-  readonly id: Endpoint20_8Request["payload"]["id"]
-  readonly sessionID: Endpoint20_8Request["payload"]["sessionID"]
-  readonly copyChanges?: Endpoint20_8Request["payload"]["copyChanges"]
-  readonly timeoutMs?: Endpoint20_8Request["payload"]["timeoutMs"]
-}
-const Endpoint20_8 = (raw: RawClient["workspace"]) => (input: Endpoint20_8Input) =>
-  raw["warp"]({
-    payload: {
-      id: input["id"],
-      sessionID: input["sessionID"],
-      copyChanges: input["copyChanges"],
-      timeoutMs: input["timeoutMs"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup20 = (raw: RawClient["workspace"]) => ({
-  adaptors: Endpoint20_0(raw),
-  syncList: Endpoint20_1(raw),
-  status: Endpoint20_2(raw),
-  create: Endpoint20_3(raw),
-  list: Endpoint20_4(raw),
-  remove: Endpoint20_5(raw),
-  restore: Endpoint20_6(raw),
-  sessionRestore: Endpoint20_7(raw),
-  warp: Endpoint20_8(raw),
-})
-
-type Endpoint21_0Request = Parameters<RawClient["sync"]["event"]>[0]
-type Endpoint21_0Input = {
-  readonly event: Endpoint21_0Request["payload"]["event"]
-  readonly projectID: Endpoint21_0Request["payload"]["projectID"]
-}
-const Endpoint21_0 = (raw: RawClient["sync"]) => (input: Endpoint21_0Input) =>
-  raw["event"]({ payload: { event: input["event"], projectID: input["projectID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint21_1Request = Parameters<RawClient["sync"]["outbox"]>[0]
-type Endpoint21_1Input = {
-  readonly projectID: Endpoint21_1Request["query"]["projectID"]
-  readonly since?: Endpoint21_1Request["query"]["since"]
-}
-const Endpoint21_1 = (raw: RawClient["sync"]) => (input: Endpoint21_1Input) =>
-  raw["outbox"]({ query: { projectID: input["projectID"], since: input["since"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint21_2Request = Parameters<RawClient["sync"]["snapshot"]>[0]
-type Endpoint21_2Input = {
-  readonly aggregateID: Endpoint21_2Request["params"]["aggregateID"]
-  readonly projectID: Endpoint21_2Request["query"]["projectID"]
-}
-const Endpoint21_2 = (raw: RawClient["sync"]) => (input: Endpoint21_2Input) =>
-  raw["snapshot"]({ params: { aggregateID: input["aggregateID"] }, query: { projectID: input["projectID"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint21_3Request = Parameters<RawClient["sync"]["stream"]>[0]
-type Endpoint21_3Input = {
-  readonly projectID: Endpoint21_3Request["query"]["projectID"]
-  readonly token: Endpoint21_3Request["query"]["token"]
-}
-const Endpoint21_3 = (raw: RawClient["sync"]) => (input: Endpoint21_3Input) =>
-  Stream.unwrap(
-    raw["stream"]({ query: { projectID: input["projectID"], token: input["token"] } }).pipe(
-      Effect.mapError(mapClientError),
-      Effect.map((stream) => stream.pipe(Stream.mapError(mapClientError))),
-    ),
-  )
-
-type Endpoint21_4Request = Parameters<RawClient["sync"]["stats"]>[0]
-type Endpoint21_4Input = { readonly projectID?: Endpoint21_4Request["query"]["projectID"] }
-const Endpoint21_4 = (raw: RawClient["sync"]) => (input?: Endpoint21_4Input) =>
-  raw["stats"]({ query: { projectID: input?.["projectID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint21_5Request = Parameters<RawClient["sync"]["config"]>[0]
-type Endpoint21_5Input = {
-  readonly url: Endpoint21_5Request["payload"]["url"]
-  readonly token?: Endpoint21_5Request["payload"]["token"]
-  readonly autostart?: Endpoint21_5Request["payload"]["autostart"]
-}
-const Endpoint21_5 = (raw: RawClient["sync"]) => (input: Endpoint21_5Input) =>
-  raw["config"]({ payload: { url: input["url"], token: input["token"], autostart: input["autostart"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-const Endpoint21_6 = (raw: RawClient["sync"]) => () => raw["connect"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint21_7 = (raw: RawClient["sync"]) => () => raw["disconnect"]({}).pipe(Effect.mapError(mapClientError))
-
-const Endpoint21_8 = (raw: RawClient["sync"]) => () => raw["drain"]({}).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup21 = (raw: RawClient["sync"]) => ({
-  event: Endpoint21_0(raw),
-  outbox: Endpoint21_1(raw),
-  snapshot: Endpoint21_2(raw),
-  stream: Endpoint21_3(raw),
-  stats: Endpoint21_4(raw),
-  config: Endpoint21_5(raw),
-  connect: Endpoint21_6(raw),
-  disconnect: Endpoint21_7(raw),
-  drain: Endpoint21_8(raw),
-})
-
-type Endpoint22_0Request = Parameters<RawClient["auth"]["remove"]>[0]
-type Endpoint22_0Input = { readonly providerID: Endpoint22_0Request["params"]["providerID"] }
-const Endpoint22_0 = (raw: RawClient["auth"]) => (input: Endpoint22_0Input) =>
-  raw["remove"]({ params: { providerID: input["providerID"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup22 = (raw: RawClient["auth"]) => ({ remove: Endpoint22_0(raw) })
-
-const Endpoint23_0 = (raw: RawClient["config-management"]) => () =>
-  raw["reload"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint23_1Request = Parameters<RawClient["config-management"]["mcpAdd"]>[0]
-type Endpoint23_1Input = {
-  readonly name: Endpoint23_1Request["payload"]["name"]
-  readonly config: Endpoint23_1Request["payload"]["config"]
-}
-const Endpoint23_1 = (raw: RawClient["config-management"]) => (input: Endpoint23_1Input) =>
-  raw["mcpAdd"]({ payload: { name: input["name"], config: input["config"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint23_2Request = Parameters<RawClient["config-management"]["mcpUpdate"]>[0]
-type Endpoint23_2Input = {
-  readonly name: Endpoint23_2Request["params"]["name"]
-  readonly payload: Endpoint23_2Request["payload"]
-}
-const Endpoint23_2 = (raw: RawClient["config-management"]) => (input: Endpoint23_2Input) =>
-  raw["mcpUpdate"]({ params: { name: input["name"] }, payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint23_3Request = Parameters<RawClient["config-management"]["mcpRemove"]>[0]
-type Endpoint23_3Input = { readonly name: Endpoint23_3Request["params"]["name"] }
-const Endpoint23_3 = (raw: RawClient["config-management"]) => (input: Endpoint23_3Input) =>
-  raw["mcpRemove"]({ params: { name: input["name"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint23_4Request = Parameters<RawClient["config-management"]["profileCreate"]>[0]
-type Endpoint23_4Input = { readonly name: Endpoint23_4Request["payload"]["name"] }
-const Endpoint23_4 = (raw: RawClient["config-management"]) => (input: Endpoint23_4Input) =>
-  raw["profileCreate"]({ payload: { name: input["name"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint23_5Request = Parameters<RawClient["config-management"]["profileActivate"]>[0]
-type Endpoint23_5Input = { readonly name: Endpoint23_5Request["params"]["name"] }
-const Endpoint23_5 = (raw: RawClient["config-management"]) => (input: Endpoint23_5Input) =>
-  raw["profileActivate"]({ params: { name: input["name"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup23 = (raw: RawClient["config-management"]) => ({
-  reload: Endpoint23_0(raw),
-  mcpAdd: Endpoint23_1(raw),
-  mcpUpdate: Endpoint23_2(raw),
-  mcpRemove: Endpoint23_3(raw),
-  profileCreate: Endpoint23_4(raw),
-  profileActivate: Endpoint23_5(raw),
-})
-
-type Endpoint24_0Request = Parameters<RawClient["session-prompt"]["prompt"]>[0]
-type Endpoint24_0Input = {
-  readonly sessionID: Endpoint24_0Request["params"]["sessionID"]
-  readonly messageID?: Endpoint24_0Request["payload"]["messageID"]
-  readonly model?: Endpoint24_0Request["payload"]["model"]
-  readonly agent?: Endpoint24_0Request["payload"]["agent"]
-  readonly noReply?: Endpoint24_0Request["payload"]["noReply"]
-  readonly tools?: Endpoint24_0Request["payload"]["tools"]
-  readonly format?: Endpoint24_0Request["payload"]["format"]
-  readonly system?: Endpoint24_0Request["payload"]["system"]
-  readonly variant?: Endpoint24_0Request["payload"]["variant"]
-  readonly parts: Endpoint24_0Request["payload"]["parts"]
-}
-const Endpoint24_0 = (raw: RawClient["session-prompt"]) => (input: Endpoint24_0Input) =>
-  raw["prompt"]({
-    params: { sessionID: input["sessionID"] },
-    payload: {
-      messageID: input["messageID"],
-      model: input["model"],
-      agent: input["agent"],
-      noReply: input["noReply"],
-      tools: input["tools"],
-      format: input["format"],
-      system: input["system"],
-      variant: input["variant"],
-      parts: input["parts"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint24_1Request = Parameters<RawClient["session-prompt"]["promptAsync"]>[0]
-type Endpoint24_1Input = {
-  readonly sessionID: Endpoint24_1Request["params"]["sessionID"]
-  readonly messageID?: Endpoint24_1Request["payload"]["messageID"]
-  readonly model?: Endpoint24_1Request["payload"]["model"]
-  readonly agent?: Endpoint24_1Request["payload"]["agent"]
-  readonly noReply?: Endpoint24_1Request["payload"]["noReply"]
-  readonly tools?: Endpoint24_1Request["payload"]["tools"]
-  readonly format?: Endpoint24_1Request["payload"]["format"]
-  readonly system?: Endpoint24_1Request["payload"]["system"]
-  readonly variant?: Endpoint24_1Request["payload"]["variant"]
-  readonly parts: Endpoint24_1Request["payload"]["parts"]
-}
-const Endpoint24_1 = (raw: RawClient["session-prompt"]) => (input: Endpoint24_1Input) =>
-  raw["promptAsync"]({
-    params: { sessionID: input["sessionID"] },
-    payload: {
-      messageID: input["messageID"],
-      model: input["model"],
-      agent: input["agent"],
-      noReply: input["noReply"],
-      tools: input["tools"],
-      format: input["format"],
-      system: input["system"],
-      variant: input["variant"],
-      parts: input["parts"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup24 = (raw: RawClient["session-prompt"]) => ({
-  prompt: Endpoint24_0(raw),
-  promptAsync: Endpoint24_1(raw),
-})
-
-type Endpoint25_0Request = Parameters<RawClient["share"]["short"]>[0]
-type Endpoint25_0Input = { readonly shareID: Endpoint25_0Request["params"]["shareID"] }
-const Endpoint25_0 = (raw: RawClient["share"]) => (input: Endpoint25_0Input) =>
-  raw["short"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint25_1Request = Parameters<RawClient["share"]["page"]>[0]
-type Endpoint25_1Input = { readonly shareID: Endpoint25_1Request["params"]["shareID"] }
-const Endpoint25_1 = (raw: RawClient["share"]) => (input: Endpoint25_1Input) =>
-  raw["page"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint25_2Request = Parameters<RawClient["share"]["api"]>[0]
-type Endpoint25_2Input = { readonly shareID: Endpoint25_2Request["params"]["shareID"] }
-const Endpoint25_2 = (raw: RawClient["share"]) => (input: Endpoint25_2Input) =>
-  raw["api"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint25_3Request = Parameters<RawClient["share"]["data"]>[0]
-type Endpoint25_3Input = { readonly shareID: Endpoint25_3Request["params"]["shareID"] }
-const Endpoint25_3 = (raw: RawClient["share"]) => (input: Endpoint25_3Input) =>
-  raw["data"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup25 = (raw: RawClient["share"]) => ({
-  short: Endpoint25_0(raw),
-  page: Endpoint25_1(raw),
-  api: Endpoint25_2(raw),
-  data: Endpoint25_3(raw),
-})
-
-const Endpoint26_0 = (raw: RawClient["events"]) => () =>
-  Stream.unwrap(
-    raw["subscribe"]({}).pipe(
-      Effect.mapError(mapClientError),
-      Effect.map((stream) => stream.pipe(Stream.mapError(mapClientError))),
-    ),
-  )
-
-const Endpoint26_1 = (raw: RawClient["events"]) => () =>
-  Stream.unwrap(
-    raw["global"]({}).pipe(
-      Effect.mapError(mapClientError),
-      Effect.map((stream) => stream.pipe(Stream.mapError(mapClientError))),
-    ),
-  )
-
-const adaptGroup26 = (raw: RawClient["events"]) => ({ subscribe: Endpoint26_0(raw), global: Endpoint26_1(raw) })
-
-type Endpoint27_0Request = Parameters<RawClient["workspace-extra"]["events"]>[0]
-type Endpoint27_0Input = {
-  readonly id: Endpoint27_0Request["params"]["id"]
-  readonly from?: Endpoint27_0Request["query"]["from"]
-}
-const Endpoint27_0 = (raw: RawClient["workspace-extra"]) => (input: Endpoint27_0Input) =>
-  raw["events"]({ params: { id: input["id"] }, query: { from: input["from"] } }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint27_1Request = Parameters<RawClient["workspace-extra"]["sessionWarp"]>[0]
-type Endpoint27_1Input = {
-  readonly sessionID: Endpoint27_1Request["params"]["sessionID"]
-  readonly workspaceID: Endpoint27_1Request["payload"]["workspaceID"]
-  readonly copyChanges?: Endpoint27_1Request["payload"]["copyChanges"]
-  readonly timeoutMs?: Endpoint27_1Request["payload"]["timeoutMs"]
-}
-const Endpoint27_1 = (raw: RawClient["workspace-extra"]) => (input: Endpoint27_1Input) =>
-  raw["sessionWarp"]({
-    params: { sessionID: input["sessionID"] },
-    payload: { workspaceID: input["workspaceID"], copyChanges: input["copyChanges"], timeoutMs: input["timeoutMs"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup27 = (raw: RawClient["workspace-extra"]) => ({
-  events: Endpoint27_0(raw),
-  sessionWarp: Endpoint27_1(raw),
-})
-
-type Endpoint28_0Request = Parameters<RawClient["users"]["register"]>[0]
-type Endpoint28_0Input = {
-  readonly username: Endpoint28_0Request["payload"]["username"]
-  readonly email: Endpoint28_0Request["payload"]["email"]
-  readonly password: Endpoint28_0Request["payload"]["password"]
-  readonly displayName?: Endpoint28_0Request["payload"]["displayName"]
-}
-const Endpoint28_0 = (raw: RawClient["users"]) => (input: Endpoint28_0Input) =>
-  raw["register"]({
-    payload: {
-      username: input["username"],
-      email: input["email"],
-      password: input["password"],
-      displayName: input["displayName"],
-    },
-  }).pipe(Effect.mapError(mapClientError))
-
-type Endpoint28_1Request = Parameters<RawClient["users"]["login"]>[0]
-type Endpoint28_1Input = {
-  readonly email: Endpoint28_1Request["payload"]["email"]
-  readonly password: Endpoint28_1Request["payload"]["password"]
-}
-const Endpoint28_1 = (raw: RawClient["users"]) => (input: Endpoint28_1Input) =>
-  raw["login"]({ payload: { email: input["email"], password: input["password"] } }).pipe(
-    Effect.mapError(mapClientError),
-  )
-
-type Endpoint28_2Request = Parameters<RawClient["users"]["update"]>[0]
-type Endpoint28_2Input = {
-  readonly id: Endpoint28_2Request["params"]["id"]
-  readonly displayName?: Endpoint28_2Request["payload"]["displayName"]
-  readonly password?: Endpoint28_2Request["payload"]["password"]
-  readonly role?: Endpoint28_2Request["payload"]["role"]
-}
-const Endpoint28_2 = (raw: RawClient["users"]) => (input: Endpoint28_2Input) =>
-  raw["update"]({
-    params: { id: input["id"] },
-    payload: { displayName: input["displayName"], password: input["password"], role: input["role"] },
-  }).pipe(Effect.mapError(mapClientError))
-
-const adaptGroup28 = (raw: RawClient["users"]) => ({
-  register: Endpoint28_0(raw),
-  login: Endpoint28_1(raw),
-  update: Endpoint28_2(raw),
-})
-
-const Endpoint29_0 = (raw: RawClient["mobile"]) => () => raw["authTokenList"]({}).pipe(Effect.mapError(mapClientError))
-
-type Endpoint29_1Request = Parameters<RawClient["mobile"]["authTokenCreate"]>[0]
-type Endpoint29_1Input = {
-  readonly name?: Endpoint29_1Request["payload"]["name"]
-  readonly expiresInDays?: Endpoint29_1Request["payload"]["expiresInDays"]
-}
-const Endpoint29_1 = (raw: RawClient["mobile"]) => (input?: Endpoint29_1Input) =>
+const Endpoint12_1 = (raw: RawClient["mobile"]) => (input?: Endpoint12_1Input) =>
   raw["authTokenCreate"]({ payload: { name: input?.["name"], expiresInDays: input?.["expiresInDays"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_2Request = Parameters<RawClient["mobile"]["authTokenRevoke"]>[0]
-type Endpoint29_2Input = { readonly id: Endpoint29_2Request["params"]["id"] }
-const Endpoint29_2 = (raw: RawClient["mobile"]) => (input: Endpoint29_2Input) =>
+type Endpoint12_2Request = Parameters<RawClient["mobile"]["authTokenRevoke"]>[0]
+type Endpoint12_2Input = { readonly id: Endpoint12_2Request["params"]["id"] }
+const Endpoint12_2 = (raw: RawClient["mobile"]) => (input: Endpoint12_2Input) =>
   raw["authTokenRevoke"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_3 = (raw: RawClient["mobile"]) => () => raw["bootstrap"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_3 = (raw: RawClient["mobile"]) => () => raw["bootstrap"]({}).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_4 = (raw: RawClient["mobile"]) => () => raw["commandList"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_4 = (raw: RawClient["mobile"]) => () => raw["commandList"]({}).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_5 = (raw: RawClient["mobile"]) => () => raw["projectList"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_5 = (raw: RawClient["mobile"]) => () => raw["projectList"]({}).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_6 = (raw: RawClient["mobile"]) => () => raw["memoryHistory"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_6 = (raw: RawClient["mobile"]) => () => raw["memoryHistory"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_7Request = Parameters<RawClient["mobile"]["memorySearch"]>[0]
-type Endpoint29_7Input = { readonly query: Endpoint29_7Request["query"]["query"] }
-const Endpoint29_7 = (raw: RawClient["mobile"]) => (input: Endpoint29_7Input) =>
+type Endpoint12_7Request = Parameters<RawClient["mobile"]["memorySearch"]>[0]
+type Endpoint12_7Input = { readonly query: Endpoint12_7Request["query"]["query"] }
+const Endpoint12_7 = (raw: RawClient["mobile"]) => (input: Endpoint12_7Input) =>
   raw["memorySearch"]({ query: { query: input["query"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_8 = (raw: RawClient["mobile"]) => () =>
+const Endpoint12_8 = (raw: RawClient["mobile"]) => () =>
   raw["memoryStashList"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_9Request = Parameters<RawClient["mobile"]["memoryStashCreate"]>[0]
-type Endpoint29_9Input = { readonly input: Endpoint29_9Request["payload"]["input"] }
-const Endpoint29_9 = (raw: RawClient["mobile"]) => (input: Endpoint29_9Input) =>
+type Endpoint12_9Request = Parameters<RawClient["mobile"]["memoryStashCreate"]>[0]
+type Endpoint12_9Input = { readonly input: Endpoint12_9Request["payload"]["input"] }
+const Endpoint12_9 = (raw: RawClient["mobile"]) => (input: Endpoint12_9Input) =>
   raw["memoryStashCreate"]({ payload: { input: input["input"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_10Request = Parameters<RawClient["mobile"]["memoryStashDelete"]>[0]
-type Endpoint29_10Input = { readonly id: Endpoint29_10Request["params"]["id"] }
-const Endpoint29_10 = (raw: RawClient["mobile"]) => (input: Endpoint29_10Input) =>
+type Endpoint12_10Request = Parameters<RawClient["mobile"]["memoryStashDelete"]>[0]
+type Endpoint12_10Input = { readonly id: Endpoint12_10Request["params"]["id"] }
+const Endpoint12_10 = (raw: RawClient["mobile"]) => (input: Endpoint12_10Input) =>
   raw["memoryStashDelete"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_11 = (raw: RawClient["mobile"]) => () => raw["githubRepos"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_11 = (raw: RawClient["mobile"]) => () => raw["githubRepos"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_12Request = Parameters<RawClient["mobile"]["githubBranches"]>[0]
-type Endpoint29_12Input = {
-  readonly owner: Endpoint29_12Request["params"]["owner"]
-  readonly repo: Endpoint29_12Request["params"]["repo"]
+type Endpoint12_12Request = Parameters<RawClient["mobile"]["githubBranches"]>[0]
+type Endpoint12_12Input = {
+  readonly owner: Endpoint12_12Request["params"]["owner"]
+  readonly repo: Endpoint12_12Request["params"]["repo"]
 }
-const Endpoint29_12 = (raw: RawClient["mobile"]) => (input: Endpoint29_12Input) =>
+const Endpoint12_12 = (raw: RawClient["mobile"]) => (input: Endpoint12_12Input) =>
   raw["githubBranches"]({ params: { owner: input["owner"], repo: input["repo"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-const Endpoint29_13 = (raw: RawClient["mobile"]) => () => raw["githubImports"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_13 = (raw: RawClient["mobile"]) => () => raw["githubImports"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_14Request = Parameters<RawClient["mobile"]["githubOauthClient"]>[0]
-type Endpoint29_14Input = { readonly clientId: Endpoint29_14Request["payload"]["clientId"] }
-const Endpoint29_14 = (raw: RawClient["mobile"]) => (input: Endpoint29_14Input) =>
+type Endpoint12_14Request = Parameters<RawClient["mobile"]["githubOauthClient"]>[0]
+type Endpoint12_14Input = { readonly clientId: Endpoint12_14Request["payload"]["clientId"] }
+const Endpoint12_14 = (raw: RawClient["mobile"]) => (input: Endpoint12_14Input) =>
   raw["githubOauthClient"]({ payload: { clientId: input["clientId"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_15 = (raw: RawClient["mobile"]) => () =>
+const Endpoint12_15 = (raw: RawClient["mobile"]) => () =>
   raw["githubOauthDeviceStart"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_16Request = Parameters<RawClient["mobile"]["githubOauthDevicePoll"]>[0]
-type Endpoint29_16Input = { readonly deviceCode: Endpoint29_16Request["payload"]["deviceCode"] }
-const Endpoint29_16 = (raw: RawClient["mobile"]) => (input: Endpoint29_16Input) =>
+type Endpoint12_16Request = Parameters<RawClient["mobile"]["githubOauthDevicePoll"]>[0]
+type Endpoint12_16Input = { readonly deviceCode: Endpoint12_16Request["payload"]["deviceCode"] }
+const Endpoint12_16 = (raw: RawClient["mobile"]) => (input: Endpoint12_16Input) =>
   raw["githubOauthDevicePoll"]({ payload: { deviceCode: input["deviceCode"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_17Request = Parameters<RawClient["mobile"]["githubAuthSet"]>[0]
-type Endpoint29_17Input = { readonly token: Endpoint29_17Request["payload"]["token"] }
-const Endpoint29_17 = (raw: RawClient["mobile"]) => (input: Endpoint29_17Input) =>
+type Endpoint12_17Request = Parameters<RawClient["mobile"]["githubAuthSet"]>[0]
+type Endpoint12_17Input = { readonly token: Endpoint12_17Request["payload"]["token"] }
+const Endpoint12_17 = (raw: RawClient["mobile"]) => (input: Endpoint12_17Input) =>
   raw["githubAuthSet"]({ payload: { token: input["token"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_18 = (raw: RawClient["mobile"]) => () =>
+const Endpoint12_18 = (raw: RawClient["mobile"]) => () =>
   raw["githubAuthRemove"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_19Request = Parameters<RawClient["mobile"]["githubImport"]>[0]
-type Endpoint29_19Input = { readonly payload: Endpoint29_19Request["payload"] }
-const Endpoint29_19 = (raw: RawClient["mobile"]) => (input: Endpoint29_19Input) =>
+type Endpoint12_19Request = Parameters<RawClient["mobile"]["githubImport"]>[0]
+type Endpoint12_19Input = { readonly payload: Endpoint12_19Request["payload"] }
+const Endpoint12_19 = (raw: RawClient["mobile"]) => (input: Endpoint12_19Input) =>
   raw["githubImport"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_20Request = Parameters<RawClient["mobile"]["githubSessionCreate"]>[0]
-type Endpoint29_20Input = {
-  readonly owner: Endpoint29_20Request["payload"]["owner"]
-  readonly repo: Endpoint29_20Request["payload"]["repo"]
-  readonly cloneUrl: Endpoint29_20Request["payload"]["cloneUrl"]
-  readonly htmlUrl?: Endpoint29_20Request["payload"]["htmlUrl"]
-  readonly defaultBranch: Endpoint29_20Request["payload"]["defaultBranch"]
-  readonly baseBranch: Endpoint29_20Request["payload"]["baseBranch"]
-  readonly private?: Endpoint29_20Request["payload"]["private"]
-  readonly title?: Endpoint29_20Request["payload"]["title"]
-  readonly executionTarget?: Endpoint29_20Request["payload"]["executionTarget"]
+type Endpoint12_20Request = Parameters<RawClient["mobile"]["githubSessionCreate"]>[0]
+type Endpoint12_20Input = {
+  readonly owner: Endpoint12_20Request["payload"]["owner"]
+  readonly repo: Endpoint12_20Request["payload"]["repo"]
+  readonly cloneUrl: Endpoint12_20Request["payload"]["cloneUrl"]
+  readonly htmlUrl?: Endpoint12_20Request["payload"]["htmlUrl"]
+  readonly defaultBranch: Endpoint12_20Request["payload"]["defaultBranch"]
+  readonly baseBranch: Endpoint12_20Request["payload"]["baseBranch"]
+  readonly private?: Endpoint12_20Request["payload"]["private"]
+  readonly title?: Endpoint12_20Request["payload"]["title"]
+  readonly executionTarget?: Endpoint12_20Request["payload"]["executionTarget"]
 }
-const Endpoint29_20 = (raw: RawClient["mobile"]) => (input: Endpoint29_20Input) =>
+const Endpoint12_20 = (raw: RawClient["mobile"]) => (input: Endpoint12_20Input) =>
   raw["githubSessionCreate"]({
     payload: {
       owner: input["owner"],
@@ -1741,25 +621,25 @@ const Endpoint29_20 = (raw: RawClient["mobile"]) => (input: Endpoint29_20Input) 
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_21Request = Parameters<RawClient["mobile"]["sessionList"]>[0]
-type Endpoint29_21Input = {
-  readonly limit?: Endpoint29_21Request["query"]["limit"]
-  readonly search?: Endpoint29_21Request["query"]["search"]
+type Endpoint12_21Request = Parameters<RawClient["mobile"]["sessionList"]>[0]
+type Endpoint12_21Input = {
+  readonly limit?: Endpoint12_21Request["query"]["limit"]
+  readonly search?: Endpoint12_21Request["query"]["search"]
 }
-const Endpoint29_21 = (raw: RawClient["mobile"]) => (input?: Endpoint29_21Input) =>
+const Endpoint12_21 = (raw: RawClient["mobile"]) => (input?: Endpoint12_21Input) =>
   raw["sessionList"]({ query: { limit: input?.["limit"], search: input?.["search"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_22Request = Parameters<RawClient["mobile"]["sessionCreate"]>[0]
-type Endpoint29_22Input = {
-  readonly parentID?: Endpoint29_22Request["payload"]["parentID"]
-  readonly title?: Endpoint29_22Request["payload"]["title"]
-  readonly permission?: Endpoint29_22Request["payload"]["permission"]
-  readonly github?: Endpoint29_22Request["payload"]["github"]
-  readonly executionTarget?: Endpoint29_22Request["payload"]["executionTarget"]
+type Endpoint12_22Request = Parameters<RawClient["mobile"]["sessionCreate"]>[0]
+type Endpoint12_22Input = {
+  readonly parentID?: Endpoint12_22Request["payload"]["parentID"]
+  readonly title?: Endpoint12_22Request["payload"]["title"]
+  readonly permission?: Endpoint12_22Request["payload"]["permission"]
+  readonly github?: Endpoint12_22Request["payload"]["github"]
+  readonly executionTarget?: Endpoint12_22Request["payload"]["executionTarget"]
 }
-const Endpoint29_22 = (raw: RawClient["mobile"]) => (input?: Endpoint29_22Input) =>
+const Endpoint12_22 = (raw: RawClient["mobile"]) => (input?: Endpoint12_22Input) =>
   raw["sessionCreate"]({
     payload: {
       parentID: input?.["parentID"],
@@ -1770,41 +650,41 @@ const Endpoint29_22 = (raw: RawClient["mobile"]) => (input?: Endpoint29_22Input)
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_23Request = Parameters<RawClient["mobile"]["sessionDetail"]>[0]
-type Endpoint29_23Input = { readonly sessionID: Endpoint29_23Request["params"]["sessionID"] }
-const Endpoint29_23 = (raw: RawClient["mobile"]) => (input: Endpoint29_23Input) =>
+type Endpoint12_23Request = Parameters<RawClient["mobile"]["sessionDetail"]>[0]
+type Endpoint12_23Input = { readonly sessionID: Endpoint12_23Request["params"]["sessionID"] }
+const Endpoint12_23 = (raw: RawClient["mobile"]) => (input: Endpoint12_23Input) =>
   raw["sessionDetail"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_24Request = Parameters<RawClient["mobile"]["sessionDelete"]>[0]
-type Endpoint29_24Input = { readonly sessionID: Endpoint29_24Request["params"]["sessionID"] }
-const Endpoint29_24 = (raw: RawClient["mobile"]) => (input: Endpoint29_24Input) =>
+type Endpoint12_24Request = Parameters<RawClient["mobile"]["sessionDelete"]>[0]
+type Endpoint12_24Input = { readonly sessionID: Endpoint12_24Request["params"]["sessionID"] }
+const Endpoint12_24 = (raw: RawClient["mobile"]) => (input: Endpoint12_24Input) =>
   raw["sessionDelete"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_25Request = Parameters<RawClient["mobile"]["sessionDiff"]>[0]
-type Endpoint29_25Input = {
-  readonly sessionID: Endpoint29_25Request["params"]["sessionID"]
-  readonly messageID: Endpoint29_25Request["params"]["messageID"]
+type Endpoint12_25Request = Parameters<RawClient["mobile"]["sessionDiff"]>[0]
+type Endpoint12_25Input = {
+  readonly sessionID: Endpoint12_25Request["params"]["sessionID"]
+  readonly messageID: Endpoint12_25Request["params"]["messageID"]
 }
-const Endpoint29_25 = (raw: RawClient["mobile"]) => (input: Endpoint29_25Input) =>
+const Endpoint12_25 = (raw: RawClient["mobile"]) => (input: Endpoint12_25Input) =>
   raw["sessionDiff"]({ params: { sessionID: input["sessionID"], messageID: input["messageID"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_26Request = Parameters<RawClient["mobile"]["sessionCommandList"]>[0]
-type Endpoint29_26Input = { readonly sessionID: Endpoint29_26Request["params"]["sessionID"] }
-const Endpoint29_26 = (raw: RawClient["mobile"]) => (input: Endpoint29_26Input) =>
+type Endpoint12_26Request = Parameters<RawClient["mobile"]["sessionCommandList"]>[0]
+type Endpoint12_26Input = { readonly sessionID: Endpoint12_26Request["params"]["sessionID"] }
+const Endpoint12_26 = (raw: RawClient["mobile"]) => (input: Endpoint12_26Input) =>
   raw["sessionCommandList"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_27Request = Parameters<RawClient["mobile"]["sessionCommand"]>[0]
-type Endpoint29_27Input = {
-  readonly sessionID: Endpoint29_27Request["params"]["sessionID"]
-  readonly command: Endpoint29_27Request["payload"]["command"]
-  readonly arguments?: Endpoint29_27Request["payload"]["arguments"]
-  readonly agent?: Endpoint29_27Request["payload"]["agent"]
-  readonly model?: Endpoint29_27Request["payload"]["model"]
-  readonly variant?: Endpoint29_27Request["payload"]["variant"]
+type Endpoint12_27Request = Parameters<RawClient["mobile"]["sessionCommand"]>[0]
+type Endpoint12_27Input = {
+  readonly sessionID: Endpoint12_27Request["params"]["sessionID"]
+  readonly command: Endpoint12_27Request["payload"]["command"]
+  readonly arguments?: Endpoint12_27Request["payload"]["arguments"]
+  readonly agent?: Endpoint12_27Request["payload"]["agent"]
+  readonly model?: Endpoint12_27Request["payload"]["model"]
+  readonly variant?: Endpoint12_27Request["payload"]["variant"]
 }
-const Endpoint29_27 = (raw: RawClient["mobile"]) => (input: Endpoint29_27Input) =>
+const Endpoint12_27 = (raw: RawClient["mobile"]) => (input: Endpoint12_27Input) =>
   raw["sessionCommand"]({
     params: { sessionID: input["sessionID"] },
     payload: {
@@ -1816,20 +696,20 @@ const Endpoint29_27 = (raw: RawClient["mobile"]) => (input: Endpoint29_27Input) 
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_28Request = Parameters<RawClient["mobile"]["sessionMessage"]>[0]
-type Endpoint29_28Input = {
-  readonly sessionID: Endpoint29_28Request["params"]["sessionID"]
-  readonly messageID?: Endpoint29_28Request["payload"]["messageID"]
-  readonly model?: Endpoint29_28Request["payload"]["model"]
-  readonly agent?: Endpoint29_28Request["payload"]["agent"]
-  readonly noReply?: Endpoint29_28Request["payload"]["noReply"]
-  readonly tools?: Endpoint29_28Request["payload"]["tools"]
-  readonly format?: Endpoint29_28Request["payload"]["format"]
-  readonly system?: Endpoint29_28Request["payload"]["system"]
-  readonly variant?: Endpoint29_28Request["payload"]["variant"]
-  readonly parts: Endpoint29_28Request["payload"]["parts"]
+type Endpoint12_28Request = Parameters<RawClient["mobile"]["sessionMessage"]>[0]
+type Endpoint12_28Input = {
+  readonly sessionID: Endpoint12_28Request["params"]["sessionID"]
+  readonly messageID?: Endpoint12_28Request["payload"]["messageID"]
+  readonly model?: Endpoint12_28Request["payload"]["model"]
+  readonly agent?: Endpoint12_28Request["payload"]["agent"]
+  readonly noReply?: Endpoint12_28Request["payload"]["noReply"]
+  readonly tools?: Endpoint12_28Request["payload"]["tools"]
+  readonly format?: Endpoint12_28Request["payload"]["format"]
+  readonly system?: Endpoint12_28Request["payload"]["system"]
+  readonly variant?: Endpoint12_28Request["payload"]["variant"]
+  readonly parts: Endpoint12_28Request["payload"]["parts"]
 }
-const Endpoint29_28 = (raw: RawClient["mobile"]) => (input: Endpoint29_28Input) =>
+const Endpoint12_28 = (raw: RawClient["mobile"]) => (input: Endpoint12_28Input) =>
   raw["sessionMessage"]({
     params: { sessionID: input["sessionID"] },
     payload: {
@@ -1845,66 +725,66 @@ const Endpoint29_28 = (raw: RawClient["mobile"]) => (input: Endpoint29_28Input) 
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_29Request = Parameters<RawClient["mobile"]["sessionAbort"]>[0]
-type Endpoint29_29Input = { readonly sessionID: Endpoint29_29Request["params"]["sessionID"] }
-const Endpoint29_29 = (raw: RawClient["mobile"]) => (input: Endpoint29_29Input) =>
+type Endpoint12_29Request = Parameters<RawClient["mobile"]["sessionAbort"]>[0]
+type Endpoint12_29Input = { readonly sessionID: Endpoint12_29Request["params"]["sessionID"] }
+const Endpoint12_29 = (raw: RawClient["mobile"]) => (input: Endpoint12_29Input) =>
   raw["sessionAbort"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_30Request = Parameters<RawClient["mobile"]["permissionRespond"]>[0]
-type Endpoint29_30Input = {
-  readonly sessionID: Endpoint29_30Request["params"]["sessionID"]
-  readonly permissionID: Endpoint29_30Request["params"]["permissionID"]
-  readonly response: Endpoint29_30Request["payload"]["response"]
+type Endpoint12_30Request = Parameters<RawClient["mobile"]["permissionRespond"]>[0]
+type Endpoint12_30Input = {
+  readonly sessionID: Endpoint12_30Request["params"]["sessionID"]
+  readonly permissionID: Endpoint12_30Request["params"]["permissionID"]
+  readonly response: Endpoint12_30Request["payload"]["response"]
 }
-const Endpoint29_30 = (raw: RawClient["mobile"]) => (input: Endpoint29_30Input) =>
+const Endpoint12_30 = (raw: RawClient["mobile"]) => (input: Endpoint12_30Input) =>
   raw["permissionRespond"]({
     params: { sessionID: input["sessionID"], permissionID: input["permissionID"] },
     payload: { response: input["response"] },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_31Request = Parameters<RawClient["mobile"]["questionRespond"]>[0]
-type Endpoint29_31Input = {
-  readonly sessionID: Endpoint29_31Request["params"]["sessionID"]
-  readonly requestID: Endpoint29_31Request["params"]["requestID"]
-  readonly answers: Endpoint29_31Request["payload"]["answers"]
+type Endpoint12_31Request = Parameters<RawClient["mobile"]["questionRespond"]>[0]
+type Endpoint12_31Input = {
+  readonly sessionID: Endpoint12_31Request["params"]["sessionID"]
+  readonly requestID: Endpoint12_31Request["params"]["requestID"]
+  readonly answers: Endpoint12_31Request["payload"]["answers"]
 }
-const Endpoint29_31 = (raw: RawClient["mobile"]) => (input: Endpoint29_31Input) =>
+const Endpoint12_31 = (raw: RawClient["mobile"]) => (input: Endpoint12_31Input) =>
   raw["questionRespond"]({
     params: { sessionID: input["sessionID"], requestID: input["requestID"] },
     payload: { answers: input["answers"] },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_32Request = Parameters<RawClient["mobile"]["questionReject"]>[0]
-type Endpoint29_32Input = {
-  readonly sessionID: Endpoint29_32Request["params"]["sessionID"]
-  readonly requestID: Endpoint29_32Request["params"]["requestID"]
+type Endpoint12_32Request = Parameters<RawClient["mobile"]["questionReject"]>[0]
+type Endpoint12_32Input = {
+  readonly sessionID: Endpoint12_32Request["params"]["sessionID"]
+  readonly requestID: Endpoint12_32Request["params"]["requestID"]
 }
-const Endpoint29_32 = (raw: RawClient["mobile"]) => (input: Endpoint29_32Input) =>
+const Endpoint12_32 = (raw: RawClient["mobile"]) => (input: Endpoint12_32Input) =>
   raw["questionReject"]({ params: { sessionID: input["sessionID"], requestID: input["requestID"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_33Request = Parameters<RawClient["mobile"]["sessionPublish"]>[0]
-type Endpoint29_33Input = {
-  readonly sessionID: Endpoint29_33Request["params"]["sessionID"]
-  readonly title?: Endpoint29_33Request["payload"]["title"]
-  readonly body?: Endpoint29_33Request["payload"]["body"]
-  readonly commitMessage?: Endpoint29_33Request["payload"]["commitMessage"]
+type Endpoint12_33Request = Parameters<RawClient["mobile"]["sessionPublish"]>[0]
+type Endpoint12_33Input = {
+  readonly sessionID: Endpoint12_33Request["params"]["sessionID"]
+  readonly title?: Endpoint12_33Request["payload"]["title"]
+  readonly body?: Endpoint12_33Request["payload"]["body"]
+  readonly commitMessage?: Endpoint12_33Request["payload"]["commitMessage"]
 }
-const Endpoint29_33 = (raw: RawClient["mobile"]) => (input: Endpoint29_33Input) =>
+const Endpoint12_33 = (raw: RawClient["mobile"]) => (input: Endpoint12_33Input) =>
   raw["sessionPublish"]({
     params: { sessionID: input["sessionID"] },
     payload: { title: input["title"], body: input["body"], commitMessage: input["commitMessage"] },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_34Request = Parameters<RawClient["mobile"]["sessionCleanup"]>[0]
-type Endpoint29_34Input = { readonly sessionID: Endpoint29_34Request["params"]["sessionID"] }
-const Endpoint29_34 = (raw: RawClient["mobile"]) => (input: Endpoint29_34Input) =>
+type Endpoint12_34Request = Parameters<RawClient["mobile"]["sessionCleanup"]>[0]
+type Endpoint12_34Input = { readonly sessionID: Endpoint12_34Request["params"]["sessionID"] }
+const Endpoint12_34 = (raw: RawClient["mobile"]) => (input: Endpoint12_34Input) =>
   raw["sessionCleanup"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_35Request = Parameters<RawClient["mobile"]["sessionStream"]>[0]
-type Endpoint29_35Input = { readonly sessionID: Endpoint29_35Request["params"]["sessionID"] }
-const Endpoint29_35 = (raw: RawClient["mobile"]) => (input: Endpoint29_35Input) =>
+type Endpoint12_35Request = Parameters<RawClient["mobile"]["sessionStream"]>[0]
+type Endpoint12_35Input = { readonly sessionID: Endpoint12_35Request["params"]["sessionID"] }
+const Endpoint12_35 = (raw: RawClient["mobile"]) => (input: Endpoint12_35Input) =>
   Stream.unwrap(
     raw["sessionStream"]({ params: { sessionID: input["sessionID"] } }).pipe(
       Effect.mapError(mapClientError),
@@ -1912,34 +792,34 @@ const Endpoint29_35 = (raw: RawClient["mobile"]) => (input: Endpoint29_35Input) 
     ),
   )
 
-type Endpoint29_36Request = Parameters<RawClient["mobile"]["sessionRename"]>[0]
-type Endpoint29_36Input = {
-  readonly sessionID: Endpoint29_36Request["params"]["sessionID"]
-  readonly title: Endpoint29_36Request["payload"]["title"]
+type Endpoint12_36Request = Parameters<RawClient["mobile"]["sessionRename"]>[0]
+type Endpoint12_36Input = {
+  readonly sessionID: Endpoint12_36Request["params"]["sessionID"]
+  readonly title: Endpoint12_36Request["payload"]["title"]
 }
-const Endpoint29_36 = (raw: RawClient["mobile"]) => (input: Endpoint29_36Input) =>
+const Endpoint12_36 = (raw: RawClient["mobile"]) => (input: Endpoint12_36Input) =>
   raw["sessionRename"]({ params: { sessionID: input["sessionID"] }, payload: { title: input["title"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-const Endpoint29_37 = (raw: RawClient["mobile"]) => () =>
+const Endpoint12_37 = (raw: RawClient["mobile"]) => () =>
   raw["teleportUploadBegin"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_38Request = Parameters<RawClient["mobile"]["teleportUploadChunk"]>[0]
-type Endpoint29_38Input = { readonly uploadID: Endpoint29_38Request["params"]["uploadID"] }
-const Endpoint29_38 = (raw: RawClient["mobile"]) => (input: Endpoint29_38Input) =>
+type Endpoint12_38Request = Parameters<RawClient["mobile"]["teleportUploadChunk"]>[0]
+type Endpoint12_38Input = { readonly uploadID: Endpoint12_38Request["params"]["uploadID"] }
+const Endpoint12_38 = (raw: RawClient["mobile"]) => (input: Endpoint12_38Input) =>
   raw["teleportUploadChunk"]({ params: { uploadID: input["uploadID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_39Request = Parameters<RawClient["mobile"]["teleportIn"]>[0]
-type Endpoint29_39Input = {
-  readonly title?: Endpoint29_39Request["payload"]["title"]
-  readonly name?: Endpoint29_39Request["payload"]["name"]
-  readonly origin?: Endpoint29_39Request["payload"]["origin"]
-  readonly permission?: Endpoint29_39Request["payload"]["permission"]
-  readonly messages: Endpoint29_39Request["payload"]["messages"]
-  readonly uploadID?: Endpoint29_39Request["payload"]["uploadID"]
+type Endpoint12_39Request = Parameters<RawClient["mobile"]["teleportIn"]>[0]
+type Endpoint12_39Input = {
+  readonly title?: Endpoint12_39Request["payload"]["title"]
+  readonly name?: Endpoint12_39Request["payload"]["name"]
+  readonly origin?: Endpoint12_39Request["payload"]["origin"]
+  readonly permission?: Endpoint12_39Request["payload"]["permission"]
+  readonly messages: Endpoint12_39Request["payload"]["messages"]
+  readonly uploadID?: Endpoint12_39Request["payload"]["uploadID"]
 }
-const Endpoint29_39 = (raw: RawClient["mobile"]) => (input: Endpoint29_39Input) =>
+const Endpoint12_39 = (raw: RawClient["mobile"]) => (input: Endpoint12_39Input) =>
   raw["teleportIn"]({
     payload: {
       title: input["title"],
@@ -1951,60 +831,60 @@ const Endpoint29_39 = (raw: RawClient["mobile"]) => (input: Endpoint29_39Input) 
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_40Request = Parameters<RawClient["mobile"]["teleportOut"]>[0]
-type Endpoint29_40Input = {
-  readonly sessionID: Endpoint29_40Request["params"]["sessionID"]
-  readonly url: Endpoint29_40Request["payload"]["url"]
-  readonly token: Endpoint29_40Request["payload"]["token"]
-  readonly content?: Endpoint29_40Request["payload"]["content"]
-  readonly includeGit?: Endpoint29_40Request["payload"]["includeGit"]
+type Endpoint12_40Request = Parameters<RawClient["mobile"]["teleportOut"]>[0]
+type Endpoint12_40Input = {
+  readonly sessionID: Endpoint12_40Request["params"]["sessionID"]
+  readonly url: Endpoint12_40Request["payload"]["url"]
+  readonly token: Endpoint12_40Request["payload"]["token"]
+  readonly content?: Endpoint12_40Request["payload"]["content"]
+  readonly includeGit?: Endpoint12_40Request["payload"]["includeGit"]
 }
-const Endpoint29_40 = (raw: RawClient["mobile"]) => (input: Endpoint29_40Input) =>
+const Endpoint12_40 = (raw: RawClient["mobile"]) => (input: Endpoint12_40Input) =>
   raw["teleportOut"]({
     params: { sessionID: input["sessionID"] },
     payload: { url: input["url"], token: input["token"], content: input["content"], includeGit: input["includeGit"] },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_41Request = Parameters<RawClient["mobile"]["worktreeCreate"]>[0]
-type Endpoint29_41Input = { readonly payload: Endpoint29_41Request["payload"] }
-const Endpoint29_41 = (raw: RawClient["mobile"]) => (input: Endpoint29_41Input) =>
+type Endpoint12_41Request = Parameters<RawClient["mobile"]["worktreeCreate"]>[0]
+type Endpoint12_41Input = { readonly payload: Endpoint12_41Request["payload"] }
+const Endpoint12_41 = (raw: RawClient["mobile"]) => (input: Endpoint12_41Input) =>
   raw["worktreeCreate"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_42Request = Parameters<RawClient["mobile"]["worktreeRemove"]>[0]
-type Endpoint29_42Input = { readonly payload: Endpoint29_42Request["payload"] }
-const Endpoint29_42 = (raw: RawClient["mobile"]) => (input: Endpoint29_42Input) =>
+type Endpoint12_42Request = Parameters<RawClient["mobile"]["worktreeRemove"]>[0]
+type Endpoint12_42Input = { readonly payload: Endpoint12_42Request["payload"] }
+const Endpoint12_42 = (raw: RawClient["mobile"]) => (input: Endpoint12_42Input) =>
   raw["worktreeRemove"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_43Request = Parameters<RawClient["mobile"]["worktreeReset"]>[0]
-type Endpoint29_43Input = { readonly payload: Endpoint29_43Request["payload"] }
-const Endpoint29_43 = (raw: RawClient["mobile"]) => (input: Endpoint29_43Input) =>
+type Endpoint12_43Request = Parameters<RawClient["mobile"]["worktreeReset"]>[0]
+type Endpoint12_43Input = { readonly payload: Endpoint12_43Request["payload"] }
+const Endpoint12_43 = (raw: RawClient["mobile"]) => (input: Endpoint12_43Input) =>
   raw["worktreeReset"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_44 = (raw: RawClient["mobile"]) => () => raw["gitStatus"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_44 = (raw: RawClient["mobile"]) => () => raw["gitStatus"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_45Request = Parameters<RawClient["mobile"]["gitDiff"]>[0]
-type Endpoint29_45Input = {
-  readonly file?: Endpoint29_45Request["query"]["file"]
-  readonly staged?: Endpoint29_45Request["query"]["staged"]
+type Endpoint12_45Request = Parameters<RawClient["mobile"]["gitDiff"]>[0]
+type Endpoint12_45Input = {
+  readonly file?: Endpoint12_45Request["query"]["file"]
+  readonly staged?: Endpoint12_45Request["query"]["staged"]
 }
-const Endpoint29_45 = (raw: RawClient["mobile"]) => (input?: Endpoint29_45Input) =>
+const Endpoint12_45 = (raw: RawClient["mobile"]) => (input?: Endpoint12_45Input) =>
   raw["gitDiff"]({ query: { file: input?.["file"], staged: input?.["staged"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_46Request = Parameters<RawClient["mobile"]["gitCommits"]>[0]
-type Endpoint29_46Input = { readonly limit?: Endpoint29_46Request["query"]["limit"] }
-const Endpoint29_46 = (raw: RawClient["mobile"]) => (input?: Endpoint29_46Input) =>
+type Endpoint12_46Request = Parameters<RawClient["mobile"]["gitCommits"]>[0]
+type Endpoint12_46Input = { readonly limit?: Endpoint12_46Request["query"]["limit"] }
+const Endpoint12_46 = (raw: RawClient["mobile"]) => (input?: Endpoint12_46Input) =>
   raw["gitCommits"]({ query: { limit: input?.["limit"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_47 = (raw: RawClient["mobile"]) => () => raw["gitBranches"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_47 = (raw: RawClient["mobile"]) => () => raw["gitBranches"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_48Request = Parameters<RawClient["mobile"]["gitCommit"]>[0]
-type Endpoint29_48Input = {
-  readonly message: Endpoint29_48Request["payload"]["message"]
-  readonly files?: Endpoint29_48Request["payload"]["files"]
-  readonly amend?: Endpoint29_48Request["payload"]["amend"]
-  readonly stagedOnly?: Endpoint29_48Request["payload"]["stagedOnly"]
+type Endpoint12_48Request = Parameters<RawClient["mobile"]["gitCommit"]>[0]
+type Endpoint12_48Input = {
+  readonly message: Endpoint12_48Request["payload"]["message"]
+  readonly files?: Endpoint12_48Request["payload"]["files"]
+  readonly amend?: Endpoint12_48Request["payload"]["amend"]
+  readonly stagedOnly?: Endpoint12_48Request["payload"]["stagedOnly"]
 }
-const Endpoint29_48 = (raw: RawClient["mobile"]) => (input: Endpoint29_48Input) =>
+const Endpoint12_48 = (raw: RawClient["mobile"]) => (input: Endpoint12_48Input) =>
   raw["gitCommit"]({
     payload: {
       message: input["message"],
@@ -2014,186 +894,186 @@ const Endpoint29_48 = (raw: RawClient["mobile"]) => (input: Endpoint29_48Input) 
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_49Request = Parameters<RawClient["mobile"]["gitCheckout"]>[0]
-type Endpoint29_49Input = {
-  readonly branch: Endpoint29_49Request["payload"]["branch"]
-  readonly create?: Endpoint29_49Request["payload"]["create"]
+type Endpoint12_49Request = Parameters<RawClient["mobile"]["gitCheckout"]>[0]
+type Endpoint12_49Input = {
+  readonly branch: Endpoint12_49Request["payload"]["branch"]
+  readonly create?: Endpoint12_49Request["payload"]["create"]
 }
-const Endpoint29_49 = (raw: RawClient["mobile"]) => (input: Endpoint29_49Input) =>
+const Endpoint12_49 = (raw: RawClient["mobile"]) => (input: Endpoint12_49Input) =>
   raw["gitCheckout"]({ payload: { branch: input["branch"], create: input["create"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_50Request = Parameters<RawClient["mobile"]["gitStage"]>[0]
-type Endpoint29_50Input = { readonly files: Endpoint29_50Request["payload"]["files"] }
-const Endpoint29_50 = (raw: RawClient["mobile"]) => (input: Endpoint29_50Input) =>
+type Endpoint12_50Request = Parameters<RawClient["mobile"]["gitStage"]>[0]
+type Endpoint12_50Input = { readonly files: Endpoint12_50Request["payload"]["files"] }
+const Endpoint12_50 = (raw: RawClient["mobile"]) => (input: Endpoint12_50Input) =>
   raw["gitStage"]({ payload: { files: input["files"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_51Request = Parameters<RawClient["mobile"]["gitUnstage"]>[0]
-type Endpoint29_51Input = { readonly files: Endpoint29_51Request["payload"]["files"] }
-const Endpoint29_51 = (raw: RawClient["mobile"]) => (input: Endpoint29_51Input) =>
+type Endpoint12_51Request = Parameters<RawClient["mobile"]["gitUnstage"]>[0]
+type Endpoint12_51Input = { readonly files: Endpoint12_51Request["payload"]["files"] }
+const Endpoint12_51 = (raw: RawClient["mobile"]) => (input: Endpoint12_51Input) =>
   raw["gitUnstage"]({ payload: { files: input["files"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_52Request = Parameters<RawClient["mobile"]["gitDiscard"]>[0]
-type Endpoint29_52Input = { readonly files: Endpoint29_52Request["payload"]["files"] }
-const Endpoint29_52 = (raw: RawClient["mobile"]) => (input: Endpoint29_52Input) =>
+type Endpoint12_52Request = Parameters<RawClient["mobile"]["gitDiscard"]>[0]
+type Endpoint12_52Input = { readonly files: Endpoint12_52Request["payload"]["files"] }
+const Endpoint12_52 = (raw: RawClient["mobile"]) => (input: Endpoint12_52Input) =>
   raw["gitDiscard"]({ payload: { files: input["files"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_53Request = Parameters<RawClient["mobile"]["gitPush"]>[0]
-type Endpoint29_53Input = { readonly upstream?: Endpoint29_53Request["query"]["upstream"] }
-const Endpoint29_53 = (raw: RawClient["mobile"]) => (input?: Endpoint29_53Input) =>
+type Endpoint12_53Request = Parameters<RawClient["mobile"]["gitPush"]>[0]
+type Endpoint12_53Input = { readonly upstream?: Endpoint12_53Request["query"]["upstream"] }
+const Endpoint12_53 = (raw: RawClient["mobile"]) => (input?: Endpoint12_53Input) =>
   raw["gitPush"]({ query: { upstream: input?.["upstream"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_54 = (raw: RawClient["mobile"]) => () => raw["gitPull"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_54 = (raw: RawClient["mobile"]) => () => raw["gitPull"]({}).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_55 = (raw: RawClient["mobile"]) => () => raw["loopList"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_55 = (raw: RawClient["mobile"]) => () => raw["loopList"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_56Request = Parameters<RawClient["mobile"]["loopCreate"]>[0]
-type Endpoint29_56Input = { readonly payload: Endpoint29_56Request["payload"] }
-const Endpoint29_56 = (raw: RawClient["mobile"]) => (input: Endpoint29_56Input) =>
+type Endpoint12_56Request = Parameters<RawClient["mobile"]["loopCreate"]>[0]
+type Endpoint12_56Input = { readonly payload: Endpoint12_56Request["payload"] }
+const Endpoint12_56 = (raw: RawClient["mobile"]) => (input: Endpoint12_56Input) =>
   raw["loopCreate"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_57 = (raw: RawClient["mobile"]) => () => raw["loopTemplates"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_57 = (raw: RawClient["mobile"]) => () => raw["loopTemplates"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_58Request = Parameters<RawClient["mobile"]["loopGenerate"]>[0]
-type Endpoint29_58Input = {
-  readonly description: Endpoint29_58Request["payload"]["description"]
-  readonly model?: Endpoint29_58Request["payload"]["model"]
+type Endpoint12_58Request = Parameters<RawClient["mobile"]["loopGenerate"]>[0]
+type Endpoint12_58Input = {
+  readonly description: Endpoint12_58Request["payload"]["description"]
+  readonly model?: Endpoint12_58Request["payload"]["model"]
 }
-const Endpoint29_58 = (raw: RawClient["mobile"]) => (input: Endpoint29_58Input) =>
+const Endpoint12_58 = (raw: RawClient["mobile"]) => (input: Endpoint12_58Input) =>
   raw["loopGenerate"]({ payload: { description: input["description"], model: input["model"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_59Request = Parameters<RawClient["mobile"]["loopRunsRecent"]>[0]
-type Endpoint29_59Input = { readonly limit?: Endpoint29_59Request["query"]["limit"] }
-const Endpoint29_59 = (raw: RawClient["mobile"]) => (input?: Endpoint29_59Input) =>
+type Endpoint12_59Request = Parameters<RawClient["mobile"]["loopRunsRecent"]>[0]
+type Endpoint12_59Input = { readonly limit?: Endpoint12_59Request["query"]["limit"] }
+const Endpoint12_59 = (raw: RawClient["mobile"]) => (input?: Endpoint12_59Input) =>
   raw["loopRunsRecent"]({ query: { limit: input?.["limit"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_60Request = Parameters<RawClient["mobile"]["loopGet"]>[0]
-type Endpoint29_60Input = { readonly id: Endpoint29_60Request["params"]["id"] }
-const Endpoint29_60 = (raw: RawClient["mobile"]) => (input: Endpoint29_60Input) =>
+type Endpoint12_60Request = Parameters<RawClient["mobile"]["loopGet"]>[0]
+type Endpoint12_60Input = { readonly id: Endpoint12_60Request["params"]["id"] }
+const Endpoint12_60 = (raw: RawClient["mobile"]) => (input: Endpoint12_60Input) =>
   raw["loopGet"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_61Request = Parameters<RawClient["mobile"]["loopDelete"]>[0]
-type Endpoint29_61Input = { readonly id: Endpoint29_61Request["params"]["id"] }
-const Endpoint29_61 = (raw: RawClient["mobile"]) => (input: Endpoint29_61Input) =>
+type Endpoint12_61Request = Parameters<RawClient["mobile"]["loopDelete"]>[0]
+type Endpoint12_61Input = { readonly id: Endpoint12_61Request["params"]["id"] }
+const Endpoint12_61 = (raw: RawClient["mobile"]) => (input: Endpoint12_61Input) =>
   raw["loopDelete"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_62Request = Parameters<RawClient["mobile"]["loopUpdate"]>[0]
-type Endpoint29_62Input = {
-  readonly id: Endpoint29_62Request["params"]["id"]
-  readonly payload: Endpoint29_62Request["payload"]
+type Endpoint12_62Request = Parameters<RawClient["mobile"]["loopUpdate"]>[0]
+type Endpoint12_62Input = {
+  readonly id: Endpoint12_62Request["params"]["id"]
+  readonly payload: Endpoint12_62Request["payload"]
 }
-const Endpoint29_62 = (raw: RawClient["mobile"]) => (input: Endpoint29_62Input) =>
+const Endpoint12_62 = (raw: RawClient["mobile"]) => (input: Endpoint12_62Input) =>
   raw["loopUpdate"]({ params: { id: input["id"] }, payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_63Request = Parameters<RawClient["mobile"]["loopRuns"]>[0]
-type Endpoint29_63Input = {
-  readonly id: Endpoint29_63Request["params"]["id"]
-  readonly limit?: Endpoint29_63Request["query"]["limit"]
+type Endpoint12_63Request = Parameters<RawClient["mobile"]["loopRuns"]>[0]
+type Endpoint12_63Input = {
+  readonly id: Endpoint12_63Request["params"]["id"]
+  readonly limit?: Endpoint12_63Request["query"]["limit"]
 }
-const Endpoint29_63 = (raw: RawClient["mobile"]) => (input: Endpoint29_63Input) =>
+const Endpoint12_63 = (raw: RawClient["mobile"]) => (input: Endpoint12_63Input) =>
   raw["loopRuns"]({ params: { id: input["id"] }, query: { limit: input["limit"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_64Request = Parameters<RawClient["mobile"]["loopRun"]>[0]
-type Endpoint29_64Input = { readonly id: Endpoint29_64Request["params"]["id"] }
-const Endpoint29_64 = (raw: RawClient["mobile"]) => (input: Endpoint29_64Input) =>
+type Endpoint12_64Request = Parameters<RawClient["mobile"]["loopRun"]>[0]
+type Endpoint12_64Input = { readonly id: Endpoint12_64Request["params"]["id"] }
+const Endpoint12_64 = (raw: RawClient["mobile"]) => (input: Endpoint12_64Input) =>
   raw["loopRun"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_65Request = Parameters<RawClient["mobile"]["loopAbort"]>[0]
-type Endpoint29_65Input = { readonly id: Endpoint29_65Request["params"]["id"] }
-const Endpoint29_65 = (raw: RawClient["mobile"]) => (input: Endpoint29_65Input) =>
+type Endpoint12_65Request = Parameters<RawClient["mobile"]["loopAbort"]>[0]
+type Endpoint12_65Input = { readonly id: Endpoint12_65Request["params"]["id"] }
+const Endpoint12_65 = (raw: RawClient["mobile"]) => (input: Endpoint12_65Input) =>
   raw["loopAbort"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_66Request = Parameters<RawClient["mobile"]["loopToggle"]>[0]
-type Endpoint29_66Input = {
-  readonly id: Endpoint29_66Request["params"]["id"]
-  readonly enabled: Endpoint29_66Request["payload"]["enabled"]
+type Endpoint12_66Request = Parameters<RawClient["mobile"]["loopToggle"]>[0]
+type Endpoint12_66Input = {
+  readonly id: Endpoint12_66Request["params"]["id"]
+  readonly enabled: Endpoint12_66Request["payload"]["enabled"]
 }
-const Endpoint29_66 = (raw: RawClient["mobile"]) => (input: Endpoint29_66Input) =>
+const Endpoint12_66 = (raw: RawClient["mobile"]) => (input: Endpoint12_66Input) =>
   raw["loopToggle"]({ params: { id: input["id"] }, payload: { enabled: input["enabled"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_67Request = Parameters<RawClient["mobile"]["loopPause"]>[0]
-type Endpoint29_67Input = { readonly id: Endpoint29_67Request["params"]["id"] }
-const Endpoint29_67 = (raw: RawClient["mobile"]) => (input: Endpoint29_67Input) =>
+type Endpoint12_67Request = Parameters<RawClient["mobile"]["loopPause"]>[0]
+type Endpoint12_67Input = { readonly id: Endpoint12_67Request["params"]["id"] }
+const Endpoint12_67 = (raw: RawClient["mobile"]) => (input: Endpoint12_67Input) =>
   raw["loopPause"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_68Request = Parameters<RawClient["mobile"]["loopResume"]>[0]
-type Endpoint29_68Input = { readonly id: Endpoint29_68Request["params"]["id"] }
-const Endpoint29_68 = (raw: RawClient["mobile"]) => (input: Endpoint29_68Input) =>
+type Endpoint12_68Request = Parameters<RawClient["mobile"]["loopResume"]>[0]
+type Endpoint12_68Input = { readonly id: Endpoint12_68Request["params"]["id"] }
+const Endpoint12_68 = (raw: RawClient["mobile"]) => (input: Endpoint12_68Input) =>
   raw["loopResume"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-const Endpoint29_69 = (raw: RawClient["mobile"]) => () => raw["routineList"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_69 = (raw: RawClient["mobile"]) => () => raw["routineList"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_70Request = Parameters<RawClient["mobile"]["routineCreate"]>[0]
-type Endpoint29_70Input = { readonly payload: Endpoint29_70Request["payload"] }
-const Endpoint29_70 = (raw: RawClient["mobile"]) => (input: Endpoint29_70Input) =>
+type Endpoint12_70Request = Parameters<RawClient["mobile"]["routineCreate"]>[0]
+type Endpoint12_70Input = { readonly payload: Endpoint12_70Request["payload"] }
+const Endpoint12_70 = (raw: RawClient["mobile"]) => (input: Endpoint12_70Input) =>
   raw["routineCreate"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_71Request = Parameters<RawClient["mobile"]["routineGet"]>[0]
-type Endpoint29_71Input = { readonly id: Endpoint29_71Request["params"]["id"] }
-const Endpoint29_71 = (raw: RawClient["mobile"]) => (input: Endpoint29_71Input) =>
+type Endpoint12_71Request = Parameters<RawClient["mobile"]["routineGet"]>[0]
+type Endpoint12_71Input = { readonly id: Endpoint12_71Request["params"]["id"] }
+const Endpoint12_71 = (raw: RawClient["mobile"]) => (input: Endpoint12_71Input) =>
   raw["routineGet"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_72Request = Parameters<RawClient["mobile"]["routineDelete"]>[0]
-type Endpoint29_72Input = { readonly id: Endpoint29_72Request["params"]["id"] }
-const Endpoint29_72 = (raw: RawClient["mobile"]) => (input: Endpoint29_72Input) =>
+type Endpoint12_72Request = Parameters<RawClient["mobile"]["routineDelete"]>[0]
+type Endpoint12_72Input = { readonly id: Endpoint12_72Request["params"]["id"] }
+const Endpoint12_72 = (raw: RawClient["mobile"]) => (input: Endpoint12_72Input) =>
   raw["routineDelete"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_73Request = Parameters<RawClient["mobile"]["routineUpdate"]>[0]
-type Endpoint29_73Input = {
-  readonly id: Endpoint29_73Request["params"]["id"]
-  readonly payload: Endpoint29_73Request["payload"]
+type Endpoint12_73Request = Parameters<RawClient["mobile"]["routineUpdate"]>[0]
+type Endpoint12_73Input = {
+  readonly id: Endpoint12_73Request["params"]["id"]
+  readonly payload: Endpoint12_73Request["payload"]
 }
-const Endpoint29_73 = (raw: RawClient["mobile"]) => (input: Endpoint29_73Input) =>
+const Endpoint12_73 = (raw: RawClient["mobile"]) => (input: Endpoint12_73Input) =>
   raw["routineUpdate"]({ params: { id: input["id"] }, payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_74Request = Parameters<RawClient["mobile"]["routineRun"]>[0]
-type Endpoint29_74Input = {
-  readonly id: Endpoint29_74Request["params"]["id"]
-  readonly text?: Endpoint29_74Request["payload"]["text"]
+type Endpoint12_74Request = Parameters<RawClient["mobile"]["routineRun"]>[0]
+type Endpoint12_74Input = {
+  readonly id: Endpoint12_74Request["params"]["id"]
+  readonly text?: Endpoint12_74Request["payload"]["text"]
 }
-const Endpoint29_74 = (raw: RawClient["mobile"]) => (input: Endpoint29_74Input) =>
+const Endpoint12_74 = (raw: RawClient["mobile"]) => (input: Endpoint12_74Input) =>
   raw["routineRun"]({ params: { id: input["id"] }, payload: { text: input["text"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_75Request = Parameters<RawClient["mobile"]["routinePause"]>[0]
-type Endpoint29_75Input = { readonly id: Endpoint29_75Request["params"]["id"] }
-const Endpoint29_75 = (raw: RawClient["mobile"]) => (input: Endpoint29_75Input) =>
+type Endpoint12_75Request = Parameters<RawClient["mobile"]["routinePause"]>[0]
+type Endpoint12_75Input = { readonly id: Endpoint12_75Request["params"]["id"] }
+const Endpoint12_75 = (raw: RawClient["mobile"]) => (input: Endpoint12_75Input) =>
   raw["routinePause"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_76Request = Parameters<RawClient["mobile"]["routineResume"]>[0]
-type Endpoint29_76Input = { readonly id: Endpoint29_76Request["params"]["id"] }
-const Endpoint29_76 = (raw: RawClient["mobile"]) => (input: Endpoint29_76Input) =>
+type Endpoint12_76Request = Parameters<RawClient["mobile"]["routineResume"]>[0]
+type Endpoint12_76Input = { readonly id: Endpoint12_76Request["params"]["id"] }
+const Endpoint12_76 = (raw: RawClient["mobile"]) => (input: Endpoint12_76Input) =>
   raw["routineResume"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_77Request = Parameters<RawClient["mobile"]["routineTrigger"]>[0]
-type Endpoint29_77Input = {
-  readonly token: Endpoint29_77Request["params"]["token"]
-  readonly text?: Endpoint29_77Request["payload"]["text"]
+type Endpoint12_77Request = Parameters<RawClient["mobile"]["routineTrigger"]>[0]
+type Endpoint12_77Input = {
+  readonly token: Endpoint12_77Request["params"]["token"]
+  readonly text?: Endpoint12_77Request["payload"]["text"]
 }
-const Endpoint29_77 = (raw: RawClient["mobile"]) => (input: Endpoint29_77Input) =>
+const Endpoint12_77 = (raw: RawClient["mobile"]) => (input: Endpoint12_77Input) =>
   raw["routineTrigger"]({ params: { token: input["token"] }, payload: { text: input["text"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-const Endpoint29_78 = (raw: RawClient["mobile"]) => () => raw["ptyList"]({}).pipe(Effect.mapError(mapClientError))
+const Endpoint12_78 = (raw: RawClient["mobile"]) => () => raw["ptyList"]({}).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_79Request = Parameters<RawClient["mobile"]["ptyCreate"]>[0]
-type Endpoint29_79Input = {
-  readonly command?: Endpoint29_79Request["payload"]["command"]
-  readonly args?: Endpoint29_79Request["payload"]["args"]
-  readonly cwd?: Endpoint29_79Request["payload"]["cwd"]
-  readonly title?: Endpoint29_79Request["payload"]["title"]
-  readonly env?: Endpoint29_79Request["payload"]["env"]
+type Endpoint12_79Request = Parameters<RawClient["mobile"]["ptyCreate"]>[0]
+type Endpoint12_79Input = {
+  readonly command?: Endpoint12_79Request["payload"]["command"]
+  readonly args?: Endpoint12_79Request["payload"]["args"]
+  readonly cwd?: Endpoint12_79Request["payload"]["cwd"]
+  readonly title?: Endpoint12_79Request["payload"]["title"]
+  readonly env?: Endpoint12_79Request["payload"]["env"]
 }
-const Endpoint29_79 = (raw: RawClient["mobile"]) => (input?: Endpoint29_79Input) =>
+const Endpoint12_79 = (raw: RawClient["mobile"]) => (input?: Endpoint12_79Input) =>
   raw["ptyCreate"]({
     payload: {
       command: input?.["command"],
@@ -2204,111 +1084,1231 @@ const Endpoint29_79 = (raw: RawClient["mobile"]) => (input?: Endpoint29_79Input)
     },
   }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_80Request = Parameters<RawClient["mobile"]["ptyGet"]>[0]
-type Endpoint29_80Input = { readonly ptyID: Endpoint29_80Request["params"]["ptyID"] }
-const Endpoint29_80 = (raw: RawClient["mobile"]) => (input: Endpoint29_80Input) =>
+type Endpoint12_80Request = Parameters<RawClient["mobile"]["ptyGet"]>[0]
+type Endpoint12_80Input = { readonly ptyID: Endpoint12_80Request["params"]["ptyID"] }
+const Endpoint12_80 = (raw: RawClient["mobile"]) => (input: Endpoint12_80Input) =>
   raw["ptyGet"]({ params: { ptyID: input["ptyID"] } }).pipe(Effect.mapError(mapClientError))
 
-type Endpoint29_81Request = Parameters<RawClient["mobile"]["ptyUpdate"]>[0]
-type Endpoint29_81Input = {
-  readonly ptyID: Endpoint29_81Request["params"]["ptyID"]
-  readonly title?: Endpoint29_81Request["payload"]["title"]
-  readonly size?: Endpoint29_81Request["payload"]["size"]
+type Endpoint12_81Request = Parameters<RawClient["mobile"]["ptyUpdate"]>[0]
+type Endpoint12_81Input = {
+  readonly ptyID: Endpoint12_81Request["params"]["ptyID"]
+  readonly title?: Endpoint12_81Request["payload"]["title"]
+  readonly size?: Endpoint12_81Request["payload"]["size"]
 }
-const Endpoint29_81 = (raw: RawClient["mobile"]) => (input: Endpoint29_81Input) =>
+const Endpoint12_81 = (raw: RawClient["mobile"]) => (input: Endpoint12_81Input) =>
   raw["ptyUpdate"]({ params: { ptyID: input["ptyID"] }, payload: { title: input["title"], size: input["size"] } }).pipe(
     Effect.mapError(mapClientError),
   )
 
-type Endpoint29_82Request = Parameters<RawClient["mobile"]["ptyRemove"]>[0]
-type Endpoint29_82Input = { readonly ptyID: Endpoint29_82Request["params"]["ptyID"] }
-const Endpoint29_82 = (raw: RawClient["mobile"]) => (input: Endpoint29_82Input) =>
+type Endpoint12_82Request = Parameters<RawClient["mobile"]["ptyRemove"]>[0]
+type Endpoint12_82Input = { readonly ptyID: Endpoint12_82Request["params"]["ptyID"] }
+const Endpoint12_82 = (raw: RawClient["mobile"]) => (input: Endpoint12_82Input) =>
   raw["ptyRemove"]({ params: { ptyID: input["ptyID"] } }).pipe(Effect.mapError(mapClientError))
 
-const adaptGroup29 = (raw: RawClient["mobile"]) => ({
-  authTokenList: Endpoint29_0(raw),
-  authTokenCreate: Endpoint29_1(raw),
-  authTokenRevoke: Endpoint29_2(raw),
-  bootstrap: Endpoint29_3(raw),
-  commandList: Endpoint29_4(raw),
-  projectList: Endpoint29_5(raw),
-  memoryHistory: Endpoint29_6(raw),
-  memorySearch: Endpoint29_7(raw),
-  memoryStashList: Endpoint29_8(raw),
-  memoryStashCreate: Endpoint29_9(raw),
-  memoryStashDelete: Endpoint29_10(raw),
-  githubRepos: Endpoint29_11(raw),
-  githubBranches: Endpoint29_12(raw),
-  githubImports: Endpoint29_13(raw),
-  githubOauthClient: Endpoint29_14(raw),
-  githubOauthDeviceStart: Endpoint29_15(raw),
-  githubOauthDevicePoll: Endpoint29_16(raw),
-  githubAuthSet: Endpoint29_17(raw),
-  githubAuthRemove: Endpoint29_18(raw),
-  githubImport: Endpoint29_19(raw),
-  githubSessionCreate: Endpoint29_20(raw),
-  sessionList: Endpoint29_21(raw),
-  sessionCreate: Endpoint29_22(raw),
-  sessionDetail: Endpoint29_23(raw),
-  sessionDelete: Endpoint29_24(raw),
-  sessionDiff: Endpoint29_25(raw),
-  sessionCommandList: Endpoint29_26(raw),
-  sessionCommand: Endpoint29_27(raw),
-  sessionMessage: Endpoint29_28(raw),
-  sessionAbort: Endpoint29_29(raw),
-  permissionRespond: Endpoint29_30(raw),
-  questionRespond: Endpoint29_31(raw),
-  questionReject: Endpoint29_32(raw),
-  sessionPublish: Endpoint29_33(raw),
-  sessionCleanup: Endpoint29_34(raw),
-  sessionStream: Endpoint29_35(raw),
-  sessionRename: Endpoint29_36(raw),
-  teleportUploadBegin: Endpoint29_37(raw),
-  teleportUploadChunk: Endpoint29_38(raw),
-  teleportIn: Endpoint29_39(raw),
-  teleportOut: Endpoint29_40(raw),
-  worktreeCreate: Endpoint29_41(raw),
-  worktreeRemove: Endpoint29_42(raw),
-  worktreeReset: Endpoint29_43(raw),
-  gitStatus: Endpoint29_44(raw),
-  gitDiff: Endpoint29_45(raw),
-  gitCommits: Endpoint29_46(raw),
-  gitBranches: Endpoint29_47(raw),
-  gitCommit: Endpoint29_48(raw),
-  gitCheckout: Endpoint29_49(raw),
-  gitStage: Endpoint29_50(raw),
-  gitUnstage: Endpoint29_51(raw),
-  gitDiscard: Endpoint29_52(raw),
-  gitPush: Endpoint29_53(raw),
-  gitPull: Endpoint29_54(raw),
-  loopList: Endpoint29_55(raw),
-  loopCreate: Endpoint29_56(raw),
-  loopTemplates: Endpoint29_57(raw),
-  loopGenerate: Endpoint29_58(raw),
-  loopRunsRecent: Endpoint29_59(raw),
-  loopGet: Endpoint29_60(raw),
-  loopDelete: Endpoint29_61(raw),
-  loopUpdate: Endpoint29_62(raw),
-  loopRuns: Endpoint29_63(raw),
-  loopRun: Endpoint29_64(raw),
-  loopAbort: Endpoint29_65(raw),
-  loopToggle: Endpoint29_66(raw),
-  loopPause: Endpoint29_67(raw),
-  loopResume: Endpoint29_68(raw),
-  routineList: Endpoint29_69(raw),
-  routineCreate: Endpoint29_70(raw),
-  routineGet: Endpoint29_71(raw),
-  routineDelete: Endpoint29_72(raw),
-  routineUpdate: Endpoint29_73(raw),
-  routineRun: Endpoint29_74(raw),
-  routinePause: Endpoint29_75(raw),
-  routineResume: Endpoint29_76(raw),
-  routineTrigger: Endpoint29_77(raw),
-  ptyList: Endpoint29_78(raw),
-  ptyCreate: Endpoint29_79(raw),
-  ptyGet: Endpoint29_80(raw),
-  ptyUpdate: Endpoint29_81(raw),
-  ptyRemove: Endpoint29_82(raw),
+const adaptGroup12 = (raw: RawClient["mobile"]) => ({
+  authTokenList: Endpoint12_0(raw),
+  authTokenCreate: Endpoint12_1(raw),
+  authTokenRevoke: Endpoint12_2(raw),
+  bootstrap: Endpoint12_3(raw),
+  commandList: Endpoint12_4(raw),
+  projectList: Endpoint12_5(raw),
+  memoryHistory: Endpoint12_6(raw),
+  memorySearch: Endpoint12_7(raw),
+  memoryStashList: Endpoint12_8(raw),
+  memoryStashCreate: Endpoint12_9(raw),
+  memoryStashDelete: Endpoint12_10(raw),
+  githubRepos: Endpoint12_11(raw),
+  githubBranches: Endpoint12_12(raw),
+  githubImports: Endpoint12_13(raw),
+  githubOauthClient: Endpoint12_14(raw),
+  githubOauthDeviceStart: Endpoint12_15(raw),
+  githubOauthDevicePoll: Endpoint12_16(raw),
+  githubAuthSet: Endpoint12_17(raw),
+  githubAuthRemove: Endpoint12_18(raw),
+  githubImport: Endpoint12_19(raw),
+  githubSessionCreate: Endpoint12_20(raw),
+  sessionList: Endpoint12_21(raw),
+  sessionCreate: Endpoint12_22(raw),
+  sessionDetail: Endpoint12_23(raw),
+  sessionDelete: Endpoint12_24(raw),
+  sessionDiff: Endpoint12_25(raw),
+  sessionCommandList: Endpoint12_26(raw),
+  sessionCommand: Endpoint12_27(raw),
+  sessionMessage: Endpoint12_28(raw),
+  sessionAbort: Endpoint12_29(raw),
+  permissionRespond: Endpoint12_30(raw),
+  questionRespond: Endpoint12_31(raw),
+  questionReject: Endpoint12_32(raw),
+  sessionPublish: Endpoint12_33(raw),
+  sessionCleanup: Endpoint12_34(raw),
+  sessionStream: Endpoint12_35(raw),
+  sessionRename: Endpoint12_36(raw),
+  teleportUploadBegin: Endpoint12_37(raw),
+  teleportUploadChunk: Endpoint12_38(raw),
+  teleportIn: Endpoint12_39(raw),
+  teleportOut: Endpoint12_40(raw),
+  worktreeCreate: Endpoint12_41(raw),
+  worktreeRemove: Endpoint12_42(raw),
+  worktreeReset: Endpoint12_43(raw),
+  gitStatus: Endpoint12_44(raw),
+  gitDiff: Endpoint12_45(raw),
+  gitCommits: Endpoint12_46(raw),
+  gitBranches: Endpoint12_47(raw),
+  gitCommit: Endpoint12_48(raw),
+  gitCheckout: Endpoint12_49(raw),
+  gitStage: Endpoint12_50(raw),
+  gitUnstage: Endpoint12_51(raw),
+  gitDiscard: Endpoint12_52(raw),
+  gitPush: Endpoint12_53(raw),
+  gitPull: Endpoint12_54(raw),
+  loopList: Endpoint12_55(raw),
+  loopCreate: Endpoint12_56(raw),
+  loopTemplates: Endpoint12_57(raw),
+  loopGenerate: Endpoint12_58(raw),
+  loopRunsRecent: Endpoint12_59(raw),
+  loopGet: Endpoint12_60(raw),
+  loopDelete: Endpoint12_61(raw),
+  loopUpdate: Endpoint12_62(raw),
+  loopRuns: Endpoint12_63(raw),
+  loopRun: Endpoint12_64(raw),
+  loopAbort: Endpoint12_65(raw),
+  loopToggle: Endpoint12_66(raw),
+  loopPause: Endpoint12_67(raw),
+  loopResume: Endpoint12_68(raw),
+  routineList: Endpoint12_69(raw),
+  routineCreate: Endpoint12_70(raw),
+  routineGet: Endpoint12_71(raw),
+  routineDelete: Endpoint12_72(raw),
+  routineUpdate: Endpoint12_73(raw),
+  routineRun: Endpoint12_74(raw),
+  routinePause: Endpoint12_75(raw),
+  routineResume: Endpoint12_76(raw),
+  routineTrigger: Endpoint12_77(raw),
+  ptyList: Endpoint12_78(raw),
+  ptyCreate: Endpoint12_79(raw),
+  ptyGet: Endpoint12_80(raw),
+  ptyUpdate: Endpoint12_81(raw),
+  ptyRemove: Endpoint12_82(raw),
+})
+
+const Endpoint13_0 = (raw: RawClient["project"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint13_1 = (raw: RawClient["project"]) => () => raw["current"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint13_2Request = Parameters<RawClient["project"]["update"]>[0]
+type Endpoint13_2Input = {
+  readonly projectID: Endpoint13_2Request["params"]["projectID"]
+  readonly name?: Endpoint13_2Request["payload"]["name"]
+  readonly icon?: Endpoint13_2Request["payload"]["icon"]
+}
+const Endpoint13_2 = (raw: RawClient["project"]) => (input: Endpoint13_2Input) =>
+  raw["update"]({
+    params: { projectID: input["projectID"] },
+    payload: { name: input["name"], icon: input["icon"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint13_3Request = Parameters<RawClient["project"]["directoryList"]>[0]
+type Endpoint13_3Input = { readonly projectID: Endpoint13_3Request["params"]["projectID"] }
+const Endpoint13_3 = (raw: RawClient["project"]) => (input: Endpoint13_3Input) =>
+  raw["directoryList"]({ params: { projectID: input["projectID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint13_4Request = Parameters<RawClient["project"]["copyCreate"]>[0]
+type Endpoint13_4Input = {
+  readonly projectID: Endpoint13_4Request["params"]["projectID"]
+  readonly strategy: Endpoint13_4Request["payload"]["strategy"]
+  readonly directory: Endpoint13_4Request["payload"]["directory"]
+  readonly name?: Endpoint13_4Request["payload"]["name"]
+}
+const Endpoint13_4 = (raw: RawClient["project"]) => (input: Endpoint13_4Input) =>
+  raw["copyCreate"]({
+    params: { projectID: input["projectID"] },
+    payload: { strategy: input["strategy"], directory: input["directory"], name: input["name"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint13_5Request = Parameters<RawClient["project"]["copyRemove"]>[0]
+type Endpoint13_5Input = {
+  readonly projectID: Endpoint13_5Request["params"]["projectID"]
+  readonly directory: Endpoint13_5Request["payload"]["directory"]
+  readonly force: Endpoint13_5Request["payload"]["force"]
+}
+const Endpoint13_5 = (raw: RawClient["project"]) => (input: Endpoint13_5Input) =>
+  raw["copyRemove"]({
+    params: { projectID: input["projectID"] },
+    payload: { directory: input["directory"], force: input["force"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint13_6Request = Parameters<RawClient["project"]["copyRefresh"]>[0]
+type Endpoint13_6Input = { readonly projectID: Endpoint13_6Request["params"]["projectID"] }
+const Endpoint13_6 = (raw: RawClient["project"]) => (input: Endpoint13_6Input) =>
+  raw["copyRefresh"]({ params: { projectID: input["projectID"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup13 = (raw: RawClient["project"]) => ({
+  list: Endpoint13_0(raw),
+  current: Endpoint13_1(raw),
+  update: Endpoint13_2(raw),
+  directoryList: Endpoint13_3(raw),
+  copyCreate: Endpoint13_4(raw),
+  copyRemove: Endpoint13_5(raw),
+  copyRefresh: Endpoint13_6(raw),
+})
+
+const Endpoint14_0 = (raw: RawClient["provider"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint14_1 = (raw: RawClient["provider"]) => () => raw["auth"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint14_2Request = Parameters<RawClient["provider"]["api"]>[0]
+type Endpoint14_2Input = {
+  readonly providerID: Endpoint14_2Request["params"]["providerID"]
+  readonly key: Endpoint14_2Request["payload"]["key"]
+}
+const Endpoint14_2 = (raw: RawClient["provider"]) => (input: Endpoint14_2Input) =>
+  raw["api"]({ params: { providerID: input["providerID"] }, payload: { key: input["key"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint14_3Request = Parameters<RawClient["provider"]["removeAuth"]>[0]
+type Endpoint14_3Input = { readonly providerID: Endpoint14_3Request["params"]["providerID"] }
+const Endpoint14_3 = (raw: RawClient["provider"]) => (input: Endpoint14_3Input) =>
+  raw["removeAuth"]({ params: { providerID: input["providerID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint14_4Request = Parameters<RawClient["provider"]["oauthAuthorize"]>[0]
+type Endpoint14_4Input = {
+  readonly providerID: Endpoint14_4Request["params"]["providerID"]
+  readonly method: Endpoint14_4Request["payload"]["method"]
+}
+const Endpoint14_4 = (raw: RawClient["provider"]) => (input: Endpoint14_4Input) =>
+  raw["oauthAuthorize"]({ params: { providerID: input["providerID"] }, payload: { method: input["method"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint14_5Request = Parameters<RawClient["provider"]["oauthCallback"]>[0]
+type Endpoint14_5Input = {
+  readonly providerID: Endpoint14_5Request["params"]["providerID"]
+  readonly method: Endpoint14_5Request["payload"]["method"]
+  readonly code?: Endpoint14_5Request["payload"]["code"]
+}
+const Endpoint14_5 = (raw: RawClient["provider"]) => (input: Endpoint14_5Input) =>
+  raw["oauthCallback"]({
+    params: { providerID: input["providerID"] },
+    payload: { method: input["method"], code: input["code"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup14 = (raw: RawClient["provider"]) => ({
+  list: Endpoint14_0(raw),
+  auth: Endpoint14_1(raw),
+  api: Endpoint14_2(raw),
+  removeAuth: Endpoint14_3(raw),
+  oauthAuthorize: Endpoint14_4(raw),
+  oauthCallback: Endpoint14_5(raw),
+})
+
+const Endpoint15_0 = (raw: RawClient["question"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint15_1Request = Parameters<RawClient["question"]["reply"]>[0]
+type Endpoint15_1Input = {
+  readonly requestID: Endpoint15_1Request["params"]["requestID"]
+  readonly answers: Endpoint15_1Request["payload"]["answers"]
+}
+const Endpoint15_1 = (raw: RawClient["question"]) => (input: Endpoint15_1Input) =>
+  raw["reply"]({ params: { requestID: input["requestID"] }, payload: { answers: input["answers"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint15_2Request = Parameters<RawClient["question"]["reject"]>[0]
+type Endpoint15_2Input = { readonly requestID: Endpoint15_2Request["params"]["requestID"] }
+const Endpoint15_2 = (raw: RawClient["question"]) => (input: Endpoint15_2Input) =>
+  raw["reject"]({ params: { requestID: input["requestID"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup15 = (raw: RawClient["question"]) => ({
+  list: Endpoint15_0(raw),
+  reply: Endpoint15_1(raw),
+  reject: Endpoint15_2(raw),
+})
+
+const Endpoint16_0 = (raw: RawClient["permission"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint16_1Request = Parameters<RawClient["permission"]["reply"]>[0]
+type Endpoint16_1Input = {
+  readonly requestID: Endpoint16_1Request["params"]["requestID"]
+  readonly reply: Endpoint16_1Request["payload"]["reply"]
+  readonly message?: Endpoint16_1Request["payload"]["message"]
+}
+const Endpoint16_1 = (raw: RawClient["permission"]) => (input: Endpoint16_1Input) =>
+  raw["reply"]({
+    params: { requestID: input["requestID"] },
+    payload: { reply: input["reply"], message: input["message"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup16 = (raw: RawClient["permission"]) => ({ list: Endpoint16_0(raw), reply: Endpoint16_1(raw) })
+
+const Endpoint17_0 = (raw: RawClient["pty"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_1Request = Parameters<RawClient["pty"]["create"]>[0]
+type Endpoint17_1Input = {
+  readonly command?: Endpoint17_1Request["payload"]["command"]
+  readonly args?: Endpoint17_1Request["payload"]["args"]
+  readonly cwd?: Endpoint17_1Request["payload"]["cwd"]
+  readonly title?: Endpoint17_1Request["payload"]["title"]
+  readonly env?: Endpoint17_1Request["payload"]["env"]
+}
+const Endpoint17_1 = (raw: RawClient["pty"]) => (input?: Endpoint17_1Input) =>
+  raw["create"]({
+    payload: {
+      command: input?.["command"],
+      args: input?.["args"],
+      cwd: input?.["cwd"],
+      title: input?.["title"],
+      env: input?.["env"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_2Request = Parameters<RawClient["pty"]["get"]>[0]
+type Endpoint17_2Input = { readonly ptyID: Endpoint17_2Request["params"]["ptyID"] }
+const Endpoint17_2 = (raw: RawClient["pty"]) => (input: Endpoint17_2Input) =>
+  raw["get"]({ params: { ptyID: input["ptyID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_3Request = Parameters<RawClient["pty"]["update"]>[0]
+type Endpoint17_3Input = {
+  readonly ptyID: Endpoint17_3Request["params"]["ptyID"]
+  readonly title?: Endpoint17_3Request["payload"]["title"]
+  readonly size?: Endpoint17_3Request["payload"]["size"]
+}
+const Endpoint17_3 = (raw: RawClient["pty"]) => (input: Endpoint17_3Input) =>
+  raw["update"]({ params: { ptyID: input["ptyID"] }, payload: { title: input["title"], size: input["size"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint17_4Request = Parameters<RawClient["pty"]["remove"]>[0]
+type Endpoint17_4Input = { readonly ptyID: Endpoint17_4Request["params"]["ptyID"] }
+const Endpoint17_4 = (raw: RawClient["pty"]) => (input: Endpoint17_4Input) =>
+  raw["remove"]({ params: { ptyID: input["ptyID"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup17 = (raw: RawClient["pty"]) => ({
+  list: Endpoint17_0(raw),
+  create: Endpoint17_1(raw),
+  get: Endpoint17_2(raw),
+  update: Endpoint17_3(raw),
+  remove: Endpoint17_4(raw),
+})
+
+const Endpoint18_0 = (raw: RawClient["loop"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint18_1 = (raw: RawClient["loop"]) => () => raw["templates"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_2Request = Parameters<RawClient["loop"]["generate"]>[0]
+type Endpoint18_2Input = {
+  readonly description: Endpoint18_2Request["payload"]["description"]
+  readonly model?: Endpoint18_2Request["payload"]["model"]
+  readonly agent?: Endpoint18_2Request["payload"]["agent"]
+}
+const Endpoint18_2 = (raw: RawClient["loop"]) => (input: Endpoint18_2Input) =>
+  raw["generate"]({
+    payload: { description: input["description"], model: input["model"], agent: input["agent"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_3Request = Parameters<RawClient["loop"]["recentRuns"]>[0]
+type Endpoint18_3Input = { readonly limit?: Endpoint18_3Request["query"]["limit"] }
+const Endpoint18_3 = (raw: RawClient["loop"]) => (input?: Endpoint18_3Input) =>
+  raw["recentRuns"]({ query: { limit: input?.["limit"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_4Request = Parameters<RawClient["loop"]["get"]>[0]
+type Endpoint18_4Input = { readonly id: Endpoint18_4Request["params"]["id"] }
+const Endpoint18_4 = (raw: RawClient["loop"]) => (input: Endpoint18_4Input) =>
+  raw["get"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_5Request = Parameters<RawClient["loop"]["upsert"]>[0]
+type Endpoint18_5Input = { readonly payload: Endpoint18_5Request["payload"] }
+const Endpoint18_5 = (raw: RawClient["loop"]) => (input: Endpoint18_5Input) =>
+  raw["upsert"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_6Request = Parameters<RawClient["loop"]["update"]>[0]
+type Endpoint18_6Input = {
+  readonly id: Endpoint18_6Request["params"]["id"]
+  readonly payload: Endpoint18_6Request["payload"]
+}
+const Endpoint18_6 = (raw: RawClient["loop"]) => (input: Endpoint18_6Input) =>
+  raw["update"]({ params: { id: input["id"] }, payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_7Request = Parameters<RawClient["loop"]["remove"]>[0]
+type Endpoint18_7Input = { readonly id: Endpoint18_7Request["params"]["id"] }
+const Endpoint18_7 = (raw: RawClient["loop"]) => (input: Endpoint18_7Input) =>
+  raw["remove"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_8Request = Parameters<RawClient["loop"]["toggle"]>[0]
+type Endpoint18_8Input = {
+  readonly id: Endpoint18_8Request["params"]["id"]
+  readonly enabled: Endpoint18_8Request["payload"]["enabled"]
+}
+const Endpoint18_8 = (raw: RawClient["loop"]) => (input: Endpoint18_8Input) =>
+  raw["toggle"]({ params: { id: input["id"] }, payload: { enabled: input["enabled"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint18_9Request = Parameters<RawClient["loop"]["run"]>[0]
+type Endpoint18_9Input = { readonly id: Endpoint18_9Request["params"]["id"] }
+const Endpoint18_9 = (raw: RawClient["loop"]) => (input: Endpoint18_9Input) =>
+  raw["run"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_10Request = Parameters<RawClient["loop"]["abort"]>[0]
+type Endpoint18_10Input = { readonly id: Endpoint18_10Request["params"]["id"] }
+const Endpoint18_10 = (raw: RawClient["loop"]) => (input: Endpoint18_10Input) =>
+  raw["abort"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_11Request = Parameters<RawClient["loop"]["pause"]>[0]
+type Endpoint18_11Input = { readonly id: Endpoint18_11Request["params"]["id"] }
+const Endpoint18_11 = (raw: RawClient["loop"]) => (input: Endpoint18_11Input) =>
+  raw["pause"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_12Request = Parameters<RawClient["loop"]["resume"]>[0]
+type Endpoint18_12Input = { readonly id: Endpoint18_12Request["params"]["id"] }
+const Endpoint18_12 = (raw: RawClient["loop"]) => (input: Endpoint18_12Input) =>
+  raw["resume"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint18_13Request = Parameters<RawClient["loop"]["runs"]>[0]
+type Endpoint18_13Input = {
+  readonly id: Endpoint18_13Request["params"]["id"]
+  readonly limit?: Endpoint18_13Request["query"]["limit"]
+}
+const Endpoint18_13 = (raw: RawClient["loop"]) => (input: Endpoint18_13Input) =>
+  raw["runs"]({ params: { id: input["id"] }, query: { limit: input["limit"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup18 = (raw: RawClient["loop"]) => ({
+  list: Endpoint18_0(raw),
+  templates: Endpoint18_1(raw),
+  generate: Endpoint18_2(raw),
+  recentRuns: Endpoint18_3(raw),
+  get: Endpoint18_4(raw),
+  upsert: Endpoint18_5(raw),
+  update: Endpoint18_6(raw),
+  remove: Endpoint18_7(raw),
+  toggle: Endpoint18_8(raw),
+  run: Endpoint18_9(raw),
+  abort: Endpoint18_10(raw),
+  pause: Endpoint18_11(raw),
+  resume: Endpoint18_12(raw),
+  runs: Endpoint18_13(raw),
+})
+
+type Endpoint19_0Request = Parameters<RawClient["session"]["list"]>[0]
+type Endpoint19_0Input = {
+  readonly directory?: Endpoint19_0Request["query"]["directory"]
+  readonly roots?: Endpoint19_0Request["query"]["roots"]
+  readonly start?: Endpoint19_0Request["query"]["start"]
+  readonly search?: Endpoint19_0Request["query"]["search"]
+  readonly limit?: Endpoint19_0Request["query"]["limit"]
+}
+const Endpoint19_0 = (raw: RawClient["session"]) => (input?: Endpoint19_0Input) =>
+  raw["list"]({
+    query: {
+      directory: input?.["directory"],
+      roots: input?.["roots"],
+      start: input?.["start"],
+      search: input?.["search"],
+      limit: input?.["limit"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_1Request = Parameters<RawClient["session"]["create"]>[0]
+type Endpoint19_1Input = {
+  readonly parentID?: Extract<Endpoint19_1Request["payload"], object>["parentID"]
+  readonly title?: Extract<Endpoint19_1Request["payload"], object>["title"]
+  readonly permission?: Extract<Endpoint19_1Request["payload"], object>["permission"]
+  readonly skills?: Extract<Endpoint19_1Request["payload"], object>["skills"]
+  readonly github?: Extract<Endpoint19_1Request["payload"], object>["github"]
+  readonly workspaceID?: Extract<Endpoint19_1Request["payload"], object>["workspaceID"]
+}
+const Endpoint19_1 = (raw: RawClient["session"]) => (input?: Endpoint19_1Input) =>
+  raw["create"]({
+    payload: {
+      parentID: input?.["parentID"],
+      title: input?.["title"],
+      permission: input?.["permission"],
+      skills: input?.["skills"],
+      github: input?.["github"],
+      workspaceID: input?.["workspaceID"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+const Endpoint19_2 = (raw: RawClient["session"]) => () => raw["status"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_3Request = Parameters<RawClient["session"]["get"]>[0]
+type Endpoint19_3Input = { readonly sessionID: Endpoint19_3Request["params"]["sessionID"] }
+const Endpoint19_3 = (raw: RawClient["session"]) => (input: Endpoint19_3Input) =>
+  raw["get"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_4Request = Parameters<RawClient["session"]["remove"]>[0]
+type Endpoint19_4Input = { readonly sessionID: Endpoint19_4Request["params"]["sessionID"] }
+const Endpoint19_4 = (raw: RawClient["session"]) => (input: Endpoint19_4Input) =>
+  raw["remove"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_5Request = Parameters<RawClient["session"]["update"]>[0]
+type Endpoint19_5Input = {
+  readonly sessionID: Endpoint19_5Request["params"]["sessionID"]
+  readonly title?: Endpoint19_5Request["payload"]["title"]
+  readonly time?: Endpoint19_5Request["payload"]["time"]
+}
+const Endpoint19_5 = (raw: RawClient["session"]) => (input: Endpoint19_5Input) =>
+  raw["update"]({
+    params: { sessionID: input["sessionID"] },
+    payload: { title: input["title"], time: input["time"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_6Request = Parameters<RawClient["session"]["fork"]>[0]
+type Endpoint19_6Input = {
+  readonly sessionID: Endpoint19_6Request["params"]["sessionID"]
+  readonly messageID?: Endpoint19_6Request["payload"]["messageID"]
+}
+const Endpoint19_6 = (raw: RawClient["session"]) => (input: Endpoint19_6Input) =>
+  raw["fork"]({ params: { sessionID: input["sessionID"] }, payload: { messageID: input["messageID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_7Request = Parameters<RawClient["session"]["abort"]>[0]
+type Endpoint19_7Input = { readonly sessionID: Endpoint19_7Request["params"]["sessionID"] }
+const Endpoint19_7 = (raw: RawClient["session"]) => (input: Endpoint19_7Input) =>
+  raw["abort"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_8Request = Parameters<RawClient["session"]["revert"]>[0]
+type Endpoint19_8Input = {
+  readonly sessionID: Endpoint19_8Request["params"]["sessionID"]
+  readonly messageID: Endpoint19_8Request["payload"]["messageID"]
+  readonly partID?: Endpoint19_8Request["payload"]["partID"]
+}
+const Endpoint19_8 = (raw: RawClient["session"]) => (input: Endpoint19_8Input) =>
+  raw["revert"]({
+    params: { sessionID: input["sessionID"] },
+    payload: { messageID: input["messageID"], partID: input["partID"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_9Request = Parameters<RawClient["session"]["unrevert"]>[0]
+type Endpoint19_9Input = { readonly sessionID: Endpoint19_9Request["params"]["sessionID"] }
+const Endpoint19_9 = (raw: RawClient["session"]) => (input: Endpoint19_9Input) =>
+  raw["unrevert"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_10Request = Parameters<RawClient["session"]["share"]>[0]
+type Endpoint19_10Input = { readonly sessionID: Endpoint19_10Request["params"]["sessionID"] }
+const Endpoint19_10 = (raw: RawClient["session"]) => (input: Endpoint19_10Input) =>
+  raw["share"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_11Request = Parameters<RawClient["session"]["unshare"]>[0]
+type Endpoint19_11Input = { readonly sessionID: Endpoint19_11Request["params"]["sessionID"] }
+const Endpoint19_11 = (raw: RawClient["session"]) => (input: Endpoint19_11Input) =>
+  raw["unshare"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_12Request = Parameters<RawClient["session"]["summarize"]>[0]
+type Endpoint19_12Input = {
+  readonly sessionID: Endpoint19_12Request["params"]["sessionID"]
+  readonly providerID: Endpoint19_12Request["payload"]["providerID"]
+  readonly modelID: Endpoint19_12Request["payload"]["modelID"]
+  readonly auto?: Endpoint19_12Request["payload"]["auto"]
+}
+const Endpoint19_12 = (raw: RawClient["session"]) => (input: Endpoint19_12Input) =>
+  raw["summarize"]({
+    params: { sessionID: input["sessionID"] },
+    payload: { providerID: input["providerID"], modelID: input["modelID"], auto: input["auto"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_13Request = Parameters<RawClient["session"]["command"]>[0]
+type Endpoint19_13Input = {
+  readonly sessionID: Endpoint19_13Request["params"]["sessionID"]
+  readonly messageID?: Endpoint19_13Request["payload"]["messageID"]
+  readonly agent?: Endpoint19_13Request["payload"]["agent"]
+  readonly model?: Endpoint19_13Request["payload"]["model"]
+  readonly arguments: Endpoint19_13Request["payload"]["arguments"]
+  readonly command: Endpoint19_13Request["payload"]["command"]
+  readonly variant?: Endpoint19_13Request["payload"]["variant"]
+  readonly parts?: Endpoint19_13Request["payload"]["parts"]
+}
+const Endpoint19_13 = (raw: RawClient["session"]) => (input: Endpoint19_13Input) =>
+  raw["command"]({
+    params: { sessionID: input["sessionID"] },
+    payload: {
+      messageID: input["messageID"],
+      agent: input["agent"],
+      model: input["model"],
+      arguments: input["arguments"],
+      command: input["command"],
+      variant: input["variant"],
+      parts: input["parts"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_14Request = Parameters<RawClient["session"]["shell"]>[0]
+type Endpoint19_14Input = {
+  readonly sessionID: Endpoint19_14Request["params"]["sessionID"]
+  readonly agent: Endpoint19_14Request["payload"]["agent"]
+  readonly model?: Endpoint19_14Request["payload"]["model"]
+  readonly command: Endpoint19_14Request["payload"]["command"]
+}
+const Endpoint19_14 = (raw: RawClient["session"]) => (input: Endpoint19_14Input) =>
+  raw["shell"]({
+    params: { sessionID: input["sessionID"] },
+    payload: { agent: input["agent"], model: input["model"], command: input["command"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_15Request = Parameters<RawClient["session"]["permissionRespond"]>[0]
+type Endpoint19_15Input = {
+  readonly sessionID: Endpoint19_15Request["params"]["sessionID"]
+  readonly permissionID: Endpoint19_15Request["params"]["permissionID"]
+  readonly response: Endpoint19_15Request["payload"]["response"]
+}
+const Endpoint19_15 = (raw: RawClient["session"]) => (input: Endpoint19_15Input) =>
+  raw["permissionRespond"]({
+    params: { sessionID: input["sessionID"], permissionID: input["permissionID"] },
+    payload: { response: input["response"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_16Request = Parameters<RawClient["session"]["children"]>[0]
+type Endpoint19_16Input = { readonly sessionID: Endpoint19_16Request["params"]["sessionID"] }
+const Endpoint19_16 = (raw: RawClient["session"]) => (input: Endpoint19_16Input) =>
+  raw["children"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_17Request = Parameters<RawClient["session"]["todo"]>[0]
+type Endpoint19_17Input = { readonly sessionID: Endpoint19_17Request["params"]["sessionID"] }
+const Endpoint19_17 = (raw: RawClient["session"]) => (input: Endpoint19_17Input) =>
+  raw["todo"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_18Request = Parameters<RawClient["session"]["diff"]>[0]
+type Endpoint19_18Input = {
+  readonly sessionID: Endpoint19_18Request["params"]["sessionID"]
+  readonly messageID?: Endpoint19_18Request["query"]["messageID"]
+}
+const Endpoint19_18 = (raw: RawClient["session"]) => (input: Endpoint19_18Input) =>
+  raw["diff"]({ params: { sessionID: input["sessionID"] }, query: { messageID: input["messageID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_19Request = Parameters<RawClient["session"]["messages"]>[0]
+type Endpoint19_19Input = {
+  readonly sessionID: Endpoint19_19Request["params"]["sessionID"]
+  readonly limit?: Endpoint19_19Request["query"]["limit"]
+}
+const Endpoint19_19 = (raw: RawClient["session"]) => (input: Endpoint19_19Input) =>
+  raw["messages"]({ params: { sessionID: input["sessionID"] }, query: { limit: input["limit"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_20Request = Parameters<RawClient["session"]["message"]>[0]
+type Endpoint19_20Input = {
+  readonly sessionID: Endpoint19_20Request["params"]["sessionID"]
+  readonly messageID: Endpoint19_20Request["params"]["messageID"]
+}
+const Endpoint19_20 = (raw: RawClient["session"]) => (input: Endpoint19_20Input) =>
+  raw["message"]({ params: { sessionID: input["sessionID"], messageID: input["messageID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_21Request = Parameters<RawClient["session"]["messageRemove"]>[0]
+type Endpoint19_21Input = {
+  readonly sessionID: Endpoint19_21Request["params"]["sessionID"]
+  readonly messageID: Endpoint19_21Request["params"]["messageID"]
+}
+const Endpoint19_21 = (raw: RawClient["session"]) => (input: Endpoint19_21Input) =>
+  raw["messageRemove"]({ params: { sessionID: input["sessionID"], messageID: input["messageID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_22Request = Parameters<RawClient["session"]["partRemove"]>[0]
+type Endpoint19_22Input = {
+  readonly sessionID: Endpoint19_22Request["params"]["sessionID"]
+  readonly messageID: Endpoint19_22Request["params"]["messageID"]
+  readonly partID: Endpoint19_22Request["params"]["partID"]
+}
+const Endpoint19_22 = (raw: RawClient["session"]) => (input: Endpoint19_22Input) =>
+  raw["partRemove"]({
+    params: { sessionID: input["sessionID"], messageID: input["messageID"], partID: input["partID"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_23Request = Parameters<RawClient["session"]["v2Entries"]>[0]
+type Endpoint19_23Input = { readonly sessionID: Endpoint19_23Request["params"]["sessionID"] }
+const Endpoint19_23 = (raw: RawClient["session"]) => (input: Endpoint19_23Input) =>
+  raw["v2Entries"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_24Request = Parameters<RawClient["session"]["v2State"]>[0]
+type Endpoint19_24Input = { readonly sessionID: Endpoint19_24Request["params"]["sessionID"] }
+const Endpoint19_24 = (raw: RawClient["session"]) => (input: Endpoint19_24Input) =>
+  raw["v2State"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_25Request = Parameters<RawClient["session"]["v2Events"]>[0]
+type Endpoint19_25Input = { readonly sessionID: Endpoint19_25Request["params"]["sessionID"] }
+const Endpoint19_25 = (raw: RawClient["session"]) => (input: Endpoint19_25Input) =>
+  raw["v2Events"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_26Request = Parameters<RawClient["session"]["instructions"]>[0]
+type Endpoint19_26Input = { readonly sessionID: Endpoint19_26Request["params"]["sessionID"] }
+const Endpoint19_26 = (raw: RawClient["session"]) => (input: Endpoint19_26Input) =>
+  raw["instructions"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_27Request = Parameters<RawClient["session"]["contextBreakdown"]>[0]
+type Endpoint19_27Input = { readonly sessionID: Endpoint19_27Request["params"]["sessionID"] }
+const Endpoint19_27 = (raw: RawClient["session"]) => (input: Endpoint19_27Input) =>
+  raw["contextBreakdown"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_28Request = Parameters<RawClient["session"]["contextToggle"]>[0]
+type Endpoint19_28Input = {
+  readonly sessionID: Endpoint19_28Request["params"]["sessionID"]
+  readonly kind: Endpoint19_28Request["payload"]["kind"]
+  readonly key: Endpoint19_28Request["payload"]["key"]
+  readonly enabled: Endpoint19_28Request["payload"]["enabled"]
+}
+const Endpoint19_28 = (raw: RawClient["session"]) => (input: Endpoint19_28Input) =>
+  raw["contextToggle"]({
+    params: { sessionID: input["sessionID"] },
+    payload: { kind: input["kind"], key: input["key"], enabled: input["enabled"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_29Request = Parameters<RawClient["session"]["goal"]>[0]
+type Endpoint19_29Input = { readonly sessionID: Endpoint19_29Request["params"]["sessionID"] }
+const Endpoint19_29 = (raw: RawClient["session"]) => (input: Endpoint19_29Input) =>
+  raw["goal"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_30Request = Parameters<RawClient["session"]["background"]>[0]
+type Endpoint19_30Input = { readonly sessionID: Endpoint19_30Request["params"]["sessionID"] }
+const Endpoint19_30 = (raw: RawClient["session"]) => (input: Endpoint19_30Input) =>
+  raw["background"]({ params: { sessionID: input["sessionID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_31Request = Parameters<RawClient["session"]["backgroundInspect"]>[0]
+type Endpoint19_31Input = {
+  readonly sessionID: Endpoint19_31Request["params"]["sessionID"]
+  readonly delegationID: Endpoint19_31Request["params"]["delegationID"]
+}
+const Endpoint19_31 = (raw: RawClient["session"]) => (input: Endpoint19_31Input) =>
+  raw["backgroundInspect"]({ params: { sessionID: input["sessionID"], delegationID: input["delegationID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_32Request = Parameters<RawClient["session"]["backgroundRead"]>[0]
+type Endpoint19_32Input = {
+  readonly sessionID: Endpoint19_32Request["params"]["sessionID"]
+  readonly delegationID: Endpoint19_32Request["params"]["delegationID"]
+}
+const Endpoint19_32 = (raw: RawClient["session"]) => (input: Endpoint19_32Input) =>
+  raw["backgroundRead"]({ params: { sessionID: input["sessionID"], delegationID: input["delegationID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_33Request = Parameters<RawClient["session"]["backgroundCancel"]>[0]
+type Endpoint19_33Input = {
+  readonly sessionID: Endpoint19_33Request["params"]["sessionID"]
+  readonly delegationID: Endpoint19_33Request["params"]["delegationID"]
+}
+const Endpoint19_33 = (raw: RawClient["session"]) => (input: Endpoint19_33Input) =>
+  raw["backgroundCancel"]({ params: { sessionID: input["sessionID"], delegationID: input["delegationID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_34Request = Parameters<RawClient["session"]["monitor"]>[0]
+type Endpoint19_34Input = {
+  readonly sessionID: Endpoint19_34Request["params"]["sessionID"]
+  readonly monitorID: Endpoint19_34Request["params"]["monitorID"]
+}
+const Endpoint19_34 = (raw: RawClient["session"]) => (input: Endpoint19_34Input) =>
+  raw["monitor"]({ params: { sessionID: input["sessionID"], monitorID: input["monitorID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint19_35Request = Parameters<RawClient["session"]["monitorLog"]>[0]
+type Endpoint19_35Input = {
+  readonly sessionID: Endpoint19_35Request["params"]["sessionID"]
+  readonly monitorID: Endpoint19_35Request["params"]["monitorID"]
+  readonly lines?: Endpoint19_35Request["query"]["lines"]
+}
+const Endpoint19_35 = (raw: RawClient["session"]) => (input: Endpoint19_35Input) =>
+  raw["monitorLog"]({
+    params: { sessionID: input["sessionID"], monitorID: input["monitorID"] },
+    query: { lines: input["lines"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint19_36Request = Parameters<RawClient["session"]["monitorCancel"]>[0]
+type Endpoint19_36Input = {
+  readonly sessionID: Endpoint19_36Request["params"]["sessionID"]
+  readonly monitorID: Endpoint19_36Request["params"]["monitorID"]
+}
+const Endpoint19_36 = (raw: RawClient["session"]) => (input: Endpoint19_36Input) =>
+  raw["monitorCancel"]({ params: { sessionID: input["sessionID"], monitorID: input["monitorID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+const adaptGroup19 = (raw: RawClient["session"]) => ({
+  list: Endpoint19_0(raw),
+  create: Endpoint19_1(raw),
+  status: Endpoint19_2(raw),
+  get: Endpoint19_3(raw),
+  remove: Endpoint19_4(raw),
+  update: Endpoint19_5(raw),
+  fork: Endpoint19_6(raw),
+  abort: Endpoint19_7(raw),
+  revert: Endpoint19_8(raw),
+  unrevert: Endpoint19_9(raw),
+  share: Endpoint19_10(raw),
+  unshare: Endpoint19_11(raw),
+  summarize: Endpoint19_12(raw),
+  command: Endpoint19_13(raw),
+  shell: Endpoint19_14(raw),
+  permissionRespond: Endpoint19_15(raw),
+  children: Endpoint19_16(raw),
+  todo: Endpoint19_17(raw),
+  diff: Endpoint19_18(raw),
+  messages: Endpoint19_19(raw),
+  message: Endpoint19_20(raw),
+  messageRemove: Endpoint19_21(raw),
+  partRemove: Endpoint19_22(raw),
+  v2Entries: Endpoint19_23(raw),
+  v2State: Endpoint19_24(raw),
+  v2Events: Endpoint19_25(raw),
+  instructions: Endpoint19_26(raw),
+  contextBreakdown: Endpoint19_27(raw),
+  contextToggle: Endpoint19_28(raw),
+  goal: Endpoint19_29(raw),
+  background: Endpoint19_30(raw),
+  backgroundInspect: Endpoint19_31(raw),
+  backgroundRead: Endpoint19_32(raw),
+  backgroundCancel: Endpoint19_33(raw),
+  monitor: Endpoint19_34(raw),
+  monitorLog: Endpoint19_35(raw),
+  monitorCancel: Endpoint19_36(raw),
+})
+
+type Endpoint20_0Request = Parameters<RawClient["sync"]["event"]>[0]
+type Endpoint20_0Input = {
+  readonly event: Endpoint20_0Request["payload"]["event"]
+  readonly projectID: Endpoint20_0Request["payload"]["projectID"]
+}
+const Endpoint20_0 = (raw: RawClient["sync"]) => (input: Endpoint20_0Input) =>
+  raw["event"]({ payload: { event: input["event"], projectID: input["projectID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint20_1Request = Parameters<RawClient["sync"]["outbox"]>[0]
+type Endpoint20_1Input = {
+  readonly projectID: Endpoint20_1Request["query"]["projectID"]
+  readonly since?: Endpoint20_1Request["query"]["since"]
+}
+const Endpoint20_1 = (raw: RawClient["sync"]) => (input: Endpoint20_1Input) =>
+  raw["outbox"]({ query: { projectID: input["projectID"], since: input["since"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint20_2Request = Parameters<RawClient["sync"]["snapshot"]>[0]
+type Endpoint20_2Input = {
+  readonly aggregateID: Endpoint20_2Request["params"]["aggregateID"]
+  readonly projectID: Endpoint20_2Request["query"]["projectID"]
+}
+const Endpoint20_2 = (raw: RawClient["sync"]) => (input: Endpoint20_2Input) =>
+  raw["snapshot"]({ params: { aggregateID: input["aggregateID"] }, query: { projectID: input["projectID"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint20_3Request = Parameters<RawClient["sync"]["stream"]>[0]
+type Endpoint20_3Input = {
+  readonly projectID: Endpoint20_3Request["query"]["projectID"]
+  readonly token: Endpoint20_3Request["query"]["token"]
+}
+const Endpoint20_3 = (raw: RawClient["sync"]) => (input: Endpoint20_3Input) =>
+  Stream.unwrap(
+    raw["stream"]({ query: { projectID: input["projectID"], token: input["token"] } }).pipe(
+      Effect.mapError(mapClientError),
+      Effect.map((stream) => stream.pipe(Stream.mapError(mapClientError))),
+    ),
+  )
+
+type Endpoint20_4Request = Parameters<RawClient["sync"]["stats"]>[0]
+type Endpoint20_4Input = { readonly projectID?: Endpoint20_4Request["query"]["projectID"] }
+const Endpoint20_4 = (raw: RawClient["sync"]) => (input?: Endpoint20_4Input) =>
+  raw["stats"]({ query: { projectID: input?.["projectID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint20_5Request = Parameters<RawClient["sync"]["config"]>[0]
+type Endpoint20_5Input = {
+  readonly url: Endpoint20_5Request["payload"]["url"]
+  readonly token?: Endpoint20_5Request["payload"]["token"]
+  readonly autostart?: Endpoint20_5Request["payload"]["autostart"]
+}
+const Endpoint20_5 = (raw: RawClient["sync"]) => (input: Endpoint20_5Input) =>
+  raw["config"]({ payload: { url: input["url"], token: input["token"], autostart: input["autostart"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+const Endpoint20_6 = (raw: RawClient["sync"]) => () => raw["connect"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint20_7 = (raw: RawClient["sync"]) => () => raw["disconnect"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint20_8 = (raw: RawClient["sync"]) => () => raw["drain"]({}).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup20 = (raw: RawClient["sync"]) => ({
+  event: Endpoint20_0(raw),
+  outbox: Endpoint20_1(raw),
+  snapshot: Endpoint20_2(raw),
+  stream: Endpoint20_3(raw),
+  stats: Endpoint20_4(raw),
+  config: Endpoint20_5(raw),
+  connect: Endpoint20_6(raw),
+  disconnect: Endpoint20_7(raw),
+  drain: Endpoint20_8(raw),
+})
+
+type Endpoint21_0Request = Parameters<RawClient["tui"]["appendPrompt"]>[0]
+type Endpoint21_0Input = { readonly payload: Endpoint21_0Request["payload"] }
+const Endpoint21_0 = (raw: RawClient["tui"]) => (input: Endpoint21_0Input) =>
+  raw["appendPrompt"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_1 = (raw: RawClient["tui"]) => () => raw["openHelp"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_2 = (raw: RawClient["tui"]) => () => raw["openSessions"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_3 = (raw: RawClient["tui"]) => () => raw["openThemes"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_4 = (raw: RawClient["tui"]) => () => raw["openModels"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_5 = (raw: RawClient["tui"]) => () => raw["submitPrompt"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_6 = (raw: RawClient["tui"]) => () => raw["clearPrompt"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint21_7Request = Parameters<RawClient["tui"]["executeCommand"]>[0]
+type Endpoint21_7Input = { readonly payload: Endpoint21_7Request["payload"] }
+const Endpoint21_7 = (raw: RawClient["tui"]) => (input: Endpoint21_7Input) =>
+  raw["executeCommand"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint21_8Request = Parameters<RawClient["tui"]["showToast"]>[0]
+type Endpoint21_8Input = { readonly payload: Endpoint21_8Request["payload"] }
+const Endpoint21_8 = (raw: RawClient["tui"]) => (input: Endpoint21_8Input) =>
+  raw["showToast"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint21_9Request = Parameters<RawClient["tui"]["publish"]>[0]
+type Endpoint21_9Input = { readonly payload: Endpoint21_9Request["payload"] }
+const Endpoint21_9 = (raw: RawClient["tui"]) => (input: Endpoint21_9Input) =>
+  raw["publish"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint21_10Request = Parameters<RawClient["tui"]["selectSession"]>[0]
+type Endpoint21_10Input = { readonly payload: Endpoint21_10Request["payload"] }
+const Endpoint21_10 = (raw: RawClient["tui"]) => (input: Endpoint21_10Input) =>
+  raw["selectSession"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+const Endpoint21_11 = (raw: RawClient["tui"]) => () => raw["controlNext"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint21_12Request = Parameters<RawClient["tui"]["controlResponse"]>[0]
+type Endpoint21_12Input = { readonly payload: Endpoint21_12Request["payload"] }
+const Endpoint21_12 = (raw: RawClient["tui"]) => (input: Endpoint21_12Input) =>
+  raw["controlResponse"]({ payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup21 = (raw: RawClient["tui"]) => ({
+  appendPrompt: Endpoint21_0(raw),
+  openHelp: Endpoint21_1(raw),
+  openSessions: Endpoint21_2(raw),
+  openThemes: Endpoint21_3(raw),
+  openModels: Endpoint21_4(raw),
+  submitPrompt: Endpoint21_5(raw),
+  clearPrompt: Endpoint21_6(raw),
+  executeCommand: Endpoint21_7(raw),
+  showToast: Endpoint21_8(raw),
+  publish: Endpoint21_9(raw),
+  selectSession: Endpoint21_10(raw),
+  controlNext: Endpoint21_11(raw),
+  controlResponse: Endpoint21_12(raw),
+})
+
+const Endpoint22_0 = (raw: RawClient["workspace"]) => () => raw["adaptors"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint22_1 = (raw: RawClient["workspace"]) => () => raw["syncList"]({}).pipe(Effect.mapError(mapClientError))
+
+const Endpoint22_2 = (raw: RawClient["workspace"]) => () => raw["status"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint22_3Request = Parameters<RawClient["workspace"]["create"]>[0]
+type Endpoint22_3Input = {
+  readonly id: Endpoint22_3Request["params"]["id"]
+  readonly branch: Endpoint22_3Request["payload"]["branch"]
+  readonly config: Endpoint22_3Request["payload"]["config"]
+}
+const Endpoint22_3 = (raw: RawClient["workspace"]) => (input: Endpoint22_3Input) =>
+  raw["create"]({ params: { id: input["id"] }, payload: { branch: input["branch"], config: input["config"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+const Endpoint22_4 = (raw: RawClient["workspace"]) => () => raw["list"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint22_5Request = Parameters<RawClient["workspace"]["remove"]>[0]
+type Endpoint22_5Input = { readonly id: Endpoint22_5Request["params"]["id"] }
+const Endpoint22_5 = (raw: RawClient["workspace"]) => (input: Endpoint22_5Input) =>
+  raw["remove"]({ params: { id: input["id"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint22_6Request = Parameters<RawClient["workspace"]["restore"]>[0]
+type Endpoint22_6Input = {
+  readonly id: Endpoint22_6Request["params"]["id"]
+  readonly timeoutMs?: Endpoint22_6Request["query"]["timeoutMs"]
+}
+const Endpoint22_6 = (raw: RawClient["workspace"]) => (input: Endpoint22_6Input) =>
+  raw["restore"]({ params: { id: input["id"] }, query: { timeoutMs: input["timeoutMs"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint22_7Request = Parameters<RawClient["workspace"]["sessionRestore"]>[0]
+type Endpoint22_7Input = {
+  readonly id: Endpoint22_7Request["params"]["id"]
+  readonly sessionID: Endpoint22_7Request["params"]["sessionID"]
+  readonly timeoutMs?: Endpoint22_7Request["query"]["timeoutMs"]
+}
+const Endpoint22_7 = (raw: RawClient["workspace"]) => (input: Endpoint22_7Input) =>
+  raw["sessionRestore"]({
+    params: { id: input["id"], sessionID: input["sessionID"] },
+    query: { timeoutMs: input["timeoutMs"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint22_8Request = Parameters<RawClient["workspace"]["warp"]>[0]
+type Endpoint22_8Input = {
+  readonly id: Endpoint22_8Request["payload"]["id"]
+  readonly sessionID: Endpoint22_8Request["payload"]["sessionID"]
+  readonly copyChanges?: Endpoint22_8Request["payload"]["copyChanges"]
+  readonly timeoutMs?: Endpoint22_8Request["payload"]["timeoutMs"]
+}
+const Endpoint22_8 = (raw: RawClient["workspace"]) => (input: Endpoint22_8Input) =>
+  raw["warp"]({
+    payload: {
+      id: input["id"],
+      sessionID: input["sessionID"],
+      copyChanges: input["copyChanges"],
+      timeoutMs: input["timeoutMs"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup22 = (raw: RawClient["workspace"]) => ({
+  adaptors: Endpoint22_0(raw),
+  syncList: Endpoint22_1(raw),
+  status: Endpoint22_2(raw),
+  create: Endpoint22_3(raw),
+  list: Endpoint22_4(raw),
+  remove: Endpoint22_5(raw),
+  restore: Endpoint22_6(raw),
+  sessionRestore: Endpoint22_7(raw),
+  warp: Endpoint22_8(raw),
+})
+
+type Endpoint23_0Request = Parameters<RawClient["auth"]["remove"]>[0]
+type Endpoint23_0Input = { readonly providerID: Endpoint23_0Request["params"]["providerID"] }
+const Endpoint23_0 = (raw: RawClient["auth"]) => (input: Endpoint23_0Input) =>
+  raw["remove"]({ params: { providerID: input["providerID"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup23 = (raw: RawClient["auth"]) => ({ remove: Endpoint23_0(raw) })
+
+const Endpoint24_0 = (raw: RawClient["config-management"]) => () =>
+  raw["reload"]({}).pipe(Effect.mapError(mapClientError))
+
+type Endpoint24_1Request = Parameters<RawClient["config-management"]["mcpAdd"]>[0]
+type Endpoint24_1Input = {
+  readonly name: Endpoint24_1Request["payload"]["name"]
+  readonly config: Endpoint24_1Request["payload"]["config"]
+}
+const Endpoint24_1 = (raw: RawClient["config-management"]) => (input: Endpoint24_1Input) =>
+  raw["mcpAdd"]({ payload: { name: input["name"], config: input["config"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint24_2Request = Parameters<RawClient["config-management"]["mcpUpdate"]>[0]
+type Endpoint24_2Input = {
+  readonly name: Endpoint24_2Request["params"]["name"]
+  readonly payload: Endpoint24_2Request["payload"]
+}
+const Endpoint24_2 = (raw: RawClient["config-management"]) => (input: Endpoint24_2Input) =>
+  raw["mcpUpdate"]({ params: { name: input["name"] }, payload: input["payload"] }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint24_3Request = Parameters<RawClient["config-management"]["mcpRemove"]>[0]
+type Endpoint24_3Input = { readonly name: Endpoint24_3Request["params"]["name"] }
+const Endpoint24_3 = (raw: RawClient["config-management"]) => (input: Endpoint24_3Input) =>
+  raw["mcpRemove"]({ params: { name: input["name"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint24_4Request = Parameters<RawClient["config-management"]["profileCreate"]>[0]
+type Endpoint24_4Input = { readonly name: Endpoint24_4Request["payload"]["name"] }
+const Endpoint24_4 = (raw: RawClient["config-management"]) => (input: Endpoint24_4Input) =>
+  raw["profileCreate"]({ payload: { name: input["name"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint24_5Request = Parameters<RawClient["config-management"]["profileActivate"]>[0]
+type Endpoint24_5Input = { readonly name: Endpoint24_5Request["params"]["name"] }
+const Endpoint24_5 = (raw: RawClient["config-management"]) => (input: Endpoint24_5Input) =>
+  raw["profileActivate"]({ params: { name: input["name"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup24 = (raw: RawClient["config-management"]) => ({
+  reload: Endpoint24_0(raw),
+  mcpAdd: Endpoint24_1(raw),
+  mcpUpdate: Endpoint24_2(raw),
+  mcpRemove: Endpoint24_3(raw),
+  profileCreate: Endpoint24_4(raw),
+  profileActivate: Endpoint24_5(raw),
+})
+
+type Endpoint25_0Request = Parameters<RawClient["session-prompt"]["prompt"]>[0]
+type Endpoint25_0Input = {
+  readonly sessionID: Endpoint25_0Request["params"]["sessionID"]
+  readonly messageID?: Endpoint25_0Request["payload"]["messageID"]
+  readonly model?: Endpoint25_0Request["payload"]["model"]
+  readonly agent?: Endpoint25_0Request["payload"]["agent"]
+  readonly noReply?: Endpoint25_0Request["payload"]["noReply"]
+  readonly tools?: Endpoint25_0Request["payload"]["tools"]
+  readonly format?: Endpoint25_0Request["payload"]["format"]
+  readonly system?: Endpoint25_0Request["payload"]["system"]
+  readonly variant?: Endpoint25_0Request["payload"]["variant"]
+  readonly parts: Endpoint25_0Request["payload"]["parts"]
+}
+const Endpoint25_0 = (raw: RawClient["session-prompt"]) => (input: Endpoint25_0Input) =>
+  raw["prompt"]({
+    params: { sessionID: input["sessionID"] },
+    payload: {
+      messageID: input["messageID"],
+      model: input["model"],
+      agent: input["agent"],
+      noReply: input["noReply"],
+      tools: input["tools"],
+      format: input["format"],
+      system: input["system"],
+      variant: input["variant"],
+      parts: input["parts"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint25_1Request = Parameters<RawClient["session-prompt"]["promptAsync"]>[0]
+type Endpoint25_1Input = {
+  readonly sessionID: Endpoint25_1Request["params"]["sessionID"]
+  readonly messageID?: Endpoint25_1Request["payload"]["messageID"]
+  readonly model?: Endpoint25_1Request["payload"]["model"]
+  readonly agent?: Endpoint25_1Request["payload"]["agent"]
+  readonly noReply?: Endpoint25_1Request["payload"]["noReply"]
+  readonly tools?: Endpoint25_1Request["payload"]["tools"]
+  readonly format?: Endpoint25_1Request["payload"]["format"]
+  readonly system?: Endpoint25_1Request["payload"]["system"]
+  readonly variant?: Endpoint25_1Request["payload"]["variant"]
+  readonly parts: Endpoint25_1Request["payload"]["parts"]
+}
+const Endpoint25_1 = (raw: RawClient["session-prompt"]) => (input: Endpoint25_1Input) =>
+  raw["promptAsync"]({
+    params: { sessionID: input["sessionID"] },
+    payload: {
+      messageID: input["messageID"],
+      model: input["model"],
+      agent: input["agent"],
+      noReply: input["noReply"],
+      tools: input["tools"],
+      format: input["format"],
+      system: input["system"],
+      variant: input["variant"],
+      parts: input["parts"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup25 = (raw: RawClient["session-prompt"]) => ({
+  prompt: Endpoint25_0(raw),
+  promptAsync: Endpoint25_1(raw),
+})
+
+type Endpoint26_0Request = Parameters<RawClient["share"]["short"]>[0]
+type Endpoint26_0Input = { readonly shareID: Endpoint26_0Request["params"]["shareID"] }
+const Endpoint26_0 = (raw: RawClient["share"]) => (input: Endpoint26_0Input) =>
+  raw["short"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint26_1Request = Parameters<RawClient["share"]["page"]>[0]
+type Endpoint26_1Input = { readonly shareID: Endpoint26_1Request["params"]["shareID"] }
+const Endpoint26_1 = (raw: RawClient["share"]) => (input: Endpoint26_1Input) =>
+  raw["page"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint26_2Request = Parameters<RawClient["share"]["api"]>[0]
+type Endpoint26_2Input = { readonly shareID: Endpoint26_2Request["params"]["shareID"] }
+const Endpoint26_2 = (raw: RawClient["share"]) => (input: Endpoint26_2Input) =>
+  raw["api"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint26_3Request = Parameters<RawClient["share"]["data"]>[0]
+type Endpoint26_3Input = { readonly shareID: Endpoint26_3Request["params"]["shareID"] }
+const Endpoint26_3 = (raw: RawClient["share"]) => (input: Endpoint26_3Input) =>
+  raw["data"]({ params: { shareID: input["shareID"] } }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup26 = (raw: RawClient["share"]) => ({
+  short: Endpoint26_0(raw),
+  page: Endpoint26_1(raw),
+  api: Endpoint26_2(raw),
+  data: Endpoint26_3(raw),
+})
+
+const Endpoint27_0 = (raw: RawClient["events"]) => () =>
+  Stream.unwrap(
+    raw["subscribe"]({}).pipe(
+      Effect.mapError(mapClientError),
+      Effect.map((stream) => stream.pipe(Stream.mapError(mapClientError))),
+    ),
+  )
+
+const Endpoint27_1 = (raw: RawClient["events"]) => () =>
+  Stream.unwrap(
+    raw["global"]({}).pipe(
+      Effect.mapError(mapClientError),
+      Effect.map((stream) => stream.pipe(Stream.mapError(mapClientError))),
+    ),
+  )
+
+const adaptGroup27 = (raw: RawClient["events"]) => ({ subscribe: Endpoint27_0(raw), global: Endpoint27_1(raw) })
+
+type Endpoint28_0Request = Parameters<RawClient["workspace-extra"]["events"]>[0]
+type Endpoint28_0Input = {
+  readonly id: Endpoint28_0Request["params"]["id"]
+  readonly from?: Endpoint28_0Request["query"]["from"]
+}
+const Endpoint28_0 = (raw: RawClient["workspace-extra"]) => (input: Endpoint28_0Input) =>
+  raw["events"]({ params: { id: input["id"] }, query: { from: input["from"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint28_1Request = Parameters<RawClient["workspace-extra"]["sessionWarp"]>[0]
+type Endpoint28_1Input = {
+  readonly sessionID: Endpoint28_1Request["params"]["sessionID"]
+  readonly workspaceID: Endpoint28_1Request["payload"]["workspaceID"]
+  readonly copyChanges?: Endpoint28_1Request["payload"]["copyChanges"]
+  readonly timeoutMs?: Endpoint28_1Request["payload"]["timeoutMs"]
+}
+const Endpoint28_1 = (raw: RawClient["workspace-extra"]) => (input: Endpoint28_1Input) =>
+  raw["sessionWarp"]({
+    params: { sessionID: input["sessionID"] },
+    payload: { workspaceID: input["workspaceID"], copyChanges: input["copyChanges"], timeoutMs: input["timeoutMs"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup28 = (raw: RawClient["workspace-extra"]) => ({
+  events: Endpoint28_0(raw),
+  sessionWarp: Endpoint28_1(raw),
+})
+
+type Endpoint29_0Request = Parameters<RawClient["users"]["register"]>[0]
+type Endpoint29_0Input = {
+  readonly username: Endpoint29_0Request["payload"]["username"]
+  readonly email: Endpoint29_0Request["payload"]["email"]
+  readonly password: Endpoint29_0Request["payload"]["password"]
+  readonly displayName?: Endpoint29_0Request["payload"]["displayName"]
+}
+const Endpoint29_0 = (raw: RawClient["users"]) => (input: Endpoint29_0Input) =>
+  raw["register"]({
+    payload: {
+      username: input["username"],
+      email: input["email"],
+      password: input["password"],
+      displayName: input["displayName"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint29_1Request = Parameters<RawClient["users"]["login"]>[0]
+type Endpoint29_1Input = {
+  readonly email: Endpoint29_1Request["payload"]["email"]
+  readonly password: Endpoint29_1Request["payload"]["password"]
+}
+const Endpoint29_1 = (raw: RawClient["users"]) => (input: Endpoint29_1Input) =>
+  raw["login"]({ payload: { email: input["email"], password: input["password"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint29_2Request = Parameters<RawClient["users"]["update"]>[0]
+type Endpoint29_2Input = {
+  readonly id: Endpoint29_2Request["params"]["id"]
+  readonly displayName?: Endpoint29_2Request["payload"]["displayName"]
+  readonly password?: Endpoint29_2Request["payload"]["password"]
+  readonly role?: Endpoint29_2Request["payload"]["role"]
+}
+const Endpoint29_2 = (raw: RawClient["users"]) => (input: Endpoint29_2Input) =>
+  raw["update"]({
+    params: { id: input["id"] },
+    payload: { displayName: input["displayName"], password: input["password"], role: input["role"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+const adaptGroup29 = (raw: RawClient["users"]) => ({
+  register: Endpoint29_0(raw),
+  login: Endpoint29_1(raw),
+  update: Endpoint29_2(raw),
 })
 
 const adaptClient = (raw: RawClient) => ({
@@ -2324,24 +2324,24 @@ const adaptClient = (raw: RawClient) => ({
   global: adaptGroup9(raw["global"]),
   mcp: adaptGroup10(raw["mcp"]),
   mission: adaptGroup11(raw["mission"]),
-  project: adaptGroup12(raw["project"]),
-  provider: adaptGroup13(raw["provider"]),
-  question: adaptGroup14(raw["question"]),
-  permission: adaptGroup15(raw["permission"]),
-  pty: adaptGroup16(raw["pty"]),
-  loop: adaptGroup17(raw["loop"]),
-  session: adaptGroup18(raw["session"]),
-  tui: adaptGroup19(raw["tui"]),
-  workspace: adaptGroup20(raw["workspace"]),
-  sync: adaptGroup21(raw["sync"]),
-  auth: adaptGroup22(raw["auth"]),
-  "config-management": adaptGroup23(raw["config-management"]),
-  "session-prompt": adaptGroup24(raw["session-prompt"]),
-  share: adaptGroup25(raw["share"]),
-  events: adaptGroup26(raw["events"]),
-  "workspace-extra": adaptGroup27(raw["workspace-extra"]),
-  users: adaptGroup28(raw["users"]),
-  mobile: adaptGroup29(raw["mobile"]),
+  mobile: adaptGroup12(raw["mobile"]),
+  project: adaptGroup13(raw["project"]),
+  provider: adaptGroup14(raw["provider"]),
+  question: adaptGroup15(raw["question"]),
+  permission: adaptGroup16(raw["permission"]),
+  pty: adaptGroup17(raw["pty"]),
+  loop: adaptGroup18(raw["loop"]),
+  session: adaptGroup19(raw["session"]),
+  sync: adaptGroup20(raw["sync"]),
+  tui: adaptGroup21(raw["tui"]),
+  workspace: adaptGroup22(raw["workspace"]),
+  auth: adaptGroup23(raw["auth"]),
+  "config-management": adaptGroup24(raw["config-management"]),
+  "session-prompt": adaptGroup25(raw["session-prompt"]),
+  share: adaptGroup26(raw["share"]),
+  events: adaptGroup27(raw["events"]),
+  "workspace-extra": adaptGroup28(raw["workspace-extra"]),
+  users: adaptGroup29(raw["users"]),
 })
 
 export const make = (options?: { readonly baseUrl?: URL | string }) =>
