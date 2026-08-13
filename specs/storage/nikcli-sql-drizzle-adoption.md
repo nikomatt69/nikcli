@@ -1,5 +1,13 @@
 # Adopt Opencode-Style SQL + Drizzle In Nikcli
 
+| Field    | Value                                                                     |
+| -------- | ------------------------------------------------------------------------- |
+| Status   | **Implemented** (verified 2026-08-14). Group statuses below are current.  |
+| Evidence | `src/database/{database,migration,migration.gen,schema}.ts` exist; `bun:sqlite` and `drizzle(...)` are constructed only there and in data-import migrations; 14 migrations are journaled and asserted by `test/database/database.test.ts`. |
+| Next     | [Retire JSON storage](./remove-json-storage.md) — the long tail this document did not cover. |
+
+The "Current Nikcli Inventory" section below describes the state **before** the migration and is kept for the record. Do not read it as current.
+
 ## Goal
 
 Move nikcli from scattered SQLite helpers and JSON-backed storage toward the opencode pattern: a central SQLite database runtime, Drizzle-owned schemas, explicit migrations, and domain services/repositories that query through one database capability.
