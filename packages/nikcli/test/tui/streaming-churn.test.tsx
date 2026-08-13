@@ -174,7 +174,9 @@ describe("streaming churn", () => {
 
     const first = frames.findIndex((frame) => frame.includes("Live projector"))
     if (first < 0) {
-      throw new Error(`heading never painted; frames:\n${frames.map((frame, i) => `[${i}]\n${frame || "(empty)"}`).join("\n")}`)
+      throw new Error(
+        `heading never painted; frames:\n${frames.map((frame, i) => `[${i}]\n${frame || "(empty)"}`).join("\n")}`,
+      )
     }
     for (const frame of frames.slice(first)) {
       expect(frame).toContain("Live projector")

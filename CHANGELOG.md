@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.280.0 (August 2026)
+
+## Core
+
+- Exclude synthetic and ignored text parts from user messages (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(session): exclude synthetic and ignored text parts from user messages
+
 ## v1.277.0 (August 2026)
 
 ## Core
