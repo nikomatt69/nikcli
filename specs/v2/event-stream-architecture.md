@@ -1,10 +1,10 @@
 # Event Stream Architecture
 
-| Field  | Value                                                                 |
-| ------ | --------------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                        |
+| Field  | Value                                                                  |
+| ------ | ---------------------------------------------------------------------- |
+| Status | **Proposed and unimplemented**                                         |
 | Scope  | `src/server/httpapi/event.ts`, `src/bus/index.ts`, `src/bus/global.ts` |
-| Buys   | O(1) encoding per event instead of O(connections); a real lag budget  |
+| Buys   | O(1) encoding per event instead of O(connections); a real lag budget   |
 
 ## Decision
 
@@ -73,7 +73,7 @@ A shared PubSub stores each frame once and gives every subscriber a cursor, so r
 
 Independent eviction can be built on a dropping PubSub, but it requires retaining every subscription's child scope, a separate typed overflow signal (scope closure looks like interruption), serialization of registration/removal/eviction/publication, lag scans at capacity, and terminal handling for a "impossible" failed shared publish. That is a custom multicast protocol layered over PubSub.
 
-The benefit it would actually buy is queue-slot *references*, not frame copies — every independent queue holds the same immutable string. At 50 clients × 4,096 slots that is roughly 1.6 MiB of references before array overhead, likely dominated by HTTP, TLS, kernel, and client buffers.
+The benefit it would actually buy is queue-slot _references_, not frame copies — every independent queue holds the same immutable string. At 50 clients × 4,096 slots that is roughly 1.6 MiB of references before array overhead, likely dominated by HTTP, TLS, kernel, and client buffers.
 
 Independent queues capture the dominant win — encode once — with queue-local overflow semantics and a smaller failure domain. Revisit shared storage only if measurements after shared encoding show reference retention is material.
 

@@ -3,6 +3,18 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.282.0 (August 2026)
+
+## Core
+
+- Remove obsolete specification files from nikcli (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - chore(specs): remove obsolete specification files from nikcli
+  - feat(specs): introduce comprehensive roadmap and TUI package extraction specifications
+
 ## v1.277.0 (August 2026)
 
 ## Core

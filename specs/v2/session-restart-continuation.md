@@ -1,9 +1,9 @@
 # Decision: Continue Sessions After A Graceful Server Restart
 
-| Field  | Value                                                            |
-| ------ | ---------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                   |
-| Scope  | `src/cli/cmd/serve.ts`, `src/session/prompt.ts`, `session_info`  |
+| Field  | Value                                                              |
+| ------ | ------------------------------------------------------------------ |
+| Status | **Proposed and unimplemented**                                     |
+| Scope  | `src/cli/cmd/serve.ts`, `src/session/prompt.ts`, `session_info`    |
 | Buys   | `nikcli upgrade` and a server redeploy stop silently killing turns |
 
 ## Summary

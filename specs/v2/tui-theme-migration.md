@@ -1,9 +1,9 @@
 # TUI Theme Migration
 
-| Field  | Value                                                            |
-| ------ | ---------------------------------------------------------------- |
-| Status | **Proposed and unimplemented**                                   |
-| Scope  | `src/cli/cmd/tui/context/theme.tsx` and its 98 theme documents    |
+| Field  | Value                                                          |
+| ------ | -------------------------------------------------------------- |
+| Status | **Proposed and unimplemented**                                 |
+| Scope  | `src/cli/cmd/tui/context/theme.tsx` and its 98 theme documents |
 
 ## Where It Stands
 
@@ -11,22 +11,22 @@ Themes are flat color maps. A document declares `defs` (raw hex, usually a 12-st
 
 Components read those keys directly. Measured across the TUI:
 
-| Token               | Reads |
-| ------------------- | -----: |
-| `textMuted`         | 746   |
-| `text`              | 359   |
-| `primary`           | 207   |
-| `warning`           | 111   |
+| Token                    |    Reads |
+| ------------------------ | -------: |
+| `textMuted`              |      746 |
+| `text`                   |      359 |
+| `primary`                |      207 |
+| `warning`                |      111 |
 | `error` / `borderSubtle` | 102 each |
-| `success`           | 101   |
-| `backgroundElement` | 81    |
-| `accent`            | 74    |
-| `backgroundPanel`   | 37    |
-| `background`        | 33    |
+| `success`                |      101 |
+| `backgroundElement`      |       81 |
+| `accent`                 |       74 |
+| `backgroundPanel`        |       37 |
+| `background`             |       33 |
 
 Two structural problems follow:
 
-1. **Foregrounds and backgrounds are unpaired.** `warning` is a single color. A component that wants a warning *badge* has to invent a background, and whether the result is readable depends on the theme. `selectedListItemText` exists precisely because one such pair was needed and got hardcoded as a one-off.
+1. **Foregrounds and backgrounds are unpaired.** `warning` is a single color. A component that wants a warning _badge_ has to invent a background, and whether the result is readable depends on the theme. `selectedListItemText` exists precisely because one such pair was needed and got hardcoded as a one-off.
 2. **There is no surface vocabulary.** `background`, `backgroundPanel`, and `backgroundElement` are three levels with no stated contract, so a new component picks one by imitation. Overlay and offset surfaces do not exist at all; dialogs pick `backgroundPanel` and hope.
 
 With 98 theme documents, any new token is 98 edits unless it is derived. So the migration must be **derivation-first**: new tokens are computed from existing ones by default, and a theme overrides only where the derivation is wrong.

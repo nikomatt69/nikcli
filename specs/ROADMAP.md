@@ -8,12 +8,12 @@ An item is only here if the evidence for it is in the repository today. Nothing 
 
 ## How To Read This
 
-| Field       | Meaning                                                                 |
-| ----------- | ----------------------------------------------------------------------- |
-| **Buys**    | The user-visible or operational improvement. If this is vague, drop the item. |
-| **Evidence**| The file and fact that makes the case. Verifiable now.                  |
-| **Blocks**  | What cannot be done well before this lands.                             |
-| **Done when** | A check someone else can run.                                          |
+| Field         | Meaning                                                                       |
+| ------------- | ----------------------------------------------------------------------------- |
+| **Buys**      | The user-visible or operational improvement. If this is vague, drop the item. |
+| **Evidence**  | The file and fact that makes the case. Verifiable now.                        |
+| **Blocks**    | What cannot be done well before this lands.                                   |
+| **Done when** | A check someone else can run.                                                 |
 
 Horizons are ordering, not dates. An item moves up when its dependency lands, not when someone has time.
 
@@ -26,7 +26,7 @@ State the wins, so nobody re-plans them:
 - **One database.** `nikcli.db` with a journaled TypeScript migration chain, WAL, `foreign_keys=ON`, `mmap_size=0`. `bun:sqlite` is opened in exactly one place. Sessions, messages, parts, todos, permissions, and sync events are SQL. See [storage/nikcli-sql-drizzle-adoption.md](./storage/nikcli-sql-drizzle-adoption.md).
 - **One HTTP surface.** ~286 Effect `HttpApi` endpoints; Hono and the experimental flag are gone from `src`. Clients are generated from the contract by `packages/httpapi-codegen`.
 - **One event log.** `sync_event` carries both session and workspace aggregates, with snapshots for cold start and an outbox for remote push. The parallel `session_v2_event` and `workspace.events` logs were dropped.
-- **Entry read model.** `session_entry` with ids whose lexicographic order *is* conversation order. See [v2/session.md](./v2/session.md).
+- **Entry read model.** `session_entry` with ids whose lexicographic order _is_ conversation order. See [v2/session.md](./v2/session.md).
 - **Instance hot reload.** Config-surface watching with scoped, announced cache invalidation, and an explicit narrow `Provider.refresh()`. See [v2/catalog-config-plugin-lifecycle.md](./v2/catalog-config-plugin-lifecycle.md).
 - **Byte-stable tool advertisement.** Locale-independent id ordering, so the prompt-cache prefix is identical across machines. See [v2/tools.md](./v2/tools.md).
 
@@ -100,7 +100,7 @@ Contracts. These change what the system promises, so each needs its spec landed 
 ### T1 · Scoped tool registration
 
 - **Buys** — A plugin that unloads stops contributing its tools, and the tool it shadowed comes back.
-- **Evidence** — `ToolRegistry.register` splices or appends into one flat per-instance array. There is no scope, no removal, and no overlay stack; the `InstanceState` entry is deliberately non-reloadable *because* runtime registrations would be lost, which is the same problem seen from the other side.
+- **Evidence** — `ToolRegistry.register` splices or appends into one flat per-instance array. There is no scope, no removal, and no overlay stack; the `InstanceState` entry is deliberately non-reloadable _because_ runtime registrations would be lost, which is the same problem seen from the other side.
 - **Blocks** — TUI plugin hot reload reaching parity for tool-contributing plugins.
 - **Done when** — Registration returns a scoped handle; closing it removes exactly that registration and reveals the next-latest; the registry can become reloadable without losing runtime tools.
 

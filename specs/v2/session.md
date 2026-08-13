@@ -8,11 +8,11 @@ Status: **Current semantic overview** (verified 2026-08-14 against `packages/nik
 
 `SessionPrompt` exposes admission and execution as two operations:
 
-| Operation                | Effect                                                                                   |
-| ------------------------ | ---------------------------------------------------------------------------------------- |
-| `admit(input)`           | Cleans up an uncommitted revert, writes the user message, touches the session, applies per-prompt tool permissions. No model call. |
-| `loop(sessionID)`        | Runs the step loop until the projected history says the turn is finished.                |
-| `prompt(input)`          | `admit` then `loop`. With `noReply: true` it stops after `admit`.                        |
+| Operation         | Effect                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `admit(input)`    | Cleans up an uncommitted revert, writes the user message, touches the session, applies per-prompt tool permissions. No model call. |
+| `loop(sessionID)` | Runs the step loop until the projected history says the turn is finished.                                                          |
+| `prompt(input)`   | `admit` then `loop`. With `noReply: true` it stops after `admit`.                                                                  |
 
 `POST /session/:id/prompt_async` calls `admit` and returns `204` before scheduling `loop`, so a client observes its own message immediately instead of waiting for the first token. `POST /session/:id/message` is the synchronous form.
 
@@ -43,7 +43,7 @@ Each iteration of `loop`:
 
 1. Sets status `busy` and exits early if the abort signal fired.
 2. Reloads the session and `MessageV2.filterCompacted(MessageV2.stream(sessionID))` — history after the compaction boundary.
-3. Scans backwards for the last user message, last assistant, last *finished* assistant, and any pending `compaction` / `subtask` parts.
+3. Scans backwards for the last user message, last assistant, last _finished_ assistant, and any pending `compaction` / `subtask` parts.
 4. Terminates when the last assistant finished for a reason other than `tool-calls` / `unknown` **and** its `parentID` is the last user message id. Ordering uses `parentID`, not id comparison, because independently generated timestamp ids can skew.
 5. Before terminating, re-reads history once. A user message that arrived during the exit window resets `step` to 0 and continues the loop instead of dropping the prompt.
 6. Otherwise resolves the model, drains one queued `subtask` part through the `task` tool, or performs one provider request through `SessionProcessor`.
@@ -82,7 +82,7 @@ The full transcript stays durable. `MessageV2.filterCompacted` is what makes the
 
 `collectSystemPaths` walks up from the instance directory to the worktree root collecting `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, and `.github/instructions/memory.instruction.md`, plus global `~/.config/nikcli/AGENTS.md` and (unless disabled) `~/.claude/CLAUDE.md`. Config-declared instructions and URLs are resolved the same way; `NIKCLI_DISABLE_PROJECT_CONFIG` and `NIKCLI_CONFIG_DIR` narrow the search.
 
-The result is assembled into the system prompt on every request. Nothing about instruction *state* is durable: there is no content hash, no delta event, and no epoch. A file edited mid-session silently changes the next request's prefix, which also invalidates the provider prompt cache.
+The result is assembled into the system prompt on every request. Nothing about instruction _state_ is durable: there is no content hash, no delta event, and no epoch. A file edited mid-session silently changes the next request's prefix, which also invalidates the provider prompt cache.
 
 > **Gap.** See [instruction sync](./instruction-sync-proposal.md) and ROADMAP item S3.
 

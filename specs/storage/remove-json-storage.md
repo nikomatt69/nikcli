@@ -1,10 +1,10 @@
 # Retire `src/storage/storage.ts`
 
-| Field  | Value                                                             |
-| ------ | ----------------------------------------------------------------- |
-| Status | **Proposed and partially unblocked**                              |
-| Scope  | `src/storage/storage.ts`, its 19 consumer modules                 |
-| Buys   | One durability model, one transaction boundary, one error type    |
+| Field  | Value                                                          |
+| ------ | -------------------------------------------------------------- |
+| Status | **Proposed and partially unblocked**                           |
+| Scope  | `src/storage/storage.ts`, its 19 consumer modules              |
+| Buys   | One durability model, one transaction boundary, one error type |
 
 ## Goal
 

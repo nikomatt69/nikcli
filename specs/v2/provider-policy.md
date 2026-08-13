@@ -1,10 +1,10 @@
 # Provider Policy
 
-| Field  | Value                                                        |
-| ------ | ------------------------------------------------------------ |
-| Status | **Proposed and unimplemented**                               |
+| Field  | Value                                                                                          |
+| ------ | ---------------------------------------------------------------------------------------------- |
+| Status | **Proposed and unimplemented**                                                                 |
 | Scope  | `src/config/config.ts`, `src/provider/provider.ts`, and the four other call sites listed below |
-| Buys   | One evaluation point instead of five copies, and a vocabulary that extends past providers |
+| Buys   | One evaluation point instead of five copies, and a vocabulary that extends past providers      |
 
 ## Purpose
 
@@ -35,12 +35,12 @@ enabled_providers?: string[]    // "When set, ONLY these providers will be enabl
 
 The evaluation is trivial — deny if an allowlist exists and misses, deny if the denylist hits — and it is **written out five times**:
 
-| Call site                                        | Consumer                                     |
-| ------------------------------------------------ | -------------------------------------------- |
-| `src/provider/provider.ts` (`isProviderAllowed`) | The catalog the model resolver sees          |
-| `src/server/httpapi/provider.ts`                 | The provider list served to clients          |
-| `src/cli/cmd/auth.ts`                            | The provider picker in `nikcli auth`         |
-| `src/session/auth.ts`                            | Session-scoped auth listing                  |
+| Call site                                        | Consumer                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------- |
+| `src/provider/provider.ts` (`isProviderAllowed`) | The catalog the model resolver sees                        |
+| `src/server/httpapi/provider.ts`                 | The provider list served to clients                        |
+| `src/cli/cmd/auth.ts`                            | The provider picker in `nikcli auth`                       |
+| `src/session/auth.ts`                            | Session-scoped auth listing                                |
 | `src/cli/cmd/tui/component/dialog-provider.tsx`  | The TUI toggle, which writes `disabled_providers` directly |
 
 Four of the five reimplement the same two lines with slightly different types (`null` vs `undefined` for "no allowlist"), and the fifth mutates the array from the UI. Nothing prevents a sixth consumer from getting the precedence backwards, and there is no place to add a rule that is not provider-shaped.
@@ -69,11 +69,11 @@ The fields also cannot express anything beyond membership: no wildcards, no orde
 {
   "experimental": {
     "policies": [
-      { "effect": "deny",  "action": "provider.use", "resource": "*" },
+      { "effect": "deny", "action": "provider.use", "resource": "*" },
       { "effect": "allow", "action": "provider.use", "resource": "anthropic" },
-      { "effect": "allow", "action": "provider.use", "resource": "nikcli" }
-    ]
-  }
+      { "effect": "allow", "action": "provider.use", "resource": "nikcli" },
+    ],
+  },
 }
 ```
 

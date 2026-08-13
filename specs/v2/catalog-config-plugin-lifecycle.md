@@ -1,8 +1,8 @@
 # Catalog / Config / Plugin Lifecycle
 
-| Field  | Value                                                                         |
-| ------ | ----------------------------------------------------------------------------- |
-| Status | **Accepted and implemented**                                                  |
+| Field  | Value                                                                               |
+| ------ | ----------------------------------------------------------------------------------- |
+| Status | **Accepted and implemented**                                                        |
 | Scope  | `src/effect/instance-state.ts`, `src/project/reload.ts`, `src/provider/provider.ts` |
 
 The question this records: when provider, model, config, or plugin inputs change while an instance is open, what rebuilds, and who decides?
@@ -11,14 +11,14 @@ nikcli's answer is **per-instance caches with two invalidation channels** — a 
 
 ## The Inputs That Change
 
-| Input                | Changes when                                                    |
-| -------------------- | --------------------------------------------------------------- |
-| Config documents     | A `nikcli.json` (global, worktree, or directory) is edited       |
-| Config directories   | A file lands in a `.nikcli` directory (agents, commands, tools)  |
-| models.dev catalog   | The background refresh in `provider/models.ts` completes         |
-| Credentials          | `nikcli auth`, the TUI connect dialog, or an OAuth callback runs |
-| Plugins              | A plugin is installed, enabled, or hot-reloaded                  |
-| Policy               | Provider availability changes (see [provider policy](./provider-policy.md)) |
+| Input              | Changes when                                                                |
+| ------------------ | --------------------------------------------------------------------------- |
+| Config documents   | A `nikcli.json` (global, worktree, or directory) is edited                  |
+| Config directories | A file lands in a `.nikcli` directory (agents, commands, tools)             |
+| models.dev catalog | The background refresh in `provider/models.ts` completes                    |
+| Credentials        | `nikcli auth`, the TUI connect dialog, or an OAuth callback runs            |
+| Plugins            | A plugin is installed, enabled, or hot-reloaded                             |
+| Policy             | Provider availability changes (see [provider policy](./provider-policy.md)) |
 
 ## The Shape That Was Chosen
 
