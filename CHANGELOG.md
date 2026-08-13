@@ -3,6 +3,21 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.279.0 (August 2026)
+
+## Core
+
+- Build the fallback test's SyntaxStyle through fromTheme (@nikomatt69)
+- Resolve flickering titles in nikcli TUI during live updates (@nikomatt69)
+- Enhance markdown handling for live updates and reasoning summaries (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - fix(tui): enhance markdown handling for live updates and reasoning summaries
+  - fix(tui): resolve flickering titles in nikcli TUI during live updates
+  - fix(tui): build the fallback test's SyntaxStyle through fromTheme
+
 ## v1.277.0 (August 2026)
 
 ## Core
