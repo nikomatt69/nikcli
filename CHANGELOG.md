@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.281.0 (August 2026)
+
+## TUI
+
+- Update nikcli client imports to use httpapi and server modules (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - refactor(imports): update nikcli client imports to use httpapi and server modules
+
 ## v1.277.0 (August 2026)
 
 ## Core
