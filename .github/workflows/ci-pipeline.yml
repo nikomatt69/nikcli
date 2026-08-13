@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # Backstop for anything the per-step timeouts in ci-validate.ts cannot kill;
     # the run itself should finish well inside this.
     timeout-minutes: 40
@@ -88,7 +88,7 @@ jobs:
       github.event_name == 'push' &&
       github.ref == 'refs/heads/live-main' &&
       github.repository == 'nikomatt69/nikcli'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
     steps:
@@ -130,7 +130,7 @@ jobs:
         (github.event_name == 'pull_request' &&
          github.event.pull_request.head.repo.full_name == github.repository)
       )
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write
       pull-requests: read
@@ -211,7 +211,7 @@ jobs:
       always() &&
       needs.validate.result == 'failure' &&
       github.repository == 'nikomatt69/nikcli'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       issues: write

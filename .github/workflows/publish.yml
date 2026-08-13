@@ -54,7 +54,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     if: >-
       github.repository == 'nikomatt69/nikcli' &&
       (github.event_name != 'push' ||
@@ -84,8 +84,8 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - uses: actions/setup-node@v4
         with:
@@ -136,7 +136,7 @@ jobs:
     needs:
       - publish
     if: always() && needs.publish.result == 'success' && needs.publish.outputs.tag
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v7
         with:

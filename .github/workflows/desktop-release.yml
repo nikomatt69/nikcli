@@ -266,7 +266,7 @@ jobs:
   finalize-updater:
     needs: build
     if: github.repository == 'nikomatt69/nikcli'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v7
         with:

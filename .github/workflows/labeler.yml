@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   label-paths:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Apply path-based labels
         uses: actions/labeler@v5
@@ -20,7 +20,7 @@ jobs:
           sync-labels: true
 
   label-size:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Apply PR size label
         uses: actions/github-script@v7

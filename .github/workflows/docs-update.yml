@@ -15,7 +15,7 @@ env:
 jobs:
   update-docs:
     if: github.repository == 'nikomatt69/nikcli'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     continue-on-error: true
     timeout-minutes: 20
     permissions:

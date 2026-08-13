@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest]
+        os: [blacksmith-4vcpu-windows-2025]
         shell: [pwsh, cmd]
     runs-on: ${{ matrix.os }}
     defaults:

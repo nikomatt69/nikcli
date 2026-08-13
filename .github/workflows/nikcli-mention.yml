@@ -15,7 +15,7 @@ jobs:
         startsWith(github.event.comment.body, '/nc ') ||
         github.event.comment.body == '/nc'
       )
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     permissions:
       contents: write

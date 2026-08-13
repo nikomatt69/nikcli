@@ -13,7 +13,7 @@ jobs:
   # CodeQL is handled by the repo's default setup (Settings → Code security).
   dependency-review:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       pull-requests: write
