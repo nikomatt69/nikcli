@@ -3,6 +3,17 @@
 <!-- UNRELEASED:START -->
 <!-- UNRELEASED:END -->
 
+## v1.278.0 (August 2026)
+
+## Core
+
+- Type the nikcli.json document instead of an open record (@nikomatt69)
+
+**Thank you to 1 community contributor:**
+
+- @nikomatt69:
+  - feat(httpapi): type the nikcli.json document instead of an open record
+
 ## v1.277.0 (August 2026)
 
 ## Core
