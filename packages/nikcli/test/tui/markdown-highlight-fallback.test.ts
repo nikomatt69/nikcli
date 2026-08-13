@@ -19,11 +19,11 @@ describe("markdown highlight fallback", () => {
 
   async function mount() {
     const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({ width: 100, height: 20 })
-    const syntaxStyle = SyntaxStyle.fromTheme({
-      default: { fg: "#cccccc" },
-      "markup.heading": { fg: "#ffcc00", bold: true },
-      conceal: { fg: "#666666" },
-    })
+    const syntaxStyle = SyntaxStyle.fromTheme([
+      { scope: ["default"], style: { foreground: "#cccccc" } },
+      { scope: ["markup.heading"], style: { foreground: "#ffcc00", bold: true } },
+      { scope: ["conceal"], style: { foreground: "#666666" } },
+    ])
 
     const client = getTreeSitterClient()
     const real = client.highlightOnce.bind(client)
