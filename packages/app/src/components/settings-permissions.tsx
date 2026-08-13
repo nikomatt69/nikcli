@@ -1,14 +1,22 @@
+import type {
+  PermissionActionConfig,
+  PermissionConfig,
+  PermissionObjectConfig,
+  PermissionRuleConfig,
+} from "@nikcli-ai/sdk/httpapi"
 import { Select } from "@nikcli-ai/ui/select"
 import { showToast } from "@nikcli-ai/ui/toast"
 import { Component, For, createMemo, type JSX } from "solid-js"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
 
-export type PermissionAction = "allow" | "ask" | "deny"
-
-export type PermissionObject = Record<string, PermissionAction>
-export type PermissionValue = PermissionAction | PermissionObject | string[] | undefined
-export type PermissionMap = Record<string, PermissionValue>
+// Sourced from the HTTP contract so the editor cannot produce a permission
+// shape the server would reject; the runtime `Array.isArray` guards below stay
+// as a defence against older config files.
+export type PermissionAction = PermissionActionConfig
+export type PermissionObject = PermissionObjectConfig
+export type PermissionValue = PermissionRuleConfig | undefined
+export type PermissionMap = PermissionConfig
 export type PermissionPreset = "require_approval" | "approve_for_me" | "full_access"
 export type PermissionMode = PermissionPreset | "custom"
 

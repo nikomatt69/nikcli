@@ -136,7 +136,294 @@ export type BrainResult = {
   sessionID?: string | undefined
 }
 
-export type Config = { [x: string]: any }
+export type KeybindsConfig = {
+  leader?: string | undefined
+  app_exit?: string | undefined
+  editor_open?: string | undefined
+  theme_list?: string | undefined
+  sidebar_toggle?: string | undefined
+  scrollbar_toggle?: string | undefined
+  username_toggle?: string | undefined
+  status_view?: string | undefined
+  sync_view?: string | undefined
+  session_export?: string | undefined
+  session_new?: string | undefined
+  session_list?: string | undefined
+  session_timeline?: string | undefined
+  session_fork?: string | undefined
+  session_rename?: string | undefined
+  session_delete?: string | undefined
+  session_pin_toggle?: string | undefined
+  session_scope_toggle?: string | undefined
+  session_tab_back?: string | undefined
+  session_tab_forward?: string | undefined
+  session_quick_switch_1?: string | undefined
+  session_quick_switch_2?: string | undefined
+  session_quick_switch_3?: string | undefined
+  session_quick_switch_4?: string | undefined
+  session_quick_switch_5?: string | undefined
+  session_quick_switch_6?: string | undefined
+  session_quick_switch_7?: string | undefined
+  session_quick_switch_8?: string | undefined
+  session_quick_switch_9?: string | undefined
+  stash_delete?: string | undefined
+  model_provider_list?: string | undefined
+  model_favorite_toggle?: string | undefined
+  session_share?: string | undefined
+  session_unshare?: string | undefined
+  session_interrupt?: string | undefined
+  session_codebro_open?: string | undefined
+  subtask_background?: string | undefined
+  subtask_picker?: string | undefined
+  session_compact?: string | undefined
+  messages_page_up?: string | undefined
+  messages_page_down?: string | undefined
+  messages_line_up?: string | undefined
+  messages_line_down?: string | undefined
+  messages_half_page_up?: string | undefined
+  messages_half_page_down?: string | undefined
+  messages_first?: string | undefined
+  messages_last?: string | undefined
+  messages_next?: string | undefined
+  messages_previous?: string | undefined
+  messages_last_user?: string | undefined
+  messages_copy?: string | undefined
+  messages_undo?: string | undefined
+  messages_redo?: string | undefined
+  messages_toggle_conceal?: string | undefined
+  tool_details?: string | undefined
+  model_list?: string | undefined
+  model_cycle_recent?: string | undefined
+  model_cycle_recent_reverse?: string | undefined
+  model_cycle_favorite?: string | undefined
+  model_cycle_favorite_reverse?: string | undefined
+  command_list?: string | undefined
+  agent_list?: string | undefined
+  agent_cycle?: string | undefined
+  agent_cycle_reverse?: string | undefined
+  permission_mode?: string | undefined
+  variant_cycle?: string | undefined
+  input_clear?: string | undefined
+  input_paste?: string | undefined
+  input_submit?: string | undefined
+  input_newline?: string | undefined
+  input_move_left?: string | undefined
+  input_move_right?: string | undefined
+  input_move_up?: string | undefined
+  input_move_down?: string | undefined
+  input_select_left?: string | undefined
+  input_select_right?: string | undefined
+  input_select_up?: string | undefined
+  input_select_down?: string | undefined
+  input_line_home?: string | undefined
+  input_line_end?: string | undefined
+  input_select_line_home?: string | undefined
+  input_select_line_end?: string | undefined
+  input_visual_line_home?: string | undefined
+  input_visual_line_end?: string | undefined
+  input_select_visual_line_home?: string | undefined
+  input_select_visual_line_end?: string | undefined
+  input_buffer_home?: string | undefined
+  input_buffer_end?: string | undefined
+  input_select_buffer_home?: string | undefined
+  input_select_buffer_end?: string | undefined
+  input_delete_line?: string | undefined
+  input_delete_to_line_end?: string | undefined
+  input_delete_to_line_start?: string | undefined
+  input_backspace?: string | undefined
+  input_delete?: string | undefined
+  input_undo?: string | undefined
+  input_redo?: string | undefined
+  input_word_forward?: string | undefined
+  input_word_backward?: string | undefined
+  input_select_word_forward?: string | undefined
+  input_select_word_backward?: string | undefined
+  input_delete_word_forward?: string | undefined
+  input_delete_word_backward?: string | undefined
+  history_previous?: string | undefined
+  history_next?: string | undefined
+  session_child_cycle?: string | undefined
+  session_child_cycle_reverse?: string | undefined
+  session_parent?: string | undefined
+  session_child_close?: string | undefined
+  terminal_suspend?: string | undefined
+  terminal_title_toggle?: string | undefined
+  tips_toggle?: string | undefined
+  voice_record?: string | undefined
+  app_support?: string | undefined
+}
+
+export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR"
+
+export type AdsItemConfig = { id: string; text: string; url?: string | undefined; enabled?: boolean | undefined }
+
+export type ServerConfig = {
+  port?: number | undefined
+  hostname?: string | undefined
+  mdns?: boolean | undefined
+  cors?: Array<string> | undefined
+}
+
+export type RemoteConfig = {
+  enabled?: boolean | undefined
+  enableTunnel?: boolean | undefined
+  provider?: "localtunnel" | "cloudflared" | "ngrok" | "remotosh" | "none" | undefined
+  askOnExistingSession?: boolean | undefined
+}
+
+export type TeleportConfig = { url?: string | undefined; token?: string | undefined }
+
+export type ReferenceConfig =
+  | { type: "git"; repository: string; branch?: string | undefined; description?: string | undefined }
+  | { type: "local"; path: string; description?: string | undefined }
+
+export type PermissionActionConfig = "ask" | "allow" | "deny"
+
+export type ProviderConfig = {
+  api?: string | undefined
+  name?: string | undefined
+  env?: Array<string> | undefined
+  id?: string | undefined
+  npm?: string | undefined
+  models?:
+    | {
+        [x: string]: {
+          id?: string | undefined
+          name?: string | undefined
+          family?: string | undefined
+          release_date?: string | undefined
+          attachment?: boolean | undefined
+          reasoning?: boolean | undefined
+          temperature?: boolean | undefined
+          tool_call?: boolean | undefined
+          interleaved?: true | { field: "reasoning_content" | "reasoning_details" } | undefined
+          cost?:
+            | {
+                input: number
+                output: number
+                cache_read?: number | undefined
+                cache_write?: number | undefined
+                context_over_200k?:
+                  | { input: number; output: number; cache_read?: number | undefined; cache_write?: number | undefined }
+                  | undefined
+              }
+            | undefined
+          limit?: { context: number; input?: number | undefined; output: number } | undefined
+          modalities?:
+            | {
+                input: Array<"text" | "audio" | "image" | "video" | "pdf">
+                output: Array<"text" | "audio" | "image" | "video" | "pdf">
+              }
+            | undefined
+          experimental?: boolean | undefined
+          status?: "alpha" | "beta" | "deprecated" | undefined
+          options?: { [x: string]: any } | undefined
+          headers?: { [x: string]: string } | undefined
+          provider?: { npm: string; api: string } | undefined
+          reasoning_options?:
+            | Array<
+                | { type: "effort"; values: Array<string | null> }
+                | { type: "toggle" }
+                | { type: "budget_tokens"; min?: number | undefined; max?: number | undefined }
+              >
+            | undefined
+          variants?: { [x: string]: { disabled?: boolean | undefined; [x: string]: any | undefined } } | undefined
+          disabled?: boolean | undefined
+        }
+      }
+    | undefined
+  auth_provider?: string | undefined
+  whitelist?: Array<string> | undefined
+  blacklist?: Array<string> | undefined
+  options?:
+    | {
+        apiKey?: string | undefined
+        baseURL?: string | undefined
+        enterpriseUrl?: string | undefined
+        setCacheKey?: boolean | undefined
+        timeout?: number | false | undefined
+        headerTimeout?: number | false | undefined
+        chunkTimeout?: number | undefined
+        [x: string]: any | undefined
+      }
+    | undefined
+}
+
+export type McpLocalConfig = {
+  type: "local"
+  command: Array<string>
+  environment?: { [x: string]: string } | undefined
+  enabled?: boolean | undefined
+  timeout?: number | undefined
+}
+
+export type McpOAuthConfig = {
+  clientId?: string | undefined
+  clientSecret?: string | undefined
+  scope?: string | undefined
+}
+
+export type ConnectorFigma = { type: "figma"; token?: string | undefined; enabled?: boolean | undefined }
+
+export type ConnectorSlack = {
+  type: "slack"
+  botToken?: string | undefined
+  teamId?: string | undefined
+  enabled?: boolean | undefined
+}
+
+export type ConnectorGithub = {
+  type: "github"
+  token?: string | undefined
+  oauthClientId?: string | undefined
+  clientId?: string | undefined
+  enabled?: boolean | undefined
+}
+
+export type ConnectorLovable = {
+  type: "lovable"
+  token?: string | undefined
+  apiKey?: string | undefined
+  enabled?: boolean | undefined
+}
+
+export type ConnectorDiscord = { type: "discord"; botToken?: string | undefined; enabled?: boolean | undefined }
+
+export type ConnectorTeams = { type: "teams"; botToken?: string | undefined; enabled?: boolean | undefined }
+
+export type ConnectorGChat = { type: "gchat"; botToken?: string | undefined; enabled?: boolean | undefined }
+
+export type ConnectorLinear = { type: "linear"; botToken?: string | undefined; enabled?: boolean | undefined }
+
+export type LayoutConfig = "auto" | "stretch"
+
+export type RagConfig = { model?: string | undefined; provider?: string | undefined }
+
+export type ImageConfig = { model?: string | undefined; provider?: string | undefined }
+
+export type ComputerConfig = {
+  mode?: "sandbox" | "host" | undefined
+  width?: number | undefined
+  height?: number | undefined
+}
+
+export type AttachmentConfig = {
+  image?:
+    | {
+        auto_resize?: boolean | undefined
+        max_width?: number | undefined
+        max_height?: number | undefined
+        max_base64_bytes?: number | undefined
+      }
+    | undefined
+}
+
+export type SpeakConfig = {
+  provider?: string | undefined
+  model?: string | undefined
+  modelId?: string | undefined
+  outputFormat?: string | undefined
+}
 
 export type Model = {
   id: string
@@ -1386,6 +1673,23 @@ export type AnalyticsData = {
   generatedAt: number
 } | null
 
+export type AdsConfig = {
+  enabled?: boolean | undefined
+  ratio?: number | undefined
+  items?: Array<AdsItemConfig> | undefined
+}
+
+export type PermissionObjectConfig = { [x: string]: PermissionActionConfig }
+
+export type McpRemoteConfig = {
+  type: "remote"
+  url: string
+  enabled?: boolean | undefined
+  headers?: { [x: string]: string } | undefined
+  oauth?: McpOAuthConfig | false | undefined
+  timeout?: number | undefined
+}
+
 export type Provider = {
   id: string
   name: string
@@ -1693,6 +1997,8 @@ export type AnalyticsGlobal = {
   byProject: { [x: string]: AnalyticsProjectStat }
 }
 
+export type PermissionRuleConfig = PermissionActionConfig | PermissionObjectConfig
+
 export type ConfigProviders = { providers: Array<Provider>; default: { [x: string]: string } }
 
 export type ProviderList = { all: Array<Provider>; default: { [x: string]: string }; connected: Array<string> }
@@ -1753,6 +2059,8 @@ export type QuestionRequest1 = {
   tool?: { messageID: string; callID: string } | undefined
 }
 
+export type PermissionConfig = { [x: string]: PermissionRuleConfig | undefined }
+
 export type MissionListOutput2 = { missions: Array<MissionDefinition>; runtimes: Array<MissionRuntime> }
 
 export type MissionGetOutput2 = { mission: MissionDefinition; runtime: MissionRuntime }
@@ -1809,6 +2117,28 @@ export type FilePart = {
 
 export type EventQuestionAsked = { type: "question.asked"; properties: QuestionRequest1 }
 
+export type AgentConfig = {
+  model?: string | undefined
+  variant?: string | undefined
+  temperature?: number | undefined
+  top_p?: number | undefined
+  prompt?: string | undefined
+  tools?: { [x: string]: boolean } | undefined
+  disable?: boolean | undefined
+  description?: string | undefined
+  mode?: "subagent" | "primary" | "all" | undefined
+  hidden?: boolean | undefined
+  options?: { [x: string]: any } | undefined
+  color?: string | undefined
+  steps?: number | undefined
+  order?: number | undefined
+  maxSteps?: number | undefined
+  permission?: PermissionConfig | undefined
+  advisor?: string | undefined
+  advisor_max_uses?: number | undefined
+  [x: string]: any | undefined
+}
+
 export type MobileGithubSessionCreateResult = {
   session: Session
   worktree: ManagedWorktreeInfo
@@ -1836,6 +2166,252 @@ export type ToolStateCompleted = {
   metadata: { [x: string]: any }
   time: { start: number; end: number; compacted?: number | undefined }
   attachments?: Array<FilePart> | undefined
+}
+
+export type Config = {
+  $schema?: string | undefined
+  theme?: string | undefined
+  locale?:
+    | {
+        language?: string | undefined
+        region?: string | undefined
+        locale?: string | undefined
+        timezone?: string | undefined
+        currency?: string | undefined
+        autoDetect?: boolean | undefined
+        replyLanguage?: boolean | string | undefined
+      }
+    | undefined
+  keybinds?: KeybindsConfig | undefined
+  logLevel?: LogLevel | undefined
+  tui?:
+    | {
+        scroll_speed?: number | undefined
+        scroll_acceleration?: { enabled: boolean } | undefined
+        diff_style?: "auto" | "stacked" | undefined
+        mouse?: boolean | undefined
+        sound?: boolean | undefined
+        bg_pulse?: boolean | undefined
+        turn_tokens?: boolean | undefined
+      }
+    | undefined
+  ads?: AdsConfig | undefined
+  server?: ServerConfig | undefined
+  remote?: RemoteConfig | undefined
+  teleport?: TeleportConfig | undefined
+  command?:
+    | {
+        [x: string]: {
+          template?: string | undefined
+          description?: string | undefined
+          agent?: string | undefined
+          model?: string | undefined
+          subtask?: boolean | undefined
+          aliases?: Array<string> | undefined
+        }
+      }
+    | undefined
+  reference?: { [x: string]: ReferenceConfig } | undefined
+  watcher?: { ignore?: Array<string> | undefined } | undefined
+  plugin?: Array<string> | undefined
+  snapshot?: boolean | undefined
+  sync?: { url?: string | undefined; token?: string | undefined; autostart?: boolean | undefined } | undefined
+  analytics?: { share?: boolean | undefined; endpoint?: string | undefined } | undefined
+  share?: "manual" | "auto" | "disabled" | undefined
+  autoshare?: boolean | undefined
+  autoupdate?: boolean | "notify" | undefined
+  disabled_providers?: Array<string> | undefined
+  enabled_providers?: Array<string> | undefined
+  model?: string | undefined
+  small_model?: string | undefined
+  default_agent?: string | undefined
+  username?: string | undefined
+  mode?:
+    | { build?: AgentConfig | undefined; plan?: AgentConfig | undefined; [x: string]: AgentConfig | undefined }
+    | undefined
+  agent?:
+    | {
+        plan?: AgentConfig | undefined
+        build?: AgentConfig | undefined
+        general?: AgentConfig | undefined
+        explore?: AgentConfig | undefined
+        scout?: AgentConfig | undefined
+        title?: AgentConfig | undefined
+        summary?: AgentConfig | undefined
+        compaction?: AgentConfig | undefined
+        [x: string]: AgentConfig | undefined
+      }
+    | undefined
+  provider?: { [x: string]: ProviderConfig } | undefined
+  mcp?: { [x: string]: McpLocalConfig | McpRemoteConfig | { enabled: boolean } } | undefined
+  connectors?:
+    | {
+        [x: string]:
+          | ConnectorFigma
+          | ConnectorSlack
+          | ConnectorGithub
+          | ConnectorLovable
+          | ConnectorDiscord
+          | ConnectorTeams
+          | ConnectorGChat
+          | ConnectorLinear
+          | { enabled: boolean }
+      }
+    | undefined
+  formatter?:
+    | false
+    | true
+    | {
+        [x: string]: {
+          disabled?: boolean | undefined
+          command?: Array<string> | undefined
+          environment?: { [x: string]: string } | undefined
+          extensions?: Array<string> | undefined
+        }
+      }
+    | undefined
+  websearch?:
+    | {
+        provider?: "exa" | "parallel" | "mcp" | undefined
+        apiKey?: string | undefined
+        url?: string | undefined
+        tool?: string | undefined
+      }
+    | undefined
+  lsp?:
+    | false
+    | {
+        [x: string]:
+          | { disabled: true }
+          | {
+              command: Array<string>
+              extensions?: Array<string> | undefined
+              disabled?: boolean | undefined
+              env?: { [x: string]: string } | undefined
+              initialization?: { [x: string]: any } | undefined
+              min_severity?: number | undefined
+            }
+      }
+    | undefined
+  instructions?: Array<string> | undefined
+  layout?: LayoutConfig | undefined
+  permission?: PermissionConfig | undefined
+  tools?: { [x: string]: boolean } | undefined
+  tool?: { allow?: Array<string> | undefined; pin?: { [x: string]: string } | undefined } | undefined
+  enterprise?: { url?: string | undefined } | undefined
+  compaction?: { auto?: boolean | undefined; prune?: boolean | undefined; reserved?: number | undefined } | undefined
+  experimental?:
+    | {
+        hook?:
+          | {
+              file_edited?:
+                | { [x: string]: Array<{ command: Array<string>; environment?: { [x: string]: string } | undefined }> }
+                | undefined
+              session_completed?:
+                | Array<{ command: Array<string>; environment?: { [x: string]: string } | undefined }>
+                | undefined
+            }
+          | undefined
+        queued_message_wrap?: { header: string; footer: string } | "default" | boolean | null | undefined
+        chatMaxRetries?: number | undefined
+        disable_paste_summary?: boolean | undefined
+        batch_tool?: boolean | undefined
+        openTelemetry?: boolean | undefined
+        primary_tools?: Array<string> | undefined
+        continue_loop_on_deny?: boolean | undefined
+        brain?: boolean | undefined
+        brainMinHours?: number | undefined
+        brainMinSessions?: number | undefined
+        brainModel?: string | undefined
+        memory?: boolean | undefined
+        mcp_timeout?: number | undefined
+        tool_timeout?: number | false | undefined
+        task_timeout?: number | false | undefined
+        nativeLlm?: boolean | undefined
+        tui?:
+          | {
+              cacheEviction?: boolean | undefined
+              messageVirtualization?: boolean | undefined
+              explorationGrouping?: boolean | undefined
+            }
+          | undefined
+        requests?: { latestOnlyLspRefresh?: boolean | undefined } | undefined
+        events?: { schemaEncoding?: boolean | undefined } | undefined
+      }
+    | undefined
+  rag?: RagConfig | undefined
+  image?: ImageConfig | undefined
+  browser?: any | undefined
+  computer?: ComputerConfig | undefined
+  attachment?: AttachmentConfig | undefined
+  speak?: SpeakConfig | undefined
+  notifications?:
+    | {
+        todo?:
+          | {
+              enabled?: boolean | undefined
+              macos?: boolean | undefined
+              slack?:
+                | { enabled?: boolean | undefined; connector?: string | undefined; channel?: string | undefined }
+                | undefined
+              discord?: { enabled?: boolean | undefined; webhook?: string | undefined } | undefined
+            }
+          | undefined
+        icon?: { url?: string | undefined; alt?: string | undefined } | undefined
+        notify?:
+          | {
+              enabled?: boolean | undefined
+              macos?: boolean | undefined
+              slack?:
+                | { enabled?: boolean | undefined; connector?: string | undefined; channel?: string | undefined }
+                | undefined
+              discord?: { enabled?: boolean | undefined; webhook?: string | undefined } | undefined
+              events?:
+                | {
+                    sessionIdle?: boolean | undefined
+                    sessionError?: boolean | undefined
+                    permissionAsked?: boolean | undefined
+                    questionAsked?: boolean | undefined
+                  }
+                | undefined
+              idleMinMs?: number | undefined
+              rateLimit?: { windowMs?: number | undefined; maxPerWindow?: number | undefined } | undefined
+              retry?:
+                | {
+                    attempts?: number | undefined
+                    delay?: number | undefined
+                    factor?: number | undefined
+                    maxDelay?: number | undefined
+                    timeoutMs?: number | undefined
+                  }
+                | undefined
+              breaker?: { failures?: number | undefined; cooldownMs?: number | undefined } | undefined
+              quietHours?:
+                | {
+                    enabled?: boolean | undefined
+                    start?: string | undefined
+                    end?: string | undefined
+                    suppress?: Array<"macos" | "slack" | "discord"> | undefined
+                  }
+                | undefined
+            }
+          | undefined
+      }
+    | undefined
+  mobile?:
+    | {
+        tophat?:
+          | {
+              enabled?: boolean | undefined
+              cliPath?: string | undefined
+              defaultPlatform?: "ios" | "android" | undefined
+              defaultDestination?: "device" | "simulator" | "emulator" | undefined
+              autoDetect?: boolean | undefined
+            }
+          | undefined
+      }
+    | undefined
+  [x: string]: any
 }
 
 export type EventMessageUpdated = { type: "message.updated"; properties: { info: Message } }
@@ -2169,7 +2745,968 @@ export type BrainTriggerOutput = BrainResult
 
 export type ConfigGetOutput = Config
 
-export type ConfigUpdateInput = { readonly payload: { readonly [x: string]: unknown } }
+export type ConfigUpdateInput = {
+  readonly payload: {
+    readonly $schema?: string | undefined
+    readonly theme?: string | undefined
+    readonly locale?:
+      | {
+          readonly language?: string | undefined
+          readonly region?: string | undefined
+          readonly locale?: string | undefined
+          readonly timezone?: string | undefined
+          readonly currency?: string | undefined
+          readonly autoDetect?: boolean | undefined
+          readonly replyLanguage?: boolean | string | undefined
+        }
+      | undefined
+    readonly keybinds?:
+      | {
+          readonly leader?: string | undefined
+          readonly app_exit?: string | undefined
+          readonly editor_open?: string | undefined
+          readonly theme_list?: string | undefined
+          readonly sidebar_toggle?: string | undefined
+          readonly scrollbar_toggle?: string | undefined
+          readonly username_toggle?: string | undefined
+          readonly status_view?: string | undefined
+          readonly sync_view?: string | undefined
+          readonly session_export?: string | undefined
+          readonly session_new?: string | undefined
+          readonly session_list?: string | undefined
+          readonly session_timeline?: string | undefined
+          readonly session_fork?: string | undefined
+          readonly session_rename?: string | undefined
+          readonly session_delete?: string | undefined
+          readonly session_pin_toggle?: string | undefined
+          readonly session_scope_toggle?: string | undefined
+          readonly session_tab_back?: string | undefined
+          readonly session_tab_forward?: string | undefined
+          readonly session_quick_switch_1?: string | undefined
+          readonly session_quick_switch_2?: string | undefined
+          readonly session_quick_switch_3?: string | undefined
+          readonly session_quick_switch_4?: string | undefined
+          readonly session_quick_switch_5?: string | undefined
+          readonly session_quick_switch_6?: string | undefined
+          readonly session_quick_switch_7?: string | undefined
+          readonly session_quick_switch_8?: string | undefined
+          readonly session_quick_switch_9?: string | undefined
+          readonly stash_delete?: string | undefined
+          readonly model_provider_list?: string | undefined
+          readonly model_favorite_toggle?: string | undefined
+          readonly session_share?: string | undefined
+          readonly session_unshare?: string | undefined
+          readonly session_interrupt?: string | undefined
+          readonly session_codebro_open?: string | undefined
+          readonly subtask_background?: string | undefined
+          readonly subtask_picker?: string | undefined
+          readonly session_compact?: string | undefined
+          readonly messages_page_up?: string | undefined
+          readonly messages_page_down?: string | undefined
+          readonly messages_line_up?: string | undefined
+          readonly messages_line_down?: string | undefined
+          readonly messages_half_page_up?: string | undefined
+          readonly messages_half_page_down?: string | undefined
+          readonly messages_first?: string | undefined
+          readonly messages_last?: string | undefined
+          readonly messages_next?: string | undefined
+          readonly messages_previous?: string | undefined
+          readonly messages_last_user?: string | undefined
+          readonly messages_copy?: string | undefined
+          readonly messages_undo?: string | undefined
+          readonly messages_redo?: string | undefined
+          readonly messages_toggle_conceal?: string | undefined
+          readonly tool_details?: string | undefined
+          readonly model_list?: string | undefined
+          readonly model_cycle_recent?: string | undefined
+          readonly model_cycle_recent_reverse?: string | undefined
+          readonly model_cycle_favorite?: string | undefined
+          readonly model_cycle_favorite_reverse?: string | undefined
+          readonly command_list?: string | undefined
+          readonly agent_list?: string | undefined
+          readonly agent_cycle?: string | undefined
+          readonly agent_cycle_reverse?: string | undefined
+          readonly permission_mode?: string | undefined
+          readonly variant_cycle?: string | undefined
+          readonly input_clear?: string | undefined
+          readonly input_paste?: string | undefined
+          readonly input_submit?: string | undefined
+          readonly input_newline?: string | undefined
+          readonly input_move_left?: string | undefined
+          readonly input_move_right?: string | undefined
+          readonly input_move_up?: string | undefined
+          readonly input_move_down?: string | undefined
+          readonly input_select_left?: string | undefined
+          readonly input_select_right?: string | undefined
+          readonly input_select_up?: string | undefined
+          readonly input_select_down?: string | undefined
+          readonly input_line_home?: string | undefined
+          readonly input_line_end?: string | undefined
+          readonly input_select_line_home?: string | undefined
+          readonly input_select_line_end?: string | undefined
+          readonly input_visual_line_home?: string | undefined
+          readonly input_visual_line_end?: string | undefined
+          readonly input_select_visual_line_home?: string | undefined
+          readonly input_select_visual_line_end?: string | undefined
+          readonly input_buffer_home?: string | undefined
+          readonly input_buffer_end?: string | undefined
+          readonly input_select_buffer_home?: string | undefined
+          readonly input_select_buffer_end?: string | undefined
+          readonly input_delete_line?: string | undefined
+          readonly input_delete_to_line_end?: string | undefined
+          readonly input_delete_to_line_start?: string | undefined
+          readonly input_backspace?: string | undefined
+          readonly input_delete?: string | undefined
+          readonly input_undo?: string | undefined
+          readonly input_redo?: string | undefined
+          readonly input_word_forward?: string | undefined
+          readonly input_word_backward?: string | undefined
+          readonly input_select_word_forward?: string | undefined
+          readonly input_select_word_backward?: string | undefined
+          readonly input_delete_word_forward?: string | undefined
+          readonly input_delete_word_backward?: string | undefined
+          readonly history_previous?: string | undefined
+          readonly history_next?: string | undefined
+          readonly session_child_cycle?: string | undefined
+          readonly session_child_cycle_reverse?: string | undefined
+          readonly session_parent?: string | undefined
+          readonly session_child_close?: string | undefined
+          readonly terminal_suspend?: string | undefined
+          readonly terminal_title_toggle?: string | undefined
+          readonly tips_toggle?: string | undefined
+          readonly voice_record?: string | undefined
+          readonly app_support?: string | undefined
+        }
+      | undefined
+    readonly logLevel?: ("DEBUG" | "INFO" | "WARN" | "ERROR") | undefined
+    readonly tui?:
+      | {
+          readonly scroll_speed?: number | undefined
+          readonly scroll_acceleration?: { readonly enabled: boolean } | undefined
+          readonly diff_style?: "auto" | "stacked" | undefined
+          readonly mouse?: boolean | undefined
+          readonly sound?: boolean | undefined
+          readonly bg_pulse?: boolean | undefined
+          readonly turn_tokens?: boolean | undefined
+        }
+      | undefined
+    readonly ads?:
+      | {
+          readonly enabled?: boolean | undefined
+          readonly ratio?: number | undefined
+          readonly items?:
+            | ReadonlyArray<{
+                readonly id: string
+                readonly text: string
+                readonly url?: string | undefined
+                readonly enabled?: boolean | undefined
+              }>
+            | undefined
+        }
+      | undefined
+    readonly server?:
+      | {
+          readonly port?: number | undefined
+          readonly hostname?: string | undefined
+          readonly mdns?: boolean | undefined
+          readonly cors?: ReadonlyArray<string> | undefined
+        }
+      | undefined
+    readonly remote?:
+      | {
+          readonly enabled?: boolean | undefined
+          readonly enableTunnel?: boolean | undefined
+          readonly provider?: "localtunnel" | "cloudflared" | "ngrok" | "remotosh" | "none" | undefined
+          readonly askOnExistingSession?: boolean | undefined
+        }
+      | undefined
+    readonly teleport?: { readonly url?: string | undefined; readonly token?: string | undefined } | undefined
+    readonly command?:
+      | {
+          readonly [x: string]: {
+            readonly template?: string | undefined
+            readonly description?: string | undefined
+            readonly agent?: string | undefined
+            readonly model?: string | undefined
+            readonly subtask?: boolean | undefined
+            readonly aliases?: ReadonlyArray<string> | undefined
+          }
+        }
+      | undefined
+    readonly reference?:
+      | {
+          readonly [x: string]:
+            | {
+                readonly type: "git"
+                readonly repository: string
+                readonly branch?: string | undefined
+                readonly description?: string | undefined
+              }
+            | { readonly type: "local"; readonly path: string; readonly description?: string | undefined }
+        }
+      | undefined
+    readonly watcher?: { readonly ignore?: ReadonlyArray<string> | undefined } | undefined
+    readonly plugin?: ReadonlyArray<string> | undefined
+    readonly snapshot?: boolean | undefined
+    readonly sync?:
+      | {
+          readonly url?: string | undefined
+          readonly token?: string | undefined
+          readonly autostart?: boolean | undefined
+        }
+      | undefined
+    readonly analytics?: { readonly share?: boolean | undefined; readonly endpoint?: string | undefined } | undefined
+    readonly share?: "manual" | "auto" | "disabled" | undefined
+    readonly autoshare?: boolean | undefined
+    readonly autoupdate?: boolean | "notify" | undefined
+    readonly disabled_providers?: ReadonlyArray<string> | undefined
+    readonly enabled_providers?: ReadonlyArray<string> | undefined
+    readonly model?: string | undefined
+    readonly small_model?: string | undefined
+    readonly default_agent?: string | undefined
+    readonly username?: string | undefined
+    readonly mode?:
+      | {
+          readonly build?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly plan?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly [x: string]:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+        }
+      | undefined
+    readonly agent?:
+      | {
+          readonly plan?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly build?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly general?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly explore?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly scout?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly title?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly summary?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly compaction?:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+          readonly [x: string]:
+            | {
+                readonly model?: string | undefined
+                readonly variant?: string | undefined
+                readonly temperature?: number | undefined
+                readonly top_p?: number | undefined
+                readonly prompt?: string | undefined
+                readonly tools?: { readonly [x: string]: boolean } | undefined
+                readonly disable?: boolean | undefined
+                readonly description?: string | undefined
+                readonly mode?: "subagent" | "primary" | "all" | undefined
+                readonly hidden?: boolean | undefined
+                readonly options?: { readonly [x: string]: unknown } | undefined
+                readonly color?: string | undefined
+                readonly steps?: number | undefined
+                readonly order?: number | undefined
+                readonly maxSteps?: number | undefined
+                readonly permission?:
+                  | {
+                      readonly [x: string]:
+                        | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+                        | undefined
+                    }
+                  | undefined
+                readonly advisor?: string | undefined
+                readonly advisor_max_uses?: number | undefined
+                readonly [x: string]: unknown | undefined
+              }
+            | undefined
+        }
+      | undefined
+    readonly provider?:
+      | {
+          readonly [x: string]: {
+            readonly api?: string | undefined
+            readonly name?: string | undefined
+            readonly env?: ReadonlyArray<string> | undefined
+            readonly id?: string | undefined
+            readonly npm?: string | undefined
+            readonly models?:
+              | {
+                  readonly [x: string]: {
+                    readonly id?: string | undefined
+                    readonly name?: string | undefined
+                    readonly family?: string | undefined
+                    readonly release_date?: string | undefined
+                    readonly attachment?: boolean | undefined
+                    readonly reasoning?: boolean | undefined
+                    readonly temperature?: boolean | undefined
+                    readonly tool_call?: boolean | undefined
+                    readonly interleaved?:
+                      | true
+                      | { readonly field: "reasoning_content" | "reasoning_details" }
+                      | undefined
+                    readonly cost?:
+                      | {
+                          readonly input: number
+                          readonly output: number
+                          readonly cache_read?: number | undefined
+                          readonly cache_write?: number | undefined
+                          readonly context_over_200k?:
+                            | {
+                                readonly input: number
+                                readonly output: number
+                                readonly cache_read?: number | undefined
+                                readonly cache_write?: number | undefined
+                              }
+                            | undefined
+                        }
+                      | undefined
+                    readonly limit?:
+                      | { readonly context: number; readonly input?: number | undefined; readonly output: number }
+                      | undefined
+                    readonly modalities?:
+                      | {
+                          readonly input: ReadonlyArray<"text" | "audio" | "image" | "video" | "pdf">
+                          readonly output: ReadonlyArray<"text" | "audio" | "image" | "video" | "pdf">
+                        }
+                      | undefined
+                    readonly experimental?: boolean | undefined
+                    readonly status?: "alpha" | "beta" | "deprecated" | undefined
+                    readonly options?: { readonly [x: string]: unknown } | undefined
+                    readonly headers?: { readonly [x: string]: string } | undefined
+                    readonly provider?: { readonly npm: string; readonly api: string } | undefined
+                    readonly reasoning_options?:
+                      | ReadonlyArray<
+                          | { readonly type: "effort"; readonly values: ReadonlyArray<string | null> }
+                          | { readonly type: "toggle" }
+                          | {
+                              readonly type: "budget_tokens"
+                              readonly min?: number | undefined
+                              readonly max?: number | undefined
+                            }
+                        >
+                      | undefined
+                    readonly variants?:
+                      | {
+                          readonly [x: string]: {
+                            readonly disabled?: boolean | undefined
+                            readonly [x: string]: unknown | undefined
+                          }
+                        }
+                      | undefined
+                    readonly disabled?: boolean | undefined
+                  }
+                }
+              | undefined
+            readonly auth_provider?: string | undefined
+            readonly whitelist?: ReadonlyArray<string> | undefined
+            readonly blacklist?: ReadonlyArray<string> | undefined
+            readonly options?:
+              | {
+                  readonly apiKey?: string | undefined
+                  readonly baseURL?: string | undefined
+                  readonly enterpriseUrl?: string | undefined
+                  readonly setCacheKey?: boolean | undefined
+                  readonly timeout?: number | false | undefined
+                  readonly headerTimeout?: number | false | undefined
+                  readonly chunkTimeout?: number | undefined
+                  readonly [x: string]: unknown | undefined
+                }
+              | undefined
+          }
+        }
+      | undefined
+    readonly mcp?:
+      | {
+          readonly [x: string]:
+            | {
+                readonly type: "local"
+                readonly command: ReadonlyArray<string>
+                readonly environment?: { readonly [x: string]: string } | undefined
+                readonly enabled?: boolean | undefined
+                readonly timeout?: number | undefined
+              }
+            | {
+                readonly type: "remote"
+                readonly url: string
+                readonly enabled?: boolean | undefined
+                readonly headers?: { readonly [x: string]: string } | undefined
+                readonly oauth?:
+                  | {
+                      readonly clientId?: string | undefined
+                      readonly clientSecret?: string | undefined
+                      readonly scope?: string | undefined
+                    }
+                  | false
+                  | undefined
+                readonly timeout?: number | undefined
+              }
+            | { readonly enabled: boolean }
+        }
+      | undefined
+    readonly connectors?:
+      | {
+          readonly [x: string]:
+            | { readonly type: "figma"; readonly token?: string | undefined; readonly enabled?: boolean | undefined }
+            | {
+                readonly type: "slack"
+                readonly botToken?: string | undefined
+                readonly teamId?: string | undefined
+                readonly enabled?: boolean | undefined
+              }
+            | {
+                readonly type: "github"
+                readonly token?: string | undefined
+                readonly oauthClientId?: string | undefined
+                readonly clientId?: string | undefined
+                readonly enabled?: boolean | undefined
+              }
+            | {
+                readonly type: "lovable"
+                readonly token?: string | undefined
+                readonly apiKey?: string | undefined
+                readonly enabled?: boolean | undefined
+              }
+            | {
+                readonly type: "discord"
+                readonly botToken?: string | undefined
+                readonly enabled?: boolean | undefined
+              }
+            | { readonly type: "teams"; readonly botToken?: string | undefined; readonly enabled?: boolean | undefined }
+            | { readonly type: "gchat"; readonly botToken?: string | undefined; readonly enabled?: boolean | undefined }
+            | {
+                readonly type: "linear"
+                readonly botToken?: string | undefined
+                readonly enabled?: boolean | undefined
+              }
+            | { readonly enabled: boolean }
+        }
+      | undefined
+    readonly formatter?:
+      | false
+      | true
+      | {
+          readonly [x: string]: {
+            readonly disabled?: boolean | undefined
+            readonly command?: ReadonlyArray<string> | undefined
+            readonly environment?: { readonly [x: string]: string } | undefined
+            readonly extensions?: ReadonlyArray<string> | undefined
+          }
+        }
+      | undefined
+    readonly websearch?:
+      | {
+          readonly provider?: "exa" | "parallel" | "mcp" | undefined
+          readonly apiKey?: string | undefined
+          readonly url?: string | undefined
+          readonly tool?: string | undefined
+        }
+      | undefined
+    readonly lsp?:
+      | false
+      | {
+          readonly [x: string]:
+            | { readonly disabled: true }
+            | {
+                readonly command: ReadonlyArray<string>
+                readonly extensions?: ReadonlyArray<string> | undefined
+                readonly disabled?: boolean | undefined
+                readonly env?: { readonly [x: string]: string } | undefined
+                readonly initialization?: { readonly [x: string]: unknown } | undefined
+                readonly min_severity?: number | undefined
+              }
+        }
+      | undefined
+    readonly instructions?: ReadonlyArray<string> | undefined
+    readonly layout?: ("auto" | "stretch") | undefined
+    readonly permission?:
+      | {
+          readonly [x: string]:
+            | (("ask" | "allow" | "deny") | { readonly [x: string]: "ask" | "allow" | "deny" })
+            | undefined
+        }
+      | undefined
+    readonly tools?: { readonly [x: string]: boolean } | undefined
+    readonly tool?:
+      | {
+          readonly allow?: ReadonlyArray<string> | undefined
+          readonly pin?: { readonly [x: string]: string } | undefined
+        }
+      | undefined
+    readonly enterprise?: { readonly url?: string | undefined } | undefined
+    readonly compaction?:
+      | {
+          readonly auto?: boolean | undefined
+          readonly prune?: boolean | undefined
+          readonly reserved?: number | undefined
+        }
+      | undefined
+    readonly experimental?:
+      | {
+          readonly hook?:
+            | {
+                readonly file_edited?:
+                  | {
+                      readonly [x: string]: ReadonlyArray<{
+                        readonly command: ReadonlyArray<string>
+                        readonly environment?: { readonly [x: string]: string } | undefined
+                      }>
+                    }
+                  | undefined
+                readonly session_completed?:
+                  | ReadonlyArray<{
+                      readonly command: ReadonlyArray<string>
+                      readonly environment?: { readonly [x: string]: string } | undefined
+                    }>
+                  | undefined
+              }
+            | undefined
+          readonly queued_message_wrap?:
+            | { readonly header: string; readonly footer: string }
+            | "default"
+            | boolean
+            | null
+            | undefined
+          readonly chatMaxRetries?: number | undefined
+          readonly disable_paste_summary?: boolean | undefined
+          readonly batch_tool?: boolean | undefined
+          readonly openTelemetry?: boolean | undefined
+          readonly primary_tools?: ReadonlyArray<string> | undefined
+          readonly continue_loop_on_deny?: boolean | undefined
+          readonly brain?: boolean | undefined
+          readonly brainMinHours?: number | undefined
+          readonly brainMinSessions?: number | undefined
+          readonly brainModel?: string | undefined
+          readonly memory?: boolean | undefined
+          readonly mcp_timeout?: number | undefined
+          readonly tool_timeout?: number | false | undefined
+          readonly task_timeout?: number | false | undefined
+          readonly nativeLlm?: boolean | undefined
+          readonly tui?:
+            | {
+                readonly cacheEviction?: boolean | undefined
+                readonly messageVirtualization?: boolean | undefined
+                readonly explorationGrouping?: boolean | undefined
+              }
+            | undefined
+          readonly requests?: { readonly latestOnlyLspRefresh?: boolean | undefined } | undefined
+          readonly events?: { readonly schemaEncoding?: boolean | undefined } | undefined
+        }
+      | undefined
+    readonly rag?: { readonly model?: string | undefined; readonly provider?: string | undefined } | undefined
+    readonly image?: { readonly model?: string | undefined; readonly provider?: string | undefined } | undefined
+    readonly browser?: unknown | undefined
+    readonly computer?:
+      | {
+          readonly mode?: "sandbox" | "host" | undefined
+          readonly width?: number | undefined
+          readonly height?: number | undefined
+        }
+      | undefined
+    readonly attachment?:
+      | {
+          readonly image?:
+            | {
+                readonly auto_resize?: boolean | undefined
+                readonly max_width?: number | undefined
+                readonly max_height?: number | undefined
+                readonly max_base64_bytes?: number | undefined
+              }
+            | undefined
+        }
+      | undefined
+    readonly speak?:
+      | {
+          readonly provider?: string | undefined
+          readonly model?: string | undefined
+          readonly modelId?: string | undefined
+          readonly outputFormat?: string | undefined
+        }
+      | undefined
+    readonly notifications?:
+      | {
+          readonly todo?:
+            | {
+                readonly enabled?: boolean | undefined
+                readonly macos?: boolean | undefined
+                readonly slack?:
+                  | {
+                      readonly enabled?: boolean | undefined
+                      readonly connector?: string | undefined
+                      readonly channel?: string | undefined
+                    }
+                  | undefined
+                readonly discord?:
+                  | { readonly enabled?: boolean | undefined; readonly webhook?: string | undefined }
+                  | undefined
+              }
+            | undefined
+          readonly icon?: { readonly url?: string | undefined; readonly alt?: string | undefined } | undefined
+          readonly notify?:
+            | {
+                readonly enabled?: boolean | undefined
+                readonly macos?: boolean | undefined
+                readonly slack?:
+                  | {
+                      readonly enabled?: boolean | undefined
+                      readonly connector?: string | undefined
+                      readonly channel?: string | undefined
+                    }
+                  | undefined
+                readonly discord?:
+                  | { readonly enabled?: boolean | undefined; readonly webhook?: string | undefined }
+                  | undefined
+                readonly events?:
+                  | {
+                      readonly sessionIdle?: boolean | undefined
+                      readonly sessionError?: boolean | undefined
+                      readonly permissionAsked?: boolean | undefined
+                      readonly questionAsked?: boolean | undefined
+                    }
+                  | undefined
+                readonly idleMinMs?: number | undefined
+                readonly rateLimit?:
+                  | { readonly windowMs?: number | undefined; readonly maxPerWindow?: number | undefined }
+                  | undefined
+                readonly retry?:
+                  | {
+                      readonly attempts?: number | undefined
+                      readonly delay?: number | undefined
+                      readonly factor?: number | undefined
+                      readonly maxDelay?: number | undefined
+                      readonly timeoutMs?: number | undefined
+                    }
+                  | undefined
+                readonly breaker?:
+                  | { readonly failures?: number | undefined; readonly cooldownMs?: number | undefined }
+                  | undefined
+                readonly quietHours?:
+                  | {
+                      readonly enabled?: boolean | undefined
+                      readonly start?: string | undefined
+                      readonly end?: string | undefined
+                      readonly suppress?: ReadonlyArray<"macos" | "slack" | "discord"> | undefined
+                    }
+                  | undefined
+              }
+            | undefined
+        }
+      | undefined
+    readonly mobile?:
+      | {
+          readonly tophat?:
+            | {
+                readonly enabled?: boolean | undefined
+                readonly cliPath?: string | undefined
+                readonly defaultPlatform?: "ios" | "android" | undefined
+                readonly defaultDestination?: "device" | "simulator" | "emulator" | undefined
+                readonly autoDetect?: boolean | undefined
+              }
+            | undefined
+        }
+      | undefined
+    readonly [x: string]: unknown
+  }
+}
 
 export type ConfigUpdateOutput = Config
 

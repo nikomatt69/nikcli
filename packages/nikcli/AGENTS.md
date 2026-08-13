@@ -104,6 +104,11 @@ Adding or changing an endpoint:
   / `WithPartsSchema`, `Snapshot.FileDiffSchema`, `Monitor.RecordSchema`,
   `SessionGoal.StateEffect`, `Provider.ModelSchema`). Export the const if it is
   private rather than writing a second definition.
+- **`Config` is derived, not hand-written.** The `nikcli.json` document comes
+  from the zod in `config/config.ts` via `util/zod-effect.ts` (`fromZod`) — the
+  one place schemas flow zod → Effect. Add a field to the zod and the contract,
+  clients and OpenAPI follow. A `.transform()` that changes the output type must
+  be pinned next to its definition with `overrideZod`.
 - **Shared domain schemas go in `src/server/httpapi/domain.ts`** when more than
   one group describes the same object and the service defines it only in zod
   (loops, routines). That module imports nothing but `effect`, so contract

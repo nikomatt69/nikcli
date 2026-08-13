@@ -57,10 +57,54 @@ readonly).
 generator now compiles two contracts, so only the Effect clients pay that cost.
 Promise client: 284 endpoints. Effect clients: 282.
 
-Still open: `packages/sdk/js/src/gen` is gone, but `Config` remains an open
-record, which is what forces the hand-written `McpLocalConfig` /
-`ReferenceConfig` / `KeybindsConfig` in `src/httpapi/client.ts` and leaves
-`config.plugin`, `config.ads` and friends untyped at call sites.
+## Config is a real schema (2026-08-13)
+
+`Config` was the last open record in the contract: `GET /config` and
+`PATCH /config` both typed the whole `nikcli.json` document as
+`Record<string, unknown>`. That is what forced hand-written `McpLocalConfig` /
+`ReferenceConfig` / `KeybindsConfig` into the SDK and left `config.plugin`,
+`config.ads` and friends untyped at every call site.
+
+The document is ~2200 lines of zod and that zod is what actually validates the
+file on disk, so the contract **derives** its Effect schema from it
+(`util/zod-effect.ts`) instead of keeping a hand-written copy that would drift.
+This is the one place in the repo where schemas flow zod → Effect; everything
+else is Effect-first via `util/effect-zod.ts`.
+
+Details worth knowing:
+
+- `.meta({ ref })` becomes an Effect `identifier`, so the generated clients get
+  `KeybindsConfig`, `McpLocalConfig`, `ReferenceConfig`, `AgentConfig`,
+  `ProviderConfig`, `PermissionConfig` … as named types. The three hand-written
+  copies in the SDK are deleted.
+- `.default(x)` maps to optional, not required: the same schema types the
+  `PATCH` body, which is a partial document.
+- `.catchall(x)` becomes `StructWithRest`, and the rest value admits
+  `undefined` — TypeScript requires every declared property to be assignable to
+  the index signature, and the declared ones are optional.
+- A `.transform()` that changes the output type cannot be read off the zod
+  graph. `Config.Permission` is the only one; it is pinned next to its
+  definition with `overrideZod`.
+- The document keeps an open tail at the top level. Besides forward
+  compatibility, the codegen writes a struct payload once per field it
+  contributes — for a document this size that meant repeating the whole type
+  seven times (52k lines of `types.ts`). An index signature makes it one opaque
+  payload input, `{ payload: Config }`, at 9.5k lines with every declared field
+  still precisely typed. Removing that repetition in the codegen itself needs an
+  input-side named-type table, which is open work.
+
+`GET /config` is an Effect `handle()`, so the response is encoded at request
+time — a mismatched schema is a broken endpoint, not a cosmetic type. Pinned by
+`test/server/httpapi-config-schema.test.ts` and checked against real config
+files during the port.
+
+Fallout: `packages/app`'s permission editor declared `string[]` as a possible
+permission value, which the server has never accepted. Its types now come from
+the contract, so the editor cannot produce a shape the server would reject.
+
+Still open: `packages/sdk/js/src/gen` is gone and `Config` is typed, but nine
+`any` aliases remain in the generated clients — GitHub passthrough, the v2
+event-sourced entry union, SSE frames, a 308.
 
 ## Contract schema split (2026-08-12)
 

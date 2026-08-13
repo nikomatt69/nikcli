@@ -25,6 +25,7 @@ import { InstanceState, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
 import { ConfigPaths } from "./paths"
 import { AppFileSystem } from "@/filesystem"
+import { overrideZod } from "@/util/zod-effect"
 
 export namespace Config {
   const log = Log.create({ service: "config" })
@@ -744,6 +745,24 @@ export namespace Config {
       ref: "PermissionConfig",
     })
   export type Permission = z.infer<typeof Permission>
+
+  // `permissionTransform` rewrites a union of shapes into a plain rule map, so
+  // the output type cannot be read off the zod graph. Pin it for the HTTP
+  // contract, which derives its Config schema from this module (util/zod-effect).
+  const PermissionActionEffect = Schema.Literals(["ask", "allow", "deny"]).annotate({
+    identifier: "PermissionActionConfig",
+  })
+  const PermissionRuleEffect = Schema.Union([
+    PermissionActionEffect,
+    Schema.Record(Schema.String, PermissionActionEffect).annotate({ identifier: "PermissionObjectConfig" }),
+  ]).annotate({ identifier: "PermissionRuleConfig" })
+  overrideZod(
+    Permission,
+    // A rule map: any key may be absent, so reading one yields `undefined`.
+    Schema.Record(Schema.String, Schema.Union([PermissionRuleEffect, Schema.Undefined])).annotate({
+      identifier: "PermissionConfig",
+    }),
+  )
 
   export const Command = z.object({
     template: z.string().optional(),

@@ -4,9 +4,25 @@ import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import { Provider } from "@/provider/provider"
 import { mapValues } from "remeda"
+import { fromZod } from "@/util/zod-effect"
 
 export namespace ConfigHttpApi {
-  export const Info = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "Config" })
+  /**
+   * The whole `nikcli.json` document, derived from the zod schema that actually
+   * validates the file (`Config.Info`) rather than hand-copied — see
+   * `util/zod-effect.ts`. Its `.meta({ ref })` annotations carry through, so the
+   * generated clients get `KeybindsConfig`, `McpLocalConfig`, `ReferenceConfig`
+   * and friends as named types.
+   */
+  export const Info = Schema.StructWithRest(fromZod(Config.Info) as Schema.Struct<Schema.Struct.Fields>, [
+    // The document keeps an open tail. Two reasons: forward compatibility with
+    // a client on a newer config schema, and the codegen writes a struct
+    // payload once per field it contributes — which for a document this size
+    // means repeating the whole type dozens of times. An index signature makes
+    // it one opaque payload input (`{ payload: Config }`) while every declared
+    // field stays precisely typed.
+    Schema.Record(Schema.String, Schema.Unknown),
+  ]).annotate({ identifier: "Config" })
 
   export const ProviderInfo = Schema.Struct({
     id: Schema.String,

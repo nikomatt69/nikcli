@@ -95,28 +95,6 @@ export type TextPartInput = Extract<PromptPartInput, { type: "text" }>
 export type FilePartInput = Extract<PromptPartInput, { type: "file" }>
 export type AgentPartInput = Extract<PromptPartInput, { type: "agent" }>
 
-// `Config` is the whole `nikcli.json` document, which the contract still
-// carries as an open record (its schema is a ~550-line zod that has not been
-// ported to Effect yet — see specs/effect/http-api.md, "Contract schema
-// split"). These three sub-shapes are used to *construct* values, so they are
-// spelled out here rather than degrading to `any`; they mirror
-// `Config.McpLocal`, `Config.Reference` and `Config.Keybinds` in
-// packages/nikcli/src/config/config.ts and must be updated alongside them.
-
-export type McpLocalConfig = {
-  type: "local"
-  command: string[]
-  environment?: Record<string, string>
-  enabled?: boolean
-  timeout?: number
-}
-
-export type ReferenceConfig =
-  | { type: "git"; repository: string; branch?: string; description?: string }
-  | { type: "local"; path: string; description?: string }
-
-export type KeybindsConfig = { readonly [action: string]: string | undefined }
-
 /** Provider credentials as stored by `auth.set`. */
 export type Auth = Parameters<NikcliClient["auth"]["set"]>[0]["payload"]
 
