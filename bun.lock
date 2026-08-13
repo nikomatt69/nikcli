@@ -979,6 +979,7 @@
   ],
   "patchedDependencies": {
     "@modelcontextprotocol/sdk@1.25.2": "patches/@modelcontextprotocol%2Fsdk@1.25.2.patch",
+    "@opentui/core@0.4.5": "patches/@opentui%2Fcore@0.4.5.patch",
     "ghostty-web@0.3.0": "patches/ghostty-web@0.3.0.patch",
     "expo-modules-jsi@56.0.9": "patches/expo-modules-jsi@56.0.9.patch",
     "@ff-labs/fff-bun@0.9.4": "patches/@ff-labs%2Ffff-bun@0.9.4.patch",

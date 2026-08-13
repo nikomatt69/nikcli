@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { fromEntries, stabilize, type ViewEntry } from "@tui/routes/session/view"
 import { groupParts, toolOf } from "@tui/routes/session/rows"
-import { liveMarkdown } from "@tui/routes/session/diagram"
+import { liveMarkdown, splitLiveMarkdown } from "@tui/routes/session/diagram"
 
 /**
  * The turn model the session renderer draws from.
@@ -253,5 +253,53 @@ describe("liveMarkdown", () => {
 
   it("trims settled text the way the finished renderer always did", () => {
     expect(liveMarkdown("  ## Live projector\n\n", false)).toBe("## Live projector")
+  })
+})
+
+describe("splitLiveMarkdown", () => {
+  const heading = "### d) Index + read API (session/v2/index.ts)\n"
+
+  it("settles a heading as soon as the block after it opens", () => {
+    // The shape that flickered: a heading, the paragraph under it, then a list
+    // still being written. The heading must be on the settled side.
+    const live = "The SessionV2 namespace is honest about its status.\n\n- `entries(sessionID)` \u2192 list from"
+    const split = splitLiveMarkdown(heading + live)
+    expect(split.settled).toContain(heading)
+    expect(split.live).toBe("- `entries(sessionID)` \u2192 list from")
+  })
+
+  it("never splits inside a fenced code block", () => {
+    const md = "intro\n\n```ts\nconst a = 1\n\nconst b = 2\n"
+    const split = splitLiveMarkdown(md)
+    expect(split.settled).toBe("intro\n\n")
+    expect(split.live).toBe("```ts\nconst a = 1\n\nconst b = 2\n")
+  })
+
+  it("never splits inside a loose list or a blockquote", () => {
+    expect(splitLiveMarkdown("- one\n\n- two\n\n- thr").settled).toBe("")
+    expect(splitLiveMarkdown("> quoted\n\n> more\n\n> sti").settled).toBe("")
+  })
+
+  it("keeps the whole text live until a block actually closes", () => {
+    const split = splitLiveMarkdown("### d) Index + read")
+    expect(split.settled).toBe("")
+    expect(split.live).toBe("### d) Index + read")
+  })
+
+  it("moves the boundary forward only, token by token", () => {
+    const full = "para one\n\n" + heading + "para two\n\n- item\n"
+    let previous = 0
+    for (let i = 1; i <= full.length; i++) {
+      const settled = splitLiveMarkdown(full.slice(0, i)).settled
+      expect(settled.length).toBeGreaterThanOrEqual(previous)
+      expect(full.startsWith(settled)).toBe(true)
+      previous = settled.length
+    }
+  })
+
+  it("rejoins to the original text", () => {
+    const md = "a\n\nb\n\n### c\n\nd"
+    const split = splitLiveMarkdown(md)
+    expect(split.settled + split.live).toBe(md)
   })
 })

@@ -97,7 +97,7 @@ import { features } from "@/config/features"
 import { useLanguage } from "@tui/context/language"
 import { spacerHeights, visibleRange } from "./message-window"
 import { groupParts, type ExplorationGroup } from "./rows"
-import { liveMarkdown, wrapDiagramsInFences } from "./diagram"
+import { liveMarkdown, splitLiveMarkdown, wrapDiagramsInFences } from "./diagram"
 import { SESSION_SIDEBAR_WIDTH } from "@tui/ui/layout"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
@@ -1988,7 +1988,16 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
     if (!text) return ""
     return props.streaming ? text : wrapDiagramsInFences(text)
   })
+  const split = createMemo(() => (props.streaming ? splitLiveMarkdown(body()) : { settled: body(), live: "" }))
   const tight = createMemo(() => ctx.width < 84)
+  const tableOptions = createMemo(() => ({
+    widthMode: "full" as const,
+    wrapMode: "word" as const,
+    cellPadding: tight() ? 0 : 1,
+    borders: true,
+    outerBorder: !tight(),
+    borderColor: theme.borderSubtle,
+  }))
   const done = createMemo(() => {
     const end = props.entry.completed as number | undefined
     return end !== undefined
@@ -2011,23 +2020,31 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
       >
         <ReasoningHeader done={done()} title={summary().title} duration={duration()} />
         <Show when={summary().body}>
-          <box marginTop={1}>
-            <MessageMarkdown
-              streaming={props.streaming}
-              syntaxStyle={subtleSyntax()}
-              content={body()}
-              conceal={ctx.conceal()}
-              concealCode={false}
-              fg={theme.textMuted}
-              tableOptions={{
-                widthMode: "full",
-                wrapMode: "word",
-                cellPadding: tight() ? 0 : 1,
-                borders: true,
-                outerBorder: !tight(),
-                borderColor: theme.borderSubtle,
-              }}
-            />
+          <box marginTop={1} flexDirection="column">
+            <Show when={split().settled}>
+              <MessageMarkdown
+                streaming={false}
+                syntaxStyle={subtleSyntax()}
+                content={split().settled}
+                conceal={ctx.conceal()}
+                concealCode={false}
+                fg={theme.textMuted}
+                tableOptions={tableOptions()}
+              />
+            </Show>
+            <Show when={split().live}>
+              <box marginTop={split().settled ? 1 : 0} flexShrink={0}>
+                <MessageMarkdown
+                  streaming={props.streaming}
+                  syntaxStyle={subtleSyntax()}
+                  content={split().live}
+                  conceal={ctx.conceal()}
+                  concealCode={false}
+                  fg={theme.textMuted}
+                  tableOptions={tableOptions()}
+                />
+              </box>
+            </Show>
           </box>
         </Show>
       </box>
@@ -2089,26 +2106,46 @@ function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; 
   const tight = createMemo(() => ctx.width < 84)
   const text = createMemo(() => liveMarkdown(String(props.entry.text ?? ""), props.streaming))
   const rendered = createMemo(() => (props.streaming ? text() : wrapDiagramsInFences(text())))
+  const split = createMemo(() => (props.streaming ? splitLiveMarkdown(rendered()) : { settled: rendered(), live: "" }))
+  const tableOptions = createMemo(() => ({
+    widthMode: "full" as const,
+    wrapMode: "word" as const,
+    cellPadding: tight() ? 0 : 1,
+    borders: true,
+    outerBorder: !tight(),
+    borderColor: theme.borderSubtle,
+  }))
 
   return (
     <Show when={text()}>
       <box id={"text-" + props.entry.id} paddingLeft={3} marginTop={1} flexShrink={0}>
-        <MessageMarkdown
-          streaming={props.streaming}
-          syntaxStyle={syntax()}
-          content={rendered()}
-          conceal={ctx.conceal()}
-          concealCode={false}
-          fg={theme.text}
-          tableOptions={{
-            widthMode: "full",
-            wrapMode: "word",
-            cellPadding: tight() ? 0 : 1,
-            borders: true,
-            outerBorder: !tight(),
-            borderColor: theme.borderSubtle,
-          }}
-        />
+        {/* Finished blocks render as settled markdown so they are never
+            re-lexed and never re-highlighted; only the block still being
+            written streams. See `splitLiveMarkdown`. */}
+        <Show when={split().settled}>
+          <MessageMarkdown
+            streaming={false}
+            syntaxStyle={syntax()}
+            content={split().settled}
+            conceal={ctx.conceal()}
+            concealCode={false}
+            fg={theme.text}
+            tableOptions={tableOptions()}
+          />
+        </Show>
+        <Show when={split().live}>
+          <box marginTop={split().settled ? 1 : 0} flexShrink={0}>
+            <MessageMarkdown
+              streaming={props.streaming}
+              syntaxStyle={syntax()}
+              content={split().live}
+              conceal={ctx.conceal()}
+              concealCode={false}
+              fg={theme.text}
+              tableOptions={tableOptions()}
+            />
+          </box>
+        </Show>
         <Show when={!props.streaming}>
           <TuiImageList text={text()} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
         </Show>

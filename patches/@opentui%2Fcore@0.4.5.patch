@@ -1,0 +1,46 @@
+diff --git a/chunk-bun-tkm837n2.js b/chunk-bun-tkm837n2.js
+index e5e5874..ebd39f9 100644
+--- a/chunk-bun-tkm837n2.js
++++ b/chunk-bun-tkm837n2.js
+@@ -3110,6 +3110,7 @@ class CodeRenderable extends TextBufferRenderable {
+   _initialStyledText;
+   _hadInitialContent = false;
+   _lastHighlights = [];
++  _lastHighlightContent = undefined;
+   _baseHighlight;
+   _onHighlight;
+   _onChunks;
+@@ -3362,7 +3363,10 @@ class CodeRenderable extends TextBufferRenderable {
+       if (highlights.length > 0) {
+         if (this._streaming) {
+           this._lastHighlights = highlights;
++          this._lastHighlightContent = content;
+         }
++      } else if (this._streaming && this._lastHighlights.length > 0 && this._lastHighlightContent === content) {
++        highlights = this._lastHighlights;
+       }
+       if (highlights.length > 0 || this._onChunks || this._baseHighlight) {
+         const context = {
+diff --git a/chunk-node-51kpf0mz.js b/chunk-node-51kpf0mz.js
+index 4a2cb78..ee0e7d9 100644
+--- a/chunk-node-51kpf0mz.js
++++ b/chunk-node-51kpf0mz.js
+@@ -3109,6 +3109,7 @@ class CodeRenderable extends TextBufferRenderable {
+   _initialStyledText;
+   _hadInitialContent = false;
+   _lastHighlights = [];
++  _lastHighlightContent = undefined;
+   _baseHighlight;
+   _onHighlight;
+   _onChunks;
+@@ -3361,7 +3362,10 @@ class CodeRenderable extends TextBufferRenderable {
+       if (highlights.length > 0) {
+         if (this._streaming) {
+           this._lastHighlights = highlights;
++          this._lastHighlightContent = content;
+         }
++      } else if (this._streaming && this._lastHighlights.length > 0 && this._lastHighlightContent === content) {
++        highlights = this._lastHighlights;
+       }
+       if (highlights.length > 0 || this._onChunks || this._baseHighlight) {
+         const context = {

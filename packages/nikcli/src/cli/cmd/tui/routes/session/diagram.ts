@@ -102,3 +102,73 @@ export function liveMarkdown(text: string, streaming: boolean): string {
   if (streaming) return text.replace(/^\s+/, "")
   return text.trim()
 }
+
+export interface LiveSplit {
+  /** Blocks that are already finished. Safe to render as settled markdown. */
+  settled: string
+  /** The block still being written. */
+  live: string
+}
+
+const LIST_ITEM = /^ {0,3}(?:[-*+][ \t]|\d{1,9}[.)][ \t])/
+const BLOCKQUOTE = /^ {0,3}>/
+const INDENTED = /^(?: {4}|\t)/
+const FENCE = /^ {0,3}(?:```|~~~)/
+
+/**
+ * A blank line only ends a block if the block before it can end there. Inside a
+ * list or a blockquote it is a separator, not a terminator, and splitting on it
+ * would hand the two halves to two parsers that each see a different document.
+ */
+function closesABlock(lastNonBlank: string): boolean {
+  return !LIST_ITEM.test(lastNonBlank) && !BLOCKQUOTE.test(lastNonBlank) && !INDENTED.test(lastNonBlank)
+}
+
+/**
+ * Split live text at the last finished block.
+ *
+ * The session renders the two halves as two `<markdown>` runs: the settled one
+ * with `streaming` off, the live one with it on. That is the whole point —
+ * `streaming` keeps OpenTUI's last two tokens unstable, so it re-lexes them on
+ * every delta and hands each rebuilt block to tree-sitter again. A heading that
+ * falls back inside that window loses its highlight for as long as the async
+ * highlight is in flight, and comes back as raw `### …` in the default colour:
+ * the titles flickering at the bottom of a live response. Rendered as settled
+ * markdown, a block that is already on screen is never re-parsed, so it cannot
+ * flicker — only the block still being written keeps moving.
+ *
+ * The boundary is monotonic: a candidate depends only on the text before it, so
+ * candidates accumulate and the split point only ever moves forward. Blocks
+ * already handed to the settled run stay there.
+ */
+export function splitLiveMarkdown(md: string): LiveSplit {
+  if (md.length === 0) return { settled: "", live: "" }
+
+  const lines = md.split("\n")
+  let offset = 0
+  let inFence = false
+  let lastNonBlank = ""
+  let best = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const next = offset + line.length + 1
+
+    if (FENCE.test(line)) {
+      inFence = !inFence
+      lastNonBlank = line
+      offset = next
+      continue
+    }
+
+    // The last line has no terminating newline yet, so it cannot close a block.
+    if (!inFence && line.trim() === "" && lastNonBlank !== "" && i < lines.length - 1 && closesABlock(lastNonBlank)) {
+      best = next
+    }
+
+    if (line.trim() !== "") lastNonBlank = line
+    offset = next
+  }
+
+  return { settled: md.slice(0, best), live: md.slice(best) }
+}
