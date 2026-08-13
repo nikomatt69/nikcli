@@ -86,3 +86,19 @@ export function wrapDiagramsInFences(md: string): string {
   flush(lines.length - 1)
   return out.join("\n")
 }
+
+/**
+ * Markdown the session renderer should feed OpenTUI.
+ *
+ * Trailing whitespace is significant while the part is still arriving: a
+ * heading, list, or fence is not committed until its terminating newline
+ * lands. Trimming that newline on every token makes the last titles at the
+ * bottom of a live response oscillate between paragraph and heading — the
+ * flicker in the lower-left of the transcript. Leading trim is still fine;
+ * it does not change block type. Once the part is sealed, a full trim
+ * matches the settled path.
+ */
+export function liveMarkdown(text: string, streaming: boolean): string {
+  if (streaming) return text.replace(/^\s+/, "")
+  return text.trim()
+}

@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { Renderable, RGBA, SyntaxStyle } from "@opentui/core"
+import { Renderable, RGBA, SyntaxStyle, type CapturedFrame } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { KVProvider } from "@tui/context/kv"
 import { MessageMarkdown } from "@tui/feature-plugins/math/markdown"
+import { liveMarkdown } from "@tui/routes/session/diagram"
 
 const FG = RGBA.fromInts(255, 255, 255, 255)
 
@@ -34,6 +35,34 @@ const TOKENS = [
   "```ts\nconst x = 1\n```\n\n",
   "That is all.",
 ]
+
+function paint(captureSpans: () => CapturedFrame): string {
+  return captureSpans()
+    .lines.map((line) =>
+      line.spans
+        .map((span) => span.text)
+        .join("")
+        .replace(/\s+$/, ""),
+    )
+    .filter((line) => line.trim().length > 0)
+    .join("\n")
+}
+
+async function waitPaint(
+  captureSpans: () => CapturedFrame,
+  renderOnce: () => Promise<void>,
+  timeoutMs = 1000,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs
+  let output = ""
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await renderOnce()
+    output = paint(captureSpans)
+    if (output) return output
+  }
+  return output
+}
 
 describe("streaming churn", () => {
   test("plain <markdown> per token", async () => {
@@ -99,5 +128,57 @@ describe("streaming churn", () => {
     const destroyed = p.stop()
     console.log(`MessageMarkdown: ${destroyed} destroys over ${TOKENS.length} tokens`)
     expect(destroyed).toBeGreaterThanOrEqual(0)
+  })
+
+  /**
+   * The 02:42 recording: yellow titles at the bottom of a live answer flash
+   * off because the last heading is rebuilt on every token. After the heading
+   * has been painted, later chunks must not wipe it.
+   */
+  test("a committed heading stays painted while later tokens arrive", async () => {
+    const [raw, setRaw] = createSignal("")
+    const { captureSpans, renderOnce } = await testRender(
+      () => (
+        <KVProvider>
+          <box width={72} height={24}>
+            <MessageMarkdown
+              content={liveMarkdown(raw(), true)}
+              streaming={true}
+              syntaxStyle={SyntaxStyle.create()}
+              conceal={true}
+              concealCode={false}
+              fg={FG}
+              tableOptions={{ widthMode: "full", wrapMode: "word", cellPadding: 1, borders: true }}
+            />
+          </box>
+        </KVProvider>
+      ),
+      { width: 72, height: 24 },
+    )
+    await renderOnce()
+
+    const chunks = [
+      "## Live projector\n\n",
+      "Subscribes to MessageV2.Event.\n\n",
+      "### Index + read API\n\n",
+      "User message: republish from storage.\n",
+    ]
+
+    let acc = ""
+    const frames: string[] = []
+    for (const chunk of chunks) {
+      acc += chunk
+      setRaw(acc)
+      frames.push(await waitPaint(captureSpans, renderOnce))
+    }
+
+    const first = frames.findIndex((frame) => frame.includes("Live projector"))
+    if (first < 0) {
+      throw new Error(`heading never painted; frames:\n${frames.map((frame, i) => `[${i}]\n${frame || "(empty)"}`).join("\n")}`)
+    }
+    for (const frame of frames.slice(first)) {
+      expect(frame).toContain("Live projector")
+    }
+    expect(frames.at(-1)).toContain("Index + read API")
   })
 })

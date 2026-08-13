@@ -23,6 +23,13 @@ describe("reasoningSummary", () => {
     })
   })
 
+  test("keeps the title across the single newline that arrives before the body", () => {
+    expect(reasoningSummary("**Continuing Quality Review**\n")).toEqual({
+      title: "Continuing Quality Review",
+      body: "",
+    })
+  })
+
   test("does not consume ordinary leading bold content", () => {
     expect(reasoningSummary("**Important:** keep this in the body.")).toEqual({
       title: null,

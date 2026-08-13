@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { fromEntries, stabilize, type ViewEntry } from "@tui/routes/session/view"
 import { groupParts, toolOf } from "@tui/routes/session/rows"
+import { liveMarkdown } from "@tui/routes/session/diagram"
 
 /**
  * The turn model the session renderer draws from.
@@ -241,5 +242,16 @@ describe("session view", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]!.type).toBe("group")
     expect(toolOf(explorations[0]!)).toBe("read")
+  })
+})
+
+describe("liveMarkdown", () => {
+  it("keeps the terminating newline of a live heading so the block type stays put", () => {
+    expect(liveMarkdown("## Live projector\n", true)).toBe("## Live projector\n")
+    expect(liveMarkdown("  ## Live projector\n\n", true)).toBe("## Live projector\n\n")
+  })
+
+  it("trims settled text the way the finished renderer always did", () => {
+    expect(liveMarkdown("  ## Live projector\n\n", false)).toBe("## Live projector")
   })
 })

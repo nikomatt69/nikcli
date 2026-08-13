@@ -97,7 +97,7 @@ import { features } from "@/config/features"
 import { useLanguage } from "@tui/context/language"
 import { spacerHeights, visibleRange } from "./message-window"
 import { groupParts, type ExplorationGroup } from "./rows"
-import { wrapDiagramsInFences } from "./diagram"
+import { liveMarkdown, wrapDiagramsInFences } from "./diagram"
 import { SESSION_SIDEBAR_WIDTH } from "@tui/ui/layout"
 import { RevertBanner } from "./revert-banner"
 import { sessionCommandLabels } from "./session-command-labels"
@@ -1692,14 +1692,31 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
     return finish && !["tool-calls", "unknown"].includes(finish)
   })
 
+  // Live duration ticks once a second. Reading `entry.text` here would
+  // resubscribe this memo to every token and rewrite the footer 60 times a
+  // second — the agent/model titles share that line and flash against the
+  // wallpaper. Tok/s waits until the turn is sealed.
+  const [now, setNow] = createSignal(Date.now())
+  createEffect(() => {
+    if (!props.last || props.turn.completedAt) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    onCleanup(() => clearInterval(timer))
+  })
+
   const stats = createMemo(() => {
     // Counted from the prompt that caused the turn — which, in a turn list,
     // is simply the turn before this one.
     const created = props.turn.previousCreatedAt
     if (!created) return null
 
-    const completedAt = props.turn.completedAt ?? Date.now()
-    const duration = completedAt - created
+    const completedAt = props.turn.completedAt
+    const end = completedAt ?? (props.last ? now() : created)
+    const duration = Math.max(0, end - created)
+
+    if (!completedAt) {
+      return { duration, tps: 0 }
+    }
 
     let text = ""
     let streamStart: number | undefined
@@ -1710,8 +1727,8 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
       text += String(entry.text ?? "")
       if (!entry.timestamp) continue
       streamStart = streamStart === undefined ? entry.timestamp : Math.min(streamStart, entry.timestamp)
-      const end = (entry.completed as number | undefined) ?? completedAt
-      streamEnd = streamEnd === undefined ? end : Math.max(streamEnd, end)
+      const finished = (entry.completed as number | undefined) ?? completedAt
+      streamEnd = streamEnd === undefined ? finished : Math.max(streamEnd, finished)
     }
 
     if (streamStart === undefined || streamEnd === undefined) {
@@ -1772,8 +1789,8 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
       </Show>
       <Switch>
         <Match when={props.last || final() || error()?.name === "MessageAbortedError"}>
-          <box paddingLeft={3}>
-            <text marginTop={1}>
+          <box paddingLeft={3} marginTop={1} flexDirection="row" flexShrink={0}>
+            <text>
               <span
                 style={{
                   fg:
@@ -1785,20 +1802,22 @@ function AssistantMessage(props: { turn: Turn; last: boolean; usage?: TurnUsage.
                 ▣{" "}
               </span>{" "}
               <span style={{ fg: theme.text }}>{Locale.titlecase(props.turn.request?.mode ?? "")}</span>
-              <span style={{ fg: theme.textMuted }}> · {props.turn.request?.modelID}</span>
-              <Show when={stats()}>
-                {(value) => (
-                  <span style={{ fg: theme.textMuted }}>
-                    {" "}
-                    · {Locale.duration(value().duration)}
-                    <Show when={value().tps > 0}> · {value().tps.toFixed(0)} tok/s</Show>
-                  </span>
-                )}
-              </Show>
-              <Show when={error()?.name === "MessageAbortedError"}>
-                <span style={{ fg: theme.textMuted }}> · interrupted</span>
+              <Show when={props.turn.request?.modelID}>
+                <span style={{ fg: theme.textMuted }}> · {props.turn.request?.modelID}</span>
               </Show>
             </text>
+            <Show when={stats()}>
+              {(value) => (
+                <text fg={theme.textMuted}>
+                  {" · "}
+                  {Locale.duration(value().duration)}
+                  <Show when={value().tps > 0}> · {value().tps.toFixed(0)} tok/s</Show>
+                </text>
+              )}
+            </Show>
+            <Show when={error()?.name === "MessageAbortedError"}>
+              <text fg={theme.textMuted}> · interrupted</text>
+            </Show>
           </box>
         </Match>
       </Switch>
@@ -1956,14 +1975,12 @@ function ReasoningPart(props: { last: boolean; streaming: boolean; entry: ViewEn
   const content = createMemo(() => {
     // Filter out redacted reasoning chunks from OpenRouter
     // OpenRouter sends encrypted reasoning data that appears as [REDACTED]
-    return (
-      String(props.entry.text ?? "")
-        .replace("[REDACTED]", "")
-        // OpenAI Responses reasoning summaries separate sections with empty
-        // HTML comments (`<!-- -->`); they are markers, not content.
-        .replace(/<!--\s*-->/g, "")
-        .trim()
-    )
+    const raw = String(props.entry.text ?? "")
+      .replace("[REDACTED]", "")
+      // OpenAI Responses reasoning summaries separate sections with empty
+      // HTML comments (`<!-- -->`); they are markers, not content.
+      .replace(/<!--\s*-->/g, "")
+    return liveMarkdown(raw, props.streaming)
   })
   const summary = createMemo(() => reasoningSummary(content()))
   const body = createMemo(() => {
@@ -2052,12 +2069,13 @@ function ReasoningHeader(props: { done: boolean; title: string | null; duration?
  * A text part.
  *
  * While the text is still arriving this renders what opencode's `TextPart`
- * renders and nothing more: one trim, one `<markdown>`. The extra passes below
- * — fencing ASCII diagrams, pulling image URLs out of the prose — each walk the
- * *whole* message, so on a live part they cost O(n) per token and O(n²) over
- * the message. They also cannot be right yet: a half-written line holds one box
- * character and reads as prose, then reads as a diagram a character later, and
- * the block it belongs to is rebuilt each time it changes its mind.
+ * renders and nothing more: one `<markdown>`, without a trailing trim. The
+ * extra passes below — fencing ASCII diagrams, pulling image URLs out of the
+ * prose — each walk the *whole* message, so on a live part they cost O(n) per
+ * token and O(n²) over the message. They also cannot be right yet: a
+ * half-written line holds one box character and reads as prose, then reads as
+ * a diagram a character later, and the block it belongs to is rebuilt each
+ * time it changes its mind.
  *
  * So they wait for the text to settle. The message is scanned once, when it is
  * finished, instead of once per token while it is being read.
@@ -2069,7 +2087,7 @@ function TextPart(props: { last: boolean; streaming: boolean; entry: ViewEntry; 
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
   const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
   const tight = createMemo(() => ctx.width < 84)
-  const text = createMemo(() => String(props.entry.text ?? "").trim())
+  const text = createMemo(() => liveMarkdown(String(props.entry.text ?? ""), props.streaming))
   const rendered = createMemo(() => (props.streaming ? text() : wrapDiagramsInFences(text())))
 
   return (

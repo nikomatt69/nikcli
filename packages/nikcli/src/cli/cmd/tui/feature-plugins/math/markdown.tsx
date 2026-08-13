@@ -129,6 +129,12 @@ function Markdown(props: MathMarkdownProps) {
     <Show when={props.content}>
       <markdown
         streaming={props.streaming}
+        // Headings/lists as their own renderables. Coalesced mode stuffs the
+        // whole message into one CodeRenderable and re-highlights it on every
+        // token, so titles already on screen flash against the wallpaper.
+        // Top-level freezes a heading once it leaves the trailing-unstable
+        // window; only the block still being written keeps moving.
+        internalBlockMode="top-level"
         syntaxStyle={props.syntaxStyle}
         content={props.content}
         conceal={props.conceal}
