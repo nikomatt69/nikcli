@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
-import { createNikcli } from "@nikcli-ai/sdk"
+import { createNikcli } from "@nikcli-ai/sdk/server"
 import { parseArgs } from "util"
 import path from "path"
 

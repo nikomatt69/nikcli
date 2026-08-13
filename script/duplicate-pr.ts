@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import path from "path"
-import { createNikcli } from "@nikcli-ai/sdk"
+import { createNikcli } from "@nikcli-ai/sdk/server"
 import { parseArgs } from "util"
 
 async function main() {

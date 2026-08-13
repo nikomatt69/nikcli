@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { createNikcliClient } from "./httpapi/client.js"
 import { type Config } from "./httpapi/generated/types.js"
 
 export type ServerOptions = {
@@ -87,6 +88,15 @@ export async function createNikcliServer(options?: ServerOptions) {
     close() {
       proc.kill()
     },
+  }
+}
+
+/** Starts a local `nikcli serve` and returns a client bound to it. */
+export async function createNikcli(options?: ServerOptions) {
+  const server = await createNikcliServer(options)
+  return {
+    client: createNikcliClient({ baseUrl: server.url }),
+    server,
   }
 }
 

@@ -1,4 +1,5 @@
-import { createNikcliClient, createNikcliServer } from "@nikcli-ai/sdk"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
+import { createNikcliServer } from "@nikcli-ai/sdk/server"
 
 const server = await createNikcliServer()
 const client = createNikcliClient({ baseUrl: server.url })

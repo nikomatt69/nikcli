@@ -36,7 +36,7 @@ export const GenerateCommand = {
           {
             lang: "js",
             source: [
-              `import { createNikcliClient } from "@nikcli-ai/sdk`,
+              `import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"`,
               ``,
               `const client = createNikcliClient()`,
               `await client.${operation.operationId}({`,

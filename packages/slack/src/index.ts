@@ -1,6 +1,5 @@
 import { App, Assistant, type SayFn } from "@slack/bolt"
 import {
-  createNikcli,
   createNikcliClient,
   type Part,
   type SessionPromptResponse,
@@ -8,6 +7,7 @@ import {
   type ToolPart,
   type ToolStateCompleted,
 } from "@nikcli-ai/sdk/httpapi"
+import { createNikcli } from "@nikcli-ai/sdk/server"
 import { ChannelMemory } from "./channel-memory"
 import { ChannelTools } from "./channel-tools"
 import { FollowUps } from "./followups"

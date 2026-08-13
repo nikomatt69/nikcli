@@ -6,7 +6,7 @@ import * as core from "@actions/core"
 import * as github from "@actions/github"
 import type { Context as GitHubContext } from "@actions/github/lib/context"
 import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/webhooks-types"
-import { createNikcliClient } from "@nikcli-ai/sdk"
+import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
 import {
   assertCompleteGitHubTuiEvidence,
   changedGitHubTuiEvidence,
