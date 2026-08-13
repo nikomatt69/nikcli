@@ -93,12 +93,17 @@ export namespace SessionEntryProjection {
    * A user message is one entry aggregating its text, files and agents, so
    * it is rebuilt from the message's parts rather than projected per part.
    * User messages are small and written once, so the reread is cheap.
+   *
+   * Only the parts the user actually typed count: the engine appends its own
+   * text parts to the user message (the plan-mode `<system-reminder>`, the
+   * build-mode switch), and folding those into `text` printed the whole
+   * reminder back at the user underneath their prompt.
    */
   function user(tx: Executor, info: MessageV2.Info): void {
     const parts = MessageRepo.listParts(info.id)
     const text = parts
-      .filter((part) => part.type === "text")
-      .map((part) => (part as MessageV2.TextPart).text)
+      .filter((part): part is MessageV2.TextPart => part.type === "text" && !part.synthetic && !part.ignored)
+      .map((part) => part.text)
       .join("\n")
 
     SessionEntryRepo.upsert(

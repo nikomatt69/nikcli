@@ -286,9 +286,12 @@ export namespace SessionV2 {
     const messageID = msg.info.id
 
     if (msg.info.role === "user") {
+      // Synthetic text parts are the engine talking to the model on the user's
+      // message (plan-mode reminder, build-mode switch) — never part of what
+      // the user typed, so they stay out of the user entry's text.
       const textParts = msg.parts
-        .filter((p) => p.type === "text")
-        .map((p) => (p as MessageV2.TextPart).text)
+        .filter((p): p is MessageV2.TextPart => p.type === "text" && !p.synthetic && !p.ignored)
+        .map((p) => p.text)
         .join("\n")
 
       const files = msg.parts.filter((p) => p.type === "file") as MessageV2.FilePart[]

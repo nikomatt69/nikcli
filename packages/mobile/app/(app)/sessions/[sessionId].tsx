@@ -147,7 +147,10 @@ function parseSlashCommand(value: string) {
 
 function messagePlainText(message: MessageWithParts) {
   const text = message.parts
-    .filter((part): part is Extract<MessageWithParts["parts"][number], { type: "text" }> => part.type === "text")
+    .filter(
+      (part): part is Extract<MessageWithParts["parts"][number], { type: "text" }> =>
+        part.type === "text" && !part.synthetic,
+    )
     .map((part) => part.text)
     .join("\n\n")
     .trim()

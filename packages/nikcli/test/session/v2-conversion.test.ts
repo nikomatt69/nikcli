@@ -189,6 +189,37 @@ describe("SessionV2.toEntries", () => {
     expect(user.files).toHaveLength(1)
     expect(user.agents).toHaveLength(1)
   })
+
+  it("keeps engine-authored text out of the user entry", () => {
+    const messageID = Identifier.ascending("message")
+    const entries = SessionV2.toEntries(
+      [
+        {
+          info: {
+            id: messageID,
+            sessionID,
+            role: "user",
+            time: { created: 1_700_000_000_000 },
+            agent: "plan",
+            model: { providerID: "p", modelID: "m" },
+          } as MessageV2.User,
+          parts: [
+            part(messageID, { type: "text", text: "hi" }),
+            part(messageID, {
+              type: "text",
+              text: "<system-reminder>\nPlan mode is active.\n</system-reminder>",
+              synthetic: true,
+            }),
+            part(messageID, { type: "text", text: "stale", ignored: true }),
+          ],
+        },
+      ],
+      sessionID,
+    )
+
+    expect(entries).toHaveLength(1)
+    expect((entries[0] as SessionEntry.User).text).toBe("hi")
+  })
 })
 
 describe("Stepper.stepWith", () => {

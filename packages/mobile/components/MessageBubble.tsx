@@ -39,9 +39,12 @@ import { extractMessageArtifacts, kindLabel, type SessionPreview } from "@/lib/s
 import { useUIStore } from "@/lib/store"
 import { hexToRgba, useAppTheme } from "@/lib/theme"
 
+// Synthetic text parts are the engine's own notes appended to a message (the
+// plan-mode `<system-reminder>`, the build-mode switch) — never something the
+// user or the model wrote, so they stay out of the bubble.
 function latestText(parts: MessageWithParts["parts"]) {
   return parts
-    .filter((part): part is TextPart => part.type === "text")
+    .filter((part): part is TextPart => part.type === "text" && !part.synthetic)
     .map((part) => part.text)
     .join("\n\n")
 }

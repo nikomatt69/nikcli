@@ -228,6 +228,34 @@ describe("v2 entry projection", () => {
     })
   })
 
+  it("keeps a synthetic part appended to a user message out of the user entry", async () => {
+    await Instance.provide({
+      directory: projectDir,
+      fn: async () => {
+        const { session, userID } = await conversation()
+
+        // What plan mode does: append its reminder to the user's own message.
+        await runSession(
+          Effect.gen(function* () {
+            const s = yield* service()
+            yield* s.updatePart({
+              id: Identifier.ascending("part"),
+              sessionID: session.id,
+              messageID: userID,
+              type: "text",
+              text: "<system-reminder>\nPlan mode is active.\n</system-reminder>",
+              synthetic: true,
+            } as any)
+          }),
+        )
+
+        const entries = await SessionV2.entries(session.id)
+        const user = entries.find((e) => e.type === "user") as SessionEntryTypes.User
+        expect(user.text).toBe("do the thing")
+      },
+    })
+  })
+
   it("removing a part drops its entry", async () => {
     await Instance.provide({
       directory: projectDir,
