@@ -1007,9 +1007,58 @@ export function mergeWithHistorical(
     }
   }
 
+  // `/analytics/daily` carries a real per-tool breakdown for every day in the
+  // window — name, calls, successes. It was declared on the payload type and
+  // then read by nobody, so the Tools tab only ever showed whatever the current
+  // session happened to run.
+  const toolTotals = new Map<string, { calls: number; success: number }>()
+  for (const hd of historical.daily) {
+    for (const [name, stat] of Object.entries(hd.tools ?? {})) {
+      const prev = toolTotals.get(name)
+      if (prev) {
+        prev.calls += stat.calls
+        prev.success += stat.success
+      } else {
+        toolTotals.set(name, { calls: stat.calls, success: stat.success })
+      }
+    }
+  }
+
+  // The daily window already covers today, so history is a superset of the live
+  // pass rather than something to add to it.
+  for (const tool of live.toolUsage.tools) {
+    const success = Math.round((tool.successRate / 100) * tool.count)
+    const prev = toolTotals.get(tool.name)
+    if (!prev) toolTotals.set(tool.name, { calls: tool.count, success })
+    else if (tool.count > prev.calls) {
+      prev.calls = tool.count
+      prev.success = Math.max(prev.success, success)
+    }
+  }
+
+  const mergedTools = Array.from(toolTotals.entries())
+    .map(([name, stat]) => ({
+      name,
+      count: stat.calls,
+      successRate: stat.calls > 0 ? (stat.success / stat.calls) * 100 : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  const mergedToolUsage: ToolUsageStats =
+    mergedTools.length > 0
+      ? {
+          total: Math.max(
+            live.toolUsage.total,
+            mergedTools.reduce((sum, tool) => sum + tool.count, 0),
+          ),
+          tools: mergedTools,
+          mostUsed: mergedTools.slice(0, 10),
+        }
+      : live.toolUsage
+
   return {
     ...live,
-    global: mergedGlobal,
+    global: { ...mergedGlobal, toolUsage: mergedToolUsage },
     models: Array.from(mergedModels.values()).sort((a, b) => {
       const aTokens = a.tokens.input + a.tokens.output + a.tokens.reasoning
       const bTokens = b.tokens.input + b.tokens.output + b.tokens.reasoning
@@ -1017,6 +1066,7 @@ export function mergeWithHistorical(
     }),
     providers: mergedProviders,
     days: mergedDays,
+    toolUsage: mergedToolUsage,
   }
 }
 

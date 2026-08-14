@@ -1,7 +1,6 @@
 import { TextAttributes, RGBA, ScrollBoxRenderable } from "@opentui/core"
 import { useTheme, type Theme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
-import { useSDK } from "@tui/context/sdk"
 import { useAnalytics } from "../context/analytics"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { For, Show, createSignal, createMemo, createEffect, onMount, onCleanup, type ParentProps } from "solid-js"
@@ -113,7 +112,6 @@ const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 export function DialogAnalytics(_props: { onClose: () => void }) {
   const { theme } = useTheme()
   const sync = useSync()
-  const sdk = useSDK()
   const analyticsCtx = useAnalytics()
   const dialog = useDialog()
   const dimensions = useTerminalDimensions()
@@ -233,14 +231,15 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
   }
 
   /**
-   * `/analytics/sessions` aggregates every message of every session and is by
-   * far the slowest of the three. Overview, Tokens, Models and Tools are all
-   * served by `/global` + `/daily`, so it is fetched only once a tab that
-   * actually reads per-session rows is opened.
+   * `/analytics/sessions` aggregates every message of every session and is the
+   * slowest of the three, so it is never awaited before the first paint. It is
+   * still always fetched: `mergeWithHistorical` only fills days, totals, models
+   * and providers, so Projects and Sessions stay on live-sync data until this
+   * lands.
    */
   const [sessionsRequested, setSessionsRequested] = createSignal(false)
   async function ensureSessionsLoaded() {
-    if (!sdk.url || sessionsRequested()) return
+    if (sessionsRequested()) return
     setSessionsRequested(true)
     await analyticsCtx.refreshSessions()
     if (liveBase) setStats(withHistory(liveBase, source() === "live+history"))
@@ -269,8 +268,6 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
       setRefreshedAt(Date.now())
       setLoading(false)
 
-      if (!sdk.url) return
-
       const gotHistorical = await analyticsCtx.refresh().catch(() => false)
       if (gotHistorical) {
         setSource("live+history")
@@ -278,12 +275,11 @@ export function DialogAnalytics(_props: { onClose: () => void }) {
         setRefreshedAt(Date.now())
       }
 
-      // An explicit reload should also re-pull the session list, but only if
-      // something already asked for it.
-      if (sessionsRequested()) {
-        setSessionsRequested(false)
-        void ensureSessionsLoaded()
-      }
+      // Then fold in the session list, in the background. Projects, Tools and
+      // Sessions all read per-session rows, so gating this on which tab was
+      // open left them showing only the current session.
+      setSessionsRequested(false)
+      void ensureSessionsLoaded()
     } catch (e) {
       console.error("Failed to load analytics:", e)
       setLoadError(e instanceof Error ? e.message : "Analytics could not be loaded")

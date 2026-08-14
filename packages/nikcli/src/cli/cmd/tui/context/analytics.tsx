@@ -43,31 +43,33 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
     // full history scan after every assistant reply, panel open or not.
     let watchers = 0
 
+    /**
+     * Everything goes through `sdk.client`, never a bare `fetch` on `sdk.url`.
+     *
+     * The TUI runs its server in a worker and hands the SDK its own transport,
+     * so a raw request built from `sdk.url` never reaches the router — the
+     * panel silently fell back to live-sync data and reported "no history".
+     */
     async function load(): Promise<boolean> {
-      const base = sdk.url
-      if (!base) return false
-
       const { mergeGlobalAnalytics, mergeDailyAnalyticsLists } = await import("@/analytics/analytics")
 
-      // Overview/Tokens/Models/Tools/Projects all read these two. The session
-      // list is the expensive one and is fetched separately, on demand, so a
-      // slow list can no longer keep the totals off the screen.
+      // Overview/Tokens/Models all read these two. The session list is the
+      // expensive one and is fetched separately so a slow list cannot keep the
+      // totals off the screen.
       const [gRes, dRes] = await Promise.all([
-        fetch(`${base}/analytics/global`).catch(() => null),
-        // Bumped 90 → 365 so the Overview activity heatmap can render a full year.
-        fetch(`${base}/analytics/daily?days=365`).catch(() => null),
+        sdk.client.analytics.global().catch(() => undefined),
+        // 365 rather than 90 so the Overview activity heatmap gets a full year.
+        sdk.client.analytics.daily({ days: "365" }).catch(() => undefined),
       ])
 
       let gotHistorical = false
 
-      if (gRes?.ok) {
-        const api = (await gRes.json()) as GlobalAnalytics
-        setGlobal((current) => mergeGlobalAnalytics(current, api))
+      if (gRes?.data) {
+        setGlobal((current) => mergeGlobalAnalytics(current, gRes.data as GlobalAnalytics))
         gotHistorical = true
       }
-      if (dRes?.ok) {
-        const apiDaily = (await dRes.json()) as DailyAnalytics[]
-        setDaily((current) => mergeDailyAnalyticsLists(current, apiDaily))
+      if (dRes?.data) {
+        setDaily((current) => mergeDailyAnalyticsLists(current, dRes.data as DailyAnalytics[]))
         gotHistorical = true
       }
 
@@ -91,19 +93,16 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
       return inflight
     }
 
-    /** Lazy: only the Sessions tab needs this, and it is the slowest query. */
+    /** The slowest of the three, so it is loaded on its own after the totals. */
     function refreshSessions(): Promise<SessionAnalytics[]> {
       if (sessionsInflight) return sessionsInflight
-      const base = sdk.url
-      if (!base) return Promise.resolve(sessions())
 
       setSessionsLoading(true)
       sessionsInflight = (async () => {
         const { mergeSessionAnalyticsLists } = await import("@/analytics/analytics")
-        const res = await fetch(`${base}/analytics/sessions`).catch(() => null)
-        if (!res?.ok) return sessions()
-        const api = (await res.json()) as SessionAnalytics[]
-        const merged = mergeSessionAnalyticsLists(sessions(), api)
+        const res = await sdk.client.analytics.sessions().catch(() => undefined)
+        if (!res?.data) return sessions()
+        const merged = mergeSessionAnalyticsLists(sessions(), res.data as SessionAnalytics[])
         setSessions(merged)
         return merged
       })()
