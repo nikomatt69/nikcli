@@ -48,6 +48,7 @@ const baseState = (input: Partial<State> = {}) =>
     session: [],
     sessionTotal: 0,
     session_status: {},
+    session_instructions: {},
     session_diff: {},
     todo: {},
     permission: {},
@@ -141,6 +142,7 @@ describe("applyDirectoryEvent", () => {
         permission: { ses_1: [] },
         question: { ses_1: [] },
         session_status: { ses_1: { type: "busy" } },
+        session_instructions: { ses_1: [{ delta: { env: "aa" }, at: 1, initial: false }] },
       }),
     )
 
@@ -162,6 +164,48 @@ describe("applyDirectoryEvent", () => {
     expect(store.permission.ses_1).toBeUndefined()
     expect(store.question.ses_1).toBeUndefined()
     expect(store.session_status.ses_1).toBeUndefined()
+    expect(store.session_instructions.ses_1).toBeUndefined()
+  })
+
+  test("stores instruction deltas and hides the complete first admit", () => {
+    const [store, setStore] = createStore(baseState())
+
+    applyDirectoryEvent({
+      event: {
+        type: "session.instructions.updated",
+        properties: {
+          sessionID: "ses_1",
+          delta: { env: "aa", "file:/tmp/AGENTS.md": "bb" },
+        },
+      },
+      store,
+      setStore,
+      push() {},
+      directory: "/tmp",
+      loadLsp() {},
+    })
+
+    expect(store.session_instructions.ses_1?.[0]?.initial).toBe(true)
+    expect(store.session_instructions.ses_1?.[0]?.delta).toEqual({ env: "aa", "file:/tmp/AGENTS.md": "bb" })
+
+    applyDirectoryEvent({
+      event: {
+        type: "session.instructions.updated",
+        properties: {
+          sessionID: "ses_1",
+          delta: { "file:/tmp/AGENTS.md": "cc" },
+        },
+      },
+      store,
+      setStore,
+      push() {},
+      directory: "/tmp",
+      loadLsp() {},
+    })
+
+    expect(store.session_instructions.ses_1).toHaveLength(2)
+    expect(store.session_instructions.ses_1?.[1]?.initial).toBe(false)
+    expect(store.session_instructions.ses_1?.[1]?.delta).toEqual({ "file:/tmp/AGENTS.md": "cc" })
   })
 
   test("routes disposal and lsp events to side-effect handlers", () => {

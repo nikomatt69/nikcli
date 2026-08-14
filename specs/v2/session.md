@@ -110,9 +110,7 @@ The full transcript stays durable. `MessageV2.filterCompacted` is what makes the
 
 `collectSystemPaths` walks up from the instance directory to the worktree root collecting `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, and `.github/instructions/memory.instruction.md`, plus global `~/.config/nikcli/AGENTS.md` and (unless disabled) `~/.claude/CLAUDE.md`. Config-declared instructions and URLs are resolved the same way; `NIKCLI_DISABLE_PROJECT_CONFIG` and `NIKCLI_CONFIG_DIR` narrow the search.
 
-The result is assembled into the system prompt on every request. Nothing about instruction _state_ is durable: there is no content hash, no delta event, and no epoch. A file edited mid-session silently changes the next request's prefix, which also invalidates the provider prompt cache.
-
-> **Gap.** See [instruction sync](./instruction-sync-proposal.md) and ROADMAP item S3.
+The result is assembled from the instruction fold (see [instruction sync](./instruction-sync-proposal.md)). Clients display changed keys from `session.instructions.updated`; they do not re-render the prose.
 
 ---
 

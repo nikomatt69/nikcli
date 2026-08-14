@@ -1,4 +1,5 @@
 import { createMemo, createResource, createSignal, For, Show } from "solid-js"
+import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
@@ -10,9 +11,13 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
   const theme = useTheme().theme
   const session = createMemo(() => sync.session.get(props.sessionID))
+  const instructionEpoch = createMemo(() => (sync.data.session_instructions[props.sessionID] ?? []).length)
+  const instructionChanges = createMemo(() =>
+    visibleInstructionNotices(sync.data.session_instructions[props.sessionID], 1),
+  )
   const [instructions] = createResource(
-    () => props.sessionID,
-    async (sessionID) => {
+    () => ({ sessionID: props.sessionID, epoch: instructionEpoch() }),
+    async ({ sessionID }) => {
       const response = await sdk.client.session.instructions({ sessionID }).catch(() => undefined)
       return response?.data ?? []
     },
@@ -67,6 +72,13 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                         </text>
                       )}
                     </For>
+                  </Show>
+                  <Show when={instructionChanges()[0]}>
+                    {(notice) => (
+                      <text fg={theme.foreground.muted} wrapMode="word">
+                        {formatInstructionDelta(notice().delta)}
+                      </text>
+                    )}
                   </Show>
                 </box>
               </Show>

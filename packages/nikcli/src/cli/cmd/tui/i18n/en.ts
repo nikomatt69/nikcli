@@ -28,6 +28,7 @@ export const en = {
   "session.revert.bannerCount": "{{count}} message reverted",
   "session.revert.bannerCountPlural": "{{count}} messages reverted",
   "session.revert.bannerHint": "or /redo to restore",
+  "session.instructions.updated": "Instructions updated · {{keys}}",
   "session.message.actionsTitle": "Message Actions",
   "session.message.revert": "Revert",
   "session.message.revertDescription": "undo messages and file changes",

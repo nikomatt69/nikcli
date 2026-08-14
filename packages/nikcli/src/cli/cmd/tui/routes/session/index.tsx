@@ -111,6 +111,7 @@ import { friendlyErrorMessage, shareErrorMessage } from "../../util/error-messag
 import { Link } from "../../ui/link"
 import { context, use } from "./session-context"
 import { fromEntries, stabilize, type Turn, type ViewEntry } from "./view"
+import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
 
 /** The file fields the user-message badge row and image preview read. */
 type FileAttachment = {
@@ -267,6 +268,10 @@ export function Session() {
     const visible = new Set(messages().map((message) => message.id))
     return sync.session.pending(route.sessionID).filter((item) => !visible.has(item.messageID))
   })
+
+  const instructionNotices = createMemo(() =>
+    visibleInstructionNotices(sync.data.session_instructions[route.sessionID]),
+  )
 
   const lastAssistant = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant")
@@ -1475,6 +1480,15 @@ export function Session() {
                 <box height={windowed().bottom} flexShrink={0} />
               </Show>
               <For each={pendingInputs()}>{(item) => <PendingUserMessage pending={item} />}</For>
+              <For each={instructionNotices()}>
+                {(notice) => (
+                  <box paddingLeft={2} paddingRight={2} paddingTop={1} flexShrink={0}>
+                    <text fg={theme.foreground.muted} wrapMode="word">
+                      {lang.t("session.instructions.updated", { keys: formatInstructionDelta(notice.delta) })}
+                    </text>
+                  </box>
+                )}
+              </For>
             </scrollbox>
             <box flexShrink={0}>
               <TuiPluginRuntime.Slot name="session.prompt.top" sessionID={route.sessionID} />

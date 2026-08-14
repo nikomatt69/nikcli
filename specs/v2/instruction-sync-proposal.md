@@ -173,7 +173,7 @@ At a sync or export boundary the sender attaches `blobs: Record<hash, body>` for
 
 1. Add `instruction_blob` and `instruction_state`. Both are new tables; no existing row changes.
 2. Emit the delta event from the model-request boundary. Request assembly renders from stored values in the same step. Compaction epoch moves with this step — otherwise a compaction re-sends the entire instruction set as an update rather than as initial context. **Landed.**
-3. Surface changed keys in the TUI and desktop clients (clients already receive the bus/SSE event). TUI currently ignores the event; the delta is on the wire for a later chrome pass.
+3. Surface changed keys in the TUI and desktop clients from the `session.instructions.updated` delta. Clients show labels (basename, URL, `environment`, `profile`, `skill <name>`), never hashes or bodies. The complete first admit for a session is stored but not shown; later one-key changes are. **Landed.**
 4. Optional later: hash-first file reads that skip I/O when `mtime` and size are unchanged. That cache is never authoritative.
 
 Step 1 is independently revertible. Step 2 is the behavior-visible change and must include the epoch rule.

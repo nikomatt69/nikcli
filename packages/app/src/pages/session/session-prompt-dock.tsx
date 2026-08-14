@@ -1,9 +1,12 @@
-import { For, Show, type ComponentProps } from "solid-js"
+import { createMemo, For, Show, type ComponentProps } from "solid-js"
+import { useParams } from "@solidjs/router"
 import { Button } from "@nikcli-ai/ui/button"
 import { BasicTool } from "@nikcli-ai/ui/basic-tool"
 import { PromptInput } from "@/components/prompt-input"
 import { QuestionDock } from "@/components/question-dock"
 import { questionSubtitle } from "@/pages/session/session-prompt-helpers"
+import { useSync } from "@/context/sync"
+import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
 
 const questionDockRequest = (value: unknown) => value as ComponentProps<typeof QuestionDock>["request"]
 
@@ -23,6 +26,16 @@ export function SessionPromptDock(props: {
   onSubmit: () => void
   setPromptDockRef: (el: HTMLDivElement) => void
 }) {
+  const params = useParams()
+  const sync = useSync()
+  const instructionLine = createMemo(() => {
+    const sessionID = params.id
+    if (!sessionID) return
+    const notice = visibleInstructionNotices(sync.data.session_instructions[sessionID], 1)[0]
+    if (!notice) return
+    return formatInstructionDelta(notice.delta)
+  })
+
   return (
     <div
       ref={props.setPromptDockRef}
@@ -115,6 +128,13 @@ export function SessionPromptDock(props: {
         </Show>
 
         <Show when={!props.blocked}>
+          <Show when={instructionLine()}>
+            {(line) => (
+              <div class="mb-2 px-1 text-12-regular text-text-weak">
+                {props.t("session.instructions.updated")} · {line()}
+              </div>
+            )}
+          </Show>
           <Show
             when={props.promptReady}
             fallback={

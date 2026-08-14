@@ -14,6 +14,7 @@ import { Markdown } from "@nikcli-ai/ui/markdown"
 import type { Message, Part, UserMessage } from "@nikcli-ai/sdk/httpapi"
 import { useLanguage } from "@/context/language"
 import { getSessionContextMetrics } from "./session-context-metrics"
+import { formatInstructionDelta, visibleInstructionNotices } from "@nikcli-ai/util/instruction-delta"
 
 interface SessionContextTabProps {
   messages: () => Message[]
@@ -60,6 +61,12 @@ export function SessionContextTab(props: SessionContextTabProps) {
     const trimmed = system.trim()
     if (!trimmed) return
     return trimmed
+  })
+
+  const instructionNotices = createMemo(() => {
+    const sessionID = params.id
+    if (!sessionID) return []
+    return visibleInstructionNotices(sync.data.session_instructions[sessionID])
   })
 
   const number = (value: number | null | undefined) => {
@@ -374,6 +381,15 @@ export function SessionContextTab(props: SessionContextTabProps) {
               </For>
             </div>
             <div class="hidden text-11-regular text-text-weaker">{language.t("context.breakdown.note")}</div>
+          </div>
+        </Show>
+
+        <Show when={instructionNotices().length > 0}>
+          <div class="flex flex-col gap-2">
+            <div class="text-12-regular text-text-weak">{language.t("session.instructions.history")}</div>
+            <div class="flex flex-col gap-1 text-12-regular text-text-strong">
+              <For each={instructionNotices()}>{(notice) => <div>{formatInstructionDelta(notice.delta)}</div>}</For>
+            </div>
           </div>
         </Show>
 

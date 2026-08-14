@@ -484,6 +484,8 @@ export const dict = {
 
   "context.systemPrompt.title": "System Prompt",
   "context.rawMessages.title": "Raw messages",
+  "session.instructions.updated": "Instructions updated",
+  "session.instructions.history": "Instruction updates",
 
   "context.stats.session": "Session",
   "context.stats.messages": "Messages",

@@ -19,6 +19,7 @@ import type {
 } from "@nikcli-ai/sdk/httpapi"
 import type { Accessor } from "solid-js"
 import type { SetStoreFunction, Store } from "solid-js/store"
+import type { InstructionNotice } from "@nikcli-ai/util/instruction-delta"
 
 export type ProjectMeta = {
   name?: string
@@ -45,6 +46,9 @@ export type State = {
   sessionTotal: number
   session_status: {
     [sessionID: string]: SessionStatus
+  }
+  session_instructions: {
+    [sessionID: string]: InstructionNotice[]
   }
   session_diff: {
     [sessionID: string]: FileDiff[]

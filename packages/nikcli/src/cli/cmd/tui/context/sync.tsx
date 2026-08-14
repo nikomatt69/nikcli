@@ -38,6 +38,7 @@ import { createLru } from "@tui/util/lru-cache"
 import { createLatestOnlyAsync } from "@tui/util/signal"
 import type { Path } from "@nikcli-ai/sdk/httpapi"
 import { features } from "@/config/features"
+import { appendInstructionNotice, type InstructionNotice } from "@nikcli-ai/util/instruction-delta"
 
 type BackgroundJob = {
   jobID: string
@@ -100,6 +101,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       session: Session[]
       session_status: Record<string, SessionStatus>
       session_pending: Record<string, SessionPendingInput2[]>
+      session_instructions: Record<string, InstructionNotice[]>
       session_goal: Record<string, GoalState>
       background_job: Record<string, BackgroundJob[]>
       monitor: Record<string, MonitorSnapshot[]>
@@ -138,6 +140,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       session: [],
       session_status: {},
       session_pending: {},
+      session_instructions: {},
       session_goal: {},
       background_job: {},
       monitor: {},
@@ -395,6 +398,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               delete draft.session_diff[event.properties.info.id]
               delete draft.session_status[event.properties.info.id]
               delete draft.session_pending[event.properties.info.id]
+              delete draft.session_instructions[event.properties.info.id]
               delete draft.session_goal[event.properties.info.id]
               for (const messageID of messageIDs) {
                 delete draft.part[messageID]
@@ -433,8 +437,14 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
-        case "session.instructions.updated":
+        case "session.instructions.updated": {
+          const { sessionID, delta } = event.properties
+          if (!sessionID || !delta) break
+          setStore("session_instructions", sessionID, (current) =>
+            appendInstructionNotice(current, delta, Date.now()),
+          )
           break
+        }
 
         case "session.goal": {
           const { sessionID, goal } = event.properties
@@ -723,6 +733,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           draft.session_diff = {}
           draft.session_status = {}
           draft.session_pending = {}
+          draft.session_instructions = {}
           draft.session_goal = {}
         }),
       )

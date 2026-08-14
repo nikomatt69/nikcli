@@ -13,6 +13,7 @@ import type {
 } from "@nikcli-ai/sdk/httpapi"
 import type { State, VcsCache } from "./types"
 import { trimSessions } from "./session-trim"
+import { appendInstructionNotice } from "@nikcli-ai/util/instruction-delta"
 
 export function applyGlobalEvent(input: {
   event: { type: string; properties?: unknown }
@@ -47,7 +48,8 @@ function cleanupSessionCaches(store: Store<State>, setStore: SetStoreFunction<St
     store.todo[sessionID] !== undefined ||
     store.permission[sessionID] !== undefined ||
     store.question[sessionID] !== undefined ||
-    store.session_status[sessionID] !== undefined
+    store.session_status[sessionID] !== undefined ||
+    store.session_instructions[sessionID] !== undefined
   if (!hasAny) return
   setStore(
     produce((draft) => {
@@ -65,6 +67,7 @@ function cleanupSessionCaches(store: Store<State>, setStore: SetStoreFunction<St
       delete draft.permission[sessionID]
       delete draft.question[sessionID]
       delete draft.session_status[sessionID]
+      delete draft.session_instructions[sessionID]
     }),
   )
 }
@@ -154,6 +157,14 @@ export function applyDirectoryEvent(input: {
     case "session.status": {
       const props = event.properties as { sessionID: string; status: SessionStatus }
       input.setStore("session_status", props.sessionID, reconcile(props.status))
+      break
+    }
+    case "session.instructions.updated": {
+      const props = event.properties as { sessionID: string; delta: Record<string, string> }
+      if (!props.sessionID || !props.delta) break
+      input.setStore("session_instructions", props.sessionID, (current) =>
+        appendInstructionNotice(current, props.delta, Date.now()),
+      )
       break
     }
     case "message.updated": {
