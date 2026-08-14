@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
-import { sessionInfo } from "./session.sql";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
+import { sessionInfo } from "./session.sql"
 
 // ============================================================================
 // Message Info — SQL backend for JSON-backed message storage
@@ -23,7 +23,7 @@ export const messageInfo = sqliteTable(
     sessionIdx: index("idx_message_info_session").on(table.sessionId),
     roleIdx: index("idx_message_info_role").on(table.role),
   }),
-);
+)
 
 // ============================================================================
 // Message Parts — SQL backend for JSON-backed part storage
@@ -46,4 +46,4 @@ export const messagePart = sqliteTable(
     sessionIdx: index("idx_message_part_session").on(table.sessionId),
     sortIdx: index("idx_message_part_sort").on(table.messageId, table.sortKey),
   }),
-);
+)

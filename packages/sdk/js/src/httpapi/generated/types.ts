@@ -7372,6 +7372,7 @@ export type SessionCommandInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly messageID?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7379,8 +7380,19 @@ export type SessionCommandInput = {
     readonly variant?: string | undefined
     readonly parts?: ReadonlyArray<unknown> | undefined
   }["messageID"]
+  readonly delivery?: {
+    readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
+    readonly agent?: string | undefined
+    readonly model?: string | undefined
+    readonly arguments: string
+    readonly command: string
+    readonly variant?: string | undefined
+    readonly parts?: ReadonlyArray<unknown> | undefined
+  }["delivery"]
   readonly agent?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7390,6 +7402,7 @@ export type SessionCommandInput = {
   }["agent"]
   readonly model?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7399,6 +7412,7 @@ export type SessionCommandInput = {
   }["model"]
   readonly arguments: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7408,6 +7422,7 @@ export type SessionCommandInput = {
   }["arguments"]
   readonly command: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7417,6 +7432,7 @@ export type SessionCommandInput = {
   }["command"]
   readonly variant?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7426,6 +7442,7 @@ export type SessionCommandInput = {
   }["variant"]
   readonly parts?: {
     readonly messageID?: string | undefined
+    readonly delivery?: "steer" | "queue" | undefined
     readonly agent?: string | undefined
     readonly model?: string | undefined
     readonly arguments: string
@@ -7491,6 +7508,13 @@ export type SessionMessagesOutput = MessageList
 export type SessionPendingInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
 
 export type SessionPendingOutput = SessionPendingInputList
+
+export type SessionPendingSteerInput = {
+  readonly sessionID: { readonly sessionID: string; readonly pendingID: string }["sessionID"]
+  readonly pendingID: { readonly sessionID: string; readonly pendingID: string }["pendingID"]
+}
+
+export type SessionPendingSteerOutput = SessionPendingInput2
 
 export type SessionMessageInput = {
   readonly sessionID: { readonly sessionID: string; readonly messageID: string }["sessionID"]

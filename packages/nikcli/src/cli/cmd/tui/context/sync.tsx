@@ -20,6 +20,7 @@ import type {
   FileDiff,
   Workspace,
   SessionEntry,
+  SessionPendingInput2,
 } from "@nikcli-ai/sdk/httpapi"
 import type { Config } from "@nikcli-ai/sdk/httpapi"
 import { createNikcliClient } from "@nikcli-ai/sdk/httpapi"
@@ -98,6 +99,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: Record<string, QuestionRequest[]>
       session: Session[]
       session_status: Record<string, SessionStatus>
+      session_pending: Record<string, SessionPendingInput2[]>
       session_goal: Record<string, GoalState>
       background_job: Record<string, BackgroundJob[]>
       monitor: Record<string, MonitorSnapshot[]>
@@ -135,6 +137,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: {},
       session: [],
       session_status: {},
+      session_pending: {},
       session_goal: {},
       background_job: {},
       monitor: {},
@@ -391,6 +394,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               delete draft.monitor[event.properties.info.id]
               delete draft.session_diff[event.properties.info.id]
               delete draft.session_status[event.properties.info.id]
+              delete draft.session_pending[event.properties.info.id]
               delete draft.session_goal[event.properties.info.id]
               for (const messageID of messageIDs) {
                 delete draft.part[messageID]
@@ -418,6 +422,14 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           setStore("session_status", event.properties.sessionID, event.properties.status)
           const parentID = getSessionByID(event.properties.sessionID)?.parentID
           scheduleBackgroundRefresh(parentID)
+          break
+        }
+
+        case "session.pending.promoted": {
+          const removed = new Set(event.properties.pendingIDs)
+          setStore("session_pending", event.properties.sessionID, (pending) =>
+            (pending ?? []).filter((item) => !removed.has(item.id)),
+          )
           break
         }
 
@@ -578,7 +590,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         // delta replaces in place. This is the same shape `/v2/entries`
         // returns, so a client can seed from the route and stay live here.
         case "session.entry.updated": {
-          const { sessionID, entry } = event.properties as { sessionID: string; entry: SessionEntry }
+          const { sessionID, entry } = event.properties as {
+            sessionID: string
+            entry: SessionEntry
+          }
           const entries = store.entry[sessionID]
           if (!entries) {
             setStore("entry", sessionID, [entry])
@@ -600,7 +615,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "session.entry.removed": {
-          const { sessionID, entryID } = event.properties as { sessionID: string; entryID: string }
+          const { sessionID, entryID } = event.properties as {
+            sessionID: string
+            entryID: string
+          }
           const entries = store.entry[sessionID]
           if (!entries) break
           const result = Binary.search(entries, entryID, (e) => e.id)
@@ -701,6 +719,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           draft.monitor = {}
           draft.session_diff = {}
           draft.session_status = {}
+          draft.session_pending = {}
           draft.session_goal = {}
         }),
       )
@@ -826,11 +845,20 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             delete draft.message[sid]
             delete draft.entry[sid]
             delete draft.session_diff[sid]
+            delete draft.session_pending[sid]
             delete draft.todo[sid]
           }
         }),
       )
       for (const sid of evicted) syncedSessions.delete(sid)
+    }
+
+    async function refreshSessionPending(sessionID: string) {
+      if (!sessionID) return []
+      const pending = await sdk.client.session.pending({ sessionID })
+      const items = pending.data ?? []
+      setStore("session_pending", sessionID, reconcile(items))
+      return items
     }
 
     const result = {
@@ -869,6 +897,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           // what the session route draws from, and a session synced before
           // they were seeded would render empty.
           if (cached && store.entry[sessionID]) {
+            void result.session.refreshPending(sessionID)
             return result.session.get(sessionID)
           }
           // Entries ride along with the messages rather than being fetched by
@@ -878,7 +907,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           // or backgrounded session — so seeding here is what guarantees there
           // is no path that opens a session with messages loaded and entries
           // missing.
-          const [session, messages, todo, diff, backgroundJobs, goal, entries] = await Promise.all([
+          const [session, messages, todo, diff, backgroundJobs, goal, entries, pending] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
@@ -886,6 +915,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.session.background({ sessionID }).catch(() => undefined),
             sdk.client.session.goal({ sessionID }).catch(() => undefined),
             sdk.client.session.v2.entries({ sessionID }).catch(() => undefined),
+            sdk.client.session.pending({ sessionID }).catch(() => undefined),
           ])
           setStore(
             produce((draft) => {
@@ -902,6 +932,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               if (goal?.data) draft.session_goal[sessionID] = goal.data as GoalState
               else delete draft.session_goal[sessionID]
               draft.entry[sessionID] = entries?.data ?? []
+              draft.session_pending[sessionID] = pending?.data ?? []
             }),
           )
           syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")
@@ -913,6 +944,17 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const files = diff.data ?? []
           setStore("session_diff", sessionID, files)
           return files
+        },
+        pending(sessionID: string) {
+          return store.session_pending[sessionID] ?? []
+        },
+        async refreshPending(sessionID: string) {
+          return refreshSessionPending(sessionID)
+        },
+        async steerPending(sessionID: string, pendingID: string) {
+          const result = await sdk.client.session.pendingSteer({ sessionID, pendingID }, { throwOnError: true })
+          await refreshSessionPending(sessionID)
+          return result.data
         },
       },
       background: {

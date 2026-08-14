@@ -63,6 +63,7 @@ State the wins, so nobody re-plans them:
 - **Tool output schemas** (was T2, landed 2026-08-14). A tool may declare an `output` zod codec; the wrapper parses `result.value` after execute and rejects a malformed success for that call only. Code Mode receives `Tool.encoded(result, codec)` — the validated value when a codec exists, otherwise the model-facing string. Truncation still bounds only `output`. Tools without a codec are unchanged. See [v2/tools.md](./v2/tools.md) §"One Response Value, Not Three".
 - **Provider policy** (was P1, landed 2026-08-14). `Policy` centrally evaluates `experimental.policies` with full or trailing-prefix wildcards and ordered last-match-wins. Legacy enabled/disabled fields translate with their old precedence; the provider catalog, HTTP provider list, CLI auth picker, and session auth picker consume the evaluator, while TUI disconnect writes deny statements. Unit tests cover matching, translation, overrides, filtering, and schema validation; HTTP integration covers legacy allowlist filtering. See [v2/provider-policy.md](./v2/provider-policy.md).
 - **Scoped tool registration** (was T1, landed 2026-08-14). `ToolRegistry.register` returns a handle whose `close` removes exactly that stack entry and reveals the next-latest occupant of the id. Config-dir and plugin tools live in a reloadable derived cache; runtime registrations live in a separate non-reloadable cache, so a hot reload cannot drop sdk-next tools. See [v2/tools.md](./v2/tools.md) §"Registration Is An Overlay Stack".
+- **Durable pending input** (was S1, landed 2026-08-14). Busy input lives in `session_pending` until atomic batched promotion: steer advances at the next safe non-compaction boundary, while queue/default waits for turn completion; both promote immediately while idle. In the TUI, Enter queues, Ctrl+Enter (and Cmd+Enter where supported) steers, and slash commands preserve the selected delivery. Canonical identity survives promotion in `message_info.prompt_data`, targeted waiters follow each message or batch, `GET /session/:id/pending` exposes staged input, and `session.pending.promoted` announces the transition. Cancellation and restart leave pending rows intact without claiming hard-crash turn recovery or clustered ownership. See [v2/durable-pending-input.md](./v2/durable-pending-input.md).
 
 ---
 
@@ -76,19 +77,11 @@ Empty. Correctness items with no new public surface have landed. Next work is Ho
 
 Contracts. These change what the system promises, so each needs its spec landed before its code.
 
-### S1 · Durable pending input
-
-- **Buys** — Steering a running turn, queueing a follow-up, and a compaction barrier that actually blocks input. Today none of the three exist.
-- **Evidence** — `SessionPrompt.admit` writes the user message straight into visible history. `loop` has no delivery mode; a second caller joins the active loop through `PromptState` callbacks and receives the owner's result. There is no pending row and no promotion transaction.
-- **Blocks** — S4 (the engine swap has nothing to swap to without this), and any credible hard-crash recovery.
-- **Done when** — A `session_pending` row plus a promotion transaction exist; `steer` promotes at the next safe step boundary while `queue` waits for idle; promoting input resets the agent's step allowance once per batch; an interrupted turn leaves its pending input intact.
-- **Spec** — [v2/durable-pending-input.md](./v2/durable-pending-input.md) (proposed). Implementation waits on acceptance of that record; do not start from [v2/session.md](./v2/session.md) §"Admission Precedes Execution" alone.
-
 ### S3 · Instruction sync as value deltas
 
 - **Buys** — A prompt prefix that survives an `AGENTS.md` edit, an auditable record of what a session was told, and no more silent guidance loss on a failed read.
 - **Evidence** — `Instruction.system()` re-reads every rule file and re-fetches every instruction URL on every request assembly; a failed read or a 5s timeout becomes an empty string and vanishes.
-- **Blocks** — Nothing hard, but it interacts with compaction epochs, so land it after S1 while the safe-boundary machinery is fresh.
+- **Blocks** — Nothing hard. S1 has landed the safe-boundary machinery this contract should reuse.
 - **Done when** — One `session.instructions.updated { delta }` event of content hashes; blobs stored once, content-addressed; request assembly renders from stored values; a compaction moves the epoch without reading sources.
 - **Spec** — [v2/instruction-sync-proposal.md](./v2/instruction-sync-proposal.md)
 
@@ -102,7 +95,7 @@ Structure. Large, and each depends on Horizon 2.
 
 - **Buys** — One engine. Today `SessionV2` is an honest strangler: reads are native entries, writes delegate to the v1 `Session`/`SessionPrompt` services so behavior stays exactly the production engine's.
 - **Evidence** — The status comment at the top of `src/session/v2/index.ts` says so, and `SessionV2.prompt` is a pass-through to `SessionPrompt.prompt`.
-- **Depends on** — S1. Without durable pending input the new write path would reimplement the old one's limits.
+- **Depends on** — S1, now landed. The new write path must preserve its pending-input contract.
 - **Done when** — Writes produce entries directly; the v1 projection becomes derived; `MessageV2` remains authoritative for the LLM layer, which is not in scope for this item.
 
 ### U1 · Extract the TUI into `packages/tui`

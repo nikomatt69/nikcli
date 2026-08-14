@@ -1,10 +1,4 @@
-import {
-  index,
-  integer,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 export const sessionPending = sqliteTable(
   "session_pending",
@@ -17,14 +11,7 @@ export const sessionPending = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (table) => ({
-    sessionCreatedIdx: index("session_pending_session_created").on(
-      table.sessionId,
-      table.createdAt,
-      table.id,
-    ),
-    sessionMessageIdx: uniqueIndex("session_pending_session_message").on(
-      table.sessionId,
-      table.messageId,
-    ),
+    sessionCreatedIdx: index("session_pending_session_created").on(table.sessionId, table.createdAt, table.id),
+    sessionMessageIdx: uniqueIndex("session_pending_session_message").on(table.sessionId, table.messageId),
   }),
-);
+)

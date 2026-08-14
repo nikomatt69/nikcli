@@ -4,33 +4,38 @@ Status: **Current semantic overview** (verified 2026-08-14 against `packages/nik
 
 `MessageV2` owns the durable message and part shapes. `SessionPrompt` owns admission and the step loop. `SessionV2` owns the flat entry read model. The HttpApi groups own the public operations. Where this document and those modules disagree, the modules are right.
 
-## Admission Precedes Execution, But Is Not Durable Pending Input
+## Admit before execution
 
 `SessionPrompt` exposes admission and execution as two operations:
 
-| Operation         | Effect                                                                                                                             |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `admit(input)`    | Cleans up an uncommitted revert, writes the user message, touches the session, applies per-prompt tool permissions. No model call. |
-| `loop(sessionID)` | Runs the step loop until the projected history says the turn is finished.                                                          |
-| `prompt(input)`   | `admit` then `loop`. With `noReply: true` it stops after `admit`.                                                                  |
+| Operation         | Effect                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `admit(input)`    | Cleans up an uncommitted revert, durably admits input, and either promotes it immediately or leaves it pending. No model call. |
+| `loop(sessionID)` | Runs the step loop until the projected history says the turn is finished.                                                      |
+| `prompt(input)`   | `admit` then `loop`. With `noReply: true`, it returns the immediate message or waits only for pending promotion.               |
 
-`POST /session/:id/prompt_async` calls `admit` and returns `204` before scheduling `loop`, so a client observes its own message immediately instead of waiting for the first token. `POST /session/:id/message` is the synchronous form.
+`POST /session/:id/prompt_async` calls `admit` and returns `204` before scheduling `loop`. Idle input is already in history at that point; busy input may remain in `session_pending` according to its delivery mode.
 
-The admitted message is written straight into visible Session History. There is **no pending row and no promotion transaction**: nikcli has no `steer` / `queue` delivery mode, no coalesced compaction barrier, and no way to record input that the model must not see yet. A prompt admitted during an active turn is visible to the next step of that turn simply because the step loop re-reads history.
+Both `steer` and `queue`/default promote immediately while the session is idle. During an active turn, `steer` waits for the next safe step boundary and `queue` waits for the turn to finish.
 
-Reusing a session ID adopts the existing session. Reusing a message ID overwrites the projected row; there is no retry reconciliation that distinguishes an exact retry from a conflicting reuse.
+The main TUI prompt submission sends `delivery: "queue"` for Enter and `delivery: "steer"` for Ctrl+Enter (and Cmd+Enter where supported). Slash-command submissions preserve the selected delivery, while idle submissions remain immediate in either mode.
 
-> **Gap.** Durable pending input is the precondition for steering, queued prompts, and a compaction barrier that actually blocks input. The decision is recorded in [durable pending input](./durable-pending-input.md). Graceful restart already continues an interrupted turn from history ([restart continuation](./session-restart-continuation.md)). See [../ROADMAP.md](../ROADMAP.md) item S1. Do not implement until that record is accepted.
+Busy input is stored outside history in `session_pending`. Promotion batches ordered rows into messages and parts in one transaction, removes the pending rows, and resets the loop's step allowance once for the batch.
+
+`session_pending.data` and nullable `message_info.prompt_data` store the canonical prompt payload. Reusing a message id with identical input is a retry; different input raises `SessionPendingConflictError` rather than overwriting history.
+
+`GET /session/:id/pending` exposes staged input. Promotion publishes `session.pending.promoted` with pending and message ids; see [pending input](./durable-pending-input.md).
 
 ## Execution Is Process-Local And Single-Flight Per Session
 
 `PromptState` is an `InstanceState` map keyed by session ID, so ownership is per process **and** per instance directory. `PromptState.start(sessionID)` either reserves the session and returns an `AbortController`, or returns `undefined` because a loop already owns it.
 
-A caller that loses the race does not start a second loop and does not fail. It parks a `{ resolve, reject }` pair on the owner's entry and receives the owner's final assistant message. This is join-on-active, not a queue:
+A caller that loses the race does not start a second loop. New input is admitted to the durable queue, while `PromptState` parks a targeted waiter for its `messageID`:
 
-- Explicit second prompts join the active execution for the same session.
+- Promotion waiters resolve only when their message is promoted.
+- Reply waiters resolve against the final message in their promoted batch.
 - Different sessions run concurrently.
-- Interruption aborts the owner and rejects every parked waiter with `MessageV2.AbortedError`.
+- Interruption aborts the owner and rejects every parked waiter with `MessageV2.AbortedError`, without deleting durable pending rows.
 - Disposing the instance aborts every live entry and rejects its waiters.
 
 Ownership lives only in memory. `sessions.active()`-style liveness is a snapshot of this process, never a durable fact. A graceful shutdown writes `session_info.time_suspended` and the next server resumes each claimed row once; a hard crash never writes the mark, so the durable rows remain and the loop does not. See [restart continuation](./session-restart-continuation.md).
@@ -45,8 +50,9 @@ Each iteration of `loop`:
 2. Reloads the session and `MessageV2.filterCompacted(MessageV2.stream(sessionID))` — history after the compaction boundary.
 3. Scans backwards for the last user message, last assistant, last _finished_ assistant, and any pending `compaction` / `subtask` parts.
 4. Terminates when the last assistant finished for a reason other than `tool-calls` / `unknown` **and** its `parentID` is the last user message id. Ordering uses `parentID`, not id comparison, because independently generated timestamp ids can skew.
-5. Before terminating, re-reads history once. A user message that arrived during the exit window resets `step` to 0 and continues the loop instead of dropping the prompt.
-6. Otherwise resolves the model, drains one queued `subtask` part through the `task` tool, or performs one provider request through `SessionProcessor`.
+5. At safe boundaries, promotes a steer batch and resets `step` once. An active compaction part blocks this promotion.
+6. Before terminating, resolves the completed batch, promotes queued input, resets `step` once, and continues when that batch is non-empty.
+7. Otherwise resolves the model, drains one queued `subtask` part through the `task` tool, or performs one provider request through `SessionProcessor`.
 
 The first step also fires title generation (`PromptTitle.ensure`) without blocking.
 
@@ -73,6 +79,8 @@ usable   = model.limit.input ? max(0, model.limit.input - reserved)
 `isOverflow` compares `tokens.total` (or the sum of input, output, and both cache counters) against `usable`. It returns `false` when `compaction.auto === false` or the model declares no context limit.
 
 `SessionCompaction` then owns four operations: `isOverflow`, `create` (write a summary and a compaction boundary), `process` (decide `"continue" | "stop"` for the running loop), `prune`, and `editContext`. Pruning keeps `PRUNE_PROTECT` (40k) of recent context and only engages above `PRUNE_MINIMUM` (20k).
+
+An active compaction part is a pending-input barrier. Steer rows remain outside history until `process` completes and its parts are durable; queue/default rows continue waiting for idle.
 
 Consecutive compaction failures are capped at `MAX_CONSECUTIVE_COMPACTION_FAILURES` (3) per session, so a context window too small to hold its own summary fails loudly instead of looping.
 
@@ -109,5 +117,6 @@ Both routes fan out through `EventFeed`: one encode per event, one lag budget pe
 
 - A hard crash or `SIGKILL` ends every loop. A graceful shutdown (`SIGINT`/`SIGTERM`) suspends the sessions this process is running and the next server resumes each one exactly once. See [restart continuation](./session-restart-continuation.md).
 - Orphan tool calls are reconciled **at request assembly, not in storage**: `MessageV2.toModelMessage` turns any part still `pending` or `running` into an `output-error` with `[Tool execution was interrupted]`, because Anthropic-shaped APIs reject a `tool_use` without a matching `tool_result`. The projected row keeps its `running` status, so a client can render a spinner for a call that ended with the process that started it.
-- Cancellation is process-local and immediate: abort the controller, reject waiters, set status idle. It never deletes the admitted user message.
+- Cancellation is process-local and immediate: abort the controller, reject targeted waiters, and set status idle. It never deletes committed `session_pending` rows or promoted user messages.
+- Graceful restart resumes claimed turns from history; pending steer rows wait for the first safe boundary and queue/default rows wait for turn completion. A hard crash preserves committed pending rows but does not itself resume execution.
 - Automatic hard-crash continuation is out of scope until provider-dispatch ambiguity, tool idempotency, and retry budgets are designed together. Graceful restart is the tractable subset — see [restart continuation](./session-restart-continuation.md).

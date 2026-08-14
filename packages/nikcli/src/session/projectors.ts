@@ -1,12 +1,12 @@
-import z from "zod";
-import { SyncEvent } from "@/sync/sync-event";
-import { MessageV2 } from "./message-v2";
-import { MessageRepo } from "./message-repo";
-import { SessionRepo } from "./repo";
-import { SessionEntryProjection } from "./v2/projection";
-import { Log } from "@/util/log";
-import { Session } from "./index";
-import { SessionPending } from "./pending";
+import z from "zod"
+import { SyncEvent } from "@/sync/sync-event"
+import { MessageV2 } from "./message-v2"
+import { MessageRepo } from "./message-repo"
+import { SessionRepo } from "./repo"
+import { SessionEntryProjection } from "./v2/projection"
+import { Log } from "@/util/log"
+import { Session } from "./index"
+import { SessionPending } from "./pending"
 
 /**
  * Session sync events and their projectors.
@@ -26,7 +26,7 @@ import { SessionPending } from "./pending";
  * carries the latest state, so it is projected and published but not logged.
  */
 export namespace SessionSync {
-  const log = Log.create({ service: "session.sync" });
+  const log = Log.create({ service: "session.sync" })
 
   /**
    * Run the v2 entry projection without letting it take the v1 write with
@@ -36,15 +36,15 @@ export namespace SessionSync {
    */
   function project(what: string, fn: () => void) {
     try {
-      fn();
+      fn()
     } catch (error) {
-      log.error("v2 entry projection failed", { what, error });
+      log.error("v2 entry projection failed", { what, error })
     }
   }
 
-  const SessionInfo = z.custom<Session.Info>();
-  const MessageInfo = z.custom<MessageV2.Info>();
-  const MessagePart = z.custom<MessageV2.Part>();
+  const SessionInfo = z.custom<Session.Info>()
+  const MessageInfo = z.custom<MessageV2.Info>()
+  const MessagePart = z.custom<MessageV2.Part>()
 
   export const Created = SyncEvent.define({
     type: "session.created",
@@ -55,7 +55,7 @@ export namespace SessionSync {
       info: SessionInfo,
     }),
     bus: () => Session.Event.Created,
-  });
+  })
 
   export const Updated = SyncEvent.define({
     type: "session.updated",
@@ -66,7 +66,7 @@ export namespace SessionSync {
       info: SessionInfo,
     }),
     bus: () => Session.Event.Updated,
-  });
+  })
 
   export const Deleted = SyncEvent.define({
     type: "session.deleted",
@@ -77,7 +77,7 @@ export namespace SessionSync {
       info: SessionInfo,
     }),
     bus: () => Session.Event.Deleted,
-  });
+  })
 
   export const MessageUpdated = SyncEvent.define({
     type: "message.updated",
@@ -89,7 +89,7 @@ export namespace SessionSync {
       promptData: z.string().optional(),
     }),
     bus: () => MessageV2.Event.Updated,
-  });
+  })
 
   export const MessageRemoved = SyncEvent.define({
     type: "message.removed",
@@ -100,7 +100,7 @@ export namespace SessionSync {
       messageID: z.string(),
     }),
     bus: () => MessageV2.Event.Removed,
-  });
+  })
 
   export const PartUpdated = SyncEvent.define({
     type: "message.part.updated",
@@ -113,7 +113,7 @@ export namespace SessionSync {
     }),
     bus: () => MessageV2.Event.PartUpdated,
     log: false,
-  });
+  })
 
   export const PartRemoved = SyncEvent.define({
     type: "message.part.removed",
@@ -125,7 +125,7 @@ export namespace SessionSync {
       partID: z.string(),
     }),
     bus: () => MessageV2.Event.PartRemoved,
-  });
+  })
 
   /**
    * The bus payloads predate the sync events and do not all carry
@@ -133,41 +133,34 @@ export namespace SessionSync {
    * needs and the bus never did). This strips it back out so subscribers
    * see exactly the payload they saw before.
    */
-  export function convertEvent(
-    type: string,
-    data: unknown,
-  ): Record<string, unknown> {
-    const payload = data as Record<string, unknown>;
+  export function convertEvent(type: string, data: unknown): Record<string, unknown> {
+    const payload = data as Record<string, unknown>
     switch (type) {
       case "session.created":
       case "session.updated":
       case "session.deleted":
       case "message.updated":
-        return { info: payload.info };
+        return { info: payload.info }
       case "message.part.updated":
-        return payload.delta === undefined
-          ? { part: payload.part }
-          : { part: payload.part, delta: payload.delta };
+        return payload.delta === undefined ? { part: payload.part } : { part: payload.part, delta: payload.delta }
       default:
-        return payload;
+        return payload
     }
   }
 
   export const projectors = [
     SyncEvent.project(Created, (tx, data) => {
-      SessionRepo.upsert(data.info, tx);
+      SessionRepo.upsert(data.info, tx)
     }),
 
     SyncEvent.project(Updated, (tx, data) => {
-      SessionRepo.upsert(data.info, tx);
+      SessionRepo.upsert(data.info, tx)
     }),
 
     SyncEvent.project(Deleted, (tx, data) => {
-      SessionPending.removeSession(data.sessionID, tx);
-      SessionRepo.remove(data.sessionID, tx);
-      project("session.removed", () =>
-        SessionEntryProjection.sessionRemoved(tx, data.sessionID),
-      );
+      SessionPending.removeSession(data.sessionID, tx)
+      SessionRepo.remove(data.sessionID, tx)
+      project("session.removed", () => SessionEntryProjection.sessionRemoved(tx, data.sessionID))
     }),
 
     // The v2 entry projection runs in the same transaction as the v1 write,
@@ -175,37 +168,28 @@ export namespace SessionSync {
     // deriving from (a part folds into its message's entry, and a user
     // message aggregates its parts).
     SyncEvent.project(MessageUpdated, (tx, data) => {
-      MessageRepo.upsertMessage(data.info, tx);
+      MessageRepo.upsertMessage(data.info, tx)
       if (data.promptData !== undefined) {
-        MessageRepo.setPromptData(data.info.id, data.promptData, tx);
+        MessageRepo.setPromptData(data.info.id, data.promptData, tx)
       }
-      project("message", () => SessionEntryProjection.message(tx, data.info));
+      project("message", () => SessionEntryProjection.message(tx, data.info))
     }),
 
     SyncEvent.project(MessageRemoved, (tx, data) => {
-      MessageRepo.removeMessage(data.sessionID, data.messageID, tx);
-      project("message.removed", () =>
-        SessionEntryProjection.messageRemoved(tx, data.messageID),
-      );
+      MessageRepo.removeMessage(data.sessionID, data.messageID, tx)
+      project("message.removed", () => SessionEntryProjection.messageRemoved(tx, data.messageID))
     }),
 
     SyncEvent.project(PartUpdated, (tx, data) => {
-      MessageRepo.upsertPart(data.part, tx);
-      project("part", () => SessionEntryProjection.part(tx, data.part));
+      MessageRepo.upsertPart(data.part, tx)
+      project("part", () => SessionEntryProjection.part(tx, data.part))
     }),
 
     SyncEvent.project(PartRemoved, (tx, data) => {
-      MessageRepo.removePart(data.messageID, data.partID, tx);
-      project("part.removed", () =>
-        SessionEntryProjection.partRemoved(
-          tx,
-          data.sessionID,
-          data.messageID,
-          data.partID,
-        ),
-      );
+      MessageRepo.removePart(data.messageID, data.partID, tx)
+      project("part.removed", () => SessionEntryProjection.partRemoved(tx, data.sessionID, data.messageID, data.partID))
     }),
-  ];
+  ]
 
   /**
    * Install the projectors if nothing has yet.
@@ -217,7 +201,7 @@ export namespace SessionSync {
    * path.
    */
   export function install() {
-    if (SyncEvent.installed(Created)) return;
-    SyncEvent.init({ projectors, convertEvent });
+    if (SyncEvent.installed(Created)) return
+    SyncEvent.init({ projectors, convertEvent })
   }
 }

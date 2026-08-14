@@ -30,6 +30,7 @@ import {
   type UserMessage,
   type TextPart,
   type ReasoningPart,
+  type SessionPendingInput2,
 } from "@nikcli-ai/sdk/httpapi"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
@@ -260,6 +261,11 @@ export function Session() {
 
   const pending = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
+  })
+
+  const pendingInputs = createMemo(() => {
+    const visible = new Set(messages().map((message) => message.id))
+    return sync.session.pending(route.sessionID).filter((item) => !visible.has(item.messageID))
   })
 
   const lastAssistant = createMemo(() => {
@@ -1468,6 +1474,7 @@ export function Session() {
               <Show when={windowed().bottom > 0}>
                 <box height={windowed().bottom} flexShrink={0} />
               </Show>
+              <For each={pendingInputs()}>{(item) => <PendingUserMessage pending={item} />}</For>
             </scrollbox>
             <box flexShrink={0}>
               <TuiPluginRuntime.Slot name="session.prompt.top" sessionID={route.sessionID} />
@@ -1522,6 +1529,77 @@ export function Session() {
         </Show>
       </box>
     </context.Provider>
+  )
+}
+
+function PendingUserMessage(props: { pending: SessionPendingInput2 }) {
+  const local = useLocal()
+  const { theme } = useTheme()
+  const text = createMemo(() =>
+    props.pending.data.parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .filter(Boolean)
+      .join("\n"),
+  )
+  const files = createMemo(() => props.pending.data.parts.filter((part) => part.type === "file"))
+  const color = createMemo(() => local.agent.color(props.pending.data.agent ?? ""))
+  const badgeFg = createMemo(() => selectedForeground(theme, color()))
+
+  return (
+    <box
+      id={props.pending.messageID}
+      border={["left"]}
+      borderColor={color()}
+      customBorderChars={SplitBorder.customBorderChars}
+      marginTop={1}
+    >
+      <box paddingTop={1} paddingBottom={1} paddingLeft={2} backgroundColor={theme.surface.panel} flexShrink={0}>
+        <Show when={text()}>{(value) => <text fg={theme.foreground.default}>{value()}</text>}</Show>
+        <Show when={files().length > 0}>
+          <box flexDirection="row" paddingTop={1} gap={1} flexWrap="wrap">
+            <For each={files()}>
+              {(file) => (
+                <text fg={theme.foreground.default}>
+                  <span
+                    style={{
+                      bg: theme.accent.secondary,
+                      fg: theme.surface.base,
+                    }}
+                  >
+                    {" "}
+                    file{" "}
+                  </span>
+                  <span
+                    style={{
+                      bg: theme.surface.offset,
+                      fg: theme.foreground.muted,
+                    }}
+                  >
+                    {" "}
+                    {file.filename ?? file.mime}{" "}
+                  </span>
+                </text>
+              )}
+            </For>
+          </box>
+        </Show>
+        <text fg={theme.foreground.muted}>
+          <Show
+            when={props.pending.delivery === "queue"}
+            fallback={
+              <>
+                <span style={{ bg: color(), fg: badgeFg(), bold: true }}> STEERING </span>
+                <span> sends at the next safe step</span>
+              </>
+            }
+          >
+            <span style={{ bg: color(), fg: badgeFg(), bold: true }}> QUEUED </span>
+            <span> press ctrl-enter to send</span>
+          </Show>
+        </text>
+      </box>
+    </box>
   )
 }
 
@@ -1625,7 +1703,9 @@ function UserMessage(props: { turn: Turn; onMouseUp: () => void; index: number; 
               fallback={
                 <Show when={ctx.showTimestamps()}>
                   <text fg={theme.foreground.muted}>
-                    <span style={{ fg: theme.foreground.muted }}>{Locale.todayTimeOrDateTime(props.turn.createdAt)}</span>
+                    <span style={{ fg: theme.foreground.muted }}>
+                      {Locale.todayTimeOrDateTime(props.turn.createdAt)}
+                    </span>
                   </text>
                 </Show>
               }

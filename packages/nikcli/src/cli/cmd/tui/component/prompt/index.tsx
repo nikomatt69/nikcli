@@ -1492,10 +1492,24 @@ export function Prompt(props: PromptProps) {
     },
   ])
 
-  async function submit() {
+  async function submit(delivery: "queue" | "steer" = "queue") {
     if (props.disabled) return
     if (autocomplete?.visible) return
-    if (!store.prompt.input) return
+    if (!store.prompt.input) {
+      if (delivery === "steer" && props.sessionID) {
+        const queued = sync.session.pending(props.sessionID).find((item) => item.delivery === "queue")
+        if (queued) {
+          await sync.session.steerPending(props.sessionID, queued.id).catch((err) => {
+            toast.show({
+              message: err instanceof Error ? err.message : "Failed to send queued message",
+              variant: "error",
+              duration: 5000,
+            })
+          })
+        }
+      }
+      return
+    }
     const trimmed = store.prompt.input.trim().toLowerCase()
     if (trimmed === "exit" || trimmed === "quit" || trimmed === ":q") {
       exit()
@@ -1585,11 +1599,12 @@ export function Prompt(props: PromptProps) {
       const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
       const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
 
-      sdk.client.session.command({
+      const request = sdk.client.session.command({
         sessionID,
         workspace: activeContext().workspace,
         directory: activeContext().directory,
         command: command.slice(1),
+        delivery,
         arguments: args,
         agent: local.agent.current().name,
         model: `${selectedModel.providerID}/${selectedModel.modelID}`,
@@ -1602,30 +1617,39 @@ export function Prompt(props: PromptProps) {
             ...x,
           })),
       })
+      for (const delay of [100, 500, 1500]) {
+        setTimeout(() => void sync.session.refreshPending(sessionID), delay)
+      }
+      void request.then(() => sync.session.refreshPending(sessionID))
     } else {
       sdk.client.session
-        .prompt({
-          sessionID,
-          workspace: activeContext().workspace,
-          directory: activeContext().directory,
-          ...selectedModel,
-          messageID,
-          agent: local.agent.current().name,
-          model: selectedModel,
-          variant,
-          parts: [
-            ...editorParts,
-            {
-              id: Identifier.ascending("part"),
-              type: "text",
-              text: inputText,
-            },
-            ...nonTextParts.map((x) => ({
-              id: Identifier.ascending("part"),
-              ...x,
-            })),
-          ],
-        })
+        .promptAsync(
+          {
+            sessionID,
+            workspace: activeContext().workspace,
+            directory: activeContext().directory,
+            ...selectedModel,
+            messageID,
+            delivery,
+            agent: local.agent.current().name,
+            model: selectedModel,
+            variant,
+            parts: [
+              ...editorParts,
+              {
+                id: Identifier.ascending("part"),
+                type: "text",
+                text: inputText,
+              },
+              ...nonTextParts.map((x) => ({
+                id: Identifier.ascending("part"),
+                ...x,
+              })),
+            ],
+          },
+          { throwOnError: true },
+        )
+        .then(() => sync.session.refreshPending(sessionID))
         .catch((err) => {
           console.error("Failed to send prompt:", err)
           const userError = userFacingParts(err)
@@ -1968,6 +1992,11 @@ export function Prompt(props: PromptProps) {
                   e.preventDefault()
                   return
                 }
+                if ((e.ctrl || e.super) && (e.name === "return" || e.name === "enter")) {
+                  e.preventDefault()
+                  await submit("steer")
+                  return
+                }
                 // Handle clipboard paste (Ctrl+V) - check for images first on Windows
                 // This is needed because Windows terminal doesn't properly send image data
                 // through bracketed paste, so we need to intercept the keypress and
@@ -2065,7 +2094,7 @@ export function Prompt(props: PromptProps) {
                   }
                 }
               }}
-              onSubmit={submit}
+              onSubmit={() => submit("queue")}
               onPaste={async (event: PasteEvent) => {
                 if (props.disabled) {
                   event.preventDefault()
@@ -2195,7 +2224,8 @@ export function Prompt(props: PromptProps) {
                   <box flexDirection="row" gap={1} flexShrink={0}>
                     <text fg={theme.foreground.muted}>·</text>
                     <text fg={g().color} wrapMode="none">
-                      <span style={{ bold: true }}>goal</span> <span style={{ fg: theme.foreground.muted }}>{g().status}</span>
+                      <span style={{ bold: true }}>goal</span>{" "}
+                      <span style={{ fg: theme.foreground.muted }}>{g().status}</span>
                     </text>
                   </box>
                 )}

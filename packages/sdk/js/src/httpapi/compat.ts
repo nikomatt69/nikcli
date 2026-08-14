@@ -515,6 +515,8 @@ export function compat(raw: Raw, defaults: CompatDefaults = {}) {
       monitor: result(raw.session.monitor),
       monitorCancel: result(raw.session.monitorCancel),
       monitorLog: result(raw.session.monitorLog),
+      pending: result(raw.session.pending),
+      pendingSteer: result(raw.session.pendingSteer),
       prompt: result(raw["session-prompt"].prompt),
       promptAsync: result(raw["session-prompt"].promptAsync),
       revert: result(raw.session.revert),

@@ -373,6 +373,8 @@ import type {
   SessionMessagesOutput,
   SessionPendingInput,
   SessionPendingOutput,
+  SessionPendingSteerInput,
+  SessionPendingSteerOutput,
   SessionMessageInput,
   SessionMessageOutput,
   SessionMessageRemoveInput,
@@ -2826,6 +2828,7 @@ export function make(options: ClientOptions) {
             path: `/session/${encodeURIComponent(input.sessionID)}/command`,
             body: {
               messageID: input["messageID"],
+              delivery: input["delivery"],
               agent: input["agent"],
               model: input["model"],
               arguments: input["arguments"],
@@ -2914,6 +2917,17 @@ export function make(options: ClientOptions) {
           {
             method: "GET",
             path: `/session/${encodeURIComponent(input.sessionID)}/pending`,
+            successStatus: 200,
+            declaredStatuses: [404, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      pendingSteer: (input: SessionPendingSteerInput, requestOptions?: RequestOptions) =>
+        request<SessionPendingSteerOutput>(
+          {
+            method: "POST",
+            path: `/session/${encodeURIComponent(input.sessionID)}/pending/${encodeURIComponent(input.pendingID)}/steer`,
             successStatus: 200,
             declaredStatuses: [404, 409],
             empty: false,

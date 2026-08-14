@@ -10,9 +10,7 @@ import { Agent } from "../agent/agent"
 import { Bus } from "../bus"
 import { Command } from "../command"
 import { ConfigMarkdown } from "../config/markdown"
-import { Config } from "../config/config"
 import { EventError } from "./event-error"
-import { LLM } from "./llm"
 import { MessageV2 } from "./message-v2"
 import { Plugin } from "../plugin"
 import { Provider } from "../provider/provider"
@@ -319,6 +317,7 @@ export namespace PromptCommands {
   export const CommandInput = z.object({
     sessionID: Identifier.schema("session"),
     messageID: Identifier.schema("message").optional(),
+    delivery: z.enum(["steer", "queue"]).optional(),
     agent: z.string().optional(),
     model: z.string().optional(),
     command: z.string(),
@@ -496,6 +495,7 @@ export namespace PromptCommands {
       const result = (await deps.prompt({
         sessionID: input.sessionID,
         messageID: input.messageID,
+        delivery: input.delivery,
         model: userModel,
         agent: userAgent,
         parts: [{ type: "text", text: commandResult.text }],
@@ -569,6 +569,7 @@ export namespace PromptCommands {
     const result = (await deps.prompt({
       sessionID: input.sessionID,
       messageID: input.messageID,
+      delivery: input.delivery,
       model: userModel,
       agent: userAgent,
       parts,

@@ -1,5 +1,5 @@
-import type { Database as BunDatabase } from "bun:sqlite";
-import type { DatabaseMigration } from "../migration";
+import type { Database as BunDatabase } from "bun:sqlite"
+import type { DatabaseMigration } from "../migration"
 
 export default {
   id: "20260814100000_session_pending",
@@ -21,6 +21,6 @@ export default {
         ON session_pending(session_id, message_id);
 
       ALTER TABLE message_info ADD COLUMN prompt_data TEXT;
-    `);
+    `)
   },
-} satisfies DatabaseMigration.Migration;
+} satisfies DatabaseMigration.Migration
